@@ -1,8 +1,16 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 11 — Malzeme Talep, Onay ve PDF
+**Aktif faz:** Faz 12 — Ana Ekran, Uyarılar, Raporlar ve Import/Export
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 12)
+- **DashboardService**: tenant KPI (araç/malzeme/personel/düşük stok/bekleyen talep) + **birleşik uyarılar** (bakım + muayene/sigorta + düşük stok), permission filtreli, NavigateKey ile köprü.
+- **ReportService**: salt-okuma raporlar (stok durumu, yakıt tüketim) tenant + permission fail-closed; `ReportGate` ile **Sorgula/Filtrele tıklanmadan çalışmaz**; firma filtresi yalnız Süper Admin, diğerleri kendi firmasına kilitli.
+- **ExcelExportService**: ClosedXML ile `TableModel` → geçerli `.xlsx` (PK/ZIP), sayısal hücreler sayı.
+- **MaterialImportService**: örnek başlık + ön kontrol + **satır bazlı hata** + **dry-run (yazmadan)** + commit (iş kuralı atlamaz, MaterialService.Create); satır bazlı try/catch politikası.
+- **Web parite**: `lib/reports/{gate,import}.ts`.
+- **Doğrulama**: 142/142 .NET test (10 yeni) + 45 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 11)
 - **Migration010**: `material_requests` (belge no TLP-YYYY-NNNN, durum), `material_request_items`, `request_status_history`.
@@ -97,12 +105,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 12: Ana Ekran, Uyarılar, Raporlar ve Import/Export.
-- Web PDF render hattı (model hazır; .NET QuestPDF üretiyor, web tarafı render TBD — R16).
-- Şube bazlı stok (R13); vehicle FK yumuşak (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
+- Faz 13: Dosya/Fotoğraf, Audit, Çöp Kutusu ve Yedek.
+- Import yalnız malzeme için (diğer setler aynı desenle eklenecek — R17).
+- Web PDF render (R16); şube bazlı stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 12 — Ana Ekran, Uyarılar, Raporlar ve Import/Export** (`prompts/12_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 13 — Dosya/Fotoğraf, Audit, Çöp Kutusu ve Yedek** (`prompts/13_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

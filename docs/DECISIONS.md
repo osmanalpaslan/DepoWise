@@ -214,3 +214,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-038 — PDF üretimi (QuestPDF)
 - **Karar:** Masaüstü/Infrastructure PDF QuestPDF Community ile (`IRequestPdfService`/`RequestPdfService`), `RequestPdfModel` ortak veri modeli; Türkçe karakter korunur. Web tarafı aynı modeli kullanır; binary render hattı sonraya bırakıldı (R16).
 - **Gerekçe:** Analiz §6.12 (PDF çıktısı); .NET'te yerleşik, lisans Community.
+
+---
+
+## Faz 12 kararları (2026-06-27)
+
+### ADR-039 — Rapor kapısı + tenant/firma filtresi
+- **Karar:** `ReportGate.EnsureRunnable` ağır raporu `Executed=false` iken çalıştırmaz (kullanıcı Sorgula/Filtrele'de Executed=true yapar). Raporlar tenant + "reports" permission fail-closed. Firma filtresi yalnız Süper Admin'e görünür (`ShowCompanyFilter`); hedef firma `TenantAccessGuard.ResolveCompanyId` ile çözülür (normal admin başka firma isteyemez). Web `lib/reports/gate.ts` aynı.
+- **Gerekçe:** Analiz §6.14/§7 (ağır rapor manuel tetik, tenant sızıntısı yok).
+
+### ADR-040 — Excel export (ClosedXML) + import dry-run politikası
+- **Karar:** `TableModel` → `.xlsx` ClosedXML ile (sayısal hücreler sayı). İçe aktarım: örnek başlık + ön kontrol + **dry-run (DB'ye yazmaz)** + satır bazlı hata (ilk 15) + commit. Politika: **satır bazlı** (bir hatalı satır diğerlerini bozmaz), commit `MaterialService.Create` ile iş kurallarını atlamaz (tenant/permission/kod benzersiz/currency). Web `lib/reports/import.ts` aynı doğrulama.
+- **Gerekçe:** Analiz §6.15; kullanıcı talimatı (örnek dosya + ön kontrol + satır hata + dry-run).
