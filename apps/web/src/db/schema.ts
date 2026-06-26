@@ -532,6 +532,96 @@ export const vehicleMeterLogs = pgTable(
   (t) => [index("ix_vehicle_meter_logs").on(t.vehicleId, t.createdAt)],
 );
 
+// ---- Faz 09: Bakım + muayene/sigorta ----
+export const maintenanceDefinitions = pgTable(
+  "maintenance_definitions",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    parentDefId: text("parent_def_id"),
+    name: text("name").notNull(),
+    intervalValue: numeric("interval_value").notNull().default("0"),
+    intervalUnit: text("interval_unit").notNull().default("km"),
+    description: text("description"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [index("ix_maint_defs_company").on(t.companyId, t.isDeleted)],
+);
+
+export const maintenanceDefinitionVehicles = pgTable(
+  "maintenance_definition_vehicles",
+  {
+    definitionId: text("definition_id").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+  },
+  (t) => [uniqueIndex("ux_maint_def_vehicles").on(t.definitionId, t.vehicleId)],
+);
+
+export const vehicleMaintenances = pgTable(
+  "vehicle_maintenances",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+    maintenanceDefId: text("maintenance_def_id").notNull(),
+    subDefinitionId: text("sub_definition_id"),
+    technicianId: text("technician_id"),
+    description: text("description"),
+    subDefinitionNote: text("sub_definition_note"),
+    performedKm: numeric("performed_km"),
+    performedHour: numeric("performed_hour"),
+    performedDate: bigint("performed_date", { mode: "number" }),
+    nextDueKm: numeric("next_due_km"),
+    nextDueHour: numeric("next_due_hour"),
+    nextDueDate: bigint("next_due_date", { mode: "number" }),
+    operationId: text("operation_id").notNull(),
+    isCancelled: boolean("is_cancelled").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_vehicle_maintenances_op").on(t.operationId),
+    index("ix_vehicle_maintenances").on(t.vehicleId, t.maintenanceDefId, t.createdAt),
+  ],
+);
+
+export const maintenanceMaterials = pgTable(
+  "maintenance_materials",
+  {
+    id: text("id").primaryKey(),
+    maintenanceId: text("maintenance_id").notNull(),
+    materialId: text("material_id").notNull(),
+    quantity: numeric("quantity").notNull(),
+    unitPrice: numeric("unit_price"),
+  },
+  (t) => [index("ix_maintenance_materials").on(t.maintenanceId)],
+);
+
+export const vehicleInspections = pgTable(
+  "vehicle_inspections",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+    docType: text("doc_type").notNull(),
+    lastDate: bigint("last_date", { mode: "number" }),
+    nextDate: bigint("next_date", { mode: "number" }),
+    result: text("result"),
+    place: text("place"),
+    note: text("note"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [index("ix_vehicle_inspections").on(t.vehicleId, t.docType, t.isDeleted)],
+);
+
 // Açılış/health probe tablosu (Faz 01'den korunur).
 export const healthCheck = pgTable("_health_check", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

@@ -178,3 +178,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-032 — Şablondan doldurma (kullanıcı değeri öncelikli) + malzeme kopyalama
 - **Karar:** Araç oluştururken `TemplateId` varsa boş alanlar şablondan doldurulur (`?? ` ile; kullanıcı girdisi ezilmez). Şablonun uyumlu malzemeleri yeni aracın `material_compatible_vehicles` kayıtlarına AYNI transaction'da kopyalanır (INSERT OR IGNORE). Otomatik iç kod önek+en büyük no+1 (genişlik korunur).
 - **Gerekçe:** Analiz §6.7; AlpDepo deseni, kontrollü doldurma.
+
+---
+
+## Faz 09 kararları (2026-06-27)
+
+### ADR-033 — Bakım atomik akışı + tek stok düşümü
+- **Karar:** `MaintenanceService.Save` IMMEDIATE transaction'da: bakım kaydı + her malzeme için TEK 'usage' hareketi (negatif guard, fiyat snapshot `maintenance_materials.unit_price`) + sayaç ileri (AdvanceMeter mantığı) + sonraki hedef + audit. operation_id idempotent (ikinci çağrı çift düşmez). İptal: 'usage_reverse' +1 ile stok geri, kayıt is_cancelled (fiziksel silme yok), idempotent.
+- **Gerekçe:** Analiz §7 (tek transaction, tek düşüm, ters kayıt, idempotency).
+
+### ADR-034 — Uyarı eşikleri ve döngü
+- **Karar:** `AlertRules` (web+masaüstü): progress=tüketilen/interval; <0.85 Normal, [0.85,0.95) Approaching, [0.95,1.0) Critical, ≥1.0 Overdue. Tüketilen km/saat = current_meter − performed; gün = now − performed_date. Uyarı her (araç,tanım) için EN SON non-cancelled bakımdan hesaplanır → yeni bakım girilince otomatik temizlenir.
+- **Gerekçe:** Kullanıcı talimatı + analiz §6.8.

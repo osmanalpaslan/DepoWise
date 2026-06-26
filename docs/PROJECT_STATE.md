@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 08 — Araçlar, Araç Şablonları ve Sayaç
+**Aktif faz:** Faz 09 — Bakım, Muayene/Sigorta ve Uyarı Döngüsü
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 09)
+- **Migration008**: `maintenance_definitions` (ana/alt + periyot km/saat/gün) + araç kapsamı, `vehicle_maintenances`, `maintenance_materials`, `vehicle_inspections` (muayene/sigorta/kasko/kalibrasyon).
+- **MaintenanceService.Save (atomik)**: bakım kaydı + malzeme **tek stok düşümü** (negatif guard, fiyat snapshot) + sayaç ileri + sonraki hedef + audit; operation_id **idempotent**.
+- **İptal**: malzeme stoğu **ters hareketle** geri alınır + kayıt is_cancelled (silinmez), idempotent; uyarı en-son non-cancelled kayda göre yeniden hesaplanır.
+- **Uyarı eşikleri** (`AlertRules`): <%85 Normal, %85–95 Approaching, %95–100 Critical, ≥%100 Overdue. km/saat/gün ilerleme. **Yeni bakım → en-son kayıt değişir → uyarı otomatik temizlenir.**
+- **InspectionService**: tarih bazlı belgeler + yaklaşan(≤30g)/geçmiş uyarı.
+- **Web parite**: `lib/maintenance/alerts.ts`; Drizzle 5 yeni tablo + `drizzle/0005_maintenance.sql`.
+- **Doğrulama**: 107/107 .NET test (16 yeni) + 33 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 08)
 - **Migration007**: araç lookups (tip/kategori/model), `vehicle_templates` + `vehicle_template_materials`, `vehicles` (iç kod/plaka/sayaç/birim/durum/şasi-motor), `vehicle_meter_logs`.
@@ -70,12 +79,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 09: Bakım, Muayene/Sigorta ve Uyarı Döngüsü (sayaç AdvanceMeter + stok düşümü entegrasyonu).
-- Şube bazlı stok bakiyesi (R13); vehicle_id FK referans bütünlüğü hâlâ yumuşak (R11).
+- Faz 10: Yakıt Sarfiyatı ve Günlük Faaliyet (sayaç + maliyet snapshot entegrasyonu).
+- Şube bazlı stok bakiyesi (R13); vehicle_id FK yumuşak (R11); alert GROUP BY bare-column (R14).
 - UI ekranları (R10); login akışı (R8/R9); yerel PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 09 — Bakım, Muayene/Sigorta ve Uyarı Döngüsü** (`prompts/09_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 10 — Yakıt Sarfiyatı ve Günlük Faaliyet** (`prompts/10_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

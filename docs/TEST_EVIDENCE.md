@@ -145,6 +145,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/vehicles.test.ts`, `apps/web/drizzle/0004_vehicles.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-27 - Faz 09 / Bakım + uyarı testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Eşik %85/95/100 (Theory); bakım malzeme tek düşüm + fiyat snapshot; idempotency çift düşmez; yetersiz stok rollback (kayıt da oluşmaz); iptal stoğu geri alır (idempotent); sayaç ileri; uyarı kritik→yeni bakım Normal; gecikti ≥%100; deny-by-default; muayene/sigorta tarih uyarısı (yaklaşan/geçmiş).
+- **Geçen/Kalan:** 107 geçti / 0 kaldı (16 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/MaintenanceTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_mnt_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 09 / Web bakım paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name maintenance`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 33 node:test (eşikler, interval 0, sonraki hedef, tüketilen/yeni-bakım-temizler); Drizzle `0005_maintenance.sql` (5 yeni tablo); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 33 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/maintenance.test.ts`, `apps/web/drizzle/0005_maintenance.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon

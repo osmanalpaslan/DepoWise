@@ -1,0 +1,89 @@
+using DepoWise.Application.Common;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Database;
+using Microsoft.Data.Sqlite;
+
+namespace DepoWise.Infrastructure.Maintenance;
+
+public sealed record NewInspection(string VehicleId, string DocType, long? LastDate, long? NextDate,
+    string? Result = null, string? Place = null, string? Note = null);
+
+public enum DateAlertLevel { Normal, Approaching, Expired }
+
+public sealed record InspectionAlert(string VehicleId, string DocType, long? NextDate, DateAlertLevel Level);
+
+/// <summary>Muayene/sigorta/kasko/kalibrasyon belgeleri + tarih bazlı uyarı (yaklaşan/geçmiş).</summary>
+public sealed class InspectionService
+{
+    private const string Module = "inspection";
+    public const int ApproachingDays = 30;
+    private readonly IDbConnectionFactory _factory;
+    private readonly IClock _clock;
+
+    public InspectionService(IDbConnectionFactory factory, IClock? clock = null)
+    {
+        _factory = factory;
+        _clock = clock ?? new SystemClock();
+    }
+
+    public string Save(SessionContext s, NewInspection dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (dto.DocType is not ("inspection" or "insurance" or "kasko" or "calibration"))
+            throw new ArgumentException("Geçersiz belge tipi.");
+        var id = Guid.NewGuid().ToString("N");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO vehicle_inspections(id, company_id, vehicle_id, doc_type, last_date, next_date, result, place, note,
+    created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$v,$dt,$ld,$nd,$res,$pl,$note,$now,$now,1,0);";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$v", dto.VehicleId);
+            cmd.Parameters.AddWithValue("$dt", dto.DocType);
+            cmd.Parameters.AddWithValue("$ld", (object?)dto.LastDate ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$nd", (object?)dto.NextDate ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$res", (object?)dto.Result ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pl", (object?)dto.Place ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_inspection", id, AuditActions.Create, s.UserId), _clock);
+        tx.Commit();
+        return id;
+    }
+
+    public IReadOnlyList<InspectionAlert> GetAlerts(SessionContext s)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        var now = _clock.UtcNow;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        // Her (araç,tip) için en güncel belge
+        cmd.CommandText = @"
+SELECT vehicle_id, doc_type, next_date FROM vehicle_inspections vi
+WHERE company_id=$c AND is_deleted=0 AND next_date IS NOT NULL
+AND created_at = (SELECT MAX(created_at) FROM vehicle_inspections x
+                  WHERE x.vehicle_id=vi.vehicle_id AND x.doc_type=vi.doc_type AND x.is_deleted=0);";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var list = new List<InspectionAlert>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var nextDate = r.GetInt64(2);
+            var next = DateTimeOffset.FromUnixTimeMilliseconds(nextDate);
+            var days = (next - now).TotalDays;
+            var level = days < 0 ? DateAlertLevel.Expired
+                : days <= ApproachingDays ? DateAlertLevel.Approaching
+                : DateAlertLevel.Normal;
+            list.Add(new InspectionAlert(r.GetString(0), r.GetString(1), nextDate, level));
+        }
+        return list;
+    }
+}

@@ -25,6 +25,10 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 09 (2026-06-27):** REQ-MOD-08 (Bakım Takibi) + REQ-MOD-09 (Muayene/Sigorta/Kalibrasyon) tamamlandı (servis + iş kuralı; UI bağlama R10):
+- `src/DepoWise.Infrastructure/Maintenance/{MaintenanceDefinitionService,MaintenanceService,InspectionService}.cs`, `Application/Maintenance/AlertRules.cs`, Migration008; web `apps/web/src/lib/maintenance/alerts.ts`, Drizzle `0005_maintenance.sql`.
+- Testler: `tests/DepoWise.Tests/MaintenanceTests.cs`, `apps/web/tests/maintenance.test.ts`.
+
 **Faz 08 (2026-06-27):** REQ-MOD-07 (Araçlar ve Araç Şablonları) tamamlandı (servis + iş kuralı; UI bağlama R10):
 - `src/DepoWise.Infrastructure/Vehicles/{VehicleService,VehicleTemplateService}.cs`, `Application/Common/Meter.cs`, Migration007; web `apps/web/src/lib/vehicles/meter.ts`, Drizzle `0004_vehicles.sql`.
 - Sayaç geriye gitmeme + log: vehicle_meter_logs. Testler: `tests/DepoWise.Tests/VehicleTests.cs`, `apps/web/tests/vehicles.test.ts`.
