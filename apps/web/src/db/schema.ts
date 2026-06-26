@@ -412,6 +412,126 @@ export const fxRates = pgTable(
   (t) => [index("ix_fx_rates").on(t.currencyCode, t.asOf)],
 );
 
+// ---- Faz 08: Araçlar + şablonlar + sayaç ----
+export const vehicleTypes = pgTable(
+  "vehicle_types",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_vehicle_types").on(t.companyId, t.name)],
+);
+
+export const vehicleCategories = pgTable(
+  "vehicle_categories",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_vehicle_categories").on(t.companyId, t.name)],
+);
+
+export const vehicleModels = pgTable(
+  "vehicle_models",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    brandId: text("brand_id"),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_vehicle_models").on(t.companyId, t.brandId, t.name)],
+);
+
+export const vehicleTemplates = pgTable(
+  "vehicle_templates",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    internalCode: text("internal_code"),
+    vehicleTypeId: text("vehicle_type_id"),
+    categoryId: text("category_id"),
+    brandId: text("brand_id"),
+    vehicleModelId: text("vehicle_model_id"),
+    productionYear: integer("production_year"),
+    defaultMeterUnit: text("default_meter_unit").notNull().default("km"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_vehicle_templates_name").on(t.companyId, t.name)],
+);
+
+export const vehicleTemplateMaterials = pgTable(
+  "vehicle_template_materials",
+  {
+    templateId: text("template_id").notNull(),
+    materialId: text("material_id").notNull(),
+  },
+  (t) => [uniqueIndex("ux_vehicle_template_materials").on(t.templateId, t.materialId)],
+);
+
+export const vehicles = pgTable(
+  "vehicles",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    internalCode: text("internal_code").notNull(),
+    plate: text("plate"),
+    productionYear: integer("production_year"),
+    currentMeter: numeric("current_meter").notNull().default("0"),
+    meterUnit: text("meter_unit").notNull().default("km"),
+    branchId: text("branch_id"),
+    driverPersonnelId: text("driver_personnel_id"),
+    chassisNo: text("chassis_no"),
+    engineNo: text("engine_no"),
+    status: text("status").notNull().default("active"),
+    statusNote: text("status_note"),
+    vehicleTypeId: text("vehicle_type_id"),
+    categoryId: text("category_id"),
+    brandId: text("brand_id"),
+    vehicleModelId: text("vehicle_model_id"),
+    templateId: text("template_id"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_vehicles_internal_code").on(t.companyId, t.internalCode),
+    index("ix_vehicles_company").on(t.companyId, t.isDeleted),
+  ],
+);
+
+export const vehicleMeterLogs = pgTable(
+  "vehicle_meter_logs",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+    oldValue: numeric("old_value").notNull(),
+    newValue: numeric("new_value").notNull(),
+    source: text("source").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ix_vehicle_meter_logs").on(t.vehicleId, t.createdAt)],
+);
+
 // Açılış/health probe tablosu (Faz 01'den korunur).
 export const healthCheck = pgTable("_health_check", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

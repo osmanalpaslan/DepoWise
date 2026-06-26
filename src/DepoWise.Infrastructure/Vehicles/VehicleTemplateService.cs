@@ -1,0 +1,163 @@
+using System.Text.RegularExpressions;
+using DepoWise.Application.Common;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Database;
+using Microsoft.Data.Sqlite;
+
+namespace DepoWise.Infrastructure.Vehicles;
+
+public sealed record NewVehicleTemplate(
+    string Name, string? InternalCode = null, string? VehicleTypeId = null, string? CategoryId = null,
+    string? BrandId = null, string? VehicleModelId = null, int? ProductionYear = null, string DefaultMeterUnit = "km");
+
+public sealed record VehicleTemplateRecord(
+    string Id, string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId,
+    string? BrandId, string? VehicleModelId, int? ProductionYear, string DefaultMeterUnit);
+
+/// <summary>
+/// Araç şablonu (Araç Genel Tanım) — CRUD + uyumlu malzeme (tam değiştir) + otomatik iç kod üretimi.
+/// Tenant + "vehicles" permission fail-closed.
+/// </summary>
+public sealed class VehicleTemplateService
+{
+    private const string Module = "vehicles";
+    private readonly IDbConnectionFactory _factory;
+    private readonly IClock _clock;
+
+    public VehicleTemplateService(IDbConnectionFactory factory, IClock? clock = null)
+    {
+        _factory = factory;
+        _clock = clock ?? new SystemClock();
+    }
+
+    public string Create(SessionContext s, NewVehicleTemplate dto, IEnumerable<string>? materialIds = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        var id = Guid.NewGuid().ToString("N");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO vehicle_templates(id, company_id, name, internal_code, vehicle_type_id, category_id, brand_id,
+    vehicle_model_id, production_year, default_meter_unit, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$now,$now,1,0);";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$n", dto.Name);
+            cmd.Parameters.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$yr", (object?)dto.ProductionYear ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$mu", dto.DefaultMeterUnit);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+        if (materialIds is not null) ReplaceMaterials(conn, tx, id, materialIds);
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_template", id, AuditActions.Create, s.UserId), _clock);
+        tx.Commit();
+        return id;
+    }
+
+    /// <summary>Şablonun uyumlu malzemelerini TAM değiştirir (eskiyi siler, seçilenleri yazar).</summary>
+    public void SetMaterials(SessionContext s, string templateId, IEnumerable<string> materialIds)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureOwned(conn, tx, s.CompanyId, templateId);
+        ReplaceMaterials(conn, tx, templateId, materialIds);
+        tx.Commit();
+    }
+
+    public IReadOnlyList<string> GetMaterials(string templateId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT material_id FROM vehicle_template_materials WHERE template_id=$t;";
+        cmd.Parameters.AddWithValue("$t", templateId);
+        var list = new List<string>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(r.GetString(0));
+        return list;
+    }
+
+    public VehicleTemplateRecord? Get(SessionContext s, string templateId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"SELECT id, name, internal_code, vehicle_type_id, category_id, brand_id, vehicle_model_id,
+    production_year, default_meter_unit FROM vehicle_templates WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$id", templateId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        return new VehicleTemplateRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+            r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4),
+            r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6),
+            r.IsDBNull(7) ? null : r.GetInt32(7), r.GetString(8));
+    }
+
+    /// <summary>Örnek koddan (ör. KM-001) sonraki iç kodu üretir: önek + en büyük numara + 1 (genişlik korunur).</summary>
+    public string GenerateNextInternalCode(SessionContext s, string baseCode)
+    {
+        var m = Regex.Match(baseCode ?? "", @"^(.*?)(\d+)\s*$");
+        if (!m.Success) return baseCode ?? "";
+        var prefix = m.Groups[1].Value;
+        var width = m.Groups[2].Value.Length;
+        long max = long.Parse(m.Groups[2].Value);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT internal_code FROM vehicles WHERE company_id=$c AND internal_code LIKE $like;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$like", prefix + "%");
+        using (var r = cmd.ExecuteReader())
+        {
+            while (r.Read())
+            {
+                var code = r.GetString(0);
+                var mm = Regex.Match(code, @"^(.*?)(\d+)\s*$");
+                if (mm.Success && mm.Groups[1].Value == prefix && long.TryParse(mm.Groups[2].Value, out var n))
+                    max = Math.Max(max, n);
+            }
+        }
+        var next = max + 1;
+        return prefix + next.ToString().PadLeft(width, '0');
+    }
+
+    private static void ReplaceMaterials(SqliteConnection conn, SqliteTransaction tx, string templateId, IEnumerable<string> materialIds)
+    {
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM vehicle_template_materials WHERE template_id=$t;";
+            del.Parameters.AddWithValue("$t", templateId);
+            del.ExecuteNonQuery();
+        }
+        foreach (var mid in materialIds.Distinct())
+        {
+            using var ins = conn.CreateCommand();
+            ins.Transaction = tx;
+            ins.CommandText = "INSERT OR IGNORE INTO vehicle_template_materials(template_id, material_id) VALUES($t,$m);";
+            ins.Parameters.AddWithValue("$t", templateId);
+            ins.Parameters.AddWithValue("$m", mid);
+            ins.ExecuteNonQuery();
+        }
+    }
+
+    private static void EnsureOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string templateId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicle_templates WHERE id=$id AND company_id=$c;";
+        cmd.Parameters.AddWithValue("$id", templateId);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+    }
+}

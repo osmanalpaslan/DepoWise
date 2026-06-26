@@ -166,3 +166,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-030 — Bakiye material-global (şube bazlı ertelendi)
 - **Karar:** `stock_balances` material düzeyinde tek bakiye; transfer toplam stoğu değiştirmez (net-zero), hareketlerde from/to şube kayıtlı. Şube bazlı bakiye/negatif kontrolü sonraki bir fazda eklenecek (R13).
 - **Gerekçe:** Faz 06 şemasını bozmadan ilerlemek; MVP için yeterli, kayıt izi şube bilgisini taşıyor.
+
+---
+
+## Faz 08 kararları (2026-06-27)
+
+### ADR-031 — Sayaç geriye gitmeme + iki yöntem
+- **Karar:** `MeterRule` ortak (web+masaüstü). `SetMeter` (doğrudan form düzenleme) geriye gidişi `MeterBackwardException` ile reddeder. `AdvanceMeter` (bakım/yakıt) ileri-only: yeni>mevcut ise ilerletir+loglar, değilse no-op (geçmiş tarihli düşük okumayı ENGELLEMEZ). Her ilerleme `vehicle_meter_logs`'a (old,new,source) yazılır. Güncellemeler IMMEDIATE transaction.
+- **Gerekçe:** Analiz §7; kullanıcı talimatı "sayaç geriye düşmesin + tüm değişimler loglansın".
+
+### ADR-032 — Şablondan doldurma (kullanıcı değeri öncelikli) + malzeme kopyalama
+- **Karar:** Araç oluştururken `TemplateId` varsa boş alanlar şablondan doldurulur (`?? ` ile; kullanıcı girdisi ezilmez). Şablonun uyumlu malzemeleri yeni aracın `material_compatible_vehicles` kayıtlarına AYNI transaction'da kopyalanır (INSERT OR IGNORE). Otomatik iç kod önek+en büyük no+1 (genişlik korunur).
+- **Gerekçe:** Analiz §6.7; AlpDepo deseni, kontrollü doldurma.

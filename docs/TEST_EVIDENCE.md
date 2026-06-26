@@ -129,6 +129,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/stock.test.ts`, `apps/web/drizzle/0003_stock_documents.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-27 - Faz 08 / Araç + sayaç testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Sayaç doğrudan geriye reddi; ileri güncelle+log; AdvanceMeter küçük no-op (geçmiş engellemez); tüm değişimler loglanır; iç kod benzersiz + otomatik üretim; şablon yeni aracı doldurur + malzemeleri kopyalar; kullanıcı değeri öncelikli; deny-by-default; tenant izolasyonu.
+- **Geçen/Kalan:** 91 geçti / 0 kaldı (10 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/VehicleTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_veh_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 08 / Web araç paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name vehicles`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 29 node:test (sayaç geriye red, ileri/no-op, şablon doldurma+kullanıcı önceliği); Drizzle `0004_vehicles.sql` (8 yeni tablo); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 29 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/vehicles.test.ts`, `apps/web/drizzle/0004_vehicles.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon

@@ -11,5 +11,6 @@ public static class MigrationCatalog
         new Migration004_Personnel(),
         new Migration005_Materials(),
         new Migration006_StockDocuments(),
+        new Migration007_Vehicles(),
     };
 }

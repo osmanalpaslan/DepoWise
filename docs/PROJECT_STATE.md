@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 07 — Stok Giriş, Çıkış, Transfer ve Sayım
+**Aktif faz:** Faz 08 — Araçlar, Araç Şablonları ve Sayaç
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 08)
+- **Migration007**: araç lookups (tip/kategori/model), `vehicle_templates` + `vehicle_template_materials`, `vehicles` (iç kod/plaka/sayaç/birim/durum/şasi-motor), `vehicle_meter_logs`.
+- **VehicleTemplateService**: şablon CRUD + uyumlu malzeme (tam değiştir) + **otomatik iç kod** (önek+en büyük no+1, genişlik korunur).
+- **VehicleService.Create**: iç kod benzersiz; **şablondan doldurma (kullanıcı değeri öncelikli)** + şablon malzemelerini araca `material_compatible_vehicles`'a kopyalama (aynı transaction).
+- **Sayaç güvenliği**: `MeterRule` — `SetMeter` geriye gidişi **MeterBackwardException** ile reddeder; `AdvanceMeter` ileri-only (geçmiş düşük okuma no-op, engellemez). **Tüm değişimler vehicle_meter_logs'a yazılır.**
+- **Uyumlu malzeme detayı**: `MaterialsForVehicle` araç için malzemeleri güncel stoğuyla döndürür (çift tık detayı).
+- **Web parite**: `lib/vehicles/meter.ts` (meter + applyTemplate); Drizzle 8 yeni tablo + `drizzle/0004_vehicles.sql`.
+- **Doğrulama**: 91/91 .NET test (10 yeni) + 29 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 07)
 - **Migration006**: `stock_documents` (in/out/transfer/count, doc_no, belge alanları), `stock_movements`'a document/branch_from/is_reversed/reverses kolonları, `stock_count_lines`.
@@ -61,12 +70,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 08: Araçlar, Araç Şablonları ve Sayaç (vehicle_id FK'leri burada bağlanacak — R11).
-- Şube bazlı stok bakiyesi (şu an material-global; R13).
+- Faz 09: Bakım, Muayene/Sigorta ve Uyarı Döngüsü (sayaç AdvanceMeter + stok düşümü entegrasyonu).
+- Şube bazlı stok bakiyesi (R13); vehicle_id FK referans bütünlüğü hâlâ yumuşak (R11).
 - UI ekranları (R10); login akışı (R8/R9); yerel PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 08 — Araçlar, Araç Şablonları ve Sayaç** (`prompts/08_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 09 — Bakım, Muayene/Sigorta ve Uyarı Döngüsü** (`prompts/09_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`
