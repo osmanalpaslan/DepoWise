@@ -25,6 +25,11 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 04 (2026-06-27):** REQ-MOD-04 (Tanımlar/Alan Ayarları) çekirdeği + tüm modüllerin ortak UI altyapısı:
+- Ortak UI: `src/DepoWise.Application/Ui/*` (Menu, Validation, MultiSelectState, FieldDefinition); web `apps/web/src/lib/ui/*`.
+- Tema/branding: `src/DepoWise.Application/Theming/Branding.cs`, `Infrastructure/Settings/SettingsService.cs`, Migration003; web `apps/web/src/lib/theme/tokens.ts` + `globals.css`. Masaüstü shell: `Desktop/ViewModels/ShellViewModel.cs`, `Theming/ThemeApplier.cs`, `Views/MainWindow.axaml`.
+- Testler: `tests/DepoWise.Tests/UiCommonTests.cs`, `apps/web/tests/ui.test.ts`.
+
 **Faz 03 (2026-06-26):** REQ-MOD-03 (Kullanıcı/Rol/Yetki) çekirdeği — UI bağlama Faz 04/05:
 - Auth + kilit + parola: `src/DepoWise.Infrastructure/Security/{PasswordHasher,AuthService,UserService}.cs`, Migration002 (login_attempts/sessions + rol seed); web `apps/web/src/lib/security/*`.
 - Deny-by-default + tenant + yetki yükseltme: `src/DepoWise.Application/Security/{AppModules,Permissions,SessionContext,AccessControl,RoleAssignmentGuard}.cs`.

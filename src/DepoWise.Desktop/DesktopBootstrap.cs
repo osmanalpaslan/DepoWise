@@ -1,9 +1,14 @@
 using System;
 using System.IO;
 using DepoWise.Application.Common;
+using DepoWise.Application.Theming;
 using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Database.Migrations;
+using DepoWise.Infrastructure.Settings;
 
 namespace DepoWise.Desktop;
+
+public sealed record BootstrapResult(HealthResult Health, ThemeTokens Theme, BrandingSettings Branding);
 
 /// <summary>
 /// Açılış health kontrolü + log. COMODO kanıtı (host=dotnet, gerçek DB yolu, WAL, write/read)
@@ -14,13 +19,18 @@ public static class DesktopBootstrap
     public static string Environment =>
         System.Environment.GetEnvironmentVariable("DEPOWISE_ENVIRONMENT") ?? "Development";
 
-    public static HealthResult RunStartupHealth()
+    /// <summary>Migration + health + merkezi tema/branding yükler (renkler ayarlardan, sabit değil).</summary>
+    public static BootstrapResult Run()
     {
         var factory = SqliteConnectionFactory.ForEnvironment(Environment);
-        var health = new DatabaseHealth(factory);
-        var result = health.CheckAsync().GetAwaiter().GetResult();
+        new MigrationRunner(factory).Run();
+
+        var result = new DatabaseHealth(factory).CheckAsync().GetAwaiter().GetResult();
         WriteLog(result);
-        return result;
+
+        var settings = new SettingsService(factory);
+        // Oturum öncesi global tema/branding (firma override login sonrası uygulanır — Faz 05).
+        return new BootstrapResult(result, settings.GetTheme(null), settings.GetBranding(null));
     }
 
     private static void WriteLog(HealthResult r)

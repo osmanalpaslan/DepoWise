@@ -65,6 +65,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/security.test.ts`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 04 / Ortak UI + tema testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Menü deny-by-default/admin; tarih gerçek takvim (29/02 artık yıl, 31/02, 13. ay, maske); numerik negatif/sınır; çoklu seçim arama-korur/tümünü-seç-yalnız-filtre/Türkçe duyarsız; alan "+" buton yetki; tema varsayılan+firma override+audit.
+- **Geçen/Kalan:** 48 geçti / 0 kaldı (12 yeni UI).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/UiCommonTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_ui_*.db`), `dotnet` host; masaüstü build başarılı, EXE/BAT çalıştırılmadı.
+
+## 2026-06-27 - Faz 04 / Web ortak UI paritesi + build
+- **Komut:** `npm test` (node --test); `npx tsc --noEmit`; `npx next lint`; `npx next build` (apps/web)
+- **Exit code:** 0 / 0 / 0 / 0
+- **Sonuç:** 12 node:test geçti (menü, tarih, numerik, çoklu seçim, alan "+", tema CSS değişkenleri); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 12 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/ui.test.ts`, `apps/web/tests/security.test.ts`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node).
+
 ---
 
 ### Şablon

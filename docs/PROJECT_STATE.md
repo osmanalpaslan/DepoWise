@@ -1,8 +1,15 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 03 — Kimlik Doğrulama, Tenant ve Yetki Sistemi
+**Aktif faz:** Faz 04 — Ortak UI, Menü ve Tanımlar/Alan Ayarları
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 04)
+- **Ortak UI mantığı (web=masaüstü)**: `MenuBuilder` (yetkiye göre menü), `DateInput` (GG/AA/YYYY gerçek takvim), `NumericInput` (negatif/sınır), `MultiSelectState` (arama seçimi korur, "tümünü seç" yalnız filtre, Türkçe duyarsız), `FieldDefinition`/`FieldVisibility` (lookup/çoklu seçim/foto/"+" buton, deny-by-default).
+- **Merkezi tema/branding**: `ThemeTokens`/`BrandingSettings` + `SettingKeys`; renk/marka ekranlara SABİT yazılmaz. Migration003 `app_settings` (global/firma override) + audit'li `SettingsService`.
+- **Masaüstü shell**: `ShellViewModel` + yenilenen `MainWindow` (sol menü `MenuBuilder`'dan, başlık branding'den, yüklenme göstergesi, min boyut/responsive); `ThemeApplier` token'ları `Application.Resources`'a yazar (`Brand.*` DynamicResource).
+- **Web**: `lib/ui/{menu,validation,multiselect,fields,modules}.ts`, `lib/theme/tokens.ts`, `globals.css` CSS değişkenleri, `layout.tsx` kök tema enjeksiyonu.
+- **Doğrulama**: 48/48 .NET test (12 yeni UI) + 12 web node:test; web typecheck/lint/build + .NET build yeşil.
 
 ## Tamamlanan (Faz 03)
 - **Parola hash**: PBKDF2-HMAC-SHA256 (`pbkdf2$sha256$iter$salt$hash`) — .NET `PasswordHasher` ve web `password.ts` AYNI biçim (parite testle doğrulandı).
@@ -28,12 +35,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 04: ortak UI, menü ve Tanımlar/Alan Ayarları altyapısı.
-- Web oturum kalıcılığı: imzalı cookie + DB session lookup `getServerSession` içinde Faz 05'e bırakıldı (şimdilik fail-closed null) — R8.
-- Yerel PostgreSQL geliştirme örneği kurulumu (R4/R7).
+- Faz 05: Firma, Şube/Şantiye ve Personel modülleri (gerçek CRUD + login akışı bağlama).
+- Masaüstü login akışı + firma override tema uygulaması (preview admin session yerine) — R9.
+- Web oturum kalıcılığı (R8), yerel PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 04 — Ortak UI, Menü ve Tanımlar/Alan Ayarları** (`prompts/04_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 05 — Firma, Şube/Şantiye ve Personel** (`prompts/05_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

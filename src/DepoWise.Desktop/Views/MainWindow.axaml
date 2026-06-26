@@ -3,21 +3,63 @@
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
         x:Class="DepoWise.Desktop.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel"
+        x:DataType="vm:ShellViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="DepoWise">
+        MinWidth="640" MinHeight="420"
+        Width="900" Height="560"
+        Title="{Binding AppName}">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
+    <!-- Renkler ekrana SABİT yazılmaz; merkezi tema "Brand.*" DynamicResource'larından gelir. -->
+    <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,*,Auto"
+          Background="{DynamicResource Brand.Surface.Brush}">
 
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Margin="24">
-        <TextBlock Text="{Binding Greeting}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-        <TextBlock Text="{Binding HealthSummary}" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Center"/>
-    </StackPanel>
+        <!-- Sol menü (yetkiye göre MenuBuilder) -->
+        <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0"
+                Background="{DynamicResource Brand.Primary.Brush}">
+            <DockPanel Margin="0,16">
+                <TextBlock DockPanel.Dock="Top" Text="{Binding AppName}"
+                           Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                           FontSize="20" FontWeight="Bold" Margin="16,0,16,4"/>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding CompanyName}"
+                           Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                           Opacity="0.8" Margin="16,0,16,12"/>
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding MenuItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Content="{Binding Label}" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left"
+                                        Background="Transparent"
+                                        Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                                        Padding="16,10" Margin="8,1"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
 
+        <!-- Üst yüklenme göstergesi (blocking değil) -->
+        <ProgressBar Grid.Row="0" Grid.Column="1" IsIndeterminate="True"
+                     Height="3" IsVisible="{Binding IsLoading}"
+                     Foreground="{DynamicResource Brand.Accent.Brush}"/>
+
+        <!-- İçerik -->
+        <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="24">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Ortak UI İskeleti (Faz 04)" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                <TextBlock Text="{Binding HealthSummary}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Grid.Column="1" Padding="12"
+                Background="{DynamicResource Brand.Surface.Brush}">
+            <TextBlock Text="{Binding CompanyName}" Opacity="0.6"
+                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+        </Border>
+    </Grid>
 </Window>

@@ -4,6 +4,8 @@ using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System.Linq;
 using Avalonia.Markup.Xaml;
+using DepoWise.Application.Security;
+using DepoWise.Desktop.Theming;
 using DepoWise.Desktop.ViewModels;
 using DepoWise.Desktop.Views;
 
@@ -20,10 +22,22 @@ public partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var health = DesktopBootstrap.RunStartupHealth();
+            var boot = DesktopBootstrap.Run();
+            // Merkezi tema Application.Resources'a uygulanır (ekranlar sabit renk yazmaz).
+            ThemeApplier.Apply(this, boot.Theme);
+
+            // NOT: Masaüstü login akışı Faz 05'te. Şu an menü önizlemesi için admin oturumu;
+            // yetki mantığı MenuBuilder/AccessControl ile testlerde doğrulanmıştır.
+            var previewSession = new SessionContext("preview", "preview",
+                new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+
+            var summary = boot.Health.Ok
+                ? $"DB: {boot.Health.DatabasePath} | journal={boot.Health.JournalMode} | DURUM: SAĞLIKLI"
+                : $"DB HATA: {boot.Health.Error}";
+
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(health),
+                DataContext = new ShellViewModel(previewSession, boot.Branding, summary),
             };
         }
 

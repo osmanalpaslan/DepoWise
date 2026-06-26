@@ -1,0 +1,25 @@
+/* Merkezi tema değişkenleri — varsayılanlar tokens.ts ile eşit.
+   Bileşenler rengi SABİT yazmaz; yalnız var(--brand-*) kullanır.
+   Runtime'da firmaya özel tema layout'tan :root inline style ile override edilir. */
+:root {
+  --brand-primary: #1f6feb;
+  --brand-on-primary: #ffffff;
+  --brand-surface: #ffffff;
+  --brand-on-surface: #1a1a1a;
+  --brand-accent: #0ea5e9;
+  --brand-danger: #dc2626;
+  --brand-warning: #d97706;
+  --brand-success: #16a34a;
+  --brand-radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--brand-surface);
+  color: var(--brand-on-surface);
+}

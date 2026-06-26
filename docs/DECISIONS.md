@@ -105,3 +105,19 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-019 — Web içi TS import uzantıları (.ts)
 - **Karar:** `lib/security` içi göreli importlar `.ts` uzantılı + `allowImportingTsExtensions`. Böylece aynı kaynak hem Next bundler ile derlenir hem de `node --test` (Node 24 type-stripping) ile harici test koşusunda çalışır.
 - **Gerekçe:** Web için hafif birim test koşusu (ek bağımlılık olmadan) sağlanır.
+
+---
+
+## Faz 04 kararları (2026-06-27)
+
+### ADR-020 — Ortak UI mantığı platform-bağımsız
+- **Karar:** Menü, doğrulama (tarih/numerik), çoklu seçim ve alan görünürlüğü saf mantık olarak iki tarafta da yazıldı (`Application/Ui/*` ve `apps/web/src/lib/ui/*`), aynı kabul senaryolarıyla test edildi. Avalonia/React yalnız bu mantığı bağlar.
+- **Gerekçe:** Analiz §5; web ve masaüstü fonksiyonel eşitlik tek kaynaktan.
+
+### ADR-021 — Tarih ve arama davranışı
+- **Karar:** Tarih GG/AA/YYYY KESİN biçim + gerçek takvim doğrulaması (.NET `TryParseExact None`; web Date.UTC geri-doğrulama). Aranabilir çoklu seçim Türkçe büyük/küçük harf duyarsız (.NET tr-TR `CompareInfo`; web `toLocaleLowerCase('tr')`); arama seçimi korur; "tümünü seç" yalnız filtre sonucunu ekler.
+- **Gerekçe:** Analiz §5; CLAUDE.md Türkçe duyarsız arama standardı.
+
+### ADR-022 — Merkezi tema/branding (sabit değil)
+- **Karar:** Renk ve marka metinleri ekrana sabit yazılmaz. `app_settings` (Migration003, global/firma override) → `ThemeTokens`/`BrandingSettings`. Masaüstü `ThemeApplier` ile `Brand.*` DynamicResource; web CSS değişkenleri (`--brand-*`) kök `:root`/layout'tan. Ayar değişiklikleri audit'lenir.
+- **Gerekçe:** Kullanıcı talimatı + analiz §5 (tema merkezi yönetilebilir).
