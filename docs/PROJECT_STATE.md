@@ -1,8 +1,16 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 05 — Firma, Şube/Şantiye ve Personel
+**Aktif faz:** Faz 06 — Malzeme Kartları ve Tedarikçi/Tanımlar
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 06)
+- **Migration005**: tanımlar (material_categories+alt kategori, brands brand_type, units, suppliers), `materials` (kod benzersiz, para TEXT+currency), `material_equivalents`, `material_compatible_vehicles`, **stok defteri** (stock_movements + stock_balances), `fx_rates`.
+- **LookupService**: kategori/marka/birim/tedarikçi CRUD (tenant + "definitions" yetki + audit).
+- **MaterialService**: kod benzersiz (tenant), muadil **çift yönlü + döngü güvenli BFS**, uyumlu araç çoklu seçim, araç→malzeme stok gösterimi, keyset liste+arama. Para `Money` (decimal + TRY/USD/EUR).
+- **OpeningStockService**: açılış stoğu **kart alanı değil 'opening' hareketi**; hareket+bakiye aynı transaction, operation_id idempotent, audit. Bakiye yalnız ledger üzerinden.
+- **Web parite**: `lib/materials/{equivalents,money}.ts`; Drizzle 11 yeni tablo + `drizzle/0002_materials_ledger.sql`.
+- **Doğrulama**: 69/69 .NET test (12 yeni) + 20 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 05)
 - **Migration004**: `personnel` (ad/unvan/telefon/şube/aktiflik + standart kolonlar) + `user_scopes` (kullanıcı şube kapsamı).
@@ -44,12 +52,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 06: Malzeme kartları ve Tedarikçi/Tanımlar.
-- Masaüstü/web login akışı + firma override tema (R8/R9); yerel PostgreSQL (R4/R7).
-- Personnel import/export ve UI ekranları (servis temeli hazır; ekran bağlama sonraki UI fazlarında).
+- Faz 07: Stok Giriş/Çıkış/Transfer/Sayım (giriş/çıkış/transfer hareket tipleri stock_movements üzerine; negatif stok/yarış koşulu).
+- UI ekranları (malzeme/tanım liste-form, personel, firma/şube) — servis temeli hazır (R10).
+- Masaüstü/web login akışı (R8/R9); yerel PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 06 — Malzeme Kartları ve Tedarikçi/Tanımlar** (`prompts/06_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 07 — Stok Giriş, Çıkış, Transfer ve Sayım** (`prompts/07_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

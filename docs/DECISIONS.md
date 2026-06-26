@@ -133,3 +133,19 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-024 — Kullanıcı şube kapsamı (user_scopes)
 - **Karar:** `user_scopes` ile kullanıcı bazlı şube kapsamı. `ScopeResolver`: açık scope öncelikli; yoksa admin → tüm firma şubeleri, admin-olmayan kapsamsız → boş. Şube/personel seçim listeleri ve yazma `EnsureBranchAllowed` ile kapsam dışına taşamaz. Web `lib/org/scope.ts` aynı kararı saf fonksiyonla aynalar.
 - **Gerekçe:** Analiz §5/§6.2 (seçim listeleri yalnız kullanıcı kapsamını getirir).
+
+---
+
+## Faz 06 kararları (2026-06-27)
+
+### ADR-025 — Para ve stok temsili
+- **Karar:** Para/miktar SQLite'ta TEXT (invariant decimal) + `currency_code`; .NET `Money` ve web `money.ts` ile taşınır. Float YOK. Desteklenen: TRY (baz) / USD / EUR. İşlem anı kuru `stock_movements.fx_rate` snapshot; manuel kur `fx_rates`.
+- **Gerekçe:** Analiz §7 (decimal + currency, kur snapshot).
+
+### ADR-026 — Stok hareket defteri ana kaynak; açılış stoğu hareket olarak
+- **Karar:** `stock_movements` ana kaynak, `stock_balances` cache (yalnız ledger'la aynı transaction'da güncellenir). Açılış stoğu kart alanı DEĞİL `OpeningStockService` ile 'opening' hareketi; `operation_id` ile idempotent. Doğrudan bakiye set eden API yok.
+- **Gerekçe:** Analiz §7/§2; bu fazda bakiye doğrudan değiştirilmez (Faz 07 diğer hareket tipleri).
+
+### ADR-027 — Muadil ve uyumlu araç ilişkileri
+- **Karar:** Muadil simetrik (servis çift yön yazar) + self-FK CHECK + döngü güvenli BFS grup çözümü. Uyumlu araç çoklu seçim `material_compatible_vehicles` (vehicle_id FK Faz 08'e ertelendi). Araç→uyumlu malzeme sorgusu güncel stoğu (stock_balances join) gösterir.
+- **Gerekçe:** Analiz §6.5; çift yönlü, döngü güvenli ilişki.

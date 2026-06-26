@@ -15,6 +15,13 @@
       "when": 1782508215353,
       "tag": "0001_personnel_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782508710848,
+      "tag": "0002_materials_ledger",
+      "breakpoints": true
     }
   ]
 }

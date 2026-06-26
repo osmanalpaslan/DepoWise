@@ -9,5 +9,6 @@ public static class MigrationCatalog
         new Migration002_AuthSeed(),
         new Migration003_AppSettings(),
         new Migration004_Personnel(),
+        new Migration005_Materials(),
     };
 }

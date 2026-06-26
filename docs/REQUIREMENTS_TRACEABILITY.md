@@ -25,6 +25,11 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 06 (2026-06-27):** REQ-MOD-05 (Malzemeler) + REQ-MOD-04 (Tanımlar) + REQ-MOD-06 ön koşulu (stok defteri):
+- `src/DepoWise.Infrastructure/Materials/{LookupService,MaterialService,OpeningStockService}.cs`, `Application/Common/Money.cs`, Migration005; web `apps/web/src/lib/materials/*`, Drizzle `0002_materials_ledger.sql`.
+- Açılış stoğu ledger (REQ-MOD-06 temeli): stock_movements/stock_balances.
+- Testler: `tests/DepoWise.Tests/MaterialTests.cs`, `apps/web/tests/materials.test.ts`.
+
 **Faz 05 (2026-06-27):** REQ-MOD-02 (Firma/Şube/Şantiye) + REQ-MOD-13 (Personel) iş kuralı çekirdeği (UI bağlama R10):
 - `src/DepoWise.Infrastructure/Org/{CompanyService,BranchService,PersonnelService,ScopeResolver}.cs`, Migration004 (personnel + user_scopes); web `apps/web/src/lib/org/scope.ts`, Drizzle `personnel`/`user_scopes` + `drizzle/0001_personnel_scopes.sql`.
 - Testler: `tests/DepoWise.Tests/OrgPersonnelTests.cs`, `apps/web/tests/org.test.ts`.

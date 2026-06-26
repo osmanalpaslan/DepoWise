@@ -8,6 +8,7 @@ import {
   bigserial,
   boolean,
   integer,
+  numeric,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
@@ -216,6 +217,156 @@ export const userScopes = pgTable(
     branchId: text("branch_id").notNull(),
   },
   (t) => [uniqueIndex("ux_user_scopes").on(t.userId, t.branchId)],
+);
+
+// ---- Faz 06: Malzeme + tanımlar + stok defteri ----
+export const materialCategories = pgTable(
+  "material_categories",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    parentId: text("parent_id"),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_mat_categories").on(t.companyId, t.parentId, t.name)],
+);
+
+export const brands = pgTable(
+  "brands",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    brandType: text("brand_type").notNull().default("material"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_brands").on(t.companyId, t.brandType, t.name)],
+);
+
+export const units = pgTable(
+  "units",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_units").on(t.companyId, t.name)],
+);
+
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    note: text("note"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_suppliers").on(t.companyId, t.name)],
+);
+
+export const materials = pgTable(
+  "materials",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    type: text("type"),
+    categoryId: text("category_id"),
+    unitId: text("unit_id"),
+    brandId: text("brand_id"),
+    supplierId: text("supplier_id"),
+    minStock: numeric("min_stock").notNull().default("0"),
+    unitPrice: numeric("unit_price").notNull().default("0"),
+    currencyCode: text("currency_code").notNull().default("TRY"),
+    description: text("description"),
+    externalEquivalentNote: text("external_equivalent_note"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_materials_code").on(t.companyId, t.code),
+    index("ix_materials_company").on(t.companyId, t.isDeleted),
+  ],
+);
+
+export const materialEquivalents = pgTable(
+  "material_equivalents",
+  {
+    materialId: text("material_id").notNull(),
+    equivalentMaterialId: text("equivalent_material_id").notNull(),
+  },
+  (t) => [uniqueIndex("ux_material_equivalents").on(t.materialId, t.equivalentMaterialId)],
+);
+
+export const materialCompatibleVehicles = pgTable(
+  "material_compatible_vehicles",
+  {
+    materialId: text("material_id").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+  },
+  (t) => [uniqueIndex("ux_material_compat").on(t.materialId, t.vehicleId)],
+);
+
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    materialId: text("material_id").notNull(),
+    branchId: text("branch_id"),
+    movementType: text("movement_type").notNull(),
+    direction: integer("direction").notNull(),
+    quantity: numeric("quantity").notNull(),
+    unitPrice: numeric("unit_price"),
+    currencyCode: text("currency_code"),
+    fxRate: numeric("fx_rate"),
+    operationId: text("operation_id").notNull(),
+    note: text("note"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("ux_stock_movements_operation").on(t.operationId),
+    index("ix_stock_movements_material").on(t.materialId, t.createdAt),
+  ],
+);
+
+export const stockBalances = pgTable("stock_balances", {
+  companyId: text("company_id").notNull(),
+  materialId: text("material_id").primaryKey(),
+  quantity: numeric("quantity").notNull().default("0"),
+  updatedAt: updatedAt(),
+});
+
+export const fxRates = pgTable(
+  "fx_rates",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id"),
+    currencyCode: text("currency_code").notNull(),
+    rateToBase: numeric("rate_to_base").notNull(),
+    asOf: bigint("as_of", { mode: "number" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ix_fx_rates").on(t.currencyCode, t.asOf)],
 );
 
 // Açılış/health probe tablosu (Faz 01'den korunur).

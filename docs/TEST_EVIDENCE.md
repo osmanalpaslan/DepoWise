@@ -97,6 +97,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/org.test.ts`, `apps/web/drizzle/0001_personnel_scopes.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-27 - Faz 06 / Malzeme + tanımlar + açılış stoğu testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Kod benzersiz (tenant) + farklı firmada serbest; geçersiz currency reddi + USD saklama; muadil çift yönlü/kendine red/döngü güvenli/başka firma red; uyumlu araç detayı malzeme stoğu gösterir; açılış stoğu hareket defterinde + bakiye günceller; idempotent (op_id tekrarı çift yazmaz); açılış deny-by-default; tanımlar tenant izole.
+- **Geçen/Kalan:** 69 geçti / 0 kaldı (12 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/MaterialTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_mat_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 06 / Web malzeme paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name materials_ledger`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 20 node:test (muadil çift yönlü/döngü güvenli/kendine red; para birimi TRY/USD/EUR); Drizzle `0002_materials_ledger.sql` (11 yeni tablo); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 20 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/materials.test.ts`, `apps/web/drizzle/0002_materials_ledger.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon
