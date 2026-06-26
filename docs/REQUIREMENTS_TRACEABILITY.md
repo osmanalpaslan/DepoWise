@@ -25,6 +25,10 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 11 (2026-06-27):** REQ-MOD-12 (Malzeme Talep ve Onay) tamamlandı (servis + iş kuralı + PDF; UI bağlama R10):
+- `src/DepoWise.Infrastructure/Requests/{RequestService,RequestPdfService}.cs`, `Application/Requests/{RequestStatus,RequestPdfModel}.cs`, Migration010; web `apps/web/src/lib/requests/status.ts`, Drizzle `0007_requests.sql`.
+- Testler: `tests/DepoWise.Tests/RequestTests.cs`, `apps/web/tests/requests.test.ts`.
+
 **Faz 10 (2026-06-27):** REQ-MOD-10 (Yakıt Sarfiyatı) + REQ-MOD-11 (Günlük Faaliyet) tamamlandı (servis + iş kuralı; UI bağlama R10):
 - `src/DepoWise.Infrastructure/Operations/{FuelService,DailyActivityService}.cs`, Migration009; web `apps/web/src/lib/fuel/fuel.ts`, Drizzle `0006_fuel_daily.sql`.
 - Testler: `tests/DepoWise.Tests/FuelDailyActivityTests.cs`, `apps/web/tests/fuel.test.ts`.

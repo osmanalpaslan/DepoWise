@@ -706,6 +706,60 @@ export const dailyActivities = pgTable(
   ],
 );
 
+// ---- Faz 11: Malzeme talep + onay ----
+export const materialRequests = pgTable(
+  "material_requests",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    docNo: text("doc_no").notNull(),
+    requestDate: bigint("request_date", { mode: "number" }).notNull(),
+    branchId: text("branch_id"),
+    requesterId: text("requester_id"),
+    warehouseId: text("warehouse_id"),
+    approverId: text("approver_id"),
+    description: text("description"),
+    status: text("status").notNull().default("draft"),
+    approvedBy: text("approved_by"),
+    approvedAt: bigint("approved_at", { mode: "number" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_material_requests_no").on(t.companyId, t.docNo),
+    index("ix_material_requests").on(t.companyId, t.status, t.createdAt),
+  ],
+);
+
+export const materialRequestItems = pgTable(
+  "material_request_items",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id").notNull(),
+    materialId: text("material_id").notNull(),
+    quantity: numeric("quantity").notNull(),
+    vehicleId: text("vehicle_id"),
+    note: text("note"),
+  },
+  (t) => [index("ix_material_request_items").on(t.requestId)],
+);
+
+export const requestStatusHistory = pgTable(
+  "request_status_history",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id").notNull(),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    byUser: text("by_user"),
+    reason: text("reason"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ix_request_status_history").on(t.requestId, t.createdAt)],
+);
+
 // Açılış/health probe tablosu (Faz 01'den korunur).
 export const healthCheck = pgTable("_health_check", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

@@ -50,6 +50,13 @@
       "when": 1782510582803,
       "tag": "0006_fuel_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782511037446,
+      "tag": "0007_requests",
+      "breakpoints": true
     }
   ]
 }

@@ -202,3 +202,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-036 — Günlük Faaliyet bakım = tek kayıt (çift düşüm yok)
 - **Karar:** `DailyActivityService.SaveMaintenanceActivity` ortak `MaintenanceService.Save`'i çağırır (tek `vehicle_maintenances` + tek stok düşümü). `daily_activities` yalnız `maintenance_id` referansı + `stock_processed=1` tutar; burada stok DÜŞMEZ. Böylece kayıt hem Bakım Takibi hem Günlük Faaliyet ekranında görünür, veri tek.
 - **Gerekçe:** Kullanıcı talimatı + analiz §6.11 (tek kayıt prensibi).
+
+---
+
+## Faz 11 kararları (2026-06-27)
+
+### ADR-037 — Talep durum makinesi + onay stok düşürmez
+- **Karar:** `RequestStatusMachine` (web+masaüstü) geçişleri kısıtlar: draft→pending→approved/rejected/cancelled; approved/rejected/cancelled terminal. Çift onay/yetkisiz/geçersiz geçiş fail-closed. Onay/ret approve butonu + requests edit yetkisi ister; tenant ownership zorunlu. **Onay stok bakiyesini DEĞİŞTİRMEZ.** Stok yalnız `CreateIssueFromRequest` ile (onaylı talep → açık `StockService.IssueOut`). Belge no TLP-YYYY-NNNN tenant/yıl benzersiz.
+- **Gerekçe:** Analiz §6.12/§7; kullanıcı talimatı (onay stok düşürmez, stok yalnız gerçek çıkış/teslim).
+
+### ADR-038 — PDF üretimi (QuestPDF)
+- **Karar:** Masaüstü/Infrastructure PDF QuestPDF Community ile (`IRequestPdfService`/`RequestPdfService`), `RequestPdfModel` ortak veri modeli; Türkçe karakter korunur. Web tarafı aynı modeli kullanır; binary render hattı sonraya bırakıldı (R16).
+- **Gerekçe:** Analiz §6.12 (PDF çıktısı); .NET'te yerleşik, lisans Community.

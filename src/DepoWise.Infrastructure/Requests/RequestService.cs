@@ -1,0 +1,242 @@
+using DepoWise.Application.Common;
+using DepoWise.Application.Requests;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Materials;
+using Microsoft.Data.Sqlite;
+
+namespace DepoWise.Infrastructure.Requests;
+
+public sealed record RequestItemInput(string MaterialId, decimal Quantity, string? VehicleId = null, string? Note = null);
+
+public sealed record NewRequest(
+    IReadOnlyList<RequestItemInput> Items, string? BranchId = null, string? RequesterId = null,
+    string? WarehouseId = null, string? ApproverId = null, string? Description = null,
+    long? RequestDate = null, bool SubmitImmediately = false);
+
+public sealed record RequestHeader(string Id, string DocNo, RequestStatus Status, string CompanyId);
+
+/// <summary>
+/// Malzeme talep/onay — talep BELGEDİR; onay/ret STOK DEĞİŞTİRMEZ. Durum makinesi + yetki fail-closed +
+/// çift onay engeli + durum geçmişi. Onaylı talepten KONTROLLÜ stok çıkışı ayrı, açık işlemle başlatılır.
+/// </summary>
+public sealed class RequestService
+{
+    private const string Module = "requests";
+    private readonly IDbConnectionFactory _factory;
+    private readonly StockService _stock;
+    private readonly IClock _clock;
+
+    public RequestService(IDbConnectionFactory factory, StockService stock, IClock? clock = null)
+    {
+        _factory = factory;
+        _stock = stock;
+        _clock = clock ?? new SystemClock();
+    }
+
+    public RequestHeader Create(SessionContext s, NewRequest dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (dto.Items.Count == 0) throw new ArgumentException("En az bir kalem gerekli.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var id = Guid.NewGuid().ToString("N");
+        var status = dto.SubmitImmediately ? RequestStatus.Pending : RequestStatus.Draft;
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+        var docNo = NextDocNo(conn, tx, s.CompanyId, dto.RequestDate ?? now);
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO material_requests(id, company_id, doc_no, request_date, branch_id, requester_id, warehouse_id,
+    approver_id, description, status, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$no,$dt,$br,$req,$wh,$ap,$desc,$st,$now,$now,1,0);";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$no", docNo);
+            cmd.Parameters.AddWithValue("$dt", dto.RequestDate ?? now);
+            cmd.Parameters.AddWithValue("$br", (object?)dto.BranchId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$req", (object?)dto.RequesterId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$wh", (object?)dto.WarehouseId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$ap", (object?)dto.ApproverId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$st", RequestStatusMachine.ToDb(status));
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+        foreach (var item in dto.Items)
+        {
+            EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
+            using var ic = conn.CreateCommand();
+            ic.Transaction = tx;
+            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES($id,$r,$m,$q,$v,$n);";
+            ic.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ic.Parameters.AddWithValue("$r", id);
+            ic.Parameters.AddWithValue("$m", item.MaterialId);
+            ic.Parameters.AddWithValue("$q", Money.Serialize(item.Quantity));
+            ic.Parameters.AddWithValue("$v", (object?)item.VehicleId ?? DBNull.Value);
+            ic.Parameters.AddWithValue("$n", (object?)item.Note ?? DBNull.Value);
+            ic.ExecuteNonQuery();
+        }
+        WriteHistory(conn, tx, id, null, status, s.UserId, null, now);
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", id, AuditActions.Create, s.UserId), _clock);
+        tx.Commit();
+        return new RequestHeader(id, docNo, status, s.CompanyId);
+    }
+
+    public void Submit(SessionContext s, string requestId)
+        => Transition(s, requestId, RequestStatus.Pending, PermissionAction.Edit, null);
+
+    public void Approve(SessionContext s, string requestId)
+    {
+        AccessControl.RequireButton(s, SpecialButtons.Approve);
+        Transition(s, requestId, RequestStatus.Approved, PermissionAction.Edit, null, setApproval: true);
+    }
+
+    public void Reject(SessionContext s, string requestId, string reason)
+    {
+        AccessControl.RequireButton(s, SpecialButtons.Approve);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Ret gerekçesi zorunlu.");
+        Transition(s, requestId, RequestStatus.Rejected, PermissionAction.Edit, reason);
+    }
+
+    public void Cancel(SessionContext s, string requestId, string? reason = null)
+        => Transition(s, requestId, RequestStatus.Cancelled, PermissionAction.Edit, reason);
+
+    /// <summary>Onaylı talepten KONTROLLÜ stok çıkışı başlatır (otomatik DEĞİL, açık çağrı). Stok burada düşer.</summary>
+    public StockDocResult CreateIssueFromRequest(SessionContext s, string requestId, string operationId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var (status, companyId) = LoadStatus(s, requestId);
+        TenantAccessGuard.EnsureOwnership(s, companyId);
+        if (status != RequestStatus.Approved)
+            throw new InvalidOperationException("Yalnız onaylı talepten stok çıkışı başlatılabilir.");
+
+        var lines = LoadItems(requestId);
+        // Stok çıkışı ayrı, kontrollü işlem (StockService kendi negatif guard/transaction'ı)
+        return _stock.IssueOut(s, lines, operationId, note: $"Talep: {requestId}");
+    }
+
+    public RequestStatus GetStatus(SessionContext s, string requestId) => LoadStatus(s, requestId).Status;
+
+    public IReadOnlyList<(RequestStatus? From, RequestStatus To, string? Reason)> GetHistory(string requestId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT from_status, to_status, reason FROM request_status_history WHERE request_id=$r ORDER BY created_at;";
+        cmd.Parameters.AddWithValue("$r", requestId);
+        var list = new List<(RequestStatus?, RequestStatus, string?)>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add((r.IsDBNull(0) ? null : RequestStatusMachine.FromDb(r.GetString(0)),
+                RequestStatusMachine.FromDb(r.GetString(1)), r.IsDBNull(2) ? null : r.GetString(2)));
+        return list;
+    }
+
+    // ---- çekirdek ----
+    private void Transition(SessionContext s, string requestId, RequestStatus to, PermissionAction perm, string? reason, bool setApproval = false)
+    {
+        AccessControl.Require(s, Module, perm);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+
+        var (from, companyId) = LoadStatusTx(conn, tx, s.CompanyId, requestId);
+        TenantAccessGuard.EnsureOwnership(s, companyId);
+        if (!RequestStatusMachine.CanTransition(from, to))
+            throw new InvalidOperationException($"Geçersiz durum geçişi: {from} → {to} (çift onay/yetkisiz geçiş engellendi).");
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = setApproval
+                ? "UPDATE material_requests SET status=$st, approved_by=$by, approved_at=$now, version=version+1, updated_at=$now WHERE id=$id;"
+                : "UPDATE material_requests SET status=$st, version=version+1, updated_at=$now WHERE id=$id;";
+            cmd.Parameters.AddWithValue("$st", RequestStatusMachine.ToDb(to));
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", requestId);
+            if (setApproval) cmd.Parameters.AddWithValue("$by", s.UserId);
+            cmd.ExecuteNonQuery();
+        }
+        WriteHistory(conn, tx, requestId, from, to, s.UserId, reason, now);
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", requestId, AuditActions.Update, s.UserId,
+            AfterJson: $"{{\"status\":\"{RequestStatusMachine.ToDb(to)}\"}}"), _clock);
+        tx.Commit();
+    }
+
+    private (RequestStatus Status, string CompanyId) LoadStatus(SessionContext s, string requestId)
+    {
+        using var conn = _factory.Create();
+        return LoadStatusTx(conn, null, s.CompanyId, requestId);
+    }
+
+    private static (RequestStatus, string) LoadStatusTx(SqliteConnection conn, SqliteTransaction? tx, string companyId, string requestId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT status, company_id FROM material_requests WHERE id=$id;";
+        cmd.Parameters.AddWithValue("$id", requestId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) throw new ForbiddenException("Talep bulunamadı.");
+        var cid = r.GetString(1);
+        if (cid != companyId) throw new ForbiddenException("Talep başka firmaya ait.");
+        return (RequestStatusMachine.FromDb(r.GetString(0)), cid);
+    }
+
+    private IReadOnlyList<StockLine> LoadItems(string requestId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT material_id, quantity FROM material_request_items WHERE request_id=$r;";
+        cmd.Parameters.AddWithValue("$r", requestId);
+        var list = new List<StockLine>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new StockLine(r.GetString(0), Money.Parse(r.GetString(1))));
+        return list;
+    }
+
+    private static void WriteHistory(SqliteConnection conn, SqliteTransaction tx, string requestId,
+        RequestStatus? from, RequestStatus to, string? byUser, string? reason, long now)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "INSERT INTO request_status_history(id, request_id, from_status, to_status, by_user, reason, created_at) " +
+            "VALUES($id,$r,$from,$to,$by,$reason,$now);";
+        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.Parameters.AddWithValue("$r", requestId);
+        cmd.Parameters.AddWithValue("$from", from is null ? DBNull.Value : RequestStatusMachine.ToDb(from.Value));
+        cmd.Parameters.AddWithValue("$to", RequestStatusMachine.ToDb(to));
+        cmd.Parameters.AddWithValue("$by", (object?)byUser ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$reason", (object?)reason ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.ExecuteNonQuery();
+    }
+
+    private static string NextDocNo(SqliteConnection conn, SqliteTransaction tx, string companyId, long dateMs)
+    {
+        var year = DateTimeOffset.FromUnixTimeMilliseconds(dateMs).Year;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "SELECT COALESCE(MAX(CAST(substr(doc_no, length($p)+1) AS INTEGER)),0) FROM material_requests " +
+            "WHERE company_id=$c AND doc_no LIKE $like;";
+        cmd.Parameters.AddWithValue("$p", $"TLP-{year}-");
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$like", $"TLP-{year}-%");
+        var next = Convert.ToInt64(cmd.ExecuteScalar()) + 1;
+        return $"TLP-{year}-{next:0000}";
+    }
+
+    private static void EnsureMaterialOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$id", materialId);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
+    }
+}

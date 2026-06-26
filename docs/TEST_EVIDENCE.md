@@ -177,6 +177,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/fuel.test.ts`, `apps/web/drizzle/0006_fuel_daily.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-27 - Faz 11 / Talep, onay, PDF testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Durum geçişleri (Theory: çift onay/erken onay engelli); belge no tenant/yıl benzersiz artar; **onay stoğu değiştirmez**; çift onay engeli; yetkisiz onay reddi; onaylı talepten kontrollü çıkış stok düşer; onaysızdan çıkış reddi; durum geçmişi; tenant izolasyonu; deny-by-default; **PDF Türkçe karakterlerle %PDF üretir**.
+- **Geçen/Kalan:** 132 geçti / 0 kaldı (16 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/RequestTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_req_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 11 / Web talep paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name requests`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 40 node:test (durum geçişleri, terminaller, belge no); Drizzle `0007_requests.sql` (3 yeni tablo); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 40 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/requests.test.ts`, `apps/web/drizzle/0007_requests.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon

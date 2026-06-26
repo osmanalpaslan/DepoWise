@@ -14,5 +14,6 @@ public static class MigrationCatalog
         new Migration007_Vehicles(),
         new Migration008_Maintenance(),
         new Migration009_FuelDailyActivity(),
+        new Migration010_Requests(),
     };
 }

@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 10 — Yakıt Sarfiyatı ve Günlük Faaliyet
+**Aktif faz:** Faz 11 — Malzeme Talep, Onay ve PDF
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 11)
+- **Migration010**: `material_requests` (belge no TLP-YYYY-NNNN, durum), `material_request_items`, `request_status_history`.
+- **Durum makinesi** (`RequestStatusMachine`): draft→pending→approved/rejected/cancelled; geçersiz/çift onay engelli; terminaller. Web parite (`requestStatus`).
+- **RequestService**: oluştur (belge no tenant/yıl benzersiz), submit/approve/reject/cancel (yetki: approve butonu + requests edit; tenant fail-closed), durum geçmişi + audit.
+- **Onay STOK DEĞİŞTİRMEZ**: approve sonrası bakiye aynı; stok yalnız **`CreateIssueFromRequest`** (açık, kontrollü `StockService.IssueOut`) ile düşer. Onaysız talepten çıkış reddedilir.
+- **PDF**: QuestPDF (Community) `RequestPdfService` — Türkçe karakterlerle (Şçğüöı) geçerli `%PDF` üretir; 3 imza alanı.
+- **Web parite**: `lib/requests/status.ts`; Drizzle 3 yeni tablo + `drizzle/0007_requests.sql`.
+- **Doğrulama**: 132/132 .NET test (16 yeni) + 40 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 10)
 - **Migration009**: `fuel_depot_entries`, `fuel_distributions` (fiyat snapshot), `daily_activities` (hareket/transfer/bakım).
@@ -88,12 +97,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 11: Malzeme Talep, Onay ve PDF.
-- Günlük faaliyet bakım: maintenance ile daily_activity ayrı transaction (retry ile tutarlı; R15).
+- Faz 12: Ana Ekran, Uyarılar, Raporlar ve Import/Export.
+- Web PDF render hattı (model hazır; .NET QuestPDF üretiyor, web tarafı render TBD — R16).
 - Şube bazlı stok (R13); vehicle FK yumuşak (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 11 — Malzeme Talep, Onay ve PDF** (`prompts/11_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 12 — Ana Ekran, Uyarılar, Raporlar ve Import/Export** (`prompts/12_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`
