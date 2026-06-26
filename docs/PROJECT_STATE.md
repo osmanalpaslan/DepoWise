@@ -1,8 +1,15 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 01 — Çözüm İskeleti ve Ortak Sözleşmeler
+**Aktif faz:** Faz 02 — Veritabanı Temeli, Audit ve Ortak Veri Kuralları
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 02)
+- **SQLite migration altyapısı**: `IMigration` + `MigrationRunner` (schema_migrations, sıfır/mevcut DB güvenli, idempotent, her migration tek transaction) + `MigrationCatalog`.
+- **Migration001 çekirdek şema**: companies, branches (şube/şantiye hiyerarşi), roles, users, user_roles, user_permissions, audit_logs, file_records, sync_devices/outbox/inbox. Standart kolonlar: id, company_id, created_at/updated_at (Unix ms), version, is_deleted.
+- **Ortak veri kuralları**: `TenantContext`/`TenantGuard` (fail-closed company_id), `TenantSql` (tenant+soft-delete+keyset predikatları), `Cursor` (opak keyset), `AuditWriter` (aynı transaction'da audit). Referans `BranchRepository` deseni.
+- **Web/PostgreSQL eşleniği**: Drizzle `schema.ts` 12 tabloyu aynaladı; `drizzle/0000_core_schema.sql` migration offline üretildi.
+- **Doğrulama**: 15/15 .NET test (8 yeni temel testi: migration zero+idempotent, tenant izolasyonu, fail-closed, soft-delete, audit, keyset, Unix ms). Web typecheck/lint/build yeşil.
 
 ## Tamamlanan (Faz 01)
 - **.NET çözümü** kuruldu: `DepoWise.sln` + `src/DepoWise.{Domain,Application,Infrastructure,Desktop}` + `tests/DepoWise.Tests`. Hepsi **net8.0** (Avalonia template'in net10.0 hedefi net8.0'a çekildi).
@@ -13,11 +20,11 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 02: PostgreSQL + SQLite migration/audit temeli, gerçek tenant tabloları.
-- Yerel PostgreSQL geliştirme örneği kurulumu (R4).
+- Faz 03: kimlik doğrulama, tenant ve yetki (rol/permission enforcement, fail-closed API/UI).
+- Yerel PostgreSQL geliştirme örneği kurulumu — Drizzle migration `db:push`/`migrate` henüz canlı DB'de çalıştırılmadı (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 02 — Veritabanı Temeli, Audit ve Ortak Veri Kuralları** (`prompts/02_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 03 — Kimlik Doğrulama, Tenant ve Yetki Sistemi** (`prompts/03_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

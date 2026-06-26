@@ -33,6 +33,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** Bu oturum çıktısı.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-26 - Faz 02 / Veritabanı temeli testleri
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Migration sıfır-DB + idempotent; tenant izolasyonu; TenantGuard fail-closed; soft-delete (fiziksel silinmez + başka firma silemez); audit create/delete; keyset sayfalama (tüm kayıt, tekrar yok, 3 sayfa); Unix ms zaman damgaları.
+- **Geçen/Kalan:** 15 geçti / 0 kaldı (8 yeni temel + 7 iskelet).
+- **Kanıt/log yolu:** Bu oturum çıktısı; `tests/DepoWise.Tests/DatabaseFoundationTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_fnd_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-26 - Faz 02 / Web şema + migration üretimi
+- **Komut:** `npx tsc --noEmit`; `npx drizzle-kit generate --name core_schema`; `npx next lint`; `npx next build`
+- **Exit code:** 0 / 0 / 0 / 0
+- **Sonuç:** TS strict temiz; Drizzle 12 tablo → `apps/web/drizzle/0000_core_schema.sql` (offline, DB gerektirmez); lint temiz; build başarılı.
+- **Geçen/Kalan:** —
+- **Kanıt/log yolu:** `apps/web/drizzle/0000_core_schema.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon
