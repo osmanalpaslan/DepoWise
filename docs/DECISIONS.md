@@ -121,3 +121,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-022 — Merkezi tema/branding (sabit değil)
 - **Karar:** Renk ve marka metinleri ekrana sabit yazılmaz. `app_settings` (Migration003, global/firma override) → `ThemeTokens`/`BrandingSettings`. Masaüstü `ThemeApplier` ile `Brand.*` DynamicResource; web CSS değişkenleri (`--brand-*`) kök `:root`/layout'tan. Ayar değişiklikleri audit'lenir.
 - **Gerekçe:** Kullanıcı talimatı + analiz §5 (tema merkezi yönetilebilir).
+
+---
+
+## Faz 05 kararları (2026-06-27)
+
+### ADR-023 — Firma yönetimi yalnız Süper Admin; tenant fail-closed
+- **Karar:** Firma oluşturma/listeleme `CompanyService` ile yalnız Süper Admin; Firma Admini yalnız kendi firmasını görür, `EnsureAccess` başka firmaya erişimi 403'ler. Tüm org servisleri `company_id`'yi session'dan alır.
+- **Gerekçe:** Analiz §4; normal admin firma sınırını aşamaz.
+
+### ADR-024 — Kullanıcı şube kapsamı (user_scopes)
+- **Karar:** `user_scopes` ile kullanıcı bazlı şube kapsamı. `ScopeResolver`: açık scope öncelikli; yoksa admin → tüm firma şubeleri, admin-olmayan kapsamsız → boş. Şube/personel seçim listeleri ve yazma `EnsureBranchAllowed` ile kapsam dışına taşamaz. Web `lib/org/scope.ts` aynı kararı saf fonksiyonla aynalar.
+- **Gerekçe:** Analiz §5/§6.2 (seçim listeleri yalnız kullanıcı kapsamını getirir).

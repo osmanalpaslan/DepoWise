@@ -187,6 +187,37 @@ export const syncInbox = pgTable(
   (t) => [uniqueIndex("ux_inbox_operation").on(t.operationId)],
 );
 
+export const personnel = pgTable(
+  "personnel",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id"),
+    fullName: text("full_name").notNull(),
+    title: text("title"),
+    phone: text("phone"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    index("ix_personnel_company").on(t.companyId, t.isDeleted),
+    index("ix_personnel_branch").on(t.branchId),
+  ],
+);
+
+export const userScopes = pgTable(
+  "user_scopes",
+  {
+    userId: text("user_id").notNull(),
+    companyId: text("company_id").notNull(),
+    branchId: text("branch_id").notNull(),
+  },
+  (t) => [uniqueIndex("ux_user_scopes").on(t.userId, t.branchId)],
+);
+
 // Açılış/health probe tablosu (Faz 01'den korunur).
 export const healthCheck = pgTable("_health_check", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

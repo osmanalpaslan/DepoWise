@@ -1,0 +1,187 @@
+using DepoWise.Application.Common;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Database;
+using Microsoft.Data.Sqlite;
+
+namespace DepoWise.Infrastructure.Org;
+
+public sealed record PersonnelRecord(
+    string Id, string CompanyId, string? BranchId, string FullName,
+    string? Title, string? Phone, bool IsActive, long CreatedAt);
+
+public sealed record NewPersonnel(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true);
+
+/// <summary>
+/// Personel CRUD — tenant + "personnel" permission + şube kapsamı fail-closed; soft delete/restore;
+/// keyset listeleme yalnız kullanıcının kapsamındaki kayıtları getirir. Tüm mutasyonlar audit'lenir.
+/// </summary>
+public sealed class PersonnelService
+{
+    private const string Module = "personnel";
+    private readonly IDbConnectionFactory _factory;
+    private readonly ScopeResolver _scope;
+    private readonly IClock _clock;
+
+    public PersonnelService(IDbConnectionFactory factory, ScopeResolver scope, IClock? clock = null)
+    {
+        _factory = factory;
+        _scope = scope;
+        _clock = clock ?? new SystemClock();
+    }
+
+    public string Create(SessionContext session, NewPersonnel dto)
+    {
+        AccessControl.Require(session, Module, PermissionAction.Create);
+        _scope.EnsureBranchAllowed(session, dto.BranchId);
+
+        var id = Guid.NewGuid().ToString("N");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "INSERT INTO personnel(id, company_id, branch_id, full_name, title, phone, is_active, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$b,$n,$t,$p,$a,$now,$now,1,0);";
+            Bind(cmd, id, session.CompanyId, dto, now);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId, "personnel", id, AuditActions.Create, session.UserId), _clock);
+        tx.Commit();
+        return id;
+    }
+
+    public void Update(SessionContext session, string id, NewPersonnel dto)
+    {
+        AccessControl.Require(session, Module, PermissionAction.Edit);
+        _scope.EnsureBranchAllowed(session, dto.BranchId);
+        var existing = GetOwned(session, id) ?? throw new ForbiddenException("Personel bulunamadı veya kapsam dışı.");
+        // Mevcut kaydın şubesi de kapsamda olmalı (başka şubeye taşımayı engelle değil; erişim kontrolü)
+        _scope.EnsureBranchAllowed(session, existing.BranchId);
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE personnel SET branch_id=$b, full_name=$n, title=$t, phone=$p, is_active=$a, " +
+                "version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
+            cmd.Parameters.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$n", dto.FullName);
+            cmd.Parameters.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$p", (object?)dto.Phone ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$a", dto.IsActive ? 1 : 0);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", session.CompanyId);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId, "personnel", id, AuditActions.Update, session.UserId), _clock);
+        tx.Commit();
+    }
+
+    public void SoftDelete(SessionContext session, string id) => SetDeleted(session, id, true, AuditActions.Delete, PermissionAction.Delete);
+    public void Restore(SessionContext session, string id) => SetDeleted(session, id, false, AuditActions.Restore, PermissionAction.Edit);
+
+    /// <summary>Tenant + kapsam filtreli keyset sayfası.</summary>
+    public PagedResult<PersonnelRecord> List(SessionContext session, PageRequest page, bool includeDeleted = false)
+    {
+        AccessControl.Require(session, Module, PermissionAction.View);
+        var allowedBranches = _scope.AllowedBranchIds(session);
+        bool isAdmin = AccessControl.IsAdmin(session);
+        var limit = page.NormalizedLimit();
+        var hasCursor = Cursor.TryDecode(page.Cursor, out var cursor);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at FROM personnel " +
+            "WHERE company_id = $c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
+            (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
+            TenantSql.KeysetOrderBy + " LIMIT $limit;";
+        cmd.Parameters.AddWithValue("$c", session.CompanyId);
+        cmd.Parameters.AddWithValue("$limit", limit + 1);
+        if (hasCursor)
+        {
+            cmd.Parameters.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
+            cmd.Parameters.AddWithValue("$cursorId", cursor.Id);
+        }
+
+        var items = new List<PersonnelRecord>();
+        using (var r = cmd.ExecuteReader())
+        {
+            while (r.Read())
+            {
+                var branchId = r.IsDBNull(2) ? null : r.GetString(2);
+                // Kapsam dışı şubedeki personel admin-olmayana gösterilmez (şubesiz kayıt herkese görünür).
+                if (!isAdmin && branchId is not null && !allowedBranches.Contains(branchId)) continue;
+                items.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), branchId,
+                    r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
+                    r.GetInt64(6) == 1, r.GetInt64(7)));
+            }
+        }
+
+        string? next = null;
+        if (items.Count > limit)
+        {
+            var last = items[limit - 1];
+            items.RemoveAt(items.Count - 1);
+            next = new Cursor(last.CreatedAt, last.Id).Encode();
+        }
+        return PagedResult<PersonnelRecord>.Of(items, next);
+    }
+
+    private void SetDeleted(SessionContext session, string id, bool deleted, string action, PermissionAction perm)
+    {
+        AccessControl.Require(session, Module, perm);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        int affected;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE personnel SET is_deleted=$d, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
+            cmd.Parameters.AddWithValue("$d", deleted ? 1 : 0);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", session.CompanyId);
+            affected = cmd.ExecuteNonQuery();
+        }
+        if (affected > 0)
+            AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId, "personnel", id, action, session.UserId), _clock);
+        tx.Commit();
+    }
+
+    private PersonnelRecord? GetOwned(SessionContext session, string id)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at FROM personnel " +
+            "WHERE id = $id AND company_id = $c;";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$c", session.CompanyId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        return new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+            r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
+            r.GetInt64(6) == 1, r.GetInt64(7));
+    }
+
+    private static void Bind(SqliteCommand cmd, string id, string companyId, NewPersonnel dto, long now)
+    {
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$n", dto.FullName);
+        cmd.Parameters.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$p", (object?)dto.Phone ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$a", dto.IsActive ? 1 : 0);
+        cmd.Parameters.AddWithValue("$now", now);
+    }
+}

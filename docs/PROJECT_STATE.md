@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 04 — Ortak UI, Menü ve Tanımlar/Alan Ayarları
+**Aktif faz:** Faz 05 — Firma, Şube/Şantiye ve Personel
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 05)
+- **Migration004**: `personnel` (ad/unvan/telefon/şube/aktiflik + standart kolonlar) + `user_scopes` (kullanıcı şube kapsamı).
+- **CompanyService**: firma oluşturma/listeleme YALNIZ Süper Admin; normal admin başka firmayı göremez/erişemez (fail-closed, `EnsureAccess`).
+- **ScopeResolver**: kullanıcı şube kapsamı — açık scope öncelikli, admin → tüm firma şubeleri, admin-olmayan kapsamsız → boş; `EnsureBranchAllowed` fail-closed.
+- **BranchService**: tenant + permission + kapsam; `ListInScope` kapsam dışına taşmaz; soft delete/restore; `AssignScope`.
+- **PersonnelService**: CRUD + tenant + "personnel" permission + şube kapsamı; keyset liste kapsam filtreli; soft delete/restore; tüm mutasyonlar audit.
+- **Web parite**: `lib/org/scope.ts` (aynı karar mantığı); Drizzle `personnel`/`user_scopes` + `drizzle/0001_personnel_scopes.sql`.
+- **Doğrulama**: 57/57 .NET test (9 yeni org/personel) + 16 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 04)
 - **Ortak UI mantığı (web=masaüstü)**: `MenuBuilder` (yetkiye göre menü), `DateInput` (GG/AA/YYYY gerçek takvim), `NumericInput` (negatif/sınır), `MultiSelectState` (arama seçimi korur, "tümünü seç" yalnız filtre, Türkçe duyarsız), `FieldDefinition`/`FieldVisibility` (lookup/çoklu seçim/foto/"+" buton, deny-by-default).
@@ -35,12 +44,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 05: Firma, Şube/Şantiye ve Personel modülleri (gerçek CRUD + login akışı bağlama).
-- Masaüstü login akışı + firma override tema uygulaması (preview admin session yerine) — R9.
-- Web oturum kalıcılığı (R8), yerel PostgreSQL (R4/R7).
+- Faz 06: Malzeme kartları ve Tedarikçi/Tanımlar.
+- Masaüstü/web login akışı + firma override tema (R8/R9); yerel PostgreSQL (R4/R7).
+- Personnel import/export ve UI ekranları (servis temeli hazır; ekran bağlama sonraki UI fazlarında).
 
 ## Sıradaki tek iş
-- **Faz 05 — Firma, Şube/Şantiye ve Personel** (`prompts/05_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 06 — Malzeme Kartları ve Tedarikçi/Tanımlar** (`prompts/06_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

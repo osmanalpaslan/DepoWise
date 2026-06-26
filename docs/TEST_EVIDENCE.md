@@ -81,6 +81,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/ui.test.ts`, `apps/web/tests/security.test.ts`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 05 / Firma, şube, personel testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Firma normal admin başka firmayı göremez; firma oluşturma yalnız süper admin; başka firma erişimi reddi; şube kapsamlı kullanıcı kapsam dışına taşamaz; personel CRUD tenant izolasyonu; soft delete/restore; kapsam dışı şube reddi; liste kapsam dışı personeli göstermez; personel deny-by-default.
+- **Geçen/Kalan:** 57 geçti / 0 kaldı (9 yeni org/personel).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/OrgPersonnelTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_org_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 05 / Web org paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name personnel_scopes`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 16 node:test (4 yeni org: firma yönetimi süper admin, görünür firmalar, kapsam çözümü, kapsam dışı şube reddi); Drizzle `0001_personnel_scopes.sql` üretildi; typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 16 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/org.test.ts`, `apps/web/drizzle/0001_personnel_scopes.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon

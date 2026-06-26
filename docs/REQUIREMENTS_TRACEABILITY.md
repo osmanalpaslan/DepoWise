@@ -25,6 +25,10 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 05 (2026-06-27):** REQ-MOD-02 (Firma/Şube/Şantiye) + REQ-MOD-13 (Personel) iş kuralı çekirdeği (UI bağlama R10):
+- `src/DepoWise.Infrastructure/Org/{CompanyService,BranchService,PersonnelService,ScopeResolver}.cs`, Migration004 (personnel + user_scopes); web `apps/web/src/lib/org/scope.ts`, Drizzle `personnel`/`user_scopes` + `drizzle/0001_personnel_scopes.sql`.
+- Testler: `tests/DepoWise.Tests/OrgPersonnelTests.cs`, `apps/web/tests/org.test.ts`.
+
 **Faz 04 (2026-06-27):** REQ-MOD-04 (Tanımlar/Alan Ayarları) çekirdeği + tüm modüllerin ortak UI altyapısı:
 - Ortak UI: `src/DepoWise.Application/Ui/*` (Menu, Validation, MultiSelectState, FieldDefinition); web `apps/web/src/lib/ui/*`.
 - Tema/branding: `src/DepoWise.Application/Theming/Branding.cs`, `Infrastructure/Settings/SettingsService.cs`, Migration003; web `apps/web/src/lib/theme/tokens.ts` + `globals.css`. Masaüstü shell: `Desktop/ViewModels/ShellViewModel.cs`, `Theming/ThemeApplier.cs`, `Views/MainWindow.axaml`.

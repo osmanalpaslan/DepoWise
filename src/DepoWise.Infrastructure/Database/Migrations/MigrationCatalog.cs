@@ -8,5 +8,6 @@ public static class MigrationCatalog
         new Migration001_CoreSchema(),
         new Migration002_AuthSeed(),
         new Migration003_AppSettings(),
+        new Migration004_Personnel(),
     };
 }
