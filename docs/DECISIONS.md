@@ -226,3 +226,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-040 — Excel export (ClosedXML) + import dry-run politikası
 - **Karar:** `TableModel` → `.xlsx` ClosedXML ile (sayısal hücreler sayı). İçe aktarım: örnek başlık + ön kontrol + **dry-run (DB'ye yazmaz)** + satır bazlı hata (ilk 15) + commit. Politika: **satır bazlı** (bir hatalı satır diğerlerini bozmaz), commit `MaterialService.Create` ile iş kurallarını atlamaz (tenant/permission/kod benzersiz/currency). Web `lib/reports/import.ts` aynı doğrulama.
 - **Gerekçe:** Analiz §6.15; kullanıcı talimatı (örnek dosya + ön kontrol + satır hata + dry-run).
+
+---
+
+## Faz 13 kararları (2026-06-27)
+
+### ADR-041 — Dosya güvenliği + ayrık dosya kaydı (base64 yok)
+- **Karar:** `FileValidation` ortak: ≤7MB, izinli MIME (jpeg/png), **magic-byte** ile gerçek tip (uzantı/declared MIME'a güvenmez; sahte içerik + MIME-içerik uyuşmazlığı reddi), güvenli ad. Fotoğraflar `IFileStorageProvider` (yerel disk; swappable) ile saklanır; operasyonel tabloya **base64 yazılmaz** — yalnız `file_records` metadata (provider/key/mime/size/sha256). Storage kök içine sınırlı (path traversal koruması). Web `lib/files/validation.ts` aynı.
+- **Gerekçe:** Analiz §6.16/§9.
+
+### ADR-042 — Çöp Kutusu + yedekleme
+- **Karar:** `TrashService` yalnız master-data soft-delete kayıtlarını listeler/geri yükler; özel buton (RestoreTrash) + **yeniden doğrulama (reauth)** + tenant fail-closed. Operasyonel kayıtlar çöp kutusunda DEĞİL (iptal/ters kayıt). `BackupService`: `VACUUM INTO` tutarlı yedek, 30 gün retention, `PRAGMA integrity_check`, geri yükleme admin+reauth ve `SqliteConnection.ClearAllPools()` ile dosya kilidi olmadan.
+- **Gerekçe:** Analiz §6.17-6.18/§9; gerçek geri yükleme + bütünlük kanıtı.

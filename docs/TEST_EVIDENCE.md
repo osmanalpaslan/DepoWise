@@ -209,6 +209,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/reporting.test.ts`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 13 / Dosya, çöp kutusu, yedek testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Geçerli jpeg kaydı (base64 yok, içerik diskte); sahte dosya magic-byte reddi; MIME-içerik uyuşmazlığı reddi; 7MB üstü reddi; deny-by-default; güvenli ad path traversal temizliği; çöp kutusu liste/restore + reauth zorunlu + yetkisiz reddi; yedek al + integrity_check=ok; geri yükle veri korunur (admin+reauth) + yetki/reauth zorunlu.
+- **Geçen/Kalan:** 154 geçti / 0 kaldı (12 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/FileTrashBackupTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_file_*.db`), `dotnet` host; EXE/BAT yok. Yedek integrity_check + geri yükle gerçek dosyayla doğrulandı.
+
+## 2026-06-27 - Faz 13 / Web dosya doğrulama paritesi + build
+- **Komut:** `npm test`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 51 node:test (magic-byte tespiti, sahte/MIME uyuşmazlığı/büyük dosya reddi, güvenli ad); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 51 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/files.test.ts`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node).
+
 ---
 
 ### Şablon

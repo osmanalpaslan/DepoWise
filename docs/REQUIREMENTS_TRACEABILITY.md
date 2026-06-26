@@ -25,6 +25,10 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 13 (2026-06-27):** REQ-MOD-16 (Dosya/Fotoğraf) + REQ-MOD-17 (Audit/Çöp Kutusu) + REQ-MOD-18 (Yedekleme) tamamlandı (servis + iş kuralı; UI bağlama R10):
+- `src/DepoWise.Infrastructure/Files/{FileService,LocalFileStorageProvider,TrashService,BackupService}.cs`, `Application/Files/{FileValidation,IFileStorageProvider}.cs`; web `apps/web/src/lib/files/validation.ts`.
+- Audit: tüm mutasyonlar `AuditWriter` (before/after/actor/correlation/time). Testler: `tests/DepoWise.Tests/FileTrashBackupTests.cs`, `apps/web/tests/files.test.ts`.
+
 **Faz 12 (2026-06-27):** REQ-MOD-01 (Ana Ekran/Uyarı) + REQ-MOD-14 (Raporlar) + REQ-MOD-15 (Import/Export) tamamlandı (servis + iş kuralı; UI bağlama R10):
 - `src/DepoWise.Infrastructure/Reporting/{DashboardService,ReportService,ExcelExportService,MaterialImportService}.cs`, `Application/Reports/{ReportModels,ImportModels}.cs`; web `apps/web/src/lib/reports/{gate,import}.ts`.
 - Testler: `tests/DepoWise.Tests/ReportingTests.cs`, `apps/web/tests/reporting.test.ts`.

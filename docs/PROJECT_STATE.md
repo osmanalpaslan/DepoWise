@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 12 — Ana Ekran, Uyarılar, Raporlar ve Import/Export
+**Aktif faz:** Faz 13 — Dosya/Fotoğraf, Audit, Çöp Kutusu ve Yedek
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 13)
+- **FileValidation** (ortak): boyut ≤7MB + izinli MIME + **magic-byte** (sahte içerik reddi, MIME-içerik uyuşmazlığı reddi) + güvenli dosya adı (path traversal temizliği).
+- **Storage provider** (`IFileStorageProvider` + `LocalFileStorageProvider`): swappable; kök içine sınırlı (traversal koruması); storage_key relatif yol.
+- **FileService**: doğrula + sakla + `file_records` metadata (provider/key/mime/size/sha256) — operasyonel tabloya **base64 YAZMAZ**; tenant + entity-modül permission; audit.
+- **TrashService**: master-data soft-delete liste/restore; **özel buton + yeniden doğrulama (reauth)** zorunlu; tenant fail-closed; audit. Operasyonel kayıtlar çöp kutusunda değil (iptal/ters kayıt).
+- **BackupService**: `VACUUM INTO` tutarlı yedek + 30 gün retention + **integrity_check (=ok)** + gerçek geri yükleme (admin + reauth, havuz boşaltma ile kilit yok).
+- **Web parite**: `lib/files/validation.ts`.
+- **Doğrulama**: 154/154 .NET test (12 yeni) + 51 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 12)
 - **DashboardService**: tenant KPI (araç/malzeme/personel/düşük stok/bekleyen talep) + **birleşik uyarılar** (bakım + muayene/sigorta + düşük stok), permission filtreli, NavigateKey ile köprü.
@@ -105,12 +114,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 13: Dosya/Fotoğraf, Audit, Çöp Kutusu ve Yedek.
-- Import yalnız malzeme için (diğer setler aynı desenle eklenecek — R17).
-- Web PDF render (R16); şube bazlı stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
+- Faz 14: Offline Senkronizasyon, Cihaz Kaydı ve Çakışmalar.
+- Fotoğraf optimizasyonu (1200px/JPEG) henüz passthrough — gerçek resize için image lib gerekir (R18).
+- Import sadece malzeme (R17); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 13 — Dosya/Fotoğraf, Audit, Çöp Kutusu ve Yedek** (`prompts/13_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 14 — Offline Senkronizasyon, Cihaz Kaydı ve Çakışmalar** (`prompts/14_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`
