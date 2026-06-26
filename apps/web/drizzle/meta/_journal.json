@@ -43,6 +43,13 @@
       "when": 1782510146232,
       "tag": "0005_maintenance",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782510582803,
+      "tag": "0006_fuel_daily",
+      "breakpoints": true
     }
   ]
 }

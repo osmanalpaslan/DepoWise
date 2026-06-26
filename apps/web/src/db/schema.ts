@@ -622,6 +622,90 @@ export const vehicleInspections = pgTable(
   (t) => [index("ix_vehicle_inspections").on(t.vehicleId, t.docType, t.isDeleted)],
 );
 
+// ---- Faz 10: Yakıt + günlük faaliyet ----
+export const fuelDepotEntries = pgTable(
+  "fuel_depot_entries",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    supplierId: text("supplier_id"),
+    liters: numeric("liters").notNull(),
+    unitPrice: numeric("unit_price").notNull().default("0"),
+    currencyCode: text("currency_code").notNull().default("TRY"),
+    fxRate: numeric("fx_rate"),
+    invoiceNo: text("invoice_no"),
+    note: text("note"),
+    entryDate: bigint("entry_date", { mode: "number" }).notNull(),
+    operationId: text("operation_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_fuel_depot_op").on(t.operationId),
+    index("ix_fuel_depot_company").on(t.companyId, t.entryDate),
+  ],
+);
+
+export const fuelDistributions = pgTable(
+  "fuel_distributions",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    vehicleId: text("vehicle_id").notNull(),
+    prevMeter: numeric("prev_meter"),
+    currentMeter: numeric("current_meter"),
+    liters: numeric("liters").notNull(),
+    unitPrice: numeric("unit_price").notNull().default("0"),
+    currencyCode: text("currency_code").notNull().default("TRY"),
+    fxRate: numeric("fx_rate"),
+    personnelId: text("personnel_id"),
+    distributionDate: bigint("distribution_date", { mode: "number" }).notNull(),
+    note: text("note"),
+    operationId: text("operation_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_fuel_dist_op").on(t.operationId),
+    index("ix_fuel_dist_company").on(t.companyId, t.distributionDate),
+    index("ix_fuel_dist_vehicle").on(t.vehicleId, t.distributionDate),
+  ],
+);
+
+export const dailyActivities = pgTable(
+  "daily_activities",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    activityType: text("activity_type").notNull(),
+    movementKind: text("movement_kind"),
+    vehicleId: text("vehicle_id"),
+    fromLocationId: text("from_location_id"),
+    toLocationId: text("to_location_id"),
+    operatorId: text("operator_id"),
+    durationDays: integer("duration_days"),
+    description: text("description"),
+    maintenanceId: text("maintenance_id"),
+    sourceModule: text("source_module").notNull().default("daily_activity"),
+    stockProcessed: boolean("stock_processed").notNull().default(false),
+    activityDate: bigint("activity_date", { mode: "number" }).notNull(),
+    operationId: text("operation_id").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_daily_activities_op").on(t.operationId),
+    index("ix_daily_activities").on(t.companyId, t.activityType, t.activityDate),
+    index("ix_daily_activities_vehicle").on(t.vehicleId, t.activityDate),
+  ],
+);
+
 // Açılış/health probe tablosu (Faz 01'den korunur).
 export const healthCheck = pgTable("_health_check", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

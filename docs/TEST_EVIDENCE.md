@@ -161,6 +161,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/maintenance.test.ts`, `apps/web/drizzle/0005_maintenance.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-27 - Faz 10 / Yakıt + günlük faaliyet testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Yakıt depo+dağıtım bakiye/sayaç tutarlı; depo yetersiz engeli; fiyat snapshot geçmişte değişmez; dağıtım idempotent; günlük faaliyet bakım TEK kayıt + tek stok düşümü + referans; bakım idempotent; transfer aracı pasife alır; hareket durumu değiştirmez; deny-by-default.
+- **Geçen/Kalan:** 116 geçti / 0 kaldı (9 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/FuelDailyActivityTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_fda_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 10 / Web yakıt paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name fuel_daily`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 37 node:test (depo bakiye, güncel fiyat, maliyet snapshot, L/100km güvenli); Drizzle `0006_fuel_daily.sql` (3 yeni tablo); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 37 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/fuel.test.ts`, `apps/web/drizzle/0006_fuel_daily.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon

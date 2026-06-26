@@ -190,3 +190,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-034 — Uyarı eşikleri ve döngü
 - **Karar:** `AlertRules` (web+masaüstü): progress=tüketilen/interval; <0.85 Normal, [0.85,0.95) Approaching, [0.95,1.0) Critical, ≥1.0 Overdue. Tüketilen km/saat = current_meter − performed; gün = now − performed_date. Uyarı her (araç,tanım) için EN SON non-cancelled bakımdan hesaplanır → yeni bakım girilince otomatik temizlenir.
 - **Gerekçe:** Kullanıcı talimatı + analiz §6.8.
+
+---
+
+## Faz 10 kararları (2026-06-27)
+
+### ADR-035 — Yakıt dağıtımı atomik + fiyat snapshot
+- **Karar:** `FuelService.Distribute` IMMEDIATE transaction'da: depo bakiye yeterlilik kontrolü + dağıtım (birim fiyat **snapshot**; verilmezse güncel=son depo fiyatı) + araç sayacı ileri (MeterRule) + meter log + audit; operation_id idempotent. Depo bakiyesi = Σgiriş − Σdağıtım (tüm zamanlar). Güncel fiyat değişimi geçmiş dağıtımları ETKİLEMEZ.
+- **Gerekçe:** Analiz §7 (tarihsel maliyet snapshot, sayaç bütünlüğü, transaction).
+
+### ADR-036 — Günlük Faaliyet bakım = tek kayıt (çift düşüm yok)
+- **Karar:** `DailyActivityService.SaveMaintenanceActivity` ortak `MaintenanceService.Save`'i çağırır (tek `vehicle_maintenances` + tek stok düşümü). `daily_activities` yalnız `maintenance_id` referansı + `stock_processed=1` tutar; burada stok DÜŞMEZ. Böylece kayıt hem Bakım Takibi hem Günlük Faaliyet ekranında görünür, veri tek.
+- **Gerekçe:** Kullanıcı talimatı + analiz §6.11 (tek kayıt prensibi).

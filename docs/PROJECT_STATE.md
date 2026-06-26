@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 09 — Bakım, Muayene/Sigorta ve Uyarı Döngüsü
+**Aktif faz:** Faz 10 — Yakıt Sarfiyatı ve Günlük Faaliyet
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 10)
+- **Migration009**: `fuel_depot_entries`, `fuel_distributions` (fiyat snapshot), `daily_activities` (hareket/transfer/bakım).
+- **FuelService**: depo girişi; dağıtım atomik (IMMEDIATE) — depo bakiye kontrolü + **fiyat snapshot** + araç sayacı ileri + meter log + audit; operation_id idempotent. Depo bakiyesi = tüm girişler − tüm dağıtımlar; güncel fiyat = son giriş.
+- **Günlük Faaliyet bakım = TEK kayıt**: `DailyActivityService.SaveMaintenanceActivity` ORTAK `MaintenanceService.Save`'i çağırır (tek bakım + tek stok düşümü); daily_activities yalnız REFERANS (stock_processed=1, burada stok düşmez). Aynı veri iki ekranda.
+- **Hareket/transfer**: transfer aracı otomatik pasife alır (ileri-yön); hareket durumu değiştirmez. Tümü idempotent.
+- **Fiyat snapshot geçmişte değişmez** (yeni depo fiyatı eski dağıtımı etkilemez) — testle kanıt.
+- **Web parite**: `lib/fuel/fuel.ts` (bakiye/fiyat/maliyet/L-100km); Drizzle 3 yeni tablo + `drizzle/0006_fuel_daily.sql`.
+- **Doğrulama**: 116/116 .NET test (9 yeni) + 37 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 09)
 - **Migration008**: `maintenance_definitions` (ana/alt + periyot km/saat/gün) + araç kapsamı, `vehicle_maintenances`, `maintenance_materials`, `vehicle_inspections` (muayene/sigorta/kasko/kalibrasyon).
@@ -79,12 +88,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 10: Yakıt Sarfiyatı ve Günlük Faaliyet (sayaç + maliyet snapshot entegrasyonu).
-- Şube bazlı stok bakiyesi (R13); vehicle_id FK yumuşak (R11); alert GROUP BY bare-column (R14).
-- UI ekranları (R10); login akışı (R8/R9); yerel PostgreSQL (R4/R7).
+- Faz 11: Malzeme Talep, Onay ve PDF.
+- Günlük faaliyet bakım: maintenance ile daily_activity ayrı transaction (retry ile tutarlı; R15).
+- Şube bazlı stok (R13); vehicle FK yumuşak (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 10 — Yakıt Sarfiyatı ve Günlük Faaliyet** (`prompts/10_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 11 — Malzeme Talep, Onay ve PDF** (`prompts/11_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`
