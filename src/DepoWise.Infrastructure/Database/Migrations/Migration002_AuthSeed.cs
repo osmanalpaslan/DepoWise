@@ -1,0 +1,63 @@
+using DepoWise.Application.Security;
+using Microsoft.Data.Sqlite;
+
+namespace DepoWise.Infrastructure.Database.Migrations;
+
+/// <summary>
+/// Kimlik/yetki temeli: login_attempts (brute-force kilidi) tablosu + sistem rollerinin seed'i.
+/// Roller company_id = NULL (tüm firmalar için sistem rolü).
+/// </summary>
+public sealed class Migration002_AuthSeed : IMigration
+{
+    public int Version => 2;
+    public string Name => "auth_seed";
+
+    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    {
+        Exec(conn, tx, @"
+CREATE TABLE login_attempts (
+    id TEXT PRIMARY KEY,
+    company_id TEXT NULL,
+    username TEXT NOT NULL,
+    success INTEGER NOT NULL,
+    attempted_at INTEGER NOT NULL
+);
+CREATE INDEX ix_login_attempts_user ON login_attempts(username, attempted_at);
+
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    revoked_at INTEGER NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX ix_sessions_user ON sessions(user_id);
+");
+
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var (key, name, isSystem) in RoleKeys.Seed)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO roles(id, company_id, role_key, name, is_system, created_at, updated_at, version, is_deleted)
+VALUES($id, NULL, $key, $name, $sys, $now, $now, 1, 0);";
+            cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            cmd.Parameters.AddWithValue("$key", key);
+            cmd.Parameters.AddWithValue("$name", name);
+            cmd.Parameters.AddWithValue("$sys", isSystem ? 1 : 0);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+}

@@ -29,12 +29,14 @@ public class DatabaseFoundationTests : IDisposable
         var runner = new MigrationRunner(_factory);
         var first = runner.Run();
         Assert.Contains(1, first);
-        Assert.Equal(1, runner.CurrentVersion());
+        Assert.Contains(2, first);
+        var latest = runner.CurrentVersion();
+        Assert.Equal(first.Max(), latest);
 
         // İkinci çalıştırma mevcut DB üzerinde güvenli: yeni uygulanan yok.
         var second = new MigrationRunner(_factory).Run();
         Assert.Empty(second);
-        Assert.Equal(1, new MigrationRunner(_factory).CurrentVersion());
+        Assert.Equal(latest, new MigrationRunner(_factory).CurrentVersion());
     }
 
     [Fact]

@@ -7,6 +7,7 @@
 - **R3:** Otomatik döviz kuru kaynağı kesinleşmedi; manuel kur + tarihçe güvenli fallback olarak tasarlanacak. Etki: para/maliyet modülleri (Faz 06+).
 - **R4:** Yerel PostgreSQL geliştirme örneği henüz kurulu değil. SQLite şeması testlerle doğrulandı; PG tarafında migration SQL üretildi ama **canlı DB'ye uygulanmadı**. Etki: orta (Faz 03 öncesi PG örneği gerekebilir).
 - **R7:** PG migration ↔ SQLite şema eşitliği şu an manuel/elle korunuyor (iki ayrı tanım). İleride şema sözleşme/parite testi düşünülmeli. Etki: orta (drift riski).
+- **R8:** Web `getServerSession` henüz oturum çözmüyor (imzalı cookie + DB session lookup Faz 05'e bırakıldı); şu an fail-closed null döner → `/api/v1/me` daima 401. Davranış güvenli; işlevsel oturum web tarafında Faz 05'te bağlanacak. Etki: orta.
 
 ## Kapatılan
 - Büyük tek prompt yerine faz bazlı çalışma paketi oluşturuldu.

@@ -1,8 +1,16 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 02 — Veritabanı Temeli, Audit ve Ortak Veri Kuralları
+**Aktif faz:** Faz 03 — Kimlik Doğrulama, Tenant ve Yetki Sistemi
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 03)
+- **Parola hash**: PBKDF2-HMAC-SHA256 (`pbkdf2$sha256$iter$salt$hash`) — .NET `PasswordHasher` ve web `password.ts` AYNI biçim (parite testle doğrulandı).
+- **Login + brute-force kilidi**: `AuthService` — 5 ardışık hatada 5 dk kilit, başarı sıfırlar; `login_attempts` + `sessions` tabloları (Migration002).
+- **Rol/yetki modeli**: 6 sistem rolü seed; `AppModules` katalog + `PermissionAction` + `PermissionSet`; `AccessControl` deny-by-default (menü/buton/alan), admin bypass; `SessionContext` company_id'yi yalnız oturumdan alır.
+- **Tenant + yetki yükseltme**: `TenantAccessGuard` (payload farklı firma → 403; süper admin çapraz firma), `RoleAssignmentGuard` (admin/süper-admin rolü atama koruması), `UserService.CreateUser`/`EnsureInitialAdmin`.
+- **Web eşleniği**: `lib/security/{password,permissions,tenant,session}.ts`; korumalı `/api/v1/me` (oturum yoksa 401, deny-by-default).
+- **Doğrulama**: 28/28 .NET test (12 yeni auth/yetki) + 5 web node:test; web typecheck/lint/build yeşil.
 
 ## Tamamlanan (Faz 02)
 - **SQLite migration altyapısı**: `IMigration` + `MigrationRunner` (schema_migrations, sıfır/mevcut DB güvenli, idempotent, her migration tek transaction) + `MigrationCatalog`.
@@ -20,11 +28,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 03: kimlik doğrulama, tenant ve yetki (rol/permission enforcement, fail-closed API/UI).
-- Yerel PostgreSQL geliştirme örneği kurulumu — Drizzle migration `db:push`/`migrate` henüz canlı DB'de çalıştırılmadı (R4/R7).
+- Faz 04: ortak UI, menü ve Tanımlar/Alan Ayarları altyapısı.
+- Web oturum kalıcılığı: imzalı cookie + DB session lookup `getServerSession` içinde Faz 05'e bırakıldı (şimdilik fail-closed null) — R8.
+- Yerel PostgreSQL geliştirme örneği kurulumu (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 03 — Kimlik Doğrulama, Tenant ve Yetki Sistemi** (`prompts/03_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 04 — Ortak UI, Menü ve Tanımlar/Alan Ayarları** (`prompts/04_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

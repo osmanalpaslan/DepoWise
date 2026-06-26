@@ -6,5 +6,6 @@ public static class MigrationCatalog
     public static IReadOnlyList<IMigration> All() => new IMigration[]
     {
         new Migration001_CoreSchema(),
+        new Migration002_AuthSeed(),
     };
 }

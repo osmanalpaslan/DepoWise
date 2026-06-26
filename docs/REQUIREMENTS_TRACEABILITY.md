@@ -25,6 +25,11 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 03 (2026-06-26):** REQ-MOD-03 (Kullanıcı/Rol/Yetki) çekirdeği — UI bağlama Faz 04/05:
+- Auth + kilit + parola: `src/DepoWise.Infrastructure/Security/{PasswordHasher,AuthService,UserService}.cs`, Migration002 (login_attempts/sessions + rol seed); web `apps/web/src/lib/security/*`.
+- Deny-by-default + tenant + yetki yükseltme: `src/DepoWise.Application/Security/{AppModules,Permissions,SessionContext,AccessControl,RoleAssignmentGuard}.cs`.
+- Testler: `tests/DepoWise.Tests/AuthPermissionTests.cs`, `apps/web/tests/security.test.ts`, `apps/web/src/app/api/v1/me/route.ts`.
+
 **Faz 02 (2026-06-26):** Veri temeli — tüm operasyonel modüllerin (REQ-MOD-02/03/04/16/17/18/20) ön koşulu kuruldu:
 - Çekirdek şema + migration: `src/DepoWise.Infrastructure/Database/Migrations/*` (companies, branches, users, roles, permissions, audit_logs, file_records, sync_*); PG: `apps/web/src/db/schema.ts` + `apps/web/drizzle/0000_core_schema.sql`.
 - Tenant/soft-delete/keyset/audit kuralları: `src/DepoWise.Application/Common/{Tenant,Cursor,Audit}.cs`, `Infrastructure/Database/{TenantSql,AuditWriter,BranchRepository}.cs`; test `tests/DepoWise.Tests/DatabaseFoundationTests.cs`.

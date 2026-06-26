@@ -49,6 +49,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/drizzle/0000_core_schema.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-26 - Faz 03 / Kimlik doğrulama + yetki testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Parola hash/verify + farklı salt; login başarı/hata; 5-hata kilidi + süre dolunca + başarı sıfırlama; deny-by-default; dashboard herkese açık; yalnız-view menü görünür/yazma reddi; admin tam yetki; payload farklı firma reddi; süper admin çapraz firma; admin-olmayan admin rolü atayamaz; firma admini foreign company reddi + kendi firmasında oluşturma; süper admin süper admin oluşturur.
+- **Geçen/Kalan:** 28 geçti / 0 kaldı (12 yeni auth/yetki).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/AuthPermissionTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_auth_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-26 - Faz 03 / Web güvenlik paritesi + build
+- **Komut:** `node --test tests/`; `npx tsc --noEmit`; `npx next lint`; `npx next build` (apps/web)
+- **Exit code:** 0 / 0 / 0 / 0
+- **Sonuç:** 5 node:test geçti (parola .NET ile aynı biçim, deny-by-default, yalnız-view, admin bypass, payload firma reddi); typecheck/lint temiz; build başarılı (`/api/v1/me` korumalı uç 401 üretir).
+- **Geçen/Kalan:** 5 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/security.test.ts`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node).
+
 ---
 
 ### Şablon
