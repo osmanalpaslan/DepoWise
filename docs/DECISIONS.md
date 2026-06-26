@@ -149,3 +149,20 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-027 — Muadil ve uyumlu araç ilişkileri
 - **Karar:** Muadil simetrik (servis çift yön yazar) + self-FK CHECK + döngü güvenli BFS grup çözümü. Uyumlu araç çoklu seçim `material_compatible_vehicles` (vehicle_id FK Faz 08'e ertelendi). Araç→uyumlu malzeme sorgusu güncel stoğu (stock_balances join) gösterir.
 - **Gerekçe:** Analiz §6.5; çift yönlü, döngü güvenli ilişki.
+
+---
+
+## Faz 07 kararları (2026-06-27)
+
+### ADR-028 — Stok işlemleri concurrency: IMMEDIATE transaction
+- **Karar:** Tüm bakiye değiştiren akışlar `BeginTransaction(deferred: false)` (BEGIN IMMEDIATE) ile yazma kilidini baştan alır → eş zamanlı çıkışlar serialize olur; ikinci işlem güncel bakiyeyi okuyup negatif guard'a takılır. Negatif düşüş `NegativeStockException` + rollback.
+- **Alternatif:** Koşullu UPDATE (quantity TEXT karşılaştırması zor) — reddedildi. IMMEDIATE + busy_timeout yeterli ve sade.
+- **Kanıt:** `EsZamanli_IkiCikis_NegatifStokOlusturamaz` (Parallel.For).
+
+### ADR-029 — Belge/hareket modeli ve iptal = ters kayıt
+- **Karar:** `stock_documents` (in/out/transfer/count) + hareketler belgeye bağlı; doc_no otomatik (PREFIX-YYYY-NNNN). Transfer kaynak çıkış + hedef giriş aynı group_id'de atomik. İptal hareketi FİZİKSEL SİLMEZ: ters hareket üretir, orijinali is_reversed=1 işaretler, belge cancelled. operation_id ile tüm akışlar idempotent.
+- **Gerekçe:** Analiz §7 (silme yerine ters kayıt, idempotency, transaction).
+
+### ADR-030 — Bakiye material-global (şube bazlı ertelendi)
+- **Karar:** `stock_balances` material düzeyinde tek bakiye; transfer toplam stoğu değiştirmez (net-zero), hareketlerde from/to şube kayıtlı. Şube bazlı bakiye/negatif kontrolü sonraki bir fazda eklenecek (R13).
+- **Gerekçe:** Faz 06 şemasını bozmadan ilerlemek; MVP için yeterli, kayıt izi şube bilgisini taşıyor.

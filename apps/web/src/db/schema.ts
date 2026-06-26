@@ -342,11 +342,54 @@ export const stockMovements = pgTable(
     operationId: text("operation_id").notNull(),
     note: text("note"),
     createdAt: createdAt(),
+    documentId: text("document_id"),
+    branchFromId: text("branch_from_id"),
+    isReversed: boolean("is_reversed").notNull().default(false),
+    reversesMovementId: text("reverses_movement_id"),
   },
   (t) => [
     uniqueIndex("ux_stock_movements_operation").on(t.operationId),
     index("ix_stock_movements_material").on(t.materialId, t.createdAt),
   ],
+);
+
+export const stockDocuments = pgTable(
+  "stock_documents",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id").notNull(),
+    docType: text("doc_type").notNull(), // in | out | transfer | count
+    docNo: text("doc_no").notNull(),
+    docDate: bigint("doc_date", { mode: "number" }).notNull(),
+    fromBranchId: text("from_branch_id"),
+    toBranchId: text("to_branch_id"),
+    personnelId: text("personnel_id"),
+    vehicleId: text("vehicle_id"),
+    note: text("note"),
+    status: text("status").notNull().default("active"),
+    groupId: text("group_id"),
+    createdAt: createdAt(),
+    version: version(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [
+    uniqueIndex("ux_stock_documents_no").on(t.companyId, t.docType, t.docNo),
+    index("ix_stock_documents_company").on(t.companyId, t.docType, t.createdAt),
+  ],
+);
+
+export const stockCountLines = pgTable(
+  "stock_count_lines",
+  {
+    id: text("id").primaryKey(),
+    documentId: text("document_id").notNull(),
+    materialId: text("material_id").notNull(),
+    systemQty: numeric("system_qty").notNull(),
+    countedQty: numeric("counted_qty").notNull(),
+    diffQty: numeric("diff_qty").notNull(),
+    reason: text("reason"),
+  },
+  (t) => [index("ix_stock_count_lines_doc").on(t.documentId)],
 );
 
 export const stockBalances = pgTable("stock_balances", {

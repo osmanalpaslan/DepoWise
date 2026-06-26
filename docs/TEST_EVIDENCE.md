@@ -113,6 +113,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/materials.test.ts`, `apps/web/drizzle/0002_materials_ledger.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
 
+## 2026-06-27 - Faz 07 / Stok işlemleri testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Giriş/çıkış bakiye; negatif stok engeli + rollback; idempotency (op_id çift yazmaz); transfer atomik 2 hareket + yetersiz stok red; sayım gerekçeli fark + gerekçe zorunlu; iptal ters hareket (orijinal silinmez, belge cancelled) + idempotent; **eş zamanlı iki çıkış negatif oluşturamaz** (Parallel.For, 1 ok/1 fail); deny-by-default.
+- **Geçen/Kalan:** 81 geçti / 0 kaldı (12 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/StockOperationTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_stk_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 07 / Web stok defteri paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name stock_documents`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 26 node:test (giriş/çıkış, negatif guard, idempotent, transfer net-zero, iptal ters hareket, applyDelta); Drizzle `0003_stock_documents.sql`; typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 26 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/stock.test.ts`, `apps/web/drizzle/0003_stock_documents.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node). Canlı PG'ye migration UYGULANMADI (R4).
+
 ---
 
 ### Şablon

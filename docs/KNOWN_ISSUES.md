@@ -7,6 +7,7 @@
 - **R3:** Otomatik döviz kuru kaynağı kesinleşmedi; manuel kur + tarihçe güvenli fallback olarak tasarlanacak. Etki: para/maliyet modülleri (Faz 06+).
 - **R4:** Yerel PostgreSQL geliştirme örneği henüz kurulu değil. SQLite şeması testlerle doğrulandı; PG tarafında migration SQL üretildi ama **canlı DB'ye uygulanmadı**. Etki: orta (Faz 03 öncesi PG örneği gerekebilir).
 - **R7:** PG migration ↔ SQLite şema eşitliği şu an manuel/elle korunuyor (iki ayrı tanım). İleride şema sözleşme/parite testi düşünülmeli. Etki: orta (drift riski).
+- **R13:** Stok bakiyesi material-global (şube bazlı değil); transfer net-zero. Şube bazlı bakiye + şube negatif kontrolü sonraki fazda. Etki: orta (çok şubeli stok ayrımı henüz yok).
 - **R11:** `material_compatible_vehicles.vehicle_id` şu an FK'siz serbest metin (vehicles tablosu Faz 08). Faz 08'de FK + referans bütünlüğü eklenecek. Etki: düşük (geçici).
 - **R12:** Malzeme listesinde LIKE araması varsayılan SQLite (ASCII case-insensitive); Türkçe duyarsız LIKE override henüz eklenmedi (CLAUDE.md AlpDepo standardı). Gerekirse Faz 07+ eklenir. Etki: düşük.
 - **R10:** Personel ve firma/şube modüllerinin UI ekranları (liste/form/import-export) henüz bağlanmadı; servis + iş kuralları + testler hazır. İlgili ekranlar sonraki UI fazlarında MenuBuilder/AccessControl ile bağlanacak. Etki: orta.

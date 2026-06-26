@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 06 — Malzeme Kartları ve Tedarikçi/Tanımlar
+**Aktif faz:** Faz 07 — Stok Giriş, Çıkış, Transfer ve Sayım
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 07)
+- **Migration006**: `stock_documents` (in/out/transfer/count, doc_no, belge alanları), `stock_movements`'a document/branch_from/is_reversed/reverses kolonları, `stock_count_lines`.
+- **StockService**: giriş/çıkış/transfer/sayım; belge no otomatik (GIR/CIK/TRF/SAY-YYYY-NNNN); hareket ana kaynak, bakiye yalnız hareketle değişir.
+- **Negatif stok engeli + concurrency**: IMMEDIATE transaction (`deferred:false`) ile eş zamanlı çıkış serialize; düşüşte negatif → `NegativeStockException` + rollback.
+- **Idempotency**: operation_id aynıysa ikinci hareket üretilmez (mevcut belge döner). Transfer kaynak çıkış + hedef giriş tek grup/atomik.
+- **Sayım**: gerekçeli fark hareketi (system snapshot + counted + diff + reason). **İptal = ters hareket** (orijinal silinmez, is_reversed=1, belge cancelled, idempotent).
+- **Web parite**: `lib/stock/ledger.ts`; Drizzle `stock_documents`/`stock_count_lines` + movement kolonları + `drizzle/0003_stock_documents.sql`.
+- **Doğrulama**: 81/81 .NET test (12 yeni, eş zamanlı çıkış dahil) + 26 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 06)
 - **Migration005**: tanımlar (material_categories+alt kategori, brands brand_type, units, suppliers), `materials` (kod benzersiz, para TEXT+currency), `material_equivalents`, `material_compatible_vehicles`, **stok defteri** (stock_movements + stock_balances), `fx_rates`.
@@ -52,12 +61,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 07: Stok Giriş/Çıkış/Transfer/Sayım (giriş/çıkış/transfer hareket tipleri stock_movements üzerine; negatif stok/yarış koşulu).
-- UI ekranları (malzeme/tanım liste-form, personel, firma/şube) — servis temeli hazır (R10).
-- Masaüstü/web login akışı (R8/R9); yerel PostgreSQL (R4/R7).
+- Faz 08: Araçlar, Araç Şablonları ve Sayaç (vehicle_id FK'leri burada bağlanacak — R11).
+- Şube bazlı stok bakiyesi (şu an material-global; R13).
+- UI ekranları (R10); login akışı (R8/R9); yerel PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 07 — Stok Giriş, Çıkış, Transfer ve Sayım** (`prompts/07_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 08 — Araçlar, Araç Şablonları ve Sayaç** (`prompts/08_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`
