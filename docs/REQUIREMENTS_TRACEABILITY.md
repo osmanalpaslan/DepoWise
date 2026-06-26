@@ -25,4 +25,9 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 01 (2026-06-26):** Modül gereksinimi tamamlanmadı; iskelet + ortak sözleşmeler kuruldu. Tüm modülleri besleyen ortak altyapı kanıtları:
+- Hata modeli / pagination / zaman / correlation: `src/DepoWise.Application/Common/*`, `apps/web/src/lib/contracts.ts`, `apps/web/docs/openapi.yaml`; test `tests/DepoWise.Tests/SkeletonSmokeTests.cs`.
+- Yerel DB temeli (REQ-MOD-18/20 ön koşulu): `src/DepoWise.Infrastructure/Database/*`.
+- Fail-closed config (REQ-MOD-03 ön koşulu): `apps/web/src/lib/config.ts`, `/api/v1/health`.
+
 Her faz sonunda ilgili satırlar güncellenir.

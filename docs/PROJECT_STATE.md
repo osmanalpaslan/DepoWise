@@ -1,30 +1,29 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 00 — Kaynak Analizi, Repo Keşfi ve Kesin Plan
+**Aktif faz:** Faz 01 — Çözüm İskeleti ve Ortak Sözleşmeler
 **Durum:** Tamamlandı
 
-## Tamamlanan (Faz 00)
-- Repo envanteri çıkarıldı: yalnız docs/prompts/config var, **uygulama kaynak kodu yok** (boş iskelet).
-- Araç doğrulaması: .NET 8.0.422 ve Node v24.16.0 kurulu; `dotnet` host erişilebilir.
-- CLAUDE.md ↔ `docs/DEPOWISE_ANALYSIS.md` çelişki taraması yapıldı; **çelişki bulunmadı**.
-- COMODO koruması doğrulandı: PreToolUse Bash hook'u (`comodo_guard.ps1`) .bat ve `DepoWise*.exe` çalıştırmayı engelliyor; `UseAppHost=false` (Directory.Build.props) aktif.
-- Mimari kararlar ADR olarak `DECISIONS.md`'ye işlendi (ADR-001..ADR-007).
-- Gereksinim → faz eşlemesi `REQUIREMENTS_TRACEABILITY.md`'de doğrulandı (REQ-MOD-01..20).
-- GitHub deposu kuruldu ve push edildi: github.com/osmanalpaslan/DepoWise (private, branch `master`).
+## Tamamlanan (Faz 01)
+- **.NET çözümü** kuruldu: `DepoWise.sln` + `src/DepoWise.{Domain,Application,Infrastructure,Desktop}` + `tests/DepoWise.Tests`. Hepsi **net8.0** (Avalonia template'in net10.0 hedefi net8.0'a çekildi).
+- **Ortak sözleşmeler** (Application/Common): `ApiError` + `ErrorCodes`, keyset `PageRequest`/`PagedResult`, `IClock`/`SystemClock` + `UnixTime`, `Correlation`, `HealthResult`/`IDatabaseHealth`.
+- **Yerel DB temeli** (Infrastructure/Database): `AppPaths` (mutlak `%LOCALAPPDATA%\DepoWise\Data\<env>`), `SqliteConnectionFactory` (Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000), `DatabaseHealth` (write/read).
+- **Masaüstü açılış health**: `DesktopBootstrap` startup'ta health çalıştırıp `%LOCALAPPDATA%\DepoWise\Logs\startup.log`'a yazar; MainWindow özeti gösterir. App base tipi `Avalonia.Application` (namespace çakışması çözüldü).
+- **Web iskeleti** (`apps/web`): Next.js 15 (TS strict + noUncheckedIndexedAccess), Drizzle/postgres, fail-closed `config.ts`, `/api/v1/health` (correlation_id + 200/503), `docs/openapi.yaml` (ApiError/PagedResult/Health şemaları). Web sözleşmeleri .NET ile fonksiyonel eşit.
+- **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 01'de çözüm iskeleti kurulacak (henüz hiçbir proje dosyası yok).
-- Üretim hosting / object storage / kur kaynağı seçimleri (KNOWN_ISSUES).
+- Faz 02: PostgreSQL + SQLite migration/audit temeli, gerçek tenant tabloları.
+- Yerel PostgreSQL geliştirme örneği kurulumu (R4).
 
 ## Sıradaki tek iş
-- **Faz 01 — Çözüm İskeleti ve Ortak Sözleşmeler** (`prompts/01_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 02 — Veritabanı Temeli, Audit ve Ortak Veri Kuralları** (`prompts/02_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
-- `dotnet build`
-- `dotnet run --project src/DepoWise.Desktop`
-- `dotnet <tam-DLL-yolu>/DepoWise.Desktop.dll`
-- Web (Faz 01 sonrası): `npm run dev`
+- `dotnet build DepoWise.sln`
+- `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj`
+- `dotnet run --project src/DepoWise.Desktop` (veya `dotnet <DLL>` — EXE/BAT yok)
+- Web: `cd apps/web && npm run dev | npm run build | npm run typecheck`
 
 ## Bilinen engeller
 - Bkz. `KNOWN_ISSUES.md`.

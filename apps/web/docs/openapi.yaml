@@ -1,0 +1,75 @@
+openapi: 3.1.0
+info:
+  title: DepoWise API
+  version: 0.1.0
+  description: >
+    DepoWise merkezi API. Tüm uçlar /api/v1 altında, ortak hata modeli ve
+    correlation_id ile döner. Bu dosya Faz 01 temelidir; modül uçları ilgili
+    fazlarda eklenecektir.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      summary: Sağlık kontrolü
+      operationId: getHealth
+      responses:
+        "200":
+          description: Sağlıklı
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Eksik konfigürasyon (fail-closed)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status, environment, timeMs, correlationId, checks]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        environment: { type: string }
+        timeMs: { type: integer, format: int64 }
+        correlationId: { type: string }
+        checks:
+          type: object
+          properties:
+            configOk: { type: boolean }
+            missingSecrets:
+              type: array
+              items: { type: string }
+    ApiError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum:
+            - validation_error
+            - unauthorized
+            - forbidden
+            - not_found
+            - conflict
+            - tenant_violation
+            - idempotency_replay
+            - internal_error
+        message: { type: string }
+        correlationId: { type: string }
+        fields:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+    PagedResult:
+      type: object
+      required: [items, nextCursor, hasMore]
+      properties:
+        items:
+          type: array
+          items: {}
+        nextCursor:
+          type: [string, "null"]
+        hasMore: { type: boolean }

@@ -43,3 +43,24 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-007 — Para, zaman, kimlik, dosya
 - **Karar:** Para `decimal` + `currency_code`, kur snapshot; zaman merkezi UTC / sözleşmede Unix ms; ana kayıtlar UUID/ULID, kullanıcı belge no ayrı; fotoğraf `file_records` metadata + storage provider (DB base64 değil).
 - **Gerekçe:** Analiz §7, §6.16.
+
+---
+
+## Faz 01 kararları (2026-06-26)
+
+### ADR-008 — Çözüm yerleşimi ve hedef framework
+- **Karar:** `src/DepoWise.{Domain,Application,Infrastructure,Desktop}` + `tests/DepoWise.Tests` + `apps/web`. Tüm .NET projeleri **net8.0** (Avalonia template'in ürettiği net10.0 hedefi düşürüldü; SDK 8.0.422).
+- **Gerekçe:** CLAUDE.md .NET 8 değişmezi; katmanlı bağımlılık Domain←Application←Infrastructure←Desktop/Tests.
+
+### ADR-009 — Ortak sözleşmelerin iki platformda eşlenmesi
+- **Karar:** Hata modeli (`ApiError`+`ErrorCodes`), keyset pagination (`PageRequest`/`PagedResult`), zaman (UTC + Unix ms) ve correlation_id hem .NET (`Application/Common`) hem web (`lib/contracts.ts`) tarafında **birebir aynı kodlar/biçimle** tanımlandı. OpenAPI bu sözleşmeyi `apps/web/docs/openapi.yaml`'de belgeliyor.
+- **Gerekçe:** Analiz §3/§5 fonksiyonel eşitlik; tek doğru sözleşme.
+
+### ADR-010 — Config fail-closed
+- **Karar:** Web `loadConfig()` zod ile doğrular; **Production**'da `DATABASE_URL`/`SESSION_SECRET` eksikse `ok=false` (health 503). Geliştirmede uyarı niteliğinde. Sırlar yalnız environment'tan.
+- **Gerekçe:** Analiz §9 (başlangıçta eksik/zayıf sır fail-closed).
+
+### ADR-011 — Güvenlik yükseltmesi (tedarik zinciri)
+- **Bağlam:** `next@15.1.6` CVE-2025-66478 açığı içeriyordu.
+- **Karar:** Yamalı `next@^15.5.19`'a yükseltildi (eslint-config-next eşlendi). "Gereksiz yükseltme yapma" kuralının istisnası: kritik güvenlik açığı (analiz §9 tedarik zinciri).
+- **Sonuç:** Yükseltme sonrası typecheck/build yeşil.
