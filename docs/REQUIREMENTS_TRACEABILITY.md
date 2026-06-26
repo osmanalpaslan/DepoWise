@@ -23,4 +23,6 @@
 | REQ-MOD-19 | Setup ve Güncelleme | 15 | Bekliyor |  |
 | REQ-MOD-20 | Offline Senkronizasyon | 14 | Bekliyor |  |
 
+**Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
+
 Her faz sonunda ilgili satırlar güncellenir.
