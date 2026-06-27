@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
@@ -152,7 +153,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Add()
+    private async Task Add()
     {
         TriedSave = true;
         bool editing = IsEditMode;
@@ -162,6 +163,11 @@ public sealed partial class MaterialsViewModel : ViewModelBase
             Status = "Kod ve ad zorunlu."; return;
         }
         if (SelectedUnit is null) { Status = "Birim seçin."; return; }
+
+        var confirmed = await ConfirmService.AskAsync(
+            editing ? "Malzeme bilgileri güncellensin mi?" : "Yeni malzeme kaydedilsin mi?", "Kaydet");
+        if (!confirmed) return;
+
         // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
         var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;
         var typeVal = string.IsNullOrWhiteSpace(NewType) ? null : NewType;
@@ -350,27 +356,20 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void RequestDelete()
+    private async Task RequestDelete()
     {
         if (!CanDelete) { Status = "Yetki yok."; return; }
         if (Detail is null) return;
-        ConfirmDelete = true;
-    }
-
-    [RelayCommand]
-    private void CancelDelete() => ConfirmDelete = false;
-
-    [RelayCommand]
-    private void ConfirmDeleteMaterial()
-    {
-        if (Detail is null) return;
+        var ok = await ConfirmService.AskAsync(
+            $"'{Detail.Name}' malzemesi silinsin mi? Kayıt çöp kutusuna alınır.",
+            "Malzeme Sil", "Evet, Sil", "Vazgeç", danger: true);
+        if (!ok) return;
         try
         {
             DesktopServices.Materials.Delete(_session, Detail.Id);
-            ConfirmDelete = false; Selected = null;
-            Load(); Status = "Malzeme silindi.";
+            Selected = null; Load(); Status = "Malzeme silindi.";
         }
-        catch (Exception ex) { ConfirmDelete = false; Status = "Silinemedi: " + ex.Message; }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
     }
 
     // ═══════════ Uyumlu araçlar (form çoklu seçim) ═══════════

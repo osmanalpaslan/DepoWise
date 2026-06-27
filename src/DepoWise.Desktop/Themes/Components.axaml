@@ -272,6 +272,23 @@
     <Style Selector="Border.Toast.danger"><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/></Style>
     <Style Selector="Border.Toast.info"><Setter Property="BorderBrush" Value="{DynamicResource InfoBrush}"/></Style>
 
+    <!-- ============ Yerleşik veri-doğrulama görselini gizle (İngilizce mesajlar) ============
+         Tüm doğrulama uyarılarımız Türkçe; FormField/Status üzerinden gösterilir. -->
+    <Style Selector="DataValidationErrors">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  Content="{TemplateBinding Content}"
+                                  Padding="{TemplateBinding Padding}"/>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
     <!-- ============ Klavye odağı görünürlüğü (koyu temada belirgin halka) ============ -->
     <Style Selector="Button.Primary:focus-visible, Button.Secondary:focus-visible, Button.Ghost:focus-visible, Button.Danger:focus-visible, Button.Icon:focus-visible">
         <Setter Property="BorderBrush" Value="#FFFFFF"/>

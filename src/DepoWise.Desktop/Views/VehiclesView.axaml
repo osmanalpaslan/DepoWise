@@ -295,17 +295,6 @@
                           Command="{Binding RequestDeleteCommand}" IsVisible="{Binding !IsEditing}"/>
                 </WrapPanel>
 
-                <!-- Silme onayı -->
-                <Border Classes="Panel" BorderBrush="{DynamicResource DangerBrush}" IsVisible="{Binding ConfirmDelete}">
-                  <StackPanel Spacing="10">
-                    <TextBlock Text="Bu aracı silmek istiyor musunuz?" Classes="Body" FontWeight="SemiBold"/>
-                    <TextBlock Text="Kayıt çöp kutusuna alınır; geçmiş korunur." Classes="Helper" TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                      <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelDeleteCommand}"/>
-                      <Button Classes="Danger" Content="Evet, Sil" Command="{Binding ConfirmDeleteVehicleCommand}"/>
-                    </StackPanel>
-                  </StackPanel>
-                </Border>
               </StackPanel>
             </ScrollViewer>
           </Border>

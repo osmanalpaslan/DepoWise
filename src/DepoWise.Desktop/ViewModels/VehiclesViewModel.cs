@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
@@ -163,11 +164,12 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Add()
+    private async Task Add()
     {
         TriedSave = true;
         if (!CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode)) { Status = "İç kod zorunlu."; return; }
+        if (!await ConfirmService.AskAsync("Yeni araç kaydedilsin mi?", "Kaydet")) return;
         try
         {
             DesktopServices.Vehicles.Create(_session, new NewVehicle(
@@ -309,9 +311,10 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void SaveEdit()
+    private async Task SaveEdit()
     {
         if (Selected is null || !CanEdit) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync("Araç bilgileri güncellensin mi?", "Kaydet")) return;
         try
         {
             DesktopServices.Vehicles.Update(_session, Selected.Id, new UpdateVehicle(
@@ -334,29 +337,22 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void RequestDelete()
+    private async Task RequestDelete()
     {
         if (!CanDelete) { Status = "Yetki yok."; return; }
         if (Selected is null) return;
-        ConfirmDelete = true;
-    }
-
-    [RelayCommand]
-    private void CancelDelete() => ConfirmDelete = false;
-
-    [RelayCommand]
-    private void ConfirmDeleteVehicle()
-    {
-        if (Selected is null) return;
+        var ok = await ConfirmService.AskAsync(
+            $"'{Selected.Code}' aracı silinsin mi? Kayıt çöp kutusuna alınır.",
+            "Araç Sil", "Evet, Sil", "Vazgeç", danger: true);
+        if (!ok) return;
         try
         {
             DesktopServices.Vehicles.Delete(_session, Selected.Id);
-            ConfirmDelete = false;
             Selected = null;
             Load();
             Status = "Araç silindi.";
         }
-        catch (Exception ex) { ConfirmDelete = false; Status = "Silinemedi: " + ex.Message; }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
     }
 }
 
