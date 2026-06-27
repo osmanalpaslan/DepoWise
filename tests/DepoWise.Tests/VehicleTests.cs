@@ -66,6 +66,30 @@ public class VehicleTests : IDisposable
         Assert.Equal("KM-002", byPlate[0].InternalCode);
     }
 
+    // ---- Araç tanımları (lookup) — form dropdown'ları ----
+    [Fact]
+    public void AracTanimlari_MarkaModelSantiyeSurucu_Calisir()
+    {
+        var look = new DepoWise.Infrastructure.Materials.LookupService(_factory, _clock);
+        look.AddVehicleType(_admin, "İş Makinesi");
+        var brand = look.AddVehicleBrand(_admin, "Caterpillar");
+        look.AddVehicleModel(_admin, brand, "320D");
+        look.AddBranch(_admin, "Şantiye A");
+        look.AddPersonnel(_admin, "Ahmet Yılmaz", "Şoför");
+
+        Assert.Single(look.List(_admin, "vehicle_types"));
+        Assert.Single(look.ListBrands(_admin, "vehicle"));
+        var models = look.ListVehicleModels(_admin, brand);
+        Assert.Single(models);
+        Assert.Equal("320D", models[0].Name);
+        Assert.Single(look.List(_admin, "branches"));
+        Assert.Single(look.ListPersonnel(_admin));
+
+        // FK'lerle araç oluşturma çalışır
+        var v = _vehicles.Create(_admin, new NewVehicle("KM-T", BrandId: brand, VehicleModelId: models[0].Id));
+        Assert.False(string.IsNullOrEmpty(v));
+    }
+
     // ---- Detay / Güncelle / Sil (Faz: araç detay ekranı) ----
     [Fact]
     public void Detay_Guncelle_Sil_Calisir()

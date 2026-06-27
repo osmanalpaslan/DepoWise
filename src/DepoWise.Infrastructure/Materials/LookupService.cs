@@ -33,6 +33,68 @@ public sealed class LookupService
 
     public string AddSupplier(SessionContext s, string name) => Insert(s, "suppliers", name);
 
+    // ── Araç tanımları ──
+    public string AddVehicleType(SessionContext s, string name) => Insert(s, "vehicle_types", name);
+    public string AddVehicleCategory(SessionContext s, string name) => Insert(s, "vehicle_categories", name);
+    public string AddVehicleBrand(SessionContext s, string name) => Insert(s, "brands", name, ("brand_type", "vehicle"));
+    public string AddBranch(SessionContext s, string name) => Insert(s, "branches", name, ("kind", "site"));
+    public string AddVehicleModel(SessionContext s, string brandId, string name)
+        => Insert(s, "vehicle_models", name, ("brand_id", brandId));
+
+    /// <summary>Bir markanın araç modelleri.</summary>
+    public IReadOnlyList<LookupItem> ListVehicleModels(SessionContext s, string brandId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id, name FROM vehicle_models WHERE company_id=$c AND is_deleted=0 AND brand_id=$b ORDER BY name;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$b", brandId);
+        var list = new List<LookupItem>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
+    // ── Personel (full_name kolonu → özel sorgu) ──
+    public IReadOnlyList<LookupItem> ListPersonnel(SessionContext s)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id, full_name FROM personnel WHERE company_id=$c AND is_deleted=0 AND is_active=1 ORDER BY full_name;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var list = new List<LookupItem>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
+    public string AddPersonnel(SessionContext s, string fullName, string? title = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        var id = Guid.NewGuid().ToString("N");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "INSERT INTO personnel(id, company_id, full_name, title, is_active, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$n,$t,1,$now,$now,1,0);";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$n", fullName);
+            cmd.Parameters.AddWithValue("$t", (object?)title ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "personnel", id, AuditActions.Create, s.UserId), _clock);
+        tx.Commit();
+        return id;
+    }
+
     public IReadOnlyList<LookupItem> List(SessionContext s, string table)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -115,7 +177,8 @@ ORDER BY name;";
 
     private static void EnsureKnownTable(string table)
     {
-        if (table is not ("material_categories" or "brands" or "units" or "suppliers"))
+        if (table is not ("material_categories" or "brands" or "units" or "suppliers"
+            or "vehicle_types" or "vehicle_categories" or "vehicle_models" or "branches"))
             throw new ArgumentException($"Bilinmeyen tanım tablosu: {table}");
     }
 }

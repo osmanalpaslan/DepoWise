@@ -9,6 +9,7 @@ using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
 using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Maintenance;
+using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -43,9 +44,49 @@ public sealed partial class VehiclesViewModel : ViewModelBase
 
     [ObservableProperty] private string _newPlate = "";
     [ObservableProperty] private int _newYear;
-    [ObservableProperty] private string _newStatus = "active";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNewMaintenance))]
+    private string _newStatus = "active";
     [ObservableProperty] private decimal _newMeter;
     [ObservableProperty] private string _newMeterUnit = "km";
+    [ObservableProperty] private string _newChassisNo = "";
+    [ObservableProperty] private string _newEngineNo = "";
+    [ObservableProperty] private string _newStatusNote = "";
+
+    public bool IsNewMaintenance => NewStatus == "maintenance";
+
+    // ── Paylaşılan araç tanımları (LookupService) ──
+    public ObservableCollection<LookupItem> VehicleTypes { get; } = new();
+    public ObservableCollection<LookupItem> VehicleCategories { get; } = new();
+    public ObservableCollection<LookupItem> VehicleBrands { get; } = new();
+    public ObservableCollection<LookupItem> VehicleModels { get; } = new();
+    public ObservableCollection<LookupItem> Branches { get; } = new();
+    public ObservableCollection<LookupItem> Drivers { get; } = new();
+
+    [ObservableProperty] private LookupItem? _selVehicleType;
+    [ObservableProperty] private LookupItem? _selCategory;
+    [ObservableProperty] private LookupItem? _selBrand;
+    [ObservableProperty] private LookupItem? _selModel;
+    [ObservableProperty] private LookupItem? _selBranch;
+    [ObservableProperty] private LookupItem? _selDriver;
+    private bool _vehLookupsLoaded;
+
+    partial void OnSelBrandChanged(LookupItem? value)
+    {
+        SelModel = null;
+        VehicleModels.Clear();
+        if (value is null) return;
+        try { foreach (var m in DesktopServices.Lookups.ListVehicleModels(_session, value.Id)) VehicleModels.Add(m); }
+        catch { /* model yoksa sessiz */ }
+    }
+
+    // ── Inline "+" yeni tanım ──
+    [ObservableProperty] private bool _isAddingType; [ObservableProperty] private string _newTypeName = "";
+    [ObservableProperty] private bool _isAddingCat; [ObservableProperty] private string _newCatName = "";
+    [ObservableProperty] private bool _isAddingBrand; [ObservableProperty] private string _newBrandName = "";
+    [ObservableProperty] private bool _isAddingModel; [ObservableProperty] private string _newModelName = "";
+    [ObservableProperty] private bool _isAddingBranch; [ObservableProperty] private string _newBranchName = "";
+    [ObservableProperty] private bool _isAddingDriver; [ObservableProperty] private string _newDriverName = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CodeError))]
@@ -133,7 +174,14 @@ public sealed partial class VehiclesViewModel : ViewModelBase
                 InternalCode: NewCode.Trim(),
                 Plate: string.IsNullOrWhiteSpace(NewPlate) ? null : NewPlate.Trim(),
                 ProductionYear: NewYear > 0 ? NewYear : (int?)null,
-                CurrentMeter: NewMeter, MeterUnit: NewMeterUnit, Status: NewStatus));
+                CurrentMeter: NewMeter, MeterUnit: NewMeterUnit,
+                BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id,
+                ChassisNo: string.IsNullOrWhiteSpace(NewChassisNo) ? null : NewChassisNo.Trim(),
+                EngineNo: string.IsNullOrWhiteSpace(NewEngineNo) ? null : NewEngineNo.Trim(),
+                Status: NewStatus,
+                StatusNote: IsNewMaintenance && !string.IsNullOrWhiteSpace(NewStatusNote) ? NewStatusNote.Trim() : null,
+                VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
+                BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id));
             Clear();
             Load();
             Status = "Araç eklendi.";
@@ -146,13 +194,64 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         ShowAdd = !ShowAdd;
+        if (ShowAdd) LoadVehLookups();
     }
 
     [RelayCommand]
     private void Clear()
     {
         NewCode = ""; NewPlate = ""; NewYear = 0; NewStatus = "active"; NewMeter = 0; NewMeterUnit = "km";
+        NewChassisNo = ""; NewEngineNo = ""; NewStatusNote = "";
+        SelVehicleType = null; SelCategory = null; SelBrand = null; SelModel = null; SelBranch = null; SelDriver = null;
+        IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingBranch = IsAddingDriver = false;
         TriedSave = false; ShowAdd = false;
+    }
+
+    private void LoadVehLookups()
+    {
+        if (_vehLookupsLoaded) return;
+        try
+        {
+            VehicleTypes.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "vehicle_types")) VehicleTypes.Add(x);
+            VehicleCategories.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "vehicle_categories")) VehicleCategories.Add(x);
+            VehicleBrands.Clear(); foreach (var x in DesktopServices.Lookups.ListBrands(_session, "vehicle")) VehicleBrands.Add(x);
+            Branches.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "branches")) Branches.Add(x);
+            Drivers.Clear(); foreach (var x in DesktopServices.Lookups.ListPersonnel(_session)) Drivers.Add(x);
+            _vehLookupsLoaded = true;
+        }
+        catch (Exception ex) { Status = "Tanımlar yüklenemedi: " + ex.Message; }
+    }
+
+    // ── Inline "+" komutları ──
+    [RelayCommand] private void StartAddType() { IsAddingType = true; NewTypeName = ""; }
+    [RelayCommand] private void CancelAddType() { IsAddingType = false; NewTypeName = ""; }
+    [RelayCommand] private void ConfirmAddType() => AddLookup(NewTypeName, () => DesktopServices.Lookups.AddVehicleType(_session, NewTypeName.Trim()), VehicleTypes, x => SelVehicleType = x, () => { IsAddingType = false; NewTypeName = ""; });
+
+    [RelayCommand] private void StartAddCat() { IsAddingCat = true; NewCatName = ""; }
+    [RelayCommand] private void CancelAddCat() { IsAddingCat = false; NewCatName = ""; }
+    [RelayCommand] private void ConfirmAddCat() => AddLookup(NewCatName, () => DesktopServices.Lookups.AddVehicleCategory(_session, NewCatName.Trim()), VehicleCategories, x => SelCategory = x, () => { IsAddingCat = false; NewCatName = ""; });
+
+    [RelayCommand] private void StartAddBrand() { IsAddingBrand = true; NewBrandName = ""; }
+    [RelayCommand] private void CancelAddBrand() { IsAddingBrand = false; NewBrandName = ""; }
+    [RelayCommand] private void ConfirmAddBrand() => AddLookup(NewBrandName, () => DesktopServices.Lookups.AddVehicleBrand(_session, NewBrandName.Trim()), VehicleBrands, x => SelBrand = x, () => { IsAddingBrand = false; NewBrandName = ""; });
+
+    [RelayCommand] private void StartAddModel() { if (SelBrand is null) { Status = "Önce marka seçin."; return; } IsAddingModel = true; NewModelName = ""; }
+    [RelayCommand] private void CancelAddModel() { IsAddingModel = false; NewModelName = ""; }
+    [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim()), VehicleModels, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
+
+    [RelayCommand] private void StartAddBranch() { IsAddingBranch = true; NewBranchName = ""; }
+    [RelayCommand] private void CancelAddBranch() { IsAddingBranch = false; NewBranchName = ""; }
+    [RelayCommand] private void ConfirmAddBranch() => AddLookup(NewBranchName, () => DesktopServices.Lookups.AddBranch(_session, NewBranchName.Trim()), Branches, x => SelBranch = x, () => { IsAddingBranch = false; NewBranchName = ""; });
+
+    [RelayCommand] private void StartAddDriver() { IsAddingDriver = true; NewDriverName = ""; }
+    [RelayCommand] private void CancelAddDriver() { IsAddingDriver = false; NewDriverName = ""; }
+    [RelayCommand] private void ConfirmAddDriver() => AddLookup(NewDriverName, () => DesktopServices.Lookups.AddPersonnel(_session, NewDriverName.Trim(), "Şoför"), Drivers, x => SelDriver = x, () => { IsAddingDriver = false; NewDriverName = ""; });
+
+    private void AddLookup(string name, Func<string> add, ObservableCollection<LookupItem> coll, Action<LookupItem> select, Action done)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        try { var id = add(); var item = new LookupItem(id, name.Trim()); coll.Add(item); select(item); done(); }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
 
     // ===== Detay / Düzenle / Sil =====
