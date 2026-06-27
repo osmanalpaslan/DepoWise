@@ -20,6 +20,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     public string DisplayName { get; }
     public string Initial { get; }
     public string Welcome { get; }
+    public string BuildStamp { get; } = BuildInfo();
     public IReadOnlyList<NavGroupVm> Groups { get; }
 
     [ObservableProperty] private ViewModelBase? _currentPage;
@@ -136,6 +137,21 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     [RelayCommand]
     private void GoDashboard() => Navigate("dashboard");
+
+    /// <summary>Çıkış Yap — oturumu kapatır, "Beni Hatırla"yı siler, giriş ekranına döner.</summary>
+    [RelayCommand]
+    private void Logout() => DepoWise.Desktop.App.Current?.Logout();
+
+    /// <summary>Çalışan derlemenin damgası (doğru build'i gözle doğrulamak için).</summary>
+    private static string BuildInfo()
+    {
+        try
+        {
+            var loc = typeof(DepoWise.Desktop.App).Assembly.Location;
+            return string.IsNullOrEmpty(loc) ? "" : "build " + System.IO.File.GetLastWriteTime(loc).ToString("dd.MM HH:mm");
+        }
+        catch { return ""; }
+    }
 
     [RelayCommand]
     private void ToggleNavPanel() => IsNavPanelOpen = !IsNavPanelOpen;

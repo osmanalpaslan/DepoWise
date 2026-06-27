@@ -135,12 +135,17 @@
                             Margin="0,0,12,0"/>
                     <!-- Kullanıcı -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding BuildStamp}" Classes="Helper" VerticalAlignment="Center"
+                                   Margin="0,0,4,0" ToolTip.Tip="Çalışan derleme zamanı"/>
                         <TextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" MaxWidth="160"/>
                         <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentBrush}">
                             <TextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <Button Classes="Secondary" Content="Çıkış" Command="{Binding LogoutCommand}"
+                                ToolTip.Tip="Çıkış yap (giriş ekranına dön)"
+                                a11y:AutomationProperties.Name="Çıkış yap"/>
                     </StackPanel>
                 </Grid>
             </Border>
