@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -184,6 +185,18 @@ public sealed partial class MaterialsViewModel : ViewModelBase
                     CategoryId: categoryId, UnitId: SelectedUnit.Id,
                     BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
                     MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal));
+
+                // Uyumlu araçlar (tam değiştir)
+                DesktopServices.Materials.SetCompatibleVehicles(_session, EditId!,
+                    VehiclePicks.Where(p => p.IsSelected).Select(p => p.Id));
+
+                // Muadiller (ekle/çıkar uzlaştırma)
+                var chosenIds = ChosenEquivalents.Select(e => e.Id).ToHashSet();
+                foreach (var addId in chosenIds.Where(x => !_origEquivIds.Contains(x)))
+                    DesktopServices.Materials.AddEquivalent(_session, EditId!, addId);
+                foreach (var remId in _origEquivIds.Where(x => !chosenIds.Contains(x)))
+                    DesktopServices.Materials.RemoveEquivalent(_session, EditId!, remId);
+
                 SaveStagedPhotos(EditId!);
                 Clear(); Load(); Status = "Malzeme güncellendi.";
             }
@@ -242,6 +255,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
         foreach (var p in VehiclePicks) p.IsSelected = false;
         ChosenEquivalents.Clear(); EquivalentResults.Clear(); EquivalentSearch = "";
+        _origEquivIds = new();
         Photos.Clear();
         EditId = null; ConfirmDelete = false;
         TriedSave = false; ShowAdd = false;
@@ -339,12 +353,16 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
-    /// <summary>Seçili malzemeyi düzenleme modunda forma yükler (lookup'lar id ile ön-seçilir).</summary>
+    private HashSet<string> _origEquivIds = new();
+
+    /// <summary>Seçili malzemeyi düzenleme modunda forma yükler (tüm alanlar + ilişkiler). Onay sorar.</summary>
     [RelayCommand]
-    private void BeginEdit()
+    private async Task BeginEdit()
     {
         if (Detail is null) return;
         if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync("Bu malzemeyi düzenlemek istiyor musunuz?", "Düzenle")) return;
+
         LoadLookups();
         var d = Detail;
         EditId = d.Id;
@@ -356,6 +374,14 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         SelectedUnit = Units.FirstOrDefault(u => u.Id == d.UnitId);
         SelectedBrand = Brands.FirstOrDefault(b => b.Id == d.BrandId);
         SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == d.SupplierId);
+
+        // İlişkiler — mevcut seçimleri yükle (düzenlemede de değiştirilebilir)
+        foreach (var p in VehiclePicks) p.IsSelected = d.CompatibleVehicles.Any(c => c.Id == p.Id);
+        ChosenEquivalents.Clear();
+        foreach (var e in d.Equivalents)
+            ChosenEquivalents.Add(new MaterialRow(e.Id, e.Code, e.Name, null, 0, "TRY", 0, 0));
+        _origEquivIds = d.Equivalents.Select(e => e.Id).ToHashSet();
+
         TriedSave = false;
         ShowAdd = true;
     }

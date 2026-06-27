@@ -143,9 +143,9 @@
                     </StackPanel>
                 </ctrl:FormField>
 
-                <!-- Grup: İlişkiler (uyumlu araç + muadil) — yalnız yeni kayıtta -->
-                <TextBlock Text="İlişkiler" Classes="CardLabel" IsVisible="{Binding !IsEditMode}"/>
-                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar." IsVisible="{Binding !IsEditMode}">
+                <!-- Grup: İlişkiler (uyumlu araç + muadil) -->
+                <TextBlock Text="İlişkiler" Classes="CardLabel"/>
+                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar.">
                     <Border Classes="Table" MaxHeight="120">
                         <ListBox ItemsSource="{Binding VehiclePicks}" Background="Transparent" BorderThickness="0">
                             <ListBox.ItemTemplate>
@@ -157,7 +157,7 @@
                     </Border>
                 </ctrl:FormField>
 
-                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara, ekle." IsVisible="{Binding !IsEditMode}">
+                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara, ekle.">
                     <StackPanel Spacing="6">
                         <TextBox Classes="Field" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (en az 2 harf)"/>
                         <ItemsControl ItemsSource="{Binding EquivalentResults}">
@@ -316,6 +316,7 @@
             <DockPanel>
               <!-- Eylemler (VM bağlamı) -->
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
+                <TextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
                 <ItemsControl ItemsSource="{Binding DetailPhotos}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
