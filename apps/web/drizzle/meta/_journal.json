@@ -57,6 +57,13 @@
       "when": 1782511037446,
       "tag": "0007_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782543051690,
+      "tag": "0008_app_releases",
+      "breakpoints": true
     }
   ]
 }

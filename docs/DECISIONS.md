@@ -250,3 +250,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-044 — Kritik işlemlerde LWW yasak; sunucu otoriteli + conflict
 - **Karar:** Kritik entity'lerde (stok/sayaç/yakıt/bakım/onay) basit LWW YOK: sunucu doğrulaması zorunlu (validator yoksa/red ise rejected + `sync_conflicts`). Düşük-riskli kart alanlarında base_version uyuşmazlığı → conflict (kör overwrite yok). Pull seq cursor; bozuk sayfada rollback + cursor sabit. Cihaz: tek-kullanımlık 10 dk enrollment anahtarı + master onay + token (hash saklı); pending/revoked cihaz push/pull'da 403.
 - **Gerekçe:** Analiz §8-9; kullanıcı talimatı (LWW yok, operation_id + sunucu doğrulaması zorunlu).
+
+---
+
+## Faz 15 kararları (2026-06-27)
+
+### ADR-045 — Sürüm yönetimi + güncelleme yaşam döngüsü
+- **Karar:** `ReleaseService` (yalnız Süper Admin) `app_releases` yayınlar (SemVer benzersiz + 64-hex checksum + min_supported + signed). `UpdateService`: `Check` (güncelleme/min-supported/imzasız uyarı), `VerifyChecksum` ile **bozuk paket kurulmaz** (hiçbir değişiklik), `ApplyUpdate` 0-100 yüzde + hata logu, **başarısız kurulumda yedekten rollback** (eski sürüm açılır). Web `lib/update/update.ts` aynı SemVer/checksum/kontrol mantığı.
+- **Gerekçe:** Analiz §6.19; kullanıcı talimatı (checksum, yüzde, hata kaydı, rollback).
+
+### ADR-046 — COMODO güvenli çalıştırma kanıtı (sürdürülüyor)
+- **Karar:** Geliştirme makinesinde proje EXE/BAT çalıştırılmaz; yalnız `dotnet` host. Hook `comodo_guard.ps1` .bat + imzasız `DepoWise*.exe`'yi engeller; Debug `UseAppHost=false`. Gerçek DB mutlak `%LOCALAPPDATA%\DepoWise\Data\<env>\depowise.db`; açılışta host/yol/WAL/health loglanır. Kapat-aç sonrası veri **aynı DB'de kalır** (testle kanıt; `ClearAllPools` ile kilit yok). Code-signing maliyetli kalem → yayın öncesi karara bırakıldı; imzasız sürümde kullanıcıya şeffaf uyarı.
+- **Gerekçe:** CLAUDE.md §0/§6; kullanıcı talimatı + analiz §10.

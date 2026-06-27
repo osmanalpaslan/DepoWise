@@ -16,5 +16,6 @@ public static class MigrationCatalog
         new Migration009_FuelDailyActivity(),
         new Migration010_Requests(),
         new Migration011_Sync(),
+        new Migration012_Releases(),
     };
 }

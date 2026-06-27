@@ -7,6 +7,8 @@
 - **R3:** Otomatik döviz kuru kaynağı kesinleşmedi; manuel kur + tarihçe güvenli fallback olarak tasarlanacak. Etki: para/maliyet modülleri (Faz 06+).
 - **R4:** Yerel PostgreSQL geliştirme örneği henüz kurulu değil. SQLite şeması testlerle doğrulandı; PG tarafında migration SQL üretildi ama **canlı DB'ye uygulanmadı**. Etki: orta (Faz 03 öncesi PG örneği gerekebilir).
 - **R7:** PG migration ↔ SQLite şema eşitliği şu an manuel/elle korunuyor (iki ayrı tanım). İleride şema sözleşme/parite testi düşünülmeli. Etki: orta (drift riski).
+- **R22:** Code-signing (imzalı dağıtım) henüz yapılmadı; maliyetli kalem, yayın öncesi karara bırakıldı. İmzasız sürümde updater kullanıcıya şeffaf uyarı verir (signedWarning). Etki: orta (yayın öncesi).
+- **R21:** UpdateService dosya tabanlı kurulum/rollback mantığı + testleri hazır; gerçek HTTP indirme transport, masaüstü güncelleme UI ekranı (yüzde göstergesi) ve canlı uygulama dosyalarının değişimi henüz bağlanmadı. Etki: orta.
 - **R20:** SyncServer push'ta `accepted` işlemler şu an `sync_inbox` + `server_changes` feed'ine yazılıyor; gerçek iş tablolarına apply (upsert) iş-servisleriyle bağlanacak. Idempotency/doğrulama/conflict çekirdeği hazır. Etki: orta.
 - **R19:** Sync HTTP transport katmanı (push/pull endpoint'leri), DPAPI `ISecretProtector` gerçek implementasyonu, retry/backoff ve 0-100 non-blocking ilerleme UI henüz yok (servis mantığı + testler hazır). Etki: orta.
 - **R18:** Fotoğraf optimizasyonu (max 1200px/JPEG kalite) henüz uygulanmadı — şu an içerik passthrough saklanıyor (yalnız boyut/MIME/magic-byte doğrulanıyor). Gerçek resize için image lib (ör. SixLabors.ImageSharp) eklenecek. Etki: düşük (güvenlik kontrolleri tam; yalnız boyut optimizasyonu eksik).

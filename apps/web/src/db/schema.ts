@@ -760,6 +760,24 @@ export const requestStatusHistory = pgTable(
   (t) => [index("ix_request_status_history").on(t.requestId, t.createdAt)],
 );
 
+// ---- Faz 15: Sürüm/paket yönetimi ----
+export const appReleases = pgTable(
+  "app_releases",
+  {
+    id: text("id").primaryKey(),
+    version: text("version").notNull(),
+    checksumSha256: text("checksum_sha256").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull().default(0),
+    minSupportedVersion: text("min_supported_version").notNull().default("0.0.0"),
+    releaseNotes: text("release_notes"),
+    signed: boolean("signed").notNull().default(false),
+    publishedAt: bigint("published_at", { mode: "number" }).notNull(),
+    createdAt: createdAt(),
+    isDeleted: isDeleted(),
+  },
+  (t) => [uniqueIndex("ux_app_releases_version").on(t.version)],
+);
+
 // Açılış/health probe tablosu (Faz 01'den korunur).
 export const healthCheck = pgTable("_health_check", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

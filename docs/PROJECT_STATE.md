@@ -1,8 +1,16 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 14 — Offline Senkronizasyon, Cihaz Kaydı ve Çakışmalar
+**Aktif faz:** Faz 15 — Setup, Güncelleme ve COMODO Güvenli Çalıştırma
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 15)
+- **SemVer + UpdatePackage** (ortak): X.Y.Z parse/karşılaştırma; geçersiz sürüm reddi.
+- **Migration012 + ReleaseService**: `app_releases` (version benzersiz, checksum, min_supported, signed); yayın **yalnız Süper Admin**; checksum (64 hex) doğrulama; `Latest()` en yüksek SemVer.
+- **UpdateService** (masaüstü updater): `Check` (güncelleme var mı + min-supported altı + **imzasız→şeffaf uyarı**); `VerifyChecksum` ile **bozuk paket kurulmaz** (değişiklik yok); `ApplyUpdate` 0-100 yüzde + hata logu; **başarısız kurulumda eski sürüme rollback**.
+- **COMODO kanıtı**: gerçek DB mutlak LocalAppData yolu; kapat-aç sonrası veri **aynı DB'de kalır** (havuz boşaltma + yeniden açılış); health WAL + write/read ok. Hook (`comodo_guard.ps1`) .bat/imzasız exe engeli + Debug UseAppHost=false korunuyor.
+- **Web parite**: `lib/update/update.ts`; Drizzle `app_releases` + `drizzle/0008_app_releases.sql`.
+- **Doğrulama**: 179/179 .NET test (13 yeni) + 61 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 14)
 - **Migration011**: `enrollment_keys` (tek-kullanımlık/10 dk), `server_changes` (pull seq cursor feed), `sync_conflicts`; `sync_devices`'a token_hash/revoked_at/last_seen_at.
@@ -123,12 +131,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 15: Setup, Güncelleme ve COMODO Güvenli Çalıştırma.
-- Sync HTTP transport + DPAPI ISecretProtector gerçek impl + retry/backoff + 0-100 ilerleme UI bağlanmadı (mantık hazır — R19). Push'ta accepted işlemlerin gerçek iş tablolarına yazımı iş-servisleriyle bağlanacak (şu an inbox/feed + doğrulama — R20).
-- Foto optimizasyon (R18); import (R17); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
+- Faz 16: Güvenlik Sertleştirme ve Operasyon Hazırlığı.
+- Updater/release HTTP indirme transport + masaüstü UI ekranı + gerçek dosya değişimi (mantık+rollback hazır — R21). Code-signing yayın öncesi karar (R22).
+- Sync transport/UI (R19); push apply (R20); foto opt (R18); import (R17); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 15 — Setup, Güncelleme ve COMODO Güvenli Çalıştırma** (`prompts/15_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 16 — Güvenlik Sertleştirme ve Operasyon Hazırlığı** (`prompts/16_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

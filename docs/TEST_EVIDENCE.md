@@ -241,6 +241,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/sync.test.ts`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 15 / Setup, güncelleme, COMODO testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** SemVer karşılaştırma/geçersiz red; release yayın yalnız süper admin + latest en yüksek SemVer + geçersiz checksum red; updater check (güncelleme/min-supported/imzasız uyarı); **bozuk paket kurulmaz** (sürüm değişmez); başarılı kurulum 0-100 + sürüm güncellenir; **kurulum hatası → eski sürüme rollback**; COMODO gerçek DB mutlak yol + kapat-aç veri kalıcılığı + health WAL/write-read ok.
+- **Geçen/Kalan:** 179 geçti / 0 kaldı (13 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/UpdateComodoTests.cs`.
+- **COMODO host ve DB yolu:** Test `dotnet` host; gerçek DB `%LOCALAPPDATA%\DepoWise\Data\Development\depowise.db` (mutlak); kapat-aç sonrası veri aynı DB'de doğrulandı; EXE/BAT çalıştırılmadı.
+
+## 2026-06-27 - Faz 15 / Web güncelleme paritesi + migration + build
+- **Komut:** `npm test`; `npx drizzle-kit generate --name app_releases`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 61 node:test (SemVer, güncelleme kontrolü+min-supported+signed uyarı, checksum doğrulama); Drizzle `0008_app_releases.sql`; typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 61 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/update.test.ts`, `apps/web/drizzle/0008_app_releases.sql`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node).
+
 ---
 
 ### Şablon
