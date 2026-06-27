@@ -108,7 +108,17 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     public bool HasNameError => NameError != null;
 
     public bool CanWrite => AccessControl.Can(_session, "materials", PermissionAction.Create);
+    public bool CanEdit => AccessControl.Can(_session, "materials", PermissionAction.Edit);
+    public bool CanDelete => AccessControl.Can(_session, "materials", PermissionAction.Delete);
     public string? AddButtonText => CanWrite ? "Yeni Malzeme" : null;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditMode))]
+    [NotifyPropertyChangedFor(nameof(FormTitle))]
+    private string? _editId;
+    public bool IsEditMode => EditId != null;
+    public string FormTitle => IsEditMode ? "MALZEME DÜZENLE" : "YENİ MALZEME";
+    [ObservableProperty] private bool _confirmDelete;
 
     public MaterialsViewModel(SessionContext session, bool openAdd = false)
     {
@@ -145,16 +155,35 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     private void Add()
     {
         TriedSave = true;
-        if (!CanWrite) { Status = "Yetki yok."; return; }
+        bool editing = IsEditMode;
+        if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode) || string.IsNullOrWhiteSpace(NewName))
         {
             Status = "Kod ve ad zorunlu."; return;
         }
         if (SelectedUnit is null) { Status = "Birim seçin."; return; }
+        // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
+        var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;
+        var typeVal = string.IsNullOrWhiteSpace(NewType) ? null : NewType;
+        var descVal = string.IsNullOrWhiteSpace(NewDescription) ? null : NewDescription.Trim();
+
+        if (editing)
+        {
+            try
+            {
+                DesktopServices.Materials.Update(_session, EditId!, new UpdateMaterial(
+                    Code: NewCode.Trim(), Name: NewName.Trim(), Type: typeVal,
+                    CategoryId: categoryId, UnitId: SelectedUnit.Id,
+                    BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
+                    MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal));
+                Clear(); Load(); Status = "Malzeme güncellendi.";
+            }
+            catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
+            return;
+        }
+
         try
         {
-            // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
-            var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;
             var id = DesktopServices.Materials.Create(_session, new NewMaterial(
                 Code: NewCode.Trim(), Name: NewName.Trim(),
                 Type: string.IsNullOrWhiteSpace(NewType) ? null : NewType,
@@ -203,6 +232,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
         foreach (var p in VehiclePicks) p.IsSelected = false;
         ChosenEquivalents.Clear(); EquivalentResults.Clear(); EquivalentSearch = "";
+        EditId = null; ConfirmDelete = false;
         TriedSave = false; ShowAdd = false;
     }
 
@@ -292,9 +322,55 @@ public sealed partial class MaterialsViewModel : ViewModelBase
 
     partial void OnSelectedChanged(MaterialRow? value)
     {
+        ConfirmDelete = false;
         if (value is null) { Detail = null; return; }
         try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>Seçili malzemeyi düzenleme modunda forma yükler (lookup'lar id ile ön-seçilir).</summary>
+    [RelayCommand]
+    private void BeginEdit()
+    {
+        if (Detail is null) return;
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        LoadLookups();
+        var d = Detail;
+        EditId = d.Id;
+        NewCode = d.Code; NewName = d.Name; NewType = string.IsNullOrWhiteSpace(d.Type) ? "Diğer" : d.Type;
+        NewMinStock = d.MinStock; NewUnitPrice = d.UnitPrice; NewOpeningStock = 0;
+        NewDescription = d.Description ?? "";
+        SelectedCategory = Categories.FirstOrDefault(c => c.Id == d.CategoryId);
+        SelectedSubCategory = SubCategories.FirstOrDefault(c => c.Id == d.CategoryId);
+        SelectedUnit = Units.FirstOrDefault(u => u.Id == d.UnitId);
+        SelectedBrand = Brands.FirstOrDefault(b => b.Id == d.BrandId);
+        SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == d.SupplierId);
+        TriedSave = false;
+        ShowAdd = true;
+    }
+
+    [RelayCommand]
+    private void RequestDelete()
+    {
+        if (!CanDelete) { Status = "Yetki yok."; return; }
+        if (Detail is null) return;
+        ConfirmDelete = true;
+    }
+
+    [RelayCommand]
+    private void CancelDelete() => ConfirmDelete = false;
+
+    [RelayCommand]
+    private void ConfirmDeleteMaterial()
+    {
+        if (Detail is null) return;
+        try
+        {
+            DesktopServices.Materials.Delete(_session, Detail.Id);
+            ConfirmDelete = false; Selected = null;
+            Load(); Status = "Malzeme silindi.";
+        }
+        catch (Exception ex) { ConfirmDelete = false; Status = "Silinemedi: " + ex.Message; }
     }
 
     // ═══════════ Uyumlu araçlar (form çoklu seçim) ═══════════

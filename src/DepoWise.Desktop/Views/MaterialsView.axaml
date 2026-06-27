@@ -30,7 +30,7 @@
             </Border.KeyBindings>
             <ScrollViewer MaxHeight="470">
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ MALZEME" Classes="SectionTitle"/>
+                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
                 <!-- Grup 1: Tanım -->
                 <TextBlock Text="Tanım" Classes="CardLabel"/>
@@ -143,9 +143,9 @@
                     </StackPanel>
                 </ctrl:FormField>
 
-                <!-- Grup: İlişkiler (uyumlu araç + muadil) -->
-                <TextBlock Text="İlişkiler" Classes="CardLabel"/>
-                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar.">
+                <!-- Grup: İlişkiler (uyumlu araç + muadil) — yalnız yeni kayıtta -->
+                <TextBlock Text="İlişkiler" Classes="CardLabel" IsVisible="{Binding !IsEditMode}"/>
+                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar." IsVisible="{Binding !IsEditMode}">
                     <Border Classes="Table" MaxHeight="120">
                         <ListBox ItemsSource="{Binding VehiclePicks}" Background="Transparent" BorderThickness="0">
                             <ListBox.ItemTemplate>
@@ -157,7 +157,7 @@
                     </Border>
                 </ctrl:FormField>
 
-                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara, ekle.">
+                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara, ekle." IsVisible="{Binding !IsEditMode}">
                     <StackPanel Spacing="6">
                         <TextBox Classes="Field" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (en az 2 harf)"/>
                         <ItemsControl ItemsSource="{Binding EquivalentResults}">
@@ -196,7 +196,7 @@
                         <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
                                        FormatString="0.##" ShowButtonSpinner="False" TabIndex="3"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Açılış Stok" Width="150" HelpText="&gt;0 ise stok hareketi.">
+                    <ctrl:FormField Label="Açılış Stok" Width="150" HelpText="&gt;0 ise stok hareketi." IsVisible="{Binding !IsEditMode}">
                         <NumericUpDown Classes="Field" Value="{Binding NewOpeningStock}" Minimum="0"
                                        FormatString="0.##" ShowButtonSpinner="False" TabIndex="4"/>
                     </ctrl:FormField>
@@ -289,7 +289,27 @@
 
           <!-- Detay (satır seçince tüm alanlar) -->
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
-            <ScrollViewer>
+            <DockPanel>
+              <!-- Eylemler (VM bağlamı) -->
+              <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
+                <WrapPanel>
+                  <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0"
+                          Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                  <Button Classes="Danger" Content="Sil"
+                          Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                </WrapPanel>
+                <Border Classes="Panel" BorderBrush="{DynamicResource DangerBrush}" IsVisible="{Binding ConfirmDelete}">
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="Bu malzemeyi silmek istiyor musunuz?" Classes="Body" FontWeight="SemiBold"/>
+                    <TextBlock Text="Kayıt çöp kutusuna alınır; geçmiş korunur." Classes="Helper" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                      <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelDeleteCommand}"/>
+                      <Button Classes="Danger" Content="Evet, Sil" Command="{Binding ConfirmDeleteMaterialCommand}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+              <ScrollViewer>
               <StackPanel Spacing="10" DataContext="{Binding Detail}">
                 <TextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
                 <TextBlock Text="{Binding Code}" Classes="Helper"/>
@@ -340,7 +360,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </StackPanel>
-            </ScrollViewer>
+              </ScrollViewer>
+            </DockPanel>
           </Border>
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
             <TextBlock Text="Detay için bir malzeme seçin." Classes="Helper"

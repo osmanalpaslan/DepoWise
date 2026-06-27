@@ -236,6 +236,23 @@ public class MaterialTests : IDisposable
         Assert.Contains(d.Equivalents, e => e.Code == "M-2");
     }
 
+    // ---- Güncelle / Sil ----
+    [Fact]
+    public void Guncelle_VeSil_Calisir()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-9", "Eski Ad", MinStock: 1m, UnitPrice: 10m));
+
+        _materials.Update(a, m, new UpdateMaterial(Code: "M-9", Name: "Yeni Ad", MinStock: 7m, UnitPrice: 25m));
+        var d = _materials.GetDetail(a, m);
+        Assert.Equal("Yeni Ad", d.Name);
+        Assert.Equal(7m, d.MinStock);
+        Assert.Equal(25m, d.UnitPrice);
+
+        _materials.Delete(a, m);
+        Assert.Throws<ForbiddenException>(() => _materials.GetDetail(a, m));
+    }
+
     public void Dispose()
     {
         foreach (var ext in new[] { "", "-wal", "-shm" })

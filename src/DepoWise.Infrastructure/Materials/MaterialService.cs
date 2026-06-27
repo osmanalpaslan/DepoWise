@@ -22,9 +22,15 @@ public sealed record MaterialRefRow(string Id, string Code, string Name);
 
 public sealed record MaterialDetail(
     string Id, string Code, string Name, string? Type,
+    string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     string? CategoryName, string? UnitName, string? BrandName, string? SupplierName,
     decimal MinStock, decimal UnitPrice, string Currency, string? Description, decimal Stock,
     IReadOnlyList<MaterialRefRow> Equivalents, IReadOnlyList<MaterialRefRow> CompatibleVehicles);
+
+public sealed record UpdateMaterial(
+    string Code, string Name, string? Type = null,
+    string? CategoryId = null, string? UnitId = null, string? BrandId = null, string? SupplierId = null,
+    decimal MinStock = 0m, decimal UnitPrice = 0m, string? Description = null);
 
 /// <summary>
 /// Malzeme kartı — kod benzersiz (tenant), muadil (çift yönlü, döngü güvenli), uyumlu araç (çoklu seçim).
@@ -192,12 +198,13 @@ WHERE mcv.vehicle_id = $v;";
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
 
-        string? code, name, type, catName, unitName, brandName, supName, desc, cur;
+        string? code, name, type, catId, unitId, brandId, supId, catName, unitName, brandName, supName, desc, cur;
         decimal minStock, unitPrice, stock;
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = @"
-SELECT m.code, m.name, m.type, mc.name, u.name, b.name, sup.name,
+SELECT m.code, m.name, m.type, m.category_id, m.unit_id, m.brand_id, m.supplier_id,
+       mc.name, u.name, b.name, sup.name,
        m.min_stock, m.unit_price, m.currency_code, m.description, COALESCE(sb.quantity,'0')
 FROM materials m
 LEFT JOIN material_categories mc ON mc.id = m.category_id
@@ -212,15 +219,19 @@ WHERE m.id=$id AND m.company_id=$c AND m.is_deleted=0;";
             if (!r.Read()) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
             code = r.GetString(0); name = r.GetString(1);
             type = r.IsDBNull(2) ? null : r.GetString(2);
-            catName = r.IsDBNull(3) ? null : r.GetString(3);
-            unitName = r.IsDBNull(4) ? null : r.GetString(4);
-            brandName = r.IsDBNull(5) ? null : r.GetString(5);
-            supName = r.IsDBNull(6) ? null : r.GetString(6);
-            minStock = Money.Parse(r.GetString(7));
-            unitPrice = Money.Parse(r.GetString(8));
-            cur = r.GetString(9);
-            desc = r.IsDBNull(10) ? null : r.GetString(10);
-            stock = Money.Parse(r.GetString(11));
+            catId = r.IsDBNull(3) ? null : r.GetString(3);
+            unitId = r.IsDBNull(4) ? null : r.GetString(4);
+            brandId = r.IsDBNull(5) ? null : r.GetString(5);
+            supId = r.IsDBNull(6) ? null : r.GetString(6);
+            catName = r.IsDBNull(7) ? null : r.GetString(7);
+            unitName = r.IsDBNull(8) ? null : r.GetString(8);
+            brandName = r.IsDBNull(9) ? null : r.GetString(9);
+            supName = r.IsDBNull(10) ? null : r.GetString(10);
+            minStock = Money.Parse(r.GetString(11));
+            unitPrice = Money.Parse(r.GetString(12));
+            cur = r.GetString(13);
+            desc = r.IsDBNull(14) ? null : r.GetString(14);
+            stock = Money.Parse(r.GetString(15));
         }
 
         // Muadiller (grup ids → kod/ad)
@@ -249,8 +260,68 @@ WHERE mcv.material_id=$m AND v.company_id=$c AND v.is_deleted=0 ORDER BY v.inter
             while (r.Read()) vehicles.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
         }
 
-        return new MaterialDetail(materialId, code!, name!, type, catName, unitName, brandName, supName,
+        return new MaterialDetail(materialId, code!, name!, type, catId, unitId, brandId, supId,
+            catName, unitName, brandName, supName,
             minStock, unitPrice, cur!, desc, stock, equivalents, vehicles);
+    }
+
+    /// <summary>Malzeme alanlarını günceller (kod benzersiz; FK alanları). Stok bu serviste değişmez.</summary>
+    public void Update(SessionContext s, string materialId, UpdateMaterial dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (string.IsNullOrWhiteSpace(dto.Code)) throw new ArgumentException("Kod zorunlu.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        if (CodeExists(conn, tx, s.CompanyId, dto.Code, excludeId: materialId))
+            throw new InvalidOperationException($"Bu kod zaten kullanılıyor: {dto.Code}");
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+UPDATE materials SET code=$code, name=$name, type=$type, category_id=$cat, unit_id=$unit,
+    brand_id=$brand, supplier_id=$sup, min_stock=$min, unit_price=$price, description=$desc,
+    version=version+1, updated_at=$now
+WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$code", dto.Code.Trim());
+            cmd.Parameters.AddWithValue("$name", dto.Name);
+            cmd.Parameters.AddWithValue("$type", (object?)dto.Type ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$min", Money.Serialize(dto.MinStock));
+            cmd.Parameters.AddWithValue("$price", Money.Serialize(dto.UnitPrice));
+            cmd.Parameters.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", materialId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material", materialId, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Malzeme soft-delete (is_deleted=1).</summary>
+    public void Delete(SessionContext s, string materialId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Delete);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE materials SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", materialId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material", materialId, AuditActions.Delete, s.UserId), _clock);
+        tx.Commit();
     }
 
     // ---- Liste (arama + keyset) ----
