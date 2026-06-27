@@ -98,7 +98,7 @@
                                                     <Button Content="{Binding Title}" Classes="NavLink"
                                                             Classes.active="{Binding IsActive}"
                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                            Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).NavigateCommand}"
+                                                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NavigateCommand}"
                                                             CommandParameter="{Binding Key}"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
