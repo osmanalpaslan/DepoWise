@@ -437,6 +437,9 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     [RelayCommand]
     private void RemovePhoto(PhotoStage? p) { if (p is not null) Photos.Remove(p); }
 
+    [RelayCommand]
+    private void OpenPhoto(Bitmap? b) => PhotoViewer.Show(b);
+
     private void SaveStagedPhotos(string materialId)
     {
         foreach (var ph in Photos)

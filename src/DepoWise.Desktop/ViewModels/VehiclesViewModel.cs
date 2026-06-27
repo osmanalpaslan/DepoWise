@@ -375,6 +375,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     [RelayCommand]
     private void RemovePhoto(PhotoStage? p) { if (p is not null) Photos.Remove(p); }
 
+    [RelayCommand]
+    private void OpenPhoto(Bitmap? b) => PhotoViewer.Show(b);
+
     private void SaveStagedPhotos(string vehicleId)
     {
         foreach (var ph in Photos)

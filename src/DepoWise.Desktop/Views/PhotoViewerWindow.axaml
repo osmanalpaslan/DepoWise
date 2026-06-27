@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DepoWise.Desktop.Views.PhotoViewerWindow"
+        Width="960" Height="720" WindowStartupLocation="CenterOwner"
+        Title="DepoWise — Fotoğraf" Icon="/Assets/app-logo.ico"
+        Background="{DynamicResource AppBackgroundBrush}">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource TopBarBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Padding="12,8">
+            <TextBlock Text="Fare tekerleği: yakınlaştır / uzaklaştır · Çift tık: sığdır"
+                       Classes="Helper" HorizontalAlignment="Center"/>
+        </Border>
+        <ScrollViewer x:Name="Scroller"
+                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Image x:Name="Img" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
