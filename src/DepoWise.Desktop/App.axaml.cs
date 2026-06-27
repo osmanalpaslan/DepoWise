@@ -23,22 +23,20 @@ public partial class App : Avalonia.Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var boot = DesktopBootstrap.Run();
-            // Merkezi tema Application.Resources'a uygulanır (ekranlar sabit renk yazmaz).
-            ThemeApplier.Apply(this, boot.Theme);
+            ThemeApplier.Apply(this, boot.Theme);   // merkezi tema (sabit renk yok)
+            DesktopServices.Initialize(boot);       // servisler + ilk açılış admin seed
 
-            // NOT: Masaüstü login akışı Faz 05'te. Şu an menü önizlemesi için admin oturumu;
-            // yetki mantığı MenuBuilder/AccessControl ile testlerde doğrulanmıştır.
-            var previewSession = new SessionContext("preview", "preview",
-                new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
-
-            var summary = boot.Health.Ok
-                ? $"DB: {boot.Health.DatabasePath} | journal={boot.Health.JournalMode} | DURUM: SAĞLIKLI"
-                : $"DB HATA: {boot.Health.Error}";
-
-            desktop.MainWindow = new MainWindow
+            // Önce giriş ekranı; başarılı login → MainWindow (gerçek oturum + yetkiye göre menü)
+            var loginVm = new LoginViewModel();
+            var login = new LoginWindow { DataContext = loginVm };
+            loginVm.OnLoggedIn = session =>
             {
-                DataContext = new ShellViewModel(previewSession, boot.Branding, summary),
+                var main = new MainWindow { DataContext = new ShellViewModel(session) };
+                desktop.MainWindow = main;
+                main.Show();
+                login.Close();
             };
+            desktop.MainWindow = login;
         }
 
         base.OnFrameworkInitializationCompleted();

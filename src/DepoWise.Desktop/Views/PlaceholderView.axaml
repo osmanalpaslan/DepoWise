@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:Class="DepoWise.Desktop.Views.PlaceholderView"
+             x:DataType="vm:PlaceholderViewModel">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12" MaxWidth="480">
+        <TextBlock Text="{Binding Title}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center"
+                   Foreground="{DynamicResource Brand.Primary.Brush}"/>
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" TextAlignment="Center"
+                   Foreground="{DynamicResource Brand.OnSurface.Brush}" Opacity="0.75"/>
+    </StackPanel>
+</UserControl>

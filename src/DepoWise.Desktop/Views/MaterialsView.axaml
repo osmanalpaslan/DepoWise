@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
+             x:Class="DepoWise.Desktop.Views.MaterialsView"
+             x:DataType="vm:MaterialsViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Malzemeler" FontSize="20" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Brand.OnSurface.Brush}" Margin="0,0,0,12"/>
+
+        <!-- Arama + Yeni kayıt -->
+        <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Width="240" Text="{Binding Search}" PlaceholderText="Kod / ad ara..."/>
+                <Button Content="Ara" Command="{Binding LoadCommand}"/>
+            </StackPanel>
+            <Border Background="#11000000" CornerRadius="6" Padding="10" IsVisible="{Binding CanWrite}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox Width="120" Text="{Binding NewCode}" PlaceholderText="Kod"/>
+                    <TextBox Width="200" Text="{Binding NewName}" PlaceholderText="Ad"/>
+                    <NumericUpDown Width="130" Value="{Binding NewUnitPrice}" Minimum="0"
+                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                    <NumericUpDown Width="110" Value="{Binding NewMinStock}" Minimum="0"
+                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                    <Button Content="+ Ekle" Command="{Binding AddCommand}"
+                            Background="{DynamicResource Brand.Primary.Brush}"
+                            Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Liste (ItemsControl — ek paket gerektirmez) -->
+        <Border Grid.Row="2" BorderBrush="#22000000" BorderThickness="1" CornerRadius="6">
+            <DockPanel>
+                <!-- Başlık -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="120,*,120,70,90,90"
+                      Background="{DynamicResource Brand.Primary.Brush}">
+                    <TextBlock Grid.Column="0" Text="Kod" Margin="8,6" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                    <TextBlock Grid.Column="1" Text="Ad" Margin="8,6" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                    <TextBlock Grid.Column="2" Text="Birim Fiyat" Margin="8,6" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                    <TextBlock Grid.Column="3" Text="Para" Margin="8,6" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                    <TextBlock Grid.Column="4" Text="Min Stok" Margin="8,6" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                    <TextBlock Grid.Column="5" Text="Stok" Margin="8,6" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                </Grid>
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding Items}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MaterialRow">
+                                <Grid ColumnDefinitions="120,*,120,70,90,90" Margin="0,1"
+                                      Background="{DynamicResource Brand.Surface.Brush}">
+                                    <TextBlock Grid.Column="0" Text="{Binding Code}" Margin="8,6"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,6"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding UnitPrice}" Margin="8,6"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding Currency}" Margin="8,6"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding MinStock}" Margin="8,6"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding Stock}" Margin="8,6"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,8,0,0" Opacity="0.7"
+                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+    </Grid>
+</UserControl>

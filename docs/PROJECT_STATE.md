@@ -147,8 +147,12 @@
 - **Web iskeleti** (`apps/web`): Next.js 15 (TS strict + noUncheckedIndexedAccess), Drizzle/postgres, fail-closed `config.ts`, `/api/v1/health` (correlation_id + 200/503), `docs/openapi.yaml` (ApiError/PagedResult/Health şemaları). Web sözleşmeleri .NET ile fonksiyonel eşit.
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
+## UI geliştirme (R10 kapatma — devam ediyor)
+- **Masaüstü dilim 1 (2026-06-27):** Gerçek **giriş ekranı** (`LoginWindow`/`LoginViewModel` → `AuthService`, ilk açılış admin/admin123 seed) + **shell navigasyonu** (yetkiye göre menü, `ContentControl` içerik bölgesi) + **Malzemeler ekranı** (`MaterialsView/ViewModel`: liste+arama+yeni kayıt, `MaterialService` üzerine, stok gösterimi). Diğer modüller `PlaceholderView` ile menüden açılır. `DesktopServices` hafif servis tutucu. Derleme temiz; çalıştırma: `dotnet <DepoWise.Desktop.dll>` (COMODO: EXE değil dotnet host).
+- Sıradaki dilimler: Stok işlemleri, Araçlar, Bakım ekranları; ardından web UI.
+
 ## Yayın engelleri (genel kullanıcı yayını öncesi kapanmalı)
-- **R10:** Operasyonel modüllerin UI ekranları (liste/form/import-export) bağlanmadı — servis+iş kuralı+test tam.
+- **R10:** Operasyonel modül ekranları bağlanıyor (Malzemeler bağlandı; kalan modüller sırada).
 - **R8/R9:** Web oturum kalıcılığı + masaüstü/web login akışı bağlanmalı.
 - **R4/R7:** Yerel/üretim PostgreSQL canlı migration uygulanmadı (SQLite tarafı tam; PG migration SQL üretildi).
 - **R22:** Code-signing (imzasız sürümde şeffaf uyarı var).

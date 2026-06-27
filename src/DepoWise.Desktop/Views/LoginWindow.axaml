@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="460"
+        x:Class="DepoWise.Desktop.Views.LoginWindow"
+        x:DataType="vm:LoginViewModel"
+        Width="420" Height="460" CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Title="DepoWise — Giriş">
+
+    <Border Background="{DynamicResource Brand.Surface.Brush}" Padding="32">
+        <StackPanel Spacing="16" VerticalAlignment="Center">
+            <TextBlock Text="{Binding AppName}" FontSize="28" FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource Brand.Primary.Brush}"/>
+            <TextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
+                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+
+            <StackPanel Spacing="4" Margin="0,16,0,0">
+                <TextBlock Text="Kullanıcı Adı" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                <TextBox Text="{Binding Username}" PlaceholderText="admin" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Parola" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="••••••" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
+                       TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+            <Button Content="Giriş Yap" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Padding="0,12" Margin="0,8,0,0"
+                    Background="{DynamicResource Brand.Primary.Brush}"
+                    Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                    Command="{Binding LoginCommand}" IsDefault="True"
+                    IsEnabled="{Binding !IsBusy}"/>
+
+            <TextBlock Text="İlk giriş: admin / admin123" HorizontalAlignment="Center"
+                       Opacity="0.5" FontSize="11"
+                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+        </StackPanel>
+    </Border>
+</Window>

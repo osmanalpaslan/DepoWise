@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        xmlns:ui="using:DepoWise.Application.Ui"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
@@ -25,15 +26,20 @@
                 <TextBlock DockPanel.Dock="Top" Text="{Binding CompanyName}"
                            Foreground="{DynamicResource Brand.OnPrimary.Brush}"
                            Opacity="0.8" Margin="16,0,16,12"/>
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding UserName, StringFormat='Kullanıcı: {0}'}"
+                           Foreground="{DynamicResource Brand.OnPrimary.Brush}" Opacity="0.7"
+                           Margin="16,12,16,0" FontSize="11"/>
                 <ScrollViewer>
                     <ItemsControl ItemsSource="{Binding MenuItems}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="ui:MenuItem">
                                 <Button Content="{Binding Label}" HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Left"
                                         Background="Transparent"
                                         Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                                        Padding="16,10" Margin="8,1"/>
+                                        Padding="16,10" Margin="8,1"
+                                        Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).NavigateCommand}"
+                                        CommandParameter="{Binding Key}"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -41,20 +47,15 @@
             </DockPanel>
         </Border>
 
-        <!-- Üst yüklenme göstergesi (blocking değil) -->
-        <ProgressBar Grid.Row="0" Grid.Column="1" IsIndeterminate="True"
-                     Height="3" IsVisible="{Binding IsLoading}"
-                     Foreground="{DynamicResource Brand.Accent.Brush}"/>
+        <!-- Üst başlık şeridi -->
+        <Border Grid.Row="0" Grid.Column="1" Padding="20,12"
+                Background="{DynamicResource Brand.Surface.Brush}">
+            <TextBlock Text="{Binding CurrentTitle}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+        </Border>
 
-        <!-- İçerik -->
-        <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="24">
-            <StackPanel Spacing="12">
-                <TextBlock Text="Ortak UI İskeleti (Faz 04)" FontSize="18" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                <TextBlock Text="{Binding HealthSummary}" TextWrapping="Wrap"
-                           Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-            </StackPanel>
-        </ScrollViewer>
+        <!-- İçerik (seçili modül ekranı; ViewLocator VM->View çözer) -->
+        <ContentControl Grid.Row="1" Grid.Column="1" Content="{Binding CurrentPage}"/>
 
         <Border Grid.Row="2" Grid.Column="1" Padding="12"
                 Background="{DynamicResource Brand.Surface.Brush}">
