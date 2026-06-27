@@ -145,31 +145,45 @@
 
                 <!-- Grup: İlişkiler (uyumlu araç + muadil) -->
                 <TextBlock Text="İlişkiler" Classes="CardLabel"/>
-                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar.">
-                    <Border Classes="Table" MaxHeight="120">
-                        <ListBox ItemsSource="{Binding VehiclePicks}" Background="Transparent" BorderThickness="0">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:VehiclePick">
-                                    <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Border>
+                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar (çoklu seçim).">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
+                        </Grid>
+                        <Border Classes="Table" MaxHeight="160">
+                            <ListBox ItemsSource="{Binding FilteredVehiclePicks}" Background="Transparent" BorderThickness="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:VehiclePick">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </StackPanel>
                 </ctrl:FormField>
 
-                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara, ekle.">
+                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara/ekle (çoklu); boş arama=tümü.">
                     <StackPanel Spacing="6">
-                        <TextBox Classes="Field" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (en az 2 harf)"/>
-                        <ItemsControl ItemsSource="{Binding EquivalentResults}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:MaterialRow">
-                                    <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                            Content="{Binding Name}"
-                                            Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).AddEquivalentPickCommand}"
-                                            CommandParameter="{Binding}"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (boş=tümü)"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllEquivalentsCommand}"/>
+                        </Grid>
+                        <Border Classes="Table" MaxHeight="160">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding EquivalentResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MaterialRow">
+                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Content="{Binding Name}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).AddEquivalentPickCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
                         <ItemsControl ItemsSource="{Binding ChosenEquivalents}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MaterialRow">

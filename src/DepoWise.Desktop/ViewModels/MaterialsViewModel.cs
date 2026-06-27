@@ -128,7 +128,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     {
         _session = session;
         Load();
-        if (openAdd && CanWrite) { ShowAdd = true; LoadLookups(); }
+        if (openAdd && CanWrite) { ShowAdd = true; LoadLookups(); RefreshEquivalentResults(); }
     }
 
     [RelayCommand]
@@ -241,7 +241,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         ShowAdd = !ShowAdd;
-        if (ShowAdd) LoadLookups();
+        if (ShowAdd) { LoadLookups(); RefreshEquivalentResults(); }
     }
 
     /// <summary>İptal — form alanlarını temizler ve kapatır (sunum durumu; iş mantığı yok).</summary>
@@ -254,6 +254,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         SelectedBrand = null; SelectedSupplier = null;
         IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
         foreach (var p in VehiclePicks) p.IsSelected = false;
+        VehicleSearch = "";
         ChosenEquivalents.Clear(); EquivalentResults.Clear(); EquivalentSearch = "";
         _origEquivIds = new();
         Photos.Clear();
@@ -381,6 +382,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         foreach (var e in d.Equivalents)
             ChosenEquivalents.Add(new MaterialRow(e.Id, e.Code, e.Name, null, 0, "TRY", 0, 0));
         _origEquivIds = d.Equivalents.Select(e => e.Id).ToHashSet();
+        RefreshEquivalentResults();
 
         TriedSave = false;
         ShowAdd = true;
@@ -403,31 +405,58 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
     }
 
-    // ═══════════ Uyumlu araçlar (form çoklu seçim) ═══════════
+    // ═══════════ Uyumlu araçlar (form çoklu seçim + arama + tümünü seç) ═══════════
     public ObservableCollection<VehiclePick> VehiclePicks { get; } = new();
+    public ObservableCollection<VehiclePick> FilteredVehiclePicks { get; } = new();
+    [ObservableProperty] private string _vehicleSearch = "";
+
+    partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
     private void LoadVehiclePicks()
     {
         VehiclePicks.Clear();
         try { foreach (var v in DesktopServices.Vehicles.List(_session)) VehiclePicks.Add(new VehiclePick(v.Id, v.InternalCode, v.Plate ?? "")); }
         catch { /* araç yoksa sessiz */ }
+        RebuildFilteredVehicles();
     }
+
+    private void RebuildFilteredVehicles()
+    {
+        FilteredVehiclePicks.Clear();
+        var t = VehicleSearch?.Trim();
+        foreach (var p in VehiclePicks)
+            if (string.IsNullOrEmpty(t)
+                || p.Code.Contains(t, StringComparison.OrdinalIgnoreCase)
+                || p.Plate.Contains(t, StringComparison.OrdinalIgnoreCase))
+                FilteredVehiclePicks.Add(p);
+    }
+
+    /// <summary>Aramadaki tüm araçları (arama yoksa hepsini) seç.</summary>
+    [RelayCommand]
+    private void SelectAllVehicles() { foreach (var p in FilteredVehiclePicks) p.IsSelected = true; }
+
+    [RelayCommand]
+    private void ClearVehicles() { foreach (var p in FilteredVehiclePicks) p.IsSelected = false; }
 
     // ═══════════ Muadil malzeme (mevcut kayıtlardan ara+ekle) ═══════════
     [ObservableProperty] private string _equivalentSearch = "";
     public ObservableCollection<MaterialRow> EquivalentResults { get; } = new();
     public ObservableCollection<MaterialRow> ChosenEquivalents { get; } = new();
 
-    partial void OnEquivalentSearchChanged(string value)
+    partial void OnEquivalentSearchChanged(string value) => RefreshEquivalentResults();
+
+    /// <summary>Arama boşsa tümü (max 200), doluysa eşleşenler; seçilenler ve kendisi hariç.</summary>
+    private void RefreshEquivalentResults()
     {
         EquivalentResults.Clear();
-        var term = value?.Trim();
-        if (string.IsNullOrEmpty(term) || term.Length < 2) return;
+        var term = EquivalentSearch?.Trim();
         try
         {
-            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 10 }, term);
+            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 200 },
+                string.IsNullOrEmpty(term) ? null : term);
             foreach (var m in page.Items)
             {
+                if (m.Id == EditId) continue;
                 if (ChosenEquivalents.Any(c => c.Id == m.Id)) continue;
                 EquivalentResults.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, 0));
             }
@@ -440,14 +469,23 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     {
         if (m is null) return;
         if (!ChosenEquivalents.Any(c => c.Id == m.Id)) ChosenEquivalents.Add(m);
-        EquivalentResults.Remove(m);
-        EquivalentSearch = "";
+        RefreshEquivalentResults();
     }
 
     [RelayCommand]
     private void RemoveEquivalentPick(MaterialRow? m)
     {
         if (m is not null) ChosenEquivalents.Remove(m);
+        RefreshEquivalentResults();
+    }
+
+    /// <summary>Aramadaki tüm sonuçları (arama yoksa hepsini) muadil olarak ekle.</summary>
+    [RelayCommand]
+    private void SelectAllEquivalents()
+    {
+        foreach (var m in EquivalentResults.ToList())
+            if (!ChosenEquivalents.Any(c => c.Id == m.Id)) ChosenEquivalents.Add(m);
+        RefreshEquivalentResults();
     }
 
     // ═══════════ Fotoğraflar ═══════════
