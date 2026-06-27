@@ -1,0 +1,41 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:media="clr-namespace:Avalonia.Media;assembly=Avalonia.Base">
+    <!-- DepoWise tasarım sistemi — boşluk, köşe, tipografi, elevation ölçekleri. -->
+
+    <!-- Boşluk ölçeği (px) -->
+    <sys:Double x:Key="Space4">4</sys:Double>
+    <sys:Double x:Key="Space8">8</sys:Double>
+    <sys:Double x:Key="Space12">12</sys:Double>
+    <sys:Double x:Key="Space16">16</sys:Double>
+    <sys:Double x:Key="Space20">20</sys:Double>
+    <sys:Double x:Key="Space24">24</sys:Double>
+    <sys:Double x:Key="Space32">32</sys:Double>
+
+    <!-- Hazır padding (Thickness) -->
+    <Thickness x:Key="PadCard">16</Thickness>
+    <Thickness x:Key="PadPage">24</Thickness>
+    <Thickness x:Key="PadTopBar">24,14</Thickness>
+
+    <!-- Köşe yarıçapı ölçeği -->
+    <CornerRadius x:Key="Radius4">4</CornerRadius>
+    <CornerRadius x:Key="Radius6">6</CornerRadius>
+    <CornerRadius x:Key="Radius8">8</CornerRadius>
+    <CornerRadius x:Key="Radius12">12</CornerRadius>
+
+    <!-- Tipografi ölçeği (font boyutları) -->
+    <sys:Double x:Key="FontPageTitle">20</sys:Double>
+    <sys:Double x:Key="FontSectionTitle">13</sys:Double>
+    <sys:Double x:Key="FontCardLabel">12</sys:Double>
+    <sys:Double x:Key="FontMetric">28</sys:Double>
+    <sys:Double x:Key="FontBody">13</sys:Double>
+    <sys:Double x:Key="FontHelper">11</sys:Double>
+
+    <!-- Sistem fontu (harici font dosyası eklenmez; Segoe UI/Aptos öncelikli, güvenli fallback) -->
+    <FontFamily x:Key="AppFontFamily">Segoe UI Variable, Segoe UI, Aptos, Inter, sans-serif</FontFamily>
+
+    <!-- Elevation (hafif gölge; ağır blur yok) -->
+    <media:BoxShadows x:Key="ShadowSm">0 1 3 0 #33000000</media:BoxShadows>
+    <media:BoxShadows x:Key="ShadowMd">0 3 8 0 #40000000</media:BoxShadows>
+</ResourceDictionary>

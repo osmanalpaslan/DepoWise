@@ -1,0 +1,48 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+      DepoWise tasarım sistemi — semantik RENK token'ları (koyu tema).
+      Referans: DepoWise-Hedef.png. Renkler yalnız burada tanımlanır; ekranlara sabit yazılmaz.
+      Çalışma zamanı Brand.* (ThemeApplier) sistemi ayrıca korunur; bu dosya yeni semantik katmandır.
+    -->
+
+    <!-- Color (çekirdek) -->
+    <Color x:Key="AppBackgroundColor">#12161E</Color>
+    <Color x:Key="SidebarBackgroundColor">#1B212C</Color>
+    <Color x:Key="TopBarBackgroundColor">#1B212C</Color>
+    <Color x:Key="SurfaceColor">#282F3A</Color>
+    <Color x:Key="SurfaceElevatedColor">#303743</Color>
+    <Color x:Key="SurfaceHoverColor">#2E3744</Color>
+    <Color x:Key="BorderSubtleColor">#394250</Color>
+    <Color x:Key="AccentColor">#2F6FD5</Color>
+    <Color x:Key="AccentHoverColor">#3D7FE5</Color>
+    <Color x:Key="TextPrimaryColor">#F5F7FA</Color>
+    <Color x:Key="TextSecondaryColor">#AEB7C4</Color>
+    <Color x:Key="TextMutedColor">#7C8696</Color>
+    <Color x:Key="SuccessColor">#2CBF6D</Color>
+    <Color x:Key="WarningColor">#D8A617</Color>
+    <Color x:Key="DangerColor">#E24A3B</Color>
+    <Color x:Key="InfoColor">#3AA0E0</Color>
+
+    <!-- Brush (token = semantik ad + Brush) -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="{StaticResource AppBackgroundColor}"/>
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="{StaticResource SidebarBackgroundColor}"/>
+    <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="{StaticResource TopBarBackgroundColor}"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}"/>
+    <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="{StaticResource SurfaceElevatedColor}"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource SurfaceHoverColor}"/>
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHoverColor}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}"/>
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}"/>
+    <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource InfoColor}"/>
+
+    <!-- Hover/seçili için ince beyaz overlay (koyu yüzeylerde) -->
+    <SolidColorBrush x:Key="OverlayHoverBrush" Color="#16FFFFFF"/>
+    <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#22FFFFFF"/>
+</ResourceDictionary>

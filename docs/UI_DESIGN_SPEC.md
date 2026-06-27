@@ -65,6 +65,52 @@ Mevcut palet hedefe uygun (koyu). İnce ayarlar Faz'larda:
 - Yüksek DPI: vektör (Lucide) ikon; bitmap ikon kaçınılır.
 - UI thread'de ağır iş yok; veri çağrıları servis katmanında.
 
-## 5. Kapsam dışı (bu fazda yapılmaz)
+## 5. Kapsam dışı (Faz 0)
 - View/VM/resource/paket değişikliği yok (Faz 0 salt okunur).
 - LiveCharts/Lucide entegrasyonu ilgili fazda; şimdi yalnız karar.
+
+---
+
+## 6. Tasarım Sistemi — uygulanan altyapı (Faz 2)
+Avalonia ayrı tema kaynakları olarak eklendi; App.axaml'e merge edildi. **Renkler yalnız bu kaynaklarda; ekranlara sabit yazılmaz.** Mevcut çalışma-zamanı `Brand.*` (ThemeApplier) sistemi **korundu**; bu yeni semantik katman onunla **çakışmaz** (ayrı anahtarlar).
+
+### Dosyalar
+- `src/DepoWise.Desktop/Themes/Palette.axaml` — semantik renk token'ları (Color + Brush).
+- `src/DepoWise.Desktop/Themes/Scales.axaml` — boşluk, köşe, tipografi boyutları, font, elevation.
+- `src/DepoWise.Desktop/Themes/Controls.axaml` — **sınıf-tabanlı** temel stiller (opt-in).
+
+### Semantik renk token'ları (koyu palet)
+| Token (Brush) | Hex | Kullanım |
+|---|---|---|
+| AppBackgroundBrush | #12161E | Uygulama zemini |
+| SidebarBackgroundBrush | #1B212C | Sol menü |
+| TopBarBackgroundBrush | #1B212C | Üst bar |
+| SurfaceBrush | #282F3A | Kart yüzeyi |
+| SurfaceElevatedBrush | #303743 | Yükseltilmiş yüzey |
+| SurfaceHoverBrush | #2E3744 | Yüzey hover |
+| BorderSubtleBrush | #394250 | İnce kenarlık |
+| AccentBrush / AccentHoverBrush | #2F6FD5 / #3D7FE5 | Vurgu (buton/aktif) |
+| TextPrimaryBrush | #F5F7FA | Ana metin |
+| TextSecondaryBrush | #AEB7C4 | İkincil metin |
+| TextMutedBrush | #7C8696 | Yardımcı metin |
+| SuccessBrush / WarningBrush / DangerBrush | #2CBF6D / #D8A617 / #E24A3B | Durum |
+| InfoBrush | #3AA0E0 | Bilgi |
+| OverlayHoverBrush / OverlaySelectedBrush | #16FFFFFF / #22FFFFFF | Koyu yüzey hover/seçili |
+
+### Ölçekler
+- **Boşluk:** Space4/8/12/16/20/24/32 (+ PadCard=16, PadPage=24, PadTopBar=24,14).
+- **Köşe:** Radius4/6/8/12.
+- **Tipografi (boyut):** FontPageTitle=20, FontSectionTitle=13, FontCardLabel=12, FontMetric=28, FontBody=13, FontHelper=11.
+- **Font:** `AppFontFamily = "Segoe UI Variable, Segoe UI, Aptos, Inter, sans-serif"` — **harici font dosyası eklenmedi**; sistem fontu + güvenli fallback.
+- **Elevation:** ShadowSm/ShadowMd (hafif; ağır blur yok).
+
+### Temel stiller (sınıf-tabanlı, opt-in)
+- Tipografi: `TextBlock.PageTitle/.SectionTitle/.CardLabel/.Metric/.Body/.Helper`.
+- `Button.Primary` (accent + hover), `Border.Card`, `Border.SurfaceElevated`, `Border.Divider`.
+- **Hepsi `Classes` ile kapsanır** → mevcut kontroller (Classes'sız) etkilenmez; global `Button`/`TextBlock` seçici yok.
+
+### İlişki: yeni semantik tokenlar ↔ Brand.* (geçiş planı)
+- Şu an ekranlar `Brand.*` kullanıyor (eski palet, çalışmaya devam). Yeni semantik tokenlar gelecek faz ekranlarında kullanılacak; ilerleyen fazda `Brand.*` → semantik tokenlara köprülenip tek kaynağa indirgenecek (bu faz kapsamı dışı).
+
+### Tema önizleme view'ı (Faz 2 kararı)
+- **Eklenmedi.** Gerekçe: mevcut yapı ayrı bir "geliştirici önizleme" barınağı içermiyor; bir önizleme ya üretim navigasyonuna sahte ekran ekler (yasak) ya da ölü kod olur. Token'lar build ile doğrulandı; görsel doğrulama ilgili ekran fazında yapılacak.

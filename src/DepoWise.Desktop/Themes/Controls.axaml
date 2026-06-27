@@ -1,0 +1,80 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+      DepoWise tasarım sistemi — temel SINIF tabanlı stiller.
+      TÜM seçiciler Classes ile kapsanır (Button.Primary, TextBlock.PageTitle ...) → opt-in;
+      mevcut kontroller (Classes'sız) ETKİLENMEZ. Renkler tema kaynağından (DynamicResource).
+    -->
+
+    <!-- ===== Tipografi ===== -->
+    <Style Selector="TextBlock.PageTitle">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontPageTitle}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.SectionTitle">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSectionTitle}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.CardLabel">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontCardLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.Metric">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontMetric}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.Body">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontBody}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.Helper">
+        <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontHelper}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+
+    <!-- ===== Button.Primary ===== -->
+    <Style Selector="Button.Primary">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="16,9"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.Primary /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+    </Style>
+    <Style Selector="Button.Primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
+
+    <!-- ===== Yüzeyler ===== -->
+    <Style Selector="Border.Card">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="Padding" Value="{StaticResource PadCard}"/>
+    </Style>
+    <Style Selector="Border.SurfaceElevated">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+    </Style>
+
+    <!-- ===== Ayraç ===== -->
+    <Style Selector="Border.Divider">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="Margin" Value="0,8"/>
+    </Style>
+</Styles>

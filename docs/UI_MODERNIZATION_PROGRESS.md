@@ -74,3 +74,39 @@ Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoW
 - Emoji→Lucide ve ikon rayı eklenmesi mevcut menü binding'lerini etkilemeden yapılmalı.
 
 **Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
+## Faz 2 — Tasarım sistemi & tema altyapısı (TAMAMLANDI)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · **Tür:** Ekran yerleşimi/iş mantığı değiştirilmedi.
+
+### Yapılanlar
+- Avalonia ayrı tema kaynakları oluşturuldu ve App.axaml'e merge edildi:
+  - `Themes/Palette.axaml` — 16 semantik renk token'ı (Color+Brush) koyu palet (referans hex).
+  - `Themes/Scales.axaml` — boşluk (4–32), köşe (4/6/8/12), tipografi boyutları, sistem font (Segoe UI/Aptos/Inter fallback), elevation (hafif gölge).
+  - `Themes/Controls.axaml` — sınıf-tabanlı temel stiller (TextBlock tipografi sınıfları, Button.Primary, Border.Card/.SurfaceElevated/.Divider).
+- **Renkler ekranlara dağıtılmadı**; yalnız tema kaynağında (DynamicResource). Mevcut `Brand.*` çalışma-zamanı sistemi korundu (çakışma yok).
+- Tüm yeni stiller **opt-in (Classes)** → mevcut kontroller etkilenmedi (global `Button`/`TextBlock` seçici yok).
+- Tema önizleme view'ı eklenmedi (gerekçe: sahte ekran/ölü kod riski — bkz. UI_DESIGN_SPEC §6).
+
+### Değiştirilen/eklenen dosyalar
+- Eklendi: `src/DepoWise.Desktop/Themes/{Palette,Scales,Controls}.axaml`
+- Düzenlendi: `src/DepoWise.Desktop/App.axaml` (yalnız tema kaynak/style include eklendi)
+- Belge: `docs/UI_DESIGN_SPEC.md` (§6 Tasarım Sistemi), bu dosya
+
+### Komutlar
+- `dotnet build src/DepoWise.Desktop` → 0 hata, **0 uyarı**
+- `dotnet build DepoWise.sln` + `dotnet test` → 0 hata, **188/188**
+
+### Build/Test sonuçları
+- Build: **başarılı, 0 uyarı** · Test: **188/188 geçti** (yeni uyarı yok)
+
+### Ekran görüntüleri
+- Üretilmedi (bu faz görsel yerleşim değiştirmez; yalnız tema altyapısı). Token'lar build ile doğrulandı.
+
+### Bilinen sorunlar / sonraki faza bırakılanlar
+- Ekranların yeni semantik token'lara taşınması ve `Brand.*` → semantik köprüleme sonraki fazlarda.
+- Emoji→Lucide ikon sistemi sonraki fazda.
+- İkon rayı + açıklamalı menü çift katmanı sonraki fazda.
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**

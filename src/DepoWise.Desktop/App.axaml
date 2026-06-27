@@ -8,9 +8,22 @@
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
+
+    <!-- Tasarım sistemi: semantik renk token'ları + ölçekler (ayrı tema kaynakları) -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Themes/Palette.axaml"/>
+                <ResourceInclude Source="/Themes/Scales.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+
+        <!-- Tasarım sistemi temel sınıf stilleri (opt-in; mevcut kontrolleri etkilemez) -->
+        <StyleInclude Source="/Themes/Controls.axaml"/>
 
         <!-- ===== Sol menü stilleri (koyu tema) ===== -->
         <Style Selector="Button.NavTop">
