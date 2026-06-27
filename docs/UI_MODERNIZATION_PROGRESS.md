@@ -77,6 +77,43 @@ Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoW
 
 ---
 
+## Faz 4 — Genel Özet / Dashboard modernizasyonu (TAMAMLANDI)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · İş verisi/sayımlar ve VM mantığı korundu.
+
+### Yapılanlar
+- **Başlık hiyerarşisi:** içerikteki tekrar eden büyük başlık kaldırıldı; üst bar = sayfa başlığı, içerikte küçük "ÖZET"/"KRİTİK UYARILAR" bölüm etiketleri.
+- **Ortak metrik kartı** (`Border.Kpi` + `KpiValue/KpiLabel`): eşit yükseklik (104), 12px köşe, ince kenar + hafif elevation, küçük/ikincil etiket, büyük güçlü değer, ikon placeholder chip (emoji yok).
+- **Yalnız ilk kart mavi** (`Classes.primary` = `KpiCard.Primary`); diğer 4 kart nötr koyu yüzey. **Beş metrik korundu** (Toplam Araç / Malzeme Çeşidi / Düşük Stok / Bekleyen Talep / Aktif Personel); değerler mevcut binding'den (sahte veri yok).
+- **Responsive:** `WrapPanel` + sabit min/again genişlik → geniş ekranda tek satıra yaklaşır, dar ekranda min genişlikle wrap; içerik kaybolmaz.
+- **Kritik Uyarılar yeniden tasarım:** satır = sol renk çubuğu (kritik=kırmızı / değilse turuncu, `AlertBrush`) + ikon placeholder + başlık + detay (oran/sayaç detayda).
+- **Empty-state kompakt:** yeşil ✓ + "Aktif kritik uyarı yok." (büyük gri kutu yok, gereksiz yükseklik yok).
+- **Durum modeli (minimum):** `IsLoading/LoadError/HasError/IsLoaded` eklendi (iş mantığı değişmeden); hata durumunda kırmızı kenarlı banner; boş veri empty-state. Sahte etkileşim eklenmedi (uyarı satırında gerçek komut yok → tıklama yok).
+- Margin/padding **tasarım token'larından** (Space/Pad/Radius/Shadow). Emoji ikonlar kaldırıldı.
+
+### Değiştirilen/eklenen dosyalar
+- `Views/DashboardView.axaml` (yeniden tasarım), `ViewModels/DashboardViewModel.cs` (KpiCard: Icon kaldırıldı + Primary eklendi; min durum modeli)
+- `Themes/Controls.axaml` (Border.Kpi/.primary, KpiValue/KpiLabel, IconChip, AlertRow)
+- `docs/ui-evidence/phase-04-dashboard/README.md`
+
+### Komutlar
+- `dotnet build src/DepoWise.Desktop` → 0 uyarı/hata
+- `dotnet build DepoWise.sln` + `dotnet test` → 0 hata, **188/188**
+
+### Build/Test sonuçları
+- Build: **0 uyarı / 0 hata** · Test: **188/188 geçti** · Dashboard smoke: kart/uyarı/empty-state kod düzeyinde doğrulandı; görsel smoke kullanıcı (dotnet host).
+
+### Ekran görüntüleri
+- `docs/ui-evidence/phase-04-dashboard/` (1366×768, 1920×1080, mevcut) — **kullanıcı tarafından** (COMODO; talimat README'de).
+
+### Bilinen sorunlar / sonraki faza bırakılanlar
+- İkon placeholder chip'leri Faz 5'te Lucide ile gerçek ikon olacak.
+- **Uyarı şiddeti** şu an 2 seviye (kritik/diğer = kırmızı/turuncu); 4 seviye (yüksek/turuncu, yaklaşan/sarı, bilgi/yeşil) için `DashboardAlert`'e bir `Severity` alanı gerekir → **öneri** (bu fazda Application modeli/iş mantığı değiştirilmedi).
+- Uyarı satırına detay/aksiyon komutu (NavigateKey) ileride bağlanabilir (şu an gerçek komut yok, sahte eklenmedi).
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 3 — Uygulama kabuğu modernizasyonu (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · İçerik ekranlarının işlevleri değiştirilmedi.
 

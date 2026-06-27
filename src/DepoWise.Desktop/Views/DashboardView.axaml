@@ -4,63 +4,88 @@
              xmlns:rep="using:DepoWise.Application.Reports"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="620"
+             mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="640"
              x:Class="DepoWise.Desktop.Views.DashboardView"
              x:DataType="vm:DashboardViewModel">
-    <ScrollViewer Padding="24" Background="{DynamicResource Brand.Surface.Brush}">
+    <ScrollViewer Background="{DynamicResource AppBackgroundBrush}" Padding="24">
         <StackPanel Spacing="20">
 
-            <!-- KPI kartları (mavi dolu) -->
-            <TextBlock Text="GENEL ÖZET" FontWeight="Bold" FontSize="13"
-                       Foreground="{DynamicResource Brand.OnSurface.Brush}" Opacity="0.6"/>
-            <ItemsControl ItemsSource="{Binding Cards}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:KpiCard">
-                        <Border Width="200" Height="104" Margin="0,0,16,16" Padding="18"
-                                Background="{DynamicResource Brand.Accent.Brush}"
-                                CornerRadius="{DynamicResource Brand.CornerRadius}">
-                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="{Binding Icon}" FontSize="18"/>
-                                    <TextBlock Text="{Binding Value}" FontSize="34" FontWeight="Bold"
-                                               Foreground="White"/>
-                                </StackPanel>
-                                <TextBlock Text="{Binding Label}" FontSize="12" Foreground="White" Opacity="0.92"/>
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <!-- Kritik uyarılar -->
-            <TextBlock Text="KRİTİK UYARILAR" FontWeight="Bold" FontSize="13"
-                       Foreground="{DynamicResource Brand.OnSurface.Brush}" Opacity="0.6"/>
-            <Border Background="{DynamicResource Brand.Panel.Brush}" CornerRadius="{DynamicResource Brand.CornerRadius}"
-                    BorderBrush="{DynamicResource Brand.Border.Brush}" BorderThickness="1" Padding="14">
-                <StackPanel Spacing="8">
-                    <ItemsControl ItemsSource="{Binding Alerts}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="rep:DashboardAlert">
-                                <Border Margin="0,2" Padding="14,11" CornerRadius="8"
-                                        Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}">
-                                    <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <TextBlock Text="⚠️" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="White"
-                                                   VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Detail}" Foreground="White" Opacity="0.85"
-                                                   VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="Aktif kritik uyarı yok. ✔" IsVisible="{Binding !HasAlerts}"
-                               Foreground="{DynamicResource Brand.Success.Brush}" Padding="4"/>
-                </StackPanel>
+            <!-- Hata durumu -->
+            <Border IsVisible="{Binding HasError}" Background="{DynamicResource SurfaceElevatedBrush}"
+                    BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius8}" Padding="12,10">
+                <TextBlock Text="{Binding LoadError}" Classes="Body"
+                           Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
             </Border>
+
+            <!-- ===== Özet ===== -->
+            <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
+                <TextBlock Text="ÖZET" Classes="SectionTitle"/>
+                <ItemsControl ItemsSource="{Binding Cards}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:KpiCard">
+                            <Border Classes="Kpi" Classes.primary="{Binding Primary}" Margin="0,0,12,12">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Border Grid.Column="0" Classes="IconChip" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{Binding Value}" Classes="KpiValue"/>
+                                        <TextBlock Text="{Binding Label}" Classes="KpiLabel"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- ===== Kritik Uyarılar ===== -->
+            <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
+                <TextBlock Text="KRİTİK UYARILAR" Classes="SectionTitle"/>
+
+                <!-- Uyarı varsa: liste -->
+                <ItemsControl ItemsSource="{Binding Alerts}" IsVisible="{Binding HasAlerts}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="rep:DashboardAlert">
+                            <Border Classes="AlertRow">
+                                <Grid ColumnDefinitions="4,Auto,*,Auto">
+                                    <!-- Sol renk çubuğu (kritik=kırmızı / değilse turuncu) -->
+                                    <Border Grid.Column="0" Width="4" CornerRadius="2"
+                                            Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"/>
+                                    <!-- İkon placeholder -->
+                                    <Border Grid.Column="1" Width="26" Height="26" Margin="10,0,0,0"
+                                            CornerRadius="{StaticResource Radius6}"
+                                            Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"
+                                            Opacity="0.22"/>
+                                    <!-- Başlık + detay -->
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
+                                        <TextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Detail}" Classes="Helper"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Uyarı yoksa: kompakt empty-state -->
+                <Border IsVisible="{Binding !HasAlerts}" Background="{DynamicResource SurfaceElevatedBrush}"
+                        CornerRadius="{StaticResource Radius8}" Padding="14,10" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Width="22" Height="22" CornerRadius="11"
+                                Background="{DynamicResource SuccessBrush}">
+                            <TextBlock Text="✓" Foreground="White" FontWeight="Bold" FontSize="13"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Aktif kritik uyarı yok." Classes="Body" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
         </StackPanel>
     </ScrollViewer>
