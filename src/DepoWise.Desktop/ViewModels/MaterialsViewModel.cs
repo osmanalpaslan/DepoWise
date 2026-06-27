@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
@@ -109,10 +110,11 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     public bool CanWrite => AccessControl.Can(_session, "materials", PermissionAction.Create);
     public string? AddButtonText => CanWrite ? "Yeni Malzeme" : null;
 
-    public MaterialsViewModel(SessionContext session)
+    public MaterialsViewModel(SessionContext session, bool openAdd = false)
     {
         _session = session;
         Load();
+        if (openAdd && CanWrite) { ShowAdd = true; LoadLookups(); }
     }
 
     [RelayCommand]
@@ -127,7 +129,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
             foreach (var m in page.Items)
             {
                 var stock = DesktopServices.OpeningStock.GetBalance(_session, m.Id);
-                Items.Add(new MaterialRow(m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, stock));
+                Items.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, stock));
             }
             Status = $"{Items.Count} kayıt";
         }
@@ -165,6 +167,15 @@ public sealed partial class MaterialsViewModel : ViewModelBase
             if (NewOpeningStock > 0)
                 DesktopServices.OpeningStock.RecordOpening(_session, id, NewOpeningStock, Guid.NewGuid().ToString("N"));
 
+            // Uyumlu araçlar (seçiliyse)
+            var compatIds = VehiclePicks.Where(p => p.IsSelected).Select(p => p.Id).ToList();
+            if (compatIds.Count > 0)
+                DesktopServices.Materials.SetCompatibleVehicles(_session, id, compatIds);
+
+            // Muadiller
+            foreach (var eq in ChosenEquivalents)
+                DesktopServices.Materials.AddEquivalent(_session, id, eq.Id);
+
             Clear();
             Load();
             Status = "Malzeme eklendi.";
@@ -190,6 +201,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;
         SelectedBrand = null; SelectedSupplier = null;
         IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
+        foreach (var p in VehiclePicks) p.IsSelected = false;
+        ChosenEquivalents.Clear(); EquivalentResults.Clear(); EquivalentSearch = "";
         TriedSave = false; ShowAdd = false;
     }
 
@@ -203,6 +216,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
             Units.Clear(); foreach (var u in DesktopServices.Lookups.List(_session, "units")) Units.Add(u);
             Brands.Clear(); foreach (var b in DesktopServices.Lookups.ListBrands(_session, "material")) Brands.Add(b);
             Suppliers.Clear(); foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(sp);
+            LoadVehiclePicks();
             _lookupsLoaded = true;
         }
         catch (Exception ex) { Status = "Tanımlar yüklenemedi: " + ex.Message; }
@@ -269,6 +283,67 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
 
+    // ═══════════ Detay (satır seçince tüm alanlar) ═══════════
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    private MaterialRow? _selected;
+    [ObservableProperty] private MaterialDetail? _detail;
+    public bool HasSelection => Selected != null;
+
+    partial void OnSelectedChanged(MaterialRow? value)
+    {
+        if (value is null) { Detail = null; return; }
+        try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); }
+        catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
+    }
+
+    // ═══════════ Uyumlu araçlar (form çoklu seçim) ═══════════
+    public ObservableCollection<VehiclePick> VehiclePicks { get; } = new();
+
+    private void LoadVehiclePicks()
+    {
+        VehiclePicks.Clear();
+        try { foreach (var v in DesktopServices.Vehicles.List(_session)) VehiclePicks.Add(new VehiclePick(v.Id, v.InternalCode, v.Plate ?? "")); }
+        catch { /* araç yoksa sessiz */ }
+    }
+
+    // ═══════════ Muadil malzeme (mevcut kayıtlardan ara+ekle) ═══════════
+    [ObservableProperty] private string _equivalentSearch = "";
+    public ObservableCollection<MaterialRow> EquivalentResults { get; } = new();
+    public ObservableCollection<MaterialRow> ChosenEquivalents { get; } = new();
+
+    partial void OnEquivalentSearchChanged(string value)
+    {
+        EquivalentResults.Clear();
+        var term = value?.Trim();
+        if (string.IsNullOrEmpty(term) || term.Length < 2) return;
+        try
+        {
+            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 10 }, term);
+            foreach (var m in page.Items)
+            {
+                if (ChosenEquivalents.Any(c => c.Id == m.Id)) continue;
+                EquivalentResults.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, 0));
+            }
+        }
+        catch { /* arama hatası sessiz */ }
+    }
+
+    [RelayCommand]
+    private void AddEquivalentPick(MaterialRow? m)
+    {
+        if (m is null) return;
+        if (!ChosenEquivalents.Any(c => c.Id == m.Id)) ChosenEquivalents.Add(m);
+        EquivalentResults.Remove(m);
+        EquivalentSearch = "";
+    }
+
+    [RelayCommand]
+    private void RemoveEquivalentPick(MaterialRow? m)
+    {
+        if (m is not null) ChosenEquivalents.Remove(m);
+    }
+
     private void NotifyListState()
     {
         OnPropertyChanged(nameof(IsEmpty));
@@ -276,7 +351,17 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     }
 }
 
-public sealed record MaterialRow(string Code, string Name, string? Type, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock)
+public sealed partial class VehiclePick : ObservableObject
+{
+    public string Id { get; }
+    public string Code { get; }
+    public string Plate { get; }
+    [ObservableProperty] private bool _isSelected;
+    public string Display => string.IsNullOrWhiteSpace(Plate) ? Code : $"{Code} — {Plate}";
+    public VehiclePick(string id, string code, string plate) { Id = id; Code = code; Plate = plate; }
+}
+
+public sealed record MaterialRow(string Id, string Code, string Name, string? Type, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock)
 {
     // Sunum türevleri (mevcut veriden hesap; iş mantığı değişmez)
     public bool IsLowStock => Stock <= MinStock;

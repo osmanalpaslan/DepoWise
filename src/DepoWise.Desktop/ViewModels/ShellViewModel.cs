@@ -89,10 +89,14 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Özet istatistikler ve kritik uyarılar";
                 break;
             case "materials":
-            case "materials:new":
                 CurrentPage = new MaterialsViewModel(_session);
                 CurrentTitle = "Malzemeler";
                 CurrentContext = "Malzeme kartları ve stok";
+                break;
+            case "materials:new":
+                CurrentPage = new MaterialsViewModel(_session, openAdd: true);
+                CurrentTitle = "Malzemeler — Yeni Kayıt";
+                CurrentContext = "Yeni malzeme formu";
                 break;
             case "vehicles":
             case "vehicles:new":

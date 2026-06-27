@@ -143,6 +143,48 @@
                     </StackPanel>
                 </ctrl:FormField>
 
+                <!-- Grup: İlişkiler (uyumlu araç + muadil) -->
+                <TextBlock Text="İlişkiler" Classes="CardLabel"/>
+                <ctrl:FormField Label="Uyumlu Araçlar" HelpText="Bu malzemenin takıldığı araçlar.">
+                    <Border Classes="Table" MaxHeight="120">
+                        <ListBox ItemsSource="{Binding VehiclePicks}" Background="Transparent" BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:VehiclePick">
+                                    <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </ctrl:FormField>
+
+                <ctrl:FormField Label="Muadil Malzeme" HelpText="Mevcut malzemelerden ara, ekle.">
+                    <StackPanel Spacing="6">
+                        <TextBox Classes="Field" Text="{Binding EquivalentSearch}" PlaceholderText="Kod/ad ara (en az 2 harf)"/>
+                        <ItemsControl ItemsSource="{Binding EquivalentResults}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MaterialRow">
+                                    <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                            Content="{Binding Name}"
+                                            Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).AddEquivalentPickCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding ChosenEquivalents}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MaterialRow">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Classes="Ghost" Content="Kaldır"
+                                                Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemoveEquivalentPickCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctrl:FormField>
+
                 <!-- Grup 3: Fiyat & Stok -->
                 <TextBlock Text="Fiyat &amp; Stok" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
@@ -173,8 +215,9 @@
             </ScrollViewer>
         </Border>
 
-        <!-- ===== Liste / durumlar ===== -->
-        <Panel Grid.Row="2" Margin="0,16,0,0">
+        <!-- ===== Liste + Detay ===== -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360">
+          <Panel Grid.Column="0">
             <!-- Tablo (satır varsa) -->
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
@@ -200,7 +243,7 @@
                             <TextBlock Grid.Column="7" Text="DURUM" MinWidth="104"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:MaterialRow">
                                 <Grid>
@@ -242,7 +285,68 @@
             <ctrl:StatePanel Mode="Empty" Title="Kayıt yok"
                              Message="Arama kriterine uygun malzeme bulunamadı."
                              IsVisible="{Binding IsEmpty}"/>
-        </Panel>
+          </Panel>
+
+          <!-- Detay (satır seçince tüm alanlar) -->
+          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+            <ScrollViewer>
+              <StackPanel Spacing="10" DataContext="{Binding Detail}">
+                <TextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding Code}" Classes="Helper"/>
+                <Border Classes="Divider"/>
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" >
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Tür" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Type}" Classes="Body"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Birim" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UnitName}" Classes="Body"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Marka" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandName}" Classes="Body"/>
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Tedarikçi" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SupplierName}" Classes="Body"/>
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="Min / Stok" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="5" Grid.Column="1" Classes="Body" Text="{Binding MinStock, StringFormat='{}{0} (min)'}"/>
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="Birim Fiyat" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="6" Grid.Column="1" Classes="Body" Text="{Binding UnitPrice}"/>
+                </Grid>
+
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Mevcut Stok" Classes="Helper"/>
+                    <TextBlock Text="{Binding Stock}" Classes="Metric"/>
+                </StackPanel>
+
+                <StackPanel IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Spacing="2">
+                    <TextBlock Text="Açıklama" Classes="Helper"/>
+                    <TextBlock Text="{Binding Description}" Classes="Body" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <Border Classes="Divider"/>
+                <TextBlock Text="MUADİLLER" Classes="SectionTitle"/>
+                <ItemsControl ItemsSource="{Binding Equivalents}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:MaterialRefRow">
+                            <TextBlock Classes="Body" Margin="0,2" Text="{Binding Name, StringFormat='• {0}'}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="UYUMLU ARAÇLAR" Classes="SectionTitle"/>
+                <ItemsControl ItemsSource="{Binding CompatibleVehicles}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:MaterialRefRow">
+                            <TextBlock Classes="Body" Margin="0,2" Text="{Binding Code, StringFormat='• {0}'}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+            <TextBlock Text="Detay için bir malzeme seçin." Classes="Helper"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+        </Grid>
 
         <!-- Durum satırı -->
         <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"

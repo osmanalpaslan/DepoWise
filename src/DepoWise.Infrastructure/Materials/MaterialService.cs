@@ -18,6 +18,14 @@ public sealed record MaterialRecord(
 
 public sealed record MaterialStock(string MaterialId, string Code, string Name, decimal Quantity);
 
+public sealed record MaterialRefRow(string Id, string Code, string Name);
+
+public sealed record MaterialDetail(
+    string Id, string Code, string Name, string? Type,
+    string? CategoryName, string? UnitName, string? BrandName, string? SupplierName,
+    decimal MinStock, decimal UnitPrice, string Currency, string? Description, decimal Stock,
+    IReadOnlyList<MaterialRefRow> Equivalents, IReadOnlyList<MaterialRefRow> CompatibleVehicles);
+
 /// <summary>
 /// Malzeme kartı — kod benzersiz (tenant), muadil (çift yönlü, döngü güvenli), uyumlu araç (çoklu seçim).
 /// Para decimal + currency. Stok bakiyesi BU SERVİSTE değiştirilmez (ledger ayrı servis).
@@ -176,6 +184,73 @@ WHERE mcv.vehicle_id = $v;";
         while (r.Read())
             list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), Money.Parse(r.GetString(3))));
         return list;
+    }
+
+    /// <summary>Malzeme detayı (salt okuma) — tüm alanlar + lookup adları + muadiller + uyumlu araçlar + stok.</summary>
+    public MaterialDetail GetDetail(SessionContext s, string materialId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+
+        string? code, name, type, catName, unitName, brandName, supName, desc, cur;
+        decimal minStock, unitPrice, stock;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT m.code, m.name, m.type, mc.name, u.name, b.name, sup.name,
+       m.min_stock, m.unit_price, m.currency_code, m.description, COALESCE(sb.quantity,'0')
+FROM materials m
+LEFT JOIN material_categories mc ON mc.id = m.category_id
+LEFT JOIN units u   ON u.id = m.unit_id
+LEFT JOIN brands b  ON b.id = m.brand_id
+LEFT JOIN suppliers sup ON sup.id = m.supplier_id
+LEFT JOIN stock_balances sb ON sb.material_id = m.id
+WHERE m.id=$id AND m.company_id=$c AND m.is_deleted=0;";
+            cmd.Parameters.AddWithValue("$id", materialId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
+            code = r.GetString(0); name = r.GetString(1);
+            type = r.IsDBNull(2) ? null : r.GetString(2);
+            catName = r.IsDBNull(3) ? null : r.GetString(3);
+            unitName = r.IsDBNull(4) ? null : r.GetString(4);
+            brandName = r.IsDBNull(5) ? null : r.GetString(5);
+            supName = r.IsDBNull(6) ? null : r.GetString(6);
+            minStock = Money.Parse(r.GetString(7));
+            unitPrice = Money.Parse(r.GetString(8));
+            cur = r.GetString(9);
+            desc = r.IsDBNull(10) ? null : r.GetString(10);
+            stock = Money.Parse(r.GetString(11));
+        }
+
+        // Muadiller (grup ids → kod/ad)
+        var equivIds = GetEquivalentGroup(materialId);
+        var equivalents = new List<MaterialRefRow>();
+        foreach (var eid in equivIds)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, code, name FROM materials WHERE id=$id AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$id", eid);
+            using var r = cmd.ExecuteReader();
+            if (r.Read()) equivalents.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
+        }
+
+        // Uyumlu araçlar
+        var vehicles = new List<MaterialRefRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT v.id, v.internal_code, COALESCE(v.plate,'')
+FROM material_compatible_vehicles mcv JOIN vehicles v ON v.id = mcv.vehicle_id
+WHERE mcv.material_id=$m AND v.company_id=$c AND v.is_deleted=0 ORDER BY v.internal_code;";
+            cmd.Parameters.AddWithValue("$m", materialId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) vehicles.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
+        }
+
+        return new MaterialDetail(materialId, code!, name!, type, catName, unitName, brandName, supName,
+            minStock, unitPrice, cur!, desc, stock, equivalents, vehicles);
     }
 
     // ---- Liste (arama + keyset) ----

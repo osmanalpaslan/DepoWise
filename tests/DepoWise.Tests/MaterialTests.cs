@@ -215,6 +215,27 @@ public class MaterialTests : IDisposable
         Assert.Single(look.ListBrands(a, "material"));
     }
 
+    // ---- Detay (GetDetail) ----
+    [Fact]
+    public void Detay_AlanlarVeMuadiller_Doner()
+    {
+        var a = Admin("A");
+        var look = new LookupService(_factory, _clock);
+        var unit = look.AddUnit(a, "Adet");
+        var cat = look.AddCategory(a, "Filtreler");
+
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Yağ Filtresi", CategoryId: cat, UnitId: unit, MinStock: 5m, UnitPrice: 100m));
+        var m2 = _materials.Create(a, new NewMaterial("M-2", "Muadil Filtre"));
+        _materials.AddEquivalent(a, m1, m2);
+
+        var d = _materials.GetDetail(a, m1);
+        Assert.Equal("Yağ Filtresi", d.Name);
+        Assert.Equal("Filtreler", d.CategoryName);
+        Assert.Equal("Adet", d.UnitName);
+        Assert.Equal(5m, d.MinStock);
+        Assert.Contains(d.Equivalents, e => e.Code == "M-2");
+    }
+
     public void Dispose()
     {
         foreach (var ext in new[] { "", "-wal", "-shm" })
