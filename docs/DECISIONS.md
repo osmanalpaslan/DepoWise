@@ -238,3 +238,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-042 — Çöp Kutusu + yedekleme
 - **Karar:** `TrashService` yalnız master-data soft-delete kayıtlarını listeler/geri yükler; özel buton (RestoreTrash) + **yeniden doğrulama (reauth)** + tenant fail-closed. Operasyonel kayıtlar çöp kutusunda DEĞİL (iptal/ters kayıt). `BackupService`: `VACUUM INTO` tutarlı yedek, 30 gün retention, `PRAGMA integrity_check`, geri yükleme admin+reauth ve `SqliteConnection.ClearAllPools()` ile dosya kilidi olmadan.
 - **Gerekçe:** Analiz §6.17-6.18/§9; gerçek geri yükleme + bütünlük kanıtı.
+
+---
+
+## Faz 14 kararları (2026-06-27)
+
+### ADR-043 — Offline write + outbox atomik; idempotent push
+- **Karar:** Yerel write ve `sync_outbox` AYNI SQLite transaction (`OutboxWriter.Enqueue`); operation_id + payload_hash + base_version taşınır; rollback hiçbirini bırakmaz. Push'ta operation_id `sync_inbox` ile idempotent (ikinci ulaşım → already_applied; çift kayıt yok). Offline veri yeniden açılışta kalıcı.
+- **Gerekçe:** Analiz §8 (yerel+outbox tek transaction, idempotent retry).
+
+### ADR-044 — Kritik işlemlerde LWW yasak; sunucu otoriteli + conflict
+- **Karar:** Kritik entity'lerde (stok/sayaç/yakıt/bakım/onay) basit LWW YOK: sunucu doğrulaması zorunlu (validator yoksa/red ise rejected + `sync_conflicts`). Düşük-riskli kart alanlarında base_version uyuşmazlığı → conflict (kör overwrite yok). Pull seq cursor; bozuk sayfada rollback + cursor sabit. Cihaz: tek-kullanımlık 10 dk enrollment anahtarı + master onay + token (hash saklı); pending/revoked cihaz push/pull'da 403.
+- **Gerekçe:** Analiz §8-9; kullanıcı talimatı (LWW yok, operation_id + sunucu doğrulaması zorunlu).

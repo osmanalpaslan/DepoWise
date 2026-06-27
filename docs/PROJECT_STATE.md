@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 13 — Dosya/Fotoğraf, Audit, Çöp Kutusu ve Yedek
+**Aktif faz:** Faz 14 — Offline Senkronizasyon, Cihaz Kaydı ve Çakışmalar
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 14)
+- **Migration011**: `enrollment_keys` (tek-kullanımlık/10 dk), `server_changes` (pull seq cursor feed), `sync_conflicts`; `sync_devices`'a token_hash/revoked_at/last_seen_at.
+- **OutboxWriter**: yerel write + outbox AYNI transaction (operation_id + payload_hash + base_version); rollback hiçbirini bırakmaz; offline kalıcılık (yeniden açılış).
+- **EnrollmentService**: tek-kullanımlık 10 dk enrollment anahtarı + cihaz enroll (pending) + master onay (token üretir, hash saklanır) + revoke.
+- **SyncServer.Push**: cihaz doğrulama (pending/revoked → 403), operation_id **idempotency** (already_applied), **kritik işlemlerde LWW yok** (sunucu doğrulaması zorunlu → rejected/conflict + sync_conflicts), düşük-riskli base_version uyuşmazlığı → conflict.
+- **SyncServer.Pull**: seq cursor; **bozuk sayfada rollback, cursor ilerlemez**; revoked cihaz 403.
+- **Web parite**: `lib/sync/sync.ts` (classifyPush/pullPage).
+- **Doğrulama**: 166/166 .NET test (12 yeni) + 57 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 13)
 - **FileValidation** (ortak): boyut ≤7MB + izinli MIME + **magic-byte** (sahte içerik reddi, MIME-içerik uyuşmazlığı reddi) + güvenli dosya adı (path traversal temizliği).
@@ -114,12 +123,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 14: Offline Senkronizasyon, Cihaz Kaydı ve Çakışmalar.
-- Fotoğraf optimizasyonu (1200px/JPEG) henüz passthrough — gerçek resize için image lib gerekir (R18).
-- Import sadece malzeme (R17); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
+- Faz 15: Setup, Güncelleme ve COMODO Güvenli Çalıştırma.
+- Sync HTTP transport + DPAPI ISecretProtector gerçek impl + retry/backoff + 0-100 ilerleme UI bağlanmadı (mantık hazır — R19). Push'ta accepted işlemlerin gerçek iş tablolarına yazımı iş-servisleriyle bağlanacak (şu an inbox/feed + doğrulama — R20).
+- Foto optimizasyon (R18); import (R17); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 14 — Offline Senkronizasyon, Cihaz Kaydı ve Çakışmalar** (`prompts/14_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 15 — Setup, Güncelleme ve COMODO Güvenli Çalıştırma** (`prompts/15_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

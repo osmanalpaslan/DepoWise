@@ -25,6 +25,10 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 14 (2026-06-27):** REQ-MOD-20 (Offline Senkronizasyon) çekirdeği tamamlandı (transport/UI R19, apply R20):
+- `src/DepoWise.Infrastructure/Sync/{EnrollmentService,OutboxWriter,SyncServer,SyncCrypto}.cs`, `Application/Sync/SyncModels.cs`, Migration011; web `apps/web/src/lib/sync/sync.ts`.
+- Testler: `tests/DepoWise.Tests/SyncTests.cs`, `apps/web/tests/sync.test.ts`.
+
 **Faz 13 (2026-06-27):** REQ-MOD-16 (Dosya/Fotoğraf) + REQ-MOD-17 (Audit/Çöp Kutusu) + REQ-MOD-18 (Yedekleme) tamamlandı (servis + iş kuralı; UI bağlama R10):
 - `src/DepoWise.Infrastructure/Files/{FileService,LocalFileStorageProvider,TrashService,BackupService}.cs`, `Application/Files/{FileValidation,IFileStorageProvider}.cs`; web `apps/web/src/lib/files/validation.ts`.
 - Audit: tüm mutasyonlar `AuditWriter` (before/after/actor/correlation/time). Testler: `tests/DepoWise.Tests/FileTrashBackupTests.cs`, `apps/web/tests/files.test.ts`.

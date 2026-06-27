@@ -225,6 +225,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/files.test.ts`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 14 / Offline senkronizasyon testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Enrollment anahtarı tek-kullanımlık + 10 dk süre + yanlış anahtar reddi; onaysız/revoked cihaz push/pull 403; aynı operation_id ikinci kez already_applied (çift yazmaz); kritik işlem doğrulayıcı yoksa/red conflict kuyruğu; düşük-riskli version uyuşmazlığı conflict; pull cursor ilerler + bozuk sayfa rollback (ilerlemez); offline kalıcılık (yeniden açılış); outbox yerel-write atomik (rollback bırakmaz).
+- **Geçen/Kalan:** 166 geçti / 0 kaldı (12 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/SyncTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_sync_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 14 / Web sync paritesi + build
+- **Komut:** `npm test`; `npx tsc --noEmit`; `npx next lint`; `npx next build`
+- **Exit code:** 0 (tümü)
+- **Sonuç:** 57 node:test (kritik tespit, retry/already_applied, kritik doğrulama red/kabul, version conflict, pull rollback); typecheck/lint temiz; build başarılı.
+- **Geçen/Kalan:** 57 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/sync.test.ts`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node).
+
 ---
 
 ### Şablon
