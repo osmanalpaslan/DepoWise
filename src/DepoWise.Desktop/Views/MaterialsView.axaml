@@ -399,7 +399,12 @@
                 <ItemsControl ItemsSource="{Binding CompatibleVehicles}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="m:MaterialRefRow">
-                            <TextBlock Classes="Body" Margin="0,2" Text="{Binding Code, StringFormat='• {0}'}"/>
+                            <Button Classes="Ghost" Padding="4,2" Margin="0,1" HorizontalAlignment="Left"
+                                    HorizontalContentAlignment="Left" Cursor="Hand"
+                                    ToolTip.Tip="Araç ekranında aç"
+                                    Content="{Binding Code, StringFormat='• {0}'}"
+                                    Command="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).OpenVehicleCommand}"
+                                    CommandParameter="{Binding}"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

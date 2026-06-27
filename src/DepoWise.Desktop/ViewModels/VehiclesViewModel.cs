@@ -108,6 +108,13 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         Load();
     }
 
+    /// <summary>Listeden id ile araç seç (çapraz navigasyon: malzeme detayından gelinince).</summary>
+    public void SelectById(string vehicleId)
+    {
+        var row = Items.FirstOrDefault(r => r.Id == vehicleId);
+        if (row is not null) Selected = row;
+    }
+
     [RelayCommand]
     private void Load()
     {

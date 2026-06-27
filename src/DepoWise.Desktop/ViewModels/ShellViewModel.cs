@@ -29,8 +29,12 @@ public sealed partial class ShellViewModel : ViewModelBase
     [ObservableProperty] private string _activeKey = "dashboard";
     [ObservableProperty] private bool _isNavPanelOpen = true;
 
+    /// <summary>Aktif kabuk — çapraz ekran navigasyonu için (ör. malzeme detayından araç ekranına).</summary>
+    public static ShellViewModel? Current { get; private set; }
+
     public ShellViewModel(SessionContext session)
     {
+        Current = this;
         _session = session;
         AppName = DesktopServices.Branding.AppName;
         CompanyName = DesktopServices.Branding.CompanyName;
@@ -141,6 +145,13 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     [RelayCommand]
     private void GoDashboard() => Navigate("dashboard");
+
+    /// <summary>Araçlar ekranına gidip ilgili aracı seçer (malzeme detayındaki uyumlu araç tıklaması).</summary>
+    public void GoToVehicle(string vehicleId)
+    {
+        Navigate("vehicles");
+        if (CurrentPage is VehiclesViewModel vm) vm.SelectById(vehicleId);
+    }
 
     /// <summary>Çıkış Yap — oturumu kapatır, "Beni Hatırla"yı siler, giriş ekranına döner.</summary>
     [RelayCommand]

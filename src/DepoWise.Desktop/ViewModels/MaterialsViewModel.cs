@@ -504,6 +504,13 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     [RelayCommand]
     private void OpenPhoto(Bitmap? b) => PhotoViewer.Show(b);
 
+    /// <summary>Uyumlu araç satırına tıkla → Araçlar ekranında o aracın detayını aç.</summary>
+    [RelayCommand]
+    private void OpenVehicle(MaterialRefRow? r)
+    {
+        if (r is not null) ShellViewModel.Current?.GoToVehicle(r.Id);
+    }
+
     private void SaveStagedPhotos(string materialId)
     {
         foreach (var ph in Photos)
