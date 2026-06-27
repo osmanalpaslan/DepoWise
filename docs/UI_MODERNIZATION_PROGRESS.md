@@ -74,6 +74,43 @@ Bu üç modülün masaüstünde **View/VM'i yoktu** (Navigate → PlaceholderVie
 
 ---
 
+## Faz 7c — Talepler / Raporlar / Tanımlar-Ayarlar (TAMAMLANDI — sıfırdan kuruldu)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise`
+
+### Tespit (7b ile aynı)
+Bu üç modülün masaüstü View/VM'i yoktu (placeholder). Servisler hazırdı ama DesktopServices'te yoktu. Ekranlar ortak bileşenlerle baştan kuruldu; sahte veri yok.
+
+### Servis (additive, iş mantığı değişmedi)
+- `RequestService.List(status?, search?)` + `GetItems(...)` salt-okuma sorguları (+ `RequestListRow`/`RequestItemRow`).
+- `DesktopServices`'e `Requests` (StockService ile), `Reports`, `Settings` bağlandı.
+- Test: `RequestTests.Liste_DurumFiltresi_VeKalemler_Calisir` → toplam **191**.
+
+### Talepler
+- Toolbar + arama (belge no/açıklama) + **durum filtresi** combo; ortak `ListBox.Table`; **durum badge** (Beklemede=Warning, Onaylı=Success, Reddedildi=Danger, Taslak/İptal=Neutral). **Liste/detay ayrımı**: sağ panelde kalemler + durum geçmişi + duruma göre **Gönder/Onayla/Reddet/İptal** (mevcut `RequestService` komutları; geçiş/yetki kuralları serviste). Boş/hata `StatePanel`. **Öncelik alanı şemada yok → öncelik göstergesi eklenmedi (sahte veri yok).**
+
+### Raporlar
+- Rapor tipi + tarih filtreleri (ortak `FormField`/`DatePicker`) + **Sorgula** (`ReportGate`: tıklanmadan çalışmaz → "Rapor hazır" bilgi durumu). Sonuç tablosu ortak tablo stiliyle (dinamik kolon, `TableModel`). **Grafik Alanı** = LiveCharts2'ye hazır **boş container** (paket eklenmedi, sahte grafik yok). Salt okuma (`ReportService`).
+
+### Tanımlar / Ayarlar
+- **Bölümlü** (Marka) + açıklayıcı alt metin; alanlar Uygulama Adı*/Şirket Adı*/İletişim/Web/Telif. **Kaydet → hassas ayar onay paneli** (görünüm/başlık etkisi) → Onayla; **Geri Al** servisten yeniden yükler. Kalıcılık `SettingsService.Set` (mekanizma **değişmedi**).
+
+### #9 Ürün adı
+Pencere başlığı `AppName`="DepoWise", login "DepoWise — Giriş"; kaynakta **ALPDEP/ALPDEPO yok** (grep temiz).
+
+### Komutlar / sonuçlar
+- `dotnet build DepoWise.sln` → **0 hata** · `dotnet test` → **191/191**. Görsel smoke kullanıcı (dotnet host).
+
+### Ekran görüntüleri
+- `docs/ui-evidence/phase-07c-requests-reports-settings/` (her modül 1366×768 + 1920×1080) — kullanıcı tarafından (COMODO).
+
+### Bilinen sorunlar / sonraki faza
+- **Yeni talep oluşturma formu** (kalem-builder) eklenmedi; `Create` komutu korunur (değiştirilmedi). Ayrı **Kategoriler CRUD** ekranı yok (LookupService hazır; "definitions" şu an Ayarlar'a gider).
+- Gerçek DataGrid Avalonia ≥12.0.5 ile; LiveCharts2 grafiği ilgili fazda.
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 0 — İnceleme & Spesifikasyon (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Tür:** Salt okunur; üretim kodu değiştirilmedi.
 

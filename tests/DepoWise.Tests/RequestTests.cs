@@ -53,6 +53,29 @@ public class RequestTests : IDisposable
     public void DurumGecisleri(RequestStatus from, RequestStatus to, bool allowed)
         => Assert.Equal(allowed, RequestStatusMachine.CanTransition(from, to));
 
+    // ---- Liste + kalemler (Faz 7c read-query) ----
+    [Fact]
+    public void Liste_DurumFiltresi_VeKalemler_Calisir()
+    {
+        var m = Mat("M-LST");
+        var draft = _requests.Create(_admin, new NewRequest(new[] { new RequestItemInput(m, 3m) }));
+        _requests.Create(_admin, new NewRequest(new[] { new RequestItemInput(m, 1m) }, SubmitImmediately: true));
+
+        Assert.Equal(2, _requests.List(_admin).Count);
+
+        var drafts = _requests.List(_admin, RequestStatus.Draft);
+        Assert.Single(drafts);
+        Assert.Equal(1, drafts[0].ItemCount);
+
+        var byDoc = _requests.List(_admin, null, draft.DocNo);
+        Assert.Single(byDoc);
+
+        var items = _requests.GetItems(_admin, draft.Id);
+        Assert.Single(items);
+        Assert.Equal("M-LST", items[0].MaterialCode);
+        Assert.Equal(3m, items[0].Quantity);
+    }
+
     // ---- Belge no ----
     [Fact]
     public void BelgeNo_TenantYil_Benzersiz_Artar()

@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+             x:Class="DepoWise.Desktop.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+
+        <ctrl:Toolbar Grid.Row="0" Title="Tanımlar / Ayarlar"/>
+
+        <ScrollViewer Grid.Row="1" Margin="0,16,0,0">
+            <StackPanel Spacing="16" MaxWidth="620" HorizontalAlignment="Left">
+
+                <!-- Bölüm: Marka -->
+                <Border Classes="Panel">
+                    <StackPanel Spacing="14">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="MARKA" Classes="SectionTitle"/>
+                            <TextBlock Text="Uygulama adı, şirket ve iletişim bilgileri. Bu firmaya özel saklanır."
+                                       Classes="Helper"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <ctrl:FormField Label="Uygulama Adı" IsRequired="True" Width="260"
+                                            HelpText="Pencere başlığı ve markada görünür.">
+                                <TextBox Classes="Field" Text="{Binding AppName}" IsEnabled="{Binding CanWrite}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Şirket Adı" IsRequired="True" Width="260">
+                                <TextBox Classes="Field" Text="{Binding CompanyName}" IsEnabled="{Binding CanWrite}"/>
+                            </ctrl:FormField>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <ctrl:FormField Label="İletişim" Width="260">
+                                <TextBox Classes="Field" Text="{Binding Contact}" IsEnabled="{Binding CanWrite}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Web Sitesi" Width="260">
+                                <TextBox Classes="Field" Text="{Binding Website}" IsEnabled="{Binding CanWrite}"/>
+                            </ctrl:FormField>
+                        </StackPanel>
+
+                        <ctrl:FormField Label="Telif" Width="534">
+                            <TextBox Classes="Field" Text="{Binding Copyright}" IsEnabled="{Binding CanWrite}"/>
+                        </ctrl:FormField>
+                    </StackPanel>
+                </Border>
+
+                <!-- Hassas ayar onay paneli -->
+                <Border Classes="Panel" IsVisible="{Binding ConfirmVisible}"
+                        BorderBrush="{DynamicResource WarningBrush}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Marka ayarlarını kaydet?" Classes="Body" FontWeight="SemiBold"/>
+                        <TextBlock Text="Uygulama adı/markası görünümü ve pencere başlığını etkiler. Onaylıyor musunuz?"
+                                   Classes="Helper" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                            <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelConfirmCommand}"/>
+                            <Button Classes="Primary" Content="Onayla ve Kaydet" Command="{Binding ConfirmSaveCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Alt eylem çubuğu -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+            <TextBlock Grid.Column="0" Text="{Binding Status}" Classes="Helper"
+                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" IsVisible="{Binding CanWrite}">
+                <Button Classes="Secondary" Content="Geri Al" Command="{Binding RevertCommand}"/>
+                <Button Classes="Primary" Content="Kaydet" Command="{Binding RequestSaveCommand}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

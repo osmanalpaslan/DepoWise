@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:inf="using:DepoWise.Infrastructure.Requests"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="640"
+             x:Class="DepoWise.Desktop.Views.RequestsView"
+             x:DataType="vm:RequestsViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+
+        <ctrl:Toolbar Grid.Row="0" Title="Talepler"
+                      SearchText="{Binding Search, Mode=TwoWay}"
+                      SearchWatermark="Belge no / açıklama ara...">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Ara" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Durum filtresi -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,14,0,0" VerticalAlignment="Center">
+            <TextBlock Text="Durum" Classes="CardLabel" VerticalAlignment="Center"/>
+            <ComboBox Classes="Field" Width="180" ItemsSource="{Binding Filters}"
+                      SelectedItem="{Binding SelectedFilter}"/>
+        </StackPanel>
+
+        <!-- Liste + Detay -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,380" Margin="0,16,0,0">
+            <!-- Liste -->
+            <Panel Grid.Column="0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
+                                <TextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
+                                <TextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
+                                <TextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
+                                <TextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RequestRow">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DescriptionDisplay}"/>
+                                        <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center"
+                                                          Kind="{Binding StatusKind}" Text="{Binding StatusText}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}"
+                                 IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Talep yok"
+                                 Message="Seçili filtreye uygun talep bulunamadı."
+                                 IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Detay -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+                <ScrollViewer>
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                            <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
+                        </Grid>
+
+                        <TextBlock Text="KALEMLER" Classes="SectionTitle"/>
+                        <ItemsControl ItemsSource="{Binding DetailItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="inf:RequestItemRow">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Classes="Divider"/>
+                        <TextBlock Text="DURUM GEÇMİŞİ" Classes="SectionTitle"/>
+                        <ItemsControl ItemsSource="{Binding History}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Text="{Binding}" Classes="Helper" Margin="0,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Ret/iptal gerekçesi -->
+                        <ctrl:FormField Label="Gerekçe (ret/iptal)" HelpText="Ret için zorunlu.">
+                            <TextBox Classes="Field" Text="{Binding RejectReason}" AcceptsReturn="False"/>
+                        </ctrl:FormField>
+
+                        <!-- Eylemler (duruma göre) -->
+                        <WrapPanel>
+                            <Button Classes="Primary" Content="Gönder" Margin="0,0,8,8"
+                                    Command="{Binding SubmitCommand}" IsVisible="{Binding CanSubmit}"/>
+                            <Button Classes="Primary" Content="Onayla" Margin="0,0,8,8"
+                                    Command="{Binding ApproveCommand}" IsVisible="{Binding CanApprove}"/>
+                            <Button Classes="Danger" Content="Reddet" Margin="0,0,8,8"
+                                    Command="{Binding RejectCommand}" IsVisible="{Binding CanReject}"/>
+                            <Button Classes="Secondary" Content="İptal Et" Margin="0,0,8,8"
+                                    Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <!-- Seçim yokken ipucu -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+                <TextBlock Text="Detay için bir talep seçin." Classes="Helper"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
+                   Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

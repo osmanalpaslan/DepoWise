@@ -109,6 +109,21 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Yakıt";
                 CurrentContext = "Depo girişi ve araç dağıtımı";
                 break;
+            case "requests":
+                CurrentPage = new RequestsViewModel(_session);
+                CurrentTitle = "Talepler";
+                CurrentContext = "Malzeme talepleri ve onay akışı";
+                break;
+            case "reports":
+                CurrentPage = new ReportsViewModel(_session);
+                CurrentTitle = "Raporlar";
+                CurrentContext = "Stok ve yakıt raporları";
+                break;
+            case "definitions":
+                CurrentPage = new SettingsViewModel(_session);
+                CurrentTitle = "Tanımlar / Ayarlar";
+                CurrentContext = "Marka ve uygulama ayarları";
+                break;
             default:
                 var label = FindLabel(key);
                 CurrentPage = new PlaceholderViewModel(label);

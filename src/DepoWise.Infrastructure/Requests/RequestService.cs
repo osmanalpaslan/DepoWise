@@ -16,6 +16,10 @@ public sealed record NewRequest(
 
 public sealed record RequestHeader(string Id, string DocNo, RequestStatus Status, string CompanyId);
 
+public sealed record RequestListRow(string Id, string DocNo, RequestStatus Status, long RequestDate, int ItemCount, string? Description);
+
+public sealed record RequestItemRow(string MaterialCode, string MaterialName, decimal Quantity, string? Note);
+
 /// <summary>
 /// Malzeme talep/onay — talep BELGEDİR; onay/ret STOK DEĞİŞTİRMEZ. Durum makinesi + yetki fail-closed +
 /// çift onay engeli + durum geçmişi. Onaylı talepten KONTROLLÜ stok çıkışı ayrı, açık işlemle başlatılır.
@@ -132,6 +136,53 @@ VALUES($id,$c,$no,$dt,$br,$req,$wh,$ap,$desc,$st,$now,$now,1,0);";
         while (r.Read())
             list.Add((r.IsDBNull(0) ? null : RequestStatusMachine.FromDb(r.GetString(0)),
                 RequestStatusMachine.FromDb(r.GetString(1)), r.IsDBNull(2) ? null : r.GetString(2)));
+        return list;
+    }
+
+    /// <summary>Talep başlıkları (salt okuma) — durum filtresi + belge no/açıklama araması.</summary>
+    public IReadOnlyList<RequestListRow> List(SessionContext s, RequestStatus? status = null, string? search = null, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT mr.id, mr.doc_no, mr.status, mr.request_date, mr.description,
+       (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
+FROM material_requests mr
+WHERE mr.company_id=$c AND mr.is_deleted=0
+  AND ($st IS NULL OR mr.status=$st)
+  AND ($s IS NULL OR mr.doc_no LIKE $like OR COALESCE(mr.description,'') LIKE $like)
+ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$st", status is null ? DBNull.Value : RequestStatusMachine.ToDb(status.Value));
+        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
+        cmd.Parameters.AddWithValue("$lim", limit);
+        var list = new List<RequestListRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new RequestListRow(r.GetString(0), r.GetString(1), RequestStatusMachine.FromDb(r.GetString(2)),
+                r.GetInt64(3), r.GetInt32(5), r.IsDBNull(4) ? null : r.GetString(4)));
+        return list;
+    }
+
+    /// <summary>Talep kalemleri (salt okuma) — malzeme kod/ad + miktar.</summary>
+    public IReadOnlyList<RequestItemRow> GetItems(SessionContext s, string requestId)
+    {
+        LoadStatus(s, requestId); // tenant guard (firma sahipliği)
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT m.code, m.name, i.quantity, i.note
+FROM material_request_items i JOIN materials m ON m.id = i.material_id
+WHERE i.request_id=$r ORDER BY m.code;";
+        cmd.Parameters.AddWithValue("$r", requestId);
+        var list = new List<RequestItemRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new RequestItemRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2)),
+                r.IsDBNull(3) ? null : r.GetString(3)));
         return list;
     }
 
