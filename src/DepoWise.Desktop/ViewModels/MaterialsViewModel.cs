@@ -44,13 +44,61 @@ public sealed partial class MaterialsViewModel : ViewModelBase
 
     [ObservableProperty] private decimal _newUnitPrice;
     [ObservableProperty] private decimal _newMinStock;
+    [ObservableProperty] private decimal _newOpeningStock;
+    [ObservableProperty] private string _newDescription = "";
+    [ObservableProperty] private string? _newType = "Yedek Parça";
+
+    // ── Paylaşılan tanımlar (Tanımlar/LookupService) — eski projeyle aynı bağlantı ──
+    public ObservableCollection<string> TypeOptions { get; } = new() { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
+    public ObservableCollection<LookupItem> Categories { get; } = new();
+    public ObservableCollection<LookupItem> SubCategories { get; } = new();
+    public ObservableCollection<LookupItem> Units { get; } = new();
+    public ObservableCollection<LookupItem> Brands { get; } = new();
+    public ObservableCollection<LookupItem> Suppliers { get; } = new();
+
+    [ObservableProperty] private LookupItem? _selectedCategory;
+    [ObservableProperty] private LookupItem? _selectedSubCategory;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UnitError))]
+    [NotifyPropertyChangedFor(nameof(HasUnitError))]
+    private LookupItem? _selectedUnit;
+    [ObservableProperty] private LookupItem? _selectedBrand;
+    [ObservableProperty] private LookupItem? _selectedSupplier;
+
+    private bool _lookupsLoaded;
+
+    partial void OnSelectedCategoryChanged(LookupItem? value)
+    {
+        SelectedSubCategory = null;
+        SubCategories.Clear();
+        if (value is null) return;
+        try { foreach (var sc in DesktopServices.Lookups.ListCategories(_session, value.Id)) SubCategories.Add(sc); }
+        catch { /* alt kategori yoksa sessiz */ }
+    }
+
+    // ── Inline "+" yeni tanım ekleme ──
+    [ObservableProperty] private bool _isAddingCategory;
+    [ObservableProperty] private string _newCategoryName = "";
+    [ObservableProperty] private bool _isAddingSubCategory;
+    [ObservableProperty] private string _newSubCategoryName = "";
+    [ObservableProperty] private bool _isAddingUnit;
+    [ObservableProperty] private string _newUnitName = "";
+    [ObservableProperty] private bool _isAddingBrand;
+    [ObservableProperty] private string _newBrandName = "";
+    [ObservableProperty] private bool _isAddingSupplier;
+    [ObservableProperty] private string _newSupplierName = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CodeError))]
     [NotifyPropertyChangedFor(nameof(HasCodeError))]
     [NotifyPropertyChangedFor(nameof(NameError))]
     [NotifyPropertyChangedFor(nameof(HasNameError))]
+    [NotifyPropertyChangedFor(nameof(UnitError))]
+    [NotifyPropertyChangedFor(nameof(HasUnitError))]
     private bool _triedSave;
+
+    public string? UnitError => TriedSave && SelectedUnit is null ? "Birim seçin." : null;
+    public bool HasUnitError => UnitError != null;
 
     // Alan-bazlı doğrulama (mevcut iş kuralının görsel yansıması: kod+ad zorunlu)
     public string? CodeError => TriedSave && string.IsNullOrWhiteSpace(NewCode) ? "Kod zorunlu." : null;
@@ -100,25 +148,37 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         {
             Status = "Kod ve ad zorunlu."; return;
         }
+        if (SelectedUnit is null) { Status = "Birim seçin."; return; }
         try
         {
-            DesktopServices.Materials.Create(_session, new NewMaterial(
+            // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
+            var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;
+            var id = DesktopServices.Materials.Create(_session, new NewMaterial(
                 Code: NewCode.Trim(), Name: NewName.Trim(),
-                UnitPrice: NewUnitPrice, MinStock: NewMinStock, Currency: "TRY"));
-            NewCode = ""; NewName = ""; NewUnitPrice = 0; NewMinStock = 0;
-            TriedSave = false; ShowAdd = false;
+                Type: string.IsNullOrWhiteSpace(NewType) ? null : NewType,
+                CategoryId: categoryId, UnitId: SelectedUnit.Id,
+                BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
+                UnitPrice: NewUnitPrice, MinStock: NewMinStock, Currency: "TRY",
+                Description: string.IsNullOrWhiteSpace(NewDescription) ? null : NewDescription.Trim()));
+
+            // Açılış stoğu > 0 ise stok hareketi (eski projeyle aynı davranış)
+            if (NewOpeningStock > 0)
+                DesktopServices.OpeningStock.RecordOpening(_session, id, NewOpeningStock, Guid.NewGuid().ToString("N"));
+
+            Clear();
             Load();
             Status = "Malzeme eklendi.";
         }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
 
-    /// <summary>Yeni kayıt formunu aç/kapat (sunum durumu).</summary>
+    /// <summary>Yeni kayıt formunu aç/kapat (sunum durumu). Açılırken paylaşılan tanımları yükler.</summary>
     [RelayCommand]
     private void ToggleAdd()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         ShowAdd = !ShowAdd;
+        if (ShowAdd) LoadLookups();
     }
 
     /// <summary>İptal — form alanlarını temizler ve kapatır (sunum durumu; iş mantığı yok).</summary>
@@ -126,7 +186,87 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     private void Clear()
     {
         NewCode = ""; NewName = ""; NewUnitPrice = 0; NewMinStock = 0;
+        NewOpeningStock = 0; NewDescription = ""; NewType = "Yedek Parça";
+        SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;
+        SelectedBrand = null; SelectedSupplier = null;
+        IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
         TriedSave = false; ShowAdd = false;
+    }
+
+    // ── Paylaşılan tanımları yükle (LookupService) ──
+    private void LoadLookups()
+    {
+        if (_lookupsLoaded) return;
+        try
+        {
+            Categories.Clear(); foreach (var c in DesktopServices.Lookups.ListCategories(_session)) Categories.Add(c);
+            Units.Clear(); foreach (var u in DesktopServices.Lookups.List(_session, "units")) Units.Add(u);
+            Brands.Clear(); foreach (var b in DesktopServices.Lookups.ListBrands(_session, "material")) Brands.Add(b);
+            Suppliers.Clear(); foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(sp);
+            _lookupsLoaded = true;
+        }
+        catch (Exception ex) { Status = "Tanımlar yüklenemedi: " + ex.Message; }
+    }
+
+    // ── Inline "+" komutları (eklenen tanım hem DB'ye yazılır hem seçili olur) ──
+    [RelayCommand] private void StartAddCategory() { IsAddingCategory = true; NewCategoryName = ""; }
+    [RelayCommand] private void CancelAddCategory() { IsAddingCategory = false; NewCategoryName = ""; }
+    [RelayCommand]
+    private void ConfirmAddCategory()
+    {
+        if (string.IsNullOrWhiteSpace(NewCategoryName)) return;
+        try { var id = DesktopServices.Lookups.AddCategory(_session, NewCategoryName.Trim());
+            var item = new LookupItem(id, NewCategoryName.Trim()); Categories.Add(item); SelectedCategory = item;
+            IsAddingCategory = false; NewCategoryName = ""; }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand] private void StartAddSubCategory() { if (SelectedCategory is null) { Status = "Önce kategori seçin."; return; } IsAddingSubCategory = true; NewSubCategoryName = ""; }
+    [RelayCommand] private void CancelAddSubCategory() { IsAddingSubCategory = false; NewSubCategoryName = ""; }
+    [RelayCommand]
+    private void ConfirmAddSubCategory()
+    {
+        if (string.IsNullOrWhiteSpace(NewSubCategoryName) || SelectedCategory is null) return;
+        try { var id = DesktopServices.Lookups.AddCategory(_session, NewSubCategoryName.Trim(), SelectedCategory.Id);
+            var item = new LookupItem(id, NewSubCategoryName.Trim()); SubCategories.Add(item); SelectedSubCategory = item;
+            IsAddingSubCategory = false; NewSubCategoryName = ""; }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand] private void StartAddUnit() { IsAddingUnit = true; NewUnitName = ""; }
+    [RelayCommand] private void CancelAddUnit() { IsAddingUnit = false; NewUnitName = ""; }
+    [RelayCommand]
+    private void ConfirmAddUnit()
+    {
+        if (string.IsNullOrWhiteSpace(NewUnitName)) return;
+        try { var id = DesktopServices.Lookups.AddUnit(_session, NewUnitName.Trim());
+            var item = new LookupItem(id, NewUnitName.Trim()); Units.Add(item); SelectedUnit = item;
+            IsAddingUnit = false; NewUnitName = ""; }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand] private void StartAddBrand() { IsAddingBrand = true; NewBrandName = ""; }
+    [RelayCommand] private void CancelAddBrand() { IsAddingBrand = false; NewBrandName = ""; }
+    [RelayCommand]
+    private void ConfirmAddBrand()
+    {
+        if (string.IsNullOrWhiteSpace(NewBrandName)) return;
+        try { var id = DesktopServices.Lookups.AddBrand(_session, NewBrandName.Trim(), "material");
+            var item = new LookupItem(id, NewBrandName.Trim()); Brands.Add(item); SelectedBrand = item;
+            IsAddingBrand = false; NewBrandName = ""; }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand] private void StartAddSupplier() { IsAddingSupplier = true; NewSupplierName = ""; }
+    [RelayCommand] private void CancelAddSupplier() { IsAddingSupplier = false; NewSupplierName = ""; }
+    [RelayCommand]
+    private void ConfirmAddSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(NewSupplierName)) return;
+        try { var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim());
+            var item = new LookupItem(id, NewSupplierName.Trim()); Suppliers.Add(item); SelectedSupplier = item;
+            IsAddingSupplier = false; NewSupplierName = ""; }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
 
     private void NotifyListState()

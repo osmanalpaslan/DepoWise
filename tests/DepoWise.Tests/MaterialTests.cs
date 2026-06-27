@@ -202,6 +202,17 @@ public class MaterialTests : IDisposable
         Assert.Single(look.List(a, "units"));
         Assert.Equal(2, look.List(a, "material_categories").Count);
         Assert.Empty(look.List(Admin("B"), "units")); // tenant izole
+
+        // ListCategories: üst seviye vs alt kategori (parent filtresi)
+        var tops = look.ListCategories(a);
+        Assert.Single(tops);                 // yalnız "Filtreler" (üst)
+        Assert.Equal("Filtreler", tops[0].Name);
+        var subs = look.ListCategories(a, cat);
+        Assert.Single(subs);                 // "Yağ Filtresi" (alt)
+        Assert.Equal("Yağ Filtresi", subs[0].Name);
+
+        // ListBrands: material türü (brand_type null/material) gelir
+        Assert.Single(look.ListBrands(a, "material"));
     }
 
     public void Dispose()

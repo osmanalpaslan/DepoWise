@@ -37,6 +37,7 @@ public static class DesktopServices
     public static RequestService Requests { get; private set; } = null!;
     public static ReportService Reports { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
+    public static LookupService Lookups { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
 
@@ -58,6 +59,7 @@ public static class DesktopServices
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
+        Lookups = new LookupService(Factory, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
         Branding = boot.Branding;
         Theme = boot.Theme;

@@ -47,6 +47,43 @@ public sealed class LookupService
         return list;
     }
 
+    /// <summary>Malzeme kategorileri — parentId null ise üst seviye, doluysa o kategorinin alt kategorileri.</summary>
+    public IReadOnlyList<LookupItem> ListCategories(SessionContext s, string? parentId = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT id, name FROM material_categories
+WHERE company_id=$c AND is_deleted=0
+  AND (($p IS NULL AND parent_id IS NULL) OR parent_id=$p)
+ORDER BY name;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$p", (object?)parentId ?? DBNull.Value);
+        var list = new List<LookupItem>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
+    /// <summary>Markalar — tür filtreli (material/vehicle); tür belirtilmemiş eski kayıtlar da gelir.</summary>
+    public IReadOnlyList<LookupItem> ListBrands(SessionContext s, string brandType = "material")
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT id, name FROM brands
+WHERE company_id=$c AND is_deleted=0 AND (brand_type=$t OR brand_type IS NULL)
+ORDER BY name;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$t", brandType);
+        var list = new List<LookupItem>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
     private string Insert(SessionContext s, string table, string name, params (string Col, object Val)[] extra)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
