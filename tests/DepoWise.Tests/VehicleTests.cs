@@ -66,6 +66,32 @@ public class VehicleTests : IDisposable
         Assert.Equal("KM-002", byPlate[0].InternalCode);
     }
 
+    // ---- Detay / Güncelle / Sil (Faz: araç detay ekranı) ----
+    [Fact]
+    public void Detay_Guncelle_Sil_Calisir()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KM-5", Plate: "34 A 1", ProductionYear: 2020, CurrentMeter: 100m));
+
+        var d = _vehicles.Get(_admin, v);
+        Assert.Equal("34 A 1", d.Plate);
+        Assert.Equal(2020, d.ProductionYear);
+
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "06 B 2", ProductionYear: 2021, Status: "maintenance", StatusNote: "Servis"));
+        var d2 = _vehicles.Get(_admin, v);
+        Assert.Equal("06 B 2", d2.Plate);
+        Assert.Equal(2021, d2.ProductionYear);
+        Assert.Equal("maintenance", d2.Status);
+        Assert.Equal("Servis", d2.StatusNote);
+
+        // Durum maintenance değilse not saklanmaz
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "06 B 2", ProductionYear: 2021, Status: "active", StatusNote: "x"));
+        Assert.Null(_vehicles.Get(_admin, v).StatusNote);
+
+        _vehicles.Delete(_admin, v);
+        Assert.Empty(_vehicles.List(_admin));
+        Assert.Throws<ForbiddenException>(() => _vehicles.Get(_admin, v)); // silinmiş → bulunamaz
+    }
+
     [Fact]
     public void Sayac_Ileri_GuncellenirVeLoglanir()
     {

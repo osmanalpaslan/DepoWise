@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
 using DepoWise.Desktop.Controls;
@@ -152,6 +153,111 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     {
         NewCode = ""; NewPlate = ""; NewYear = 0; NewStatus = "active"; NewMeter = 0; NewMeterUnit = "km";
         TriedSave = false; ShowAdd = false;
+    }
+
+    // ===== Detay / Düzenle / Sil =====
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    private VehicleRow? _selected;
+
+    private decimal _loadedMeter;
+
+    [ObservableProperty] private bool _isEditing;
+    [ObservableProperty] private bool _confirmDelete;
+    [ObservableProperty] private string _editPlate = "";
+    [ObservableProperty] private int _editYear;
+    [ObservableProperty] private decimal _editMeter;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMaintenanceStatus))]
+    private string _editStatus = "active";
+    [ObservableProperty] private string _editStatusNote = "";
+
+    public bool HasSelection => Selected != null;
+    public bool IsMaintenanceStatus => EditStatus == "maintenance";
+    public bool CanEdit => AccessControl.Can(_session, "vehicles", PermissionAction.Edit);
+    public bool CanDelete => AccessControl.Can(_session, "vehicles", PermissionAction.Delete);
+
+    partial void OnSelectedChanged(VehicleRow? value)
+    {
+        IsEditing = false; ConfirmDelete = false;
+        if (value is null) return;
+        try
+        {
+            var d = DesktopServices.Vehicles.Get(_session, value.Id);
+            EditPlate = d.Plate ?? "";
+            EditYear = d.ProductionYear ?? 0;
+            EditStatus = d.Status;
+            EditStatusNote = d.StatusNote ?? "";
+            EditMeter = d.CurrentMeter;
+            _loadedMeter = d.CurrentMeter;
+        }
+        catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void BeginEdit()
+    {
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (Selected is null) return;
+        IsEditing = true; ConfirmDelete = false;
+    }
+
+    [RelayCommand]
+    private void CancelEdit()
+    {
+        IsEditing = false;
+        OnSelectedChanged(Selected); // alanları yeniden yükle
+    }
+
+    [RelayCommand]
+    private void SaveEdit()
+    {
+        if (Selected is null || !CanEdit) { Status = "Yetki yok."; return; }
+        try
+        {
+            DesktopServices.Vehicles.Update(_session, Selected.Id, new UpdateVehicle(
+                Plate: string.IsNullOrWhiteSpace(EditPlate) ? null : EditPlate.Trim(),
+                ProductionYear: EditYear > 0 ? EditYear : (int?)null,
+                Status: EditStatus,
+                StatusNote: string.IsNullOrWhiteSpace(EditStatusNote) ? null : EditStatusNote.Trim()));
+
+            // Sayaç yalnız ileri (servis geriye gitmeyi reddeder)
+            if (EditMeter != _loadedMeter)
+            {
+                try { DesktopServices.Vehicles.SetMeter(_session, Selected.Id, EditMeter, "vehicle_form"); }
+                catch (MeterBackwardException) { Status = "Araç güncellendi (sayaç geriye alınamaz, değişmedi)."; IsEditing = false; Load(); return; }
+            }
+            IsEditing = false;
+            Load();
+            Status = "Araç güncellendi.";
+        }
+        catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void RequestDelete()
+    {
+        if (!CanDelete) { Status = "Yetki yok."; return; }
+        if (Selected is null) return;
+        ConfirmDelete = true;
+    }
+
+    [RelayCommand]
+    private void CancelDelete() => ConfirmDelete = false;
+
+    [RelayCommand]
+    private void ConfirmDeleteVehicle()
+    {
+        if (Selected is null) return;
+        try
+        {
+            DesktopServices.Vehicles.Delete(_session, Selected.Id);
+            ConfirmDelete = false;
+            Selected = null;
+            Load();
+            Status = "Araç silindi.";
+        }
+        catch (Exception ex) { ConfirmDelete = false; Status = "Silinemedi: " + ex.Message; }
     }
 }
 

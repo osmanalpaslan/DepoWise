@@ -68,8 +68,9 @@
             </StackPanel>
         </Border>
 
-        <!-- Liste / durumlar -->
-        <Panel Grid.Row="2" Margin="0,16,0,0">
+        <!-- Liste + Detay -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360">
+          <Panel Grid.Column="0">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
@@ -90,7 +91,7 @@
                             <TextBlock Grid.Column="5" Text="BAKIM/MUAYENE" MinWidth="120"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:VehicleRow">
                                 <Grid>
@@ -125,7 +126,70 @@
             <ctrl:StatePanel Mode="Empty" Title="Araç yok"
                              Message="Arama kriterine uygun araç bulunamadı."
                              IsVisible="{Binding IsEmpty}"/>
-        </Panel>
+          </Panel>
+
+          <!-- Detay / Düzenle / Sil -->
+          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+            <ScrollViewer>
+              <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding Selected.Code}" Classes="PageTitle" VerticalAlignment="Center"/>
+                  <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
+                </Grid>
+
+                <ctrl:FormField Label="Plaka">
+                  <TextBox Classes="Field" Text="{Binding EditPlate}" IsEnabled="{Binding IsEditing}"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Üretim Yılı">
+                  <NumericUpDown Classes="Field" Value="{Binding EditYear}" Minimum="0" Maximum="2100"
+                                 FormatString="0" ShowButtonSpinner="False" IsEnabled="{Binding IsEditing}"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Durum">
+                  <ComboBox Classes="Field" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding EditStatus}"
+                            IsEnabled="{Binding IsEditing}" HorizontalAlignment="Stretch"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Durum Açıklaması" IsVisible="{Binding IsMaintenanceStatus}"
+                                HelpText="Yalnız 'Bakımda' durumunda saklanır.">
+                  <TextBox Classes="Field" Text="{Binding EditStatusNote}" AcceptsReturn="True"
+                           Height="60" IsEnabled="{Binding IsEditing}"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Sayaç" HelpText="Yalnız ileri alınabilir (geriye gitmez).">
+                  <NumericUpDown Classes="Field" Value="{Binding EditMeter}" Minimum="0"
+                                 FormatString="0.##" ShowButtonSpinner="False" IsEnabled="{Binding IsEditing}"/>
+                </ctrl:FormField>
+
+                <WrapPanel>
+                  <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,8"
+                          Command="{Binding BeginEditCommand}" IsVisible="{Binding !IsEditing}"/>
+                  <Button Classes="Primary" Content="Kaydet" Margin="0,0,8,8"
+                          Command="{Binding SaveEditCommand}" IsVisible="{Binding IsEditing}"/>
+                  <Button Classes="Secondary" Content="İptal" Margin="0,0,8,8"
+                          Command="{Binding CancelEditCommand}" IsVisible="{Binding IsEditing}"/>
+                  <Button Classes="Danger" Content="Sil" Margin="0,0,8,8"
+                          Command="{Binding RequestDeleteCommand}" IsVisible="{Binding !IsEditing}"/>
+                </WrapPanel>
+
+                <!-- Silme onayı -->
+                <Border Classes="Panel" BorderBrush="{DynamicResource DangerBrush}" IsVisible="{Binding ConfirmDelete}">
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="Bu aracı silmek istiyor musunuz?" Classes="Body" FontWeight="SemiBold"/>
+                    <TextBlock Text="Kayıt çöp kutusuna alınır; geçmiş korunur." Classes="Helper" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                      <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelDeleteCommand}"/>
+                      <Button Classes="Danger" Content="Evet, Sil" Command="{Binding ConfirmDeleteVehicleCommand}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+
+          <!-- Seçim yokken ipucu -->
+          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+            <TextBlock Text="Detay/düzenleme için bir araç seçin." Classes="Helper"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+        </Grid>
 
         <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
                    Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>

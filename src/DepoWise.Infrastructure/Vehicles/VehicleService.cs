@@ -19,6 +19,12 @@ public sealed record VehicleRecord(
 public sealed record VehicleListRow(
     string Id, string InternalCode, string? Plate, string Status, decimal CurrentMeter, string MeterUnit, int? ProductionYear);
 
+public sealed record VehicleDetail(
+    string Id, string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string MeterUnit,
+    string Status, string? StatusNote);
+
+public sealed record UpdateVehicle(string? Plate, int? ProductionYear, string Status, string? StatusNote);
+
 /// <summary>
 /// Araç kartı — iç kod benzersiz; şablondan doldurma + şablon malzemelerini araca kopyalama (aynı transaction);
 /// sayaç geriye gidemez (MeterRule) ve tüm değişimler vehicle_meter_logs'a yazılır.
@@ -173,6 +179,73 @@ ORDER BY internal_code LIMIT $lim;";
                 r.GetString(3), Money.Parse(r.GetString(4)), r.GetString(5),
                 r.IsDBNull(6) ? (int?)null : r.GetInt32(6)));
         return list;
+    }
+
+    /// <summary>Tek araç detayı (salt okuma) — düzenleme formu için.</summary>
+    public VehicleDetail Get(SessionContext s, string vehicleId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT id, internal_code, plate, production_year, current_meter, meter_unit, status, status_note
+FROM vehicles WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$id", vehicleId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+        return new VehicleDetail(
+            r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+            r.IsDBNull(3) ? (int?)null : r.GetInt32(3), Money.Parse(r.GetString(4)), r.GetString(5),
+            r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7));
+    }
+
+    /// <summary>Araç alanlarını günceller (plaka/yıl/durum/durum notu). Sayaç burada DEĞİL (SetMeter ile, geriye gitmez).
+    /// Durum notu yalnız 'maintenance' durumunda saklanır (Create ile aynı kural).</summary>
+    public void Update(SessionContext s, string vehicleId, UpdateVehicle dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+UPDATE vehicles SET plate=$p, production_year=$y, status=$st, status_note=$note,
+    version=version+1, updated_at=$now
+WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$p", (object?)dto.Plate ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$y", (object?)dto.ProductionYear ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$st", dto.Status);
+            cmd.Parameters.AddWithValue("$note", dto.Status == "maintenance" ? (object?)dto.StatusNote ?? DBNull.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", vehicleId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Araç soft-delete (is_deleted=1). Geçmiş kayıtlar korunur.</summary>
+    public void Delete(SessionContext s, string vehicleId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Delete);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE vehicles SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", vehicleId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Delete, s.UserId), _clock);
+        tx.Commit();
     }
 
     // ---- yardımcılar ----
