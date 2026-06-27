@@ -15,16 +15,17 @@ public sealed record ThemeTokens(
     string Success,
     string CornerRadius)
 {
+    // Koyu sol menü temalı modern palet (assets-incoming/design şemasına göre).
     public static ThemeTokens Default => new(
-        Primary: "#1F6FEB",
+        Primary: "#1E1E24",     // koyu sidebar/header
         OnPrimary: "#FFFFFF",
-        Surface: "#FFFFFF",
-        OnSurface: "#1A1A1A",
-        Accent: "#0EA5E9",
-        Danger: "#DC2626",
-        Warning: "#D97706",
-        Success: "#16A34A",
-        CornerRadius: "8");
+        Surface: "#F4F5F9",     // açık içerik zemini
+        OnSurface: "#1F2430",
+        Accent: "#3B82F6",      // mavi vurgu (Eşitle, linkler, KPI)
+        Danger: "#E5484D",
+        Warning: "#E08C00",
+        Success: "#2E9E5B",
+        CornerRadius: "10");
 }
 
 /// <summary>

@@ -17,5 +17,6 @@ public static class MigrationCatalog
         new Migration010_Requests(),
         new Migration011_Sync(),
         new Migration012_Releases(),
+        new Migration013_RememberTokens(),
     };
 }

@@ -26,17 +26,26 @@ public partial class App : Avalonia.Application
             ThemeApplier.Apply(this, boot.Theme);   // merkezi tema (sabit renk yok)
             DesktopServices.Initialize(boot);       // servisler + ilk açılış admin seed
 
-            // Önce giriş ekranı; başarılı login → MainWindow (gerçek oturum + yetkiye göre menü)
-            var loginVm = new LoginViewModel();
-            var login = new LoginWindow { DataContext = loginVm };
-            loginVm.OnLoggedIn = session =>
+            // "Beni Hatırla": geçerli token varsa giriş ekranını atla
+            var remembered = RememberMeService.TryAutoLogin();
+            if (remembered is not null)
             {
-                var main = new MainWindow { DataContext = new ShellViewModel(session) };
-                desktop.MainWindow = main;
-                main.Show();
-                login.Close();
-            };
-            desktop.MainWindow = login;
+                DesktopServices.Session = remembered;
+                desktop.MainWindow = new MainWindow { DataContext = new ShellViewModel(remembered) };
+            }
+            else
+            {
+                var loginVm = new LoginViewModel();
+                var login = new LoginWindow { DataContext = loginVm };
+                loginVm.OnLoggedIn = session =>
+                {
+                    var main = new MainWindow { DataContext = new ShellViewModel(session) };
+                    desktop.MainWindow = main;
+                    main.Show();
+                    login.Close();
+                };
+                desktop.MainWindow = login;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();

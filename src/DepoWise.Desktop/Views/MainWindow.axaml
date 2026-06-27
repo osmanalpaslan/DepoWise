@@ -1,66 +1,98 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
-        xmlns:ui="using:DepoWise.Application.Ui"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="620"
         x:Class="DepoWise.Desktop.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        MinWidth="640" MinHeight="420"
-        Width="900" Height="560"
+        MinWidth="760" MinHeight="480"
+        Width="1040" Height="640"
         Title="{Binding AppName}">
 
-    <!-- Renkler ekrana SABİT yazılmaz; merkezi tema "Brand.*" DynamicResource'larından gelir. -->
-    <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,*,Auto"
-          Background="{DynamicResource Brand.Surface.Brush}">
+    <!-- Renkler merkezi tema "Brand.*" DynamicResource'larından gelir (sabit yazılmaz). -->
+    <Grid ColumnDefinitions="260,*" Background="{DynamicResource Brand.Surface.Brush}">
 
-        <!-- Sol menü (yetkiye göre MenuBuilder) -->
-        <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0"
-                Background="{DynamicResource Brand.Primary.Brush}">
-            <DockPanel Margin="0,16">
-                <TextBlock DockPanel.Dock="Top" Text="{Binding AppName}"
-                           Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                           FontSize="20" FontWeight="Bold" Margin="16,0,16,4"/>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding CompanyName}"
-                           Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                           Opacity="0.8" Margin="16,0,16,12"/>
-                <TextBlock DockPanel.Dock="Bottom" Text="{Binding UserName, StringFormat='Kullanıcı: {0}'}"
-                           Foreground="{DynamicResource Brand.OnPrimary.Brush}" Opacity="0.7"
-                           Margin="16,12,16,0" FontSize="11"/>
+        <!-- ===== Sol koyu accordion menü ===== -->
+        <Border Grid.Column="0" Background="{DynamicResource Brand.Primary.Brush}">
+            <DockPanel>
+                <!-- Logo / başlık -->
+                <Border DockPanel.Dock="Top" Padding="20,18,20,14">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding AppName}" FontSize="20" FontWeight="Bold"
+                                   Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                        <TextBlock Text="{Binding CompanyName}" FontSize="11" Opacity="0.6"
+                                   Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Kullanıcı + Ana Ekran -->
+                <Border DockPanel.Dock="Bottom" Padding="16,12"
+                        Background="#16FFFFFF">
+                    <TextBlock Text="{Binding UserName, StringFormat='👤 {0}'}" FontSize="12"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}" Opacity="0.85"/>
+                </Border>
+
                 <ScrollViewer>
-                    <ItemsControl ItemsSource="{Binding MenuItems}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="ui:MenuItem">
-                                <Button Content="{Binding Label}" HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Left"
-                                        Background="Transparent"
-                                        Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                                        Padding="16,10" Margin="8,1"
-                                        Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).NavigateCommand}"
-                                        CommandParameter="{Binding Key}"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <StackPanel Margin="8,4">
+                        <Button Content="🏠  Ana Ekran" Classes="NavTop" HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                                Command="{Binding GoDashboardCommand}"/>
+                        <ItemsControl ItemsSource="{Binding Groups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NavGroup">
+                                    <Expander IsExpanded="{Binding IsExpanded}" Margin="0,2"
+                                              Background="Transparent"
+                                              Foreground="{DynamicResource Brand.OnPrimary.Brush}">
+                                        <Expander.Header>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding Icon}"/>
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                        </Expander.Header>
+                                        <ItemsControl ItemsSource="{Binding Children}" Margin="14,2,0,4">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:NavLink">
+                                                    <Button Content="{Binding Title}" Classes="NavLink"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                            Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                                                            Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).NavigateCommand}"
+                                                            CommandParameter="{Binding Key}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </ScrollViewer>
             </DockPanel>
         </Border>
 
-        <!-- Üst başlık şeridi -->
-        <Border Grid.Row="0" Grid.Column="1" Padding="20,12"
-                Background="{DynamicResource Brand.Surface.Brush}">
-            <TextBlock Text="{Binding CurrentTitle}" FontSize="16" FontWeight="SemiBold"
-                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-        </Border>
+        <!-- ===== Sağ içerik ===== -->
+        <DockPanel Grid.Column="1">
+            <!-- Üst başlık şeridi -->
+            <Border DockPanel.Dock="Top" Background="White" Padding="24,14"
+                    BoxShadow="0 1 4 0 #11000000">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="{Binding CurrentTitle}" FontSize="17" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                        <TextBlock Text="{Binding Welcome}" FontSize="11" Opacity="0.6"
+                                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="🔄 Eşitle" VerticalAlignment="Center"
+                            Background="{DynamicResource Brand.Accent.Brush}"
+                            Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                            CornerRadius="{DynamicResource Brand.CornerRadius}" Padding="14,8"/>
+                </Grid>
+            </Border>
 
-        <!-- İçerik (seçili modül ekranı; ViewLocator VM->View çözer) -->
-        <ContentControl Grid.Row="1" Grid.Column="1" Content="{Binding CurrentPage}"/>
-
-        <Border Grid.Row="2" Grid.Column="1" Padding="12"
-                Background="{DynamicResource Brand.Surface.Brush}">
-            <TextBlock Text="{Binding CompanyName}" Opacity="0.6"
-                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-        </Border>
+            <!-- İçerik (seçili modül; ViewLocator VM->View çözer) -->
+            <ContentControl Content="{Binding CurrentPage}"/>
+        </DockPanel>
     </Grid>
 </Window>

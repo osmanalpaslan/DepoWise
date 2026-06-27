@@ -27,6 +27,9 @@
                 <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="••••••" />
             </StackPanel>
 
+            <CheckBox Content="Beni hatırla" IsChecked="{Binding RememberMe}"
+                      Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+
             <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
                        TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
 

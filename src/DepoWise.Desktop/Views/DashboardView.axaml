@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:rep="using:DepoWise.Application.Reports"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="560"
+             x:Class="DepoWise.Desktop.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+    <ScrollViewer Padding="24">
+        <StackPanel Spacing="20">
+
+            <!-- Aktif Uyarılar -->
+            <Border Background="White" CornerRadius="{DynamicResource Brand.CornerRadius}" Padding="18"
+                    BoxShadow="0 2 8 0 #15000000">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="AKTİF UYARILAR" FontWeight="Bold" FontSize="13"
+                               Foreground="{DynamicResource Brand.OnSurface.Brush}" Opacity="0.7"/>
+                    <ItemsControl ItemsSource="{Binding Alerts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="rep:DashboardAlert">
+                                <Border Margin="0,3" Padding="12,8" CornerRadius="8" Background="#0A000000">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Border Width="8" Height="8" CornerRadius="4" VerticalAlignment="Center"
+                                                Background="{DynamicResource Brand.Danger.Brush}"
+                                                IsVisible="{Binding IsCritical}"/>
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                        <TextBlock Text="{Binding Detail}" Opacity="0.7"
+                                                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="Aktif uyarı yok. ✔" IsVisible="{Binding !HasAlerts}"
+                               Foreground="{DynamicResource Brand.Success.Brush}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- KPI Kartları -->
+            <TextBlock Text="ÖZET İSTATİSTİKLER" FontWeight="Bold" FontSize="13"
+                       Foreground="{DynamicResource Brand.OnSurface.Brush}" Opacity="0.7"/>
+            <ItemsControl ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:KpiCard">
+                        <Border Width="220" Height="96" Margin="0,0,16,16" Padding="16"
+                                Background="White" CornerRadius="{DynamicResource Brand.CornerRadius}"
+                                BoxShadow="0 2 8 0 #15000000">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Border Grid.Column="0" Width="46" Height="46" CornerRadius="10"
+                                        Background="{DynamicResource Brand.Accent.Brush}" Opacity="0.15"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="22"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Value}" FontSize="26" FontWeight="Bold"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                    <TextBlock Text="{Binding Label}" FontSize="12" Opacity="0.65"
+                                               Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

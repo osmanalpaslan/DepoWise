@@ -149,7 +149,8 @@
 
 ## UI geliştirme (R10 kapatma — devam ediyor)
 - **Masaüstü dilim 1 (2026-06-27):** Gerçek **giriş ekranı** (`LoginWindow`/`LoginViewModel` → `AuthService`, ilk açılış admin/admin123 seed) + **shell navigasyonu** (yetkiye göre menü, `ContentControl` içerik bölgesi) + **Malzemeler ekranı** (`MaterialsView/ViewModel`: liste+arama+yeni kayıt, `MaterialService` üzerine, stok gösterimi). Diğer modüller `PlaceholderView` ile menüden açılır. `DesktopServices` hafif servis tutucu. Derleme temiz; çalıştırma: `dotnet <DepoWise.Desktop.dll>` (COMODO: EXE değil dotnet host).
-- Sıradaki dilimler: Stok işlemleri, Araçlar, Bakım ekranları; ardından web UI.
+- **Masaüstü dilim 2 (2026-06-27):** Yeni **tasarım uygulandı** (assets-incoming/design): koyu accordion sol menü (Expander gruplu), **KPI'lı Ana Ekran** (DashboardService — araç/malzeme/düşük stok/talep/personel + aktif uyarılar), üst başlık şeridi (karşılama + Eşitle), merkezi palet güncellendi (Primary #1E1E24, Accent #3B82F6 — web de aynı token'ları aldı). **"Beni Hatırla"** eklendi: güvenli token (parola düz saklanmaz) + Windows DPAPI ile korunur, açılışta otomatik giriş (Migration013 remember_tokens, `AuthService.CreateSessionForUser`, `RememberMeService`).
+- Sıradaki dilimler: Stok işlemleri, Araçlar, Bakım ekranları; ardından web UI (tasarım + Beni Hatırla web'e de uygulanacak).
 
 ## Yayın engelleri (genel kullanıcı yayını öncesi kapanmalı)
 - **R10:** Operasyonel modül ekranları bağlanıyor (Malzemeler bağlandı; kalan modüller sırada).

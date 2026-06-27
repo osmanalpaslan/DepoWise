@@ -4,7 +4,9 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Application.Theming;
 using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Reporting;
 using DepoWise.Infrastructure.Security;
 using DepoWise.Infrastructure.Settings;
 using Microsoft.Data.Sqlite;
@@ -24,6 +26,7 @@ public static class DesktopServices
     public static UserService Users { get; private set; } = null!;
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
+    public static DashboardService Dashboard { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
 
@@ -38,6 +41,8 @@ public static class DesktopServices
         Users = new UserService(Factory, clock);
         Materials = new MaterialService(Factory, clock);
         OpeningStock = new OpeningStockService(Factory, clock);
+        Dashboard = new DashboardService(Factory,
+            new MaintenanceService(Factory, clock), new InspectionService(Factory, clock));
         Branding = boot.Branding;
         Theme = boot.Theme;
 

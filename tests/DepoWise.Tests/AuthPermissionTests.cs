@@ -185,6 +185,22 @@ public class AuthPermissionTests : IDisposable
         Assert.False(string.IsNullOrEmpty(id));
     }
 
+    [Fact]
+    public void CreateSessionForUser_GecerliKullanici_OturumKurar_PasifNull()
+    {
+        var users = new UserService(_factory, _clock);
+        var id = users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        var auth = new AuthService(_factory, _clock);
+
+        var s = auth.CreateSessionForUser("A", id);
+        Assert.NotNull(s);
+        Assert.Equal("A", s!.CompanyId);
+        Assert.True(s.IsCompanyAdmin);
+
+        // Olmayan kullanıcı → null (Beni Hatırla token'ı geçersiz olur)
+        Assert.Null(auth.CreateSessionForUser("A", "yok-boyle-id"));
+    }
+
     private SessionContext Session(string company, string user,
         IEnumerable<string>? roles = null, IEnumerable<ModulePermission>? perms = null)
         => new(user, company, roles ?? Array.Empty<string>(), new PermissionSet(perms ?? Array.Empty<ModulePermission>()));

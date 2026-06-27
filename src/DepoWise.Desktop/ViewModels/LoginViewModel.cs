@@ -11,6 +11,7 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private string _password = "";
     [ObservableProperty] private string? _error;
     [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private bool _rememberMe = true;
 
     public string AppName => DesktopServices.Branding.AppName;
 
@@ -42,6 +43,8 @@ public sealed partial class LoginViewModel : ViewModelBase
                 return;
             }
             DesktopServices.Session = result.Session;
+            if (RememberMe) RememberMeService.Save(result.Session);
+            else RememberMeService.Clear();
             OnLoggedIn?.Invoke(result.Session);
         }
         catch (Exception ex)

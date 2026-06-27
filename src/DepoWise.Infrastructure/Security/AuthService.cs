@@ -62,6 +62,26 @@ public sealed class AuthService
         return new LoginResult(true, false, 0, session);
     }
 
+    /// <summary>
+    /// Parola olmadan oturum kurar (yalnız "Beni Hatırla" token doğrulaması SONRASI çağrılır).
+    /// Kullanıcı aktif değilse/yoksa null döner. Roller + yetkiler yüklenir.
+    /// </summary>
+    public SessionContext? CreateSessionForUser(string companyId, string userId)
+    {
+        TenantGuard.Require(companyId);
+        using var conn = _factory.Create();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT COUNT(*) FROM users WHERE id=$id AND company_id=$c AND is_active=1 AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$id", userId);
+            cmd.Parameters.AddWithValue("$c", companyId);
+            if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) return null;
+        }
+        var roles = LoadRoleKeys(conn, userId);
+        var perms = LoadPermissions(conn, userId);
+        return new SessionContext(userId, companyId, roles, perms);
+    }
+
     private (int count, long? lastFailMs) ConsecutiveFailures(SqliteConnection conn, string companyId, string username)
     {
         using var cmd = conn.CreateCommand();
