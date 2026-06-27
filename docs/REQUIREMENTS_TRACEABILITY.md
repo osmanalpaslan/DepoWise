@@ -2,28 +2,34 @@
 
 | ID | Gereksinim | Faz | Durum | Kod/Test Kanıtı |
 |---|---|---:|---|---|
-| REQ-MOD-01 | Ana Ekran ve Uyarı Merkezi | 12 | Bekliyor |  |
-| REQ-MOD-02 | Firma, Şube ve Şantiye | 05 | Bekliyor |  |
-| REQ-MOD-03 | Kullanıcı, Rol ve Yetki | 03 | Bekliyor |  |
-| REQ-MOD-04 | Tanımlar ve Alan Ayarları | 04 | Bekliyor |  |
-| REQ-MOD-05 | Malzemeler | 06 | Bekliyor |  |
-| REQ-MOD-06 | Stok İşlemleri | 07 | Bekliyor |  |
-| REQ-MOD-07 | Araçlar ve Araç Şablonları | 08 | Bekliyor |  |
-| REQ-MOD-08 | Bakım Takibi | 09 | Bekliyor |  |
-| REQ-MOD-09 | Muayene, Sigorta ve Kalibrasyon | 09 | Bekliyor |  |
-| REQ-MOD-10 | Yakıt Sarfiyatı | 10 | Bekliyor |  |
-| REQ-MOD-11 | Günlük Faaliyet | 10 | Bekliyor |  |
-| REQ-MOD-12 | Malzeme Talep ve Onay | 11 | Bekliyor |  |
-| REQ-MOD-13 | Personel | 05 | Bekliyor |  |
-| REQ-MOD-14 | Raporlar | 12 | Bekliyor |  |
-| REQ-MOD-15 | Import/Export | 12 | Bekliyor |  |
-| REQ-MOD-16 | Dosya ve Fotoğraf | 13 | Bekliyor |  |
-| REQ-MOD-17 | Sistem Logu, Audit ve Çöp Kutusu | 13 | Bekliyor |  |
-| REQ-MOD-18 | Yedekleme | 13 | Bekliyor |  |
-| REQ-MOD-19 | Setup ve Güncelleme | 15 | Bekliyor |  |
-| REQ-MOD-20 | Offline Senkronizasyon | 14 | Bekliyor |  |
+> **Durum lejantı:** ✔ Çekirdek = servis + iş kuralı + test tam (kanıtlı). UI(R10) = Avalonia/React ekran bağlama açık. Web-login(R8/R9), PG(R4/R7) ilgili yerlerde.
+
+| ID | Gereksinim | Faz | Durum | Kod/Test Kanıtı |
+|---|---|---:|---|---|
+| REQ-MOD-01 | Ana Ekran ve Uyarı Merkezi | 12 | ✔ Çekirdek; UI(R10) | DashboardService; ReportingTests |
+| REQ-MOD-02 | Firma, Şube ve Şantiye | 05 | ✔ Çekirdek; UI(R10) | Company/BranchService; OrgPersonnelTests |
+| REQ-MOD-03 | Kullanıcı, Rol ve Yetki | 03 | ✔ Çekirdek; UI(R10) | AccessControl/AuthService; AuthPermissionTests |
+| REQ-MOD-04 | Tanımlar ve Alan Ayarları | 04 | ✔ Çekirdek; UI(R10) | Ui/*, LookupService; UiCommonTests |
+| REQ-MOD-05 | Malzemeler | 06 | ✔ Çekirdek; UI(R10) | MaterialService; MaterialTests |
+| REQ-MOD-06 | Stok İşlemleri | 07 | ✔ Çekirdek; UI(R10) | StockService; StockOperationTests (concurrency) |
+| REQ-MOD-07 | Araçlar ve Araç Şablonları | 08 | ✔ Çekirdek; UI(R10) | Vehicle/Template; VehicleTests |
+| REQ-MOD-08 | Bakım Takibi | 09 | ✔ Çekirdek; UI(R10) | MaintenanceService; MaintenanceTests |
+| REQ-MOD-09 | Muayene, Sigorta ve Kalibrasyon | 09 | ✔ Çekirdek; UI(R10) | InspectionService; MaintenanceTests |
+| REQ-MOD-10 | Yakıt Sarfiyatı | 10 | ✔ Çekirdek; UI(R10) | FuelService; FuelDailyActivityTests |
+| REQ-MOD-11 | Günlük Faaliyet | 10 | ✔ Çekirdek; UI(R10) | DailyActivityService; FuelDailyActivityTests |
+| REQ-MOD-12 | Malzeme Talep ve Onay | 11 | ✔ Çekirdek+PDF; UI(R10) | RequestService/Pdf; RequestTests |
+| REQ-MOD-13 | Personel | 05 | ✔ Çekirdek; UI(R10) | PersonnelService; OrgPersonnelTests |
+| REQ-MOD-14 | Raporlar | 12 | ✔ Çekirdek; UI(R10) | ReportService; ReportingTests |
+| REQ-MOD-15 | Import/Export | 12 | ✔ Çekirdek (malzeme; R17); UI(R10) | Excel/MaterialImport; ReportingTests |
+| REQ-MOD-16 | Dosya ve Fotoğraf | 13 | ✔ Çekirdek (opt R18); UI(R10) | FileService/Validation; FileTrashBackupTests |
+| REQ-MOD-17 | Sistem Logu, Audit ve Çöp Kutusu | 13 | ✔ Çekirdek; UI(R10) | AuditWriter/TrashService; FileTrashBackupTests |
+| REQ-MOD-18 | Yedekleme | 13 | ✔ Tam (servis+test) | BackupService; FileTrashBackupTests |
+| REQ-MOD-19 | Setup ve Güncelleme | 15 | ✔ Çekirdek; transport/UI(R21) | Release/UpdateService; UpdateComodoTests |
+| REQ-MOD-20 | Offline Senkronizasyon | 14 | ✔ Çekirdek; transport/UI(R19), apply(R20) | Sync/*; SyncTests |
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
+
+**Faz 17 (2026-06-27):** Tüm REQ-MOD kanıt/test/risk ile kapatıldı (yukarıdaki tablo). Uçtan uca akış `tests/DepoWise.Tests/EndToEndTests.cs`. Genel kullanıcı yayın engelleri: R10 (UI), R8/R9 (web login), R4/R7 (PostgreSQL), R22 (code-signing). 187 .NET + 66 web test geçti; RC 1.0.0 checksum'lı (`RELEASE_CANDIDATE.md`).
 
 **Faz 16 (2026-06-27):** Güvenlik sertleştirme (çapraz-kesen; REQ-MOD-03/20 + analiz §9/§11 kabul kriterleri):
 - `src/DepoWise.Application/Security/{LogRedactor,RateLimiter}.cs`, `Infrastructure/Sync/EnrollmentService.cs` (RotateDeviceToken); web `apps/web/src/lib/security/{headers,ratelimit,csrf,redact}.ts`, `next.config.mjs`, `docs/SECURITY.md`.

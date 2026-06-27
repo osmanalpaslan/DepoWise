@@ -1,8 +1,16 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 16 — Güvenlik Sertleştirme ve Operasyon Hazırlığı
-**Durum:** Tamamlandı
+**Aktif faz:** Faz 17 — Uçtan Uca Doğrulama, Dokümantasyon ve Yayın Adayı
+**Durum:** Tamamlandı — **Backend/iş mantığı YAYIN ADAYI (1.0.0-rc)**; genel kullanıcı yayını için UI/entegrasyon engelleri açık (R10, R8/R9, R4/R7).
+
+## Tamamlanan (Faz 17)
+- **Uçtan uca entegrasyon testi**: temiz DB'de çapraz-modül tam akış (malzeme/stok → araç/bakım/uyarı → talep onay-stok-değişmez → kontrollü çıkış → sync idempotent → yedek/geri yükleme) + tenant izolasyonu (`EndToEndTests`).
+- **Temiz koşu**: .NET çözüm build (0 hata) + **187/187 test**; Release publish (exit 0); web typecheck/lint/build + **66/66 test**; repo secret tarama temiz; npm audit raporlandı.
+- **Release candidate**: 1.0.0-rc publish + SHA-256 checksum (`docs/RELEASE_CANDIDATE.md`).
+- **Dokümantasyon**: `USER_GUIDE.md` (kurulum/enrollment/günlük kullanım/yedek/güncelleme), `OPERATIONS.md` (prod checklist/migration-rollback/monitoring/acil durum), `SECURITY.md`.
+- **İzlenebilirlik**: REQ-MOD-01..20 her biri kod/test/kanıt yoluyla kapatıldı veya **açık risk** olarak işaretlendi (test edilmeyen UI tamamlandı sayılmadı).
+- **Doğrulama**: tüm build/test exit 0; kanıtlar `TEST_EVIDENCE.md`'de tekrar üretilebilir.
 
 ## Tamamlanan (Faz 16)
 - **Web güvenlik başlıkları**: CSP, X-Content-Type-Options=nosniff, X-Frame-Options=DENY + frame-ancestors 'none', Referrer-Policy, Permissions-Policy; HSTS yalnız Production (`next.config.mjs` + `lib/security/headers.ts`).
@@ -139,13 +147,17 @@
 - **Web iskeleti** (`apps/web`): Next.js 15 (TS strict + noUncheckedIndexedAccess), Drizzle/postgres, fail-closed `config.ts`, `/api/v1/health` (correlation_id + 200/503), `docs/openapi.yaml` (ApiError/PagedResult/Health şemaları). Web sözleşmeleri .NET ile fonksiyonel eşit.
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
-## Açık işler
-- Faz 17: Uçtan Uca Doğrulama, Dokümantasyon ve Yayın Adayı.
-- Dev/build araç bağımlılıklarında audit advisory'leri (R23); code-signing/pentest/MFA yayın-öncesi (R22, SECURITY.md).
-- Updater transport/UI (R21); sync transport/UI (R19); push apply (R20); foto opt (R18); import (R17 modül kapsamı); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI ekranları (R10); login akışı (R8/R9); PostgreSQL (R4/R7).
+## Yayın engelleri (genel kullanıcı yayını öncesi kapanmalı)
+- **R10:** Operasyonel modüllerin UI ekranları (liste/form/import-export) bağlanmadı — servis+iş kuralı+test tam.
+- **R8/R9:** Web oturum kalıcılığı + masaüstü/web login akışı bağlanmalı.
+- **R4/R7:** Yerel/üretim PostgreSQL canlı migration uygulanmadı (SQLite tarafı tam; PG migration SQL üretildi).
+- **R22:** Code-signing (imzasız sürümde şeffaf uyarı var).
+
+## Açık işler (yayın-engeli değil)
+- Updater transport/UI (R21); sync transport/UI (R19); push apply (R20); foto opt (R18); import modül kapsamı (R17); web PDF render (R16); şube-bazlı stok (R13); vehicle FK (R11); alert GROUP BY sağlamlaştırma (R14); npm dev-araç audit (R23).
 
 ## Sıradaki tek iş
-- **Faz 17 — Uçtan Uca Doğrulama, Dokümantasyon ve Yayın Adayı** (`prompts/17_...md`). Kullanıcı komutu olmadan başlatma.
+- **Tüm 17 faz tamamlandı.** Genel yayın için sıradaki iş: yayın engellerini (R10 UI, R8/R9 login, R4/R7 PostgreSQL) kapatmak. Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

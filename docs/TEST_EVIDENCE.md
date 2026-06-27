@@ -273,6 +273,25 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/security-hardening.test.ts`, `docs/SECURITY.md`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 17 / Uçtan uca + temiz koşu + release candidate
+- **Komut / Exit:**
+  - `dotnet build DepoWise.sln -c Debug` → 0 (0 hata)
+  - `dotnet test tests/DepoWise.Tests` → 0 → **187/187 geçti** (uçtan uca `EndToEndTests` dahil)
+  - `dotnet publish src/DepoWise.Desktop -c Release` → 0
+  - `npx tsc --noEmit` → 0; `npx next lint` → temiz; `npx next build` → başarılı
+  - `node --test` (web) → **66/66 geçti**
+  - `git grep` secret tarama → temiz; `.env` izlenmiyor
+  - `npm audit` → 9 advisory (dev/build araçları, runtime yok — R23)
+- **Sonuç:** Uçtan uca akış (malzeme/stok→araç/bakım/uyarı→talep→sync→yedek/restore) + tenant izolasyonu tek senaryoda geçti. Tüm kabul testi alanları kanıtlı (bkz. RELEASE_CANDIDATE.md).
+- **Release candidate:** 1.0.0-rc; DLL SHA-256 `2627A0F1...A448`, ZIP SHA-256 `69A7E9CF...D062` (54 dosya, ~246 MB).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/EndToEndTests.cs`, `docs/RELEASE_CANDIDATE.md`, `docs/USER_GUIDE.md`, `docs/OPERATIONS.md`.
+- **COMODO host ve DB yolu:** Tüm .NET koşusu `dotnet` host; gerçek DB mutlak `%LOCALAPPDATA%\DepoWise\Data\...`; kapat-aç kalıcılık `Comodo_KapatAc_VeriAyniDBdeKalir` + `EndToEndTests` ile doğrulandı; EXE/BAT çalıştırılmadı (publish ≠ çalıştırma).
+
+### ÇALIŞTIRILAMAYAN / AÇIK (dürüst kayıt)
+- Avalonia/React **UI ekranları** otomatik test edilmedi (ekranlar bağlı değil — R10); yalnız servis/iş mantığı + ortak UI mantık testleri var.
+- **Canlı PostgreSQL** üzerinde Drizzle migration çalıştırılmadı (R4/R7); yalnız offline SQL üretildi.
+- Web **login/oturum** uçtan uca akışı bağlı değil (R8/R9).
+
 ---
 
 ### Şablon

@@ -19,6 +19,7 @@ TestResults/
 *.db-shm
 artifacts/logs/
 artifacts/temp/
+artifacts/rc/
 
 # IDE/OS
 .vs/

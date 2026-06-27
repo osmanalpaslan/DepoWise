@@ -274,3 +274,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-048 — Token rotasyonu + dependency advisory politikası
 - **Karar:** Cihaz token rotasyonu (`RotateDeviceToken`) eski token'ı anında geçersiz kılar; revoke push/pull'da 403. `npm audit` açıkları yalnız **dev/build araçlarında** (eslint/drizzle-kit→esbuild/next→postcss) — runtime maruziyeti yok; `--force` breaking olduğu için uygulanmadı, R23'te izlenir. Code-signing/pentest/MFA maliyetli kalemler `SECURITY.md`'de yayın-öncesi/sonrası karara bırakıldı (temel güvenlikten ayrı).
 - **Gerekçe:** Analiz §9 (tedarik zinciri, rotasyon); CLAUDE.md (gereksiz upgrade yapma).
+
+---
+
+## Faz 17 kararları (2026-06-27)
+
+### ADR-049 — Yayın adayı kapsamı: backend RC, UI yayın-engeli
+- **Karar:** DepoWise 1.0.0-rc; **backend/iş mantığı + sözleşmeler + testler yayın adayı olgunluğunda** (187 .NET + 66 web test, uçtan uca akış dahil). Genel kullanıcı yayını için UI ekran bağlama (R10), web login akışı (R8/R9) ve canlı PostgreSQL migration (R4/R7) **yayın engeli** olarak kayda geçti; test edilmeyen UI "tamamlandı" sayılmadı (analiz §14 dürüst tamamlanma tanımı).
+- **Gerekçe:** Analiz §11-14; kullanıcı talimatı (test edilmemiş işlemi tamamlandı işaretleme).
+
+### ADR-050 — Release candidate checksum yayın akışı
+- **Karar:** RC artefaktı Release publish + zip; kimliği SHA-256 ile sabitlenir (`RELEASE_CANDIDATE.md`). Üretim dağıtımında bu checksum `ReleaseService.Publish` ile yayınlanır; updater indirme sonrası doğrular (bozuk paket kurulmaz). artefaktlar git'e dahil edilmez (`.gitignore artifacts/`).
+- **Gerekçe:** Analiz §6.19; izlenebilir/yeniden üretilebilir yayın.
