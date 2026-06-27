@@ -77,6 +77,43 @@ Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoW
 
 ---
 
+## Faz 3 — Uygulama kabuğu modernizasyonu (TAMAMLANDI)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · İçerik ekranlarının işlevleri değiştirilmedi.
+
+### Yapılanlar
+- **Çift katmanlı sol menü:** ikon rayı (56px) + açıklamalı accordion panel (210px). Üst bar 60px; içerik dış boşluk içerik ekranlarında.
+- **Navigasyon binding'leri korundu:** `NavigateCommand`, `GoDashboardCommand`. Eklenenler: `SelectGroupCommand` (raydan grup seç → aç + birincil hedefe git), `ToggleNavPanelCommand` (panel daralt/genişlet), `CurrentContext`, `IsNavPanelOpen`, `Initial`.
+- **Seçili durum:** `NavLinkVm.IsActive` / `NavGroupVm.IsActive` → mavi vurgu (ray + grup), alt menüde koyu seçili satır + sol accent çubuğu; hover/pressed; chevron aç/kapa; klavye odağı (`:focus-visible`).
+- **Üst bar:** ☰ (panel toggle) + sayfa başlığı + bağlam metni + **Eşitle** (mevcut yer tutucu buton korundu, sahte sync yazılmadı) + kullanıcı adı/avatar.
+- **Responsive:** panel `IsVisible` ile kontrollü daralır (Auto kolon → 0); içerik ayrı kolonda, kaybolmaz. Metinlerde `TextTrimming` ile taşma önlendi.
+- **Marka:** yalnız "DepoWise"; ALPDEP türevi yok. Native başlık çubuğu korundu (özelleştirilmedi).
+- İkon rayında **geçici emoji ikon** (Faz 5'te Lucide ile değişecek; Eşitle'den emoji kaldırıldı).
+- Renkler semantik token'lardan (SidebarBackground/TopBarBackground/Accent/AccentSoft/SelectedRow/Border...).
+
+### Değiştirilen/eklenen dosyalar
+- `Views/MainWindow.axaml` (kabuk yeniden tasarım), `ViewModels/ShellViewModel.cs`, `ViewModels/Navigation.cs` (NavLinkVm + IsActive)
+- `App.axaml` (NavRail/IconGhost/aktif/odak stilleri), `Themes/Palette.axaml` (AccentSoft/SelectedRow)
+- `docs/ui-evidence/phase-03-shell/README.md`
+
+### Komutlar
+- `dotnet build src/DepoWise.Desktop` → 0 uyarı/hata
+- `dotnet build DepoWise.sln` + `dotnet test` → 0 hata, **188/188**
+
+### Build/Test sonuçları
+- Build: **0 uyarı / 0 hata** · Test: **188/188 geçti** · Manuel smoke: navigasyon/aktif-durum kod düzeyinde doğrulandı; görsel smoke kullanıcı (dotnet host).
+
+### Ekran görüntüleri
+- `docs/ui-evidence/phase-03-shell/` (1366×768 ve 1920×1080) — **kullanıcı tarafından dotnet host ile alınacak** (COMODO; talimat README'de).
+
+### Bilinen sorunlar / sonraki faza bırakılanlar
+- Lucide ikonları (Faz 5) — şu an rayda geçici emoji.
+- İçerik ekranlarının (Dashboard/Materials) yeni semantik token'lara ve hedef yoğunluğa taşınması sonraki fazda.
+- "Eşitle" gerçek sync komutu henüz ShellViewModel'de yok (yer tutucu); sync UI fazında bağlanacak.
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 2 — Tasarım sistemi & tema altyapısı (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · **Tür:** Ekran yerleşimi/iş mantığı değiştirilmedi.
 

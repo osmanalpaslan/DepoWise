@@ -45,4 +45,7 @@
     <!-- Hover/seçili için ince beyaz overlay (koyu yüzeylerde) -->
     <SolidColorBrush x:Key="OverlayHoverBrush" Color="#16FFFFFF"/>
     <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#22FFFFFF"/>
+    <!-- Aktif menü için yumuşak accent dolgu + seçili satır koyusu -->
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#382F6FD5"/>
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#26000000"/>
 </ResourceDictionary>

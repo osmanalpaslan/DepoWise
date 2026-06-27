@@ -25,40 +25,82 @@
         <!-- Tasarım sistemi temel sınıf stilleri (opt-in; mevcut kontrolleri etkilemez) -->
         <StyleInclude Source="/Themes/Controls.axaml"/>
 
-        <!-- ===== Sol menü stilleri (koyu tema) ===== -->
+        <!-- ===== Sol menü stilleri (koyu tema, semantik token) ===== -->
         <Style Selector="Button.NavTop">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="14,11"/>
+            <Setter Property="Padding" Value="12,10"/>
             <Setter Property="Margin" Value="0,2"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.NavTop /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
         <Style Selector="Button.NavTop:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1FFFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+        </Style>
+
+        <!-- İkon rayı düğmeleri -->
+        <Style Selector="Button.NavRail">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.NavRail /template/ ContentPresenter">
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="Button.NavRail:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.NavRail.active /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        </Style>
+
+        <!-- Üst bar ikon düğmesi (hamburger vb.) -->
+        <Style Selector="Button.IconGhost">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.IconGhost:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
         </Style>
 
         <!-- Grup başlığı (ToggleButton) — FluentTheme chrome'u temizlenir -->
         <Style Selector="ToggleButton.NavGroup">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="14,11"/>
+            <Setter Property="Padding" Value="12,10"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#16FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
         </Style>
-        <Style Selector="ToggleButton.NavGroup:checked /template/ ContentPresenter">
-            <Setter Property="Background" Value="#22FFFFFF"/>
+        <Style Selector="ToggleButton.NavGroup.active /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
         </Style>
         <!-- chevron: açıkken 90° döner -->
         <Style Selector="ToggleButton.NavGroup TextBlock.chev">
@@ -76,12 +118,14 @@
         <!-- Alt bağlantı -->
         <Style Selector="Button.NavLink">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="9,7"/>
             <Setter Property="Margin" Value="0,1"/>
-            <Setter Property="Opacity" Value="0.78"/>
+            <Setter Property="Opacity" Value="0.82"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.NavLink /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -91,7 +135,24 @@
             <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.NavLink:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+        </Style>
+        <!-- seçili satır: daha koyu zemin + sol mavi vurgu + okunur metin -->
+        <Style Selector="Button.NavLink.active">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.NavLink.active /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+        </Style>
+
+        <!-- Klavye odağı görünürlüğü (erişilebilirlik) -->
+        <Style Selector="Button.NavLink:focus-visible /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
+        </Style>
+        <Style Selector="Button.NavRail:focus-visible /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
         </Style>
     </Application.Styles>
 </Application>
