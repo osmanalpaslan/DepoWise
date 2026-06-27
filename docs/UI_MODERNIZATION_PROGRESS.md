@@ -36,3 +36,41 @@ Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoW
 - LiveCharts2/Lucide entegrasyonu ilgili fazlarda.
 
 **Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
+## Faz 1 — Güvenli çalışma alanı & baseline kanıtı (TAMAMLANDI)
+**Tarih:** 2026-06-27 · **Tür:** Görsel/iş mantığı değiştirilmedi.
+
+### Branch bilgisi
+- Yeni çalışma dalı: **`ui/modern-depowise`** (`master`'dan, son commit `74a7b12`).
+- Çalışma `master` üzerinde yapılmıyor; modernizasyon bu dalda izlenecek.
+
+### Git durumu
+- İzlenen (tracked) ağaç: **temiz** (değiştirilmiş/staged dosya yok).
+- İzlenmeyen (untracked) **kullanıcı dosyaları korundu** (silinmedi/stash/reset/commit edilmedi):
+  - `Tasarım Paketi/` (referans görseller + ZIP paketleri, ~65 MB)
+  - `DepoWise_Claude_Code_UI_Modernizasyon_Promptlari.docx`
+- Dal oluşturma riski yok: izlenmeyen dosyalar branch geçişinde otomatik korunur.
+
+### Baseline build/test
+- `dotnet build DepoWise.sln -c Debug` → **0 hata**.
+- `dotnet test tests/DepoWise.Tests` → **188/188 geçti**. Faz 0 ile **tutarlı**.
+
+### Baseline ekran ölçüsü
+- Baseline görsel: `docs/ui-evidence/baseline/genel-ozet-baseline.png` — **1181 × 748 px**.
+
+### Kullanılan Windows ölçek oranı
+- Sistem DPI **96** → **%100 ölçek**. Sanal ekran 1920×1080.
+
+### Baseline kanıt yöntemi (ekran görüntüsü neden otomatik alınamadı)
+- **Neden:** COMODO Auto-Containment, geliştirme makinesinde imzasız proje EXE'sini izole eder; uygulama yalnız kullanıcı tarafından `dotnet` host kısayoluyla çalıştırılır. Asistan uygulamayı çalıştırıp otomatik ekran görüntüsü **üretemez** (CLAUDE.md §0).
+- **Çözüm (kullanıcıdan ekran görüntüsü istemeden):** Kullanıcının daha önce sağladığı **mevcut durum** görüntüsü (`Tasarım Paketi/Referanslar/DepoWise-Mevcut.png`, "Genel Özet" ekranı) baseline kanıtı olarak `docs/ui-evidence/baseline/genel-ozet-baseline.png` adıyla kopyalandı. Sonraki fazlarda "after" görüntüleri kullanıcı aynı yöntemle (dotnet host) sağlayıp `docs/ui-evidence/<faz>/` altına eklenecek; karşılaştırma bu baseline ile yapılacak.
+
+### Başlangıç riskleri
+- **Büyük izlenmeyen dosyalar** (`Tasarım Paketi/*.zip` ~65 MB) yanlışlıkla commit edilebilir → ilgili fazda `.gitignore` ile koruma önerilir (bu faz kapsamı dışı, yalnız not).
+- Ekran görüntüsü otomasyonu yok (COMODO) → görsel doğrulama kullanıcı-destekli.
+- ViewLocator isim kuralı + `Brand.*` tema anahtarları + `NavigateCommand` bağlamaları kırılmamalı (bkz. AUDIT §6).
+- Emoji→Lucide ve ikon rayı eklenmesi mevcut menü binding'lerini etkilemeden yapılmalı.
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
