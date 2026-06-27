@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Materials;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -18,13 +19,47 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private string? _status;
 
-    // Yeni kayıt alanları
-    [ObservableProperty] private string _newCode = "";
-    [ObservableProperty] private string _newName = "";
+    // Liste durumları (Faz 7a — boş/hata; yükleme senkron olduğundan kalıcı değil)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
+    private string? _loadError;
+
+    public bool HasError => LoadError != null;
+    public bool IsEmpty => !HasError && Items.Count == 0;
+    public bool HasRows => Items.Count > 0;
+
+    // Yeni kayıt formu görünürlüğü + alanları
+    [ObservableProperty] private bool _showAdd;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CodeError))]
+    [NotifyPropertyChangedFor(nameof(HasCodeError))]
+    private string _newCode = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NameError))]
+    [NotifyPropertyChangedFor(nameof(HasNameError))]
+    private string _newName = "";
+
     [ObservableProperty] private decimal _newUnitPrice;
     [ObservableProperty] private decimal _newMinStock;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CodeError))]
+    [NotifyPropertyChangedFor(nameof(HasCodeError))]
+    [NotifyPropertyChangedFor(nameof(NameError))]
+    [NotifyPropertyChangedFor(nameof(HasNameError))]
+    private bool _triedSave;
+
+    // Alan-bazlı doğrulama (mevcut iş kuralının görsel yansıması: kod+ad zorunlu)
+    public string? CodeError => TriedSave && string.IsNullOrWhiteSpace(NewCode) ? "Kod zorunlu." : null;
+    public bool HasCodeError => CodeError != null;
+    public string? NameError => TriedSave && string.IsNullOrWhiteSpace(NewName) ? "Ad zorunlu." : null;
+    public bool HasNameError => NameError != null;
+
     public bool CanWrite => AccessControl.Can(_session, "materials", PermissionAction.Create);
+    public string? AddButtonText => CanWrite ? "Yeni Malzeme" : null;
 
     public MaterialsViewModel(SessionContext session)
     {
@@ -37,6 +72,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     {
         try
         {
+            LoadError = null;
             Items.Clear();
             var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 200 },
                 string.IsNullOrWhiteSpace(Search) ? null : Search.Trim());
@@ -47,12 +83,18 @@ public sealed partial class MaterialsViewModel : ViewModelBase
             }
             Status = $"{Items.Count} kayıt";
         }
-        catch (Exception ex) { Status = "Hata: " + ex.Message; }
+        catch (Exception ex)
+        {
+            LoadError = ex.Message;
+            Status = "Hata: " + ex.Message;
+        }
+        NotifyListState();
     }
 
     [RelayCommand]
     private void Add()
     {
+        TriedSave = true;
         if (!CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode) || string.IsNullOrWhiteSpace(NewName))
         {
@@ -64,11 +106,41 @@ public sealed partial class MaterialsViewModel : ViewModelBase
                 Code: NewCode.Trim(), Name: NewName.Trim(),
                 UnitPrice: NewUnitPrice, MinStock: NewMinStock, Currency: "TRY"));
             NewCode = ""; NewName = ""; NewUnitPrice = 0; NewMinStock = 0;
+            TriedSave = false; ShowAdd = false;
             Load();
             Status = "Malzeme eklendi.";
         }
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
+
+    /// <summary>Yeni kayıt formunu aç/kapat (sunum durumu).</summary>
+    [RelayCommand]
+    private void ToggleAdd()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        ShowAdd = !ShowAdd;
+    }
+
+    /// <summary>İptal — form alanlarını temizler ve kapatır (sunum durumu; iş mantığı yok).</summary>
+    [RelayCommand]
+    private void Clear()
+    {
+        NewCode = ""; NewName = ""; NewUnitPrice = 0; NewMinStock = 0;
+        TriedSave = false; ShowAdd = false;
+    }
+
+    private void NotifyListState()
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasRows));
+    }
 }
 
-public sealed record MaterialRow(string Code, string Name, string? Type, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock);
+public sealed record MaterialRow(string Code, string Name, string? Type, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock)
+{
+    // Sunum türevleri (mevcut veriden hesap; iş mantığı değişmez)
+    public bool IsLowStock => Stock <= MinStock;
+    public string StockText => IsLowStock ? "Düşük" : "Yeterli";
+    public BadgeKind StockKind => IsLowStock ? BadgeKind.Warning : BadgeKind.Success;
+    public string TypeDisplay => string.IsNullOrWhiteSpace(Type) ? "—" : Type!;
+}

@@ -2,6 +2,39 @@
 
 Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoWise-Hedef.png` koyu tasarım diline yaklaştırmak. Ürün adı her yerde **DepoWise**. Framework: **Avalonia 12** (kanıt: UI_MODERNIZATION_AUDIT §1).
 
+## Faz 7a — Malzemeler modülü modernizasyonu (TAMAMLANDI)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · Yalnız Malzemeler; iş mantığı/command/servis korundu.
+
+### Haritalama (mevcut yapı)
+- VM `MaterialsViewModel`: `Items`/`MaterialRow`, `Search`, `Status`, `New{Code,Name,UnitPrice,MinStock}`, `CanWrite`, `LoadCommand`, `AddCommand`. Validation: kod+ad zorunlu (Add). Servis: `Materials.List/Create` + `OpeningStock.GetBalance`.
+- **Kategoriler ekranı masaüstünde yok** (yalnız liste + satır-içi yeni kayıt). Sahte modül eklenmedi (kanıt klasörü README'de not).
+
+### Yapılanlar
+- **Modern toolbar** (`ctrl:Toolbar`): başlık + arama (TwoWay `Search`) + "Ara" (LoadCommand) + "Yeni Malzeme" (yetkiye bağlı; `ToggleAddCommand`).
+- **Tablo:** ortak `Border.Table`/`ListBox.Table` deseni (hover/seçili/zebra/scroll). Kolonlar okunur sırada (Kod, Ad, Tür, Birim Fiyat, Para, Min Stok, Stok, Durum); kritik kolonlar gizlenmedi. "Ad"/"Tür" ellipsis + tooltip.
+- **Stok badge:** `ctrl:StatusBadge` — Stok ≤ Min Stok → turuncu **"Düşük"**, değilse yeşil **"Yeterli"** (renk + metin birlikte; renk tek gösterge değil).
+- **Boş/hata durumları:** `ctrl:StatePanel` (Empty/Error + "Tekrar Dene"=LoadCommand).
+- **Yeni Kayıt:** gruplu form (Tanım / Fiyat & Stok), `ctrl:FormField` ile label + zorunlu (*) + yardım + **alan-bazlı hata** (kod/ad). Kaydet (AddCommand) / İptal (ClearCommand) tutarlı sağ hizalı. Tab sırası (TabIndex) + Enter=Kaydet / Escape=İptal (panel KeyBindings; code-behind yok).
+- Eski `Brand.*` + ham ItemsControl yerine semantik token + ortak bileşenler.
+
+### VM değişikliği (additive, iş mantığı korunur)
+- Eklendi: `ShowAdd`/`ToggleAddCommand`, `ClearCommand`, alan-bazlı `CodeError/NameError/Has*` (mevcut "kod+ad zorunlu" kuralının görsel yansıması; `TriedSave` ile), liste durumları `LoadError/HasError/IsEmpty/HasRows`. `MaterialRow`'a sunum türevleri (`IsLowStock/StockText/StockKind/TypeDisplay`). Mevcut `LoadCommand/AddCommand/Create/validation` aynen korundu.
+
+### Komutlar / sonuçlar
+- `dotnet build` → **0 uyarı / 0 hata** · `dotnet test` → **188/188**. Smoke (kod düzeyi): liste/arama/validation/kaydet-iptal/durumlar doğrulandı; görsel smoke kullanıcı (dotnet host).
+
+### Ekran görüntüleri
+- `docs/ui-evidence/phase-07a-materials/` (1366×768, 1920×1080) — **kullanıcı tarafından** (COMODO; talimat README'de).
+
+### Bilinen sorunlar / sonraki faza
+- **Kategoriler ekranı yok** → modül oluşturulunca aynı bileşenlerle modernleştirilecek.
+- Satır düzenleme/silme komutu masaüstü VM'inde yok (yalnız liste + ekle) → ileride eklenince onay dialog'u ortak `Border.Dialog` ile.
+- Gerçek DataGrid Avalonia ≥12.0.5 ile (ListBox tablo deseni şimdilik).
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 0 — İnceleme & Spesifikasyon (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Tür:** Salt okunur; üretim kodu değiştirilmedi.
 
