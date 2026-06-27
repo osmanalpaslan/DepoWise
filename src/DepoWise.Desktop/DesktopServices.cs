@@ -60,6 +60,16 @@ public static class DesktopServices
             Users.EnsureInitialAdmin(DefaultCompanyId, "admin", "admin123", RoleKeys.CompanyAdmin);
     }
 
+    /// <summary>Kullanıcının görünen adı (full_name ya da username; GUID değil).</summary>
+    public static string DisplayName(string userId)
+    {
+        using var conn = Factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COALESCE(NULLIF(full_name,''), username) FROM users WHERE id=$id;";
+        cmd.Parameters.AddWithValue("$id", userId);
+        return cmd.ExecuteScalar() as string ?? "Kullanıcı";
+    }
+
     /// <summary>Login için kullanılacak firma id'si (tek firma varsa o, yoksa varsayılan).</summary>
     public static string ResolveCompanyId()
     {

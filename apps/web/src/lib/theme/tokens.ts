@@ -13,16 +13,16 @@ export interface ThemeTokens {
   cornerRadius: string;
 }
 
-// Koyu sol menü temalı modern palet (masaüstü ile aynı; assets-incoming/design).
+// Tam koyu modern tema (masaüstü ile aynı; assets-incoming/design).
 export const defaultTheme: ThemeTokens = {
-  primary: "#1E1E24",
+  primary: "#1E232C",
   onPrimary: "#FFFFFF",
-  surface: "#F4F5F9",
-  onSurface: "#1F2430",
-  accent: "#3B82F6",
-  danger: "#E5484D",
-  warning: "#E08C00",
-  success: "#2E9E5B",
+  surface: "#161A21",
+  onSurface: "#E6E8EC",
+  accent: "#2563EB",
+  danger: "#DC2626",
+  warning: "#F59E0B",
+  success: "#16A34A",
   cornerRadius: "10",
 };
 

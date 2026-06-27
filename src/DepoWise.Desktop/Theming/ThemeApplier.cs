@@ -23,6 +23,23 @@ public static class ThemeApplier
 
         if (double.TryParse(t.CornerRadius, out var r))
             app.Resources["Brand.CornerRadius"] = new CornerRadius(r);
+
+        // Türetilen: koyu içerik üzerinde "kart/panel" (Primary'den biraz açık) + ince kenarlık + aktif vurgu.
+        if (Color.TryParse(t.Primary, out var p))
+        {
+            var panel = Lighten(p, 0.06);
+            app.Resources["Brand.Panel"] = panel;
+            app.Resources["Brand.Panel.Brush"] = new SolidColorBrush(panel);
+            app.Resources["Brand.Border.Brush"] = new SolidColorBrush(Color.FromArgb(28, 255, 255, 255));
+            app.Resources["Brand.Hover.Brush"] = new SolidColorBrush(Color.FromArgb(22, 255, 255, 255));
+        }
+    }
+
+    /// <summary>Rengi beyaza doğru harmanlar (koyu temada yüzey yükseltme).</summary>
+    private static Color Lighten(Color c, double amount)
+    {
+        byte Mix(byte ch) => (byte)(ch + (255 - ch) * amount);
+        return Color.FromRgb(Mix(c.R), Mix(c.G), Mix(c.B));
     }
 
     private static void Set(Avalonia.Application app, string key, string hex)

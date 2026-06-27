@@ -2,15 +2,16 @@
    Bileşenler rengi SABİT yazmaz; yalnız var(--brand-*) kullanır.
    Runtime'da firmaya özel tema layout'tan :root inline style ile override edilir. */
 :root {
-  --brand-primary: #1e1e24;
+  --brand-primary: #1e232c;
   --brand-on-primary: #ffffff;
-  --brand-surface: #f4f5f9;
-  --brand-on-surface: #1f2430;
-  --brand-accent: #3b82f6;
-  --brand-danger: #e5484d;
-  --brand-warning: #e08c00;
-  --brand-success: #2e9e5b;
+  --brand-surface: #161a21;
+  --brand-on-surface: #e6e8ec;
+  --brand-accent: #2563eb;
+  --brand-danger: #dc2626;
+  --brand-warning: #f59e0b;
+  --brand-success: #16a34a;
   --brand-radius: 10px;
+  --brand-panel: #232a35;
 }
 
 * {

@@ -17,7 +17,9 @@
                 <TextBox Width="240" Text="{Binding Search}" PlaceholderText="Kod / ad ara..."/>
                 <Button Content="Ara" Command="{Binding LoadCommand}"/>
             </StackPanel>
-            <Border Background="#11000000" CornerRadius="6" Padding="10" IsVisible="{Binding CanWrite}">
+            <Border Background="{DynamicResource Brand.Panel.Brush}" CornerRadius="8" Padding="10"
+                    BorderBrush="{DynamicResource Brand.Border.Brush}" BorderThickness="1"
+                    IsVisible="{Binding CanWrite}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBox Width="120" Text="{Binding NewCode}" PlaceholderText="Kod"/>
                     <TextBox Width="200" Text="{Binding NewName}" PlaceholderText="Ad"/>
@@ -33,11 +35,12 @@
         </StackPanel>
 
         <!-- Liste (ItemsControl — ek paket gerektirmez) -->
-        <Border Grid.Row="2" BorderBrush="#22000000" BorderThickness="1" CornerRadius="6">
+        <Border Grid.Row="2" BorderBrush="{DynamicResource Brand.Border.Brush}" BorderThickness="1" CornerRadius="8"
+                Background="{DynamicResource Brand.Panel.Brush}">
             <DockPanel>
                 <!-- Başlık -->
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="120,*,120,70,90,90"
-                      Background="{DynamicResource Brand.Primary.Brush}">
+                      Background="{DynamicResource Brand.Accent.Brush}">
                     <TextBlock Grid.Column="0" Text="Kod" Margin="8,6" FontWeight="SemiBold"
                                Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
                     <TextBlock Grid.Column="1" Text="Ad" Margin="8,6" FontWeight="SemiBold"
@@ -55,8 +58,7 @@
                     <ItemsControl ItemsSource="{Binding Items}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:MaterialRow">
-                                <Grid ColumnDefinitions="120,*,120,70,90,90" Margin="0,1"
-                                      Background="{DynamicResource Brand.Surface.Brush}">
+                                <Grid ColumnDefinitions="120,*,120,70,90,90" Margin="0,1" Background="Transparent">
                                     <TextBlock Grid.Column="0" Text="{Binding Code}" Margin="8,6"
                                                Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,6"

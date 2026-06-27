@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DepoWise.Desktop.App"
              xmlns:local="using:DepoWise.Desktop"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
+             <!-- Koyu modern tasarım: kontroller (textbox/scrollbar) koyu render edilir. -->
 
     <Application.DataTemplates>
         <local:ViewLocator/>
@@ -12,25 +12,70 @@
     <Application.Styles>
         <FluentTheme />
 
-        <!-- Sol menü buton stilleri (koyu tema) -->
+        <!-- ===== Sol menü stilleri (koyu tema) ===== -->
         <Style Selector="Button.NavTop">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,11"/>
             <Setter Property="Margin" Value="0,2"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
+        <Style Selector="Button.NavTop /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
         <Style Selector="Button.NavTop:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="Background" Value="#1FFFFFFF"/>
         </Style>
 
+        <!-- Grup başlığı (ToggleButton) — FluentTheme chrome'u temizlenir -->
+        <Style Selector="ToggleButton.NavGroup">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,11"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="ToggleButton.NavGroup /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="ToggleButton.NavGroup:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#16FFFFFF"/>
+        </Style>
+        <Style Selector="ToggleButton.NavGroup:checked /template/ ContentPresenter">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+        </Style>
+        <!-- chevron: açıkken 90° döner -->
+        <Style Selector="ToggleButton.NavGroup TextBlock.chev">
+            <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleButton.NavGroup:checked TextBlock.chev">
+            <Setter Property="RenderTransform" Value="rotate(90deg)"/>
+        </Style>
+
+        <!-- Alt bağlantı -->
         <Style Selector="Button.NavLink">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,7"/>
             <Setter Property="Margin" Value="0,1"/>
-            <Setter Property="Opacity" Value="0.85"/>
+            <Setter Property="Opacity" Value="0.78"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="Button.NavLink /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="Button.NavLink:pointerover">
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.NavLink:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="#22FFFFFF"/>

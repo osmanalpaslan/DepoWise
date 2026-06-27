@@ -3,56 +3,70 @@
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="620"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="680"
         x:Class="DepoWise.Desktop.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        MinWidth="760" MinHeight="480"
-        Width="1040" Height="640"
+        MinWidth="900" MinHeight="560"
+        Width="1180" Height="720"
+        Background="{DynamicResource Brand.Surface.Brush}"
         Title="{Binding AppName}">
 
-    <!-- Renkler merkezi tema "Brand.*" DynamicResource'larından gelir (sabit yazılmaz). -->
-    <Grid ColumnDefinitions="260,*" Background="{DynamicResource Brand.Surface.Brush}">
+    <Grid ColumnDefinitions="250,*">
 
-        <!-- ===== Sol koyu accordion menü ===== -->
-        <Border Grid.Column="0" Background="{DynamicResource Brand.Primary.Brush}">
+        <!-- ===== Sol koyu menü ===== -->
+        <Border Grid.Column="0" Background="{DynamicResource Brand.Primary.Brush}"
+                BorderBrush="{DynamicResource Brand.Border.Brush}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <!-- Logo / başlık -->
-                <Border DockPanel.Dock="Top" Padding="20,18,20,14">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{Binding AppName}" FontSize="20" FontWeight="Bold"
-                                   Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
-                        <TextBlock Text="{Binding CompanyName}" FontSize="11" Opacity="0.6"
-                                   Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                <!-- Logo -->
+                <Border DockPanel.Dock="Top" Padding="20,18,20,16">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Width="34" Height="34" CornerRadius="8"
+                                Background="{DynamicResource Brand.Accent.Brush}">
+                            <TextBlock Text="D" FontSize="18" FontWeight="Bold" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding AppName}" FontSize="16" FontWeight="Bold"
+                                       Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                            <TextBlock Text="{Binding CompanyName}" FontSize="10" Opacity="0.5"
+                                       Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!-- Kullanıcı + Ana Ekran -->
-                <Border DockPanel.Dock="Bottom" Padding="16,12"
-                        Background="#16FFFFFF">
-                    <TextBlock Text="{Binding UserName, StringFormat='👤 {0}'}" FontSize="12"
-                               Foreground="{DynamicResource Brand.OnPrimary.Brush}" Opacity="0.85"/>
+                <!-- Alt: kullanıcı -->
+                <Border DockPanel.Dock="Bottom" Padding="16,12" Background="{DynamicResource Brand.Hover.Brush}">
+                    <TextBlock Text="{Binding DisplayName, StringFormat='👤 {0}'}" FontSize="12"
+                               Foreground="{DynamicResource Brand.OnPrimary.Brush}" Opacity="0.9"/>
                 </Border>
 
+                <!-- Menü -->
                 <ScrollViewer>
-                    <StackPanel Margin="8,4">
-                        <Button Content="🏠  Ana Ekran" Classes="NavTop" HorizontalAlignment="Stretch"
+                    <StackPanel Margin="10,4">
+                        <Button Content="🏠   Genel" Classes="NavTop" HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Left"
                                 Foreground="{DynamicResource Brand.OnPrimary.Brush}"
                                 Command="{Binding GoDashboardCommand}"/>
+
                         <ItemsControl ItemsSource="{Binding Groups}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:NavGroup">
-                                    <Expander IsExpanded="{Binding IsExpanded}" Margin="0,2"
-                                              Background="Transparent"
-                                              Foreground="{DynamicResource Brand.OnPrimary.Brush}">
-                                        <Expander.Header>
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding Icon}"/>
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                                            </StackPanel>
-                                        </Expander.Header>
-                                        <ItemsControl ItemsSource="{Binding Children}" Margin="14,2,0,4">
+                                <DataTemplate x:DataType="vm:NavGroupVm">
+                                    <StackPanel Margin="0,2">
+                                        <ToggleButton Classes="NavGroup" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                      HorizontalAlignment="Stretch"
+                                                      Foreground="{DynamicResource Brand.OnPrimary.Brush}">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="15"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="10,0,0,0"
+                                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Classes="chev" Text="›" FontSize="16"
+                                                           Opacity="0.6" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </ToggleButton>
+                                        <ItemsControl ItemsSource="{Binding Children}" IsVisible="{Binding IsExpanded}"
+                                                      Margin="14,2,0,6">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:NavLink">
                                                     <Button Content="{Binding Title}" Classes="NavLink"
@@ -63,7 +77,7 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                    </Expander>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -72,26 +86,25 @@
             </DockPanel>
         </Border>
 
-        <!-- ===== Sağ içerik ===== -->
-        <DockPanel Grid.Column="1">
-            <!-- Üst başlık şeridi -->
-            <Border DockPanel.Dock="Top" Background="White" Padding="24,14"
-                    BoxShadow="0 1 4 0 #11000000">
+        <!-- ===== Sağ içerik (koyu) ===== -->
+        <DockPanel Grid.Column="1" Background="{DynamicResource Brand.Surface.Brush}">
+            <!-- Üst bar -->
+            <Border DockPanel.Dock="Top" Background="{DynamicResource Brand.Primary.Brush}"
+                    BorderBrush="{DynamicResource Brand.Border.Brush}" BorderThickness="0,0,0,1" Padding="24,14">
                 <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0">
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding CurrentTitle}" FontSize="17" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                        <TextBlock Text="{Binding Welcome}" FontSize="11" Opacity="0.6"
-                                   Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                   Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
+                        <TextBlock Text="{Binding Welcome}" FontSize="11" Opacity="0.55"
+                                   Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Content="🔄 Eşitle" VerticalAlignment="Center"
-                            Background="{DynamicResource Brand.Accent.Brush}"
-                            Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                            CornerRadius="{DynamicResource Brand.CornerRadius}" Padding="14,8"/>
+                    <Button Grid.Column="1" Content="🔄  Eşitle" VerticalAlignment="Center"
+                            Background="{DynamicResource Brand.Accent.Brush}" Foreground="White"
+                            CornerRadius="{DynamicResource Brand.CornerRadius}" Padding="16,9" FontWeight="SemiBold"/>
                 </Grid>
             </Border>
 
-            <!-- İçerik (seçili modül; ViewLocator VM->View çözer) -->
+            <!-- İçerik -->
             <ContentControl Content="{Binding CurrentPage}"/>
         </DockPanel>
     </Grid>
