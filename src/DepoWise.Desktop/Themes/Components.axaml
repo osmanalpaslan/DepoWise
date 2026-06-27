@@ -271,4 +271,15 @@
     <Style Selector="Border.Toast.warning"><Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/></Style>
     <Style Selector="Border.Toast.danger"><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/></Style>
     <Style Selector="Border.Toast.info"><Setter Property="BorderBrush" Value="{DynamicResource InfoBrush}"/></Style>
+
+    <!-- ============ Klavye odağı görünürlüğü (koyu temada belirgin halka) ============ -->
+    <Style Selector="Button.Primary:focus-visible, Button.Secondary:focus-visible, Button.Ghost:focus-visible, Button.Danger:focus-visible, Button.Icon:focus-visible">
+        <Setter Property="BorderBrush" Value="#FFFFFF"/>
+        <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+    <!-- Giriş alanlarında odak halkası (accent kenar zaten var; focus-visible'da kalınlaştır) -->
+    <Style Selector="TextBox.Field:focus-visible /template/ Border#PART_BorderElement, TextBox.Search:focus-visible /template/ Border#PART_BorderElement">
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+    </Style>
 </Styles>

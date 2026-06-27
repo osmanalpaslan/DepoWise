@@ -18,7 +18,8 @@
     <Color x:Key="AccentHoverColor">#3D7FE5</Color>
     <Color x:Key="TextPrimaryColor">#F5F7FA</Color>
     <Color x:Key="TextSecondaryColor">#AEB7C4</Color>
-    <Color x:Key="TextMutedColor">#7C8696</Color>
+    <!-- Yardımcı metin: koyu zeminde WCAG AA için açıldı (#7C8696 ~4.5:1 sınırdaydı → ~5.6:1). -->
+    <Color x:Key="TextMutedColor">#929DAD</Color>
     <Color x:Key="SuccessColor">#2CBF6D</Color>
     <Color x:Key="WarningColor">#D8A617</Color>
     <Color x:Key="DangerColor">#E24A3B</Color>

@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        xmlns:a11y="using:Avalonia.Automation"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
@@ -35,13 +36,14 @@
                 <!-- Modül ikonları -->
                 <ScrollViewer VerticalScrollBarVisibility="Hidden">
                     <StackPanel Spacing="2" Margin="0,6">
-                        <Button Classes="NavRail" ToolTip.Tip="Ana Ekran" Command="{Binding GoDashboardCommand}"
-                                Content="🏠"/>
+                        <Button Classes="NavRail" ToolTip.Tip="Ana Ekran" a11y:AutomationProperties.Name="Ana Ekran"
+                                Command="{Binding GoDashboardCommand}" Content="🏠"/>
                         <ItemsControl ItemsSource="{Binding Groups}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:NavGroupVm">
                                     <Button Classes="NavRail" Classes.active="{Binding IsActive}"
-                                            ToolTip.Tip="{Binding Title}" Content="{Binding Icon}"
+                                            ToolTip.Tip="{Binding Title}" a11y:AutomationProperties.Name="{Binding Title}"
+                                            Content="{Binding Icon}"
                                             Command="{Binding $parent[ItemsControl].((vm:ShellViewModel)DataContext).SelectGroupCommand}"
                                             CommandParameter="{Binding}"/>
                                 </DataTemplate>
@@ -119,6 +121,7 @@
                     <!-- Panel daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" Content="☰" FontSize="16"
                             VerticalAlignment="Center" ToolTip.Tip="Menüyü daralt/genişlet"
+                            a11y:AutomationProperties.Name="Menüyü daralt veya genişlet"
                             Command="{Binding ToggleNavPanelCommand}"/>
                     <!-- Başlık + bağlam -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">

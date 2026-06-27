@@ -141,6 +141,30 @@ Raporlar ekranında, çalıştırılan raporun **gerçek `TableModel`** satırla
 
 ---
 
+## Faz 9 — Dayanıklılık / Erişilebilirlik / DPI (TAMAMLANDI — yeni özellik yok)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · Rapor: `docs/UI_ACCESSIBILITY_DPI_REPORT.md`
+
+### Uygulanan düzeltmeler (yalnız tespit edilen sorunlar)
+- **Erişilebilir ad (#4):** ikon-only butonlara `AutomationProperties.Name` (üst bar ☰, ikon rayı Ana Ekran + modül grupları) — ToolTip zaten vardı.
+- **Focus görünürlüğü (#5):** koyu temada **beyaz 2px halka** tüm sınıf butonlarında `:focus-visible`; giriş alanlarında accent kenar 2px.
+- **Kontrast (#7):** `TextMuted` #7C8696 → **#929DAD** (~4.5:1 → ~5.6:1).
+
+### Doğrulanan (değişiklik gerekmedi)
+- **Durum yalnız renkle değil (#6):** her durum metin+badge; grafiklerde metin etiketi.
+- **Layout dayanıklılığı (#1–2):** MinWidth/MinHeight, Grid `*`/Auto, WrapPanel, ScrollViewer, tablo Auto-scroll + kolon MinWidth, ellipsis+tooltip, dialog pencere-içi MaxWidth.
+- **Klavye (#3):** TabIndex + Enter/Escape KeyBinding (panel kapsamlı).
+- **Türkçe/uzun etiket (#8):** sistem fontu kapsar; ellipsis+tooltip.
+- **UI thread (#10):** dosya/ağ yok; DB senkron yerel SQLite (hızlı; yeni bloklama yok). Async navigasyon = gelecek iyileştirme (riskli, kapsam dışı).
+- **Leak (#11):** Desktop'ta event/static-event aboneliği yok (grep doğruladı) → leak riski yok.
+- **Grafik/liste perf (#12):** animasyon kapalı, MaxBars=20, liste Limit=200 + sanal ListBox.
+
+### Komutlar / sonuçlar
+- `dotnet build DepoWise.sln` → **0 hata** · `dotnet test` → **191/191**. Görsel/DPI/klavye smoke kullanıcı (dotnet host) — `docs/ui-evidence/phase-09-hardening/`.
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 0 — İnceleme & Spesifikasyon (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Tür:** Salt okunur; üretim kodu değiştirilmedi.
 
