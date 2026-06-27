@@ -176,9 +176,39 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     private async Task Add()
     {
         TriedSave = true;
-        if (!CanWrite) { Status = "Yetki yok."; return; }
+        bool editing = IsEditMode;
+        if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode)) { Status = "İç kod zorunlu."; return; }
-        if (!await ConfirmService.AskAsync("Yeni araç kaydedilsin mi?", "Kaydet")) return;
+        if (!await ConfirmService.AskAsync(editing ? "Araç bilgileri güncellensin mi?" : "Yeni araç kaydedilsin mi?", "Kaydet")) return;
+
+        if (editing)
+        {
+            try
+            {
+                DesktopServices.Vehicles.Update(_session, EditId!, new UpdateVehicle(
+                    Plate: string.IsNullOrWhiteSpace(NewPlate) ? null : NewPlate.Trim(),
+                    ProductionYear: NewYear > 0 ? NewYear : (int?)null,
+                    Status: NewStatus,
+                    StatusNote: IsNewMaintenance && !string.IsNullOrWhiteSpace(NewStatusNote) ? NewStatusNote.Trim() : null,
+                    ChassisNo: string.IsNullOrWhiteSpace(NewChassisNo) ? null : NewChassisNo.Trim(),
+                    EngineNo: string.IsNullOrWhiteSpace(NewEngineNo) ? null : NewEngineNo.Trim(),
+                    VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
+                    BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
+                    BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id));
+
+                SaveStagedPhotos(EditId!);
+
+                if (NewMeter != _loadedMeter)
+                {
+                    try { DesktopServices.Vehicles.SetMeter(_session, EditId!, NewMeter, "vehicle_form"); }
+                    catch (MeterBackwardException) { Status = "Araç güncellendi (sayaç geriye alınamaz, değişmedi)."; Clear(); Load(); return; }
+                }
+                Clear(); Load(); Status = "Araç güncellendi.";
+            }
+            catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
+            return;
+        }
+
         try
         {
             var id = DesktopServices.Vehicles.Create(_session, new NewVehicle(
@@ -217,6 +247,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         SelVehicleType = null; SelCategory = null; SelBrand = null; SelModel = null; SelBranch = null; SelDriver = null;
         IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingBranch = IsAddingDriver = false;
         Photos.Clear();
+        EditId = null;
         TriedSave = false; ShowAdd = false;
     }
 
@@ -267,87 +298,60 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
     }
 
-    // ===== Detay / Düzenle / Sil =====
+    // ===== Detay (salt okuma) / Düzenle (form) / Sil =====
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
     private VehicleRow? _selected;
 
+    [ObservableProperty] private VehicleDetail? _detail;
     private decimal _loadedMeter;
 
-    [ObservableProperty] private bool _isEditing;
-    [ObservableProperty] private bool _confirmDelete;
-    [ObservableProperty] private string _editPlate = "";
-    [ObservableProperty] private int _editYear;
-    [ObservableProperty] private decimal _editMeter;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsMaintenanceStatus))]
-    private string _editStatus = "active";
-    [ObservableProperty] private string _editStatusNote = "";
+    [NotifyPropertyChangedFor(nameof(IsEditMode))]
+    [NotifyPropertyChangedFor(nameof(FormTitle))]
+    private string? _editId;
+    public bool IsEditMode => EditId != null;
+    public string FormTitle => IsEditMode ? "ARAÇ DÜZENLE" : "YENİ ARAÇ";
 
     public bool HasSelection => Selected != null;
-    public bool IsMaintenanceStatus => EditStatus == "maintenance";
     public bool CanEdit => AccessControl.Can(_session, "vehicles", PermissionAction.Edit);
     public bool CanDelete => AccessControl.Can(_session, "vehicles", PermissionAction.Delete);
 
     partial void OnSelectedChanged(VehicleRow? value)
     {
-        IsEditing = false; ConfirmDelete = false;
-        if (value is null) { DetailPhotos.Clear(); return; }
-        try
-        {
-            var d = DesktopServices.Vehicles.Get(_session, value.Id);
-            LoadDetailPhotos(value.Id);
-            EditPlate = d.Plate ?? "";
-            EditYear = d.ProductionYear ?? 0;
-            EditStatus = d.Status;
-            EditStatusNote = d.StatusNote ?? "";
-            EditMeter = d.CurrentMeter;
-            _loadedMeter = d.CurrentMeter;
-        }
+        if (value is null) { Detail = null; DetailPhotos.Clear(); return; }
+        try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); LoadDetailPhotos(value.Id); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
+    /// <summary>Seçili aracı düzenleme modunda forma yükler (tüm alanlar + lookup ön-seçim). Onay sorar.</summary>
     [RelayCommand]
-    private void BeginEdit()
+    private async Task BeginEdit()
     {
+        if (Detail is null) return;
         if (!CanEdit) { Status = "Yetki yok."; return; }
-        if (Selected is null) return;
-        IsEditing = true; ConfirmDelete = false;
-    }
+        if (!await ConfirmService.AskAsync("Bu aracı düzenlemek istiyor musunuz?", "Düzenle")) return;
 
-    [RelayCommand]
-    private void CancelEdit()
-    {
-        IsEditing = false;
-        OnSelectedChanged(Selected); // alanları yeniden yükle
-    }
-
-    [RelayCommand]
-    private async Task SaveEdit()
-    {
-        if (Selected is null || !CanEdit) { Status = "Yetki yok."; return; }
-        if (!await ConfirmService.AskAsync("Araç bilgileri güncellensin mi?", "Kaydet")) return;
-        try
-        {
-            DesktopServices.Vehicles.Update(_session, Selected.Id, new UpdateVehicle(
-                Plate: string.IsNullOrWhiteSpace(EditPlate) ? null : EditPlate.Trim(),
-                ProductionYear: EditYear > 0 ? EditYear : (int?)null,
-                Status: EditStatus,
-                StatusNote: string.IsNullOrWhiteSpace(EditStatusNote) ? null : EditStatusNote.Trim()));
-
-            SaveStagedPhotos(Selected.Id);
-
-            // Sayaç yalnız ileri (servis geriye gitmeyi reddeder)
-            if (EditMeter != _loadedMeter)
-            {
-                try { DesktopServices.Vehicles.SetMeter(_session, Selected.Id, EditMeter, "vehicle_form"); }
-                catch (MeterBackwardException) { Status = "Araç güncellendi (sayaç geriye alınamaz, değişmedi)."; IsEditing = false; Load(); return; }
-            }
-            IsEditing = false;
-            Load();
-            Status = "Araç güncellendi.";
-        }
-        catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
+        LoadVehLookups();
+        var d = Detail;
+        EditId = d.Id;
+        NewCode = d.InternalCode;
+        NewPlate = d.Plate ?? "";
+        NewYear = d.ProductionYear ?? 0;
+        NewStatus = d.Status;
+        NewStatusNote = d.StatusNote ?? "";
+        NewMeter = d.CurrentMeter; _loadedMeter = d.CurrentMeter;
+        NewMeterUnit = d.MeterUnit;
+        NewChassisNo = d.ChassisNo ?? "";
+        NewEngineNo = d.EngineNo ?? "";
+        SelVehicleType = VehicleTypes.FirstOrDefault(x => x.Id == d.VehicleTypeId);
+        SelCategory = VehicleCategories.FirstOrDefault(x => x.Id == d.CategoryId);
+        SelBranch = Branches.FirstOrDefault(x => x.Id == d.BranchId);
+        SelDriver = Drivers.FirstOrDefault(x => x.Id == d.DriverPersonnelId);
+        SelBrand = VehicleBrands.FirstOrDefault(x => x.Id == d.BrandId); // markaya bağlı modeller yüklenir
+        SelModel = VehicleModels.FirstOrDefault(x => x.Id == d.VehicleModelId);
+        TriedSave = false;
+        ShowAdd = true;
     }
 
     [RelayCommand]

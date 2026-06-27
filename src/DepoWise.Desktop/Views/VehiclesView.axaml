@@ -29,14 +29,14 @@
             </Border.KeyBindings>
             <ScrollViewer MaxHeight="500">
             <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ ARAÇ" Classes="SectionTitle"/>
+                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
                 <TextBlock Text="Tanım" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="İç Kod" IsRequired="True" Width="180"
                                     HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}"
                                     HelpText="Benzersiz araç kodu.">
-                        <TextBox Classes="Field" Text="{Binding NewCode}" TabIndex="0"/>
+                        <TextBox Classes="Field" Text="{Binding NewCode}" TabIndex="0" IsEnabled="{Binding !IsEditMode}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Plaka" Width="180">
                         <TextBox Classes="Field" Text="{Binding NewPlate}" TabIndex="1"/>
@@ -278,64 +278,18 @@
                              IsVisible="{Binding IsEmpty}"/>
           </Panel>
 
-          <!-- Detay / Düzenle / Sil -->
+          <!-- Detay (salt okuma) / Düzenle / Sil -->
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
-            <ScrollViewer>
-              <StackPanel Spacing="12">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock Grid.Column="0" Text="{Binding Selected.Code}" Classes="PageTitle" VerticalAlignment="Center"/>
-                  <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
-                </Grid>
-
-                <ctrl:FormField Label="Plaka">
-                  <TextBox Classes="Field" Text="{Binding EditPlate}" IsEnabled="{Binding IsEditing}"/>
-                </ctrl:FormField>
-                <ctrl:FormField Label="Üretim Yılı">
-                  <NumericUpDown Classes="Field" Value="{Binding EditYear}" Minimum="0" Maximum="2100"
-                                 FormatString="0" ShowButtonSpinner="False" IsEnabled="{Binding IsEditing}"/>
-                </ctrl:FormField>
-                <ctrl:FormField Label="Durum">
-                  <ComboBox Classes="Field" ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding EditStatus}"
-                            IsEnabled="{Binding IsEditing}" HorizontalAlignment="Stretch"/>
-                </ctrl:FormField>
-                <ctrl:FormField Label="Durum Açıklaması" IsVisible="{Binding IsMaintenanceStatus}"
-                                HelpText="Yalnız 'Bakımda' durumunda saklanır.">
-                  <TextBox Classes="Field" Text="{Binding EditStatusNote}" AcceptsReturn="True"
-                           Height="60" IsEnabled="{Binding IsEditing}"/>
-                </ctrl:FormField>
-                <ctrl:FormField Label="Sayaç" HelpText="Yalnız ileri alınabilir (geriye gitmez).">
-                  <NumericUpDown Classes="Field" Value="{Binding EditMeter}" Minimum="0"
-                                 FormatString="0.##" ShowButtonSpinner="False" IsEnabled="{Binding IsEditing}"/>
-                </ctrl:FormField>
-
-                <!-- Fotoğraflar -->
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
                 <TextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
-                <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
-                        IsVisible="{Binding IsEditing}" Command="{Binding AddPhotosCommand}"/>
-                <ItemsControl ItemsSource="{Binding Photos}" IsVisible="{Binding IsEditing}">
-                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:PhotoStage">
-                            <Border Margin="0,0,8,8" Width="72" Height="72" CornerRadius="6" ClipToBounds="True"
-                                    Background="{DynamicResource SurfaceElevatedBrush}">
-                                <Panel>
-                                    <Image Source="{Binding Image}" Stretch="UniformToFill"/>
-                                    <Button Classes="Icon" Content="×" Width="22" Height="22"
-                                            HorizontalAlignment="Right" VerticalAlignment="Top"
-                                            Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).RemovePhotoCommand}"
-                                            CommandParameter="{Binding}"/>
-                                </Panel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
                 <ItemsControl ItemsSource="{Binding DetailPhotos}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand"
                                     ToolTip.Tip="Büyüt"
-                                    Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
+                                    Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
                                     CommandParameter="{Binding}">
                                 <Border Margin="0,0,8,8" Width="72" Height="72" CornerRadius="6" ClipToBounds="True">
                                     <Image Source="{Binding}" Stretch="UniformToFill"/>
@@ -344,20 +298,55 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-
                 <WrapPanel>
-                  <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,8"
-                          Command="{Binding BeginEditCommand}" IsVisible="{Binding !IsEditing}"/>
-                  <Button Classes="Primary" Content="Kaydet" Margin="0,0,8,8"
-                          Command="{Binding SaveEditCommand}" IsVisible="{Binding IsEditing}"/>
-                  <Button Classes="Secondary" Content="İptal" Margin="0,0,8,8"
-                          Command="{Binding CancelEditCommand}" IsVisible="{Binding IsEditing}"/>
-                  <Button Classes="Danger" Content="Sil" Margin="0,0,8,8"
-                          Command="{Binding RequestDeleteCommand}" IsVisible="{Binding !IsEditing}"/>
+                  <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0"
+                          Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                  <Button Classes="Danger" Content="Sil"
+                          Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
                 </WrapPanel>
-
               </StackPanel>
-            </ScrollViewer>
+              <ScrollViewer>
+                <StackPanel Spacing="10">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding Selected.Code}" Classes="PageTitle" VerticalAlignment="Center"/>
+                    <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
+                  </Grid>
+                  <Border Classes="Divider"/>
+                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                        DataContext="{Binding Detail}">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Plaka" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Plate}" Classes="Body"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Makine Tipi" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleTypeName}" Classes="Body"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Marka" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandName}" Classes="Body"/>
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Model" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding VehicleModelName}" Classes="Body"/>
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Şantiye" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding BranchName}" Classes="Body"/>
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Sürücü" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding DriverName}" Classes="Body"/>
+                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Üretim Yılı" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ProductionYear}" Classes="Body"/>
+                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Şasi No" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ChassisNo}" Classes="Body"/>
+                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Motor No" Classes="Helper" Margin="0,2,12,2"/>
+                    <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding EngineNo}" Classes="Body"/>
+                  </Grid>
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="Sayaç" Classes="Helper"/>
+                    <TextBlock Text="{Binding Detail.MeterDisplay}" Classes="Metric"/>
+                  </StackPanel>
+                  <StackPanel Spacing="2"
+                              IsVisible="{Binding Detail.StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="Durum Açıklaması" Classes="Helper"/>
+                    <TextBlock Text="{Binding Detail.StatusNote}" Classes="Body" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
+            </DockPanel>
           </Border>
 
           <!-- Seçim yokken ipucu -->
