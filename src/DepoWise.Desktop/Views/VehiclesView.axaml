@@ -186,6 +186,30 @@
                     </ctrl:FormField>
                 </StackPanel>
 
+                <!-- Fotoğraflar -->
+                <TextBlock Text="Fotoğraflar" Classes="CardLabel"/>
+                <StackPanel Spacing="8">
+                    <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
+                            Command="{Binding AddPhotosCommand}"/>
+                    <ItemsControl ItemsSource="{Binding Photos}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PhotoStage">
+                                <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
+                                        Background="{DynamicResource SurfaceElevatedBrush}">
+                                    <Panel>
+                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).RemovePhotoCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Panel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding ClearCommand}" TabIndex="7"/>
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding AddCommand}" TabIndex="6"/>
@@ -283,6 +307,38 @@
                   <NumericUpDown Classes="Field" Value="{Binding EditMeter}" Minimum="0"
                                  FormatString="0.##" ShowButtonSpinner="False" IsEnabled="{Binding IsEditing}"/>
                 </ctrl:FormField>
+
+                <!-- Fotoğraflar -->
+                <TextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
+                <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
+                        IsVisible="{Binding IsEditing}" Command="{Binding AddPhotosCommand}"/>
+                <ItemsControl ItemsSource="{Binding Photos}" IsVisible="{Binding IsEditing}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PhotoStage">
+                            <Border Margin="0,0,8,8" Width="72" Height="72" CornerRadius="6" ClipToBounds="True"
+                                    Background="{DynamicResource SurfaceElevatedBrush}">
+                                <Panel>
+                                    <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                    <Button Classes="Icon" Content="×" Width="22" Height="22"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).RemovePhotoCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </Panel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding DetailPhotos}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,8,8" Width="72" Height="72" CornerRadius="6" ClipToBounds="True">
+                                <Image Source="{Binding}" Stretch="UniformToFill"/>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <WrapPanel>
                   <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,8"

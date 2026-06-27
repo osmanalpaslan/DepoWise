@@ -1,7 +1,9 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
@@ -182,6 +184,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
                     CategoryId: categoryId, UnitId: SelectedUnit.Id,
                     BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
                     MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal));
+                SaveStagedPhotos(EditId!);
                 Clear(); Load(); Status = "Malzeme güncellendi.";
             }
             catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
@@ -211,6 +214,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
             foreach (var eq in ChosenEquivalents)
                 DesktopServices.Materials.AddEquivalent(_session, id, eq.Id);
 
+            SaveStagedPhotos(id);
             Clear();
             Load();
             Status = "Malzeme eklendi.";
@@ -238,6 +242,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
         foreach (var p in VehiclePicks) p.IsSelected = false;
         ChosenEquivalents.Clear(); EquivalentResults.Clear(); EquivalentSearch = "";
+        Photos.Clear();
         EditId = null; ConfirmDelete = false;
         TriedSave = false; ShowAdd = false;
     }
@@ -329,8 +334,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     partial void OnSelectedChanged(MaterialRow? value)
     {
         ConfirmDelete = false;
-        if (value is null) { Detail = null; return; }
-        try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); }
+        if (value is null) { Detail = null; DetailPhotos.Clear(); return; }
+        try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); LoadDetailPhotos(value.Id); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
@@ -417,6 +422,46 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     private void RemoveEquivalentPick(MaterialRow? m)
     {
         if (m is not null) ChosenEquivalents.Remove(m);
+    }
+
+    // ═══════════ Fotoğraflar ═══════════
+    public ObservableCollection<PhotoStage> Photos { get; } = new();
+    public ObservableCollection<Bitmap> DetailPhotos { get; } = new();
+
+    [RelayCommand]
+    private async Task AddPhotos()
+    {
+        foreach (var p in await FilePickerService.PickImagesAsync()) Photos.Add(new PhotoStage(p));
+    }
+
+    [RelayCommand]
+    private void RemovePhoto(PhotoStage? p) { if (p is not null) Photos.Remove(p); }
+
+    private void SaveStagedPhotos(string materialId)
+    {
+        foreach (var ph in Photos)
+        {
+            try
+            {
+                var bytes = File.ReadAllBytes(ph.LocalPath);
+                DesktopServices.Files.SavePhoto(_session, "material", materialId, Path.GetFileName(ph.LocalPath), null, bytes);
+            }
+            catch (Exception ex) { Status = "Foto kaydedilemedi: " + ex.Message; }
+        }
+    }
+
+    private void LoadDetailPhotos(string materialId)
+    {
+        DetailPhotos.Clear();
+        try
+        {
+            foreach (var f in DesktopServices.Files.GetPhotos(_session, "material", materialId))
+            {
+                var bytes = DesktopServices.Storage.Read(f.StorageKey);
+                DetailPhotos.Add(new Bitmap(new MemoryStream(bytes)));
+            }
+        }
+        catch { /* foto yoksa sessiz */ }
     }
 
     private void NotifyListState()

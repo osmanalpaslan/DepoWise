@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
 using DepoWise.Application.Common;
+using DepoWise.Application.Files;
 using DepoWise.Application.Security;
 using DepoWise.Application.Theming;
 using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Files;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Operations;
@@ -38,6 +40,8 @@ public static class DesktopServices
     public static ReportService Reports { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
+    public static FileService Files { get; private set; } = null!;
+    public static IFileStorageProvider Storage { get; private set; } = null!;
     public static BrandingSettings Branding { get; private set; } = BrandingSettings.Default;
     public static ThemeTokens Theme { get; private set; } = ThemeTokens.Default;
 
@@ -60,6 +64,8 @@ public static class DesktopServices
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
+        Storage = new LocalFileStorageProvider();
+        Files = new FileService(Factory, Storage, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);
         Branding = boot.Branding;
         Theme = boot.Theme;

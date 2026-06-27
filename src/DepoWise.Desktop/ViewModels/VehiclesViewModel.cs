@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
@@ -172,7 +174,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync("Yeni araç kaydedilsin mi?", "Kaydet")) return;
         try
         {
-            DesktopServices.Vehicles.Create(_session, new NewVehicle(
+            var id = DesktopServices.Vehicles.Create(_session, new NewVehicle(
                 InternalCode: NewCode.Trim(),
                 Plate: string.IsNullOrWhiteSpace(NewPlate) ? null : NewPlate.Trim(),
                 ProductionYear: NewYear > 0 ? NewYear : (int?)null,
@@ -184,6 +186,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
                 StatusNote: IsNewMaintenance && !string.IsNullOrWhiteSpace(NewStatusNote) ? NewStatusNote.Trim() : null,
                 VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
                 BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id));
+            SaveStagedPhotos(id);
             Clear();
             Load();
             Status = "Araç eklendi.";
@@ -206,6 +209,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         NewChassisNo = ""; NewEngineNo = ""; NewStatusNote = "";
         SelVehicleType = null; SelCategory = null; SelBrand = null; SelModel = null; SelBranch = null; SelDriver = null;
         IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingBranch = IsAddingDriver = false;
+        Photos.Clear();
         TriedSave = false; ShowAdd = false;
     }
 
@@ -281,10 +285,11 @@ public sealed partial class VehiclesViewModel : ViewModelBase
     partial void OnSelectedChanged(VehicleRow? value)
     {
         IsEditing = false; ConfirmDelete = false;
-        if (value is null) return;
+        if (value is null) { DetailPhotos.Clear(); return; }
         try
         {
             var d = DesktopServices.Vehicles.Get(_session, value.Id);
+            LoadDetailPhotos(value.Id);
             EditPlate = d.Plate ?? "";
             EditYear = d.ProductionYear ?? 0;
             EditStatus = d.Status;
@@ -323,6 +328,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase
                 Status: EditStatus,
                 StatusNote: string.IsNullOrWhiteSpace(EditStatusNote) ? null : EditStatusNote.Trim()));
 
+            SaveStagedPhotos(Selected.Id);
+
             // Sayaç yalnız ileri (servis geriye gitmeyi reddeder)
             if (EditMeter != _loadedMeter)
             {
@@ -353,6 +360,46 @@ public sealed partial class VehiclesViewModel : ViewModelBase
             Status = "Araç silindi.";
         }
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
+
+    // ═══════════ Fotoğraflar ═══════════
+    public ObservableCollection<PhotoStage> Photos { get; } = new();
+    public ObservableCollection<Bitmap> DetailPhotos { get; } = new();
+
+    [RelayCommand]
+    private async Task AddPhotos()
+    {
+        foreach (var p in await FilePickerService.PickImagesAsync()) Photos.Add(new PhotoStage(p));
+    }
+
+    [RelayCommand]
+    private void RemovePhoto(PhotoStage? p) { if (p is not null) Photos.Remove(p); }
+
+    private void SaveStagedPhotos(string vehicleId)
+    {
+        foreach (var ph in Photos)
+        {
+            try
+            {
+                var bytes = File.ReadAllBytes(ph.LocalPath);
+                DesktopServices.Files.SavePhoto(_session, "vehicle", vehicleId, Path.GetFileName(ph.LocalPath), null, bytes);
+            }
+            catch (Exception ex) { Status = "Foto kaydedilemedi: " + ex.Message; }
+        }
+    }
+
+    private void LoadDetailPhotos(string vehicleId)
+    {
+        DetailPhotos.Clear();
+        try
+        {
+            foreach (var f in DesktopServices.Files.GetPhotos(_session, "vehicle", vehicleId))
+            {
+                var bytes = DesktopServices.Storage.Read(f.StorageKey);
+                DetailPhotos.Add(new Bitmap(new MemoryStream(bytes)));
+            }
+        }
+        catch { /* foto yoksa sessiz */ }
     }
 }
 
