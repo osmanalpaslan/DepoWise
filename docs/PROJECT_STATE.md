@@ -1,8 +1,17 @@
 # PROJECT STATE
 
 **Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 15 — Setup, Güncelleme ve COMODO Güvenli Çalıştırma
+**Aktif faz:** Faz 16 — Güvenlik Sertleştirme ve Operasyon Hazırlığı
 **Durum:** Tamamlandı
+
+## Tamamlanan (Faz 16)
+- **Web güvenlik başlıkları**: CSP, X-Content-Type-Options=nosniff, X-Frame-Options=DENY + frame-ancestors 'none', Referrer-Policy, Permissions-Policy; HSTS yalnız Production (`next.config.mjs` + `lib/security/headers.ts`).
+- **Rate limit** (`RateLimiter` / `ratelimit.ts`): login 5/5dk, sync push 60/dk, admin 30/dk, anahtar-bazlı izole, fail-closed (masaüstü login ayrıca 5-hata/5dk kilit).
+- **CSRF** (`csrf.ts`): double-submit token, sabit-zaman doğrulama, fail-closed.
+- **Log redaction / PII'siz** (`LogRedactor` / `redact.ts`): password/token/secret/authorization/connection-string/session/Bearer maskelenir.
+- **Cihaz token rotasyonu** (`RotateDeviceToken`): eski token anında geçersiz; revoke cascade push/pull 403.
+- **Secret yönetimi + runbook** (`docs/SECURITY.md`): sırlar koda yazılmaz (.env gitignore, fail-closed config), rotasyon prosedürü; repo secret taraması temiz; dependency audit raporlandı (R23).
+- **Doğrulama**: 186/186 .NET test (7 yeni) + 66 web node:test; build/lint/typecheck yeşil.
 
 ## Tamamlanan (Faz 15)
 - **SemVer + UpdatePackage** (ortak): X.Y.Z parse/karşılaştırma; geçersiz sürüm reddi.
@@ -131,12 +140,12 @@
 - **Doğrulama**: .NET build + 7 test geçti; web typecheck/lint/build geçti. `next` güvenlik açığı (CVE-2025-66478) için 15.1.6 → 15.5.19 yamalı sürüme yükseltildi.
 
 ## Açık işler
-- Faz 16: Güvenlik Sertleştirme ve Operasyon Hazırlığı.
-- Updater/release HTTP indirme transport + masaüstü UI ekranı + gerçek dosya değişimi (mantık+rollback hazır — R21). Code-signing yayın öncesi karar (R22).
-- Sync transport/UI (R19); push apply (R20); foto opt (R18); import (R17); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI (R10); login (R8/R9); PostgreSQL (R4/R7).
+- Faz 17: Uçtan Uca Doğrulama, Dokümantasyon ve Yayın Adayı.
+- Dev/build araç bağımlılıklarında audit advisory'leri (R23); code-signing/pentest/MFA yayın-öncesi (R22, SECURITY.md).
+- Updater transport/UI (R21); sync transport/UI (R19); push apply (R20); foto opt (R18); import (R17 modül kapsamı); web PDF (R16); şube stok (R13); vehicle FK (R11); alert GROUP BY (R14); UI ekranları (R10); login akışı (R8/R9); PostgreSQL (R4/R7).
 
 ## Sıradaki tek iş
-- **Faz 16 — Güvenlik Sertleştirme ve Operasyon Hazırlığı** (`prompts/16_...md`). Kullanıcı komutu olmadan başlatma.
+- **Faz 17 — Uçtan Uca Doğrulama, Dokümantasyon ve Yayın Adayı** (`prompts/17_...md`). Kullanıcı komutu olmadan başlatma.
 
 ## Güvenli komutlar
 - `dotnet build DepoWise.sln`

@@ -25,6 +25,10 @@
 
 **Faz 00 (2026-06-26):** REQ-MOD-01..20 → faz eşlemesi V6 analiz §12 ile doğrulandı; eksik/çelişkili gereksinim bulunmadı. Tüm satırlar "Bekliyor" (kod henüz yok). Kanıt sütunları ilgili faz tamamlandıkça doldurulacak.
 
+**Faz 16 (2026-06-27):** Güvenlik sertleştirme (çapraz-kesen; REQ-MOD-03/20 + analiz §9/§11 kabul kriterleri):
+- `src/DepoWise.Application/Security/{LogRedactor,RateLimiter}.cs`, `Infrastructure/Sync/EnrollmentService.cs` (RotateDeviceToken); web `apps/web/src/lib/security/{headers,ratelimit,csrf,redact}.ts`, `next.config.mjs`, `docs/SECURITY.md`.
+- Testler: `tests/DepoWise.Tests/SecurityHardeningTests.cs`, `apps/web/tests/security-hardening.test.ts`.
+
 **Faz 15 (2026-06-27):** REQ-MOD-19 (Setup ve Güncelleme) çekirdeği tamamlandı (transport/UI R21):
 - `src/DepoWise.Infrastructure/Update/{ReleaseService,UpdateService}.cs`, `Application/Update/UpdateModels.cs`, Migration012; web `apps/web/src/lib/update/update.ts`, Drizzle `0008_app_releases.sql`.
 - COMODO: `comodo_guard.ps1` hook + `DesktopBootstrap`/`AppPaths` + Directory.Build.props (UseAppHost=false). Testler: `tests/DepoWise.Tests/UpdateComodoTests.cs`, `apps/web/tests/update.test.ts`.

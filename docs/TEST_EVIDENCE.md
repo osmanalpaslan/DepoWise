@@ -257,6 +257,22 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Kanıt/log yolu:** `apps/web/tests/update.test.ts`, `apps/web/drizzle/0008_app_releases.sql`.
 - **COMODO host ve DB yolu:** Uygulanamaz (web/node).
 
+## 2026-06-27 - Faz 16 / Güvenlik sertleştirme testleri (.NET)
+- **Komut:** `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+- **Exit code:** 0
+- **Sonuç:** Log redaction secret/JSON/connstr maskeler + IsSensitiveKey; rate limit login 5/5dk + pencere sonrası açılır + anahtar-bazlı izole; cihaz token rotasyonu eski token geçersiz; revoke cascade push/pull 403; audit correlation_id taşınır.
+- **Geçen/Kalan:** 186 geçti / 0 kaldı (7 yeni).
+- **Kanıt/log yolu:** `tests/DepoWise.Tests/SecurityHardeningTests.cs`.
+- **COMODO host ve DB yolu:** Test geçici DB (`%TEMP%\depowise_sec_*.db`), `dotnet` host; EXE/BAT yok.
+
+## 2026-06-27 - Faz 16 / Web güvenlik paritesi + audit + secret tarama
+- **Komut:** `npm test`; `npx tsc --noEmit`; `npx next lint`; `npx next build`; `npm audit`; `git grep` secret tarama
+- **Exit code:** 0 / 0 / 0 / 0 / (audit advisory) / 0
+- **Sonuç:** 66 node:test (güvenlik başlıkları CSP/nosniff/frame/HSTS-prod, rate limit, CSRF double-submit, redaction); typecheck/lint temiz; build başarılı. `npm audit`: 9 advisory dev/build araçlarında (R23). **Repo secret taraması temiz; .env izlenmiyor.**
+- **Geçen/Kalan:** 66 geçti / 0 kaldı.
+- **Kanıt/log yolu:** `apps/web/tests/security-hardening.test.ts`, `docs/SECURITY.md`.
+- **COMODO host ve DB yolu:** Uygulanamaz (web/node).
+
 ---
 
 ### Şablon

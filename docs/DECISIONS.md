@@ -262,3 +262,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-046 — COMODO güvenli çalıştırma kanıtı (sürdürülüyor)
 - **Karar:** Geliştirme makinesinde proje EXE/BAT çalıştırılmaz; yalnız `dotnet` host. Hook `comodo_guard.ps1` .bat + imzasız `DepoWise*.exe`'yi engeller; Debug `UseAppHost=false`. Gerçek DB mutlak `%LOCALAPPDATA%\DepoWise\Data\<env>\depowise.db`; açılışta host/yol/WAL/health loglanır. Kapat-aç sonrası veri **aynı DB'de kalır** (testle kanıt; `ClearAllPools` ile kilit yok). Code-signing maliyetli kalem → yayın öncesi karara bırakıldı; imzasız sürümde kullanıcıya şeffaf uyarı.
 - **Gerekçe:** CLAUDE.md §0/§6; kullanıcı talimatı + analiz §10.
+
+---
+
+## Faz 16 kararları (2026-06-27)
+
+### ADR-047 — Güvenlik başlıkları + CSRF + rate limit + redaction
+- **Karar:** Web başlıkları `next.config.mjs` (CSP/nosniff/X-Frame DENY+frame-ancestors none/Referrer/Permissions; HSTS yalnız Production). CSRF double-submit sabit-zaman doğrulama (fail-closed). `RateLimiter` (login 5/5dk, sync 60/dk, admin 30/dk) iki platformda. `LogRedactor`/`redact` ham secret/PII (password/token/secret/authorization/connstr/session/Bearer) maskeler. Sırlar koda yazılmaz; başlangıçta eksik sır fail-closed.
+- **Gerekçe:** Analiz §9; kullanıcı talimatı (fail-closed, sır koda yazma).
+
+### ADR-048 — Token rotasyonu + dependency advisory politikası
+- **Karar:** Cihaz token rotasyonu (`RotateDeviceToken`) eski token'ı anında geçersiz kılar; revoke push/pull'da 403. `npm audit` açıkları yalnız **dev/build araçlarında** (eslint/drizzle-kit→esbuild/next→postcss) — runtime maruziyeti yok; `--force` breaking olduğu için uygulanmadı, R23'te izlenir. Code-signing/pentest/MFA maliyetli kalemler `SECURITY.md`'de yayın-öncesi/sonrası karara bırakıldı (temel güvenlikten ayrı).
+- **Gerekçe:** Analiz §9 (tedarik zinciri, rotasyon); CLAUDE.md (gereksiz upgrade yapma).

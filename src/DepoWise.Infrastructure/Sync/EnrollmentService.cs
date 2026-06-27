@@ -112,6 +112,24 @@ public sealed class EnrollmentService
         return new DeviceToken(deviceId, token);
     }
 
+    /// <summary>Cihaz token rotasyonu: yeni token üretir, ESKİ token geçersiz olur (hash değişir).</summary>
+    public DeviceToken RotateDeviceToken(SessionContext s, string deviceId)
+    {
+        if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Token rotasyonu yalnız admin.");
+        var token = SyncCrypto.NewKey();
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "UPDATE sync_devices SET token_hash=$h, updated_at=$now WHERE id=$id AND company_id=$c AND status='active';";
+        cmd.Parameters.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.Parameters.AddWithValue("$id", deviceId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Aktif cihaz bulunamadı.");
+        return new DeviceToken(deviceId, token);
+    }
+
     public void RevokeDevice(SessionContext s, string deviceId)
     {
         if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz iptali yalnız admin.");
