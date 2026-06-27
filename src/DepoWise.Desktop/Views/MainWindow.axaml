@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="680"
         x:Class="DepoWise.Desktop.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/app-logo.ico"
         MinWidth="900" MinHeight="560"
         Width="1180" Height="720"
         Background="{DynamicResource Brand.Surface.Brush}"
@@ -19,20 +19,9 @@
                 BorderBrush="{DynamicResource Brand.Border.Brush}" BorderThickness="0,0,1,0">
             <DockPanel>
                 <!-- Logo -->
-                <Border DockPanel.Dock="Top" Padding="20,18,20,16">
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Border Width="34" Height="34" CornerRadius="8"
-                                Background="{DynamicResource Brand.Accent.Brush}">
-                            <TextBlock Text="D" FontSize="18" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding AppName}" FontSize="16" FontWeight="Bold"
-                                       Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
-                            <TextBlock Text="{Binding CompanyName}" FontSize="10" Opacity="0.5"
-                                       Foreground="{DynamicResource Brand.OnPrimary.Brush}"/>
-                        </StackPanel>
-                    </StackPanel>
+                <Border DockPanel.Dock="Top" Padding="18,20,18,16">
+                    <Image Source="/Assets/logo.png" Width="172" HorizontalAlignment="Left"
+                           Stretch="Uniform"/>
                 </Border>
 
                 <!-- Alt: kullanıcı -->

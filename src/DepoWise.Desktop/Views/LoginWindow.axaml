@@ -6,15 +6,15 @@
         mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="460"
         x:Class="DepoWise.Desktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
-        Width="420" Height="460" CanResize="False"
+        Width="420" Height="500" CanResize="False"
+        Icon="/Assets/app-logo.ico"
         WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Brand.Surface.Brush}"
         Title="DepoWise — Giriş">
 
     <Border Background="{DynamicResource Brand.Surface.Brush}" Padding="32">
         <StackPanel Spacing="16" VerticalAlignment="Center">
-            <TextBlock Text="{Binding AppName}" FontSize="28" FontWeight="Bold"
-                       HorizontalAlignment="Center"
-                       Foreground="{DynamicResource Brand.Primary.Brush}"/>
+            <Image Source="/Assets/logo.png" Width="220" HorizontalAlignment="Center" Stretch="Uniform"/>
             <TextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
                        Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
 

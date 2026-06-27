@@ -6,6 +6,7 @@ import { defaultTheme, themeToCssVars } from "@/lib/theme/tokens";
 export const metadata: Metadata = {
   title: "DepoWise",
   description: "DepoWise — merkezi stok, araç ve bakım yönetimi",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
