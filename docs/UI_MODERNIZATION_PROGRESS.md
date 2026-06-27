@@ -35,6 +35,45 @@ Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoW
 
 ---
 
+## Faz 7b — Araçlar / Bakım / Yakıt (TAMAMLANDI — sıfırdan kuruldu)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise`
+
+### Önemli tespit
+Bu üç modülün masaüstünde **View/VM'i yoktu** (Navigate → PlaceholderViewModel). İş/servis katmanı + testleri hazırdı ama UI bağlanmamıştı ve servisler DesktopServices'te yoktu. Kullanıcı onayıyla (**"Sıfırdan kur (modern)"**) ekranlar ortak bileşenlerle baştan kuruldu — sahte veri yok, tüm liste/işlemler gerçek servislere bağlı.
+
+### Servis katmanı (additive, iş mantığı değişmedi)
+- `VehicleService.List(...)` (+ `VehicleListRow`), `FuelService.ListDistributions/ListDepotEntries` (+ `FuelDistributionRow`/`FuelDepotRow`) salt-okuma sorguları eklendi.
+- `DesktopServices`'e `Vehicles/Maintenance/Inspection/Fuel` bağlandı (Dashboard aynı örnekleri paylaşır).
+- Testler: `VehicleTests.Liste_AramaIcKodVePlakaUzerinde_Calisir`, `FuelDailyActivityTests.Yakit_Listeler_...` (toplam **190**).
+
+### Araçlar
+- Toolbar (arama iç kod/plaka + Ara + yetkiye bağlı Yeni Araç); ortak `ListBox.Table`; **durum badge** (Aktif/Pasif/Bakımda) + **Bakım/Muayene badge** (Gecikti/Yaklaşıyor/Güncel — `GetAlerts` + `Inspection.GetAlerts` araç başına en kötü seviye, metin+badge). Boş/hata `StatePanel`.
+- **Yeni Araç** gruplu form (Tanım / Durum & Sayaç), `FormField` label/zorunlu/yardım + alan-bazlı hata, Kaydet/İptal, TabIndex + Enter/Escape. `VehicleService.Create` (iç kod benzersiz/şablon/sayaç kuralları serviste).
+
+### Bakım Takibi
+- `MaintenanceService.GetAlerts` uyarı listesi: **Gecikti=Danger, Kritik/Yaklaşıyor=Warning, Güncel=Success** (metin + badge); ilerleme % + tüketilen/periyot. Araç kodu `Vehicles.List` ile çözülür. Salt okuma (kayıt girişi/iptali UI'si sonraki faza; Save/Cancel serviste mevcut).
+
+### Yakıt
+- KPI (Depo Bakiyesi / Güncel Fiyat — `GetDepotBalance`/`GetCurrentFuelPrice`); dağıtım listesi (sayısal kolonlar **sağa hizalı + formatlı**); **Depo Girişi** (`AddDepotEntry`) ve **Dağıtım** (`Distribute`, araç combo) formları. Hesaplama/iş kuralları (snapshot fiyat, sayaç ileri, bakiye, negatif/yetersiz guard) serviste korunur.
+
+### Kurallar
+- UI thread bloklanmadı (mevcut senkron SQLite deseni; hızlı). Code-behind yalnız `InitializeComponent`. Sahte veri yok.
+
+### Komutlar / sonuçlar
+- `dotnet build DepoWise.sln` → **0 hata** · `dotnet test` → **190/190**. Görsel smoke kullanıcı (dotnet host).
+
+### Ekran görüntüleri
+- `docs/ui-evidence/phase-07b-operations/` (her modül 1366×768 + 1920×1080) — kullanıcı tarafından (COMODO).
+
+### Bilinen sorunlar / sonraki faza
+- Araç detay/düzenleme/silme + bakım kaydı girişi/iptali UI'si yok (servisler hazır: SetMeter/Cancel). Şablonlar (`vehicles:templates`) hâlâ placeholder.
+- Gerçek DataGrid Avalonia ≥12.0.5 ile (ListBox tablo deseni).
+- Dashboard kritik uyarı satırı navigasyon komutu yok (sahte eklenmedi).
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 0 — İnceleme & Spesifikasyon (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Tür:** Salt okunur; üretim kodu değiştirilmedi.
 

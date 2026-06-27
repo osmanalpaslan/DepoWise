@@ -16,6 +16,9 @@ public sealed record VehicleRecord(
     string Id, string CompanyId, string InternalCode, string? Plate, decimal CurrentMeter, string MeterUnit,
     string Status, string? BrandId, string? VehicleModelId, int? ProductionYear, long CreatedAt);
 
+public sealed record VehicleListRow(
+    string Id, string InternalCode, string? Plate, string Status, decimal CurrentMeter, string MeterUnit, int? ProductionYear);
+
 /// <summary>
 /// Araç kartı — iç kod benzersiz; şablondan doldurma + şablon malzemelerini araca kopyalama (aynı transaction);
 /// sayaç geriye gidemez (MeterRule) ve tüm değişimler vehicle_meter_logs'a yazılır.
@@ -142,6 +145,33 @@ VALUES($id,$c,$ic,$plate,$yr,$meter,$mu,$br,$drv,$ch,$en,$st,$note,$vt,$cat,$bra
         var list = new List<(decimal, decimal, string)>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add((Money.Parse(r.GetString(0)), Money.Parse(r.GetString(1)), r.GetString(2)));
+        return list;
+    }
+
+    /// <summary>Araç listesi (salt okuma) — iç kod/plaka araması; firma kapsamı + is_deleted=0.</summary>
+    public IReadOnlyList<VehicleListRow> List(SessionContext s, string? search = null, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT id, internal_code, plate, status, current_meter, meter_unit, production_year
+FROM vehicles
+WHERE company_id=$c AND is_deleted=0
+  AND ($s IS NULL OR internal_code LIKE $like OR COALESCE(plate,'') LIKE $like)
+ORDER BY internal_code LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
+        cmd.Parameters.AddWithValue("$lim", limit);
+        var list = new List<VehicleListRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new VehicleListRow(
+                r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+                r.GetString(3), Money.Parse(r.GetString(4)), r.GetString(5),
+                r.IsDBNull(6) ? (int?)null : r.GetInt32(6)));
         return list;
     }
 

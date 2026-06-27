@@ -12,6 +12,11 @@ public sealed record NewDistribution(string VehicleId, decimal Liters, decimal C
     decimal? UnitPrice = null, string Currency = "TRY", string? PersonnelId = null,
     long? DistributionDate = null, string? Note = null, decimal? FxRate = null);
 
+public sealed record FuelDistributionRow(string Id, string VehicleId, string? VehicleCode,
+    decimal PrevMeter, decimal CurrentMeter, decimal Liters, decimal UnitPrice, string Currency, long DistributionDate);
+
+public sealed record FuelDepotRow(string Id, decimal Liters, decimal UnitPrice, string Currency, long EntryDate, string? InvoiceNo);
+
 /// <summary>
 /// Yakıt depo girişi + araç dağıtımı. Dağıtım atomik (IMMEDIATE): depo bakiye kontrolü + fiyat snapshot +
 /// araç sayacı ileri + meter log + audit; operation_id idempotent. Fiyat geçmişte değişmez (snapshot).
@@ -143,6 +148,52 @@ VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$dt,$note,$op,$now,$now,1,0)
     {
         using var conn = _factory.Create();
         return CurrentFuelPrice(conn, null, s.CompanyId);
+    }
+
+    /// <summary>Yakıt dağıtımları (salt okuma) — en yeni önce.</summary>
+    public IReadOnlyList<FuelDistributionRow> ListDistributions(SessionContext s, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, fd.liters,
+       fd.unit_price, fd.currency_code, fd.distribution_date
+FROM fuel_distributions fd
+LEFT JOIN vehicles v ON v.id = fd.vehicle_id
+WHERE fd.company_id=$c AND fd.is_deleted=0
+ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$lim", limit);
+        var list = new List<FuelDistributionRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new FuelDistributionRow(
+                r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+                Money.Parse(r.GetString(3)), Money.Parse(r.GetString(4)), Money.Parse(r.GetString(5)),
+                Money.Parse(r.GetString(6)), r.GetString(7), r.GetInt64(8)));
+        return list;
+    }
+
+    /// <summary>Depo girişleri (salt okuma) — en yeni önce.</summary>
+    public IReadOnlyList<FuelDepotRow> ListDepotEntries(SessionContext s, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT id, liters, unit_price, currency_code, entry_date, invoice_no
+FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0
+ORDER BY entry_date DESC, created_at DESC LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$lim", limit);
+        var list = new List<FuelDepotRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new FuelDepotRow(
+                r.GetString(0), Money.Parse(r.GetString(1)), Money.Parse(r.GetString(2)),
+                r.GetString(3), r.GetInt64(4), r.IsDBNull(5) ? null : r.GetString(5)));
+        return list;
     }
 
     // ---- yardımcılar ----

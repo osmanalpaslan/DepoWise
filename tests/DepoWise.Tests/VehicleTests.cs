@@ -47,6 +47,25 @@ public class VehicleTests : IDisposable
         Assert.Equal(1000m, _vehicles.GetMeter(_admin, v)); // değişmedi
     }
 
+    // ---- Liste (Faz 7b read-query) ----
+    [Fact]
+    public void Liste_AramaIcKodVePlakaUzerinde_Calisir()
+    {
+        _vehicles.Create(_admin, new NewVehicle("KM-001", Plate: "34 ABC 01", CurrentMeter: 500m));
+        _vehicles.Create(_admin, new NewVehicle("KM-002", Plate: "06 XYZ 99"));
+
+        Assert.Equal(2, _vehicles.List(_admin).Count);
+
+        var byCode = _vehicles.List(_admin, "KM-001");
+        Assert.Single(byCode);
+        Assert.Equal("KM-001", byCode[0].InternalCode);
+        Assert.Equal(500m, byCode[0].CurrentMeter);
+
+        var byPlate = _vehicles.List(_admin, "XYZ");
+        Assert.Single(byPlate);
+        Assert.Equal("KM-002", byPlate[0].InternalCode);
+    }
+
     [Fact]
     public void Sayac_Ileri_GuncellenirVeLoglanir()
     {

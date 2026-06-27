@@ -48,6 +48,24 @@ public class FuelDailyActivityTests : IDisposable
         public void Advance(long ms) => UtcNow = UtcNow.AddMilliseconds(ms);
     }
 
+    // ---- Yakıt liste (Faz 7b read-query) ----
+    [Fact]
+    public void Yakit_Listeler_DepoVeDagitim_DonerveAracKodunuKatar()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KM-9", CurrentMeter: 100m));
+        _fuel.AddDepotEntry(_admin, new NewDepotEntry(Liters: 200m, UnitPrice: 40m), Guid.NewGuid().ToString("N"));
+        _fuel.Distribute(_admin, new NewDistribution(v, 50m, 150m), Guid.NewGuid().ToString("N"));
+
+        var depots = _fuel.ListDepotEntries(_admin);
+        Assert.Single(depots);
+        Assert.Equal(200m, depots[0].Liters);
+
+        var dists = _fuel.ListDistributions(_admin);
+        Assert.Single(dists);
+        Assert.Equal("KM-9", dists[0].VehicleCode);
+        Assert.Equal(50m, dists[0].Liters);
+    }
+
     // ---- Yakıt ----
     [Fact]
     public void Yakit_Depo_VeDagitim_BakiyeVeSayacTutarli()
