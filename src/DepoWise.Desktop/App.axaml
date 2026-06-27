@@ -15,6 +15,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Themes/Palette.axaml"/>
                 <ResourceInclude Source="/Themes/Scales.axaml"/>
+                <ResourceInclude Source="/Themes/ComponentThemes.axaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
@@ -24,6 +25,8 @@
 
         <!-- Tasarım sistemi temel sınıf stilleri (opt-in; mevcut kontrolleri etkilemez) -->
         <StyleInclude Source="/Themes/Controls.axaml"/>
+        <!-- Ortak bileşen stilleri (Faz 5; opt-in sınıf tabanlı) -->
+        <StyleInclude Source="/Themes/Components.axaml"/>
 
         <!-- ===== Sol menü stilleri (koyu tema, semantik token) ===== -->
         <Style Selector="Button.NavTop">

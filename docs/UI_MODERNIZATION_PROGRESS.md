@@ -77,6 +77,38 @@ Hedef: Mevcut işlev/iş kuralı/veri/sync/navigasyonu bozmadan arayüzü `DepoW
 
 ---
 
+## Faz 5 — Ortak UI bileşen kütüphanesi (TAMAMLANDI)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · Modül ekranları topluca dönüştürülmedi (yalnız bileşenler).
+
+### Yapılanlar
+- **Butonlar:** `Button.Primary` (mevcut) + yeni `Secondary/Ghost/Danger/Icon`; ortak `:disabled` + `:pointerover`.
+- **Girişler:** `TextBox.Field` (normal/hover/focus/disabled/`.error`), `TextBox.Search`, `ComboBox.Field`, `NumericUpDown.Field`, `DatePicker.Field`.
+- **Yeni TemplatedControl'ler** (`Controls/Components.cs`, yalnız StyledProperty + pseudo-class; iş mantığı yok): `StatusBadge` (5 tür), `FormField` (label/zorunlu/yardım/hata), `SectionHeader`, `Toolbar` (başlık+arama+filtre slotu+birincil aksiyon), `StatePanel` (Empty/Error/Loading). ControlTheme'ler `Themes/ComponentThemes.axaml`.
+- **Tablo:** DataGrid paketi (12.0.1) Avalonia 12.0.4 ile **uyumsuz** (≥12.0.5 ister) → çekirdek bump'ı kapsam dışı; paket gerektirmeyen **ListBox tabanlı tablo deseni** (`Border.Table/.TableHeader` + `ListBox.Table` hover/seçili/zebra/scroll, SharedSize sütun hizası).
+- **Card/Panel, Dialog (scrim+yüzey), Loading (`ProgressBar.Loading` + `Border.Skeleton` nabız), Toast (yalnız stil — altyapı kurulmadı, kural #12).**
+- **Bileşen galerisi** (`ComponentGalleryView/VM`): yalnız geliştirme referansı; **üretim navigasyonuna eklenmedi**; tüm bileşenleri canlı gösterir + XAML derleme doğrulaması.
+- Tüm sınıf stilleri **opt-in** (Classes ile) → mevcut kontroller etkilenmez. Renkler tema kaynağından.
+
+### Değiştirilen/eklenen dosyalar
+- Eklendi: `Controls/Components.cs`, `Themes/ComponentThemes.axaml`, `Themes/Components.axaml`, `ViewModels/ComponentGalleryViewModel.cs`, `Views/ComponentGalleryView.axaml(.cs)`
+- Düzenlendi: `App.axaml` (ComponentThemes resource + Components style include), `docs/UI_DESIGN_SPEC.md` (§7)
+
+### Komutlar
+- `dotnet build src/DepoWise.Desktop` → 0 uyarı/hata · `dotnet build DepoWise.sln` + `dotnet test` → 0 hata, **188/188**
+
+### Build/Test sonuçları
+- Build: **0 uyarı / 0 hata** · Test: **188/188 geçti** · Bileşen smoke: galeri view'ı XAML-compile ile tüm ControlTheme/stilleri doğruladı.
+
+### Bilinen sorunlar / sonraki faza bırakılanlar
+- **Gerçek DataGrid** Avalonia ≥12.0.5'e yükseltilince eklenecek (şimdilik ListBox tablo deseni).
+- **Toast altyapısı** yok (yalnız stil); bildirim servisi gelince bağlanacak.
+- Lucide ikonları henüz yok (placeholder chip'ler).
+- Bileşenlerin modül ekranlarına uygulanması sonraki fazlarda.
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 4 — Genel Özet / Dashboard modernizasyonu (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise` · İş verisi/sayımlar ve VM mantığı korundu.
 

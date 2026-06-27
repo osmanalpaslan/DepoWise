@@ -114,3 +114,65 @@ Avalonia ayrı tema kaynakları olarak eklendi; App.axaml'e merge edildi. **Renk
 
 ### Tema önizleme view'ı (Faz 2 kararı)
 - **Eklenmedi.** Gerekçe: mevcut yapı ayrı bir "geliştirici önizleme" barınağı içermiyor; bir önizleme ya üretim navigasyonuna sahte ekran ekler (yasak) ya da ölü kod olur. Token'lar build ile doğrulandı; görsel doğrulama ilgili ekran fazında yapılacak.
+
+---
+
+## 7. Ortak Bileşen Kütüphanesi (Faz 5) — kullanım kuralları
+
+**İki mekanizma:** (a) built-in kontroller için **opt-in sınıf stilleri** (`Themes/Components.axaml`, Styles), (b) yeni bileşenler için **TemplatedControl + ControlTheme** (`Controls/Components.cs` + `Themes/ComponentThemes.axaml`). Tüm sınıf seçicileri `Classes` ile kapsanır → **Classes'sız mevcut kontroller etkilenmez**. Renkler yalnız tema kaynağından (DynamicResource).
+
+> Yeni bileşenler için xmlns: `xmlns:ctrl="using:DepoWise.Desktop.Controls"`.
+
+### 7.1 Butonlar (sınıf)
+| Sınıf | Kullanım |
+|---|---|
+| `Button.Primary` | Birincil eylem (accent). |
+| `Button.Secondary` | İkincil (nötr yüzey + kenar). |
+| `Button.Ghost` | Düşük vurgulu (zeminsiz). |
+| `Button.Danger` | Yıkıcı eylem (sil). |
+| `Button.Icon` | Kare ikon düğmesi (36×36). |
+
+Tüm sınıf butonları `:disabled` → opaklık 0.45. Hover durumları `:pointerover`.
+
+### 7.2 Girişler (sınıf)
+- `TextBox.Field` — normal/hover/`:focus`(accent kenar)/`:disabled`(0.5)/`.error`(danger kenar).
+- `TextBox.Search` — hap köşeli arama kutusu; `PlaceholderText` kullan.
+- `ComboBox.Field`, `NumericUpDown.Field`, `DatePicker.Field` — ortak yüzey + odak.
+- **Validation:** hata olduğunda giriş kontrolüne `.error` ekle; metni `FormField.ErrorText` ile göster.
+
+### 7.3 FormField (`ctrl:FormField`, ContentControl)
+- Özellikler: `Label`, `IsRequired`(→ kırmızı *), `HelpText`, `ErrorText`, `HasError`.
+- İçeriği giriş kontrolüdür. `HasError=true` iken yardım gizlenir, hata metni görünür.
+
+### 7.4 SectionHeader / Toolbar
+- `ctrl:SectionHeader` — `Title` + `Subtitle` + `Actions` (sağ slot).
+- `ctrl:Toolbar` — `Title`, `SearchText`(TwoWay), `SearchWatermark`, `ShowSearch`, `FilterContent`(slot), `PrimaryActionText`+`PrimaryActionCommand` (boşsa buton gizli). "Yeni Ekle" birincil aksiyonu burada.
+
+### 7.5 StatusBadge / Chip (`ctrl:StatusBadge`)
+- `Kind` = Success/Warning/Danger/Info/Neutral, `Text`. Yumuşak (alpha) zemin + durum rengi metin.
+
+### 7.6 Tablo (desen — sınıf)
+> **DataGrid paketi (12.0.1) Avalonia 12.0.4 ile uyumsuz** (Avalonia ≥12.0.5 ister). Çekirdek sürüm bump'ı bu fazın kapsamı dışı → **gerçek DataGrid ileri faza** ertelendi. Şimdilik paket gerektirmeyen **ListBox tabanlı tablo deseni**:
+- Dış `Border.Table` (+ `Grid.IsSharedSizeScope="True"`).
+- Başlık: `Border.TableHeader` içinde `Grid` (sütunlar `SharedSizeGroup`).
+- Satırlar: `ListBox.Table`; aynı `SharedSizeGroup`'lu `Grid` DataTemplate ile hizalı sütun.
+- `ListBoxItem`: hover (`OverlayHover`), `:selected` (AccentSoft), çok hafif zebra (`:nth-child(2n)`), yatay/dikey scroll otomatik.
+
+### 7.7 Durum panelleri (`ctrl:StatePanel`)
+- `Mode` = Empty/Error/Loading. `Title`, `Message`, `ActionText`+`ActionCommand`.
+- Empty/Error: ikon placeholder (Error kırmızı tonu). Loading: indeterminate ProgressBar. **Boş/hata/yükleme ayrı görsel durum** olarak ele alınır; sahte veri yok.
+
+### 7.8 Yükleme / Skeleton
+- `ProgressBar.Loading` (indeterminate accent). `Border.Skeleton` (hafif nabız animasyonu) placeholder.
+
+### 7.9 Dialog / Confirmation
+- `Border.DialogScrim` (arka karartma) + `Border.Dialog` (yüzey, max 460px, gölge). Yalnız görsel kabuk; mevcut dialog/akış mekanizması değişmedi.
+
+### 7.10 Toast / Notification — yalnız stil
+- **Altyapı yok** (mevcut serviste toast yoktu → kural #12 gereği yeni altyapı kurulmadı). Yalnız görsel: `Border.Toast` (+ `.success/.warning/.danger/.info`). İleride bir bildirim servisi eklenirse bu stil kullanılır.
+
+### 7.11 Bileşen galerisi (geliştirme)
+- `Views/ComponentGalleryView` + `ComponentGalleryViewModel` — **yalnız geliştirme referansı**; `ShellViewModel.BuildGroups`'a **eklenmedi** (üretim navigasyonunda yok). Tüm bileşenlerin canlı örneği + XAML derleme doğrulaması. Demo verisi iş servisine bağlı değil.
+
+### 7.12 MVVM / durum doğrulama
+- Tüm yeni kontroller code-behind'da **yalnız StyledProperty + pseudo-class** içerir; iş mantığı yok. Görsel durumlar (normal/hover/focus/disabled/error) pseudo-class + `:pointerover/:focus/:disabled` ile sağlanır.

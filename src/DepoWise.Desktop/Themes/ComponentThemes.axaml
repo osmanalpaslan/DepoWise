@@ -1,0 +1,150 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="using:DepoWise.Desktop.Controls">
+    <!--
+      DepoWise ortak bileşen ControlTheme'leri (Faz 5).
+      Yeni TemplatedControl'ler için varsayılan tema (x:Key={x:Type ...}). Renkler tema kaynağından.
+    -->
+
+    <!-- ============ StatusBadge / Chip ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:StatusBadge}" TargetType="ctrl:StatusBadge">
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="PART_Bg" CornerRadius="999" Padding="9,3"
+                        Background="{DynamicResource SurfaceElevatedBrush}">
+                    <TextBlock x:Name="PART_Text" Text="{TemplateBinding Text}"
+                               FontFamily="{StaticResource AppFontFamily}"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:success /template/ Border#PART_Bg"><Setter Property="Background" Value="#222CBF6D"/></Style>
+        <Style Selector="^:success /template/ TextBlock#PART_Text"><Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/></Style>
+        <Style Selector="^:warning /template/ Border#PART_Bg"><Setter Property="Background" Value="#22D8A617"/></Style>
+        <Style Selector="^:warning /template/ TextBlock#PART_Text"><Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/></Style>
+        <Style Selector="^:danger /template/ Border#PART_Bg"><Setter Property="Background" Value="#22E24A3B"/></Style>
+        <Style Selector="^:danger /template/ TextBlock#PART_Text"><Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/></Style>
+        <Style Selector="^:info /template/ Border#PART_Bg"><Setter Property="Background" Value="#223AA0E0"/></Style>
+        <Style Selector="^:info /template/ TextBlock#PART_Text"><Setter Property="Foreground" Value="{DynamicResource InfoBrush}"/></Style>
+    </ControlTheme>
+
+    <!-- ============ FormField ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:FormField}" TargetType="ctrl:FormField">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Spacing="5">
+                    <!-- Etiket + zorunlu işareti -->
+                    <StackPanel Orientation="Horizontal" Spacing="3"
+                                IsVisible="{TemplateBinding Label, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{TemplateBinding Label}" FontFamily="{StaticResource AppFontFamily}"
+                                   FontSize="{StaticResource FontCardLabel}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="*" Foreground="{DynamicResource DangerBrush}" FontWeight="Bold"
+                                   IsVisible="{TemplateBinding IsRequired}"/>
+                    </StackPanel>
+                    <!-- Giriş kontrolü -->
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="Stretch"/>
+                    <!-- Yardım metni (hata yokken) -->
+                    <TextBlock x:Name="PART_Help" Text="{TemplateBinding HelpText}"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
+                               Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"
+                               IsVisible="{TemplateBinding HelpText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <!-- Hata metni -->
+                    <TextBlock x:Name="PART_Error" Text="{TemplateBinding ErrorText}"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
+                               Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                               IsVisible="False"/>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <!-- Hata durumunda: hata metni görünür, yardım gizlenir -->
+        <Style Selector="^:error /template/ TextBlock#PART_Error"><Setter Property="IsVisible" Value="True"/></Style>
+        <Style Selector="^:error /template/ TextBlock#PART_Help"><Setter Property="IsVisible" Value="False"/></Style>
+    </ControlTheme>
+
+    <!-- ============ SectionHeader ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:SectionHeader}" TargetType="ctrl:SectionHeader">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="{TemplateBinding Title}" FontFamily="{StaticResource AppFontFamily}"
+                                   FontSize="{StaticResource FontPageTitle}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{TemplateBinding Subtitle}" FontFamily="{StaticResource AppFontFamily}"
+                                   FontSize="{StaticResource FontHelper}" Foreground="{DynamicResource TextMutedBrush}"
+                                   IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                    <ContentPresenter Grid.Column="1" Content="{TemplateBinding Actions}" VerticalContentAlignment="Center"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- ============ Toolbar ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:Toolbar}" TargetType="ctrl:Toolbar">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" VerticalAlignment="Center" >
+                    <TextBlock Grid.Column="0" Text="{TemplateBinding Title}" VerticalAlignment="Center"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontPageTitle}"
+                               FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBox Grid.Column="1" Classes="Search" Width="240" Margin="12,0,0,0"
+                             VerticalAlignment="Center"
+                             PlaceholderText="{TemplateBinding SearchWatermark}"
+                             IsVisible="{TemplateBinding ShowSearch}"
+                             Text="{Binding SearchText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
+                    <ContentPresenter Grid.Column="2" Content="{TemplateBinding FilterContent}" Margin="8,0,0,0"
+                                      VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="3" Classes="Primary" Margin="8,0,0,0" VerticalAlignment="Center"
+                            Content="{TemplateBinding PrimaryActionText}"
+                            Command="{TemplateBinding PrimaryActionCommand}"
+                            IsVisible="{TemplateBinding PrimaryActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- ============ StatePanel (Empty / Error / Loading) ============ -->
+    <ControlTheme x:Key="{x:Type ctrl:StatePanel}" TargetType="ctrl:StatePanel">
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Spacing="10" HorizontalAlignment="Center" MaxWidth="360">
+                    <!-- İkon placeholder (Faz: Lucide ileride) — durum rengine göre -->
+                    <Border x:Name="PART_Icon" Width="44" Height="44" CornerRadius="22"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource SurfaceElevatedBrush}"/>
+                    <!-- Yükleme göstergesi -->
+                    <ProgressBar x:Name="PART_Spinner" IsIndeterminate="True" Width="180" Height="4"
+                                 HorizontalAlignment="Center" IsVisible="False"
+                                 Foreground="{DynamicResource AccentBrush}"/>
+                    <TextBlock Text="{TemplateBinding Title}" HorizontalAlignment="Center"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontBody}"
+                               FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                               IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <TextBlock Text="{TemplateBinding Message}" HorizontalAlignment="Center" TextAlignment="Center"
+                               FontFamily="{StaticResource AppFontFamily}" FontSize="{StaticResource FontHelper}"
+                               Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"
+                               IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <Button Classes="Secondary" HorizontalAlignment="Center" Margin="0,2,0,0"
+                            Content="{TemplateBinding ActionText}"
+                            Command="{TemplateBinding ActionCommand}"
+                            IsVisible="{TemplateBinding ActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <!-- Yükleme: ikon gizli, spinner görünür -->
+        <Style Selector="^:loading /template/ Border#PART_Icon"><Setter Property="IsVisible" Value="False"/></Style>
+        <Style Selector="^:loading /template/ ProgressBar#PART_Spinner"><Setter Property="IsVisible" Value="True"/></Style>
+        <!-- Hata: ikon kırmızı tonu -->
+        <Style Selector="^:error /template/ Border#PART_Icon"><Setter Property="Background" Value="#22E24A3B"/></Style>
+    </ControlTheme>
+</ResourceDictionary>
