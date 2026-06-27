@@ -111,6 +111,36 @@ Pencere başlığı `AppName`="DepoWise", login "DepoWise — Giriş"; kaynakta 
 
 ---
 
+## Faz 8 — LiveCharts2 grafik entegrasyonu (TAMAMLANDI — entegre edildi)
+**Tarih:** 2026-06-27 · **Dal:** `ui/modern-depowise`
+
+### Karar / paket
+- Avalonia 12 → **LiveChartsCore.SkiaSharpView.Avalonia 2.0.5** (kararlı NuGet, MIT). Kaynak repo (master v2.1.0-dev) **dahil edilmedi**; minimum PackageReference (#3). Avalonia 12.0.4 ile **çakışmasız** restore (DataGrid'in aksine). Lisans → `THIRD_PARTY_NOTICES.md` (#12).
+
+### Grafikler (yalnız gerçek veri — sahte seri yok)
+Raporlar ekranında, çalıştırılan raporun **gerçek `TableModel`** satırlarından türetilir (ek sorgu yok):
+- **Yakıt Tüketim → bar** (araç bazında litre, `FuelConsumption`; ilk 20 araç).
+- **Stok Durumu → pasta** (Düşük/Yeterli, `StockStatus`; dilimde ad+değer etiketi).
+
+### Tema / okunabilirlik
+- Merkezi palet renkleri (Accent/Warning/Success, `TextSecondary` eksen/etiket). Renk dışında **metin etiketi** (bar X-ekseni araç, pasta dilim adı). Hover tooltip açık. Legend gizli (etiketler yeterli).
+
+### Performans (#9)
+- Animasyon kapalı (`EasingFunction=null`); bar `MaxBars=20`; seriler yüklenmiş satırlardan kurulur (UI thread'de I/O yok); zamanlayıcı/abonelik yok → View kapanışında elle temizlik gerekmez.
+
+### Durumlar
+- Sorgula'dan önce/veri yokken bilgi metni; hata `StatePanel`; grafik yalnız `ShowChart` iken. Filtre/tip değişiminde (#10) Sorgula → bar↔pasta otomatik geçiş.
+
+### Komutlar / sonuçlar
+- `dotnet build DepoWise.sln` → **0 hata** · `dotnet test` → **191/191**. Görsel/perf smoke kullanıcı (dotnet host).
+
+### Ekran görüntüleri
+- `docs/ui-evidence/phase-08-charts/` (yakıt-bar + stok-pasta, 1366×768 & 1920×1080) + performans notu — kullanıcı tarafından (COMODO).
+
+**Bu faz tamamlandı; sonraki faza geçmedim.**
+
+---
+
 ## Faz 0 — İnceleme & Spesifikasyon (TAMAMLANDI)
 **Tarih:** 2026-06-27 · **Tür:** Salt okunur; üretim kodu değiştirilmedi.
 

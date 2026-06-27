@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="680"
@@ -29,13 +30,24 @@
             </StackPanel>
         </Border>
 
-        <!-- Grafik alanı: LiveCharts2'ye hazır boş container (paket eklenmedi, sahte grafik yok) -->
-        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" Height="160">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                <TextBlock Text="Grafik Alanı" Classes="SectionTitle" HorizontalAlignment="Center"/>
-                <TextBlock Text="LiveCharts2 entegrasyonu için hazır container (ileri faz)." Classes="Helper"
-                           HorizontalAlignment="Center"/>
-            </StackPanel>
+        <!-- Grafik alanı: LiveCharts2 (gerçek rapor verisinden; sahte seri yok) -->
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" Height="240">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding ChartTitle}" Classes="SectionTitle"
+                           IsVisible="{Binding ShowChart}" Margin="0,0,0,8"/>
+                <Panel>
+                    <!-- Bar: araç bazında yakıt -->
+                    <lvc:CartesianChart Series="{Binding ChartSeries}" XAxes="{Binding XAxes}" YAxes="{Binding YAxes}"
+                                        IsVisible="{Binding ShowBar}" LegendPosition="Hidden" TooltipPosition="Top"/>
+                    <!-- Pasta: stok durum dağılımı -->
+                    <lvc:PieChart Series="{Binding PieSeries}" IsVisible="{Binding ShowPie}"
+                                  LegendPosition="Hidden" TooltipPosition="Top"/>
+                    <!-- Grafik yoksa/yüklenmediyse bilgi -->
+                    <TextBlock Text="Grafik için Sorgula'ya basın." Classes="Helper"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IsVisible="{Binding !ShowChart}"/>
+                </Panel>
+            </DockPanel>
         </Border>
 
         <!-- Tablo / durumlar -->
