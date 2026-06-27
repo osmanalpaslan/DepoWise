@@ -108,6 +108,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Araçlar";
                 CurrentContext = "Araç kartları, durum ve uyarılar";
                 break;
+            case "vehicles:templates":
+                CurrentPage = new VehicleTemplatesViewModel(_session);
+                CurrentTitle = "Araç Genel Tanım";
+                CurrentContext = "Şablonlar — araç formunu otomatik doldurur";
+                break;
             case "maintenance":
                 CurrentPage = new MaintenanceViewModel(_session);
                 CurrentTitle = "Bakım Takibi";

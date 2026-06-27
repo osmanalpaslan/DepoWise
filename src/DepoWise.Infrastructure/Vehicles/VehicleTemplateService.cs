@@ -14,6 +14,18 @@ public sealed record VehicleTemplateRecord(
     string Id, string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId,
     string? BrandId, string? VehicleModelId, int? ProductionYear, string DefaultMeterUnit);
 
+public sealed record VehicleTemplateRow(
+    string Id, string Name, string? InternalCode,
+    string? TypeName, string? CategoryName, string? BrandName, string? ModelName, int? ProductionYear,
+    string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId)
+{
+    public string TypeDisplay => TypeName ?? "—";
+    public string BrandModelDisplay => string.IsNullOrEmpty(BrandName) ? "—" : $"{BrandName} {ModelName}".Trim();
+    public string CodeDisplay => string.IsNullOrEmpty(InternalCode) ? "—" : InternalCode!;
+    public string YearDisplay => ProductionYear is > 0 ? ProductionYear!.Value.ToString() : "—";
+    public override string ToString() => Name;
+}
+
 /// <summary>
 /// Araç şablonu (Araç Genel Tanım) — CRUD + uyumlu malzeme (tam değiştir) + otomatik iç kod üretimi.
 /// Tenant + "vehicles" permission fail-closed.
@@ -100,6 +112,58 @@ VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$now,$now,1,0);";
             r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4),
             r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6),
             r.IsDBNull(7) ? null : r.GetInt32(7), r.GetString(8));
+    }
+
+    /// <summary>Şablon listesi (salt okuma) — lookup adlarıyla; ad araması.</summary>
+    public IReadOnlyList<VehicleTemplateRow> List(SessionContext s, string? search = null, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT t.id, t.name, t.internal_code, vt.name, vc.name, b.name, vm.name, t.production_year,
+       t.vehicle_type_id, t.category_id, t.brand_id, t.vehicle_model_id
+FROM vehicle_templates t
+LEFT JOIN vehicle_types vt ON vt.id = t.vehicle_type_id
+LEFT JOIN vehicle_categories vc ON vc.id = t.category_id
+LEFT JOIN brands b ON b.id = t.brand_id
+LEFT JOIN vehicle_models vm ON vm.id = t.vehicle_model_id
+WHERE t.company_id=$c AND t.is_deleted=0
+  AND ($s IS NULL OR t.name LIKE $like OR COALESCE(t.internal_code,'') LIKE $like)
+ORDER BY t.name LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
+        cmd.Parameters.AddWithValue("$lim", limit);
+        string? S(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        var list = new List<VehicleTemplateRow>();
+        using var rr = cmd.ExecuteReader();
+        while (rr.Read())
+            list.Add(new VehicleTemplateRow(rr.GetString(0), rr.GetString(1), S(rr, 2),
+                S(rr, 3), S(rr, 4), S(rr, 5), S(rr, 6), rr.IsDBNull(7) ? (int?)null : rr.GetInt32(7),
+                S(rr, 8), S(rr, 9), S(rr, 10), S(rr, 11)));
+        return list;
+    }
+
+    /// <summary>Şablon soft-delete.</summary>
+    public void Delete(SessionContext s, string templateId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Delete);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE vehicle_templates SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", templateId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_template", templateId, AuditActions.Delete, s.UserId), _clock);
+        tx.Commit();
     }
 
     /// <summary>Örnek koddan (ör. KM-001) sonraki iç kodu üretir: önek + en büyük numara + 1 (genişlik korunur).</summary>

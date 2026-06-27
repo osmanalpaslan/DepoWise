@@ -1,0 +1,191 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:inf="using:DepoWise.Infrastructure.Vehicles"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="620"
+             x:Class="DepoWise.Desktop.Views.VehicleTemplatesView"
+             x:DataType="vm:VehicleTemplatesViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+
+        <ctrl:Toolbar Grid.Row="0" Title="Araç Genel Tanım (Şablonlar)"
+                      SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Şablon ara..."
+                      PrimaryActionText="{Binding AddButtonText}" PrimaryActionCommand="{Binding ToggleAddCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Ara" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Yeni şablon formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <Border.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding AddCommand}"/>
+                <KeyBinding Gesture="Escape" Command="{Binding ClearCommand}"/>
+            </Border.KeyBindings>
+            <ScrollViewer MaxHeight="420">
+            <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
+                <TextBlock Text="YENİ ŞABLON" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Ad" IsRequired="True" Width="260"
+                                    HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
+                        <TextBox Classes="Field" Text="{Binding NewName}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Örnek İç Kod" Width="160" HelpText="ör. KM-001 → araçta otomatik artar">
+                        <TextBox Classes="Field" Text="{Binding NewCode}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Üretim Yılı" Width="130">
+                        <NumericUpDown Classes="Field" Value="{Binding NewYear}" Minimum="0" Maximum="2100"
+                                       FormatString="0" ShowButtonSpinner="False"/>
+                    </ctrl:FormField>
+                </StackPanel>
+
+                <TextBlock Text="Sınıflandırma" Classes="CardLabel"/>
+                <ctrl:FormField Label="Makine Tipi">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Types}" SelectedItem="{Binding SelType}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingType}">
+                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewTypeName}" PlaceholderText="Yeni makine tipi"/>
+                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddTypeCommand}"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddTypeCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Kategori">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelCategory}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCat}">
+                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCatName}" PlaceholderText="Yeni kategori"/>
+                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddCatCommand}"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddCatCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Marka">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelBrand}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
+                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka"/>
+                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddBrandCommand}"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddBrandCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Model">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Models}" SelectedItem="{Binding SelModel}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingModel}">
+                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewModelName}" PlaceholderText="Yeni model (önce marka)"/>
+                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddModelCommand}"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddModelCommand}"/>
+                        </Grid>
+                    </StackPanel>
+                </ctrl:FormField>
+
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding ClearCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding AddCommand}"/>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Liste + Detay -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,340">
+          <Panel Grid.Column="0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="AD" MinWidth="160"/>
+                            <TextBlock Grid.Column="1" Text="ÖRNEK KOD" MinWidth="110"/>
+                            <TextBlock Grid.Column="2" Text="TİP" MinWidth="110"/>
+                            <TextBlock Grid.Column="3" Text="MARKA/MODEL" MinWidth="150"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="inf:VehicleTemplateRow">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding CodeDisplay}" MinWidth="110" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding TypeDisplay}" MinWidth="110" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding BrandModelDisplay}" MinWidth="150" VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Şablon yok" Message="Henüz araç genel tanımı eklenmedi." IsVisible="{Binding IsEmpty}"/>
+          </Panel>
+
+          <!-- Detay -->
+          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                <Button Classes="Danger" Content="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
+              </StackPanel>
+              <StackPanel Spacing="8" DataContext="{Binding Selected}">
+                <TextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                <Border Classes="Divider"/>
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Örnek Kod" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CodeDisplay}" Classes="Body"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Makine Tipi" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TypeDisplay}" Classes="Body"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Marka/Model" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandModelDisplay}" Classes="Body"/>
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Üretim Yılı" Classes="Helper" Margin="0,2,12,2"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding YearDisplay}" Classes="Body"/>
+                </Grid>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+            <TextBlock Text="Detay için bir şablon seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

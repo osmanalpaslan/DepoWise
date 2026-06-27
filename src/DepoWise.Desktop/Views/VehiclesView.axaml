@@ -3,6 +3,7 @@
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:inf="using:DepoWise.Infrastructure.Vehicles"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="620"
@@ -30,6 +31,14 @@
             <ScrollViewer MaxHeight="500">
             <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
                 <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+
+                <ctrl:FormField Label="Şablon (Araç Genel Tanım)" IsVisible="{Binding !IsEditMode}"
+                                HelpText="Seçince Tip/Kategori/Marka/Model/Yıl ve iç kod otomatik dolar.">
+                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:VehicleTemplateRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ctrl:FormField>
 
                 <TextBlock Text="Tanım" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">

@@ -33,6 +33,7 @@ public static class DesktopServices
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static DashboardService Dashboard { get; private set; } = null!;
     public static VehicleService Vehicles { get; private set; } = null!;
+    public static VehicleTemplateService VehicleTemplates { get; private set; } = null!;
     public static MaintenanceService Maintenance { get; private set; } = null!;
     public static InspectionService Inspection { get; private set; } = null!;
     public static FuelService Fuel { get; private set; } = null!;
@@ -59,6 +60,7 @@ public static class DesktopServices
         Maintenance = new MaintenanceService(Factory, clock);
         Inspection = new InspectionService(Factory, clock);
         Vehicles = new VehicleService(Factory, clock);
+        VehicleTemplates = new VehicleTemplateService(Factory, clock);
         Fuel = new FuelService(Factory, clock);
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
         Reports = new ReportService(Factory);

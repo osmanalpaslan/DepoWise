@@ -90,6 +90,28 @@ public class VehicleTests : IDisposable
         Assert.False(string.IsNullOrEmpty(v));
     }
 
+    // ---- Şablon (Araç Genel Tanım) liste/sil + iç kod ----
+    [Fact]
+    public void Sablon_OlusturListeSil_VeIcKodUretimi()
+    {
+        var look = new DepoWise.Infrastructure.Materials.LookupService(_factory, _clock);
+        var brand = look.AddVehicleBrand(_admin, "Caterpillar");
+        var tpl = new VehicleTemplateService(_factory, _clock);
+        var id = tpl.Create(_admin, new NewVehicleTemplate("Ekskavatör Genel", InternalCode: "EX-001", BrandId: brand));
+
+        var list = tpl.List(_admin);
+        Assert.Single(list);
+        Assert.Equal("Ekskavatör Genel", list[0].Name);
+        Assert.Equal("Caterpillar", list[0].BrandName);
+
+        // İç kod üretimi: mevcut araç EX-001 varsa sonrası EX-002
+        _vehicles.Create(_admin, new NewVehicle("EX-001"));
+        Assert.Equal("EX-002", tpl.GenerateNextInternalCode(_admin, "EX-001"));
+
+        tpl.Delete(_admin, id);
+        Assert.Empty(tpl.List(_admin));
+    }
+
     // ---- Detay / Güncelle / Sil (Faz: araç detay ekranı) ----
     [Fact]
     public void Detay_Guncelle_Sil_Calisir()

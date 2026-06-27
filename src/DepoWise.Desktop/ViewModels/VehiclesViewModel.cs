@@ -83,6 +83,28 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         catch { /* model yoksa sessiz */ }
     }
 
+    // ── Şablon seç → formu otomatik doldur (yalnız yeni kayıt) ──
+    public ObservableCollection<VehicleTemplateRow> Templates { get; } = new();
+    [ObservableProperty] private VehicleTemplateRow? _selectedTemplate;
+    private string? _templateId;
+
+    partial void OnSelectedTemplateChanged(VehicleTemplateRow? value)
+    {
+        if (value is null) { _templateId = null; return; }
+        _templateId = value.Id;
+        SelVehicleType = VehicleTypes.FirstOrDefault(x => x.Id == value.VehicleTypeId);
+        SelCategory = VehicleCategories.FirstOrDefault(x => x.Id == value.CategoryId);
+        SelBrand = VehicleBrands.FirstOrDefault(x => x.Id == value.BrandId); // modelleri yükler
+        SelModel = VehicleModels.FirstOrDefault(x => x.Id == value.VehicleModelId);
+        if (value.ProductionYear is > 0) NewYear = value.ProductionYear!.Value;
+        // İç kod: kullanıcı boş bıraktıysa örnek koddan sonrakini üret
+        if (string.IsNullOrWhiteSpace(NewCode) && !string.IsNullOrWhiteSpace(value.InternalCode))
+        {
+            try { NewCode = DesktopServices.VehicleTemplates.GenerateNextInternalCode(_session, value.InternalCode!); }
+            catch { }
+        }
+    }
+
     // ── Inline "+" yeni tanım ──
     [ObservableProperty] private bool _isAddingType; [ObservableProperty] private string _newTypeName = "";
     [ObservableProperty] private bool _isAddingCat; [ObservableProperty] private string _newCatName = "";
@@ -222,7 +244,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase
                 Status: NewStatus,
                 StatusNote: IsNewMaintenance && !string.IsNullOrWhiteSpace(NewStatusNote) ? NewStatusNote.Trim() : null,
                 VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
-                BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id));
+                BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
+                TemplateId: _templateId));
             SaveStagedPhotos(id);
             Clear();
             Load();
@@ -247,6 +270,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         SelVehicleType = null; SelCategory = null; SelBrand = null; SelModel = null; SelBranch = null; SelDriver = null;
         IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingBranch = IsAddingDriver = false;
         Photos.Clear();
+        SelectedTemplate = null; _templateId = null;
         EditId = null;
         TriedSave = false; ShowAdd = false;
     }
@@ -261,6 +285,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
             VehicleBrands.Clear(); foreach (var x in DesktopServices.Lookups.ListBrands(_session, "vehicle")) VehicleBrands.Add(x);
             Branches.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "branches")) Branches.Add(x);
             Drivers.Clear(); foreach (var x in DesktopServices.Lookups.ListPersonnel(_session)) Drivers.Add(x);
+            Templates.Clear(); foreach (var t in DesktopServices.VehicleTemplates.List(_session)) Templates.Add(t);
             _vehLookupsLoaded = true;
         }
         catch (Exception ex) { Status = "Tanımlar yüklenemedi: " + ex.Message; }
