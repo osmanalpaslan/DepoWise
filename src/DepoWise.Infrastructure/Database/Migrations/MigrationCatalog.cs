@@ -19,5 +19,6 @@ public static class MigrationCatalog
         new Migration012_Releases(),
         new Migration013_RememberTokens(),
         new Migration014_UserBranch(),
+        new Migration015_UserButtonPermissions(),
     };
 }

@@ -78,6 +78,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Kullanıcılar", "users"),
                 new NavLinkVm("Şube / Şantiye", "branches"),
+                new NavLinkVm("Yetkiler", "permissions"),
             }, expanded: true),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
@@ -88,7 +89,20 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("⚙️", "Tanımlar / Ayarlar", "definitions", new[] { new NavLinkVm("Tanımlar", "definitions") }),
         };
 
-        return all.Where(g => AccessControl.CanSeeMenu(s, g.ModuleKey)).ToList();
+        // Alt bağlantıyı KENDİ yetkisine göre filtrele (alt-sekme anahtarı parent modüle map'lenir:
+        // "maintenance:defs" → "maintenance"). Görünür alt bağlantısı kalmayan grup gizlenir.
+        // Verilmeyen ekran menüde GÖRÜNMEZ (deny-by-default).
+        return all
+            .Select(g => new NavGroupVm(g.Icon, g.Title, g.ModuleKey,
+                g.Children.Where(c => AccessControl.CanSeeMenu(s, BaseKey(c.Key))).ToList(), g.IsExpanded))
+            .Where(g => g.Children.Count > 0)
+            .ToList();
+    }
+
+    private static string BaseKey(string key)
+    {
+        var i = key.IndexOf(':');
+        return i < 0 ? key : key[..i];
     }
 
     /// <summary>İkon rayından grup seçimi: grubu aç + birincil hedefe git.</summary>
@@ -173,6 +187,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new BranchesViewModel(_session);
                 CurrentTitle = "Şube / Şantiye";
                 CurrentContext = "Şube tanımları ve atanmış kullanıcılar";
+                break;
+            case "permissions":
+                CurrentPage = new PermissionsViewModel(_session);
+                CurrentTitle = "Yetkiler";
+                CurrentContext = "Kullanıcı bazlı menü + alan + buton yetkileri";
                 break;
             case "requests":
             case "requests:form":

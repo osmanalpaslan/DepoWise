@@ -74,4 +74,16 @@ public static class SpecialButtons
     public const string RestoreTrash = "btn-restore";     // çöp kutusu geri yükle
     public const string ResetDatabase = "btn-reset-db";   // DB sıfırlama
     public const string ChangeCompanyLogo = "btn-logo";   // şirket logosu değiştir
+    public const string AddLookup = "btn-add-lookup";     // "+" satır içi tanım ekleme (genel)
+
+    /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
+    public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
+    {
+        (Approve, "Talep Onayla / Reddet"),
+        (Reverse, "Ters Kayıt / İptal"),
+        (RestoreTrash, "Çöp Kutusu Geri Yükle"),
+        (ResetDatabase, "Veritabanı Sıfırlama"),
+        (ChangeCompanyLogo, "Firma Logosu Değiştir"),
+        (AddLookup, "\"+\" Satır İçi Ekleme"),
+    };
 }

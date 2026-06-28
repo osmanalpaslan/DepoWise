@@ -32,6 +32,7 @@ public static class DesktopServices
     public static AuthService Auth { get; private set; } = null!;
     public static UserService Users { get; private set; } = null!;
     public static BranchService Branches { get; private set; } = null!;
+    public static PermissionService Permissions { get; private set; } = null!;
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static DashboardService Dashboard { get; private set; } = null!;
@@ -71,6 +72,7 @@ public static class DesktopServices
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
         RequestPdf = new RequestPdfService();
         Branches = new BranchService(Factory, clock);
+        Permissions = new PermissionService(Factory, clock);
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);

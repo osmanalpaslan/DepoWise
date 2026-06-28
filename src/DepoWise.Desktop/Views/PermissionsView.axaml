@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:sec="using:DepoWise.Infrastructure.Security"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.PermissionsView"
+             x:DataType="vm:PermissionsViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Yetkiler"/>
+
+        <!-- Kullanıcı seçimi (önce kullanıcı seçilir → ağaç oluşur) -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <TextBlock Text="Kullanıcı" Classes="Helper" VerticalAlignment="Center"/>
+                <ComboBox Classes="Field" Width="260" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="sec:UserRow"><TextBlock Text="{Binding Username}"/></DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadUsersCommand}"/>
+                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding HasUser}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Yetki ağacı (yalnız kullanıcı seçilince) -->
+        <ScrollViewer Grid.Row="2" Margin="0,16,0,0" IsVisible="{Binding HasUser}">
+            <StackPanel Spacing="16">
+                <!-- Modüller -->
+                <Border Classes="Table">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ColumnDefinitions="*,90,90,90,90">
+                                <TextBlock Grid.Column="0" Text="EKRAN / MODÜL" MinWidth="200"/>
+                                <TextBlock Grid.Column="1" Text="Görüntüle" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="Ekle" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="Düzenle" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="4" Text="Sil" TextAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Modules}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ModulePermNode">
+                                    <Grid ColumnDefinitions="*,90,90,90,90" Height="38">
+                                        <TextBlock Grid.Column="0" Text="{Binding Label}" MinWidth="200" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Column="1" IsChecked="{Binding CanView}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Column="2" IsChecked="{Binding CanCreate}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Column="3" IsChecked="{Binding CanEdit}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Column="4" IsChecked="{Binding CanDelete}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+
+                <!-- Özel butonlar / "+" -->
+                <TextBlock Text="ÖZEL BUTON / &quot;+&quot; YETKİLERİ" Classes="SectionTitle"/>
+                <Border Classes="Table">
+                    <ItemsControl ItemsSource="{Binding Buttons}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ButtonPermNode">
+                                <CheckBox IsChecked="{Binding Granted}" Content="{Binding Label}" Margin="12,6"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <TextBlock Text="Verilmeyen modüller menüde/butonlarda görünmez (deny-by-default). Admin / Süper Admin her zaman tam yetkilidir; onlara yetki vermeye gerek yoktur."
+                           Classes="Helper" TextWrapping="Wrap"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Kullanıcı seçilmeden -->
+        <ctrl:StatePanel Grid.Row="2" Margin="0,16,0,0" Mode="Empty" Title="Kullanıcı seçin"
+                         Message="Yetki ağacını görmek için yukarıdan bir kullanıcı seçin." IsVisible="{Binding !HasUser}"/>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

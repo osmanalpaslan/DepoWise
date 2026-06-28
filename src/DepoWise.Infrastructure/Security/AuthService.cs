@@ -150,10 +150,20 @@ public sealed class AuthService
             "FROM user_permissions WHERE user_id = $u;";
         cmd.Parameters.AddWithValue("$u", userId);
         var mods = new List<ModulePermission>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            mods.Add(new ModulePermission(r.GetString(0), r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1));
-        return new PermissionSet(mods);
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+                mods.Add(new ModulePermission(r.GetString(0), r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1));
+
+        // Özel buton ("+") izinleri
+        var buttons = new List<string>();
+        using (var bc = conn.CreateCommand())
+        {
+            bc.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id = $u;";
+            bc.Parameters.AddWithValue("$u", userId);
+            using var br = bc.ExecuteReader();
+            while (br.Read()) buttons.Add(br.GetString(0));
+        }
+        return new PermissionSet(mods, buttons);
     }
 
     private void CreateSession(SqliteConnection conn, string userId, string companyId, DateTimeOffset now)

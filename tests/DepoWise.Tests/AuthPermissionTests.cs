@@ -224,6 +224,33 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void Yetki_KaydetYukle_ModulVeButon_LoginYansitir()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        var admin = new AuthService(_factory, _clock).Login("A", "admin", "admin123").Session!;
+        var uid = users.CreateUser(admin, new NewUser("op", "p12345", "Op", new[] { RoleKeys.Operation }));
+
+        var perms = new PermissionService(_factory, _clock);
+        perms.SaveForUser(admin, uid,
+            new[] { new ModulePermission("materials", true, true, false, false) },
+            new[] { SpecialButtons.AddLookup });
+
+        var data = perms.GetForUser(admin, uid);
+        Assert.Single(data.Modules);
+        Assert.True(data.Modules[0].CanView);
+        Assert.Contains(SpecialButtons.AddLookup, data.Buttons);
+
+        // Login oturuma yansır (modül + buton + deny-by-default)
+        var op = new AuthService(_factory, _clock).Login("A", "op", "p12345").Session!;
+        Assert.True(AccessControl.Can(op, "materials", PermissionAction.View));
+        Assert.False(AccessControl.Can(op, "materials", PermissionAction.Delete));
+        Assert.False(AccessControl.Can(op, "vehicles", PermissionAction.View)); // verilmeyen ekran gizli
+        Assert.True(AccessControl.CanUseButton(op, SpecialButtons.AddLookup));
+        Assert.False(AccessControl.CanUseButton(op, SpecialButtons.Approve));
+    }
+
+    [Fact]
     public void SuperAdmin_SuperAdmin_Olusturabilir()
     {
         var users = new UserService(_factory, _clock);
