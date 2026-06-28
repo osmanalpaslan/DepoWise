@@ -20,6 +20,13 @@ public sealed record RequestListRow(string Id, string DocNo, RequestStatus Statu
 
 public sealed record RequestItemRow(string MaterialCode, string MaterialName, decimal Quantity, string? Note);
 
+public sealed record RequestPdfLine(string Code, string Name, decimal Quantity, string? VehicleLabel);
+
+public sealed record RequestPdfData(
+    string DocNo, long RequestDate, RequestStatus Status, string? BranchName,
+    string? RequesterName, string? WarehouseName, string? ApproverName, string? Description,
+    IReadOnlyList<RequestPdfLine> Items);
+
 /// <summary>
 /// Malzeme talep/onay — talep BELGEDİR; onay/ret STOK DEĞİŞTİRMEZ. Durum makinesi + yetki fail-closed +
 /// çift onay engeli + durum geçmişi. Onaylı talepten KONTROLLÜ stok çıkışı ayrı, açık işlemle başlatılır.
@@ -184,6 +191,57 @@ WHERE i.request_id=$r ORDER BY m.code;";
             list.Add(new RequestItemRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2)),
                 r.IsDBNull(3) ? null : r.GetString(3)));
         return list;
+    }
+
+    /// <summary>PDF için tam veri (isimler + araç etiketli kalemler). Tenant guard'lı.</summary>
+    public RequestPdfData GetPdfData(SessionContext s, string requestId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+
+        string docNo, status; long date; string? desc, branch, req, wh, ap;
+        using (var hc = conn.CreateCommand())
+        {
+            hc.CommandText = @"
+SELECT mr.doc_no, mr.request_date, mr.status, mr.description,
+       b.name, pr.full_name, pw.full_name, pa.full_name, mr.company_id
+FROM material_requests mr
+LEFT JOIN branches b ON b.id = mr.branch_id
+LEFT JOIN personnel pr ON pr.id = mr.requester_id
+LEFT JOIN personnel pw ON pw.id = mr.warehouse_id
+LEFT JOIN personnel pa ON pa.id = mr.approver_id
+WHERE mr.id=$id;";
+            hc.Parameters.AddWithValue("$id", requestId);
+            using var hr = hc.ExecuteReader();
+            if (!hr.Read()) throw new ForbiddenException("Talep bulunamadı.");
+            if (hr.GetString(8) != s.CompanyId) throw new ForbiddenException("Talep başka firmaya ait.");
+            docNo = hr.GetString(0); date = hr.GetInt64(1); status = hr.GetString(2);
+            desc = hr.IsDBNull(3) ? null : hr.GetString(3);
+            branch = hr.IsDBNull(4) ? null : hr.GetString(4);
+            req = hr.IsDBNull(5) ? null : hr.GetString(5);
+            wh = hr.IsDBNull(6) ? null : hr.GetString(6);
+            ap = hr.IsDBNull(7) ? null : hr.GetString(7);
+        }
+
+        var items = new List<RequestPdfLine>();
+        using (var ic = conn.CreateCommand())
+        {
+            ic.CommandText = @"
+SELECT m.code, m.name, i.quantity, v.internal_code, v.plate
+FROM material_request_items i
+JOIN materials m ON m.id = i.material_id
+LEFT JOIN vehicles v ON v.id = i.vehicle_id
+WHERE i.request_id=$r ORDER BY m.code;";
+            ic.Parameters.AddWithValue("$r", requestId);
+            using var ir = ic.ExecuteReader();
+            while (ir.Read())
+            {
+                string? vl = ir.IsDBNull(3) ? null
+                    : ir.IsDBNull(4) ? ir.GetString(3) : $"{ir.GetString(3)} - {ir.GetString(4)}";
+                items.Add(new RequestPdfLine(ir.GetString(0), ir.GetString(1), Money.Parse(ir.GetString(2)), vl));
+            }
+        }
+        return new RequestPdfData(docNo, date, RequestStatusMachine.FromDb(status), branch, req, wh, ap, desc, items);
     }
 
     // ---- çekirdek ----

@@ -76,6 +76,23 @@ public class RequestTests : IDisposable
         Assert.Equal(3m, items[0].Quantity);
     }
 
+    // ---- PDF verisi (isimler + kalemler) ----
+    [Fact]
+    public void GetPdfData_BelgeVeKalemleriDoner()
+    {
+        var m = Mat("M-PDF");
+        var r = _requests.Create(_admin, new NewRequest(
+            new[] { new RequestItemInput(m, 4m) }, Description: "Acil", SubmitImmediately: true));
+
+        var d = _requests.GetPdfData(_admin, r.Id);
+        Assert.Equal(r.DocNo, d.DocNo);
+        Assert.Equal(RequestStatus.Pending, d.Status);
+        Assert.Equal("Acil", d.Description);
+        Assert.Single(d.Items);
+        Assert.Equal("M-PDF", d.Items[0].Code);
+        Assert.Equal(4m, d.Items[0].Quantity);
+    }
+
     // ---- Belge no ----
     [Fact]
     public void BelgeNo_TenantYil_Benzersiz_Artar()

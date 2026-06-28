@@ -16,7 +16,7 @@ public sealed class RequestPdfService : IRequestPdfService
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public byte[] Generate(RequestPdfModel m)
+    public byte[] Generate(RequestPdfModel m, bool economic = false)
     {
         return Document.Create(doc =>
         {
@@ -76,7 +76,11 @@ public sealed class RequestPdfService : IRequestPdfService
             });
         }).GeneratePdf();
 
-        static IContainer HeaderCell(IContainer c) => c.Background(Colors.Grey.Lighten2).Padding(4).BorderBottom(1);
-        static IContainer BodyCell(IContainer c) => c.Padding(4).BorderBottom(1).BorderColor(Colors.Grey.Lighten3);
+        IContainer HeaderCell(IContainer c) => economic
+            ? c.Padding(4).BorderBottom(1)
+            : c.Background(Colors.Grey.Lighten2).Padding(4).BorderBottom(1);
+        IContainer BodyCell(IContainer c) => economic
+            ? c.Padding(4).BorderBottom(1)
+            : c.Padding(4).BorderBottom(1).BorderColor(Colors.Grey.Lighten3);
     }
 }

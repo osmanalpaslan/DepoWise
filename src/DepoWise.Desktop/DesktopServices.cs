@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Files;
+using DepoWise.Application.Requests;
 using DepoWise.Application.Security;
 using DepoWise.Application.Theming;
 using DepoWise.Infrastructure.Database;
@@ -39,6 +40,7 @@ public static class DesktopServices
     public static InspectionService Inspection { get; private set; } = null!;
     public static FuelService Fuel { get; private set; } = null!;
     public static RequestService Requests { get; private set; } = null!;
+    public static IRequestPdfService RequestPdf { get; private set; } = null!;
     public static ReportService Reports { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
@@ -65,6 +67,7 @@ public static class DesktopServices
         VehicleTemplates = new VehicleTemplateService(Factory, clock);
         Fuel = new FuelService(Factory, clock);
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
+        RequestPdf = new RequestPdfService();
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);

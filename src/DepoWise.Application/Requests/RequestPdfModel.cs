@@ -18,5 +18,6 @@ public sealed record RequestPdfModel(
 /// <summary>Belge dışa aktarımı. Türkçe karakterler korunur.</summary>
 public interface IRequestPdfService
 {
-    byte[] Generate(RequestPdfModel model);
+    /// <param name="economic">Ekonomik (sade, gri dolgusuz, toner tasarruflu) çıktı.</param>
+    byte[] Generate(RequestPdfModel model, bool economic = false);
 }

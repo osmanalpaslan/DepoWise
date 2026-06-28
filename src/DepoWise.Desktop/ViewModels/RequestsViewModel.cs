@@ -333,6 +333,38 @@ public sealed partial class RequestsViewModel : ViewModelBase
             id, string.IsNullOrWhiteSpace(RejectReason) ? null : RejectReason.Trim()), "Talep iptal edildi.",
             "Bu talep iptal edilsin mi?");
 
+    // ════════════════════ PDF ÇIKTI ════════════════════
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ExportPdf() => await ExportPdfCore(economic: false);
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ExportEconomicPdf() => await ExportPdfCore(economic: true);
+
+    private async System.Threading.Tasks.Task ExportPdfCore(bool economic)
+    {
+        if (Selected is null) { Status = "Talep seçin."; return; }
+        try
+        {
+            var d = DesktopServices.Requests.GetPdfData(_session, Selected.Id);
+            var model = new RequestPdfModel(
+                CompanyName: DesktopServices.Branding.CompanyName,
+                DocNo: d.DocNo,
+                RequestDate: DateTimeOffset.FromUnixTimeMilliseconds(d.RequestDate).LocalDateTime.ToString("dd.MM.yyyy"),
+                Status: RequestRow.StatusLabel(d.Status),
+                BranchName: d.BranchName, RequesterName: d.RequesterName, WarehouseName: d.WarehouseName,
+                ApproverName: d.ApproverName, Description: d.Description,
+                Items: d.Items.Select(i => new RequestPdfItem(i.Code, i.Name, i.Quantity, i.VehicleLabel)).ToList());
+
+            var bytes = DesktopServices.RequestPdf.Generate(model, economic);
+            var path = await FilePickerService.SavePdfAsync(d.DocNo + (economic ? "_ekonomik" : ""));
+            if (string.IsNullOrEmpty(path)) return;
+            await System.IO.File.WriteAllBytesAsync(path, bytes);
+            FilePickerService.OpenFile(path);
+            Status = "PDF kaydedildi: " + path;
+        }
+        catch (Exception ex) { Status = "PDF oluşturulamadı: " + ex.Message; }
+    }
+
     private async System.Threading.Tasks.Task Act(Action<string> action, string ok, string? confirm)
     {
         if (Selected is null) { Status = "Talep seçin."; return; }

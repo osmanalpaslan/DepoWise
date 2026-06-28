@@ -221,6 +221,8 @@
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                                 <WrapPanel>
+                                                    <Button Classes="Primary" Content="PDF" Margin="0,0,8,8" Command="{Binding ExportPdfCommand}"/>
+                                                    <Button Classes="Secondary" Content="Ekonomik PDF" Margin="0,0,8,8" Command="{Binding ExportEconomicPdfCommand}"/>
                                                     <Button Classes="Secondary" Content="İptal Et" Margin="0,0,8,8" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
                                                 </WrapPanel>
                                             </StackPanel>
