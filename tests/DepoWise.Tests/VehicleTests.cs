@@ -108,6 +108,16 @@ public class VehicleTests : IDisposable
         _vehicles.Create(_admin, new NewVehicle("EX-001"));
         Assert.Equal("EX-002", tpl.GenerateNextInternalCode(_admin, "EX-001"));
 
+        // Güncelle + uyumlu malzeme (SetMaterials → GetMaterialRows)
+        var mat = new MaterialService(_factory, _clock);
+        var m1 = mat.Create(_admin, new NewMaterial("MM-1", "Filtre"));
+        tpl.Update(_admin, id, new NewVehicleTemplate("Ekskavatör Güncel", InternalCode: "EX-001", BrandId: brand));
+        tpl.SetMaterials(_admin, id, new[] { m1 });
+        Assert.Equal("Ekskavatör Güncel", tpl.List(_admin)[0].Name);
+        var rows = tpl.GetMaterialRows(_admin, id);
+        Assert.Single(rows);
+        Assert.Equal("MM-1", rows[0].Code);
+
         tpl.Delete(_admin, id);
         Assert.Empty(tpl.List(_admin));
     }

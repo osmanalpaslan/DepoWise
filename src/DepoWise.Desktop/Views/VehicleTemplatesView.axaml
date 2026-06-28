@@ -28,7 +28,7 @@
             </Border.KeyBindings>
             <ScrollViewer MaxHeight="420">
             <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ ŞABLON" Classes="SectionTitle"/>
+                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Ad" IsRequired="True" Width="260"
                                     HasError="{Binding HasNameError}" ErrorText="{Binding NameError}">
@@ -105,6 +105,25 @@
                     </StackPanel>
                 </ctrl:FormField>
 
+                <!-- Uyumlu malzemeler (araç oluşturulurken kopyalanır) -->
+                <TextBlock Text="Uyumlu Malzemeler" Classes="CardLabel"/>
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                        <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllMaterialsCommand}"/>
+                        <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearMaterialsCommand}"/>
+                    </Grid>
+                    <Border Classes="Table" MaxHeight="160">
+                        <ListBox ItemsSource="{Binding FilteredMaterials}" Background="Transparent" BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TplMaterialPick">
+                                    <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </StackPanel>
+
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding ClearCommand}"/>
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding AddCommand}"/>
@@ -160,8 +179,19 @@
           <!-- Detay -->
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
             <DockPanel>
-              <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-                <Button Classes="Danger" Content="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
+              <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
+                <TextBlock Text="UYUMLU MALZEMELER" Classes="SectionTitle"/>
+                <ItemsControl ItemsSource="{Binding DetailMaterials}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="inf:TemplateMaterialRow">
+                            <TextBlock Classes="Body" Margin="0,1" Text="{Binding Name, StringFormat='• {0}'}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <WrapPanel>
+                  <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
+                  <Button Classes="Danger" Content="Sil" Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
+                </WrapPanel>
               </StackPanel>
               <StackPanel Spacing="8" DataContext="{Binding Selected}">
                 <TextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>

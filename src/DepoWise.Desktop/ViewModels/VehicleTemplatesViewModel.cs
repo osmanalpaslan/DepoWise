@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Vehicles;
@@ -75,8 +76,43 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
     [ObservableProperty] private bool _isAddingModel; [ObservableProperty] private string _newModelName = "";
 
     public bool CanWrite => AccessControl.Can(_session, "vehicles", PermissionAction.Create);
+    public bool CanEdit => AccessControl.Can(_session, "vehicles", PermissionAction.Edit);
     public bool CanDelete => AccessControl.Can(_session, "vehicles", PermissionAction.Delete);
     public string? AddButtonText => CanWrite ? "Yeni Şablon" : null;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditMode))]
+    [NotifyPropertyChangedFor(nameof(FormTitle))]
+    private string? _editId;
+    public bool IsEditMode => EditId != null;
+    public string FormTitle => IsEditMode ? "ŞABLON DÜZENLE" : "YENİ ŞABLON";
+
+    // Uyumlu malzeme (çoklu seçim + arama + tümünü seç)
+    public ObservableCollection<TplMaterialPick> MaterialPicks { get; } = new();
+    public ObservableCollection<TplMaterialPick> FilteredMaterials { get; } = new();
+    [ObservableProperty] private string _materialSearch = "";
+    public ObservableCollection<TemplateMaterialRow> DetailMaterials { get; } = new();
+
+    partial void OnMaterialSearchChanged(string value) => RebuildFilteredMaterials();
+    partial void OnSelectedChanged(VehicleTemplateRow? value)
+    {
+        DetailMaterials.Clear();
+        if (value is null) return;
+        try { foreach (var m in DesktopServices.VehicleTemplates.GetMaterialRows(_session, value.Id)) DetailMaterials.Add(m); }
+        catch { }
+    }
+
+    private void RebuildFilteredMaterials()
+    {
+        FilteredMaterials.Clear();
+        var t = MaterialSearch?.Trim();
+        foreach (var p in MaterialPicks)
+            if (string.IsNullOrEmpty(t) || p.Code.Contains(t, StringComparison.OrdinalIgnoreCase) || p.Name.Contains(t, StringComparison.OrdinalIgnoreCase))
+                FilteredMaterials.Add(p);
+    }
+
+    [RelayCommand] private void SelectAllMaterials() { foreach (var p in FilteredMaterials) p.IsSelected = true; }
+    [RelayCommand] private void ClearMaterials() { foreach (var p in FilteredMaterials) p.IsSelected = false; }
 
     public VehicleTemplatesViewModel(SessionContext session)
     {
@@ -105,20 +141,56 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
     private async Task Add()
     {
         TriedSave = true;
-        if (!CanWrite) { Status = "Yetki yok."; return; }
+        bool editing = IsEditMode;
+        if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewName)) { Status = "Ad zorunlu."; return; }
-        if (!await ConfirmService.AskAsync("Yeni şablon kaydedilsin mi?", "Kaydet")) return;
+        if (!await ConfirmService.AskAsync(editing ? "Şablon güncellensin mi?" : "Yeni şablon kaydedilsin mi?", "Kaydet")) return;
+
+        var dto = new NewVehicleTemplate(
+            Name: NewName.Trim(),
+            InternalCode: string.IsNullOrWhiteSpace(NewCode) ? null : NewCode.Trim(),
+            VehicleTypeId: SelType?.Id, CategoryId: SelCategory?.Id,
+            BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
+            ProductionYear: NewYear > 0 ? NewYear : (int?)null);
+        var matIds = MaterialPicks.Where(p => p.IsSelected).Select(p => p.Id).ToList();
         try
         {
-            DesktopServices.VehicleTemplates.Create(_session, new NewVehicleTemplate(
-                Name: NewName.Trim(),
-                InternalCode: string.IsNullOrWhiteSpace(NewCode) ? null : NewCode.Trim(),
-                VehicleTypeId: SelType?.Id, CategoryId: SelCategory?.Id,
-                BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
-                ProductionYear: NewYear > 0 ? NewYear : (int?)null));
-            Clear(); Load(); Status = "Şablon eklendi.";
+            if (editing)
+            {
+                DesktopServices.VehicleTemplates.Update(_session, EditId!, dto);
+                DesktopServices.VehicleTemplates.SetMaterials(_session, EditId!, matIds);
+                Clear(); Load(); Status = "Şablon güncellendi.";
+            }
+            else
+            {
+                DesktopServices.VehicleTemplates.Create(_session, dto, matIds);
+                Clear(); Load(); Status = "Şablon eklendi.";
+            }
         }
-        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+        catch (Exception ex) { Status = editing ? "Güncellenemedi: " + ex.Message : "Eklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>Seçili şablonu düzenleme modunda forma yükler (alanlar + uyumlu malzemeler). Onay sorar.</summary>
+    [RelayCommand]
+    private async Task BeginEdit()
+    {
+        if (Selected is null) return;
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync("Bu şablonu düzenlemek istiyor musunuz?", "Düzenle")) return;
+
+        LoadLookups();
+        var t = DesktopServices.VehicleTemplates.Get(_session, Selected.Id);
+        if (t is null) { Status = "Şablon bulunamadı."; return; }
+        EditId = t.Id;
+        NewName = t.Name; NewCode = t.InternalCode ?? ""; NewYear = t.ProductionYear ?? 0;
+        SelType = Types.FirstOrDefault(x => x.Id == t.VehicleTypeId);
+        SelCategory = Categories.FirstOrDefault(x => x.Id == t.CategoryId);
+        SelBrand = Brands.FirstOrDefault(x => x.Id == t.BrandId); // modelleri yükler
+        SelModel = Models.FirstOrDefault(x => x.Id == t.VehicleModelId);
+        var mat = DesktopServices.VehicleTemplates.GetMaterials(Selected.Id).ToHashSet();
+        foreach (var p in MaterialPicks) p.IsSelected = mat.Contains(p.Id);
+        RebuildFilteredMaterials();
+        TriedSave = false; ShowAdd = true;
     }
 
     [RelayCommand]
@@ -135,6 +207,8 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
         NewName = ""; NewCode = ""; NewYear = 0;
         SelType = null; SelCategory = null; SelBrand = null; SelModel = null;
         IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = false;
+        foreach (var p in MaterialPicks) p.IsSelected = false;
+        MaterialSearch = ""; EditId = null;
         TriedSave = false; ShowAdd = false;
     }
 
@@ -156,6 +230,10 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
             Types.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "vehicle_types")) Types.Add(x);
             Categories.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "vehicle_categories")) Categories.Add(x);
             Brands.Clear(); foreach (var x in DesktopServices.Lookups.ListBrands(_session, "vehicle")) Brands.Add(x);
+            MaterialPicks.Clear();
+            foreach (var m in DesktopServices.Materials.List(_session, new PageRequest { Limit = 200 }).Items)
+                MaterialPicks.Add(new TplMaterialPick(m.Id, m.Code, m.Name));
+            RebuildFilteredMaterials();
             _lookupsLoaded = true;
         }
         catch (Exception ex) { Status = "Tanımlar yüklenemedi: " + ex.Message; }
@@ -183,4 +261,14 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
     [RelayCommand] private void StartAddModel() { if (SelBrand is null) { Status = "Önce marka seçin."; return; } IsAddingModel = true; NewModelName = ""; }
     [RelayCommand] private void CancelAddModel() { IsAddingModel = false; NewModelName = ""; }
     [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim()), Models, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
+}
+
+public sealed partial class TplMaterialPick : ObservableObject
+{
+    public string Id { get; }
+    public string Code { get; }
+    public string Name { get; }
+    [ObservableProperty] private bool _isSelected;
+    public string Display => $"{Code} — {Name}";
+    public TplMaterialPick(string id, string code, string name) { Id = id; Code = code; Name = name; }
 }

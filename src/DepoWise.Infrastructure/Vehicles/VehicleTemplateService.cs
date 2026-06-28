@@ -26,6 +26,8 @@ public sealed record VehicleTemplateRow(
     public override string ToString() => Name;
 }
 
+public sealed record TemplateMaterialRow(string Id, string Code, string Name);
+
 /// <summary>
 /// Araç şablonu (Araç Genel Tanım) — CRUD + uyumlu malzeme (tam değiştir) + otomatik iç kod üretimi.
 /// Tenant + "vehicles" permission fail-closed.
@@ -143,6 +145,56 @@ ORDER BY t.name LIMIT $lim;";
             list.Add(new VehicleTemplateRow(rr.GetString(0), rr.GetString(1), S(rr, 2),
                 S(rr, 3), S(rr, 4), S(rr, 5), S(rr, 6), rr.IsDBNull(7) ? (int?)null : rr.GetInt32(7),
                 S(rr, 8), S(rr, 9), S(rr, 10), S(rr, 11)));
+        return list;
+    }
+
+    /// <summary>Şablon alanlarını günceller (uyumlu malzemeler SetMaterials ile ayrı).</summary>
+    public void Update(SessionContext s, string templateId, NewVehicleTemplate dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+UPDATE vehicle_templates SET name=$n, internal_code=$ic, vehicle_type_id=$vt, category_id=$cat,
+    brand_id=$br, vehicle_model_id=$vm, production_year=$yr, default_meter_unit=$mu,
+    version=version+1, updated_at=$now
+WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$n", dto.Name);
+            cmd.Parameters.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$yr", (object?)dto.ProductionYear ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$mu", dto.DefaultMeterUnit);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", templateId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_template", templateId, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Şablonun uyumlu malzemeleri (kod/ad ile) — detay gösterimi.</summary>
+    public IReadOnlyList<TemplateMaterialRow> GetMaterialRows(SessionContext s, string templateId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT m.id, m.code, m.name FROM vehicle_template_materials tm
+JOIN materials m ON m.id = tm.material_id AND m.company_id=$c AND m.is_deleted=0
+WHERE tm.template_id=$t ORDER BY m.code;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$t", templateId);
+        var list = new List<TemplateMaterialRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new TemplateMaterialRow(r.GetString(0), r.GetString(1), r.GetString(2)));
         return list;
     }
 
