@@ -41,6 +41,7 @@ public static class AppModules
     {
         (Dashboard, "Ana Ekran"),
         ("companies", "Firmalar"),
+        ("releases", "Güncelleme Yönetimi"),
         ("branches", "Şube / Şantiye"),
         ("users", "Kullanıcılar"),
         ("permissions", "Yetkiler"),
@@ -70,7 +71,7 @@ public static class AppModules
     /// Firma Tanım platform sahibinindir; çok-firmalı dağıtımda firma admini başka firmayı yönetemez.
     /// </summary>
     public static bool IsSuperAdminOnly(string moduleKey)
-        => moduleKey is "companies";
+        => moduleKey is "companies" or "releases";
 }
 
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>

@@ -46,8 +46,12 @@ public class UiCommonTests : IDisposable
     public void Menu_Admin_TumModulleriGorur()
     {
         var menu = MenuBuilder.Build(Session(roles: new[] { RoleKeys.CompanyAdmin }));
-        Assert.True(menu.Count >= AppModules.All.Count - 1);
+        // Firma Admini, yalnız-Süper-Admin modülleri (companies/releases) HARİÇ tümünü görür.
+        var superOnly = AppModules.All.Count(m => AppModules.IsSuperAdminOnly(m.Key));
+        Assert.True(menu.Count >= AppModules.All.Count - superOnly - 1);
         Assert.Contains(menu, m => m.Key == "users");
+        Assert.DoesNotContain(menu, m => m.Key == "companies");
+        Assert.DoesNotContain(menu, m => m.Key == "releases");
     }
 
     // ---- Tarih ----

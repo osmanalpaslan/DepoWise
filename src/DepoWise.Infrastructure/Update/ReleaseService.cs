@@ -81,5 +81,31 @@ VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$now,$now,0);";
         return best;
     }
 
+    /// <summary>Yayınlanan tüm sürümler (en yeni üstte). Yalnız Süper Admin.</summary>
+    public IReadOnlyList<ReleaseRow> List(SessionContext s)
+    {
+        if (!s.IsSuperAdmin) throw new ForbiddenException("Sürüm listesi yalnız Süper Admin yetkisindedir.");
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, published_at " +
+            "FROM app_releases WHERE is_deleted=0 ORDER BY published_at DESC;";
+        var list = new List<ReleaseRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new ReleaseRow(r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetString(3),
+                r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5) == 1, r.GetInt64(6)));
+        return list;
+    }
+
     private static bool IsHex(string s) => s.All(Uri.IsHexDigit);
+}
+
+public sealed record ReleaseRow(string Version, string ChecksumSha256, long SizeBytes,
+    string MinSupportedVersion, string? ReleaseNotes, bool Signed, long PublishedAt)
+{
+    public string SizeDisplay => $"{SizeBytes / 1024.0 / 1024.0:0.##} MB";
+    public string SignedDisplay => Signed ? "İmzalı" : "İmzasız";
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(PublishedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+    public string NotesDisplay => string.IsNullOrWhiteSpace(ReleaseNotes) ? "—" : ReleaseNotes!;
 }

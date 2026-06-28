@@ -77,6 +77,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("👤", "Yönetim", "users", new[]
             {
                 new NavLinkVm("Firma Tanım", "companies"),
+                new NavLinkVm("Güncelleme Yönetimi", "releases"),
                 new NavLinkVm("Kullanıcılar", "users"),
                 new NavLinkVm("Şube / Şantiye", "branches"),
                 new NavLinkVm("Yetkiler", "permissions"),
@@ -198,6 +199,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new CompaniesViewModel(_session);
                 CurrentTitle = "Firma Tanım";
                 CurrentContext = "Firma kayıtları (yalnız Süper Admin)";
+                break;
+            case "releases":
+                CurrentPage = new ReleasesViewModel(_session);
+                CurrentTitle = "Güncelleme Yönetimi";
+                CurrentContext = "Paket yayınla ve % ilerlemeyle kur (yalnız Süper Admin)";
                 break;
             case "requests":
             case "requests:form":

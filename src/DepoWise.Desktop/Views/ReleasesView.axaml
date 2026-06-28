@@ -1,0 +1,107 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:upd="using:DepoWise.Infrastructure.Update"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.ReleasesView"
+             x:DataType="vm:ReleasesViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Güncelleme Yönetimi (Süper Admin)">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="Kurulu sürüm:" Classes="Helper" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Paket yayınla / kur -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="14">
+                <TextBlock Text="PAKET YAYINLA / KUR" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="📦 Paket Dosyası Seç" Command="{Binding PickFileCommand}"/>
+                    <TextBlock Text="{Binding PickedFileName}" Classes="Body" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Sürüm (X.Y.Z)" IsRequired="True" Width="150">
+                        <TextBox Classes="Field" Text="{Binding FormVersion}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Min. Desteklenen" Width="150">
+                        <TextBox Classes="Field" Text="{Binding FormMinVersion}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Boyut (bayt)" Width="140">
+                        <TextBox Classes="Field" Text="{Binding FileSize}" IsEnabled="False"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="İmzalı" Width="90">
+                        <CheckBox IsChecked="{Binding FormSigned}" VerticalAlignment="Center"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Sürüm Notları">
+                    <TextBox Classes="Field" Text="{Binding FormNotes}" AcceptsReturn="True" Height="48"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Checksum (SHA-256)">
+                    <TextBox Classes="Field" Text="{Binding FileChecksum}" IsEnabled="False"/>
+                </ctrl:FormField>
+
+                <!-- % ilerleme -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsUpdating}">
+                    <TextBlock Text="Kuruluyor..." Classes="Helper"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ProgressBar Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding UpdateProgress}" Height="10"/>
+                        <TextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Body" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+
+                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="Yayınla" Command="{Binding PublishCommand}"/>
+                    <Button Classes="Primary" Content="Bu Paketi Kur" Command="{Binding InstallCommand}" IsEnabled="{Binding CanInstall}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Yayınlananlar -->
+        <Panel Grid.Row="2" Margin="0,16,0,0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Text="SÜRÜM" MinWidth="90"/>
+                            <TextBlock Grid.Column="1" Text="BOYUT" MinWidth="90"/>
+                            <TextBlock Grid.Column="2" Text="MİN" MinWidth="80"/>
+                            <TextBlock Grid.Column="3" Text="İMZA" MinWidth="80"/>
+                            <TextBlock Grid.Column="4" Text="NOTLAR" MinWidth="160"/>
+                            <TextBlock Grid.Column="5" Text="TARİH" MinWidth="130"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="upd:ReleaseRow">
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding Version}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SizeDisplay}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding MinSupportedVersion}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding SignedDisplay}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding NotesDisplay}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Yayın yok" Message="Henüz güncelleme paketi yayınlanmadı." IsVisible="{Binding !HasRows}"/>
+        </Panel>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

@@ -53,6 +53,22 @@ public static class FilePickerService
         return file?.TryGetLocalPath();
     }
 
+    /// <summary>Tek dosya seçtirir (genel). Yerel yol döner (iptal → null).</summary>
+    public static async Task<string?> PickFileAsync(string title, string patternLabel, params string[] patterns)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime d
+            || d.MainWindow is null)
+            return null;
+
+        var files = await d.MainWindow.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new FilePickerFileType(patternLabel) { Patterns = patterns } }
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
     /// <summary>Dosyayı sistem varsayılan uygulamasıyla açar (sessiz başarısızlık).</summary>
     public static void OpenFile(string path)
     {
