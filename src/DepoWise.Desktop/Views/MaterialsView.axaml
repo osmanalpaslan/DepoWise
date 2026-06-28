@@ -59,7 +59,7 @@
                                       ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCategory}">
@@ -77,7 +77,7 @@
                                       ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSubCategory}">
@@ -96,7 +96,7 @@
                                       ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingUnit}">
@@ -114,7 +114,7 @@
                                       ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
@@ -132,7 +132,7 @@
                                       ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0"
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">

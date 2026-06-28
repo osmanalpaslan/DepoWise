@@ -87,7 +87,7 @@
                                       ItemsSource="{Binding VehicleTypes}" SelectedItem="{Binding SelVehicleType}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingType}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewTypeName}" PlaceholderText="Yeni makine tipi"/>
@@ -104,7 +104,7 @@
                                       ItemsSource="{Binding VehicleCategories}" SelectedItem="{Binding SelCategory}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCat}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewCatName}" PlaceholderText="Yeni kategori"/>
@@ -121,7 +121,7 @@
                                       ItemsSource="{Binding VehicleBrands}" SelectedItem="{Binding SelBrand}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBrandName}" PlaceholderText="Yeni marka"/>
@@ -138,7 +138,7 @@
                                       ItemsSource="{Binding VehicleModels}" SelectedItem="{Binding SelModel}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingModel}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewModelName}" PlaceholderText="Yeni model (önce marka seç)"/>
@@ -157,7 +157,7 @@
                                       ItemsSource="{Binding Branches}" SelectedItem="{Binding SelBranch}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBranchCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBranchCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBranch}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBranchName}" PlaceholderText="Yeni şantiye/şube"/>
@@ -174,7 +174,7 @@
                                       ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelDriver}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingDriver}">
                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewDriverName}" PlaceholderText="Yeni sürücü (personel)"/>

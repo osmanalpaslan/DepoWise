@@ -184,7 +184,7 @@
                                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}">
                                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                             </ComboBox>
-                                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
+                                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingMntSub}">
                                             <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewMntSubName}" PlaceholderText="Yeni alt bakım adı"/>
