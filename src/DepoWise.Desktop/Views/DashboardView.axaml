@@ -27,16 +27,21 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:KpiCard">
-                            <Border Classes="Kpi" Classes.primary="{Binding Primary}" Margin="0,0,12,12">
-                                <Grid ColumnDefinitions="Auto,*">
-                                    <Border Grid.Column="0" Classes="IconChip" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{Binding Value}" Classes="KpiValue"/>
-                                        <TextBlock Text="{Binding Label}" Classes="KpiLabel"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                            <Button Classes="Ghost" Padding="0" Margin="0,0,12,12" Cursor="Hand"
+                                    Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenCommand}"
+                                    CommandParameter="{Binding NavKey}"
+                                    ToolTip.Tip="İlgili ekranı aç">
+                                <Border Classes="Kpi" Classes.primary="{Binding Primary}">
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <Border Grid.Column="0" Classes="IconChip" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{Binding Value}" Classes="KpiValue"/>
+                                            <TextBlock Text="{Binding Label}" Classes="KpiLabel"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
