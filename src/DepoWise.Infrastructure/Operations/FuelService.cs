@@ -15,7 +15,13 @@ public sealed record NewDistribution(string VehicleId, decimal Liters, decimal C
 public sealed record FuelDistributionRow(string Id, string VehicleId, string? VehicleCode,
     decimal PrevMeter, decimal CurrentMeter, decimal Liters, decimal UnitPrice, string Currency, long DistributionDate);
 
-public sealed record FuelDepotRow(string Id, decimal Liters, decimal UnitPrice, string Currency, long EntryDate, string? InvoiceNo);
+public sealed record FuelDepotRow(string Id, decimal Liters, decimal UnitPrice, string Currency, long EntryDate, string? InvoiceNo)
+{
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(EntryDate).LocalDateTime.ToString("dd.MM.yyyy");
+    public string InvoiceDisplay => string.IsNullOrEmpty(InvoiceNo) ? "—" : InvoiceNo!;
+    public string LitersText => $"{Liters:0.##}";
+    public string PriceText => $"{UnitPrice:0.##} {Currency}";
+}
 
 /// <summary>
 /// Yakıt depo girişi + araç dağıtımı. Dağıtım atomik (IMMEDIATE): depo bakiye kontrolü + fiyat snapshot +

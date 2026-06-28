@@ -2,151 +2,233 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
-             xmlns:inf="using:DepoWise.Infrastructure.Vehicles"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
+             xmlns:op="using:DepoWise.Infrastructure.Operations"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="680"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="660"
              x:Class="DepoWise.Desktop.Views.FuelView"
              x:DataType="vm:FuelViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
+        <TabControl Grid.Row="0">
 
-        <ctrl:Toolbar Grid.Row="0" Title="Yakıt">
-            <ctrl:Toolbar.FilterContent>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Classes="Secondary" Content="Depo Girişi" Command="{Binding ToggleDepotCommand}"/>
-                    <Button Classes="Primary" Content="Dağıtım" Command="{Binding ToggleDistCommand}"/>
-                </StackPanel>
-            </ctrl:Toolbar.FilterContent>
-        </ctrl:Toolbar>
+            <!-- ═══════════ YAKIT DAĞITIMLARI ═══════════ -->
+            <TabItem Header="Yakıt Dağıtımları">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                    <ctrl:Toolbar Grid.Row="0" Title="Yakıt Dağıtımları"
+                                  PrimaryActionText="Yeni Dağıtım" PrimaryActionCommand="{Binding ToggleDistCommand}">
+                        <ctrl:Toolbar.FilterContent>
+                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                        </ctrl:Toolbar.FilterContent>
+                    </ctrl:Toolbar>
 
-        <!-- KPI -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="14" Margin="0,16,0,0">
-            <Border Classes="Kpi">
-                <StackPanel VerticalAlignment="Center" Spacing="2">
-                    <TextBlock Text="{Binding DepotBalanceText}" Classes="KpiValue"/>
-                    <TextBlock Text="Depo Bakiyesi" Classes="KpiLabel"/>
-                </StackPanel>
-            </Border>
-            <Border Classes="Kpi">
-                <StackPanel VerticalAlignment="Center" Spacing="2">
-                    <TextBlock Text="{Binding CurrentPriceText}" Classes="KpiValue"/>
-                    <TextBlock Text="Güncel Fiyat" Classes="KpiLabel"/>
-                </StackPanel>
-            </Border>
-        </StackPanel>
-
-        <!-- Formlar -->
-        <StackPanel Grid.Row="2" Spacing="12" Margin="0,16,0,0">
-            <!-- Depo girişi -->
-            <Border Classes="Panel" IsVisible="{Binding ShowDepot}">
-                <StackPanel Spacing="14" MaxWidth="520" HorizontalAlignment="Left">
-                    <TextBlock Text="DEPO GİRİŞİ" Classes="SectionTitle"/>
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Litre" IsRequired="True" Width="180">
-                            <NumericUpDown Classes="Field" Value="{Binding DepotLiters}" Minimum="0"
-                                           FormatString="0.##" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Birim Fiyat (₺/L)" IsRequired="True" Width="180">
-                            <NumericUpDown Classes="Field" Value="{Binding DepotPrice}" Minimum="0"
-                                           FormatString="0.##" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                        <Button Classes="Secondary" Content="İptal" Command="{Binding ToggleDepotCommand}"/>
-                        <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDepotCommand}"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <!-- Dağıtım -->
-            <Border Classes="Panel" IsVisible="{Binding ShowDist}">
-                <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
-                    <TextBlock Text="ARACA DAĞITIM" Classes="SectionTitle"/>
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
-                            <ComboBox Classes="Field" ItemsSource="{Binding Vehicles}"
-                                      SelectedItem="{Binding DistVehicle}" HorizontalAlignment="Stretch">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="inf:VehicleListRow">
-                                        <TextBlock Text="{Binding InternalCode}"/>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Litre" IsRequired="True" Width="150">
-                            <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
-                                           FormatString="0.##" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Güncel Sayaç" Width="160" HelpText="Aracın yeni km/saat değeri.">
-                            <NumericUpDown Classes="Field" Value="{Binding DistMeter}" Minimum="0"
-                                           FormatString="0.##" ShowButtonSpinner="False"/>
-                        </ctrl:FormField>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                        <Button Classes="Secondary" Content="İptal" Command="{Binding ToggleDistCommand}"/>
-                        <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDistCommand}"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </StackPanel>
-
-        <!-- Dağıtım listesi -->
-        <Panel Grid.Row="3" Margin="0,16,0,0">
-            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-                <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="110"/>
-                            <TextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
-                            <TextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Right"/>
-                            <TextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Right"/>
-                            <TextBlock Grid.Column="4" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
-                        </Grid>
+                    <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDist}">
+                        <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
+                            <TextBlock Text="YENİ DAĞITIM" Classes="SectionTitle"/>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding InternalCode}"/></DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Önceki Sayaç" Width="140" HelpText="Araçtan otomatik.">
+                                    <NumericUpDown Classes="Field" Value="{Binding DistPrevMeter}" IsEnabled="False"
+                                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Güncel Sayaç" Width="140">
+                                    <NumericUpDown Classes="Field" Value="{Binding DistMeter}" Minimum="0"
+                                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Litre" IsRequired="True" Width="140">
+                                    <NumericUpDown Classes="Field" Value="{Binding DistLiters}" Minimum="0"
+                                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Birim Fiyat (₺/L)" Width="160" HelpText="Varsayılan: güncel fiyat.">
+                                    <NumericUpDown Classes="Field" Value="{Binding DistUnitPrice}" Minimum="0"
+                                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Toplam" Width="140">
+                                    <TextBox Classes="Field" Text="{Binding DistTotalText}" IsEnabled="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Yakıtı Veren" Width="180">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDistCommand}"/>
+                                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDistCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:FuelRow">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding LitersText}" MinWidth="80" VerticalAlignment="Center"
-                                               TextAlignment="Right" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="110" VerticalAlignment="Center"
-                                               TextAlignment="Right"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center"
-                                               TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
 
-            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
-                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}"
-                             IsVisible="{Binding HasError}"/>
-            <ctrl:StatePanel Mode="Empty" Title="Dağıtım yok"
-                             Message="Henüz yakıt dağıtımı kaydı yok."
-                             IsVisible="{Binding IsEmpty}"/>
-        </Panel>
+                    <Panel Grid.Row="2" Margin="0,16,0,0">
+                        <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDist}">
+                            <DockPanel>
+                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
+                                        <TextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
+                                        <TextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <ListBox Classes="Table" ItemsSource="{Binding Distributions}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FuelRow">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding LitersText}" MinWidth="80" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <TextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+                        <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                         ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                        <ctrl:StatePanel Mode="Empty" Title="Dağıtım yok" Message="Henüz yakıt dağıtımı kaydı yok." IsVisible="{Binding DistEmpty}"/>
+                    </Panel>
+                </Grid>
+            </TabItem>
 
-        <TextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0"
-                   Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <!-- ═══════════ DEPO GİRİŞLERİ ═══════════ -->
+            <TabItem Header="Depo Girişleri">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                    <ctrl:Toolbar Grid.Row="0" Title="Depo Girişleri"
+                                  PrimaryActionText="Yeni Giriş" PrimaryActionCommand="{Binding ToggleDepotCommand}">
+                        <ctrl:Toolbar.FilterContent>
+                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                        </ctrl:Toolbar.FilterContent>
+                    </ctrl:Toolbar>
+
+                    <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDepot}">
+                        <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
+                            <TextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Litre" IsRequired="True" Width="150">
+                                    <NumericUpDown Classes="Field" Value="{Binding DepotLiters}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Birim Fiyat (₺/L)" IsRequired="True" Width="160">
+                                    <NumericUpDown Classes="Field" Value="{Binding DepotPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Toplam" Width="140">
+                                    <TextBox Classes="Field" Text="{Binding DepotTotalText}" IsEnabled="False"/>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Tedarikçi" Width="240">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Fatura/İrsaliye No" Width="200">
+                                    <TextBox Classes="Field" Text="{Binding DepotInvoice}"/>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDepotCommand}"/>
+                                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDepotCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Panel Grid.Row="2" Margin="0,16,0,0">
+                        <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDepot}">
+                            <DockPanel>
+                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="FATURA NO" MinWidth="140"/>
+                                        <TextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="2" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                    </Grid>
+                                </Border>
+                                <ListBox Classes="Table" ItemsSource="{Binding DepotEntries}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="op:FuelDepotRow">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding InvoiceDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding LitersText}" MinWidth="90" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding PriceText}" MinWidth="110" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+                        <ctrl:StatePanel Mode="Empty" Title="Depo girişi yok" Message="Henüz depo girişi kaydı yok." IsVisible="{Binding DepotEmpty}"/>
+                    </Panel>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══════════ ÖZET ═══════════ -->
+            <TabItem Header="Özet">
+                <StackPanel Margin="0,16,0,0" Spacing="16">
+                    <WrapPanel>
+                        <Border Classes="Kpi"><StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding DepotBalanceText}" Classes="KpiValue"/>
+                            <TextBlock Text="Kalan Yakıt (Depo)" Classes="KpiLabel"/></StackPanel></Border>
+                        <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding CurrentPriceText}" Classes="KpiValue"/>
+                            <TextBlock Text="Güncel Fiyat" Classes="KpiLabel"/></StackPanel></Border>
+                        <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding TotalReceivedText}" Classes="KpiValue"/>
+                            <TextBlock Text="Toplam Alınan" Classes="KpiLabel"/></StackPanel></Border>
+                        <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding TotalDistributedText}" Classes="KpiValue"/>
+                            <TextBlock Text="Toplam Dağıtılan" Classes="KpiLabel"/></StackPanel></Border>
+                    </WrapPanel>
+                    <TextBlock Text="Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır."
+                               Classes="Helper" TextWrapping="Wrap"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>
