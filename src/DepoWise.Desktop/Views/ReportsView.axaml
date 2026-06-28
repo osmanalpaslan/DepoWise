@@ -36,12 +36,23 @@
                 <TextBlock DockPanel.Dock="Top" Text="{Binding ChartTitle}" Classes="SectionTitle"
                            IsVisible="{Binding ShowChart}" Margin="0,0,0,8"/>
                 <Panel>
-                    <!-- Bar: araç bazında yakıt -->
-                    <lvc:CartesianChart Series="{Binding ChartSeries}" XAxes="{Binding XAxes}" YAxes="{Binding YAxes}"
-                                        IsVisible="{Binding ShowBar}" LegendPosition="Hidden" TooltipPosition="Top"/>
+                    <!-- Bar: araç bazında yakıt (yalnız sorgu sonrası kurulur — açılışta grafik oluşturulmaz) -->
+                    <ContentControl IsVisible="{Binding ShowBar}" Content="{Binding}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:ReportsViewModel">
+                                <lvc:CartesianChart Series="{Binding ChartSeries}" XAxes="{Binding XAxes}" YAxes="{Binding YAxes}"
+                                                    LegendPosition="Hidden" TooltipPosition="Top"/>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
                     <!-- Pasta: stok durum dağılımı -->
-                    <lvc:PieChart Series="{Binding PieSeries}" IsVisible="{Binding ShowPie}"
-                                  LegendPosition="Hidden" TooltipPosition="Top"/>
+                    <ContentControl IsVisible="{Binding ShowPie}" Content="{Binding}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:ReportsViewModel">
+                                <lvc:PieChart Series="{Binding PieSeries}" LegendPosition="Hidden" TooltipPosition="Top"/>
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
                     <!-- Grafik yoksa/yüklenmediyse bilgi -->
                     <TextBlock Text="Grafik için Sorgula'ya basın." Classes="Helper"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
