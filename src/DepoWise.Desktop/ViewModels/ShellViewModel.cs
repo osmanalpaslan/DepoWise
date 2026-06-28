@@ -77,7 +77,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("👤", "Yönetim", "users", new[]
             {
                 new NavLinkVm("Kullanıcılar", "users"),
-            }),
+            }, expanded: true),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
                 new NavLinkVm("Talep Formu", "requests:form"),
