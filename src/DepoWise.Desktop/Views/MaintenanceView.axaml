@@ -2,74 +2,209 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:inf="using:DepoWise.Infrastructure.Maintenance"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="620"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
              x:Class="DepoWise.Desktop.Views.MaintenanceView"
              x:DataType="vm:MaintenanceViewModel">
 
-    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
+        <TabControl Grid.Row="0">
 
-        <ctrl:Toolbar Grid.Row="0" Title="Bakım Takibi">
-            <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
-            </ctrl:Toolbar.FilterContent>
-        </ctrl:Toolbar>
+            <!-- ═══════════ BAKIM TANIMLARI ═══════════ -->
+            <TabItem Header="Bakım Tanımları">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                    <ctrl:Toolbar Grid.Row="0" Title="Bakım Tanımları"
+                                  PrimaryActionText="{Binding AddDefButtonText}" PrimaryActionCommand="{Binding ToggleDefAddCommand}">
+                        <ctrl:Toolbar.FilterContent>
+                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadDefsCommand}"/>
+                        </ctrl:Toolbar.FilterContent>
+                    </ctrl:Toolbar>
 
-        <Panel Grid.Row="1" Margin="0,16,0,0">
-            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-                <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="110"/>
-                            <TextBlock Grid.Column="1" Text="BAKIM TANIMI" MinWidth="160"/>
-                            <TextBlock Grid.Column="2" Text="İLERLEME" MinWidth="90"/>
-                            <TextBlock Grid.Column="3" Text="TÜKETİLEN / PERİYOT" MinWidth="150"/>
-                            <TextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
-                        </Grid>
+                    <!-- Yeni/düzenle tanım formu -->
+                    <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDefAdd}">
+                        <Border.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding AddDefCommand}"/>
+                            <KeyBinding Gesture="Escape" Command="{Binding ClearDefCommand}"/>
+                        </Border.KeyBindings>
+                        <ScrollViewer MaxHeight="380">
+                        <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding DefFormTitle}" Classes="SectionTitle"/>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Tanım Adı" IsRequired="True" Width="280"
+                                                HasError="{Binding HasDefNameError}" ErrorText="{Binding DefNameError}">
+                                    <TextBox Classes="Field" Text="{Binding DefName}" />
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Periyot" Width="140">
+                                    <NumericUpDown Classes="Field" Value="{Binding DefIntervalValue}" Minimum="0"
+                                                   FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Birim" Width="120">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding UnitOptions}" SelectedItem="{Binding DefUnitDisplay}"/>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <ctrl:FormField Label="Açıklama">
+                                <TextBox Classes="Field" Text="{Binding DefDescription}" AcceptsReturn="True" Height="52"/>
+                            </ctrl:FormField>
+
+                            <ctrl:FormField Label="İlişkili Araçlar (periyodik takip)"
+                                            HelpText="Seçilen araçlar bu bakım için periyodik takip edilir.">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                                        <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
+                                        <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
+                                    </Grid>
+                                    <Border Classes="Table" MaxHeight="150">
+                                        <ListBox ItemsSource="{Binding FilteredVehicles}" Background="Transparent" BorderThickness="0">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:VehiclePick">
+                                                    <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Border>
+                                </StackPanel>
+                            </ctrl:FormField>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDefCommand}"/>
+                                <Button Classes="Primary" Content="Kaydet" Command="{Binding AddDefCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        </ScrollViewer>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:MaintenanceAlertRow">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center"
-                                                      Kind="{Binding LevelKind}" Text="{Binding LevelText}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
 
-            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
-                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}"
-                             IsVisible="{Binding HasError}"/>
-            <ctrl:StatePanel Mode="Empty" Title="Bakım uyarısı yok"
-                             Message="Aktif periyodik bakım uyarısı bulunmuyor."
-                             IsVisible="{Binding IsEmpty}"/>
-        </Panel>
+                    <!-- Liste + Detay -->
+                    <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360">
+                        <Panel Grid.Column="0">
+                            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasDefs}">
+                                <DockPanel>
+                                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Grid.Column="0" Text="BAKIM TANIMI" MinWidth="180"/>
+                                            <TextBlock Grid.Column="1" Text="PERİYOT" MinWidth="120"/>
+                                        </Grid>
+                                    </Border>
+                                    <ListBox Classes="Table" ItemsSource="{Binding Defs}" SelectedItem="{Binding SelectedDef}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="inf:MaintenanceDefinitionRow">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding IntervalDisplay}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding DefsError}"
+                                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadDefsCommand}" IsVisible="{Binding HasDefsError}"/>
+                            <ctrl:StatePanel Mode="Empty" Title="Tanım yok" Message="Henüz bakım tanımı eklenmedi." IsVisible="{Binding DefsEmpty}"/>
+                        </Panel>
 
-        <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0"
-                   Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <!-- Tanım detayı -->
+                        <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasDefSelection}">
+                            <ScrollViewer>
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="{Binding SelectedDef.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                                    <ctrl:StatusBadge Kind="Info" Text="{Binding SelectedDef.IntervalDisplay}" HorizontalAlignment="Left"/>
+                                    <TextBlock Text="{Binding SelectedDef.Description}" Classes="Helper" TextWrapping="Wrap"
+                                               IsVisible="{Binding SelectedDef.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    <Border Classes="Divider"/>
+
+                                    <TextBlock Text="ALT BAKIM TANIMLARI" Classes="SectionTitle"/>
+                                    <ItemsControl ItemsSource="{Binding SubDefs}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="inf:MaintenanceDefinitionRow">
+                                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Classes="Ghost" Content="Sil"
+                                                            Command="{Binding $parent[ItemsControl].((vm:MaintenanceViewModel)DataContext).DeleteSubDefCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding CanWrite}">
+                                        <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubDefName}" PlaceholderText="Yeni alt bakım adı"/>
+                                        <Button Grid.Column="1" Classes="Secondary" Content="Ekle" Margin="8,0,0,0" Command="{Binding AddSubDefCommand}"/>
+                                    </Grid>
+
+                                    <Border Classes="Divider"/>
+                                    <WrapPanel>
+                                        <Button Classes="Primary" Content="Düzenle" Margin="0,0,8,0" Command="{Binding BeginEditDefCommand}" IsVisible="{Binding CanEdit}"/>
+                                        <Button Classes="Danger" Content="Sil" Command="{Binding RequestDeleteDefCommand}" IsVisible="{Binding CanDelete}"/>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                        <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasDefSelection}">
+                            <TextBlock Text="Detay/alt bakım için bir tanım seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══════════ UYARILAR ═══════════ -->
+            <TabItem Header="Uyarılar">
+                <Grid RowDefinitions="Auto,*" Margin="0,12,0,0">
+                    <ctrl:Toolbar Grid.Row="0" Title="Periyodik Bakım Uyarıları">
+                        <ctrl:Toolbar.FilterContent>
+                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadAlertsCommand}"/>
+                        </ctrl:Toolbar.FilterContent>
+                    </ctrl:Toolbar>
+                    <Panel Grid.Row="1" Margin="0,16,0,0">
+                        <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                            <DockPanel>
+                                <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="110"/>
+                                        <TextBlock Grid.Column="1" Text="BAKIM TANIMI" MinWidth="160"/>
+                                        <TextBlock Grid.Column="2" Text="İLERLEME" MinWidth="90"/>
+                                        <TextBlock Grid.Column="3" Text="TÜKETİLEN / PERİYOT" MinWidth="150"/>
+                                        <TextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
+                                    </Grid>
+                                </Border>
+                                <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MaintenanceAlertRow">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center" Kind="{Binding LevelKind}" Text="{Binding LevelText}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+                        <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                         ActionText="Tekrar Dene" ActionCommand="{Binding LoadAlertsCommand}" IsVisible="{Binding HasError}"/>
+                        <ctrl:StatePanel Mode="Empty" Title="Bakım uyarısı yok" Message="Aktif periyodik bakım uyarısı bulunmuyor." IsVisible="{Binding IsEmpty}"/>
+                    </Panel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

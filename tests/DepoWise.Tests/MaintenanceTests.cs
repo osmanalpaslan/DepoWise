@@ -56,6 +56,36 @@ public class MaintenanceTests : IDisposable
     public void Esik_Yuzdeleri(int consumed, AlertLevel expected)
         => Assert.Equal(expected, AlertRules.Level(AlertRules.Progress(consumed, 100)));
 
+    // ---- Tanım CRUD + alt bakım + araç kapsamı (Bakım Tanımları sekmesi) ----
+    [Fact]
+    public void Tanim_ListeGuncelleSil_AltBakim_AracKapsami()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("V-1"));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("Yağ Değişimi", 5000m, "km"), new[] { v });
+
+        var mains = _defs.List(_admin);
+        Assert.Single(mains);
+        Assert.Equal("Yağ Değişimi", mains[0].Name);
+
+        // Araç kapsamı
+        Assert.Contains(v, _defs.GetVehicleIds(_admin, def));
+        _defs.SetVehicles(_admin, def, System.Array.Empty<string>());
+        Assert.Empty(_defs.GetVehicleIds(_admin, def));
+
+        // Alt bakım (parent)
+        _defs.Create(_admin, new NewMaintenanceDefinition("Ön Balata", 0m, "km", ParentDefId: def));
+        var subs = _defs.List(_admin, def);
+        Assert.Single(subs);
+        Assert.Equal("Ön Balata", subs[0].Name);
+        Assert.Single(_defs.List(_admin)); // alt bakım ana listede görünmez
+
+        // Güncelle + sil
+        _defs.Update(_admin, def, new NewMaintenanceDefinition("Yağ Değişimi 2", 6000m, "hour"));
+        Assert.Equal("Yağ Değişimi 2", _defs.List(_admin)[0].Name);
+        _defs.Delete(_admin, def);
+        Assert.Empty(_defs.List(_admin));
+    }
+
     // ---- Bakım malzemesi tek düşüm ----
     [Fact]
     public void Bakim_Malzeme_TekDusum_FiyatSnapshot()
