@@ -22,6 +22,12 @@ public sealed record RequestItemRow(string MaterialCode, string MaterialName, de
 
 public sealed record RequestPdfLine(string Code, string Name, string Unit, decimal Quantity, string? VehicleCode, string? VehicleChassis);
 
+public sealed record RequestEditItem(string MaterialId, string Code, string Name, decimal Quantity,
+    string? VehicleId, string? VehicleCode, string? VehiclePlate);
+
+public sealed record RequestEditData(string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId,
+    string? Description, long RequestDate, RequestStatus Status, IReadOnlyList<RequestEditItem> Items);
+
 public sealed record RequestPdfData(
     string DocNo, long RequestDate, RequestStatus Status, string? BranchName,
     string? RequesterName, string? WarehouseName, string? ApproverName, string? Description,
@@ -95,6 +101,104 @@ VALUES($id,$c,$no,$dt,$br,$req,$wh,$ap,$desc,$st,$now,$now,1,0);";
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return new RequestHeader(id, docNo, status, s.CompanyId);
+    }
+
+    /// <summary>Mevcut talebi günceller (başlık + kalemler tam değiştirir). ONAYLI talep değiştirilemez. Belge no/durum korunur.</summary>
+    public void Update(SessionContext s, string requestId, NewRequest dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (dto.Items.Count == 0) throw new ArgumentException("En az bir kalem gerekli.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+        var (status, companyId) = LoadStatusTx(conn, tx, s.CompanyId, requestId);
+        TenantAccessGuard.EnsureOwnership(s, companyId);
+        if (status == RequestStatus.Approved)
+            throw new InvalidOperationException("Onaylanmış talep güncellenemez.");
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+UPDATE material_requests SET branch_id=$br, requester_id=$req, warehouse_id=$wh, approver_id=$ap,
+    description=$desc, request_date=$dt, version=version+1, updated_at=$now WHERE id=$id;";
+            cmd.Parameters.AddWithValue("$br", (object?)dto.BranchId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$req", (object?)dto.RequesterId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$wh", (object?)dto.WarehouseId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$ap", (object?)dto.ApproverId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$dt", dto.RequestDate ?? now);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", requestId);
+            cmd.ExecuteNonQuery();
+        }
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM material_request_items WHERE request_id=$r;";
+            del.Parameters.AddWithValue("$r", requestId);
+            del.ExecuteNonQuery();
+        }
+        foreach (var item in dto.Items)
+        {
+            EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
+            using var ic = conn.CreateCommand();
+            ic.Transaction = tx;
+            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES($id,$r,$m,$q,$v,$n);";
+            ic.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ic.Parameters.AddWithValue("$r", requestId);
+            ic.Parameters.AddWithValue("$m", item.MaterialId);
+            ic.Parameters.AddWithValue("$q", Money.Serialize(item.Quantity));
+            ic.Parameters.AddWithValue("$v", (object?)item.VehicleId ?? DBNull.Value);
+            ic.Parameters.AddWithValue("$n", (object?)item.Note ?? DBNull.Value);
+            ic.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", requestId, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Düzenleme için tam veri (başlık id'leri + kalemler: malzeme/araç id'leri).</summary>
+    public RequestEditData GetForEdit(SessionContext s, string requestId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+
+        string? br, rq, wh, ap, desc; long date; string status;
+        using (var hc = conn.CreateCommand())
+        {
+            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id FROM material_requests WHERE id=$id;";
+            hc.Parameters.AddWithValue("$id", requestId);
+            using var hr = hc.ExecuteReader();
+            if (!hr.Read()) throw new ForbiddenException("Talep bulunamadı.");
+            if (hr.GetString(7) != s.CompanyId) throw new ForbiddenException("Talep başka firmaya ait.");
+            br = hr.IsDBNull(0) ? null : hr.GetString(0);
+            rq = hr.IsDBNull(1) ? null : hr.GetString(1);
+            wh = hr.IsDBNull(2) ? null : hr.GetString(2);
+            ap = hr.IsDBNull(3) ? null : hr.GetString(3);
+            desc = hr.IsDBNull(4) ? null : hr.GetString(4);
+            date = hr.GetInt64(5);
+            status = hr.GetString(6);
+        }
+
+        var items = new List<RequestEditItem>();
+        using (var ic = conn.CreateCommand())
+        {
+            ic.CommandText = @"
+SELECT i.material_id, m.code, m.name, i.quantity, i.vehicle_id, v.internal_code, v.plate
+FROM material_request_items i
+JOIN materials m ON m.id = i.material_id
+LEFT JOIN vehicles v ON v.id = i.vehicle_id
+WHERE i.request_id=$r ORDER BY m.code;";
+            ic.Parameters.AddWithValue("$r", requestId);
+            using var ir = ic.ExecuteReader();
+            while (ir.Read())
+                items.Add(new RequestEditItem(ir.GetString(0), ir.GetString(1), ir.GetString(2), Money.Parse(ir.GetString(3)),
+                    ir.IsDBNull(4) ? null : ir.GetString(4),
+                    ir.IsDBNull(5) ? null : ir.GetString(5),
+                    ir.IsDBNull(6) ? null : ir.GetString(6)));
+        }
+        return new RequestEditData(br, rq, wh, ap, desc, date, RequestStatusMachine.FromDb(status), items);
     }
 
     public void Submit(SessionContext s, string requestId)

@@ -76,6 +76,30 @@ public class RequestTests : IDisposable
         Assert.Equal(3m, items[0].Quantity);
     }
 
+    // ---- Güncelleme + onaylı kilit ----
+    [Fact]
+    public void Update_KalemleriDegistirir_OnayliIseEngeller()
+    {
+        var m1 = Mat("M-A");
+        var m2 = Mat("M-B");
+        var r = _requests.Create(_admin, new NewRequest(new[] { new RequestItemInput(m1, 2m) },
+            Description: "ilk", SubmitImmediately: true));
+
+        // Beklemede → güncellenebilir
+        _requests.Update(_admin, r.Id, new NewRequest(
+            new[] { new RequestItemInput(m2, 5m) }, Description: "yeni"));
+        var edit = _requests.GetForEdit(_admin, r.Id);
+        Assert.Equal("yeni", edit.Description);
+        Assert.Single(edit.Items);
+        Assert.Equal("M-B", edit.Items[0].Code);
+        Assert.Equal(5m, edit.Items[0].Quantity);
+
+        // Onaylandıktan sonra güncelleme engellenir
+        _requests.Approve(_admin, r.Id);
+        Assert.Throws<InvalidOperationException>(() =>
+            _requests.Update(_admin, r.Id, new NewRequest(new[] { new RequestItemInput(m1, 1m) })));
+    }
+
     // ---- PDF verisi (isimler + kalemler) ----
     [Fact]
     public void GetPdfData_BelgeVeKalemleriDoner()

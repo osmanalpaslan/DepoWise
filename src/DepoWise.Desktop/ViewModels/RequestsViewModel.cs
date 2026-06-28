@@ -65,9 +65,12 @@ public sealed partial class RequestsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CanApprove))]
     [NotifyPropertyChangedFor(nameof(CanReject))]
     [NotifyPropertyChangedFor(nameof(CanCancel))]
+    [NotifyPropertyChangedFor(nameof(CanEditSelected))]
     private RequestRow? _selected;
 
     public bool HasSelection => Selected != null;
+    /// <summary>Onaylı talep düzenlenemez (kullanıcı kuralı). Diğer durumlar düzenlenebilir.</summary>
+    public bool CanEditSelected => Selected is not null && Selected.Status != RequestStatus.Approved && CanWrite;
     public bool CanSubmit => Selected?.Status == RequestStatus.Draft;
     public bool CanApprove => Selected?.Status == RequestStatus.Pending && CanApproveButton;
     public bool CanReject => Selected?.Status == RequestStatus.Pending && CanApproveButton;
@@ -150,8 +153,12 @@ public sealed partial class RequestsViewModel : ViewModelBase
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
-    // ════════════════════ YENİ TALEP FORMU ════════════════════
+    // ════════════════════ YENİ / DÜZENLE TALEP FORMU ════════════════════
     [ObservableProperty] private bool _showForm;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormTitle))]
+    private string? _editId;
+    public string FormTitle => EditId is null ? "YENİ TALEP" : "TALEP DÜZENLE";
     [ObservableProperty] private LookupItem? _formSite;
     [ObservableProperty] private LookupItem? _formRequester;
     [ObservableProperty] private LookupItem? _formWarehouse;   // Depo Sorumlusu
@@ -200,6 +207,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
     private void NewRequest()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
+        EditId = null;
         FormSite = null; FormRequester = null; FormWarehouse = null; FormApprover = null;
         FormDate = DateTimeOffset.Now; FormDescription = ""; FormError = null;
         FormItems.Clear();
@@ -210,7 +218,39 @@ public sealed partial class RequestsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CancelForm() => ShowForm = false;
+    private void CancelForm() { ShowForm = false; EditId = null; }
+
+    /// <summary>Seçili talebi forma yükler (onaylı değilse). Belge no/durum korunur, kalemler tam değiştirilir.</summary>
+    [RelayCommand]
+    private void BeginEditRequest()
+    {
+        if (Selected is null) { Status = "Talep seçin."; return; }
+        if (Selected.Status == RequestStatus.Approved) { Status = "Onaylanmış talep düzenlenemez."; return; }
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        try
+        {
+            var d = DesktopServices.Requests.GetForEdit(_session, Selected.Id);
+            EditId = Selected.Id;
+            FormSite = Sites.FirstOrDefault(x => x.Id == d.BranchId);
+            FormRequester = Personnel.FirstOrDefault(x => x.Id == d.RequesterId);
+            FormWarehouse = Personnel.FirstOrDefault(x => x.Id == d.WarehouseId);
+            FormApprover = Personnel.FirstOrDefault(x => x.Id == d.ApproverId);
+            FormDescription = d.Description ?? "";
+            FormDate = DateTimeOffset.FromUnixTimeMilliseconds(d.RequestDate);
+            FormItems.Clear();
+            foreach (var it in d.Items)
+            {
+                var disp = it.VehicleCode is null ? null
+                    : it.VehiclePlate is null ? it.VehicleCode : $"{it.VehicleCode} - {it.VehiclePlate}";
+                FormItems.Add(new ReqItemLine(it.MaterialId, it.Code, it.Name, it.Quantity, it.VehicleId, disp));
+            }
+            MaterialSearch = ""; PickedMaterial = null; NewItemQty = 1; NewItemVehicle = null; ItemError = null; FormError = null;
+            IsAddingPersonnel = false; IsAddingSite = false;
+            RefreshMaterials();
+            ShowForm = true;
+        }
+        catch (Exception ex) { Status = "Düzenlenemedi: " + ex.Message; }
+    }
 
     [RelayCommand]
     private void PickMaterial(MaterialRefRow? m)
@@ -290,13 +330,16 @@ public sealed partial class RequestsViewModel : ViewModelBase
         if (!CanWrite) { FormError = "Yetki yok."; return; }
         if (FormSite is null) { FormError = "Şantiye seçilmesi zorunludur."; return; }
         if (FormItems.Count == 0) { FormError = "En az bir talep kalemi eklenmelidir."; return; }
+        var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(
-                "Talep oluşturulup yöneticiye iletilecek (kaydedildikten sonra düzenlenemez). Onaylıyor musunuz?", "Talep Oluştur"))
+                editing ? "Talep güncellensin mi? (kalemler tam değiştirilir)"
+                        : "Talep oluşturulup yöneticiye iletilecek. Onaylıyor musunuz?",
+                editing ? "Talebi Güncelle" : "Talep Oluştur"))
             return;
         try
         {
             var items = FormItems.Select(l => new RequestItemInput(l.MaterialId, l.Quantity, l.VehicleId)).ToList();
-            DesktopServices.Requests.Create(_session, new NewRequest(
+            var dto = new NewRequest(
                 Items: items,
                 BranchId: FormSite.Id,
                 RequesterId: FormRequester?.Id,
@@ -304,10 +347,14 @@ public sealed partial class RequestsViewModel : ViewModelBase
                 ApproverId: FormApprover?.Id,
                 Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
                 RequestDate: FormDate?.ToUnixTimeMilliseconds(),
-                SubmitImmediately: true));
-            ShowForm = false;
+                SubmitImmediately: true);
+
+            if (editing) DesktopServices.Requests.Update(_session, EditId!, dto);
+            else DesktopServices.Requests.Create(_session, dto);
+
+            ShowForm = false; EditId = null;
             Load();
-            Status = "Talep oluşturuldu ve iletildi.";
+            Status = editing ? "Talep güncellendi." : "Talep oluşturuldu ve iletildi.";
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }
@@ -381,7 +428,14 @@ public sealed partial class RequestsViewModel : ViewModelBase
                 Items: d.Items.Select(i => new RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis)).ToList(),
                 LogoPath: CompanyLogoPath);
 
-            var bytes = DesktopServices.RequestPdf.Generate(model, economic);
+            byte[] bytes;
+            try { bytes = DesktopServices.RequestPdf.Generate(model, economic); }
+            catch when (!string.IsNullOrEmpty(model.LogoPath))
+            {
+                // Logo okunamadı/desteklenmiyor → logosuz üret (PDF yine de çıksın)
+                bytes = DesktopServices.RequestPdf.Generate(model with { LogoPath = null }, economic);
+                Status = "Uyarı: firma logosu okunamadı, logosuz PDF üretildi.";
+            }
             var path = await FilePickerService.SavePdfAsync(d.DocNo + (economic ? "_ekonomik" : ""));
             if (string.IsNullOrEmpty(path)) return;
             await System.IO.File.WriteAllBytesAsync(path, bytes);
