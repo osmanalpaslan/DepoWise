@@ -109,6 +109,17 @@ public class MaintenanceTests : IDisposable
         Assert.True(r.Read());
         Assert.Equal(2m, Money.Parse(r.GetString(0)));
         Assert.Equal(50m, Money.Parse(r.GetString(1)));
+
+        // Liste + kullanılan malzeme (Araç Bakımları sekmesi)
+        var rows = _maint.ListMaintenances(_admin);
+        Assert.Single(rows);
+        Assert.Equal("V-1", rows[0].VehicleCode);
+        Assert.Equal("Periyodik", rows[0].DefinitionName);
+        Assert.False(rows[0].IsCancelled);
+        var mats = _maint.GetMaintenanceMaterials(_admin, rows[0].Id);
+        Assert.Single(mats);
+        Assert.Equal("M-1", mats[0].Code);
+        Assert.Equal(2m, mats[0].Quantity);
     }
 
     [Fact]

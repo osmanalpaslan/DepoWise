@@ -18,6 +18,24 @@ public sealed record NewMaintenance(
 public sealed record MaintenanceAlert(
     string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval);
 
+public sealed record MaintenanceRow(
+    string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
+    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
+    decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled)
+{
+    private static string Fmt(decimal? km, decimal? hour, long? date) =>
+        km is not null ? $"{km:0.##} km"
+        : hour is not null ? $"{hour:0.##} saat"
+        : date is not null ? DateTimeOffset.FromUnixTimeMilliseconds(date.Value).LocalDateTime.ToString("dd.MM.yyyy")
+        : "—";
+    public string PerformedDisplay => Fmt(PerformedKm, PerformedHour, PerformedDate);
+    public string NextDueDisplay => Fmt(NextDueKm, NextDueHour, NextDueDate);
+    public string SubDisplay => string.IsNullOrEmpty(SubDefinitionName) ? "—" : SubDefinitionName!;
+    public string StatusText => IsCancelled ? "İptal" : "Aktif";
+}
+
+public sealed record MaintenanceMaterialRow(string Code, string Name, decimal Quantity);
+
 /// <summary>
 /// Bakım kaydı — TEK transaction: kayıt + malzeme stok düşümü (negatif guard, tek düşüm) + sayaç ileri +
 /// sonraki hedef + audit; operation_id idempotent. İptal = ters stok + hedef yeniden hesaplama.
@@ -166,6 +184,54 @@ GROUP BY vm.vehicle_id, vm.maintenance_def_id;";
             var progress = AlertRules.Progress(consumed, interval);
             list.Add(new MaintenanceAlert(vehicleId, defId, defName, AlertRules.Level(progress), progress, consumed, interval));
         }
+        return list;
+    }
+
+    /// <summary>Bakım kayıtları (salt okuma) — araç/tanım/alt-tanım adları + yapılma/sonraki; araç filtresi.</summary>
+    public IReadOnlyList<MaintenanceRow> ListMaintenances(SessionContext s, string? vehicleId = null, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT vm.id, v.internal_code, d.name, sd.name,
+       vm.performed_km, vm.performed_hour, vm.performed_date,
+       vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled
+FROM vehicle_maintenances vm
+JOIN vehicles v ON v.id = vm.vehicle_id
+JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
+LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
+WHERE vm.company_id=$c AND vm.is_deleted=0
+  AND ($vid IS NULL OR vm.vehicle_id=$vid)
+ORDER BY vm.created_at DESC LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$vid", (object?)vehicleId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$lim", limit);
+        decimal? D(SqliteDataReader r, int i) => r.IsDBNull(i) ? (decimal?)null : Money.Parse(r.GetString(i));
+        long? L(SqliteDataReader r, int i) => r.IsDBNull(i) ? (long?)null : r.GetInt64(i);
+        var list = new List<MaintenanceRow>();
+        using var rr = cmd.ExecuteReader();
+        while (rr.Read())
+            list.Add(new MaintenanceRow(rr.GetString(0), rr.GetString(1), rr.GetString(2),
+                rr.IsDBNull(3) ? null : rr.GetString(3),
+                D(rr, 4), D(rr, 5), L(rr, 6), D(rr, 7), D(rr, 8), L(rr, 9), Convert.ToInt64(rr.GetValue(10)) == 1));
+        return list;
+    }
+
+    /// <summary>Bir bakım kaydında kullanılan malzemeler (kod/ad/miktar).</summary>
+    public IReadOnlyList<MaintenanceMaterialRow> GetMaintenanceMaterials(SessionContext s, string maintenanceId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT m.code, m.name, mm.quantity FROM maintenance_materials mm
+JOIN materials m ON m.id = mm.material_id
+WHERE mm.maintenance_id=$mt ORDER BY m.code;";
+        cmd.Parameters.AddWithValue("$mt", maintenanceId);
+        var list = new List<MaintenanceMaterialRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new MaintenanceMaterialRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2))));
         return list;
     }
 

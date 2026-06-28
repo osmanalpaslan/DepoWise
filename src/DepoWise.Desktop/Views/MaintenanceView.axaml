@@ -3,6 +3,8 @@
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:inf="using:DepoWise.Infrastructure.Maintenance"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
@@ -143,6 +145,189 @@
                         </Border>
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasDefSelection}">
                             <TextBlock Text="Detay/alt bakım için bir tanım seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ═══════════ ARAÇ BAKIMLARI ═══════════ -->
+            <TabItem Header="Araç Bakımları">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                    <ctrl:Toolbar Grid.Row="0" Title="Araç Bakımları"
+                                  PrimaryActionText="{Binding AddMntButtonText}" PrimaryActionCommand="{Binding ToggleMntAddCommand}">
+                        <ctrl:Toolbar.FilterContent>
+                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadMaintCommand}"/>
+                        </ctrl:Toolbar.FilterContent>
+                    </ctrl:Toolbar>
+
+                    <!-- Yeni bakım kaydı formu -->
+                    <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMntAdd}">
+                        <ScrollViewer MaxHeight="420">
+                        <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
+                            <TextBlock Text="YENİ BAKIM KAYDI" Classes="SectionTitle"/>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Araç" IsRequired="True" Width="200">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntVehicles}" SelectedItem="{Binding MntVehicle}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding InternalCode}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntDefs}" SelectedItem="{Binding MntDef}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Alt Bakım" Width="200">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Teknisyen" Width="200">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" SelectedItem="{Binding MntTechnician}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Yapılma KM" Width="130">
+                                    <NumericUpDown Classes="Field" Value="{Binding MntKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Yapılma Saat" Width="130">
+                                    <NumericUpDown Classes="Field" Value="{Binding MntHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Tarih" Width="160">
+                                    <DatePicker Classes="Field" SelectedDate="{Binding MntDate}"/>
+                                </ctrl:FormField>
+                            </StackPanel>
+                            <ctrl:FormField Label="Açıklama">
+                                <TextBox Classes="Field" Text="{Binding MntDescription}" AcceptsReturn="True" Height="48"/>
+                            </ctrl:FormField>
+
+                            <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
+                                <StackPanel Spacing="6">
+                                    <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                                    <Border Classes="Table" MaxHeight="120">
+                                        <ScrollViewer>
+                                            <ItemsControl ItemsSource="{Binding MntMaterialResults}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="m:MaterialRefRow">
+                                                        <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Name}"
+                                                                Command="{Binding $parent[ItemsControl].((vm:MaintenanceViewModel)DataContext).AddMntMaterialCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                    <ItemsControl ItemsSource="{Binding MntLines}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:MntMaterialLine">
+                                                <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                                    <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                                    <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
+                                                            Command="{Binding $parent[ItemsControl].((vm:MaintenanceViewModel)DataContext).RemoveMntLineCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ctrl:FormField>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                <Button Classes="Secondary" Content="İptal" Command="{Binding ClearMntCommand}"/>
+                                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMntCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
+                    <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,340">
+                        <Panel Grid.Column="0">
+                            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasMaint}">
+                                <DockPanel>
+                                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="m1"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="m3"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="m4"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="m5"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="90"/>
+                                            <TextBlock Grid.Column="1" Text="BAKIM" MinWidth="140"/>
+                                            <TextBlock Grid.Column="2" Text="YAPILMA" MinWidth="100"/>
+                                            <TextBlock Grid.Column="3" Text="SONRAKİ" MinWidth="100"/>
+                                            <TextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
+                                        </Grid>
+                                    </Border>
+                                    <ListBox Classes="Table" ItemsSource="{Binding Maintenances}" SelectedItem="{Binding SelectedMaint}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="inf:MaintenanceRow">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="m1"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="m3"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="m4"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="m5"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="90" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding DefinitionName}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding PerformedDisplay}" MinWidth="100" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding NextDueDisplay}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <TextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding MaintError}"
+                                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadMaintCommand}" IsVisible="{Binding HasMaintError}"/>
+                            <ctrl:StatePanel Mode="Empty" Title="Bakım kaydı yok" Message="Henüz bakım kaydı girilmedi." IsVisible="{Binding MaintEmpty}"/>
+                        </Panel>
+
+                        <!-- Detay -->
+                        <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasMaintSelection}">
+                            <ScrollViewer>
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="{Binding SelectedMaint.DefinitionName}" Classes="PageTitle" TextWrapping="Wrap"/>
+                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" DataContext="{Binding SelectedMaint}">
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Araç" Classes="Helper" Margin="0,2,12,2"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VehicleCode}" Classes="Body"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Alt Bakım" Classes="Helper" Margin="0,2,12,2"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SubDisplay}" Classes="Body"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Yapılma" Classes="Helper" Margin="0,2,12,2"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PerformedDisplay}" Classes="Body"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Sonraki" Classes="Helper" Margin="0,2,12,2"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding NextDueDisplay}" Classes="Body"/>
+                                    </Grid>
+                                    <Border Classes="Divider"/>
+                                    <TextBlock Text="KULLANILAN MALZEMELER" Classes="SectionTitle"/>
+                                    <ItemsControl ItemsSource="{Binding MaintMaterials}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="inf:MaintenanceMaterialRow">
+                                                <Grid ColumnDefinitions="*,Auto" Margin="0,1">
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Border Classes="Divider"/>
+                                    <StackPanel Spacing="6" IsVisible="{Binding CanCancelSelected}">
+                                        <ctrl:FormField Label="İptal Gerekçesi">
+                                            <TextBox Classes="Field" Text="{Binding CancelReason}"/>
+                                        </ctrl:FormField>
+                                        <Button Classes="Danger" Content="Bakımı İptal Et" HorizontalAlignment="Left" Command="{Binding CancelMaintCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                        <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasMaintSelection}">
+                            <TextBlock Text="Detay için bir bakım kaydı seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                 </Grid>

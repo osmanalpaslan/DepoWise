@@ -5,10 +5,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
 using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Maintenance;
+using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -26,6 +29,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     {
         _session = session;
         LoadDefs();
+        LoadMaint();
         LoadAlerts();
     }
 
@@ -236,7 +240,190 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     [RelayCommand] private void SelectAllVehicles() { foreach (var p in FilteredVehicles) p.IsSelected = true; }
     [RelayCommand] private void ClearVehicles() { foreach (var p in FilteredVehicles) p.IsSelected = false; }
 
-    // ════════════════════ TAB 2 — UYARILAR ════════════════════
+    // ════════════════════ TAB 2 — ARAÇ BAKIMLARI ════════════════════
+    public ObservableCollection<MaintenanceRow> Maintenances { get; } = new();
+    public ObservableCollection<MaintenanceMaterialRow> MaintMaterials { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMaintSelection))]
+    [NotifyPropertyChangedFor(nameof(CanCancelSelected))]
+    private MaintenanceRow? _selectedMaint;
+    public bool HasMaintSelection => SelectedMaint != null;
+    public bool CanCancelSelected => SelectedMaint is { IsCancelled: false } && CanEdit;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMaintError))]
+    [NotifyPropertyChangedFor(nameof(MaintEmpty))]
+    private string? _maintError;
+    public bool HasMaintError => MaintError != null;
+    public bool MaintEmpty => !HasMaintError && Maintenances.Count == 0;
+    public bool HasMaint => Maintenances.Count > 0;
+
+    // Yeni kayıt formu
+    [ObservableProperty] private bool _showMntAdd;
+    public ObservableCollection<VehicleListRow> MntVehicles { get; } = new();
+    public ObservableCollection<MaintenanceDefinitionRow> MntDefs { get; } = new();
+    public ObservableCollection<MaintenanceDefinitionRow> MntSubDefs { get; } = new();
+    public ObservableCollection<LookupItem> Technicians { get; } = new();
+    public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
+    public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
+    private bool _mntPickersLoaded;
+
+    [ObservableProperty] private VehicleListRow? _mntVehicle;
+    [ObservableProperty] private MaintenanceDefinitionRow? _mntDef;
+    [ObservableProperty] private MaintenanceDefinitionRow? _mntSubDef;
+    [ObservableProperty] private LookupItem? _mntTechnician;
+    [ObservableProperty] private decimal _mntKm;
+    [ObservableProperty] private decimal _mntHour;
+    [ObservableProperty] private DateTimeOffset? _mntDate;
+    [ObservableProperty] private string _mntDescription = "";
+    [ObservableProperty] private string _mntMaterialSearch = "";
+    [ObservableProperty] private string _cancelReason = "";
+
+    public string? AddMntButtonText => CanWrite ? "Yeni Kayıt" : null;
+
+    partial void OnMntDefChanged(MaintenanceDefinitionRow? value)
+    {
+        MntSubDef = null; MntSubDefs.Clear();
+        if (value is null) return;
+        try { foreach (var sub in DesktopServices.MaintenanceDefs.List(_session, value.Id)) MntSubDefs.Add(sub); }
+        catch { }
+    }
+
+    partial void OnMntVehicleChanged(VehicleListRow? value)
+    {
+        if (value is null) return;
+        if (MntKm < value.CurrentMeter && value.MeterUnit != "hour") MntKm = value.CurrentMeter;
+        if (MntHour < value.CurrentMeter && value.MeterUnit == "hour") MntHour = value.CurrentMeter;
+    }
+
+    partial void OnMntMaterialSearchChanged(string value) => RefreshMntMaterials();
+
+    private void RefreshMntMaterials()
+    {
+        MntMaterialResults.Clear();
+        var term = MntMaterialSearch?.Trim();
+        try
+        {
+            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 50 },
+                string.IsNullOrEmpty(term) ? null : term);
+            foreach (var m in page.Items)
+            {
+                if (MntLines.Any(l => l.MaterialId == m.Id)) continue;
+                MntMaterialResults.Add(new MaterialRefRow(m.Id, m.Code, m.Name));
+            }
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    private void LoadMaint()
+    {
+        try
+        {
+            MaintError = null;
+            Maintenances.Clear();
+            foreach (var r in DesktopServices.Maintenance.ListMaintenances(_session)) Maintenances.Add(r);
+        }
+        catch (Exception ex) { MaintError = ex.Message; }
+        SelectedMaint = null; MaintMaterials.Clear();
+        OnPropertyChanged(nameof(MaintEmpty));
+        OnPropertyChanged(nameof(HasMaint));
+        OnPropertyChanged(nameof(HasMaintError));
+    }
+
+    partial void OnSelectedMaintChanged(MaintenanceRow? value)
+    {
+        MaintMaterials.Clear(); CancelReason = "";
+        if (value is null) return;
+        try { foreach (var mm in DesktopServices.Maintenance.GetMaintenanceMaterials(_session, value.Id)) MaintMaterials.Add(mm); }
+        catch { }
+    }
+
+    [RelayCommand]
+    private void ToggleMntAdd()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        ShowMntAdd = !ShowMntAdd;
+        if (ShowMntAdd) LoadMntPickers();
+    }
+
+    private void LoadMntPickers()
+    {
+        if (!_mntPickersLoaded)
+        {
+            try { foreach (var v in DesktopServices.Vehicles.List(_session)) MntVehicles.Add(v); } catch { }
+            try { foreach (var d in DesktopServices.MaintenanceDefs.List(_session)) MntDefs.Add(d); } catch { }
+            try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Technicians.Add(p); } catch { }
+            _mntPickersLoaded = true;
+        }
+        RefreshMntMaterials();
+    }
+
+    [RelayCommand]
+    private void ClearMnt()
+    {
+        MntVehicle = null; MntDef = null; MntSubDef = null; MntTechnician = null;
+        MntKm = 0; MntHour = 0; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
+        MntLines.Clear(); MntMaterialResults.Clear(); ShowMntAdd = false;
+    }
+
+    [RelayCommand]
+    private void AddMntMaterial(MaterialRefRow? m)
+    {
+        if (m is null) return;
+        if (!MntLines.Any(l => l.MaterialId == m.Id)) MntLines.Add(new MntMaterialLine(m.Id, m.Code, m.Name));
+        RefreshMntMaterials();
+    }
+
+    [RelayCommand]
+    private void RemoveMntLine(MntMaterialLine? l)
+    {
+        if (l is not null) MntLines.Remove(l);
+        RefreshMntMaterials();
+    }
+
+    [RelayCommand]
+    private async Task SaveMnt()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (MntVehicle is null) { Status = "Araç seçin."; return; }
+        if (MntDef is null) { Status = "Bakım tanımı seçin."; return; }
+        if (MntLines.Any(l => l.Quantity <= 0)) { Status = "Malzeme miktarı pozitif olmalı."; return; }
+        if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Kaydet")) return;
+        try
+        {
+            var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
+            DesktopServices.Maintenance.Save(_session, new NewMaintenance(
+                VehicleId: MntVehicle.Id, DefinitionId: MntDef.Id, SubDefinitionId: MntSubDef?.Id,
+                TechnicianId: MntTechnician?.Id,
+                Description: string.IsNullOrWhiteSpace(MntDescription) ? null : MntDescription.Trim(),
+                PerformedKm: MntKm > 0 ? MntKm : (decimal?)null,
+                PerformedHour: MntHour > 0 ? MntHour : (decimal?)null,
+                PerformedDate: MntDate?.ToUnixTimeMilliseconds(),
+                Materials: materials), Guid.NewGuid().ToString("N"));
+            ClearMnt(); LoadMaint(); LoadAlerts();
+            Status = "Bakım kaydı eklendi.";
+        }
+        catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task CancelMaint()
+    {
+        if (SelectedMaint is null || !CanEdit) { Status = "Yetki yok."; return; }
+        if (string.IsNullOrWhiteSpace(CancelReason)) { Status = "İptal gerekçesi zorunlu."; return; }
+        if (!await ConfirmService.AskAsync("Bu bakım kaydı iptal edilsin mi? (malzeme stoğu geri eklenir)", "Bakım İptal", "Evet, İptal Et", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Maintenance.Cancel(_session, SelectedMaint.Id, CancelReason.Trim());
+            LoadMaint(); LoadAlerts();
+            Status = "Bakım kaydı iptal edildi.";
+        }
+        catch (Exception ex) { Status = "İptal edilemedi: " + ex.Message; }
+    }
+
+    // ════════════════════ TAB 3 — UYARILAR ════════════════════
     public ObservableCollection<MaintenanceAlertRow> Items { get; } = new();
 
     [ObservableProperty]
@@ -268,6 +455,15 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasRows));
     }
+}
+
+public sealed partial class MntMaterialLine : ObservableObject
+{
+    public string MaterialId { get; }
+    public string Code { get; }
+    public string Name { get; }
+    [ObservableProperty] private decimal _quantity = 1;
+    public MntMaterialLine(string materialId, string code, string name) { MaterialId = materialId; Code = code; Name = name; }
 }
 
 public sealed record MaintenanceAlertRow(string VehicleCode, string Definition, AlertLevel Level,
