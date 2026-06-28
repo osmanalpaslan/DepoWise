@@ -62,7 +62,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Şablonlar", "vehicles:templates"),
                 new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
             }),
-            new NavGroupVm("🔧", "Bakım Takibi", "maintenance", new[] { new NavLinkVm("Bakım Listesi", "maintenance") }),
+            new NavGroupVm("🔧", "Bakım Takibi", "maintenance", new[]
+            {
+                new NavLinkVm("Bakım Tanımları", "maintenance:defs"),
+                new NavLinkVm("Araç Bakımları", "maintenance:records"),
+                new NavLinkVm("Uyarılar", "maintenance:alerts"),
+            }),
             new NavGroupVm("⛽", "Yakıt", "fuel", new[] { new NavLinkVm("Yakıt İşlemleri", "fuel") }),
             new NavGroupVm("📄", "Talepler", "requests", new[] { new NavLinkVm("Talep Listesi", "requests") }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
@@ -114,7 +119,18 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Şablonlar — araç formunu otomatik doldurur";
                 break;
             case "maintenance":
-                CurrentPage = new MaintenanceViewModel(_session);
+            case "maintenance:defs":
+                CurrentPage = new MaintenanceViewModel(_session, 0);
+                CurrentTitle = "Bakım Takibi";
+                CurrentContext = "Bakım tanımları";
+                break;
+            case "maintenance:records":
+                CurrentPage = new MaintenanceViewModel(_session, 1);
+                CurrentTitle = "Bakım Takibi";
+                CurrentContext = "Araç bakım kayıtları";
+                break;
+            case "maintenance:alerts":
+                CurrentPage = new MaintenanceViewModel(_session, 2);
                 CurrentTitle = "Bakım Takibi";
                 CurrentContext = "Periyodik bakım uyarıları";
                 break;

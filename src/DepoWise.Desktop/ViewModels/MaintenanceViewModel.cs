@@ -24,10 +24,13 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     [ObservableProperty] private string? _status;
+    /// <summary>Açılışta seçili sekme (menüden alt-bağlantıyla gelince ayarlanır). 0=Tanımlar,1=Araç Bakımları,2=Uyarılar.</summary>
+    [ObservableProperty] private int _selectedTab;
 
-    public MaintenanceViewModel(SessionContext session)
+    public MaintenanceViewModel(SessionContext session, int initialTab = 0)
     {
         _session = session;
+        SelectedTab = initialTab;
         LoadDefs();
         LoadMaint();
         LoadAlerts();
