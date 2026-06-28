@@ -88,7 +88,6 @@ public static class SpecialButtons
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
     {
         (Approve, "Talep Onayla / Reddet"),
-        (Reverse, "Ters Kayıt / İptal"),
         (RestoreTrash, "Çöp Kutusu Geri Yükle"),
         (ResetDatabase, "Veritabanı Sıfırlama"),
         (ChangeCompanyLogo, "Firma Logosu Değiştir"),
