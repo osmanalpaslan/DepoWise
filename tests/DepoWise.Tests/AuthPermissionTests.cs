@@ -176,6 +176,22 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void ListUsers_FirmaKullanicilariniDoner_RolleriIle()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        var admin = new AuthService(_factory, _clock).Login("A", "admin", "admin123").Session!;
+        users.CreateUser(admin, new NewUser("depocu", "p12345", "Depo Bey", new[] { RoleKeys.Warehouse }));
+
+        var list = users.ListUsers(admin);
+        Assert.Equal(2, list.Count);
+        var depocu = list.Single(u => u.Username == "depocu");
+        Assert.Equal("Depo Bey", depocu.FullName);
+        Assert.True(depocu.IsActive);
+        Assert.Contains("Depo", depocu.Roles); // rol adı (Depo Kullanıcısı)
+    }
+
+    [Fact]
     public void SuperAdmin_SuperAdmin_Olusturabilir()
     {
         var users = new UserService(_factory, _clock);

@@ -13,6 +13,8 @@ public sealed record NewUser(
     string? CompanyId = null,
     IReadOnlyList<ModulePermission>? Permissions = null);
 
+public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles);
+
 /// <summary>
 /// Kullanıcı oluşturma — yetki yükseltme + tenant kuralları fail-closed (analiz §4/§9).
 /// Tek transaction: user + user_roles + user_permissions + audit.
@@ -26,6 +28,30 @@ public sealed class UserService
     {
         _factory = factory;
         _clock = clock ?? new SystemClock();
+    }
+
+    /// <summary>Kullanıcı listesi (tenant: Süper Admin tümünü, diğerleri kendi firmasını görür).</summary>
+    public IReadOnlyList<UserRow> ListUsers(SessionContext actor)
+    {
+        AccessControl.Require(actor, "users", PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT u.id, u.username, u.full_name, u.is_active,
+  (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id)
+FROM users u
+WHERE u.is_deleted = 0 AND ($all = 1 OR u.company_id = $c)
+ORDER BY u.username;";
+        cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.Parameters.AddWithValue("$c", actor.CompanyId);
+        var list = new List<UserRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new UserRow(r.GetString(0), r.GetString(1),
+                r.IsDBNull(2) ? null : r.GetString(2),
+                r.GetInt64(3) == 1,
+                r.IsDBNull(4) ? "" : r.GetString(4)));
+        return list;
     }
 
     public string CreateUser(SessionContext actor, NewUser dto)

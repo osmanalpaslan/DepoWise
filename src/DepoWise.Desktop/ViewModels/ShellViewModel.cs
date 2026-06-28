@@ -74,6 +74,10 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Depo Girişleri", "fuel:depot"),
                 new NavLinkVm("Özet", "fuel:summary"),
             }),
+            new NavGroupVm("👤", "Yönetim", "users", new[]
+            {
+                new NavLinkVm("Kullanıcılar", "users"),
+            }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
                 new NavLinkVm("Talep Formu", "requests:form"),
@@ -158,6 +162,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new FuelViewModel(_session, 2);
                 CurrentTitle = "Yakıt";
                 CurrentContext = "Yakıt özeti";
+                break;
+            case "users":
+                CurrentPage = new UsersViewModel(_session);
+                CurrentTitle = "Kullanıcılar";
+                CurrentContext = "Kullanıcı yönetimi ve rol atama";
                 break;
             case "requests":
             case "requests:form":
