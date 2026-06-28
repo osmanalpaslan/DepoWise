@@ -391,6 +391,25 @@ public sealed partial class RequestsViewModel : ViewModelBase
         var picked = await FilePickerService.PickImagesAsync(false);
         var src = picked.FirstOrDefault();
         if (string.IsNullOrEmpty(src)) return;
+
+        // Yükleme anında kontrol: çözülebilir mi + saydam arka plan var mı?
+        var (readable, opaque, err) = InspectLogo(src);
+        if (!readable)
+        {
+            await ConfirmService.AskAsync(
+                $"Logo okunamadı ({err}).\n\nÖnerilen: arka planı SAYDAM (transparan) PNG, yaklaşık 300×120 px.",
+                "Logo Hatası", "Tamam", "Tamam");
+            return;
+        }
+        if (opaque)
+        {
+            var keep = await ConfirmService.AskAsync(
+                "Seçtiğiniz logonun ŞEFFAF (saydam) arka planı yok; PDF başlığındaki lacivert bantta logonun etrafı BEYAZ/dolu görünür.\n\n" +
+                "Olması gereken:\n• Arka planı saydam (transparan) PNG\n• Yaklaşık 300×120 px (yatay)\n• Kenarlarda beyaz dolgu olmamalı\n\n" +
+                "Yine de bu logo kullanılsın mı?",
+                "Logo Uyarısı", "Yine de Kullan", "Vazgeç");
+            if (!keep) return;
+        }
         try
         {
             var dir = System.IO.Path.Combine(
@@ -403,6 +422,24 @@ public sealed partial class RequestsViewModel : ViewModelBase
             Status = "Firma logosu güncellendi.";
         }
         catch (Exception ex) { Status = "Logo eklenemedi: " + ex.Message; }
+    }
+
+    /// <summary>Logoyu çözer ve saydam arka planı olup olmadığını örnekleyerek kontrol eder.</summary>
+    private static (bool Readable, bool Opaque, string? Error) InspectLogo(string path)
+    {
+        try
+        {
+            using var bmp = SkiaSharp.SKBitmap.Decode(path);
+            if (bmp is null || bmp.Width == 0) return (false, false, "görsel çözülemedi");
+            bool hasAlpha = false;
+            int stepX = Math.Max(1, bmp.Width / 80);
+            int stepY = Math.Max(1, bmp.Height / 80);
+            for (int y = 0; y < bmp.Height && !hasAlpha; y += stepY)
+                for (int x = 0; x < bmp.Width; x += stepX)
+                    if (bmp.GetPixel(x, y).Alpha < 250) { hasAlpha = true; break; }
+            return (true, !hasAlpha, null);
+        }
+        catch (Exception ex) { return (false, false, ex.Message); }
     }
 
     // ════════════════════ PDF ÇIKTI ════════════════════
