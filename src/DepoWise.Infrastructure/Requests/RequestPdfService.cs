@@ -45,13 +45,12 @@ public sealed class RequestPdfService : IRequestPdfService
             root.Item().Background(Navy).Padding(12).Row(row =>
             {
                 if (!string.IsNullOrWhiteSpace(m.LogoPath) && System.IO.File.Exists(m.LogoPath))
-                    row.ConstantItem(130).Height(56).Background(Colors.White).Padding(5)
-                       .AlignMiddle().Image(m.LogoPath).FitArea();
+                    row.ConstantItem(110).Height(48).AlignMiddle().Image(m.LogoPath).FitHeight();
 
                 row.RelativeItem().AlignMiddle().PaddingLeft(14)
-                   .Text("MALZEME TALEP FORMU").FontColor(Colors.White).FontSize(19).Bold();
+                   .Text("MALZEME TALEP FORMU").FontColor(Colors.White).FontSize(16).Bold();
 
-                row.ConstantItem(170).AlignMiddle().Column(c =>
+                row.ConstantItem(150).AlignMiddle().Column(c =>
                 {
                     c.Item().AlignRight().Text(t => { t.Span("Belge No: ").FontColor(Colors.White); t.Span(m.DocNo).FontColor(Colors.White).Bold(); });
                     c.Item().AlignRight().Text($"Tarih: {m.RequestDate}").FontColor(Colors.White).FontSize(9);
