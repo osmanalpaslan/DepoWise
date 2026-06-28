@@ -11,9 +11,14 @@ public sealed record NewUser(
     string? FullName,
     IReadOnlyList<string> RoleKeys,
     string? CompanyId = null,
-    IReadOnlyList<ModulePermission>? Permissions = null);
+    IReadOnlyList<ModulePermission>? Permissions = null,
+    string? BranchId = null);
 
-public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles);
+public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles, string? BranchId, string? BranchName)
+{
+    public string BranchDisplay => string.IsNullOrEmpty(BranchName) ? "—" : BranchName!;
+    public string StatusText => IsActive ? "Aktif" : "Pasif";
+}
 
 /// <summary>
 /// Kullanıcı oluşturma — yetki yükseltme + tenant kuralları fail-closed (analiz §4/§9).
@@ -38,8 +43,10 @@ public sealed class UserService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT u.id, u.username, u.full_name, u.is_active,
-  (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id)
+  (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id),
+  u.branch_id, b.name
 FROM users u
+LEFT JOIN branches b ON b.id = u.branch_id
 WHERE u.is_deleted = 0 AND ($all = 1 OR u.company_id = $c)
 ORDER BY u.username;";
         cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
@@ -50,7 +57,9 @@ ORDER BY u.username;";
             list.Add(new UserRow(r.GetString(0), r.GetString(1),
                 r.IsDBNull(2) ? null : r.GetString(2),
                 r.GetInt64(3) == 1,
-                r.IsDBNull(4) ? "" : r.GetString(4)));
+                r.IsDBNull(4) ? "" : r.GetString(4),
+                r.IsDBNull(5) ? null : r.GetString(5),
+                r.IsDBNull(6) ? null : r.GetString(6)));
         return list;
     }
 
@@ -70,8 +79,8 @@ ORDER BY u.username;";
         using var tx = conn.BeginTransaction();
 
         Insert(conn, tx,
-            "INSERT INTO users(id, company_id, username, password_hash, full_name, is_active, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$u,$h,$f,1,$now,$now,1,0);",
+            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, is_active, created_at, updated_at, version, is_deleted) " +
+            "VALUES($id,$c,$u,$h,$f,$b,1,$now,$now,1,0);",
             cmd =>
             {
                 cmd.Parameters.AddWithValue("$id", userId);
@@ -79,6 +88,7 @@ ORDER BY u.username;";
                 cmd.Parameters.AddWithValue("$u", dto.Username);
                 cmd.Parameters.AddWithValue("$h", PasswordHasher.Hash(dto.Password));
                 cmd.Parameters.AddWithValue("$f", (object?)dto.FullName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("$now", now);
             });
 

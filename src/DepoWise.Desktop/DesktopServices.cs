@@ -10,6 +10,7 @@ using DepoWise.Infrastructure.Files;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Operations;
+using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Reporting;
 using DepoWise.Infrastructure.Requests;
 using DepoWise.Infrastructure.Vehicles;
@@ -30,6 +31,7 @@ public static class DesktopServices
     public static IDbConnectionFactory Factory { get; private set; } = null!;
     public static AuthService Auth { get; private set; } = null!;
     public static UserService Users { get; private set; } = null!;
+    public static BranchService Branches { get; private set; } = null!;
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static DashboardService Dashboard { get; private set; } = null!;
@@ -68,6 +70,7 @@ public static class DesktopServices
         Fuel = new FuelService(Factory, clock);
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
         RequestPdf = new RequestPdfService();
+        Branches = new BranchService(Factory, clock);
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);

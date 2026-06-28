@@ -18,5 +18,6 @@ public static class MigrationCatalog
         new Migration011_Sync(),
         new Migration012_Releases(),
         new Migration013_RememberTokens(),
+        new Migration014_UserBranch(),
     };
 }

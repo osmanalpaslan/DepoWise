@@ -77,6 +77,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("👤", "Yönetim", "users", new[]
             {
                 new NavLinkVm("Kullanıcılar", "users"),
+                new NavLinkVm("Şube / Şantiye", "branches"),
             }, expanded: true),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
@@ -167,6 +168,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new UsersViewModel(_session);
                 CurrentTitle = "Kullanıcılar";
                 CurrentContext = "Kullanıcı yönetimi ve rol atama";
+                break;
+            case "branches":
+                CurrentPage = new BranchesViewModel(_session);
+                CurrentTitle = "Şube / Şantiye";
+                CurrentContext = "Şube tanımları ve atanmış kullanıcılar";
                 break;
             case "requests":
             case "requests:form":

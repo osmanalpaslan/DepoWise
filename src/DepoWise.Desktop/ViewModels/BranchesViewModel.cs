@@ -1,0 +1,147 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Organization;
+
+namespace DepoWise.Desktop.ViewModels;
+
+/// <summary>
+/// Şube / Şantiye Tanım — liste + yeni/düzenle (ad, tür, üst şube) + detayda şubeye atanmış kullanıcılar
+/// (otomatik listelenir). CRUD BranchService'te (tenant + yetki). Kullanıcı atama "Kullanıcılar" ekranından.
+/// </summary>
+public sealed partial class BranchesViewModel : ViewModelBase
+{
+    private readonly SessionContext _session;
+
+    public bool CanWrite => AccessControl.Can(_session, "branches", PermissionAction.Create);
+    public bool CanEdit => AccessControl.Can(_session, "branches", PermissionAction.Edit);
+    public bool CanDelete => AccessControl.Can(_session, "branches", PermissionAction.Delete);
+
+    public ObservableCollection<BranchRow> Items { get; } = new();
+    public ObservableCollection<BranchRow> ParentOptions { get; } = new();
+    public ObservableCollection<BranchUserRow> BranchUsers { get; } = new();
+    public ObservableCollection<string> KindOptions { get; } = new() { "Şube", "Şantiye" };
+
+    [ObservableProperty] private string? _status;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
+    private string? _loadError;
+    public bool HasError => LoadError != null;
+    public bool IsEmpty => !HasError && Items.Count == 0;
+    public bool HasRows => Items.Count > 0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    private BranchRow? _selected;
+    public bool HasSelection => Selected != null;
+
+    // Form
+    [ObservableProperty] private bool _showAdd;
+    [ObservableProperty] private string? _editId;
+    [ObservableProperty] private string _formName = "";
+    [ObservableProperty] private string _formKind = "Şube";
+    [ObservableProperty] private BranchRow? _formParent;
+    [ObservableProperty] private string? _formError;
+    public string FormTitle => EditId is null ? "YENİ ŞUBE / ŞANTİYE" : "ŞUBE DÜZENLE";
+
+    public BranchesViewModel(SessionContext session)
+    {
+        _session = session;
+        Load();
+    }
+
+    [RelayCommand]
+    private void Load()
+    {
+        try
+        {
+            LoadError = null;
+            Items.Clear();
+            ParentOptions.Clear();
+            foreach (var b in DesktopServices.Branches.List(_session)) { Items.Add(b); ParentOptions.Add(b); }
+            Status = $"{Items.Count} şube / şantiye";
+        }
+        catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
+        Selected = null; BranchUsers.Clear();
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasRows));
+    }
+
+    partial void OnSelectedChanged(BranchRow? value)
+    {
+        BranchUsers.Clear();
+        if (value is null) return;
+        try { foreach (var u in DesktopServices.Branches.GetUsers(_session, value.Id)) BranchUsers.Add(u); }
+        catch (Exception ex) { Status = "Kullanıcılar yüklenemedi: " + ex.Message; }
+    }
+
+    private static string KindCode(string display) => display == "Şantiye" ? "site" : "branch";
+
+    [RelayCommand]
+    private void NewBranch()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        EditId = null; FormName = ""; FormKind = "Şube"; FormParent = null; FormError = null;
+        ShowAdd = true;
+        OnPropertyChanged(nameof(FormTitle));
+    }
+
+    [RelayCommand]
+    private void BeginEdit()
+    {
+        if (Selected is null) { Status = "Şube seçin."; return; }
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        EditId = Selected.Id;
+        FormName = Selected.Name;
+        FormKind = Selected.Kind == "site" ? "Şantiye" : "Şube";
+        FormParent = ParentOptions.FirstOrDefault(p => p.Id == Selected.ParentId);
+        FormError = null; ShowAdd = true;
+        OnPropertyChanged(nameof(FormTitle));
+    }
+
+    [RelayCommand]
+    private void CancelAdd() { ShowAdd = false; EditId = null; }
+
+    [RelayCommand]
+    private async Task Save()
+    {
+        FormError = null;
+        if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Ad zorunlu."; return; }
+        // Kendini üst şube seçmeyi engelle
+        var parentId = FormParent?.Id == EditId ? null : FormParent?.Id;
+        var dto = new NewBranch(FormName.Trim(), KindCode(FormKind), parentId);
+        var editing = EditId is not null;
+        if (!await ConfirmService.AskAsync(editing ? "Şube güncellensin mi?" : "Şube oluşturulsun mu?", "Kaydet")) return;
+        try
+        {
+            if (editing) DesktopServices.Branches.Update(_session, EditId!, dto);
+            else DesktopServices.Branches.Create(_session, dto);
+            ShowAdd = false; EditId = null;
+            Load();
+            Status = editing ? "Şube güncellendi." : "Şube oluşturuldu.";
+        }
+        catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task Delete()
+    {
+        if (Selected is null) { Status = "Şube seçin."; return; }
+        if (!CanDelete) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"'{Selected.Name}' silinsin mi?\n\nBu şubeye atanmış kullanıcıların şubesi boşaltılır.",
+                "Şube Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Branches.Delete(_session, Selected.Id);
+            Load();
+            Status = "Şube silindi.";
+        }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
+}

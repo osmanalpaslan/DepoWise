@@ -2,6 +2,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
+using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Security;
 using Xunit;
 
@@ -189,6 +190,37 @@ public class AuthPermissionTests : IDisposable
         Assert.Equal("Depo Bey", depocu.FullName);
         Assert.True(depocu.IsActive);
         Assert.Contains("Depo", depocu.Roles); // rol adı (Depo Kullanıcısı)
+    }
+
+    [Fact]
+    public void Sube_OlusturAta_DetaydaKullaniciListele()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        var admin = new AuthService(_factory, _clock).Login("A", "admin", "admin123").Session!;
+        var branches = new BranchService(_factory, _clock);
+
+        var bid = branches.Create(admin, new NewBranch("Merkez Şube", "branch"));
+        var uid = users.CreateUser(admin, new NewUser("p1", "p12345", "Per Bir", new[] { RoleKeys.Warehouse }, BranchId: bid));
+
+        // Şube detayında atanmış kullanıcı otomatik listelenir
+        var bu = branches.GetUsers(admin, bid);
+        Assert.Single(bu);
+        Assert.Equal("p1", bu[0].Username);
+
+        // ListUsers şube adını döner
+        var row = users.ListUsers(admin).Single(u => u.Username == "p1");
+        Assert.Equal("Merkez Şube", row.BranchName);
+
+        // Şubeyi kaldır
+        branches.AssignUser(admin, uid, null);
+        Assert.Empty(branches.GetUsers(admin, bid));
+
+        // Şube silinince atanmış kullanıcıların şubesi boşalır
+        var bid2 = branches.Create(admin, new NewBranch("Geçici", "site"));
+        branches.AssignUser(admin, uid, bid2);
+        branches.Delete(admin, bid2);
+        Assert.Null(users.ListUsers(admin).Single(u => u.Username == "p1").BranchId);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Security;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -20,9 +21,15 @@ public sealed partial class UsersViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "users", PermissionAction.Create);
+    public bool CanManage => AccessControl.Can(_session, "users", PermissionAction.Edit);
 
     public ObservableCollection<UserRow> Items { get; } = new();
     public ObservableCollection<RolePick> AssignableRoles { get; } = new();
+    public ObservableCollection<BranchRow> Branches { get; } = new();
+
+    // Yeni kullanıcı formundaki şube + seçili kullanıcıya atanacak şube
+    [ObservableProperty] private BranchRow? _formBranch;
+    [ObservableProperty] private BranchRow? _assignBranch;
 
     [ObservableProperty] private string? _status;
     [ObservableProperty]
@@ -33,7 +40,13 @@ public sealed partial class UsersViewModel : ViewModelBase
     public bool IsEmpty => !HasError && Items.Count == 0;
     public bool HasRows => Items.Count > 0;
 
-    [ObservableProperty] private UserRow? _selected;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    private UserRow? _selected;
+    public bool HasSelection => Selected != null;
+
+    partial void OnSelectedChanged(UserRow? value)
+        => AssignBranch = value is null ? null : Branches.FirstOrDefault(b => b.Id == value.BranchId);
 
     // Form
     [ObservableProperty] private bool _showAdd;
@@ -56,6 +69,8 @@ public sealed partial class UsersViewModel : ViewModelBase
             LoadError = null;
             Items.Clear();
             foreach (var u in DesktopServices.Users.ListUsers(_session)) Items.Add(u);
+            Branches.Clear();
+            try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
             Status = $"{Items.Count} kullanıcı";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
@@ -81,7 +96,7 @@ public sealed partial class UsersViewModel : ViewModelBase
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         LoadAssignableRoles();
-        NewUsername = ""; NewPassword = ""; NewFullName = ""; FormError = null;
+        NewUsername = ""; NewPassword = ""; NewFullName = ""; FormError = null; FormBranch = null;
         foreach (var r in AssignableRoles) r.IsSelected = false;
         ShowAdd = true;
     }
@@ -109,12 +124,28 @@ public sealed partial class UsersViewModel : ViewModelBase
                 Password: NewPassword,
                 FullName: string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim(),
                 RoleKeys: roles,
-                CompanyId: _session.CompanyId));
+                CompanyId: _session.CompanyId,
+                BranchId: FormBranch?.Id));
             ShowAdd = false;
             Load();
             Status = "Kullanıcı oluşturuldu.";
         }
         catch (Exception ex) { FormError = "Oluşturulamadı: " + ex.Message; }
+    }
+
+    /// <summary>Seçili kullanıcıya şube atar/değiştirir (boş = şubesiz).</summary>
+    [RelayCommand]
+    private void AssignBranchToUser()
+    {
+        if (Selected is null) { Status = "Kullanıcı seçin."; return; }
+        if (!CanManage) { Status = "Yetki yok."; return; }
+        try
+        {
+            DesktopServices.Branches.AssignUser(_session, Selected.Id, AssignBranch?.Id);
+            Load();
+            Status = AssignBranch is null ? "Kullanıcının şubesi kaldırıldı." : $"Şube atandı: {AssignBranch.Name}";
+        }
+        catch (Exception ex) { Status = "Atanamadı: " + ex.Message; }
     }
 }
 
