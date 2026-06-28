@@ -22,6 +22,10 @@ public sealed partial class UsersViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "users", PermissionAction.Create);
     public bool CanManage => AccessControl.Can(_session, "users", PermissionAction.Edit);
+    /// <summary>Sil + şifre değiştir yalnız Admin / Süper Admin.</summary>
+    public bool CanManageUsers => AccessControl.IsAdmin(_session);
+
+    [ObservableProperty] private string _newPasswordForSelected = "";
 
     public ObservableCollection<UserRow> Items { get; } = new();
     public ObservableCollection<RolePick> AssignableRoles { get; } = new();
@@ -131,6 +135,38 @@ public sealed partial class UsersViewModel : ViewModelBase
             Status = "Kullanıcı oluşturuldu.";
         }
         catch (Exception ex) { FormError = "Oluşturulamadı: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task ChangePassword()
+    {
+        if (Selected is null) { Status = "Kullanıcı seçin."; return; }
+        if (!CanManageUsers) { Status = "Yetki yok."; return; }
+        if (string.IsNullOrWhiteSpace(NewPasswordForSelected) || NewPasswordForSelected.Length < 4)
+        { Status = "Şifre en az 4 karakter olmalı."; return; }
+        if (!await ConfirmService.AskAsync($"'{Selected.Username}' kullanıcısının şifresi değiştirilsin mi?", "Şifre Değiştir")) return;
+        try
+        {
+            DesktopServices.Users.ChangePassword(_session, Selected.Id, NewPasswordForSelected);
+            NewPasswordForSelected = "";
+            Status = "Şifre değiştirildi.";
+        }
+        catch (Exception ex) { Status = "Değiştirilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task DeleteUser()
+    {
+        if (Selected is null) { Status = "Kullanıcı seçin."; return; }
+        if (!CanManageUsers) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync($"'{Selected.Username}' kullanıcısı silinsin mi?", "Kullanıcı Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Users.DeleteUser(_session, Selected.Id);
+            Load();
+            Status = "Kullanıcı silindi.";
+        }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
     }
 
     /// <summary>Seçili kullanıcıya şube atar/değiştirir (boş = şubesiz).</summary>

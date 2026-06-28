@@ -63,6 +63,61 @@ ORDER BY u.username;";
         return list;
     }
 
+    /// <summary>Kullanıcıyı soft-delete eder. YALNIZ Admin / Süper Admin. Kendi hesabını silemez.</summary>
+    public void DeleteUser(SessionContext actor, string userId)
+    {
+        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Kullanıcı silme yalnız Admin / Süper Admin yetkisindedir.");
+        if (string.Equals(userId, actor.UserId, StringComparison.Ordinal))
+            throw new InvalidOperationException("Kendi hesabınızı silemezsiniz.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        var companyId = AffectUser(conn, tx, actor, userId,
+            "UPDATE users SET is_deleted=1, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);", now);
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Delete, actor.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Kullanıcının şifresini değiştirir. YALNIZ Admin / Süper Admin. Min 4 karakter.</summary>
+    public void ChangePassword(SessionContext actor, string userId, string newPassword)
+    {
+        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Şifre değiştirme yalnız Admin / Süper Admin yetkisindedir.");
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 4)
+            throw new ArgumentException("Şifre en az 4 karakter olmalı.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        var companyId = AffectUser(conn, tx, actor, userId,
+            "UPDATE users SET password_hash=$h, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);",
+            now, cmd => cmd.Parameters.AddWithValue("$h", PasswordHasher.Hash(newPassword)));
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+    }
+
+    private static string AffectUser(SqliteConnection conn, SqliteTransaction tx, SessionContext actor, string userId, string sql, long now, Action<SqliteCommand>? extra = null)
+    {
+        // Tenant: hedef kullanıcının firmasını al ve doğrula
+        string companyId;
+        using (var q = conn.CreateCommand())
+        {
+            q.Transaction = tx;
+            q.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
+            q.Parameters.AddWithValue("$u", userId);
+            companyId = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
+        }
+        if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.Parameters.AddWithValue("$c", actor.CompanyId);
+        extra?.Invoke(cmd);
+        if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("İşlem uygulanamadı.");
+        return companyId;
+    }
+
     public string CreateUser(SessionContext actor, NewUser dto)
     {
         // 1) Yetki: users modülünde 'create' (admin bypass)

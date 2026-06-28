@@ -58,16 +58,24 @@
             </StackPanel>
         </Border>
 
-        <!-- Seçili kullanıcıya şube ata -->
+        <!-- Seçili kullanıcı: şube ata + şifre değiştir + sil -->
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding HasSelection}">
-            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                <ComboBox Classes="Field" Width="220" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}">
-                    <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                </ComboBox>
-                <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}"/>
+            <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    <ComboBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageUsers}">
+                    <TextBlock Text="Yeni şifre:" Classes="Helper" VerticalAlignment="Center"/>
+                    <TextBox Classes="Field" Width="200" Text="{Binding NewPasswordForSelected}" PasswordChar="●"/>
+                    <Button Classes="Secondary" Content="Şifre Değiştir" Command="{Binding ChangePasswordCommand}"/>
+                    <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
+                </StackPanel>
             </StackPanel>
         </Border>
 

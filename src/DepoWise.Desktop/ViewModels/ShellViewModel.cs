@@ -239,6 +239,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     [RelayCommand]
     private void GoDashboard() => Navigate("dashboard");
 
+    /// <summary>Aktif ekranın gerçek kod bilgisini (View/ViewModel + kaynak) kopyalanabilir pencerede gösterir.</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ShowScreenInfo()
+    {
+        var (title, body) = ScreenInfoBuilder.Build(CurrentPage, ActiveKey, CurrentTitle);
+        await ScreenInfoService.ShowAsync(title, body);
+    }
+
     /// <summary>Araçlar ekranına gidip ilgili aracı seçer (malzeme detayındaki uyumlu araç tıklaması).</summary>
     public void GoToVehicle(string vehicleId)
     {

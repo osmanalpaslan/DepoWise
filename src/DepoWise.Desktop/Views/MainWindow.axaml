@@ -131,8 +131,11 @@
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <!-- Eşitle (mevcut yer tutucu; gerçek sync komutu ilgili fazda bağlanacak) -->
-                    <Button Grid.Column="2" Classes="Primary" Content="Eşitle" VerticalAlignment="Center"
-                            Margin="0,0,12,0"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Button Classes="Secondary" Content="ⓘ Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
+                                ToolTip.Tip="Bu ekranın gerçek kodunu göster (kopyalanabilir)"/>
+                        <Button Classes="Primary" Content="Eşitle"/>
+                    </StackPanel>
                     <!-- Kullanıcı -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="{Binding BuildStamp}" Classes="Helper" VerticalAlignment="Center"

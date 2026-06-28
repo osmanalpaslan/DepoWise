@@ -251,6 +251,34 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void Kullanici_SifreDegistir_Sil_YalnizAdmin()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var admin = auth.Login("A", "admin", "admin123").Session!;
+        var uid = users.CreateUser(admin, new NewUser("u1", "p12345", null, new[] { RoleKeys.Warehouse }));
+
+        // Şifre değiştir → yeni şifreyle giriş
+        users.ChangePassword(admin, uid, "yeni1234");
+        Assert.True(auth.Login("A", "u1", "yeni1234").Success);
+
+        // Admin olmayan (manager) sil/şifre yapamaz
+        var mgrId = users.CreateUser(admin, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Manager }));
+        var mgr = auth.Login("A", "mgr", "p12345").Session!;
+        Assert.Throws<ForbiddenException>(() => users.DeleteUser(mgr, uid));
+        Assert.Throws<ForbiddenException>(() => users.ChangePassword(mgr, uid, "abcd"));
+
+        // Kendini silemez
+        Assert.Throws<InvalidOperationException>(() => users.DeleteUser(admin, admin.UserId));
+
+        // Admin siler → giriş başarısız + listede yok
+        users.DeleteUser(admin, uid);
+        Assert.False(auth.Login("A", "u1", "yeni1234").Success);
+        Assert.DoesNotContain(users.ListUsers(admin), u => u.Username == "u1");
+    }
+
+    [Fact]
     public void Firma_YalnizSuperAdmin_AdminErisemez()
     {
         var users = new UserService(_factory, _clock);
