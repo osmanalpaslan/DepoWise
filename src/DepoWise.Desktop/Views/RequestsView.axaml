@@ -21,7 +21,11 @@
                                   PrimaryActionText="Yeni Talep" PrimaryActionCommand="{Binding NewRequestCommand}"
                                   SearchText="{Binding Search, Mode=TwoWay}" SearchWatermark="Belge no / açıklama ara...">
                         <ctrl:Toolbar.FilterContent>
-                            <ComboBox Classes="Field" Width="160" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <ComboBox Classes="Field" Width="160" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
+                                <Button Classes="Secondary" Content="🏢 Firma Logosu Ekle" Command="{Binding PickLogoCommand}"
+                                        ToolTip.Tip="PDF başlığındaki firma logosu. Değiştirmedikçe seçili kalır."/>
+                            </StackPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 

@@ -40,7 +40,9 @@ public sealed partial class RequestsViewModel : ViewModelBase
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     private bool _lookupsLoaded;
 
+    private const string LogoKey = "requests.company_logo";
     [ObservableProperty] private int _selectedTab;
+    [ObservableProperty] private string? _companyLogoPath;
     [ObservableProperty] private string _search = "";
     [ObservableProperty] private string _selectedFilter = "Tümü";
     [ObservableProperty] private string? _status;
@@ -127,6 +129,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
             foreach (var s in DesktopServices.Lookups.List(_session, "branches")) Sites.Add(s);
             foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p);
             foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v);
+            CompanyLogoPath = DesktopServices.Settings.Get(_session.CompanyId, LogoKey);
         }
         catch { }
         _lookupsLoaded = true;
@@ -333,6 +336,28 @@ public sealed partial class RequestsViewModel : ViewModelBase
             id, string.IsNullOrWhiteSpace(RejectReason) ? null : RejectReason.Trim()), "Talep iptal edildi.",
             "Bu talep iptal edilsin mi?");
 
+    // ════════════════════ FİRMA LOGOSU ════════════════════
+    /// <summary>Firma logosu seçtirir, app klasörüne kopyalar ve ayarda kalıcı saklar (değişmedikçe seçili kalır).</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task PickLogo()
+    {
+        var picked = await FilePickerService.PickImagesAsync(false);
+        var src = picked.FirstOrDefault();
+        if (string.IsNullOrEmpty(src)) return;
+        try
+        {
+            var dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "branding");
+            System.IO.Directory.CreateDirectory(dir);
+            var dest = System.IO.Path.Combine(dir, "company-logo" + System.IO.Path.GetExtension(src));
+            System.IO.File.Copy(src, dest, overwrite: true);
+            DesktopServices.Settings.Set(_session.CompanyId, LogoKey, dest, _session.UserId);
+            CompanyLogoPath = dest;
+            Status = "Firma logosu güncellendi.";
+        }
+        catch (Exception ex) { Status = "Logo eklenemedi: " + ex.Message; }
+    }
+
     // ════════════════════ PDF ÇIKTI ════════════════════
     [RelayCommand]
     private async System.Threading.Tasks.Task ExportPdf() => await ExportPdfCore(economic: false);
@@ -353,7 +378,8 @@ public sealed partial class RequestsViewModel : ViewModelBase
                 Status: RequestRow.StatusLabel(d.Status),
                 BranchName: d.BranchName, RequesterName: d.RequesterName, WarehouseName: d.WarehouseName,
                 ApproverName: d.ApproverName, Description: d.Description,
-                Items: d.Items.Select(i => new RequestPdfItem(i.Code, i.Name, i.Quantity, i.VehicleLabel)).ToList());
+                Items: d.Items.Select(i => new RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis)).ToList(),
+                LogoPath: CompanyLogoPath);
 
             var bytes = DesktopServices.RequestPdf.Generate(model, economic);
             var path = await FilePickerService.SavePdfAsync(d.DocNo + (economic ? "_ekonomik" : ""));

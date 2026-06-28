@@ -20,7 +20,7 @@ public sealed record RequestListRow(string Id, string DocNo, RequestStatus Statu
 
 public sealed record RequestItemRow(string MaterialCode, string MaterialName, decimal Quantity, string? Note);
 
-public sealed record RequestPdfLine(string Code, string Name, decimal Quantity, string? VehicleLabel);
+public sealed record RequestPdfLine(string Code, string Name, string Unit, decimal Quantity, string? VehicleCode, string? VehicleChassis);
 
 public sealed record RequestPdfData(
     string DocNo, long RequestDate, RequestStatus Status, string? BranchName,
@@ -227,18 +227,20 @@ WHERE mr.id=$id;";
         using (var ic = conn.CreateCommand())
         {
             ic.CommandText = @"
-SELECT m.code, m.name, i.quantity, v.internal_code, v.plate
+SELECT m.code, m.name, COALESCE(u.name,''), i.quantity, v.internal_code, v.chassis_no
 FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
+LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN vehicles v ON v.id = i.vehicle_id
 WHERE i.request_id=$r ORDER BY m.code;";
             ic.Parameters.AddWithValue("$r", requestId);
             using var ir = ic.ExecuteReader();
             while (ir.Read())
             {
-                string? vl = ir.IsDBNull(3) ? null
-                    : ir.IsDBNull(4) ? ir.GetString(3) : $"{ir.GetString(3)} - {ir.GetString(4)}";
-                items.Add(new RequestPdfLine(ir.GetString(0), ir.GetString(1), Money.Parse(ir.GetString(2)), vl));
+                items.Add(new RequestPdfLine(
+                    ir.GetString(0), ir.GetString(1), ir.GetString(2), Money.Parse(ir.GetString(3)),
+                    ir.IsDBNull(4) ? null : ir.GetString(4),
+                    ir.IsDBNull(5) ? null : ir.GetString(5)));
             }
         }
         return new RequestPdfData(docNo, date, RequestStatusMachine.FromDb(status), branch, req, wh, ap, desc, items);

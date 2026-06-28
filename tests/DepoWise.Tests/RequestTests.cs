@@ -197,9 +197,13 @@ public class RequestTests : IDisposable
             DocNo: "TLP-2026-0001", RequestDate: "27/06/2026", Status: "Onaylı",
             BranchName: "Şantiye İğne", RequesterName: "Ömer Çolak", WarehouseName: "Ümit Şahin",
             ApproverName: "Gülşah Öz", Description: "Çeşitli malzeme talebi ğüşçöı",
-            Items: new[] { new RequestPdfItem("M-1", "Yağ Filtresi", 3m, "EX-001") }));
+            Items: new[] { new RequestPdfItem("M-1", "Yağ Filtresi", "Adet", 3m, "EX-001", "NMB123") }));
 
         Assert.True(bytes.Length > 0);
+        // Ekonomik düzen de üretilmeli
+        Assert.True(pdf.Generate(new RequestPdfModel("Ş", "TLP-2026-0002", "27/06/2026", "Beklemede",
+            null, null, null, null, null,
+            new[] { new RequestPdfItem("M-2", "Filtre", "Adet", 1m, null, null) }), economic: true).Length > 0);
         // %PDF imzası
         Assert.Equal((byte)'%', bytes[0]);
         Assert.Equal((byte)'P', bytes[1]);

@@ -1,6 +1,8 @@
 namespace DepoWise.Application.Requests;
 
-public sealed record RequestPdfItem(string MaterialCode, string MaterialName, decimal Quantity, string? VehicleLabel);
+public sealed record RequestPdfItem(
+    string MaterialCode, string MaterialName, string Unit, decimal Quantity,
+    string? VehicleCode, string? VehicleChassis);
 
 /// <summary>Talep PDF için tenant-bağımsız veri modeli (web ve masaüstü aynı modeli kullanır).</summary>
 public sealed record RequestPdfModel(
@@ -13,7 +15,8 @@ public sealed record RequestPdfModel(
     string? WarehouseName,
     string? ApproverName,
     string? Description,
-    IReadOnlyList<RequestPdfItem> Items);
+    IReadOnlyList<RequestPdfItem> Items,
+    string? LogoPath = null);
 
 /// <summary>Belge dışa aktarımı. Türkçe karakterler korunur.</summary>
 public interface IRequestPdfService
