@@ -251,6 +251,23 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void SuperAdmin_Kullanici_DigerRollerGoremez()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var admin = auth.Login("A", "admin", "admin123").Session!;
+        var su = auth.Login("A", "root", "root123").Session!;
+
+        // Firma Admini, Süper Admin kullanıcı kaydını GÖREMEZ
+        Assert.DoesNotContain(users.ListUsers(admin), u => u.Username == "root");
+        Assert.Contains(users.ListUsers(admin), u => u.Username == "admin");
+        // Süper Admin tümünü görür
+        Assert.Contains(users.ListUsers(su), u => u.Username == "root");
+    }
+
+    [Fact]
     public void Kullanici_SifreDegistir_Sil_YalnizAdmin()
     {
         var users = new UserService(_factory, _clock);

@@ -143,9 +143,14 @@ SELECT u.id, u.username, u.full_name,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id)
 FROM users u
 WHERE u.branch_id = $b AND u.company_id = $c AND u.is_deleted = 0
+  AND ($all = 1 OR NOT EXISTS (
+        SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+        WHERE ur.user_id = u.id AND r.role_key = $sa))
 ORDER BY u.username;";
         cmd.Parameters.AddWithValue("$b", branchId);
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$all", s.IsSuperAdmin ? 1 : 0);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
         var list = new List<BranchUserRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

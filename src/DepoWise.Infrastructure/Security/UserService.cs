@@ -48,9 +48,14 @@ SELECT u.id, u.username, u.full_name, u.is_active,
 FROM users u
 LEFT JOIN branches b ON b.id = u.branch_id
 WHERE u.is_deleted = 0 AND ($all = 1 OR u.company_id = $c)
+  -- Süper Admin kullanıcı kayıtları yalnız Süper Admin'e görünür (diğer roller göremez)
+  AND ($all = 1 OR NOT EXISTS (
+        SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+        WHERE ur.user_id = u.id AND r.role_key = $sa))
 ORDER BY u.username;";
         cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
         cmd.Parameters.AddWithValue("$c", actor.CompanyId);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
         var list = new List<UserRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
