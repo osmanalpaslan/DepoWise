@@ -201,10 +201,28 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         bool editing = IsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode)) { Status = "İç kod zorunlu."; return; }
-        if (!await ConfirmService.AskAsync(editing ? "Araç bilgileri güncellensin mi?" : "Yeni araç kaydedilsin mi?", "Kaydet")) return;
+        if (!editing && !await ConfirmService.AskAsync("Yeni araç kaydedilsin mi?", "Kaydet")) return;
 
         if (editing)
         {
+            if (Detail is not null)
+            {
+                var sum = new ChangeSummary();
+                sum.Add("İç Kod", Detail.InternalCode, NewCode.Trim());
+                sum.Add("Plaka", Detail.Plate, string.IsNullOrWhiteSpace(NewPlate) ? null : NewPlate.Trim());
+                sum.Add("Yıl", Detail.ProductionYear, NewYear > 0 ? NewYear : (int?)null);
+                sum.Add("Durum", Detail.Status, NewStatus);
+                sum.Add("Sayaç", Detail.CurrentMeter, NewMeter);
+                sum.Add("Şasi No", Detail.ChassisNo, string.IsNullOrWhiteSpace(NewChassisNo) ? null : NewChassisNo.Trim());
+                sum.Add("Motor No", Detail.EngineNo, string.IsNullOrWhiteSpace(NewEngineNo) ? null : NewEngineNo.Trim());
+                sum.Add("Makine Tipi", Detail.VehicleTypeName, SelVehicleType?.Name);
+                sum.Add("Kategori", Detail.CategoryName, SelCategory?.Name);
+                sum.Add("Marka", Detail.BrandName, SelBrand?.Name);
+                sum.Add("Model", Detail.VehicleModelName, SelModel?.Name);
+                sum.Add("Şantiye", Detail.BranchName, SelBranch?.Name);
+                sum.Add("Sürücü", Detail.DriverName, SelDriver?.Name);
+                if (!await ConfirmService.AskAsync(sum.Build("Araç bilgileri güncellensin mi?"), "Kaydet")) return;
+            }
             try
             {
                 DesktopServices.Vehicles.Update(_session, EditId!, new UpdateVehicle(

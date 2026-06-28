@@ -142,7 +142,16 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         bool editing = DefIsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(DefName)) { Status = "Tanım adı zorunlu."; return; }
-        if (!await ConfirmService.AskAsync(editing ? "Bakım tanımı güncellensin mi?" : "Yeni bakım tanımı kaydedilsin mi?", "Kaydet")) return;
+        if (!editing && !await ConfirmService.AskAsync("Yeni bakım tanımı kaydedilsin mi?", "Kaydet")) return;
+        if (editing && SelectedDef is { } od)
+        {
+            var sum = new ChangeSummary();
+            sum.Add("Tanım Adı", od.Name, DefName.Trim());
+            sum.Add("Periyot", od.IntervalValue, DefIntervalValue);
+            sum.Add("Birim", UnitDisplay(od.IntervalUnit), DefUnitDisplay);
+            sum.Add("Açıklama", od.Description, string.IsNullOrWhiteSpace(DefDescription) ? null : DefDescription.Trim());
+            if (!await ConfirmService.AskAsync(sum.Build("Bakım tanımı güncellensin mi?"), "Kaydet")) return;
+        }
 
         var dto = new NewMaintenanceDefinition(
             Name: DefName.Trim(), IntervalValue: DefIntervalValue, IntervalUnit: UnitCode(DefUnitDisplay),

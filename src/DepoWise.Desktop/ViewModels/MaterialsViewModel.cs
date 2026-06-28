@@ -167,9 +167,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase
         }
         if (SelectedUnit is null) { Status = "Birim seçin."; return; }
 
-        var confirmed = await ConfirmService.AskAsync(
-            editing ? "Malzeme bilgileri güncellensin mi?" : "Yeni malzeme kaydedilsin mi?", "Kaydet");
-        if (!confirmed) return;
+        if (!editing && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
 
         // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
         var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;
@@ -178,11 +176,28 @@ public sealed partial class MaterialsViewModel : ViewModelBase
 
         if (editing)
         {
+            if (Detail is not null)
+            {
+                var origCat = (Categories.FirstOrDefault(c => c.Id == Detail.CategoryId)
+                               ?? SubCategories.FirstOrDefault(c => c.Id == Detail.CategoryId))?.Name;
+                var sum = new ChangeSummary();
+                sum.Add("Kod", Detail.Code, NewCode.Trim());
+                sum.Add("Ad", Detail.Name, NewName.Trim());
+                sum.Add("Tür", Detail.Type, typeVal);
+                sum.Add("Kategori", origCat, (SelectedSubCategory ?? SelectedCategory)?.Name);
+                sum.Add("Birim", Units.FirstOrDefault(u => u.Id == Detail.UnitId)?.Name, SelectedUnit?.Name);
+                sum.Add("Marka", Brands.FirstOrDefault(b => b.Id == Detail.BrandId)?.Name, SelectedBrand?.Name);
+                sum.Add("Tedarikçi", Suppliers.FirstOrDefault(x => x.Id == Detail.SupplierId)?.Name, SelectedSupplier?.Name);
+                sum.Add("Min. Stok", Detail.MinStock, NewMinStock);
+                sum.Add("Birim Fiyat", Detail.UnitPrice, NewUnitPrice);
+                sum.Add("Açıklama", Detail.Description, descVal);
+                if (!await ConfirmService.AskAsync(sum.Build("Malzeme bilgileri güncellensin mi?"), "Kaydet")) return;
+            }
             try
             {
                 DesktopServices.Materials.Update(_session, EditId!, new UpdateMaterial(
                     Code: NewCode.Trim(), Name: NewName.Trim(), Type: typeVal,
-                    CategoryId: categoryId, UnitId: SelectedUnit.Id,
+                    CategoryId: categoryId, UnitId: SelectedUnit!.Id,
                     BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
                     MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal));
 

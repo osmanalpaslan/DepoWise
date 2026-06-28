@@ -137,6 +137,8 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasRows));
     }
 
+    private (string Name, string Code, int Year, string? Type, string? Cat, string? Brand, string? Model)? _origTpl;
+
     [RelayCommand]
     private async Task Add()
     {
@@ -144,7 +146,19 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
         bool editing = IsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewName)) { Status = "Ad zorunlu."; return; }
-        if (!await ConfirmService.AskAsync(editing ? "Şablon güncellensin mi?" : "Yeni şablon kaydedilsin mi?", "Kaydet")) return;
+        if (!editing && !await ConfirmService.AskAsync("Yeni şablon kaydedilsin mi?", "Kaydet")) return;
+        if (editing && _origTpl is { } o)
+        {
+            var sum = new ChangeSummary();
+            sum.Add("Ad", o.Name, NewName.Trim());
+            sum.Add("İç Kod", o.Code, NewCode.Trim());
+            sum.Add("Yıl", o.Year, NewYear);
+            sum.Add("Makine Tipi", o.Type, SelType?.Name);
+            sum.Add("Kategori", o.Cat, SelCategory?.Name);
+            sum.Add("Marka", o.Brand, SelBrand?.Name);
+            sum.Add("Model", o.Model, SelModel?.Name);
+            if (!await ConfirmService.AskAsync(sum.Build("Şablon güncellensin mi?"), "Kaydet")) return;
+        }
 
         var dto = new NewVehicleTemplate(
             Name: NewName.Trim(),
@@ -187,6 +201,7 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
         SelCategory = Categories.FirstOrDefault(x => x.Id == t.CategoryId);
         SelBrand = Brands.FirstOrDefault(x => x.Id == t.BrandId); // modelleri yükler
         SelModel = Models.FirstOrDefault(x => x.Id == t.VehicleModelId);
+        _origTpl = (NewName, NewCode, NewYear, SelType?.Name, SelCategory?.Name, SelBrand?.Name, SelModel?.Name);
         var mat = DesktopServices.VehicleTemplates.GetMaterials(Selected.Id).ToHashSet();
         foreach (var p in MaterialPicks) p.IsSelected = mat.Contains(p.Id);
         RebuildFilteredMaterials();
