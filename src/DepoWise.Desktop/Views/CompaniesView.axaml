@@ -1,0 +1,123 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:org="using:DepoWise.Infrastructure.Organization"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="660"
+             x:Class="DepoWise.Desktop.Views.CompaniesView"
+             x:DataType="vm:CompaniesViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Firma Tanım (Süper Admin)"
+                      PrimaryActionText="Yeni Firma" PrimaryActionCommand="{Binding NewCompanyCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Yeni/Düzenle formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Firma Adı" IsRequired="True" Width="320">
+                        <TextBox Classes="Field" Text="{Binding FormName}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Yetkili" Width="220">
+                        <TextBox Classes="Field" Text="{Binding FormAuthorized}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Vergi No" Width="200">
+                        <TextBox Classes="Field" Text="{Binding FormTaxNo}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Vergi Dairesi" Width="200">
+                        <TextBox Classes="Field" Text="{Binding FormTaxOffice}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Telefon" Width="180">
+                        <TextBox Classes="Field" Text="{Binding FormPhone}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="E-posta" Width="260">
+                        <TextBox Classes="Field" Text="{Binding FormEmail}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Adres">
+                    <TextBox Classes="Field" Text="{Binding FormAddress}" AcceptsReturn="True" Height="60"/>
+                </ctrl:FormField>
+                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste + Detay -->
+        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,340">
+            <Panel Grid.Column="0">
+                <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                <TextBlock Grid.Column="0" Text="FİRMA" MinWidth="200"/>
+                                <TextBlock Grid.Column="1" Text="VERGİ NO" MinWidth="130"/>
+                                <TextBlock Grid.Column="2" Text="TELEFON" MinWidth="130"/>
+                                <TextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="org:CompanyRow">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding TaxDisplay}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                <ctrl:StatePanel Mode="Empty" Title="Firma yok" Message="Henüz firma tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
+            </Panel>
+
+            <!-- Detay -->
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
+                <ScrollViewer>
+                    <StackPanel Spacing="10" DataContext="{Binding Selected}">
+                        <TextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Yetkili" Classes="Helper" Margin="0,2,12,2"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AuthorizedPerson}" Classes="Body"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Vergi No" Classes="Helper" Margin="0,2,12,2"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TaxNo}" Classes="Body"/>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Vergi Dairesi" Classes="Helper" Margin="0,2,12,2"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TaxOffice}" Classes="Body"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Telefon" Classes="Helper" Margin="0,2,12,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Phone}" Classes="Body"/>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="E-posta" Classes="Helper" Margin="0,2,12,2"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Email}" Classes="Body"/>
+                        </Grid>
+                        <TextBlock Text="{Binding Address}" Classes="Body" TextWrapping="Wrap"/>
+                        <Button Classes="Secondary" Content="Düzenle" HorizontalAlignment="Left"
+                                Command="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).BeginEditCommand}"
+                                IsVisible="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).CanEdit}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
+                <TextBlock Text="Detay için bir firma seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

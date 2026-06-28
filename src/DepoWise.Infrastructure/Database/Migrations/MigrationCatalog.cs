@@ -20,5 +20,6 @@ public static class MigrationCatalog
         new Migration013_RememberTokens(),
         new Migration014_UserBranch(),
         new Migration015_UserButtonPermissions(),
+        new Migration016_CompanyFields(),
     };
 }

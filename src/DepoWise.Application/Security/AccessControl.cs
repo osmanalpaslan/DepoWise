@@ -14,6 +14,8 @@ public static class AccessControl
     {
         // Herkese açık modüller yalnız okuma için açıktır.
         if (AppModules.IsPublic(moduleKey)) return action == PermissionAction.View;
+        // Yalnız Süper Admin'e açık modüller (Firma Tanım): admin bypass GEÇERSİZ, atanamaz.
+        if (AppModules.IsSuperAdminOnly(moduleKey)) return s.IsSuperAdmin;
         if (IsAdmin(s)) return true;
 
         var p = s.Permissions.For(moduleKey);

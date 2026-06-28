@@ -64,6 +64,13 @@ public static class AppModules
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller.</summary>
     public static bool IsPublic(string moduleKey)
         => moduleKey is Dashboard or About;
+
+    /// <summary>
+    /// Yalnız Süper Admin erişebilir; Firma Admini dahil hiç kimseye ATANAMAZ (admin bypass geçersiz).
+    /// Firma Tanım platform sahibinindir; çok-firmalı dağıtımda firma admini başka firmayı yönetemez.
+    /// </summary>
+    public static bool IsSuperAdminOnly(string moduleKey)
+        => moduleKey is "companies";
 }
 
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>

@@ -43,7 +43,8 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         foreach (var (key, label) in AppModules.All)
         {
-            if (AppModules.IsPublic(key)) continue; // Dashboard/About herkese açık
+            // Dashboard/About herkese açık; Firma Tanım yalnız Süper Admin (atanamaz) → ağaçta yok.
+            if (AppModules.IsPublic(key) || AppModules.IsSuperAdminOnly(key)) continue;
             Modules.Add(new ModulePermNode(key, label));
         }
         foreach (var (key, label) in SpecialButtons.All)

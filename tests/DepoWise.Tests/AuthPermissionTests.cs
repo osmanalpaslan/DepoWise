@@ -251,6 +251,35 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void Firma_YalnizSuperAdmin_AdminErisemez()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var admin = auth.Login("A", "admin", "admin123").Session!;
+        var su = auth.Login("A", "root", "root123").Session!;
+        var companies = new CompanyService(_factory, _clock);
+
+        // Firma Admini erişemez (admin bypass GEÇERSİZ — atanamaz)
+        Assert.False(AccessControl.Can(admin, "companies", PermissionAction.View));
+        Assert.Throws<ForbiddenException>(() => companies.List(admin));
+        Assert.Throws<ForbiddenException>(() => companies.Create(admin, new NewCompany("X")));
+
+        // Explicit izin verilse bile (manager) erişemez
+        var perms = new PermissionService(_factory, _clock);
+        var mgrId = users.CreateUser(su, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Manager }));
+        perms.SaveForUser(su, mgrId, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>());
+        var mgr = auth.Login("A", "mgr", "p12345").Session!;
+        Assert.False(AccessControl.Can(mgr, "companies", PermissionAction.View));
+
+        // Süper Admin yapar
+        Assert.True(AccessControl.Can(su, "companies", PermissionAction.Create));
+        var id = companies.Create(su, new NewCompany("Acme A.Ş.", TaxNo: "123", Phone: "555"));
+        Assert.Contains(companies.List(su), c => c.Id == id && c.Name == "Acme A.Ş." && c.TaxNo == "123");
+    }
+
+    [Fact]
     public void SuperAdmin_SuperAdmin_Olusturabilir()
     {
         var users = new UserService(_factory, _clock);

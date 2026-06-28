@@ -33,6 +33,7 @@ public static class DesktopServices
     public static UserService Users { get; private set; } = null!;
     public static BranchService Branches { get; private set; } = null!;
     public static PermissionService Permissions { get; private set; } = null!;
+    public static CompanyService Companies { get; private set; } = null!;
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static DashboardService Dashboard { get; private set; } = null!;
@@ -73,6 +74,7 @@ public static class DesktopServices
         RequestPdf = new RequestPdfService();
         Branches = new BranchService(Factory, clock);
         Permissions = new PermissionService(Factory, clock);
+        Companies = new CompanyService(Factory, clock);
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
@@ -83,6 +85,7 @@ public static class DesktopServices
         Theme = boot.Theme;
 
         EnsureFirstRunAdmin();
+        EnsureSuperAdmin();
     }
 
     /// <summary>İlk açılış: hiç kullanıcı yoksa varsayılan firma + admin (admin/admin123) oluştur.</summary>
@@ -94,6 +97,17 @@ public static class DesktopServices
         var count = Convert.ToInt64(cmd.ExecuteScalar());
         if (count == 0)
             Users.EnsureInitialAdmin(DefaultCompanyId, "admin", "admin123", RoleKeys.CompanyAdmin);
+    }
+
+    /// <summary>Sistemde hiç Süper Admin yoksa platform sahibi hesabı (superadmin/superadmin) oluştur — Firma Tanım için.</summary>
+    private static void EnsureSuperAdmin()
+    {
+        using var conn = Factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE r.role_key = $k;";
+        cmd.Parameters.AddWithValue("$k", RoleKeys.SuperAdmin);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            Users.EnsureInitialAdmin(DefaultCompanyId, "superadmin", "superadmin", RoleKeys.SuperAdmin);
     }
 
     /// <summary>Kullanıcının görünen adı (full_name ya da username; GUID değil).</summary>
