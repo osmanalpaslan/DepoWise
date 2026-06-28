@@ -400,7 +400,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
 
     // ═══════════ Fotoğraflar ═══════════
     public ObservableCollection<PhotoStage> Photos { get; } = new();
-    public ObservableCollection<Bitmap> DetailPhotos { get; } = new();
+    public ObservableCollection<DetailPhoto> DetailPhotos { get; } = new();
 
     [RelayCommand]
     private async Task AddPhotos()
@@ -413,6 +413,17 @@ public sealed partial class VehiclesViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenPhoto(Bitmap? b) => PhotoViewer.Show(b);
+
+    /// <summary>Detaydaki kayıtlı fotoğrafı sil (onaylı).</summary>
+    [RelayCommand]
+    private async Task DeleteDetailPhoto(DetailPhoto? p)
+    {
+        if (p is null || Selected is null) return;
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync("Bu fotoğraf silinsin mi?", "Fotoğraf Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try { DesktopServices.Files.DeletePhoto(_session, p.FileId); LoadDetailPhotos(Selected.Id); Status = "Fotoğraf silindi."; }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
 
     private void SaveStagedPhotos(string vehicleId)
     {
@@ -435,7 +446,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase
             foreach (var f in DesktopServices.Files.GetPhotos(_session, "vehicle", vehicleId))
             {
                 var bytes = DesktopServices.Storage.Read(f.StorageKey);
-                DetailPhotos.Add(new Bitmap(new MemoryStream(bytes)));
+                DetailPhotos.Add(new DetailPhoto(f.Id, new Bitmap(new MemoryStream(bytes))));
             }
         }
         catch { /* foto yoksa sessiz */ }

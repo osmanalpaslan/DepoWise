@@ -295,15 +295,21 @@
                 <ItemsControl ItemsSource="{Binding DetailPhotos}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand"
-                                    ToolTip.Tip="Büyüt"
-                                    Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
-                                    CommandParameter="{Binding}">
-                                <Border Margin="0,0,8,8" Width="72" Height="72" CornerRadius="6" ClipToBounds="True">
-                                    <Image Source="{Binding}" Stretch="UniformToFill"/>
-                                </Border>
-                            </Button>
+                        <DataTemplate x:DataType="vm:DetailPhoto">
+                            <Panel Margin="0,0,8,8" Width="72" Height="72">
+                                <Button Classes="Ghost" Padding="0" Background="Transparent" Cursor="Hand" ToolTip.Tip="Büyüt"
+                                        Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).OpenPhotoCommand}"
+                                        CommandParameter="{Binding Image}">
+                                    <Border CornerRadius="6" ClipToBounds="True">
+                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                    </Border>
+                                </Button>
+                                <Button Classes="Icon" Content="×" Width="22" Height="22"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top" Background="#99000000" ToolTip.Tip="Sil"
+                                        IsVisible="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).CanEdit}"
+                                        Command="{Binding $parent[UserControl].((vm:VehiclesViewModel)DataContext).DeleteDetailPhotoCommand}"
+                                        CommandParameter="{Binding}"/>
+                            </Panel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
