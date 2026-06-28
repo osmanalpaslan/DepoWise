@@ -282,6 +282,25 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     [ObservableProperty] private string _mntDescription = "";
     [ObservableProperty] private string _mntMaterialSearch = "";
     [ObservableProperty] private string _cancelReason = "";
+    [ObservableProperty] private bool _isAddingMntSub;
+    [ObservableProperty] private string _newMntSubName = "";
+
+    [RelayCommand] private void StartAddMntSub() { if (MntDef is null) { Status = "Önce bakım tanımı seçin."; return; } IsAddingMntSub = true; NewMntSubName = ""; }
+    [RelayCommand] private void CancelAddMntSub() { IsAddingMntSub = false; NewMntSubName = ""; }
+    [RelayCommand]
+    private void ConfirmAddMntSub()
+    {
+        if (MntDef is null || string.IsNullOrWhiteSpace(NewMntSubName)) return;
+        try
+        {
+            var id = DesktopServices.MaintenanceDefs.Create(_session, new NewMaintenanceDefinition(
+                NewMntSubName.Trim(), 0m, "km", ParentDefId: MntDef.Id));
+            var row = new MaintenanceDefinitionRow(id, NewMntSubName.Trim(), 0m, "km", null, MntDef.Id);
+            MntSubDefs.Add(row); MntSubDef = row;
+            IsAddingMntSub = false; NewMntSubName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
 
     public string? AddMntButtonText => CanWrite ? "Yeni Kayıt" : null;
 
@@ -368,6 +387,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     {
         MntVehicle = null; MntDef = null; MntSubDef = null; MntTechnician = null;
         MntKm = 0; MntHour = 0; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
+        IsAddingMntSub = false; NewMntSubName = "";
         MntLines.Clear(); MntMaterialResults.Clear(); ShowMntAdd = false;
     }
 

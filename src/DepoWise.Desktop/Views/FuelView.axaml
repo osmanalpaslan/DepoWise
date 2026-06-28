@@ -12,7 +12,7 @@
              x:DataType="vm:FuelViewModel">
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
-        <TabControl Grid.Row="0">
+        <TabControl Grid.Row="0" Classes="NoHeader" SelectedIndex="{Binding SelectedTab}">
 
             <!-- ═══════════ YAKIT DAĞITIMLARI ═══════════ -->
             <TabItem Header="Yakıt Dağıtımları">
@@ -28,13 +28,14 @@
                         <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
                             <TextBlock Text="YENİ DAĞITIM" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
-                                <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                              ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding InternalCode}"/></DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
+                                    <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
+                                                     FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                                                     ValueMemberBinding="{Binding Display}">
+                                        <AutoCompleteBox.ItemTemplate>
+                                            <DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate>
+                                        </AutoCompleteBox.ItemTemplate>
+                                    </AutoCompleteBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Önceki Sayaç" Width="140" HelpText="Araçtan otomatik.">
                                     <NumericUpDown Classes="Field" Value="{Binding DistPrevMeter}" IsEnabled="False"

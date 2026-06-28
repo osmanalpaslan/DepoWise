@@ -289,6 +289,11 @@
         </Setter>
     </Style>
 
+    <!-- ============ Başlıksız TabControl (sekme şeridi gizli; geçiş yalnız menüden) ============ -->
+    <Style Selector="TabControl.NoHeader /template/ ItemsPresenter#PART_ItemsPresenter">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
     <!-- ============ Klavye odağı görünürlüğü (koyu temada belirgin halka) ============ -->
     <Style Selector="Button.Primary:focus-visible, Button.Secondary:focus-visible, Button.Ghost:focus-visible, Button.Danger:focus-visible, Button.Icon:focus-visible">
         <Setter Property="BorderBrush" Value="#FFFFFF"/>

@@ -68,7 +68,12 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Araç Bakımları", "maintenance:records"),
                 new NavLinkVm("Uyarılar", "maintenance:alerts"),
             }),
-            new NavGroupVm("⛽", "Yakıt", "fuel", new[] { new NavLinkVm("Yakıt İşlemleri", "fuel") }),
+            new NavGroupVm("⛽", "Yakıt", "fuel", new[]
+            {
+                new NavLinkVm("Yakıt Dağıtımları", "fuel:dist"),
+                new NavLinkVm("Depo Girişleri", "fuel:depot"),
+                new NavLinkVm("Özet", "fuel:summary"),
+            }),
             new NavGroupVm("📄", "Talepler", "requests", new[] { new NavLinkVm("Talep Listesi", "requests") }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
             new NavGroupVm("⚙️", "Tanımlar / Ayarlar", "definitions", new[] { new NavLinkVm("Tanımlar", "definitions") }),
@@ -135,9 +140,20 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Periyodik bakım uyarıları";
                 break;
             case "fuel":
-                CurrentPage = new FuelViewModel(_session);
+            case "fuel:dist":
+                CurrentPage = new FuelViewModel(_session, 0);
                 CurrentTitle = "Yakıt";
-                CurrentContext = "Depo girişi ve araç dağıtımı";
+                CurrentContext = "Yakıt dağıtımları";
+                break;
+            case "fuel:depot":
+                CurrentPage = new FuelViewModel(_session, 1);
+                CurrentTitle = "Yakıt";
+                CurrentContext = "Depo girişleri";
+                break;
+            case "fuel:summary":
+                CurrentPage = new FuelViewModel(_session, 2);
+                CurrentTitle = "Yakıt";
+                CurrentContext = "Yakıt özeti";
                 break;
             case "requests":
                 CurrentPage = new RequestsViewModel(_session);

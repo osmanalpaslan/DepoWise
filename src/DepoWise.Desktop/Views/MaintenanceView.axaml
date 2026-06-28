@@ -12,7 +12,7 @@
              x:DataType="vm:MaintenanceViewModel">
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="*,Auto">
-        <TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTab}">
+        <TabControl Grid.Row="0" Classes="NoHeader" SelectedIndex="{Binding SelectedTab}">
 
             <!-- ═══════════ BAKIM TANIMLARI ═══════════ -->
             <TabItem Header="Bakım Tanımları">
@@ -166,20 +166,32 @@
                         <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
                             <TextBlock Text="YENİ BAKIM KAYDI" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
-                                <ctrl:FormField Label="Araç" IsRequired="True" Width="200">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntVehicles}" SelectedItem="{Binding MntVehicle}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding InternalCode}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
+                                    <AutoCompleteBox ItemsSource="{Binding MntVehicles}" SelectedItem="{Binding MntVehicle}"
+                                                     FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                                                     ValueMemberBinding="{Binding Display}">
+                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                    </AutoCompleteBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntDefs}" SelectedItem="{Binding MntDef}">
                                         <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </ctrl:FormField>
-                                <ctrl:FormField Label="Alt Bakım" Width="200">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                <ctrl:FormField Label="Alt Bakım" Width="240">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}">
+                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Button Grid.Column="1" Classes="Secondary" Content="+" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingMntSub}">
+                                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewMntSubName}" PlaceholderText="Yeni alt bakım adı"/>
+                                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddMntSubCommand}"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddMntSubCommand}"/>
+                                        </Grid>
+                                    </StackPanel>
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">

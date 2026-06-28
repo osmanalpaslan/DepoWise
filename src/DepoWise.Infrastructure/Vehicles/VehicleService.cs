@@ -17,7 +17,12 @@ public sealed record VehicleRecord(
     string Status, string? BrandId, string? VehicleModelId, int? ProductionYear, long CreatedAt);
 
 public sealed record VehicleListRow(
-    string Id, string InternalCode, string? Plate, string Status, decimal CurrentMeter, string MeterUnit, int? ProductionYear);
+    string Id, string InternalCode, string? Plate, string Status, decimal CurrentMeter, string MeterUnit, int? ProductionYear)
+{
+    /// <summary>Araç seçimi gösterimi: "İç Kod - Plaka" (plaka boşsa yalnız iç kod).</summary>
+    public string Display => string.IsNullOrWhiteSpace(Plate) ? InternalCode : $"{InternalCode} - {Plate}";
+    public override string ToString() => Display;
+}
 
 public sealed record VehicleDetail(
     string Id, string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string MeterUnit,

@@ -27,6 +27,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     public ObservableCollection<LookupItem> Suppliers { get; } = new();
 
     [ObservableProperty] private string? _status;
+    [ObservableProperty] private int _selectedTab;
     [ObservableProperty] private decimal _depotBalance;
     [ObservableProperty] private decimal _currentPrice;
     [ObservableProperty] private decimal _totalReceived;
@@ -48,9 +49,10 @@ public sealed partial class FuelViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "fuel", PermissionAction.Create);
 
-    public FuelViewModel(SessionContext session)
+    public FuelViewModel(SessionContext session, int initialTab = 0)
     {
         _session = session;
+        SelectedTab = initialTab;
         Load();
     }
 
