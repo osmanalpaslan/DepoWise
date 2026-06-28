@@ -21,6 +21,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     public string Initial { get; }
     public string Welcome { get; }
     public string BuildStamp { get; } = BuildInfo();
+    /// <summary>Ekran Bilgisi butonları yalnız Süper Admin'e görünür.</summary>
+    public bool IsSuperAdmin => _session.IsSuperAdmin;
     public IReadOnlyList<NavGroupVm> Groups { get; }
 
     [ObservableProperty] private ViewModelBase? _currentPage;
@@ -244,6 +246,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     private async System.Threading.Tasks.Task ShowScreenInfo()
     {
         var (title, body) = ScreenInfoBuilder.Build(CurrentPage, ActiveKey, CurrentTitle);
+        await ScreenInfoService.ShowAsync(title, body);
+    }
+
+    /// <summary>Basit görünüm: yalnız ekran adı + alan adları (teknik bilgi yok).</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ShowSimpleScreenInfo()
+    {
+        var (title, body) = ScreenInfoBuilder.BuildSimple(CurrentPage, ActiveKey, CurrentTitle);
         await ScreenInfoService.ShowAsync(title, body);
     }
 

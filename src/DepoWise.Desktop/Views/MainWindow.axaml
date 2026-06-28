@@ -132,7 +132,11 @@
                     </StackPanel>
                     <!-- Eşitle (mevcut yer tutucu; gerçek sync komutu ilgili fazda bağlanacak) -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Button Classes="Secondary" Content="🟢 Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
+                                IsVisible="{Binding IsSuperAdmin}"
+                                ToolTip.Tip="Yalnız ekran adı + alan adları (kolay tarif için)"/>
                         <Button Classes="Secondary" Content="ⓘ Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
+                                IsVisible="{Binding IsSuperAdmin}"
                                 ToolTip.Tip="Bu ekranın gerçek kodunu göster (kopyalanabilir)"/>
                         <Button Classes="Primary" Content="Eşitle"/>
                     </StackPanel>
