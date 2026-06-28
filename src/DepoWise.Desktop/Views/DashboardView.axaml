@@ -18,6 +18,26 @@
                            Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
             </Border>
 
+            <!-- ===== Güncelleme ===== -->
+            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="{StaticResource Radius8}" Padding="14,12">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="Uygulama Sürümü" Classes="Helper"/>
+                        <TextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="4">
+                        <TextBlock Text="{Binding UpdateMessage}" Classes="Body" TextWrapping="Wrap"
+                                   IsVisible="{Binding UpdateMessage, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <ProgressBar Minimum="0" Maximum="100" Value="{Binding UpdateProgress}" Height="8"
+                                     IsVisible="{Binding IsUpdating}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Classes="Secondary" Content="🔄 Güncelle" Command="{Binding CheckUpdateCommand}"
+                                ToolTip.Tip="Güncelleme kontrol et"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <!-- ===== Özet ===== -->
             <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
                 <TextBlock Text="ÖZET" Classes="SectionTitle"/>

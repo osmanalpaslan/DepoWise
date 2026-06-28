@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
@@ -23,8 +24,21 @@ public sealed partial class DashboardViewModel : ViewModelBase
     public bool HasError => LoadError is not null;
     public bool IsLoaded => !IsLoading && !HasError;
 
+    // ── Güncelleme (Ana Ekran "Güncelle" + % ilerleme) ──
+    [ObservableProperty] private string _currentVersion = "—";
+    [ObservableProperty] private string? _updateMessage;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyUpdate))]
+    private bool _updateAvailable;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanApplyUpdate))]
+    private bool _isUpdating;
+    [ObservableProperty] private int _updateProgress;
+    public bool CanApplyUpdate => UpdateAvailable && !IsUpdating;
+
     public DashboardViewModel(SessionContext session)
     {
+        try { CurrentVersion = DesktopServices.Update.CurrentVersion(); } catch { }
         try
         {
             var s = DesktopServices.Dashboard.GetSummary(session);
@@ -49,6 +63,23 @@ public sealed partial class DashboardViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(navKey)) return;
         ShellViewModel.Current?.NavigateCommand.Execute(navKey);
+    }
+
+    /// <summary>Güncelleme kontrolü: yayınlanan en son sürümü mevcutla karşılaştırır (Güncelleme sunucusundan sync edilen app_releases).</summary>
+    [RelayCommand]
+    private void CheckUpdate()
+    {
+        try
+        {
+            var latest = DesktopServices.Releases.Latest();
+            var res = DesktopServices.Update.Check(latest);
+            UpdateAvailable = res.UpdateAvailable;
+            UpdateMessage = res.UpdateAvailable
+                ? $"Yeni sürüm mevcut: {res.LatestVersion} (mevcut {res.CurrentVersion})"
+                  + (res.SignedWarning ? " — UYARI: paket imzasız." : "")
+                : $"Uygulama güncel (sürüm {res.CurrentVersion}).";
+        }
+        catch (Exception ex) { UpdateMessage = "Güncelleme kontrolü başarısız: " + ex.Message; }
     }
 }
 

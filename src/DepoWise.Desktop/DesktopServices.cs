@@ -16,6 +16,7 @@ using DepoWise.Infrastructure.Requests;
 using DepoWise.Infrastructure.Vehicles;
 using DepoWise.Infrastructure.Security;
 using DepoWise.Infrastructure.Settings;
+using DepoWise.Infrastructure.Update;
 using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Desktop;
@@ -34,6 +35,8 @@ public static class DesktopServices
     public static BranchService Branches { get; private set; } = null!;
     public static PermissionService Permissions { get; private set; } = null!;
     public static CompanyService Companies { get; private set; } = null!;
+    public static ReleaseService Releases { get; private set; } = null!;
+    public static UpdateService Update { get; private set; } = null!;
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static DashboardService Dashboard { get; private set; } = null!;
@@ -75,6 +78,9 @@ public static class DesktopServices
         Branches = new BranchService(Factory, clock);
         Permissions = new PermissionService(Factory, clock);
         Companies = new CompanyService(Factory, clock);
+        Releases = new ReleaseService(Factory, clock);
+        Update = new UpdateService(System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "update"));
         Reports = new ReportService(Factory);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
