@@ -74,7 +74,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Depo Girişleri", "fuel:depot"),
                 new NavLinkVm("Özet", "fuel:summary"),
             }),
-            new NavGroupVm("📄", "Talepler", "requests", new[] { new NavLinkVm("Talep Listesi", "requests") }),
+            new NavGroupVm("📄", "Talepler", "requests", new[]
+            {
+                new NavLinkVm("Talep Formu", "requests:form"),
+                new NavLinkVm("Talep Onaylama", "requests:approve"),
+            }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
             new NavGroupVm("⚙️", "Tanımlar / Ayarlar", "definitions", new[] { new NavLinkVm("Tanımlar", "definitions") }),
         };
@@ -156,9 +160,15 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Yakıt özeti";
                 break;
             case "requests":
-                CurrentPage = new RequestsViewModel(_session);
+            case "requests:form":
+                CurrentPage = new RequestsViewModel(_session, 0);
                 CurrentTitle = "Talepler";
-                CurrentContext = "Malzeme talepleri ve onay akışı";
+                CurrentContext = "Talep formu ve liste";
+                break;
+            case "requests:approve":
+                CurrentPage = new RequestsViewModel(_session, 1);
+                CurrentTitle = "Talepler";
+                CurrentContext = "Talep onaylama (bekleyen)";
                 break;
             case "reports":
                 CurrentPage = new ReportsViewModel(_session);
