@@ -291,6 +291,13 @@ public sealed partial class ShellViewModel : ViewModelBase
         UpdateActiveStates(key);
     }
 
+    /// <summary>Köprü: ilgili ekrana git + (varsa) kaydın detayını/işlemini otomatik aç.</summary>
+    public void NavigateTo(string key, string? entityId)
+    {
+        Navigate(key);
+        if (!string.IsNullOrEmpty(entityId) && CurrentPage is IDeepLinkTarget t) t.OpenEntity(entityId);
+    }
+
     [RelayCommand]
     private void GoDashboard() => Navigate("dashboard");
 

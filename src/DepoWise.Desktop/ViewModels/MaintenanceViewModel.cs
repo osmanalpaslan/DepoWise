@@ -19,7 +19,7 @@ namespace DepoWise.Desktop.ViewModels;
 /// Bakım Takibi — sekmeli: (1) Bakım Tanımları (tanım CRUD + ilişkili araç + alt bakım), (2) Uyarılar (GetAlerts).
 /// "Araç Bakımları" sekmesi sonraki fazda. İş kuralları servis katmanında.
 /// </summary>
-public sealed partial class MaintenanceViewModel : ViewModelBase
+public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
@@ -377,6 +377,14 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok."; return; }
         ShowMntAdd = !ShowMntAdd;
         if (ShowMntAdd) LoadMntPickers();
+    }
+
+    /// <summary>Köprü: Araç Bakımları sekmesinde yeni kayıt formunu açar ve ilgili aracı seçer (Ana Ekran bakım uyarısı).</summary>
+    public void OpenEntity(string vehicleId)
+    {
+        SelectedTab = 1;                       // Araç Bakımları
+        if (!ShowMntAdd) { ShowMntAdd = true; LoadMntPickers(); }
+        MntVehicle = MntVehicles.FirstOrDefault(v => v.Id == vehicleId);
     }
 
     private void LoadMntPickers()

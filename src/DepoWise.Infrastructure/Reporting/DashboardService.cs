@@ -42,7 +42,7 @@ public sealed class DashboardService
             {
                 if (a.Level == AlertLevel.Normal) continue;
                 alerts.Add(new DashboardAlert(AlertKind.Maintenance, a.DefinitionName,
-                    $"%{a.Progress * 100:0} ({a.Level})", "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue));
+                    $"%{a.Progress * 100:0} ({a.Level})", "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId));
             }
         }
         // Muayene/sigorta
@@ -52,7 +52,7 @@ public sealed class DashboardService
             {
                 if (a.Level == DateAlertLevel.Normal) continue;
                 alerts.Add(new DashboardAlert(AlertKind.Inspection, a.DocType,
-                    a.Level.ToString(), "inspection", a.Level == DateAlertLevel.Expired));
+                    a.Level.ToString(), "vehicles", a.Level == DateAlertLevel.Expired, a.VehicleId));
             }
         }
         // Düşük stok

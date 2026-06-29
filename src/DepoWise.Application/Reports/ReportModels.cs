@@ -36,7 +36,7 @@ public static class ReportGate
 
 public enum AlertKind { Maintenance, Inspection, LowStock }
 
-public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical);
+public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null);
 
 public sealed record DashboardSummary(
     int VehicleCount, int MaterialCount, int LowStockCount, int PendingRequestCount, int PersonnelCount,

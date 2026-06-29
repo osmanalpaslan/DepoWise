@@ -65,6 +65,14 @@ public sealed partial class DashboardViewModel : ViewModelBase
         ShellViewModel.Current?.NavigateCommand.Execute(navKey);
     }
 
+    /// <summary>Uyarıya tıkla → ilgili ekran + ilgili kaydın detayı/işlemi otomatik açılır.</summary>
+    [RelayCommand]
+    private void OpenAlert(DashboardAlert? alert)
+    {
+        if (alert is null) return;
+        ShellViewModel.Current?.NavigateTo(alert.NavigateKey, alert.EntityId);
+    }
+
     /// <summary>Güncelleme kontrolü: yayınlanan en son sürümü mevcutla karşılaştırır (Güncelleme sunucusundan sync edilen app_releases).</summary>
     [RelayCommand]
     private void CheckUpdate()

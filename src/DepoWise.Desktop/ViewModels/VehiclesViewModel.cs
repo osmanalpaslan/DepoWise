@@ -18,7 +18,7 @@ using DepoWise.Infrastructure.Vehicles;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
-public sealed partial class VehiclesViewModel : ViewModelBase
+public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
@@ -136,6 +136,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase
         var row = Items.FirstOrDefault(r => r.Id == vehicleId);
         if (row is not null) Selected = row;
     }
+
+    /// <summary>Köprü: araç kaydını seçip detayını açar (Ana Ekran uyarısından gelince).</summary>
+    public void OpenEntity(string entityId) => SelectById(entityId);
 
     [RelayCommand]
     private void Load()

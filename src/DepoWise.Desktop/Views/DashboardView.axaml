@@ -76,8 +76,8 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="rep:DashboardAlert">
                             <Button Classes="Ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
-                                    Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenCommand}"
-                                    CommandParameter="{Binding NavigateKey}" ToolTip.Tip="İlgili ekranı aç">
+                                    Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).OpenAlertCommand}"
+                                    CommandParameter="{Binding}" ToolTip.Tip="İlgili ekranı aç">
                             <Border Classes="AlertRow">
                                 <Grid ColumnDefinitions="4,Auto,*,Auto">
                                     <!-- Sol renk çubuğu (kritik=kırmızı / değilse turuncu) -->
