@@ -30,7 +30,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private static readonly SKColor TextSecondary = SKColor.Parse("AEB7C4");
     private const int MaxBars = 20; // büyük veri: nokta sayısını sınırla
 
-    public ObservableCollection<string> ReportTypes { get; } = new() { "Stok Durumu", "Yakıt Tüketim" };
+    public ObservableCollection<string> ReportTypes { get; } = new()
+        { "Stok Durumu", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu" };
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
 
@@ -81,9 +82,14 @@ public sealed partial class ReportsViewModel : ViewModelBase
                 FromDate: FromDate?.ToUnixTimeMilliseconds(),
                 ToDate: ToDate?.ToUnixTimeMilliseconds());
 
-            var table = SelectedReport == "Yakıt Tüketim"
-                ? DesktopServices.Reports.FuelConsumption(_session, req)
-                : DesktopServices.Reports.StockStatus(_session, req);
+            var table = SelectedReport switch
+            {
+                "Yakıt Tüketim" => DesktopServices.Reports.FuelConsumption(_session, req),
+                "Bakım Raporu" => DesktopServices.Reports.Maintenance(_session, req),
+                "Depo Girişi" => DesktopServices.Reports.FuelDepot(_session, req),
+                "Talep Raporu" => DesktopServices.Reports.Requests(_session, req),
+                _ => DesktopServices.Reports.StockStatus(_session, req),
+            };
 
             Headers.Clear();
             foreach (var h in table.Headers) Headers.Add(h);
@@ -138,7 +144,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
             ChartTitle = "Araç Bazında Yakıt (Litre)";
             ShowBar = liters.Length > 0;
         }
-        else
+        else if (SelectedReport == "Stok Durumu")
         {
             // Stok durum dağılımı: Düşük (stok<=min) vs Yeterli (col2=Stok, col3=Min Stok)
             int low = 0, ok = 0;

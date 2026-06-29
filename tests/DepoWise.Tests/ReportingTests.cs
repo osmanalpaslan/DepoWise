@@ -93,6 +93,25 @@ public class ReportingTests : IDisposable
         Assert.Throws<ForbiddenException>(() => _reports.StockStatus(noPerm, new ReportRequest(Executed: true)));
     }
 
+    // ---- Yeni raporlar (Bakım / Depo / Talep) ----
+    [Fact]
+    public void YeniRaporlar_Calisir_DogruBaslikVeKolonlar()
+    {
+        var bakim = _reports.Maintenance(_admin, new ReportRequest(Executed: true));
+        Assert.Equal("Bakım Raporu", bakim.Title);
+        Assert.Equal(new[] { "Tarih", "Araç", "Bakım", "Teknisyen", "Malzeme Maliyeti" }, bakim.Headers);
+
+        var depo = _reports.FuelDepot(_admin, new ReportRequest(Executed: true));
+        Assert.Equal("Depo Girişi Raporu", depo.Title);
+        Assert.Equal(5, depo.Headers.Count);
+
+        var talep = _reports.Requests(_admin, new ReportRequest(Executed: true));
+        Assert.Equal("Talep Raporu", talep.Title);
+
+        // Sorgula yapılmadan çalışmaz (gate)
+        Assert.Throws<InvalidOperationException>(() => _reports.Maintenance(_admin, new ReportRequest(Executed: false)));
+    }
+
     // ---- Excel ----
     [Fact]
     public void Excel_GecerliXlsx_Uretir()
