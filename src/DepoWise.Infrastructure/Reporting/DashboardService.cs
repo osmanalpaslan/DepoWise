@@ -60,12 +60,17 @@ public sealed class DashboardService
             foreach (var (id, name) in LowStockList(conn, s.CompanyId))
                 alerts.Add(new DashboardAlert(AlertKind.LowStock, name, "Düşük stok", "materials", true, id));
 
-        // Yakıt — depo kalanı tükendiğinde (Özet ekranına gidip kalanı gör)
+        // Yakıt — depo kalanı toplam alınanın %20'si ve altına düşünce (Özet'te kalanı gör)
         if (AccessControl.Can(s, "fuel", PermissionAction.View))
         {
-            var rem = FuelRemaining(conn, s.CompanyId);
-            if (rem <= 0)
-                alerts.Add(new DashboardAlert(AlertKind.Fuel, "Yakıt Tükendi", $"Kalan depo: {rem:0.##} L", "fuel:summary", true));
+            var (received, remaining) = FuelStatus(conn, s.CompanyId);
+            if (received > 0 && remaining <= received * 0.20)
+            {
+                var pct = received > 0 ? remaining / received * 100 : 0;
+                alerts.Add(new DashboardAlert(AlertKind.Fuel,
+                    remaining <= 0 ? "Yakıt Tükendi" : "Yakıt Azaldı",
+                    $"Kalan depo: {remaining:0.##} L (%{pct:0})", "fuel:summary", true));
+            }
         }
 
         return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts);
@@ -95,14 +100,18 @@ ORDER BY m.name LIMIT 20;";
         return list;
     }
 
-    private static double FuelRemaining(SqliteConnection conn, string companyId)
+    /// <summary>(toplam alınan, kalan) — kalan = alınan − dağıtılan.</summary>
+    private static (double Received, double Remaining) FuelStatus(SqliteConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0),0)
-     - COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_distributions WHERE company_id=$c AND is_deleted=0),0);";
+SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0),0),
+       COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_distributions WHERE company_id=$c AND is_deleted=0),0);";
         cmd.Parameters.AddWithValue("$c", companyId);
-        return Convert.ToDouble(cmd.ExecuteScalar());
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return (0, 0);
+        var received = r.GetDouble(0);
+        return (received, received - r.GetDouble(1));
     }
 
     private static int LowStockCount(SqliteConnection conn, string companyId)
