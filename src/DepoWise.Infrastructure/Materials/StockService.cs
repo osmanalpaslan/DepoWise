@@ -16,8 +16,10 @@ public sealed record CountLine(string MaterialId, decimal CountedQuantity);
 public sealed record StockDocResult(string DocumentId, string DocNo);
 
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
-    int Direction, decimal Quantity, decimal? UnitPrice, string? Note)
+    int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
+    string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null)
 {
+    public string InvoiceText => string.IsNullOrWhiteSpace(InvoiceNo) ? "—" : InvoiceNo!;
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
     public string TypeText => MovementType switch
@@ -49,7 +51,8 @@ public sealed class StockService
 
     // ---- Giriş ----
     public StockDocResult ReceiveIn(SessionContext s, IReadOnlyList<StockLine> lines, string operationId,
-        string? branchId = null, string? personnelId = null, string? vehicleId = null, string? note = null, long? docDate = null)
+        string? branchId = null, string? personnelId = null, string? vehicleId = null, string? note = null, long? docDate = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         return RunDocument(s, "in", operationId, branchId, null, branchId, personnelId, vehicleId, note, docDate,
@@ -57,12 +60,13 @@ public sealed class StockService
             {
                 for (int i = 0; i < lines.Count; i++)
                     ApplyLine(conn, tx, s, docId, lines[i], +1, $"{operationId}:{i}", "in", branchId, null);
-            });
+            }, invoiceNo: invoiceNo, orderSlipNo: orderSlipNo, creditSlipNo: creditSlipNo);
     }
 
     // ---- Çıkış (negatif stok engeli) ----
     public StockDocResult IssueOut(SessionContext s, IReadOnlyList<StockLine> lines, string operationId,
-        string? branchId = null, string? personnelId = null, string? vehicleId = null, string? note = null, long? docDate = null)
+        string? branchId = null, string? personnelId = null, string? vehicleId = null, string? note = null, long? docDate = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         return RunDocument(s, "out", operationId, branchId, branchId, null, personnelId, vehicleId, note, docDate,
@@ -70,13 +74,14 @@ public sealed class StockService
             {
                 for (int i = 0; i < lines.Count; i++)
                     ApplyLine(conn, tx, s, docId, lines[i], -1, $"{operationId}:{i}", "out", branchId, branchId);
-            });
+            }, invoiceNo: invoiceNo, orderSlipNo: orderSlipNo, creditSlipNo: creditSlipNo);
     }
 
     // ---- Transfer (kaynak çıkış + hedef giriş atomik, aynı grup) ----
     public StockDocResult Transfer(SessionContext s, string materialId, decimal quantity,
         string fromBranchId, string toBranchId, string operationId, string? note = null, long? docDate = null,
-        string? personnelId = null, string? vehicleId = null)
+        string? personnelId = null, string? vehicleId = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (quantity <= 0) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
@@ -89,7 +94,7 @@ public sealed class StockService
                 // Kaynak çıkış (negatif guard) + hedef giriş — net bakiye değişmez ama hareketler kayıtlı
                 ApplyLine(conn, tx, s, docId, line, -1, $"{operationId}:out", "transfer", fromBranchId, fromBranchId, groupId);
                 ApplyLine(conn, tx, s, docId, line, +1, $"{operationId}:in", "transfer", toBranchId, fromBranchId, groupId);
-            }, groupId);
+            }, groupId, invoiceNo, orderSlipNo, creditSlipNo);
     }
 
     // ---- Sayım (gerekçeli fark hareketi) ----
@@ -160,14 +165,17 @@ public sealed class StockService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
-       sm.direction, sm.quantity, sm.unit_price, sm.note
+       sm.direction, sm.quantity, sm.unit_price, sm.note,
+       d.invoice_no, d.order_slip_no, d.credit_slip_no
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id
 LEFT JOIN units u ON u.id = m.unit_id
+LEFT JOIN stock_documents d ON d.id = sm.document_id
 WHERE sm.company_id = $c
 ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
         cmd.Parameters.AddWithValue("$lim", limit);
+        string? S(SqliteDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
         var list = new List<StockMovementRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -175,7 +183,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
                 r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
                 r.GetInt32(5), Money.Parse(r.GetString(6)),
                 r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
-                r.IsDBNull(8) ? null : r.GetString(8)));
+                S(r, 8), S(r, 9), S(r, 10), S(r, 11)));
         return list;
     }
 
@@ -183,7 +191,8 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
 
     private StockDocResult RunDocument(SessionContext s, string docType, string operationId,
         string? toBranch, string? fromBranch, string? primaryBranch, string? personnelId, string? vehicleId,
-        string? note, long? docDate, Action<SqliteConnection, SqliteTransaction, string> body, string? groupId = null)
+        string? note, long? docDate, Action<SqliteConnection, SqliteTransaction, string> body, string? groupId = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -198,7 +207,8 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
 
         var docId = Guid.NewGuid().ToString("N");
         var docNo = NextDocNo(conn, tx, s.CompanyId, docType, date);
-        InsertDocument(conn, tx, docId, s.CompanyId, docType, docNo, date, fromBranch, toBranch, personnelId, vehicleId, note, groupId, now);
+        InsertDocument(conn, tx, docId, s.CompanyId, docType, docNo, date, fromBranch, toBranch, personnelId, vehicleId, note, groupId, now,
+            invoiceNo, orderSlipNo, creditSlipNo);
 
         body(conn, tx, docId);
 
@@ -280,14 +290,15 @@ VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev
 
     private static void InsertDocument(SqliteConnection conn, SqliteTransaction tx, string id, string companyId,
         string docType, string docNo, long docDate, string? fromBranch, string? toBranch, string? personnelId,
-        string? vehicleId, string? note, string? groupId, long now)
+        string? vehicleId, string? note, string? groupId, long now,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_documents(id, company_id, doc_type, doc_no, doc_date, from_branch_id, to_branch_id,
-    personnel_id, vehicle_id, note, status, group_id, created_at, version, is_deleted)
-VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$now,1,0);";
+    personnel_id, vehicle_id, note, status, group_id, invoice_no, order_slip_no, credit_slip_no, created_at, version, is_deleted)
+VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$inv,$ord,$crd,$now,1,0);";
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", companyId);
         cmd.Parameters.AddWithValue("$type", docType);
@@ -299,6 +310,9 @@ VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$now,1,0)
         cmd.Parameters.AddWithValue("$veh", (object?)vehicleId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$note", (object?)note ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$grp", (object?)groupId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$inv", (object?)invoiceNo ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$ord", (object?)orderSlipNo ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$crd", (object?)creditSlipNo ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }

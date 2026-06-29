@@ -89,7 +89,18 @@
                     </StackPanel>
                 </ctrl:FormField>
 
-                <ctrl:FormField Label="Açıklama / Belge No">
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Fatura / İrsaliye No" Width="200">
+                        <TextBox Classes="Field" Text="{Binding InvoiceNo}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Sipariş Fişi No" Width="200">
+                        <TextBox Classes="Field" Text="{Binding OrderSlipNo}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Veresiye Fişi No" Width="200">
+                        <TextBox Classes="Field" Text="{Binding CreditSlipNo}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Açıklama">
                     <TextBox Classes="Field" Text="{Binding Note}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>
 

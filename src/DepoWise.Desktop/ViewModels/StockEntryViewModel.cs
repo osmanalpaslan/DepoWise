@@ -54,6 +54,9 @@ public sealed partial class StockEntryViewModel : ViewModelBase
     [ObservableProperty] private decimal _quantity;
     [ObservableProperty] private decimal _unitPrice;
     [ObservableProperty] private string _note = "";
+    [ObservableProperty] private string _invoiceNo = "";
+    [ObservableProperty] private string _orderSlipNo = "";
+    [ObservableProperty] private string _creditSlipNo = "";
     [ObservableProperty] private BranchRow? _branch;
     [ObservableProperty] private BranchRow? _fromBranch;
     [ObservableProperty] private BranchRow? _toBranch;
@@ -144,19 +147,24 @@ public sealed partial class StockEntryViewModel : ViewModelBase
 
         var op = Guid.NewGuid().ToString("N");
         var note = string.IsNullOrWhiteSpace(Note) ? null : Note.Trim();
+        string? Doc(string v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        var inv = Doc(InvoiceNo); var ord = Doc(OrderSlipNo); var crd = Doc(CreditSlipNo);
         try
         {
             if (IsExit)
                 DesktopServices.Stock.IssueOut(_session,
                     new[] { new StockLine(SelectedMaterial.Id, Quantity) }, op,
-                    branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note);
+                    branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                    invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
             else if (IsTransfer)
                 DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, FromBranch!.Id, ToBranch!.Id, op, note,
-                    personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id);
+                    personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
+                    invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
             else
                 DesktopServices.Stock.ReceiveIn(_session,
                     new[] { new StockLine(SelectedMaterial.Id, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
-                    branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note);
+                    branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                    invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
 
             Status = "Stok hareketi kaydedildi.";
             ClearForm();
@@ -171,6 +179,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase
         SelectedMaterial = null; MaterialSearch = ""; BalanceText = "";
         Quantity = 0; UnitPrice = 0; Note = ""; Branch = null; FromBranch = null; ToBranch = null;
         PersonnelSel = null; VehicleSel = null;
+        InvoiceNo = ""; OrderSlipNo = ""; CreditSlipNo = "";
         FormError = null;
         RefreshMaterials();
     }
