@@ -96,9 +96,9 @@ public sealed partial class StockCountViewModel : ViewModelBase
         if (SelectedMaterial is null) { FormError = "Malzeme seçin."; return; }
         if (string.IsNullOrWhiteSpace(Reason)) { FormError = "Gerekçe zorunlu."; return; }
         var diff = CountedQty - SystemBalance;
-        if (diff == 0) { FormError = "Sayılan miktar sistemle aynı; fark yok."; return; }
+        var diffNote = diff == 0 ? "Fark yok — kayıt raporda görünür." : $"Fark: {diff:0.##} (stoğa yansır).";
         if (!await ConfirmService.AskAsync(
-                $"Sayım kaydedilsin mi?\nSistem: {SystemBalance:0.##}  Sayılan: {CountedQty:0.##}  Fark: {diff:0.##}", "Stok Sayım")) return;
+                $"Sayım kaydedilsin mi?\nSistem: {SystemBalance:0.##}  Sayılan: {CountedQty:0.##}\n{diffNote}", "Stok Sayım")) return;
         try
         {
             DesktopServices.Stock.Count(_session, new[] { new CountLine(SelectedMaterial.Id, CountedQty) },

@@ -149,6 +149,39 @@ ORDER BY entry_date DESC;";
         return new TableModel("Depo Girişi Raporu", new[] { "Tarih", "Litre", "Birim Fiyat", "Tutar", "Fatura No" }, rows);
     }
 
+    /// <summary>Stok Sayım Raporu — her sayım satırı: sistem/sayılan/fark (fark 0 olanlar dahil).</summary>
+    public TableModel StockCount(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT d.doc_date, m.code, m.name,
+       CAST(scl.system_qty AS REAL), CAST(scl.counted_qty AS REAL), CAST(scl.diff_qty AS REAL),
+       COALESCE(scl.reason,'')
+FROM stock_count_lines scl
+JOIN stock_documents d ON d.id = scl.document_id
+JOIN materials m ON m.id = scl.material_id
+WHERE d.company_id=$c AND d.is_deleted=0 AND d.doc_type='count'
+" + DateFilter(req, "d.doc_date") + @"
+ORDER BY d.doc_date DESC, m.code;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        BindDates(cmd, req);
+        var rows = new List<IReadOnlyList<object?>>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var diff = r.GetDouble(5);
+            rows.Add(new object?[] { D(r.GetInt64(0)), r.GetString(1), r.GetString(2),
+                r.GetDouble(3), r.GetDouble(4), diff, diff == 0 ? "Fark yok" : (diff > 0 ? "Fazla" : "Eksik"), r.GetString(6) });
+        }
+        return new TableModel("Stok Sayım Raporu",
+            new[] { "Tarih", "Kod", "Malzeme", "Sistem", "Sayılan", "Fark", "Durum", "Gerekçe" }, rows);
+    }
+
     public TableModel Requests(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);

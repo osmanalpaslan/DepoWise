@@ -112,6 +112,17 @@ public class ReportingTests : IDisposable
         Assert.Equal("Genel Rapor", genel.Title);
         Assert.Equal(8, genel.Headers.Count);
 
+        // Stok Sayım Raporu: fark 0 olan + olmayan satırlar
+        var stock = new StockService(_factory, _clock);
+        var m1 = _materials.Create(_admin, new NewMaterial("S-1", "A"));
+        var m2 = _materials.Create(_admin, new NewMaterial("S-2", "B"));
+        _opening.RecordOpening(_admin, m1, 10m, "op-s1");
+        _opening.RecordOpening(_admin, m2, 5m, "op-s2");
+        stock.Count(_admin, new[] { new CountLine(m1, 10m), new CountLine(m2, 8m) }, "Sayım", "op-count");
+        var sayim = _reports.StockCount(_admin, new ReportRequest(Executed: true));
+        Assert.Equal("Stok Sayım Raporu", sayim.Title);
+        Assert.Equal(2, sayim.Rows.Count); // fark 0 (m1) + fark +3 (m2)
+
         // Sorgula yapılmadan çalışmaz (gate)
         Assert.Throws<InvalidOperationException>(() => _reports.Maintenance(_admin, new ReportRequest(Executed: false)));
     }
