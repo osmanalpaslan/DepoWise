@@ -160,6 +160,20 @@ ORDER BY da.activity_date DESC, da.created_at DESC LIMIT $lim;";
         return list;
     }
 
+    /// <summary>Günlük faaliyeti soft-delete eder. Bakım tipinde bağlı bakım kaydı Bakım ekranında kalır (orada iptal edilir).</summary>
+    public void Delete(SessionContext s, string id)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Delete);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE daily_activities SET is_deleted=1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Faaliyet bulunamadı veya başka firmaya ait.");
+    }
+
     private string? FindActivity(string operationId)
     {
         using var conn = _factory.Create();

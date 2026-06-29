@@ -118,27 +118,34 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
                             <TextBlock Grid.Column="0" Text="TARİH" MinWidth="120"/>
                             <TextBlock Grid.Column="1" Text="TİP" MinWidth="80"/>
                             <TextBlock Grid.Column="2" Text="MALZEME" MinWidth="160"/>
                             <TextBlock Grid.Column="3" Text="YÖN" MinWidth="60"/>
                             <TextBlock Grid.Column="4" Text="MİKTAR" MinWidth="100"/>
                             <TextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80"/>
-                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="140"/>
+                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
+                            <TextBlock Grid.Column="7" Text="" MinWidth="80"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Movements}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*,Auto">
                                     <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="80" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Grid.Column="3" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="4" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                     <TextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="6" Text="{Binding NoteText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="6" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="7" MinWidth="80" VerticalAlignment="Center">
+                                        <Button Classes="Ghost" Content="İptal" IsVisible="{Binding CanReverse}"
+                                                Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).ReverseMovementCommand}"
+                                                CommandParameter="{Binding}"/>
+                                        <TextBlock Text="{Binding StatusText}" Classes="Helper" IsVisible="{Binding IsReversed}"/>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

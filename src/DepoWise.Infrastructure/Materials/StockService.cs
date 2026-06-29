@@ -17,9 +17,12 @@ public sealed record StockDocResult(string DocumentId, string DocNo);
 
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
-    string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null)
+    string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null,
+    string? DocumentId = null, bool IsReversed = false)
 {
     public string InvoiceText => string.IsNullOrWhiteSpace(InvoiceNo) ? "—" : InvoiceNo!;
+    public bool CanReverse => !IsReversed && DocumentId != null && MovementType != "opening";
+    public string StatusText => IsReversed ? "İptal edildi" : "";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
     public string TypeText => MovementType switch
@@ -166,7 +169,7 @@ public sealed class StockService
         cmd.CommandText = @"
 SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
-       d.invoice_no, d.order_slip_no, d.credit_slip_no
+       d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id
 LEFT JOIN units u ON u.id = m.unit_id
@@ -183,7 +186,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
                 r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
                 r.GetInt32(5), Money.Parse(r.GetString(6)),
                 r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
-                S(r, 8), S(r, 9), S(r, 10), S(r, 11)));
+                S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1));
         return list;
     }
 

@@ -22,6 +22,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);
+    public bool CanReverse => AccessControl.Can(_session, "stock", PermissionAction.Delete);
 
     public ObservableCollection<string> KindOptions { get; } = new() { "Giriş", "Çıkış", "Transfer" };
     public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
@@ -171,6 +172,23 @@ public sealed partial class StockEntryViewModel : ViewModelBase
             Load();
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private async Task ReverseMovement(StockMovementRow? row)
+    {
+        if (row?.DocumentId is null) return;
+        if (!CanReverse) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync(
+                "Bu stok hareketi İPTAL edilsin mi? (stok etkisi ters kayıtla geri alınır)",
+                "Hareketi İptal Et", "Evet, İptal", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Stock.ReverseDocument(_session, row.DocumentId, "Kullanıcı iptali");
+            Status = "Hareket iptal edildi (ters kayıt).";
+            Load();
+        }
+        catch (Exception ex) { Status = "İptal edilemedi: " + ex.Message; }
     }
 
     [RelayCommand]

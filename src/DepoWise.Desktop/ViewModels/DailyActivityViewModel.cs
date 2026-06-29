@@ -21,6 +21,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "daily_activity", PermissionAction.Create);
+    public bool CanDelete => AccessControl.Can(_session, "daily_activity", PermissionAction.Delete);
 
     public ObservableCollection<DailyActivityListRow> Items { get; } = new();
     public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Hareket / Transfer", "Bakım" };
@@ -101,6 +102,23 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
 
     [RelayCommand]
     private void CancelAdd() => ShowAdd = false;
+
+    [RelayCommand]
+    private async Task DeleteActivity(DailyActivityListRow? row)
+    {
+        if (row is null) return;
+        if (!CanDelete) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"{row.TypeText} kaydı silinsin mi?" + (row.MaintenanceId != null ? "\n(Bağlı bakım kaydı Bakım ekranında kalır.)" : ""),
+                "Faaliyet Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.DailyActivity.Delete(_session, row.Id);
+            Load();
+            Status = "Faaliyet silindi.";
+        }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
 
     [RelayCommand]
     private async Task Save()

@@ -80,27 +80,31 @@
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*,Auto">
                             <TextBlock Grid.Column="0" Text="TARİH" MinWidth="100"/>
                             <TextBlock Grid.Column="1" Text="TİP" MinWidth="90"/>
                             <TextBlock Grid.Column="2" Text="ARAÇ" MinWidth="140"/>
                             <TextBlock Grid.Column="3" Text="GÜZERGAH" MinWidth="160"/>
                             <TextBlock Grid.Column="4" Text="OPERATÖR" MinWidth="120"/>
                             <TextBlock Grid.Column="5" Text="SÜRE" MinWidth="70"/>
-                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="140"/>
+                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
+                            <TextBlock Grid.Column="7" Text="" MinWidth="70"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="op:DailyActivityListRow">
-                                <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*">
+                                <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*,Auto">
                                     <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="{Binding VehicleText}" MinWidth="140" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="3" Text="{Binding RouteText}" MinWidth="160" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="4" Text="{Binding OperatorText}" MinWidth="120" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="5" Text="{Binding DurationText}" MinWidth="70" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="6" Text="{Binding DescriptionText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="6" Text="{Binding DescriptionText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="7" Classes="Ghost" Content="Sil" MinWidth="70" VerticalAlignment="Center"
+                                            Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).DeleteActivityCommand}"
+                                            CommandParameter="{Binding}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

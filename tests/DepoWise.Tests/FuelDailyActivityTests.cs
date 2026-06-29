@@ -198,6 +198,16 @@ public class FuelDailyActivityTests : IDisposable
     }
 
     [Fact]
+    public void GunlukFaaliyet_Sil_ListedenKalkar()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("V-8"));
+        var id = _daily.SaveMovement(_admin, new NewMovementActivity("movement", VehicleId: v), "op-del-1");
+        Assert.Single(_daily.List(_admin));
+        _daily.Delete(_admin, id);
+        Assert.Empty(_daily.List(_admin));
+    }
+
+    [Fact]
     public void GunlukFaaliyet_Hareket_AracDurumDegismez()
     {
         var v = _vehicles.Create(_admin, new NewVehicle("V-1"));
