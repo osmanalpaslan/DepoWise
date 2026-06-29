@@ -42,7 +42,7 @@ public sealed class DashboardService
             {
                 if (a.Level == AlertLevel.Normal) continue;
                 alerts.Add(new DashboardAlert(AlertKind.Maintenance, a.DefinitionName,
-                    $"%{a.Progress * 100:0} ({a.Level})", "maintenance:alerts", a.Level is AlertLevel.Critical or AlertLevel.Overdue));
+                    $"%{a.Progress * 100:0} ({a.Level})", "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue));
             }
         }
         // Muayene/sigorta
