@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
+             x:Class="DepoWise.Desktop.Views.ImportExportView"
+             x:DataType="vm:ImportExportViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="İmport / Export"/>
+
+        <!-- Dışa Aktar -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="12">
+                <TextBlock Text="DIŞA AKTAR (EXPORT)" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Text="Ekran" Classes="Helper" VerticalAlignment="Center"/>
+                    <ComboBox Classes="Field" Width="220" ItemsSource="{Binding ExportItems}" SelectedItem="{Binding SelectedExport}"/>
+                    <Button Classes="Primary" Content="📤 Excel'e Aktar" Command="{Binding ExportCommand}"/>
+                </StackPanel>
+                <TextBlock Text="Seçilen ekranın güncel verisi Excel (.xlsx) olarak kaydedilir." Classes="Helper"/>
+            </StackPanel>
+        </Border>
+
+        <!-- İçe Aktar -->
+        <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="12">
+                <TextBlock Text="İÇE AKTAR (IMPORT)" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Text="Ekran" Classes="Helper" VerticalAlignment="Center"/>
+                    <ComboBox Classes="Field" Width="220" ItemsSource="{Binding ImportItems}" SelectedItem="{Binding SelectedImport}"/>
+                    <Button Classes="Secondary" Content="📄 Örnek Excel İndir" Command="{Binding DownloadTemplateCommand}"/>
+                    <Button Classes="Primary" Content="📥 Excel'den İçe Aktar" Command="{Binding ImportCommand}"/>
+                </StackPanel>
+                <TextBlock Text="Önce 'Örnek Excel İndir' ile şablonu alın, doldurun, sonra içe aktarın. (İçe aktarım şu an Malzemeler için.)"
+                           Classes="Helper" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Sonuç -->
+        <Border Grid.Row="3" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ImportResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <ScrollViewer>
+                <TextBlock Text="{Binding ImportResult}" Classes="Body" TextWrapping="Wrap"/>
+            </ScrollViewer>
+        </Border>
+
+        <TextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

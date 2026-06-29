@@ -100,6 +100,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Talep Onaylama", "requests:approve"),
             }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
+            new NavGroupVm("🔁", "İmport / Export", "import_export", new[] { new NavLinkVm("İmport / Export", "import_export") }),
             new NavGroupVm("⚙️", "Tanımlar / Ayarlar", "definitions", new[] { new NavLinkVm("Tanımlar", "definitions") }),
         };
 
@@ -257,6 +258,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new ReportsViewModel(_session);
                 CurrentTitle = "Raporlar";
                 CurrentContext = "Stok ve yakıt raporları";
+                break;
+            case "import_export":
+                CurrentPage = new ImportExportViewModel(_session);
+                CurrentTitle = "İmport / Export";
+                CurrentContext = "Excel ile içe/dışa aktarım";
                 break;
             case "definitions":
                 CurrentPage = new SettingsViewModel(_session);

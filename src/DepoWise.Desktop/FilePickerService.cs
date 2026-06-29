@@ -69,6 +69,22 @@ public static class FilePickerService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    /// <summary>Excel (.xlsx) kaydetme yeri seçtirir; yerel yol döner (iptal → null).</summary>
+    public static async Task<string?> SaveExcelAsync(string suggestedName)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime d
+            || d.MainWindow is null)
+            return null;
+        var file = await d.MainWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Excel Kaydet",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = "xlsx",
+            FileTypeChoices = new[] { new FilePickerFileType("Excel") { Patterns = new[] { "*.xlsx" } } }
+        });
+        return file?.TryGetLocalPath();
+    }
+
     /// <summary>Dosyayı sistem varsayılan uygulamasıyla açar (sessiz başarısızlık).</summary>
     public static void OpenFile(string path)
     {

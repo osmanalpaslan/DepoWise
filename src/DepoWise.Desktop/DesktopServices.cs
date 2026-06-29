@@ -52,6 +52,8 @@ public static class DesktopServices
     public static RequestService Requests { get; private set; } = null!;
     public static IRequestPdfService RequestPdf { get; private set; } = null!;
     public static ReportService Reports { get; private set; } = null!;
+    public static ExcelExportService Excel { get; private set; } = null!;
+    public static MaterialImportService MaterialImport { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
     public static FileService Files { get; private set; } = null!;
@@ -88,6 +90,8 @@ public static class DesktopServices
         Update = new UpdateService(System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "update"));
         Reports = new ReportService(Factory);
+        Excel = new ExcelExportService();
+        MaterialImport = new MaterialImportService(Materials);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
         Storage = new LocalFileStorageProvider();

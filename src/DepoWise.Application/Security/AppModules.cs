@@ -56,6 +56,7 @@ public static class AppModules
         ("requests", "Malzeme Talep"),
         ("personnel", "Personel"),
         ("reports", "Raporlar"),
+        ("import_export", "İmport / Export"),
         ("files", "Dosya / Fotoğraf"),
         ("audit", "Sistem Logu / Audit"),
         ("backup", "Yedekleme"),
