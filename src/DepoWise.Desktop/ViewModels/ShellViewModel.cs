@@ -64,6 +64,9 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Araç Listesi", "vehicles"),
                 new NavLinkVm("Şablonlar", "vehicles:templates"),
                 new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
+            }),
+            new NavGroupVm("📋", "Günlük Faaliyet", "daily_activity", new[]
+            {
                 new NavLinkVm("Günlük Faaliyet", "daily_activity"),
             }),
             new NavGroupVm("🔧", "Bakım Takibi", "maintenance", new[]

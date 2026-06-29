@@ -125,6 +125,25 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     [ObservableProperty] private string _mDescription = "";
     [ObservableProperty] private string _mntMaterialSearch = "";
     [ObservableProperty] private string? _maintError;
+    [ObservableProperty] private bool _isAddingSub;
+    [ObservableProperty] private string _newSubName = "";
+
+    [RelayCommand] private void StartAddSub() { if (MDef is null) { Status = "Önce bakım tanımı seçin."; return; } IsAddingSub = true; NewSubName = ""; }
+    [RelayCommand] private void CancelAddSub() { IsAddingSub = false; NewSubName = ""; }
+    [RelayCommand]
+    private void ConfirmAddSub()
+    {
+        if (MDef is null || string.IsNullOrWhiteSpace(NewSubName)) return;
+        try
+        {
+            var id = DesktopServices.MaintenanceDefs.Create(_session, new NewMaintenanceDefinition(
+                NewSubName.Trim(), 0m, "km", ParentDefId: MDef.Id));
+            var row = new MaintenanceDefinitionRow(id, NewSubName.Trim(), 0m, "km", null, MDef.Id);
+            MaintSubDefs.Add(row); MSubDef = row;
+            IsAddingSub = false; NewSubName = "";
+        }
+        catch (Exception ex) { MaintError = "Eklenemedi: " + ex.Message; }
+    }
 
     partial void OnMDefChanged(MaintenanceDefinitionRow? value)
     {
@@ -166,6 +185,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         }
         MVehicle = null; MDef = null; MSubDef = null; MTechnician = null; MKm = 0; MHour = 0;
         MDate = DateTimeOffset.Now; MDescription = ""; MntMaterialSearch = ""; MaintError = null;
+        IsAddingSub = false; NewSubName = "";
         MntLines.Clear(); RefreshMntMaterials();
         ShowMaintAdd = true;
     }
@@ -217,6 +237,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
         ShowMaintAdd = false;
+        if (Vehicles.Count == 0) try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
         FormKind = "Hareket"; FormVehicle = null; FormFrom = null; FormTo = null; FormOperator = null;
         FormDuration = 0; FormDescription = ""; FormDate = DateTimeOffset.Now; FormError = null;
         ShowAdd = true;
