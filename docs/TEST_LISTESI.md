@@ -67,6 +67,11 @@
 - [ ] Sunucu tarafı hiçbir yedeği silmiyor; her makinenin yedekleri ayrı saklanıyor.
 - [ ] (Not: backend henüz yoksa yükleme hata mesajı verir — bu beklenen.)
 
+### Sunucu Yedekleri (Süper Admin, toplu silme) — backend kurulduktan sonra
+- [ ] Menüde "Sunucu Yedekleri" yalnız süper admin'de görünüyor.
+- [ ] İki tarih seç → Listele → aralıktaki yedekler (makine/dosya/tarih/boyut) geliyor.
+- [ ] "Seçili Aralığı Sil" (onay) → aralıktaki sunucu yedekleri siliniyor, liste yenileniyor.
+
 ### Yönetim
 - [ ] Çöp Kutusu: silinen kayıt görünüyor + geri yükle.
 - [ ] Sistem Logu: işlemler listeleniyor (salt okunur, silinemez).

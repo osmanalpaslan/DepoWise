@@ -27,6 +27,28 @@ Content-Type: multipart/form-data
 - **2xx** → başarı (istemci "Yüklendi" gösterir).
 - **4xx/5xx** → gövdedeki metin kullanıcıya hata olarak gösterilir.
 
+## Listeleme — Süper Admin ekranı (iki tarih arası)
+
+```
+GET {BackupServerUrl}?company={c}&from=YYYY-MM-DD&to=YYYY-MM-DD
+Authorization: Bearer {token}
+```
+Yanıt (200) — JSON dizi:
+```json
+[
+  { "machine": "DESKTOP-A1", "filename": "depowise_yedek_2026-06-29.db", "date": "2026-06-29T03:00:00Z", "sizeBytes": 95420416 }
+]
+```
+
+## Toplu Silme — Süper Admin (iki tarih arası, geri alınamaz)
+
+```
+DELETE {BackupServerUrl}?company={c}&from=YYYY-MM-DD&to=YYYY-MM-DD
+Authorization: Bearer {token}
+```
+Yanıt (200): `{ "deleted": 12 }`. Yalnız `from`–`to` (dahil) aralığındaki kayıtları siler.
+**Bu, otomatik retention DEĞİLDİR** — yalnız Süper Admin'in bu ekrandan tetiklediği kasıtlı temizliktir.
+
 ## Sunucu tarafı kuralları (zorunlu)
 1. **Silme YOK / üzerine yazma YOK.** Aynı `machine`+`filename` tekrar gelirse yeni sürüm olarak sakla
    (örn. sona timestamp ekle). Hiçbir retention/temizlik çalıştırma.
