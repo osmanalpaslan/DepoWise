@@ -379,12 +379,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         if (ShowMntAdd) LoadMntPickers();
     }
 
-    /// <summary>Köprü: Araç Bakımları sekmesinde yeni kayıt formunu açar ve ilgili aracı seçer (Ana Ekran bakım uyarısı).</summary>
+    /// <summary>Köprü: Araç Bakımları sekmesinde uyarıya sebep olan aracın EN SON bakım kaydını seçer (salt detay).</summary>
     public void OpenEntity(string vehicleId)
     {
         SelectedTab = 1;                       // Araç Bakımları
-        if (!ShowMntAdd) { ShowMntAdd = true; LoadMntPickers(); }
-        MntVehicle = MntVehicles.FirstOrDefault(v => v.Id == vehicleId);
+        SelectedMaint = Maintenances.FirstOrDefault(m => m.VehicleId == vehicleId); // en yeni (DESC) → detay paneli açılır
     }
 
     private void LoadMntPickers()

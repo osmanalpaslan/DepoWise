@@ -34,7 +34,7 @@ public static class ReportGate
         => TenantAccessGuard.ResolveCompanyId(s, requested);
 }
 
-public enum AlertKind { Maintenance, Inspection, LowStock }
+public enum AlertKind { Maintenance, Inspection, LowStock, Fuel }
 
 public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null);
 

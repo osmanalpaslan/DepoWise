@@ -15,7 +15,7 @@ using DepoWise.Infrastructure.Materials;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>Malzemeler ekranı — liste + arama + yeni kayıt. MaterialService üzerine (SQLite).</summary>
-public sealed partial class MaterialsViewModel : ViewModelBase
+public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
@@ -360,6 +360,13 @@ public sealed partial class MaterialsViewModel : ViewModelBase
     private MaterialRow? _selected;
     [ObservableProperty] private MaterialDetail? _detail;
     public bool HasSelection => Selected != null;
+
+    /// <summary>Köprü: malzemeyi seçip detayını açar (Ana Ekran düşük stok uyarısı; salt görüntü).</summary>
+    public void OpenEntity(string entityId)
+    {
+        var row = Items.FirstOrDefault(r => r.Id == entityId);
+        if (row is not null) Selected = row;
+    }
 
     partial void OnSelectedChanged(MaterialRow? value)
     {

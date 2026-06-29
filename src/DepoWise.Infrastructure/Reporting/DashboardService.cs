@@ -55,9 +55,18 @@ public sealed class DashboardService
                     a.Level.ToString(), "vehicles", a.Level == DateAlertLevel.Expired, a.VehicleId));
             }
         }
-        // Düşük stok
-        if (AccessControl.Can(s, "materials", PermissionAction.View) && lowStock > 0)
-            alerts.Add(new DashboardAlert(AlertKind.LowStock, "Düşük Stok", $"{lowStock} malzeme", "materials", lowStock > 0));
+        // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır)
+        if (AccessControl.Can(s, "materials", PermissionAction.View))
+            foreach (var (id, name) in LowStockList(conn, s.CompanyId))
+                alerts.Add(new DashboardAlert(AlertKind.LowStock, name, "Düşük stok", "materials", true, id));
+
+        // Yakıt — depo kalanı tükendiğinde (Özet ekranına gidip kalanı gör)
+        if (AccessControl.Can(s, "fuel", PermissionAction.View))
+        {
+            var rem = FuelRemaining(conn, s.CompanyId);
+            if (rem <= 0)
+                alerts.Add(new DashboardAlert(AlertKind.Fuel, "Yakıt Tükendi", $"Kalan depo: {rem:0.##} L", "fuel:summary", true));
+        }
 
         return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts);
     }
@@ -68,6 +77,32 @@ public sealed class DashboardService
         cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=$c AND is_deleted=0;";
         cmd.Parameters.AddWithValue("$c", companyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    private static IReadOnlyList<(string Id, string Name)> LowStockList(SqliteConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT m.id, m.name FROM materials m
+LEFT JOIN stock_balances b ON b.material_id = m.id
+WHERE m.company_id=$c AND m.is_deleted=0
+  AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0
+ORDER BY m.name LIMIT 20;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        var list = new List<(string, string)>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add((r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
+    private static double FuelRemaining(SqliteConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0),0)
+     - COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_distributions WHERE company_id=$c AND is_deleted=0),0);";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        return Convert.ToDouble(cmd.ExecuteScalar());
     }
 
     private static int LowStockCount(SqliteConnection conn, string companyId)

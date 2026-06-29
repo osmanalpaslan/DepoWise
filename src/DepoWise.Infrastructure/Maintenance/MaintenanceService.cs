@@ -21,7 +21,7 @@ public sealed record MaintenanceAlert(
 public sealed record MaintenanceRow(
     string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
-    decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled)
+    decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled, string VehicleId = "")
 {
     private static string Fmt(decimal? km, decimal? hour, long? date) =>
         km is not null ? $"{km:0.##} km"
@@ -196,7 +196,7 @@ GROUP BY vm.vehicle_id, vm.maintenance_def_id;";
         cmd.CommandText = @"
 SELECT vm.id, v.internal_code, d.name, sd.name,
        vm.performed_km, vm.performed_hour, vm.performed_date,
-       vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled
+       vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id
 FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
@@ -214,7 +214,7 @@ ORDER BY vm.created_at DESC LIMIT $lim;";
         while (rr.Read())
             list.Add(new MaintenanceRow(rr.GetString(0), rr.GetString(1), rr.GetString(2),
                 rr.IsDBNull(3) ? null : rr.GetString(3),
-                D(rr, 4), D(rr, 5), L(rr, 6), D(rr, 7), D(rr, 8), L(rr, 9), Convert.ToInt64(rr.GetValue(10)) == 1));
+                D(rr, 4), D(rr, 5), L(rr, 6), D(rr, 7), D(rr, 8), L(rr, 9), Convert.ToInt64(rr.GetValue(10)) == 1, rr.GetString(11)));
         return list;
     }
 
