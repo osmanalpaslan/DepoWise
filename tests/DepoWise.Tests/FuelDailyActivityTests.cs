@@ -180,6 +180,24 @@ public class FuelDailyActivityTests : IDisposable
     }
 
     [Fact]
+    public void GunlukFaaliyet_List_HareketleriDoner()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("V-7", Plate: "34ABC07"));
+        _daily.SaveMovement(_admin, new NewMovementActivity("movement", VehicleId: v, OperatorId: null,
+            DurationDays: 3, Description: "Şantiyeye sevk"), "op-list-1");
+
+        var all = _daily.List(_admin);
+        Assert.Single(all);
+        Assert.Equal("Hareket", all[0].TypeText);
+        Assert.Equal("V-7 - 34ABC07", all[0].VehicleText);
+        Assert.Equal("3 gün", all[0].DurationText);
+
+        // Tür filtresi: bakım yok → movement filtresinde 1, maintenance filtresinde 0
+        Assert.Single(_daily.List(_admin, "movement"));
+        Assert.Empty(_daily.List(_admin, "maintenance"));
+    }
+
+    [Fact]
     public void GunlukFaaliyet_Hareket_AracDurumDegismez()
     {
         var v = _vehicles.Create(_admin, new NewVehicle("V-1"));

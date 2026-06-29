@@ -64,6 +64,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Araç Listesi", "vehicles"),
                 new NavLinkVm("Şablonlar", "vehicles:templates"),
                 new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
+                new NavLinkVm("Günlük Faaliyet", "daily_activity"),
             }),
             new NavGroupVm("🔧", "Bakım Takibi", "maintenance", new[]
             {
@@ -144,6 +145,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new StockEntryViewModel(_session);
                 CurrentTitle = "Malzeme Giriş-Çıkış";
                 CurrentContext = "Stok giriş / çıkış / transfer";
+                break;
+            case "daily_activity":
+                CurrentPage = new DailyActivityViewModel(_session);
+                CurrentTitle = "Günlük Faaliyet";
+                CurrentContext = "Araç hareket / transfer + bakım faaliyetleri";
                 break;
             case "vehicles":
             case "vehicles:new":

@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:org="using:DepoWise.Infrastructure.Organization"
+             xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
+             xmlns:op="using:DepoWise.Infrastructure.Operations"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.DailyActivityView"
+             x:DataType="vm:DailyActivityViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Günlük Faaliyet"
+                      PrimaryActionText="Yeni Hareket / Transfer" PrimaryActionCommand="{Binding NewActivityCommand}">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <ComboBox Classes="Field" Width="170" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
+                    <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Yeni hareket/transfer formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
+            <StackPanel Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
+                <TextBlock Text="YENİ HAREKET / TRANSFER" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Kayıt Tipi" Width="150">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
+                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
+                                         FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                                         ValueMemberBinding="{Binding Display}">
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Tarih" Width="160">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Operatör / Şoför" Width="200">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Süre (gün)" Width="120">
+                        <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <TextBlock Text="Transfer seçilirse araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
+                <ctrl:FormField Label="Açıklama">
+                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="48"/>
+                </ctrl:FormField>
+                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Liste -->
+        <Panel Grid.Row="2" Margin="0,16,0,0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*">
+                            <TextBlock Grid.Column="0" Text="TARİH" MinWidth="100"/>
+                            <TextBlock Grid.Column="1" Text="TİP" MinWidth="90"/>
+                            <TextBlock Grid.Column="2" Text="ARAÇ" MinWidth="140"/>
+                            <TextBlock Grid.Column="3" Text="GÜZERGAH" MinWidth="160"/>
+                            <TextBlock Grid.Column="4" Text="OPERATÖR" MinWidth="120"/>
+                            <TextBlock Grid.Column="5" Text="SÜRE" MinWidth="70"/>
+                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="140"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="op:DailyActivityListRow">
+                                <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding VehicleText}" MinWidth="140" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding RouteText}" MinWidth="160" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding OperatorText}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding DurationText}" MinWidth="70" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="6" Text="{Binding DescriptionText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Faaliyet yok" Message="Henüz günlük faaliyet kaydı yok." IsVisible="{Binding IsEmpty}"/>
+        </Panel>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

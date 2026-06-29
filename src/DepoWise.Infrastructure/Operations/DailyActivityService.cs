@@ -13,6 +13,27 @@ public sealed record NewMovementActivity(
 public sealed record DailyActivityRecord(string Id, string ActivityType, string? MovementKind, string? VehicleId,
     string? MaintenanceId, string? Description, long ActivityDate);
 
+public sealed record DailyActivityListRow(string Id, string ActivityType, string? MovementKind,
+    string? VehicleCode, string? VehiclePlate, string? FromLocation, string? ToLocation, string? Operator,
+    int? DurationDays, string? Description, long ActivityDate, string? MaintenanceId)
+{
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(ActivityDate).LocalDateTime.ToString("dd.MM.yyyy");
+    public string TypeText => ActivityType == "maintenance" ? "Bakım"
+        : MovementKind == "transfer" ? "Transfer" : "Hareket";
+    public string VehicleText => string.IsNullOrEmpty(VehicleCode) ? "—"
+        : string.IsNullOrEmpty(VehiclePlate) ? VehicleCode! : $"{VehicleCode} - {VehiclePlate}";
+    public string RouteText => (FromLocation, ToLocation) switch
+    {
+        (null, null) => "—",
+        (var f, null) => f ?? "—",
+        (null, var t) => "→ " + t,
+        var (f, t) => $"{f} → {t}"
+    };
+    public string OperatorText => string.IsNullOrEmpty(Operator) ? "—" : Operator!;
+    public string DurationText => DurationDays is null ? "—" : $"{DurationDays} gün";
+    public string DescriptionText => string.IsNullOrWhiteSpace(Description) ? "—" : Description!;
+}
+
 /// <summary>
 /// Günlük faaliyet — bakım tipi ORTAK MaintenanceService'i kullanır: TEK bakım kaydı + TEK stok düşümü;
 /// daily_activities yalnız REFERANS tutar (stok_processed=1, burada stok DÜŞMEZ). Aynı veri iki ekranda görünür.
@@ -106,6 +127,36 @@ public sealed class DailyActivityService
             list.Add(new DailyActivityRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
                 r.IsDBNull(3) ? null : r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4),
                 r.IsDBNull(5) ? null : r.GetString(5), r.GetInt64(6)));
+        return list;
+    }
+
+    /// <summary>Tüm günlük faaliyetler (salt okuma) — araç/şube/operatör adlarıyla. Tür filtresi opsiyonel.</summary>
+    public IReadOnlyList<DailyActivityListRow> List(SessionContext s, string? activityType = null, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT da.id, da.activity_type, da.movement_kind, v.internal_code, v.plate,
+       fb.name, tb.name, p.full_name, da.duration_days, da.description, da.activity_date, da.maintenance_id
+FROM daily_activities da
+LEFT JOIN vehicles v ON v.id = da.vehicle_id
+LEFT JOIN branches fb ON fb.id = da.from_location_id
+LEFT JOIN branches tb ON tb.id = da.to_location_id
+LEFT JOIN personnel p ON p.id = da.operator_id
+WHERE da.company_id = $c AND da.is_deleted = 0
+  AND ($t IS NULL OR da.activity_type = $t)
+ORDER BY da.activity_date DESC, da.created_at DESC LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$t", (object?)activityType ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$lim", limit);
+        string? S(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        var list = new List<DailyActivityListRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new DailyActivityListRow(r.GetString(0), r.GetString(1), S(r, 2),
+                S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7),
+                r.IsDBNull(8) ? (int?)null : r.GetInt32(8), S(r, 9), r.GetInt64(10), S(r, 11)));
         return list;
     }
 
