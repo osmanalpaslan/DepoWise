@@ -31,7 +31,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private const int MaxBars = 20; // büyük veri: nokta sayısını sınırla
 
     public ObservableCollection<string> ReportTypes { get; } = new()
-        { "Stok Durumu", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu" };
+        { "Genel Rapor", "Stok Durumu", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu" };
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
 
@@ -84,6 +84,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
             var table = SelectedReport switch
             {
+                "Genel Rapor" => DesktopServices.Reports.General(_session, req),
                 "Yakıt Tüketim" => DesktopServices.Reports.FuelConsumption(_session, req),
                 "Bakım Raporu" => DesktopServices.Reports.Maintenance(_session, req),
                 "Depo Girişi" => DesktopServices.Reports.FuelDepot(_session, req),

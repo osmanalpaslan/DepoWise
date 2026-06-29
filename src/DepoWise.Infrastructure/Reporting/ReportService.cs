@@ -61,6 +61,42 @@ GROUP BY fd.vehicle_id ORDER BY v.internal_code;";
         return new TableModel("Yakıt Tüketim", new[] { "Araç", "İşlem", "Litre", "Tutar" }, rows);
     }
 
+    /// <summary>Genel Rapor — araç başına birleşik: KM, Litre, L/km, Malzeme Maliyeti, Yakıt Maliyeti, Toplam.</summary>
+    public TableModel General(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT v.internal_code, COALESCE(v.plate,''),
+  COALESCE(SUM(CASE WHEN fd.prev_meter IS NOT NULL AND fd.current_meter IS NOT NULL
+       THEN CAST(fd.current_meter AS REAL)-CAST(fd.prev_meter AS REAL) ELSE 0 END),0) AS km,
+  COALESCE(SUM(CAST(fd.liters AS REAL)),0) AS litre,
+  COALESCE(SUM(CAST(fd.liters AS REAL)*CAST(fd.unit_price AS REAL)),0) AS fuelcost,
+  (SELECT COALESCE(SUM(CAST(mm.quantity AS REAL)*CAST(COALESCE(mm.unit_price,'0') AS REAL)),0)
+   FROM vehicle_maintenances vm JOIN maintenance_materials mm ON mm.maintenance_id=vm.id
+   WHERE vm.vehicle_id=v.id AND vm.is_deleted=0 AND vm.is_cancelled=0" + DateFilter(req, "vm.performed_date") + @") AS matcost
+FROM vehicles v
+LEFT JOIN fuel_distributions fd ON fd.vehicle_id=v.id AND fd.is_deleted=0" + DateFilter(req, "fd.distribution_date") + @"
+WHERE v.company_id=$c AND v.is_deleted=0
+GROUP BY v.id ORDER BY v.internal_code;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        BindDates(cmd, req);
+        var rows = new List<IReadOnlyList<object?>>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var km = r.GetDouble(2); var litre = r.GetDouble(3); var fuel = r.GetDouble(4); var mat = r.GetDouble(5);
+            var lkm = km > 0 ? litre / km : 0;
+            rows.Add(new object?[] { r.GetString(0), r.GetString(1), km, litre, lkm, mat, fuel, mat + fuel });
+        }
+        return new TableModel("Genel Rapor",
+            new[] { "Araç", "Plaka", "KM", "Litre", "L/km", "Malzeme Maliyeti", "Yakıt Maliyeti", "Toplam" }, rows);
+    }
+
     public TableModel Maintenance(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);

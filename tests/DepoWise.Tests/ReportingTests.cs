@@ -108,6 +108,10 @@ public class ReportingTests : IDisposable
         var talep = _reports.Requests(_admin, new ReportRequest(Executed: true));
         Assert.Equal("Talep Raporu", talep.Title);
 
+        var genel = _reports.General(_admin, new ReportRequest(Executed: true));
+        Assert.Equal("Genel Rapor", genel.Title);
+        Assert.Equal(8, genel.Headers.Count);
+
         // Sorgula yapılmadan çalışmaz (gate)
         Assert.Throws<InvalidOperationException>(() => _reports.Maintenance(_admin, new ReportRequest(Executed: false)));
     }
