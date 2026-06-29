@@ -12,6 +12,17 @@ public enum DateAlertLevel { Normal, Approaching, Expired }
 
 public sealed record InspectionAlert(string VehicleId, string DocType, long? NextDate, DateAlertLevel Level);
 
+public sealed record InspectionRow(string VehicleCode, string Plate, string DocType,
+    long? LastDate, long? NextDate, string Place, string Result, DateAlertLevel Level)
+{
+    private static string D(long? ms) => ms is null ? "—" : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).LocalDateTime.ToString("dd.MM.yyyy");
+    public string VehicleText => string.IsNullOrEmpty(Plate) ? VehicleCode : $"{VehicleCode} - {Plate}";
+    public string DocTypeText => DocType switch { "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => DocType };
+    public string LastText => D(LastDate);
+    public string NextText => D(NextDate);
+    public string StatusText => Level switch { DateAlertLevel.Expired => "Süresi geçti", DateAlertLevel.Approaching => "Yaklaşıyor", _ => "Normal" };
+}
+
 /// <summary>Muayene/sigorta/kasko/kalibrasyon belgeleri + tarih bazlı uyarı (yaklaşan/geçmiş).</summary>
 public sealed class InspectionService
 {
@@ -57,6 +68,35 @@ VALUES($id,$c,$v,$dt,$ld,$nd,$res,$pl,$note,$now,$now,1,0);";
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_inspection", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return id;
+    }
+
+    /// <summary>Muayene/Sigorta kayıtları (salt okuma) — araç + belge tipi + tarihler + durum.</summary>
+    public IReadOnlyList<InspectionRow> List(SessionContext s)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        var nowMs = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT v.internal_code, COALESCE(v.plate,''), vi.doc_type, vi.last_date, vi.next_date,
+       COALESCE(vi.place,''), COALESCE(vi.result,'')
+FROM vehicle_inspections vi JOIN vehicles v ON v.id = vi.vehicle_id
+WHERE vi.company_id=$c AND vi.is_deleted=0
+ORDER BY (vi.next_date IS NULL), vi.next_date;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var list = new List<InspectionRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            long? next = r.IsDBNull(4) ? null : r.GetInt64(4);
+            var level = next is null ? DateAlertLevel.Normal
+                : next.Value < nowMs ? DateAlertLevel.Expired
+                : next.Value - nowMs <= (long)ApproachingDays * 86_400_000 ? DateAlertLevel.Approaching
+                : DateAlertLevel.Normal;
+            list.Add(new InspectionRow(r.GetString(0), r.GetString(1), r.GetString(2),
+                r.IsDBNull(3) ? null : r.GetInt64(3), next, r.GetString(5), r.GetString(6), level));
+        }
+        return list;
     }
 
     public IReadOnlyList<InspectionAlert> GetAlerts(SessionContext s)

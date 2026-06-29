@@ -47,6 +47,7 @@ public static class DesktopServices
     public static MaintenanceService Maintenance { get; private set; } = null!;
     public static MaintenanceDefinitionService MaintenanceDefs { get; private set; } = null!;
     public static InspectionService Inspection { get; private set; } = null!;
+    public static DepoWise.Infrastructure.Org.PersonnelService Personnel { get; private set; } = null!;
     public static FuelService Fuel { get; private set; } = null!;
     public static RequestService Requests { get; private set; } = null!;
     public static IRequestPdfService RequestPdf { get; private set; } = null!;
@@ -74,6 +75,7 @@ public static class DesktopServices
         Maintenance = new MaintenanceService(Factory, clock);
         MaintenanceDefs = new MaintenanceDefinitionService(Factory, clock);
         Inspection = new InspectionService(Factory, clock);
+        Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
         Vehicles = new VehicleService(Factory, clock);
         VehicleTemplates = new VehicleTemplateService(Factory, clock);
         Fuel = new FuelService(Factory, clock);

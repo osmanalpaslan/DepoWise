@@ -57,12 +57,18 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Malzeme Listesi", "materials"),
                 new NavLinkVm("Yeni Kayıt", "materials:new"),
                 new NavLinkVm("Giriş-Çıkış", "stock"),
+                new NavLinkVm("Stok Sayım", "stock:count"),
             }, expanded: true),
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
             {
                 new NavLinkVm("Araç Listesi", "vehicles"),
                 new NavLinkVm("Şablonlar", "vehicles:templates"),
                 new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
+                new NavLinkVm("Muayene / Sigorta", "inspection"),
+            }),
+            new NavGroupVm("🧑‍🔧", "Personel", "personnel", new[]
+            {
+                new NavLinkVm("Personel", "personnel"),
             }),
             new NavGroupVm("📋", "Günlük Faaliyet", "daily_activity", new[]
             {
@@ -147,6 +153,21 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new StockEntryViewModel(_session);
                 CurrentTitle = "Malzeme Giriş-Çıkış";
                 CurrentContext = "Stok giriş / çıkış / transfer";
+                break;
+            case "stock:count":
+                CurrentPage = new StockCountViewModel(_session);
+                CurrentTitle = "Stok Sayım";
+                CurrentContext = "Sayım ve fark düzeltmesi";
+                break;
+            case "inspection":
+                CurrentPage = new InspectionViewModel(_session);
+                CurrentTitle = "Muayene / Sigorta";
+                CurrentContext = "Araç muayene/sigorta belgeleri ve uyarılar";
+                break;
+            case "personnel":
+                CurrentPage = new PersonnelViewModel(_session);
+                CurrentTitle = "Personel";
+                CurrentContext = "Personel yönetimi";
                 break;
             case "daily_activity":
                 CurrentPage = new DailyActivityViewModel(_session);

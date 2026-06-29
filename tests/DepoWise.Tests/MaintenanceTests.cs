@@ -86,6 +86,20 @@ public class MaintenanceTests : IDisposable
         Assert.Empty(_defs.List(_admin));
     }
 
+    [Fact]
+    public void Muayene_Kaydet_Listele()
+    {
+        var insp = new InspectionService(_factory, _clock);
+        var v = _vehicles.Create(_admin, new NewVehicle("MV-1", Plate: "34X"));
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        insp.Save(_admin, new NewInspection(v, "inspection", now, now + 10L * 86_400_000, Place: "TÜVTÜRK"));
+        var list = insp.List(_admin);
+        Assert.Single(list);
+        Assert.Equal("Muayene", list[0].DocTypeText);
+        Assert.Equal("MV-1 - 34X", list[0].VehicleText);
+        Assert.Equal("TÜVTÜRK", list[0].Place);
+    }
+
     // ---- Bakım malzemesi tek düşüm ----
     [Fact]
     public void Bakim_Malzeme_TekDusum_FiyatSnapshot()
