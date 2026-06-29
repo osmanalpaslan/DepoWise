@@ -49,6 +49,23 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Bölüm: Sunucu Yedek (Bulut) -->
+                <Border Classes="Panel">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="SUNUCU YEDEK (BULUT)" Classes="SectionTitle"/>
+                            <TextBlock Text="Tanımlanırsa her yerel yedek otomatik olarak sunucuya yüklenir. Sunucu yedekleri HİÇ silmez; tüm masaüstü makinelerin tüm günlük yedeklerini saklar. (Yerelde 30 gün rotasyon devam eder.)" Classes="Helper" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ctrl:FormField Label="Sunucu Adresi (URL)" Width="534"
+                                        HelpText="Örn. https://yedek.sirket.com/api/backups">
+                            <TextBox Classes="Field" Text="{Binding BackupServerUrl}" IsEnabled="{Binding CanWrite}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Erişim Anahtarı (Bearer Token)" Width="534">
+                            <TextBox Classes="Field" Text="{Binding BackupServerToken}" PasswordChar="●" IsEnabled="{Binding CanWrite}"/>
+                        </ctrl:FormField>
+                    </StackPanel>
+                </Border>
+
                 <!-- Bölüm: Geliştirici Modu -->
                 <Border Classes="Panel">
                     <StackPanel Spacing="12">

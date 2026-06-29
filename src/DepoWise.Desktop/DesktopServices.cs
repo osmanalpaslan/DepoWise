@@ -57,6 +57,7 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Files.TrashService Trash { get; private set; } = null!;
     public static AuditLogService Audit { get; private set; } = null!;
     public static DepoWise.Infrastructure.Files.BackupService Backup { get; private set; } = null!;
+    public static DepoWise.Infrastructure.Files.BackupUploadService BackupUpload { get; private set; } = null!;
     public static VehicleImportService VehicleImport { get; private set; } = null!;
     public static InspectionImportService InspectionImport { get; private set; } = null!;
     public static MaintenanceImportService MaintenanceImport { get; private set; } = null!;
@@ -101,6 +102,7 @@ public static class DesktopServices
         Trash = new DepoWise.Infrastructure.Files.TrashService(Factory, clock);
         Audit = new AuditLogService(Factory);
         Backup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock);
+        BackupUpload = new DepoWise.Infrastructure.Files.BackupUploadService();
         VehicleImport = new VehicleImportService(Vehicles);
         InspectionImport = new InspectionImportService(Inspection, Vehicles);
         MaintenanceImport = new MaintenanceImportService(Maintenance, MaintenanceDefs, Vehicles);

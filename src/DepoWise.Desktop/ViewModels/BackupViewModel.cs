@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Security;
+using DepoWise.Application.Theming;
 using DepoWise.Infrastructure.Files;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -27,6 +28,12 @@ public sealed partial class BackupViewModel : ViewModelBase
     public bool IsEmpty => !HasError && Items.Count == 0;
 
     [ObservableProperty] private BackupRowVm? _selected;
+
+    /// <summary>Bu makinenin adı (sunucuda klasör/etiket olur).</summary>
+    public string MachineName => Environment.MachineName;
+    private string? ServerUrl => DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerUrl);
+    private string? ServerToken => DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerToken);
+    public bool ServerConfigured => !string.IsNullOrWhiteSpace(ServerUrl);
 
     public BackupViewModel(SessionContext session)
     {
@@ -60,8 +67,28 @@ public sealed partial class BackupViewModel : ViewModelBase
             var path = DesktopServices.Backup.Backup();
             Load();
             Status = "Yedek alındı: " + path;
+            // Sunucu tanımlıysa hemen yükle (sunucu hiç silmez, tüm makinelerin yedeğini saklar)
+            if (ServerConfigured)
+            {
+                var r = await DesktopServices.BackupUpload.UploadAsync(
+                    ServerUrl!, ServerToken, _session.CompanyId, MachineName, path);
+                Status = "Yedek alındı. Sunucu: " + r.Message;
+            }
         }
         catch (Exception ex) { Status = "Yedek alınamadı: " + ex.Message; }
+    }
+
+    /// <summary>Seçili (veya en güncel) yedeği bulut sunucusuna yükler.</summary>
+    [RelayCommand]
+    private async Task UploadToServer(BackupRowVm? row)
+    {
+        row ??= Selected ?? (Items.Count > 0 ? Items[0] : null);
+        if (row is null) { Status = "Yüklenecek yedek seçin."; return; }
+        if (!ServerConfigured) { Status = "Önce Ayarlar'dan sunucu adresini tanımlayın."; return; }
+        Status = "Sunucuya yükleniyor…";
+        var r = await DesktopServices.BackupUpload.UploadAsync(
+            ServerUrl!, ServerToken, _session.CompanyId, MachineName, row.Path);
+        Status = r.Message;
     }
 
     [RelayCommand]

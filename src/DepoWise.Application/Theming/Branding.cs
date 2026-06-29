@@ -67,4 +67,9 @@ public static class SettingKeys
     public const string BrandContact = "brand.contact";
     public const string BrandWebsite = "brand.website";
     public const string BrandCopyright = "brand.copyright";
+
+    // Sunucu yedek (bulut API). Yapılandırılırsa her yerel yedek sunucuya yüklenir; sunucu hiç silmez.
+    public const string BackupServerUrl = "backup.server_url";
+    public const string BackupServerToken = "backup.server_token";
+    public const string BackupMachineId = "backup.machine_id"; // makine başına sabit GUID (ilk kullanımda üretilir)
 }

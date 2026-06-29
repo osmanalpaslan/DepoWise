@@ -60,6 +60,13 @@
 - [ ] "Geri Yükle" (onay) → yedek geri yükleniyor (uygulama yeniden başlatılmalı uyarısı).
 - [ ] "Klasörü Aç" yedek klasörünü açıyor.
 
+### Sunucu Yedek (Bulut) — backend kurulduktan sonra
+- [ ] Ayarlar › Sunucu Yedek: URL + token kaydediliyor.
+- [ ] URL tanımlıyken "Yedek Al" → yedek sunucuya da yükleniyor (sonuç mesajı).
+- [ ] Yedek Yönetimi'nde "Sunucuya Yükle" butonu seçili yedeği gönderiyor.
+- [ ] Sunucu tarafı hiçbir yedeği silmiyor; her makinenin yedekleri ayrı saklanıyor.
+- [ ] (Not: backend henüz yoksa yükleme hata mesajı verir — bu beklenen.)
+
 ### Yönetim
 - [ ] Çöp Kutusu: silinen kayıt görünüyor + geri yükle.
 - [ ] Sistem Logu: işlemler listeleniyor (salt okunur, silinemez).

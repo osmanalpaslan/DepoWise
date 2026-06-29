@@ -20,6 +20,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _website = "";
     [ObservableProperty] private string _copyright = "";
 
+    [ObservableProperty] private string _backupServerUrl = "";
+    [ObservableProperty] private string _backupServerToken = "";
+
     [ObservableProperty] private bool _confirmVisible;
     [ObservableProperty] private string? _status;
 
@@ -70,6 +73,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Contact = b.Contact ?? "";
         Website = b.Website ?? "";
         Copyright = b.Copyright ?? "";
+        BackupServerUrl = DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerUrl) ?? "";
+        BackupServerToken = DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerToken) ?? "";
         ConfirmVisible = false;
         Status = "Yüklendi.";
     }
@@ -102,6 +107,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
             DesktopServices.Settings.Set(c, SettingKeys.BrandContact, Nullify(Contact), uid);
             DesktopServices.Settings.Set(c, SettingKeys.BrandWebsite, Nullify(Website), uid);
             DesktopServices.Settings.Set(c, SettingKeys.BrandCopyright, Nullify(Copyright), uid);
+            DesktopServices.Settings.Set(c, SettingKeys.BackupServerUrl, Nullify(BackupServerUrl), uid);
+            DesktopServices.Settings.Set(c, SettingKeys.BackupServerToken, Nullify(BackupServerToken), uid);
             ConfirmVisible = false;
             Status = "Kaydedildi. Bazı değişiklikler (başlık/marka) uygulama yeniden açılınca tam yansır.";
         }

@@ -13,6 +13,8 @@
                       PrimaryActionText="Yedek Al" PrimaryActionCommand="{Binding BackupCommand}">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Classes="Secondary" Content="Sunucuya Yükle" Command="{Binding UploadToServerCommand}"
+                            IsVisible="{Binding ServerConfigured}"/>
                     <Button Classes="Secondary" Content="Klasörü Aç" Command="{Binding OpenFolderCommand}"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
                 </StackPanel>
