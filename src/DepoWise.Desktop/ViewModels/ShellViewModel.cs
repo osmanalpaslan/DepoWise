@@ -56,6 +56,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Malzeme Listesi", "materials"),
                 new NavLinkVm("Yeni Kayıt", "materials:new"),
+                new NavLinkVm("Giriş-Çıkış", "stock"),
                 new NavLinkVm("Kategoriler", "definitions"),
             }, expanded: true),
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
@@ -138,6 +139,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new MaterialsViewModel(_session, openAdd: true);
                 CurrentTitle = "Malzemeler — Yeni Kayıt";
                 CurrentContext = "Yeni malzeme formu";
+                break;
+            case "stock":
+                CurrentPage = new StockEntryViewModel(_session);
+                CurrentTitle = "Malzeme Giriş-Çıkış";
+                CurrentContext = "Stok giriş / çıkış / transfer";
                 break;
             case "vehicles":
             case "vehicles:new":

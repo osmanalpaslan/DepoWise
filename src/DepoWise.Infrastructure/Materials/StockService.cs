@@ -15,6 +15,21 @@ public sealed record CountLine(string MaterialId, decimal CountedQuantity);
 
 public sealed record StockDocResult(string DocumentId, string DocNo);
 
+public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
+    int Direction, decimal Quantity, decimal? UnitPrice, string? Note)
+{
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+    public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
+    public string TypeText => MovementType switch
+    {
+        "opening" => "Açılış", "in" => "Giriş", "out" => "Çıkış",
+        "transfer" => "Transfer", "adjustment" => "Düzeltme", _ => MovementType
+    };
+    public string QtyText => $"{Quantity:0.##} {Unit}".Trim();
+    public string PriceText => UnitPrice is null ? "—" : $"{UnitPrice:0.##}";
+    public string NoteText => string.IsNullOrWhiteSpace(Note) ? "—" : Note!;
+}
+
 /// <summary>
 /// Stok giriş/çıkış/transfer/sayım — hareket defteri ANA KAYNAK; bakiye yalnız hareketle değişir.
 /// Negatif stok engeli + idempotency (operation_id) + IMMEDIATE transaction (eş zamanlı çıkış güvenli).
@@ -134,6 +149,33 @@ public sealed class StockService
     {
         using var conn = _factory.Create();
         return ReadBalance(conn, null, materialId);
+    }
+
+    /// <summary>Son stok hareketleri (salt okuma) — malzeme kod/ad + tür/yön/miktar/fiyat/not.</summary>
+    public IReadOnlyList<StockMovementRow> RecentMovements(SessionContext s, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
+       sm.direction, sm.quantity, sm.unit_price, sm.note
+FROM stock_movements sm
+JOIN materials m ON m.id = sm.material_id
+LEFT JOIN units u ON u.id = m.unit_id
+WHERE sm.company_id = $c
+ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$lim", limit);
+        var list = new List<StockMovementRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new StockMovementRow(
+                r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
+                r.GetInt32(5), Money.Parse(r.GetString(6)),
+                r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
+                r.IsDBNull(8) ? null : r.GetString(8)));
+        return list;
     }
 
     // ================= çekirdek =================

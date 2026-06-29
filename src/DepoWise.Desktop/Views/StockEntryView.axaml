@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:org="using:DepoWise.Infrastructure.Organization"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
+             x:Class="DepoWise.Desktop.Views.StockEntryView"
+             x:DataType="vm:StockEntryViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Malzeme Giriş-Çıkış">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Form -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Spacing="14">
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Kayıt Tipi" Width="160">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="{Binding QuantityLabel}" IsRequired="True" Width="140">
+                        <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Birim Fiyat" Width="140" IsVisible="{Binding ShowPrice}">
+                        <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Şube" Width="200" IsVisible="{Binding ShowSingleBranch}">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding Branch}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Kaynak Şube" Width="180" IsVisible="{Binding IsTransfer}">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FromBranch}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Hedef Şube" Width="180" IsVisible="{Binding IsTransfer}">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                </StackPanel>
+
+                <!-- Malzeme seçimi -->
+                <ctrl:FormField Label="Malzeme" IsRequired="True">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                            <TextBlock Grid.Column="1" Text="{Binding BalanceText}" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </Grid>
+                        <Border Classes="Table" MaxHeight="130" IsVisible="{Binding MaterialResults.Count}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding MaterialResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="m:MaterialRefRow">
+                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Content="{Binding Name}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).PickMaterialCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </ctrl:FormField>
+
+                <ctrl:FormField Label="Açıklama / Belge No">
+                    <TextBox Classes="Field" Text="{Binding Note}" AcceptsReturn="True" Height="44"/>
+                </ctrl:FormField>
+
+                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFormCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Son hareketler -->
+        <Panel Grid.Row="2" Margin="0,16,0,0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*">
+                            <TextBlock Grid.Column="0" Text="TARİH" MinWidth="120"/>
+                            <TextBlock Grid.Column="1" Text="TİP" MinWidth="80"/>
+                            <TextBlock Grid.Column="2" Text="MALZEME" MinWidth="160"/>
+                            <TextBlock Grid.Column="3" Text="YÖN" MinWidth="60"/>
+                            <TextBlock Grid.Column="4" Text="MİKTAR" MinWidth="100"/>
+                            <TextBlock Grid.Column="5" Text="B.FİYAT" MinWidth="80"/>
+                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="140"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Movements}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="m:StockMovementRow">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,*">
+                                    <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding PriceText}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="6" Text="{Binding NoteText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Hareket yok" Message="Henüz stok hareketi yok." IsVisible="{Binding IsEmpty}"/>
+        </Panel>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>
