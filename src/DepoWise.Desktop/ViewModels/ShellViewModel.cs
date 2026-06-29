@@ -57,7 +57,6 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Malzeme Listesi", "materials"),
                 new NavLinkVm("Yeni Kayıt", "materials:new"),
                 new NavLinkVm("Giriş-Çıkış", "stock"),
-                new NavLinkVm("Kategoriler", "definitions"),
             }, expanded: true),
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
             {
