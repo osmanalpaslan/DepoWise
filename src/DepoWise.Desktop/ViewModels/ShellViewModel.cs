@@ -58,7 +58,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Yeni Kayıt", "materials:new"),
                 new NavLinkVm("Giriş-Çıkış", "stock"),
                 new NavLinkVm("Stok Sayım", "stock:count"),
-            }, expanded: true),
+            }),
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
             {
                 new NavLinkVm("Araç Listesi", "vehicles"),
@@ -95,7 +95,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Yetkiler", "permissions"),
                 new NavLinkVm("Çöp Kutusu", "trash"),
                 new NavLinkVm("Sistem Logu", "audit"),
-            }, expanded: true),
+            }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
                 new NavLinkVm("Talep Formu", "requests:form"),
