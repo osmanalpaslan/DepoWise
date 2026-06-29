@@ -22,7 +22,7 @@ public sealed partial class ImportExportViewModel : ViewModelBase
 
     public ObservableCollection<string> ExportItems { get; } = new()
         { "Malzemeler", "Araçlar", "Personel", "Muayene / Sigorta", "Bakım", "Talepler" };
-    public ObservableCollection<string> ImportItems { get; } = new() { "Malzemeler" };
+    public ObservableCollection<string> ImportItems { get; } = new() { "Malzemeler", "Araçlar", "Bakım", "Muayene / Sigorta" };
 
     [ObservableProperty] private string _selectedExport = "Malzemeler";
     [ObservableProperty] private string _selectedImport = "Malzemeler";
@@ -75,13 +75,23 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             var rows = DesktopServices.Excel.ReadRows(bytes);
             if (rows.Count == 0) { ImportResult = "Dosyada veri satırı bulunamadı."; return; }
 
-            if (SelectedImport != "Malzemeler") { ImportResult = "Bu ekran için içe aktarım henüz desteklenmiyor."; return; }
-
-            var dry = DesktopServices.MaterialImport.DryRun(_session, rows);
+            var dry = SelectedImport switch
+            {
+                "Araçlar" => DesktopServices.VehicleImport.DryRun(_session, rows),
+                "Bakım" => DesktopServices.MaintenanceImport.DryRun(_session, rows),
+                "Muayene / Sigorta" => DesktopServices.InspectionImport.DryRun(_session, rows),
+                _ => DesktopServices.MaterialImport.DryRun(_session, rows),
+            };
             if (!await ConfirmService.AskAsync(
                     $"{dry.Total} satır okundu, {dry.Valid} geçerli, {dry.Failed} hatalı.\nİçe aktarılsın mı?", "İçe Aktar"))
                 return;
-            var res = DesktopServices.MaterialImport.Commit(_session, rows);
+            var res = SelectedImport switch
+            {
+                "Araçlar" => DesktopServices.VehicleImport.Commit(_session, rows),
+                "Bakım" => DesktopServices.MaintenanceImport.Commit(_session, rows),
+                "Muayene / Sigorta" => DesktopServices.InspectionImport.Commit(_session, rows),
+                _ => DesktopServices.MaterialImport.Commit(_session, rows),
+            };
             ImportResult = $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, güncellenen {res.Updated}, hatalı {res.Failed}."
                 + (res.Errors.Count > 0 ? "\nHatalar:\n" + string.Join("\n", res.Errors.Select(e => $"Satır {e.RowNumber}: {e.Message}")) : "");
             Status = "İçe aktarım tamamlandı.";
@@ -91,7 +101,10 @@ public sealed partial class ImportExportViewModel : ViewModelBase
 
     private static IReadOnlyList<string> TemplateHeaders(string entity) => entity switch
     {
-        _ => new[] { "Kod", "Ad", "Tür", "Min Stok", "Birim Fiyat", "Para Birimi" } // Malzemeler
+        "Araçlar" => DesktopServices.VehicleImport.SampleHeaders(),
+        "Bakım" => DesktopServices.MaintenanceImport.SampleHeaders(),
+        "Muayene / Sigorta" => DesktopServices.InspectionImport.SampleHeaders(),
+        _ => DesktopServices.MaterialImport.SampleHeaders(),
     };
 
     private TableModel BuildTable(string entity)

@@ -1,6 +1,9 @@
+using System.Collections.Generic;
 using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
+using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Reporting;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Maintenance;
@@ -84,6 +87,35 @@ public class MaintenanceTests : IDisposable
         Assert.Equal("Yağ Değişimi 2", _defs.List(_admin)[0].Name);
         _defs.Delete(_admin, def);
         Assert.Empty(_defs.List(_admin));
+    }
+
+    [Fact]
+    public void Import_Arac_Muayene_Bakim_Excelden()
+    {
+        // Araç import
+        var vimp = new VehicleImportService(_vehicles);
+        var r1 = vimp.Commit(_admin, new[] { new ImportRow(2, new Dictionary<string, string?>
+            { ["İç Kod"] = "IM-1", ["Plaka"] = "34A", ["Yıl"] = "2020", ["Durum"] = "Aktif" }) });
+        Assert.Equal(1, r1.Added);
+        Assert.Contains(_vehicles.List(_admin), v => v.InternalCode == "IM-1");
+
+        // Muayene import (araç İç Kod ile eşlenir)
+        var iimp = new InspectionImportService(new InspectionService(_factory, _clock), _vehicles);
+        var r2 = iimp.Commit(_admin, new[] { new ImportRow(2, new Dictionary<string, string?>
+            { ["Araç"] = "IM-1", ["Belge Tipi"] = "Muayene", ["Sonraki Tarih"] = "01.01.2030" }) });
+        Assert.Equal(1, r2.Added);
+
+        // Bakım import (tanım yoksa oluşturulur)
+        var mimp = new MaintenanceImportService(_maint, _defs, _vehicles);
+        var r3 = mimp.Commit(_admin, new[] { new ImportRow(2, new Dictionary<string, string?>
+            { ["Araç"] = "IM-1", ["Bakım Tanımı"] = "Yağ Değişimi", ["Yapılma KM"] = "1000" }) });
+        Assert.Equal(1, r3.Added);
+        Assert.Contains(_maint.ListMaintenances(_admin), m => m.VehicleCode == "IM-1");
+
+        // Bilinmeyen araç → hata
+        var bad = iimp.Commit(_admin, new[] { new ImportRow(2, new Dictionary<string, string?>
+            { ["Araç"] = "YOK", ["Belge Tipi"] = "Sigorta" }) });
+        Assert.Equal(1, bad.Failed);
     }
 
     [Fact]

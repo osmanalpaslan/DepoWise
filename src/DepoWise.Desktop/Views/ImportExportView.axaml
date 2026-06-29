@@ -34,7 +34,7 @@
                     <Button Classes="Secondary" Content="📄 Örnek Excel İndir" Command="{Binding DownloadTemplateCommand}"/>
                     <Button Classes="Primary" Content="📥 Excel'den İçe Aktar" Command="{Binding ImportCommand}"/>
                 </StackPanel>
-                <TextBlock Text="Önce 'Örnek Excel İndir' ile şablonu alın, doldurun, sonra içe aktarın. (İçe aktarım şu an Malzemeler için.)"
+                <TextBlock Text="Önce 'Örnek Excel İndir' ile şablonu alın, doldurun, sonra içe aktarın. Malzemeler, Araçlar, Bakım ve Muayene/Sigorta desteklenir."
                            Classes="Helper" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>

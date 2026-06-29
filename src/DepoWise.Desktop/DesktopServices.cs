@@ -54,6 +54,9 @@ public static class DesktopServices
     public static ReportService Reports { get; private set; } = null!;
     public static ExcelExportService Excel { get; private set; } = null!;
     public static MaterialImportService MaterialImport { get; private set; } = null!;
+    public static VehicleImportService VehicleImport { get; private set; } = null!;
+    public static InspectionImportService InspectionImport { get; private set; } = null!;
+    public static MaintenanceImportService MaintenanceImport { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
     public static FileService Files { get; private set; } = null!;
@@ -92,6 +95,9 @@ public static class DesktopServices
         Reports = new ReportService(Factory);
         Excel = new ExcelExportService();
         MaterialImport = new MaterialImportService(Materials);
+        VehicleImport = new VehicleImportService(Vehicles);
+        InspectionImport = new InspectionImportService(Inspection, Vehicles);
+        MaintenanceImport = new MaintenanceImportService(Maintenance, MaintenanceDefs, Vehicles);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
         Storage = new LocalFileStorageProvider();
