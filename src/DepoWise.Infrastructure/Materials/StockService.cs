@@ -75,13 +75,14 @@ public sealed class StockService
 
     // ---- Transfer (kaynak çıkış + hedef giriş atomik, aynı grup) ----
     public StockDocResult Transfer(SessionContext s, string materialId, decimal quantity,
-        string fromBranchId, string toBranchId, string operationId, string? note = null, long? docDate = null)
+        string fromBranchId, string toBranchId, string operationId, string? note = null, long? docDate = null,
+        string? personnelId = null, string? vehicleId = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (quantity <= 0) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
         if (fromBranchId == toBranchId) throw new ArgumentException("Kaynak ve hedef şube aynı olamaz.");
         var groupId = Guid.NewGuid().ToString("N");
-        return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, null, null, note, docDate,
+        return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, personnelId, vehicleId, note, docDate,
             (conn, tx, docId) =>
             {
                 var line = new StockLine(materialId, quantity);

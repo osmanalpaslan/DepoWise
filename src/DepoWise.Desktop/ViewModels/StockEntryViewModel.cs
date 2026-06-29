@@ -8,6 +8,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Organization;
+using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -25,6 +26,8 @@ public sealed partial class StockEntryViewModel : ViewModelBase
     public ObservableCollection<string> KindOptions { get; } = new() { "Giriş", "Çıkış", "Transfer" };
     public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
+    public ObservableCollection<LookupItem> Personnel { get; } = new();
+    public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<StockMovementRow> Movements { get; } = new();
 
     [ObservableProperty]
@@ -54,6 +57,8 @@ public sealed partial class StockEntryViewModel : ViewModelBase
     [ObservableProperty] private BranchRow? _branch;
     [ObservableProperty] private BranchRow? _fromBranch;
     [ObservableProperty] private BranchRow? _toBranch;
+    [ObservableProperty] private LookupItem? _personnelSel;   // Şoför / teslim alan
+    [ObservableProperty] private VehicleListRow? _vehicleSel; // Teslim eden / transfer edilen araç
     [ObservableProperty] private string? _formError;
     [ObservableProperty] private string? _status;
 
@@ -79,8 +84,12 @@ public sealed partial class StockEntryViewModel : ViewModelBase
             LoadError = null;
             Movements.Clear();
             foreach (var m in DesktopServices.Stock.RecentMovements(_session)) Movements.Add(m);
-            Branches.Clear();
-            try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
+            if (Branches.Count == 0)
+                try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
+            if (Personnel.Count == 0)
+                try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
+            if (Vehicles.Count == 0)
+                try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
             Status = $"{Movements.Count} hareket";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
@@ -139,13 +148,15 @@ public sealed partial class StockEntryViewModel : ViewModelBase
         {
             if (IsExit)
                 DesktopServices.Stock.IssueOut(_session,
-                    new[] { new StockLine(SelectedMaterial.Id, Quantity) }, op, branchId: Branch?.Id, note: note);
+                    new[] { new StockLine(SelectedMaterial.Id, Quantity) }, op,
+                    branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note);
             else if (IsTransfer)
-                DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, FromBranch!.Id, ToBranch!.Id, op, note);
+                DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, FromBranch!.Id, ToBranch!.Id, op, note,
+                    personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id);
             else
                 DesktopServices.Stock.ReceiveIn(_session,
                     new[] { new StockLine(SelectedMaterial.Id, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
-                    branchId: Branch?.Id, note: note);
+                    branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note);
 
             Status = "Stok hareketi kaydedildi.";
             ClearForm();
@@ -159,6 +170,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase
     {
         SelectedMaterial = null; MaterialSearch = ""; BalanceText = "";
         Quantity = 0; UnitPrice = 0; Note = ""; Branch = null; FromBranch = null; ToBranch = null;
+        PersonnelSel = null; VehicleSel = null;
         FormError = null;
         RefreshMaterials();
     }

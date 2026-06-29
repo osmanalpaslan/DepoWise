@@ -4,6 +4,7 @@
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:m="using:DepoWise.Infrastructure.Materials"
              xmlns:org="using:DepoWise.Infrastructure.Organization"
+             xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
@@ -44,6 +45,23 @@
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}">
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
+                    </ctrl:FormField>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Personel (Şoför / Teslim Alan)" Width="240">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding PersonnelSel}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Teslim Eden / Transfer Edilen Araç" Width="280">
+                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding VehicleSel}"
+                                         FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                                         ValueMemberBinding="{Binding Display}">
+                            <AutoCompleteBox.ItemTemplate>
+                                <DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate>
+                            </AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
                     </ctrl:FormField>
                 </StackPanel>
 
