@@ -49,6 +49,25 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Bölüm: Geliştirici Modu -->
+                <Border Classes="Panel">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="GELİŞTİRİCİ MODU" Classes="SectionTitle"/>
+                            <TextBlock Text="Geliştirici kodu girilince açılır → kullanıcı süper admin yetkilerine sahip olur. Çıkış yapınca otomatik kapanır." Classes="Helper" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding DeveloperStatusText}" Classes="Body" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding !DeveloperActive}">
+                            <ctrl:FormField Label="Geliştirici Kodu" Width="220">
+                                <TextBox Classes="Field" Text="{Binding DeveloperCode}" PasswordChar="●"/>
+                            </ctrl:FormField>
+                            <Button Classes="Primary" Content="Aktif Et" VerticalAlignment="Bottom" Command="{Binding ActivateDeveloperCommand}"/>
+                        </StackPanel>
+                        <Button Classes="Danger" Content="Geliştirici Modunu Kapat" HorizontalAlignment="Left"
+                                IsVisible="{Binding DeveloperActive}" Command="{Binding DeactivateDeveloperCommand}"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Hassas ayar onay paneli -->
                 <Border Classes="Panel" IsVisible="{Binding ConfirmVisible}"
                         BorderBrush="{DynamicResource WarningBrush}">

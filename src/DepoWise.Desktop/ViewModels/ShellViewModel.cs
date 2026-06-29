@@ -21,9 +21,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     public string Initial { get; }
     public string Welcome { get; }
     public string BuildStamp { get; } = BuildInfo();
-    /// <summary>Ekran Bilgisi butonları yalnız Süper Admin'e görünür.</summary>
-    public bool IsSuperAdmin => _session.IsSuperAdmin;
-    public IReadOnlyList<NavGroupVm> Groups { get; }
+    /// <summary>Ekran Bilgisi butonları yalnız Süper Admin'e (veya geliştirici modunda) görünür.</summary>
+    public bool IsSuperAdmin => _session.IsSuperAdmin || DeveloperMode.IsActive;
+    [ObservableProperty] private IReadOnlyList<NavGroupVm> _groups = System.Array.Empty<NavGroupVm>();
 
     [ObservableProperty] private ViewModelBase? _currentPage;
     [ObservableProperty] private string _currentTitle = "";
@@ -44,6 +44,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         Initial = string.IsNullOrWhiteSpace(DisplayName) ? "?" : DisplayName.Substring(0, 1).ToUpperInvariant();
         Welcome = $"Hoş geldiniz, {DisplayName} — {DateTime.Now:dd MMMM yyyy dddd}";
         Groups = BuildGroups(session);
+        DeveloperMode.Changed += OnDeveloperModeChanged;
 
         Navigate("dashboard");
     }
@@ -95,6 +96,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Yetkiler", "permissions"),
                 new NavLinkVm("Çöp Kutusu", "trash"),
                 new NavLinkVm("Sistem Logu", "audit"),
+                new NavLinkVm("Yedek Yönetimi", "backup"),
             }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
@@ -250,6 +252,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Sistem Logu";
                 CurrentContext = "İşlem kayıtları (salt okunur, silinemez)";
                 break;
+            case "backup":
+                CurrentPage = new BackupViewModel(_session);
+                CurrentTitle = "Yedek Yönetimi";
+                CurrentContext = "Yedek al / geri yükle";
+                break;
             case "releases":
                 CurrentPage = new ReleasesViewModel(_session);
                 CurrentTitle = "Güncelleme Yönetimi";
@@ -296,6 +303,13 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         Navigate(key);
         if (!string.IsNullOrEmpty(entityId) && CurrentPage is IDeepLinkTarget t) t.OpenEntity(entityId);
+    }
+
+    /// <summary>Geliştirici modu açıl/kapanınca menü + süper-admin görünürlüğü tazelenir.</summary>
+    private void OnDeveloperModeChanged()
+    {
+        Groups = BuildGroups(_session);
+        OnPropertyChanged(nameof(IsSuperAdmin));
     }
 
     [RelayCommand]

@@ -25,10 +25,39 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "definitions", PermissionAction.Edit);
 
+    // ── Geliştirici Modu ──
+    [ObservableProperty] private string _developerCode = "";
+    public bool DeveloperActive => DeveloperMode.IsActive;
+    public string DeveloperStatusText => DeveloperMode.IsActive ? "Geliştirici modu AÇIK (süper admin yetkileri)" : "Geliştirici modu kapalı";
+
     public SettingsViewModel(SessionContext session)
     {
         _session = session;
         Revert();
+    }
+
+    private void NotifyDev()
+    {
+        OnPropertyChanged(nameof(DeveloperActive));
+        OnPropertyChanged(nameof(DeveloperStatusText));
+    }
+
+    [RelayCommand]
+    private void ActivateDeveloper()
+    {
+        if (DeveloperCode?.Trim() != DeveloperMode.Code) { Status = "Geçersiz geliştirici kodu."; return; }
+        DeveloperMode.IsActive = true;
+        DeveloperCode = "";
+        NotifyDev();
+        Status = "Geliştirici modu açıldı (çıkışta otomatik kapanır).";
+    }
+
+    [RelayCommand]
+    private void DeactivateDeveloper()
+    {
+        DeveloperMode.IsActive = false;
+        NotifyDev();
+        Status = "Geliştirici modu kapatıldı.";
     }
 
     /// <summary>Servisten yükle (Geri Al). Kaydedilmemiş düzenlemeleri atar.</summary>

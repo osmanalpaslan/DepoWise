@@ -69,6 +69,7 @@ public partial class App : Avalonia.Application
     public void Logout()
     {
         RememberMeService.Clear();
+        DepoWise.Application.Security.DeveloperMode.IsActive = false; // çıkışta geliştirici modu daima kapanır
         DesktopServices.Session = null;
         ShowLogin();
     }

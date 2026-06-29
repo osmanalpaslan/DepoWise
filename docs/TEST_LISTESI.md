@@ -49,6 +49,17 @@
 - [ ] Örnek Excel İndir (şablon) her entity için.
 - [ ] İçe Aktar: Malzemeler / Araçlar / Bakım / Muayene-Sigorta (dry-run önizleme + sonuç).
 
+### Geliştirici Modu (Ayarlar)
+- [ ] Ayarlar'da "Geliştirici Modu" bölümü; kod (621875) girip "Aktif Et" → mod açılıyor.
+- [ ] Mod açıkken kullanıcı süper admin yetkilerine sahip (Firma Tanım/Güncelleme vb. menüler görünüyor).
+- [ ] "Geliştirici Modunu Kapat" butonu → mod kapanıyor (menü tekrar daralıyor).
+- [ ] Çıkış yapınca (buton unutulsa bile) mod otomatik kapanıyor; yeniden açılışta kapalı.
+
+### Yedek Yönetimi
+- [ ] Yönetim › Yedek Yönetimi: liste + "Yedek Al" → yeni .db yedek oluşuyor.
+- [ ] "Geri Yükle" (onay) → yedek geri yükleniyor (uygulama yeniden başlatılmalı uyarısı).
+- [ ] "Klasörü Aç" yedek klasörünü açıyor.
+
 ### Yönetim
 - [ ] Çöp Kutusu: silinen kayıt görünüyor + geri yükle.
 - [ ] Sistem Logu: işlemler listeleniyor (salt okunur, silinemez).

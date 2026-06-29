@@ -8,14 +8,14 @@ namespace DepoWise.Application.Security;
 /// </summary>
 public static class AccessControl
 {
-    public static bool IsAdmin(SessionContext s) => s.IsSuperAdmin || s.IsCompanyAdmin;
+    public static bool IsAdmin(SessionContext s) => s.IsSuperAdmin || s.IsCompanyAdmin || DeveloperMode.IsActive;
 
     public static bool Can(SessionContext s, string moduleKey, PermissionAction action)
     {
         // Herkese açık modüller yalnız okuma için açıktır.
         if (AppModules.IsPublic(moduleKey)) return action == PermissionAction.View;
         // Yalnız Süper Admin'e açık modüller (Firma Tanım): admin bypass GEÇERSİZ, atanamaz.
-        if (AppModules.IsSuperAdminOnly(moduleKey)) return s.IsSuperAdmin;
+        if (AppModules.IsSuperAdminOnly(moduleKey)) return s.IsSuperAdmin || DeveloperMode.IsActive;
         if (IsAdmin(s)) return true;
 
         var p = s.Permissions.For(moduleKey);
