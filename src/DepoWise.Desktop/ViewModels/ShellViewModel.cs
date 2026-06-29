@@ -93,6 +93,8 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Kullanıcılar", "users"),
                 new NavLinkVm("Şube / Şantiye", "branches"),
                 new NavLinkVm("Yetkiler", "permissions"),
+                new NavLinkVm("Çöp Kutusu", "trash"),
+                new NavLinkVm("Sistem Logu", "audit"),
             }, expanded: true),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
@@ -237,6 +239,16 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new CompaniesViewModel(_session);
                 CurrentTitle = "Firma Tanım";
                 CurrentContext = "Firma kayıtları (yalnız Süper Admin)";
+                break;
+            case "trash":
+                CurrentPage = new TrashViewModel(_session);
+                CurrentTitle = "Çöp Kutusu";
+                CurrentContext = "Silinen kayıtları geri yükle";
+                break;
+            case "audit":
+                CurrentPage = new AuditLogViewModel(_session);
+                CurrentTitle = "Sistem Logu";
+                CurrentContext = "İşlem kayıtları (salt okunur, silinemez)";
                 break;
             case "releases":
                 CurrentPage = new ReleasesViewModel(_session);

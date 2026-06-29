@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:db="using:DepoWise.Infrastructure.Database"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="940" d:DesignHeight="560"
+             x:Class="DepoWise.Desktop.Views.AuditLogView"
+             x:DataType="vm:AuditLogViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Sistem Logu">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Panel Grid.Row="1" Margin="0,16,0,0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Text="TARİH" MinWidth="150"/>
+                            <TextBlock Grid.Column="1" Text="KULLANICI" MinWidth="160"/>
+                            <TextBlock Grid.Column="2" Text="KAYIT" MinWidth="220"/>
+                            <TextBlock Grid.Column="3" Text="İŞLEM" MinWidth="120"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="db:AuditLogRow">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="160" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding EntityType}" MinWidth="220" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding ActionText}" MinWidth="120" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Log yok" Message="Henüz sistem log kaydı yok." IsVisible="{Binding IsEmpty}"/>
+        </Panel>
+
+        <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>
