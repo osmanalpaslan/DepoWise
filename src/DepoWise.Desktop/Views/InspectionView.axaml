@@ -43,8 +43,11 @@
                     <ctrl:FormField Label="Yer / Kurum" Width="200">
                         <TextBox Classes="Field" Text="{Binding FPlace}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Sonuç" Width="160">
-                        <TextBox Classes="Field" Text="{Binding FResult}"/>
+                    <ctrl:FormField Label="Sonuç" Width="150">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ResultOptions}" SelectedItem="{Binding FResult}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Erteleme Tarihi" Width="170" IsRequired="True" IsVisible="{Binding IsPostponed}">
+                        <DatePicker Classes="Field" SelectedDate="{Binding FPostponeDate}"/>
                     </ctrl:FormField>
                 </StackPanel>
                 <ctrl:FormField Label="Açıklama">

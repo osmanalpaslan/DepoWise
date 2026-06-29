@@ -22,6 +22,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
     public ObservableCollection<InspectionRow> Items { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<string> DocTypeOptions { get; } = new() { "Muayene", "Sigorta", "Kasko", "Kalibrasyon" };
+    public ObservableCollection<string> ResultOptions { get; } = new() { "Geçti", "Kaldı", "Ertelendi" };
 
     [ObservableProperty] private string? _status;
     [ObservableProperty]
@@ -37,7 +38,11 @@ public sealed partial class InspectionViewModel : ViewModelBase
     [ObservableProperty] private DateTimeOffset? _fLastDate;
     [ObservableProperty] private DateTimeOffset? _fNextDate;
     [ObservableProperty] private string _fPlace = "";
-    [ObservableProperty] private string _fResult = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPostponed))]
+    private string _fResult = "Geçti";
+    public bool IsPostponed => FResult == "Ertelendi";
+    [ObservableProperty] private DateTimeOffset? _fPostponeDate;
     [ObservableProperty] private string _fNote = "";
     [ObservableProperty] private string? _formError;
 
@@ -76,7 +81,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok."; return; }
         if (Vehicles.Count == 0) try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
         FVehicle = null; FDocType = "Muayene"; FLastDate = null; FNextDate = null;
-        FPlace = ""; FResult = ""; FNote = ""; FormError = null;
+        FPlace = ""; FResult = "Geçti"; FPostponeDate = null; FNote = ""; FormError = null;
         ShowAdd = true;
     }
 
@@ -89,14 +94,17 @@ public sealed partial class InspectionViewModel : ViewModelBase
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
         if (FVehicle is null) { FormError = "Araç seçin."; return; }
+        if (IsPostponed && FPostponeDate is null) { FormError = "Ertelendi seçildi: erteleme tarihi zorunlu."; return; }
         if (!await ConfirmService.AskAsync($"{FDocType} belgesi kaydedilsin mi?", "Muayene / Sigorta")) return;
         try
         {
+            // Ertelendi ise sonraki tarih = erteleme tarihi → uyarılar bu tarihe göre çalışır
+            var nextMs = (IsPostponed ? FPostponeDate : FNextDate)?.ToUnixTimeMilliseconds();
             DesktopServices.Inspection.Save(_session, new NewInspection(
                 VehicleId: FVehicle.Id, DocType: Code(FDocType),
                 LastDate: FLastDate?.ToUnixTimeMilliseconds(),
-                NextDate: FNextDate?.ToUnixTimeMilliseconds(),
-                Result: string.IsNullOrWhiteSpace(FResult) ? null : FResult.Trim(),
+                NextDate: nextMs,
+                Result: FResult,
                 Place: string.IsNullOrWhiteSpace(FPlace) ? null : FPlace.Trim(),
                 Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote.Trim()));
             ShowAdd = false; Load();
