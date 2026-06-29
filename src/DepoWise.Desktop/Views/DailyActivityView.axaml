@@ -9,16 +9,15 @@
              xmlns:inf="using:DepoWise.Infrastructure.Maintenance"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
+             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="700"
              x:Class="DepoWise.Desktop.Views.DailyActivityView"
              x:DataType="vm:DailyActivityViewModel">
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Günlük Faaliyet"
-                      PrimaryActionText="Yeni Hareket / Transfer" PrimaryActionCommand="{Binding NewActivityCommand}">
+                      PrimaryActionText="Yeni Kayıt Oluştur" PrimaryActionCommand="{Binding NewRecordCommand}">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <Button Classes="Secondary" Content="+ Bakım Ekle" Command="{Binding NewMaintenanceCommand}"/>
                     <ComboBox Classes="Field" Width="160" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
                     <DatePicker Classes="Field" SelectedDate="{Binding FilterDate}" ToolTip.Tip="Gün filtresi"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
@@ -26,12 +25,13 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <!-- Yeni hareket/transfer formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
-            <StackPanel Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ HAREKET / TRANSFER" Classes="SectionTitle"/>
+        <!-- Tek form — Kayıt Tipi'ne göre alanlar değişir -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
+            <ScrollViewer MaxHeight="440">
+            <StackPanel Spacing="14" MaxWidth="860" HorizontalAlignment="Left">
+                <TextBlock Text="YENİ KAYIT" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Kayıt Tipi" Width="150">
+                    <ctrl:FormField Label="Kayıt Tipi" Width="160">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
@@ -45,128 +45,110 @@
                         <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
                     </ctrl:FormField>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Operatör / Şoför" Width="200">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Süre (gün)" Width="120">
-                        <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
+
+                <!-- ===== HAREKET / TRANSFER ===== -->
+                <StackPanel Spacing="14" IsVisible="{Binding IsMovement}">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Operatör / Şoför" Width="200">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Süre (gün)" Width="120">
+                            <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <TextBlock Text="Transfer: araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
+                </StackPanel>
+
+                <!-- ===== BAKIM ===== -->
+                <StackPanel Spacing="14" IsVisible="{Binding IsMaintenance}">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Alt Bakım" Width="240">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSub}">
+                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubName}" PlaceholderText="Yeni alt bakım adı"/>
+                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCommand}"/>
+                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCommand}"/>
+                                </Grid>
+                            </StackPanel>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Teknisyen" Width="200">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Yapılma KM" Width="140">
+                            <NumericUpDown Classes="Field" Value="{Binding MKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Yapılma Saat" Width="140">
+                            <NumericUpDown Classes="Field" Value="{Binding MHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
+                        <StackPanel Spacing="6">
+                            <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                            <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MntMaterialResults.Count}">
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding MntMaterialResults}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="m:MaterialRefRow">
+                                                <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Name}"
+                                                        Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).AddMntMaterialCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding MntLines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MntMaterialLine">
+                                        <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                            <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
+                                                    Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </ctrl:FormField>
                 </StackPanel>
-                <TextBlock Text="Transfer seçilirse araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
+
                 <ctrl:FormField Label="Açıklama">
-                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="48"/>
+                    <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>
                 <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelFormCommand}"/>
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
-                </StackPanel>
-            </StackPanel>
-        </Border>
-
-        <!-- Bakım Ekle formu -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMaintAdd}">
-            <ScrollViewer MaxHeight="420">
-            <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ BAKIM" Classes="SectionTitle"/>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
-                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding MVehicle}"
-                                         FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
-                                         ValueMemberBinding="{Binding Display}">
-                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Alt Bakım" Width="240">
-                        <StackPanel Spacing="6">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}">
-                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                </ComboBox>
-                                <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
-                            </Grid>
-                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSub}">
-                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubName}" PlaceholderText="Yeni alt bakım adı"/>
-                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCommand}"/>
-                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCommand}"/>
-                            </Grid>
-                        </StackPanel>
-                    </ctrl:FormField>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Teknisyen" Width="200">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Yapılma KM" Width="130">
-                        <NumericUpDown Classes="Field" Value="{Binding MKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Yapılma Saat" Width="130">
-                        <NumericUpDown Classes="Field" Value="{Binding MHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                    </ctrl:FormField>
-                    <ctrl:FormField Label="Tarih" Width="160">
-                        <DatePicker Classes="Field" SelectedDate="{Binding MDate}"/>
-                    </ctrl:FormField>
-                </StackPanel>
-                <ctrl:FormField Label="Açıklama">
-                    <TextBox Classes="Field" Text="{Binding MDescription}" AcceptsReturn="True" Height="44"/>
-                </ctrl:FormField>
-                <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
-                    <StackPanel Spacing="6">
-                        <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
-                        <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MntMaterialResults.Count}">
-                            <ScrollViewer>
-                                <ItemsControl ItemsSource="{Binding MntMaterialResults}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="m:MaterialRefRow">
-                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Name}"
-                                                    Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).AddMntMaterialCommand}"
-                                                    CommandParameter="{Binding}"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Border>
-                        <ItemsControl ItemsSource="{Binding MntLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:MntMaterialLine">
-                                    <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
-                                        <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                                        <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
-                                                Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
-                                                CommandParameter="{Binding}"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </ctrl:FormField>
-                <TextBlock Text="{Binding MaintError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
-                           IsVisible="{Binding MaintError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelMaintCommand}"/>
-                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMaintCommand}"/>
                 </StackPanel>
             </StackPanel>
             </ScrollViewer>

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
@@ -16,29 +16,33 @@ using DepoWise.Infrastructure.Vehicles;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>
-/// Günlük Faaliyet — araç hareket/transfer kayıtları + (bakımdan gelen) faaliyet listesi. Yeni kayıt:
-/// Hareket/Transfer (araç + kaynak/hedef şube + operatör + süre + açıklama). Transfer → araç otomatik pasife alınır.
-/// Bakım faaliyetleri Bakım ekranından oluşturulur; burada listede görünür.
+/// Günlük Faaliyet — bir günde yapılan TÜM işler tek ekranda. Tek "Yeni Kayıt Oluştur" + Kayıt Tipi
+/// (Hareket / Transfer / Bakım) forma göre alanları değiştirir. Transfer → araç otomatik pasife. Bakım →
+/// tek bakım kaydı + tek stok düşümü (Bakım Takibi'nde de görünür). Gün filtresi + günlük özet.
 /// </summary>
 public sealed partial class DailyActivityViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
+    private bool _pickersLoaded;
 
     public bool CanWrite => AccessControl.Can(_session, "daily_activity", PermissionAction.Create);
     public bool CanDelete => AccessControl.Can(_session, "daily_activity", PermissionAction.Delete);
 
     public ObservableCollection<DailyActivityListRow> Items { get; } = new();
     public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Hareket / Transfer", "Bakım" };
-    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer" };
+    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım" };
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
     public ObservableCollection<LookupItem> Personnel { get; } = new();
+    public ObservableCollection<MaintenanceDefinitionRow> MaintDefs { get; } = new();
+    public ObservableCollection<MaintenanceDefinitionRow> MaintSubDefs { get; } = new();
+    public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
+    public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
 
     [ObservableProperty] private string _selectedFilter = "Tümü";
     [ObservableProperty] private DateTimeOffset? _filterDate;
     [ObservableProperty] private string? _status;
 
-    partial void OnFilterDateChanged(DateTimeOffset? value) => Load();
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private string? _loadError;
@@ -46,20 +50,38 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     public bool HasRows => Items.Count > 0;
     public bool IsEmpty => !HasError && Items.Count == 0;
 
-    // Form
-    [ObservableProperty] private bool _showAdd;
+    // ── Tek form, Kayıt Tipi'ne göre değişir ──
+    [ObservableProperty] private bool _showForm;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsTransfer))]
+    [NotifyPropertyChangedFor(nameof(IsMaintenance))]
+    [NotifyPropertyChangedFor(nameof(IsMovement))]
     private string _formKind = "Hareket";
     public bool IsTransfer => FormKind == "Transfer";
+    public bool IsMaintenance => FormKind == "Bakım";
+    public bool IsMovement => FormKind is "Hareket" or "Transfer";
+
+    // Ortak
     [ObservableProperty] private VehicleListRow? _formVehicle;
+    [ObservableProperty] private DateTimeOffset? _formDate = DateTimeOffset.Now;
+    [ObservableProperty] private string _formDescription = "";
+    [ObservableProperty] private string? _formError;
+
+    // Hareket / Transfer alanları
     [ObservableProperty] private BranchRow? _formFrom;
     [ObservableProperty] private BranchRow? _formTo;
     [ObservableProperty] private LookupItem? _formOperator;
     [ObservableProperty] private decimal _formDuration;
-    [ObservableProperty] private string _formDescription = "";
-    [ObservableProperty] private DateTimeOffset? _formDate = DateTimeOffset.Now;
-    [ObservableProperty] private string? _formError;
+
+    // Bakım alanları
+    [ObservableProperty] private MaintenanceDefinitionRow? _mDef;
+    [ObservableProperty] private MaintenanceDefinitionRow? _mSubDef;
+    [ObservableProperty] private LookupItem? _mTechnician;
+    [ObservableProperty] private decimal _mKm;
+    [ObservableProperty] private decimal _mHour;
+    [ObservableProperty] private string _mntMaterialSearch = "";
+    [ObservableProperty] private bool _isAddingSub;
+    [ObservableProperty] private string _newSubName = "";
 
     public DailyActivityViewModel(SessionContext session)
     {
@@ -75,6 +97,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     };
 
     partial void OnSelectedFilterChanged(string value) => Load();
+    partial void OnFilterDateChanged(DateTimeOffset? value) => Load();
 
     [RelayCommand]
     private void Load()
@@ -94,12 +117,6 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
             var hareket = Items.Count - bakim;
             Status = $"{Items.Count} faaliyet — {bakim} bakım, {hareket} hareket/transfer"
                      + (day is null ? "" : $" ({day:dd.MM.yyyy})");
-            if (Vehicles.Count == 0)
-                try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
-            if (Branches.Count == 0)
-                try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
-            if (Personnel.Count == 0)
-                try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(HasRows));
@@ -107,44 +124,34 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasError));
     }
 
-    // ════════════════════ BAKIM EKLE ════════════════════
-    public ObservableCollection<MaintenanceDefinitionRow> MaintDefs { get; } = new();
-    public ObservableCollection<MaintenanceDefinitionRow> MaintSubDefs { get; } = new();
-    public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
-    public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
-    private bool _maintPickersLoaded;
-
-    [ObservableProperty] private bool _showMaintAdd;
-    [ObservableProperty] private VehicleListRow? _mVehicle;
-    [ObservableProperty] private MaintenanceDefinitionRow? _mDef;
-    [ObservableProperty] private MaintenanceDefinitionRow? _mSubDef;
-    [ObservableProperty] private LookupItem? _mTechnician;
-    [ObservableProperty] private decimal _mKm;
-    [ObservableProperty] private decimal _mHour;
-    [ObservableProperty] private DateTimeOffset? _mDate = DateTimeOffset.Now;
-    [ObservableProperty] private string _mDescription = "";
-    [ObservableProperty] private string _mntMaterialSearch = "";
-    [ObservableProperty] private string? _maintError;
-    [ObservableProperty] private bool _isAddingSub;
-    [ObservableProperty] private string _newSubName = "";
-
-    [RelayCommand] private void StartAddSub() { if (MDef is null) { Status = "Önce bakım tanımı seçin."; return; } IsAddingSub = true; NewSubName = ""; }
-    [RelayCommand] private void CancelAddSub() { IsAddingSub = false; NewSubName = ""; }
-    [RelayCommand]
-    private void ConfirmAddSub()
+    private void EnsurePickers()
     {
-        if (MDef is null || string.IsNullOrWhiteSpace(NewSubName)) return;
-        try
-        {
-            var id = DesktopServices.MaintenanceDefs.Create(_session, new NewMaintenanceDefinition(
-                NewSubName.Trim(), 0m, "km", ParentDefId: MDef.Id));
-            var row = new MaintenanceDefinitionRow(id, NewSubName.Trim(), 0m, "km", null, MDef.Id);
-            MaintSubDefs.Add(row); MSubDef = row;
-            IsAddingSub = false; NewSubName = "";
-        }
-        catch (Exception ex) { MaintError = "Eklenemedi: " + ex.Message; }
+        if (_pickersLoaded) return;
+        try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
+        try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
+        try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
+        try { foreach (var d in DesktopServices.MaintenanceDefs.List(_session)) MaintDefs.Add(d); } catch { }
+        _pickersLoaded = true;
     }
 
+    [RelayCommand]
+    private void NewRecord()
+    {
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        EnsurePickers();
+        FormKind = "Hareket";
+        FormVehicle = null; FormDate = DateTimeOffset.Now; FormDescription = ""; FormError = null;
+        FormFrom = null; FormTo = null; FormOperator = null; FormDuration = 0;
+        MDef = null; MSubDef = null; MTechnician = null; MKm = 0; MHour = 0;
+        MntMaterialSearch = ""; IsAddingSub = false; NewSubName = "";
+        MntLines.Clear(); RefreshMntMaterials();
+        ShowForm = true;
+    }
+
+    [RelayCommand]
+    private void CancelForm() => ShowForm = false;
+
+    // ── Bakım: alt tanım + malzeme ──
     partial void OnMDefChanged(MaintenanceDefinitionRow? value)
     {
         MSubDef = null; MaintSubDefs.Clear();
@@ -171,27 +178,6 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         catch { }
     }
 
-    [RelayCommand]
-    private void NewMaintenance()
-    {
-        if (!CanWrite) { Status = "Yetki yok."; return; }
-        ShowAdd = false;
-        if (!_maintPickersLoaded)
-        {
-            try { foreach (var d in DesktopServices.MaintenanceDefs.List(_session)) MaintDefs.Add(d); } catch { }
-            if (Vehicles.Count == 0) try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
-            if (Personnel.Count == 0) try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
-            _maintPickersLoaded = true;
-        }
-        MVehicle = null; MDef = null; MSubDef = null; MTechnician = null; MKm = 0; MHour = 0;
-        MDate = DateTimeOffset.Now; MDescription = ""; MntMaterialSearch = ""; MaintError = null;
-        IsAddingSub = false; NewSubName = "";
-        MntLines.Clear(); RefreshMntMaterials();
-        ShowMaintAdd = true;
-    }
-
-    [RelayCommand] private void CancelMaint() => ShowMaintAdd = false;
-
     [RelayCommand] private void AddMntMaterial(MaterialRefRow? m)
     {
         if (m is null) return;
@@ -205,46 +191,73 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         RefreshMntMaterials();
     }
 
+    [RelayCommand] private void StartAddSub() { if (MDef is null) { Status = "Önce bakım tanımı seçin."; return; } IsAddingSub = true; NewSubName = ""; }
+    [RelayCommand] private void CancelAddSub() { IsAddingSub = false; NewSubName = ""; }
     [RelayCommand]
-    private async Task SaveMaint()
+    private void ConfirmAddSub()
     {
-        MaintError = null;
-        if (!CanWrite) { MaintError = "Yetki yok."; return; }
-        if (MVehicle is null) { MaintError = "Araç seçin."; return; }
-        if (MDef is null) { MaintError = "Bakım tanımı seçin."; return; }
-        if (MntLines.Any(l => l.Quantity <= 0)) { MaintError = "Malzeme miktarı pozitif olmalı."; return; }
-        if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Bakım Ekle")) return;
+        if (MDef is null || string.IsNullOrWhiteSpace(NewSubName)) return;
         try
         {
-            var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
-            DesktopServices.DailyActivity.SaveMaintenanceActivity(_session, new NewMaintenance(
-                VehicleId: MVehicle.Id, DefinitionId: MDef.Id, SubDefinitionId: MSubDef?.Id,
-                TechnicianId: MTechnician?.Id,
-                Description: string.IsNullOrWhiteSpace(MDescription) ? null : MDescription.Trim(),
-                PerformedKm: MKm > 0 ? MKm : (decimal?)null,
-                PerformedHour: MHour > 0 ? MHour : (decimal?)null,
-                PerformedDate: MDate?.ToUnixTimeMilliseconds(),
-                Materials: materials), Guid.NewGuid().ToString("N"));
-            ShowMaintAdd = false;
-            Load();
-            Status = "Bakım kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
+            var id = DesktopServices.MaintenanceDefs.Create(_session, new NewMaintenanceDefinition(
+                NewSubName.Trim(), 0m, "km", ParentDefId: MDef.Id));
+            var row = new MaintenanceDefinitionRow(id, NewSubName.Trim(), 0m, "km", null, MDef.Id);
+            MaintSubDefs.Add(row); MSubDef = row;
+            IsAddingSub = false; NewSubName = "";
         }
-        catch (Exception ex) { MaintError = "Kaydedilemedi: " + ex.Message; }
+        catch (Exception ex) { FormError = "Eklenemedi: " + ex.Message; }
     }
 
+    // ── Kaydet (Kayıt Tipi'ne göre) ──
     [RelayCommand]
-    private void NewActivity()
+    private async Task Save()
     {
-        if (!CanWrite) { Status = "Yetki yok."; return; }
-        ShowMaintAdd = false;
-        if (Vehicles.Count == 0) try { foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v); } catch { }
-        FormKind = "Hareket"; FormVehicle = null; FormFrom = null; FormTo = null; FormOperator = null;
-        FormDuration = 0; FormDescription = ""; FormDate = DateTimeOffset.Now; FormError = null;
-        ShowAdd = true;
-    }
+        FormError = null;
+        if (!CanWrite) { FormError = "Yetki yok."; return; }
+        if (FormVehicle is null) { FormError = "Araç seçin."; return; }
 
-    [RelayCommand]
-    private void CancelAdd() => ShowAdd = false;
+        if (IsMaintenance)
+        {
+            if (MDef is null) { FormError = "Bakım tanımı seçin."; return; }
+            if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
+            if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Yeni Kayıt")) return;
+            try
+            {
+                var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
+                DesktopServices.DailyActivity.SaveMaintenanceActivity(_session, new NewMaintenance(
+                    VehicleId: FormVehicle.Id, DefinitionId: MDef.Id, SubDefinitionId: MSubDef?.Id,
+                    TechnicianId: MTechnician?.Id,
+                    Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
+                    PerformedKm: MKm > 0 ? MKm : (decimal?)null,
+                    PerformedHour: MHour > 0 ? MHour : (decimal?)null,
+                    PerformedDate: FormDate?.ToUnixTimeMilliseconds(),
+                    Materials: materials), Guid.NewGuid().ToString("N"));
+                ShowForm = false; Load();
+                Status = "Bakım kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
+            }
+            catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+            return;
+        }
+
+        // Hareket / Transfer
+        var confirm = IsTransfer ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)" : "Hareket kaydı oluşturulsun mu?";
+        if (!await ConfirmService.AskAsync(confirm, "Yeni Kayıt")) return;
+        try
+        {
+            DesktopServices.DailyActivity.SaveMovement(_session, new NewMovementActivity(
+                MovementKind: IsTransfer ? "transfer" : "movement",
+                VehicleId: FormVehicle.Id,
+                FromLocationId: FormFrom?.Id,
+                ToLocationId: FormTo?.Id,
+                OperatorId: FormOperator?.Id,
+                DurationDays: FormDuration > 0 ? (int)FormDuration : null,
+                Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
+                ActivityDate: FormDate?.ToUnixTimeMilliseconds()), Guid.NewGuid().ToString("N"));
+            ShowForm = false; Load();
+            Status = IsTransfer ? "Transfer kaydedildi (araç pasife alındı)." : "Hareket kaydedildi.";
+        }
+        catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+    }
 
     [RelayCommand]
     private async Task DeleteActivity(DailyActivityListRow? row)
@@ -261,33 +274,5 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
             Status = "Faaliyet silindi.";
         }
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
-    }
-
-    [RelayCommand]
-    private async Task Save()
-    {
-        FormError = null;
-        if (!CanWrite) { FormError = "Yetki yok."; return; }
-        if (FormVehicle is null) { FormError = "Araç seçin."; return; }
-        var confirm = IsTransfer
-            ? "Transfer kaydedilsin mi? (araç otomatik PASİF'e alınır)"
-            : "Hareket kaydı oluşturulsun mu?";
-        if (!await ConfirmService.AskAsync(confirm, "Günlük Faaliyet")) return;
-        try
-        {
-            DesktopServices.DailyActivity.SaveMovement(_session, new NewMovementActivity(
-                MovementKind: IsTransfer ? "transfer" : "movement",
-                VehicleId: FormVehicle.Id,
-                FromLocationId: FormFrom?.Id,
-                ToLocationId: FormTo?.Id,
-                OperatorId: FormOperator?.Id,
-                DurationDays: FormDuration > 0 ? (int)FormDuration : null,
-                Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
-                ActivityDate: FormDate?.ToUnixTimeMilliseconds()), Guid.NewGuid().ToString("N"));
-            ShowAdd = false;
-            Load();
-            Status = IsTransfer ? "Transfer kaydedildi (araç pasife alındı)." : "Hareket kaydedildi.";
-        }
-        catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }
 }
