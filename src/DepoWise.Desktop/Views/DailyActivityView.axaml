@@ -6,6 +6,7 @@
              xmlns:org="using:DepoWise.Infrastructure.Organization"
              xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
              xmlns:op="using:DepoWise.Infrastructure.Operations"
+             xmlns:inf="using:DepoWise.Infrastructure.Maintenance"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
@@ -17,7 +18,9 @@
                       PrimaryActionText="Yeni Hareket / Transfer" PrimaryActionCommand="{Binding NewActivityCommand}">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <ComboBox Classes="Field" Width="170" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
+                    <Button Classes="Secondary" Content="+ Bakım Ekle" Command="{Binding NewMaintenanceCommand}"/>
+                    <ComboBox Classes="Field" Width="160" ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"/>
+                    <DatePicker Classes="Field" SelectedDate="{Binding FilterDate}" ToolTip.Tip="Gün filtresi"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
@@ -73,6 +76,90 @@
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}"/>
                 </StackPanel>
             </StackPanel>
+        </Border>
+
+        <!-- Bakım Ekle formu -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMaintAdd}">
+            <ScrollViewer MaxHeight="420">
+            <StackPanel Spacing="14" MaxWidth="820" HorizontalAlignment="Left">
+                <TextBlock Text="YENİ BAKIM" Classes="SectionTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
+                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding MVehicle}"
+                                         FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                                         ValueMemberBinding="{Binding Display}">
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Alt Bakım" Width="200">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Teknisyen" Width="200">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Yapılma KM" Width="130">
+                        <NumericUpDown Classes="Field" Value="{Binding MKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Yapılma Saat" Width="130">
+                        <NumericUpDown Classes="Field" Value="{Binding MHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Tarih" Width="160">
+                        <DatePicker Classes="Field" SelectedDate="{Binding MDate}"/>
+                    </ctrl:FormField>
+                </StackPanel>
+                <ctrl:FormField Label="Açıklama">
+                    <TextBox Classes="Field" Text="{Binding MDescription}" AcceptsReturn="True" Height="44"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
+                    <StackPanel Spacing="6">
+                        <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                        <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MntMaterialResults.Count}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding MntMaterialResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="m:MaterialRefRow">
+                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="{Binding Name}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).AddMntMaterialCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding MntLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MntMaterialLine">
+                                    <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                        <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                        <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
+                                                Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ctrl:FormField>
+                <TextBlock Text="{Binding MaintError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                           IsVisible="{Binding MaintError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button Classes="Secondary" Content="İptal" Command="{Binding CancelMaintCommand}"/>
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMaintCommand}"/>
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <!-- Liste -->
