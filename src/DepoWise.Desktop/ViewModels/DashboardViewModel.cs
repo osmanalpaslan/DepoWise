@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
+using DepoWise.Application.Theming;
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -42,8 +43,11 @@ public sealed partial class DashboardViewModel : ViewModelBase
     public bool CanApplyUpdate => UpdateAvailable && !IsUpdating;
     private DepoWise.Application.Update.UpdatePackage? _latestPackage;
 
+    private readonly string _companyId;
+
     public DashboardViewModel(SessionContext session)
     {
+        _companyId = session.CompanyId;
         try { CurrentVersion = DesktopServices.Update.CurrentVersion(); } catch { }
         try
         {
@@ -61,7 +65,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
             LoadError = "Özet verileri yüklenemedi: " + ex.Message;
         }
         IsLoading = false;
-        CheckUpdate(); // açılışta güncelleme var mı otomatik kontrol → uyarı + buton
+        _ = CheckUpdate(); // açılışta güncelleme var mı otomatik kontrol → uyarı + buton
     }
 
     /// <summary>KPI kartına tıklayınca ilgili ekrana git (köprü). NavKey boşsa hedef ekran henüz yok → işlem yok.</summary>
@@ -80,13 +84,17 @@ public sealed partial class DashboardViewModel : ViewModelBase
         ShellViewModel.Current?.NavigateTo(alert.NavigateKey, alert.EntityId);
     }
 
-    /// <summary>Güncelleme kontrolü: yayınlanan en son sürümü mevcutla karşılaştırır (Güncelleme sunucusundan sync edilen app_releases).</summary>
+    /// <summary>Güncelleme kontrolü: sunucu (API) tanımlıysa `/api/releases/latest`'ten, değilse yerel app_releases'ten
+    /// en son sürümü alıp mevcutla karşılaştırır.</summary>
     [RelayCommand]
-    private void CheckUpdate()
+    private async Task CheckUpdate()
     {
         try
         {
-            var latest = DesktopServices.Releases.Latest();
+            var serverUrl = DesktopServices.Settings.Get(_companyId, SettingKeys.UpdateServerUrl);
+            var latest = !string.IsNullOrWhiteSpace(serverUrl)
+                ? await DesktopServices.UpdateApi.GetLatestAsync(serverUrl!) ?? DesktopServices.Releases.Latest()
+                : DesktopServices.Releases.Latest();
             _latestPackage = latest;
             var res = DesktopServices.Update.Check(latest);
             UpdateAvailable = res.UpdateAvailable;

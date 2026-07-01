@@ -70,6 +70,8 @@ public static class SettingKeys
 
     // Sunucu yedek (bulut API). Yapılandırılırsa her yerel yedek sunucuya yüklenir; sunucu hiç silmez.
     public const string BackupServerUrl = "backup.server_url";
+    // Sunucu (API) tabanı — masaüstü güncelleme/senkron için (ör. http://192.168.1.10:5224). Setup'ta otomatik dolar.
+    public const string UpdateServerUrl = "update.server_url";
     public const string BackupServerToken = "backup.server_token";
     public const string BackupMachineId = "backup.machine_id"; // makine başına sabit GUID (ilk kullanımda üretilir)
 
