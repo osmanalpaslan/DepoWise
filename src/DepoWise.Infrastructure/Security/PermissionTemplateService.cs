@@ -9,7 +9,7 @@ using DepoWise.Infrastructure.Database;
 namespace DepoWise.Infrastructure.Security;
 
 public sealed record PermissionTemplateRow(string Id, string Name);
-public sealed record PermissionTemplateData(IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons);
+public sealed record PermissionTemplateData(IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons, string? RoleKey);
 
 /// <summary>
 /// Kullanıcı yetki şablonları (Süper Admin). İsimli şablon oluştur/listele/sil; yeni kullanıcıda uygulanır.
@@ -31,7 +31,7 @@ public sealed class PermissionTemplateService
         if (!s.IsSuperAdmin) throw new ForbiddenException("Yetki şablonları yalnız Süper Admin yetkisindedir.");
     }
 
-    public string Create(SessionContext s, string name, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
+    public string Create(SessionContext s, string name, string? roleKey, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
     {
         RequireSuper(s);
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Şablon adı zorunlu.");
@@ -45,13 +45,14 @@ public sealed class PermissionTemplateService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT INTO permission_templates(id, company_id, name, permissions_json, buttons_json, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$n,$p,$b,$now,$now,1,0);";
+            "INSERT INTO permission_templates(id, company_id, name, permissions_json, buttons_json, role_key, created_at, updated_at, version, is_deleted) " +
+            "VALUES($id,$c,$n,$p,$b,$role,$now,$now,1,0);";
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
         cmd.Parameters.AddWithValue("$n", name.Trim());
         cmd.Parameters.AddWithValue("$p", permJson);
         cmd.Parameters.AddWithValue("$b", btnJson);
+        cmd.Parameters.AddWithValue("$role", (object?)roleKey ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
         return id;
@@ -75,18 +76,19 @@ public sealed class PermissionTemplateService
         RequireSuper(s);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT permissions_json, buttons_json FROM permission_templates WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.CommandText = "SELECT permissions_json, buttons_json, role_key FROM permission_templates WHERE id=$id AND company_id=$c AND is_deleted=0;";
         cmd.Parameters.AddWithValue("$id", templateId);
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
         using var r = cmd.ExecuteReader();
-        if (!r.Read()) return new PermissionTemplateData(Array.Empty<ModulePermission>(), Array.Empty<string>());
+        if (!r.Read()) return new PermissionTemplateData(Array.Empty<ModulePermission>(), Array.Empty<string>(), null);
 
         var mods = new List<ModulePermission>();
         foreach (var row in JsonSerializer.Deserialize<string[][]>(r.GetString(0)) ?? Array.Empty<string[]>())
             if (row.Length == 5)
                 mods.Add(new ModulePermission(row[0], row[1] == "1", row[2] == "1", row[3] == "1", row[4] == "1"));
         var btns = JsonSerializer.Deserialize<string[]>(r.GetString(1)) ?? Array.Empty<string>();
-        return new PermissionTemplateData(mods, btns);
+        var role = r.IsDBNull(2) ? null : r.GetString(2);
+        return new PermissionTemplateData(mods, btns, role);
     }
 
     public void Delete(SessionContext s, string templateId)

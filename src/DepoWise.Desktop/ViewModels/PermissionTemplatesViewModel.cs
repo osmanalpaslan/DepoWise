@@ -32,8 +32,10 @@ public sealed partial class PermissionTemplatesViewModel : ViewModelBase
 
     public ObservableCollection<PermissionTemplateRow> Templates { get; } = new();
     public ObservableCollection<TemplateModuleRow> Modules { get; } = new();
+    public ObservableCollection<RolePick> Roles { get; } = new();
 
     [ObservableProperty] private string _newName = "";
+    [ObservableProperty] private RolePick? _selectedRole;
     [ObservableProperty] private string? _status;
 
     public bool IsSuperAdmin => _session.IsSuperAdmin;
@@ -46,6 +48,9 @@ public sealed partial class PermissionTemplatesViewModel : ViewModelBase
             if (AppModules.IsPublic(key) || AppModules.IsSuperAdminOnly(key)) continue;
             Modules.Add(new TemplateModuleRow(key, label));
         }
+        // Şablona rol seçimi (Süper Admin hariç roller — süper admin şablonla atanmaz)
+        foreach (var (key, name, _) in RoleKeys.Seed)
+            if (key != RoleKeys.SuperAdmin) Roles.Add(new RolePick(key, name));
         Load();
     }
 
@@ -63,10 +68,10 @@ public sealed partial class PermissionTemplatesViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(NewName)) { Status = "Şablon adı girin."; return; }
         try
         {
-            DesktopServices.PermissionTemplates.Create(_session, NewName.Trim(),
+            DesktopServices.PermissionTemplates.Create(_session, NewName.Trim(), SelectedRole?.Key,
                 Modules.Select(m => m.ToPermission()), Array.Empty<string>());
             Status = $"Şablon kaydedildi: {NewName.Trim()}";
-            NewName = "";
+            NewName = ""; SelectedRole = null;
             foreach (var m in Modules) { m.CanView = m.CanCreate = m.CanEdit = m.CanDelete = false; }
             Load();
         }

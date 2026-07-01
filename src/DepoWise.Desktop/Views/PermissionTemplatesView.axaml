@@ -19,9 +19,18 @@
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,12">
                         <TextBlock Text="Yeni Şablon" Classes="SectionTitle"/>
-                        <ctrl:FormField Label="Şablon Adı" IsRequired="True" Width="320">
-                            <TextBox Classes="Field" Text="{Binding NewName}"/>
-                        </ctrl:FormField>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <ctrl:FormField Label="Şablon Adı" IsRequired="True" Width="200">
+                                <TextBox Classes="Field" Text="{Binding NewName}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Rol (opsiyonel)" Width="200" HelpText="Şablon seçilince kullanıcıya bu rol de atanır.">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Roles}" SelectedItem="{Binding SelectedRole}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:RolePick"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                        </StackPanel>
                         <Grid ColumnDefinitions="*,60,60,60,60">
                             <TextBlock Grid.Column="0" Text="MODÜL" Classes="Helper"/>
                             <TextBlock Grid.Column="1" Text="Oku" Classes="Helper"/>

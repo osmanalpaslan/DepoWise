@@ -125,7 +125,17 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(NewPassword) || NewPassword.Length < 4) { FormError = "Şifre en az 4 karakter olmalı."; return; }
 
         var roles = AssignableRoles.Where(r => r.IsSelected).Select(r => r.Key).ToList();
-        var rolesText = roles.Count == 0 ? "rol YOK (hiçbir ekran görmez)" : string.Join(", ", AssignableRoles.Where(r => r.IsSelected).Select(r => r.Name));
+
+        // Şablon seçildiyse verisini al; şablonun rolü de kullanıcıya atanır
+        DepoWise.Infrastructure.Security.PermissionTemplateData? tplData = null;
+        if (CanUseTemplates && SelectedTemplate is not null)
+        {
+            tplData = DesktopServices.PermissionTemplates.GetData(_session, SelectedTemplate.Id);
+            if (!string.IsNullOrWhiteSpace(tplData.RoleKey) && !roles.Contains(tplData.RoleKey))
+                roles.Add(tplData.RoleKey!);
+        }
+
+        var rolesText = roles.Count == 0 ? "rol YOK (hiçbir ekran görmez)" : string.Join(", ", roles);
         if (!await ConfirmService.AskAsync(
                 $"Kullanıcı oluşturulsun mu?\n\nKullanıcı: {NewUsername.Trim()}\nRoller: {rolesText}\n\nModül yetkileri 'Yetkiler' ekranından verilir.", "Kullanıcı Oluştur"))
             return;
@@ -140,11 +150,8 @@ public sealed partial class UsersViewModel : ViewModelBase
                 BranchId: FormBranch?.Id));
 
             // Yetki şablonu seçildiyse yetkileri şablona göre yaz (yalnız Süper Admin)
-            if (CanUseTemplates && SelectedTemplate is not null)
-            {
-                var data = DesktopServices.PermissionTemplates.GetData(_session, SelectedTemplate.Id);
-                DesktopServices.Permissions.SaveForUser(_session, newUserId, data.Modules, data.Buttons);
-            }
+            if (tplData is not null)
+                DesktopServices.Permissions.SaveForUser(_session, newUserId, tplData.Modules, tplData.Buttons);
 
             ShowAdd = false;
             Load();

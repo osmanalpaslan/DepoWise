@@ -24,5 +24,6 @@ public static class MigrationCatalog
         new Migration017_StockDocFields(),
         new Migration018_ReleaseDownloadUrl(),
         new Migration019_PermissionTemplates(),
+        new Migration020_TemplateRole(),
     };
 }
