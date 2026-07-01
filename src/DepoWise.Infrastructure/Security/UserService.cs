@@ -151,6 +151,54 @@ ORDER BY u.username;";
         return companyId;
     }
 
+    /// <summary>Bir kullanıcının rol anahtarları (rol düzenleme ekranı için).</summary>
+    public IReadOnlyList<string> GetRoleKeys(SessionContext actor, string userId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        var list = new List<string>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(r.GetString(0));
+        return list;
+    }
+
+    /// <summary>Mevcut kullanıcının rollerini tam değiştirir. Yetki yükseltme koruması (EnsureCanAssign) +
+    /// süper admin kullanıcının rolünü yalnız süper admin değiştirebilir.</summary>
+    public void SetRoles(SessionContext actor, string userId, IReadOnlyList<string> roleKeys)
+    {
+        AccessControl.Require(actor, "users", PermissionAction.Edit);
+        RoleAssignmentGuard.EnsureCanAssign(actor, roleKeys); // admin/süper-admin rolü atama koruması
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        // Hedef firmasını al + tenant doğrula
+        string companyId;
+        using (var q = conn.CreateCommand())
+        {
+            q.Transaction = tx;
+            q.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
+            q.Parameters.AddWithValue("$u", userId);
+            companyId = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
+        }
+        if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
+        if (IsSuperAdminUser(conn, tx, userId) && !actor.IsSuperAdmin)
+            throw new ForbiddenException("Süper admin kullanıcının rollerini yalnız süper admin değiştirebilir.");
+
+        Insert(conn, tx, "DELETE FROM user_roles WHERE user_id=$u;", cmd => cmd.Parameters.AddWithValue("$u", userId));
+        foreach (var roleKey in roleKeys.Distinct())
+        {
+            var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
+                ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
+            Insert(conn, tx, "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);",
+                cmd => { cmd.Parameters.AddWithValue("$u", userId); cmd.Parameters.AddWithValue("$r", roleId); });
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+    }
+
     public string CreateUser(SessionContext actor, NewUser dto)
     {
         // 1) Yetki: users modülünde 'create' (admin bypass)

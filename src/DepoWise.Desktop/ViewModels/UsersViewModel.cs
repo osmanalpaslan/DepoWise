@@ -49,8 +49,40 @@ public sealed partial class UsersViewModel : ViewModelBase
     private UserRow? _selected;
     public bool HasSelection => Selected != null;
 
+    /// <summary>Seçili kullanıcının rolleri (mevcut rolü değiştirme — yalnız Admin / Süper Admin).</summary>
+    public ObservableCollection<RolePick> EditRoles { get; } = new();
+
     partial void OnSelectedChanged(UserRow? value)
-        => AssignBranch = value is null ? null : Branches.FirstOrDefault(b => b.Id == value.BranchId);
+    {
+        AssignBranch = value is null ? null : Branches.FirstOrDefault(b => b.Id == value.BranchId);
+        EditRoles.Clear();
+        if (value is null || !CanManageUsers) return;
+        LoadAssignableRoles();
+        try
+        {
+            var current = DesktopServices.Users.GetRoleKeys(_session, value.Id).ToHashSet(StringComparer.Ordinal);
+            foreach (var ar in AssignableRoles)
+                EditRoles.Add(new RolePick(ar.Key, ar.Name) { IsSelected = current.Contains(ar.Key) });
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    private async Task SaveRoles()
+    {
+        if (Selected is null) { Status = "Kullanıcı seçin."; return; }
+        if (!CanManageUsers) { Status = "Yetki yok."; return; }
+        var roles = EditRoles.Where(r => r.IsSelected).Select(r => r.Key).ToList();
+        var rolesText = roles.Count == 0 ? "rol YOK" : string.Join(", ", EditRoles.Where(r => r.IsSelected).Select(r => r.Name));
+        if (!await ConfirmService.AskAsync($"'{Selected.Username}' rolleri güncellensin mi?\n\nRoller: {rolesText}", "Rolleri Değiştir")) return;
+        try
+        {
+            DesktopServices.Users.SetRoles(_session, Selected.Id, roles);
+            Load();
+            Status = "Roller güncellendi.";
+        }
+        catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
+    }
 
     // Yetki şablonları (yalnız Süper Admin) — yeni kullanıcıda seçilir, yetkiler ona göre yazılır
     public ObservableCollection<PermissionTemplateRow> Templates { get; } = new();

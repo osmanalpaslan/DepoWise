@@ -85,6 +85,20 @@
                     <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"/>
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanManageUsers}">
+                    <TextBlock Text="Roller:" Classes="Helper" VerticalAlignment="Center"/>
+                    <ItemsControl ItemsSource="{Binding EditRoles}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="12"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:RolePick">
+                                <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Name}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Classes="Primary" Content="Rolleri Kaydet" Command="{Binding SaveRolesCommand}"/>
+                </StackPanel>
             </StackPanel>
         </Border>
 
