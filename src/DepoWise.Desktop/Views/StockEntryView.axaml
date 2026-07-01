@@ -65,8 +65,50 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <!-- Malzeme seçimi -->
-                <ctrl:FormField Label="Malzeme" IsRequired="True">
+                <!-- Yeni Kayıt: malzeme kartı alanları -->
+                <StackPanel Spacing="14" IsVisible="{Binding ShowNewForm}">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Kod" IsRequired="True" Width="180">
+                            <TextBox Classes="Field" Text="{Binding Code}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Ad" IsRequired="True" Width="280">
+                            <TextBox Classes="Field" Text="{Binding Name}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tür" Width="180">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Birim" IsRequired="True" Width="160">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Kategori" Width="200">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Alt Kategori" Width="200">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Marka" Width="200">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tedarikçi" Width="200">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Malzeme seçimi (Transfer / Depo Çıkışı) -->
+                <ctrl:FormField Label="Malzeme" IsRequired="True" IsVisible="{Binding ShowMaterialPicker}">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
