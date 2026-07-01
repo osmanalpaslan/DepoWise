@@ -43,10 +43,10 @@
                         </Expander>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button Classes="Primary" Content="⬇ Güncellemeyi Yükle" Command="{Binding InstallUpdateCommand}"
-                                IsVisible="{Binding CanApplyUpdate}" ToolTip.Tip="İndir ve kur (DB korunur)"/>
-                        <Button Classes="Secondary" Content="🔄 Güncelle" Command="{Binding CheckUpdateCommand}"
-                                IsEnabled="{Binding !IsUpdating}" ToolTip.Tip="Güncelleme kontrol et"/>
+                        <Button Classes="Primary" Content="⬇ Güncellemeyi İndir ve Kur" Command="{Binding InstallUpdateCommand}"
+                                IsVisible="{Binding CanApplyUpdate}" ToolTip.Tip="Güncellemeyi indirir ve kurar (veritabanı korunur)"/>
+                        <Button Classes="Secondary" Content="🔄 Kontrol Et" Command="{Binding CheckUpdateCommand}"
+                                IsEnabled="{Binding !IsUpdating}" ToolTip.Tip="Sunucuda yeni sürüm var mı diye kontrol eder (indirmez/kurmaz)"/>
                     </StackPanel>
                 </Grid>
             </Border>
