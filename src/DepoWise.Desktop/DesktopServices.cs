@@ -34,6 +34,7 @@ public static class DesktopServices
     public static UserService Users { get; private set; } = null!;
     public static BranchService Branches { get; private set; } = null!;
     public static PermissionService Permissions { get; private set; } = null!;
+    public static PermissionTemplateService PermissionTemplates { get; private set; } = null!;
     public static CompanyService Companies { get; private set; } = null!;
     public static ReleaseService Releases { get; private set; } = null!;
     public static UpdateService Update { get; private set; } = null!;
@@ -94,6 +95,7 @@ public static class DesktopServices
         RequestPdf = new RequestPdfService();
         Branches = new BranchService(Factory, clock);
         Permissions = new PermissionService(Factory, clock);
+        PermissionTemplates = new PermissionTemplateService(Factory, clock);
         Companies = new CompanyService(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
         Update = new UpdateService(System.IO.Path.Combine(

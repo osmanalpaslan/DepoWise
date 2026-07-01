@@ -99,6 +99,34 @@ ORDER BY u.username;";
         tx.Commit();
     }
 
+    /// <summary>Kullanıcıyı aktif/pasif yapar. Süper admin kullanıcıyı YALNIZ süper admin aktif/pasif edebilir
+    /// (pasife alınan süper admin'i diğer roller yeniden aktif edemez).</summary>
+    public void SetActive(SessionContext actor, string userId, bool active)
+    {
+        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Kullanıcı durumu değişimi yalnız Admin / Süper Admin yetkisindedir.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        if (IsSuperAdminUser(conn, tx, userId) && !actor.IsSuperAdmin)
+            throw new ForbiddenException("Süper admin kullanıcının durumunu yalnız süper admin değiştirebilir.");
+        var companyId = AffectUser(conn, tx, actor, userId,
+            "UPDATE users SET is_active=$a, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);",
+            now, cmd => cmd.Parameters.AddWithValue("$a", active ? 1 : 0));
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+    }
+
+    private static bool IsSuperAdminUser(SqliteConnection conn, SqliteTransaction tx, string userId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.role_key=$sa;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
     private static string AffectUser(SqliteConnection conn, SqliteTransaction tx, SessionContext actor, string userId, string sql, long now, Action<SqliteCommand>? extra = null)
     {
         // Tenant: hedef kullanıcının firmasını al ve doğrula

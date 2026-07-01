@@ -114,6 +114,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("🛠️", "Ayarlar", "settings", new[]
             {
                 new NavLinkVm("Geliştirici Modu", "settings:developer"),
+                new NavLinkVm("Yetki Şablonları", "permission_templates"),
             }),
         };
 
@@ -280,6 +281,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new DeveloperSettingsViewModel(_session);
                 CurrentTitle = "Ayarlar — Geliştirici Modu";
                 CurrentContext = "Geliştirici modu etkinleştir/kapat";
+                break;
+            case "permission_templates":
+                CurrentPage = new PermissionTemplatesViewModel(_session);
+                CurrentTitle = "Yetki Şablonları";
+                CurrentContext = "İsimli yetki şablonları (Süper Admin)";
                 break;
             case "releases":
                 CurrentPage = new ReleasesViewModel(_session);

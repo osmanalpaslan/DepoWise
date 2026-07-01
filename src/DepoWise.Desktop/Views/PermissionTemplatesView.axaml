@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:sec="using:DepoWise.Infrastructure.Security"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="640"
+             x:Class="DepoWise.Desktop.Views.PermissionTemplatesView"
+             x:DataType="vm:PermissionTemplatesViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Yetki Şablonları (Süper Admin)"/>
+
+        <Grid Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="*,320" ColumnSpacing="16">
+
+            <!-- Sol: yeni şablon düzenleyici -->
+            <Border Grid.Column="0" Classes="Panel">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,12">
+                        <TextBlock Text="Yeni Şablon" Classes="SectionTitle"/>
+                        <ctrl:FormField Label="Şablon Adı" IsRequired="True" Width="320">
+                            <TextBox Classes="Field" Text="{Binding NewName}"/>
+                        </ctrl:FormField>
+                        <Grid ColumnDefinitions="*,60,60,60,60">
+                            <TextBlock Grid.Column="0" Text="MODÜL" Classes="Helper"/>
+                            <TextBlock Grid.Column="1" Text="Oku" Classes="Helper"/>
+                            <TextBlock Grid.Column="2" Text="Yaz" Classes="Helper"/>
+                            <TextBlock Grid.Column="3" Text="Düzelt" Classes="Helper"/>
+                            <TextBlock Grid.Column="4" Text="Sil" Classes="Helper"/>
+                        </Grid>
+                    </StackPanel>
+                    <Button DockPanel.Dock="Bottom" Classes="Primary" Content="Şablonu Kaydet"
+                            HorizontalAlignment="Right" Margin="0,12,0,0" Command="{Binding SaveCommand}"/>
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding Modules}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TemplateModuleRow">
+                                    <Grid ColumnDefinitions="*,60,60,60,60" Margin="0,3">
+                                        <TextBlock Grid.Column="0" Text="{Binding Label}" VerticalAlignment="Center"/>
+                                        <CheckBox Grid.Column="1" IsChecked="{Binding CanView}"/>
+                                        <CheckBox Grid.Column="2" IsChecked="{Binding CanCreate}"/>
+                                        <CheckBox Grid.Column="3" IsChecked="{Binding CanEdit}"/>
+                                        <CheckBox Grid.Column="4" IsChecked="{Binding CanDelete}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Sağ: mevcut şablonlar -->
+            <Border Grid.Column="1" Classes="Panel">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Şablonlar" Classes="SectionTitle" Margin="0,0,0,10"/>
+                    <ListBox ItemsSource="{Binding Templates}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="sec:PermissionTemplateRow">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <Button Grid.Column="1" Classes="Ghost" Content="Sil"
+                                            Command="{Binding $parent[ItemsControl].((vm:PermissionTemplatesViewModel)DataContext).DeleteCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

@@ -49,6 +49,14 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ctrl:FormField>
+                <ctrl:FormField Label="Yetki Şablonu (Süper Admin)" Width="320" IsVisible="{Binding CanUseTemplates}"
+                                HelpText="Seçilirse yeni kullanıcının yetkileri bu şablona göre yazılır.">
+                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="sec:PermissionTemplateRow"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ctrl:FormField>
                 <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
@@ -74,6 +82,7 @@
                     <TextBlock Text="Yeni şifre:" Classes="Helper" VerticalAlignment="Center"/>
                     <TextBox Classes="Field" Width="200" Text="{Binding NewPasswordForSelected}" PasswordChar="●"/>
                     <Button Classes="Secondary" Content="Şifre Değiştir" Command="{Binding ChangePasswordCommand}"/>
+                    <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"/>
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
                 </StackPanel>
             </StackPanel>

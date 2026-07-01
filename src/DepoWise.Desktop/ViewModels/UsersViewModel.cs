@@ -52,6 +52,11 @@ public sealed partial class UsersViewModel : ViewModelBase
     partial void OnSelectedChanged(UserRow? value)
         => AssignBranch = value is null ? null : Branches.FirstOrDefault(b => b.Id == value.BranchId);
 
+    // Yetki şablonları (yalnız Süper Admin) — yeni kullanıcıda seçilir, yetkiler ona göre yazılır
+    public ObservableCollection<PermissionTemplateRow> Templates { get; } = new();
+    [ObservableProperty] private PermissionTemplateRow? _selectedTemplate;
+    public bool CanUseTemplates => _session.IsSuperAdmin;
+
     // Form
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string _newUsername = "";
@@ -102,6 +107,9 @@ public sealed partial class UsersViewModel : ViewModelBase
         LoadAssignableRoles();
         NewUsername = ""; NewPassword = ""; NewFullName = ""; FormError = null; FormBranch = null;
         foreach (var r in AssignableRoles) r.IsSelected = false;
+        SelectedTemplate = null;
+        if (CanUseTemplates && Templates.Count == 0)
+            try { foreach (var t in DesktopServices.PermissionTemplates.List(_session)) Templates.Add(t); } catch { }
         ShowAdd = true;
     }
 
@@ -123,16 +131,26 @@ public sealed partial class UsersViewModel : ViewModelBase
             return;
         try
         {
-            DesktopServices.Users.CreateUser(_session, new NewUser(
+            var newUserId = DesktopServices.Users.CreateUser(_session, new NewUser(
                 Username: NewUsername.Trim(),
                 Password: NewPassword,
                 FullName: string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim(),
                 RoleKeys: roles,
                 CompanyId: _session.CompanyId,
                 BranchId: FormBranch?.Id));
+
+            // Yetki şablonu seçildiyse yetkileri şablona göre yaz (yalnız Süper Admin)
+            if (CanUseTemplates && SelectedTemplate is not null)
+            {
+                var data = DesktopServices.PermissionTemplates.GetData(_session, SelectedTemplate.Id);
+                DesktopServices.Permissions.SaveForUser(_session, newUserId, data.Modules, data.Buttons);
+            }
+
             ShowAdd = false;
             Load();
-            Status = "Kullanıcı oluşturuldu.";
+            Status = SelectedTemplate is not null
+                ? $"Kullanıcı oluşturuldu (yetkiler '{SelectedTemplate.Name}' şablonundan)."
+                : "Kullanıcı oluşturuldu.";
         }
         catch (Exception ex) { FormError = "Oluşturulamadı: " + ex.Message; }
     }
@@ -150,6 +168,24 @@ public sealed partial class UsersViewModel : ViewModelBase
             DesktopServices.Users.ChangePassword(_session, Selected.Id, NewPasswordForSelected);
             NewPasswordForSelected = "";
             Status = "Şifre değiştirildi.";
+        }
+        catch (Exception ex) { Status = "Değiştirilemedi: " + ex.Message; }
+    }
+
+    /// <summary>Seçili kullanıcıyı aktif/pasif yapar. Süper admin kullanıcıyı yalnız süper admin değiştirebilir (servis guard).</summary>
+    [RelayCommand]
+    private async Task ToggleActive()
+    {
+        if (Selected is null) { Status = "Kullanıcı seçin."; return; }
+        if (!CanManageUsers) { Status = "Yetki yok."; return; }
+        var makeActive = !Selected.IsActive;
+        var verb = makeActive ? "aktif" : "pasif";
+        if (!await ConfirmService.AskAsync($"'{Selected.Username}' kullanıcısı {verb} yapılsın mı?", "Kullanıcı Durumu")) return;
+        try
+        {
+            DesktopServices.Users.SetActive(_session, Selected.Id, makeActive);
+            Load();
+            Status = $"Kullanıcı {verb} yapıldı.";
         }
         catch (Exception ex) { Status = "Değiştirilemedi: " + ex.Message; }
     }
