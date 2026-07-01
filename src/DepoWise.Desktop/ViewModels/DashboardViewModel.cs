@@ -66,7 +66,14 @@ public sealed partial class DashboardViewModel : ViewModelBase
         }
         IsLoading = false;
         _ = CheckUpdate(); // açılışta güncelleme var mı otomatik kontrol → uyarı + buton
+
+        // Periyodik otomatik kontrol: sunucuya yeni paket yüklenince (uygulama açıkken) uyarı KENDİLİĞİNDEN çıkar.
+        _updateTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _updateTimer.Tick += (_, _) => { if (!IsUpdating) _ = CheckUpdate(); };
+        _updateTimer.Start();
     }
+
+    private readonly Avalonia.Threading.DispatcherTimer _updateTimer;
 
     /// <summary>KPI kartına tıklayınca ilgili ekrana git (köprü). NavKey boşsa hedef ekran henüz yok → işlem yok.</summary>
     [RelayCommand]

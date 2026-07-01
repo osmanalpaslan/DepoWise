@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="440"
+             x:Class="DepoWise.Desktop.Views.AboutView"
+             x:DataType="vm:AboutViewModel">
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+        <ctrl:Toolbar Grid.Row="0" Title="Hakkında"/>
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" VerticalAlignment="Top">
+            <TextBlock Text="İçerik yakında eklenecek." Classes="Helper"/>
+        </Border>
+    </Grid>
+</UserControl>

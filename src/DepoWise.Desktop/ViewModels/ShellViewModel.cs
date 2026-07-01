@@ -115,6 +115,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Geliştirici Modu", "settings:developer"),
                 new NavLinkVm("Yetki Şablonları", "permission_templates"),
+                new NavLinkVm("Hakkında", "about"),
             }),
         };
 
@@ -286,6 +287,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new PermissionTemplatesViewModel(_session);
                 CurrentTitle = "Yetki Şablonları";
                 CurrentContext = "İsimli yetki şablonları (Süper Admin)";
+                break;
+            case "about":
+                CurrentPage = new AboutViewModel(_session);
+                CurrentTitle = "Hakkında";
+                CurrentContext = "";
                 break;
             case "releases":
                 CurrentPage = new ReleasesViewModel(_session);

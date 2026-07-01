@@ -26,6 +26,10 @@
                         <TextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="4">
+                        <Border Background="{DynamicResource WarningBrush}" CornerRadius="6" Padding="10,4"
+                                HorizontalAlignment="Left" IsVisible="{Binding UpdateAvailable}">
+                            <TextBlock Text="🔔 Yeni güncelleme mevcut!" Foreground="White" FontWeight="Bold"/>
+                        </Border>
                         <TextBlock Text="{Binding UpdateMessage}" Classes="Body" TextWrapping="Wrap"
                                    IsVisible="{Binding UpdateMessage, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsUpdating}">
