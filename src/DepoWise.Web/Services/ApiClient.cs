@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 
 namespace DepoWise.Web.Services;
 
@@ -50,5 +51,28 @@ public sealed class ApiClient
         var resp = await _http.GetAsync("/api/releases/latest");
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<ReleaseDto>();
+    }
+
+    /// <summary>Sürüm yayınla: dosyanın SHA-256'sı otomatik hesaplanır; API'ye çok-parçalı gönderilir. Hata → mesaj, başarı → null.</summary>
+    public async Task<string?> PublishReleaseAsync(string version, string? notes, string fileName, byte[] fileBytes)
+    {
+        var checksum = Convert.ToHexString(SHA256.HashData(fileBytes));
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(version), "version" },
+            { new StringContent(checksum), "checksum" },
+            { new StringContent(fileBytes.Length.ToString()), "sizeBytes" },
+            { new StringContent("0.0.0"), "minSupportedVersion" },
+            { new StringContent(notes ?? ""), "releaseNotes" },
+            { new StringContent("0"), "signed" },
+        };
+        var fileContent = new ByteArrayContent(fileBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(fileContent, "file", fileName);
+
+        var req = Req(HttpMethod.Post, "/api/releases");
+        req.Content = form;
+        var resp = await _http.SendAsync(req);
+        return resp.IsSuccessStatusCode ? null : $"Hata {(int)resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}";
     }
 }

@@ -29,12 +29,43 @@ else
             </tbody>
         </table>
     }
-    <p class="text-muted"><em>Yeni sürüm yayınlama formu (paket yükleme) sonraki adımda eklenecek.</em></p>
+    @if (Auth.IsSuperAdmin)
+    {
+        <hr />
+        <h5>Yeni Sürüm Yayınla</h5>
+        <div class="row g-2" style="max-width:640px;">
+            <div class="col-4">
+                <label class="form-label">Sürüm (X.Y.Z)</label>
+                <input class="form-control" @bind="_pubVersion" placeholder="1.0.3" />
+            </div>
+            <div class="col-8">
+                <label class="form-label">Notlar</label>
+                <input class="form-control" @bind="_pubNotes" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Paket dosyası</label>
+                <InputFile class="form-control" OnChange="OnFile" />
+            </div>
+            <div class="col-12">
+                <button class="btn btn-success" @onclick="Publish" disabled="@_busy">
+                    @(_busy ? "Yayınlanıyor…" : "Yayınla")
+                </button>
+            </div>
+        </div>
+        @if (_pubMsg is not null) { <div class="alert @(_pubOk ? "alert-success" : "alert-danger") mt-2">@_pubMsg</div> }
+    }
 }
 
 @code {
     private ReleaseDto? _release;
     private string? _error;
+
+    private string _pubVersion = "";
+    private string _pubNotes = "";
+    private IBrowserFile? _file;
+    private string? _pubMsg;
+    private bool _pubOk;
+    private bool _busy;
 
     protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
 
@@ -43,5 +74,26 @@ else
         _error = null;
         try { _release = await Api.GetLatestReleaseAsync(); }
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+    }
+
+    private void OnFile(InputFileChangeEventArgs e) => _file = e.File;
+
+    private async Task Publish()
+    {
+        _pubMsg = null;
+        if (string.IsNullOrWhiteSpace(_pubVersion)) { _pubMsg = "Sürüm girin."; _pubOk = false; return; }
+        if (_file is null) { _pubMsg = "Paket dosyası seçin."; _pubOk = false; return; }
+        _busy = true;
+        try
+        {
+            using var ms = new MemoryStream();
+            await _file.OpenReadStream(maxAllowedSize: 500L * 1024 * 1024).CopyToAsync(ms);
+            var err = await Api.PublishReleaseAsync(_pubVersion.Trim(), _pubNotes, _file.Name, ms.ToArray());
+            _pubOk = err is null;
+            _pubMsg = err ?? $"Yayınlandı: {_pubVersion.Trim()}";
+            if (_pubOk) { _pubVersion = ""; _pubNotes = ""; _file = null; await Load(); }
+        }
+        catch (Exception ex) { _pubOk = false; _pubMsg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
     }
 }
