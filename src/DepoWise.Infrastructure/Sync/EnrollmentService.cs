@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -143,4 +145,55 @@ public sealed class EnrollmentService
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
         cmd.ExecuteNonQuery();
     }
+
+    /// <summary>Pasif/iptal edilmiş cihazı yeniden aktifleştir (admin). 'pending' için ApproveDevice kullanılır.</summary>
+    public void Reactivate(SessionContext s, string deviceId)
+    {
+        if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz aktifleştirme yalnız admin.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "UPDATE sync_devices SET status='active', revoked_at=NULL, updated_at=$now WHERE id=$id AND company_id=$c AND status<>'active';";
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.Parameters.AddWithValue("$id", deviceId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Firmanın kayıtlı makineleri (yönetim ekranı).</summary>
+    public IReadOnlyList<DeviceRow> ListDevices(SessionContext s)
+    {
+        if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz listesi yalnız admin.");
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id, device_name, status, last_seen_at, created_at FROM sync_devices WHERE company_id=$c ORDER BY created_at DESC;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var list = new List<DeviceRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new DeviceRow(r.GetString(0), r.GetString(1), r.GetString(2),
+                r.IsDBNull(3) ? null : r.GetInt64(3), r.GetInt64(4)));
+        return list;
+    }
+
+    /// <summary>Aktif makine sayısı (kota kontrolü).</summary>
+    public int ActiveDeviceCount(SessionContext s)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE company_id=$c AND status='active';";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+}
+
+public sealed record DeviceRow(string Id, string Name, string Status, long? LastSeenAt, long CreatedAt)
+{
+    public string StatusText => Status switch { "active" => "Aktif", "pending" => "Onay Bekliyor", "revoked" => "Pasif", _ => Status };
+    public bool IsActive => Status == "active";
+    public bool CanActivate => Status != "active";
+    public string LastSeenText => LastSeenAt is long t ? DateTimeOffset.FromUnixTimeMilliseconds(t).LocalDateTime.ToString("dd.MM.yyyy HH:mm") : "—";
+    public string CreatedText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy");
 }

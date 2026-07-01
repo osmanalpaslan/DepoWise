@@ -72,4 +72,7 @@ public static class SettingKeys
     public const string BackupServerUrl = "backup.server_url";
     public const string BackupServerToken = "backup.server_token";
     public const string BackupMachineId = "backup.machine_id"; // makine başına sabit GUID (ilk kullanımda üretilir)
+
+    // Makine kotası (aktif makine üst sınırı; 0/boş = sınırsız). Kota aşımı web/sync'te login'i engeller.
+    public const string MachineQuota = "machines.quota";
 }

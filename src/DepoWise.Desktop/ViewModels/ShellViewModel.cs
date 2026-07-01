@@ -98,6 +98,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Sistem Logu", "audit"),
                 new NavLinkVm("Yedek Yönetimi", "backup"),
                 new NavLinkVm("Sunucu Yedekleri", "server_backups"),
+                new NavLinkVm("Makine Yönetimi", "machines"),
             }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
@@ -262,6 +263,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new ServerBackupsViewModel(_session);
                 CurrentTitle = "Sunucu Yedekleri";
                 CurrentContext = "İki tarih arası toplu silme (Süper Admin)";
+                break;
+            case "machines":
+                CurrentPage = new MachineManagementViewModel(_session);
+                CurrentTitle = "Makine Yönetimi";
+                CurrentContext = "Makine onay/aktif-pasif + kota (Süper Admin)";
                 break;
             case "releases":
                 CurrentPage = new ReleasesViewModel(_session);

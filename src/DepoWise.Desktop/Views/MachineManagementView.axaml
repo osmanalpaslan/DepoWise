@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:sync="using:DepoWise.Infrastructure.Sync"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="600"
+             x:Class="DepoWise.Desktop.Views.MachineManagementView"
+             x:DataType="vm:MachineManagementViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Makine Yönetimi (Süper Admin)">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <ctrl:FormField Label="Makine Kotası (0 = sınırsız)" Width="200">
+                    <NumericUpDown Classes="Field" Value="{Binding Quota}" Minimum="0" FormatString="0" ShowButtonSpinner="True"/>
+                </ctrl:FormField>
+                <Button Classes="Primary" Content="Kotayı Kaydet" VerticalAlignment="Bottom" Command="{Binding SaveQuotaCommand}"/>
+                <TextBlock Text="{Binding QuotaText}" VerticalAlignment="Bottom" Margin="8,0,0,8"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Border>
+
+        <Panel Grid.Row="2" Margin="0,16,0,0">
+            <Border Classes="Table" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Column="0" Text="MAKİNE" MinWidth="200"/>
+                            <TextBlock Grid.Column="1" Text="DURUM" MinWidth="110"/>
+                            <TextBlock Grid.Column="2" Text="SON GÖRÜLME" MinWidth="150"/>
+                            <TextBlock Grid.Column="3" Text="KAYIT" MinWidth="100"/>
+                            <TextBlock Grid.Column="4" Text="" MinWidth="200"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Devices}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="sync:DeviceRow">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding StatusText}" MinWidth="110" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding LastSeenText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding CreatedText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" MinWidth="200">
+                                        <Button Classes="Secondary" Content="Aktifleştir" IsVisible="{Binding CanActivate}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MachineManagementViewModel)DataContext).ActivateCommand}"
+                                                CommandParameter="{Binding}"/>
+                                        <Button Classes="Danger" Content="Pasife Al" IsVisible="{Binding IsActive}"
+                                                Command="{Binding $parent[ItemsControl].((vm:MachineManagementViewModel)DataContext).DeactivateCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Makine yok" Message="Henüz kayıtlı makine yok (kurulum/enrollment sonrası listelenir)." IsVisible="{Binding IsEmpty}"/>
+        </Panel>
+
+        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+    </Grid>
+</UserControl>
