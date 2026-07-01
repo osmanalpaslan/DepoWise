@@ -175,6 +175,52 @@ ORDER BY name;";
         return id;
     }
 
+    /// <summary>Tanımı yeniden adlandır (tenant + "definitions"/Edit).</summary>
+    public void Rename(SessionContext s, string table, string id, string newName)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        EnsureKnownTable(table);
+        if (string.IsNullOrWhiteSpace(newName)) throw new ArgumentException("Ad boş olamaz.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $"UPDATE {table} SET name=$n, updated_at=$now, version=version+1 " +
+                              "WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$n", newName.Trim());
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Tanımı soft-delete et (tenant + "definitions"/Delete). Referanslar id ile korunur.</summary>
+    public void Delete(SessionContext s, string table, string id)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Delete);
+        EnsureKnownTable(table);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $"UPDATE {table} SET is_deleted=1, updated_at=$now, version=version+1 " +
+                              "WHERE id=$id AND company_id=$c;";
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Delete, s.UserId), _clock);
+        tx.Commit();
+    }
+
     private static void EnsureKnownTable(string table)
     {
         if (table is not ("material_categories" or "brands" or "units" or "suppliers"
