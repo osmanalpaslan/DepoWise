@@ -13,16 +13,13 @@
         <ctrl:Toolbar Grid.Row="0" Title="Tanımlar / Ayarlar"/>
 
         <ScrollViewer Grid.Row="1" Margin="0,16,0,0">
-            <StackPanel Spacing="16" MaxWidth="620" HorizontalAlignment="Left">
+            <StackPanel Spacing="10" MaxWidth="620" HorizontalAlignment="Left">
 
-                <!-- Bölüm: Marka -->
-                <Border Classes="Panel">
+                <!-- Accordion: Marka -->
+                <Expander Header="Marka" IsExpanded="True" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="14">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="MARKA" Classes="SectionTitle"/>
-                            <TextBlock Text="Uygulama adı, şirket ve iletişim bilgileri. Bu firmaya özel saklanır."
-                                       Classes="Helper"/>
-                        </StackPanel>
+                        <TextBlock Text="Uygulama adı, şirket ve iletişim bilgileri. Bu firmaya özel saklanır."
+                                   Classes="Helper" TextWrapping="Wrap"/>
 
                         <StackPanel Orientation="Horizontal" Spacing="14">
                             <ctrl:FormField Label="Uygulama Adı" IsRequired="True" Width="260"
@@ -47,15 +44,12 @@
                             <TextBox Classes="Field" Text="{Binding Copyright}" IsEnabled="{Binding CanWrite}"/>
                         </ctrl:FormField>
                     </StackPanel>
-                </Border>
+                </Expander>
 
-                <!-- Bölüm: Sunucu Yedek (Bulut) -->
-                <Border Classes="Panel">
+                <!-- Accordion: Sunucu Yedek (Bulut) -->
+                <Expander Header="Sunucu Yedek (Bulut)" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="12">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="SUNUCU YEDEK (BULUT)" Classes="SectionTitle"/>
-                            <TextBlock Text="Tanımlanırsa her yerel yedek otomatik olarak sunucuya yüklenir. Sunucu yedekleri HİÇ silmez; tüm masaüstü makinelerin tüm günlük yedeklerini saklar. (Yerelde 30 gün rotasyon devam eder.)" Classes="Helper" TextWrapping="Wrap"/>
-                        </StackPanel>
+                        <TextBlock Text="Tanımlanırsa her yerel yedek otomatik olarak sunucuya yüklenir. Sunucu yedekleri HİÇ silmez; tüm masaüstü makinelerin tüm günlük yedeklerini saklar. (Yerelde 30 gün rotasyon devam eder.)" Classes="Helper" TextWrapping="Wrap"/>
                         <ctrl:FormField Label="Sunucu Adresi (URL)" Width="534"
                                         HelpText="Örn. https://yedek.sirket.com/api/backups">
                             <TextBox Classes="Field" Text="{Binding BackupServerUrl}" IsEnabled="{Binding CanWrite}"/>
@@ -64,15 +58,12 @@
                             <TextBox Classes="Field" Text="{Binding BackupServerToken}" PasswordChar="●" IsEnabled="{Binding CanWrite}"/>
                         </ctrl:FormField>
                     </StackPanel>
-                </Border>
+                </Expander>
 
-                <!-- Bölüm: Geliştirici Modu -->
-                <Border Classes="Panel">
+                <!-- Accordion: Geliştirici Modu -->
+                <Expander Header="Geliştirici Modu" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="12">
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="GELİŞTİRİCİ MODU" Classes="SectionTitle"/>
-                            <TextBlock Text="Geliştirici kodu girilince açılır → kullanıcı süper admin yetkilerine sahip olur. Çıkış yapınca otomatik kapanır." Classes="Helper" TextWrapping="Wrap"/>
-                        </StackPanel>
+                        <TextBlock Text="Geliştirici kodu girilince açılır → kullanıcı süper admin yetkilerine sahip olur. Çıkış yapınca otomatik kapanır." Classes="Helper" TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding DeveloperStatusText}" Classes="Body" FontWeight="SemiBold"/>
                         <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding !DeveloperActive}">
                             <ctrl:FormField Label="Geliştirici Kodu" Width="220">
@@ -83,7 +74,7 @@
                         <Button Classes="Danger" Content="Geliştirici Modunu Kapat" HorizontalAlignment="Left"
                                 IsVisible="{Binding DeveloperActive}" Command="{Binding DeactivateDeveloperCommand}"/>
                     </StackPanel>
-                </Border>
+                </Expander>
 
                 <!-- Hassas ayar onay paneli -->
                 <Border Classes="Panel" IsVisible="{Binding ConfirmVisible}"
