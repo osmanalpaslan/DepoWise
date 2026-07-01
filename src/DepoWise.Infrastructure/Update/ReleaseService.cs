@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace DepoWise.Infrastructure.Update;
 
 public sealed record NewRelease(string Version, string ChecksumSha256, long SizeBytes,
-    string MinSupportedVersion = "0.0.0", string? ReleaseNotes = null, bool Signed = false);
+    string MinSupportedVersion = "0.0.0", string? ReleaseNotes = null, bool Signed = false, string? DownloadUrl = null);
 
 /// <summary>
 /// Sürüm yayın yönetimi — yalnız Süper Admin. Checksum/sürüm doğrulaması; en güncel sürümü döndürür.
@@ -39,8 +39,8 @@ public sealed class ReleaseService
         {
             cmd.Transaction = tx;
             cmd.CommandText = @"
-INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, published_at, created_at, is_deleted)
-VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$now,$now,0);";
+INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, published_at, created_at, is_deleted)
+VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$url,$now,$now,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$v", dto.Version);
             cmd.Parameters.AddWithValue("$cs", dto.ChecksumSha256.ToUpperInvariant());
@@ -48,6 +48,7 @@ VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$now,$now,0);";
             cmd.Parameters.AddWithValue("$min", dto.MinSupportedVersion);
             cmd.Parameters.AddWithValue("$notes", (object?)dto.ReleaseNotes ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$signed", dto.Signed ? 1 : 0);
+            cmd.Parameters.AddWithValue("$url", (object?)dto.DownloadUrl ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
@@ -63,7 +64,7 @@ VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$now,$now,0);";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed " +
+            "SELECT version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url " +
             "FROM app_releases WHERE is_deleted=0;";
         UpdatePackage? best = null;
         SemVer bestV = default;
@@ -75,7 +76,8 @@ VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$now,$now,0);";
             {
                 bestV = v;
                 best = new UpdatePackage(r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetString(3),
-                    r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5) == 1);
+                    r.IsDBNull(4) ? null : r.GetString(4), r.GetInt64(5) == 1,
+                    r.IsDBNull(6) ? null : r.GetString(6));
             }
         }
         return best;

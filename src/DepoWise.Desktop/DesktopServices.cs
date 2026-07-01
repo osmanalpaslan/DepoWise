@@ -37,6 +37,7 @@ public static class DesktopServices
     public static CompanyService Companies { get; private set; } = null!;
     public static ReleaseService Releases { get; private set; } = null!;
     public static UpdateService Update { get; private set; } = null!;
+    public static UpdateDownloadService UpdateDownload { get; private set; } = null!;
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static StockService Stock { get; private set; } = null!;
@@ -96,6 +97,7 @@ public static class DesktopServices
         Releases = new ReleaseService(Factory, clock);
         Update = new UpdateService(System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "update"));
+        UpdateDownload = new UpdateDownloadService();
         Reports = new ReportService(Factory);
         Excel = new ExcelExportService();
         MaterialImport = new MaterialImportService(Materials);

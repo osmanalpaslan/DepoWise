@@ -13,6 +13,14 @@
   - [ ] Düşük stok uyarısı (malzeme bazlı) → ilgili malzemenin detayı.
   - [ ] Yakıt: depo kalanı toplam alınanın %20 ve altına düşünce "Yakıt Azaldı/Tükendi" uyarısı → Yakıt › Özet'te kalan görünüyor.
 
+### Otomatik Güncelleme (Ana Ekran) — backend/paket ile tamamlanacak
+- [ ] Açılışta güncelleme otomatik kontrol ediliyor; yeni sürüm varsa uyarı + "⬇ Güncellemeyi Yükle" görünüyor.
+- [ ] "🔄 Güncelle" ile elle kontrol; güncelse "Uygulama güncel" mesajı.
+- [ ] Yayın (download_url dolu) varken "Güncellemeyi Yükle" → indirme+kurulum yüzdesi Ana Ekran'da ilerliyor.
+- [ ] Checksum tutmayan paket kurulmuyor; hata olunca eski sürüme dönülüyor (rollback).
+- [ ] Güncelleme sonrası DB bozulmadan duruyor (veriler yerinde).
+- [ ] (Not: web backend + paket formatı gelene kadar tam ikili değişim/relaunch stub'dur.)
+
 ### Menü
 - [ ] Açılışta hiçbir menü grubu açık değil (sol tık yapılmadan alt sekme listelenmiyor).
 - [ ] Malzemeler altında "Kategoriler" yok.

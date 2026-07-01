@@ -29,7 +29,7 @@ public readonly record struct SemVer(int Major, int Minor, int Patch) : ICompara
 /// <summary>Yayınlanan güncelleme paketi (web yönetiminden). checksum = SHA-256 hex.</summary>
 public sealed record UpdatePackage(
     string Version, string ChecksumSha256, long SizeBytes, string MinSupportedVersion,
-    string? ReleaseNotes, bool Signed);
+    string? ReleaseNotes, bool Signed, string? DownloadUrl = null);
 
 public sealed record UpdateCheckResult(
     bool UpdateAvailable, string CurrentVersion, string? LatestVersion,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Reports;
@@ -35,6 +36,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
     private bool _isUpdating;
     [ObservableProperty] private int _updateProgress;
     public bool CanApplyUpdate => UpdateAvailable && !IsUpdating;
+    private DepoWise.Application.Update.UpdatePackage? _latestPackage;
 
     public DashboardViewModel(SessionContext session)
     {
@@ -55,6 +57,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
             LoadError = "Özet verileri yüklenemedi: " + ex.Message;
         }
         IsLoading = false;
+        CheckUpdate(); // açılışta güncelleme var mı otomatik kontrol → uyarı + buton
     }
 
     /// <summary>KPI kartına tıklayınca ilgili ekrana git (köprü). NavKey boşsa hedef ekran henüz yok → işlem yok.</summary>
@@ -80,6 +83,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
         try
         {
             var latest = DesktopServices.Releases.Latest();
+            _latestPackage = latest;
             var res = DesktopServices.Update.Check(latest);
             UpdateAvailable = res.UpdateAvailable;
             UpdateMessage = res.UpdateAvailable
@@ -88,6 +92,37 @@ public sealed partial class DashboardViewModel : ViewModelBase
                 : $"Uygulama güncel (sürüm {res.CurrentVersion}).";
         }
         catch (Exception ex) { UpdateMessage = "Güncelleme kontrolü başarısız: " + ex.Message; }
+    }
+
+    /// <summary>Güncellemeyi indir + kur (yüzde ana ekranda). DB'ye DOKUNULMAZ (yalnız uygulama dizini);
+    /// bozuk/checksum'suz paket kurulmaz, hata olursa eski sürüme rollback.</summary>
+    [RelayCommand]
+    private async Task InstallUpdate()
+    {
+        if (_latestPackage is null || !UpdateAvailable) { UpdateMessage = "Önce güncelleme kontrol edin."; return; }
+        if (string.IsNullOrWhiteSpace(_latestPackage.DownloadUrl))
+        { UpdateMessage = "Paket indirme adresi tanımlı değil (sunucuya yüklenmemiş)."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"Sürüm {_latestPackage.Version} indirilip kurulsun mu?\nVeritabanınıza dokunulmaz; hata olursa eski sürüme dönülür.",
+                "Güncellemeyi Yükle")) return;
+
+        IsUpdating = true; UpdateProgress = 0;
+        try
+        {
+            var pkg = _latestPackage;
+            UpdateMessage = "İndiriliyor…";
+            var bytes = await DesktopServices.UpdateDownload.DownloadAsync(
+                pkg.DownloadUrl!, p => UpdateProgress = p * 60 / 100);        // indirme: 0–60
+            UpdateMessage = "Kuruluyor…";
+            DesktopServices.Update.ApplyUpdate(pkg, bytes,
+                p => UpdateProgress = 60 + p * 40 / 100);                     // kurulum: 60–100
+            CurrentVersion = DesktopServices.Update.CurrentVersion();
+            UpdateAvailable = false;
+            UpdateProgress = 100;
+            UpdateMessage = $"Güncelleme kuruldu (sürüm {CurrentVersion}). Lütfen uygulamayı yeniden başlatın.";
+        }
+        catch (Exception ex) { UpdateMessage = "Güncelleme başarısız: " + ex.Message; }
+        finally { IsUpdating = false; }
     }
 }
 
