@@ -78,8 +78,8 @@ app.MapPost("/sync/push", (HttpRequest req, PushDto dto) =>
 {
     var token = DeviceToken(req); if (token is null) return Results.Unauthorized();
     var ops = dto.Ops.Select(o => new SyncOperation(o.OperationId, o.EntityType, o.EntityId, o.PayloadJson, o.BaseVersion)).ToList();
-    // TODO(web): kritik entity'ler için sunucu-otoriteli doğrulayıcı (SyncPolicy). Şimdilik kabul.
-    return Results.Ok(svc.Sync.Push(token, ops, op => (true, null)));
+    // Kritik entity'ler sunucu-otoriteli doğrulanır (tenant + referans + tutarlılık); düşük-riskli LWW/version.
+    return Results.Ok(svc.Sync.Push(token, ops, svc.SyncValidator.Validate));
 });
 app.MapGet("/sync/pull", (HttpRequest req, long after, int limit) =>
 {

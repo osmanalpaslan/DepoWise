@@ -23,6 +23,7 @@ public sealed class ServerServices
     public EnrollmentService Enrollment { get; }
     public BackupStore Backups { get; }
     public ReleaseStore ReleasePackages { get; }
+    public SyncValidator SyncValidator { get; }
 
     public ServerServices(string dataDir)
     {
@@ -38,6 +39,7 @@ public sealed class ServerServices
         Enrollment = new EnrollmentService(Factory, clock);
         Backups = new BackupStore(Path.Combine(dataDir, "backups"));
         ReleasePackages = new ReleaseStore(Path.Combine(dataDir, "releases"));
+        SyncValidator = new SyncValidator(Factory);
 
         EnsureSeedAdmins();
     }

@@ -119,7 +119,7 @@ public class SyncTests : IDisposable
     {
         var token = ActiveDeviceToken();
         // Sunucu otoriteli: geçersiz stok → reddet
-        SyncServer.CriticalValidator validator = op =>
+        SyncServer.CriticalValidator validator = (companyId, op) =>
             op.PayloadJson.Contains("\"qty\":-") ? (false, "Negatif stok") : (true, null);
 
         var bad = _server.Push(token, new[] { new SyncOperation("op-b", "stock_movement", "s1", "{\"qty\":-5}") }, validator);

@@ -23,7 +23,7 @@ public sealed class SyncServer
         _clock = clock ?? new SystemClock();
     }
 
-    public delegate (bool Ok, string? Reason) CriticalValidator(SyncOperation op);
+    public delegate (bool Ok, string? Reason) CriticalValidator(string companyId, SyncOperation op);
 
     public IReadOnlyList<SyncOpOutcome> Push(string token, IReadOnlyList<SyncOperation> ops, CriticalValidator? validator = null)
     {
@@ -47,7 +47,7 @@ public sealed class SyncServer
             if (SyncPolicy.IsCritical(op.EntityType))
             {
                 // Sunucu otoriteli: doğrulama zorunlu, LWW yok
-                var (ok, why) = validator?.Invoke(op) ?? (false, "Kritik işlem için sunucu doğrulayıcı gerekli.");
+                var (ok, why) = validator?.Invoke(companyId, op) ?? (false, "Kritik işlem için sunucu doğrulayıcı gerekli.");
                 if (ok) result = SyncOpResult.Accepted;
                 else { result = SyncOpResult.Rejected; reason = why; }
             }
