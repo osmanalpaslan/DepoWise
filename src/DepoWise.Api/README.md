@@ -29,8 +29,12 @@ Ortam değişkeni ile taşınır: `DEPOWISE_SERVER_DATA`. İlk açılışta migr
 | GET | `/api/backups?company&from&to` | Yedek listele | oturum (admin) |
 | DELETE | `/api/backups?company&from&to` | Aralık sil | oturum (süper admin) |
 
+## Güvenlik (yapıldı)
+- **JWT kimlik doğrulama**: login → 12 saat geçerli imzalı token. Token yalnız kullanıcı+firma taşır; **yetkiler her istekte SUNUCUDA yeniden yüklenir** (token kurcalanamaz). İmza anahtarı `Jwt:Key` / env `DEPOWISE_JWT_KEY` (üretimde gizli ver).
+- **Hata → doğru HTTP kodu**: ForbiddenException→403, geçersiz istek→400, JSON `{error}`.
+- **CORS** açık (web arayüzü için; üretimde origin kısıtla).
+
 ## Üretim öncesi TODO (bilinçli iskele kararları)
-- **Token:** şimdilik bellek içi (login → GUID). Üretimde **JWT** + kalıcı/rotasyonlu.
 - **HTTPS:** üretimde zorunlu (Let's Encrypt — ücretsiz).
 - **Sync kritik doğrulama:** `/sync/push` şu an tüm işlemleri kabul eder; kritik entity'ler için sunucu-otoriteli doğrulayıcı eklenecek (SyncPolicy).
 - **DB:** SQLite (tek dosya). Çok yük olursa Postgres'e taşınabilir (Infrastructure soyutlaması hazır).

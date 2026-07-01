@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -12,7 +11,7 @@ namespace DepoWise.Api;
 /// <summary>
 /// Sunucu kompozisyon kökü (Option A — masaüstüyle AYNI Application/Infrastructure). Migration + servisler +
 /// oturum token deposu. Kimlik doğrulama AuthService ile; cihaz senkron token'ları SyncServer/EnrollmentService'te.
-/// NOT: Token deposu şimdilik bellek içi (iskele) — üretimde JWT + kalıcı depo. DB = SQLite (Postgres'e taşınabilir).
+/// Kimlik = JWT (durum tutmaz); yetkiler her istekte sunucuda yeniden yüklenir. DB = SQLite (Postgres'e taşınabilir).
 /// </summary>
 public sealed class ServerServices
 {
@@ -24,8 +23,6 @@ public sealed class ServerServices
     public EnrollmentService Enrollment { get; }
     public BackupStore Backups { get; }
     public ReleaseStore ReleasePackages { get; }
-
-    private readonly ConcurrentDictionary<string, SessionContext> _sessions = new();
 
     public ServerServices(string dataDir)
     {
@@ -60,14 +57,8 @@ public sealed class ServerServices
             Users.EnsureInitialAdmin("DEPOWISE", "superadmin", "superadmin", RoleKeys.SuperAdmin);
     }
 
-    /// <summary>Login sonrası web/masaüstü oturumu için token üretir (bellek içi — iskele).</summary>
-    public string IssueToken(SessionContext s)
-    {
-        var t = Guid.NewGuid().ToString("N");
-        _sessions[t] = s;
-        return t;
-    }
-
-    public SessionContext? Resolve(string? bearer)
-        => !string.IsNullOrEmpty(bearer) && _sessions.TryGetValue(bearer, out var s) ? s : null;
+    /// <summary>JWT'den (userId+companyId) tam oturumu SUNUCUDA yeniden kurar — yetkiler token'dan değil DB'den.</summary>
+    public SessionContext? SessionFor(string? companyId, string? userId)
+        => string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId)
+            ? null : Auth.CreateSessionForUser(companyId, userId);
 }
