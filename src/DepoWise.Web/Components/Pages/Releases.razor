@@ -1,0 +1,47 @@
+@page "/releases"
+@inject ApiClient Api
+@inject AuthState Auth
+@rendermode InteractiveServer
+
+<PageTitle>Sürümler — DepoWise</PageTitle>
+
+<h3>Güncelleme / Sürümler</h3>
+<p class="text-muted">Masaüstü için en güncel yayınlanan sürüm.</p>
+
+@if (!Auth.IsAuthenticated)
+{
+    <div class="alert alert-warning">Giriş yapmalısınız. <a href="/login">Giriş</a></div>
+}
+else
+{
+    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="Load">Yenile</button>
+    @if (_error is not null) { <div class="alert alert-danger">@_error</div> }
+
+    @if (_release is null) { <p class="text-muted">Yayınlanmış sürüm yok.</p> }
+    else
+    {
+        <table class="table table-sm">
+            <tbody>
+                <tr><th>Sürüm</th><td>@_release.Version</td></tr>
+                <tr><th>İmzalı</th><td>@(_release.Signed ? "Evet" : "Hayır")</td></tr>
+                <tr><th>Notlar</th><td>@(_release.ReleaseNotes ?? "—")</td></tr>
+                <tr><th>İndirme</th><td>@(_release.DownloadUrl ?? "— (paket yüklenmemiş)")</td></tr>
+            </tbody>
+        </table>
+    }
+    <p class="text-muted"><em>Yeni sürüm yayınlama formu (paket yükleme) sonraki adımda eklenecek.</em></p>
+}
+
+@code {
+    private ReleaseDto? _release;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
+
+    private async Task Load()
+    {
+        _error = null;
+        try { _release = await Api.GetLatestReleaseAsync(); }
+        catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+    }
+}

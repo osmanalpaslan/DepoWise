@@ -1,0 +1,66 @@
+@page "/machines"
+@inject ApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>Makineler — DepoWise</PageTitle>
+
+<h3>Makine Yönetimi</h3>
+<p class="text-muted">Kayıtlı makineleri onaylayın / pasife alın. (Süper Admin)</p>
+
+@if (!Auth.IsAuthenticated)
+{
+    <div class="alert alert-warning">Giriş yapmalısınız. <a href="/login">Giriş</a></div>
+}
+else
+{
+    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="Load">Yenile</button>
+    @if (_error is not null) { <div class="alert alert-danger">@_error</div> }
+
+    @if (_machines is null) { <p>Yükleniyor…</p> }
+    else if (_machines.Count == 0) { <p class="text-muted">Kayıtlı makine yok (enrollment sonrası listelenir).</p> }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Makine</th><th>Durum</th><th>Son Görülme</th><th>Kayıt</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var m in _machines)
+            {
+                <tr>
+                    <td><strong>@m.Name</strong></td>
+                    <td>@m.StatusText</td>
+                    <td class="text-muted">@m.LastSeenText</td>
+                    <td class="text-muted">@m.CreatedText</td>
+                    <td class="text-end">
+                        @if (m.CanActivate)
+                        { <button class="btn btn-sm btn-outline-primary" @onclick="() => Approve(m.Id)">Aktifleştir</button> }
+                        @if (m.IsActive)
+                        { <button class="btn btn-sm btn-outline-danger" @onclick="() => Revoke(m.Id)">Pasife Al</button> }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<MachineDto>? _machines;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsAuthenticated) await Load();
+    }
+
+    private async Task Load()
+    {
+        _error = null;
+        try { _machines = await Api.GetMachinesAsync(); }
+        catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+    }
+
+    private async Task Approve(string id) { try { await Api.ApproveMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
+    private async Task Revoke(string id) { try { await Api.RevokeMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
+}
