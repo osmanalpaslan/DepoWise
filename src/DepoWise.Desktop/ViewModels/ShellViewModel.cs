@@ -91,7 +91,6 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Firma Tanım", "companies"),
                 new NavLinkVm("Güncelleme Yönetimi", "releases"),
-                new NavLinkVm("Kullanıcılar", "users"),
                 new NavLinkVm("Şube / Şantiye", "branches"),
                 new NavLinkVm("Yetkiler", "permissions"),
                 new NavLinkVm("Çöp Kutusu", "trash"),
@@ -107,7 +106,15 @@ public sealed partial class ShellViewModel : ViewModelBase
             }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
             new NavGroupVm("🔁", "İmport / Export", "import_export", new[] { new NavLinkVm("İmport / Export", "import_export") }),
-            new NavGroupVm("⚙️", "Tanımlar / Ayarlar", "definitions", new[] { new NavLinkVm("Tanımlar", "definitions") }),
+            new NavGroupVm("⚙️", "Tanımlar", "definitions", new[]
+            {
+                new NavLinkVm("Tanımlar", "definitions"),
+                new NavLinkVm("Kullanıcılar", "users"),
+            }),
+            new NavGroupVm("🛠️", "Ayarlar", "settings", new[]
+            {
+                new NavLinkVm("Geliştirici Modu", "settings:developer"),
+            }),
         };
 
         // Alt bağlantıyı KENDİ yetkisine göre filtrele (alt-sekme anahtarı parent modüle map'lenir:
@@ -268,6 +275,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new MachineManagementViewModel(_session);
                 CurrentTitle = "Makine Yönetimi";
                 CurrentContext = "Makine onay/aktif-pasif + kota (Süper Admin)";
+                break;
+            case "settings:developer":
+                CurrentPage = new DeveloperSettingsViewModel(_session);
+                CurrentTitle = "Ayarlar — Geliştirici Modu";
+                CurrentContext = "Geliştirici modu etkinleştir/kapat";
                 break;
             case "releases":
                 CurrentPage = new ReleasesViewModel(_session);

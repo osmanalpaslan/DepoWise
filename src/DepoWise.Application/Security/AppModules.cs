@@ -46,6 +46,7 @@ public static class AppModules
         ("users", "Kullanıcılar"),
         ("permissions", "Yetkiler"),
         ("definitions", "Tanımlar"),
+        ("settings", "Ayarlar"),
         ("materials", "Malzemeler"),
         ("stock", "Stok İşlemleri"),
         ("vehicles", "Araçlar"),

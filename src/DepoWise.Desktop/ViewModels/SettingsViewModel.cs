@@ -7,8 +7,8 @@ using DepoWise.Application.Security;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>
-/// Tanımlar / Ayarlar — tanım listeleri (kategori/birim/marka/tedarikçi/şube/araç) accordion + Geliştirici Modu.
-/// Bağlantı/marka gibi ayarlar bu ekranda DEĞİL (setup'ta otomatik kurulur).
+/// Tanımlar — tanım listeleri (kategori/birim/marka/tedarikçi/şube/araç) accordion.
+/// Geliştirici Modu artık Ayarlar menüsünde ayrı sekmede; bağlantı/marka setup'ta otomatik.
 /// </summary>
 public sealed partial class SettingsViewModel : ViewModelBase
 {
@@ -18,11 +18,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     /// <summary>Tanım listeleri (accordion bölümleri): kategori/birim/marka/tedarikçi/şube/araç tanımları.</summary>
     public System.Collections.ObjectModel.ObservableCollection<LookupSectionViewModel> LookupSections { get; } = new();
-
-    // ── Geliştirici Modu ──
-    [ObservableProperty] private string _developerCode = "";
-    public bool DeveloperActive => DeveloperMode.IsActive;
-    public string DeveloperStatusText => DeveloperMode.IsActive ? "Geliştirici modu AÇIK (süper admin yetkileri)" : "Geliştirici modu kapalı";
 
     public SettingsViewModel(SessionContext session)
     {
@@ -48,27 +43,4 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Add("Markalar (Araç)", "brands", s => L.ListBrands(s, "vehicle"), (s, n) => L.AddVehicleBrand(s, n));
     }
 
-    private void NotifyDev()
-    {
-        OnPropertyChanged(nameof(DeveloperActive));
-        OnPropertyChanged(nameof(DeveloperStatusText));
-    }
-
-    [RelayCommand]
-    private void ActivateDeveloper()
-    {
-        if (DeveloperCode?.Trim() != DeveloperMode.Code) { Status = "Geçersiz geliştirici kodu."; return; }
-        DeveloperMode.IsActive = true;
-        DeveloperCode = "";
-        NotifyDev();
-        Status = "Geliştirici modu açıldı (çıkışta otomatik kapanır).";
-    }
-
-    [RelayCommand]
-    private void DeactivateDeveloper()
-    {
-        DeveloperMode.IsActive = false;
-        NotifyDev();
-        Status = "Geliştirici modu kapatıldı.";
-    }
 }
