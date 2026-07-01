@@ -32,6 +32,11 @@
                             <ProgressBar Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding UpdateProgress}" Height="8"/>
                             <TextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Helper" VerticalAlignment="Center"/>
                         </Grid>
+                        <Expander Header="Hata ayrıntılarını göster" IsVisible="{Binding HasUpdateError}" Margin="0,4,0,0">
+                            <SelectableTextBlock Text="{Binding UpdateErrorDetail}" TextWrapping="Wrap"
+                                                 FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
+                                                 Foreground="{DynamicResource DangerBrush}"/>
+                        </Expander>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button Classes="Primary" Content="⬇ Güncellemeyi Yükle" Command="{Binding InstallUpdateCommand}"

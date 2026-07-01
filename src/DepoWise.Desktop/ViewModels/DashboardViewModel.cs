@@ -35,6 +35,10 @@ public sealed partial class DashboardViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CanApplyUpdate))]
     private bool _isUpdating;
     [ObservableProperty] private int _updateProgress;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUpdateError))]
+    private string? _updateErrorDetail;
+    public bool HasUpdateError => !string.IsNullOrEmpty(UpdateErrorDetail);
     public bool CanApplyUpdate => UpdateAvailable && !IsUpdating;
     private DepoWise.Application.Update.UpdatePackage? _latestPackage;
 
@@ -106,7 +110,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
                 $"Sürüm {_latestPackage.Version} indirilip kurulsun mu?\nVeritabanınıza dokunulmaz; hata olursa eski sürüme dönülür.",
                 "Güncellemeyi Yükle")) return;
 
-        IsUpdating = true; UpdateProgress = 0;
+        IsUpdating = true; UpdateProgress = 0; UpdateErrorDetail = null;
         try
         {
             var pkg = _latestPackage;
@@ -121,7 +125,15 @@ public sealed partial class DashboardViewModel : ViewModelBase
             UpdateProgress = 100;
             UpdateMessage = $"Güncelleme kuruldu (sürüm {CurrentVersion}). Lütfen uygulamayı yeniden başlatın.";
         }
-        catch (Exception ex) { UpdateMessage = "Güncelleme başarısız: " + ex.Message; }
+        catch (Exception ex)
+        {
+            UpdateMessage = "Güncelleme başarısız: " + ex.Message;
+            // Hatanın ne olduğu + detayları (iç hata + güncelleme log kuyruğu) ekranda gösterilir.
+            var detail = ex.InnerException is { } inner ? $"{ex.Message}\nAyrıntı: {inner.Message}" : ex.Message;
+            string log = "";
+            try { log = DesktopServices.Update.ReadLogTail(); } catch { }
+            UpdateErrorDetail = string.IsNullOrWhiteSpace(log) ? detail : $"{detail}\n\n— Güncelleme günlüğü —\n{log}";
+        }
         finally { IsUpdating = false; }
     }
 }

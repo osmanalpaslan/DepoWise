@@ -117,4 +117,20 @@ public sealed class UpdateService
         try { File.AppendAllText(_logPath, $"{DateTimeOffset.UtcNow:O}\t{message}{Environment.NewLine}"); }
         catch { /* log hatası akışı durdurmaz */ }
     }
+
+    /// <summary>Güncelleme log dosyasının yolu (hata detayında gösterilir).</summary>
+    public string LogPath => _logPath;
+
+    /// <summary>Log dosyasının son satırları (hata teşhisi için ekranda gösterilir).</summary>
+    public string ReadLogTail(int maxLines = 20)
+    {
+        try
+        {
+            if (!File.Exists(_logPath)) return "";
+            var lines = File.ReadAllLines(_logPath);
+            var take = lines.Length <= maxLines ? lines : lines[^maxLines..];
+            return string.Join(Environment.NewLine, take);
+        }
+        catch { return ""; }
+    }
 }
