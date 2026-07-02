@@ -1,22 +1,28 @@
 @page "/"
 @inject AuthState Auth
+@inject ApiClient Api
 
 <PageTitle>DepoWise Yönetim</PageTitle>
 
-<h1>DepoWise — Yönetim Konsolu</h1>
-<p class="text-muted">Bu arayüz, masaüstüyle aynı .NET backend'i (DepoWise.Api) HTTP üzerinden kullanır. İş kuralları API'dedir.</p>
+<h1>DepoWise — Yönetim Paneli</h1>
 
 @if (Auth.IsAuthenticated)
 {
     <div class="alert alert-success">
         Giriş yapıldı — Firma: <strong>@Auth.CompanyId</strong>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")
     </div>
+
+    <div class="card mb-3" style="max-width:640px;">
+        <div class="card-body">
+            <h5 class="card-title">Masaüstü Uygulaması</h5>
+            <p class="card-text text-muted">Kurulum aracını indirin. Çalıştırınca uygulamayı sunucudan indirir, kurar ve bağlantı ayarlarını otomatik yapar.</p>
+            <a class="btn btn-primary" href="@Api.SetupDownloadUrl" target="_blank">⬇ Masaüstü Kurulum Aracını İndir</a>
+        </div>
+    </div>
+
+    <h5>Hızlı Erişim</h5>
     <ul>
         <li><a href="/machines">Makine Yönetimi</a></li>
-        <li><a href="/releases">Sürümler / Güncelleme</a></li>
+        <li><a href="/releases">Sürümler / Güncelleme yayınla</a></li>
     </ul>
-}
-else
-{
-    <div class="alert alert-info">Başlamak için <a href="/login">giriş yapın</a>.</div>
 }

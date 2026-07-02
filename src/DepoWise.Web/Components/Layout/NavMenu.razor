@@ -1,6 +1,8 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@inject AuthState Auth
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">DepoWise.Web</a>
+        <a class="navbar-brand" href="">DepoWise Yönetim</a>
     </div>
 </div>
 
@@ -8,26 +10,24 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Ana Sayfa
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Giriş
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="machines">
-                <span class="bi bi-hdd-network-nav-menu" aria-hidden="true"></span> Makineler
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="releases">
-                <span class="bi bi-arrow-up-circle-nav-menu" aria-hidden="true"></span> Sürümler
-            </NavLink>
-        </div>
+        @if (Auth.IsAuthenticated)
+        {
+            <div class="nav-item px-3"><NavLink class="nav-link" href="" Match="NavLinkMatch.All"><span class="bi bi-house-door-fill-nav-menu"></span> Panel</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="machines"><span class="bi bi-hdd-network-nav-menu"></span> Makineler</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="releases"><span class="bi bi-arrow-up-circle-nav-menu"></span> Sürümler</NavLink></div>
+
+            <div class="nav-item px-3 mt-2" style="opacity:.6"><small>YAKINDA</small></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Firmalar"><span class="bi bi-list-nested-nav-menu"></span> Firmalar</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Kullanıcılar"><span class="bi bi-list-nested-nav-menu"></span> Kullanıcılar</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Yetkiler"><span class="bi bi-list-nested-nav-menu"></span> Yetkiler</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Tanımlar"><span class="bi bi-list-nested-nav-menu"></span> Tanımlar</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Malzemeler"><span class="bi bi-list-nested-nav-menu"></span> Malzemeler</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Araçlar"><span class="bi bi-list-nested-nav-menu"></span> Araçlar</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="soon/Raporlar"><span class="bi bi-list-nested-nav-menu"></span> Raporlar</NavLink></div>
+        }
+        else
+        {
+            <div class="nav-item px-3"><NavLink class="nav-link" href="login"><span class="bi bi-person-badge-nav-menu"></span> Giriş</NavLink></div>
+        }
     </nav>
 </div>
-

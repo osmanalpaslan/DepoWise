@@ -1,4 +1,7 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject AuthState Auth
+@inject NavigationManager Nav
+@implements IDisposable
 
 <div class="page">
     <div class="sidebar">
@@ -7,7 +10,11 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            @if (Auth.IsAuthenticated)
+            {
+                <span class="me-3">@Auth.CompanyId@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</span>
+                <a href="#" @onclick="SignOut" @onclick:preventDefault>Çıkış</a>
+            }
         </div>
 
         <article class="content px-4">
@@ -17,7 +24,33 @@
 </div>
 
 <div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
+    Beklenmeyen bir hata oluştu.
+    <a href="" class="reload">Yeniden yükle</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Guard();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => Guard();
+
+    // Giriş yapılmadıysa login ekranına yönlendir (site açılınca ilk ekran login).
+    private void Guard()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
+        if (!Auth.IsAuthenticated && !string.Equals(path, "/login", StringComparison.OrdinalIgnoreCase))
+            Nav.NavigateTo("/login");
+    }
+
+    private void SignOut()
+    {
+        Auth.SignOut();
+        Nav.NavigateTo("/login");
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

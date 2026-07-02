@@ -19,6 +19,9 @@ public sealed class ApiClient
 
     public ApiClient(HttpClient http, AuthState auth) { _http = http; _auth = auth; }
 
+    /// <summary>Masaüstü kurulum aracının indirme adresi (API'den servis edilir).</summary>
+    public string SetupDownloadUrl => new Uri(_http.BaseAddress!, "api/setup/download").ToString();
+
     private HttpRequestMessage Req(HttpMethod m, string url)
     {
         var r = new HttpRequestMessage(m, url);

@@ -140,6 +140,25 @@ app.MapPost("/api/releases", async (HttpContext ctx) =>
         string.IsNullOrWhiteSpace(min) ? "0.0.0" : min, string.IsNullOrWhiteSpace(notes) ? null : notes, signed, downloadUrl));
     return Results.Ok(new { id, downloadUrl });
 }).RequireAuthorization();
+// ── Masaüstü kurulum aracı (setup) indirme/yükleme ──
+app.MapGet("/api/setup/download", () =>
+{
+    var path = Path.Combine(dataDir, "setup", "DepoWiseSetup.exe");
+    return File.Exists(path)
+        ? Results.File(path, "application/octet-stream", "DepoWiseSetup.exe")
+        : Results.NotFound(new { error = "Kurulum aracı henüz yüklenmedi." });
+});
+app.MapPost("/api/setup", async (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
+    var form = await ctx.Request.ReadFormAsync();
+    var file = form.Files["file"]; if (file is null) return Results.BadRequest(new { error = "file yok" });
+    var dir = Path.Combine(dataDir, "setup"); Directory.CreateDirectory(dir);
+    await using var fs = File.Create(Path.Combine(dir, "DepoWiseSetup.exe"));
+    await file.OpenReadStream().CopyToAsync(fs, ctx.RequestAborted);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 app.MapGet("/api/releases/{version}/download", (string version) =>
 {
     var path = svc.ReleasePackages.PathFor(version);

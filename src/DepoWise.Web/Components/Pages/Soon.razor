@@ -1,0 +1,11 @@
+@page "/soon/{Area}"
+@inject AuthState Auth
+
+<PageTitle>@Area — DepoWise</PageTitle>
+
+<h3>@Area</h3>
+<div class="alert alert-info">Bu bölüm yakında web arayüzüne eklenecek. (Masaüstünde mevcut.)</div>
+
+@code {
+    [Parameter] public string Area { get; set; } = "";
+}
