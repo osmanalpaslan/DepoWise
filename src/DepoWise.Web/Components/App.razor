@@ -19,6 +19,16 @@
     <Routes @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script>
+        window.dwDownload = (name, b64, mime) => {
+            const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+            const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click();
+            document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1500);
+        };
+    </script>
 </body>
 
 </html>

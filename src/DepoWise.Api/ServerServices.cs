@@ -46,6 +46,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Files.FileService Files { get; }
     public DepoWise.Application.Files.IFileStorageProvider Storage { get; }
     public DepoWise.Infrastructure.Vehicles.VehicleTemplateService VehicleTemplates { get; }
+    public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
 
     public ServerServices(string dataDir)
     {
@@ -83,6 +84,7 @@ public sealed class ServerServices
         Storage = new DepoWise.Infrastructure.Files.LocalFileStorageProvider(Path.Combine(dataDir, "files"));
         Files = new DepoWise.Infrastructure.Files.FileService(Factory, Storage, clock);
         VehicleTemplates = new DepoWise.Infrastructure.Vehicles.VehicleTemplateService(Factory, clock);
+        RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
 
         EnsureSeedAdmins();
     }

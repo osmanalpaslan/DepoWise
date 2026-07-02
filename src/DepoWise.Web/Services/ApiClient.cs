@@ -99,6 +99,16 @@ public sealed class ApiClient
         return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}";
     }
 
+    /// <summary>Korumalı bir uçtan dosya (bytes) + dosya adı çeker (PDF indirme için).</summary>
+    public async Task<(byte[]? Bytes, string FileName)> GetFileAsync(string path, string fallbackName)
+    {
+        var r = await _http.SendAsync(Req(HttpMethod.Get, path));
+        if (!r.IsSuccessStatusCode) return (null, fallbackName);
+        var name = r.Content.Headers.ContentDisposition?.FileNameStar ?? r.Content.Headers.ContentDisposition?.FileName ?? fallbackName;
+        name = name?.Trim('"') ?? fallbackName;
+        return (await r.Content.ReadAsByteArrayAsync(), name);
+    }
+
     /// <summary>Korumalı bir görsel ucundan bytes çekip data URL üretir (img src için — Bearer başlığı gerektiğinden).</summary>
     public async Task<string?> GetImageDataUrlAsync(string path)
     {

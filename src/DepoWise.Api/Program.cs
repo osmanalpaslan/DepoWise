@@ -511,10 +511,56 @@ app.MapPost("/api/requests", (HttpContext c, RequestDto d) =>
     var h = svc.Requests.Create(s, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately));
     return Results.Ok(new { id = h.Id, docNo = h.DocNo });
 }).RequireAuthorization();
+app.MapGet("/api/requests/{id}/edit", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Requests.GetForEdit(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/requests/{id}", (HttpContext c, string id, RequestDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
+    svc.Requests.Update(s, id, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 app.MapPost("/api/requests/{id}/approve", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Approve(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/requests/{id}/reject", (HttpContext c, string id, IdReasonDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Reject(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Reddedildi" : d!.Reason!)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/requests/{id}/cancel", (HttpContext c, string id, IdReasonDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Cancel(s, id, d?.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/requests/{id}/history", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    string Lbl(DepoWise.Application.Requests.RequestStatus st) => st switch
+    {
+        DepoWise.Application.Requests.RequestStatus.Draft => "Taslak",
+        DepoWise.Application.Requests.RequestStatus.Pending => "Beklemede",
+        DepoWise.Application.Requests.RequestStatus.Approved => "Onaylı",
+        DepoWise.Application.Requests.RequestStatus.Rejected => "Reddedildi",
+        _ => "İptal",
+    };
+    var rows = svc.Requests.GetHistory(id).Select(h =>
+        $"{(h.From is null ? "—" : Lbl(h.From.Value))} → {Lbl(h.To)}" + (string.IsNullOrWhiteSpace(h.Reason) ? "" : $" ({h.Reason})"));
+    return Results.Ok(rows);
+}).RequireAuthorization();
+app.MapGet("/api/requests/{id}/pdf", (HttpContext c, string id, bool? economic) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var d = svc.Requests.GetPdfData(s, id);
+    string Lbl(DepoWise.Application.Requests.RequestStatus st) => st switch
+    {
+        DepoWise.Application.Requests.RequestStatus.Draft => "Taslak",
+        DepoWise.Application.Requests.RequestStatus.Pending => "Beklemede",
+        DepoWise.Application.Requests.RequestStatus.Approved => "Onaylı",
+        DepoWise.Application.Requests.RequestStatus.Rejected => "Reddedildi",
+        _ => "İptal",
+    };
+    var companyName = svc.Companies.List(s).FirstOrDefault(x => x.Id == s.CompanyId)?.Name ?? s.CompanyId;
+    var model = new DepoWise.Application.Requests.RequestPdfModel(
+        companyName, d.DocNo, DateTimeOffset.FromUnixTimeMilliseconds(d.RequestDate).LocalDateTime.ToString("dd.MM.yyyy"),
+        Lbl(d.Status), d.BranchName, d.RequesterName, d.WarehouseName, d.ApproverName, d.Description,
+        d.Items.Select(i => new DepoWise.Application.Requests.RequestPdfItem(i.Code, i.Name, i.Unit, i.Quantity, i.VehicleCode, i.VehicleChassis)).ToList());
+    var bytes = svc.RequestPdf.Generate(model, economic == true);
+    return Results.File(bytes, "application/pdf", $"{d.DocNo}{(economic == true ? "-ekonomik" : "")}.pdf");
+}).RequireAuthorization();
 
 // ── Personel (sil) + Şube/Şantiye (güncelle/sil) ──
 app.MapDelete("/api/personnel/{id}", (HttpContext c, string id) =>
