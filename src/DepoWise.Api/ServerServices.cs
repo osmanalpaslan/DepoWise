@@ -26,6 +26,19 @@ public sealed class ServerServices
     public ReleaseStore ReleasePackages { get; }
     public SyncValidator SyncValidator { get; }
 
+    // İş modülleri (web liste ekranları için)
+    public DepoWise.Infrastructure.Materials.MaterialService Materials { get; }
+    public DepoWise.Infrastructure.Materials.LookupService Lookups { get; }
+    public DepoWise.Infrastructure.Materials.StockService Stock { get; }
+    public DepoWise.Infrastructure.Vehicles.VehicleService Vehicles { get; }
+    public DepoWise.Infrastructure.Maintenance.MaintenanceService Maintenance { get; }
+    public DepoWise.Infrastructure.Maintenance.InspectionService Inspection { get; }
+    public DepoWise.Infrastructure.Operations.FuelService Fuel { get; }
+    public DepoWise.Infrastructure.Operations.DailyActivityService DailyActivity { get; }
+    public DepoWise.Infrastructure.Requests.RequestService Requests { get; }
+    public DepoWise.Infrastructure.Organization.BranchService Branches { get; }
+    public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
+
     public ServerServices(string dataDir)
     {
         Directory.CreateDirectory(dataDir);
@@ -42,6 +55,18 @@ public sealed class ServerServices
         Backups = new BackupStore(Path.Combine(dataDir, "backups"));
         ReleasePackages = new ReleaseStore(Path.Combine(dataDir, "releases"));
         SyncValidator = new SyncValidator(Factory);
+
+        Materials = new DepoWise.Infrastructure.Materials.MaterialService(Factory, clock);
+        Lookups = new DepoWise.Infrastructure.Materials.LookupService(Factory, clock);
+        Stock = new DepoWise.Infrastructure.Materials.StockService(Factory, clock);
+        Vehicles = new DepoWise.Infrastructure.Vehicles.VehicleService(Factory, clock);
+        Maintenance = new DepoWise.Infrastructure.Maintenance.MaintenanceService(Factory, clock);
+        Inspection = new DepoWise.Infrastructure.Maintenance.InspectionService(Factory, clock);
+        Fuel = new DepoWise.Infrastructure.Operations.FuelService(Factory, clock);
+        DailyActivity = new DepoWise.Infrastructure.Operations.DailyActivityService(Factory, Maintenance, clock);
+        Requests = new DepoWise.Infrastructure.Requests.RequestService(Factory, new DepoWise.Infrastructure.Materials.StockService(Factory, clock), clock);
+        Branches = new DepoWise.Infrastructure.Organization.BranchService(Factory, clock);
+        Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
 
         EnsureSeedAdmins();
     }

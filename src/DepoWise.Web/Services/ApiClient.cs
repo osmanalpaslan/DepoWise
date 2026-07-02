@@ -63,6 +63,15 @@ public sealed class ApiClient
         return await resp.Content.ReadFromJsonAsync<List<MachineDto>>() ?? new();
     }
 
+    /// <summary>Herhangi bir liste ucundan ham JSON dizi (genel tablo bileşeni için).</summary>
+    public async Task<System.Text.Json.JsonElement[]> GetArrayAsync(string path)
+    {
+        var resp = await _http.SendAsync(Req(HttpMethod.Get, path));
+        resp.EnsureSuccessStatusCode();
+        var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement[]>();
+        return doc ?? Array.Empty<System.Text.Json.JsonElement>();
+    }
+
     public async Task<List<CompanyDto>> GetCompaniesAsync()
     {
         var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies"));

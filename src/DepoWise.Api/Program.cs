@@ -147,6 +147,23 @@ app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
+// ── İş modülleri: liste (okuma) uçları — hepsi yetki korumalı (servis AccessControl.View) ──
+DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
+SessionContext? S(HttpContext ctx) => Session(ctx);
+
+app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/branches", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Branches.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/personnel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Personnel.List(s, Page()).Items) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/materials", (HttpContext c, string? search) => S(c) is { } s ? Results.Ok(svc.Materials.List(s, Page(), search).Items) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles", (HttpContext c, string? search) => S(c) is { } s ? Results.Ok(svc.Vehicles.List(s, search)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/stock", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Stock.RecentMovements(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/fuel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/requests", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Requests.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
+
 // ── Güncelleme (release) ──
 app.MapGet("/api/releases/latest", () => Results.Ok(svc.Releases.Latest()));
 app.MapPost("/api/releases", async (HttpContext ctx) =>
