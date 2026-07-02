@@ -4,31 +4,14 @@
 <MudNavMenu>
     @if (Auth.IsAuthenticated)
     {
-        <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Panel</MudNavLink>
+        <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Ana Ekran</MudNavLink>
 
-        @* Operasyonel modüller (masaüstüyle aynı isim/işlev) *@
-        @foreach (var g in Operational)
+        @foreach (var g in Groups)
         {
-            var items = g.Items.Where(i => Auth.CanView(i.Key)).ToList();
-            if (items.Count == 0) { continue; }
+            var links = g.Links.Where(l => Visible(l.Perm)).ToList();
+            if (links.Count == 0) { continue; }
             <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="false">
-                @foreach (var i in items) { <MudNavLink Href="@Route(i.Key)">@i.Label</MudNavLink> }
-            </MudNavGroup>
-        }
-
-        @* Web'e özel yönetim ekranları — ayrı menü + alt menüler *@
-        @if (WebAdmin.Any(s => s.Items.Any(i => Auth.CanView(i.Key))))
-        {
-            <MudDivider Class="my-2" />
-            <MudNavGroup Title="Web Yönetimi" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
-                @foreach (var s in WebAdmin)
-                {
-                    var items = s.Items.Where(i => Auth.CanView(i.Key)).ToList();
-                    if (items.Count == 0) { continue; }
-                    <MudNavGroup Title="@s.Title" Icon="@s.Icon" Expanded="false">
-                        @foreach (var i in items) { <MudNavLink Href="@Route(i.Key)">@i.Label</MudNavLink> }
-                    </MudNavGroup>
-                }
+                @foreach (var l in links) { <MudNavLink Href="@l.Route">@l.Label</MudNavLink> }
             </MudNavGroup>
         }
     }
@@ -43,38 +26,83 @@
     private void OnChanged() => InvokeAsync(StateHasChanged);
     public void Dispose() => Auth.Changed -= OnChanged;
 
-    private sealed record Item(string Key, string Label);
-    private sealed record Group(string Title, string Icon, Item[] Items);
+    private bool Visible(string perm) => string.IsNullOrEmpty(perm) || Auth.CanView(perm);
 
-    // Masaüstü isimleriyle birebir.
-    private static readonly Group[] Operational =
-    {
-        new("Malzemeler", Icons.Material.Filled.Inventory2, new[] { new Item("materials", "Malzemeler"), new Item("stock", "Stok İşlemleri") }),
-        new("Araçlar", Icons.Material.Filled.LocalShipping, new[] { new Item("vehicles", "Araçlar"), new Item("maintenance", "Bakım"), new Item("inspection", "Muayene / Sigorta"), new Item("fuel", "Yakıt"), new Item("daily_activity", "Günlük Faaliyet") }),
-        new("Personel", Icons.Material.Filled.Badge, new[] { new Item("personnel", "Personel") }),
-        new("Talepler", Icons.Material.Filled.Description, new[] { new Item("requests", "Malzeme Talep") }),
-        new("Raporlar", Icons.Material.Filled.BarChart, new[] { new Item("reports", "Raporlar") }),
-        new("Tanımlar", Icons.Material.Filled.Category, new[] { new Item("definitions", "Tanımlar"), new Item("users", "Kullanıcılar") }),
-        new("Yönetim", Icons.Material.Filled.ManageAccounts, new[] { new Item("branches", "Şube / Şantiye"), new Item("permissions", "Yetkiler"), new Item("audit", "Sistem Logu"), new Item("backup", "Yedek Yönetimi") }),
-        new("Ayarlar", Icons.Material.Filled.Settings, new[] { new Item("permission_templates", "Yetki Şablonları"), new Item("settings", "Ayarlar"), new Item("about", "Hakkında") }),
-    };
+    private sealed record Link(string Label, string Perm, string Route);
+    private sealed record Group(string Title, string Icon, Link[] Links);
 
-    // Web'e özel (platform) ekranlar — ayrı menü altında alt menüler.
-    private static readonly Group[] WebAdmin =
+    // Masaüstü ShellViewModel.BuildGroups ile BİREBİR (isim/grup/sıra).
+    private static readonly Group[] Groups =
     {
-        new("Firmalar & Dağıtım", Icons.Material.Filled.Business, new[] { new Item("companies", "Firma Tanım"), new Item("releases", "Güncelleme Yönetimi"), new Item("machines", "Makine Yönetimi") }),
-        new("Sunucu", Icons.Material.Filled.Dns, new[] { new Item("server_backups", "Sunucu Yedekleri") }),
-    };
-
-    private static string Route(string key) => key switch
-    {
-        "companies" => "companies", "machines" => "machines", "releases" => "releases",
-        "users" => "users", "branches" => "branches", "personnel" => "personnel",
-        "materials" => "materials", "vehicles" => "vehicles", "stock" => "stock",
-        "maintenance" => "maintenance", "inspection" => "inspection", "fuel" => "fuel",
-        "daily_activity" => "daily", "requests" => "requests", "definitions" => "definitions",
-        "permissions" => "permissions", "permission_templates" => "permission-templates",
-        "audit" => "audit", "backup" => "backup", "reports" => "reports",
-        _ => $"soon/{key}",
+        new("Malzemeler", Icons.Material.Filled.Inventory2, new[]
+        {
+            new Link("Malzeme Listesi", "materials", "materials"),
+            new Link("Yeni Kayıt", "materials", "materials"),
+            new Link("Giriş-Çıkış", "stock", "stock"),
+            new Link("Stok Sayım", "stock", "soon/stock_count"),
+        }),
+        new("Araçlar", Icons.Material.Filled.LocalShipping, new[]
+        {
+            new Link("Araç Listesi", "vehicles", "vehicles"),
+            new Link("Şablonlar", "vehicles", "soon/vehicle_templates"),
+            new Link("Yeni Araç Ekle", "vehicles", "vehicles"),
+            new Link("Muayene / Sigorta", "inspection", "inspection"),
+        }),
+        new("Personel", Icons.Material.Filled.Badge, new[]
+        {
+            new Link("Personel", "personnel", "personnel"),
+        }),
+        new("Günlük Faaliyet", Icons.Material.Filled.EventNote, new[]
+        {
+            new Link("Günlük Faaliyet", "daily_activity", "daily"),
+        }),
+        new("Bakım Takibi", Icons.Material.Filled.Build, new[]
+        {
+            new Link("Bakım Tanımları", "maintenance", "maintenance"),
+            new Link("Araç Bakımları", "maintenance", "maintenance"),
+            new Link("Uyarılar", "maintenance", "maintenance"),
+        }),
+        new("Yakıt", Icons.Material.Filled.LocalGasStation, new[]
+        {
+            new Link("Yakıt Dağıtımları", "fuel", "fuel"),
+            new Link("Depo Girişleri", "fuel", "fuel"),
+            new Link("Özet", "fuel", "fuel"),
+        }),
+        new("Yönetim", Icons.Material.Filled.ManageAccounts, new[]
+        {
+            new Link("Firma Tanım", "companies", "companies"),
+            new Link("Güncelleme Yönetimi", "releases", "releases"),
+            new Link("Şube / Şantiye", "branches", "branches"),
+            new Link("Yetkiler", "permissions", "permissions"),
+            new Link("Çöp Kutusu", "audit", "soon/trash"),
+            new Link("Sistem Logu", "audit", "audit"),
+            new Link("Yedek Yönetimi", "backup", "backup"),
+            new Link("Sunucu Yedekleri", "server_backups", "soon/server_backups"),
+            new Link("Makine Yönetimi", "machines", "machines"),
+        }),
+        new("Talepler", Icons.Material.Filled.Description, new[]
+        {
+            new Link("Talep Formu", "requests", "requests"),
+            new Link("Talep Onaylama", "requests", "requests"),
+        }),
+        new("Raporlar", Icons.Material.Filled.BarChart, new[]
+        {
+            new Link("Raporlar", "reports", "reports"),
+        }),
+        new("İmport / Export", Icons.Material.Filled.SwapHoriz, new[]
+        {
+            new Link("İmport / Export", "import_export", "soon/import_export"),
+        }),
+        new("Tanımlar", Icons.Material.Filled.Category, new[]
+        {
+            new Link("Tanımlar", "definitions", "definitions"),
+            new Link("Kullanıcılar", "users", "users"),
+        }),
+        new("Ayarlar", Icons.Material.Filled.Settings, new[]
+        {
+            new Link("Geliştirici Modu", "settings", "soon/developer"),
+            new Link("Yetki Şablonları", "permission_templates", "permission-templates"),
+            new Link("Hakkında", "", "soon/about"),
+        }),
     };
 }

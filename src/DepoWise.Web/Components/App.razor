@@ -20,6 +20,34 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script>
+        // Tarayıcı otomatik-doldurmasını (Chrome/Edge "reklam", "'" vb.) kesin kapat:
+        // autocomplete=off + name/id rastgeleleştir + parola yöneticisi ignore işaretleri.
+        window.dwKillAutofill = () => {
+            const fix = el => {
+                if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+                if (el.dataset.nofillDone) return;
+                el.setAttribute('autocomplete', 'off');
+                el.setAttribute('data-lpignore', 'true');
+                el.setAttribute('data-1p-ignore', '');
+                el.setAttribute('data-form-type', 'other');
+                if (el.type !== 'password') el.setAttribute('name', 'nf_' + Math.random().toString(36).slice(2));
+                el.dataset.nofillDone = '1';
+            };
+            document.querySelectorAll('input,textarea').forEach(fix);
+            try {
+                const obs = new MutationObserver(muts => {
+                    for (const m of muts) for (const n of m.addedNodes) {
+                        if (n.nodeType !== 1) continue;
+                        if (n.matches && (n.matches('input') || n.matches('textarea'))) fix(n);
+                        if (n.querySelectorAll) n.querySelectorAll('input,textarea').forEach(fix);
+                    }
+                });
+                obs.observe(document.documentElement, { childList: true, subtree: true });
+            } catch (e) { }
+        };
+        document.addEventListener('DOMContentLoaded', () => window.dwKillAutofill());
+        window.addEventListener('load', () => window.dwKillAutofill());
+
         window.dwDownload = (name, b64, mime) => {
             const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
             for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
