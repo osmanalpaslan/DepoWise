@@ -1,6 +1,7 @@
 @page "/"
 @inject AuthState Auth
 @inject ApiClient Api
+@implements IDisposable
 
 <PageTitle>DepoWise Yönetim</PageTitle>
 
@@ -25,4 +26,10 @@
         <li><a href="/machines">Makine Yönetimi</a></li>
         <li><a href="/releases">Sürümler / Güncelleme yayınla</a></li>
     </ul>
+}
+
+@code {
+    protected override void OnInitialized() => Auth.Changed += OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Auth.Changed -= OnChanged;
 }

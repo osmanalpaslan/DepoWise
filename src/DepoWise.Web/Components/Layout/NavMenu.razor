@@ -1,4 +1,5 @@
 @inject AuthState Auth
+@implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -32,3 +33,9 @@
         }
     </nav>
 </div>
+
+@code {
+    protected override void OnInitialized() => Auth.Changed += OnChanged;
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Auth.Changed -= OnChanged;
+}
