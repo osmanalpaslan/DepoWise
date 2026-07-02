@@ -364,6 +364,41 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
 }).RequireAuthorization();
 app.MapPost("/api/maintenance/cancel", (HttpContext c, IdReasonDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Maintenance.Cancel(s, d.Id, string.IsNullOrWhiteSpace(d.Reason) ? "Kullanıcı iptali" : d.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/maintenance/definitions/{id}", (HttpContext c, string id, MaintDefDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.MaintenanceDefinitions.Update(s, id, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition(
+        d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description));
+    if (d.VehicleIds is not null) svc.MaintenanceDefinitions.SetVehicles(s, id, d.VehicleIds);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapDelete("/api/maintenance/definitions/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.MaintenanceDefinitions.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/maintenance/definitions/{id}/vehicles", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.MaintenanceDefinitions.GetVehicleIds(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/maintenance/{id}/materials", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Maintenance.GetMaintenanceMaterials(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var vmap = svc.Vehicles.List(s).ToDictionary(v => v.Id, v => v.Display);
+    string LevelText(DepoWise.Application.Maintenance.AlertLevel l) => l switch
+    {
+        DepoWise.Application.Maintenance.AlertLevel.Approaching => "Bakım Yaklaşıyor",
+        DepoWise.Application.Maintenance.AlertLevel.Critical => "Kritik",
+        DepoWise.Application.Maintenance.AlertLevel.Overdue => "Bakım Gecikti",
+        _ => "Normal",
+    };
+    var rows = svc.Maintenance.GetAlerts(s).Select(a => new
+    {
+        vehicleCode = vmap.TryGetValue(a.VehicleId, out var code) ? code : a.VehicleId,
+        definition = a.DefinitionName,
+        progressText = $"%{(int)(a.Progress * 100)}",
+        consumedText = $"{a.Consumed:0.##} / {a.Interval:0.##}",
+        levelText = LevelText(a.Level),
+    });
+    return Results.Ok(rows);
+}).RequireAuthorization();
 
 // ── Muayene / Sigorta ──
 app.MapPost("/api/inspection", (HttpContext c, InspectionDto d) =>
