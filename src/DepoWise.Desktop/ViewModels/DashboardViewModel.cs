@@ -91,6 +91,22 @@ public sealed partial class DashboardViewModel : ViewModelBase
         ShellViewModel.Current?.NavigateTo(alert.NavigateKey, alert.EntityId);
     }
 
+    /// <summary>Kurulum aracının uygulama klasörüne yazdığı serverurl.txt (varsa). Bağlantı ayarı otomatik gelsin diye.</summary>
+    private static string? ReadInstalledServerUrl()
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "serverurl.txt");
+            if (System.IO.File.Exists(path))
+            {
+                var v = System.IO.File.ReadAllText(path).Trim();
+                return string.IsNullOrWhiteSpace(v) ? null : v;
+            }
+        }
+        catch { }
+        return null;
+    }
+
     /// <summary>Güncelleme kontrolü: sunucu (API) tanımlıysa `/api/releases/latest`'ten, değilse yerel app_releases'ten
     /// en son sürümü alıp mevcutla karşılaştırır.</summary>
     [RelayCommand]
@@ -98,7 +114,8 @@ public sealed partial class DashboardViewModel : ViewModelBase
     {
         try
         {
-            var serverUrl = DesktopServices.Settings.Get(_companyId, SettingKeys.UpdateServerUrl);
+            // Sunucu adresi: DB ayarı YOKSA kurulum aracının yazdığı serverurl.txt'ten okunur (elle ayar gerekmez).
+            var serverUrl = DesktopServices.Settings.Get(_companyId, SettingKeys.UpdateServerUrl) ?? ReadInstalledServerUrl();
             var latest = !string.IsNullOrWhiteSpace(serverUrl)
                 ? await DesktopServices.UpdateApi.GetLatestAsync(serverUrl!) ?? DesktopServices.Releases.Latest()
                 : DesktopServices.Releases.Latest();
