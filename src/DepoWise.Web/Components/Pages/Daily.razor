@@ -1,2 +1,128 @@
 @page "/daily"
-<DataList Title="Günlük Faaliyet" Path="/api/daily" />
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Günlük Faaliyet</MudText>
+
+@if (Auth.CanCreate("daily_activity"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Hareket</MudText>
+        <MudRadioGroup T="string" @bind-Value="_kind" Class="mb-2">
+            <MudRadio T="string" Value="@("movement")" Color="Color.Primary">Hareket</MudRadio>
+            <MudRadio T="string" Value="@("transfer")" Color="Color.Primary">Transfer</MudRadio>
+        </MudRadioGroup>
+        @if (_kind == "transfer")
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">Transfer kaydı aracı otomatik <b>pasif</b> duruma alır.</MudAlert>
+        }
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudAutocomplete T="ApiClient.Opt" Label="Araç" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
+                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+            </MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Nereden (Şantiye)" @bind-Value="_from" Items="_branches" /></MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Nereye (Şantiye)" @bind-Value="_to" Items="_branches" /></MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Operatör" @bind-Value="_operator" Items="_personnel" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_duration" Label="Süre (gün)" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+            <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" Lines="2" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Faaliyetler</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh">
+            <HeaderContent><MudTh>Tarih</MudTh><MudTh>Tip</MudTh><MudTh>Araç</MudTh><MudTh>Güzergah</MudTh><MudTh>Operatör</MudTh><MudTh>Süre</MudTh><MudTh>Açıklama</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); }
+                <MudTd>@Str(context, "dateText")</MudTd>
+                <MudTd>@Str(context, "typeText")</MudTd>
+                <MudTd>@Str(context, "vehicleText")</MudTd>
+                <MudTd>@Str(context, "routeText")</MudTd>
+                <MudTd>@Str(context, "operatorText")</MudTd>
+                <MudTd>@Str(context, "durationText")</MudTd>
+                <MudTd>@Str(context, "descriptionText")</MudTd>
+                <MudTd>
+                    @if (Auth.CanDelete("daily_activity"))
+                    {
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+
+    private string _kind = "movement";
+    private ApiClient.Opt? _vehicle;
+    private string? _from, _to, _operator;
+    private int? _duration;
+    private DateTime? _date;
+    private string _desc = "";
+
+    private List<ApiClient.Opt> _branches = new(), _personnel = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("daily_activity"))
+        {
+            _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+            _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+        }
+        await LoadList();
+    }
+
+    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/daily"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
+        => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+
+    private static long? Ms(DateTime? d) => d is null ? null : new DateTimeOffset(d.Value, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+    private async Task Save()
+    {
+        _msg = null; _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/daily/movement", new
+            {
+                movementKind = _kind, vehicleId = _vehicle?.Id, fromLocationId = _from, toLocationId = _to,
+                operatorId = _operator, durationDays = _duration, description = Empty(_desc), activityDate = Ms(_date)
+            });
+            _ok = err is null; _msg = err ?? "Kaydedildi.";
+            if (_ok) { _vehicle = null; _from = _to = _operator = null; _duration = null; _date = null; _desc = ""; await LoadList(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var err = await Api.DeleteAsync($"/api/daily/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null;
+        await LoadList();
+    }
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

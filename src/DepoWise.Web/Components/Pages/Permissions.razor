@@ -1,0 +1,71 @@
+@page "/permissions"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Yetkiler</MudText>
+
+<MudPaper Class="pa-4" Elevation="2" Style="max-width:760px;">
+    <MudGrid Spacing="2" Class="align-center mb-2">
+        <MudItem xs="12" md="6">
+            <MudSelect T="string" @bind-Value="_userId" Label="Kullanıcı" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var u in _users) { <MudSelectItem T="string" Value="@u.Id">@u.Name</MudSelectItem> }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudButton Variant="Variant.Outlined" OnClick="LoadUserPerms" Disabled="@(string.IsNullOrEmpty(_userId))">Yükle</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    @if (!string.IsNullOrEmpty(_userId))
+    {
+        <PermMatrix @ref="_matrix" Modules="_modules" />
+        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
+    }
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+</MudPaper>
+
+@code {
+    private List<ApiClient.Opt> _users = new(), _modules = new();
+    private string? _userId;
+    private PermMatrix? _matrix;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _users = await Api.OptionsAsync("/api/users", "id", "username", "fullName");
+        _modules = await Api.OptionsAsync("/api/modules", "key", "label");
+    }
+
+    private async Task LoadUserPerms()
+    {
+        _msg = null;
+        if (string.IsNullOrEmpty(_userId) || _matrix is null) return;
+        try
+        {
+            var doc = await Api.GetObjectAsync($"/api/permissions/{_userId}");
+            var list = new List<(string, bool, bool, bool, bool)>();
+            if (doc.TryGetProperty("modules", out var mods) && mods.ValueKind == JsonValueKind.Array)
+                foreach (var m in mods.EnumerateArray())
+                    list.Add((S(m, "moduleKey"), B(m, "canView"), B(m, "canCreate"), B(m, "canEdit"), B(m, "canDelete")));
+            _matrix.LoadFrom(list);
+        }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrEmpty(_userId) || _matrix is null) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = new List<string>() });
+            _ok = err is null; _msg = err ?? "Yetkiler kaydedildi.";
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool B(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+}

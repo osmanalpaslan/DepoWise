@@ -1,2 +1,198 @@
 @page "/maintenance"
-<DataList Title="Bakım" Path="/api/maintenance" />
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Bakım</MudText>
+
+@if (Auth.CanCreate("maintenance"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Bakım Kaydı</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudAutocomplete T="ApiClient.Opt" Label="Araç *" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
+                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+            </MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Bakım Tanımı *" @bind-Value="_defId" Items="_defs" /></MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Alt Bakım Tanımı" @bind-Value="_subDefId" Items="_subDefs" /></MudItem>
+            <MudItem xs="6" md="4"><LookupSelect Label="Teknisyen" @bind-Value="_tech" Items="_personnel" /></MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="decimal?" @bind-Value="_km" Label="Yapılan KM" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="decimal?" @bind-Value="_hour" Label="Yapılan Saat" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+            <MudItem xs="6" md="4"><MudDatePicker @bind-Date="_date" Label="Bakım Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="8"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            @if (!string.IsNullOrEmpty(_subDefId))
+            {
+                <MudItem xs="12"><MudTextField @bind-Value="_subNote" Label="Alt Bakım Açıklaması" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            }
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mt-3">Kullanılan Malzemeler (stok düşer)</MudText>
+        <MudGrid Spacing="2" Class="align-center">
+            <MudItem xs="12" md="6">
+                <MudAutocomplete T="ApiClient.Opt" Label="Malzeme" @bind-Value="_matSel" SearchFunc="SearchMaterial"
+                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+            </MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+            <MudItem xs="6" md="3"><MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddMaterial">Malzeme Ekle</MudButton></MudItem>
+        </MudGrid>
+        @if (_lines.Count > 0)
+        {
+            <MudSimpleTable Dense="true" Class="mt-2" Style="max-width:520px;">
+                <tbody>
+                    @foreach (var l in _lines)
+                    {
+                        <tr><td>@l.Name</td><td>@l.Qty</td><td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td></tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+
+        <MudStack Row="true" Class="mt-3" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="ClearForm">Temizle</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Bakım Kayıtları</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh">
+            <HeaderContent>
+                <MudTh>Araç</MudTh><MudTh>Bakım Tanımı</MudTh><MudTh>Alt Bakım</MudTh><MudTh>Yapılan</MudTh><MudTh>Sonraki</MudTh><MudTh>Durum</MudTh><MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); var cancelled = Bool(context, "isCancelled"); }
+                <MudTd>@Str(context, "vehicleCode")</MudTd>
+                <MudTd>@Str(context, "definitionName")</MudTd>
+                <MudTd>@Str(context, "subDisplay")</MudTd>
+                <MudTd>@Str(context, "performedDisplay")</MudTd>
+                <MudTd>@Str(context, "nextDueDisplay")</MudTd>
+                <MudTd>@Str(context, "statusText")</MudTd>
+                <MudTd>
+                    @if (Auth.CanDelete("maintenance") && !cancelled)
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Cancel(id))">İptal</MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+
+    private ApiClient.Opt? _vehicle;
+    private string? _defId, _subDefId, _tech;
+    private decimal? _km, _hour;
+    private DateTime? _date;
+    private string _desc = "", _subNote = "";
+    private ApiClient.Opt? _matSel;
+    private decimal _matQty;
+    private readonly List<Line> _lines = new();
+
+    private List<ApiClient.Opt> _defs = new(), _subDefs = new(), _personnel = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    private sealed record Line(string Id, string Name, decimal Qty);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("maintenance"))
+        {
+            _defs = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
+            _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+        }
+        await LoadList();
+    }
+
+    private string? _lastDef;
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (_defId != _lastDef)
+        {
+            _lastDef = _defId;
+            _subDefId = null;
+            _subDefs = string.IsNullOrEmpty(_defId) ? new()
+                : await Api.OptionsAsync($"/api/maintenance/definitions?parentDefId={_defId}", "id", "name");
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadList()
+    {
+        _rows = null;
+        try { _rows = await Api.GetArrayAsync("/api/maintenance"); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
+        => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+
+    private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
+        => await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+
+    private void AddMaterial()
+    {
+        if (_matSel is null || _matQty <= 0) return;
+        _lines.Add(new Line(_matSel.Id, _matSel.Name, _matQty));
+        _matSel = null; _matQty = 0;
+    }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
+        if (string.IsNullOrEmpty(_defId)) { _msg = "Bakım tanımı seçin."; _ok = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/maintenance", new
+            {
+                vehicleId = _vehicle.Id, definitionId = _defId, subDefinitionId = _subDefId, technicianId = _tech,
+                description = Empty(_desc), subDefinitionNote = string.IsNullOrEmpty(_subDefId) ? null : Empty(_subNote),
+                performedKm = _km, performedHour = _hour,
+                performedDate = _date is null ? (long?)null : new DateTimeOffset(_date.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
+                materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
+            });
+            _ok = err is null; _msg = err ?? "Bakım kaydedildi.";
+            if (_ok) { ClearForm(); await LoadList(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Cancel(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var err = await Api.PostAsync("/api/maintenance/cancel", new { id, reason = "Kullanıcı iptali" });
+        _msg = err ?? "Bakım iptal edildi (stok geri alındı)."; _ok = err is null;
+        await LoadList();
+    }
+
+    private void ClearForm()
+    {
+        _vehicle = null; _defId = _subDefId = _tech = null; _km = _hour = null; _date = null;
+        _desc = _subNote = ""; _matSel = null; _matQty = 0; _lines.Clear();
+    }
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString())
+            : "";
+
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
+}

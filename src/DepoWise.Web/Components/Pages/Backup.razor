@@ -1,0 +1,19 @@
+@page "/backup"
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Yedek Yönetimi</MudText>
+
+<MudPaper Class="pa-4" Elevation="2" Style="max-width:760px;">
+    <MudText Typo="Typo.body1" Class="mb-2">
+        Yerel yedekler <b>masaüstü uygulaması</b> tarafından yönetilir: her gün otomatik yedek alınır
+        (<code>Belgeler\DepoWise_Yedekler</code>), 30 gün saklanır; geri yükleme yönetici kodu ile yapılır.
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+        Sunucu (bulut) yedekleri ayrı tutulur. Süper admin iseniz <b>Web Yönetimi → Sunucu → Sunucu Yedekleri</b>
+        ekranından erişebilirsiniz.
+    </MudText>
+    @if (Auth.IsSuperAdmin)
+    {
+        <MudButton Class="mt-3" Href="/soon/server_backups" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CloudUpload">Sunucu Yedekleri</MudButton>
+    }
+</MudPaper>

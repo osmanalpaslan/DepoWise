@@ -1,2 +1,164 @@
 @page "/requests"
-<DataList Title="Malzeme Talep" Path="/api/requests" />
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Malzeme Talep</MudText>
+
+@if (Auth.CanCreate("requests"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Talep</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="3"><LookupSelect Label="Şube / Şantiye" @bind-Value="_branch" Items="_branches" /></MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Talep Eden" @bind-Value="_requester" Items="_personnel" /></MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Depo Sorumlusu" @bind-Value="_warehouse" Items="_personnel" /></MudItem>
+            <MudItem xs="6" md="3"><LookupSelect Label="Onay Veren" @bind-Value="_approver" Items="_personnel" /></MudItem>
+            <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Talep Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_submit" Label="Hemen onaya gönder" Dense="true" /></MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mt-3">Kalemler</MudText>
+        <MudGrid Spacing="2" Class="align-center">
+            <MudItem xs="12" md="5">
+                <MudAutocomplete T="ApiClient.Opt" Label="Malzeme" @bind-Value="_matSel" SearchFunc="SearchMaterial"
+                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+            </MudItem>
+            <MudItem xs="4" md="2"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+            <MudItem xs="8" md="3">
+                <MudAutocomplete T="ApiClient.Opt" Label="Araç (ops.)" @bind-Value="_matVehicle" SearchFunc="SearchVehicle"
+                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+            </MudItem>
+            <MudItem xs="12" md="2"><MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem">Kalem Ekle</MudButton></MudItem>
+        </MudGrid>
+        @if (_items.Count > 0)
+        {
+            <MudSimpleTable Dense="true" Class="mt-2" Style="max-width:640px;">
+                <tbody>
+                    @foreach (var it in _items)
+                    {
+                        <tr><td>@it.Name</td><td>@it.Qty</td><td>@(it.VehicleName ?? "—")</td><td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _items.Remove(it))" /></td></tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+
+        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Talebi Kaydet")</MudButton>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Talepler</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh">
+            <HeaderContent><MudTh>Belge No</MudTh><MudTh>Tarih</MudTh><MudTh>Kalem</MudTh><MudTh>Durum</MudTh><MudTh>Açıklama</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); var st = Int(context, "status"); }
+                <MudTd>@Str(context, "docNo")</MudTd>
+                <MudTd>@Date(context, "requestDate")</MudTd>
+                <MudTd>@Str(context, "itemCount")</MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(st)" Variant="Variant.Text">@StatusTr(st)</MudChip></MudTd>
+                <MudTd>@Str(context, "description")</MudTd>
+                <MudTd>
+                    @if (Auth.CanEdit("requests") && st == 1)
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Success" Variant="Variant.Text" OnClick="@(() => Approve(id))">Onayla</MudButton>
+                        <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Reject(id))">Reddet</MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+
+    private string? _branch, _requester, _warehouse, _approver;
+    private DateTime? _date;
+    private string _desc = "";
+    private bool _submit;
+
+    private ApiClient.Opt? _matSel, _matVehicle;
+    private decimal _matQty;
+    private readonly List<Item> _items = new();
+
+    private List<ApiClient.Opt> _branches = new(), _personnel = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    private sealed record Item(string MaterialId, string Name, decimal Qty, string? VehicleId, string? VehicleName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("requests"))
+        {
+            _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+            _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+        }
+        await LoadList();
+    }
+
+    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/requests"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
+        => await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+    private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
+        => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+
+    private void AddItem()
+    {
+        if (_matSel is null || _matQty <= 0) return;
+        _items.Add(new Item(_matSel.Id, _matSel.Name, _matQty, _matVehicle?.Id, _matVehicle?.Name));
+        _matSel = null; _matQty = 0; _matVehicle = null;
+    }
+
+    private static long? Ms(DateTime? d) => d is null ? null : new DateTimeOffset(d.Value, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (_items.Count == 0) { _msg = "En az bir kalem ekleyin."; _ok = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/requests", new
+            {
+                items = _items.Select(i => new { materialId = i.MaterialId, quantity = i.Qty, vehicleId = i.VehicleId, note = (string?)null }).ToList(),
+                branchId = _branch, requesterId = _requester, warehouseId = _warehouse, approverId = _approver,
+                description = Empty(_desc), requestDate = Ms(_date), submitImmediately = _submit
+            });
+            _ok = err is null; _msg = err ?? "Talep kaydedildi.";
+            if (_ok) { _items.Clear(); _branch = _requester = _warehouse = _approver = null; _desc = ""; _date = null; _submit = false; await LoadList(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Approve(string id) { var e = await Api.PostAsync($"/api/requests/{id}/approve", new { }); _msg = e ?? "Onaylandı."; _ok = e is null; await LoadList(); }
+    private async Task Reject(string id) { var e = await Api.PostAsync($"/api/requests/{id}/reject", new { id, reason = "Reddedildi" }); _msg = e ?? "Reddedildi."; _ok = e is null; await LoadList(); }
+
+    private static string StatusTr(int s) => s switch { 0 => "Taslak", 1 => "Beklemede", 2 => "Onaylı", 3 => "Reddedildi", 4 => "İptal", _ => "?" };
+    private static Color StatusColor(int s) => s switch { 2 => Color.Success, 3 => Color.Error, 1 => Color.Warning, _ => Color.Default };
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static int Int(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : -1;
+    private static string Date(JsonElement row, string key)
+    {
+        if (row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number)
+            return DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).LocalDateTime.ToString("dd.MM.yyyy");
+        return "—";
+    }
+}

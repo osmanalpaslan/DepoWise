@@ -1,0 +1,48 @@
+@* Modül × (Oku/Yaz/Düzelt/Sil) yetki matrisi — Yetkiler ve Yetki Şablonları ekranlarında ortak. *@
+<MudSimpleTable Dense="true" Bordered="true" Style="max-width:640px;">
+    <thead>
+        <tr><th>Modül</th><th>Oku</th><th>Yaz</th><th>Düzelt</th><th>Sil</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var m in Modules)
+        {
+            <tr>
+                <td>@m.Name</td>
+                @for (int i = 0; i < 4; i++)
+                {
+                    var idx = i; var key = m.Id;
+                    <td><MudCheckBox T="bool" Dense="true" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
+                }
+            </tr>
+        }
+    </tbody>
+</MudSimpleTable>
+
+@code {
+    [Parameter] public List<ApiClient.Opt> Modules { get; set; } = new();
+
+    private readonly Dictionary<string, bool[]> _state = new();
+
+    private bool Get(string key, int idx) => _state.TryGetValue(key, out var a) && a[idx];
+    private void Set(string key, int idx, bool v)
+    {
+        if (!_state.TryGetValue(key, out var a)) { a = new bool[4]; _state[key] = a; }
+        a[idx] = v;
+    }
+
+    /// <summary>Kayıtlı yetkileri yükle: (moduleKey, view, create, edit, delete).</summary>
+    public void LoadFrom(IEnumerable<(string Key, bool V, bool C, bool E, bool D)> data)
+    {
+        _state.Clear();
+        foreach (var (k, v, c, e, d) in data) _state[k] = new[] { v, c, e, d };
+        StateHasChanged();
+    }
+
+    public void Clear() { _state.Clear(); StateHasChanged(); }
+
+    /// <summary>Sunucuya gönderilecek satırlar (en az bir bayrak açık olanlar).</summary>
+    public List<object> Collect()
+        => _state.Where(kv => kv.Value.Any(b => b))
+            .Select(kv => (object)new { moduleKey = kv.Key, canView = kv.Value[0], canCreate = kv.Value[1], canEdit = kv.Value[2], canDelete = kv.Value[3] })
+            .ToList();
+}

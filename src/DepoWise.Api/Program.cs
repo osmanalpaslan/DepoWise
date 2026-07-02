@@ -151,6 +151,7 @@ app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);
 static string? Doc(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+static bool Void(Action a) { a(); return true; }
 
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Branches.List(s)) : Results.Unauthorized()).RequireAuthorization();
@@ -253,6 +254,142 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ── Modül kataloğu (yetki matrisi için) ──
+app.MapGet("/api/modules", (HttpContext c) => S(c) is null ? Results.Unauthorized()
+    : Results.Ok(AppModules.All.Select(m => new { key = m.Key, label = m.Label }))).RequireAuthorization();
+
+// ── Bakım (Bakım Takibi) — masaüstüyle birebir ──
+app.MapGet("/api/maintenance/definitions", (HttpContext c, string? parentDefId) =>
+    S(c) is { } s ? Results.Ok(svc.MaintenanceDefinitions.List(s, parentDefId)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/maintenance/definitions", (HttpContext c, MaintDefDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.MaintenanceDefinitions.Create(s,
+        new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition(d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description), d.VehicleIds) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity)).ToList();
+    var id = svc.Maintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
+        d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+app.MapPost("/api/maintenance/cancel", (HttpContext c, IdReasonDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Maintenance.Cancel(s, d.Id, string.IsNullOrWhiteSpace(d.Reason) ? "Kullanıcı iptali" : d.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Muayene / Sigorta ──
+app.MapPost("/api/inspection", (HttpContext c, InspectionDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Inspection.Save(s, new DepoWise.Infrastructure.Maintenance.NewInspection(
+        d.VehicleId, d.DocType, d.LastDate, d.NextDate, Doc(d.Result), Doc(d.Place), Doc(d.Note))) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Yakıt ──
+app.MapGet("/api/fuel/depot", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDepotEntries(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/fuel/summary", (HttpContext c) => S(c) is { } s ? Results.Ok(new { depotBalance = svc.Fuel.GetDepotBalance(s), currentPrice = svc.Fuel.GetCurrentFuelPrice(s) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
+        d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note)), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/fuel/depot", (HttpContext c, DepotEntryDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(
+        d.Liters, d.UnitPrice, "TRY", d.SupplierId, Doc(d.InvoiceNo), Doc(d.Note), d.EntryDate), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Günlük Faaliyet (Hareket + Bakım) ──
+app.MapPost("/api/daily/movement", (HttpContext c, MovementDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.DailyActivity.SaveMovement(s, new DepoWise.Infrastructure.Operations.NewMovementActivity(
+        string.IsNullOrWhiteSpace(d.MovementKind) ? "movement" : d.MovementKind, d.VehicleId, d.FromLocationId, d.ToLocationId,
+        d.OperatorId, d.DurationDays, Doc(d.Description), d.ActivityDate), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity)).ToList();
+    var id = svc.DailyActivity.SaveMaintenanceActivity(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
+        d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+app.MapDelete("/api/daily/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.DailyActivity.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Araçlar (ekle/sil) ──
+app.MapPost("/api/vehicles", (HttpContext c, NewVehicleDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle(
+        d.InternalCode, Doc(d.Plate), d.ProductionYear, d.CurrentMeter, string.IsNullOrWhiteSpace(d.MeterUnit) ? "km" : d.MeterUnit,
+        d.BranchId, d.DriverPersonnelId, Doc(d.ChassisNo), Doc(d.EngineNo), string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
+        d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.TemplateId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/vehicles/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Vehicles.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/models/{brandId}", (HttpContext c, string brandId) =>
+    S(c) is { } s ? Results.Ok(svc.Lookups.ListVehicleModels(s, brandId)) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Malzeme Talep (kalemli + onay akışı) ──
+app.MapGet("/api/requests/{id}/items", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Requests.GetItems(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/requests", (HttpContext c, RequestDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
+    var h = svc.Requests.Create(s, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately));
+    return Results.Ok(new { id = h.Id, docNo = h.DocNo });
+}).RequireAuthorization();
+app.MapPost("/api/requests/{id}/approve", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Approve(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/requests/{id}/reject", (HttpContext c, string id, IdReasonDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Reject(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Reddedildi" : d!.Reason!)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Personel (sil) + Şube/Şantiye (güncelle/sil) ──
+app.MapDelete("/api/personnel/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Lookups.Delete(s, "personnel", id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/branches/{id}", (HttpContext c, string id, NameDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name))) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/branches/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Kullanıcılar (rol / aktif / şifre / sil) ──
+app.MapGet("/api/users/{id}/roles", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Users.GetRoleKeys(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/users/{id}/roles", (HttpContext c, string id, RolesDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetRoles(s, id, d.Roles ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/users/{id}/active", (HttpContext c, string id, ActiveDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetActive(s, id, d.Active)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/users/{id}/password", (HttpContext c, string id, PasswordDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.ChangePassword(s, id, d.Password)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/users/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.DeleteUser(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Yetkiler (kullanıcı bazlı modül matrisi) ──
+app.MapGet("/api/permissions/{userId}", (HttpContext c, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var data = svc.Permissions.GetForUser(s, userId);
+    return Results.Ok(new { modules = data.Modules, buttons = data.Buttons });
+}).RequireAuthorization();
+app.MapPost("/api/permissions/{userId}", (HttpContext c, string userId, PermSaveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mods = (d.Modules ?? new()).Select(m => new ModulePermission(m.ModuleKey, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete));
+    svc.Permissions.SaveForUser(s, userId, mods, d.Buttons ?? new());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// ── Yetki Şablonları ──
+app.MapGet("/api/permission-templates", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.PermissionTemplates.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/permission-templates/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var d = svc.PermissionTemplates.GetData(s, id);
+    return Results.Ok(new { modules = d.Modules, buttons = d.Buttons, roleKey = d.RoleKey });
+}).RequireAuthorization();
+app.MapPost("/api/permission-templates", (HttpContext c, TemplateDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var mods = (d.Modules ?? new()).Select(m => new ModulePermission(m.ModuleKey, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete));
+    var id = svc.PermissionTemplates.Create(s, d.Name, d.RoleKey, mods, d.Buttons ?? new());
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+app.MapDelete("/api/permission-templates/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.PermissionTemplates.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// ── Sistem Logu (audit) ──
+app.MapGet("/api/audit", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.AuditLog.List(s)) : Results.Unauthorized()).RequireAuthorization();
+
 // ── Güncelleme (release) ──
 app.MapGet("/api/releases/latest", () => Results.Ok(svc.Releases.Latest()));
 app.MapPost("/api/releases", async (HttpContext ctx) =>
@@ -341,3 +478,22 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockReverseDto(string DocumentId, string? Reason);
+record IdReasonDto(string Id, string? Reason);
+record MaintLineDto(string MaterialId, decimal Quantity);
+record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,
+    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
+record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds);
+record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
+record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate);
+record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note);
+record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
+record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
+    string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId);
+record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);
+record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately);
+record RolesDto(List<string>? Roles);
+record ActiveDto(bool Active);
+record PasswordDto(string Password);
+record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
+record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons);
+record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons);

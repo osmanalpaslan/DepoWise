@@ -1,0 +1,97 @@
+@page "/permission-templates"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Yetki Şablonları</MudText>
+
+@if (Auth.CanCreate("permission_templates"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Şablon</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Şablon Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-Value="_roleKey" Label="Rol (opsiyonel)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var r in _roles) { <MudSelectItem T="string" Value="@r.Key">@r.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudText Typo="Typo.subtitle2" Class="mt-2">Yetkiler</MudText>
+        <PermMatrix @ref="_matrix" Modules="_modules" />
+        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Şablon Oluştur")</MudButton>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Şablonlar</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Şablon yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
+            <HeaderContent><MudTh>Ad</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); }
+                <MudTd>@Str(context, "name")</MudTd>
+                <MudTd>
+                    @if (Auth.CanDelete("permission_templates"))
+                    {
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string _name = "";
+    private string? _roleKey;
+    private List<RoleDto> _roles = new();
+    private List<ApiClient.Opt> _modules = new();
+    private PermMatrix? _matrix;
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _modules = await Api.OptionsAsync("/api/modules", "key", "label");
+        try { _roles = await Api.GetRolesAsync(); } catch { }
+        await LoadList();
+    }
+
+    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/permission-templates"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task Create()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Şablon adı zorunlu."; _ok = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/permission-templates", new { name = _name.Trim(), roleKey = _roleKey, modules = _matrix?.Collect() ?? new(), buttons = new List<string>() });
+            _ok = err is null; _msg = err ?? "Şablon oluşturuldu.";
+            if (_ok) { _name = ""; _roleKey = null; _matrix?.Clear(); await LoadList(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var err = await Api.DeleteAsync($"/api/permission-templates/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null;
+        await LoadList();
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

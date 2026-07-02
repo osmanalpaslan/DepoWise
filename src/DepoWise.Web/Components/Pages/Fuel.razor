@@ -1,2 +1,193 @@
 @page "/fuel"
-<DataList Title="Yakıt" Path="/api/fuel" />
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Yakıt</MudText>
+
+<MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+    <MudTabPanel Text="Yakıt Dağıtımları">
+        @if (Auth.CanCreate("fuel"))
+        {
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:900px;">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="6">
+                        <MudAutocomplete T="ApiClient.Opt" Label="Araç *" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
+                                         ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+                    </MudItem>
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_liters" Label="Litre *" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_meter" Label="Güncel KM/Saat *" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Personel" @bind-Value="_person" Items="_personnel" /></MudItem>
+                    <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="12"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                </MudGrid>
+                <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Distribute" Disabled="_busy">@(_busy ? "…" : "Dağıtımı Kaydet")</MudButton>
+                @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+            </MudPaper>
+        }
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDist">Yenile</MudButton>
+        @if (_dist is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else
+        {
+            <MudTable Items="_dist" Dense="true" Hover="true" Striped="true" Class="mt-2">
+                <HeaderContent><MudTh>Araç</MudTh><MudTh>Önceki</MudTh><MudTh>Güncel</MudTh><MudTh>Litre</MudTh><MudTh>B. Fiyat</MudTh><MudTh>Tutar</MudTh><MudTh>Tarih</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "vehicleCode")</MudTd>
+                    <MudTd>@Str(context, "prevMeter")</MudTd>
+                    <MudTd>@Str(context, "currentMeter")</MudTd>
+                    <MudTd>@Str(context, "liters")</MudTd>
+                    <MudTd>@Str(context, "unitPrice")</MudTd>
+                    <MudTd>@Money(Dec(context, "liters") * Dec(context, "unitPrice"))</MudTd>
+                    <MudTd>@Date(context, "distributionDate")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Depo Girişleri">
+        @if (Auth.CanCreate("fuel"))
+        {
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:900px;">
+                <MudGrid Spacing="2">
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_dLiters" Label="Litre *" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                    <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_dPrice" Label="Birim Fiyat *" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Tedarikçi" @bind-Value="_dSupplier" Items="_suppliers" AddTable="suppliers" OnAdded="ReloadSuppliers" /></MudItem>
+                    <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_dDate" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    <MudItem xs="6" md="3"><MudTextField @bind-Value="_dInvoice" Label="Fatura No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                    <MudItem xs="12"><MudTextField @bind-Value="_dNote" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                </MudGrid>
+                <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="AddDepot" Disabled="_busy">@(_busy ? "…" : "Depo Girişi Kaydet")</MudButton>
+                @if (_dMsg is not null) { <MudAlert Severity="@(_dOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_dMsg</MudAlert> }
+            </MudPaper>
+        }
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDepot">Yenile</MudButton>
+        @if (_depot is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else
+        {
+            <MudTable Items="_depot" Dense="true" Hover="true" Striped="true" Class="mt-2">
+                <HeaderContent><MudTh>Tarih</MudTh><MudTh>Litre</MudTh><MudTh>B. Fiyat</MudTh><MudTh>Fatura</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "dateText")</MudTd>
+                    <MudTd>@Str(context, "litersText")</MudTd>
+                    <MudTd>@Str(context, "priceText")</MudTd>
+                    <MudTd>@Str(context, "invoiceDisplay")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Özet">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadSummary">Yenile</MudButton>
+        <MudGrid Class="mt-2" Spacing="2">
+            <MudItem xs="12" md="4"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.overline">Kalan Yakıt (Depo)</MudText><MudText Typo="Typo.h5">@_depotBalance.ToString("0.##") L</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="4"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.overline">Güncel Litre Fiyatı</MudText><MudText Typo="Typo.h5">@_currentPrice.ToString("0.##")</MudText></MudPaper></MudItem>
+        </MudGrid>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+
+    private ApiClient.Opt? _vehicle;
+    private decimal _liters, _meter;
+    private decimal? _price;
+    private string? _person;
+    private DateTime? _date;
+    private string _note = "";
+
+    private decimal _dLiters, _dPrice;
+    private string? _dSupplier;
+    private DateTime? _dDate;
+    private string _dInvoice = "", _dNote = "";
+
+    private List<ApiClient.Opt> _personnel = new(), _suppliers = new();
+    private JsonElement[]? _dist, _depot;
+    private decimal _depotBalance, _currentPrice;
+    private string? _msg; private bool _ok;
+    private string? _dMsg; private bool _dOk;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("fuel"))
+        {
+            _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+            _suppliers = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+        }
+        await LoadDist(); await LoadDepot(); await LoadSummary();
+    }
+
+    private async Task ReloadSuppliers(string _) => _suppliers = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+
+    private async Task LoadDist() { _dist = null; try { _dist = await Api.GetArrayAsync("/api/fuel"); } catch { _dist = Array.Empty<JsonElement>(); } }
+    private async Task LoadDepot() { _depot = null; try { _depot = await Api.GetArrayAsync("/api/fuel/depot"); } catch { _depot = Array.Empty<JsonElement>(); } }
+    private async Task LoadSummary()
+    {
+        try
+        {
+            var doc = await Api.GetObjectAsync("/api/fuel/summary");
+            _depotBalance = doc.TryGetProperty("depotBalance", out var b) ? b.GetDecimal() : 0;
+            _currentPrice = doc.TryGetProperty("currentPrice", out var p) ? p.GetDecimal() : 0;
+        }
+        catch { }
+    }
+
+    private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
+        => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+
+    private static long? Ms(DateTime? d) => d is null ? null : new DateTimeOffset(d.Value, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+    private async Task Distribute()
+    {
+        _msg = null;
+        if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
+        if (_liters <= 0) { _msg = "Litre girin."; _ok = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/fuel/distribute", new
+            {
+                vehicleId = _vehicle.Id, liters = _liters, currentMeter = _meter, unitPrice = _price,
+                personnelId = _person, distributionDate = Ms(_date), note = Empty(_note)
+            });
+            _ok = err is null; _msg = err ?? "Dağıtım kaydedildi.";
+            if (_ok) { _vehicle = null; _liters = _meter = 0; _price = null; _person = null; _date = null; _note = ""; await LoadDist(); await LoadSummary(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task AddDepot()
+    {
+        _dMsg = null;
+        if (_dLiters <= 0 || _dPrice <= 0) { _dMsg = "Litre ve birim fiyat girin."; _dOk = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/fuel/depot", new
+            {
+                liters = _dLiters, unitPrice = _dPrice, supplierId = _dSupplier,
+                invoiceNo = Empty(_dInvoice), note = Empty(_dNote), entryDate = Ms(_dDate)
+            });
+            _dOk = err is null; _dMsg = err ?? "Depo girişi kaydedildi.";
+            if (_dOk) { _dLiters = _dPrice = 0; _dSupplier = null; _dInvoice = _dNote = ""; _dDate = null; await LoadDepot(); await LoadSummary(); }
+        }
+        catch (Exception ex) { _dOk = false; _dMsg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+    private static string Money(decimal d) => d.ToString("0.##");
+    private static string Date(JsonElement row, string key)
+    {
+        if (row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number)
+            return DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).LocalDateTime.ToString("dd.MM.yyyy");
+        return "—";
+    }
+}

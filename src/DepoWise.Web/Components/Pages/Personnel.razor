@@ -1,2 +1,85 @@
 @page "/personnel"
-<CrudList Title="Personel" ListPath="/api/personnel" CreatePath="/api/personnel" CreateField="fullName" NameField="fullName" ModuleKey="personnel" />
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
+
+@if (Auth.CanCreate("personnel"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Personel</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad Soyad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_title" Label="Unvan" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Personel Ekle")</MudButton>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Personel Listesi</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
+            <HeaderContent><MudTh>Ad Soyad</MudTh><MudTh>Unvan</MudTh><MudTh>Telefon</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); }
+                <MudTd>@Str(context, "fullName")</MudTd>
+                <MudTd>@Str(context, "title")</MudTd>
+                <MudTd>@Str(context, "phone")</MudTd>
+                <MudTd>
+                    @if (Auth.CanDelete("personnel"))
+                    {
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string _name = "", _title = "", _phone = "";
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadList();
+    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/personnel"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task Create()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad Soyad zorunlu."; _ok = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/personnel", new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone) });
+            _ok = err is null; _msg = err ?? "Eklendi.";
+            if (_ok) { _name = _title = _phone = ""; await LoadList(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var err = await Api.DeleteAsync($"/api/personnel/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null;
+        await LoadList();
+    }
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

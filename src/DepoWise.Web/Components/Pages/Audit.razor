@@ -1,0 +1,36 @@
+@page "/audit"
+@using System.Text.Json
+@inject ApiClient Api
+
+<MudText Typo="Typo.h5" GutterBottom="true">Sistem Logu</MudText>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Kayıtlar</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="65vh">
+            <HeaderContent><MudTh>Tarih</MudTh><MudTh>Kullanıcı</MudTh><MudTh>İşlem</MudTh><MudTh>Nesne</MudTh><MudTh>Kayıt</MudTh></HeaderContent>
+            <RowTemplate>
+                <MudTd>@Str(context, "dateText")</MudTd>
+                <MudTd>@Str(context, "userText")</MudTd>
+                <MudTd>@Str(context, "action")</MudTd>
+                <MudTd>@Str(context, "entityType")</MudTd>
+                <MudTd>@Str(context, "entityId")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private JsonElement[]? _rows;
+    protected override async Task OnInitializedAsync() => await Load();
+    private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/audit"); } catch { _rows = Array.Empty<JsonElement>(); } }
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

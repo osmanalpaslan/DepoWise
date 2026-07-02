@@ -1,0 +1,12 @@
+@page "/reports"
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Raporlar</MudText>
+
+<MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+    <MudTabPanel Text="Stok Durumu"><DataList Title="Stok Durumu" Path="/api/materials" /></MudTabPanel>
+    <MudTabPanel Text="Bakım"><DataList Title="Bakım" Path="/api/maintenance" /></MudTabPanel>
+    <MudTabPanel Text="Yakıt Tüketim"><DataList Title="Yakıt Dağıtımları" Path="/api/fuel" /></MudTabPanel>
+    <MudTabPanel Text="Depo Girişi"><DataList Title="Depo Girişleri" Path="/api/fuel/depot" /></MudTabPanel>
+    <MudTabPanel Text="Talep"><DataList Title="Talepler" Path="/api/requests" /></MudTabPanel>
+</MudTabs>

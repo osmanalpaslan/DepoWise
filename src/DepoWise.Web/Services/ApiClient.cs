@@ -86,12 +86,46 @@ public sealed class ApiClient
         return await r.Content.ReadFromJsonAsync<List<RoleDto>>() ?? new();
     }
 
+    public sealed record Opt(string Id, string Name);
+
+    /// <summary>Bir liste ucundan (id,name) seçenekleri — dropdown'lar için. nameKey birden çok olabilir (ilk dolu olan).</summary>
+    public async Task<List<Opt>> OptionsAsync(string path, string idKey = "id", params string[] nameKeys)
+    {
+        if (nameKeys.Length == 0) nameKeys = new[] { "name" };
+        try
+        {
+            var arr = await GetArrayAsync(path);
+            var list = new List<Opt>();
+            foreach (var e in arr)
+            {
+                if (e.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+                var id = e.TryGetProperty(idKey, out var i) ? i.GetString() ?? "" : "";
+                if (id == "") continue;
+                string name = "";
+                foreach (var nk in nameKeys)
+                    if (e.TryGetProperty(nk, out var n) && n.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    { name = n.ValueKind == System.Text.Json.JsonValueKind.String ? n.GetString() ?? "" : n.ToString(); if (name != "") break; }
+                list.Add(new Opt(id, name));
+            }
+            return list;
+        }
+        catch { return new(); }
+    }
+
     public async Task<System.Text.Json.JsonElement[]> GetArrayAsync(string path)
     {
         var resp = await _http.SendAsync(Req(HttpMethod.Get, path));
         resp.EnsureSuccessStatusCode();
         var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement[]>();
         return doc ?? Array.Empty<System.Text.Json.JsonElement>();
+    }
+
+    /// <summary>Tek JSON nesne dönen uçlar için (özet vb.).</summary>
+    public async Task<System.Text.Json.JsonElement> GetObjectAsync(string path)
+    {
+        var resp = await _http.SendAsync(Req(HttpMethod.Get, path));
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
     }
 
     public async Task<List<CompanyDto>> GetCompaniesAsync()

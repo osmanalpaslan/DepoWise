@@ -1,0 +1,36 @@
+@inject IDialogService Dialog
+@inject ApiClient Api
+
+<MudSelect T="string" Value="@Value" ValueChanged="Changed" Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
+           Clearable="true" Dense="true"
+           Adornment="@(AddTable is null ? Adornment.None : Adornment.End)"
+           AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick="Add">
+    @foreach (var o in Items)
+    {
+        <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public List<ApiClient.Opt> Items { get; set; } = new();
+    /// <summary>Doluysa alanın yanında "+" çıkar; yeni lookup /api/lookups/{AddTable}'a eklenir.</summary>
+    [Parameter] public string? AddTable { get; set; }
+    /// <summary>"+" ile ekleme sonrası ebeveyn listeyi tazelesin diye (yeni ad döner).</summary>
+    [Parameter] public EventCallback<string> OnAdded { get; set; }
+
+    private async Task Changed(string? v) { Value = v; await ValueChanged.InvokeAsync(v); }
+
+    private async Task Add()
+    {
+        if (AddTable is null) return;
+        var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Kayıt",
+            new DialogParameters { ["Table"] = AddTable, ["Label"] = "Ad" },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled || res.Data is not string name) return;
+        await OnAdded.InvokeAsync(name);
+    }
+}
