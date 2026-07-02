@@ -1,19 +1,65 @@
 @page "/backup"
+@using System.Text.Json
+@inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
 
 <MudText Typo="Typo.h5" GutterBottom="true">Yedek Yönetimi</MudText>
 
-<MudPaper Class="pa-4" Elevation="2" Style="max-width:760px;">
-    <MudText Typo="Typo.body1" Class="mb-2">
-        Yerel yedekler <b>masaüstü uygulaması</b> tarafından yönetilir: her gün otomatik yedek alınır
-        (<code>Belgeler\DepoWise_Yedekler</code>), 30 gün saklanır; geri yükleme yönetici kodu ile yapılır.
-    </MudText>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary">
-        Sunucu (bulut) yedekleri ayrı tutulur. Süper admin iseniz <b>Web Yönetimi → Sunucu → Sunucu Yedekleri</b>
-        ekranından erişebilirsiniz.
-    </MudText>
-    @if (Auth.IsSuperAdmin)
+<MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+    Bu ekran <b>sunucu veritabanı</b> yedeğini yönetir. Masaüstü uygulamasının <b>yerel disk</b> yedekleri
+    (Belgeler\DepoWise_Yedekler) yalnız masaüstünden alınır/geri yüklenir; tarayıcı yerel diske erişemez.
+</MudAlert>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Sunucu Yedekleri</MudText><MudSpacer />
+        @if (Auth.IsSuperAdmin) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Backup" OnClick="Create" Disabled="_busy">Yedek Al</MudButton> }
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-2">@_msg</MudAlert> }
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz yedek alınmadı.</MudText> }
+    else
     {
-        <MudButton Class="mt-3" Href="/soon/server_backups" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CloudUpload">Sunucu Yedekleri</MudButton>
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent><MudTh>DOSYA</MudTh><MudTh>BOYUT</MudTh><MudTh>TARİH</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var name = Str(context, "fileName"); }
+                <MudTd>@name</MudTd>
+                <MudTd>@Str(context, "sizeText")</MudTd>
+                <MudTd>@Str(context, "dateText")</MudTd>
+                <MudTd>@if (Auth.IsSuperAdmin) { <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download" OnClick="@(() => Download(name))">İndir</MudButton> }</MudTd>
+            </RowTemplate>
+        </MudTable>
     }
 </MudPaper>
+
+@code {
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await Load();
+    private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/backup/list"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task Create()
+    {
+        if (!await Dialog.Confirm("Sunucu veritabanının yedeği alınsın mı?")) return;
+        _busy = true; _msg = null;
+        try { var err = await Api.PostAsync("/api/backup/create", new { }); _ok = err is null; _msg = err ?? "Yedek alındı."; if (_ok) await Load(); }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Download(string name)
+    {
+        var (bytes, fn) = await Api.GetFileAsync($"/api/backup/download/{Uri.EscapeDataString(name)}", name);
+        if (bytes is null) { _msg = "İndirilemedi."; _ok = false; return; }
+        await JS.InvokeVoidAsync("dwDownload", fn, Convert.ToBase64String(bytes), "application/octet-stream");
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

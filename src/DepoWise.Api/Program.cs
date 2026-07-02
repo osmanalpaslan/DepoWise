@@ -669,6 +669,28 @@ app.MapDelete("/api/permission-templates/{id}", (HttpContext c, string id) =>
 // ── Sistem Logu (audit) ──
 app.MapGet("/api/audit", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.AuditLog.List(s)) : Results.Unauthorized()).RequireAuthorization();
 
+// ── Sunucu veritabanı yedeği (Yedek Yönetimi'nin web karşılığı) ──
+app.MapGet("/api/backup/list", (HttpContext c) =>
+    S(c) is null ? Results.Unauthorized() : Results.Ok(svc.DbBackup.ListBackups().Select(b => new
+    {
+        fileName = Path.GetFileName(b.Path), sizeBytes = b.SizeBytes, createdAt = b.CreatedAt,
+        dateText = DateTimeOffset.FromUnixTimeMilliseconds(b.CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
+        sizeText = $"{b.SizeBytes / 1024.0 / 1024.0:0.##} MB",
+    }))).RequireAuthorization();
+app.MapPost("/api/backup/create", (HttpContext c) =>
+{
+    var s = S(c); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
+    var path = svc.DbBackup.Backup();
+    return Results.Ok(new { fileName = Path.GetFileName(path) });
+}).RequireAuthorization();
+app.MapGet("/api/backup/download/{name}", (HttpContext c, string name) =>
+{
+    var s = S(c); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
+    var safe = Path.GetFileName(name); // path traversal koruması
+    var full = Path.Combine(svc.DbBackup.GetBackupFolder(), safe);
+    return File.Exists(full) ? Results.File(full, "application/octet-stream", safe) : Results.NotFound();
+}).RequireAuthorization();
+
 // ── Güncelleme (release) ──
 app.MapGet("/api/releases/latest", () => Results.Ok(svc.Releases.Latest()));
 app.MapPost("/api/releases", async (HttpContext ctx) =>
