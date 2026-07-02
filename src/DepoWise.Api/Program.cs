@@ -116,6 +116,20 @@ app.MapPost("/api/machines/{id}/revoke", (HttpContext ctx, string id) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ── Firmalar (Süper Admin) ──
+app.MapGet("/api/companies", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Companies.List(s));
+}).RequireAuthorization();
+app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var id = svc.Companies.Create(s, new DepoWise.Infrastructure.Organization.NewCompany(
+        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+
 // ── Güncelleme (release) ──
 app.MapGet("/api/releases/latest", () => Results.Ok(svc.Releases.Latest()));
 app.MapPost("/api/releases", async (HttpContext ctx) =>
@@ -194,3 +208,4 @@ record LoginDto(string? CompanyId, string Username, string Password);
 record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
+record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson);

@@ -1,0 +1,91 @@
+@page "/companies"
+@inject ApiClient Api
+@inject AuthState Auth
+
+<PageTitle>Firmalar — DepoWise</PageTitle>
+
+<h3>Firmalar</h3>
+<p class="text-muted">Firma tanımları (yalnız Süper Admin).</p>
+
+@if (!Auth.IsAuthenticated)
+{
+    <div class="alert alert-warning">Giriş yapmalısınız.</div>
+}
+else
+{
+    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="Load">Yenile</button>
+    @if (_error is not null) { <div class="alert alert-danger">@_error</div> }
+
+    @if (_items is null) { <p>Yükleniyor…</p> }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Firma</th><th>Vergi No</th><th>Telefon</th><th>Yetkili</th><th>Kullanıcı</th></tr></thead>
+            <tbody>
+            @foreach (var c in _items)
+            {
+                <tr>
+                    <td><strong>@c.Name</strong></td>
+                    <td>@(string.IsNullOrEmpty(c.TaxNo) ? "—" : c.TaxNo)</td>
+                    <td>@(string.IsNullOrEmpty(c.Phone) ? "—" : c.Phone)</td>
+                    <td>@(string.IsNullOrEmpty(c.AuthorizedPerson) ? "—" : c.AuthorizedPerson)</td>
+                    <td>@c.UserCount</td>
+                </tr>
+            }
+            @if (_items.Count == 0) { <tr><td colspan="5" class="text-muted">Kayıt yok.</td></tr> }
+            </tbody>
+        </table>
+
+        <hr />
+        <h5>Yeni Firma</h5>
+        <div class="row g-2" style="max-width:720px;">
+            <div class="col-md-6"><label class="form-label">Firma Adı *</label><input class="form-control" @bind="_name" /></div>
+            <div class="col-md-3"><label class="form-label">Vergi No</label><input class="form-control" @bind="_taxNo" /></div>
+            <div class="col-md-3"><label class="form-label">Vergi Dairesi</label><input class="form-control" @bind="_taxOffice" /></div>
+            <div class="col-md-4"><label class="form-label">Telefon</label><input class="form-control" @bind="_phone" /></div>
+            <div class="col-md-4"><label class="form-label">E-posta</label><input class="form-control" @bind="_email" /></div>
+            <div class="col-md-4"><label class="form-label">Yetkili Kişi</label><input class="form-control" @bind="_person" /></div>
+            <div class="col-12"><label class="form-label">Adres</label><input class="form-control" @bind="_address" /></div>
+            <div class="col-12">
+                <button class="btn btn-success" @onclick="Create" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "Firma Ekle")</button>
+                @if (_msg is not null) { <span class="ms-2">@_msg</span> }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<CompanyDto>? _items;
+    private string? _error;
+    private string _name = "", _taxNo = "", _taxOffice = "", _phone = "", _email = "", _person = "", _address = "";
+    private string? _msg;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
+
+    private async Task Load()
+    {
+        _error = null;
+        try { _items = await Api.GetCompaniesAsync(); }
+        catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+    }
+
+    private async Task Create()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Firma adı zorunlu."; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.CreateCompanyAsync(new
+            {
+                name = _name.Trim(), taxNo = _taxNo, taxOffice = _taxOffice,
+                address = _address, phone = _phone, email = _email, authorizedPerson = _person
+            });
+            _msg = err ?? "Eklendi.";
+            if (err is null) { _name = _taxNo = _taxOffice = _phone = _email = _person = _address = ""; await Load(); }
+        }
+        catch (Exception ex) { _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+}

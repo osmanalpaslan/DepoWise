@@ -7,6 +7,7 @@ namespace DepoWise.Web.Services;
 public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin);
 public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive);
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
+public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount);
 
 /// <summary>
 /// DepoWise.Api HTTP istemcisi (web arayüzü → API). Web hiçbir iş kuralı TAŞIMAZ; her şey API'de.
@@ -44,6 +45,21 @@ public sealed class ApiClient
         var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/machines"));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<MachineDto>>() ?? new();
+    }
+
+    public async Task<List<CompanyDto>> GetCompaniesAsync()
+    {
+        var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies"));
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<CompanyDto>>() ?? new();
+    }
+
+    public async Task<string?> CreateCompanyAsync(object dto)
+    {
+        var req = Req(HttpMethod.Post, "/api/companies");
+        req.Content = JsonContent.Create(dto);
+        var resp = await _http.SendAsync(req);
+        return resp.IsSuccessStatusCode ? null : $"Hata {(int)resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}";
     }
 
     public Task ApproveMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/approve"));

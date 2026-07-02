@@ -18,6 +18,7 @@ public sealed class ServerServices
     public IDbConnectionFactory Factory { get; }
     public AuthService Auth { get; }
     public UserService Users { get; }
+    public DepoWise.Infrastructure.Organization.CompanyService Companies { get; }
     public SyncServer Sync { get; }
     public ReleaseService Releases { get; }
     public EnrollmentService Enrollment { get; }
@@ -34,6 +35,7 @@ public sealed class ServerServices
         var clock = new SystemClock();
         Auth = new AuthService(Factory, clock);
         Users = new UserService(Factory, clock);
+        Companies = new DepoWise.Infrastructure.Organization.CompanyService(Factory, clock);
         Sync = new SyncServer(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
         Enrollment = new EnrollmentService(Factory, clock);
