@@ -10,7 +10,7 @@ builder.Services.AddRazorComponents()
 // API tabanı (appsettings: Api:BaseUrl) — web yalnız bu API'yi tüketir (iş kuralı taşımaz).
 var apiBase = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5224";
 builder.Services.AddScoped<AuthState>();
-builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBase) });
+builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBase), Timeout = TimeSpan.FromSeconds(30) });
 builder.Services.AddScoped<ApiClient>();
 
 var app = builder.Build();
