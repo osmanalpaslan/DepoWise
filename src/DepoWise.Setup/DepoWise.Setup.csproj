@@ -1,11 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>DepoWiseSetup</AssemblyName>
+    <!-- Tek dosya self-contained yayınlandığında paketi sıkıştır (boyutu ~%40 küçültür). -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
     <!-- Sunucu adresi (kurulum bu adresten uygulamayı indirir). Yayınlarken -p:ServerUrl=... ile değiştirilebilir. -->
     <ServerUrl Condition="'$(ServerUrl)'==''">https://depowise-erp.fly.dev</ServerUrl>
   </PropertyGroup>

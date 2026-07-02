@@ -4,6 +4,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Security;
+using DepoWise.Application.Theming;
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -34,6 +35,57 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// <summary>Aktif kabuk — çapraz ekran navigasyonu için (ör. malzeme detayından araç ekranına).</summary>
     public static ShellViewModel? Current { get; private set; }
 
+    // ── Sunucu bağlantı durumu (üst bar) ──
+    [ObservableProperty] private string _connectionText = "Bağlanıyor…";
+    [ObservableProperty] private Avalonia.Media.IBrush _connectionBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#F59E0B"));
+    private Avalonia.Threading.DispatcherTimer? _connTimer;
+    private static readonly System.Net.Http.HttpClient _pingHttp = new() { Timeout = TimeSpan.FromSeconds(6) };
+
+    private void StartConnectionMonitor()
+    {
+        _ = PingAsync();
+        _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _connTimer.Tick += async (_, _) => await PingAsync();
+        _connTimer.Start();
+    }
+
+    private async System.Threading.Tasks.Task PingAsync()
+    {
+        var url = ResolveServerUrl();
+        if (string.IsNullOrWhiteSpace(url)) { SetConn("#94A3B8", "Yerel (sunucu tanımsız)"); return; }
+        try
+        {
+            SetConn("#3B82F6", "Veri alınıyor…");
+            using var resp = await _pingHttp.GetAsync(url!.TrimEnd('/') + "/health");
+            SetConn(resp.IsSuccessStatusCode ? "#22C55E" : "#EF4444", resp.IsSuccessStatusCode ? "Bağlı" : "Çevrimdışı");
+        }
+        catch { SetConn("#EF4444", "Çevrimdışı"); }
+    }
+
+    private void SetConn(string hex, string text)
+    {
+        ConnectionBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(hex));
+        ConnectionText = text;
+    }
+
+    private static string? ResolveServerUrl()
+    {
+        try
+        {
+            var companyId = DesktopServices.Session?.CompanyId ?? DesktopServices.DefaultCompanyId;
+            var s = DesktopServices.Settings.Get(companyId, SettingKeys.UpdateServerUrl);
+            if (!string.IsNullOrWhiteSpace(s)) return s;
+            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "serverurl.txt");
+            if (System.IO.File.Exists(path))
+            {
+                var v = System.IO.File.ReadAllText(path).Trim();
+                return string.IsNullOrWhiteSpace(v) ? null : v;
+            }
+        }
+        catch { }
+        return null;
+    }
+
     public ShellViewModel(SessionContext session)
     {
         Current = this;
@@ -47,6 +99,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         DeveloperMode.Changed += OnDeveloperModeChanged;
 
         Navigate("dashboard");
+        StartConnectionMonitor();
     }
 
     private static IReadOnlyList<NavGroupVm> BuildGroups(SessionContext s)

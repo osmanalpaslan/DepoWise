@@ -52,6 +52,17 @@
         Auth.Loaded = true;
         try
         {
+            // Yeni sürüm yayınlandıysa: oturumu kapat + taze kodla tam yeniden yükle (manuel CTRL+SHIFT+R gerekmez).
+            var ver = await LocalStorage.GetAsync<string>("dw_ver");
+            if (ver.Success && !string.IsNullOrEmpty(ver.Value) && ver.Value != DepoWise.Web.AppVersion.Value)
+            {
+                await LocalStorage.DeleteAsync("dw_auth");
+                await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
+                Nav.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+            await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
+
             var r = await LocalStorage.GetAsync<string>("dw_auth");
             if (r.Success && !string.IsNullOrEmpty(r.Value))
             {

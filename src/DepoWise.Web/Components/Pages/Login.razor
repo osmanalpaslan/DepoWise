@@ -38,7 +38,9 @@
             if (_error is null)
             {
                 await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}");
-                Nav.NavigateTo("/machines");
+                await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
+                // Tam yeniden yükleme: her giriş taze kodla açılır (manuel CTRL+SHIFT+R gerekmez).
+                Nav.NavigateTo("/", forceLoad: true);
             }
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
