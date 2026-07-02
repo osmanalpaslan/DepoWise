@@ -110,10 +110,10 @@
                         <MudText Typo="Typo.subtitle2" Class="mt-2">DURUM GEÇMİŞİ</MudText>
                         @foreach (var h in _history) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@h</MudText> }
                         <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-3" Spacing="2">
-                            @if (Auth.CanEdit("requests") && st == 0) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => BeginEdit(Str(dd,"id")))">Düzenle</MudButton> }
+                            @if (Auth.CanEdit("requests") && (st == 0 || st == 1)) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => BeginEdit(Str(dd,"id")))">Düzenle</MudButton> }
                             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => DownloadPdf(Str(dd,"id"), false))">PDF</MudButton>
                             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => DownloadPdf(Str(dd,"id"), true))">Ekonomik PDF</MudButton>
-                            @if (Auth.CanDelete("requests") && (st == 0 || st == 1)) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => CancelReq(Str(dd,"id")))">İptal Et</MudButton> }
+                            @if (Auth.CanDelete("requests") && (st == 0 || st == 1)) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => CancelReq(Str(dd,"id")))">Talebi İptal Et</MudButton> }
                         </MudStack>
                     }
                 </MudPaper>

@@ -5,30 +5,60 @@
 <MudText Typo="Typo.h5" GutterBottom="true">Sistem Logu</MudText>
 
 <MudPaper Class="pa-4" Elevation="2">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudText Typo="Typo.h6">Kayıtlar</MudText><MudSpacer />
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap" Spacing="2">
+        <MudText Typo="Typo.h6">Log Kayıtları</MudText><MudSpacer />
+        <MudSelect T="string" @bind-Value="_entity" Label="Kayıt (ekran)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px" Dense="true">
+            @foreach (var e in _entities) { <MudSelectItem T="string" Value="@e">@e</MudSelectItem> }
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_user" Label="Kullanıcı" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px" Dense="true">
+            @foreach (var u in _users) { <MudSelectItem T="string" Value="@u">@u</MudSelectItem> }
+        </MudSelect>
         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz sistem log kaydı yok.</MudText> }
     else
     {
-        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="65vh" T="JsonElement">
-            <HeaderContent><MudTh>TARİH</MudTh><MudTh>KULLANICI</MudTh><MudTh>KAYIT</MudTh><MudTh>İŞLEM</MudTh></HeaderContent>
-            <RowTemplate>
-                <MudTd>@Str(context, "dateText")</MudTd>
-                <MudTd>@Str(context, "userText")</MudTd>
-                <MudTd>@Str(context, "entityType")</MudTd>
-                <MudTd>@Str(context, "actionText")</MudTd>
-            </RowTemplate>
-        </MudTable>
+        var filtered = Filtered();
+        @if (filtered.Count == 0) { <MudText Class="mud-text-secondary">Henüz sistem log kaydı yok.</MudText> }
+        else
+        {
+            <MudTable Items="filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh" T="JsonElement">
+                <HeaderContent><MudTh>TARİH</MudTh><MudTh>KULLANICI</MudTh><MudTh>KAYIT</MudTh><MudTh>İŞLEM</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "dateText")</MudTd>
+                    <MudTd>@Str(context, "userText")</MudTd>
+                    <MudTd>@Str(context, "entityType")</MudTd>
+                    <MudTd>@Str(context, "actionText")</MudTd>
+                </RowTemplate>
+            </MudTable>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@filtered.Count / @_rows.Length kayıt</MudText>
+        }
     }
 </MudPaper>
 
 @code {
     private JsonElement[]? _rows;
+    private string? _entity, _user;
+    private List<string> _entities = new(), _users = new();
+
     protected override async Task OnInitializedAsync() => await Load();
-    private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/audit"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try { _rows = await Api.GetArrayAsync("/api/audit"); } catch { _rows = Array.Empty<JsonElement>(); }
+        _entities = _rows.Select(r => Str(r, "entityType")).Where(x => x != "").Distinct().OrderBy(x => x).ToList();
+        _users = _rows.Select(r => Str(r, "userText")).Where(x => x != "" && x != "—").Distinct().OrderBy(x => x).ToList();
+    }
+
+    private List<JsonElement> Filtered()
+    {
+        IEnumerable<JsonElement> q = _rows ?? Array.Empty<JsonElement>();
+        if (!string.IsNullOrEmpty(_entity)) q = q.Where(r => Str(r, "entityType") == _entity);
+        if (!string.IsNullOrEmpty(_user)) q = q.Where(r => Str(r, "userText") == _user);
+        return q.ToList();
+    }
+
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";

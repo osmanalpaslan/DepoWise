@@ -1,15 +1,15 @@
 @page "/fuel"
+@page "/fuel/{Section}"
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-<MudText Typo="Typo.h5" GutterBottom="true">Yakıt</MudText>
-
-<MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+<MudText Typo="Typo.h5" GutterBottom="true">Yakıt — @SecTitle</MudText>
 
     @* ═══════════ YAKIT DAĞITIMLARI ═══════════ *@
-    <MudTabPanel Text="Yakıt Dağıtımları">
+    @if (_sec == "dist")
+    {
         @if (Auth.CanCreate("fuel"))
         {
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:760px;">
@@ -50,10 +50,11 @@
                 </RowTemplate>
             </MudTable>
         }
-    </MudTabPanel>
+    }
 
     @* ═══════════ DEPO GİRİŞLERİ ═══════════ *@
-    <MudTabPanel Text="Depo Girişleri">
+    @if (_sec == "depot")
+    {
         @if (Auth.CanCreate("fuel"))
         {
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:680px;">
@@ -87,10 +88,11 @@
                 </RowTemplate>
             </MudTable>
         }
-    </MudTabPanel>
+    }
 
     @* ═══════════ ÖZET ═══════════ *@
-    <MudTabPanel Text="Özet">
+    @if (_sec == "summary")
+    {
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadSummary">Yenile</MudButton>
         <MudGrid Class="mt-2" Spacing="2">
             <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_depotBalance.ToString("0.##") L</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Kalan Yakıt (Depo)</MudText></MudPaper></MudItem>
@@ -99,10 +101,14 @@
             <MudItem xs="6" md="3"><MudPaper Class="pa-4" Elevation="1"><MudText Typo="Typo.h5">@_totalDistributed.ToString("0.##") L</MudText><MudText Typo="Typo.caption" Class="mud-text-secondary">Toplam Dağıtılan</MudText></MudPaper></MudItem>
         </MudGrid>
         <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır.</MudText>
-    </MudTabPanel>
-</MudTabs>
+    }
+
 
 @code {
+    [Parameter] public string? Section { get; set; }
+    private string _sec => (Section ?? "dist").ToLowerInvariant();
+    private string SecTitle => _sec switch { "depot" => "Depo Girişleri", "summary" => "Özet", _ => "Yakıt Dağıtımları" };
+
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private ApiClient.Opt? _vehicle;

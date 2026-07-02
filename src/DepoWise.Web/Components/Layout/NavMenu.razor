@@ -58,20 +58,19 @@
         }),
         new("Bakım Takibi", Icons.Material.Filled.Build, new[]
         {
-            new Link("Bakım Tanımları", "maintenance", "maintenance"),
-            new Link("Araç Bakımları", "maintenance", "maintenance"),
-            new Link("Uyarılar", "maintenance", "maintenance"),
+            new Link("Bakım Tanımları", "maintenance", "maintenance/defs"),
+            new Link("Araç Bakımları", "maintenance", "maintenance/records"),
+            new Link("Uyarılar", "maintenance", "maintenance/alerts"),
         }),
         new("Yakıt", Icons.Material.Filled.LocalGasStation, new[]
         {
-            new Link("Yakıt Dağıtımları", "fuel", "fuel"),
-            new Link("Depo Girişleri", "fuel", "fuel"),
-            new Link("Özet", "fuel", "fuel"),
+            new Link("Yakıt Dağıtımları", "fuel", "fuel/dist"),
+            new Link("Depo Girişleri", "fuel", "fuel/depot"),
+            new Link("Özet", "fuel", "fuel/summary"),
         }),
         new("Yönetim", Icons.Material.Filled.ManageAccounts, new[]
         {
             new Link("Şube / Şantiye", "branches", "branches"),
-            new Link("Yetkiler", "permissions", "permissions"),
             new Link("Çöp Kutusu", "audit", "soon/trash"),
             new Link("Sistem Logu", "audit", "audit"),
             new Link("Yedek Yönetimi", "backup", "backup"),
@@ -85,19 +84,19 @@
         {
             new Link("Raporlar", "reports", "reports"),
         }),
-        new("İmport / Export", Icons.Material.Filled.SwapHoriz, new[]
+        new("Tanım Düzenle", Icons.Material.Filled.Category, new[]
         {
-            new Link("İmport / Export", "import_export", "soon/import_export"),
+            new Link("Tanım Düzenle", "definitions", "definitions"),
         }),
-        new("Tanımlar", Icons.Material.Filled.Category, new[]
+        new("Kullanıcı", Icons.Material.Filled.People, new[]
         {
-            new Link("Tanımlar", "definitions", "definitions"),
-            new Link("Kullanıcılar", "users", "users"),
+            new Link("Kullanıcı Tanım", "users", "users"),
+            new Link("Yetkiler", "permissions", "permissions"),
+            new Link("Yetki Şablonları", "permission_templates", "permission-templates"),
         }),
         new("Ayarlar", Icons.Material.Filled.Settings, new[]
         {
             new Link("Geliştirici Modu", "settings", "soon/developer"),
-            new Link("Yetki Şablonları", "permission_templates", "permission-templates"),
             new Link("Hakkında", "", "soon/about"),
         }),
         // Web'e özel yönetim ekranları — AYRI menü (kullanıcı isteği). Bunlara dokunma.

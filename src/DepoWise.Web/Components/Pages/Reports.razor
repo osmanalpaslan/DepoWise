@@ -18,7 +18,7 @@
         <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
         <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
         <MudItem xs="12" md="2">
-            <MudSelect T="string" @bind-SelectedValues="_branchSel" Label="Şubeler" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+            <MudSelect T="string" @bind-SelectedValues="_branchSel" Label="Şube / Şantiye" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
                        MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} şube")">
                 @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
             </MudSelect>
