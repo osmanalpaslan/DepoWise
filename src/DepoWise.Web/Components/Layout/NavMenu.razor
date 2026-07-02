@@ -70,15 +70,11 @@
         }),
         new("Yönetim", Icons.Material.Filled.ManageAccounts, new[]
         {
-            new Link("Firma Tanım", "companies", "companies"),
-            new Link("Güncelleme Yönetimi", "releases", "releases"),
             new Link("Şube / Şantiye", "branches", "branches"),
             new Link("Yetkiler", "permissions", "permissions"),
             new Link("Çöp Kutusu", "audit", "soon/trash"),
             new Link("Sistem Logu", "audit", "audit"),
             new Link("Yedek Yönetimi", "backup", "backup"),
-            new Link("Sunucu Yedekleri", "server_backups", "soon/server_backups"),
-            new Link("Makine Yönetimi", "machines", "machines"),
         }),
         new("Talepler", Icons.Material.Filled.Description, new[]
         {
@@ -103,6 +99,14 @@
             new Link("Geliştirici Modu", "settings", "soon/developer"),
             new Link("Yetki Şablonları", "permission_templates", "permission-templates"),
             new Link("Hakkında", "", "soon/about"),
+        }),
+        // Web'e özel yönetim ekranları — AYRI menü (kullanıcı isteği). Bunlara dokunma.
+        new("Web Yönetimi", Icons.Material.Filled.AdminPanelSettings, new[]
+        {
+            new Link("Firma Tanım", "companies", "companies"),
+            new Link("Güncelleme Yönetimi", "releases", "releases"),
+            new Link("Makine Yönetimi", "machines", "machines"),
+            new Link("Sunucu Yedekleri", "server_backups", "soon/server_backups"),
         }),
     };
 }
