@@ -4,7 +4,7 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-<MudText Typo="Typo.h5" GutterBottom="true">Yetki Şablonları</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">Yetki Şablonları (Süper Admin)</MudText>
 
 @if (Auth.CanCreate("permission_templates"))
 {
@@ -13,14 +13,14 @@
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Şablon Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="12" md="6">
-                <MudSelect T="string" @bind-Value="_roleKey" Label="Rol (opsiyonel)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                <MudSelect T="string" @bind-Value="_roleKey" Label="Rol (opsiyonel)" HelperText="Şablon seçilince kullanıcıya bu rol de atanır." Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
                     @foreach (var r in _roles) { <MudSelectItem T="string" Value="@r.Key">@r.Name</MudSelectItem> }
                 </MudSelect>
             </MudItem>
         </MudGrid>
         <MudText Typo="Typo.subtitle2" Class="mt-2">Yetkiler</MudText>
         <PermMatrix @ref="_matrix" Modules="_modules" />
-        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Şablon Oluştur")</MudButton>
+        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Şablonu Kaydet")</MudButton>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
 }
