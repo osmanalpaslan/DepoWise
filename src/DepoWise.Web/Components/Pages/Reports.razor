@@ -1,12 +1,154 @@
 @page "/reports"
+@using System.Text.Json
+@inject ApiClient Api
 @inject AuthState Auth
 
 <MudText Typo="Typo.h5" GutterBottom="true">Raporlar</MudText>
 
-<MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
-    <MudTabPanel Text="Stok Durumu"><DataList Title="Stok Durumu" Path="/api/materials" /></MudTabPanel>
-    <MudTabPanel Text="Bakım"><DataList Title="Bakım" Path="/api/maintenance" /></MudTabPanel>
-    <MudTabPanel Text="Yakıt Tüketim"><DataList Title="Yakıt Dağıtımları" Path="/api/fuel" /></MudTabPanel>
-    <MudTabPanel Text="Depo Girişi"><DataList Title="Depo Girişleri" Path="/api/fuel/depot" /></MudTabPanel>
-    <MudTabPanel Text="Talep"><DataList Title="Talepler" Path="/api/requests" /></MudTabPanel>
+<MudPaper Class="pa-4 mb-3" Elevation="2">
+    <MudGrid Spacing="2" Class="align-center">
+        @if (Auth.IsSuperAdmin)
+        {
+            <MudItem xs="12" md="3">
+                <MudSelect T="string" @bind-Value="_companyId" Label="Firma (Süper Admin)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var co in _companies) { <MudSelectItem T="string" Value="@co.Id">@co.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
+        <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+        <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+        <MudItem xs="12" md="2">
+            <MudSelect T="string" @bind-SelectedValues="_branchSel" Label="Şubeler" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} şube")">
+                @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+            </MudSelect>
+        </MudItem>
+        @if (_type == "general")
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_vehicleSel" Label="Araçlar" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} araç")">
+                    @foreach (var vh in _vehicles) { <MudSelectItem T="string" Value="@vh.Id">@vh.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
+        <MudItem xs="12" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="_busy">Sorgula</MudButton></MudItem>
+    </MudGrid>
+    @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
+</MudPaper>
+
+<MudTabs Elevation="1" Rounded="true" @bind-ActivePanelIndex="_tab" PanelClass="pa-4">
+    <MudTabPanel Text="Genel Rapor" />
+    <MudTabPanel Text="Stok Durumu" />
+    <MudTabPanel Text="Bakım" />
+    <MudTabPanel Text="Yakıt Tüketim" />
+    <MudTabPanel Text="Depo Girişi" />
+    <MudTabPanel Text="Talep" />
 </MudTabs>
+
+<MudPaper Class="pa-4 mt-2" Elevation="2">
+    @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_headers is null) { <MudText Class="mud-text-secondary">Filtreleri seçip <b>Sorgula</b>'ya basın.</MudText> }
+    else if (_rows.Count == 0) { <MudText Class="mud-text-secondary">Kayıt bulunamadı.</MudText> }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true" Striped="true" Style="overflow-x:auto">
+            <thead><tr>@foreach (var h in _headers) { <th>@h</th> }</tr></thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>@foreach (var cell in row) { <td>@cell</td> }</tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_rows.Count satır</MudText>
+    }
+</MudPaper>
+
+@code {
+    private int _tab;
+    private string _type => _tab switch { 0 => "general", 1 => "stock", 2 => "maintenance", 3 => "fuel", 4 => "fuel-depot", 5 => "requests", _ => "general" };
+
+    private string? _companyId;
+    private DateTime? _from, _to;
+    private IReadOnlyCollection<string> _branchSel = new HashSet<string>();
+    private IReadOnlyCollection<string> _vehicleSel = new HashSet<string>();
+
+    private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new();
+    private List<string>? _headers;
+    private List<List<string>> _rows = new();
+    private string? _error; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+        await LoadScope();
+    }
+
+    private string? _lastCompany;
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (Auth.IsSuperAdmin && _companyId != _lastCompany)
+        {
+            _lastCompany = _companyId;
+            await LoadScope();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadScope()
+    {
+        try
+        {
+            var doc = await Api.GetObjectAsync("/api/reports/scope" + (string.IsNullOrEmpty(_companyId) ? "" : $"?companyId={_companyId}"));
+            _branches = Read(doc, "branches", "id", "name");
+            _vehicles = Read(doc, "vehicles", "id", "display");
+            _branchSel = new HashSet<string>(); _vehicleSel = new HashSet<string>();
+        }
+        catch { }
+    }
+
+    private static List<ApiClient.Opt> Read(JsonElement doc, string key, string idKey, string nameKey)
+    {
+        var list = new List<ApiClient.Opt>();
+        if (doc.TryGetProperty(key, out var arr) && arr.ValueKind == JsonValueKind.Array)
+            foreach (var e in arr.EnumerateArray())
+                list.Add(new ApiClient.Opt(e.GetProperty(idKey).GetString() ?? "", e.TryGetProperty(nameKey, out var n) ? n.GetString() ?? "" : ""));
+        return list;
+    }
+
+    private static long? Ms(DateTime? d) => d is null ? null : new DateTimeOffset(d.Value, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+    private async Task Run()
+    {
+        _busy = true; _error = null;
+        try
+        {
+            var body = new
+            {
+                fromDate = Ms(_from), toDate = Ms(_to),
+                branchIds = _branchSel.ToList(), vehicleIds = _vehicleSel.ToList(),
+                companyId = Auth.IsSuperAdmin ? _companyId : null
+            };
+            var doc = await Api.PostJsonAsync($"/api/reports/{_type}", body);
+            if (doc is null) { _error = "Rapor alınamadı."; _headers = null; return; }
+            var d = doc.Value;
+            _headers = d.TryGetProperty("headers", out var h) && h.ValueKind == JsonValueKind.Array
+                ? h.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : new();
+            _rows = new();
+            if (d.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
+                foreach (var row in rows.EnumerateArray())
+                    _rows.Add(row.EnumerateArray().Select(Cell).ToList());
+        }
+        catch (Exception ex) { _error = "Hata: " + ex.Message; _headers = null; }
+        finally { _busy = false; }
+    }
+
+    private static string Cell(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.Null => "",
+        JsonValueKind.String => v.GetString() ?? "",
+        JsonValueKind.True => "Evet", JsonValueKind.False => "Hayır",
+        _ => v.ToString(),
+    };
+}

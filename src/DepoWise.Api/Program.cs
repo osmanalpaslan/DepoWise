@@ -346,8 +346,56 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
 }).RequireAuthorization();
 
 // ── Modül kataloğu (yetki matrisi için) ──
-app.MapGet("/api/modules", (HttpContext c) => S(c) is null ? Results.Unauthorized()
-    : Results.Ok(AppModules.All.Select(m => new { key = m.Key, label = m.Label }))).RequireAuthorization();
+app.MapGet("/api/modules", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // Süper-admin-özel modüller (firma vb.) yalnız süper admine gösterilir → yetki matrisinde başkası atayamaz.
+    var mods = AppModules.All.Where(m => s.IsSuperAdmin || !AppModules.IsSuperAdminOnly(m.Key))
+        .Select(m => new { key = m.Key, label = m.Label });
+    return Results.Ok(mods);
+}).RequireAuthorization();
+
+// ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
+app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s ? Results.Ok(new { showCompany = s.IsSuperAdmin }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var cid = DepoWise.Application.Security.TenantAccessGuard.ResolveCompanyId(s, companyId); // süper admin başka firma seçebilir; diğerleri reddedilir
+    var branches = new List<object>(); var vehicles = new List<object>();
+    using var conn = svc.Factory.Create();
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
+        cmd.Parameters.AddWithValue("$c", cid);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) branches.Add(new { id = r.GetString(0), name = r.GetString(1) });
+    }
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=$c AND is_deleted=0 ORDER BY internal_code;";
+        cmd.Parameters.AddWithValue("$c", cid);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) { var p = r.GetString(2); vehicles.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
+    }
+    return Results.Ok(new { branches, vehicles });
+}).RequireAuthorization();
+app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId);
+    DepoWise.Application.Reports.TableModel tbl = type switch
+    {
+        "stock" => svc.Reports.StockStatus(s, req),
+        "general" => svc.Reports.General(s, req),
+        "maintenance" => svc.Reports.Maintenance(s, req),
+        "fuel" => svc.Reports.FuelConsumption(s, req),
+        "fuel-depot" => svc.Reports.FuelDepot(s, req),
+        "stock-count" => svc.Reports.StockCount(s, req),
+        "requests" => svc.Reports.Requests(s, req),
+        _ => throw new ArgumentException("Bilinmeyen rapor tipi."),
+    };
+    return Results.Ok(new { title = tbl.Title, headers = tbl.Headers, rows = tbl.Rows });
+}).RequireAuthorization();
 
 // ── Bakım (Bakım Takibi) — masaüstüyle birebir ──
 app.MapGet("/api/maintenance/definitions", (HttpContext c, string? parentDefId) =>
@@ -705,6 +753,7 @@ record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record VehicleModelDto(string BrandId, string Name);
+record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);

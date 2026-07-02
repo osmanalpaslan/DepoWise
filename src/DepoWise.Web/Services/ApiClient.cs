@@ -131,6 +131,16 @@ public sealed class ApiClient
         return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
     }
 
+    /// <summary>POST edip dönen JSON gövdesini verir (rapor tablosu vb.).</summary>
+    public async Task<System.Text.Json.JsonElement?> PostJsonAsync(string path, object body)
+    {
+        var req = Req(HttpMethod.Post, path);
+        req.Content = JsonContent.Create(body);
+        var r = await _http.SendAsync(req);
+        if (!r.IsSuccessStatusCode) return null;
+        return await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+    }
+
     public async Task<string?> DeleteAsync(string path)
     {
         var r = await _http.SendAsync(Req(HttpMethod.Delete, path));
