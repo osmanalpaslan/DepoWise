@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Bakım</MudText>
 
@@ -154,6 +155,7 @@
         _msg = null;
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         if (string.IsNullOrEmpty(_defId)) { _msg = "Bakım tanımı seçin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Bakım kaydı oluşturulsun mu? (seçili malzemeler stoktan düşer)")) return;
         _busy = true;
         try
         {
@@ -175,6 +177,7 @@
     private async Task Cancel(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bakım kaydı iptal edilsin mi? (stok geri alınır)", "Evet, İptal", danger: true)) return;
         var err = await Api.PostAsync("/api/maintenance/cancel", new { id, reason = "Kullanıcı iptali" });
         _msg = err ?? "Bakım iptal edildi (stok geri alındı)."; _ok = err is null;
         await LoadList();

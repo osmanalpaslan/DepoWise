@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Günlük Faaliyet</MudText>
 
@@ -98,7 +99,9 @@
 
     private async Task Save()
     {
-        _msg = null; _busy = true;
+        _msg = null;
+        if (!await Dialog.Confirm(_kind == "transfer" ? "Transfer kaydedilsin mi? (araç pasife alınır)" : "Hareket kaydedilsin mi?")) return;
+        _busy = true;
         try
         {
             var err = await Api.PostAsync("/api/daily/movement", new
@@ -116,6 +119,7 @@
     private async Task Delete(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu faaliyet silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/daily/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await LoadList();

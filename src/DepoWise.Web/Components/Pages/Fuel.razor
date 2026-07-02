@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Yakıt</MudText>
 
@@ -143,6 +144,7 @@
         _msg = null;
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         if (_liters <= 0) { _msg = "Litre girin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Yakıt dağıtımı kaydedilsin mi?")) return;
         _busy = true;
         try
         {
@@ -162,6 +164,7 @@
     {
         _dMsg = null;
         if (_dLiters <= 0 || _dPrice <= 0) { _dMsg = "Litre ve birim fiyat girin."; _dOk = false; return; }
+        if (!await Dialog.Confirm("Depo girişi kaydedilsin mi?")) return;
         _busy = true;
         try
         {

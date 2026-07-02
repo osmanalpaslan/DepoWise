@@ -95,6 +95,55 @@ public sealed class EnrollmentService
         return new EnrollResult(deviceId, "pending");
     }
 
+    /// <summary>Sıfır-sürtünmeli bulut kaydı: masaüstü açılışta kendini 'pending' cihaz olarak kaydeder
+    /// (isim bazlı idempotent). Zaten varsa yalnız last_seen_at güncellenir. Admin onayı Makine Yönetimi'nde.</summary>
+    public EnrollResult RegisterSelf(string companyId, string deviceName)
+    {
+        TenantGuard.Require(companyId);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+
+        string? existingId = null, existingStatus = null;
+        using (var find = conn.CreateCommand())
+        {
+            find.Transaction = tx;
+            find.CommandText = "SELECT id, status FROM sync_devices WHERE company_id=$c AND device_name=$n ORDER BY created_at LIMIT 1;";
+            find.Parameters.AddWithValue("$c", companyId);
+            find.Parameters.AddWithValue("$n", deviceName);
+            using var r = find.ExecuteReader();
+            if (r.Read()) { existingId = r.GetString(0); existingStatus = r.GetString(1); }
+        }
+
+        if (existingId is not null)
+        {
+            using var upd = conn.CreateCommand();
+            upd.Transaction = tx;
+            upd.CommandText = "UPDATE sync_devices SET last_seen_at=$now, updated_at=$now WHERE id=$id;";
+            upd.Parameters.AddWithValue("$now", now);
+            upd.Parameters.AddWithValue("$id", existingId);
+            upd.ExecuteNonQuery();
+            tx.Commit();
+            return new EnrollResult(existingId, existingStatus ?? "pending");
+        }
+
+        var deviceId = Guid.NewGuid().ToString("N");
+        using (var ins = conn.CreateCommand())
+        {
+            ins.Transaction = tx;
+            ins.CommandText =
+                "INSERT INTO sync_devices(id, company_id, device_name, status, last_seen_at, created_at, updated_at, version) " +
+                "VALUES($id,$c,$n,'pending',$now,$now,$now,1);";
+            ins.Parameters.AddWithValue("$id", deviceId);
+            ins.Parameters.AddWithValue("$c", companyId);
+            ins.Parameters.AddWithValue("$n", deviceName);
+            ins.Parameters.AddWithValue("$now", now);
+            ins.ExecuteNonQuery();
+        }
+        tx.Commit();
+        return new EnrollResult(deviceId, "pending");
+    }
+
     /// <summary>Master onayı: cihaz 'active' + token üretir (düz metin döner, hash saklanır).</summary>
     public DeviceToken ApproveDevice(SessionContext s, string deviceId)
     {

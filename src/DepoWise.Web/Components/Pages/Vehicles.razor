@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Araçlar</MudText>
 
@@ -120,6 +121,7 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_code)) { _msg = "İç kod zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm("Araç eklensin mi?")) return;
         _busy = true;
         try
         {
@@ -140,6 +142,7 @@
     private async Task Delete(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu araç silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/vehicles/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await LoadList();

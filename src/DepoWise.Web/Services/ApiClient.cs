@@ -73,6 +73,14 @@ public sealed class ApiClient
         return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
     }
 
+    public async Task<string?> PutAsync(string path, object body)
+    {
+        var req = Req(HttpMethod.Put, path);
+        req.Content = JsonContent.Create(body);
+        var r = await _http.SendAsync(req);
+        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
+    }
+
     public async Task<string?> DeleteAsync(string path)
     {
         var r = await _http.SendAsync(Req(HttpMethod.Delete, path));

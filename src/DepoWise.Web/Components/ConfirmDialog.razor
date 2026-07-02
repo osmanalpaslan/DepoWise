@@ -1,0 +1,21 @@
+@* Ortak onay penceresi — ekle/düzelt/sil/kaydet işlemlerinden önce. *@
+<MudDialog>
+    <DialogContent>
+        <MudText>@Message</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@CancelText</MudButton>
+        <MudButton Color="@Color" Variant="Variant.Filled" OnClick="Ok">@OkText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public string Message { get; set; } = "Bu işlemi onaylıyor musunuz?";
+    [Parameter] public string OkText { get; set; } = "Evet";
+    [Parameter] public string CancelText { get; set; } = "Vazgeç";
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+
+    private void Ok() => Dialog.Close(DialogResult.Ok(true));
+    private void Cancel() => Dialog.Cancel();
+}

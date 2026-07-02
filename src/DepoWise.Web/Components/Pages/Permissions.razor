@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Yetkiler</MudText>
 
@@ -56,6 +57,7 @@
     private async Task Save()
     {
         if (string.IsNullOrEmpty(_userId) || _matrix is null) return;
+        if (!await Dialog.Confirm("Yetkiler kaydedilsin mi?")) return;
         _busy = true; _msg = null;
         try
         {

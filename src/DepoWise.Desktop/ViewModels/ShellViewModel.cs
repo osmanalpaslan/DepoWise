@@ -22,6 +22,13 @@ public sealed partial class ShellViewModel : ViewModelBase
     public string Initial { get; }
     public string Welcome { get; }
     public string BuildStamp { get; } = BuildInfo();
+    /// <summary>Kurulu uygulama sürümü (üst barda build bilgisinin altında gösterilir).</summary>
+    public string Version { get; } = ResolveVersion();
+
+    private static string ResolveVersion()
+    {
+        try { return "Sürüm " + DesktopServices.Update.CurrentVersion(); } catch { return "Sürüm —"; }
+    }
     /// <summary>Ekran Bilgisi butonları yalnız Süper Admin'e (veya geliştirici modunda) görünür.</summary>
     public bool IsSuperAdmin => _session.IsSuperAdmin || DeveloperMode.IsActive;
     [ObservableProperty] private IReadOnlyList<NavGroupVm> _groups = System.Array.Empty<NavGroupVm>();
@@ -62,6 +69,21 @@ public sealed partial class ShellViewModel : ViewModelBase
         catch { SetConn("#EF4444", "Çevrimdışı"); }
     }
 
+    /// <summary>Bu makineyi buluta 'pending' cihaz olarak kaydeder → web Makine Yönetimi'nde görünür (admin onaylar).</summary>
+    private async System.Threading.Tasks.Task RegisterMachineAsync()
+    {
+        var url = ResolveServerUrl();
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            var companyId = DesktopServices.Session?.CompanyId ?? DesktopServices.DefaultCompanyId;
+            var json = System.Text.Json.JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName });
+            using var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            await _pingHttp.PostAsync(url!.TrimEnd('/') + "/api/machines/register", content);
+        }
+        catch { }
+    }
+
     private void SetConn(string hex, string text)
     {
         ConnectionBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(hex));
@@ -100,6 +122,7 @@ public sealed partial class ShellViewModel : ViewModelBase
 
         Navigate("dashboard");
         StartConnectionMonitor();
+        _ = RegisterMachineAsync();
     }
 
     private static IReadOnlyList<NavGroupVm> BuildGroups(SessionContext s)

@@ -150,8 +150,11 @@
                     </StackPanel>
                     <!-- Kullanıcı -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding BuildStamp}" Classes="Helper" VerticalAlignment="Center"
-                                   Margin="0,0,4,0" ToolTip.Tip="Çalışan derleme zamanı"/>
+                        <StackPanel VerticalAlignment="Center" Spacing="3" Margin="0,0,6,0">
+                            <TextBlock Text="{Binding BuildStamp}" Classes="Helper" ToolTip.Tip="Çalışan derleme zamanı"/>
+                            <TextBlock Text="{Binding Version}" Classes="Helper" FontWeight="SemiBold"
+                                       ToolTip.Tip="Kurulu uygulama sürümü"/>
+                        </StackPanel>
                         <TextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" MaxWidth="160"/>
                         <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentBrush}">

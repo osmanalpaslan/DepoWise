@@ -104,6 +104,11 @@ app.MapGet("/api/machines", (HttpContext ctx) =>
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     return Results.Ok(svc.Enrollment.ListDevices(s));
 }).RequireAuthorization();
+// Sıfır-sürtünmeli kayıt: masaüstü açılışta kendini 'pending' cihaz olarak kaydeder (auth gerekmez).
+app.MapPost("/api/machines/register", (MachineRegisterDto d) =>
+    Results.Ok(svc.Enrollment.RegisterSelf(
+        string.IsNullOrWhiteSpace(d.CompanyId) ? "DEPOWISE" : d.CompanyId!,
+        string.IsNullOrWhiteSpace(d.MachineName) ? "Bilinmeyen Makine" : d.MachineName!)));
 app.MapPost("/api/machines/{id}/approve", (HttpContext ctx, string id) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
@@ -147,6 +152,14 @@ app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
+app.MapPut("/api/companies/{id}", (HttpContext ctx, string id, NewCompanyDto dto) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.Companies.Update(s, id, new DepoWise.Infrastructure.Organization.NewCompany(
+        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // ── İş modülleri: liste (okuma) uçları — hepsi yetki korumalı (servis AccessControl.View) ──
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);
@@ -173,7 +186,15 @@ app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized(
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
 app.MapPost("/api/branches", (HttpContext c, NameDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, null)) }) : Results.Unauthorized()).RequireAuthorization();
-app.MapPost("/api/users", (HttpContext c, NewUserDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), s.CompanyId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // Firma: YALNIZ süper admin seçebilir; diğerleri kendi firmasına bağlar (yetki yükseltme engeli).
+    var companyId = s.IsSuperAdmin && !string.IsNullOrWhiteSpace(d.CompanyId) ? d.CompanyId! : s.CompanyId;
+    var id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
+        d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
 app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice)) }) : Results.Unauthorized()).RequireAuthorization();
 
 app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
@@ -471,7 +492,8 @@ record PushOp(string OperationId, string EntityType, string EntityId, string Pay
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson);
 record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone);
-record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys);
+record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId);
+record MachineRegisterDto(string? CompanyId, string? MachineName);
 record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);

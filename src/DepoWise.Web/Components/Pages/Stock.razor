@@ -229,7 +229,9 @@
 
     private async Task Save()
     {
-        _msg = null; _busy = true;
+        _msg = null;
+        if (!await Dialog.Confirm($"{_kind} işlemi kaydedilsin mi?")) return;
+        _busy = true;
         try
         {
             string? err;

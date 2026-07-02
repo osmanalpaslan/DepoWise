@@ -1,6 +1,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudPaper Class="pa-4 mb-4" Elevation="2">
     <MudText Typo="Typo.h6" Class="mb-2">@Title</MudText>
@@ -61,6 +62,7 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_new)) return;
+        if (!await Dialog.Confirm($"\"{_new.Trim()}\" eklensin mi?")) return;
         _busy = true;
         try
         {
@@ -76,6 +78,7 @@
     {
         if (string.IsNullOrEmpty(id)) return;
         _msg = null;
+        if (!await Dialog.Confirm("Bu kayıt silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"{DeletePrefix}/{id}");
         _ok = err is null; _msg = err ?? "Silindi.";
         if (_ok) await Load();

@@ -1,18 +1,37 @@
 @page "/users"
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Kullanıcılar</MudText>
 
 @if (Auth.CanCreate("users"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
         <MudText Typo="Typo.h6" Class="mb-2">Yeni Kullanıcı</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_u" Label="Kullanıcı adı" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_p" Label="Parola" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_f" Label="Ad Soyad" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+
+            @if (Auth.IsSuperAdmin)
+            {
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_companyId" Label="Firma *" Margin="Margin.Dense" Variant="Variant.Outlined">
+                        @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+            }
+            else
+            {
+                <MudItem xs="12" md="6">
+                    <MudTextField Value="@Auth.CompanyId" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" ReadOnly="true"
+                                  HelperText="Kullanıcı sizin firmanıza bağlanır (yalnız süper admin firma seçebilir)." />
+                </MudItem>
+            }
+            <MudItem xs="12" md="6"><LookupSelect Label="Şube / Şantiye" @bind-Value="_branchId" Items="_branches" /></MudItem>
         </MudGrid>
+
         <MudText Typo="Typo.body2" Class="mt-2">Roller:</MudText>
         <MudStack Row="true" Wrap="Wrap.Wrap">
             @foreach (var r in _roles)
@@ -29,13 +48,18 @@
 
 @code {
     private string _u = "", _p = "", _f = "";
+    private string? _companyId, _branchId;
     private List<RoleDto> _roles = new();
+    private List<ApiClient.Opt> _companies = new(), _branches = new();
     private readonly HashSet<string> _sel = new();
     private string? _msg; private bool _ok; private bool _busy; private int _v;
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.CanCreate("users")) { try { _roles = await Api.GetRolesAsync(); } catch { } }
+        if (!Auth.CanCreate("users")) return;
+        try { _roles = await Api.GetRolesAsync(); } catch { }
+        _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+        if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
     }
 
     private void Toggle(string key, bool on) { if (on) _sel.Add(key); else _sel.Remove(key); }
@@ -44,12 +68,18 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_u) || string.IsNullOrWhiteSpace(_p)) { _msg = "Kullanıcı adı ve parola zorunlu."; _ok = false; return; }
+        if (Auth.IsSuperAdmin && string.IsNullOrEmpty(_companyId)) { _msg = "Firma seçin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Yeni kullanıcı oluşturulsun mu?")) return;
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/users", new { username = _u.Trim(), password = _p, fullName = _f, roleKeys = _sel.ToList() });
+            var err = await Api.PostAsync("/api/users", new
+            {
+                username = _u.Trim(), password = _p, fullName = _f, roleKeys = _sel.ToList(),
+                companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branchId
+            });
             _ok = err is null; _msg = err ?? "Oluşturuldu.";
-            if (_ok) { _u = _p = _f = ""; _sel.Clear(); _v++; }
+            if (_ok) { _u = _p = _f = ""; _companyId = _branchId = null; _sel.Clear(); _v++; }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }

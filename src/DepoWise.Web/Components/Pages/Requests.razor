@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Malzeme Talep</MudText>
 
@@ -127,6 +128,7 @@
     {
         _msg = null;
         if (_items.Count == 0) { _msg = "En az bir kalem ekleyin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Talep kaydedilsin mi?")) return;
         _busy = true;
         try
         {
@@ -143,8 +145,16 @@
         finally { _busy = false; }
     }
 
-    private async Task Approve(string id) { var e = await Api.PostAsync($"/api/requests/{id}/approve", new { }); _msg = e ?? "Onaylandı."; _ok = e is null; await LoadList(); }
-    private async Task Reject(string id) { var e = await Api.PostAsync($"/api/requests/{id}/reject", new { id, reason = "Reddedildi" }); _msg = e ?? "Reddedildi."; _ok = e is null; await LoadList(); }
+    private async Task Approve(string id)
+    {
+        if (!await Dialog.Confirm("Talep onaylansın mı?")) return;
+        var e = await Api.PostAsync($"/api/requests/{id}/approve", new { }); _msg = e ?? "Onaylandı."; _ok = e is null; await LoadList();
+    }
+    private async Task Reject(string id)
+    {
+        if (!await Dialog.Confirm("Talep reddedilsin mi?", "Evet, Reddet", danger: true)) return;
+        var e = await Api.PostAsync($"/api/requests/{id}/reject", new { id, reason = "Reddedildi" }); _msg = e ?? "Reddedildi."; _ok = e is null; await LoadList();
+    }
 
     private static string StatusTr(int s) => s switch { 0 => "Taslak", 1 => "Beklemede", 2 => "Onaylı", 3 => "Reddedildi", 4 => "İptal", _ => "?" };
     private static Color StatusColor(int s) => s switch { 2 => Color.Success, 3 => Color.Error, 1 => Color.Warning, _ => Color.Default };

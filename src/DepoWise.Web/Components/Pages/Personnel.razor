@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
 
@@ -59,6 +60,7 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad Soyad zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm("Personel eklensin mi?")) return;
         _busy = true;
         try
         {
@@ -73,6 +75,7 @@
     private async Task Delete(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu personel silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/personnel/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await LoadList();

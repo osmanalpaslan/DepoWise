@@ -96,6 +96,7 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm("Yeni malzeme eklensin mi?")) return;
         _busy = true;
         try
         {

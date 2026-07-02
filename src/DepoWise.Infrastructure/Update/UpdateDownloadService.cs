@@ -14,8 +14,10 @@ public sealed class UpdateDownloadService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(30) };
 
-    /// <summary>URL'den paketi indirir; progress 0–100 (Content-Length yoksa yalnız başlangıç/son bildirilir).</summary>
-    public async Task<byte[]> DownloadAsync(string url, Action<int>? progress = null, CancellationToken ct = default)
+    /// <summary>URL'den paketi indirir; progress 0–100 (Content-Length yoksa yalnız başlangıç/son bildirilir).
+    /// <paramref name="speedBytesPerSec"/> anlık indirme hızını (B/sn) bildirir.</summary>
+    public async Task<byte[]> DownloadAsync(string url, Action<int>? progress = null, CancellationToken ct = default,
+        Action<double>? speedBytesPerSec = null)
     {
         if (string.IsNullOrWhiteSpace(url)) throw new InvalidOperationException("Güncelleme indirme adresi tanımlı değil.");
         progress?.Invoke(0);
@@ -30,13 +32,23 @@ public sealed class UpdateDownloadService
         var buffer = new byte[81920];
         long read = 0;
         int n;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long lastReportMs = 0, lastBytes = 0;
         while ((n = await stream.ReadAsync(buffer, ct)) > 0)
         {
             await ms.WriteAsync(buffer.AsMemory(0, n), ct);
             read += n;
             if (total > 0) progress?.Invoke((int)(read * 100 / total));
+            var elapsed = sw.ElapsedMilliseconds;
+            if (speedBytesPerSec is not null && elapsed - lastReportMs >= 400)
+            {
+                var deltaSec = (elapsed - lastReportMs) / 1000.0;
+                if (deltaSec > 0) speedBytesPerSec((read - lastBytes) / deltaSec);
+                lastReportMs = elapsed; lastBytes = read;
+            }
         }
         progress?.Invoke(100);
+        speedBytesPerSec?.Invoke(0);
         return ms.ToArray();
     }
 }

@@ -147,8 +147,12 @@ public sealed partial class DashboardViewModel : ViewModelBase
         {
             var pkg = _latestPackage;
             UpdateMessage = "İndiriliyor…";
+            int dlPct = 0;
             var bytes = await DesktopServices.UpdateDownload.DownloadAsync(
-                pkg.DownloadUrl!, p => UpdateProgress = p * 60 / 100);        // indirme: 0–60
+                pkg.DownloadUrl!,
+                p => { dlPct = p; UpdateProgress = p * 60 / 100; },              // indirme: 0–60
+                speedBytesPerSec: bps => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    UpdateMessage = bps > 0 ? $"İndiriliyor… %{dlPct} • {FormatSpeed(bps)}" : "Kuruluyor…"));
             UpdateMessage = "Kuruluyor…";
             DesktopServices.Update.ApplyUpdate(pkg, bytes,
                 p => UpdateProgress = 60 + p * 40 / 100);                     // kurulum: 60–100
@@ -168,6 +172,15 @@ public sealed partial class DashboardViewModel : ViewModelBase
         }
         finally { IsUpdating = false; }
     }
+}
+
+// (yardımcı) İndirme hızını okunur biçime çevirir.
+public sealed partial class DashboardViewModel
+{
+    private static string FormatSpeed(double bytesPerSec)
+        => bytesPerSec >= 1024 * 1024
+            ? $"{bytesPerSec / 1024 / 1024:0.0} MB/sn"
+            : $"{bytesPerSec / 1024:0} KB/sn";
 }
 
 /// <summary>Kind: accent|neutral|warning|success|danger (durum tonu). Primary: tek vurgulu kart. NavKey: tıklayınca gidilecek ekran.</summary>

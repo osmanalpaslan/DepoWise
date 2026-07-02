@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Yetki Şablonları</MudText>
 
@@ -72,6 +73,7 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_name)) { _msg = "Şablon adı zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm("Şablon oluşturulsun mu?")) return;
         _busy = true;
         try
         {
@@ -86,6 +88,7 @@
     private async Task Delete(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
+        if (!await Dialog.Confirm("Bu şablon silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/permission-templates/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await LoadList();

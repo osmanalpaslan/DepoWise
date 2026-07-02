@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Muayene / Sigorta</MudText>
 
@@ -83,6 +84,7 @@
     {
         _msg = null;
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Belge kaydedilsin mi?")) return;
         _busy = true;
         try
         {

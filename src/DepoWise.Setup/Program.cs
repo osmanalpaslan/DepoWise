@@ -142,17 +142,30 @@ sealed class SetupForm : Form
         await using var fs = File.Create(dest);
         var buffer = new byte[81920];
         long read = 0; int n;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long lastMs = 0, lastBytes = 0; string speed = "";
         while ((n = await src.ReadAsync(buffer)) > 0)
         {
             await fs.WriteAsync(buffer.AsMemory(0, n));
             read += n;
+            var elapsed = sw.ElapsedMilliseconds;
+            if (elapsed - lastMs >= 400)
+            {
+                var dSec = (elapsed - lastMs) / 1000.0;
+                if (dSec > 0)
+                {
+                    var bps = (read - lastBytes) / dSec;
+                    speed = bps >= 1024 * 1024 ? $"{bps / 1024 / 1024:0.0} MB/sn" : $"{bps / 1024:0} KB/sn";
+                }
+                lastMs = elapsed; lastBytes = read;
+            }
             if (total > 0)
             {
                 var pct = (int)(read * 100 / total);
                 SetProgress(pct);
-                SetStatus($"İndiriliyor… %{pct}  ({read / 1024 / 1024} / {total / 1024 / 1024} MB)");
+                SetStatus($"İndiriliyor… %{pct}  ({read / 1024 / 1024} / {total / 1024 / 1024} MB)" + (speed == "" ? "" : $"  •  {speed}"));
             }
-            else SetStatus($"İndiriliyor… {read / 1024 / 1024} MB");
+            else SetStatus($"İndiriliyor… {read / 1024 / 1024} MB" + (speed == "" ? "" : $"  •  {speed}"));
         }
     }
 
