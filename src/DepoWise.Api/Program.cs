@@ -242,7 +242,9 @@ app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized(
 
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
 app.MapPost("/api/branches", (HttpContext c, NameDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name)) }) : Results.Unauthorized()).RequireAuthorization();
-app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, null)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -650,7 +652,7 @@ record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson);
 record NameDto(string Name);
-record PersonnelDto(string FullName, string? Title, string? Phone);
+record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId);
 record MachineRegisterDto(string? CompanyId, string? MachineName);
 record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds);

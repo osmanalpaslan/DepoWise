@@ -8,14 +8,19 @@
 
 @if (Auth.CanCreate("personnel"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
-        <MudText Typo="Typo.h6" Class="mb-2">Yeni Personel</MudText>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:680px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ PERSONEL" : "PERSONEL DÜZENLE")</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad Soyad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="4"><MudTextField @bind-Value="_title" Label="Unvan" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Ad Soyad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad Soyad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="6"><MudTextField @bind-Value="_title" Label="Unvan" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="5"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
+            <MudItem xs="6" md="3" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_active" Label="Aktif" Dense="true" /></MudItem>
         </MudGrid>
-        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Personel Ekle")</MudButton>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
 }
@@ -23,24 +28,23 @@
 <MudPaper Class="pa-4" Elevation="2">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudText Typo="Typo.h6">Personel Listesi</MudText><MudSpacer />
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz personel yok.</MudText> }
     else
     {
-        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
-            <HeaderContent><MudTh>Ad Soyad</MudTh><MudTh>Unvan</MudTh><MudTh>Telefon</MudTh><MudTh></MudTh></HeaderContent>
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent><MudTh>AD SOYAD</MudTh><MudTh>UNVAN</MudTh><MudTh>TELEFON</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
                 @{ var id = Str(context, "id"); }
                 <MudTd>@Str(context, "fullName")</MudTd>
                 <MudTd>@Str(context, "title")</MudTd>
                 <MudTd>@Str(context, "phone")</MudTd>
+                <MudTd>@(Bool(context, "isActive") ? "Aktif" : "Pasif")</MudTd>
                 <MudTd>
-                    @if (Auth.CanDelete("personnel"))
-                    {
-                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
-                    }
+                    @if (Auth.CanEdit("personnel")) { <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => BeginEdit(context))">Düzenle</MudButton> }
+                    @if (Auth.CanDelete("personnel")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(id))">Sil</MudButton> }
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -49,24 +53,40 @@
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string? _editId;
     private string _name = "", _title = "", _phone = "";
+    private string? _branch;
+    private bool _active = true;
+    private List<ApiClient.Opt> _branches = new();
     private JsonElement[]? _rows;
-    private string? _msg; private bool _ok; private bool _busy;
+    private string? _msg; private bool _ok; private bool _busy; private bool _err;
 
-    protected override async Task OnInitializedAsync() => await LoadList();
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("personnel")) _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+        await LoadList();
+    }
+
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/personnel"); } catch { _rows = Array.Empty<JsonElement>(); } }
 
-    private async Task Create()
+    private void BeginEdit(JsonElement r)
     {
-        _msg = null;
+        _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = Str(r, "title"); _phone = Str(r, "phone");
+        _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _msg = null;
+    }
+
+    private async Task Save()
+    {
+        _err = true; _msg = null;
         if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad Soyad zorunlu."; _ok = false; return; }
-        if (!await Dialog.Confirm("Personel eklensin mi?")) return;
+        if (!await Dialog.Confirm(_editId is null ? "Personel eklensin mi?" : "Personel güncellensin mi?")) return;
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/personnel", new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone) });
-            _ok = err is null; _msg = err ?? "Eklendi.";
-            if (_ok) { _name = _title = _phone = ""; await LoadList(); }
+            var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active };
+            var err = _editId is null ? await Api.PostAsync("/api/personnel", body) : await Api.PutAsync($"/api/personnel/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
+            if (_ok) { Clear(); await LoadList(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
@@ -81,8 +101,13 @@
         await LoadList();
     }
 
+    private void Clear() { _err = false; _editId = null; _name = _title = _phone = ""; _branch = null; _active = true; }
+
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && (v.ValueKind == JsonValueKind.True || (v.ValueKind == JsonValueKind.Number && v.GetInt32() != 0));
 }
