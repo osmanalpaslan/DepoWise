@@ -6,15 +6,28 @@
     {
         <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Panel</MudNavLink>
 
-        @foreach (var g in Groups)
+        @* Operasyonel modüller (masaüstüyle aynı isim/işlev) *@
+        @foreach (var g in Operational)
         {
-            var mods = g.Keys.Where(k => Auth.CanView(k)).ToList();
-            if (mods.Count == 0) { continue; }
+            var items = g.Items.Where(i => Auth.CanView(i.Key)).ToList();
+            if (items.Count == 0) { continue; }
             <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="false">
-                @foreach (var key in mods)
+                @foreach (var i in items) { <MudNavLink Href="@Route(i.Key)">@i.Label</MudNavLink> }
+            </MudNavGroup>
+        }
+
+        @* Web'e özel yönetim ekranları — ayrı menü + alt menüler *@
+        @if (WebAdmin.Any(s => s.Items.Any(i => Auth.CanView(i.Key))))
+        {
+            <MudDivider Class="my-2" />
+            <MudNavGroup Title="Web Yönetimi" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
+                @foreach (var s in WebAdmin)
                 {
-                    var (route, ready) = Map(key);
-                    <MudNavLink Href="@route">@Label(key)@(ready ? "" : " •")</MudNavLink>
+                    var items = s.Items.Where(i => Auth.CanView(i.Key)).ToList();
+                    if (items.Count == 0) { continue; }
+                    <MudNavGroup Title="@s.Title" Icon="@s.Icon" Expanded="false">
+                        @foreach (var i in items) { <MudNavLink Href="@Route(i.Key)">@i.Label</MudNavLink> }
+                    </MudNavGroup>
                 }
             </MudNavGroup>
         }
@@ -30,53 +43,36 @@
     private void OnChanged() => InvokeAsync(StateHasChanged);
     public void Dispose() => Auth.Changed -= OnChanged;
 
-    private sealed record Grp(string Icon, string Title, string[] Keys);
+    private sealed record Item(string Key, string Label);
+    private sealed record Group(string Title, string Icon, Item[] Items);
 
-    private static readonly Grp[] Groups =
+    // Masaüstü isimleriyle birebir.
+    private static readonly Group[] Operational =
     {
-        new(Icons.Material.Filled.Inventory2, "Malzemeler", new[] { "materials", "stock" }),
-        new(Icons.Material.Filled.LocalShipping, "Araçlar", new[] { "vehicles", "maintenance", "inspection", "fuel", "daily_activity" }),
-        new(Icons.Material.Filled.Badge, "Personel", new[] { "personnel" }),
-        new(Icons.Material.Filled.Description, "Talepler", new[] { "requests" }),
-        new(Icons.Material.Filled.BarChart, "Raporlar", new[] { "reports" }),
-        new(Icons.Material.Filled.SwapHoriz, "İçe / Dışa Aktarım", new[] { "import_export", "files" }),
-        new(Icons.Material.Filled.Category, "Tanımlar", new[] { "definitions" }),
-        new(Icons.Material.Filled.People, "Kullanıcılar & Yetki", new[] { "users", "permissions", "permission_templates" }),
-        new(Icons.Material.Filled.Shield, "Yönetim", new[] { "companies", "releases", "branches", "machines", "audit", "backup", "server_backups" }),
-        new(Icons.Material.Filled.Settings, "Ayarlar", new[] { "settings", "about" }),
+        new("Malzemeler", Icons.Material.Filled.Inventory2, new[] { new Item("materials", "Malzemeler"), new Item("stock", "Stok İşlemleri") }),
+        new("Araçlar", Icons.Material.Filled.LocalShipping, new[] { new Item("vehicles", "Araçlar"), new Item("maintenance", "Bakım"), new Item("inspection", "Muayene / Sigorta"), new Item("fuel", "Yakıt"), new Item("daily_activity", "Günlük Faaliyet") }),
+        new("Personel", Icons.Material.Filled.Badge, new[] { new Item("personnel", "Personel") }),
+        new("Talepler", Icons.Material.Filled.Description, new[] { new Item("requests", "Malzeme Talep") }),
+        new("Raporlar", Icons.Material.Filled.BarChart, new[] { new Item("reports", "Raporlar") }),
+        new("Tanımlar", Icons.Material.Filled.Category, new[] { new Item("definitions", "Tanımlar"), new Item("users", "Kullanıcılar") }),
+        new("Yönetim", Icons.Material.Filled.ManageAccounts, new[] { new Item("branches", "Şube / Şantiye"), new Item("permissions", "Yetkiler"), new Item("audit", "Sistem Logu"), new Item("backup", "Yedek Yönetimi") }),
+        new("Ayarlar", Icons.Material.Filled.Settings, new[] { new Item("permission_templates", "Yetki Şablonları"), new Item("settings", "Ayarlar"), new Item("about", "Hakkında") }),
     };
 
-    private static string Label(string key) => key switch
+    // Web'e özel (platform) ekranlar — ayrı menü altında alt menüler.
+    private static readonly Group[] WebAdmin =
     {
-        "materials" => "Malzemeler", "stock" => "Stok İşlemleri",
-        "vehicles" => "Araçlar", "maintenance" => "Bakım", "inspection" => "Muayene / Sigorta",
-        "fuel" => "Yakıt", "daily_activity" => "Günlük Faaliyet", "personnel" => "Personel",
-        "requests" => "Malzeme Talep", "reports" => "Raporlar", "import_export" => "İmport / Export",
-        "files" => "Dosya / Fotoğraf", "definitions" => "Tanımlar", "users" => "Kullanıcılar",
-        "permissions" => "Yetkiler", "permission_templates" => "Yetki Şablonları",
-        "companies" => "Firmalar", "releases" => "Güncelleme Yönetimi", "branches" => "Şube / Şantiye",
-        "machines" => "Makine Yönetimi", "audit" => "Sistem Logu", "backup" => "Yedekleme",
-        "server_backups" => "Sunucu Yedekleri", "settings" => "Ayarlar", "about" => "Hakkında",
-        _ => key,
+        new("Firmalar & Dağıtım", Icons.Material.Filled.Business, new[] { new Item("companies", "Firma Tanım"), new Item("releases", "Güncelleme Yönetimi"), new Item("machines", "Makine Yönetimi") }),
+        new("Sunucu", Icons.Material.Filled.Dns, new[] { new Item("server_backups", "Sunucu Yedekleri") }),
     };
 
-    private static (string Route, bool Ready) Map(string key) => key switch
+    private static string Route(string key) => key switch
     {
-        "companies" => ("companies", true),
-        "machines" => ("machines", true),
-        "releases" => ("releases", true),
-        "users" => ("users", true),
-        "branches" => ("branches", true),
-        "personnel" => ("personnel", true),
-        "materials" => ("materials", true),
-        "vehicles" => ("vehicles", true),
-        "stock" => ("stock", true),
-        "maintenance" => ("maintenance", true),
-        "inspection" => ("inspection", true),
-        "fuel" => ("fuel", true),
-        "daily_activity" => ("daily", true),
-        "requests" => ("requests", true),
-        "definitions" => ("definitions", true),
-        _ => ($"soon/{key}", false),
+        "companies" => "companies", "machines" => "machines", "releases" => "releases",
+        "users" => "users", "branches" => "branches", "personnel" => "personnel",
+        "materials" => "materials", "vehicles" => "vehicles", "stock" => "stock",
+        "maintenance" => "maintenance", "inspection" => "inspection", "fuel" => "fuel",
+        "daily_activity" => "daily", "requests" => "requests", "definitions" => "definitions",
+        _ => $"soon/{key}",
     };
 }

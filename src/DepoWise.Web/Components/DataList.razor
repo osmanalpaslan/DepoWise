@@ -17,7 +17,7 @@
     {
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" Bordered="false" FixedHeader="true" Height="60vh">
             <HeaderContent>
-                @foreach (var c in _cols) { <MudTh>@c</MudTh> }
+                @foreach (var c in _cols) { <MudTh>@Label(c)</MudTh> }
             </HeaderContent>
             <RowTemplate>
                 @foreach (var c in _cols) { <MudTd DataLabel="@c">@Cell(context, c)</MudTd> }
@@ -45,6 +45,14 @@
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; _rows = Array.Empty<JsonElement>(); }
     }
 
+    // Teknik/yinelenen kolonlar gizlenir (masaüstündeki gibi temiz tablo).
+    private static readonly HashSet<string> Hidden = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "id", "companyId", "createdAt", "updatedAt", "version", "isDeleted", "branchId", "branchName",
+        "isActive", "currency", "taxDisplay", "parentId", "kind", "brandType", "subDefinitionId",
+        "definitionId", "vehicleId", "materialId", "documentId", "operationId", "approverId", "personnelId",
+    };
+
     private static List<string> BuildCols(JsonElement[] rows)
     {
         var cols = new List<string>();
@@ -55,10 +63,36 @@
             {
                 if (cols.Contains(p.Name)) continue;
                 if (p.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array) continue;
+                if (Hidden.Contains(p.Name)) continue;
+                if (p.Name.EndsWith("Id", StringComparison.Ordinal)) continue;
                 cols.Add(p.Name);
             }
         }
-        return cols.Take(8).ToList();
+        return cols.Take(9).ToList();
+    }
+
+    // JSON alan adı → masaüstüyle uyumlu Türkçe başlık.
+    private static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["code"] = "Kod", ["name"] = "Ad", ["type"] = "Tür", ["minStock"] = "Min. Stok", ["unitPrice"] = "Birim Fiyat",
+        ["username"] = "Kullanıcı Adı", ["fullName"] = "Ad Soyad", ["roles"] = "Roller", ["statusText"] = "Durum",
+        ["branchDisplay"] = "Şube", ["title"] = "Unvan", ["phone"] = "Telefon", ["plate"] = "Plaka",
+        ["internalCode"] = "İç Kod", ["docNo"] = "Belge No", ["status"] = "Durum", ["statusDisplay"] = "Durum",
+        ["date"] = "Tarih", ["dateText"] = "Tarih", ["quantity"] = "Miktar", ["qtyText"] = "Miktar",
+        ["liters"] = "Litre", ["litersText"] = "Litre", ["vehicleCode"] = "Araç", ["definitionName"] = "Bakım Tanımı",
+        ["materialName"] = "Malzeme", ["docType"] = "Belge Tipi", ["nextDate"] = "Sonraki Tarih",
+        ["lastDate"] = "Son Tarih", ["result"] = "Sonuç", ["note"] = "Açıklama", ["noteText"] = "Açıklama",
+        ["typeText"] = "Tür", ["directionText"] = "Yön", ["priceText"] = "B. Fiyat", ["model"] = "Model",
+        ["brand"] = "Marka", ["year"] = "Yıl", ["meter"] = "Sayaç", ["driver"] = "Sürücü",
+        ["requestDate"] = "Talep Tarihi", ["approvalStatus"] = "Onay", ["itemCount"] = "Kalem",
+    };
+
+    private static string Label(string key)
+    {
+        if (Labels.TryGetValue(key, out var v)) return v;
+        // Bilinmeyen: camelCase → "Camel Case"
+        var s = System.Text.RegularExpressions.Regex.Replace(key, "([a-z])([A-Z])", "$1 $2");
+        return char.ToUpper(s[0]) + s[1..];
     }
 
     private static string Cell(JsonElement row, string col)
