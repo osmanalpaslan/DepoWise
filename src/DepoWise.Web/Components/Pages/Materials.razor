@@ -3,36 +3,26 @@
 @inject ApiClient Api
 @inject AuthState Auth
 
-<h3>Malzemeler</h3>
+<MudText Typo="Typo.h5" GutterBottom="true">Malzemeler</MudText>
 
 @if (Auth.CanCreate("materials"))
 {
-    <div class="card mb-3" style="max-width:820px;">
-        <div class="card-body">
-            <h6>Yeni Malzeme</h6>
-            <div class="row g-2">
-                <div class="col-md-3"><input class="form-control form-control-sm" placeholder="Kod *" @bind="_code" /></div>
-                <div class="col-md-5"><input class="form-control form-control-sm" placeholder="Ad *" @bind="_name" /></div>
-                <div class="col-md-4"><input class="form-control form-control-sm" placeholder="Tür" @bind="_type" /></div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="_unit"><option value="">Birim</option>@Opts(_units)</select>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="_cat"><option value="">Kategori</option>@Opts(_cats)</select>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="_brand"><option value="">Marka</option>@Opts(_brands)</select>
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="_sup"><option value="">Tedarikçi</option>@Opts(_sups)</select>
-                </div>
-                <div class="col-md-3"><input class="form-control form-control-sm" type="number" placeholder="Min. Stok" @bind="_min" /></div>
-                <div class="col-md-3"><input class="form-control form-control-sm" type="number" placeholder="Birim Fiyat" @bind="_price" /></div>
-            </div>
-            <button class="btn btn-success btn-sm mt-2" @onclick="Create" disabled="@_busy">@(_busy ? "…" : "Malzeme Ekle")</button>
-            @if (_msg is not null) { <span class="ms-2">@_msg</span> }
-        </div>
-    </div>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Malzeme</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_units)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_cats)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_brands)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_sups)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_min" Label="Min. Stok" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+        </MudGrid>
+        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Malzeme Ekle")</MudButton>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
 }
 
 <DataList @key="_v" Title="Malzeme Listesi" Path="/api/materials" />
@@ -41,7 +31,7 @@
     private string _code = "", _name = "", _type = "", _unit = "", _cat = "", _brand = "", _sup = "";
     private decimal _min, _price;
     private List<(string Id, string Name)> _units = new(), _cats = new(), _brands = new(), _sups = new();
-    private string? _msg; private bool _busy; private int _v;
+    private string? _msg; private bool _ok; private bool _busy; private int _v;
 
     protected override async Task OnInitializedAsync()
     {
@@ -56,8 +46,7 @@
         {
             var arr = await Api.GetArrayAsync($"/api/lookups/{table}");
             return arr.Where(e => e.ValueKind == JsonValueKind.Object)
-                .Select(e => (e.GetProperty("id").GetString() ?? "", e.GetProperty("name").GetString() ?? ""))
-                .ToList();
+                .Select(e => (e.GetProperty("id").GetString() ?? "", e.GetProperty("name").GetString() ?? "")).ToList();
         }
         catch { return new(); }
     }
@@ -67,17 +56,17 @@
         int i = 0;
         foreach (var (id, name) in list)
         {
-            builder.OpenElement(i++, "option");
-            builder.AddAttribute(i++, "value", id);
-            builder.AddContent(i++, name);
-            builder.CloseElement();
+            builder.OpenComponent<MudSelectItem<string>>(i++);
+            builder.AddAttribute(i++, "Value", id);
+            builder.AddAttribute(i++, "ChildContent", (RenderFragment)(b => b.AddContent(0, name)));
+            builder.CloseComponent();
         }
     };
 
     private async Task Create()
     {
         _msg = null;
-        if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; return; }
+        if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
         _busy = true;
         try
         {
@@ -87,12 +76,12 @@
                 categoryId = Empty(_cat), unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                 minStock = _min, unitPrice = _price
             });
-            _msg = err ?? "Eklendi.";
-            if (err is null) { _code = _name = _type = _unit = _cat = _brand = _sup = ""; _min = _price = 0; _v++; }
+            _ok = err is null; _msg = err ?? "Eklendi.";
+            if (_ok) { _code = _name = _type = _unit = _cat = _brand = _sup = ""; _min = _price = 0; _v++; }
         }
-        catch (Exception ex) { _msg = "Hata: " + ex.Message; }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
 
-    private static string? Empty(string v) => string.IsNullOrEmpty(v) ? null : v;
+    private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
 }

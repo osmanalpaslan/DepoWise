@@ -7,27 +7,19 @@
 
 <PageTitle>Giriş — DepoWise</PageTitle>
 
-<div style="max-width:420px;margin:60px auto;">
-    <h2>DepoWise Yönetim</h2>
-    <p class="text-muted">Sunucu (API) hesabınızla giriş yapın.</p>
+<MudPaper Class="pa-8" Elevation="4" Style="max-width:420px;width:100%;margin-top:12vh;">
+    <MudText Typo="Typo.h5" Class="mb-1">DepoWise Yönetim</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">Sunucu hesabınızla giriş yapın.</MudText>
 
-    <div class="mb-3">
-        <label class="form-label">Kullanıcı adı</label>
-        <input class="form-control" @bind="_username" />
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Parola</label>
-        <input class="form-control" type="password" @bind="_password" @onkeyup="OnKey" />
-    </div>
-    <button class="btn btn-primary w-100" @onclick="DoLogin" disabled="@_busy">
+    <MudTextField @bind-Value="_username" Label="Kullanıcı adı" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+    <MudTextField @bind-Value="_password" Label="Parola" InputType="InputType.Password" Variant="Variant.Outlined"
+                  Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey" />
+    <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoLogin" Disabled="_busy">
         @(_busy ? "Giriş yapılıyor…" : "Giriş")
-    </button>
+    </MudButton>
 
-    @if (_error is not null)
-    {
-        <div class="alert alert-danger mt-3">@_error</div>
-    }
-</div>
+    @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert> }
+</MudPaper>
 
 @code {
     private string _username = "";

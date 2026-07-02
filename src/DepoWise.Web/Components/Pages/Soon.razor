@@ -1,10 +1,7 @@
 @page "/soon/{Area}"
-@inject AuthState Auth
 
-<PageTitle>@Area — DepoWise</PageTitle>
-
-<h3>@Area</h3>
-<div class="alert alert-info">Bu bölüm yakında web arayüzüne eklenecek. (Masaüstünde mevcut.)</div>
+<MudText Typo="Typo.h5" GutterBottom="true">@Area</MudText>
+<MudAlert Severity="Severity.Info">Bu bölüm yakında web arayüzüne eklenecek. (Masaüstünde mevcut.)</MudAlert>
 
 @code {
     [Parameter] public string Area { get; set; } = "";

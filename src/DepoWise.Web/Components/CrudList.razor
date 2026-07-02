@@ -2,44 +2,43 @@
 @inject ApiClient Api
 @inject AuthState Auth
 
-<h4>@Title</h4>
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-2">@Title</MudText>
 
-@if (CanCreate)
-{
-    <div class="input-group input-group-sm mb-2" style="max-width:420px;">
-        <input class="form-control" placeholder="Yeni @Title" @bind="_new" @bind:event="oninput" />
-        <button class="btn btn-success" @onclick="Add" disabled="@_busy">Ekle</button>
-    </div>
-}
-@if (_msg is not null) { <div class="alert alert-@(_ok ? "success" : "danger") py-1">@_msg</div> }
+    @if (CanCreate)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Style="max-width:460px;">
+            <MudTextField @bind-Value="_new" Placeholder="@($"Yeni {Title}")" Immediate="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Add" Disabled="_busy">Ekle</MudButton>
+        </MudStack>
+    }
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-2">@_msg</MudAlert> }
 
-@if (_rows is null) { <p class="text-muted">Yükleniyor…</p> }
-else if (_rows.Length == 0) { <p class="text-muted">Kayıt yok.</p> }
-else
-{
-    <table class="table table-sm table-striped">
-        <thead><tr><th>Ad</th>@if (CanDelete) { <th></th> }</tr></thead>
-        <tbody>
-        @foreach (var row in _rows)
-        {
-            <tr>
-                <td>@Name(row)</td>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
+            <HeaderContent><MudTh>Ad</MudTh>@if (CanDelete) { <MudTh Style="width:80px" /> }</HeaderContent>
+            <RowTemplate>
+                <MudTd>@Name(context)</MudTd>
                 @if (CanDelete)
                 {
-                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" @onclick="() => Del(Id(row))">Sil</button></td>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Del(Id(context))" />
+                    </MudTd>
                 }
-            </tr>
-        }
-        </tbody>
-    </table>
-}
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter, EditorRequired] public string ListPath { get; set; } = "";
     [Parameter, EditorRequired] public string ModuleKey { get; set; } = "";
     [Parameter] public string CreatePath { get; set; } = "";
-    [Parameter] public string DeletePrefix { get; set; } = ""; // örn "/api/lookups/units" → /{id}
+    [Parameter] public string DeletePrefix { get; set; } = "";
     [Parameter] public string CreateField { get; set; } = "name";
     [Parameter] public string NameField { get; set; } = "name";
 
@@ -65,8 +64,7 @@ else
         _busy = true;
         try
         {
-            var body = new Dictionary<string, string> { [CreateField] = _new.Trim() };
-            var err = await Api.PostAsync(CreatePath, body);
+            var err = await Api.PostAsync(CreatePath, new Dictionary<string, string> { [CreateField] = _new.Trim() });
             _ok = err is null; _msg = err ?? "Eklendi.";
             if (_ok) { _new = ""; await Load(); }
         }

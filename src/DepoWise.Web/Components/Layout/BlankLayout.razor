@@ -1,6 +1,9 @@
 @inherits LayoutComponentBase
 
-@* Tasarımsız/çıplak layout — login ekranı için (koyu arka plan, sidebar/menü yok). *@
-<div style="min-height:100vh;background:#0f172a;color:#e2e8f0;display:flex;align-items:flex-start;justify-content:center;">
+@* Login için: koyu tam-ekran + Mud tema (sidebar/menü yok). *@
+<MudThemeProvider IsDarkMode="true" />
+<MudPopoverProvider />
+
+<div style="min-height:100vh;background:#0f172a;display:flex;align-items:flex-start;justify-content:center;">
     @Body
 </div>

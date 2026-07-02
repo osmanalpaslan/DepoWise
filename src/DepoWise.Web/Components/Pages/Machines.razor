@@ -5,44 +5,34 @@
 
 <PageTitle>Makineler — DepoWise</PageTitle>
 
-<h3>Makine Yönetimi</h3>
-<p class="text-muted">Kayıtlı makineleri onaylayın / pasife alın. (Süper Admin)</p>
+<MudText Typo="Typo.h5" GutterBottom="true">Makine Yönetimi</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Kayıtlı makineleri onaylayın / pasife alın. (Süper Admin)</MudText>
 
-@if (!Auth.IsAuthenticated)
-{
-    <div class="alert alert-warning">Giriş yapmalısınız. <a href="/login">Giriş</a></div>
-}
-else
-{
-    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="Load">Yenile</button>
-    @if (_error is not null) { <div class="alert alert-danger">@_error</div> }
-
-    @if (_machines is null) { <p>Yükleniyor…</p> }
-    else if (_machines.Count == 0) { <p class="text-muted">Kayıtlı makine yok (enrollment sonrası listelenir).</p> }
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
+    @if (_machines is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Kayıtlı makine yok (enrollment sonrası listelenir).</MudText> }
     else
     {
-        <table class="table table-sm align-middle">
-            <thead><tr><th>Makine</th><th>Durum</th><th>Son Görülme</th><th>Kayıt</th><th></th></tr></thead>
-            <tbody>
-            @foreach (var m in _machines)
-            {
-                <tr>
-                    <td><strong>@m.Name</strong></td>
-                    <td>@m.StatusText</td>
-                    <td class="text-muted">@m.LastSeenText</td>
-                    <td class="text-muted">@m.CreatedText</td>
-                    <td class="text-end">
-                        @if (m.CanActivate)
-                        { <button class="btn btn-sm btn-outline-primary" @onclick="() => Approve(m.Id)">Aktifleştir</button> }
-                        @if (m.IsActive)
-                        { <button class="btn btn-sm btn-outline-danger" @onclick="() => Revoke(m.Id)">Pasife Al</button> }
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
+        <MudTable Items="_machines" Dense="true" Hover="true" Striped="true">
+            <HeaderContent><MudTh>Makine</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Name</MudTd>
+                <MudTd>@context.StatusText</MudTd>
+                <MudTd>@context.LastSeenText</MudTd>
+                <MudTd>@context.CreatedText</MudTd>
+                <MudTd>
+                    @if (context.CanActivate) { <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => Approve(context.Id)">Aktifleştir</MudButton> }
+                    @if (context.IsActive) { <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => Revoke(context.Id)">Pasife Al</MudButton> }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
     }
-}
+</MudPaper>
 
 @code {
     private List<MachineDto>? _machines;

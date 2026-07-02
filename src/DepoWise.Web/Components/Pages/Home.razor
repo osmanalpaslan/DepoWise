@@ -5,27 +5,31 @@
 
 <PageTitle>DepoWise Yönetim</PageTitle>
 
-<h1>DepoWise — Yönetim Paneli</h1>
+<MudText Typo="Typo.h4" GutterBottom="true">DepoWise — Yönetim Paneli</MudText>
 
 @if (Auth.IsAuthenticated)
 {
-    <div class="alert alert-success">
-        Giriş yapıldı — Firma: <strong>@Auth.CompanyId</strong>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")
-    </div>
+    <MudAlert Severity="Severity.Success" Class="mb-4">
+        Giriş yapıldı — Firma: <b>@Auth.CompanyId</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")
+    </MudAlert>
 
-    <div class="card mb-3" style="max-width:640px;">
-        <div class="card-body">
-            <h5 class="card-title">Masaüstü Uygulaması</h5>
-            <p class="card-text text-muted">Kurulum aracını indirin. Çalıştırınca uygulamayı sunucudan indirir, kurar ve bağlantı ayarlarını otomatik yapar.</p>
-            <a class="btn btn-primary" href="@Api.SetupDownloadUrl" target="_blank">⬇ Masaüstü Kurulum Aracını İndir</a>
-        </div>
-    </div>
+    <MudCard Class="mb-4" Style="max-width:680px;">
+        <MudCardContent>
+            <MudText Typo="Typo.h6">Masaüstü Uygulaması</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                Kurulum aracını indirin. Çalıştırınca uygulamayı sunucudan indirir, kurar ve bağlantı ayarlarını otomatik yapar.
+            </MudText>
+            <MudButton Href="@Api.SetupDownloadUrl" Target="_blank" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Download">Masaüstü Kurulum Aracını İndir</MudButton>
+        </MudCardContent>
+    </MudCard>
 
-    <h5>Hızlı Erişim</h5>
-    <ul>
-        <li><a href="/machines">Makine Yönetimi</a></li>
-        <li><a href="/releases">Sürümler / Güncelleme yayınla</a></li>
-    </ul>
+    <MudText Typo="Typo.subtitle1">Hızlı Erişim</MudText>
+    <MudStack Row="true" Spacing="2" Class="mt-2">
+        <MudButton Href="/machines" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Devices">Makineler</MudButton>
+        <MudButton Href="/releases" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.SystemUpdate">Sürümler</MudButton>
+        <MudButton Href="/companies" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Business">Firmalar</MudButton>
+    </MudStack>
 }
 
 @code {

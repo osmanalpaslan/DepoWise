@@ -2,64 +2,55 @@
 @inject ApiClient Api
 @inject AuthState Auth
 
-<PageTitle>Firmalar — DepoWise</PageTitle>
+<MudText Typo="Typo.h5" GutterBottom="true">Firmalar</MudText>
 
-<h3>Firmalar</h3>
-<p class="text-muted">Firma tanımları (yalnız Süper Admin).</p>
-
-@if (!Auth.IsAuthenticated)
+@if (Auth.CanCreate("companies"))
 {
-    <div class="alert alert-warning">Giriş yapmalısınız.</div>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+        <MudText Typo="Typo.h6" Class="mb-2">Yeni Firma</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Firma Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_taxNo" Label="Vergi No" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_taxOffice" Label="Vergi Dairesi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="4"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="4"><MudTextField @bind-Value="_email" Label="E-posta" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="4"><MudTextField @bind-Value="_person" Label="Yetkili Kişi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_address" Label="Adres" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+        </MudGrid>
+        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">
+            @(_busy ? "Kaydediliyor…" : "Firma Ekle")
+        </MudButton>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
 }
-else
-{
-    <button class="btn btn-outline-secondary btn-sm mb-2" @onclick="Load">Yenile</button>
-    @if (_error is not null) { <div class="alert alert-danger">@_error</div> }
 
-    @if (_items is null) { <p>Yükleniyor…</p> }
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Firma Listesi</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
+    @if (_items is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else
     {
-        <table class="table table-sm align-middle">
-            <thead><tr><th>Firma</th><th>Vergi No</th><th>Telefon</th><th>Yetkili</th><th>Kullanıcı</th></tr></thead>
-            <tbody>
-            @foreach (var c in _items)
-            {
-                <tr>
-                    <td><strong>@c.Name</strong></td>
-                    <td>@(string.IsNullOrEmpty(c.TaxNo) ? "—" : c.TaxNo)</td>
-                    <td>@(string.IsNullOrEmpty(c.Phone) ? "—" : c.Phone)</td>
-                    <td>@(string.IsNullOrEmpty(c.AuthorizedPerson) ? "—" : c.AuthorizedPerson)</td>
-                    <td>@c.UserCount</td>
-                </tr>
-            }
-            @if (_items.Count == 0) { <tr><td colspan="5" class="text-muted">Kayıt yok.</td></tr> }
-            </tbody>
-        </table>
-
-        <hr />
-        <h5>Yeni Firma</h5>
-        <div class="row g-2" style="max-width:720px;">
-            <div class="col-md-6"><label class="form-label">Firma Adı *</label><input class="form-control" @bind="_name" /></div>
-            <div class="col-md-3"><label class="form-label">Vergi No</label><input class="form-control" @bind="_taxNo" /></div>
-            <div class="col-md-3"><label class="form-label">Vergi Dairesi</label><input class="form-control" @bind="_taxOffice" /></div>
-            <div class="col-md-4"><label class="form-label">Telefon</label><input class="form-control" @bind="_phone" /></div>
-            <div class="col-md-4"><label class="form-label">E-posta</label><input class="form-control" @bind="_email" /></div>
-            <div class="col-md-4"><label class="form-label">Yetkili Kişi</label><input class="form-control" @bind="_person" /></div>
-            <div class="col-12"><label class="form-label">Adres</label><input class="form-control" @bind="_address" /></div>
-            <div class="col-12">
-                <button class="btn btn-success" @onclick="Create" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "Firma Ekle")</button>
-                @if (_msg is not null) { <span class="ms-2">@_msg</span> }
-            </div>
-        </div>
+        <MudTable Items="_items" Dense="true" Hover="true" Striped="true">
+            <HeaderContent><MudTh>Firma</MudTh><MudTh>Vergi No</MudTh><MudTh>Telefon</MudTh><MudTh>Yetkili</MudTh><MudTh>Kullanıcı</MudTh></HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Name</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(context.TaxNo) ? "—" : context.TaxNo)</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(context.Phone) ? "—" : context.Phone)</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(context.AuthorizedPerson) ? "—" : context.AuthorizedPerson)</MudTd>
+                <MudTd>@context.UserCount</MudTd>
+            </RowTemplate>
+        </MudTable>
     }
-}
+</MudPaper>
 
 @code {
     private List<CompanyDto>? _items;
     private string? _error;
     private string _name = "", _taxNo = "", _taxOffice = "", _phone = "", _email = "", _person = "", _address = "";
-    private string? _msg;
-    private bool _busy;
+    private string? _msg; private bool _ok; private bool _busy;
 
     protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
 
@@ -73,7 +64,7 @@ else
     private async Task Create()
     {
         _msg = null;
-        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Firma adı zorunlu."; return; }
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Firma adı zorunlu."; _ok = false; return; }
         _busy = true;
         try
         {
@@ -82,10 +73,10 @@ else
                 name = _name.Trim(), taxNo = _taxNo, taxOffice = _taxOffice,
                 address = _address, phone = _phone, email = _email, authorizedPerson = _person
             });
-            _msg = err ?? "Eklendi.";
-            if (err is null) { _name = _taxNo = _taxOffice = _phone = _email = _person = _address = ""; await Load(); }
+            _ok = err is null; _msg = err ?? "Eklendi.";
+            if (_ok) { _name = _taxNo = _taxOffice = _phone = _email = _person = _address = ""; await Load(); }
         }
-        catch (Exception ex) { _msg = "Hata: " + ex.Message; }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
 }
