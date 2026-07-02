@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 
 <MudText Typo="Typo.h5" GutterBottom="true">Malzemeler</MudText>
 
@@ -10,13 +11,17 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
         <MudText Typo="Typo.h6" Class="mb-2">Yeni Malzeme</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="6" md="4"><MudTextField @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_units)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_cats)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_brands)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_sups)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_min" Label="Min. Stok" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
@@ -28,6 +33,8 @@
 <DataList @key="_v" Title="Malzeme Listesi" Path="/api/materials" />
 
 @code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+
     private string _code = "", _name = "", _type = "", _unit = "", _cat = "", _brand = "", _sup = "";
     private decimal _min, _price;
     private List<(string Id, string Name)> _units = new(), _cats = new(), _brands = new(), _sups = new();
@@ -50,6 +57,28 @@
         }
         catch { return new(); }
     }
+
+    // Alan yanındaki "+" — masaüstündeki gibi yeni lookup ekle, ekleyince otomatik seç.
+    private async Task AddLk(string table)
+    {
+        var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Kayıt",
+            new DialogParameters { ["Table"] = table, ["Label"] = "Ad" },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled || res.Data is not string name) return;
+
+        switch (table)
+        {
+            case "units": _units = await Lk(table); _unit = IdOf(_units, name); break;
+            case "material_categories": _cats = await Lk(table); _cat = IdOf(_cats, name); break;
+            case "brands": _brands = await Lk(table); _brand = IdOf(_brands, name); break;
+            case "suppliers": _sups = await Lk(table); _sup = IdOf(_sups, name); break;
+        }
+        StateHasChanged();
+    }
+
+    private static string IdOf(List<(string Id, string Name)> list, string name)
+        => list.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).Id ?? "";
 
     private RenderFragment Opts(List<(string Id, string Name)> list) => builder =>
     {

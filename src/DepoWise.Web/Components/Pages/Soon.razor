@@ -1,8 +1,22 @@
 @page "/soon/{Area}"
 
-<MudText Typo="Typo.h5" GutterBottom="true">@Area</MudText>
-<MudAlert Severity="Severity.Info">Bu bölüm yakında web arayüzüne eklenecek. (Masaüstünde mevcut.)</MudAlert>
+<MudText Typo="Typo.h5" GutterBottom="true">@Title</MudText>
+<MudAlert Severity="Severity.Info">Bu ekran masaüstü uygulamasındaki ile birebir olacak şekilde web'e ekleniyor.</MudAlert>
 
 @code {
     [Parameter] public string Area { get; set; } = "";
+
+    private string Title => Labels.TryGetValue(Area, out var v) ? v : Area;
+
+    // Masaüstü menü isimleriyle birebir (AppModules ile aynı).
+    private static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["reports"] = "Raporlar", ["definitions"] = "Tanımlar", ["users"] = "Kullanıcılar",
+        ["permissions"] = "Yetkiler", ["permission_templates"] = "Yetki Şablonları",
+        ["audit"] = "Sistem Logu", ["backup"] = "Yedek Yönetimi", ["settings"] = "Ayarlar",
+        ["about"] = "Hakkında", ["server_backups"] = "Sunucu Yedekleri", ["branches"] = "Şube / Şantiye",
+        ["personnel"] = "Personel", ["stock"] = "Stok İşlemleri", ["maintenance"] = "Bakım",
+        ["inspection"] = "Muayene / Sigorta", ["fuel"] = "Yakıt", ["daily_activity"] = "Günlük Faaliyet",
+        ["requests"] = "Malzeme Talep", ["vehicles"] = "Araçlar",
+    };
 }

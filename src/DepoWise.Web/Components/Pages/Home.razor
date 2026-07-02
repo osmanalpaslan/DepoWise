@@ -24,12 +24,15 @@
         </MudCardContent>
     </MudCard>
 
-    <MudText Typo="Typo.subtitle1">Hızlı Erişim</MudText>
-    <MudStack Row="true" Spacing="2" Class="mt-2">
-        <MudButton Href="/machines" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Devices">Makineler</MudButton>
-        <MudButton Href="/releases" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.SystemUpdate">Sürümler</MudButton>
-        <MudButton Href="/companies" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Business">Firmalar</MudButton>
-    </MudStack>
+    @if (Auth.IsSuperAdmin)
+    {
+        <MudText Typo="Typo.subtitle1">Hızlı Erişim</MudText>
+        <MudStack Row="true" Spacing="2" Class="mt-2">
+            <MudButton Href="/machines" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Devices">Makine Yönetimi</MudButton>
+            <MudButton Href="/releases" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.SystemUpdate">Güncelleme Yönetimi</MudButton>
+            <MudButton Href="/companies" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Business">Firma Tanım</MudButton>
+        </MudStack>
+    }
 }
 
 @code {

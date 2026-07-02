@@ -1,0 +1,41 @@
+@inject ApiClient Api
+
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_name" Label="@Label" Variant="Variant.Outlined"
+                      Immediate="true" AutoFocus="true" Margin="Margin.Dense"
+                      UserAttributes="@(new Dictionary<string, object?> { ["autocomplete"] = "off" })" />
+        @if (_err is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_err</MudAlert> }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">İptal</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save" Disabled="_busy">Ekle</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public string Table { get; set; } = "";
+    [Parameter] public string Label { get; set; } = "Ad";
+
+    private string _name = "";
+    private string? _err;
+    private bool _busy;
+
+    private async Task Save()
+    {
+        _err = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _err = "Ad zorunlu."; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/lookups/{Table}", new { name = _name.Trim() });
+            if (err is null) { Dialog.Close(DialogResult.Ok(_name.Trim())); }
+            else { _err = err; }
+        }
+        catch (Exception ex) { _err = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private void Cancel() => Dialog.Cancel();
+}
