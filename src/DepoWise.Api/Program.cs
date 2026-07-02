@@ -241,7 +241,8 @@ app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized(
     : Results.Ok(RoleKeys.Seed.Where(r => r.Key != RoleKeys.SuperAdmin).Select(r => new { key = r.Key, name = r.Name }))).RequireAuthorization();
 
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
-app.MapPost("/api/branches", (HttpContext c, NameDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Branches.GetUsers(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive))) }) : Results.Unauthorized()).RequireAuthorization();
@@ -613,8 +614,8 @@ app.MapGet("/api/requests/{id}/pdf", (HttpContext c, string id, bool? economic) 
 // ── Personel (sil) + Şube/Şantiye (güncelle/sil) ──
 app.MapDelete("/api/personnel/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Lookups.Delete(s, "personnel", id)) }) : Results.Unauthorized()).RequireAuthorization();
-app.MapPut("/api/branches/{id}", (HttpContext c, string id, NameDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name))) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/branches/{id}", (HttpContext c, string id, BranchDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/branches/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
@@ -756,6 +757,7 @@ record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
+record BranchDto(string Name, string? Kind, string? ParentId);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
