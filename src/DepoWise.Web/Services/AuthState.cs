@@ -1,6 +1,6 @@
 namespace DepoWise.Web.Services;
 
-/// <summary>Oturum durumu (JWT + kullanıcı bilgisi). Scoped — Blazor circuit başına.</summary>
+/// <summary>Oturum durumu (JWT + kullanıcı). Tarayıcıda saklanır (ProtectedLocalStorage) → sayfa geçişi/yenilemede korunur.</summary>
 public sealed class AuthState
 {
     public string? Token { get; private set; }
@@ -8,6 +8,9 @@ public sealed class AuthState
     public string? CompanyId { get; private set; }
     public bool IsSuperAdmin { get; private set; }
     public bool IsAuthenticated => !string.IsNullOrEmpty(Token);
+
+    /// <summary>Tarayıcı deposundan yükleme denendi mi (guard erken yönlendirmesin diye).</summary>
+    public bool Loaded { get; set; }
 
     public event Action? Changed;
 

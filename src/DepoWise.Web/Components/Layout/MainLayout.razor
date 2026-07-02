@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @inject AuthState Auth
 @inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
 
 <div class="page">
@@ -30,25 +31,42 @@
 </div>
 
 @code {
-    protected override void OnInitialized()
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        Nav.LocationChanged += OnLocationChanged;
+        if (!firstRender || Auth.Loaded) return;
+        Auth.Loaded = true;
+        try
+        {
+            var r = await LocalStorage.GetAsync<string>("dw_auth");
+            if (r.Success && !string.IsNullOrEmpty(r.Value))
+            {
+                var p = r.Value.Split('|');
+                if (p.Length == 4 && !string.IsNullOrEmpty(p[0]))
+                    Auth.SignIn(p[0], p[1], p[2], p[3] == "True");
+            }
+        }
+        catch { }
         Guard();
+        StateHasChanged();
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => Guard();
 
-    // Giriş yapılmadıysa login ekranına yönlendir (site açılınca ilk ekran login).
+    // Yükleme denendikten SONRA: giriş yoksa login'e yönlendir.
     private void Guard()
     {
+        if (!Auth.Loaded) return;
         var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
         if (!Auth.IsAuthenticated && !string.Equals(path, "/login", StringComparison.OrdinalIgnoreCase))
             Nav.NavigateTo("/login");
     }
 
-    private void SignOut()
+    private async Task SignOut()
     {
         Auth.SignOut();
+        try { await LocalStorage.DeleteAsync("dw_auth"); } catch { }
         Nav.NavigateTo("/login");
     }
 

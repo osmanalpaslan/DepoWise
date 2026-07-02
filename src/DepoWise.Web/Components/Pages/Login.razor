@@ -2,6 +2,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
 <PageTitle>Giriş — DepoWise</PageTitle>
 
@@ -41,7 +42,11 @@
         try
         {
             _error = await Api.LoginAsync(_username.Trim(), _password);
-            if (_error is null) Nav.NavigateTo("/machines");
+            if (_error is null)
+            {
+                await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}");
+                Nav.NavigateTo("/machines");
+            }
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
         finally { _busy = false; }

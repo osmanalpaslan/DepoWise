@@ -1,7 +1,15 @@
 using DepoWise.Web.Components;
 using DepoWise.Web.Services;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// DataProtection anahtarlarını KALICI diske yaz (antiforgery/oturum yeniden başlatmada bozulmasın).
+var keysDir = Directory.Exists("/dpkeys") ? "/dpkeys" : Path.Combine(builder.Environment.ContentRootPath, "dpkeys");
+Directory.CreateDirectory(keysDir);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .SetApplicationName("DepoWiseWeb");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
