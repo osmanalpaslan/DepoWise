@@ -5,33 +5,45 @@
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary">
+        <MudText Typo="Typo.h6">DepoWise Yönetim</MudText>
+        <MudSpacer />
+        @if (Auth.IsAuthenticated)
+        {
+            <MudText Class="mr-4" Typo="Typo.body2">@Auth.CompanyId @(Auth.IsSuperAdmin ? "· Süper Admin" : "")</MudText>
+            <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">Çıkış</MudButton>
+        }
+    </MudAppBar>
+    <MudDrawer Open="true" Elevation="2" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
         <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            @if (Auth.IsAuthenticated)
-            {
-                <span class="me-3">@Auth.CompanyId@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</span>
-                <a href="#" @onclick="SignOut" @onclick:preventDefault>Çıkış</a>
-            }
-        </div>
-
-        <article class="content px-4">
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
             @Body
-        </article>
-    </main>
-</div>
-
-<div id="blazor-error-ui">
-    Beklenmeyen bir hata oluştu.
-    <a href="" class="reload">Yeniden yükle</a>
-    <a class="dismiss">🗙</a>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
 @code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#3b82f6",
+            AppbarBackground = "#1e293b",
+            Background = "#0f172a",
+            Surface = "#1e293b",
+            DrawerBackground = "#111827",
+            DrawerText = "#cbd5e1",
+        }
+    };
+
     protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -47,7 +59,7 @@
                 if (p.Length == 4 && !string.IsNullOrEmpty(p[0]))
                 {
                     Auth.SignIn(p[0], p[1], p[2], p[3] == "True");
-                    await Api.RefreshMenuAsync(); // yetkiye göre menü (oturum geri yüklenince)
+                    await Api.RefreshMenuAsync();
                 }
             }
         }
@@ -58,7 +70,6 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => Guard();
 
-    // Yükleme denendikten SONRA: giriş yoksa login'e yönlendir.
     private void Guard()
     {
         if (!Auth.Loaded) return;

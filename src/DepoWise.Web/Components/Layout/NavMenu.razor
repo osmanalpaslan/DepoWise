@@ -1,87 +1,49 @@
 @inject AuthState Auth
 @implements IDisposable
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">DepoWise Yönetim</a>
-    </div>
-</div>
+<MudNavMenu>
+    @if (Auth.IsAuthenticated)
+    {
+        <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Panel</MudNavLink>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable">
-    <nav class="flex-column">
-        @if (Auth.IsAuthenticated)
+        @foreach (var g in Groups)
         {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                    <span class="bi bi-house-door-fill-nav-menu"></span> Panel
-                </NavLink>
-            </div>
-
-            @foreach (var g in Groups)
-            {
-                var mods = g.Keys.Where(k => Auth.CanView(k)).ToList();
-                if (mods.Count == 0) { continue; }
-                var open = _open.Contains(g.Title);
-                <div class="nav-group">
-                    <button class="nav-group-header" @onclick="() => Toggle(g.Title)">
-                        <span>@g.Icon @g.Title</span>
-                        <span>@(open ? "▾" : "▸")</span>
-                    </button>
-                    @if (open)
-                    {
-                        @foreach (var key in mods)
-                        {
-                            var (route, ready) = Map(key);
-                            <div class="nav-item px-3">
-                                <NavLink class="nav-link" href="@route">@Label(key)@(ready ? "" : " •")</NavLink>
-                            </div>
-                        }
-                    }
-                </div>
-            }
+            var mods = g.Keys.Where(k => Auth.CanView(k)).ToList();
+            if (mods.Count == 0) { continue; }
+            <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="false">
+                @foreach (var key in mods)
+                {
+                    var (route, ready) = Map(key);
+                    <MudNavLink Href="@route">@Label(key)@(ready ? "" : " •")</MudNavLink>
+                }
+            </MudNavGroup>
         }
-        else
-        {
-            <div class="nav-item px-3"><NavLink class="nav-link" href="login">Giriş</NavLink></div>
-        }
-    </nav>
-</div>
-
-<style>
-    .nav-group-header {
-        width: 100%; text-align: left; background: transparent; border: none; color: #d7d7f5;
-        padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
-        font-weight: 600; cursor: pointer;
     }
-    .nav-group-header:hover { background: rgba(255,255,255,.08); }
-</style>
+    else
+    {
+        <MudNavLink Href="login" Icon="@Icons.Material.Filled.Login">Giriş</MudNavLink>
+    }
+</MudNavMenu>
 
 @code {
-    private readonly HashSet<string> _open = new();
-
     protected override void OnInitialized() => Auth.Changed += OnChanged;
     private void OnChanged() => InvokeAsync(StateHasChanged);
     public void Dispose() => Auth.Changed -= OnChanged;
 
-    private void Toggle(string t) { if (!_open.Add(t)) _open.Remove(t); }
-
     private sealed record Grp(string Icon, string Title, string[] Keys);
 
-    // Masaüstüne benzer gruplama; yalnız kullanıcının yetkili olduğu modüller görünür.
     private static readonly Grp[] Groups =
     {
-        new("📦", "Malzemeler", new[] { "materials", "stock" }),
-        new("🚚", "Araçlar", new[] { "vehicles", "maintenance", "inspection", "fuel", "daily_activity" }),
-        new("👷", "Personel", new[] { "personnel" }),
-        new("📄", "Talepler", new[] { "requests" }),
-        new("📊", "Raporlar", new[] { "reports" }),
-        new("🔁", "İçe / Dışa Aktarım", new[] { "import_export", "files" }),
-        new("⚙️", "Tanımlar", new[] { "definitions" }),
-        new("👤", "Kullanıcılar & Yetki", new[] { "users", "permissions", "permission_templates" }),
-        new("🛡️", "Yönetim", new[] { "companies", "releases", "branches", "machines", "audit", "backup", "server_backups" }),
-        new("🔧", "Ayarlar", new[] { "settings", "about" }),
+        new(Icons.Material.Filled.Inventory2, "Malzemeler", new[] { "materials", "stock" }),
+        new(Icons.Material.Filled.LocalShipping, "Araçlar", new[] { "vehicles", "maintenance", "inspection", "fuel", "daily_activity" }),
+        new(Icons.Material.Filled.Badge, "Personel", new[] { "personnel" }),
+        new(Icons.Material.Filled.Description, "Talepler", new[] { "requests" }),
+        new(Icons.Material.Filled.BarChart, "Raporlar", new[] { "reports" }),
+        new(Icons.Material.Filled.SwapHoriz, "İçe / Dışa Aktarım", new[] { "import_export", "files" }),
+        new(Icons.Material.Filled.Category, "Tanımlar", new[] { "definitions" }),
+        new(Icons.Material.Filled.People, "Kullanıcılar & Yetki", new[] { "users", "permissions", "permission_templates" }),
+        new(Icons.Material.Filled.Shield, "Yönetim", new[] { "companies", "releases", "branches", "machines", "audit", "backup", "server_backups" }),
+        new(Icons.Material.Filled.Settings, "Ayarlar", new[] { "settings", "about" }),
     };
 
     private static string Label(string key) => key switch

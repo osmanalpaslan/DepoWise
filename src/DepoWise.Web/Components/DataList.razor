@@ -2,34 +2,30 @@
 @inject ApiClient Api
 @inject AuthState Auth
 
-<h3>@Title</h3>
-@if (!string.IsNullOrEmpty(Hint)) { <p class="text-muted">@Hint</p> }
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">@Title</MudText>
+        <MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (!string.IsNullOrEmpty(Hint)) { <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@Hint</MudText> }
+    @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-2">@_error</MudAlert> }
 
-<button class="btn btn-outline-secondary btn-sm mb-2" @onclick="Load">Yenile</button>
-@if (_error is not null) { <div class="alert alert-danger">@_error</div> }
-
-@if (_rows is null) { <p>Yükleniyor…</p> }
-else if (_rows.Length == 0) { <p class="text-muted">Kayıt yok.</p> }
-else
-{
-    <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-            <thead><tr>@foreach (var c in _cols) { <th>@c</th> }</tr></thead>
-            <tbody>
-                @foreach (var row in _rows)
-                {
-                    <tr>
-                        @foreach (var c in _cols)
-                        {
-                            <td>@Cell(row, c)</td>
-                        }
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-    <p class="text-muted">@_rows.Length kayıt</p>
-}
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" Bordered="false" FixedHeader="true" Height="60vh">
+            <HeaderContent>
+                @foreach (var c in _cols) { <MudTh>@c</MudTh> }
+            </HeaderContent>
+            <RowTemplate>
+                @foreach (var c in _cols) { <MudTd DataLabel="@c">@Cell(context, c)</MudTd> }
+            </RowTemplate>
+        </MudTable>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_rows.Length kayıt</MudText>
+    }
+</MudPaper>
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = "";
@@ -45,15 +41,10 @@ else
     private async Task Load()
     {
         _error = null; _rows = null;
-        try
-        {
-            _rows = await Api.GetArrayAsync(Path);
-            _cols = BuildCols(_rows);
-        }
+        try { _rows = await Api.GetArrayAsync(Path); _cols = BuildCols(_rows); }
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; _rows = Array.Empty<JsonElement>(); }
     }
 
-    // İlk kayıtların basit (metin/sayı/bool) alanlarından kolon başlıkları üret (en fazla 8).
     private static List<string> BuildCols(JsonElement[] rows)
     {
         var cols = new List<string>();
