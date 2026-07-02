@@ -8,15 +8,15 @@
 
 @if (Auth.CanCreate("inspection"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
-        <MudText Typo="Typo.h6" Class="mb-2">Yeni Belge</MudText>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ BELGE</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6">
                 <MudAutocomplete T="ApiClient.Opt" Label="Araç *" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
-                                 ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
+                                 ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
             </MudItem>
             <MudItem xs="6" md="3">
-                <MudSelect T="string" @bind-Value="_docType" Label="Belge Türü *" Margin="Margin.Dense" Variant="Variant.Outlined">
+                <MudSelect T="string" @bind-Value="_docType" Label="Belge Tipi" Margin="Margin.Dense" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("inspection")">Muayene</MudSelectItem>
                     <MudSelectItem T="string" Value="@("insurance")">Sigorta</MudSelectItem>
                     <MudSelectItem T="string" Value="@("kasko")">Kasko</MudSelectItem>
@@ -25,11 +25,24 @@
             </MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_lastDate" Label="Son Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_nextDate" Label="Sonraki Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_result" Label="Sonuç" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_place" Label="Yer / Kurum" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="12"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3">
+                <MudSelect T="string" @bind-Value="_result" Label="Sonuç" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("Geçti")">Geçti</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Kaldı")">Kaldı</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Ertelendi")">Ertelendi</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            @if (_result == "Ertelendi")
+            {
+                <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_postponeDate" Label="Erteleme Tarihi *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            }
+            <MudItem xs="12"><MudTextField @bind-Value="_note" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>
-        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
 }
@@ -37,21 +50,20 @@
 <MudPaper Class="pa-4" Elevation="2">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudText Typo="Typo.h6">Belgeler</MudText><MudSpacer />
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz muayene/sigorta kaydı yok.</MudText> }
     else
     {
-        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh">
-            <HeaderContent><MudTh>Araç</MudTh><MudTh>Belge Türü</MudTh><MudTh>Son Tarih</MudTh><MudTh>Sonraki Tarih</MudTh><MudTh>Yer</MudTh><MudTh>Sonuç</MudTh><MudTh>Durum</MudTh></HeaderContent>
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh">
+            <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>BELGE</MudTh><MudTh>SON</MudTh><MudTh>SONRAKİ</MudTh><MudTh>YER</MudTh><MudTh>DURUM</MudTh></HeaderContent>
             <RowTemplate>
                 <MudTd>@Str(context, "vehicleText")</MudTd>
                 <MudTd>@Str(context, "docTypeText")</MudTd>
                 <MudTd>@Str(context, "lastText")</MudTd>
                 <MudTd>@Str(context, "nextText")</MudTd>
                 <MudTd>@Str(context, "place")</MudTd>
-                <MudTd>@Str(context, "result")</MudTd>
                 <MudTd>@Str(context, "statusText")</MudTd>
             </RowTemplate>
         </MudTable>
@@ -61,43 +73,48 @@
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private ApiClient.Opt? _vehicle;
-    private string _docType = "inspection", _result = "", _place = "", _note = "";
-    private DateTime? _lastDate, _nextDate;
+    private string _docType = "inspection", _result = "Geçti", _place = "", _note = "";
+    private DateTime? _lastDate, _nextDate, _postponeDate;
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok; private bool _busy;
 
     protected override async Task OnInitializedAsync() => await LoadList();
 
-    private async Task LoadList()
-    {
-        _rows = null;
-        try { _rows = await Api.GetArrayAsync("/api/inspection"); }
-        catch { _rows = Array.Empty<JsonElement>(); }
-    }
+    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/inspection"); } catch { _rows = Array.Empty<JsonElement>(); } }
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
         => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
 
     private static long? Ms(DateTime? d) => d is null ? null : new DateTimeOffset(d.Value, TimeSpan.Zero).ToUnixTimeMilliseconds();
+    private string DocLabel => _docType switch { "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => _docType };
 
     private async Task Save()
     {
         _msg = null;
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
-        if (!await Dialog.Confirm("Belge kaydedilsin mi?")) return;
+        if (_result == "Ertelendi" && _postponeDate is null) { _msg = "Ertelendi seçildi: erteleme tarihi zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm($"{DocLabel} belgesi kaydedilsin mi?")) return;
         _busy = true;
         try
         {
+            // Ertelendi ise sonraki tarih = erteleme tarihi (uyarılar bu tarihe göre çalışır)
+            var next = _result == "Ertelendi" ? _postponeDate : _nextDate;
             var err = await Api.PostAsync("/api/inspection", new
             {
-                vehicleId = _vehicle.Id, docType = _docType, lastDate = Ms(_lastDate), nextDate = Ms(_nextDate),
-                result = Empty(_result), place = Empty(_place), note = Empty(_note)
+                vehicleId = _vehicle.Id, docType = _docType, lastDate = Ms(_lastDate), nextDate = Ms(next),
+                result = _result, place = Empty(_place), note = Empty(_note)
             });
             _ok = err is null; _msg = err ?? "Kaydedildi.";
-            if (_ok) { _vehicle = null; _result = _place = _note = ""; _lastDate = _nextDate = null; await LoadList(); }
+            if (_ok) { Clear(); await LoadList(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    private void Clear()
+    {
+        _vehicle = null; _docType = "inspection"; _result = "Geçti"; _place = _note = "";
+        _lastDate = _nextDate = _postponeDate = null; _msg = null;
     }
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
