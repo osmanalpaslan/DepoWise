@@ -2,8 +2,8 @@
 @inject ApiClient Api
 
 <MudSelect T="string" Value="@Value" ValueChanged="Changed" Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
-           Clearable="true" Dense="true"
-           Adornment="@(AddTable is null ? Adornment.None : Adornment.End)"
+           Clearable="true" Dense="true" Disabled="@Disabled"
+           Adornment="@(CanAdd ? Adornment.End : Adornment.None)"
            AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick="Add">
     @foreach (var o in Items)
     {
@@ -16,21 +16,41 @@
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
     [Parameter] public string Label { get; set; } = "";
     [Parameter] public List<ApiClient.Opt> Items { get; set; } = new();
-    /// <summary>Doluysa alanın yanında "+" çıkar; yeni lookup /api/lookups/{AddTable}'a eklenir.</summary>
+    [Parameter] public bool Disabled { get; set; }
+    /// <summary>Doluysa "+" çıkar; yeni kayıt /api/lookups/{AddTable}'a { name } olarak eklenir.</summary>
     [Parameter] public string? AddTable { get; set; }
+    /// <summary>AddTable yerine özel create ucu (ör. /api/branches). Gövde: { CreateField: ad, [ExtraField: ExtraValue] }.</summary>
+    [Parameter] public string? CreatePath { get; set; }
+    [Parameter] public string CreateField { get; set; } = "name";
+    [Parameter] public string? ExtraField { get; set; }
+    [Parameter] public string? ExtraValue { get; set; }
     /// <summary>"+" ile ekleme sonrası ebeveyn listeyi tazelesin diye (yeni ad döner).</summary>
     [Parameter] public EventCallback<string> OnAdded { get; set; }
+
+    private bool CanAdd => AddTable is not null || CreatePath is not null;
 
     private async Task Changed(string? v) { Value = v; await ValueChanged.InvokeAsync(v); }
 
     private async Task Add()
     {
-        if (AddTable is null) return;
-        var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Kayıt",
-            new DialogParameters { ["Table"] = AddTable, ["Label"] = "Ad" },
+        if (!CanAdd) return;
+        var dlg = await Dialog.ShowAsync<NameInputDialog>("Yeni Kayıt",
+            new DialogParameters { ["Label"] = "Ad" },
             new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
         var res = await dlg.Result;
         if (res is null || res.Canceled || res.Data is not string name) return;
-        await OnAdded.InvokeAsync(name);
+
+        string? err;
+        if (CreatePath is not null)
+        {
+            var body = new Dictionary<string, object?> { [CreateField] = name };
+            if (ExtraField is not null) body[ExtraField] = ExtraValue;
+            err = await Api.PostAsync(CreatePath, body);
+        }
+        else
+        {
+            err = await Api.PostAsync($"/api/lookups/{AddTable}", new { name });
+        }
+        if (err is null) await OnAdded.InvokeAsync(name);
     }
 }

@@ -8,84 +8,195 @@
 
 @if (Auth.CanCreate("vehicles"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
-        <MudText Typo="Typo.h6" Class="mb-2">Yeni Araç Kayıt Formu</MudText>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ ARAÇ" : "ARAÇ DÜZENLE")</MudText>
+
+        @if (_editId is null)
+        {
+            <MudSelect T="string" @bind-Value="_template" Label="Şablon (Araç Genel Tanım)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                       HelperText="Seçince Tip/Kategori/Marka/Model/Yıl ve iç kod otomatik dolar." >
+                @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
+            </MudSelect>
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Tanım</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="İç Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_plate" Label="Plaka" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3"><LookupSelect Label="Makine Tipi" @bind-Value="_type" Items="_types" AddTable="vehicle_types" OnAdded="ReloadTypes" /></MudItem>
-            <MudItem xs="6" md="3"><LookupSelect Label="Kategori" @bind-Value="_cat" Items="_cats" AddTable="vehicle_categories" OnAdded="ReloadCats" /></MudItem>
-            <MudItem xs="6" md="3"><LookupSelect Label="Marka" @bind-Value="_brand" Items="_brands" /></MudItem>
-            <MudItem xs="6" md="3"><LookupSelect Label="Model" @bind-Value="_model" Items="_models" /></MudItem>
-            <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Margin="Margin.Dense" Variant="Variant.Outlined" Min="1950" Max="2100" /></MudItem>
-            <MudItem xs="6" md="3">
-                <MudSelect T="string" @bind-Value="_meterUnit" Label="Sayaç Birimi" Margin="Margin.Dense" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@("km")">km</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("hour")">saat</MudSelectItem>
-                </MudSelect>
-            </MudItem>
-            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_meter" Label="Güncel Sayaç" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
-            <MudItem xs="6" md="3"><LookupSelect Label="Şube / Şantiye" @bind-Value="_branch" Items="_branches" /></MudItem>
-            <MudItem xs="6" md="3"><LookupSelect Label="Sürücü" @bind-Value="_driver" Items="_personnel" /></MudItem>
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_chassis" Label="Şasi No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_engine" Label="Motor No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3">
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_code" Label="İç Kod *" Disabled="@(_editId is not null)" Error="_err && string.IsNullOrWhiteSpace(_code)" ErrorText="İç kod zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_plate" Label="Plaka" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Min="0" Max="2100" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Durum &amp; Sayaç</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="4">
                 <MudSelect T="string" @bind-Value="_status" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("active")">Aktif</MudSelectItem>
                     <MudSelectItem T="string" Value="@("passive")">Pasif</MudSelectItem>
                     <MudSelectItem T="string" Value="@("maintenance")">Bakımda</MudSelectItem>
                 </MudSelect>
             </MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_meter" Label="Sayaç" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="4">
+                <MudSelect T="string" @bind-Value="_meterUnit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("km")">km</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("hour")">hour</MudSelectItem>
+                </MudSelect>
+            </MudItem>
             @if (_status == "maintenance")
             {
-                <MudItem xs="12"><MudTextField @bind-Value="_statusNote" Label="Durum Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="12"><MudTextField @bind-Value="_statusNote" Label="Durum Açıklaması" HelperText="Yalnız 'Bakımda' durumunda saklanır." Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             }
         </MudGrid>
-        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Araç Ekle")</MudButton>
+
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Sınıflandırma</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><LookupSelect Label="Makine Tipi" @bind-Value="_type" Items="_types" AddTable="vehicle_types" OnAdded="ReloadTypes" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Kategori" @bind-Value="_cat" Items="_cats" AddTable="vehicle_categories" OnAdded="ReloadCats" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Marka" @bind-Value="_brand" Items="_brands" AddTable="vehicle_brands" OnAdded="ReloadBrands" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Model" @bind-Value="_model" Items="_models" CreatePath="/api/vehicles/models" CreateField="name" ExtraField="brandId" ExtraValue="@_brand" OnAdded="ReloadModels" Disabled="@(string.IsNullOrEmpty(_brand))" /></MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Konum &amp; Atama</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><LookupSelect Label="Şantiye / Şube" @bind-Value="_branch" Items="_branches" CreatePath="/api/branches" CreateField="name" OnAdded="ReloadBranches" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Sürücü" @bind-Value="_driver" Items="_drivers" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadDrivers" /></MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Teknik</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_chassis" Label="Şasi No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_engine" Label="Motor No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fotoğraflar</MudText>
+        <InputFile OnChange="OnFiles" multiple accept="image/*" />
+        @if (_staged.Count > 0)
+        {
+            <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-2">
+                @foreach (var p in _staged)
+                {
+                    <div style="position:relative;width:84px;height:84px;margin:0 8px 8px 0;">
+                        <MudImage Src="@p.Preview" Width="84" Height="84" ObjectFit="ObjectFit.Cover" Style="border-radius:8px;" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:0;right:0;" OnClick="@(() => _staged.Remove(p))" />
+                    </div>
+                }
+            </MudStack>
+        }
+
+        <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+        </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
 }
 
-<MudPaper Class="pa-4" Elevation="2">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudText Typo="Typo.h6">Araç Listesi</MudText><MudSpacer />
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadList">Yenile</MudButton>
-    </MudStack>
-    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
-    else
-    {
-        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh">
-            <HeaderContent><MudTh>İç Kod</MudTh><MudTh>Plaka</MudTh><MudTh>Durum</MudTh><MudTh>Sayaç</MudTh><MudTh>Yıl</MudTh><MudTh></MudTh></HeaderContent>
-            <RowTemplate>
-                @{ var id = Str(context, "id"); }
-                <MudTd>@Str(context, "internalCode")</MudTd>
-                <MudTd>@Str(context, "plate")</MudTd>
-                <MudTd>@StatusTr(Str(context, "status"))</MudTd>
-                <MudTd>@Str(context, "currentMeter") @Str(context, "meterUnit")</MudTd>
-                <MudTd>@Str(context, "productionYear")</MudTd>
-                <MudTd>
-                    @if (Auth.CanDelete("vehicles"))
+<MudGrid Spacing="2">
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.h6">Araç Listesi</MudText><MudSpacer />
+                <MudTextField @bind-Value="_search" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" OnKeyUp="OnSearchKey" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Ara</MudButton>
+            </MudStack>
+            @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Arama kriterine uygun araç bulunamadı.</MudText> }
+            else
+            {
+                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh"
+                          OnRowClick="@(e => OpenDetail(Str(e.Item, "id")))" T="JsonElement">
+                    <HeaderContent>
+                        <MudTh>İÇ KOD</MudTh><MudTh>PLAKA</MudTh><MudTh>YIL</MudTh><MudTh>SAYAÇ</MudTh><MudTh>DURUM</MudTh><MudTh>BAKIM/MUAYENE</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@Str(context, "internalCode")</MudTd>
+                        <MudTd>@Dash(Str(context, "plate"))</MudTd>
+                        <MudTd>@Dash(Str(context, "productionYear"))</MudTd>
+                        <MudTd>@Str(context, "currentMeter") @Str(context, "meterUnit")</MudTd>
+                        <MudTd>@StatusTr(Str(context, "status"))</MudTd>
+                        <MudTd>@Alert(Str(context, "id"))</MudTd>
+                    </RowTemplate>
+                </MudTable>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_rows.Length kayıt</MudText>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2" Style="min-height:200px;">
+            @if (_detail is null) { <MudText Class="mud-text-secondary">Detay/düzenleme için bir araç seçin.</MudText> }
+            else
+            {
+                var d = _detail.Value;
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.h6">@Str(d, "internalCode")</MudText>
+                    <MudChip T="string" Size="Size.Small">@StatusTr(Str(d, "status"))</MudChip>
+                </MudStack>
+                <MudSimpleTable Dense="true" Bordered="false" Style="background:transparent">
+                    <tbody>
+                        <tr><td>Plaka</td><td>@Dash(Str(d, "plate"))</td></tr>
+                        <tr><td>Makine Tipi</td><td>@Str(d, "vehicleTypeName")</td></tr>
+                        <tr><td>Kategori</td><td>@Str(d, "categoryName")</td></tr>
+                        <tr><td>Marka</td><td>@Str(d, "brandName")</td></tr>
+                        <tr><td>Model</td><td>@Str(d, "vehicleModelName")</td></tr>
+                        <tr><td>Şantiye</td><td>@Str(d, "branchName")</td></tr>
+                        <tr><td>Sürücü</td><td>@Str(d, "driverName")</td></tr>
+                        <tr><td>Üretim Yılı</td><td>@Dash(Str(d, "productionYear"))</td></tr>
+                        <tr><td>Şasi No</td><td>@Dash(Str(d, "chassisNo"))</td></tr>
+                        <tr><td>Motor No</td><td>@Dash(Str(d, "engineNo"))</td></tr>
+                        <tr><td>Sayaç</td><td><b>@Str(d, "currentMeter") @Str(d, "meterUnit")</b></td></tr>
+                    </tbody>
+                </MudSimpleTable>
+                @if (!string.IsNullOrEmpty(Str(d, "statusNote")))
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Durum Açıklaması</MudText>
+                    <MudText Typo="Typo.body2">@Str(d, "statusNote")</MudText>
+                }
+                <MudText Typo="Typo.subtitle2" Class="mt-2">FOTOĞRAFLAR</MudText>
+                <MudStack Row="true" Wrap="Wrap.Wrap">
+                    @foreach (var ph in _detailPhotos)
                     {
-                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                        <div style="position:relative;width:72px;height:72px;margin:0 8px 8px 0;">
+                            <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
+                            @if (Auth.CanEdit("vehicles"))
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:0;right:0;background:#99000000;" OnClick="@(() => DeletePhoto(ph.Id))" />
+                            }
+                        </div>
                     }
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
-    }
-</MudPaper>
+                </MudStack>
+
+                <MudStack Row="true" Class="mt-3" Spacing="2">
+                    @if (Auth.CanEdit("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="BeginEdit">Düzenle</MudButton> }
+                    @if (Auth.CanDelete("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSelected">Sil</MudButton> }
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
-    private string _code = "", _plate = "", _meterUnit = "km", _status = "active", _statusNote = "", _chassis = "", _engine = "";
-    private string? _type, _cat, _brand, _model, _branch, _driver;
+    private string? _editId;
+    private string _code = "", _plate = "", _status = "active", _meterUnit = "km", _statusNote = "", _chassis = "", _engine = "";
+    private string? _type, _cat, _brand, _model, _branch, _driver, _template;
     private int? _year;
     private decimal _meter;
+    private readonly List<Staged> _staged = new();
+    private readonly List<PhotoRef> _detailPhotos = new();
+    private sealed record Staged(string Name, byte[] Bytes, string Mime, string Preview);
+    private sealed record PhotoRef(string Id, string Url);
 
-    private List<ApiClient.Opt> _types = new(), _cats = new(), _brands = new(), _models = new(), _branches = new(), _personnel = new();
+    private List<ApiClient.Opt> _types = new(), _cats = new(), _brands = new(), _models = new(), _branches = new(), _drivers = new();
+    private List<TemplateRow> _templates = new();
+    private sealed record TemplateRow(string Id, string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear);
+
     private JsonElement[]? _rows;
-    private string? _msg; private bool _ok; private bool _busy;
+    private readonly Dictionary<string, string> _alerts = new();
+    private JsonElement? _detail;
+    private string _search = "";
+    private string? _msg; private bool _ok; private bool _busy; private bool _err;
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,64 +204,201 @@
         {
             _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
             _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
-            _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
+            _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");
-            _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+            _drivers = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+            await LoadTemplates();
         }
-        await LoadList();
+        await Load();
     }
 
-    private async Task ReloadTypes(string _) => _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
-    private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
+    private async Task LoadTemplates()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/vehicle-templates");
+            _templates = arr.Where(e => e.ValueKind == JsonValueKind.Object).Select(e => new TemplateRow(
+                Str(e, "id"), Str(e, "name"), NullS(e, "internalCode"), NullS(e, "vehicleTypeId"), NullS(e, "categoryId"),
+                NullS(e, "brandId"), NullS(e, "vehicleModelId"), e.TryGetProperty("productionYear", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : null)).ToList();
+        }
+        catch { _templates = new(); }
+    }
 
+    // Marka değişince modelleri yükle
     private string? _lastBrand;
+    private bool _suppressModelReset;
     protected override async Task OnAfterRenderAsync(bool first)
     {
         if (_brand != _lastBrand)
         {
             _lastBrand = _brand;
-            _model = null;
+            if (!_suppressModelReset) _model = null;
+            _suppressModelReset = false;
             _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
             StateHasChanged();
         }
+        if (_template != _lastTemplate)
+        {
+            _lastTemplate = _template;
+            await ApplyTemplate();
+        }
     }
 
-    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/vehicles"); } catch { _rows = Array.Empty<JsonElement>(); } }
+    private string? _lastTemplate;
+    private async Task ApplyTemplate()
+    {
+        var t = _templates.FirstOrDefault(x => x.Id == _template);
+        if (t is null) return;
+        _type = t.VehicleTypeId; _cat = t.CategoryId; _year = t.ProductionYear;
+        _brand = t.BrandId; _lastBrand = t.BrandId;
+        _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
+        _model = t.VehicleModelId;
+        if (string.IsNullOrWhiteSpace(_code) && !string.IsNullOrWhiteSpace(t.InternalCode))
+        {
+            try { var o = await Api.GetObjectAsync($"/api/vehicles/next-code?baseCode={Uri.EscapeDataString(t.InternalCode)}"); _code = o.TryGetProperty("code", out var cc) ? cc.GetString() ?? "" : ""; }
+            catch { }
+        }
+        StateHasChanged();
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try
+        {
+            _rows = await Api.GetArrayAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search)}"));
+            _alerts.Clear();
+            foreach (var a in await Api.GetArrayAsync("/api/vehicles/alerts")) _alerts[Str(a, "vehicleId")] = Str(a, "text");
+        }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }
+
+    private async Task ReloadTypes(string _) => _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
+    private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
+    private async Task ReloadBrands(string _) => _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
+    private async Task ReloadModels(string _) { if (!string.IsNullOrEmpty(_brand)) _models = await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name"); }
+    private async Task ReloadBranches(string _) => _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+    private async Task ReloadDrivers(string _) => _drivers = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+
+    private async Task OnFiles(InputFileChangeEventArgs e)
+    {
+        foreach (var f in e.GetMultipleFiles(10))
+        {
+            using var ms = new MemoryStream();
+            await f.OpenReadStream(8 * 1024 * 1024).CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            var mime = f.ContentType; if (string.IsNullOrEmpty(mime) || mime == "application/octet-stream") mime = GuessMime(f.Name);
+            _staged.Add(new Staged(f.Name, bytes, mime, $"data:{mime};base64,{Convert.ToBase64String(bytes)}"));
+        }
+    }
+
+    private async Task OpenDetail(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        try { _detail = await Api.GetObjectAsync($"/api/vehicles/{id}"); } catch { _detail = null; }
+        await LoadDetailPhotos(id);
+    }
+
+    private async Task LoadDetailPhotos(string id)
+    {
+        _detailPhotos.Clear();
+        try
+        {
+            foreach (var p in await Api.GetArrayAsync($"/api/vehicles/{id}/photos"))
+            {
+                var url = await Api.GetImageDataUrlAsync(Str(p, "url"));
+                if (url is not null) _detailPhotos.Add(new PhotoRef(Str(p, "id"), url));
+            }
+        }
+        catch { }
+    }
+
+    private async Task DeletePhoto(string fileId)
+    {
+        if (_detail is null) return;
+        var id = Str(_detail.Value, "id");
+        if (!await Dialog.Confirm("Bu fotoğraf silinsin mi?", "Evet, Sil", danger: true)) return;
+        await Api.DeleteAsync($"/api/vehicles/{id}/photos/{fileId}");
+        await LoadDetailPhotos(id);
+    }
+
+    private async Task BeginEdit()
+    {
+        if (_detail is null) return;
+        var d = _detail.Value;
+        _editId = Str(d, "id");
+        _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
+        _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");
+        _year = d.TryGetProperty("productionYear", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : null;
+        _statusNote = Str(d, "statusNote"); _chassis = Str(d, "chassisNo"); _engine = Str(d, "engineNo");
+        _type = NullS(d, "vehicleTypeId"); _cat = NullS(d, "categoryId"); _brand = NullS(d, "brandId");
+        _lastBrand = _brand; _suppressModelReset = true;
+        _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
+        _model = NullS(d, "vehicleModelId"); _branch = NullS(d, "branchId"); _driver = NullS(d, "driverPersonnelId");
+        _msg = null;
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (_detail is null) return;
+        var id = Str(_detail.Value, "id");
+        if (!await Dialog.Confirm("Bu araç silinsin mi?", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/vehicles/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null;
+        if (_ok) { _detail = null; await Load(); }
+    }
 
     private async Task Save()
     {
-        _msg = null;
+        _err = true; _msg = null;
         if (string.IsNullOrWhiteSpace(_code)) { _msg = "İç kod zorunlu."; _ok = false; return; }
-        if (!await Dialog.Confirm("Araç eklensin mi?")) return;
+        if (!await Dialog.Confirm(_editId is null ? "Araç kaydedilsin mi?" : "Araç güncellensin mi?")) return;
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/vehicles", new
+            var body = new
             {
                 internalCode = _code.Trim(), plate = Empty(_plate), productionYear = _year, currentMeter = _meter, meterUnit = _meterUnit,
                 branchId = _branch, driverPersonnelId = _driver, chassisNo = Empty(_chassis), engineNo = Empty(_engine),
                 status = _status, statusNote = _status == "maintenance" ? Empty(_statusNote) : null,
-                vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model
-            });
-            _ok = err is null; _msg = err ?? "Araç eklendi.";
-            if (_ok) { _code = _plate = _chassis = _engine = _statusNote = ""; _type = _cat = _brand = _model = _branch = _driver = null; _year = null; _meter = 0; _status = "active"; await LoadList(); }
+                vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model,
+                templateId = _editId is null ? _template : null
+            };
+            string? err; string? savedId;
+            if (_editId is null) (err, savedId) = await Api.CreateAsync("/api/vehicles", body);
+            else { err = await Api.PutAsync($"/api/vehicles/{_editId}", body); savedId = _editId; }
+            if (err is null && savedId is not null && _staged.Count > 0)
+                await Api.UploadFilesAsync($"/api/vehicles/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
+            _ok = err is null; _msg = err ?? (_editId is null ? "Araç eklendi." : "Araç güncellendi.");
+            if (_ok) { Clear(); await Load(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
 
-    private async Task Delete(string id)
+    private void Clear()
     {
-        if (string.IsNullOrEmpty(id)) return;
-        if (!await Dialog.Confirm("Bu araç silinsin mi?", "Evet, Sil", danger: true)) return;
-        var err = await Api.DeleteAsync($"/api/vehicles/{id}");
-        _msg = err ?? "Silindi."; _ok = err is null;
-        await LoadList();
+        _err = false; _editId = null; _template = null; _lastTemplate = null;
+        _code = _plate = ""; _status = "active"; _meterUnit = "km"; _statusNote = _chassis = _engine = "";
+        _type = _cat = _brand = _model = _branch = _driver = null; _year = null; _meter = 0;
+        _staged.Clear();
     }
 
+    private string Alert(string vehicleId) => _alerts.TryGetValue(vehicleId, out var t) ? t : "—";
     private static string StatusTr(string s) => s switch { "active" => "Aktif", "passive" => "Pasif", "maintenance" => "Bakımda", _ => s };
-    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
+    private static string GuessMime(string name)
+    {
+        var ext = System.IO.Path.GetExtension(name).ToLowerInvariant();
+        return ext switch { ".png" => "image/png", ".gif" => "image/gif", ".webp" => "image/webp", ".bmp" => "image/bmp", _ => "image/jpeg" };
+    }
+    private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
 }

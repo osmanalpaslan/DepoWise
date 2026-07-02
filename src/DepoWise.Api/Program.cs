@@ -230,6 +230,8 @@ app.MapGet("/api/fuel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.L
 app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/requests", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Requests.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
+// Araç markaları (brand_type=vehicle) — malzeme markalarından ayrı
+app.MapGet("/api/lookups/vehicle_brands", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Lookups.ListBrands(s, "vehicle")) : Results.Unauthorized()).RequireAuthorization();
 // Malzeme alt kategorileri (seçili kategorinin çocukları)
 app.MapGet("/api/materials/subcategories", (HttpContext c, string? parentId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListCategories(s, string.IsNullOrWhiteSpace(parentId) ? null : parentId)) : Results.Unauthorized()).RequireAuthorization();
@@ -273,6 +275,7 @@ app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
         "brands" => svc.Lookups.AddBrand(s, d.Name, "material"),
         "vehicle_types" => svc.Lookups.AddVehicleType(s, d.Name),
         "vehicle_categories" => svc.Lookups.AddVehicleCategory(s, d.Name),
+        "vehicle_brands" => svc.Lookups.AddVehicleBrand(s, d.Name),
         _ => throw new ArgumentException("Bilinmeyen tanım tablosu."),
     };
     return Results.Ok(new { id });
@@ -402,8 +405,52 @@ app.MapPost("/api/vehicles", (HttpContext c, NewVehicleDto d) =>
         d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.TemplateId)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/vehicles/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Vehicles.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Vehicles.Get(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Vehicles.Update(s, id, new DepoWise.Infrastructure.Vehicles.UpdateVehicle(
+        Doc(d.Plate), d.ProductionYear, string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
+        Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 app.MapGet("/api/vehicles/models/{brandId}", (HttpContext c, string brandId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListVehicleModels(s, brandId)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/vehicles/models", (HttpContext c, VehicleModelDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.Lookups.AddVehicleModel(s, d.BrandId, d.Name) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/next-code", (HttpContext c, string baseCode) =>
+    S(c) is { } s ? Results.Ok(new { code = svc.VehicleTemplates.GenerateNextInternalCode(s, baseCode) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicle-templates", (HttpContext c, string? search) =>
+    S(c) is { } s ? Results.Ok(svc.VehicleTemplates.List(s, search)) : Results.Unauthorized()).RequireAuthorization();
+// Araç uyarı özeti (satır BAKIM/MUAYENE kolonu): vehicleId -> metin
+app.MapGet("/api/vehicles/alerts", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var map = new Dictionary<string, HashSet<string>>();
+    void Add(string vid, string label) { if (!map.TryGetValue(vid, out var set)) { set = new(); map[vid] = set; } set.Add(label); }
+    try { foreach (var a in svc.Maintenance.GetAlerts(s)) Add(a.VehicleId, "Bakım"); } catch { }
+    try { foreach (var a in svc.Inspection.GetAlerts(s)) Add(a.VehicleId, "Muayene"); } catch { }
+    return Results.Ok(map.Select(kv => new { vehicleId = kv.Key, text = string.Join(" / ", kv.Value) }));
+}).RequireAuthorization();
+// Araç fotoğrafları
+app.MapGet("/api/vehicles/{id}/photos", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Files.GetPhotos(s, "vehicle", id).Select(p => new { id = p.Id, url = $"/api/vehicles/{id}/photos/{p.Id}" })) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/{id}/photos/{fileId}", (HttpContext c, string id, string fileId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var p = svc.Files.GetPhotos(s, "vehicle", id).FirstOrDefault(x => x.Id == fileId);
+    return p is null ? Results.NotFound() : Results.File(svc.Storage.Read(p.StorageKey), p.Mime ?? "image/jpeg");
+}).RequireAuthorization();
+app.MapPost("/api/vehicles/{id}/photos", async (HttpContext ctx, string id) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var form = await ctx.Request.ReadFormAsync(); int n = 0;
+    foreach (var file in form.Files) { using var ms = new MemoryStream(); await file.OpenReadStream().CopyToAsync(ms, ctx.RequestAborted); svc.Files.SavePhoto(s, "vehicle", id, file.FileName, file.ContentType, ms.ToArray()); n++; }
+    return Results.Ok(new { added = n });
+}).RequireAuthorization();
+app.MapDelete("/api/vehicles/{id}/photos/{fileId}", (HttpContext c, string id, string fileId) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Files.DeletePhoto(s, fileId)) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Malzeme Talep (kalemli + onay akışı) ──
 app.MapGet("/api/requests/{id}/items", (HttpContext c, string id) =>
@@ -562,6 +609,7 @@ record MachineRegisterDto(string? CompanyId, string? MachineName);
 record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds);
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
+record VehicleModelDto(string BrandId, string Name);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
