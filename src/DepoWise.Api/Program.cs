@@ -178,6 +178,9 @@ app.MapGet("/api/fuel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.L
 app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/requests", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Requests.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
+// Malzeme alt kategorileri (seçili kategorinin çocukları)
+app.MapGet("/api/materials/subcategories", (HttpContext c, string? parentId) =>
+    S(c) is { } s ? Results.Ok(svc.Lookups.ListCategories(s, string.IsNullOrWhiteSpace(parentId) ? null : parentId)) : Results.Unauthorized()).RequireAuthorization();
 
 // Roller (kullanıcı oluşturma için)
 app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized()
@@ -195,7 +198,15 @@ app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
         d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId));
     return Results.Ok(new { id });
 }).RequireAuthorization();
-app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
+        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, "TRY", Doc(d.Description)));
+    if (d.OpeningStock > 0)
+        svc.OpeningStock.RecordOpening(s, id, d.OpeningStock, Guid.NewGuid().ToString("N"), d.UnitPrice > 0 ? d.UnitPrice : null);
+    return Results.Ok(new { id });
+}).RequireAuthorization();
 
 app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
 {
@@ -494,7 +505,7 @@ record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId);
 record MachineRegisterDto(string? CompanyId, string? MachineName);
-record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice);
+record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);

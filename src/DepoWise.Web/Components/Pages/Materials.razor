@@ -8,24 +8,51 @@
 
 @if (Auth.CanCreate("materials"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:900px;">
-        <MudText Typo="Typo.h6" Class="mb-2">Yeni Malzeme</MudText>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
+        <MudText Typo="Typo.h6" Class="mb-2">YENİ MALZEME</MudText>
+
+        @* Grup 1: Tanım *@
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-1 mb-1">Tanım</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="4"><MudTextField @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                                              Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
-            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_min" Label="Min. Stok" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Error="_err && string.IsNullOrWhiteSpace(_code)" ErrorText="Kod zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Ad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3">
+                <MudSelect T="string" @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    @foreach (var t in _types) { <MudSelectItem T="string" Value="@t">@t</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
         </MudGrid>
-        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Success" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Malzeme Ekle")</MudButton>
+
+        @* Grup 2: Sınıflandırma *@
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Sınıflandırma</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><LookupSelect Label="Kategori" @bind-Value="_cat" Items="_cats" AddTable="material_categories" OnAdded="ReloadCats" /></MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-Value="_subCat" Label="Alt Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_subCats.Count == 0)">
+                    @foreach (var o in _subCats) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <LookupSelect Label="Birim *" @bind-Value="_unit" Items="_units" AddTable="units" OnAdded="ReloadUnits" />
+                @if (_err && string.IsNullOrEmpty(_unit)) { <MudText Typo="Typo.caption" Color="Color.Error">Birim seçin.</MudText> }
+            </MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Marka" @bind-Value="_brand" Items="_brands" AddTable="brands" OnAdded="ReloadBrands" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Tedarikçi" @bind-Value="_sup" Items="_sups" AddTable="suppliers" OnAdded="ReloadSups" /></MudItem>
+        </MudGrid>
+
+        @* Grup 3: Fiyat & Stok *@
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fiyat &amp; Stok</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (TRY)" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_min" Label="Min Stok" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_opening" Label="Açılış Stok" HelperText=">0 ise stok hareketi." Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+        </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
 }
@@ -34,83 +61,69 @@
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
 
-    private string _code = "", _name = "", _type = "", _unit = "", _cat = "", _brand = "", _sup = "";
-    private decimal _min, _price;
-    private List<(string Id, string Name)> _units = new(), _cats = new(), _brands = new(), _sups = new();
-    private string? _msg; private bool _ok; private bool _busy; private int _v;
+    private string _code = "", _name = "", _type = "Yedek Parça";
+    private string? _cat, _subCat, _unit, _brand, _sup;
+    private decimal _min, _price, _opening;
+    private string _desc = "";
+
+    private List<ApiClient.Opt> _cats = new(), _subCats = new(), _units = new(), _brands = new(), _sups = new();
+    private string? _msg; private bool _ok; private bool _busy; private bool _err; private int _v;
 
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.CanCreate("materials")) return;
-        _units = await Lk("units"); _cats = await Lk("material_categories");
-        _brands = await Lk("brands"); _sups = await Lk("suppliers");
+        _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+        _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
+        _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
+        _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
     }
 
-    private async Task<List<(string, string)>> Lk(string table)
+    private string? _lastCat;
+    protected override async Task OnAfterRenderAsync(bool first)
     {
-        try
+        if (_cat != _lastCat)
         {
-            var arr = await Api.GetArrayAsync($"/api/lookups/{table}");
-            return arr.Where(e => e.ValueKind == JsonValueKind.Object)
-                .Select(e => (e.GetProperty("id").GetString() ?? "", e.GetProperty("name").GetString() ?? "")).ToList();
+            _lastCat = _cat; _subCat = null;
+            _subCats = string.IsNullOrEmpty(_cat) ? new()
+                : await Api.OptionsAsync($"/api/materials/subcategories?parentId={_cat}", "id", "name");
+            StateHasChanged();
         }
-        catch { return new(); }
     }
 
-    // Alan yanındaki "+" — masaüstündeki gibi yeni lookup ekle, ekleyince otomatik seç.
-    private async Task AddLk(string table)
+    private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+    private async Task ReloadUnits(string _) => _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
+    private async Task ReloadBrands(string _) => _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
+    private async Task ReloadSups(string _) => _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+
+    private async Task Save()
     {
-        var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Kayıt",
-            new DialogParameters { ["Table"] = table, ["Label"] = "Ad" },
-            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
-        var res = await dlg.Result;
-        if (res is null || res.Canceled || res.Data is not string name) return;
-
-        switch (table)
-        {
-            case "units": _units = await Lk(table); _unit = IdOf(_units, name); break;
-            case "material_categories": _cats = await Lk(table); _cat = IdOf(_cats, name); break;
-            case "brands": _brands = await Lk(table); _brand = IdOf(_brands, name); break;
-            case "suppliers": _sups = await Lk(table); _sup = IdOf(_sups, name); break;
-        }
-        StateHasChanged();
-    }
-
-    private static string IdOf(List<(string Id, string Name)> list, string name)
-        => list.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).Id ?? "";
-
-    private RenderFragment Opts(List<(string Id, string Name)> list) => builder =>
-    {
-        int i = 0;
-        foreach (var (id, name) in list)
-        {
-            builder.OpenComponent<MudSelectItem<string>>(i++);
-            builder.AddAttribute(i++, "Value", id);
-            builder.AddAttribute(i++, "ChildContent", (RenderFragment)(b => b.AddContent(0, name)));
-            builder.CloseComponent();
-        }
-    };
-
-    private async Task Create()
-    {
-        _msg = null;
+        _err = true; _msg = null;
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
-        if (!await Dialog.Confirm("Yeni malzeme eklensin mi?")) return;
+        if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Malzeme kaydedilsin mi?")) return;
         _busy = true;
         try
         {
             var err = await Api.PostAsync("/api/materials", new
             {
                 code = _code.Trim(), name = _name.Trim(), type = string.IsNullOrWhiteSpace(_type) ? null : _type,
-                categoryId = Empty(_cat), unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
-                minStock = _min, unitPrice = _price
+                categoryId = string.IsNullOrEmpty(_subCat) ? Empty(_cat) : _subCat,   // alt kategori varsa o, yoksa kategori
+                unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
+                minStock = _min, unitPrice = _price, description = Empty(_desc), openingStock = _opening
             });
-            _ok = err is null; _msg = err ?? "Eklendi.";
-            if (_ok) { _code = _name = _type = _unit = _cat = _brand = _sup = ""; _min = _price = 0; _v++; }
+            _ok = err is null; _msg = err ?? "Malzeme eklendi.";
+            if (_ok) { Clear(); _v++; }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    private void Clear()
+    {
+        _err = false; _code = _name = ""; _type = "Yedek Parça";
+        _cat = _subCat = _unit = _brand = _sup = null; _min = _price = _opening = 0; _desc = "";
     }
 
     private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
