@@ -1,0 +1,10 @@
+# Her şeyi hariç tut; yalnız .NET kaynağı + çözüm dosyalarını dahil et (bağlam küçük kalsın)
+*
+!src
+!DepoWise.sln
+!Directory.Build.props
+
+# Kaynak içindeki derleme çıktıları / veri hariç
+**/bin
+**/obj
+**/data

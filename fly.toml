@@ -1,0 +1,19 @@
+app = "depowise-erp"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DEPOWISE_SERVER_DATA = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "depowise_data"
+  destination = "/data"
