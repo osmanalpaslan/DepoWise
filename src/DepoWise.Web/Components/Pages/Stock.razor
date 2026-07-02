@@ -1,2 +1,307 @@
 @page "/stock"
-<DataList Title="Stok İşlemleri" Path="/api/stock" />
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudText Typo="Typo.h5" GutterBottom="true">Stok İşlemleri</MudText>
+
+@if (Auth.CanCreate("stock"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
+        <MudRadioGroup T="string" @bind-Value="_kind" Class="mb-3">
+            <MudRadio T="string" Value="@("Yeni Kayıt")" Color="Color.Primary">Yeni Kayıt</MudRadio>
+            <MudRadio T="string" Value="@("Transfer")" Color="Color.Primary">Transfer</MudRadio>
+            <MudRadio T="string" Value="@("Depo Çıkışı")" Color="Color.Primary">Depo Çıkışı</MudRadio>
+        </MudRadioGroup>
+
+        <MudGrid Spacing="2">
+            @if (_kind == "Yeni Kayıt")
+            {
+                <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="6" md="4"><MudSelect T="string" @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var t in _types) { <MudSelectItem T="string" Value="@t">@t</MudSelectItem> }
+                </MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+            }
+            else
+            {
+                <MudItem xs="12" md="7">
+                    <MudAutocomplete T="MaterialItem" Label="Malzeme *" @bind-Value="_material" SearchFunc="SearchMaterials"
+                                     ToStringFunc="@(m => m is null ? "" : m.Display)" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true" CoerceText="true" MinCharacters="0" />
+                </MudItem>
+                <MudItem xs="12" md="5" Class="d-flex align-center">
+                    @if (!string.IsNullOrEmpty(_balance)) { <MudChip T="string" Color="Color.Info" Variant="Variant.Text">@_balance</MudChip> }
+                </MudItem>
+            }
+
+            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_qty" Label="@QtyLabel" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
+
+            @if (_kind == "Transfer")
+            {
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_fromBranch" Label="Kaynak Şube *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Şube *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+            }
+            else
+            {
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_branch" Label="Şube" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+            }
+
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_personnel" Label="Personel (Şoför/Teslim)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_personnelList)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_vehicle" Label="Araç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_vehicles)</MudSelect></MudItem>
+
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_invoiceNo" Label="Fatura / İrsaliye No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_orderSlipNo" Label="Sipariş Fişi No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_creditSlipNo" Label="Veresiye Fişi No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_note" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" Lines="2" UserAttributes="_noAuto" /></MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-2" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="ClearForm" Disabled="_busy">Temizle</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudMessageBox @ref="_confirm" Title="Hareketi İptal Et" YesText="Evet, İptal" CancelText="Vazgeç">
+    <MessageContent>Bu stok hareketi iptal edilsin mi? (stok etkisi ters kayıtla geri alınır)</MessageContent>
+</MudMessageBox>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Son Stok Hareketleri</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadMovements">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Hareket yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh">
+            <HeaderContent>
+                <MudTh>Tarih</MudTh><MudTh>Tip</MudTh><MudTh>Kod</MudTh><MudTh>Malzeme</MudTh>
+                <MudTh>Yön</MudTh><MudTh>Miktar</MudTh><MudTh>Birim</MudTh><MudTh>B. Fiyat</MudTh>
+                <MudTh>Belge</MudTh><MudTh>Durum</MudTh><MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{ var docId = Str(context, "documentId"); }
+                <MudTd>@Str(context, "dateText")</MudTd>
+                <MudTd>@Str(context, "typeText")</MudTd>
+                <MudTd>@Str(context, "code")</MudTd>
+                <MudTd>@Str(context, "name")</MudTd>
+                <MudTd>@Str(context, "directionText")</MudTd>
+                <MudTd>@Str(context, "quantity")</MudTd>
+                <MudTd>@Str(context, "unit")</MudTd>
+                <MudTd>@Str(context, "unitPrice")</MudTd>
+                <MudTd>@Str(context, "invoiceText")</MudTd>
+                <MudTd>@Str(context, "statusText")</MudTd>
+                <MudTd>
+                    @if (Auth.CanDelete("stock") && Bool(context, "canReverse"))
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Reverse(docId))">İptal</MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
+
+    private string _kind = "Yeni Kayıt";
+    private string QtyLabel => _kind == "Depo Çıkışı" ? "Çıkacak Miktar" : _kind == "Yeni Kayıt" ? "Eklenecek Stok" : "Miktar";
+
+    // Yeni Kayıt alanları
+    private string _code = "", _name = "", _type = "Yedek Parça", _unit = "", _cat = "", _brand = "", _sup = "";
+    private decimal _price;
+    // Ortak
+    private decimal _qty;
+    private string _note = "", _invoiceNo = "", _orderSlipNo = "", _creditSlipNo = "";
+    private string _branch = "", _fromBranch = "", _toBranch = "", _personnel = "", _vehicle = "";
+    // Seçici (Transfer/Çıkış)
+    private MaterialItem? _material;
+    private string _balance = "";
+
+    private List<(string Id, string Name)> _units = new(), _cats = new(), _brands = new(), _sups = new(),
+        _branches = new(), _personnelList = new(), _vehicles = new();
+
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+    private MudMessageBox? _confirm;
+
+    public record MaterialItem(string Id, string Code, string Name)
+    {
+        public string Display => $"{Code} - {Name}";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("stock"))
+        {
+            _units = await Lk("units"); _cats = await Lk("material_categories");
+            _brands = await Lk("brands"); _sups = await Lk("suppliers");
+            _branches = await LoadList("/api/branches", "id", "name");
+            _personnelList = await LoadList("/api/personnel", "id", "fullName");
+            _vehicles = await LoadList("/api/vehicles", "id", "display");
+        }
+        await LoadMovements();
+    }
+
+    private async Task LoadMovements()
+    {
+        _rows = null;
+        try { _rows = await Api.GetArrayAsync("/api/stock"); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task<List<(string, string)>> Lk(string table) => await LoadList($"/api/lookups/{table}", "id", "name");
+
+    private async Task<List<(string, string)>> LoadList(string path, string idKey, string nameKey)
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync(path);
+            return arr.Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(e => (e.TryGetProperty(idKey, out var i) ? i.GetString() ?? "" : "",
+                              e.TryGetProperty(nameKey, out var n) ? (n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : n.ToString()) : ""))
+                .Where(t => t.Item1 != "").ToList();
+        }
+        catch { return new(); }
+    }
+
+    private async Task<IEnumerable<MaterialItem>> SearchMaterials(string? term, CancellationToken ct)
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/materials" + (string.IsNullOrWhiteSpace(term) ? "" : $"?search={Uri.EscapeDataString(term)}"));
+            return arr.Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(e => new MaterialItem(
+                    e.GetProperty("id").GetString() ?? "",
+                    e.TryGetProperty("code", out var c) ? c.GetString() ?? "" : "",
+                    e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "")).ToList();
+        }
+        catch { return Array.Empty<MaterialItem>(); }
+    }
+
+    private async Task AddLk(string table)
+    {
+        var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Kayıt",
+            new DialogParameters { ["Table"] = table, ["Label"] = "Ad" },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled || res.Data is not string name) return;
+        switch (table)
+        {
+            case "units": _units = await Lk(table); _unit = IdOf(_units, name); break;
+            case "material_categories": _cats = await Lk(table); _cat = IdOf(_cats, name); break;
+            case "brands": _brands = await Lk(table); _brand = IdOf(_brands, name); break;
+            case "suppliers": _sups = await Lk(table); _sup = IdOf(_sups, name); break;
+        }
+        StateHasChanged();
+    }
+
+    private static string IdOf(List<(string Id, string Name)> list, string name)
+        => list.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).Id ?? "";
+
+    private RenderFragment Opts(List<(string Id, string Name)> list) => builder =>
+    {
+        int i = 0;
+        foreach (var (id, name) in list)
+        {
+            builder.OpenComponent<MudSelectItem<string>>(i++);
+            builder.AddAttribute(i++, "Value", id);
+            builder.AddAttribute(i++, "ChildContent", (RenderFragment)(b => b.AddContent(0, name)));
+            builder.CloseComponent();
+        }
+    };
+
+    private async Task Save()
+    {
+        _msg = null; _busy = true;
+        try
+        {
+            string? err;
+            if (_kind == "Yeni Kayıt")
+            {
+                if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
+                if (string.IsNullOrWhiteSpace(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
+                err = await Api.PostAsync("/api/stock/receive", new
+                {
+                    code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_cat),
+                    unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
+                    quantity = _qty, unitPrice = _price, branchId = Empty(_branch), personnelId = Empty(_personnel),
+                    vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
+                    orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
+                });
+            }
+            else if (_kind == "Depo Çıkışı")
+            {
+                if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
+                if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+                err = await Api.PostAsync("/api/stock/issue", new
+                {
+                    materialId = _material.Id, quantity = _qty, branchId = Empty(_branch), personnelId = Empty(_personnel),
+                    vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
+                    orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
+                });
+            }
+            else // Transfer
+            {
+                if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
+                if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+                if (string.IsNullOrWhiteSpace(_fromBranch) || string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Kaynak ve hedef şube seçin."; _ok = false; return; }
+                if (_fromBranch == _toBranch) { _msg = "Kaynak ve hedef şube aynı olamaz."; _ok = false; return; }
+                err = await Api.PostAsync("/api/stock/transfer", new
+                {
+                    materialId = _material.Id, quantity = _qty, fromBranchId = _fromBranch, toBranchId = _toBranch,
+                    personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
+                    invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
+                });
+            }
+            _ok = err is null; _msg = err ?? "Kaydedildi.";
+            if (_ok) { ClearForm(); await LoadMovements(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Reverse(string documentId)
+    {
+        if (string.IsNullOrEmpty(documentId)) return;
+        var ok = _confirm is not null ? await _confirm.ShowAsync() : true;
+        if (ok != true) return;
+        var err = await Api.PostAsync("/api/stock/reverse", new { documentId, reason = "Kullanıcı iptali" });
+        _msg = err ?? "Hareket iptal edildi."; _ok = err is null;
+        await LoadMovements();
+    }
+
+    private void ClearForm()
+    {
+        _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = ""; _price = 0;
+        _qty = 0; _note = _invoiceNo = _orderSlipNo = _creditSlipNo = "";
+        _branch = _fromBranch = _toBranch = _personnel = _vehicle = "";
+        _material = null; _balance = "";
+    }
+
+    private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString())
+            : "";
+
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
+}

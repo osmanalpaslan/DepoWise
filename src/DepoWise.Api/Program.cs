@@ -150,6 +150,7 @@ app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
 // ── İş modülleri: liste (okuma) uçları — hepsi yetki korumalı (servis AccessControl.View) ──
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);
+static string? Doc(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Branches.List(s)) : Results.Unauthorized()).RequireAuthorization();
@@ -193,6 +194,62 @@ app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string 
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.Lookups.Delete(s, table, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// ── Stok İşlemleri (Yeni Kayıt / Transfer / Depo Çıkışı + hareket iptali) — masaüstüyle birebir ──
+app.MapGet("/api/stock/balance/{materialId}", (HttpContext c, string materialId) =>
+    S(c) is null ? Results.Unauthorized() : Results.Ok(new { balance = svc.Stock.GetBalance(materialId) })).RequireAuthorization();
+
+app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var code = d.Code?.Trim() ?? "";
+    if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Kod zorunlu.");
+    if (string.IsNullOrWhiteSpace(d.Name)) throw new ArgumentException("Ad zorunlu.");
+    if (d.Quantity < 0) throw new ArgumentException("Eklenecek stok negatif olamaz.");
+    var found = svc.Materials.List(s, Page(), code).Items
+        .FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
+    var materialId = found?.Id ?? svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
+        code, d.Name.Trim(), string.IsNullOrWhiteSpace(d.Type) ? null : d.Type,
+        d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, 0m, d.UnitPrice, "TRY", Doc(d.Note)));
+    if (d.Quantity > 0)
+        svc.Stock.ReceiveIn(s,
+            new[] { new DepoWise.Infrastructure.Materials.StockLine(materialId, d.Quantity, d.UnitPrice > 0 ? d.UnitPrice : null) },
+            Guid.NewGuid().ToString("N"), d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
+            invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
+    return Results.Ok(new { id = materialId });
+}).RequireAuthorization();
+
+app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.MaterialId)) throw new ArgumentException("Malzeme seçin.");
+    if (d.Quantity <= 0) throw new ArgumentException("Miktar sıfırdan büyük olmalı.");
+    svc.Stock.IssueOut(s,
+        new[] { new DepoWise.Infrastructure.Materials.StockLine(d.MaterialId, d.Quantity) },
+        Guid.NewGuid().ToString("N"), d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
+        invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPost("/api/stock/transfer", (HttpContext c, StockTransferDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.MaterialId)) throw new ArgumentException("Malzeme seçin.");
+    if (d.Quantity <= 0) throw new ArgumentException("Miktar sıfırdan büyük olmalı.");
+    if (string.IsNullOrWhiteSpace(d.FromBranchId) || string.IsNullOrWhiteSpace(d.ToBranchId)) throw new ArgumentException("Kaynak ve hedef şube seçin.");
+    svc.Stock.Transfer(s, d.MaterialId, d.Quantity, d.FromBranchId, d.ToBranchId, Guid.NewGuid().ToString("N"), Doc(d.Note),
+        personnelId: d.PersonnelId, vehicleId: d.VehicleId,
+        invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.DocumentId)) throw new ArgumentException("Belge yok.");
+    svc.Stock.ReverseDocument(s, d.DocumentId, string.IsNullOrWhiteSpace(d.Reason) ? "Kullanıcı iptali" : d.Reason);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -279,3 +336,8 @@ record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys);
 record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice);
+record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
+    decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
+record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
+record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
+record StockReverseDto(string DocumentId, string? Reason);
