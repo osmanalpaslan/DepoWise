@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject AuthState Auth
+@inject ApiClient Api
 @inject NavigationManager Nav
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
@@ -44,7 +45,10 @@
             {
                 var p = r.Value.Split('|');
                 if (p.Length == 4 && !string.IsNullOrEmpty(p[0]))
+                {
                     Auth.SignIn(p[0], p[1], p[2], p[3] == "True");
+                    await Api.RefreshMenuAsync(); // yetkiye göre menü (oturum geri yüklenince)
+                }
             }
         }
         catch { }

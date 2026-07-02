@@ -116,6 +116,23 @@ app.MapPost("/api/machines/{id}/revoke", (HttpContext ctx, string id) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// ── Kullanıcının menüsü/yetkileri (masaüstüyle AYNI AccessControl) → web menüyü buna göre çizer ──
+app.MapGet("/api/me/menu", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var mods = DepoWise.Application.Security.AppModules.All
+        .Where(m => DepoWise.Application.Security.AccessControl.CanSeeMenu(s, m.Key))
+        .Select(m => new
+        {
+            key = m.Key,
+            label = m.Label,
+            create = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Create),
+            edit = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Edit),
+            delete = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Delete),
+        }).ToList();
+    return Results.Ok(new { isSuperAdmin = s.IsSuperAdmin, modules = mods });
+}).RequireAuthorization();
+
 // ── Firmalar (Süper Admin) ──
 app.MapGet("/api/companies", (HttpContext ctx) =>
 {

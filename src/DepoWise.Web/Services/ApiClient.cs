@@ -8,6 +8,8 @@ public sealed record LoginResponse(string Token, string UserId, string CompanyId
 public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive);
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount);
+public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
+public sealed record MenuResponse(bool IsSuperAdmin, List<MenuModule> Modules);
 
 /// <summary>
 /// DepoWise.Api HTTP istemcisi (web arayüzü → API). Web hiçbir iş kuralı TAŞIMAZ; her şey API'de.
@@ -23,6 +25,19 @@ public sealed class ApiClient
     /// <summary>Masaüstü kurulum aracının indirme adresi (API'den servis edilir).</summary>
     public string SetupDownloadUrl => new Uri(_http.BaseAddress!, "api/setup/download").ToString();
 
+    /// <summary>Kullanıcının görebileceği menü + yetkileri (masaüstüyle aynı) çeker ve AuthState'e yazar.</summary>
+    public async Task RefreshMenuAsync()
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/me/menu"));
+            if (!resp.IsSuccessStatusCode) return;
+            var data = await resp.Content.ReadFromJsonAsync<MenuResponse>();
+            if (data is not null) _auth.SetModules(data.Modules);
+        }
+        catch { }
+    }
+
     private HttpRequestMessage Req(HttpMethod m, string url)
     {
         var r = new HttpRequestMessage(m, url);
@@ -37,6 +52,7 @@ public sealed class ApiClient
         var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
         if (data is null) return "Sunucu yanıtı okunamadı.";
         _auth.SignIn(data.Token, data.UserId, data.CompanyId, data.IsSuperAdmin);
+        await RefreshMenuAsync(); // yetkiye göre menü
         return null;
     }
 
