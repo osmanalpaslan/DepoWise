@@ -73,6 +73,46 @@ public sealed class ApiClient
         return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
     }
 
+    /// <summary>POST edip dönen {id}'yi de verir (fotoğraf yükleme için oluşan kaydın id'si gerekir).</summary>
+    public async Task<(string? Err, string? Id)> CreateAsync(string path, object body)
+    {
+        var req = Req(HttpMethod.Post, path);
+        req.Content = JsonContent.Create(body);
+        var r = await _http.SendAsync(req);
+        if (!r.IsSuccessStatusCode) return ($"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}", null);
+        try { var doc = await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(); return (null, doc.TryGetProperty("id", out var v) ? v.GetString() : null); }
+        catch { return (null, null); }
+    }
+
+    public async Task<string?> UploadFilesAsync(string path, IEnumerable<(string Name, byte[] Bytes, string Mime)> files)
+    {
+        using var form = new MultipartFormDataContent();
+        foreach (var f in files)
+        {
+            var content = new ByteArrayContent(f.Bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(string.IsNullOrEmpty(f.Mime) ? "image/jpeg" : f.Mime);
+            form.Add(content, "file", f.Name);
+        }
+        var req = Req(HttpMethod.Post, path);
+        req.Content = form;
+        var r = await _http.SendAsync(req);
+        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}";
+    }
+
+    /// <summary>Korumalı bir görsel ucundan bytes çekip data URL üretir (img src için — Bearer başlığı gerektiğinden).</summary>
+    public async Task<string?> GetImageDataUrlAsync(string path)
+    {
+        try
+        {
+            var r = await _http.SendAsync(Req(HttpMethod.Get, path));
+            if (!r.IsSuccessStatusCode) return null;
+            var mime = r.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+            var bytes = await r.Content.ReadAsByteArrayAsync();
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch { return null; }
+    }
+
     public async Task<string?> PutAsync(string path, object body)
     {
         var req = Req(HttpMethod.Put, path);

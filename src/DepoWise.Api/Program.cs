@@ -169,7 +169,59 @@ static bool Void(Action a) { a(); return true; }
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Branches.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/personnel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Personnel.List(s, Page()).Items) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/materials", (HttpContext c, string? search) => S(c) is { } s ? Results.Ok(svc.Materials.List(s, Page(), search).Items) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/materials", (HttpContext c, string? search) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var rows = svc.Materials.List(s, Page(), search).Items.Select(m =>
+    {
+        var stock = svc.Stock.GetBalance(m.Id);
+        var status = stock <= 0 ? "Stok Yok" : stock <= m.MinStock ? "Düşük Stok" : "Yeterli";
+        return new { id = m.Id, code = m.Code, name = m.Name, type = m.Type, unitPrice = m.UnitPrice, currency = m.Currency, minStock = m.MinStock, stock, statusText = status };
+    }).ToList();
+    return Results.Ok(rows);
+}).RequireAuthorization();
+app.MapGet("/api/materials/{id}", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Materials.GetDetail(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Materials.Update(s, id, new DepoWise.Infrastructure.Materials.UpdateMaterial(
+        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, Doc(d.Description)));
+    if (d.VehicleIds is not null) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapDelete("/api/materials/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Materials.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/materials/{id}/compatible-vehicles", (HttpContext c, string id, IdListDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Materials.SetCompatibleVehicles(s, id, d.Ids ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/materials/{id}/equivalents", (HttpContext c, string id, IdDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Materials.AddEquivalent(s, id, d.Id)) }) : Results.Unauthorized()).RequireAuthorization();
+
+// Malzeme fotoğrafları (file_records + disk storage)
+app.MapGet("/api/materials/{id}/photos", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Files.GetPhotos(s, "material", id).Select(p => new { id = p.Id, url = $"/api/materials/{id}/photos/{p.Id}" })) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/materials/{id}/photos/{fileId}", (HttpContext c, string id, string fileId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var p = svc.Files.GetPhotos(s, "material", id).FirstOrDefault(x => x.Id == fileId);
+    if (p is null) return Results.NotFound();
+    return Results.File(svc.Storage.Read(p.StorageKey), p.Mime ?? "image/jpeg");
+}).RequireAuthorization();
+app.MapPost("/api/materials/{id}/photos", async (HttpContext ctx, string id) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var form = await ctx.Request.ReadFormAsync();
+    int n = 0;
+    foreach (var file in form.Files)
+    {
+        using var ms = new MemoryStream();
+        await file.OpenReadStream().CopyToAsync(ms, ctx.RequestAborted);
+        svc.Files.SavePhoto(s, "material", id, file.FileName, file.ContentType, ms.ToArray());
+        n++;
+    }
+    return Results.Ok(new { added = n });
+}).RequireAuthorization();
+app.MapDelete("/api/materials/{id}/photos/{fileId}", (HttpContext c, string id, string fileId) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Files.DeletePhoto(s, fileId)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles", (HttpContext c, string? search) => S(c) is { } s ? Results.Ok(svc.Vehicles.List(s, search)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/stock", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Stock.RecentMovements(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
@@ -203,6 +255,8 @@ app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     var id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
         d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, "TRY", Doc(d.Description)));
+    if (d.VehicleIds is { Count: > 0 }) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
+    if (d.EquivalentIds is not null) foreach (var eq in d.EquivalentIds) svc.Materials.AddEquivalent(s, id, eq);
     if (d.OpeningStock > 0)
         svc.OpeningStock.RecordOpening(s, id, d.OpeningStock, Guid.NewGuid().ToString("N"), d.UnitPrice > 0 ? d.UnitPrice : null);
     return Results.Ok(new { id });
@@ -505,7 +559,9 @@ record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId);
 record MachineRegisterDto(string? CompanyId, string? MachineName);
-record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock);
+record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds);
+record IdListDto(List<string>? Ids);
+record IdDto(string Id);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);

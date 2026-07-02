@@ -43,6 +43,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Security.PermissionService Permissions { get; }
     public DepoWise.Infrastructure.Security.PermissionTemplateService PermissionTemplates { get; }
     public DepoWise.Infrastructure.Database.AuditLogService AuditLog { get; }
+    public DepoWise.Infrastructure.Files.FileService Files { get; }
+    public DepoWise.Application.Files.IFileStorageProvider Storage { get; }
 
     public ServerServices(string dataDir)
     {
@@ -77,6 +79,8 @@ public sealed class ServerServices
         Permissions = new DepoWise.Infrastructure.Security.PermissionService(Factory, clock);
         PermissionTemplates = new DepoWise.Infrastructure.Security.PermissionTemplateService(Factory, clock);
         AuditLog = new DepoWise.Infrastructure.Database.AuditLogService(Factory);
+        Storage = new DepoWise.Infrastructure.Files.LocalFileStorageProvider(Path.Combine(dataDir, "files"));
+        Files = new DepoWise.Infrastructure.Files.FileService(Factory, Storage, clock);
 
         EnsureSeedAdmins();
     }
