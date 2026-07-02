@@ -629,6 +629,8 @@ app.MapPost("/api/users/{id}/password", (HttpContext c, string id, PasswordDto d
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.ChangePassword(s, id, d.Password)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/users/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.DeleteUser(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/users/{id}/branch", (HttpContext c, string id, IdDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.AssignUser(s, id, string.IsNullOrWhiteSpace(d.Id) ? null : d.Id)) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Yetkiler (kullanıcı bazlı modül matrisi) ──
 app.MapGet("/api/permissions/{userId}", (HttpContext c, string userId) =>
