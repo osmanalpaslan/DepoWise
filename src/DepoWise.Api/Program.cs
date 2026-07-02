@@ -407,7 +407,19 @@ app.MapPost("/api/inspection", (HttpContext c, InspectionDto d) =>
 
 // ── Yakıt ──
 app.MapGet("/api/fuel/depot", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDepotEntries(s)) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/fuel/summary", (HttpContext c) => S(c) is { } s ? Results.Ok(new { depotBalance = svc.Fuel.GetDepotBalance(s), currentPrice = svc.Fuel.GetCurrentFuelPrice(s) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/fuel/summary", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var received = svc.Fuel.ListDepotEntries(s).Sum(e => e.Liters);
+    var distributed = svc.Fuel.ListDistributions(s).Sum(e => e.Liters);
+    return Results.Ok(new
+    {
+        depotBalance = svc.Fuel.GetDepotBalance(s),
+        currentPrice = svc.Fuel.GetCurrentFuelPrice(s),
+        totalReceived = received,
+        totalDistributed = distributed,
+    });
+}).RequireAuthorization();
 app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
         d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note)), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
