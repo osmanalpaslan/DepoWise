@@ -6,7 +6,17 @@ using DepoWise.Application.Sync;
 using DepoWise.Infrastructure.Update;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 
+// JWT "sub"/"company" claim adlarını KORU (.NET varsayılanı sub→NameIdentifier eşlemesini kapat)
+JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Büyük güncelleme/kurulum paketleri (self-contained ~90-250MB) yüklenebilsin → istek boyutu sınırlarını yükselt.
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 1_073_741_824); // 1 GB
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
+{
+    o.MultipartBodyLengthLimit = 1_073_741_824; // 1 GB
+});
 
 var dataDir = Environment.GetEnvironmentVariable("DEPOWISE_SERVER_DATA")
               ?? Path.Combine(builder.Environment.ContentRootPath, "data");
