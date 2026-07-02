@@ -10,17 +10,16 @@
         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz sistem log kaydı yok.</MudText> }
     else
     {
-        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="65vh">
-            <HeaderContent><MudTh>Tarih</MudTh><MudTh>Kullanıcı</MudTh><MudTh>İşlem</MudTh><MudTh>Nesne</MudTh><MudTh>Kayıt</MudTh></HeaderContent>
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="65vh" T="JsonElement">
+            <HeaderContent><MudTh>TARİH</MudTh><MudTh>KULLANICI</MudTh><MudTh>KAYIT</MudTh><MudTh>İŞLEM</MudTh></HeaderContent>
             <RowTemplate>
                 <MudTd>@Str(context, "dateText")</MudTd>
                 <MudTd>@Str(context, "userText")</MudTd>
-                <MudTd>@Str(context, "action")</MudTd>
                 <MudTd>@Str(context, "entityType")</MudTd>
-                <MudTd>@Str(context, "entityId")</MudTd>
+                <MudTd>@Str(context, "actionText")</MudTd>
             </RowTemplate>
         </MudTable>
     }
