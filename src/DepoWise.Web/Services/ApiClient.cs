@@ -9,6 +9,7 @@ public sealed record MachineDto(string Id, string Name, string Status, string St
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
+public sealed record RoleDto(string Key, string Name);
 public sealed record MenuResponse(bool IsSuperAdmin, List<MenuModule> Modules);
 
 /// <summary>
@@ -64,6 +65,27 @@ public sealed class ApiClient
     }
 
     /// <summary>Herhangi bir liste ucundan ham JSON dizi (genel tablo bileşeni için).</summary>
+    public async Task<string?> PostAsync(string path, object body)
+    {
+        var req = Req(HttpMethod.Post, path);
+        req.Content = JsonContent.Create(body);
+        var r = await _http.SendAsync(req);
+        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
+    }
+
+    public async Task<string?> DeleteAsync(string path)
+    {
+        var r = await _http.SendAsync(Req(HttpMethod.Delete, path));
+        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
+    }
+
+    public async Task<List<RoleDto>> GetRolesAsync()
+    {
+        var r = await _http.SendAsync(Req(HttpMethod.Get, "/api/roles"));
+        if (!r.IsSuccessStatusCode) return new();
+        return await r.Content.ReadFromJsonAsync<List<RoleDto>>() ?? new();
+    }
+
     public async Task<System.Text.Json.JsonElement[]> GetArrayAsync(string path)
     {
         var resp = await _http.SendAsync(Req(HttpMethod.Get, path));

@@ -1,2 +1,59 @@
 @page "/users"
-<DataList Title="Kullanıcılar" Path="/api/users" />
+@inject ApiClient Api
+@inject AuthState Auth
+
+<h3>Kullanıcılar</h3>
+
+@if (Auth.CanCreate("users"))
+{
+    <div class="card mb-3" style="max-width:680px;">
+        <div class="card-body">
+            <h6>Yeni Kullanıcı</h6>
+            <div class="row g-2">
+                <div class="col-md-4"><input class="form-control form-control-sm" placeholder="Kullanıcı adı" @bind="_u" /></div>
+                <div class="col-md-4"><input class="form-control form-control-sm" type="password" placeholder="Parola" @bind="_p" /></div>
+                <div class="col-md-4"><input class="form-control form-control-sm" placeholder="Ad Soyad" @bind="_f" /></div>
+            </div>
+            <div class="mt-2">
+                <span class="text-muted small">Roller:</span>
+                @foreach (var r in _roles)
+                {
+                    <label class="me-3"><input type="checkbox" checked="@_sel.Contains(r.Key)" @onchange="e => Toggle(r.Key, e)" /> @r.Name</label>
+                }
+            </div>
+            <button class="btn btn-success btn-sm mt-2" @onclick="Create" disabled="@_busy">@(_busy ? "…" : "Oluştur")</button>
+            @if (_msg is not null) { <span class="ms-2">@_msg</span> }
+        </div>
+    </div>
+}
+
+<DataList @key="_v" Title="Kullanıcı Listesi" Path="/api/users" />
+
+@code {
+    private string _u = "", _p = "", _f = "";
+    private List<RoleDto> _roles = new();
+    private readonly HashSet<string> _sel = new();
+    private string? _msg; private bool _busy; private int _v;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("users")) { try { _roles = await Api.GetRolesAsync(); } catch { } }
+    }
+
+    private void Toggle(string key, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) _sel.Add(key); else _sel.Remove(key); }
+
+    private async Task Create()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_u) || string.IsNullOrWhiteSpace(_p)) { _msg = "Kullanıcı adı ve parola zorunlu."; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/users", new { username = _u.Trim(), password = _p, fullName = _f, roleKeys = _sel.ToList() });
+            _msg = err ?? "Oluşturuldu.";
+            if (err is null) { _u = _p = _f = ""; _sel.Clear(); _v++; }
+        }
+        catch (Exception ex) { _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+}

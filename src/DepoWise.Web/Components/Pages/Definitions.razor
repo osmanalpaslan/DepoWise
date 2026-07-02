@@ -1,5 +1,9 @@
 @page "/definitions"
-<DataList Title="Birimler" Path="/api/lookups/units" />
-<DataList Title="Malzeme Kategorileri" Path="/api/lookups/material_categories" />
-<DataList Title="Markalar" Path="/api/lookups/brands" />
-<DataList Title="Tedarikçiler" Path="/api/lookups/suppliers" />
+
+<h3>Tanımlar</h3>
+<div class="row">
+    <div class="col-md-6"><CrudList Title="Birimler" ListPath="/api/lookups/units" CreatePath="/api/lookups/units" DeletePrefix="/api/lookups/units" ModuleKey="definitions" /></div>
+    <div class="col-md-6"><CrudList Title="Malzeme Kategorileri" ListPath="/api/lookups/material_categories" CreatePath="/api/lookups/material_categories" DeletePrefix="/api/lookups/material_categories" ModuleKey="definitions" /></div>
+    <div class="col-md-6"><CrudList Title="Markalar" ListPath="/api/lookups/brands" CreatePath="/api/lookups/brands" DeletePrefix="/api/lookups/brands" ModuleKey="definitions" /></div>
+    <div class="col-md-6"><CrudList Title="Tedarikçiler" ListPath="/api/lookups/suppliers" CreatePath="/api/lookups/suppliers" DeletePrefix="/api/lookups/suppliers" ModuleKey="definitions" /></div>
+</div>

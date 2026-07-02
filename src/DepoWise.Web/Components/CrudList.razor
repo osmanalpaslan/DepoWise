@@ -1,0 +1,89 @@
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<h4>@Title</h4>
+
+@if (CanCreate)
+{
+    <div class="input-group input-group-sm mb-2" style="max-width:420px;">
+        <input class="form-control" placeholder="Yeni @Title" @bind="_new" @bind:event="oninput" />
+        <button class="btn btn-success" @onclick="Add" disabled="@_busy">Ekle</button>
+    </div>
+}
+@if (_msg is not null) { <div class="alert alert-@(_ok ? "success" : "danger") py-1">@_msg</div> }
+
+@if (_rows is null) { <p class="text-muted">Yükleniyor…</p> }
+else if (_rows.Length == 0) { <p class="text-muted">Kayıt yok.</p> }
+else
+{
+    <table class="table table-sm table-striped">
+        <thead><tr><th>Ad</th>@if (CanDelete) { <th></th> }</tr></thead>
+        <tbody>
+        @foreach (var row in _rows)
+        {
+            <tr>
+                <td>@Name(row)</td>
+                @if (CanDelete)
+                {
+                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" @onclick="() => Del(Id(row))">Sil</button></td>
+                }
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string ListPath { get; set; } = "";
+    [Parameter, EditorRequired] public string ModuleKey { get; set; } = "";
+    [Parameter] public string CreatePath { get; set; } = "";
+    [Parameter] public string DeletePrefix { get; set; } = ""; // örn "/api/lookups/units" → /{id}
+    [Parameter] public string CreateField { get; set; } = "name";
+    [Parameter] public string NameField { get; set; } = "name";
+
+    private JsonElement[]? _rows;
+    private string _new = "";
+    private string? _msg; private bool _ok; private bool _busy;
+
+    private bool CanCreate => !string.IsNullOrEmpty(CreatePath) && Auth.CanCreate(ModuleKey);
+    private bool CanDelete => !string.IsNullOrEmpty(DeletePrefix) && Auth.CanDelete(ModuleKey);
+
+    protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
+
+    private async Task Load()
+    {
+        try { _rows = await Api.GetArrayAsync(ListPath); }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task Add()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_new)) return;
+        _busy = true;
+        try
+        {
+            var body = new Dictionary<string, string> { [CreateField] = _new.Trim() };
+            var err = await Api.PostAsync(CreatePath, body);
+            _ok = err is null; _msg = err ?? "Eklendi.";
+            if (_ok) { _new = ""; await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Del(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        _msg = null;
+        var err = await Api.DeleteAsync($"{DeletePrefix}/{id}");
+        _ok = err is null; _msg = err ?? "Silindi.";
+        if (_ok) await Load();
+    }
+
+    private string Name(JsonElement r) => Get(r, NameField);
+    private static string Id(JsonElement r) => r.ValueKind == JsonValueKind.Object && r.TryGetProperty("id", out var v) ? v.GetString() ?? "" : "";
+    private string Get(JsonElement r, string f) => r.ValueKind == JsonValueKind.Object && r.TryGetProperty(f, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+}

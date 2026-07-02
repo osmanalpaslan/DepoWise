@@ -164,6 +164,38 @@ app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Daily
 app.MapGet("/api/requests", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Requests.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
 
+// Roller (kullanıcı oluşturma için)
+app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized()
+    : Results.Ok(RoleKeys.Seed.Where(r => r.Key != RoleKeys.SuperAdmin).Select(r => new { key = r.Key, name = r.Name }))).RequireAuthorization();
+
+// ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
+app.MapPost("/api/branches", (HttpContext c, NameDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, null)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/users", (HttpContext c, NewUserDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), s.CompanyId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice)) }) : Results.Unauthorized()).RequireAuthorization();
+
+app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = table switch
+    {
+        "units" => svc.Lookups.AddUnit(s, d.Name),
+        "suppliers" => svc.Lookups.AddSupplier(s, d.Name),
+        "material_categories" => svc.Lookups.AddCategory(s, d.Name),
+        "brands" => svc.Lookups.AddBrand(s, d.Name, "material"),
+        "vehicle_types" => svc.Lookups.AddVehicleType(s, d.Name),
+        "vehicle_categories" => svc.Lookups.AddVehicleCategory(s, d.Name),
+        _ => throw new ArgumentException("Bilinmeyen tanım tablosu."),
+    };
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Lookups.Delete(s, table, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 // ── Güncelleme (release) ──
 app.MapGet("/api/releases/latest", () => Results.Ok(svc.Releases.Latest()));
 app.MapPost("/api/releases", async (HttpContext ctx) =>
@@ -243,3 +275,7 @@ record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson);
+record NameDto(string Name);
+record PersonnelDto(string FullName, string? Title, string? Phone);
+record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys);
+record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice);
