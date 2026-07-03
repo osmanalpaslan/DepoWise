@@ -26,16 +26,19 @@
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_lastDate" Label="Son Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_nextDate" Label="Sonraki Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_place" Label="Yer / Kurum" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="3">
-                <MudSelect T="string" @bind-Value="_result" Label="Sonuç" Margin="Margin.Dense" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@("Geçti")">Geçti</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Kaldı")">Kaldı</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Ertelendi")">Ertelendi</MudSelectItem>
-                </MudSelect>
-            </MudItem>
-            @if (_result == "Ertelendi")
+            @if (_docType == "inspection")
             {
-                <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_postponeDate" Label="Erteleme Tarihi *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3">
+                    <MudSelect T="string" @bind-Value="_result" Label="Sonuç" Margin="Margin.Dense" Variant="Variant.Outlined">
+                        <MudSelectItem T="string" Value="@("Geçti")">Geçti</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Kaldı")">Kaldı</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Ertelendi")">Ertelendi</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                @if (_result == "Ertelendi")
+                {
+                    <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_postponeDate" Label="Erteleme Tarihi *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                }
             }
             <MudItem xs="12"><MudTextField @bind-Value="_note" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>
@@ -92,17 +95,18 @@
     {
         _msg = null;
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
-        if (_result == "Ertelendi" && _postponeDate is null) { _msg = "Ertelendi seçildi: erteleme tarihi zorunlu."; _ok = false; return; }
+        var isInspection = _docType == "inspection";
+        if (isInspection && _result == "Ertelendi" && _postponeDate is null) { _msg = "Ertelendi seçildi: erteleme tarihi zorunlu."; _ok = false; return; }
         if (!await Dialog.Confirm($"{DocLabel} belgesi kaydedilsin mi?")) return;
         _busy = true;
         try
         {
-            // Ertelendi ise sonraki tarih = erteleme tarihi (uyarılar bu tarihe göre çalışır)
-            var next = _result == "Ertelendi" ? _postponeDate : _nextDate;
+            // Sonuç yalnız Muayene'de; Ertelendi ise sonraki tarih = erteleme tarihi
+            var next = isInspection && _result == "Ertelendi" ? _postponeDate : _nextDate;
             var err = await Api.PostAsync("/api/inspection", new
             {
                 vehicleId = _vehicle.Id, docType = _docType, lastDate = Ms(_lastDate), nextDate = Ms(next),
-                result = _result, place = Empty(_place), note = Empty(_note)
+                result = isInspection ? _result : null, place = Empty(_place), note = Empty(_note)
             });
             _ok = err is null; _msg = err ?? "Kaydedildi.";
             if (_ok) { Clear(); await LoadList(); }

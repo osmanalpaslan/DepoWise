@@ -1,0 +1,98 @@
+@page "/stock/count"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudText Typo="Typo.h5" GutterBottom="true">Stok Sayım</MudText>
+
+@if (!Auth.CanCreate("stock"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_reason" Label="Sayım Gerekçesi *" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:320px" />
+            <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" OnKeyUp="OnSearchKey" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Ara</MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Sayımı Tamamla</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayılan miktarı girin; sistem stoğundan farkı kadar "düzeltme (adjustment)" stok hareketi oluşur.</MudText>
+    </MudPaper>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0) { <MudText Class="mud-text-secondary">Malzeme bulunamadı.</MudText> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh" T="Row">
+                <HeaderContent><MudTh>KOD</MudTh><MudTh>MALZEME</MudTh><MudTh Style="text-align:right">SİSTEM STOĞU</MudTh><MudTh Style="text-align:right">SAYILAN</MudTh><MudTh Style="text-align:right">FARK</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Code</MudTd>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd Style="text-align:right">@context.SystemStock.ToString("0.##")</MudTd>
+                    <MudTd Style="text-align:right;width:140px"><MudNumericField T="decimal" @bind-Value="context.Counted" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudTd>
+                    <MudTd Style="text-align:right">@((context.Counted - context.SystemStock).ToString("0.##"))</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+}
+
+@code {
+    private sealed class Row { public string Id = ""; public string Code = ""; public string Name = ""; public decimal SystemStock; public decimal Counted; }
+    private List<Row>? _rows;
+    private string _reason = "", _search = "";
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync() { if (Auth.CanCreate("stock")) await Load(); }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/materials" + (string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search)}"));
+            _rows = arr.Where(e => e.ValueKind == JsonValueKind.Object).Select(e =>
+            {
+                var stock = Dec(e, "stock");
+                return new Row { Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), SystemStock = stock, Counted = stock };
+            }).ToList();
+        }
+        catch { _rows = new(); }
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_reason)) { _msg = "Sayım gerekçesi zorunlu."; _ok = false; return; }
+        var changed = (_rows ?? new()).Where(r => r.Counted != r.SystemStock).ToList();
+        if (changed.Count == 0) { _msg = "Farklı sayılan malzeme yok."; _ok = false; return; }
+        if (!await Dialog.Confirm($"{changed.Count} malzemede fark var. Sayım tamamlansın mı? (fark kadar düzeltme hareketi oluşur)")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/stock/count", new
+            {
+                reason = _reason.Trim(),
+                lines = changed.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList()
+            });
+            _ok = err is null; _msg = err ?? "Sayım tamamlandı, stok güncellendi.";
+            if (_ok) await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+}

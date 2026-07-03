@@ -1,0 +1,94 @@
+@page "/server-backups"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudText Typo="Typo.h5" GutterBottom="true">Sunucu Yedekleri</MudText>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran yalnız süper admin içindir.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudGrid Spacing="2" Class="align-center">
+            <MudItem xs="12" md="3">
+                <MudSelect T="string" @bind-Value="_company" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="2"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Load" Disabled="_busy">Listele</MudButton></MudItem>
+            <MudItem xs="12" md="3"><MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteRange" Disabled="_busy || _rows is null || _rows.Length == 0">Aralığı Sil</MudButton></MudItem>
+        </MudGrid>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+
+    @if (_rows is null) { <MudText Class="mud-text-secondary">Firma + tarih seçip <b>Listele</b>'ye basın.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Bu aralıkta yedek yok.</MudText> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+                <HeaderContent><MudTh>MAKİNE</MudTh><MudTh>DOSYA</MudTh><MudTh>TARİH</MudTh><MudTh Style="text-align:right">BOYUT</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "machine")</MudTd>
+                    <MudTd>@Str(context, "fileName")</MudTd>
+                    <MudTd>@DateT(context, "date")</MudTd>
+                    <MudTd Style="text-align:right">@Size(context)</MudTd>
+                </RowTemplate>
+            </MudTable>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_rows.Length yedek</MudText>
+        </MudPaper>
+    }
+}
+
+@code {
+    private List<ApiClient.Opt> _companies = new();
+    private string? _company;
+    private DateTime? _from = DateTime.Today.AddMonths(-1), _to = DateTime.Today;
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+    }
+
+    private string Query() => $"company={Uri.EscapeDataString(_company ?? "")}&from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}";
+
+    private async Task Load()
+    {
+        _msg = null;
+        if (string.IsNullOrEmpty(_company)) { _msg = "Firma seçin."; _ok = false; return; }
+        _busy = true;
+        try { _rows = await Api.GetArrayAsync($"/api/backups?{Query()}"); }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; _rows = System.Array.Empty<JsonElement>(); }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteRange()
+    {
+        if (string.IsNullOrEmpty(_company)) return;
+        if (!await Dialog.Confirm("Seçili aralıktaki tüm sunucu yedekleri silinsin mi?", "Evet, Sil", danger: true)) return;
+        _busy = true; _msg = null;
+        try { var err = await Api.DeleteAsync($"/api/backups?{Query()}"); _ok = err is null; _msg = err ?? "Silindi."; if (_ok) await Load(); }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string DateT(JsonElement row, string key)
+    {
+        if (row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(v.GetString(), out var d))
+            return d.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+        return Str(row, key);
+    }
+    private static string Size(JsonElement row)
+        => row.TryGetProperty("sizeBytes", out var v) && v.ValueKind == JsonValueKind.Number ? $"{v.GetInt64() / 1024.0 / 1024.0:0.##} MB" : "";
+}

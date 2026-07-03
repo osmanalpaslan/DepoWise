@@ -1,0 +1,79 @@
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudPaper Class="pa-3 mb-2" Elevation="1" Style="max-width:520px;">
+    <MudText Typo="Typo.subtitle2">@FieldLabel</MudText>
+    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ekran: @ScreenLabel · Tablo: @Table</MudText>
+
+    @if (_items is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-1" /> }
+    else
+    {
+        @foreach (var it in _items)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                @if (Auth.IsSuperAdmin)
+                {
+                    <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" Title="Adı değiştir (ID korunur)" OnClick="@(() => Rename(it))" />
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="min-width:240px">@it.Name</MudText>
+                }
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
+            </MudStack>
+        }
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-2">
+            <MudTextField @bind-Value="_new" Placeholder="@($"Yeni {FieldLabel}")" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="Add">Ekle</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudText Typo="Typo.caption" Color="@(_ok ? Color.Success : Color.Error)">@_msg</MudText> }
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string ScreenLabel { get; set; } = "";
+    [Parameter, EditorRequired] public string FieldLabel { get; set; } = "";
+    [Parameter, EditorRequired] public string Table { get; set; } = "";
+
+    private sealed class Item { public string Id = ""; public string Name = ""; }
+    private List<Item>? _items;
+    private string _new = "";
+    private string? _msg; private bool _ok;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync($"/api/lookups/{Table}");
+            _items = arr.Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(e => new Item { Id = e.GetProperty("id").GetString() ?? "", Name = e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "" }).ToList();
+        }
+        catch { _items = new(); }
+    }
+
+    private async Task Add()
+    {
+        if (string.IsNullOrWhiteSpace(_new)) return;
+        var err = await Api.PostAsync($"/api/lookups/{Table}", new { name = _new.Trim() });
+        _ok = err is null; _msg = err ?? "Eklendi."; if (_ok) { _new = ""; await Load(); }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (!await Dialog.Confirm("Bu tanım silinsin mi?", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/lookups/{Table}/{id}");
+        _ok = err is null; _msg = err ?? "Silindi."; if (_ok) await Load();
+    }
+
+    private async Task Rename(Item it)
+    {
+        if (string.IsNullOrWhiteSpace(it.Name)) { _msg = "Ad boş olamaz."; _ok = false; return; }
+        var err = await Api.PutAsync($"/api/lookups/{Table}/{it.Id}", new { name = it.Name.Trim() });
+        _ok = err is null; _msg = err ?? "Ad güncellendi (ID korundu)."; if (_ok) await Load();
+    }
+}

@@ -1,9 +1,24 @@
 @page "/definitions"
+@inject AuthState Auth
 
 <MudText Typo="Typo.h5" GutterBottom="true">Tanım Düzenle</MudText>
-<div class="row">
-    <div class="col-md-6"><CrudList Title="Birimler" ListPath="/api/lookups/units" CreatePath="/api/lookups/units" DeletePrefix="/api/lookups/units" ModuleKey="definitions" /></div>
-    <div class="col-md-6"><CrudList Title="Malzeme Kategorileri" ListPath="/api/lookups/material_categories" CreatePath="/api/lookups/material_categories" DeletePrefix="/api/lookups/material_categories" ModuleKey="definitions" /></div>
-    <div class="col-md-6"><CrudList Title="Markalar" ListPath="/api/lookups/brands" CreatePath="/api/lookups/brands" DeletePrefix="/api/lookups/brands" ModuleKey="definitions" /></div>
-    <div class="col-md-6"><CrudList Title="Tedarikçiler" ListPath="/api/lookups/suppliers" CreatePath="/api/lookups/suppliers" DeletePrefix="/api/lookups/suppliers" ModuleKey="definitions" /></div>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+    Sistemdeki sabit tanımlar (dropdown'larda "+" ile eklenen alanlar). Ekle / sil yapabilirsiniz.
+    @if (Auth.IsSuperAdmin) { <b>Süper admin olarak alan adını (ID'yi bozmadan) değiştirebilirsiniz.</b> }
+    else { <span>Alan adı değişimi yalnız süper adminde açıktır.</span> }
+</MudText>
+
+<MudText Typo="Typo.h6" Class="mt-2">Malzemeler</MudText>
+<div class="d-flex flex-wrap" style="gap:12px">
+    <DefEditor ScreenLabel="Malzemeler" FieldLabel="Birim" Table="units" />
+    <DefEditor ScreenLabel="Malzemeler" FieldLabel="Malzeme Kategorisi" Table="material_categories" />
+    <DefEditor ScreenLabel="Malzemeler" FieldLabel="Marka" Table="brands" />
+    <DefEditor ScreenLabel="Malzemeler" FieldLabel="Tedarikçi" Table="suppliers" />
+</div>
+
+<MudText Typo="Typo.h6" Class="mt-4">Araçlar</MudText>
+<div class="d-flex flex-wrap" style="gap:12px">
+    <DefEditor ScreenLabel="Araçlar" FieldLabel="Makine Tipi" Table="vehicle_types" />
+    <DefEditor ScreenLabel="Araçlar" FieldLabel="Kategori" Table="vehicle_categories" />
+    <DefEditor ScreenLabel="Araçlar" FieldLabel="Marka" Table="vehicle_brands" />
 </div>

@@ -49,6 +49,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
     public DepoWise.Infrastructure.Reporting.ReportService Reports { get; }
     public DepoWise.Infrastructure.Files.BackupService DbBackup { get; }
+    public DepoWise.Infrastructure.Settings.SettingsService Settings { get; }
 
     public ServerServices(string dataDir)
     {
@@ -89,6 +90,7 @@ public sealed class ServerServices
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
         DbBackup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock, Path.Combine(dataDir, "dbbackups"));
+        Settings = new DepoWise.Infrastructure.Settings.SettingsService(Factory, clock);
 
         EnsureSeedAdmins();
     }

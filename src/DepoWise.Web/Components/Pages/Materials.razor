@@ -1,12 +1,14 @@
 @page "/materials"
+@page "/materials/{Section}"
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject NavigationManager Nav
 
-<MudText Typo="Typo.h5" GutterBottom="true">Malzemeler</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Malzeme — Yeni Kayıt" : "Malzeme Listesi")</MudText>
 
-@if (Auth.CanCreate("materials"))
+@if (_isNew && Auth.CanCreate("materials"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ MALZEME" : "MALZEME DÜZENLE")</MudText>
@@ -98,6 +100,8 @@
     </MudPaper>
 }
 
+@if (!_isNew)
+{
 <MudGrid Spacing="2">
     <MudItem xs="12" md="8">
         <MudPaper Class="pa-4" Elevation="2">
@@ -138,6 +142,7 @@
             else
             {
                 var d = _detail.Value;
+                var did = Str(d, "id");
                 <MudText Typo="Typo.h6">@Str(d, "name")</MudText>
                 <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">@Str(d, "code")</MudText>
                 <MudSimpleTable Dense="true" Bordered="false" Style="background:transparent">
@@ -178,15 +183,20 @@
                 </MudStack>
 
                 <MudStack Row="true" Class="mt-3" Spacing="2">
-                    @if (Auth.CanEdit("materials")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="BeginEdit">Düzenle</MudButton> }
+                    @if (Auth.CanEdit("materials")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => EditNav(did))">Düzenle</MudButton> }
                     @if (Auth.CanDelete("materials")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSelected">Sil</MudButton> }
                 </MudStack>
             }
         </MudPaper>
     </MudItem>
 </MudGrid>
+}
 
 @code {
+    [Parameter] public string? Section { get; set; }
+    private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase);
+    private void EditNav(string id) => Nav.NavigateTo($"/materials/new?edit={id}");
+
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
 
@@ -211,15 +221,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.CanCreate("materials"))
+        if (_isNew && Auth.CanCreate("materials"))
         {
             _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
             _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
             _vehicles = await Api.OptionsAsync("/api/vehicles", "id", "display");
+            // Liste ekranından "Düzenle" ile gelindiyse (?edit=id) kaydı forma yükle
+            var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+            if (q.TryGetValue("edit", out var eid) && !string.IsNullOrEmpty(eid))
+            {
+                try { _detail = await Api.GetObjectAsync($"/api/materials/{eid}"); await BeginEdit(); } catch { }
+            }
         }
-        await Load();
+        if (!_isNew) await Load();
     }
 
     private string? _lastCat;
@@ -361,7 +377,7 @@
                 await Api.UploadFilesAsync($"/api/materials/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
 
             _ok = err is null; _msg = err ?? (_editId is null ? "Malzeme eklendi." : "Malzeme güncellendi.");
-            if (_ok) { Clear(); _v++; await Load(); }
+            if (_ok) { Clear(); Nav.NavigateTo("/materials"); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }

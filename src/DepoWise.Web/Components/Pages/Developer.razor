@@ -1,0 +1,71 @@
+@page "/developer"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudText Typo="Typo.h5" GutterBottom="true">Geliştirici Modu</MudText>
+
+<MudPaper Class="pa-4" Elevation="2" Style="max-width:520px;">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
+        <MudText Typo="Typo.body1">Durum:</MudText>
+        <MudChip T="string" Color="@(_active ? Color.Success : Color.Default)" Variant="Variant.Filled">@(_active ? "Aktif" : "Pasif")</MudChip>
+    </MudStack>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+        Geliştirici modu yalnız EK geliştirici özelliklerini açar; mevcut akışları değiştirmez. Yalnız admin açıp kapatabilir.
+    </MudText>
+
+    @if (!_active)
+    {
+        <MudTextField @bind-Value="_code" Label="Geliştirici Kodu" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:260px" />
+        <MudButton Class="mt-2" Variant="Variant.Filled" Color="Color.Primary" OnClick="Activate" Disabled="_busy">Aktif Et</MudButton>
+    }
+    else
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="Deactivate" Disabled="_busy">Geliştirici Modunu Kapat</MudButton>
+    }
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+</MudPaper>
+
+@code {
+    private bool _active;
+    private string _code = "";
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        try { var d = await Api.GetObjectAsync("/api/settings/developer"); _active = d.TryGetProperty("active", out var v) && v.ValueKind == JsonValueKind.True; }
+        catch { }
+    }
+
+    private async Task Activate()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_code)) { _msg = "Kod girin."; _ok = false; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/settings/developer", new { code = _code, active = true });
+            _ok = err is null; _msg = err ?? "Geliştirici modu aktif edildi.";
+            if (_ok) { _active = true; _code = ""; }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Deactivate()
+    {
+        if (!await Dialog.Confirm("Geliştirici modu kapatılsın mı?")) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync("/api/settings/developer", new { code = (string?)null, active = false });
+            _ok = err is null; _msg = err ?? "Geliştirici modu kapatıldı.";
+            if (_ok) _active = false;
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+}

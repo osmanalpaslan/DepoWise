@@ -27,6 +27,7 @@
                 <MudTd>@context.CreatedText</MudTd>
                 <MudTd>
                     @if (context.CanActivate) { <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => Approve(context.Id)">Aktifleştir</MudButton> }
+                    @if (context.Status == "revoked") { <MudButton Size="Size.Small" Color="Color.Success" OnClick="() => Reactivate(context.Id)">Yeniden Aktifleştir</MudButton> }
                     @if (context.IsActive) { <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => Revoke(context.Id)">Pasife Al</MudButton> }
                 </MudTd>
             </RowTemplate>
@@ -52,4 +53,5 @@
 
     private async Task Approve(string id) { try { await Api.ApproveMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
     private async Task Revoke(string id) { try { await Api.RevokeMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
+    private async Task Reactivate(string id) { try { await Api.ReactivateMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
 }

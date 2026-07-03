@@ -1,16 +1,18 @@
 @page "/requests"
+@page "/requests/{Section}"
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
 @inject IJSRuntime JS
 
-<MudText Typo="Typo.h5" GutterBottom="true">Malzeme Talep</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">Malzeme Talep — @SecTitle</MudText>
 
-<MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+
 
     @* ═══════════ TALEP FORMU ═══════════ *@
-    <MudTabPanel Text="Talep Formu">
+    @if (_sec == "form")
+    {
         @if (Auth.CanCreate("requests"))
         {
             <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width:920px;">
@@ -119,10 +121,11 @@
                 </MudPaper>
             </MudItem>
         </MudGrid>
-    </MudTabPanel>
+    }
 
     @* ═══════════ TALEP ONAYLAMA ═══════════ *@
-    <MudTabPanel Text="Talep Onaylama">
+    @if (_sec == "approve")
+    {
         <MudGrid Spacing="2">
             <MudItem xs="12" md="8">
                 <MudPaper Class="pa-4" Elevation="0">
@@ -165,10 +168,14 @@
                 </MudPaper>
             </MudItem>
         </MudGrid>
-    </MudTabPanel>
-</MudTabs>
+    }
+
 
 @code {
+    [Parameter] public string? Section { get; set; }
+    private string _sec => (Section ?? "form").ToLowerInvariant();
+    private string SecTitle => _sec == "approve" ? "Talep Onaylama" : "Talep Formu";
+
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private static readonly string[] _filters = { "Tümü", "Taslak", "Beklemede", "Onaylı", "Reddedildi", "İptal" };
 

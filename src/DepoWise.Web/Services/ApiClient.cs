@@ -213,6 +213,7 @@ public sealed class ApiClient
 
     public Task ApproveMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/approve"));
     public Task RevokeMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/revoke"));
+    public Task ReactivateMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/reactivate"));
 
     public async Task<ReleaseDto?> GetLatestReleaseAsync()
     {

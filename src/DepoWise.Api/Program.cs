@@ -120,6 +120,12 @@ app.MapPost("/api/machines/{id}/revoke", (HttpContext ctx, string id) =>
     svc.Enrollment.RevokeDevice(s, id);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+app.MapPost("/api/machines/{id}/reactivate", (HttpContext ctx, string id) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.Enrollment.Reactivate(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 
 // ── Kullanıcının menüsü/yetkileri (masaüstüyle AYNI AccessControl) → web menüyü buna göre çizer ──
 app.MapGet("/api/me/menu", (HttpContext ctx) =>
@@ -288,6 +294,35 @@ app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string 
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.Lookups.Delete(s, table, id);
     return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+// Alan adı değiştirme (ID korunur) — YALNIZ süper admin
+app.MapPut("/api/lookups/{table}/{id}", (HttpContext c, string table, string id, NameDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Alan adı değişimi yalnız süper admin." }, statusCode: 403);
+    svc.Lookups.Rename(s, table, id, d.Name);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Stok Sayım — fark kadar 'adjustment' hareketi
+app.MapPost("/api/stock/count", (HttpContext c, StockCountDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var lines = (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Materials.CountLine(l.MaterialId, l.CountedQuantity)).ToList();
+    svc.Stock.Count(s, lines, string.IsNullOrWhiteSpace(d.Reason) ? "Sayım" : d.Reason!, Guid.NewGuid().ToString("N"), d.BranchId);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Geliştirici Modu (app_settings.developer_mode) — kod 621875, admin
+app.MapGet("/api/settings/developer", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(new { active = svc.Settings.Get(s.CompanyId, "developer_mode") == "1" }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/settings/developer", (HttpContext c, DeveloperDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!DepoWise.Application.Security.AccessControl.IsAdmin(s)) return Results.Json(new { error = "Yalnız admin." }, statusCode: 403);
+    if (d.Active && d.Code != "621875") return Results.Json(new { error = "Geliştirici kodu hatalı." }, statusCode: 400);
+    svc.Settings.Set(s.CompanyId, "developer_mode", d.Active ? "1" : "0", s.UserId);
+    return Results.Ok(new { active = d.Active });
 }).RequireAuthorization();
 
 // ── Stok İşlemleri (Yeni Kayıt / Transfer / Depo Çıkışı + hareket iptali) — masaüstüyle birebir ──
@@ -780,6 +815,9 @@ record IdDto(string Id);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
 record BranchDto(string Name, string? Kind, string? ParentId);
+record CountLineDto(string MaterialId, decimal CountedQuantity);
+record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
+record DeveloperDto(string? Code, bool Active);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);

@@ -1,12 +1,14 @@
 @page "/vehicles"
+@page "/vehicles/{Section}"
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject NavigationManager Nav
 
-<MudText Typo="Typo.h5" GutterBottom="true">Araçlar</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
 
-@if (Auth.CanCreate("vehicles"))
+@if (_isNew && Auth.CanCreate("vehicles"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ ARAÇ" : "ARAÇ DÜZENLE")</MudText>
@@ -91,6 +93,8 @@
     </MudPaper>
 }
 
+@if (!_isNew)
+{
 <MudGrid Spacing="2">
     <MudItem xs="12" md="8">
         <MudPaper Class="pa-4" Elevation="2">
@@ -128,6 +132,7 @@
             else
             {
                 var d = _detail.Value;
+                var did = Str(d, "id");
                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.h6">@Str(d, "internalCode")</MudText>
                     <MudChip T="string" Size="Size.Small">@StatusTr(Str(d, "status"))</MudChip>
@@ -167,15 +172,20 @@
                 </MudStack>
 
                 <MudStack Row="true" Class="mt-3" Spacing="2">
-                    @if (Auth.CanEdit("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="BeginEdit">Düzenle</MudButton> }
+                    @if (Auth.CanEdit("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => EditNav(did))">Düzenle</MudButton> }
                     @if (Auth.CanDelete("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSelected">Sil</MudButton> }
                 </MudStack>
             }
         </MudPaper>
     </MudItem>
 </MudGrid>
+}
 
 @code {
+    [Parameter] public string? Section { get; set; }
+    private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase);
+    private void EditNav(string id) => Nav.NavigateTo($"/vehicles/new?edit={id}");
+
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private string? _editId;
@@ -200,7 +210,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.CanCreate("vehicles"))
+        if (_isNew && Auth.CanCreate("vehicles"))
         {
             _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
             _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
@@ -208,8 +218,13 @@
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");
             _drivers = await Api.OptionsAsync("/api/personnel", "id", "fullName");
             await LoadTemplates();
+            var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+            if (q.TryGetValue("edit", out var eid) && !string.IsNullOrEmpty(eid))
+            {
+                try { _detail = await Api.GetObjectAsync($"/api/vehicles/{eid}"); await BeginEdit(); } catch { }
+            }
         }
-        await Load();
+        if (!_isNew) await Load();
     }
 
     private async Task LoadTemplates()
@@ -372,7 +387,7 @@
             if (err is null && savedId is not null && _staged.Count > 0)
                 await Api.UploadFilesAsync($"/api/vehicles/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
             _ok = err is null; _msg = err ?? (_editId is null ? "Araç eklendi." : "Araç güncellendi.");
-            if (_ok) { Clear(); await Load(); }
+            if (_ok) { Clear(); Nav.NavigateTo("/vehicles"); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }

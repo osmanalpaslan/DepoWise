@@ -37,15 +37,15 @@
         new("Malzemeler", Icons.Material.Filled.Inventory2, new[]
         {
             new Link("Malzeme Listesi", "materials", "materials"),
-            new Link("Yeni Kayıt", "materials", "materials"),
+            new Link("Yeni Kayıt", "materials", "materials/new"),
             new Link("Giriş-Çıkış", "stock", "stock"),
-            new Link("Stok Sayım", "stock", "soon/stock_count"),
+            new Link("Stok Sayım", "stock", "stock/count"),
         }),
         new("Araçlar", Icons.Material.Filled.LocalShipping, new[]
         {
             new Link("Araç Listesi", "vehicles", "vehicles"),
             new Link("Şablonlar", "vehicles", "soon/vehicle_templates"),
-            new Link("Yeni Araç Ekle", "vehicles", "vehicles"),
+            new Link("Yeni Araç Ekle", "vehicles", "vehicles/new"),
             new Link("Muayene / Sigorta", "inspection", "inspection"),
         }),
         new("Personel", Icons.Material.Filled.Badge, new[]
@@ -78,7 +78,7 @@
         new("Talepler", Icons.Material.Filled.Description, new[]
         {
             new Link("Talep Formu", "requests", "requests"),
-            new Link("Talep Onaylama", "requests", "requests"),
+            new Link("Talep Onaylama", "requests", "requests/approve"),
         }),
         new("Raporlar", Icons.Material.Filled.BarChart, new[]
         {
@@ -96,7 +96,7 @@
         }),
         new("Ayarlar", Icons.Material.Filled.Settings, new[]
         {
-            new Link("Geliştirici Modu", "settings", "soon/developer"),
+            new Link("Geliştirici Modu", "settings", "developer"),
             new Link("Hakkında", "", "soon/about"),
         }),
         // Web'e özel yönetim ekranları — AYRI menü (kullanıcı isteği). Bunlara dokunma.
@@ -105,7 +105,7 @@
             new Link("Firma Tanım", "companies", "companies"),
             new Link("Güncelleme Yönetimi", "releases", "releases"),
             new Link("Makine Yönetimi", "machines", "machines"),
-            new Link("Sunucu Yedekleri", "server_backups", "soon/server_backups"),
+            new Link("Sunucu Yedekleri", "server_backups", "server-backups"),
         }),
     };
 }
