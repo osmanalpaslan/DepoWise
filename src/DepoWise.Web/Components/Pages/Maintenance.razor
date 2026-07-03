@@ -178,10 +178,12 @@
                         {
                             <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(mm, "name")</MudText><MudText Typo="Typo.body2"><b>@Str(mm, "quantity")</b></MudText></MudStack>
                         }
-                        @if (Auth.CanDelete("maintenance") && !Bool(sm, "isCancelled"))
+                        @if (!Bool(sm, "isCancelled"))
                         {
-                            <MudTextField @bind-Value="_cancelReason" Label="İptal Gerekçesi" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-2" />
-                            <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mt-1" OnClick="CancelMaint">Bakımı İptal Et</MudButton>
+                            <MudStack Row="true" Class="mt-2" Spacing="2">
+                                @if (Auth.CanEdit("maintenance")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="EditMaint">Düzelt</MudButton> }
+                                @if (Auth.CanDelete("maintenance")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="CancelMaint">Sil</MudButton> }
+                            </MudStack>
                         }
                     }
                 </MudPaper>
@@ -378,9 +380,23 @@
     {
         if (_selMaint is null) return;
         var id = Str(_selMaint.Value, "id");
-        if (!await Dialog.Confirm("Bakım iptal edilsin mi? (stok geri alınır)", "Evet, İptal", danger: true)) return;
-        await Api.PostAsync("/api/maintenance/cancel", new { id, reason = string.IsNullOrWhiteSpace(_cancelReason) ? "Kullanıcı iptali" : _cancelReason });
-        _selMaint = null; _cancelReason = ""; await LoadMaint();
+        if (!await Dialog.Confirm("Bu bakım kaydı silinsin mi? (kullanılan malzeme stoğu geri alınır)", "Evet, Sil", danger: true)) return;
+        await Api.PostAsync("/api/maintenance/cancel", new { id, reason = "Kayıt silme" });
+        _selMaint = null; await LoadMaint();
+    }
+
+    // Düzelt: eski kaydı sil (stok geri al) + araç/tanımı forma taşı → düzeltilmiş kayıt gir
+    private async Task EditMaint()
+    {
+        if (_selMaint is null) return;
+        var sm = _selMaint.Value;
+        if (!await Dialog.Confirm("Düzeltme için bu kayıt silinip bilgileri forma taşınacak. Devam edilsin mi?")) return;
+        await Api.PostAsync("/api/maintenance/cancel", new { id = Str(sm, "id"), reason = "Düzeltme" });
+        var vid = Str(sm, "vehicleId");
+        if (!string.IsNullOrEmpty(vid)) _mVehicle = new ApiClient.Opt(vid, Str(sm, "vehicleCode"));
+        var defName = Str(sm, "definitionName");
+        _mDefId = _defOpts.FirstOrDefault(o => o.Name == defName)?.Id;
+        _selMaint = null; await LoadMaint();
     }
 
     private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); }

@@ -175,6 +175,26 @@
                     @if (Auth.CanEdit("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => EditNav(did))">Düzenle</MudButton> }
                     @if (Auth.CanDelete("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSelected">Sil</MudButton> }
                 </MudStack>
+
+                @* Araç detay sekmeleri — ilgili ekranlardan canlı veri *@
+                <MudTabs Elevation="0" Rounded="true" Class="mt-3" PanelClass="pa-2" MinimumTabWidth="60px">
+                    <MudTabPanel Text="Uyumlu Malzemeler">
+                        @if (_dMaterials.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
+                        else { @foreach (var m in _dMaterials) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(m, "code") · @Str(m, "name")</MudText><MudText Typo="Typo.body2">@Str(m, "quantity")</MudText></MudStack> } }
+                    </MudTabPanel>
+                    <MudTabPanel Text="Muayene / Sigorta">
+                        @if (_dInspections.Count == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
+                        else { @foreach (var i in _dInspections) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(i, "docTypeText") · @Str(i, "nextText")</MudText><MudText Typo="Typo.body2">@Str(i, "statusText")</MudText></MudStack> } }
+                    </MudTabPanel>
+                    <MudTabPanel Text="Bakım Takibi">
+                        @if (_dMaint.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
+                        else { @foreach (var b in _dMaint) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(b, "definitionName") · @Str(b, "performedDisplay")</MudText><MudText Typo="Typo.body2">@Str(b, "statusText")</MudText></MudStack> } }
+                    </MudTabPanel>
+                    <MudTabPanel Text="Araç Hareketleri">
+                        @if (_dMoves.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
+                        else { @foreach (var mv in _dMoves) { <MudText Typo="Typo.body2">@Date(mv, "activityDate") · @Str(mv, "description")</MudText> } }
+                    </MudTabPanel>
+                </MudTabs>
             }
         </MudPaper>
     </MudItem>
@@ -309,12 +329,29 @@
         }
     }
 
+    private JsonElement[] _dMaterials = System.Array.Empty<JsonElement>(), _dMaint = System.Array.Empty<JsonElement>(), _dMoves = System.Array.Empty<JsonElement>();
+    private List<JsonElement> _dInspections = new();
+
     private async Task OpenDetail(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
         try { _detail = await Api.GetObjectAsync($"/api/vehicles/{id}"); } catch { _detail = null; }
         await LoadDetailPhotos(id);
+        try { _dMaterials = await Api.GetArrayAsync($"/api/vehicles/{id}/materials"); } catch { _dMaterials = System.Array.Empty<JsonElement>(); }
+        try { _dMaint = await Api.GetArrayAsync($"/api/vehicles/{id}/maintenance"); } catch { _dMaint = System.Array.Empty<JsonElement>(); }
+        try { _dMoves = await Api.GetArrayAsync($"/api/vehicles/{id}/movements"); } catch { _dMoves = System.Array.Empty<JsonElement>(); }
+        try
+        {
+            var code = _detail is null ? "" : Str(_detail.Value, "internalCode");
+            var all = await Api.GetArrayAsync("/api/inspection");
+            _dInspections = all.Where(i => !string.IsNullOrEmpty(code) && Str(i, "vehicleText").StartsWith(code)).ToList();
+        }
+        catch { _dInspections = new(); }
     }
+
+    private static string Date(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).LocalDateTime.ToString("dd.MM.yyyy") : "—";
 
     private async Task LoadDetailPhotos(string id)
     {

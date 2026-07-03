@@ -19,7 +19,7 @@ public sealed partial class LoginViewModel : ViewModelBase
     public Action<SessionContext>? OnLoggedIn { get; set; }
 
     [RelayCommand]
-    private void Login()
+    private async System.Threading.Tasks.Task Login()
     {
         Error = null;
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
@@ -40,6 +40,15 @@ public sealed partial class LoginViewModel : ViewModelBase
             if (!result.Success || result.Session is null)
             {
                 Error = result.Error ?? "Giriş başarısız.";
+                return;
+            }
+            // Makine kapısı: pasife alınmış (revoked) makineden giriş engellenir.
+            // Çevrimiçi ise sunucudan durum alınır ve önbelleğe yazılır; çevrimdışı ise son bilinen durum kullanılır.
+            var (allowed, gateReason) = await MachineGate.CheckAsync(result.Session.CompanyId);
+            if (!allowed)
+            {
+                Error = gateReason;
+                DesktopServices.Session = null;
                 return;
             }
             DesktopServices.Session = result.Session;

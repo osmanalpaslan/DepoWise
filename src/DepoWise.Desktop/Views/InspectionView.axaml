@@ -43,7 +43,7 @@
                     <ctrl:FormField Label="Yer / Kurum" Width="200">
                         <TextBox Classes="Field" Text="{Binding FPlace}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Sonuç" Width="150">
+                    <ctrl:FormField Label="Sonuç" Width="150" IsVisible="{Binding IsInspectionType}">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ResultOptions}" SelectedItem="{Binding FResult}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Erteleme Tarihi" Width="170" IsRequired="True" IsVisible="{Binding IsPostponed}">

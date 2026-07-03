@@ -540,6 +540,13 @@ app.MapDelete("/api/vehicles/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Vehicles.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.Vehicles.Get(s, id)) : Results.Unauthorized()).RequireAuthorization();
+// Araç detay sekmeleri: uyumlu malzemeler + araç bakımları + hareketler
+app.MapGet("/api/vehicles/{id}/materials", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Materials.MaterialsForVehicle(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/{id}/maintenance", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicles/{id}/movements", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.DailyActivity.GetForVehicle(s, id, "movement")) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -556,6 +563,13 @@ app.MapGet("/api/vehicles/next-code", (HttpContext c, string baseCode) =>
     S(c) is { } s ? Results.Ok(new { code = svc.VehicleTemplates.GenerateNextInternalCode(s, baseCode) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicle-templates", (HttpContext c, string? search) =>
     S(c) is { } s ? Results.Ok(svc.VehicleTemplates.List(s, search)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/vehicle-templates", (HttpContext c, VehicleTemplateDto d) =>
+    S(c) is { } s ? Results.Ok(new { id = svc.VehicleTemplates.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicleTemplate(
+        d.Name, Doc(d.InternalCode), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.ProductionYear), d.MaterialIds) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/vehicle-templates/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.VehicleTemplates.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/vehicle-templates/{id}/materials", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.VehicleTemplates.GetMaterialRows(s, id)) : Results.Unauthorized()).RequireAuthorization();
 // Araç uyarı özeti (satır BAKIM/MUAYENE kolonu): vehicleId -> metin
 app.MapGet("/api/vehicles/alerts", (HttpContext c) =>
 {
@@ -818,6 +832,7 @@ record BranchDto(string Name, string? Kind, string? ParentId);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
 record DeveloperDto(string? Code, bool Active);
+record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);

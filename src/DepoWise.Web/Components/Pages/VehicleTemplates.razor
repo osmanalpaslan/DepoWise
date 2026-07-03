@@ -1,0 +1,130 @@
+@page "/vehicle-templates"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudText Typo="Typo.h5" GutterBottom="true">Araç Genel Tanım (Şablon)</MudText>
+
+@if (Auth.CanCreate("vehicles"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ ŞABLON</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Şablon Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Örnek İç Kod" HelperText="Ör: KM-001" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Min="0" Max="2100" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Makine Tipi" @bind-Value="_type" Items="_types" AddTable="vehicle_types" OnAdded="ReloadTypes" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Kategori" @bind-Value="_cat" Items="_cats" AddTable="vehicle_categories" OnAdded="ReloadCats" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Marka" @bind-Value="_brand" Items="_brands" AddTable="vehicle_brands" OnAdded="ReloadBrands" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Model" @bind-Value="_model" Items="_models" CreatePath="/api/vehicles/models" CreateField="name" ExtraField="brandId" ExtraValue="@_brand" OnAdded="ReloadModels" Disabled="@(string.IsNullOrEmpty(_brand))" /></MudItem>
+            <MudItem xs="12">
+                <MudSelect T="string" @bind-SelectedValues="_matSel" Label="Uyumlu Malzemeler" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "—" : $"{v.Count} malzeme")">
+                    @foreach (var m in _materials) { <MudSelectItem T="string" Value="@m.Id">@m.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2"><MudText Typo="Typo.h6">Şablonlar</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton></MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz şablon yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent><MudTh>AD</MudTh><MudTh>İÇ KOD</MudTh><MudTh>MARKA / MODEL</MudTh><MudTh>YIL</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); }
+                <MudTd>@Str(context, "name")</MudTd>
+                <MudTd>@Str(context, "codeDisplay")</MudTd>
+                <MudTd>@Str(context, "brandModelDisplay")</MudTd>
+                <MudTd>@Str(context, "yearDisplay")</MudTd>
+                <MudTd>@if (Auth.CanDelete("vehicles")) { <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(id))" /> }</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private string _name = "", _code = "";
+    private string? _type, _cat, _brand, _model;
+    private int? _year;
+    private IReadOnlyCollection<string> _matSel = new HashSet<string>();
+
+    private List<ApiClient.Opt> _types = new(), _cats = new(), _brands = new(), _models = new(), _materials = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("vehicles"))
+        {
+            _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
+            _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
+            _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
+            _materials = await Api.OptionsAsync("/api/materials", "id", "name");
+        }
+        await Load();
+    }
+
+    private string? _lastBrand;
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (_brand != _lastBrand)
+        {
+            _lastBrand = _brand; _model = null;
+            _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
+            StateHasChanged();
+        }
+    }
+
+    private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/vehicle-templates"); } catch { _rows = System.Array.Empty<JsonElement>(); } }
+    private async Task ReloadTypes(string _) => _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
+    private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
+    private async Task ReloadBrands(string _) => _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
+    private async Task ReloadModels(string _) { if (!string.IsNullOrEmpty(_brand)) _models = await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name"); }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Şablon adı zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm("Şablon kaydedilsin mi?")) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/vehicle-templates", new
+            {
+                name = _name.Trim(), internalCode = Empty(_code), vehicleTypeId = _type, categoryId = _cat,
+                brandId = _brand, vehicleModelId = _model, productionYear = _year, materialIds = _matSel.ToList()
+            });
+            _ok = err is null; _msg = err ?? "Şablon kaydedildi.";
+            if (_ok) { Clear(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (!await Dialog.Confirm("Bu şablon silinsin mi?", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/vehicle-templates/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null; await Load();
+    }
+
+    private void Clear() { _name = _code = ""; _type = _cat = _brand = _model = null; _year = null; _matSel = new HashSet<string>(); }
+
+    private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

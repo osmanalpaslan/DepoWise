@@ -34,14 +34,19 @@ public sealed partial class InspectionViewModel : ViewModelBase
 
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private VehicleListRow? _fVehicle;
-    [ObservableProperty] private string _fDocType = "Muayene";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInspectionType))]
+    [NotifyPropertyChangedFor(nameof(IsPostponed))]
+    private string _fDocType = "Muayene";
+    /// <summary>Sonuç alanı yalnız Muayene belgesinde görünür (sigorta/kasko/kalibrasyonda sonuç yok).</summary>
+    public bool IsInspectionType => FDocType == "Muayene";
     [ObservableProperty] private DateTimeOffset? _fLastDate;
     [ObservableProperty] private DateTimeOffset? _fNextDate;
     [ObservableProperty] private string _fPlace = "";
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPostponed))]
     private string _fResult = "Geçti";
-    public bool IsPostponed => FResult == "Ertelendi";
+    public bool IsPostponed => IsInspectionType && FResult == "Ertelendi";
     [ObservableProperty] private DateTimeOffset? _fPostponeDate;
     [ObservableProperty] private string _fNote = "";
     [ObservableProperty] private string? _formError;
@@ -104,7 +109,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
                 VehicleId: FVehicle.Id, DocType: Code(FDocType),
                 LastDate: FLastDate?.ToUnixTimeMilliseconds(),
                 NextDate: nextMs,
-                Result: FResult,
+                Result: IsInspectionType ? FResult : null,
                 Place: string.IsNullOrWhiteSpace(FPlace) ? null : FPlace.Trim(),
                 Note: string.IsNullOrWhiteSpace(FNote) ? null : FNote.Trim()));
             ShowAdd = false; Load();
