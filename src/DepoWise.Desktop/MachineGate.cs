@@ -68,10 +68,10 @@ public static class MachineGate
             if (File.Exists(path))
             {
                 var v = File.ReadAllText(path).Trim();
-                return string.IsNullOrWhiteSpace(v) ? null : v;
+                if (!string.IsNullOrWhiteSpace(v)) return v;
             }
         }
         catch { }
-        return null;
+        return "https://depowise-erp.fly.dev"; // serverurl.txt yoksa varsayılan bulut
     }
 }

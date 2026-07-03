@@ -102,7 +102,14 @@ app.MapPost("/sync/enroll", (EnrollDto dto) => Results.Ok(svc.Enrollment.Enroll(
 app.MapGet("/api/machines", (HttpContext ctx) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
-    return Results.Ok(svc.Enrollment.ListDevices(s));
+    var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    var rows = svc.Enrollment.ListDevices(s).Select(d => new
+    {
+        id = d.Id, name = d.Name, status = d.Status, statusText = d.StatusText,
+        lastSeenText = d.LastSeenText, createdText = d.CreatedText, canActivate = d.CanActivate, isActive = d.IsActive,
+        online = d.LastSeenAt is long t && (now - t) <= 90_000, // son 90 sn içinde ping = çevrimiçi
+    });
+    return Results.Ok(rows);
 }).RequireAuthorization();
 // Sıfır-sürtünmeli kayıt: masaüstü açılışta kendini 'pending' cihaz olarak kaydeder (auth gerekmez).
 app.MapPost("/api/machines/register", (MachineRegisterDto d) =>

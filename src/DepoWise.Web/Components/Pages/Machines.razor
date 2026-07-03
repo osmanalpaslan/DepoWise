@@ -19,8 +19,14 @@
     else
     {
         <MudTable Items="_machines" Dense="true" Hover="true" Striped="true">
-            <HeaderContent><MudTh>Makine</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
+            <HeaderContent><MudTh>Bağlantı</MudTh><MudTh>Makine</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
             <RowTemplate>
+                <MudTd>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Color="@(context.Online ? Color.Success : Color.Default)" />
+                        <MudText Typo="Typo.caption">@(context.Online ? "Bağlı" : "Çevrimdışı")</MudText>
+                    </MudStack>
+                </MudTd>
                 <MudTd>@context.Name</MudTd>
                 <MudTd>@context.StatusText</MudTd>
                 <MudTd>@context.LastSeenText</MudTd>

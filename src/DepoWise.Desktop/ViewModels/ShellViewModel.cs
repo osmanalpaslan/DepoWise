@@ -48,11 +48,14 @@ public sealed partial class ShellViewModel : ViewModelBase
     private Avalonia.Threading.DispatcherTimer? _connTimer;
     private static readonly System.Net.Http.HttpClient _pingHttp = new() { Timeout = TimeSpan.FromSeconds(6) };
 
+    /// <summary>serverurl.txt / ayar yoksa (ör. kaynaktan çalıştırma) varsayılan bulut adresi.</summary>
+    private const string DefaultServerUrl = "https://depowise-erp.fly.dev";
+
     private void StartConnectionMonitor()
     {
         _ = PingAsync();
         _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _connTimer.Tick += async (_, _) => await PingAsync();
+        _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); }; // ping + heartbeat (last_seen güncel)
         _connTimer.Start();
     }
 
@@ -101,11 +104,11 @@ public sealed partial class ShellViewModel : ViewModelBase
             if (System.IO.File.Exists(path))
             {
                 var v = System.IO.File.ReadAllText(path).Trim();
-                return string.IsNullOrWhiteSpace(v) ? null : v;
+                if (!string.IsNullOrWhiteSpace(v)) return v;
             }
         }
         catch { }
-        return null;
+        return DefaultServerUrl; // serverurl.txt/ayar yoksa varsayılan buluta bağlan
     }
 
     public ShellViewModel(SessionContext session)

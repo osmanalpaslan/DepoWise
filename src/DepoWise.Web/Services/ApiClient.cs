@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 namespace DepoWise.Web.Services;
 
 public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin);
-public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive);
+public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online);
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
