@@ -20,7 +20,7 @@
         </MudGrid>
         <MudText Typo="Typo.subtitle2" Class="mt-2">Yetkiler</MudText>
         @if (_viewedName is not null) { <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">Görüntülenen şablon: <b>@_viewedName</b> — düzenleyip yeni ad ile kaydedebilirsiniz.</MudAlert> }
-        <PermMatrix @ref="_matrix" Modules="_modules" />
+        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" />
         <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Şablonu Kaydet")</MudButton>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
@@ -58,13 +58,19 @@
     private string? _roleKey;
     private List<RoleDto> _roles = new();
     private List<ApiClient.Opt> _modules = new();
+    private HashSet<string> _adminOnly = new();
     private PermMatrix? _matrix;
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok; private bool _busy;
 
     protected override async Task OnInitializedAsync()
     {
-        _modules = await Api.OptionsAsync("/api/modules", "key", "label");
+        foreach (var e in await Api.GetArrayAsync("/api/modules"))
+        {
+            var key = MS(e, "key"); if (key == "") continue;
+            _modules.Add(new ApiClient.Opt(key, MS(e, "label")));
+            if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
+        }
         try { _roles = await Api.GetRolesAsync(); } catch { }
         await LoadList();
     }

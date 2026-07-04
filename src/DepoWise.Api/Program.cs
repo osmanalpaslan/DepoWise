@@ -662,7 +662,7 @@ app.MapGet("/api/modules", (HttpContext c) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     // Süper-admin-özel modüller (firma vb.) yalnız süper admine gösterilir → yetki matrisinde başkası atayamaz.
     var mods = AppModules.All.Where(m => s.IsSuperAdmin || !AppModules.IsSuperAdminOnly(m.Key))
-        .Select(m => new { key = m.Key, label = m.Label });
+        .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();
 

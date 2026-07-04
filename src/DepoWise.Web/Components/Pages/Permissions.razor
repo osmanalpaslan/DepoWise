@@ -20,7 +20,7 @@
 
     @if (!string.IsNullOrEmpty(_userId))
     {
-        <PermMatrix @ref="_matrix" Modules="_modules" />
+        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" />
         <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
     }
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
@@ -28,6 +28,7 @@
 
 @code {
     private List<ApiClient.Opt> _users = new(), _modules = new();
+    private HashSet<string> _adminOnly = new();
     private string? _userId;
     private PermMatrix? _matrix;
     private string? _msg; private bool _ok; private bool _busy;
@@ -35,7 +36,18 @@
     protected override async Task OnInitializedAsync()
     {
         _users = await Api.OptionsAsync("/api/users", "id", "username", "fullName");
-        _modules = await Api.OptionsAsync("/api/modules", "key", "label");
+        await LoadModules();
+    }
+
+    private async Task LoadModules()
+    {
+        _modules = new(); _adminOnly = new();
+        foreach (var e in await Api.GetArrayAsync("/api/modules"))
+        {
+            var key = S(e, "key"); if (key == "") continue;
+            _modules.Add(new ApiClient.Opt(key, S(e, "label")));
+            if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
+        }
     }
 
     private async Task LoadUserPerms()
