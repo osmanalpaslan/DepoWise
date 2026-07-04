@@ -144,7 +144,7 @@ public class AuthPermissionTests : IDisposable
     {
         var users = new UserService(_factory, _clock);
         // create yetkili ama admin olmayan müdür
-        var manager = Session("A", "mgr", roles: new[] { RoleKeys.Manager }, perms: new[]
+        var manager = Session("A", "mgr", roles: new[] { RoleKeys.Staff }, perms: new[]
         {
             new ModulePermission("users", true, true, true, false),
         });
@@ -164,11 +164,11 @@ public class AuthPermissionTests : IDisposable
 
         // Farklı firma (B) istemek REDDEDİLİR (fail-closed; firma değiştiremez)
         Assert.Throws<ForbiddenException>(() => users.CreateUser(admin,
-            new NewUser("depocu", "p12345", "Depo", new[] { RoleKeys.Warehouse }, CompanyId: "B")));
+            new NewUser("depocu", "p12345", "Depo", new[] { RoleKeys.Staff }, CompanyId: "B")));
 
         // CompanyId verilmeyince kendi firmasında oluşturur
         var newId = users.CreateUser(admin,
-            new NewUser("depocu", "p12345", "Depo", new[] { RoleKeys.Warehouse }));
+            new NewUser("depocu", "p12345", "Depo", new[] { RoleKeys.Staff }));
         Assert.False(string.IsNullOrEmpty(newId));
 
         var login = new AuthService(_factory, _clock).Login("A", "depocu", "p12345");
@@ -182,14 +182,14 @@ public class AuthPermissionTests : IDisposable
         var users = new UserService(_factory, _clock);
         users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         var admin = new AuthService(_factory, _clock).Login("A", "admin", "admin123").Session!;
-        users.CreateUser(admin, new NewUser("depocu", "p12345", "Depo Bey", new[] { RoleKeys.Warehouse }));
+        users.CreateUser(admin, new NewUser("depocu", "p12345", "Depo Bey", new[] { RoleKeys.Staff }));
 
         var list = users.ListUsers(admin);
         Assert.Equal(2, list.Count);
         var depocu = list.Single(u => u.Username == "depocu");
         Assert.Equal("Depo Bey", depocu.FullName);
         Assert.True(depocu.IsActive);
-        Assert.Contains("Depo", depocu.Roles); // rol adı (Depo Kullanıcısı)
+        Assert.Contains("Personel", depocu.Roles); // rol adı (Personel — 2-rol modeli)
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class AuthPermissionTests : IDisposable
         var branches = new BranchService(_factory, _clock);
 
         var bid = branches.Create(admin, new NewBranch("Merkez Şube", "branch"));
-        var uid = users.CreateUser(admin, new NewUser("p1", "p12345", "Per Bir", new[] { RoleKeys.Warehouse }, BranchId: bid));
+        var uid = users.CreateUser(admin, new NewUser("p1", "p12345", "Per Bir", new[] { RoleKeys.Staff }, BranchId: bid));
 
         // Şube detayında atanmış kullanıcı otomatik listelenir
         var bu = branches.GetUsers(admin, bid);
@@ -229,7 +229,7 @@ public class AuthPermissionTests : IDisposable
         var users = new UserService(_factory, _clock);
         users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         var admin = new AuthService(_factory, _clock).Login("A", "admin", "admin123").Session!;
-        var uid = users.CreateUser(admin, new NewUser("op", "p12345", "Op", new[] { RoleKeys.Operation }));
+        var uid = users.CreateUser(admin, new NewUser("op", "p12345", "Op", new[] { RoleKeys.Staff }));
 
         var perms = new PermissionService(_factory, _clock);
         perms.SaveForUser(admin, uid,
@@ -274,14 +274,14 @@ public class AuthPermissionTests : IDisposable
         users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         var auth = new AuthService(_factory, _clock);
         var admin = auth.Login("A", "admin", "admin123").Session!;
-        var uid = users.CreateUser(admin, new NewUser("u1", "p12345", null, new[] { RoleKeys.Warehouse }));
+        var uid = users.CreateUser(admin, new NewUser("u1", "p12345", null, new[] { RoleKeys.Staff }));
 
         // Şifre değiştir → yeni şifreyle giriş
         users.ChangePassword(admin, uid, "yeni1234");
         Assert.True(auth.Login("A", "u1", "yeni1234").Success);
 
         // Admin olmayan (manager) sil/şifre yapamaz
-        var mgrId = users.CreateUser(admin, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Manager }));
+        var mgrId = users.CreateUser(admin, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Staff }));
         var mgr = auth.Login("A", "mgr", "p12345").Session!;
         Assert.Throws<ForbiddenException>(() => users.DeleteUser(mgr, uid));
         Assert.Throws<ForbiddenException>(() => users.ChangePassword(mgr, uid, "abcd"));
@@ -313,7 +313,7 @@ public class AuthPermissionTests : IDisposable
 
         // Explicit izin verilse bile (manager) erişemez
         var perms = new PermissionService(_factory, _clock);
-        var mgrId = users.CreateUser(su, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Manager }));
+        var mgrId = users.CreateUser(su, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Staff }));
         perms.SaveForUser(su, mgrId, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>());
         var mgr = auth.Login("A", "mgr", "p12345").Session!;
         Assert.False(AccessControl.Can(mgr, "companies", PermissionAction.View));

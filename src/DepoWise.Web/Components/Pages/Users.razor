@@ -38,10 +38,10 @@
                 </MudItem>
             }
         </MudGrid>
-        <MudText Typo="Typo.body2" Class="mt-2">Roller: <span class="mud-text-secondary">(rol verilmezse kullanıcı hiçbir ekran görmez)</span></MudText>
-        <MudStack Row="true" Wrap="Wrap.Wrap">
-            @foreach (var r in _roles) { <MudCheckBox T="bool" Label="@r.Name" Value="_sel.Contains(r.Key)" ValueChanged="v => Toggle(r.Key, v)" Dense="true" /> }
-        </MudStack>
+        <MudText Typo="Typo.body2" Class="mt-2">Rol: <span class="mud-text-secondary">(tek rol; verilmezse kullanıcı hiçbir ekran görmez)</span></MudText>
+        <MudRadioGroup T="string" @bind-Value="_role">
+            @foreach (var r in _roles) { <MudRadio T="string" Value="@r.Key" Dense="true" Color="Color.Primary">@r.Name</MudRadio> }
+        </MudRadioGroup>
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="ClearForm">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Create" Disabled="_busy">Oluştur</MudButton>
@@ -77,9 +77,11 @@
                 @if (Auth.CanDelete("users")) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteUser">Kullanıcıyı Sil</MudButton> }
             </MudStack>
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mt-2" Wrap="Wrap.Wrap">
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Roller:</MudText>
-                @foreach (var r in _roles) { <MudCheckBox T="bool" Label="@r.Name" Value="_editSel.Contains(r.Key)" ValueChanged="v => ToggleEdit(r.Key, v)" Dense="true" /> }
-                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRoles">Rolleri Kaydet</MudButton>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Rol:</MudText>
+                <MudRadioGroup T="string" @bind-Value="_editRole">
+                    @foreach (var r in _roles) { <MudRadio T="string" Value="@r.Key" Dense="true" Color="Color.Primary">@r.Name</MudRadio> }
+                </MudRadioGroup>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRoles">Rolü Kaydet</MudButton>
             </MudStack>
         }
         @if (_selMsg is not null) { <MudAlert Severity="@(_selOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_selMsg</MudAlert> }
@@ -112,7 +114,7 @@
     private string _u = "", _p = "", _f = "";
     private bool _viewAll;
     private string? _companyId, _branch, _templateId;
-    private readonly HashSet<string> _sel = new();
+    private string? _role;
     private List<RoleDto> _roles = new();
     private List<ApiClient.Opt> _companies = new(), _branches = new();
     private JsonElement[] _templates = Array.Empty<JsonElement>();
@@ -122,7 +124,7 @@
     private JsonElement? _selUser;
     private string? _assignBranch;
     private string _newPass = "";
-    private readonly HashSet<string> _editSel = new();
+    private string? _editRole;
     private string? _selMsg; private bool _selOk;
 
     private JsonElement[]? _rows;
@@ -141,8 +143,6 @@
 
     private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/users"); } catch { _rows = Array.Empty<JsonElement>(); } }
 
-    private void Toggle(string key, bool on) { if (on) _sel.Add(key); else _sel.Remove(key); }
-    private void ToggleEdit(string key, bool on) { if (on) _editSel.Add(key); else _editSel.Remove(key); }
 
     private async Task Create()
     {
@@ -155,7 +155,8 @@
         {
             var (err, id) = await Api.CreateAsync("/api/users", new
             {
-                username = _u.Trim(), password = _p, fullName = _f, roleKeys = _sel.ToList(),
+                username = _u.Trim(), password = _p, fullName = _f,
+                roleKeys = string.IsNullOrEmpty(_role) ? new List<string>() : new List<string> { _role },
                 companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branch,
                 canViewAllBranches = Auth.IsSuperAdmin && _viewAll
             });
@@ -178,7 +179,7 @@
         finally { _busy = false; }
     }
 
-    private void ClearForm() { _u = _p = _f = ""; _viewAll = false; _companyId = _branch = _templateId = null; _sel.Clear(); }
+    private void ClearForm() { _u = _p = _f = ""; _viewAll = false; _companyId = _branch = _templateId = _role = null; }
 
     private bool _selViewAll;
 
@@ -186,8 +187,8 @@
     {
         _selUser = u; _selMsg = null; _newPass = ""; _assignBranch = NullS(u, "branchId");
         _selViewAll = u.TryGetProperty("canViewAllBranches", out var va) && va.ValueKind == JsonValueKind.True;
-        _editSel.Clear();
-        try { foreach (var k in await Api.GetArrayAsync($"/api/users/{Str(u, "id")}/roles")) _editSel.Add(k.GetString() ?? ""); } catch { }
+        _editRole = null;
+        try { foreach (var k in await Api.GetArrayAsync($"/api/users/{Str(u, "id")}/roles")) { _editRole = k.GetString(); break; } } catch { }
     }
 
     private string SelId => _selUser is null ? "" : Str(_selUser.Value, "id");
@@ -233,9 +234,10 @@
     private async Task SaveRoles()
     {
         if (_selUser is null) return;
-        if (!await Dialog.Confirm("Roller kaydedilsin mi?")) return;
-        var err = await Api.PostAsync($"/api/users/{SelId}/roles", new { roles = _editSel.ToList() });
-        _selOk = err is null; _selMsg = err ?? "Roller kaydedildi."; await Load();
+        if (!await Dialog.Confirm("Rol kaydedilsin mi?")) return;
+        var roles = string.IsNullOrEmpty(_editRole) ? new List<string>() : new List<string> { _editRole };
+        var err = await Api.PostAsync($"/api/users/{SelId}/roles", new { roles });
+        _selOk = err is null; _selMsg = err ?? "Rol kaydedildi."; await Load();
     }
 
     private static string Str(JsonElement row, string key)

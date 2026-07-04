@@ -40,11 +40,11 @@
                         </ComboBox>
                     </ctrl:FormField>
                 </StackPanel>
-                <ctrl:FormField Label="Roller" HelpText="Rol verilmezse kullanıcı hiçbir ekran görmez (yetkiler ayrıca verilir).">
+                <ctrl:FormField Label="Rol" HelpText="Tek rol seçilir. Rol verilmezse kullanıcı hiçbir ekran görmez (yetkiler ayrıca verilir).">
                     <ItemsControl ItemsSource="{Binding AssignableRoles}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:RolePick">
-                                <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Name}" Margin="0,2"/>
+                                <RadioButton GroupName="newUserRole" IsChecked="{Binding IsSelected}" Content="{Binding Name}" Margin="0,2"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -90,18 +90,18 @@
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanManageUsers}">
-                    <SelectableTextBlock Text="Roller:" Classes="Helper" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Rol:" Classes="Helper" VerticalAlignment="Center"/>
                     <ItemsControl ItemsSource="{Binding EditRoles}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="12"/></ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:RolePick">
-                                <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Name}"/>
+                                <RadioButton GroupName="editUserRole" IsChecked="{Binding IsSelected}" Content="{Binding Name}"/>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button Classes="Primary" Content="Rolleri Kaydet" Command="{Binding SaveRolesCommand}"/>
+                    <Button Classes="Primary" Content="Rolü Kaydet" Command="{Binding SaveRolesCommand}"/>
                 </StackPanel>
             </StackPanel>
         </Border>

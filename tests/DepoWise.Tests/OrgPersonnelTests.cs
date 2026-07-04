@@ -180,14 +180,14 @@ public class OrgPersonnelTests : IDisposable
             Username: "scoped_" + Guid.NewGuid().ToString("N")[..6],
             Password: "p12345",
             FullName: "Kapsamlı",
-            RoleKeys: new[] { RoleKeys.Warehouse },
+            RoleKeys: new[] { RoleKeys.Staff },
             Permissions: perms));
 
         var branches = new BranchService(_factory, _scope, _clock);
         foreach (var b in branchScopes)
             branches.AssignScope(admin, uid, b);
 
-        return new SessionContext(uid, admin.CompanyId, new[] { RoleKeys.Warehouse }, new PermissionSet(perms));
+        return new SessionContext(uid, admin.CompanyId, new[] { RoleKeys.Staff }, new PermissionSet(perms));
     }
 
     public void Dispose()

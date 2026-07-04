@@ -33,5 +33,6 @@ public static class MigrationCatalog
         new Migration026_UserViewAllBranches(),
         new Migration027_OperatingBranch(),
         new Migration028_DataConflicts(),
+        new Migration029_TwoRoleModel(),
     };
 }

@@ -14,19 +14,23 @@ public static class RoleKeys
 {
     public const string SuperAdmin = "role-super-admin";
     public const string CompanyAdmin = "role-company-admin";
-    public const string Manager = "role-manager";       // Yönetici / Onaycı
-    public const string Warehouse = "role-warehouse";   // Depo kullanıcısı
-    public const string Operation = "role-operation";   // Operasyon kullanıcısı
-    public const string ReadOnly = "role-readonly";     // Salt okunur
+    public const string Staff = "role-staff";           // Personel (2-rol modeli, Migration029)
 
+    // Legacy roller (Migration029 ile Personel'e taşındı; yalnız migration referansı için tutulur).
+    public const string Manager = "role-manager";
+    public const string Warehouse = "role-warehouse";
+    public const string Operation = "role-operation";
+    public const string ReadOnly = "role-readonly";
+
+    /// <summary>Eski roller — Migration029 bunları Personel'e taşır + soft-delete eder.</summary>
+    public static readonly IReadOnlyList<string> Legacy = new[] { Manager, Warehouse, Operation, ReadOnly };
+
+    /// <summary>Aktif rol modeli: Personel + Admin + sistemsel Süper Admin.</summary>
     public static readonly IReadOnlyList<(string Key, string Name, bool IsSystem)> Seed = new[]
     {
         (SuperAdmin, "Süper Admin", true),
-        (CompanyAdmin, "Firma Admini", true),
-        (Manager, "Yönetici / Onaycı", true),
-        (Warehouse, "Depo Kullanıcısı", true),
-        (Operation, "Operasyon Kullanıcısı", true),
-        (ReadOnly, "Salt Okunur", true),
+        (CompanyAdmin, "Admin", true),
+        (Staff, "Personel", true),
     };
 }
 
