@@ -17,6 +17,8 @@ public sealed partial class BranchesViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
+    /// <summary>#5 — Şube kodu + şifresi yalnız Admin / Süper Admin'e görünür/düzenlenebilir.</summary>
+    public bool IsAdmin => AccessControl.IsAdmin(_session);
     public bool CanWrite => AccessControl.Can(_session, "branches", PermissionAction.Create);
     public bool CanEdit => AccessControl.Can(_session, "branches", PermissionAction.Edit);
     public bool CanDelete => AccessControl.Can(_session, "branches", PermissionAction.Delete);

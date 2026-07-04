@@ -12,7 +12,7 @@ public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signe
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
 public sealed record RoleDto(string Key, string Name);
-public sealed record MenuResponse(bool IsSuperAdmin, List<MenuModule> Modules);
+public sealed record MenuResponse(bool IsSuperAdmin, bool IsAdmin, List<MenuModule> Modules);
 
 /// <summary>
 /// DepoWise.Api HTTP istemcisi (web arayüzü → API). Web hiçbir iş kuralı TAŞIMAZ; her şey API'de.
@@ -36,7 +36,7 @@ public sealed class ApiClient
             var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/me/menu"));
             if (!resp.IsSuccessStatusCode) return;
             var data = await resp.Content.ReadFromJsonAsync<MenuResponse>();
-            if (data is not null) _auth.SetModules(data.Modules);
+            if (data is not null) _auth.SetModules(data.Modules, data.IsAdmin);
         }
         catch { }
     }

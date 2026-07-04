@@ -301,7 +301,7 @@ app.MapGet("/api/me/menu", (HttpContext ctx) =>
             edit = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Edit),
             delete = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Delete),
         }).ToList();
-    return Results.Ok(new { isSuperAdmin = s.IsSuperAdmin, modules = mods });
+    return Results.Ok(new { isSuperAdmin = s.IsSuperAdmin, isAdmin = DepoWise.Application.Security.AccessControl.IsAdmin(s), modules = mods });
 }).RequireAuthorization();
 
 // ── Ana ekran: kritik uyarılar (bakım + muayene/sigorta + düşük stok + yakıt) ──

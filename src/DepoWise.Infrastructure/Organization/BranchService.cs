@@ -51,6 +51,8 @@ LEFT JOIN branches p ON p.id = b.parent_id
 WHERE b.company_id = $c AND b.is_deleted = 0
 ORDER BY b.name;";
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        // #5: Şube kodu + şifresi yalnız Admin / Süper Admin'e görünür; Personel'de maskelenir.
+        bool admin = AccessControl.IsAdmin(s);
         var list = new List<BranchRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -58,8 +60,8 @@ ORDER BY b.name;";
                 r.IsDBNull(3) ? null : r.GetString(3),
                 r.IsDBNull(4) ? null : r.GetString(4),
                 r.GetInt32(5),
-                r.IsDBNull(6) ? null : r.GetString(6),
-                !r.IsDBNull(7) && !string.IsNullOrEmpty(r.GetString(7))));
+                admin ? (r.IsDBNull(6) ? null : r.GetString(6)) : null,
+                admin && !r.IsDBNull(7) && !string.IsNullOrEmpty(r.GetString(7))));
         return list;
     }
 
@@ -67,6 +69,8 @@ ORDER BY b.name;";
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Şube adı zorunlu.");
+        // #5: Kod/şifre yalnız admin belirleyebilir; admin olmayan gönderse de yok sayılır.
+        bool admin = AccessControl.IsAdmin(s);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
@@ -83,9 +87,9 @@ ORDER BY b.name;";
             cmd.Parameters.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
             cmd.Parameters.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
-            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$pw", string.IsNullOrWhiteSpace(dto.Password)
-                ? DBNull.Value : DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password));
+            cmd.Parameters.AddWithValue("$code", admin ? ((object?)Norm(dto.Code) ?? DBNull.Value) : DBNull.Value);
+            cmd.Parameters.AddWithValue("$pw", admin && !string.IsNullOrWhiteSpace(dto.Password)
+                ? DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password) : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
@@ -99,6 +103,7 @@ ORDER BY b.name;";
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Şube adı zorunlu.");
         if (dto.ParentId == id) throw new InvalidOperationException("Şube kendi üst şubesi olamaz.");
+        bool admin = AccessControl.IsAdmin(s); // #5: kod/şifre yalnız admin değiştirir
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
@@ -107,15 +112,20 @@ ORDER BY b.name;";
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            // Şifre boşsa mevcut korunur (COALESCE); doluysa yeni hash yazılır.
-            cmd.CommandText = "UPDATE branches SET name=$n, kind=$k, parent_id=$p, code=$code, " +
-                "password_hash=COALESCE($pw, password_hash), version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
+            // Admin: kod yazılır, şifre boşsa mevcut korunur (COALESCE). Admin DEĞİL: kod/şifre sütunlarına HİÇ dokunulmaz.
+            cmd.CommandText = admin
+                ? "UPDATE branches SET name=$n, kind=$k, parent_id=$p, code=$code, " +
+                  "password_hash=COALESCE($pw, password_hash), version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;"
+                : "UPDATE branches SET name=$n, kind=$k, parent_id=$p, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
             cmd.Parameters.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
             cmd.Parameters.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$pw", string.IsNullOrWhiteSpace(dto.Password)
-                ? DBNull.Value : DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password));
+            if (admin)
+            {
+                cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("$pw", string.IsNullOrWhiteSpace(dto.Password)
+                    ? DBNull.Value : DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password));
+            }
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);

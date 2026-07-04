@@ -28,10 +28,10 @@
                     <ctrl:FormField Label="Tür" Width="140">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Şube Kodu" Width="150">
+                    <ctrl:FormField Label="Şube Kodu" Width="150" IsVisible="{Binding IsAdmin}">
                         <TextBox Classes="Field" Text="{Binding FormCode}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="{Binding PasswordLabel}" Width="200">
+                    <ctrl:FormField Label="{Binding PasswordLabel}" Width="200" IsVisible="{Binding IsAdmin}">
                         <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
                     </ctrl:FormField>
                 </StackPanel>

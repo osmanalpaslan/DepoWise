@@ -18,8 +18,11 @@
                     <MudSelectItem T="string" Value="@("site")">Şantiye</MudSelectItem>
                 </MudSelect>
             </MudItem>
-            <MudItem xs="6" md="6"><MudTextField @bind-Value="_code" Label="Şube Kodu" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="6"><MudTextField @bind-Value="_password" Label="@(_editId is null ? "Şube Şifresi" : "Yeni Şifre (boş = değişmez)")" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            @if (Auth.IsAdmin)
+            {
+                <MudItem xs="6" md="6"><MudTextField @bind-Value="_code" Label="Şube Kodu" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="6" md="6"><MudTextField @bind-Value="_password" Label="@(_editId is null ? "Şube Şifresi" : "Yeni Şifre (boş = değişmez)")" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            }
             <MudItem xs="12">
                 <LookupSelect Label="Üst Şube" @bind-Value="_parent" Items="_parentOptions"
                               CreatePath="/api/branches" CreateField="name" ExtraField="kind" ExtraValue="branch"
@@ -45,11 +48,14 @@
             else
             {
                 <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" OnRowClick="@(e => OpenDetail(e.Item))" T="JsonElement">
-                    <HeaderContent><MudTh>AD</MudTh><MudTh>KOD</MudTh><MudTh>ŞİFRE</MudTh><MudTh>TÜR</MudTh><MudTh>ÜST ŞUBE</MudTh><MudTh>KULLANICI</MudTh></HeaderContent>
+                    <HeaderContent><MudTh>AD</MudTh>@if (Auth.IsAdmin){<MudTh>KOD</MudTh><MudTh>ŞİFRE</MudTh>}<MudTh>TÜR</MudTh><MudTh>ÜST ŞUBE</MudTh><MudTh>KULLANICI</MudTh></HeaderContent>
                     <RowTemplate>
                         <MudTd>@Str(context, "name")</MudTd>
-                        <MudTd>@Str(context, "codeDisplay")</MudTd>
-                        <MudTd>@Str(context, "passwordDisplay")</MudTd>
+                        @if (Auth.IsAdmin)
+                        {
+                            <MudTd>@Str(context, "codeDisplay")</MudTd>
+                            <MudTd>@Str(context, "passwordDisplay")</MudTd>
+                        }
                         <MudTd>@Str(context, "kindDisplay")</MudTd>
                         <MudTd>@Str(context, "parentDisplay")</MudTd>
                         <MudTd>@Str(context, "userCount")</MudTd>

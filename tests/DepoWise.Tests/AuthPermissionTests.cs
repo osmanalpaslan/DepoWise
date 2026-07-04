@@ -324,6 +324,37 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void SubeKodSifre_YalnizAdmin_GorurVeDegistirir()
+    {
+        var users = new UserService(_factory, _clock);
+        var perms = new PermissionService(_factory, _clock);
+        var branches = new BranchService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var su = auth.Login("A", "root", "root123").Session!;
+
+        // Süper admin şube oluşturur (kod + şifre)
+        var bid = branches.Create(su, new NewBranch("Merkez", "branch", null, "MRZ", "sifre123"));
+
+        // Personel (branches tam yetkili) — kod/şifre GÖREMEZ
+        var perId = users.CreateUser(su, new NewUser("per", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+        perms.SaveForUser(su, perId, new[] { new ModulePermission("branches", true, true, true, true) }, Array.Empty<string>());
+        var per = auth.Login("A", "per", "p12345").Session!;
+
+        var seenByStaff = branches.List(per).Single(b => b.Id == bid);
+        Assert.Null(seenByStaff.Code);
+        Assert.False(seenByStaff.HasPassword);
+
+        // Personel güncelleme yapsa da kod/şifre DEĞİŞMEZ (korunur)
+        branches.Update(per, bid, new NewBranch("Merkez 2", "branch", null, Code: null, Password: null));
+        var seenByAdmin = branches.List(su).Single(b => b.Id == bid);
+        Assert.Equal("Merkez 2", seenByAdmin.Name);   // ad güncellendi
+        Assert.Equal("MRZ", seenByAdmin.Code);        // kod korundu
+        Assert.True(seenByAdmin.HasPassword);          // şifre korundu
+        Assert.True(branches.VerifyBranchPassword("A", bid, "sifre123")); // eski şifre hâlâ geçerli
+    }
+
+    [Fact]
     public void Firma_YalnizSuperAdmin_AdminErisemez()
     {
         var users = new UserService(_factory, _clock);

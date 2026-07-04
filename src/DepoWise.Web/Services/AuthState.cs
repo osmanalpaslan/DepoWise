@@ -23,7 +23,9 @@ public sealed class AuthState
     // Kullanıcının görebileceği modüller + yetkileri (masaüstüyle aynı; menü + buton görünürlüğü buna göre).
     private IReadOnlyList<MenuModule> _modules = Array.Empty<MenuModule>();
     public IReadOnlyList<MenuModule> Modules => _modules;
-    public void SetModules(IReadOnlyList<MenuModule> m) { _modules = m; Changed?.Invoke(); }
+    /// <summary>Kullanıcı Admin veya Süper Admin mi (menü yanıtından). Admin-only alan görünürlüğü için (#5).</summary>
+    public bool IsAdmin { get; private set; }
+    public void SetModules(IReadOnlyList<MenuModule> m, bool isAdmin = false) { _modules = m; IsAdmin = isAdmin || IsSuperAdmin; Changed?.Invoke(); }
 
     public bool CanView(string key) => IsSuperAdmin || _modules.Any(x => x.Key == key);
     public bool CanCreate(string key) => IsSuperAdmin || (_modules.FirstOrDefault(x => x.Key == key)?.Create ?? false);
@@ -42,7 +44,7 @@ public sealed class AuthState
 
     public void SignOut()
     {
-        Token = UserId = CompanyId = BranchId = CompanyName = UserName = null; IsSuperAdmin = false;
+        Token = UserId = CompanyId = BranchId = CompanyName = UserName = null; IsSuperAdmin = false; IsAdmin = false;
         _modules = Array.Empty<MenuModule>();
         Changed?.Invoke();
     }
