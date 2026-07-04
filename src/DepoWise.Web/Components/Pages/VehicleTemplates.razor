@@ -6,7 +6,7 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Araç Genel Tanım (Şablon)</MudText>
 
-@if (Auth.CanCreate("vehicles"))
+@if (Auth.CanCreate("vehicle_templates"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ ŞABLON</MudText>
@@ -48,7 +48,7 @@
                 <MudTd>@Str(context, "codeDisplay")</MudTd>
                 <MudTd>@Str(context, "brandModelDisplay")</MudTd>
                 <MudTd>@Str(context, "yearDisplay")</MudTd>
-                <MudTd>@if (Auth.CanDelete("vehicles")) { <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(id))" /> }</MudTd>
+                <MudTd>@if (Auth.CanDelete("vehicle_templates")) { <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(id))" /> }</MudTd>
             </RowTemplate>
         </MudTable>
     }
@@ -67,7 +67,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.CanCreate("vehicles"))
+        if (Auth.CanCreate("vehicle_templates"))
         {
             _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
             _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");

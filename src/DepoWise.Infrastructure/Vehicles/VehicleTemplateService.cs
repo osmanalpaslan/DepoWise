@@ -34,7 +34,7 @@ public sealed record TemplateMaterialRow(string Id, string Code, string Name);
 /// </summary>
 public sealed class VehicleTemplateService
 {
-    private const string Module = "vehicles";
+    private const string Module = "vehicle_templates"; // #15: ayrı yetki (eski: vehicles)
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
 

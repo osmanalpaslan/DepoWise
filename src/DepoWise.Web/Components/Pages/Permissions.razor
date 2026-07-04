@@ -21,15 +21,25 @@
     @if (!string.IsNullOrEmpty(_userId))
     {
         <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" />
+        @if (_buttons.Count > 0)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mt-3">Özel İşlem Yetkileri</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap">
+                @foreach (var b in _buttons) { <MudCheckBox T="bool" Label="@b.Name" Value="_btnSel.Contains(b.Id)" ValueChanged="v => ToggleBtn(b.Id, v)" Dense="true" /> }
+            </MudStack>
+        }
         <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
     }
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
 </MudPaper>
 
 @code {
-    private List<ApiClient.Opt> _users = new(), _modules = new();
+    private List<ApiClient.Opt> _users = new(), _modules = new(), _buttons = new();
     private HashSet<string> _adminOnly = new();
+    private readonly HashSet<string> _btnSel = new();
     private string? _userId;
+
+    private void ToggleBtn(string key, bool on) { if (on) _btnSel.Add(key); else _btnSel.Remove(key); }
     private PermMatrix? _matrix;
     private string? _msg; private bool _ok; private bool _busy;
 
@@ -37,6 +47,7 @@
     {
         _users = await Api.OptionsAsync("/api/users", "id", "username", "fullName");
         await LoadModules();
+        try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
     }
 
     private async Task LoadModules()
@@ -62,6 +73,10 @@
                 foreach (var m in mods.EnumerateArray())
                     list.Add((S(m, "moduleKey"), B(m, "canView"), B(m, "canCreate"), B(m, "canEdit"), B(m, "canDelete")));
             _matrix.LoadFrom(list);
+            _btnSel.Clear();
+            if (doc.TryGetProperty("buttons", out var btns) && btns.ValueKind == JsonValueKind.Array)
+                foreach (var b in btns.EnumerateArray())
+                    if (b.ValueKind == JsonValueKind.String) _btnSel.Add(b.GetString() ?? "");
         }
         catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
     }
@@ -73,7 +88,7 @@
         _busy = true; _msg = null;
         try
         {
-            var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = new List<string>() });
+            var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = _btnSel.ToList() });
             _ok = err is null; _msg = err ?? "Yetkiler kaydedildi.";
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }

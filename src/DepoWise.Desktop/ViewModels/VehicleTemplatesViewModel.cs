@@ -75,9 +75,9 @@ public sealed partial class VehicleTemplatesViewModel : ViewModelBase
     [ObservableProperty] private bool _isAddingBrand; [ObservableProperty] private string _newBrandName = "";
     [ObservableProperty] private bool _isAddingModel; [ObservableProperty] private string _newModelName = "";
 
-    public bool CanWrite => AccessControl.Can(_session, "vehicles", PermissionAction.Create);
-    public bool CanEdit => AccessControl.Can(_session, "vehicles", PermissionAction.Edit);
-    public bool CanDelete => AccessControl.Can(_session, "vehicles", PermissionAction.Delete);
+    public bool CanWrite => AccessControl.Can(_session, "vehicle_templates", PermissionAction.Create);
+    public bool CanEdit => AccessControl.Can(_session, "vehicle_templates", PermissionAction.Edit);
+    public bool CanDelete => AccessControl.Can(_session, "vehicle_templates", PermissionAction.Delete);
     public string? AddButtonText => CanWrite ? "Yeni Şablon" : null;
 
     [ObservableProperty]

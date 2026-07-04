@@ -45,6 +45,8 @@ public static class AppModules
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
     {
         (Dashboard, "Ana Ekran"),
+        ("vehicle_templates", "Araç Genel Tanım"),
+        ("quota_monitor", "Kota İzleme"),
         ("companies", "Firmalar"),
         ("releases", "Güncelleme Yönetimi"),
         ("branches", "Şube / Şantiye"),

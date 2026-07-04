@@ -314,7 +314,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
             {
                 new NavLinkVm("Araç Listesi", "vehicles"),
-                new NavLinkVm("Şablonlar", "vehicles:templates"),
+                new NavLinkVm("Şablonlar", "vehicle_templates:templates"),
                 new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
                 new NavLinkVm("Muayene / Sigorta", "inspection"),
             }),
@@ -447,7 +447,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Araçlar";
                 CurrentContext = "Araç kartları, durum ve uyarılar";
                 break;
-            case "vehicles:templates":
+            case "vehicle_templates:templates":
                 CurrentPage = new VehicleTemplatesViewModel(_session);
                 CurrentTitle = "Araç Genel Tanım";
                 CurrentContext = "Şablonlar — araç formunu otomatik doldurur";

@@ -346,7 +346,7 @@ ORDER BY u.username;";
     /// <summary>Kota izleme (F): firma başına kullanıcı + admin kullanımı. Süper Admin tümünü, diğerleri kendi firmasını görür.</summary>
     public IReadOnlyList<QuotaMonitorRow> GetQuotaMonitor(SessionContext actor)
     {
-        AccessControl.Require(actor, "users", PermissionAction.View);
+        AccessControl.Require(actor, "quota_monitor", PermissionAction.View); // #15: ayrı yetki (eski: users)
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"

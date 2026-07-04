@@ -666,6 +666,11 @@ app.MapGet("/api/modules", (HttpContext c) =>
     return Results.Ok(mods);
 }).RequireAuthorization();
 
+// Özel buton yetkileri kataloğu (yetki ağacı buton bölümü — web parity #15).
+app.MapGet("/api/buttons", (HttpContext c) =>
+    S(c) is null ? Results.Unauthorized()
+        : Results.Ok(SpecialButtons.All.Select(b => new { key = b.Key, label = b.Label }))).RequireAuthorization();
+
 // ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
 app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s ? Results.Ok(new { showCompany = s.IsSuperAdmin }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
