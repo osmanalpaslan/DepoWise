@@ -57,18 +57,25 @@
             <MudText Typo="Typo.body2" Class="mud-text-secondary">Seçili kullanıcı:</MudText>
             <MudText Typo="Typo.body1"><b>@Str(_selUser.Value, "username")</b></MudText>
             <MudText Typo="Typo.body2" Class="mud-text-secondary">Mevcut şube: <b>@Str(_selUser.Value, "branchDisplay")</b></MudText>
-            <MudSelect T="string" @bind-Value="_assignBranch" Label="Şube Ata" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px">
-                @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
-            </MudSelect>
-            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignBranch">Şube Ata</MudButton>
-            @if (Auth.IsSuperAdmin)
+            @if (CanManageSelected)
             {
-                <MudDivider Vertical="true" FlexItem="true" />
-                <MudCheckBox T="bool" Value="_selViewAll" ValueChanged="ToggleViewAll" Dense="true" Color="Color.Primary"
-                             Label="Tüm Şubeler yetkisi" />
+                <MudSelect T="string" @bind-Value="_assignBranch" Label="Şube Ata" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignBranch">Şube Ata</MudButton>
+                @if (Auth.IsSuperAdmin)
+                {
+                    <MudDivider Vertical="true" FlexItem="true" />
+                    <MudCheckBox T="bool" Value="_selViewAll" ValueChanged="ToggleViewAll" Dense="true" Color="Color.Primary"
+                                 Label="Tüm Şubeler yetkisi" />
+                }
+            }
+            else
+            {
+                <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.Lock" Color="Color.Warning">Admin — yalnız süper admin düzenler</MudChip>
             }
         </MudStack>
-        @if (Auth.CanEdit("users"))
+        @if (Auth.CanEdit("users") && CanManageSelected)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mt-2" Wrap="Wrap.Wrap">
                 <MudTextField @bind-Value="_newPass" Label="Yeni şifre" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" />
@@ -239,6 +246,13 @@
         var err = await Api.PostAsync($"/api/users/{SelId}/roles", new { roles });
         _selOk = err is null; _selMsg = err ?? "Rol kaydedildi."; await Load();
     }
+
+    // #8: Süper admin herkesi; aksi halde admin OLMAYAN kullanıcıyı veya kendini yönetebilir.
+    private bool CanManageSelected => _selUser is null || Auth.IsSuperAdmin
+        || !Bool(_selUser.Value, "isAdmin") || Str(_selUser.Value, "id") == Auth.UserId;
+
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
 
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)

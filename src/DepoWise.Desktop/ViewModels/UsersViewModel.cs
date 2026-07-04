@@ -51,8 +51,16 @@ public sealed partial class UsersViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
+    [NotifyPropertyChangedFor(nameof(CanManageSelected))]
+    [NotifyPropertyChangedFor(nameof(SelectedIsMasked))]
     private UserRow? _selected;
     public bool HasSelection => Selected != null;
+
+    /// <summary>#8 — Süper admin herkesi; aksi halde admin OLMAYAN seçili kullanıcıyı (veya kendini) yönetebilir.</summary>
+    public bool CanManageSelected => CanManageUsers && (Selected is null || _session.IsSuperAdmin
+        || !Selected.IsAdmin || string.Equals(Selected.Id, _session.UserId, StringComparison.Ordinal));
+    /// <summary>Seçili kullanıcı admin ve düzenlenemiyor → maskeli uyarı göster.</summary>
+    public bool SelectedIsMasked => HasSelection && !CanManageSelected;
 
     /// <summary>Seçili kullanıcının rolleri (mevcut rolü değiştirme — yalnız Admin / Süper Admin).</summary>
     public ObservableCollection<RolePick> EditRoles { get; } = new();

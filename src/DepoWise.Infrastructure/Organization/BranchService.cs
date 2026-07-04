@@ -183,6 +183,19 @@ ORDER BY u.username;";
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         if (branchId is not null) EnsureBranchOwned(conn, tx, s.CompanyId, branchId);
+        // #8: Firma admini başka admin/süperadmine şube atayamaz (yalnız süper admin veya kendisi).
+        if (!s.IsSuperAdmin && !string.Equals(userId, s.UserId, StringComparison.Ordinal))
+        {
+            using var chk = conn.CreateCommand();
+            chk.Transaction = tx;
+            chk.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id " +
+                "WHERE ur.user_id=$u AND r.role_key IN ($sa,$ca);";
+            chk.Parameters.AddWithValue("$u", userId);
+            chk.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+            chk.Parameters.AddWithValue("$ca", RoleKeys.CompanyAdmin);
+            if (Convert.ToInt64(chk.ExecuteScalar()) > 0)
+                throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
+        }
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;

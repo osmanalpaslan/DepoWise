@@ -16,7 +16,7 @@ public sealed record NewUser(
     bool CanViewAllBranches = false);
 
 public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles, string? BranchId, string? BranchName,
-    bool CanViewAllBranches = false)
+    bool CanViewAllBranches = false, bool IsAdmin = false)
 {
     public string BranchDisplay => CanViewAllBranches ? "Tüm Şubeler" : (string.IsNullOrEmpty(BranchName) ? "—" : BranchName!);
     public string StatusText => IsActive ? "Aktif" : "Pasif";
@@ -57,7 +57,9 @@ public sealed class UserService
         cmd.CommandText = @"
 SELECT u.id, u.username, u.full_name, u.is_active,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id),
-  u.branch_id, b.name, COALESCE(u.can_view_all_branches,0)
+  u.branch_id, b.name, COALESCE(u.can_view_all_branches,0),
+  (SELECT COUNT(*) FROM user_roles ur2 JOIN roles r2 ON r2.id = ur2.role_id
+     WHERE ur2.user_id = u.id AND r2.role_key IN ($ca,$sa))
 FROM users u
 LEFT JOIN branches b ON b.id = u.branch_id
 WHERE u.is_deleted = 0 AND ($all = 1 OR u.company_id = $c)
@@ -69,6 +71,7 @@ ORDER BY u.username;";
         cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
         cmd.Parameters.AddWithValue("$c", actor.CompanyId);
         cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        cmd.Parameters.AddWithValue("$ca", RoleKeys.CompanyAdmin);
         var list = new List<UserRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -78,7 +81,8 @@ ORDER BY u.username;";
                 r.IsDBNull(4) ? "" : r.GetString(4),
                 r.IsDBNull(5) ? null : r.GetString(5),
                 r.IsDBNull(6) ? null : r.GetString(6),
-                r.GetInt64(7) == 1));
+                r.GetInt64(7) == 1,
+                r.GetInt64(8) > 0));
         return list;
     }
 
@@ -130,6 +134,20 @@ ORDER BY u.username;";
         tx.Commit();
     }
 
+    /// <summary>
+    /// #8 — Admin, başka bir admini veya süper admini YÖNETEMEZ (düzenle/şifre/sil/rol/şube).
+    /// Süper admin herkesi; kullanıcı kendini yönetebilir. Firma admini yalnız Personel'leri (+kendini) yönetir.
+    /// </summary>
+    private static void EnsureManageableTarget(SqliteConnection conn, SqliteTransaction tx, SessionContext actor, string userId)
+    {
+        if (actor.IsSuperAdmin) return;
+        if (string.Equals(userId, actor.UserId, StringComparison.Ordinal)) return; // kendini yönetebilir
+        if (IsSuperAdminUser(conn, tx, userId))
+            throw new ForbiddenException("Süper admin kullanıcı düzenlenemez.");
+        if (IsCompanyAdminUser(conn, tx, userId))
+            throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
+    }
+
     private static bool IsSuperAdminUser(SqliteConnection conn, SqliteTransaction tx, string userId)
     {
         using var cmd = conn.CreateCommand();
@@ -153,6 +171,7 @@ ORDER BY u.username;";
             companyId = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
         }
         if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
+        EnsureManageableTarget(conn, tx, actor, userId);
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
@@ -198,8 +217,7 @@ ORDER BY u.username;";
             companyId = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
         }
         if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
-        if (IsSuperAdminUser(conn, tx, userId) && !actor.IsSuperAdmin)
-            throw new ForbiddenException("Süper admin kullanıcının rollerini yalnız süper admin değiştirebilir.");
+        EnsureManageableTarget(conn, tx, actor, userId); // #8: admin başka admini/süperadmini düzenleyemez
 
         // Admin kotası (F): kullanıcıya admin rolü EKLENİYORSA (daha önce admin değilse) %20 sınırı kontrol edilir.
         bool willBeAdmin = roleKeys.Any(k => string.Equals(k, RoleKeys.CompanyAdmin, StringComparison.Ordinal));

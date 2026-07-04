@@ -74,22 +74,27 @@
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <SelectableTextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <SelectableTextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                    <ComboBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}">
+                    <SelectableTextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0" IsVisible="{Binding CanManageSelected}"/>
+                    <ComboBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}" IsVisible="{Binding CanManageSelected}">
                         <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
-                    <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}"/>
+                    <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}" IsVisible="{Binding CanManageSelected}"/>
                     <Button Classes="Secondary" Content="Tüm Şubeler Yetkisi (Aç/Kapat)" Margin="12,0,0,0"
                             IsVisible="{Binding IsSuperAdmin}" Command="{Binding ToggleViewAllBranchesCommand}"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageUsers}">
+                <Border Classes="Panel" Padding="10,6" IsVisible="{Binding SelectedIsMasked}"
+                        BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1">
+                    <SelectableTextBlock Text="🔒 Bu kullanıcı bir admin — yalnız süper admin düzenleyebilir."
+                                         Classes="Body" Foreground="{DynamicResource WarningBrush}"/>
+                </Border>
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageSelected}">
                     <SelectableTextBlock Text="Yeni şifre:" Classes="Helper" VerticalAlignment="Center"/>
                     <TextBox Classes="Field" Width="200" Text="{Binding NewPasswordForSelected}" PasswordChar="●"/>
                     <Button Classes="Secondary" Content="Şifre Değiştir" Command="{Binding ChangePasswordCommand}"/>
                     <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"/>
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanManageUsers}">
+                <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanManageSelected}">
                     <SelectableTextBlock Text="Rol:" Classes="Helper" VerticalAlignment="Center"/>
                     <ItemsControl ItemsSource="{Binding EditRoles}">
                         <ItemsControl.ItemsPanel>

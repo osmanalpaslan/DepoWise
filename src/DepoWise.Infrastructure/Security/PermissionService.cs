@@ -58,6 +58,7 @@ public sealed class PermissionService
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         var companyId = EnsureUserOwned(conn, tx, actor, userId);
+        EnsureManageableTarget(conn, tx, actor, userId); // #8: admin başka admin/süperadminin yetkisini düzenleyemez
 
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
         // (Firmaya ilk açılan sınırlı admin, kendi yetkisi dışındaki alanları başkasına atayamaz.)
@@ -147,6 +148,27 @@ public sealed class PermissionService
             incoming.CanCreate && (o?.CanCreate ?? false),
             incoming.CanEdit && (o?.CanEdit ?? false),
             incoming.CanDelete && (o?.CanDelete ?? false));
+    }
+
+    /// <summary>#8 — Admin, başka admin/süperadminin yetkilerini düzenleyemez (kendisi + Personel'ler hariç).</summary>
+    private static void EnsureManageableTarget(SqliteConnection conn, SqliteTransaction tx, SessionContext actor, string userId)
+    {
+        if (actor.IsSuperAdmin) return;
+        if (string.Equals(userId, actor.UserId, StringComparison.Ordinal)) return;
+        if (HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
+            throw new ForbiddenException("Süper admin kullanıcı düzenlenemez.");
+        if (HasRole(conn, tx, userId, RoleKeys.CompanyAdmin))
+            throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
+    }
+
+    private static bool HasRole(SqliteConnection conn, SqliteTransaction tx, string userId, string roleKey)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.role_key=$k;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.Parameters.AddWithValue("$k", roleKey);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     private static string EnsureUserOwned(SqliteConnection conn, SqliteTransaction? tx, SessionContext actor, string userId)

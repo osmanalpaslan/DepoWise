@@ -296,6 +296,34 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void Admin_BaskaAdmini_Yonetemez_PersoneliYonetir()
+    {
+        var users = new UserService(_factory, _clock);
+        var perms = new PermissionService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var su = auth.Login("A", "root", "root123").Session!;
+
+        // Süper admin iki admin + bir personel oluşturur
+        var admin1Id = users.CreateUser(su, new NewUser("adm1", "p12345", null, new[] { RoleKeys.CompanyAdmin }, CompanyId: "A"));
+        var admin2Id = users.CreateUser(su, new NewUser("adm2", "p12345", null, new[] { RoleKeys.CompanyAdmin }, CompanyId: "A"));
+        var staffId = users.CreateUser(su, new NewUser("per1", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+        var admin1 = auth.Login("A", "adm1", "p12345").Session!;
+
+        // #8: admin1 diğer admini düzenleyemez (şifre/sil/rol/yetki)
+        Assert.Throws<ForbiddenException>(() => users.ChangePassword(admin1, admin2Id, "abcd"));
+        Assert.Throws<ForbiddenException>(() => users.DeleteUser(admin1, admin2Id));
+        Assert.Throws<ForbiddenException>(() => users.SetRoles(admin1, admin2Id, new[] { RoleKeys.Staff }));
+        Assert.Throws<ForbiddenException>(() => perms.SaveForUser(admin1, admin2Id,
+            new[] { new ModulePermission("materials", true, false, false, false) }, Array.Empty<string>()));
+
+        // Ama personeli yönetebilir + kendini
+        users.ChangePassword(admin1, staffId, "yeni1234");
+        Assert.True(auth.Login("A", "per1", "yeni1234").Success);
+        users.ChangePassword(admin1, admin1.UserId, "self1234"); // kendini yönetebilir
+    }
+
+    [Fact]
     public void Firma_YalnizSuperAdmin_AdminErisemez()
     {
         var users = new UserService(_factory, _clock);
