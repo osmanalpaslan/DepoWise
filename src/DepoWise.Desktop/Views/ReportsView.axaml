@@ -41,7 +41,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
-                                    <TextBlock Text="{Binding}" MinWidth="160"/>
+                                    <SelectableTextBlock Text="{Binding}" MinWidth="160"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -55,7 +55,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="x:String">
-                                            <TextBlock Text="{Binding}" MinWidth="160" VerticalAlignment="Center"
+                                            <SelectableTextBlock Text="{Binding}" MinWidth="160" VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -74,7 +74,7 @@
                              IsVisible="{Binding HasError}"/>
         </Panel>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
                    Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

@@ -14,6 +14,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <style>
+        /* ===== Görünüm Stilleri (Tema → Görünüm Stili) — ücretsiz, MudBlazor + CSS ===== */
+        /* Yumuşak: yuvarlak köşe + yumuşak gölge + hap menü + ferah */
+        body.dw-soft .mud-paper, body.dw-soft .mud-card { border-radius: 16px !important; box-shadow: 0 6px 24px rgba(0,0,0,.10) !important; }
+        body.dw-soft .mud-nav-link { border-radius: 10px; margin: 2px 8px; }
+        body.dw-soft .mud-nav-link.active, body.dw-soft .mud-nav-link.mud-nav-link-active { background: rgba(var(--mud-palette-primary-rgb), .16) !important; }
+        body.dw-soft .mud-button-root { border-radius: 10px; }
+
+        /* Canlı: gradient üst bar + belirgin vurgu */
+        body.dw-gradient .mud-appbar { background: linear-gradient(90deg, var(--mud-palette-primary) 0%, #1e293b 100%) !important; }
+        body.dw-gradient .mud-paper, body.dw-gradient .mud-card { border-radius: 14px !important; box-shadow: 0 4px 18px rgba(0,0,0,.14) !important; }
+        body.dw-gradient .mud-nav-link.active, body.dw-gradient .mud-nav-link.mud-nav-link-active { background: rgba(var(--mud-palette-primary-rgb), .20) !important; border-left: 3px solid var(--mud-palette-primary); }
+        body.dw-gradient .mud-button-filled { box-shadow: 0 4px 14px rgba(var(--mud-palette-primary-rgb), .35); }
+
+        /* Kompakt: sık + ince */
+        body.dw-compact .mud-paper, body.dw-compact .mud-card { border-radius: 6px !important; }
+        body.dw-compact .mud-nav-link { min-height: 34px; }
+        body.dw-compact .mud-table-cell { padding-top: 4px !important; padding-bottom: 4px !important; }
+        body.dw-compact .pa-6 { padding: 12px !important; }
+        body.dw-compact .pa-4 { padding: 10px !important; }
+    </style>
     <HeadOutlet @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
 </head>
 
@@ -58,6 +79,32 @@
             const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click();
             document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(url), 1500);
         };
+
+        // Görünüm stili: body'ye dw-<stil> sınıfı ekler (classic = sınıfsız).
+        window.dwSetStyle = function (name) {
+            var b = document.body;
+            b.classList.remove('dw-soft', 'dw-gradient', 'dw-compact');
+            if (name && name !== 'classic') b.classList.add('dw-' + name);
+        };
+
+        // Boşta kalma (idle) izleyici: belirtilen süre boyunca etkileşim olmazsa .NET'e OnIdleTimeout çağrılır.
+        window.dwIdle = (function () {
+            let timer = null, ref = null, ms = 1200000;
+            const evts = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'wheel'];
+            function fire() { if (ref) { try { ref.invokeMethodAsync('OnIdleTimeout'); } catch (e) { } } }
+            function reset() { if (timer) clearTimeout(timer); if (ref) timer = setTimeout(fire, ms); }
+            return {
+                start: function (dotnet, millis) {
+                    ref = dotnet; ms = millis || 1200000;
+                    evts.forEach(e => document.addEventListener(e, reset, { passive: true }));
+                    reset();
+                },
+                stop: function () {
+                    if (timer) clearTimeout(timer); timer = null; ref = null;
+                    evts.forEach(e => document.removeEventListener(e, reset));
+                }
+            };
+        })();
     </script>
 </body>
 

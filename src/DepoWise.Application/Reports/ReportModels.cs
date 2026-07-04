@@ -36,7 +36,18 @@ public static class ReportGate
 
 public enum AlertKind { Maintenance, Inspection, LowStock, Fuel }
 
-public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null);
+public sealed record DashboardAlert(AlertKind Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string? EntityId = null)
+{
+    /// <summary>Uyarı tipine göre ikon (emoji) — ana ekran uyarı listesinde gösterilir.</summary>
+    public string Icon => Kind switch
+    {
+        AlertKind.Maintenance => "🔧",
+        AlertKind.Inspection => "🛡️",
+        AlertKind.LowStock => "📦",
+        AlertKind.Fuel => "⛽",
+        _ => "⚠️",
+    };
+}
 
 public sealed record DashboardSummary(
     int VehicleCount, int MaterialCount, int LowStockCount, int PendingRequestCount, int PersonnelCount,

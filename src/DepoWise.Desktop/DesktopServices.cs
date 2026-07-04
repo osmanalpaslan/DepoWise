@@ -74,6 +74,12 @@ public static class DesktopServices
 
     /// <summary>Aktif oturum (login sonrası). Çıkışta null.</summary>
     public static SessionContext? Session { get; set; }
+    /// <summary>Login'de seçilen şube (branch_id) — yeni kayıtlar bununla etiketlenecek + okuma buna göre filtrelenecek.</summary>
+    public static string? CurrentBranchId { get; set; }
+    /// <summary>Login'de seçilen şube adı (ana ekranda gösterim).</summary>
+    public static string? CurrentBranchName { get; set; }
+    /// <summary>"Tüm Şubeler" modunda giriş yapıldı mı (yetkili kullanıcı) — okuma tüm şubeleri kapsar.</summary>
+    public static bool CurrentAllBranches { get; set; }
 
     public static void Initialize(BootstrapResult boot)
     {
@@ -122,30 +128,9 @@ public static class DesktopServices
         Branding = boot.Branding;
         Theme = boot.Theme;
 
-        EnsureFirstRunAdmin();
-        EnsureSuperAdmin();
-    }
-
-    /// <summary>İlk açılış: hiç kullanıcı yoksa varsayılan firma + admin (admin/admin123) oluştur.</summary>
-    private static void EnsureFirstRunAdmin()
-    {
-        using var conn = Factory.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM users;";
-        var count = Convert.ToInt64(cmd.ExecuteScalar());
-        if (count == 0)
-            Users.EnsureInitialAdmin(DefaultCompanyId, "admin", "admin123", RoleKeys.CompanyAdmin);
-    }
-
-    /// <summary>Sistemde hiç Süper Admin yoksa platform sahibi hesabı (superadmin/superadmin) oluştur — Firma Tanım için.</summary>
-    private static void EnsureSuperAdmin()
-    {
-        using var conn = Factory.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE r.role_key = $k;";
-        cmd.Parameters.AddWithValue("$k", RoleKeys.SuperAdmin);
-        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
-            Users.EnsureInitialAdmin(DefaultCompanyId, "superadmin", "superadmin", RoleKeys.SuperAdmin);
+        // NOT: Masaüstünde artık YEREL admin/superadmin SEED EDİLMEZ. İlk açılışta DB boştur; giriş yalnız
+        // web'te tanımlı kullanıcılarla yapılır (yerel login başarısız → sunucu sync-login → kullanıcı yerele
+        // çekilir). Web'de hiç kullanıcı yoksa (ya da sunucuya erişilemiyorsa) giriş yapılamaz — istenen davranış.
     }
 
     /// <summary>Kullanıcının görünen adı (full_name ya da username; GUID değil).</summary>

@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        x:Class="DepoWise.Desktop.Views.SyncWindow"
+        x:DataType="vm:SyncViewModel"
+        Title="Eşitleniyor" Width="460" Height="380"
+        SystemDecorations="None" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource AppBackgroundBrush}">
+
+    <Border Background="{DynamicResource SidebarBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+        <Grid RowDefinitions="*,Auto,Auto,Auto" Margin="32">
+
+            <!-- Dairesel ilerleme -->
+            <Panel Grid.Row="0" Width="160" Height="160" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <!-- Arka halka -->
+                <Ellipse Width="160" Height="160" StrokeThickness="12"
+                         Stroke="{DynamicResource OverlaySelectedBrush}"/>
+                <!-- Dolan yay -->
+                <Path Stretch="None" StrokeThickness="12" StrokeLineCap="Round" StrokeJoin="Round"
+                      Stroke="{DynamicResource AccentBrush}"
+                      Data="{Binding Progress, Converter={x:Static vm:ArcProgressConverter.Instance}}"/>
+                <!-- Yüzde -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="0">
+                    <SelectableTextBlock Text="{Binding PercentText}" FontSize="34" FontWeight="Bold"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <SelectableTextBlock Text="eşitleniyor" FontSize="12" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+            </Panel>
+
+            <SelectableTextBlock Grid.Row="1" Text="Web ile Eşitleniyor" FontSize="18" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Margin="0,22,0,2"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" FontSize="13" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <SelectableTextBlock Grid.Row="3" Text="{Binding DisplayName}" FontSize="12" HorizontalAlignment="Center"
+                       Margin="0,10,0,0" Opacity="0.7"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </Grid>
+    </Border>
+</Window>

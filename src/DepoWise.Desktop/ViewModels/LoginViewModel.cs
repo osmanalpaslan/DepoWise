@@ -1,10 +1,16 @@
 using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Security;
 
 namespace DepoWise.Desktop.ViewModels;
 
+/// <summary>
+/// 2 AŞAMALI GİRİŞ: Adım 1 kullanıcı adı+parola doğrulanır; Adım 2 YALNIZ o kullanıcının firmasının şubeleri
+/// gösterilir (kullanıcılar firma listesini görmez — firma kullanıcının kendi verisinden gelir).
+/// </summary>
 public sealed partial class LoginViewModel : ViewModelBase
 {
     [ObservableProperty] private string _username = "";
@@ -13,13 +19,55 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _rememberMe = true;
 
+    // Adım: 1 = kimlik, 2 = şube seçimi
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStep1))]
+    [NotifyPropertyChangedFor(nameof(IsStep2))]
+    private int _step = 1;
+    public bool IsStep1 => Step == 1;
+    public bool IsStep2 => Step == 2;
+
     public string AppName => DesktopServices.Branding.AppName;
+    [ObservableProperty] private string _companyName = "";
+
+    // Bu bilgisayarın "ait olduğu şube" (ilk şube girişinde yerele kaydedilir; farklı şube uyarısı buna göre).
+    private const string MachineHomeBranchKey = "machine.home_branch_id";
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool MessageBeep(uint uType);
+
+    /// <summary>Uyarı sesi (Windows). Diğer platformlarda/başarısız olursa sessiz geçer.</summary>
+    private static void PlayWarningSound()
+    {
+        try { if (OperatingSystem.IsWindows()) MessageBeep(0x00000030); } catch { } // MB_ICONWARNING
+    }
+
+    // Adım 1 sonrası saklanan doğrulanmış oturum + firma (Adım 2 bunları kullanır)
+    private SessionContext? _authedSession;
+    private string? _authedCompanyId;
+
+    // ── Şube seçimi (Adım 2) ──
+    public System.Collections.ObjectModel.ObservableCollection<ServerAuthClient.LoginBranch> Branches { get; } = new();
+    [ObservableProperty] private ServerAuthClient.LoginBranch? _selectedBranch;
+    [ObservableProperty] private string _branchPassword = "";
+    public bool HasBranches => Branches.Count > 0;
+    public bool ShowBranchPassword => SelectedBranch?.HasPassword == true;
+
+    partial void OnSelectedBranchChanged(ServerAuthClient.LoginBranch? value) => OnPropertyChanged(nameof(ShowBranchPassword));
+
+    public LoginViewModel()
+    {
+        // Çıkış sonrası: son giren kullanıcı adını login ekranına doldur (Beni Hatırla işaretli varsayılan).
+        var last = RememberMeService.GetLastUsername();
+        if (!string.IsNullOrWhiteSpace(last)) Username = last;
+    }
 
     /// <summary>Başarılı girişte oturumla çağrılır (App pencereyi değiştirir).</summary>
     public Action<SessionContext>? OnLoggedIn { get; set; }
 
+    // ── ADIM 1: kimlik doğrulama ──
     [RelayCommand]
-    private async System.Threading.Tasks.Task Login()
+    private async System.Threading.Tasks.Task Continue()
     {
         Error = null;
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
@@ -30,39 +78,169 @@ public sealed partial class LoginViewModel : ViewModelBase
         IsBusy = true;
         try
         {
-            var companyId = DesktopServices.ResolveCompanyId();
-            var result = DesktopServices.Auth.Login(companyId, Username.Trim(), Password);
-            if (result.Locked)
+            // KAYNAK-OTORİTE web: internet varsa parola web ile doğrulanır (yerele yazılır); yoksa yerelden.
+            var srv = await ServerAuthClient.AuthenticateAsync(Username.Trim(), Password);
+            if (srv.State == ServerAuthClient.AuthState.WrongPassword)
             {
-                Error = $"Çok fazla hatalı deneme. {result.SecondsRemaining} sn sonra tekrar deneyin.";
+                Error = "Kullanıcı adı veya parola hatalı.";
                 return;
+            }
+
+            LoginResult result;
+            if (srv.State == ServerAuthClient.AuthState.Ok)
+                result = DesktopServices.Auth.Login(srv.CompanyId!, Username.Trim(), Password);
+            else
+            {
+                var companyId = DesktopServices.ResolveCompanyId();
+                result = DesktopServices.Auth.Login(companyId, Username.Trim(), Password);
+                if (result.Locked)
+                {
+                    Error = $"Çok fazla hatalı deneme. {result.SecondsRemaining} sn sonra tekrar deneyin.";
+                    return;
+                }
             }
             if (!result.Success || result.Session is null)
             {
-                Error = result.Error ?? "Giriş başarısız.";
+                Error = srv.State == ServerAuthClient.AuthState.Offline
+                    ? "Çevrimdışısınız ve bu kullanıcı bu makinede daha önce giriş yapmamış. İnternete bağlanıp giriş yapın."
+                    : (result.Error ?? "Kullanıcı adı veya parola hatalı.");
                 return;
             }
-            // Makine kapısı: pasife alınmış (revoked) makineden giriş engellenir.
-            // Çevrimiçi ise sunucudan durum alınır ve önbelleğe yazılır; çevrimdışı ise son bilinen durum kullanılır.
-            var (allowed, gateReason) = await MachineGate.CheckAsync(result.Session.CompanyId);
-            if (!allowed)
+
+            _authedSession = result.Session;
+            _authedCompanyId = result.Session.CompanyId;
+
+            // Kullanıcının KENDİ firmasının şubelerini yükle (firma listesi gösterilmez).
+            await LoadBranchesForUserAsync(_authedCompanyId!, result.Session.CanViewAllBranches);
+            CompanyName = ResolveCompanyName(_authedCompanyId!);
+            SelectedBranch = null; BranchPassword = "";
+            Step = 2; // şube seçimine geç
+        }
+        catch (Exception ex) { Error = "Giriş hatası: " + ex.Message; }
+        finally { IsBusy = false; }
+    }
+
+    // Adım 2'den kimlik adımına dön
+    [RelayCommand]
+    private void Back()
+    {
+        Error = null; Step = 1;
+        _authedSession = null; _authedCompanyId = null;
+        Branches.Clear(); SelectedBranch = null; BranchPassword = "";
+    }
+
+    // ── ADIM 2: şube seçimi + giriş tamamlama ──
+    [RelayCommand]
+    private async System.Threading.Tasks.Task Login()
+    {
+        if (_authedSession is null) { Back(); return; }
+        Error = null;
+        IsBusy = true;
+        try
+        {
+            // Gerçek şube seçildiyse ve şifre gerekiyorsa ONLINE doğrula (çevrimdışıysa atlanır).
+            if (SelectedBranch is not null && SelectedBranch.HasPassword)
             {
-                Error = gateReason;
-                DesktopServices.Session = null;
-                return;
+                var ok = await ServerAuthClient.VerifyBranchAsync(_authedCompanyId ?? "", SelectedBranch.Id, BranchPassword);
+                if (ok == false) { Error = "Şube şifresi hatalı."; return; }
             }
-            DesktopServices.Session = result.Session;
-            if (RememberMe) RememberMeService.Save(result.Session);
+            bool isAllBranches = SelectedBranch?.Id == BranchConstants.AllBranchesId;
+
+            // "Tüm Şubeler" seçimi YALNIZ yetkili kullanıcıya açık.
+            if (isAllBranches && !_authedSession.CanViewAllBranches)
+            {
+                Error = "Bu kullanıcının Tüm Şubeler yetkisi yok."; return;
+            }
+
+            var selectedBranchId = isAllBranches ? null : SelectedBranch?.Id;
+            var companyKey = _authedCompanyId;
+
+            // Farklı şube uyarısı (#2): bu bilgisayar bir şubeye tanımlıysa ve BAŞKA şube ile giriş yapılıyorsa uyar + ses.
+            if (selectedBranchId is not null)
+            {
+                var home = DesktopServices.Settings.Get(companyKey, MachineHomeBranchKey);
+                if (!string.IsNullOrEmpty(home) && home != selectedBranchId)
+                {
+                    var homeName = Branches.FirstOrDefault(b => b.Id == home)?.Name ?? "başka bir şube";
+                    PlayWarningSound();
+                    var proceed = await ConfirmService.AskAsync(
+                        $"Bu bilgisayar \"{homeName}\" şubesine tanımlıdır.\n\n" +
+                        $"Farklı bir şube (\"{SelectedBranch?.Name}\") ile giriş yapıyorsunuz. Girdiğiniz veriler " +
+                        "bu bilgisayarın ait olduğu şubeye YAZILMAYACAKTIR.\n\nYine de devam etmek istiyor musunuz?",
+                        "Farklı Şube Girişi", "Devam et ve giriş yap", "İptal", danger: true);
+                    if (!proceed) return;
+                }
+            }
+
+            // Şube bağlamı erken yazılır → makine kaydı (gate + heartbeat) firma+şube ile oluşur.
+            DesktopServices.CurrentBranchId = selectedBranchId;
+            DesktopServices.CurrentBranchName = isAllBranches ? "Tüm Şubeler" : SelectedBranch?.Name;
+            DesktopServices.CurrentAllBranches = isAllBranches;
+
+            // Makine kapısı: kota dışı/pasif makineden giriş engellenir (süper admin hariç).
+            if (!_authedSession.IsSuperAdmin)
+            {
+                var (allowed, gateReason) = await MachineGate.CheckAsync(_authedSession.CompanyId);
+                if (!allowed) { Error = gateReason; return; }
+            }
+
+            _authedSession.OperatingBranchId = selectedBranchId;
+            DesktopServices.Session = _authedSession;
+
+            // İlk şube girişi → bu bilgisayarın "ait olduğu şube" olarak kaydet (farklı şube uyarısı buna göre).
+            if (selectedBranchId is not null && string.IsNullOrEmpty(DesktopServices.Settings.Get(companyKey, MachineHomeBranchKey)))
+                DesktopServices.Settings.Set(companyKey, MachineHomeBranchKey, selectedBranchId);
+
+            _ = LookupSyncService.PullAsync(Username.Trim(), Password);   // tanım senkronu
+            _ = BusinessSyncPushService.PushAsync();                       // iş verisi push (web görünürlüğü)
+            RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
+            if (RememberMe) RememberMeService.Save(_authedSession);
             else RememberMeService.Clear();
-            OnLoggedIn?.Invoke(result.Session);
+            OnLoggedIn?.Invoke(_authedSession);
         }
-        catch (Exception ex)
+        catch (Exception ex) { Error = "Giriş hatası: " + ex.Message; }
+        finally { IsBusy = false; }
+    }
+
+    private async System.Threading.Tasks.Task LoadBranchesForUserAsync(string companyId, bool canViewAllBranches)
+    {
+        Branches.Clear();
+        // "Tüm Şubeler" seçeneği YALNIZ yetkili kullanıcıya gösterilir.
+        if (canViewAllBranches)
+            Branches.Add(new ServerAuthClient.LoginBranch(BranchConstants.AllBranchesId, "🌐 Tüm Şubeler", null, false));
+        var online = await ServerAuthClient.GetLoginBranchesAsync(companyId);
+        if (online is not null) foreach (var b in online) Branches.Add(b);
+        else LoadLocalBranches(companyId); // çevrimdışı → yerel DB (şifre bilgisi olmadan)
+        OnPropertyChanged(nameof(HasBranches));
+        OnPropertyChanged(nameof(ShowBranchPassword));
+    }
+
+    private void LoadLocalBranches(string companyId)
+    {
+        try
         {
-            Error = "Giriş hatası: " + ex.Message;
+            using var conn = DesktopServices.Factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, name, code FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
+            cmd.Parameters.AddWithValue("$c", companyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                Branches.Add(new ServerAuthClient.LoginBranch(r.GetString(0), r.GetString(1),
+                    r.IsDBNull(2) ? null : r.GetString(2), false)); // offline: şifre kontrolü yapılamaz
         }
-        finally
+        catch { }
+    }
+
+    private static string ResolveCompanyName(string companyId)
+    {
+        try
         {
-            IsBusy = false;
+            using var conn = DesktopServices.Factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT name FROM companies WHERE id=$c;";
+            cmd.Parameters.AddWithValue("$c", companyId);
+            return cmd.ExecuteScalar() as string ?? "";
         }
+        catch { return ""; }
     }
 }

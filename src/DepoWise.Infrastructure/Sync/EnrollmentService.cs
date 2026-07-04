@@ -95,14 +95,26 @@ public sealed class EnrollmentService
         return new EnrollResult(deviceId, "pending");
     }
 
-    /// <summary>Sıfır-sürtünmeli bulut kaydı: masaüstü açılışta kendini 'pending' cihaz olarak kaydeder
-    /// (isim bazlı idempotent). Zaten varsa yalnız last_seen_at güncellenir. Admin onayı Makine Yönetimi'nde.</summary>
-    public EnrollResult RegisterSelf(string companyId, string deviceName)
+    /// <summary>Sıfır-sürtünmeli bulut kaydı: masaüstü açılışta kendini kaydeder (isim bazlı idempotent).
+    /// KOTA MANTIĞI: firmanın aktif makine sayısı kotanın altındaysa makine otomatik 'active' olur ve giriş
+    /// yapabilir; kota doluysa 'pending' kalır (süper admin onaylayana / başka makineyi pasife alana kadar
+    /// giriş yapamaz). Pasife alınmış (revoked) makine otomatik aktifleşmez — yalnız süper admin açar.</summary>
+    public EnrollResult RegisterSelf(string companyId, string deviceName, string? ip = null, string? branchId = null)
     {
         TenantGuard.Require(companyId);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+
+        // Bağlanılan IP'nin ailesine göre v4/v6 slotunu ayır (diğer slot COALESCE ile korunur).
+        string? ip4 = null, ip6 = null;
+        if (!string.IsNullOrWhiteSpace(ip) && System.Net.IPAddress.TryParse(ip, out var addr))
+        {
+            if (addr.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) ip4 = ip;
+            else if (addr.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6) ip6 = ip;
+        }
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction(deferred: false);
+
+        int quota = QuotaFor(conn, tx, companyId);
 
         string? existingId = null, existingStatus = null;
         using (var find = conn.CreateCommand())
@@ -115,33 +127,84 @@ public sealed class EnrollmentService
             if (r.Read()) { existingId = r.GetString(0); existingStatus = r.GetString(1); }
         }
 
+        int ActiveCount(string? excludeId)
+        {
+            using var cnt = conn.CreateCommand();
+            cnt.Transaction = tx;
+            cnt.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE company_id=$c AND status='active'" +
+                              (excludeId is null ? ";" : " AND id<>$x;");
+            cnt.Parameters.AddWithValue("$c", companyId);
+            if (excludeId is not null) cnt.Parameters.AddWithValue("$x", excludeId);
+            return Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
         if (existingId is not null)
         {
+            // Revoked makine ASLA otomatik aktifleşmez. Active kalır. Pending → kota varsa aktifleşir.
+            var newStatus = existingStatus ?? "pending";
+            if (existingStatus == "pending" && ActiveCount(existingId) < quota) newStatus = "active";
+
             using var upd = conn.CreateCommand();
             upd.Transaction = tx;
-            upd.CommandText = "UPDATE sync_devices SET last_seen_at=$now, updated_at=$now WHERE id=$id;";
+            upd.CommandText = "UPDATE sync_devices SET last_seen_at=$now, updated_at=$now, status=$s, " +
+                "ip_address=COALESCE($ip, ip_address), ip_v4=COALESCE($ip4, ip_v4), ip_v6=COALESCE($ip6, ip_v6), " +
+                "branch_id=COALESCE($bid, branch_id) WHERE id=$id;";
             upd.Parameters.AddWithValue("$now", now);
+            upd.Parameters.AddWithValue("$s", newStatus);
+            upd.Parameters.AddWithValue("$ip", (object?)ip ?? System.DBNull.Value);
+            upd.Parameters.AddWithValue("$ip4", (object?)ip4 ?? System.DBNull.Value);
+            upd.Parameters.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
+            upd.Parameters.AddWithValue("$bid", (object?)branchId ?? System.DBNull.Value);
             upd.Parameters.AddWithValue("$id", existingId);
             upd.ExecuteNonQuery();
             tx.Commit();
-            return new EnrollResult(existingId, existingStatus ?? "pending");
+            return new EnrollResult(existingId, newStatus);
         }
 
+        var status = ActiveCount(null) < quota ? "active" : "pending";
         var deviceId = Guid.NewGuid().ToString("N");
         using (var ins = conn.CreateCommand())
         {
             ins.Transaction = tx;
             ins.CommandText =
-                "INSERT INTO sync_devices(id, company_id, device_name, status, last_seen_at, created_at, updated_at, version) " +
-                "VALUES($id,$c,$n,'pending',$now,$now,$now,1);";
+                "INSERT INTO sync_devices(id, company_id, device_name, status, ip_address, ip_v4, ip_v6, branch_id, last_seen_at, created_at, updated_at, version) " +
+                "VALUES($id,$c,$n,$s,$ip,$ip4,$ip6,$bid,$now,$now,$now,1);";
             ins.Parameters.AddWithValue("$id", deviceId);
             ins.Parameters.AddWithValue("$c", companyId);
             ins.Parameters.AddWithValue("$n", deviceName);
+            ins.Parameters.AddWithValue("$s", status);
+            ins.Parameters.AddWithValue("$ip", (object?)ip ?? System.DBNull.Value);
+            ins.Parameters.AddWithValue("$ip4", (object?)ip4 ?? System.DBNull.Value);
+            ins.Parameters.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
+            ins.Parameters.AddWithValue("$bid", (object?)branchId ?? System.DBNull.Value);
             ins.Parameters.AddWithValue("$now", now);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
-        return new EnrollResult(deviceId, "pending");
+        return new EnrollResult(deviceId, status);
+    }
+
+    private static int QuotaFor(SqliteConnection conn, SqliteTransaction tx, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT machine_quota FROM companies WHERE id=$c;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        var v = cmd.ExecuteScalar();
+        return v is null || v is DBNull ? 3 : Convert.ToInt32(v);
+    }
+
+    /// <summary>Firma makine kotasını ayarlar (yalnız süper admin).</summary>
+    public void SetQuota(SessionContext s, string companyId, int quota)
+    {
+        if (!s.IsSuperAdmin) throw new ForbiddenException("Makine kotası yalnız süper admin.");
+        if (quota < 1) quota = 1;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE companies SET machine_quota=$q WHERE id=$c;";
+        cmd.Parameters.AddWithValue("$q", quota);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>Master onayı: cihaz 'active' + token üretir (düz metin döner, hash saklanır).</summary>
@@ -154,11 +217,11 @@ public sealed class EnrollmentService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "UPDATE sync_devices SET status='active', token_hash=$h, updated_at=$now " +
-            "WHERE id=$id AND company_id=$c AND status='pending';";
+            "WHERE id=$id AND status='pending'" + (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
         cmd.Parameters.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
         cmd.Parameters.AddWithValue("$now", now);
         cmd.Parameters.AddWithValue("$id", deviceId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        if (!s.IsSuperAdmin) cmd.Parameters.AddWithValue("$c", s.CompanyId);
         if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Onaylanacak bekleyen cihaz bulunamadı.");
         return new DeviceToken(deviceId, token);
     }
@@ -188,10 +251,23 @@ public sealed class EnrollmentService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE sync_devices SET status='revoked', revoked_at=$now, updated_at=$now WHERE id=$id AND company_id=$c;";
+            "UPDATE sync_devices SET status='revoked', revoked_at=$now, updated_at=$now WHERE id=$id" +
+            (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
         cmd.Parameters.AddWithValue("$now", now);
         cmd.Parameters.AddWithValue("$id", deviceId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        if (!s.IsSuperAdmin) cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Cihaz kaydını KALICI sil (admin). Süper admin tüm firmalarda; diğer admin kendi firmasında.</summary>
+    public void DeleteDevice(SessionContext s, string deviceId)
+    {
+        if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz silme yalnız admin.");
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM sync_devices WHERE id=$id" + (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
+        cmd.Parameters.AddWithValue("$id", deviceId);
+        if (!s.IsSuperAdmin) cmd.Parameters.AddWithValue("$c", s.CompanyId);
         cmd.ExecuteNonQuery();
     }
 
@@ -203,27 +279,38 @@ public sealed class EnrollmentService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE sync_devices SET status='active', revoked_at=NULL, updated_at=$now WHERE id=$id AND company_id=$c AND status<>'active';";
+            "UPDATE sync_devices SET status='active', revoked_at=NULL, updated_at=$now WHERE id=$id AND status<>'active'" +
+            (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
         cmd.Parameters.AddWithValue("$now", now);
         cmd.Parameters.AddWithValue("$id", deviceId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        if (!s.IsSuperAdmin) cmd.Parameters.AddWithValue("$c", s.CompanyId);
         cmd.ExecuteNonQuery();
     }
 
-    /// <summary>Firmanın kayıtlı makineleri (yönetim ekranı).</summary>
-    public IReadOnlyList<DeviceRow> ListDevices(SessionContext s)
+    /// <summary>Kayıtlı makineler. Süper admin TÜM firmaların makinelerini görür (firma adı + kota ile);
+    /// diğer adminler yalnız kendi firmalarını. İsteğe bağlı companyId ile süper admin filtreleyebilir.</summary>
+    public IReadOnlyList<DeviceRow> ListDevices(SessionContext s, string? companyFilter = null)
     {
         if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz listesi yalnız admin.");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            "SELECT id, device_name, status, last_seen_at, created_at FROM sync_devices WHERE company_id=$c ORDER BY created_at DESC;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var sb = "SELECT d.id, d.device_name, d.status, d.last_seen_at, d.created_at, d.company_id, " +
+                 "COALESCE(c.name, d.company_id), COALESCE(c.machine_quota,3), COALESCE(d.ip_address,''), " +
+                 "COALESCE(d.ip_v4,''), COALESCE(d.ip_v6,''), COALESCE(br.name,'') " +
+                 "FROM sync_devices d LEFT JOIN companies c ON c.id=d.company_id " +
+                 "LEFT JOIN branches br ON br.id=d.branch_id ";
+        if (!s.IsSuperAdmin) { sb += "WHERE d.company_id=$c "; }
+        else if (!string.IsNullOrWhiteSpace(companyFilter)) { sb += "WHERE d.company_id=$c "; }
+        sb += "ORDER BY d.created_at DESC;";
+        cmd.CommandText = sb;
+        if (!s.IsSuperAdmin) cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        else if (!string.IsNullOrWhiteSpace(companyFilter)) cmd.Parameters.AddWithValue("$c", companyFilter!);
         var list = new List<DeviceRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new DeviceRow(r.GetString(0), r.GetString(1), r.GetString(2),
-                r.IsDBNull(3) ? null : r.GetInt64(3), r.GetInt64(4)));
+                r.IsDBNull(3) ? null : r.GetInt64(3), r.GetInt64(4), r.GetString(5), r.GetString(6), r.GetInt32(7),
+                r.GetString(8), r.GetString(9), r.GetString(10), r.GetString(11)));
         return list;
     }
 
@@ -238,8 +325,14 @@ public sealed class EnrollmentService
     }
 }
 
-public sealed record DeviceRow(string Id, string Name, string Status, long? LastSeenAt, long CreatedAt)
+public sealed record DeviceRow(string Id, string Name, string Status, long? LastSeenAt, long CreatedAt,
+    string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ip4 = "", string Ip6 = "",
+    string BranchName = "")
 {
+    public string IpText => string.IsNullOrEmpty(Ip) ? "—" : Ip;
+    public string Ip4Text => string.IsNullOrEmpty(Ip4) ? "—" : Ip4;
+    public string Ip6Text => string.IsNullOrEmpty(Ip6) ? "—" : Ip6;
+    public string BranchText => string.IsNullOrEmpty(BranchName) ? "—" : BranchName;
     public string StatusText => Status switch { "active" => "Aktif", "pending" => "Onay Bekliyor", "revoked" => "Pasif", _ => Status };
     public bool IsActive => Status == "active";
     public bool CanActivate => Status != "active";

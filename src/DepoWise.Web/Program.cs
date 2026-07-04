@@ -22,6 +22,7 @@ var apiBase = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5224";
 builder.Services.AddScoped<AuthState>();
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBase), Timeout = TimeSpan.FromSeconds(30) });
 builder.Services.AddScoped<ApiClient>();
+builder.Services.AddScoped<DepoWise.Web.Services.ThemeState>();
 
 var app = builder.Build();
 

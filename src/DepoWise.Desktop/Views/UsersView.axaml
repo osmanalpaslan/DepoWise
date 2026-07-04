@@ -21,7 +21,7 @@
         <!-- Yeni kullanıcı formu -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ KULLANICI" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="YENİ KULLANICI" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kullanıcı Adı" IsRequired="True" Width="220">
                         <TextBox Classes="Field" Text="{Binding NewUsername}"/>
@@ -36,7 +36,7 @@
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şube" Width="220" HelpText="Boş = şubesiz.">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormBranch}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
                 </StackPanel>
@@ -49,15 +49,17 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ctrl:FormField>
+                <CheckBox IsChecked="{Binding NewViewAllBranches}" IsVisible="{Binding IsSuperAdmin}" Margin="0,4"
+                          Content="Tüm Şubeler yetkisi (yalnız Süper Admin — tüm şube verisiyle çalışır)"/>
                 <ctrl:FormField Label="Yetki Şablonu (Süper Admin)" Width="320" IsVisible="{Binding CanUseTemplates}"
                                 HelpText="Seçilirse yeni kullanıcının yetkileri bu şablona göre yazılır.">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
                         <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="sec:PermissionTemplateRow"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                            <DataTemplate x:DataType="sec:PermissionTemplateRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </ctrl:FormField>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
@@ -70,23 +72,25 @@
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding HasSelection}">
             <StackPanel Spacing="10">
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <TextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    <SelectableTextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
                     <ComboBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
                     <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}"/>
+                    <Button Classes="Secondary" Content="Tüm Şubeler Yetkisi (Aç/Kapat)" Margin="12,0,0,0"
+                            IsVisible="{Binding IsSuperAdmin}" Command="{Binding ToggleViewAllBranchesCommand}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageUsers}">
-                    <TextBlock Text="Yeni şifre:" Classes="Helper" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Yeni şifre:" Classes="Helper" VerticalAlignment="Center"/>
                     <TextBox Classes="Field" Width="200" Text="{Binding NewPasswordForSelected}" PasswordChar="●"/>
                     <Button Classes="Secondary" Content="Şifre Değiştir" Command="{Binding ChangePasswordCommand}"/>
                     <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"/>
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanManageUsers}">
-                    <TextBlock Text="Roller:" Classes="Helper" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Roller:" Classes="Helper" VerticalAlignment="Center"/>
                     <ItemsControl ItemsSource="{Binding EditRoles}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="12"/></ItemsPanelTemplate>
@@ -108,22 +112,22 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="Auto,*,*,Auto,Auto">
-                            <TextBlock Grid.Column="0" Text="KULLANICI" MinWidth="150"/>
-                            <TextBlock Grid.Column="1" Text="AD SOYAD" MinWidth="150"/>
-                            <TextBlock Grid.Column="2" Text="ROLLER" MinWidth="160"/>
-                            <TextBlock Grid.Column="3" Text="ŞUBE" MinWidth="120"/>
-                            <TextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
+                            <SelectableTextBlock Grid.Column="0" Text="KULLANICI" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="1" Text="AD SOYAD" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="2" Text="ROLLER" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="3" Text="ŞUBE" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="sec:UserRow">
                                 <Grid ColumnDefinitions="Auto,*,*,Auto,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding Username}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding FullName}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Roles}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding BranchDisplay}" MinWidth="120" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Username}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding FullName}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Roles}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding BranchDisplay}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -135,6 +139,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Kullanıcı yok" Message="Henüz kullanıcı yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

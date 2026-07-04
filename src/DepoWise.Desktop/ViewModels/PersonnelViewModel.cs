@@ -25,6 +25,26 @@ public sealed partial class PersonnelViewModel : ViewModelBase
 
     public ObservableCollection<PersonnelRecord> Items { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
+    private readonly System.Collections.Generic.List<PersonnelRecord> _all = new();
+
+    [ObservableProperty] private string _search = "";
+    partial void OnSearchChanged(string value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        Items.Clear();
+        var q = (Search ?? "").Trim();
+        System.Collections.Generic.IEnumerable<PersonnelRecord> rows = _all;
+        if (q.Length > 0)
+        {
+            var ci = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+            bool Has(string? s) => s != null && ci.CompareInfo.IndexOf(s, q, System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+            rows = _all.Where(p => Has(p.FullName) || Has(p.Title) || Has(p.Phone));
+        }
+        foreach (var p in rows) Items.Add(p);
+        OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(IsEmpty));
+    }
 
     [ObservableProperty] private string? _status;
     [ObservableProperty]
@@ -61,11 +81,12 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         try
         {
             LoadError = null;
-            Items.Clear();
-            foreach (var p in DesktopServices.Personnel.List(_session, new PageRequest { Limit = 500 }).Items) Items.Add(p);
+            _all.Clear();
+            foreach (var p in DesktopServices.Personnel.List(_session, new PageRequest { Limit = 500 }).Items) _all.Add(p);
             if (Branches.Count == 0)
                 try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
-            Status = $"{Items.Count} personel";
+            ApplyFilter();
+            Status = $"{_all.Count} personel";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         Selected = null;

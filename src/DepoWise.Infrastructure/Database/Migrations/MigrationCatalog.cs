@@ -25,5 +25,13 @@ public static class MigrationCatalog
         new Migration018_ReleaseDownloadUrl(),
         new Migration019_PermissionTemplates(),
         new Migration020_TemplateRole(),
+        new Migration021_MachineQuota(),
+        new Migration022_MachineIpUserQuota(),
+        new Migration023_MachineIpV4V6(),
+        new Migration024_BranchCodePassword(),
+        new Migration025_MachineBranch(),
+        new Migration026_UserViewAllBranches(),
+        new Migration027_OperatingBranch(),
+        new Migration028_DataConflicts(),
     };
 }

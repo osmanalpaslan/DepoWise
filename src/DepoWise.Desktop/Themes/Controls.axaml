@@ -7,35 +7,35 @@
     -->
 
     <!-- ===== Tipografi ===== -->
-    <Style Selector="TextBlock.PageTitle">
+    <Style Selector=":is(TextBlock).PageTitle">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontPageTitle}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
-    <Style Selector="TextBlock.SectionTitle">
+    <Style Selector=":is(TextBlock).SectionTitle">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSectionTitle}"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
-    <Style Selector="TextBlock.CardLabel">
+    <Style Selector=":is(TextBlock).CardLabel">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontCardLabel}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
-    <Style Selector="TextBlock.Metric">
+    <Style Selector=":is(TextBlock).Metric">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontMetric}"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
-    <Style Selector="TextBlock.Body">
+    <Style Selector=":is(TextBlock).Body">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontBody}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
-    <Style Selector="TextBlock.Helper">
+    <Style Selector=":is(TextBlock).Helper">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontHelper}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
@@ -95,21 +95,21 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
-    <Style Selector="TextBlock.KpiValue">
+    <Style Selector=":is(TextBlock).KpiValue">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontMetric}"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
-    <Style Selector="TextBlock.KpiLabel">
+    <Style Selector=":is(TextBlock).KpiLabel">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontCardLabel}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
     </Style>
-    <Style Selector="Border.Kpi.primary TextBlock.KpiValue">
+    <Style Selector="Border.Kpi.primary :is(TextBlock).KpiValue">
         <Setter Property="Foreground" Value="#FFFFFF"/>
     </Style>
-    <Style Selector="Border.Kpi.primary TextBlock.KpiLabel">
+    <Style Selector="Border.Kpi.primary :is(TextBlock).KpiLabel">
         <Setter Property="Foreground" Value="#E3ECFB"/>
     </Style>
 

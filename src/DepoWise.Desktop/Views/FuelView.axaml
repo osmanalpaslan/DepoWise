@@ -26,14 +26,14 @@
 
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDist}">
                         <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
-                            <TextBlock Text="YENİ DAĞITIM" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="YENİ DAĞITIM" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
                                     <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding DistVehicle}"
                                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                                      ValueMemberBinding="{Binding Display}">
                                         <AutoCompleteBox.ItemTemplate>
-                                            <DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate>
+                                            <DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate>
                                         </AutoCompleteBox.ItemTemplate>
                                     </AutoCompleteBox>
                                 </ctrl:FormField>
@@ -61,7 +61,7 @@
                                 <ctrl:FormField Label="Yakıtı Veren" Width="180">
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch"
                                               ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </ctrl:FormField>
                             </StackPanel>
@@ -85,12 +85,12 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
-                                        <TextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
-                                        <TextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Right"/>
-                                        <TextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
-                                        <TextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
-                                        <TextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="100"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="SAYAÇ" MinWidth="140"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="LİTRE" MinWidth="80" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="TOPLAM" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding Distributions}">
@@ -105,12 +105,12 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding LitersText}" MinWidth="80" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
-                                                <TextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
-                                                <TextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding LitersText}" MinWidth="80" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
+                                                <SelectableTextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -136,7 +136,7 @@
 
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowDepot}">
                         <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
-                            <TextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="YENİ DEPO GİRİŞİ" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Litre" IsRequired="True" Width="150">
                                     <NumericUpDown Classes="Field" Value="{Binding DepotLiters}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
@@ -151,7 +151,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Tedarikçi" Width="240">
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Fatura/İrsaliye No" Width="200">
@@ -176,10 +176,10 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="FATURA NO" MinWidth="140"/>
-                                        <TextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Right"/>
-                                        <TextBlock Grid.Column="2" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Right"/>
-                                        <TextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="140"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="LİTRE" MinWidth="90" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="BİRİM FİYAT" MinWidth="110" TextAlignment="Right"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding DepotEntries}">
@@ -192,10 +192,10 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding InvoiceDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding LitersText}" MinWidth="90" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding PriceText}" MinWidth="110" VerticalAlignment="Center" TextAlignment="Right"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding InvoiceDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" MinWidth="90" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding PriceText}" MinWidth="110" VerticalAlignment="Center" TextAlignment="Right"/>
+                                                <SelectableTextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -212,24 +212,24 @@
                 <StackPanel Margin="0,16,0,0" Spacing="16">
                     <WrapPanel>
                         <Border Classes="Kpi"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{Binding DepotBalanceText}" Classes="KpiValue"/>
-                            <TextBlock Text="Kalan Yakıt (Depo)" Classes="KpiLabel"/></StackPanel></Border>
+                            <SelectableTextBlock Text="{Binding DepotBalanceText}" Classes="KpiValue"/>
+                            <SelectableTextBlock Text="Kalan Yakıt (Depo)" Classes="KpiLabel"/></StackPanel></Border>
                         <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{Binding CurrentPriceText}" Classes="KpiValue"/>
-                            <TextBlock Text="Güncel Fiyat" Classes="KpiLabel"/></StackPanel></Border>
+                            <SelectableTextBlock Text="{Binding CurrentPriceText}" Classes="KpiValue"/>
+                            <SelectableTextBlock Text="Güncel Fiyat" Classes="KpiLabel"/></StackPanel></Border>
                         <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{Binding TotalReceivedText}" Classes="KpiValue"/>
-                            <TextBlock Text="Toplam Alınan" Classes="KpiLabel"/></StackPanel></Border>
+                            <SelectableTextBlock Text="{Binding TotalReceivedText}" Classes="KpiValue"/>
+                            <SelectableTextBlock Text="Toplam Alınan" Classes="KpiLabel"/></StackPanel></Border>
                         <Border Classes="Kpi" Margin="14,0,0,0"><StackPanel VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{Binding TotalDistributedText}" Classes="KpiValue"/>
-                            <TextBlock Text="Toplam Dağıtılan" Classes="KpiLabel"/></StackPanel></Border>
+                            <SelectableTextBlock Text="{Binding TotalDistributedText}" Classes="KpiValue"/>
+                            <SelectableTextBlock Text="Toplam Dağıtılan" Classes="KpiLabel"/></StackPanel></Border>
                     </WrapPanel>
-                    <TextBlock Text="Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır."
+                    <SelectableTextBlock Text="Kalan = tüm alınan − tüm dağıtılan (fiziksel depo). Fiyatlar geçmişte snapshot saklanır."
                                Classes="Helper" TextWrapping="Wrap"/>
                 </StackPanel>
             </TabItem>
         </TabControl>
 
-        <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

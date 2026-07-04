@@ -170,7 +170,7 @@
         <Setter Property="MinHeight" Value="40"/>
         <Setter Property="Padding" Value="12,0"/>
     </Style>
-    <Style Selector="Border.TableHeader TextBlock">
+    <Style Selector="Border.TableHeader :is(TextBlock)">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontCardLabel}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>

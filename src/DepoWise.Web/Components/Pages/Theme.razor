@@ -1,0 +1,85 @@
+@page "/theme"
+@inject DepoWise.Web.Services.ThemeState ThemeSvc
+
+<PageTitle>Tema — DepoWise</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom="true">Tema</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    Web arayüzü temasını seçin. Seçim anında uygulanır ve bu tarayıcıda saklanır. (Web'e özel — masaüstünden bağımsızdır.)
+</MudText>
+
+<MudStack Spacing="3" Style="max-width:620px;">
+    @foreach (var o in Options)
+    {
+        var selected = ThemeSvc.Mode == o.Mode;
+        <MudPaper Elevation="@(selected ? 6 : 1)" Class="pa-4"
+                  Style="@($"border-radius:16px;cursor:pointer;border:2px solid {(selected ? "var(--mud-palette-primary)" : "transparent")};")"
+                  @onclick="@(() => Choose(o.Mode))">
+            <div class="d-flex align-center">
+                <MudIcon Icon="@o.Icon" Size="Size.Large" Color="@(selected ? Color.Primary : Color.Default)" Class="mr-4" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.h6">@o.Title</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@o.Desc</MudText>
+                </div>
+                @if (selected)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" />
+                }
+            </div>
+        </MudPaper>
+    }
+</MudStack>
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Görünüm Stili</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Menü, üst bar ve panellerin dokusunu seçin. Anında canlı önizlenir.</MudText>
+<MudStack Spacing="2" Style="max-width:620px;">
+    @foreach (var st in DepoWise.Web.Services.ThemeState.Styles)
+    {
+        var sel = ThemeSvc.Style == st.Key;
+        <MudPaper Elevation="@(sel ? 6 : 1)" Class="pa-4"
+                  Style="@($"border-radius:14px;cursor:pointer;border:2px solid {(sel ? "var(--mud-palette-primary)" : "transparent")};")"
+                  @onclick="@(() => ChooseStyle(st.Key))">
+            <div class="d-flex align-center">
+                <MudIcon Icon="@Icons.Material.Filled.Dashboard" Color="@(sel ? Color.Primary : Color.Default)" Class="mr-3" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.body1"><b>@st.Name</b></MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@st.Desc</MudText>
+                </div>
+                @if (sel) { <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" /> }
+            </div>
+        </MudPaper>
+    }
+</MudStack>
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Renk Teması</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Arayüzün ana rengini seçin.</MudText>
+<div style="display:flex;flex-wrap:wrap;gap:14px;max-width:620px;">
+    @foreach (var p in DepoWise.Web.Services.ThemeState.Palettes)
+    {
+        var sel = ThemeSvc.Color == p.Key;
+        <div @onclick="@(() => ChooseColor(p.Key))" style="cursor:pointer;text-align:center;width:76px;">
+            <div style="@($"width:56px;height:56px;border-radius:50%;margin:0 auto;background:{p.Hex};box-shadow:0 0 0 3px {(sel ? "var(--mud-palette-text-primary)" : "transparent")};display:flex;align-items:center;justify-content:center;")">
+                @if (sel)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Style="color:#fff;" />
+                }
+            </div>
+            <MudText Typo="Typo.caption" Class="d-block mt-1">@p.Name</MudText>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record Opt(string Mode, string Title, string Desc, string Icon);
+
+    private static readonly Opt[] Options =
+    {
+        new(DepoWise.Web.Services.ThemeState.Dark, "Koyu", "Göz yormayan koyu arayüz.", Icons.Material.Filled.DarkMode),
+        new(DepoWise.Web.Services.ThemeState.Light, "Açık", "Aydınlık ortamlar için beyaz arayüz.", Icons.Material.Filled.LightMode),
+        new(DepoWise.Web.Services.ThemeState.System, "Sistem", "İşletim sistemi/tarayıcı tercihini izler.", Icons.Material.Filled.SettingsBrightness),
+    };
+
+    private async Task Choose(string mode) => await ThemeSvc.SetModeAsync(mode);
+    private async Task ChooseColor(string key) => await ThemeSvc.SetColorAsync(key);
+    private async Task ChooseStyle(string key) => await ThemeSvc.SetStyleAsync(key);
+}

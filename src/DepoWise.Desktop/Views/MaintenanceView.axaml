@@ -32,7 +32,7 @@
                         </Border.KeyBindings>
                         <ScrollViewer MaxHeight="380">
                         <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
-                            <TextBlock Text="{Binding DefFormTitle}" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="{Binding DefFormTitle}" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Tanım Adı" IsRequired="True" Width="280"
                                                 HasError="{Binding HasDefNameError}" ErrorText="{Binding DefNameError}">
@@ -86,16 +86,16 @@
                                 <DockPanel>
                                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock Grid.Column="0" Text="BAKIM TANIMI" MinWidth="180"/>
-                                            <TextBlock Grid.Column="1" Text="PERİYOT" MinWidth="120"/>
+                                            <SelectableTextBlock Grid.Column="0" Text="BAKIM TANIMI" MinWidth="180"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="PERİYOT" MinWidth="120"/>
                                         </Grid>
                                     </Border>
                                     <ListBox Classes="Table" ItemsSource="{Binding Defs}" SelectedItem="{Binding SelectedDef}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceDefinitionRow">
                                                 <Grid ColumnDefinitions="*,Auto">
-                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding IntervalDisplay}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding IntervalDisplay}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -111,18 +111,18 @@
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasDefSelection}">
                             <ScrollViewer>
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="{Binding SelectedDef.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                                    <SelectableTextBlock Text="{Binding SelectedDef.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
                                     <ctrl:StatusBadge Kind="Info" Text="{Binding SelectedDef.IntervalDisplay}" HorizontalAlignment="Left"/>
-                                    <TextBlock Text="{Binding SelectedDef.Description}" Classes="Helper" TextWrapping="Wrap"
+                                    <SelectableTextBlock Text="{Binding SelectedDef.Description}" Classes="Helper" TextWrapping="Wrap"
                                                IsVisible="{Binding SelectedDef.Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                     <Border Classes="Divider"/>
 
-                                    <TextBlock Text="ALT BAKIM TANIMLARI" Classes="SectionTitle"/>
+                                    <SelectableTextBlock Text="ALT BAKIM TANIMLARI" Classes="SectionTitle"/>
                                     <ItemsControl ItemsSource="{Binding SubDefs}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceDefinitionRow">
                                                 <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
                                                     <Button Grid.Column="1" Classes="Ghost" Content="Sil"
                                                             Command="{Binding $parent[ItemsControl].((vm:MaintenanceViewModel)DataContext).DeleteSubDefCommand}"
                                                             CommandParameter="{Binding}"/>
@@ -144,7 +144,7 @@
                             </ScrollViewer>
                         </Border>
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasDefSelection}">
-                            <TextBlock Text="Detay/alt bakım için bir tanım seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="Detay/alt bakım için bir tanım seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                 </Grid>
@@ -164,25 +164,25 @@
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMntAdd}">
                         <ScrollViewer MaxHeight="420">
                         <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
-                            <TextBlock Text="YENİ BAKIM KAYDI" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="YENİ BAKIM KAYDI" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
                                     <AutoCompleteBox ItemsSource="{Binding MntVehicles}" SelectedItem="{Binding MntVehicle}"
                                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                                      ValueMemberBinding="{Binding Display}">
-                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                     </AutoCompleteBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntDefs}" SelectedItem="{Binding MntDef}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Alt Bakım" Width="240">
                                     <StackPanel Spacing="6">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}">
-                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                             </ComboBox>
                                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
                                         </Grid>
@@ -197,7 +197,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Teknisyen" Width="200">
                                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" SelectedItem="{Binding MntTechnician}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Yapılma KM" Width="130">
@@ -234,7 +234,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:MntMaterialLine">
                                                 <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
-                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
                                                     <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                                     <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
                                                             Command="{Binding $parent[ItemsControl].((vm:MaintenanceViewModel)DataContext).RemoveMntLineCommand}"
@@ -267,11 +267,11 @@
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m4"/>
                                                 <ColumnDefinition Width="Auto" SharedSizeGroup="m5"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="90"/>
-                                            <TextBlock Grid.Column="1" Text="BAKIM" MinWidth="140"/>
-                                            <TextBlock Grid.Column="2" Text="YAPILMA" MinWidth="100"/>
-                                            <TextBlock Grid.Column="3" Text="SONRAKİ" MinWidth="100"/>
-                                            <TextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
+                                            <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="90"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="BAKIM" MinWidth="140"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="YAPILMA" MinWidth="100"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="SONRAKİ" MinWidth="100"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="70"/>
                                         </Grid>
                                     </Border>
                                     <ListBox Classes="Table" ItemsSource="{Binding Maintenances}" SelectedItem="{Binding SelectedMaint}">
@@ -285,11 +285,11 @@
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="m4"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="m5"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="90" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding DefinitionName}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding PerformedDisplay}" MinWidth="100" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding NextDueDisplay}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="90" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DefinitionName}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding PerformedDisplay}" MinWidth="100" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="3" Text="{Binding NextDueDisplay}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="70" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -305,25 +305,25 @@
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasMaintSelection}">
                             <ScrollViewer>
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="{Binding SelectedMaint.DefinitionName}" Classes="PageTitle" TextWrapping="Wrap"/>
+                                    <SelectableTextBlock Text="{Binding SelectedMaint.DefinitionName}" Classes="PageTitle" TextWrapping="Wrap"/>
                                     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" DataContext="{Binding SelectedMaint}">
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Araç" Classes="Helper" Margin="0,2,12,2"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VehicleCode}" Classes="Body"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Alt Bakım" Classes="Helper" Margin="0,2,12,2"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SubDisplay}" Classes="Body"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Yapılma" Classes="Helper" Margin="0,2,12,2"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PerformedDisplay}" Classes="Body"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Sonraki" Classes="Helper" Margin="0,2,12,2"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding NextDueDisplay}" Classes="Body"/>
+                                        <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Araç" Classes="Helper" Margin="0,2,12,2"/>
+                                        <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VehicleCode}" Classes="Body"/>
+                                        <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Alt Bakım" Classes="Helper" Margin="0,2,12,2"/>
+                                        <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SubDisplay}" Classes="Body"/>
+                                        <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Yapılma" Classes="Helper" Margin="0,2,12,2"/>
+                                        <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PerformedDisplay}" Classes="Body"/>
+                                        <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Sonraki" Classes="Helper" Margin="0,2,12,2"/>
+                                        <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding NextDueDisplay}" Classes="Body"/>
                                     </Grid>
                                     <Border Classes="Divider"/>
-                                    <TextBlock Text="KULLANILAN MALZEMELER" Classes="SectionTitle"/>
+                                    <SelectableTextBlock Text="KULLANILAN MALZEMELER" Classes="SectionTitle"/>
                                     <ItemsControl ItemsSource="{Binding MaintMaterials}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="inf:MaintenanceMaterialRow">
                                                 <Grid ColumnDefinitions="*,Auto" Margin="0,1">
-                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -339,7 +339,7 @@
                             </ScrollViewer>
                         </Border>
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasMaintSelection}">
-                            <TextBlock Text="Detay için bir bakım kaydı seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="Detay için bir bakım kaydı seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                 </Grid>
@@ -365,11 +365,11 @@
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                             <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="110"/>
-                                        <TextBlock Grid.Column="1" Text="BAKIM TANIMI" MinWidth="160"/>
-                                        <TextBlock Grid.Column="2" Text="İLERLEME" MinWidth="90"/>
-                                        <TextBlock Grid.Column="3" Text="TÜKETİLEN / PERİYOT" MinWidth="150"/>
-                                        <TextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="110"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="BAKIM TANIMI" MinWidth="160"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="İLERLEME" MinWidth="90"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="TÜKETİLEN / PERİYOT" MinWidth="150"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
                                     </Grid>
                                 </Border>
                                 <ListBox Classes="Table" ItemsSource="{Binding Items}">
@@ -383,10 +383,10 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="110" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Definition}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Definition}"/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding ProgressText}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <SelectableTextBlock Grid.Column="3" Text="{Binding ConsumedText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center" Kind="{Binding LevelKind}" Text="{Binding LevelText}"/>
                                             </Grid>
                                         </DataTemplate>
@@ -402,6 +402,6 @@
             </TabItem>
         </TabControl>
 
-        <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

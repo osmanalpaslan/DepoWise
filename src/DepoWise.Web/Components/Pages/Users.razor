@@ -26,6 +26,11 @@
             @if (Auth.IsSuperAdmin)
             {
                 <MudItem xs="12" md="6">
+                    <MudCheckBox T="bool" @bind-Value="_viewAll" Label="Tüm Şubeler yetkisi" Dense="true"
+                                 Color="Color.Primary" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Bu kullanıcı tüm şube verisiyle çalışabilir (yalnız Süper Admin verir).</MudText>
+                </MudItem>
+                <MudItem xs="12" md="6">
                     <MudSelect T="string" @bind-Value="_templateId" Label="Yetki Şablonu (Süper Admin)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
                                HelperText="Seçilirse yeni kullanıcının yetkileri bu şablona göre yazılır.">
                         @foreach (var t in _templates) { <MudSelectItem T="string" Value="@Str(t, "id")">@Str(t, "name")</MudSelectItem> }
@@ -51,10 +56,17 @@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.Wrap">
             <MudText Typo="Typo.body2" Class="mud-text-secondary">Seçili kullanıcı:</MudText>
             <MudText Typo="Typo.body1"><b>@Str(_selUser.Value, "username")</b></MudText>
-            <MudSelect T="string" @bind-Value="_assignBranch" Label="Şube" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Mevcut şube: <b>@Str(_selUser.Value, "branchDisplay")</b></MudText>
+            <MudSelect T="string" @bind-Value="_assignBranch" Label="Şube Ata" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px">
                 @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
             </MudSelect>
             <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignBranch">Şube Ata</MudButton>
+            @if (Auth.IsSuperAdmin)
+            {
+                <MudDivider Vertical="true" FlexItem="true" />
+                <MudCheckBox T="bool" Value="_selViewAll" ValueChanged="ToggleViewAll" Dense="true" Color="Color.Primary"
+                             Label="Tüm Şubeler yetkisi" />
+            }
         </MudStack>
         @if (Auth.CanEdit("users"))
         {
@@ -98,6 +110,7 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private string _u = "", _p = "", _f = "";
+    private bool _viewAll;
     private string? _companyId, _branch, _templateId;
     private readonly HashSet<string> _sel = new();
     private List<RoleDto> _roles = new();
@@ -143,7 +156,8 @@
             var (err, id) = await Api.CreateAsync("/api/users", new
             {
                 username = _u.Trim(), password = _p, fullName = _f, roleKeys = _sel.ToList(),
-                companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branch
+                companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branch,
+                canViewAllBranches = Auth.IsSuperAdmin && _viewAll
             });
             // Yetki şablonu seçildiyse yeni kullanıcının yetkilerini şablona göre yaz
             if (err is null && id is not null && !string.IsNullOrEmpty(_templateId))
@@ -164,11 +178,14 @@
         finally { _busy = false; }
     }
 
-    private void ClearForm() { _u = _p = _f = ""; _companyId = _branch = _templateId = null; _sel.Clear(); }
+    private void ClearForm() { _u = _p = _f = ""; _viewAll = false; _companyId = _branch = _templateId = null; _sel.Clear(); }
+
+    private bool _selViewAll;
 
     private async Task SelectUser(JsonElement u)
     {
         _selUser = u; _selMsg = null; _newPass = ""; _assignBranch = NullS(u, "branchId");
+        _selViewAll = u.TryGetProperty("canViewAllBranches", out var va) && va.ValueKind == JsonValueKind.True;
         _editSel.Clear();
         try { foreach (var k in await Api.GetArrayAsync($"/api/users/{Str(u, "id")}/roles")) _editSel.Add(k.GetString() ?? ""); } catch { }
     }
@@ -181,6 +198,15 @@
         if (!await Dialog.Confirm("Şube ataması yapılsın mı?")) return;
         var err = await Api.PostAsync($"/api/users/{SelId}/branch", new { id = _assignBranch ?? "" });
         _selOk = err is null; _selMsg = err ?? "Şube atandı."; await Load();
+    }
+    private async Task ToggleViewAll(bool on)
+    {
+        if (_selUser is null) return;
+        if (!await Dialog.Confirm(on ? "Tüm Şubeler yetkisi verilsin mi?" : "Tüm Şubeler yetkisi kaldırılsın mı?")) return;
+        var err = await Api.PostAsync($"/api/users/{SelId}/all-branches", new { active = on });
+        _selOk = err is null; _selMsg = err ?? "Yetki güncellendi.";
+        if (err is null) _selViewAll = on;
+        await Load();
     }
     private async Task ChangePassword()
     {

@@ -22,7 +22,7 @@
                     <NumericUpDown Classes="Field" Value="{Binding Quota}" Minimum="0" FormatString="0" ShowButtonSpinner="True"/>
                 </ctrl:FormField>
                 <Button Classes="Primary" Content="Kotayı Kaydet" VerticalAlignment="Bottom" Command="{Binding SaveQuotaCommand}"/>
-                <TextBlock Text="{Binding QuotaText}" VerticalAlignment="Bottom" Margin="8,0,0,8"
+                <SelectableTextBlock Text="{Binding QuotaText}" VerticalAlignment="Bottom" Margin="8,0,0,8"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StackPanel>
@@ -32,28 +32,37 @@
             <Border Classes="Table" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                            <TextBlock Grid.Column="0" Text="MAKİNE" MinWidth="200"/>
-                            <TextBlock Grid.Column="1" Text="DURUM" MinWidth="110"/>
-                            <TextBlock Grid.Column="2" Text="SON GÖRÜLME" MinWidth="150"/>
-                            <TextBlock Grid.Column="3" Text="KAYIT" MinWidth="100"/>
-                            <TextBlock Grid.Column="4" Text="" MinWidth="200"/>
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="MAKİNE" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="1" Text="ŞUBE" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="2" Text="IPv4" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="3" Text="IPv6" MinWidth="180"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="5" Text="SON GÖRÜLME" MinWidth="140"/>
+                            <SelectableTextBlock Grid.Column="6" Text="KAYIT" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="190"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Devices}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="sync:DeviceRow">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding StatusText}" MinWidth="110" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding LastSeenText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding CreatedText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" MinWidth="200">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="150" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding BranchText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Ip4Text}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Ip6Text}" MinWidth="180" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding LastSeenText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding CreatedText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" MinWidth="190">
                                         <Button Classes="Secondary" Content="Aktifleştir" IsVisible="{Binding CanActivate}"
                                                 Command="{Binding $parent[ItemsControl].((vm:MachineManagementViewModel)DataContext).ActivateCommand}"
                                                 CommandParameter="{Binding}"/>
                                         <Button Classes="Danger" Content="Pasife Al" IsVisible="{Binding IsActive}"
                                                 Command="{Binding $parent[ItemsControl].((vm:MachineManagementViewModel)DataContext).DeactivateCommand}"
+                                                CommandParameter="{Binding}"/>
+                                        <Button Classes="Ghost" Content="Sil"
+                                                Command="{Binding $parent[ItemsControl].((vm:MachineManagementViewModel)DataContext).DeleteCommand}"
                                                 CommandParameter="{Binding}"/>
                                     </StackPanel>
                                 </Grid>
@@ -67,6 +76,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Makine yok" Message="Henüz kayıtlı makine yok (kurulum/enrollment sonrası listelenir)." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
     </Grid>
 </UserControl>

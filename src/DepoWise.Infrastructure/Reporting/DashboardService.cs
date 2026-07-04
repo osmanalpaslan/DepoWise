@@ -51,8 +51,15 @@ public sealed class DashboardService
             foreach (var a in _inspection.GetAlerts(s))
             {
                 if (a.Level == DateAlertLevel.Normal) continue;
-                alerts.Add(new DashboardAlert(AlertKind.Inspection, a.DocType,
-                    a.Level.ToString(), "vehicles", a.Level == DateAlertLevel.Expired, a.VehicleId));
+                var docText = a.DocType switch
+                {
+                    "inspection" => "Muayene", "insurance" => "Sigorta",
+                    "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => a.DocType
+                };
+                var levelText = a.Level == DateAlertLevel.Expired ? "Süresi Doldu" : "Yaklaşıyor";
+                // Sigorta/muayene uyarısı ilgili BELGE kaydına köprülenir (araç değil).
+                alerts.Add(new DashboardAlert(AlertKind.Inspection, docText,
+                    levelText, "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId));
             }
         }
         // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır)

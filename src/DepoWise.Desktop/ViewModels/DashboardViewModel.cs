@@ -43,12 +43,28 @@ public sealed partial class DashboardViewModel : ViewModelBase
     public bool CanApplyUpdate => UpdateAvailable && !IsUpdating;
     private DepoWise.Application.Update.UpdatePackage? _latestPackage;
 
+    /// <summary>Bu makinenin adı — ana ekranda gösterilir.</summary>
+    public string MachineName => Environment.MachineName;
+
+    /// <summary>Giriş yapılan şube (login'de seçilen) — ana ekranda gösterilir.</summary>
+    public string BranchName => string.IsNullOrEmpty(DesktopServices.CurrentBranchName) ? "Tüm / Belirsiz" : DesktopServices.CurrentBranchName!;
+    public bool HasBranch => !string.IsNullOrEmpty(DesktopServices.CurrentBranchName);
+
+    /// <summary>Otomatik güncelleme açık/kapalı (app_settings). Kapalıysa ShellViewModel 10 dk'lık oto-uyarıyı atlar.</summary>
+    public const string AutoUpdateKey = "auto_update_enabled";
+    [ObservableProperty] private bool _autoUpdateEnabled = true;
+    partial void OnAutoUpdateEnabledChanged(bool value)
+    {
+        try { DesktopServices.Settings.Set(_companyId, AutoUpdateKey, value ? "1" : "0"); } catch { }
+    }
+
     private readonly string _companyId;
 
     public DashboardViewModel(SessionContext session)
     {
         _companyId = session.CompanyId;
         try { CurrentVersion = DesktopServices.Update.CurrentVersion(); } catch { }
+        try { _autoUpdateEnabled = DesktopServices.Settings.Get(_companyId, AutoUpdateKey) != "0"; } catch { }
         try
         {
             var s = DesktopServices.Dashboard.GetSummary(session);
@@ -154,12 +170,15 @@ public sealed partial class DashboardViewModel : ViewModelBase
                 speedBytesPerSec: bps => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     UpdateMessage = bps > 0 ? $"İndiriliyor… %{dlPct} • {FormatSpeed(bps)}" : "Kuruluyor…"));
             UpdateMessage = "Kuruluyor…";
-            DesktopServices.Update.ApplyUpdate(pkg, bytes,
-                p => UpdateProgress = 60 + p * 40 / 100);                     // kurulum: 60–100
-            CurrentVersion = DesktopServices.Update.CurrentVersion();
-            UpdateAvailable = false;
             UpdateProgress = 100;
-            UpdateMessage = $"Güncelleme kuruldu (sürüm {CurrentVersion}). Lütfen uygulamayı yeniden başlatın.";
+            // Yeniden başlatma öncesi bilgilendirme — Tamam'a basınca kapanıp yeniden açılır.
+            await ConfirmService.AskAsync(
+                "Güncelleme indirildi. Uygulamanız yeniden başlatılacaktır, lütfen bekleyiniz…",
+                "Yeniden Başlatılıyor", "Tamam", "Tamam");
+            UpdateMessage = "Yeniden başlatılıyor…";
+            // GERÇEK kurulum: dosyaları kurulum dizinine kopyalar + sürümü yazar + uygulamayı yeniden açar.
+            DepoWise.Desktop.UpdateInstaller.InstallAndRestart(bytes, pkg.Version, pkg.ChecksumSha256);
+            Environment.Exit(0);
         }
         catch (Exception ex)
         {

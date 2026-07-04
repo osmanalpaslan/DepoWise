@@ -6,15 +6,20 @@ using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Infrastructure.Organization;
 
-public sealed record BranchRow(string Id, string Name, string Kind, string? ParentId, string? ParentName, int UserCount)
+public sealed record BranchRow(string Id, string Name, string Kind, string? ParentId, string? ParentName, int UserCount,
+    string? Code = null, bool HasPassword = false)
 {
     public string KindDisplay => Kind == "site" ? "Şantiye" : "Şube";
     public string ParentDisplay => string.IsNullOrEmpty(ParentName) ? "—" : ParentName!;
+    public string CodeDisplay => string.IsNullOrEmpty(Code) ? "—" : Code!;
+    public string PasswordDisplay => HasPassword ? "•••• (tanımlı)" : "—";
 }
 
 public sealed record BranchUserRow(string Id, string Username, string? FullName, string Roles);
 
-public sealed record NewBranch(string Name, string Kind = "branch", string? ParentId = null);
+/// <summary>Şube tanımı — Password boş bırakılırsa (düzenlemede) mevcut şifre değişmez.</summary>
+public sealed record NewBranch(string Name, string Kind = "branch", string? ParentId = null,
+    string? Code = null, string? Password = null);
 
 /// <summary>
 /// Şube / Şantiye yönetimi (firma kapsamlı). CRUD + şubeye atanmış kullanıcılar + kullanıcıya şube atama.
@@ -39,7 +44,8 @@ public sealed class BranchService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT b.id, b.name, b.kind, b.parent_id, p.name,
-       (SELECT COUNT(*) FROM users u WHERE u.branch_id = b.id AND u.is_deleted = 0)
+       (SELECT COUNT(*) FROM users u WHERE u.branch_id = b.id AND u.is_deleted = 0),
+       b.code, b.password_hash
 FROM branches b
 LEFT JOIN branches p ON p.id = b.parent_id
 WHERE b.company_id = $c AND b.is_deleted = 0
@@ -51,7 +57,9 @@ ORDER BY b.name;";
             list.Add(new BranchRow(r.GetString(0), r.GetString(1), r.GetString(2),
                 r.IsDBNull(3) ? null : r.GetString(3),
                 r.IsDBNull(4) ? null : r.GetString(4),
-                r.GetInt32(5)));
+                r.GetInt32(5),
+                r.IsDBNull(6) ? null : r.GetString(6),
+                !r.IsDBNull(7) && !string.IsNullOrEmpty(r.GetString(7))));
         return list;
     }
 
@@ -68,13 +76,16 @@ ORDER BY b.name;";
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "INSERT INTO branches(id, company_id, parent_id, name, kind, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$p,$n,$k,$now,$now,1,0);";
+                "INSERT INTO branches(id, company_id, parent_id, name, kind, code, password_hash, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$p,$n,$k,$code,$pw,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
             cmd.Parameters.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
             cmd.Parameters.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
+            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pw", string.IsNullOrWhiteSpace(dto.Password)
+                ? DBNull.Value : DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password));
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
@@ -96,10 +107,15 @@ ORDER BY b.name;";
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE branches SET name=$n, kind=$k, parent_id=$p, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
+            // Şifre boşsa mevcut korunur (COALESCE); doluysa yeni hash yazılır.
+            cmd.CommandText = "UPDATE branches SET name=$n, kind=$k, parent_id=$p, code=$code, " +
+                "password_hash=COALESCE($pw, password_hash), version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
             cmd.Parameters.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
             cmd.Parameters.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pw", string.IsNullOrWhiteSpace(dto.Password)
+                ? DBNull.Value : DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password));
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
@@ -179,6 +195,38 @@ ORDER BY u.username;";
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "user", userId, AuditActions.Update, s.UserId), _clock);
         tx.Commit();
+    }
+
+    private static string? Norm(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    /// <summary>Login'de şube şifresi doğrulaması. Şubenin şifresi tanımlı DEĞİLSE true (şifre istenmiyor).
+    /// Tanımlıysa bcrypt ile karşılaştırır. Yetki gerektirmez (login öncesi çağrılabilir).</summary>
+    public bool VerifyBranchPassword(string companyId, string branchId, string? password)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT password_hash FROM branches WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$id", branchId);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        var hash = cmd.ExecuteScalar() as string;
+        if (string.IsNullOrEmpty(hash)) return true; // şifre tanımlı değil → serbest
+        return !string.IsNullOrEmpty(password) && DepoWise.Infrastructure.Security.PasswordHasher.Verify(password, hash);
+    }
+
+    /// <summary>Firmanın şubeleri (login şube seçimi için; yetki gerektirmez). id + ad + kod + şifre-var-mı.</summary>
+    public IReadOnlyList<BranchRow> ListForLogin(string companyId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id, name, kind, code, (password_hash IS NOT NULL AND password_hash<>'') " +
+            "FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        var list = new List<BranchRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new BranchRow(r.GetString(0), r.GetString(1), r.GetString(2), null, null, 0,
+                r.IsDBNull(3) ? null : r.GetString(3), r.GetInt64(4) == 1));
+        return list;
     }
 
     private static void EnsureBranchOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string branchId)

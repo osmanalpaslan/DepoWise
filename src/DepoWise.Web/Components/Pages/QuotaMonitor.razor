@@ -1,0 +1,59 @@
+@page "/quota-monitor"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+<MudText Typo="Typo.h5" GutterBottom="true">Kota İzleme</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    Firma başına kullanıcı ve admin kotası kullanımı. Admin kotası, firma kullanıcı kotasının %20'sidir (en az 1).
+</MudText>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Firmalar</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
+            <HeaderContent>
+                <MudTh>FİRMA</MudTh><MudTh>KULLANICI</MudTh><MudTh>AKTİF</MudTh><MudTh>ADMİN</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@Str(context, "companyName")</MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@(Bool(context, "userFull") ? Color.Error : Color.Success)">@Str(context, "userText")</MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">@Str(context, "activeText")</MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@(Bool(context, "adminFull") ? Color.Error : Color.Info)">@Str(context, "adminText")</MudChip>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
+</MudPaper>
+
+@code {
+    private JsonElement[]? _rows;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _rows = null; _error = null;
+        try { _rows = await Api.GetArrayAsync("/api/quota-monitor"); }
+        catch (Exception ex) { _error = ex.Message; _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private static string Str(JsonElement e, string k)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString()) : "";
+    private static bool Bool(JsonElement e, string k)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+}

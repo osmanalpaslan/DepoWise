@@ -1,15 +1,14 @@
 @inject IDialogService Dialog
 @inject ApiClient Api
 
-<MudSelect T="string" Value="@Value" ValueChanged="Changed" Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
-           Clearable="true" Dense="true" Disabled="@Disabled"
-           Adornment="@(CanAdd ? Adornment.End : Adornment.None)"
-           AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick="Add">
-    @foreach (var o in Items)
-    {
-        <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem>
-    }
-</MudSelect>
+<MudAutocomplete T="string" Value="@Value" ValueChanged="Changed" Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
+                 SearchFunc="Search" ToStringFunc="IdToName" Clearable="true" Dense="true" Disabled="@Disabled"
+                 ResetValueOnEmptyText="false" CoerceText="true" CoerceValue="false" Strict="false"
+                 MaxItems="null" Placeholder="Ara / seç..."
+                 Adornment="@(CanAdd ? Adornment.End : Adornment.None)"
+                 AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick="Add">
+    <ItemTemplate Context="id">@IdToName(id)</ItemTemplate>
+</MudAutocomplete>
 
 @code {
     [Parameter] public string? Value { get; set; }
@@ -30,6 +29,20 @@
     private bool CanAdd => AddTable is not null || CreatePath is not null;
 
     private async Task Changed(string? v) { Value = v; await ValueChanged.InvokeAsync(v); }
+
+    /// <summary>Id → görünen ad (seçili değeri metne çevirir).</summary>
+    private string IdToName(string? id)
+        => string.IsNullOrEmpty(id) ? "" : Items.FirstOrDefault(x => x.Id == id)?.Name ?? "";
+
+    /// <summary>Metne göre filtrele; boş metinde tümü. Id değerlerini döndürür (görünen ad ItemTemplate/ToStringFunc ile).</summary>
+    private Task<IEnumerable<string>> Search(string? text, System.Threading.CancellationToken _)
+    {
+        var q = (text ?? "").Trim();
+        IEnumerable<ApiClient.Opt> src = Items;
+        if (q.Length > 0)
+            src = Items.Where(o => (o.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(src.Select(o => o.Id));
+    }
 
     private async Task Add()
     {

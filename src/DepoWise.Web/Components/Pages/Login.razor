@@ -1,5 +1,6 @@
 @page "/login"
 @layout DepoWise.Web.Components.Layout.BlankLayout
+@using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
 @inject NavigationManager Nav
@@ -7,41 +8,103 @@
 
 <PageTitle>Giriş — DepoWise</PageTitle>
 
-<MudPaper Class="pa-8" Elevation="4" Style="max-width:420px;width:100%;margin-top:12vh;">
+<MudPaper Class="pa-8" Elevation="4" Style="max-width:440px;width:100%;margin-top:10vh;">
     <MudText Typo="Typo.h5" Class="mb-1">DepoWise Yönetim</MudText>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">Sunucu hesabınızla giriş yapın.</MudText>
 
-    <MudTextField @bind-Value="_username" Label="Kullanıcı adı" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
-    <MudTextField @bind-Value="_password" Label="Parola" InputType="InputType.Password" Variant="Variant.Outlined"
-                  Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey" />
-    <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoLogin" Disabled="_busy">
-        @(_busy ? "Giriş yapılıyor…" : "Giriş")
-    </MudButton>
+    @if (_step == 1)
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">Hesabınızla giriş yapın.</MudText>
+        <MudTextField @bind-Value="_username" Label="Kullanıcı adı" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+        <MudTextField @bind-Value="_password" Label="Parola" InputType="InputType.Password" Variant="Variant.Outlined"
+                      Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey1" />
+        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoStep1" Disabled="_busy">
+            @(_busy ? "Doğrulanıyor…" : "Devam")
+        </MudButton>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-1">@_companyName</MudText>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">Şube seçip giriş yapın.</MudText>
+        <MudSelect T="string" @bind-Value="_branchId" Label="Şube / Şantiye" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Clearable="true">
+            @if (_canViewAllBranches)
+            {
+                <MudSelectItem T="string" Value="@AllBranches">🌐 Tüm Şubeler</MudSelectItem>
+            }
+            @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name @(string.IsNullOrEmpty(b.Code) ? "" : $"({b.Code})")</MudSelectItem> }
+        </MudSelect>
+        @if (SelectedBranchHasPassword)
+        {
+            <MudTextField @bind-Value="_branchPassword" Label="Şube Şifresi" InputType="InputType.Password"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey2" />
+        }
+        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoStep2" Disabled="_busy">
+            @(_busy ? "Giriş yapılıyor…" : "Giriş")
+        </MudButton>
+        <MudButton FullWidth="true" Variant="Variant.Text" Class="mt-2" OnClick="BackToStep1" Disabled="_busy">← Geri</MudButton>
+    }
 
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert> }
 </MudPaper>
 
 @code {
-    private string _username = "";
-    private string _password = "";
+    private const string AllBranches = "__all__"; // API BranchConstants.AllBranchesId ile aynı
+    private int _step = 1;
+    private string _username = "", _password = "";
+    private string? _branchId, _branchPassword;
+    private string _companyName = "";
+    private bool _canViewAllBranches;
+    private List<LoginBranchDto> _branches = new();
+    private LoginResponse? _authData;
     private string? _error;
     private bool _busy;
 
-    private async Task OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") await DoLogin(); }
+    // '|' ayracını bozmamak için depoya yazarken temizle (firma/kullanıcı adında pipe nadir ama garanti).
+    private static string Safe(string? v) => (v ?? "").Replace("|", " ");
 
-    private async Task DoLogin()
+    private bool SelectedBranchHasPassword =>
+        _branchId is not null && _branchId != AllBranches && (_branches.FirstOrDefault(b => b.Id == _branchId)?.HasPassword ?? false);
+
+    private async Task OnKey1(KeyboardEventArgs e) { if (e.Key == "Enter") await DoStep1(); }
+    private async Task OnKey2(KeyboardEventArgs e) { if (e.Key == "Enter") await DoStep2(); }
+
+    private async Task DoStep1()
     {
         _error = null; _busy = true;
         try
         {
-            _error = await Api.LoginAsync(_username.Trim(), _password);
-            if (_error is null)
+            var (err, data) = await Api.AuthenticateAsync(_username.Trim(), _password);
+            if (err is not null || data is null) { _error = err ?? "Giriş başarısız."; return; }
+            _authData = data;
+            _companyName = string.IsNullOrEmpty(data.CompanyName) ? "" : data.CompanyName!;
+            _canViewAllBranches = data.CanViewAllBranches;
+            _branches = data.Branches ?? new();
+            _branchId = null; _branchPassword = null;
+            _step = 2;
+        }
+        catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private void BackToStep1() { _step = 1; _error = null; _branchId = null; _branchPassword = null; }
+
+    private async Task DoStep2()
+    {
+        if (_authData is null) { BackToStep1(); return; }
+        _error = null; _busy = true;
+        try
+        {
+            bool allBranches = _branchId == AllBranches;
+            if (allBranches && !_canViewAllBranches) { _error = "Bu kullanıcının Tüm Şubeler yetkisi yok."; return; }
+            // Gerçek şube + şifre varsa doğrula
+            if (SelectedBranchHasPassword)
             {
-                await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}");
-                await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
-                // Tam yeniden yükleme: her giriş taze kodla açılır (manuel CTRL+SHIFT+R gerekmez).
-                Nav.NavigateTo("/", forceLoad: true);
+                var ok = await Api.VerifyBranchAsync(_authData.CompanyId, _branchId!, _branchPassword);
+                if (!ok) { _error = "Şube şifresi hatalı."; return; }
             }
+            await Api.FinalizeSignInAsync(_authData, _branchId, _username.Trim());
+            await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}|{Auth.BranchId}|{Safe(Auth.CompanyName)}|{Safe(Auth.UserName)}");
+            await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
+            Nav.NavigateTo("/", forceLoad: true);
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
         finally { _busy = false; }

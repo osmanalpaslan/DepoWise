@@ -1,0 +1,94 @@
+@using System.Text.Json
+@inject ApiClient Api
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6"><MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />Ekran Bilgisi</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background:rgba(59,130,246,0.08)">
+            <MudText Typo="Typo.subtitle2">Ekran</MudText>
+            <MudText Typo="Typo.body1"><b>@ScreenName</b></MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Kod: <code>@ScreenCode</code></MudText>
+        </MudPaper>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Tanımlar (ad · kod · ID)</MudText>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+            Tüm makinelerde ortak; web'te eklendikçe güncellenir. ID'ler GUID olduğundan web ve masaüstü tanımları çakışmaz.
+        </MudText>
+
+        @if (_loading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_groups.Count == 0) { <MudText Class="mud-text-secondary">Tanım bulunamadı.</MudText> }
+        else
+        {
+            <MudExpansionPanels MultiExpansion="true" Elevation="0" Dense="true">
+                @foreach (var g in _groups)
+                {
+                    <MudExpansionPanel Text="@($"{g.Label}  ({g.Items.Count})  ·  {g.Code}")">
+                        @if (g.Items.Count == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">— kayıt yok —</MudText> }
+                        else
+                        {
+                            <MudSimpleTable Dense="true" Hover="true" Style="overflow-x:auto">
+                                <thead><tr><th>Ad</th><th>ID</th></tr></thead>
+                                <tbody>
+                                    @foreach (var it in g.Items)
+                                    {
+                                        <tr><td>@it.Name</td><td><code style="font-size:11px">@it.Id</code></td></tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+                    </MudExpansionPanel>
+                }
+            </MudExpansionPanels>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string ScreenName { get; set; } = "";
+    [Parameter] public string ScreenCode { get; set; } = "";
+
+    private bool _loading = true;
+    private readonly List<Group> _groups = new();
+    private sealed record Item(string Name, string Id);
+    private sealed class Group { public string Label = ""; public string Code = ""; public List<Item> Items = new(); }
+
+    private static readonly (string Json, string Label, string Code)[] Tables =
+    {
+        ("units", "Birimler", "units"),
+        ("suppliers", "Tedarikçiler", "suppliers"),
+        ("materialCategories", "Malzeme Kategorileri", "material_categories"),
+        ("brands", "Markalar", "brands"),
+        ("vehicleTypes", "Makine Tipleri", "vehicle_types"),
+        ("vehicleCategories", "Araç Kategorileri", "vehicle_categories"),
+        ("vehicleModels", "Araç Modelleri", "vehicle_models"),
+        ("branches", "Şube / Şantiye", "branches"),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var doc = await Api.GetObjectAsync("/api/lookups/sync");
+            foreach (var (json, label, code) in Tables)
+            {
+                var g = new Group { Label = label, Code = code };
+                if (doc.TryGetProperty(json, out var arr) && arr.ValueKind == JsonValueKind.Array)
+                    foreach (var e in arr.EnumerateArray())
+                        g.Items.Add(new Item(
+                            e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                            e.TryGetProperty("id", out var i) ? i.GetString() ?? "" : ""));
+                _groups.Add(g);
+            }
+        }
+        catch { }
+        _loading = false;
+    }
+
+    private void Close() => MudDialog.Close();
+}

@@ -46,8 +46,11 @@ public sealed partial class BranchesViewModel : ViewModelBase
     [ObservableProperty] private string _formName = "";
     [ObservableProperty] private string _formKind = "Şube";
     [ObservableProperty] private BranchRow? _formParent;
+    [ObservableProperty] private string _formCode = "";
+    [ObservableProperty] private string _formPassword = "";
     [ObservableProperty] private string? _formError;
     public string FormTitle => EditId is null ? "YENİ ŞUBE / ŞANTİYE" : "ŞUBE DÜZENLE";
+    public string PasswordLabel => EditId is null ? "Şube Şifresi" : "Yeni Şifre (boş = değişmez)";
 
     public BranchesViewModel(SessionContext session)
     {
@@ -86,9 +89,9 @@ public sealed partial class BranchesViewModel : ViewModelBase
     private void NewBranch()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
-        EditId = null; FormName = ""; FormKind = "Şube"; FormParent = null; FormError = null;
+        EditId = null; FormName = ""; FormKind = "Şube"; FormParent = null; FormCode = ""; FormPassword = ""; FormError = null;
         ShowAdd = true;
-        OnPropertyChanged(nameof(FormTitle));
+        OnPropertyChanged(nameof(FormTitle)); OnPropertyChanged(nameof(PasswordLabel));
     }
 
     [RelayCommand]
@@ -100,8 +103,9 @@ public sealed partial class BranchesViewModel : ViewModelBase
         FormName = Selected.Name;
         FormKind = Selected.Kind == "site" ? "Şantiye" : "Şube";
         FormParent = ParentOptions.FirstOrDefault(p => p.Id == Selected.ParentId);
+        FormCode = Selected.Code ?? ""; FormPassword = "";
         FormError = null; ShowAdd = true;
-        OnPropertyChanged(nameof(FormTitle));
+        OnPropertyChanged(nameof(FormTitle)); OnPropertyChanged(nameof(PasswordLabel));
     }
 
     [RelayCommand]
@@ -114,7 +118,9 @@ public sealed partial class BranchesViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Ad zorunlu."; return; }
         // Kendini üst şube seçmeyi engelle
         var parentId = FormParent?.Id == EditId ? null : FormParent?.Id;
-        var dto = new NewBranch(FormName.Trim(), KindCode(FormKind), parentId);
+        var dto = new NewBranch(FormName.Trim(), KindCode(FormKind), parentId,
+            string.IsNullOrWhiteSpace(FormCode) ? null : FormCode.Trim(),
+            string.IsNullOrWhiteSpace(FormPassword) ? null : FormPassword);
         var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(editing ? "Şube güncellensin mi?" : "Şube oluşturulsun mu?", "Kaydet")) return;
         try

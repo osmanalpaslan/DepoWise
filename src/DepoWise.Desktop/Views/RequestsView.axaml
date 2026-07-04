@@ -33,15 +33,15 @@
                     <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
                         <ScrollViewer MaxHeight="440">
                         <StackPanel Spacing="14" MaxWidth="900" HorizontalAlignment="Left">
-                            <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
-                            <TextBlock Text="Belge no otomatik (TLP-YYYY-NNNN). Kaydedince talep yöneticiye iletilir; sonra düzenlenemez."
+                            <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="Belge no otomatik (TLP-YYYY-NNNN). Kaydedince talep yöneticiye iletilir; sonra düzenlenemez."
                                        Classes="Helper" TextWrapping="Wrap"/>
 
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Şantiye" IsRequired="True" Width="280">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Sites}" SelectedItem="{Binding FormSite}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddSiteCommand}"/>
                                     </Grid>
@@ -61,7 +61,7 @@
                                 <ctrl:FormField Label="Talep Eden" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormRequester}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddRequesterCommand}"/>
                                     </Grid>
@@ -69,7 +69,7 @@
                                 <ctrl:FormField Label="Depo Sorumlusu" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormWarehouse}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddWarehouseCommand}"/>
                                     </Grid>
@@ -77,7 +77,7 @@
                                 <ctrl:FormField Label="Onay Veren" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormApprover}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddApproverCommand}"/>
                                     </Grid>
@@ -95,7 +95,7 @@
                             </ctrl:FormField>
 
                             <!-- Kalemler -->
-                            <TextBlock Text="TALEP KALEMLERİ" Classes="SectionTitle"/>
+                            <SelectableTextBlock Text="TALEP KALEMLERİ" Classes="SectionTitle"/>
                             <Border Classes="Panel" Background="{DynamicResource SurfaceAltBrush}">
                                 <StackPanel Spacing="8">
                                     <StackPanel Orientation="Horizontal" Spacing="12">
@@ -109,7 +109,7 @@
                                             <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding NewItemVehicle}"
                                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka"
                                                              ValueMemberBinding="{Binding Display}">
-                                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                             </AutoCompleteBox>
                                         </ctrl:FormField>
                                         <Button Classes="Primary" Content="Ekle" VerticalAlignment="Bottom" Command="{Binding AddItemCommand}"/>
@@ -129,15 +129,15 @@
                                             </ItemsControl>
                                         </ScrollViewer>
                                     </Border>
-                                    <TextBlock Text="{Binding ItemError}" Classes="Helper" Foreground="{DynamicResource DangerBrush}"
+                                    <SelectableTextBlock Text="{Binding ItemError}" Classes="Helper" Foreground="{DynamicResource DangerBrush}"
                                                IsVisible="{Binding ItemError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
 
                                     <ItemsControl ItemsSource="{Binding FormItems}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:ReqItemLine">
                                                 <Grid ColumnDefinitions="*,150,120,Auto" Margin="0,2">
-                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding VehicleText}" Classes="Helper" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding VehicleText}" Classes="Helper" VerticalAlignment="Center"/>
                                                     <NumericUpDown Grid.Column="2" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                                     <Button Grid.Column="3" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
                                                             Command="{Binding $parent[ItemsControl].((vm:RequestsViewModel)DataContext).RemoveItemCommand}"
@@ -149,7 +149,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                            <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                                        IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                 <Button Classes="Secondary" Content="İptal" Command="{Binding CancelFormCommand}"/>
@@ -166,21 +166,21 @@
                                 <DockPanel>
                                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                                         <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                                            <TextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
-                                            <TextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
-                                            <TextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
-                                            <TextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
-                                            <TextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
+                                            <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
                                         </Grid>
                                     </Border>
                                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
                                                 <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                                                    <TextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                     <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center" Kind="{Binding StatusKind}" Text="{Binding StatusText}"/>
                                                 </Grid>
                                             </DataTemplate>
@@ -200,28 +200,28 @@
                                         <ScrollViewer>
                                             <StackPanel Spacing="12">
                                                 <Grid ColumnDefinitions="*,Auto">
-                                                    <TextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
                                                     <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
                                                 </Grid>
-                                                <TextBlock Text="KALEMLER" Classes="SectionTitle"/>
+                                                <SelectableTextBlock Text="KALEMLER" Classes="SectionTitle"/>
                                                 <ItemsControl ItemsSource="{Binding DetailItems}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="inf:RequestItemRow">
                                                             <Grid ColumnDefinitions="*,Auto" Margin="0,3">
                                                                 <StackPanel Grid.Column="0">
-                                                                    <TextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
-                                                                    <TextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
+                                                                    <SelectableTextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
+                                                                    <SelectableTextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
                                                                 </StackPanel>
-                                                                <TextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                             </Grid>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                                 <Border Classes="Divider"/>
-                                                <TextBlock Text="DURUM GEÇMİŞİ" Classes="SectionTitle"/>
+                                                <SelectableTextBlock Text="DURUM GEÇMİŞİ" Classes="SectionTitle"/>
                                                 <ItemsControl ItemsSource="{Binding History}">
                                                     <ItemsControl.ItemTemplate>
-                                                        <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="Helper" Margin="0,2"/></DataTemplate>
+                                                        <DataTemplate x:DataType="x:String"><SelectableTextBlock Text="{Binding}" Classes="Helper" Margin="0,2"/></DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                                 <WrapPanel>
@@ -237,7 +237,7 @@
                             </ContentControl>
                         </Border>
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
-                            <TextBlock Text="Detay için bir talep seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="Detay için bir talep seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                 </Grid>
@@ -258,20 +258,20 @@
                                 <DockPanel>
                                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                                         <Grid ColumnDefinitions="Auto,Auto,Auto,*">
-                                            <TextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
-                                            <TextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
-                                            <TextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
-                                            <TextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
+                                            <SelectableTextBlock Grid.Column="0" Text="BELGE NO" MinWidth="130"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="TARİH" MinWidth="90"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="KALEM" MinWidth="60"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
                                         </Grid>
                                     </Border>
                                     <ListBox Classes="Table" ItemsSource="{Binding PendingItems}" SelectedItem="{Binding Selected}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
                                                 <Grid ColumnDefinitions="Auto,Auto,Auto,*">
-                                                    <TextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                    <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -285,19 +285,19 @@
                             <ScrollViewer>
                                 <StackPanel Spacing="12">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
                                         <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
                                     </Grid>
-                                    <TextBlock Text="KALEMLER" Classes="SectionTitle"/>
+                                    <SelectableTextBlock Text="KALEMLER" Classes="SectionTitle"/>
                                     <ItemsControl ItemsSource="{Binding DetailItems}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="inf:RequestItemRow">
                                                 <Grid ColumnDefinitions="*,Auto" Margin="0,3">
                                                     <StackPanel Grid.Column="0">
-                                                        <TextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
-                                                        <TextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
+                                                        <SelectableTextBlock Text="{Binding MaterialName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
+                                                        <SelectableTextBlock Text="{Binding MaterialCode}" Classes="Helper"/>
                                                     </StackPanel>
-                                                    <TextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -314,13 +314,13 @@
                             </ScrollViewer>
                         </Border>
                         <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
-                            <TextBlock Text="Onaylamak için bir talep seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Text="Onaylamak için bir talep seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                 </Grid>
             </TabItem>
         </TabControl>
 
-        <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="1" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

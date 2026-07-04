@@ -14,7 +14,7 @@
             <ctrl:SectionHeader Title="Bileşen Galerisi" Subtitle="Faz 5 — yalnız geliştirme referansı"/>
 
             <!-- Butonlar -->
-            <TextBlock Text="BUTONLAR" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="BUTONLAR" Classes="SectionTitle"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Classes="Primary" Content="Birincil"/>
                 <Button Classes="Secondary" Content="İkincil"/>
@@ -25,7 +25,7 @@
             </StackPanel>
 
             <!-- Rozetler -->
-            <TextBlock Text="DURUM ROZETLERİ" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="DURUM ROZETLERİ" Classes="SectionTitle"/>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <ctrl:StatusBadge Kind="Success" Text="Aktif"/>
                 <ctrl:StatusBadge Kind="Warning" Text="Düşük Stok"/>
@@ -35,7 +35,7 @@
             </StackPanel>
 
             <!-- Form alanları -->
-            <TextBlock Text="FORM ALANLARI" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="FORM ALANLARI" Classes="SectionTitle"/>
             <Border Classes="Panel">
                 <StackPanel Spacing="14" MaxWidth="420">
                     <ctrl:FormField Label="Malzeme Adı" IsRequired="True" HelpText="Zorunlu alan.">
@@ -57,7 +57,7 @@
             </Border>
 
             <!-- Toolbar -->
-            <TextBlock Text="ARAÇ ÇUBUĞU" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="ARAÇ ÇUBUĞU" Classes="SectionTitle"/>
             <ctrl:Toolbar Title="Malzemeler"
                           SearchText="{Binding SearchText}"
                           SearchWatermark="Malzeme ara..."
@@ -65,7 +65,7 @@
                           PrimaryActionCommand="{Binding DemoActionCommand}"/>
 
             <!-- Tablo (ListBox tabanlı desen) -->
-            <TextBlock Text="TABLO" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="TABLO" Classes="SectionTitle"/>
             <Border Classes="Table" Grid.IsSharedSizeScope="True">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
@@ -76,10 +76,10 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="KOD" MinWidth="90"/>
-                            <TextBlock Grid.Column="1" Text="AD"/>
-                            <TextBlock Grid.Column="2" Text="DURUM" MinWidth="100"/>
-                            <TextBlock Grid.Column="3" Text="STOK" MinWidth="70"/>
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="1" Text="AD"/>
+                            <SelectableTextBlock Grid.Column="2" Text="DURUM" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="3" Text="STOK" MinWidth="70"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Rows}" MaxHeight="180">
@@ -92,10 +92,10 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Status}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding Stock}" MinWidth="70" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Status}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Stock}" MinWidth="70" VerticalAlignment="Center"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -104,7 +104,7 @@
             </Border>
 
             <!-- Durum panelleri -->
-            <TextBlock Text="DURUM PANELLERİ (boş / hata / yükleme)" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="DURUM PANELLERİ (boş / hata / yükleme)" Classes="SectionTitle"/>
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <Border Classes="Panel" Width="270" Height="170">
                     <ctrl:StatePanel Mode="Empty" Title="Kayıt yok"
@@ -122,7 +122,7 @@
             </StackPanel>
 
             <!-- Yükleme / skeleton -->
-            <TextBlock Text="YÜKLEME / SKELETON" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="YÜKLEME / SKELETON" Classes="SectionTitle"/>
             <Border Classes="Panel">
                 <StackPanel Spacing="10">
                     <ProgressBar Classes="Loading"/>
@@ -133,12 +133,12 @@
             </Border>
 
             <!-- Dialog + Toast önizleme -->
-            <TextBlock Text="DIALOG / TOAST (önizleme)" Classes="SectionTitle"/>
+            <SelectableTextBlock Text="DIALOG / TOAST (önizleme)" Classes="SectionTitle"/>
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <Border Classes="Dialog" Width="360" MaxWidth="360" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <StackPanel Spacing="14">
-                        <TextBlock Text="Kaydı sil?" Classes="PageTitle"/>
-                        <TextBlock Text="Bu işlem geri alınamaz." Classes="Helper"/>
+                        <SelectableTextBlock Text="Kaydı sil?" Classes="PageTitle"/>
+                        <SelectableTextBlock Text="Bu işlem geri alınamaz." Classes="Helper"/>
                         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                             <Button Classes="Ghost" Content="Vazgeç"/>
                             <Button Classes="Danger" Content="Sil"/>
@@ -147,10 +147,10 @@
                 </Border>
                 <StackPanel Spacing="10">
                     <Border Classes="Toast success">
-                        <TextBlock Text="Kayıt başarıyla eklendi." Classes="Body"/>
+                        <SelectableTextBlock Text="Kayıt başarıyla eklendi." Classes="Body"/>
                     </Border>
                     <Border Classes="Toast danger">
-                        <TextBlock Text="İşlem başarısız oldu." Classes="Body"/>
+                        <SelectableTextBlock Text="İşlem başarısız oldu." Classes="Body"/>
                     </Border>
                 </StackPanel>
             </StackPanel>

@@ -28,18 +28,13 @@ public partial class App : Avalonia.Application
             var boot = DesktopBootstrap.Run();
             ThemeApplier.Apply(this, boot.Theme);   // merkezi tema (sabit renk yok)
             DesktopServices.Initialize(boot);       // servisler + ilk açılış admin seed
+            DepoWise.Desktop.Theming.ThemeService.ApplySaved(); // kullanıcının seçtiği tema modu (Koyu/Açık/Sistem)
 
-            // "Beni Hatırla": geçerli token varsa giriş ekranını atla
-            var remembered = RememberMeService.TryAutoLogin();
-            if (remembered is not null)
-            {
-                DesktopServices.Session = remembered;
-                desktop.MainWindow = new MainWindow { DataContext = new ShellViewModel(remembered) };
-            }
-            else
-            {
-                ShowLogin();
-            }
+            // Kullanıcı isteği: uygulama kapatılınca oturum biter → her açılışta LOGIN ekranı gelir.
+            // "Beni Hatırla" artık yalnız kullanıcı ADINI ön-doldurur (otomatik giriş YAPILMAZ). Kapanışta
+            // (Exit) auto-login token'ı da temizlenir ki geçmiş token ile kimse otomatik girmesin.
+            desktop.Exit += (_, _) => { try { RememberMeService.Clear(); } catch { } };
+            ShowLogin();
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -55,14 +50,31 @@ public partial class App : Avalonia.Application
         loginVm.OnLoggedIn = session =>
         {
             DesktopServices.Session = session;
-            var main = new MainWindow { DataContext = new ShellViewModel(session) };
-            _desktop.MainWindow = main;
-            main.Show();
-            login.Close();
+            ShowSyncThenMain(session, login); // login → eşitleme animasyonu → uygulama
         };
         _desktop.MainWindow = login;
         login.Show();
         old?.Close();
+    }
+
+    /// <summary>Login ile uygulama arasında "Web ile Eşitleniyor" ekranını gösterir; eşitleme + min 2 sn
+    /// animasyon bitince MainWindow açılır. Kullanıcı yetkileri giriş anında zaten yerele çekilmiştir.</summary>
+    private void ShowSyncThenMain(SessionContext session, Avalonia.Controls.Window? toClose)
+    {
+        if (_desktop is null) return;
+        var vm = new SyncViewModel(session);
+        var sync = new SyncWindow { DataContext = vm };
+        vm.Done = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var main = new MainWindow { DataContext = new ShellViewModel(session) };
+            _desktop.MainWindow = main;
+            main.Show();
+            sync.Close();
+        });
+        _desktop.MainWindow = sync;
+        sync.Show();
+        toClose?.Close();
+        _ = vm.RunAsync();
     }
 
     /// <summary>Çıkış Yap: "Beni Hatırla" token'ını sil, oturumu kapat, giriş ekranına dön.</summary>

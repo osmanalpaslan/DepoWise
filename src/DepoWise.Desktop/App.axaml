@@ -21,7 +21,8 @@
     </Application.Resources>
 
     <Application.Styles>
-        <FluentTheme />
+        <!-- Base tema (Fluent/Semi) çalışma zamanında ThemeService ile Styles[0]'a eklenir (Ayarlar → Tema).
+             Açılışta ApplyStyleAtStartup varsayılan/kayıtlı stili yükler. -->
 
         <!-- Tasarım sistemi temel sınıf stilleri (opt-in; mevcut kontrolleri etkilemez) -->
         <StyleInclude Source="/Themes/Controls.axaml"/>

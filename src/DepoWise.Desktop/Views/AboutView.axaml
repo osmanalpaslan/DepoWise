@@ -11,7 +11,7 @@
     <Grid RowDefinitions="Auto,*" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
         <ctrl:Toolbar Grid.Row="0" Title="Hakkında"/>
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" VerticalAlignment="Top">
-            <TextBlock Text="İçerik yakında eklenecek." Classes="Helper"/>
+            <SelectableTextBlock Text="İçerik yakında eklenecek." Classes="Helper"/>
         </Border>
     </Grid>
 </UserControl>

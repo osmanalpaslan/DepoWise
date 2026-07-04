@@ -56,10 +56,11 @@ public sealed class FuelService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO fuel_depot_entries(id, company_id, supplier_id, liters, unit_price, currency_code, fx_rate,
-    invoice_no, note, entry_date, operation_id, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$now,$now,1,0);";
+    invoice_no, note, entry_date, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$opb,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$lt", Money.Serialize(dto.Liters));
             cmd.Parameters.AddWithValue("$pr", Money.Serialize(dto.UnitPrice));
@@ -103,10 +104,11 @@ VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$now,$now,1,0);";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO fuel_distributions(id, company_id, vehicle_id, prev_meter, current_meter, liters, unit_price,
-    currency_code, fx_rate, personnel_id, distribution_date, note, operation_id, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$dt,$note,$op,$now,$now,1,0);";
+    currency_code, fx_rate, personnel_id, distribution_date, note, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$dt,$note,$op,$opb,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$v", dto.VehicleId);
             cmd.Parameters.AddWithValue("$prev", Money.Serialize(prev));
             cmd.Parameters.AddWithValue("$cur", Money.Serialize(dto.CurrentMeter));

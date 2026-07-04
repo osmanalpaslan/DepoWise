@@ -2,24 +2,40 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject NavigationManager Nav
+@inject IDialogService Dialog
 
 <PageTitle>Makineler — DepoWise</PageTitle>
 
 <MudText Typo="Typo.h5" GutterBottom="true">Makine Yönetimi</MudText>
-<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Kayıtlı makineleri onaylayın / pasife alın. (Süper Admin)</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Kayıtlı makineleri onaylayın / pasife alın. Firma kotası dahilindeki makineler otomatik giriş yapabilir. (Süper Admin)</MudText>
 
 <MudPaper Class="pa-4" Elevation="2">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
+        @if (Auth.IsSuperAdmin)
+        {
+            <MudSelect T="string" @bind-Value="_companyId" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="min-width:220px" Dense="true">
+                @foreach (var co in _companies) { <MudSelectItem T="string" Value="@co.Id">@co.Name</MudSelectItem> }
+            </MudSelect>
+            @if (!string.IsNullOrEmpty(_companyId))
+            {
+                <MudNumericField T="int" @bind-Value="_quota" Label="Makine Kotası" Min="1" Max="999" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px" />
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveQuota">Kotayı Kaydet</MudButton>
+            }
+        }
         <MudSpacer />
         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
     </MudStack>
+    @if (_msg is not null) { <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">@_msg</MudAlert> }
     @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
     @if (_machines is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Kayıtlı makine yok (enrollment sonrası listelenir).</MudText> }
+    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Kayıtlı makine yok (makineler açıldığında otomatik listelenir).</MudText> }
     else
     {
         <MudTable Items="_machines" Dense="true" Hover="true" Striped="true">
-            <HeaderContent><MudTh>Bağlantı</MudTh><MudTh>Makine</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
+            <HeaderContent>
+                <MudTh>Bağlantı</MudTh>
+                @if (Auth.IsSuperAdmin) { <MudTh>Firma</MudTh> }
+                <MudTh>Makine</MudTh><MudTh>Şube</MudTh><MudTh>IPv4</MudTh><MudTh>IPv6</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
             <RowTemplate>
                 <MudTd>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
@@ -27,14 +43,19 @@
                         <MudText Typo="Typo.caption">@(context.Online ? "Bağlı" : "Çevrimdışı")</MudText>
                     </MudStack>
                 </MudTd>
+                @if (Auth.IsSuperAdmin) { <MudTd>@context.CompanyName</MudTd> }
                 <MudTd>@context.Name</MudTd>
+                <MudTd>@context.BranchName</MudTd>
+                <MudTd><code style="font-size:12px">@context.Ipv4</code></MudTd>
+                <MudTd><code style="font-size:12px">@context.Ipv6</code></MudTd>
                 <MudTd>@context.StatusText</MudTd>
                 <MudTd>@context.LastSeenText</MudTd>
                 <MudTd>@context.CreatedText</MudTd>
                 <MudTd>
-                    @if (context.CanActivate) { <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => Approve(context.Id)">Aktifleştir</MudButton> }
+                    @if (context.CanActivate && context.Status == "pending") { <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => Approve(context.Id)">Onayla</MudButton> }
                     @if (context.Status == "revoked") { <MudButton Size="Size.Small" Color="Color.Success" OnClick="() => Reactivate(context.Id)">Yeniden Aktifleştir</MudButton> }
                     @if (context.IsActive) { <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => Revoke(context.Id)">Pasife Al</MudButton> }
+                    <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => Delete(context)" title="Sil" />
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -43,21 +64,59 @@
 
 @code {
     private List<MachineDto>? _machines;
-    private string? _error;
+    private List<ApiClient.Opt> _companies = new();
+    private string? _companyId;
+    private int _quota = 3;
+    private string? _error, _msg;
+    private string? _lastCompany;
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.IsAuthenticated) await Load();
+        if (!Auth.IsAuthenticated) return;
+        if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+        await Load();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (Auth.IsSuperAdmin && _companyId != _lastCompany)
+        {
+            _lastCompany = _companyId;
+            await Load();
+            SyncQuota();
+            StateHasChanged();
+        }
+    }
+
+    private void SyncQuota()
+    {
+        if (string.IsNullOrEmpty(_companyId)) return;
+        var m = _machines?.FirstOrDefault(x => x.CompanyId == _companyId);
+        if (m is not null) _quota = m.Quota;
     }
 
     private async Task Load()
     {
         _error = null;
-        try { _machines = await Api.GetMachinesAsync(); }
+        try { _machines = await Api.GetMachinesAsync(Auth.IsSuperAdmin ? _companyId : null); SyncQuota(); }
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+    }
+
+    private async Task SaveQuota()
+    {
+        _msg = _error = null;
+        if (string.IsNullOrEmpty(_companyId)) return;
+        var err = await Api.SetMachineQuotaAsync(_companyId, _quota);
+        if (err is null) { _msg = $"Kota {_quota} olarak kaydedildi."; await Load(); }
+        else _error = err;
     }
 
     private async Task Approve(string id) { try { await Api.ApproveMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
     private async Task Revoke(string id) { try { await Api.RevokeMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
     private async Task Reactivate(string id) { try { await Api.ReactivateMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
+    private async Task Delete(MachineDto m)
+    {
+        if (!await Dialog.Confirm($"'{m.Name}' makine kaydı kalıcı olarak silinsin mi?", "Evet, Sil", danger: true)) return;
+        try { await Api.DeleteMachineAsync(m.Id); await Load(); } catch (Exception ex) { _error = ex.Message; }
+    }
 }

@@ -83,7 +83,7 @@ public sealed class MaintenanceService
                 break;
         }
 
-        InsertMaintenance(conn, tx, s.CompanyId, id, dto, nextKm, nextHour, nextDate, operationId, now);
+        InsertMaintenance(conn, tx, s.CompanyId, id, dto, nextKm, nextHour, nextDate, operationId, now, s.OperatingBranchId);
 
         // Malzeme stok düşümü — TEK düşüm, negatif guard, fiyat snapshot
         for (int i = 0; i < (dto.Materials?.Count ?? 0); i++)
@@ -250,15 +250,16 @@ WHERE mm.maintenance_id=$mt ORDER BY m.code;";
     }
 
     private static void InsertMaintenance(SqliteConnection conn, SqliteTransaction tx, string companyId, string id,
-        NewMaintenance dto, decimal? nextKm, decimal? nextHour, long? nextDate, string operationId, long now)
+        NewMaintenance dto, decimal? nextKm, decimal? nextHour, long? nextDate, string operationId, long now, string? opBranchId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO vehicle_maintenances(id, company_id, vehicle_id, maintenance_def_id, sub_definition_id, technician_id,
     description, sub_definition_note, performed_km, performed_hour, performed_date,
-    next_due_km, next_due_hour, next_due_date, operation_id, is_cancelled, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$v,$d,$sd,$tech,$desc,$sdn,$pk,$ph,$pd,$nk,$nh,$nd,$op,0,$now,$now,1,0);";
+    next_due_km, next_due_hour, next_due_date, operation_id, op_branch_id, is_cancelled, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$v,$d,$sd,$tech,$desc,$sdn,$pk,$ph,$pd,$nk,$nh,$nd,$op,$opb,0,$now,$now,1,0);";
+        cmd.Parameters.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", companyId);
         cmd.Parameters.AddWithValue("$v", dto.VehicleId);

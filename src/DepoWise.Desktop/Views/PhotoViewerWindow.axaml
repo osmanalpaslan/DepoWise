@@ -7,7 +7,7 @@
     <DockPanel>
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource TopBarBackgroundBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0" Padding="12,8">
-            <TextBlock Text="Fare tekerleği: yakınlaştır / uzaklaştır · Çift tık: sığdır"
+            <SelectableTextBlock Text="Fare tekerleği: yakınlaştır / uzaklaştır · Çift tık: sığdır"
                        Classes="Helper" HorizontalAlignment="Center"/>
         </Border>
         <ScrollViewer x:Name="Scroller"

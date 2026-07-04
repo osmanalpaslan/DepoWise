@@ -21,20 +21,20 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                            <TextBlock Grid.Column="0" Text="TARİH" MinWidth="150"/>
-                            <TextBlock Grid.Column="1" Text="KULLANICI" MinWidth="160"/>
-                            <TextBlock Grid.Column="2" Text="KAYIT" MinWidth="220"/>
-                            <TextBlock Grid.Column="3" Text="İŞLEM" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="2" Text="KAYIT" MinWidth="220"/>
+                            <SelectableTextBlock Grid.Column="3" Text="İŞLEM" MinWidth="120"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="db:AuditLogRow">
                                 <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="160" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding EntityType}" MinWidth="220" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding ActionText}" MinWidth="120" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="150" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="160" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding EntityType}" MinWidth="220" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding ActionText}" MinWidth="120" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -46,6 +46,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Log yok" Message="Henüz sistem log kaydı yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

@@ -18,6 +18,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
 
     public bool CanWrite => AccessControl.Can(_session, "companies", PermissionAction.Create);
     public bool CanEdit => AccessControl.Can(_session, "companies", PermissionAction.Edit);
+    public bool CanDelete => _session.IsSuperAdmin;
 
     public ObservableCollection<CompanyRow> Items { get; } = new();
 
@@ -45,6 +46,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     [ObservableProperty] private string _formPhone = "";
     [ObservableProperty] private string _formEmail = "";
     [ObservableProperty] private string _formAuthorized = "";
+    [ObservableProperty] private int _formMaxUsers;
     [ObservableProperty] private string? _formError;
     public string FormTitle => EditId is null ? "YENİ FİRMA" : "FİRMA DÜZENLE";
 
@@ -76,7 +78,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok (yalnız Süper Admin)."; return; }
         EditId = null;
         FormName = ""; FormTaxNo = ""; FormTaxOffice = ""; FormAddress = "";
-        FormPhone = ""; FormEmail = ""; FormAuthorized = ""; FormError = null;
+        FormPhone = ""; FormEmail = ""; FormAuthorized = ""; FormMaxUsers = 0; FormError = null;
         ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle));
     }
@@ -94,6 +96,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
         FormPhone = Selected.Phone ?? "";
         FormEmail = Selected.Email ?? "";
         FormAuthorized = Selected.AuthorizedPerson ?? "";
+        FormMaxUsers = Selected.MaxUsers;
         FormError = null; ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle));
     }
@@ -102,11 +105,27 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     private void CancelAdd() { ShowAdd = false; EditId = null; }
 
     [RelayCommand]
+    private async Task DeleteCompany()
+    {
+        if (Selected is null) { Status = "Firma seçin."; return; }
+        if (!CanDelete) { Status = "Yetki yok (yalnız Süper Admin)."; return; }
+        if (!await ConfirmService.AskAsync($"'{Selected.Name}' firması silinsin mi? (Bağlı kullanıcı varsa engellenir.)",
+                "Firma Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Companies.Delete(_session, Selected.Id);
+            Load();
+            Status = "Firma silindi.";
+        }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
     private async Task Save()
     {
         FormError = null;
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Firma adı zorunlu."; return; }
-        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized);
+        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers);
         var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(editing ? "Firma güncellensin mi?" : "Firma oluşturulsun mu?", "Kaydet")) return;
         try

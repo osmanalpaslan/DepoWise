@@ -17,15 +17,31 @@ public static class RememberMeService
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromDays(30);
 
-    private static string FilePath
+    private static string DirPath
     {
         get
         {
             var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var dir = Path.Combine(root, AppPaths.AppFolderName);
             Directory.CreateDirectory(dir);
-            return Path.Combine(dir, "remember.bin");
+            return dir;
         }
+    }
+
+    private static string FilePath => Path.Combine(DirPath, "remember.bin");
+
+    /// <summary>Son giren kullanıcı adı (hassas değil) — çıkış sonrası login ekranını doldurmak için.
+    /// Beni Hatırla token'ı silinse bile bu ad korunur.</summary>
+    private static string LastUserFile => Path.Combine(DirPath, "lastuser.txt");
+
+    public static void SaveLastUsername(string username)
+    {
+        try { File.WriteAllText(LastUserFile, username ?? ""); } catch { }
+    }
+
+    public static string GetLastUsername()
+    {
+        try { return File.Exists(LastUserFile) ? File.ReadAllText(LastUserFile).Trim() : ""; } catch { return ""; }
     }
 
     /// <summary>Giriş sonrası çağrılır: token üret, hash'i DB'ye yaz, düz token'ı DPAPI ile dosyaya kaydet.</summary>

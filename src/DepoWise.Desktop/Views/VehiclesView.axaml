@@ -3,6 +3,7 @@
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:mnt="using:DepoWise.Infrastructure.Maintenance"
              xmlns:inf="using:DepoWise.Infrastructure.Vehicles"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -30,17 +31,17 @@
             </Border.KeyBindings>
             <ScrollViewer MaxHeight="500">
             <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
-                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
                 <ctrl:FormField Label="Şablon (Araç Genel Tanım)" IsVisible="{Binding !IsEditMode}"
                                 HelpText="Seçince Tip/Kategori/Marka/Model/Yıl ve iç kod otomatik dolar.">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:VehicleTemplateRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:VehicleTemplateRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
                 </ctrl:FormField>
 
-                <TextBlock Text="Tanım" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="İç Kod" IsRequired="True" Width="180"
                                     HasError="{Binding HasCodeError}" ErrorText="{Binding CodeError}"
@@ -56,7 +57,7 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <TextBlock Text="Durum &amp; Sayaç" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Durum &amp; Sayaç" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Durum" Width="160">
                         <ComboBox Classes="Field" ItemsSource="{Binding StatusOptions}"
@@ -79,13 +80,13 @@
                 </ctrl:FormField>
 
                 <!-- Sınıflandırma (Tanımlar'dan; + ile yeni) -->
-                <TextBlock Text="Sınıflandırma" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Sınıflandırma" Classes="CardLabel"/>
                 <ctrl:FormField Label="Makine Tipi">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleTypes}" SelectedItem="{Binding SelVehicleType}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
                         </Grid>
@@ -102,7 +103,7 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleCategories}" SelectedItem="{Binding SelCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
                         </Grid>
@@ -119,7 +120,7 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleBrands}" SelectedItem="{Binding SelBrand}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
@@ -136,7 +137,7 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding VehicleModels}" SelectedItem="{Binding SelModel}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
                         </Grid>
@@ -149,13 +150,13 @@
                 </ctrl:FormField>
 
                 <!-- Konum & Atama -->
-                <TextBlock Text="Konum &amp; Atama" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Konum &amp; Atama" Classes="CardLabel"/>
                 <ctrl:FormField Label="Şantiye / Şube">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Branches}" SelectedItem="{Binding SelBranch}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBranchCommand}"/>
                         </Grid>
@@ -172,7 +173,7 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelDriver}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>
                         </Grid>
@@ -185,7 +186,7 @@
                 </ctrl:FormField>
 
                 <!-- Teknik -->
-                <TextBlock Text="Teknik" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Teknik" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Şasi No" Width="240">
                         <TextBox Classes="Field" Text="{Binding NewChassisNo}"/>
@@ -196,7 +197,7 @@
                 </StackPanel>
 
                 <!-- Fotoğraflar -->
-                <TextBlock Text="Fotoğraflar" Classes="CardLabel"/>
+                <SelectableTextBlock Text="Fotoğraflar" Classes="CardLabel"/>
                 <StackPanel Spacing="8">
                     <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
                             Command="{Binding AddPhotosCommand}"/>
@@ -242,12 +243,12 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="İÇ KOD" MinWidth="100"/>
-                            <TextBlock Grid.Column="1" Text="PLAKA" MinWidth="120"/>
-                            <TextBlock Grid.Column="2" Text="YIL" MinWidth="60"/>
-                            <TextBlock Grid.Column="3" Text="SAYAÇ" MinWidth="110"/>
-                            <TextBlock Grid.Column="4" Text="DURUM" MinWidth="100"/>
-                            <TextBlock Grid.Column="5" Text="BAKIM/MUAYENE" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="0" Text="İÇ KOD" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="1" Text="PLAKA" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="2" Text="YIL" MinWidth="60"/>
+                            <SelectableTextBlock Grid.Column="3" Text="SAYAÇ" MinWidth="110"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="5" Text="BAKIM/MUAYENE" MinWidth="120"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
@@ -262,12 +263,12 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding PlateDisplay}" MinWidth="120" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding PlateDisplay}" MinWidth="120" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PlateDisplay}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding YearDisplay}" MinWidth="60" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding YearDisplay}" MinWidth="60" VerticalAlignment="Center"
                                                Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding MeterDisplay}" MinWidth="110" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding MeterDisplay}" MinWidth="110" VerticalAlignment="Center"/>
                                     <ctrl:StatusBadge Grid.Column="4" MinWidth="100" VerticalAlignment="Center"
                                                       Kind="{Binding StatusKind}" Text="{Binding StatusText}"/>
                                     <ctrl:StatusBadge Grid.Column="5" MinWidth="120" VerticalAlignment="Center"
@@ -291,7 +292,7 @@
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
             <DockPanel>
               <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0">
-                <TextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="FOTOĞRAFLAR" Classes="SectionTitle"/>
                 <ItemsControl ItemsSource="{Binding DetailPhotos}">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -320,58 +321,139 @@
                           Command="{Binding RequestDeleteCommand}" IsVisible="{Binding CanDelete}"/>
                 </WrapPanel>
               </StackPanel>
-              <ScrollViewer>
-                <StackPanel Spacing="10">
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="{Binding Selected.Code}" Classes="PageTitle" VerticalAlignment="Center"/>
-                    <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
-                  </Grid>
-                  <Border Classes="Divider"/>
-                  <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
-                        DataContext="{Binding Detail}">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Plaka" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Plate}" Classes="Body"/>
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Makine Tipi" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleTypeName}" Classes="Body"/>
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Marka" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandName}" Classes="Body"/>
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Model" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding VehicleModelName}" Classes="Body"/>
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Şantiye" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding BranchName}" Classes="Body"/>
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Sürücü" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding DriverName}" Classes="Body"/>
-                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Üretim Yılı" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ProductionYear}" Classes="Body"/>
-                    <TextBlock Grid.Row="8" Grid.Column="0" Text="Şasi No" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ChassisNo}" Classes="Body"/>
-                    <TextBlock Grid.Row="9" Grid.Column="0" Text="Motor No" Classes="Helper" Margin="0,2,12,2"/>
-                    <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding EngineNo}" Classes="Body"/>
-                  </Grid>
-                  <StackPanel Spacing="2">
-                    <TextBlock Text="Sayaç" Classes="Helper"/>
-                    <TextBlock Text="{Binding Detail.MeterDisplay}" Classes="Metric"/>
-                  </StackPanel>
-                  <StackPanel Spacing="2"
-                              IsVisible="{Binding Detail.StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="Durum Açıklaması" Classes="Helper"/>
-                    <TextBlock Text="{Binding Detail.StatusNote}" Classes="Body" TextWrapping="Wrap"/>
-                  </StackPanel>
-                </StackPanel>
-              </ScrollViewer>
+              <DockPanel>
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                  <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.Code}" Classes="PageTitle" VerticalAlignment="Center"/>
+                  <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
+                </Grid>
+                <TabControl>
+                  <!-- GENEL -->
+                  <TabItem Header="Genel">
+                    <ScrollViewer>
+                      <StackPanel Spacing="10" Margin="0,8,0,0">
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                              DataContext="{Binding Detail}">
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Plaka" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Plate}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Makine Tipi" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleTypeName}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Kategori" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CategoryName}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Marka" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BrandName}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="Model" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding VehicleModelName}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="5" Grid.Column="0" Text="Şantiye" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="5" Grid.Column="1" Text="{Binding BranchName}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="6" Grid.Column="0" Text="Sürücü" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="6" Grid.Column="1" Text="{Binding DriverName}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="7" Grid.Column="0" Text="Üretim Yılı" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ProductionYear}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="8" Grid.Column="0" Text="Şasi No" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ChassisNo}" Classes="Body"/>
+                          <SelectableTextBlock Grid.Row="9" Grid.Column="0" Text="Motor No" Classes="Helper" Margin="0,2,12,2"/>
+                          <SelectableTextBlock Grid.Row="9" Grid.Column="1" Text="{Binding EngineNo}" Classes="Body"/>
+                        </Grid>
+                        <StackPanel Spacing="2">
+                          <SelectableTextBlock Text="Sayaç" Classes="Helper"/>
+                          <SelectableTextBlock Text="{Binding Detail.MeterDisplay}" Classes="Metric"/>
+                        </StackPanel>
+                        <StackPanel Spacing="2"
+                                    IsVisible="{Binding Detail.StatusNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <SelectableTextBlock Text="Durum Açıklaması" Classes="Helper"/>
+                          <SelectableTextBlock Text="{Binding Detail.StatusNote}" Classes="Body" TextWrapping="Wrap"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </ScrollViewer>
+                  </TabItem>
+                  <!-- UYUMLU MALZEMELER -->
+                  <TabItem Header="Uyumlu Malzemeler">
+                    <ScrollViewer>
+                      <ItemsControl ItemsSource="{Binding VehicleMaterials}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="m:MaterialStock">
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3">
+                              <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" Classes="Helper" MinWidth="90" VerticalAlignment="Center"/>
+                              <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                              <SelectableTextBlock Grid.Column="2" Text="{Binding Quantity, StringFormat='Stok: {0:0.##}'}" Classes="Helper" VerticalAlignment="Center"/>
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </TabItem>
+                  <!-- MUAYENE / SİGORTA -->
+                  <TabItem Header="Muayene/Sigorta">
+                    <ScrollViewer>
+                      <ItemsControl ItemsSource="{Binding VehicleInspections}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="mnt:InspectionRow">
+                            <Border Classes="Divider" Padding="0,4">
+                              <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="1">
+                                  <SelectableTextBlock Text="{Binding DocTypeText}" Classes="Body" FontWeight="SemiBold"/>
+                                  <SelectableTextBlock Text="{Binding NextText, StringFormat='Sonraki: {0}'}" Classes="Helper"/>
+                                </StackPanel>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="Helper" VerticalAlignment="Center"/>
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </TabItem>
+                  <!-- BAKIM TAKİBİ -->
+                  <TabItem Header="Bakım Takibi">
+                    <ScrollViewer>
+                      <ItemsControl ItemsSource="{Binding VehicleMaintenances}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="mnt:MaintenanceRow">
+                            <Border Classes="Divider" Padding="0,4">
+                              <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="1">
+                                  <SelectableTextBlock Text="{Binding DefinitionName}" Classes="Body" FontWeight="SemiBold"/>
+                                  <SelectableTextBlock Text="{Binding PerformedDisplay, StringFormat='Yapılan: {0}'}" Classes="Helper"/>
+                                  <SelectableTextBlock Text="{Binding NextDueDisplay, StringFormat='Sonraki: {0}'}" Classes="Helper"/>
+                                </StackPanel>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="Helper" VerticalAlignment="Center"/>
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </TabItem>
+                  <!-- ARAÇ HAREKETLERİ -->
+                  <TabItem Header="Araç Hareketleri">
+                    <ScrollViewer>
+                      <ItemsControl ItemsSource="{Binding VehicleMovements}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:MovementDisplay">
+                            <Border Classes="Divider" Padding="0,4">
+                              <Grid ColumnDefinitions="Auto,Auto,*">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" Classes="Helper" MinWidth="90" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Kind}" Classes="Body" FontWeight="SemiBold" MinWidth="80" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding Description}" Classes="Body" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+                  </TabItem>
+                </TabControl>
+              </DockPanel>
             </DockPanel>
           </Border>
 
           <!-- Seçim yokken ipucu -->
           <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
-            <TextBlock Text="Detay/düzenleme için bir araç seçin." Classes="Helper"
+            <SelectableTextBlock Text="Detay/düzenleme için bir araç seçin." Classes="Helper"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
         </Grid>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
                    Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

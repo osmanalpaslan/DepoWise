@@ -20,7 +20,7 @@
         <!-- Yeni/Düzenle formu -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
-                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Ad" IsRequired="True" Width="260">
                         <TextBox Classes="Field" Text="{Binding FormName}"/>
@@ -28,13 +28,19 @@
                     <ctrl:FormField Label="Tür" Width="140">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
                     </ctrl:FormField>
+                    <ctrl:FormField Label="Şube Kodu" Width="150">
+                        <TextBox Classes="Field" Text="{Binding FormCode}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="{Binding PasswordLabel}" Width="200">
+                        <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
+                    </ctrl:FormField>
                 </StackPanel>
-                <ctrl:FormField Label="Üst Şube" Width="260" HelpText="Boş = en üst seviye.">
+                <ctrl:FormField Label="Üst Şube" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
                 </ctrl:FormField>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
@@ -50,20 +56,20 @@
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                <TextBlock Grid.Column="0" Text="AD" MinWidth="180"/>
-                                <TextBlock Grid.Column="1" Text="TÜR" MinWidth="90"/>
-                                <TextBlock Grid.Column="2" Text="ÜST ŞUBE" MinWidth="140"/>
-                                <TextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80"/>
+                                <SelectableTextBlock Grid.Column="0" Text="AD" MinWidth="180"/>
+                                <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="90"/>
+                                <SelectableTextBlock Grid.Column="2" Text="ÜST ŞUBE" MinWidth="140"/>
+                                <SelectableTextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80"/>
                             </Grid>
                         </Border>
                         <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="org:BranchRow">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="180" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding KindDisplay}" MinWidth="90" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding ParentDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="180" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding KindDisplay}" MinWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding ParentDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" VerticalAlignment="Center"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -79,36 +85,36 @@
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
                 <ScrollViewer>
                     <StackPanel Spacing="12">
-                        <TextBlock Text="{Binding Selected.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                        <SelectableTextBlock Text="{Binding Selected.Name}" Classes="PageTitle" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                             <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
                         </StackPanel>
                         <Border Classes="Divider"/>
-                        <TextBlock Text="ŞUBEDEKİ KULLANICILAR" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="ŞUBEDEKİ KULLANICILAR" Classes="SectionTitle"/>
                         <ItemsControl ItemsSource="{Binding BranchUsers}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="org:BranchUserRow">
                                     <Grid ColumnDefinitions="*,Auto" Margin="0,3">
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding FullName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding Username}" Classes="Helper"/>
+                                            <SelectableTextBlock Text="{Binding FullName}" Classes="Body" TextTrimming="CharacterEllipsis"/>
+                                            <SelectableTextBlock Text="{Binding Username}" Classes="Helper"/>
                                         </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding Roles}" Classes="Helper" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding Roles}" Classes="Helper" VerticalAlignment="Center"/>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="Bu şubeye atanmış kullanıcı yok. Atama 'Kullanıcılar' ekranından yapılır."
+                        <SelectableTextBlock Text="Bu şubeye atanmış kullanıcı yok. Atama 'Kullanıcılar' ekranından yapılır."
                                    Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !BranchUsers.Count}"/>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
-                <TextBlock Text="Detay için bir şube seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <SelectableTextBlock Text="Detay için bir şube seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
         </Grid>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

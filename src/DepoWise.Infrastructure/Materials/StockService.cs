@@ -145,7 +145,7 @@ public sealed class StockService
             // Ters yön uygula (negatif guard ters kayıtta da geçerli)
             ApplyDelta(conn, tx, s.CompanyId, mv.MaterialId, -mv.Direction * mv.Quantity, now, allowNegative: false);
             var revId = InsertMovement(conn, tx, s.CompanyId, mv.MaterialId, documentId, "reverse",
-                -mv.Direction, mv.Quantity, null, null, null, $"{mv.OperationId}:rev", reason, now, mv.BranchId, mv.BranchFromId, mv.GroupId, reversesId: mv.Id);
+                -mv.Direction, mv.Quantity, null, null, null, $"{mv.OperationId}:rev", reason, now, mv.BranchId, mv.BranchFromId, mv.GroupId, reversesId: mv.Id, opBranchId: s.OperatingBranchId);
             MarkReversed(conn, tx, mv.Id);
         }
         SetDocumentStatus(conn, tx, documentId, "cancelled", now);
@@ -228,7 +228,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
         EnsureMaterialOwned(conn, tx, s.CompanyId, line.MaterialId);
         ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
         InsertMovement(conn, tx, s.CompanyId, line.MaterialId, docId, movementType, direction, line.Quantity,
-            line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null);
+            line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
     }
 
     /// <summary>Bakiyeye işaretli miktarı uygular; düşüşte negatif olursa fail-closed.</summary>
@@ -262,15 +262,17 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
 
     private static string InsertMovement(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId,
         string documentId, string movementType, int direction, decimal quantity, decimal? unitPrice, string? currency,
-        decimal? fxRate, string operationId, string? note, long now, string? branchId, string? branchFromId, string? groupId, string? reversesId)
+        decimal? fxRate, string operationId, string? note, long now, string? branchId, string? branchFromId, string? groupId, string? reversesId,
+        string? opBranchId = null)
     {
         var id = Guid.NewGuid().ToString("N");
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, branch_from_id, movement_type, direction,
-    quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id)
-VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev);";
+    quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id, op_branch_id)
+VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev,$opb);";
+        cmd.Parameters.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", companyId);
         cmd.Parameters.AddWithValue("$m", materialId);

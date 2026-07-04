@@ -4,15 +4,31 @@
 <MudNavMenu>
     @if (Auth.IsAuthenticated)
     {
-        <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Ana Ekran</MudNavLink>
+        <div class="px-3 py-2">
+            <MudTextField @bind-Value="_q" Immediate="true" Placeholder="Ekran ara..." Margin="Margin.Dense"
+                          Variant="Variant.Outlined" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+        </div>
 
-        @foreach (var g in Groups)
+        @if (!string.IsNullOrWhiteSpace(_q))
         {
-            var links = g.Links.Where(l => Visible(l.Perm)).ToList();
-            if (links.Count == 0) { continue; }
-            <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="false">
-                @foreach (var l in links) { <MudNavLink Href="@l.Route">@l.Label</MudNavLink> }
-            </MudNavGroup>
+            @foreach (var (g, l) in FilteredLinks())
+            {
+                <MudNavLink Href="@l.Route">@g.Title › @l.Label</MudNavLink>
+            }
+        }
+        else
+        {
+            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Ana Ekran</MudNavLink>
+
+            @foreach (var g in Groups)
+            {
+                var links = g.Links.Where(l => Visible(l.Perm)).ToList();
+                if (links.Count == 0) { continue; }
+                <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="@(g.Title == "Web Yönetimi")">
+                    @foreach (var l in links) { <MudNavLink Href="@l.Route">@l.Label</MudNavLink> }
+                </MudNavGroup>
+            }
         }
     }
     else
@@ -26,7 +42,20 @@
     private void OnChanged() => InvokeAsync(StateHasChanged);
     public void Dispose() => Auth.Changed -= OnChanged;
 
+    private string _q = "";
+
     private bool Visible(string perm) => string.IsNullOrEmpty(perm) || Auth.CanView(perm);
+
+    private IEnumerable<(Group G, Link L)> FilteredLinks()
+    {
+        var q = _q.Trim();
+        foreach (var g in Groups)
+            foreach (var l in g.Links)
+                if (Visible(l.Perm) &&
+                    (l.Label.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                     g.Title.Contains(q, StringComparison.OrdinalIgnoreCase)))
+                    yield return (g, l);
+    }
 
     private sealed record Link(string Label, string Perm, string Route);
     private sealed record Group(string Title, string Icon, Link[] Links);
@@ -93,9 +122,11 @@
             new Link("Kullanıcı Tanım", "users", "users"),
             new Link("Yetkiler", "permissions", "permissions"),
             new Link("Yetki Şablonları", "permission_templates", "permission-templates"),
+            new Link("Kota İzleme", "users", "quota-monitor"),
         }),
         new("Ayarlar", Icons.Material.Filled.Settings, new[]
         {
+            new Link("Tema", "", "theme"),
             new Link("Geliştirici Modu", "settings", "developer"),
             new Link("Hakkında", "", "soon/about"),
         }),

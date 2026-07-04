@@ -19,6 +19,7 @@
             </MudItem>
         </MudGrid>
         <MudText Typo="Typo.subtitle2" Class="mt-2">Yetkiler</MudText>
+        @if (_viewedName is not null) { <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">Görüntülenen şablon: <b>@_viewedName</b> — düzenleyip yeni ad ile kaydedebilirsiniz.</MudAlert> }
         <PermMatrix @ref="_matrix" Modules="_modules" />
         <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Şablonu Kaydet")</MudButton>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
@@ -37,9 +38,10 @@
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
             <HeaderContent><MudTh>Ad</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
-                @{ var id = Str(context, "id"); }
-                <MudTd>@Str(context, "name")</MudTd>
+                @{ var id = Str(context, "id"); var nm = Str(context, "name"); }
+                <MudTd>@nm</MudTd>
                 <MudTd>
+                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" OnClick="@(() => ViewTemplate(id, nm))" />
                     @if (Auth.CanDelete("permission_templates"))
                     {
                         <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
@@ -79,11 +81,34 @@
         {
             var err = await Api.PostAsync("/api/permission-templates", new { name = _name.Trim(), roleKey = _roleKey, modules = _matrix?.Collect() ?? new(), buttons = new List<string>() });
             _ok = err is null; _msg = err ?? "Şablon oluşturuldu.";
-            if (_ok) { _name = ""; _roleKey = null; _matrix?.Clear(); await LoadList(); }
+            if (_ok) { _name = ""; _roleKey = null; _viewedName = null; _matrix?.Clear(); await LoadList(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
+
+    private string? _viewedName;
+
+    /// <summary>Kaydedilmiş şablonun yetkilerini matriste gösterir (#11 — şablon yetkileri artık görünür).</summary>
+    private async Task ViewTemplate(string id, string name)
+    {
+        if (string.IsNullOrEmpty(id) || _matrix is null) return;
+        try
+        {
+            var doc = await Api.GetObjectAsync($"/api/permission-templates/{id}");
+            var list = new List<(string, bool, bool, bool, bool)>();
+            if (doc.TryGetProperty("modules", out var mods) && mods.ValueKind == JsonValueKind.Array)
+                foreach (var m in mods.EnumerateArray())
+                    list.Add((MS(m, "moduleKey"), MB(m, "canView"), MB(m, "canCreate"), MB(m, "canEdit"), MB(m, "canDelete")));
+            _matrix.LoadFrom(list);
+            if (doc.TryGetProperty("roleKey", out var rk) && rk.ValueKind == JsonValueKind.String) _roleKey = rk.GetString();
+            _viewedName = name; _msg = null;
+        }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private static string MS(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool MB(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
 
     private async Task Delete(string id)
     {

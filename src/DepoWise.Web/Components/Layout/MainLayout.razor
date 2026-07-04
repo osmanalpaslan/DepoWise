@@ -2,10 +2,13 @@
 @inject AuthState Auth
 @inject ApiClient Api
 @inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject DepoWise.Web.Services.ThemeState Theme
+@inject IJSRuntime JS
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 @implements IDisposable
 
-<MudThemeProvider Theme="_theme" IsDarkMode="true" />
+<MudThemeProvider @ref="_mud" Theme="_theme" IsDarkMode="Theme.IsDark" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -16,7 +19,10 @@
         <MudSpacer />
         @if (Auth.IsAuthenticated)
         {
-            <MudText Class="mr-4" Typo="Typo.body2">@Auth.CompanyId @(Auth.IsSuperAdmin ? "· Süper Admin" : "")</MudText>
+            <MudTooltip Text="Ekran + tanım bilgisi (ad · kod · ID)">
+                <MudIconButton Icon="@Icons.Material.Filled.Info" Color="Color.Inherit" OnClick="ShowScreenInfo" />
+            </MudTooltip>
+            <MudText Class="mr-4" Typo="Typo.body2">@(string.IsNullOrEmpty(Auth.UserName) ? "" : Auth.UserName + " · ")@Auth.CompanyDisplay @(Auth.IsSuperAdmin ? "· Süper Admin" : "")</MudText>
             <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">Çıkış</MudButton>
         }
     </MudAppBar>
@@ -31,20 +37,58 @@
 </MudLayout>
 
 @code {
-    private readonly MudTheme _theme = new()
+    private MudTheme _theme = BuildTheme("#2563eb");
+
+    private static MudTheme BuildTheme(string primary) => new()
     {
         PaletteDark = new PaletteDark
         {
-            Primary = "#3b82f6",
+            Primary = primary,
             AppbarBackground = "#1e293b",
             Background = "#0f172a",
             Surface = "#1e293b",
             DrawerBackground = "#111827",
             DrawerText = "#cbd5e1",
-        }
+        },
+        PaletteLight = new PaletteLight
+        {
+            Primary = primary,
+            AppbarBackground = primary,
+            AppbarText = "#ffffff",
+        },
     };
 
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+    private MudThemeProvider _mud = default!;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Theme.Changed += ApplyThemeAsync;
+    }
+
+    /// <summary>Seçili moda göre MudThemeProvider'ı günceller (system → OS tercihi) ve localStorage'a yazar.</summary>
+    private async Task ApplyThemeAsync()
+    {
+        try
+        {
+            Theme.IsDark = Theme.Mode switch
+            {
+                DepoWise.Web.Services.ThemeState.Light => false,
+                DepoWise.Web.Services.ThemeState.Dark => true,
+                _ => await _mud.GetSystemDarkModeAsync(), // system: OS tercihi
+            };
+            _theme = BuildTheme(Theme.CurrentHex); // seçili renk temasını uygula
+            try { await JS.InvokeVoidAsync("dwSetStyle", Theme.Style); } catch { } // görünüm stili (body sınıfı)
+            await LocalStorage.SetAsync("dw_theme", Theme.Mode);      // hızlı/çevrimdışı önbellek
+            await LocalStorage.SetAsync("dw_theme_color", Theme.Color);
+            await LocalStorage.SetAsync("dw_theme_style", Theme.Style);
+            // Giriş yapıldıysa kullanıcı hesabına da yaz (her cihazda seninle gelir).
+            if (Auth.IsAuthenticated)
+                try { await Api.SaveUserThemeAsync(Theme.Mode, Theme.Color, Theme.Style); } catch { }
+        }
+        catch { }
+        StateHasChanged();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -52,6 +96,19 @@
         Auth.Loaded = true;
         try
         {
+            // Kayıtlı tema modunu yükle ve uygula
+            try
+            {
+                var t = await LocalStorage.GetAsync<string>("dw_theme");
+                Theme.Mode = t.Success && !string.IsNullOrEmpty(t.Value) ? t.Value : DepoWise.Web.Services.ThemeState.Dark;
+                var tc = await LocalStorage.GetAsync<string>("dw_theme_color");
+                if (tc.Success && !string.IsNullOrEmpty(tc.Value)) Theme.Color = tc.Value;
+                var ts = await LocalStorage.GetAsync<string>("dw_theme_style");
+                if (ts.Success && !string.IsNullOrEmpty(ts.Value)) Theme.Style = ts.Value;
+            }
+            catch { }
+            await ApplyThemeAsync();
+
             // Yeni sürüm yayınlandıysa: oturumu kapat + taze kodla tam yeniden yükle (manuel CTRL+SHIFT+R gerekmez).
             var ver = await LocalStorage.GetAsync<string>("dw_ver");
             if (ver.Success && !string.IsNullOrEmpty(ver.Value) && ver.Value != DepoWise.Web.AppVersion.Value)
@@ -67,16 +124,49 @@
             if (r.Success && !string.IsNullOrEmpty(r.Value))
             {
                 var p = r.Value.Split('|');
-                if (p.Length == 4 && !string.IsNullOrEmpty(p[0]))
+                if (p.Length >= 4 && !string.IsNullOrEmpty(p[0]))
                 {
-                    Auth.SignIn(p[0], p[1], p[2], p[3] == "True");
+                    Auth.SignIn(p[0], p[1], p[2], p[3] == "True",
+                        p.Length > 4 ? (string.IsNullOrEmpty(p[4]) ? null : p[4]) : null,
+                        p.Length > 5 ? (string.IsNullOrEmpty(p[5]) ? null : p[5]) : null,
+                        p.Length > 6 ? (string.IsNullOrEmpty(p[6]) ? null : p[6]) : null);
                     await Api.RefreshMenuAsync();
+                    // Kullanıcıya ÖZEL tema (sunucudan) — cihazdan bağımsız, her kullanıcı kendi teması
+                    try
+                    {
+                        var ut = await Api.GetUserThemeAsync();
+                        Theme.Mode = ut.Mode; Theme.Color = ut.Color; Theme.Style = ut.Style;
+                        await ApplyThemeAsync();
+                    }
+                    catch { }
                 }
             }
         }
         catch { }
+
+        // Boşta kalma: 20 dk etkileşim olmazsa otomatik çıkış (boş circuit'ler sunucuyu yormasın).
+        try
+        {
+            _idleRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("dwIdle.start", _idleRef, 20 * 60 * 1000);
+        }
+        catch { }
+
         Guard();
         StateHasChanged();
+    }
+
+    private DotNetObjectReference<MainLayout>? _idleRef;
+
+    /// <summary>JS idle izleyici 20 dk hareketsizlikte çağırır → çıkış + login (circuit tam kapanır, sunucu rahatlar).</summary>
+    [JSInvokable]
+    public async Task OnIdleTimeout()
+    {
+        if (!Auth.IsAuthenticated) return;
+        try { await JS.InvokeVoidAsync("dwIdle.stop"); } catch { }
+        Auth.SignOut();
+        try { await LocalStorage.DeleteAsync("dw_auth"); } catch { }
+        Nav.NavigateTo("/login", forceLoad: true);
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) => Guard();
@@ -89,6 +179,33 @@
             Nav.NavigateTo("/login");
     }
 
+    // Route → ekran adı eşlemesi (ilk segment). "Kod" = ham route.
+    private static readonly Dictionary<string, string> ScreenLabels = new()
+    {
+        ["materials"] = "Malzemeler", ["stock"] = "Stok Giriş-Çıkış / Sayım", ["vehicles"] = "Araçlar",
+        ["vehicle-templates"] = "Araç Genel Tanım", ["inspection"] = "Muayene / Sigorta",
+        ["personnel"] = "Personel", ["daily"] = "Günlük Faaliyet", ["maintenance"] = "Bakım Takibi",
+        ["fuel"] = "Yakıt", ["requests"] = "Talepler", ["reports"] = "Raporlar", ["definitions"] = "Tanım Düzenle",
+        ["users"] = "Kullanıcılar", ["permissions"] = "Yetkiler", ["permission-templates"] = "Yetki Şablonları",
+        ["branches"] = "Şube / Şantiye", ["audit"] = "Sistem Logu", ["backup"] = "Yedek Yönetimi",
+        ["developer"] = "Geliştirici Modu", ["companies"] = "Firma Tanım", ["releases"] = "Güncelleme Yönetimi",
+        ["machines"] = "Makine Yönetimi", ["server-backups"] = "Sunucu Yedekleri", ["dashboard"] = "Ana Ekran",
+    };
+
+    private async Task ShowScreenInfo()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.Trim('/');
+        var seg = string.IsNullOrEmpty(path) ? "dashboard" : path.Split('/')[0];
+        var name = ScreenLabels.TryGetValue(seg, out var l) ? l : seg;
+        var parms = new DialogParameters
+        {
+            ["ScreenName"] = name,
+            ["ScreenCode"] = "/" + path,
+        };
+        await DialogService.ShowAsync<ScreenInfoDialog>("Ekran Bilgisi", parms,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+    }
+
     private async Task SignOut()
     {
         Auth.SignOut();
@@ -96,5 +213,10 @@
         Nav.NavigateTo("/login");
     }
 
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Theme.Changed -= ApplyThemeAsync;
+        _idleRef?.Dispose();
+    }
 }

@@ -29,4 +29,10 @@ public sealed class PermissionSet
         => _modules.TryGetValue(moduleKey, out var p) ? p : null;
 
     public bool HasButton(string buttonKey) => _buttons.Contains(buttonKey);
+
+    /// <summary>Tüm modül izinleri (senkron/dışa aktarım için salt okuma).</summary>
+    public IEnumerable<ModulePermission> Modules => _modules.Values;
+
+    /// <summary>Tüm özel buton izinleri (senkron/dışa aktarım için salt okuma).</summary>
+    public IEnumerable<string> Buttons => _buttons;
 }

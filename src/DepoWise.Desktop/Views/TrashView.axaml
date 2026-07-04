@@ -20,19 +20,19 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                            <TextBlock Grid.Column="0" Text="TÜR" MinWidth="140"/>
-                            <TextBlock Grid.Column="1" Text="KAYIT" MinWidth="220"/>
-                            <TextBlock Grid.Column="2" Text="SİLİNME" MinWidth="140"/>
-                            <TextBlock Grid.Column="3" Text="" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="0" Text="TÜR" MinWidth="140"/>
+                            <SelectableTextBlock Grid.Column="1" Text="KAYIT" MinWidth="220"/>
+                            <SelectableTextBlock Grid.Column="2" Text="SİLİNME" MinWidth="140"/>
+                            <SelectableTextBlock Grid.Column="3" Text="" MinWidth="100"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:TrashRowVm">
                                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding TableText}" MinWidth="140" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Label}" MinWidth="220" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding TableText}" MinWidth="140" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Label}" MinWidth="220" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DateText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <Button Grid.Column="3" Classes="Secondary" Content="↺ Geri Yükle" MinWidth="100"
                                             Command="{Binding $parent[ItemsControl].((vm:TrashViewModel)DataContext).RestoreCommand}"
                                             CommandParameter="{Binding}"/>
@@ -47,6 +47,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Çöp kutusu boş" Message="Silinmiş kayıt yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

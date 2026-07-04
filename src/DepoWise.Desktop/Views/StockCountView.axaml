@@ -18,12 +18,12 @@
 
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="14">
-                <TextBlock Text="SAYIM GİRİŞİ" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="SAYIM GİRİŞİ" Classes="SectionTitle"/>
                 <ctrl:FormField Label="Malzeme" IsRequired="True">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
-                            <TextBlock Grid.Column="1" Text="{Binding DiffText}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <SelectableTextBlock Grid.Column="1" Text="{Binding DiffText}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
                         </Grid>
                         <Border Classes="Table" MaxHeight="130" IsVisible="{Binding MaterialResults.Count}">
                             <ScrollViewer>
@@ -51,7 +51,7 @@
                         <TextBox Classes="Field" Text="{Binding Reason}"/>
                     </ctrl:FormField>
                 </StackPanel>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Primary" Content="Sayımı Kaydet" Command="{Binding SaveCommand}"/>
@@ -64,22 +64,22 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto,*">
-                            <TextBlock Grid.Column="0" Text="TARİH" MinWidth="120"/>
-                            <TextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
-                            <TextBlock Grid.Column="2" Text="YÖN" MinWidth="60"/>
-                            <TextBlock Grid.Column="3" Text="MİKTAR" MinWidth="100"/>
-                            <TextBlock Grid.Column="4" Text="GEREKÇE" MinWidth="140"/>
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="2" Text="YÖN" MinWidth="60"/>
+                            <SelectableTextBlock Grid.Column="3" Text="MİKTAR" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="4" Text="GEREKÇE" MinWidth="140"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Adjustments}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="m:StockMovementRow">
                                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,*">
-                                    <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding NoteText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding NoteText}" MinWidth="140" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -89,6 +89,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Sayım yok" Message="Henüz stok sayım düzeltmesi yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

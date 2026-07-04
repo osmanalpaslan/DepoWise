@@ -1,42 +1,175 @@
 @page "/"
+@using System.Text.Json
 @inject AuthState Auth
 @inject ApiClient Api
+@inject NavigationManager Nav
 @implements IDisposable
 
 <PageTitle>DepoWise Yönetim</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">DepoWise — Yönetim Paneli</MudText>
-
 @if (Auth.IsAuthenticated)
 {
-    <MudAlert Severity="Severity.Success" Class="mb-4">
-        Giriş yapıldı — Firma: <b>@Auth.CompanyId</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")
-    </MudAlert>
+    <MudText Typo="Typo.h4" GutterBottom="true">Yönetim Paneli</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+        Firma: <b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")
+    </MudText>
 
-    <MudCard Class="mb-4" Style="max-width:680px;">
-        <MudCardContent>
-            <MudText Typo="Typo.h6">Masaüstü Uygulaması</MudText>
-            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-                Kurulum aracını indirin. Çalıştırınca uygulamayı sunucudan indirir, kurar ve bağlantı ayarlarını otomatik yapar.
-            </MudText>
-            <MudButton Href="@Api.SetupDownloadUrl" Target="_blank" Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Download">Masaüstü Kurulum Aracını İndir</MudButton>
-        </MudCardContent>
-    </MudCard>
+    <MudGrid Spacing="4">
+        <!-- Sol: Kritik Uyarılar -->
+        <MudItem xs="12" md="7">
+            <div class="d-flex align-center mb-2">
+                <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" Color="Color.Warning" Class="mr-2" />
+                <MudText Typo="Typo.h6">Kritik Uyarılar</MudText>
+            </div>
+            @if (_alerts is null)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            }
+            else if (_alerts.Count == 0)
+            {
+                <MudPaper Class="pa-6 d-flex flex-column align-center" Elevation="0" Style="border:1px dashed var(--mud-palette-lines-default); border-radius:16px;">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                    <MudText Typo="Typo.body1" Class="mt-2">Aktif kritik uyarı yok.</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Bakım, muayene/sigorta ve stok durumu güncel.</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var a in _alerts)
+                    {
+                        <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;cursor:pointer;border-left:5px solid {(a.IsCritical ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")};")"
+                                  @onclick="@(() => Open(a.NavigateKey))">
+                            <div class="d-flex align-center">
+                                <MudAvatar Color="@(a.IsCritical ? Color.Error : Color.Warning)" Variant="Variant.Outlined" Class="mr-3">
+                                    <MudIcon Icon="@IconFor(a.Kind)" />
+                                </MudAvatar>
+                                <div class="flex-grow-1">
+                                    <MudText Typo="Typo.body1"><b>@a.Title</b></MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
+                                </div>
+                                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="mud-text-secondary" />
+                            </div>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+            @if (_conflicts is { Count: > 0 })
+            {
+                <div class="d-flex align-center mb-2 mt-6">
+                    <MudIcon Icon="@Icons.Material.Filled.SyncProblem" Color="Color.Error" Class="mr-2" />
+                    <MudText Typo="Typo.h6">Senkron Çakışmaları</MudText>
+                </div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">
+                    Bu kayıtlar aynı anda hem web'de (siz) hem masaüstünde değiştirildi. En son düzenleyen geçerli oldu;
+                    kayıt tekrar düzenlenene kadar bu geçerlidir.
+                </MudText>
+                <MudStack Spacing="2">
+                    @foreach (var cf in _conflicts)
+                    {
+                        <MudPaper Elevation="2" Class="pa-3" Style="border-radius:14px;border-left:5px solid var(--mud-palette-error);">
+                            <div class="d-flex align-center">
+                                <MudAvatar Color="Color.Error" Variant="Variant.Outlined" Class="mr-3"><MudIcon Icon="@Icons.Material.Filled.SyncProblem" /></MudAvatar>
+                                <div class="flex-grow-1">
+                                    <MudText Typo="Typo.body1"><b>@Str(cf, "entityLabel")</b> — @Str(cf, "winnerText")</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        Web'de düzenleyen: @(string.IsNullOrEmpty(Str(cf, "adminName")) ? "—" : Str(cf, "adminName"))
+                                    </MudText>
+                                </div>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default" OnClick="@(() => ResolveConflict(Str(cf, "id")))">Gizle</MudButton>
+                            </div>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudItem>
 
-    @if (Auth.IsSuperAdmin)
-    {
-        <MudText Typo="Typo.subtitle1">Hızlı Erişim</MudText>
-        <MudStack Row="true" Spacing="2" Class="mt-2">
-            <MudButton Href="/machines" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Devices">Makine Yönetimi</MudButton>
-            <MudButton Href="/releases" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.SystemUpdate">Güncelleme Yönetimi</MudButton>
-            <MudButton Href="/companies" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Business">Firma Tanım</MudButton>
-        </MudStack>
-    }
+        <!-- Sağ: Masaüstü kurulum (modern hero) -->
+        <MudItem xs="12" md="5">
+            <MudPaper Elevation="4" Class="pa-6"
+                      Style="border-radius:20px;color:#fff;background:linear-gradient(135deg,#2563eb 0%,#1e293b 100%);">
+                <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Size="Size.Large" Style="font-size:3rem;opacity:.9;" />
+                <MudText Typo="Typo.h5" Class="mt-2" Style="color:#fff;">Masaüstü Uygulaması</MudText>
+                <MudText Typo="Typo.body2" Class="mt-1" Style="color:rgba(255,255,255,.85);">
+                    Kurulum aracını indirin. Çalıştırınca uygulamayı sunucudan indirir, kurar ve bağlantı
+                    ayarlarını otomatik yapar. Güncellemeler otomatik gelir.
+                </MudText>
+                <MudButton Href="@Api.SetupDownloadUrl" Target="_blank" Variant="Variant.Filled"
+                           Class="mt-4" Style="background:#fff;color:#1e293b;font-weight:600;border-radius:12px;"
+                           StartIcon="@Icons.Material.Filled.Download" Size="Size.Large">
+                    Kurulum Aracını İndir
+                </MudButton>
+                <MudText Typo="Typo.caption" Class="d-block mt-3" Style="color:rgba(255,255,255,.7);">
+                    Windows · giriş için web kullanıcı bilgilerinizi kullanın
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 }
 
 @code {
+    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical);
+    private List<Alert>? _alerts;
+    private List<JsonElement>? _conflicts;
+
     protected override void OnInitialized() => Auth.Changed += OnChanged;
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        if (!first || !Auth.IsAuthenticated || _alerts is not null) return;
+        try
+        {
+            var doc = await Api.GetObjectAsync("/api/dashboard");
+            var list = new List<Alert>();
+            if (doc.TryGetProperty("alerts", out var arr) && arr.ValueKind == JsonValueKind.Array)
+                foreach (var a in arr.EnumerateArray())
+                    list.Add(new Alert(
+                        a.GetProperty("kind").GetString() ?? "",
+                        a.GetProperty("title").GetString() ?? "",
+                        a.TryGetProperty("detail", out var d) ? d.GetString() ?? "" : "",
+                        a.TryGetProperty("navigateKey", out var n) ? n.GetString() ?? "" : "",
+                        a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True));
+            _alerts = list;
+            StateHasChanged();
+        }
+        catch { _alerts = new(); }
+
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/sync/conflicts");
+            _conflicts = new List<JsonElement>(arr);
+            StateHasChanged();
+        }
+        catch { _conflicts = new(); }
+    }
+
+    private static string Str(JsonElement e, string k)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString()) : "";
+
+    private async Task ResolveConflict(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        try { await Api.PostAsync($"/api/sync/conflicts/{id}/resolve", new { }); } catch { }
+        _conflicts = _conflicts?.FindAll(c => Str(c, "id") != id);
+        StateHasChanged();
+    }
+
+    private static string IconFor(string kind) => kind switch
+    {
+        "Maintenance" => Icons.Material.Filled.Build,
+        "Inspection" => Icons.Material.Filled.VerifiedUser,
+        "LowStock" => Icons.Material.Filled.Inventory2,
+        "Fuel" => Icons.Material.Filled.LocalGasStation,
+        _ => Icons.Material.Filled.Warning,
+    };
+
+    private void Open(string navigateKey)
+    {
+        if (string.IsNullOrEmpty(navigateKey)) return;
+        Nav.NavigateTo("/" + navigateKey.Replace(":", "/"));
+    }
+
     private void OnChanged() => InvokeAsync(StateHasChanged);
     public void Dispose() => Auth.Changed -= OnChanged;
 }

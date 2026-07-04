@@ -4,10 +4,12 @@ using System.Security.Cryptography;
 
 namespace DepoWise.Web.Services;
 
-public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin);
-public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online);
+public sealed record LoginBranchDto(string Id, string Name, string? Code, bool HasPassword);
+public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin, string? BranchId = null,
+    string? CompanyName = null, bool CanViewAllBranches = false, List<LoginBranchDto>? Branches = null);
+public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "");
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
-public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount);
+public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
 public sealed record RoleDto(string Key, string Name);
 public sealed record MenuResponse(bool IsSuperAdmin, List<MenuModule> Modules);
@@ -46,23 +48,68 @@ public sealed class ApiClient
         return r;
     }
 
-    public async Task<string?> LoginAsync(string username, string password)
+    /// <summary>ADIM 1 (2 aşamalı giriş): kullanıcı adı+parola doğrular; oturuma HENÜZ girmez — kullanıcının
+    /// firma adı + şubelerini döndürür (kullanıcı firma listesini görmez). Hata → (mesaj, null).</summary>
+    public async Task<(string? Error, LoginResponse? Data)> AuthenticateAsync(string username, string password)
     {
         var resp = await _http.PostAsJsonAsync("/api/auth/login", new { username, password });
-        if (!resp.IsSuccessStatusCode) return "Kullanıcı adı veya parola hatalı.";
+        if (!resp.IsSuccessStatusCode)
+        {
+            try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                  if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Giriş başarısız.", null); } catch { }
+            return ("Kullanıcı adı veya parola hatalı.", null);
+        }
         var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
-        if (data is null) return "Sunucu yanıtı okunamadı.";
-        _auth.SignIn(data.Token, data.UserId, data.CompanyId, data.IsSuperAdmin);
-        await RefreshMenuAsync(); // yetkiye göre menü
-        return null;
+        return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);
     }
 
-    public async Task<List<MachineDto>> GetMachinesAsync()
+    /// <summary>Şube şifresi doğrular (anonim public uç). Şifre yoksa serbest.</summary>
+    public async Task<bool> VerifyBranchAsync(string companyId, string branchId, string? branchPassword)
     {
-        var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/machines"));
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/public/verify-branch", new { companyId, branchId, branchPassword });
+            if (!resp.IsSuccessStatusCode) return false;
+            var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            return e.TryGetProperty("ok", out var ok) && ok.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>ADIM 2: şube seçildi → oturumu tamamla (AuthState + menü).</summary>
+    public async Task FinalizeSignInAsync(LoginResponse data, string? branchId, string? userName = null)
+    {
+        _auth.SignIn(data.Token, data.UserId, data.CompanyId, data.IsSuperAdmin, branchId, data.CompanyName, userName);
+        await RefreshMenuAsync();
+    }
+
+    public async Task<List<MachineDto>> GetMachinesAsync(string? companyId = null)
+    {
+        var url = string.IsNullOrWhiteSpace(companyId) ? "/api/machines" : $"/api/machines?companyId={companyId}";
+        var resp = await _http.SendAsync(Req(HttpMethod.Get, url));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<MachineDto>>() ?? new();
     }
+
+    public Task<string?> SetMachineQuotaAsync(string companyId, int quota) =>
+        PostAsync($"/api/companies/{companyId}/machine-quota", new { quota });
+
+    /// <summary>Giriş yapan kullanıcının kayıtlı web tema tercihi (mod + renk). Hata olursa varsayılan.</summary>
+    public async Task<(string Mode, string Color, string Style)> GetUserThemeAsync()
+    {
+        try
+        {
+            var doc = await GetObjectAsync("/api/me/theme");
+            var mode = doc.TryGetProperty("mode", out var m) ? m.GetString() ?? "dark" : "dark";
+            var color = doc.TryGetProperty("color", out var c) ? c.GetString() ?? "blue" : "blue";
+            var style = doc.TryGetProperty("style", out var st) ? st.GetString() ?? "classic" : "classic";
+            return (mode, color, style);
+        }
+        catch { return ("dark", "blue", "classic"); }
+    }
+
+    public Task<string?> SaveUserThemeAsync(string mode, string color, string style) =>
+        PostAsync("/api/me/theme", new { mode, color, style });
 
     /// <summary>Herhangi bir liste ucundan ham JSON dizi (genel tablo bileşeni için).</summary>
     public async Task<string?> PostAsync(string path, object body)
@@ -214,6 +261,7 @@ public sealed class ApiClient
     public Task ApproveMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/approve"));
     public Task RevokeMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/revoke"));
     public Task ReactivateMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/reactivate"));
+    public Task DeleteMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Delete, $"/api/machines/{id}"));
 
     public async Task<ReleaseDto?> GetLatestReleaseAsync()
     {

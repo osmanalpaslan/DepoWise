@@ -16,6 +16,11 @@
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_email" Label="E-posta" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_person" Label="Yetkili Kişi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int" @bind-Value="_maxUsers" Label="Maks. Kullanıcı (0 = sınırsız)" Min="0" Max="100000"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined"
+                                 HelperText="Admin sınırı = bu sayının %20'si." />
+            </MudItem>
             <MudItem xs="12"><MudTextField @bind-Value="_address" Label="Adres" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
         <MudStack Row="true" Class="mt-2" Spacing="2">
@@ -38,17 +43,22 @@
     else
     {
         <MudTable Items="_items" Dense="true" Hover="true" Striped="true">
-            <HeaderContent><MudTh>Firma</MudTh><MudTh>Vergi No</MudTh><MudTh>Telefon</MudTh><MudTh>Yetkili</MudTh><MudTh>Kullanıcı</MudTh><MudTh></MudTh></HeaderContent>
+            <HeaderContent><MudTh>Firma</MudTh><MudTh>Vergi No</MudTh><MudTh>Telefon</MudTh><MudTh>Yetkili</MudTh><MudTh>Kullanıcı</MudTh><MudTh>Maks. Kul.</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
                 <MudTd>@context.Name</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.TaxNo) ? "—" : context.TaxNo)</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.Phone) ? "—" : context.Phone)</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.AuthorizedPerson) ? "—" : context.AuthorizedPerson)</MudTd>
                 <MudTd>@context.UserCount</MudTd>
+                <MudTd>@(context.MaxUsers <= 0 ? "Sınırsız" : context.MaxUsers.ToString())</MudTd>
                 <MudTd>
                     @if (Auth.CanEdit("companies"))
                     {
                         <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" OnClick="@(() => BeginEdit(context))" />
+                    }
+                    @if (Auth.IsSuperAdmin)
+                    {
+                        <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="@(() => Delete(context))" />
                     }
                 </MudTd>
             </RowTemplate>
@@ -61,6 +71,7 @@
     private string? _error;
     private string? _editId;
     private string _name = "", _taxNo = "", _taxOffice = "", _phone = "", _email = "", _person = "", _address = "";
+    private int _maxUsers;
     private string? _msg; private bool _ok; private bool _busy;
 
     protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
@@ -76,14 +87,22 @@
     {
         _editId = c.Id;
         _name = c.Name; _taxNo = c.TaxNo ?? ""; _phone = c.Phone ?? ""; _person = c.AuthorizedPerson ?? "";
-        _email = c.Email ?? ""; _taxOffice = ""; _address = "";
+        _email = c.Email ?? ""; _taxOffice = ""; _address = ""; _maxUsers = c.MaxUsers;
         _msg = null;
+    }
+
+    private async Task Delete(CompanyDto c)
+    {
+        if (!await Dialog.Confirm($"'{c.Name}' firması silinsin mi? (Bağlı kullanıcı varsa engellenir.)", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/companies/{c.Id}");
+        _ok = err is null; _msg = err ?? "Firma silindi.";
+        await Load();
     }
 
     private void ClearForm()
     {
         _editId = null;
-        _name = _taxNo = _taxOffice = _phone = _email = _person = _address = "";
+        _name = _taxNo = _taxOffice = _phone = _email = _person = _address = ""; _maxUsers = 0;
         _msg = null;
     }
 
@@ -98,7 +117,7 @@
             var body = new
             {
                 name = _name.Trim(), taxNo = _taxNo, taxOffice = _taxOffice,
-                address = _address, phone = _phone, email = _email, authorizedPerson = _person
+                address = _address, phone = _phone, email = _email, authorizedPerson = _person, maxUsers = _maxUsers
             };
             var err = _editId is null
                 ? await Api.CreateCompanyAsync(body)

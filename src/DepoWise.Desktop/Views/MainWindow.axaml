@@ -29,7 +29,7 @@
                     <Border Width="34" Height="34" CornerRadius="17" HorizontalAlignment="Center"
                             VerticalAlignment="Center" Background="{DynamicResource AccentBrush}"
                             ToolTip.Tip="{Binding DisplayName}">
-                        <TextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold"
+                        <SelectableTextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                 </Border>
@@ -67,16 +67,32 @@
                 <!-- Kullanıcı -->
                 <Border DockPanel.Dock="Bottom" Height="56" Padding="16,0"
                         Background="{DynamicResource SurfaceElevatedBrush}">
-                    <TextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
+                    <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
+                </Border>
+                <!-- Menü arama -->
+                <Border DockPanel.Dock="Top" Padding="10,6">
+                    <TextBox Text="{Binding MenuSearch}" Watermark="🔍 Ekran ara..." Classes="Field"/>
                 </Border>
                 <ScrollViewer>
                     <StackPanel Margin="8,6">
+                        <!-- Arama sonuçları (düz liste; tıkla → aç) -->
+                        <ItemsControl ItemsSource="{Binding MenuSearchResults}" IsVisible="{Binding IsSearchingMenu}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MenuSearchItem">
+                                    <Button Content="{Binding Display}" Classes="NavLink"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NavigateCommand}"
+                                            CommandParameter="{Binding Key}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
                         <Button Content="Ana Ekran" Classes="NavTop" HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
+                                HorizontalContentAlignment="Left" IsVisible="{Binding !IsSearchingMenu}"
                                 Command="{Binding GoDashboardCommand}"/>
 
-                        <ItemsControl ItemsSource="{Binding Groups}">
+                        <ItemsControl ItemsSource="{Binding Groups}" IsVisible="{Binding !IsSearchingMenu}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:NavGroupVm">
                                     <StackPanel Margin="0,2">
@@ -84,10 +100,10 @@
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <TextBlock Grid.Column="0" Text="{Binding Title}"
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
                                                            FontWeight="SemiBold" VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
+                                                <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ToggleButton>
@@ -125,9 +141,9 @@
                             Command="{Binding ToggleNavPanelCommand}"/>
                     <!-- Başlık + bağlam -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
-                        <TextBlock Text="{Binding CurrentTitle}" Classes="PageTitle"
+                        <SelectableTextBlock Text="{Binding CurrentTitle}" Classes="PageTitle"
                                    TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding CurrentContext}" Classes="Helper"
+                        <SelectableTextBlock Text="{Binding CurrentContext}" Classes="Helper"
                                    TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <!-- Eşitle (mevcut yer tutucu; gerçek sync komutu ilgili fazda bağlanacak) -->
@@ -137,7 +153,7 @@
                                 VerticalAlignment="Center" ToolTip.Tip="Sunucu bağlantı durumu">
                             <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <Ellipse Width="10" Height="10" Fill="{Binding ConnectionBrush}" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ConnectionText}" Classes="Helper" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Text="{Binding ConnectionText}" Classes="Helper" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         <Button Classes="Secondary" Content="🟢 Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
@@ -146,19 +162,25 @@
                         <Button Classes="Secondary" Content="ⓘ Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
                                 IsVisible="{Binding IsSuperAdmin}"
                                 ToolTip.Tip="Bu ekranın gerçek kodunu göster (kopyalanabilir)"/>
-                        <Button Classes="Primary" Content="Eşitle"/>
+                        <ProgressBar Width="90" Height="6" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                                     Value="{Binding SyncProgress}" IsVisible="{Binding IsSyncing}"/>
+                        <SelectableTextBlock Text="{Binding SyncProgress, StringFormat='%{0}'}" Classes="Helper"
+                                   VerticalAlignment="Center" IsVisible="{Binding IsSyncing}"/>
+                        <Button Classes="Primary" Content="Eşitle" Command="{Binding SyncCommand}"
+                                IsEnabled="{Binding !IsSyncing}"
+                                ToolTip.Tip="Sunucudaki tanımları bu makineye çeker"/>
                     </StackPanel>
                     <!-- Kullanıcı -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <StackPanel VerticalAlignment="Center" Spacing="3" Margin="0,0,6,0">
-                            <TextBlock Text="{Binding BuildStamp}" Classes="Helper" ToolTip.Tip="Çalışan derleme zamanı"/>
-                            <TextBlock Text="{Binding Version}" Classes="Helper" FontWeight="SemiBold"
+                            <SelectableTextBlock Text="{Binding BuildStamp}" Classes="Helper" ToolTip.Tip="Çalışan derleme zamanı"/>
+                            <SelectableTextBlock Text="{Binding Version}" Classes="Helper" FontWeight="SemiBold"
                                        ToolTip.Tip="Kurulu uygulama sürümü"/>
                         </StackPanel>
-                        <TextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
+                        <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" MaxWidth="160"/>
                         <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentBrush}">
-                            <TextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold"
+                            <SelectableTextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Button Classes="Secondary" Content="Çıkış" Command="{Binding LogoutCommand}"

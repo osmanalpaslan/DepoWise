@@ -7,8 +7,8 @@
         Background="{DynamicResource SurfaceBrush}">
     <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
         <StackPanel Margin="24" Spacing="16">
-            <TextBlock x:Name="TitleText" Classes="PageTitle"/>
-            <TextBlock x:Name="MsgText" Classes="Body" TextWrapping="Wrap"/>
+            <SelectableTextBlock x:Name="TitleText" Classes="PageTitle"/>
+            <SelectableTextBlock x:Name="MsgText" Classes="Body" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                 <Button x:Name="CancelBtn" Classes="Secondary" IsCancel="True"/>
                 <Button x:Name="OkBtn" Classes="Primary" IsDefault="True"/>

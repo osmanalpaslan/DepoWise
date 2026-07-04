@@ -20,13 +20,13 @@
 
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ BELGE" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="YENİ BELGE" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
                         <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FVehicle}"
                                          FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                          ValueMemberBinding="{Binding Display}">
-                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                         </AutoCompleteBox>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Belge Tipi" Width="160">
@@ -53,7 +53,7 @@
                 <ctrl:FormField Label="Açıklama">
                     <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
@@ -67,24 +67,24 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,*,Auto">
-                            <TextBlock Grid.Column="0" Text="ARAÇ" MinWidth="150"/>
-                            <TextBlock Grid.Column="1" Text="BELGE" MinWidth="100"/>
-                            <TextBlock Grid.Column="2" Text="SON" MinWidth="100"/>
-                            <TextBlock Grid.Column="3" Text="SONRAKİ" MinWidth="100"/>
-                            <TextBlock Grid.Column="4" Text="YER" MinWidth="120"/>
-                            <TextBlock Grid.Column="5" Text="DURUM" MinWidth="110"/>
+                            <SelectableTextBlock Grid.Column="0" Text="ARAÇ" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="1" Text="BELGE" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="2" Text="SON" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="3" Text="SONRAKİ" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="4" Text="YER" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="110"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="inf:InspectionRow">
                                 <Grid ColumnDefinitions="*,Auto,Auto,Auto,*,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding VehicleText}" MinWidth="150" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding DocTypeText}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding LastText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding NextText}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding Place}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="110" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleText}" MinWidth="150" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DocTypeText}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding LastText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding NextText}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Place}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="110" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -96,6 +96,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Belge yok" Message="Henüz muayene/sigorta kaydı yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

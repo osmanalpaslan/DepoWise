@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="460"
         x:Class="DepoWise.Desktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
-        Width="420" Height="500" CanResize="False"
+        Width="420" Height="600" CanResize="False"
         Icon="/Assets/app-logo.ico"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Brand.Surface.Brush}"
@@ -15,33 +15,58 @@
     <Border Background="{DynamicResource Brand.Surface.Brush}" Padding="32">
         <StackPanel Spacing="16" VerticalAlignment="Center">
             <Image Source="/Assets/logo.png" Width="220" HorizontalAlignment="Center" Stretch="Uniform"/>
-            <TextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
+            <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
                        Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
 
-            <StackPanel Spacing="4" Margin="0,16,0,0">
-                <TextBlock Text="Kullanıcı Adı" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                <TextBox Text="{Binding Username}" PlaceholderText="admin" />
+            <!-- ADIM 1: kimlik -->
+            <StackPanel Spacing="16" IsVisible="{Binding IsStep1}">
+                <StackPanel Spacing="4" Margin="0,6,0,0">
+                    <SelectableTextBlock Text="Kullanıcı Adı" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <TextBox Text="{Binding Username}" PlaceholderText="admin" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <SelectableTextBlock Text="Parola" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="••••••" />
+                </StackPanel>
+                <CheckBox Content="Beni hatırla" IsChecked="{Binding RememberMe}"
+                          Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                <SelectableTextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
+                           TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                <Button Content="Devam" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Padding="0,12" Margin="0,8,0,0"
+                        Background="{DynamicResource Brand.Primary.Brush}"
+                        Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                        Command="{Binding ContinueCommand}" IsDefault="True"
+                        IsEnabled="{Binding !IsBusy}"/>
             </StackPanel>
-            <StackPanel Spacing="4">
-                <TextBlock Text="Parola" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="••••••" />
+
+            <!-- ADIM 2: şube seçimi -->
+            <StackPanel Spacing="16" IsVisible="{Binding IsStep2}">
+                <SelectableTextBlock Text="{Binding CompanyName}" HorizontalAlignment="Center" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                <StackPanel Spacing="4">
+                    <SelectableTextBlock Text="Şube / Şantiye" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <ComboBox ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch}" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+                <StackPanel Spacing="4" IsVisible="{Binding ShowBranchPassword}">
+                    <SelectableTextBlock Text="Şube Şifresi" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <TextBox Text="{Binding BranchPassword}" PasswordChar="•" PlaceholderText="••••••" />
+                </StackPanel>
+                <SelectableTextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
+                           TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                <Button Content="Giriş Yap" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Padding="0,12" Margin="0,8,0,0"
+                        Background="{DynamicResource Brand.Primary.Brush}"
+                        Foreground="{DynamicResource Brand.OnPrimary.Brush}"
+                        Command="{Binding LoginCommand}" IsDefault="True"
+                        IsEnabled="{Binding !IsBusy}"/>
+                <Button Content="← Geri" HorizontalAlignment="Center" Background="Transparent"
+                        Foreground="{DynamicResource Brand.OnSurface.Brush}"
+                        Command="{Binding BackCommand}" IsEnabled="{Binding !IsBusy}"/>
             </StackPanel>
 
-            <CheckBox Content="Beni hatırla" IsChecked="{Binding RememberMe}"
-                      Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-
-            <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
-                       TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-
-            <Button Content="Giriş Yap" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    Padding="0,12" Margin="0,8,0,0"
-                    Background="{DynamicResource Brand.Primary.Brush}"
-                    Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                    Command="{Binding LoginCommand}" IsDefault="True"
-                    IsEnabled="{Binding !IsBusy}"/>
-
-            <TextBlock Text="İlk giriş: admin / admin123" HorizontalAlignment="Center"
-                       Opacity="0.5" FontSize="11"
+            <SelectableTextBlock Text="Web'de tanımlı kullanıcı bilgilerinizle giriş yapın." HorizontalAlignment="Center"
+                       Opacity="0.5" FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
                        Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
         </StackPanel>
     </Border>

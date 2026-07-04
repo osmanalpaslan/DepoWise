@@ -17,6 +17,9 @@ using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
 
+/// <summary>Araç detayı "Araç Hareketleri" sekmesi satırı.</summary>
+public sealed record MovementDisplay(string DateText, string Kind, string Description);
+
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
 public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
 {
@@ -365,9 +368,37 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
 
     partial void OnSelectedChanged(VehicleRow? value)
     {
-        if (value is null) { Detail = null; DetailPhotos.Clear(); return; }
-        try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); LoadDetailPhotos(value.Id); }
+        if (value is null) { Detail = null; DetailPhotos.Clear(); ClearVehicleTabs(); return; }
+        try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); LoadDetailPhotos(value.Id); LoadVehicleTabs(value.Id, value.Code); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
+    }
+
+    // ── Araç detay sekmeleri (webteki gibi): Uyumlu Malzemeler / Muayene-Sigorta / Bakım / Hareketler ──
+    public ObservableCollection<MaterialStock> VehicleMaterials { get; } = new();
+    public ObservableCollection<InspectionRow> VehicleInspections { get; } = new();
+    public ObservableCollection<MaintenanceRow> VehicleMaintenances { get; } = new();
+    public ObservableCollection<MovementDisplay> VehicleMovements { get; } = new();
+
+    private void ClearVehicleTabs()
+    {
+        VehicleMaterials.Clear(); VehicleInspections.Clear(); VehicleMaintenances.Clear(); VehicleMovements.Clear();
+    }
+
+    private void LoadVehicleTabs(string vehicleId, string code)
+    {
+        ClearVehicleTabs();
+        try { foreach (var m in DesktopServices.Materials.MaterialsForVehicle(_session, vehicleId)) VehicleMaterials.Add(m); } catch { }
+        try { foreach (var i in DesktopServices.Inspection.List(_session).Where(x => x.VehicleCode == code)) VehicleInspections.Add(i); } catch { }
+        try { foreach (var mt in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) VehicleMaintenances.Add(mt); } catch { }
+        try
+        {
+            foreach (var mv in DesktopServices.DailyActivity.GetForVehicle(_session, vehicleId, "movement"))
+                VehicleMovements.Add(new MovementDisplay(
+                    DateTimeOffset.FromUnixTimeMilliseconds(mv.ActivityDate).LocalDateTime.ToString("dd.MM.yyyy"),
+                    mv.MovementKind == "transfer" ? "Transfer" : "Hareket",
+                    mv.Description ?? ""));
+        }
+        catch { }
     }
 
     /// <summary>Seçili aracı düzenleme modunda forma yükler (tüm alanlar + lookup ön-seçim). Onay sorar.</summary>

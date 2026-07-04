@@ -69,7 +69,7 @@ public sealed class DailyActivityService
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         InsertActivity(conn, tx, id, s.CompanyId, "maintenance", null, maintenance.VehicleId, null, null, null, null,
-            maintenance.Description, maintenanceId, stockProcessed: true, maintenance.PerformedDate ?? now, operationId, now);
+            maintenance.Description, maintenanceId, stockProcessed: true, maintenance.PerformedDate ?? now, operationId, now, s.OperatingBranchId);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return id;
@@ -89,7 +89,7 @@ public sealed class DailyActivityService
         using var tx = conn.BeginTransaction();
         InsertActivity(conn, tx, id, s.CompanyId, "movement", dto.MovementKind, dto.VehicleId, dto.FromLocationId,
             dto.ToLocationId, dto.OperatorId, dto.DurationDays, dto.Description, null, stockProcessed: false,
-            dto.ActivityDate ?? now, operationId, now);
+            dto.ActivityDate ?? now, operationId, now, s.OperatingBranchId);
 
         if (dto.MovementKind == "transfer" && dto.VehicleId is not null)
         {
@@ -186,15 +186,16 @@ ORDER BY da.activity_date DESC, da.created_at DESC LIMIT $lim;";
     private static void InsertActivity(SqliteConnection conn, SqliteTransaction tx, string id, string companyId,
         string activityType, string? movementKind, string? vehicleId, string? fromLoc, string? toLoc, string? operatorId,
         int? durationDays, string? description, string? maintenanceId, bool stockProcessed, long activityDate,
-        string operationId, long now)
+        string operationId, long now, string? opBranchId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO daily_activities(id, company_id, activity_type, movement_kind, vehicle_id, from_location_id, to_location_id,
     operator_id, duration_days, description, maintenance_id, source_module, stock_processed, activity_date, operation_id,
-    created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$at,$mk,$v,$from,$to,$op2,$dur,$desc,$mid,'daily_activity',$sp,$ad,$op,$now,$now,1,0);";
+    op_branch_id, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$at,$mk,$v,$from,$to,$op2,$dur,$desc,$mid,'daily_activity',$sp,$ad,$op,$opb,$now,$now,1,0);";
+        cmd.Parameters.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", companyId);
         cmd.Parameters.AddWithValue("$at", activityType);

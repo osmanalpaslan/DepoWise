@@ -71,6 +71,21 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
     public ReportsViewModel(SessionContext session) => _session = session;
 
+    /// <summary>Rapor tipi değişince önceki raporun sonucunu TEMİZLE — her rapor kendi Sorgula'sını ister
+    /// (alakasız veri başka raporda görünmesin). Web sekme davranışıyla tutarlı.</summary>
+    partial void OnSelectedReportChanged(string value)
+    {
+        HasRun = false;
+        LoadError = null;
+        Headers.Clear();
+        Rows.Clear();
+        ShowBar = ShowPie = false;
+        Status = null;
+        OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(IsEmptyResult));
+        OnPropertyChanged(nameof(IsPrompt));
+    }
+
     [RelayCommand]
     private void Run()
     {
@@ -124,9 +139,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
         if (SelectedReport == "Yakıt Tüketim")
         {
-            // Araç başına litre (col0=Araç, col2=Litre). Büyük veride ilk MaxBars.
-            var data = table.Rows.Take(MaxBars).ToList();
-            var liters = data.Select(r => ToDouble(r[2])).ToArray();
+            // Araç başına litre (col0=Araç, col3=Litre). TOPLAM satırı hariç. Büyük veride ilk MaxBars.
+            var data = table.Rows.Where(r => (r[0]?.ToString() ?? "") != "TOPLAM").Take(MaxBars).ToList();
+            var liters = data.Select(r => ToDouble(r[3])).ToArray();
             var labels = data.Select(r => r[0]?.ToString() ?? "").ToArray();
 
             ChartSeries.Add(new ColumnSeries<double>

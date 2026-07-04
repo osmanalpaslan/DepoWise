@@ -29,7 +29,7 @@
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
             <ScrollViewer MaxHeight="440">
             <StackPanel Spacing="14" MaxWidth="860" HorizontalAlignment="Left">
-                <TextBlock Text="YENİ KAYIT" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="YENİ KAYIT" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
@@ -38,7 +38,7 @@
                         <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FormVehicle}"
                                          FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                          ValueMemberBinding="{Binding Display}">
-                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><TextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                         </AutoCompleteBox>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Tarih" Width="160">
@@ -51,24 +51,24 @@
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Operatör / Şoför" Width="200">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Süre (gün)" Width="120">
                             <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
                         </ctrl:FormField>
                     </StackPanel>
-                    <TextBlock Text="Transfer: araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
+                    <SelectableTextBlock Text="Transfer: araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
                 </StackPanel>
 
                 <!-- ===== BAKIM ===== -->
@@ -76,14 +76,14 @@
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Alt Bakım" Width="240">
                             <StackPanel Spacing="6">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                     <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
                                 </Grid>
@@ -96,7 +96,7 @@
                         </ctrl:FormField>
                         <ctrl:FormField Label="Teknisyen" Width="200">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                             </ComboBox>
                         </ctrl:FormField>
                     </StackPanel>
@@ -128,7 +128,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MntMaterialLine">
                                         <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
                                             <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                             <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
                                                     Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
@@ -144,7 +144,7 @@
                 <ctrl:FormField Label="Açıklama">
                     <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelFormCommand}"/>
@@ -160,27 +160,27 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*,Auto">
-                            <TextBlock Grid.Column="0" Text="TARİH" MinWidth="100"/>
-                            <TextBlock Grid.Column="1" Text="TİP" MinWidth="90"/>
-                            <TextBlock Grid.Column="2" Text="ARAÇ" MinWidth="140"/>
-                            <TextBlock Grid.Column="3" Text="GÜZERGAH" MinWidth="160"/>
-                            <TextBlock Grid.Column="4" Text="OPERATÖR" MinWidth="120"/>
-                            <TextBlock Grid.Column="5" Text="SÜRE" MinWidth="70"/>
-                            <TextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
-                            <TextBlock Grid.Column="7" Text="" MinWidth="70"/>
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="2" Text="ARAÇ" MinWidth="140"/>
+                            <SelectableTextBlock Grid.Column="3" Text="GÜZERGAH" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="4" Text="OPERATÖR" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="5" Text="SÜRE" MinWidth="70"/>
+                            <SelectableTextBlock Grid.Column="6" Text="AÇIKLAMA" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="7" Text="" MinWidth="70"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="op:DailyActivityListRow">
                                 <Grid ColumnDefinitions="Auto,Auto,*,*,Auto,Auto,*,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding VehicleText}" MinWidth="140" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding RouteText}" MinWidth="160" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding OperatorText}" MinWidth="120" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="5" Text="{Binding DurationText}" MinWidth="70" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="6" Text="{Binding DescriptionText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding VehicleText}" MinWidth="140" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding RouteText}" MinWidth="160" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding OperatorText}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DurationText}" MinWidth="70" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding DescriptionText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     <Button Grid.Column="7" Classes="Ghost" Content="Sil" MinWidth="70" VerticalAlignment="Center"
                                             Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).DeleteActivityCommand}"
                                             CommandParameter="{Binding}"/>
@@ -195,6 +195,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Faaliyet yok" Message="Henüz günlük faaliyet kaydı yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

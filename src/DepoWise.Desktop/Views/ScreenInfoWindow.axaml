@@ -7,7 +7,7 @@
         Background="{DynamicResource SurfaceBrush}">
     <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
         <Grid Margin="18" RowDefinitions="Auto,*,Auto">
-            <TextBlock Grid.Row="0" x:Name="TitleText" Classes="PageTitle" Margin="0,0,0,12"/>
+            <SelectableTextBlock Grid.Row="0" x:Name="TitleText" Classes="PageTitle" Margin="0,0,0,12"/>
             <Border Grid.Row="1" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8" Padding="2">
                 <TextBox x:Name="InfoBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
                          FontFamily="Cascadia Mono,Consolas,monospace" FontSize="12"
@@ -15,7 +15,7 @@
                          VerticalContentAlignment="Top" Background="Transparent" BorderThickness="0"/>
             </Border>
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,12,0,0">
-                <TextBlock x:Name="CopiedText" Text="Kopyalandı ✓" Classes="Helper" VerticalAlignment="Center" IsVisible="False"/>
+                <SelectableTextBlock x:Name="CopiedText" Text="Kopyalandı ✓" Classes="Helper" VerticalAlignment="Center" IsVisible="False"/>
                 <Button x:Name="CopyBtn" Classes="Secondary" Content="📋 Tümünü Kopyala"/>
                 <Button x:Name="CloseBtn" Classes="Primary" Content="Kapat" IsCancel="True"/>
             </StackPanel>

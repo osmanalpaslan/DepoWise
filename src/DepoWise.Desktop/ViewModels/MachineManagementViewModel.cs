@@ -112,4 +112,20 @@ public sealed partial class MachineManagementViewModel : ViewModelBase
         }
         catch (Exception ex) { Status = "Pasife alınamadı: " + ex.Message; }
     }
+
+    [RelayCommand]
+    private async Task Delete(DeviceRow? d)
+    {
+        if (d is null) return;
+        if (!await ConfirmService.AskAsync(
+                $"'{d.Name}' makine kaydı KALICI olarak silinsin mi?",
+                "Makineyi Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Enrollment.DeleteDevice(_session, d.Id);
+            Status = $"'{d.Name}' silindi.";
+            Load();
+        }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
 }

@@ -18,10 +18,13 @@
                     <MudSelectItem T="string" Value="@("site")">Şantiye</MudSelectItem>
                 </MudSelect>
             </MudItem>
+            <MudItem xs="6" md="6"><MudTextField @bind-Value="_code" Label="Şube Kodu" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="6"><MudTextField @bind-Value="_password" Label="@(_editId is null ? "Şube Şifresi" : "Yeni Şifre (boş = değişmez)")" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="12">
-                <MudSelect T="string" @bind-Value="_parent" Label="Üst Şube" HelperText="Boş = en üst seviye." Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
-                    @foreach (var b in _parentOptions) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
-                </MudSelect>
+                <LookupSelect Label="Üst Şube" @bind-Value="_parent" Items="_parentOptions"
+                              CreatePath="/api/branches" CreateField="name" ExtraField="kind" ExtraValue="branch"
+                              OnAdded="ReloadAfterAdd" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Boş = en üst seviye. Kod + şifre login'de şube seçimi için kullanılır.</MudText>
             </MudItem>
         </MudGrid>
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
@@ -42,9 +45,11 @@
             else
             {
                 <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" OnRowClick="@(e => OpenDetail(e.Item))" T="JsonElement">
-                    <HeaderContent><MudTh>AD</MudTh><MudTh>TÜR</MudTh><MudTh>ÜST ŞUBE</MudTh><MudTh>KULLANICI</MudTh></HeaderContent>
+                    <HeaderContent><MudTh>AD</MudTh><MudTh>KOD</MudTh><MudTh>ŞİFRE</MudTh><MudTh>TÜR</MudTh><MudTh>ÜST ŞUBE</MudTh><MudTh>KULLANICI</MudTh></HeaderContent>
                     <RowTemplate>
                         <MudTd>@Str(context, "name")</MudTd>
+                        <MudTd>@Str(context, "codeDisplay")</MudTd>
+                        <MudTd>@Str(context, "passwordDisplay")</MudTd>
                         <MudTd>@Str(context, "kindDisplay")</MudTd>
                         <MudTd>@Str(context, "parentDisplay")</MudTd>
                         <MudTd>@Str(context, "userCount")</MudTd>
@@ -84,7 +89,7 @@
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private string? _editId, _parent;
-    private string _name = "", _kind = "branch";
+    private string _name = "", _kind = "branch", _code = "", _password = "";
     private List<ApiClient.Opt> _parentOptions = new();
     private JsonElement[]? _rows;
     private JsonElement? _detail;
@@ -101,6 +106,8 @@
             .Select(r => new ApiClient.Opt(Str(r, "id"), Str(r, "name"))).ToList();
     }
 
+    private async Task ReloadAfterAdd(string _) => await Load();
+
     private async Task OpenDetail(JsonElement row)
     {
         _detail = row;
@@ -110,6 +117,7 @@
     private void BeginEdit(JsonElement d)
     {
         _editId = Str(d, "id"); _name = Str(d, "name"); _kind = string.IsNullOrEmpty(Str(d, "kind")) ? "branch" : Str(d, "kind");
+        _code = Str(d, "code"); _password = "";
         _parent = NullS(d, "parentId"); _msg = null;
         _parentOptions = (_rows ?? Array.Empty<JsonElement>()).Where(r => Str(r, "id") != _editId).Select(r => new ApiClient.Opt(Str(r, "id"), Str(r, "name"))).ToList();
     }
@@ -122,7 +130,7 @@
         _busy = true;
         try
         {
-            var body = new { name = _name.Trim(), kind = _kind, parentId = _parent };
+            var body = new { name = _name.Trim(), kind = _kind, parentId = _parent, code = _code, password = _password };
             var err = _editId is null ? await Api.PostAsync("/api/branches", body) : await Api.PutAsync($"/api/branches/{_editId}", body);
             _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
             if (_ok) { Clear(); await Load(); }
@@ -139,7 +147,7 @@
         _msg = err ?? "Silindi."; _ok = err is null; _detail = null; await Load();
     }
 
-    private void Clear() { _err = false; _editId = null; _name = ""; _kind = "branch"; _parent = null; }
+    private void Clear() { _err = false; _editId = null; _name = ""; _kind = "branch"; _parent = null; _code = ""; _password = ""; }
 
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)

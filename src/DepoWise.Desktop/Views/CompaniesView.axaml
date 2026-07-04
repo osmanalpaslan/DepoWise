@@ -20,13 +20,18 @@
         <!-- Yeni/Düzenle formu -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
-                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Firma Adı" IsRequired="True" Width="320">
                         <TextBox Classes="Field" Text="{Binding FormName}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Yetkili" Width="220">
                         <TextBox Classes="Field" Text="{Binding FormAuthorized}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Maks. Kullanıcı (0=sınırsız)" Width="200"
+                                    HelpText="Admin sınırı = bu sayının %20'si.">
+                        <NumericUpDown Classes="Field" Value="{Binding FormMaxUsers}" Minimum="0" Maximum="100000"
+                                       FormatString="0" ShowButtonSpinner="True"/>
                     </ctrl:FormField>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
@@ -48,7 +53,7 @@
                 <ctrl:FormField Label="Adres">
                     <TextBox Classes="Field" Text="{Binding FormAddress}" AcceptsReturn="True" Height="60"/>
                 </ctrl:FormField>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
@@ -64,20 +69,20 @@
                     <DockPanel>
                         <Border Classes="TableHeader" DockPanel.Dock="Top">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                <TextBlock Grid.Column="0" Text="FİRMA" MinWidth="200"/>
-                                <TextBlock Grid.Column="1" Text="VERGİ NO" MinWidth="130"/>
-                                <TextBlock Grid.Column="2" Text="TELEFON" MinWidth="130"/>
-                                <TextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80"/>
+                                <SelectableTextBlock Grid.Column="0" Text="FİRMA" MinWidth="200"/>
+                                <SelectableTextBlock Grid.Column="1" Text="VERGİ NO" MinWidth="130"/>
+                                <SelectableTextBlock Grid.Column="2" Text="TELEFON" MinWidth="130"/>
+                                <SelectableTextBlock Grid.Column="3" Text="KULLANICI" MinWidth="80"/>
                             </Grid>
                         </Border>
                         <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="org:CompanyRow">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding TaxDisplay}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" MinWidth="200" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding TaxDisplay}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding UserCount}" MinWidth="80" VerticalAlignment="Center"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -93,31 +98,36 @@
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding HasSelection}">
                 <ScrollViewer>
                     <StackPanel Spacing="10" DataContext="{Binding Selected}">
-                        <TextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
+                        <SelectableTextBlock Text="{Binding Name}" Classes="PageTitle" TextWrapping="Wrap"/>
                         <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Yetkili" Classes="Helper" Margin="0,2,12,2"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AuthorizedPerson}" Classes="Body"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Vergi No" Classes="Helper" Margin="0,2,12,2"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TaxNo}" Classes="Body"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Vergi Dairesi" Classes="Helper" Margin="0,2,12,2"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TaxOffice}" Classes="Body"/>
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Telefon" Classes="Helper" Margin="0,2,12,2"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Phone}" Classes="Body"/>
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="E-posta" Classes="Helper" Margin="0,2,12,2"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Email}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Yetkili" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AuthorizedPerson}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Vergi No" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TaxNo}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Vergi Dairesi" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TaxOffice}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Telefon" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Phone}" Classes="Body"/>
+                            <SelectableTextBlock Grid.Row="4" Grid.Column="0" Text="E-posta" Classes="Helper" Margin="0,2,12,2"/>
+                            <SelectableTextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Email}" Classes="Body"/>
                         </Grid>
-                        <TextBlock Text="{Binding Address}" Classes="Body" TextWrapping="Wrap"/>
-                        <Button Classes="Secondary" Content="Düzenle" HorizontalAlignment="Left"
-                                Command="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).BeginEditCommand}"
-                                IsVisible="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).CanEdit}"/>
+                        <SelectableTextBlock Text="{Binding Address}" Classes="Body" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                            <Button Classes="Secondary" Content="Düzenle"
+                                    Command="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).BeginEditCommand}"
+                                    IsVisible="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).CanEdit}"/>
+                            <Button Classes="Danger" Content="Sil"
+                                    Command="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).DeleteCompanyCommand}"
+                                    IsVisible="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).CanDelete}"/>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
             <Border Grid.Column="1" Classes="Panel" Margin="16,0,0,0" IsVisible="{Binding !HasSelection}">
-                <TextBlock Text="Detay için bir firma seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <SelectableTextBlock Text="Detay için bir firma seçin." Classes="Helper" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
         </Grid>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

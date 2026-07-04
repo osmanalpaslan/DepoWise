@@ -33,9 +33,10 @@ public static class RoleKeys
 /// <summary>Modül kataloğu — menü/permission tek doğru kaynağı (web ile eşit anahtarlar).</summary>
 public static class AppModules
 {
-    // Herkese açık (deny-by-default istisnası): Dashboard ve Hakkında.
+    // Herkese açık (deny-by-default istisnası): Dashboard, Hakkında ve Tema (her kullanıcı tema seçebilir).
     public const string Dashboard = "dashboard";
     public const string About = "about";
+    public const string Theme = "theme";
 
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
     {
@@ -69,7 +70,7 @@ public static class AppModules
 
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller.</summary>
     public static bool IsPublic(string moduleKey)
-        => moduleKey is Dashboard or About;
+        => moduleKey is Dashboard or About or Theme;
 
     /// <summary>
     /// Yalnız Süper Admin erişebilir; Firma Admini dahil hiç kimseye ATANAMAZ (admin bypass geçersiz).

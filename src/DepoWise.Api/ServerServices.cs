@@ -25,6 +25,7 @@ public sealed class ServerServices
     public BackupStore Backups { get; }
     public ReleaseStore ReleasePackages { get; }
     public SyncValidator SyncValidator { get; }
+    public BusinessSyncService BusinessSync { get; }
 
     // İş modülleri (web liste ekranları için)
     public DepoWise.Infrastructure.Materials.MaterialService Materials { get; }
@@ -48,6 +49,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Vehicles.VehicleTemplateService VehicleTemplates { get; }
     public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
     public DepoWise.Infrastructure.Reporting.ReportService Reports { get; }
+    public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
     public DepoWise.Infrastructure.Files.BackupService DbBackup { get; }
     public DepoWise.Infrastructure.Settings.SettingsService Settings { get; }
 
@@ -67,6 +69,7 @@ public sealed class ServerServices
         Backups = new BackupStore(Path.Combine(dataDir, "backups"));
         ReleasePackages = new ReleaseStore(Path.Combine(dataDir, "releases"));
         SyncValidator = new SyncValidator(Factory);
+        BusinessSync = new BusinessSyncService(Factory, clock);
 
         Materials = new DepoWise.Infrastructure.Materials.MaterialService(Factory, clock);
         Lookups = new DepoWise.Infrastructure.Materials.LookupService(Factory, clock);
@@ -89,6 +92,7 @@ public sealed class ServerServices
         VehicleTemplates = new DepoWise.Infrastructure.Vehicles.VehicleTemplateService(Factory, clock);
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
+        Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection);
         DbBackup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock, Path.Combine(dataDir, "dbbackups"));
         Settings = new DepoWise.Infrastructure.Settings.SettingsService(Factory, clock);
 

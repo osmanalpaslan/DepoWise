@@ -12,6 +12,21 @@ public sealed record LoginResult(
     SessionContext? Session,
     string? Error = null);
 
+/// <summary>Uzak (sunucu) kullanıcı paketi — masaüstü yerel DB'de kullanıcı yoksa sunucudan çekip
+/// yerele yazmak için. password_hash (bcrypt) taşınır → sonraki açılışlarda offline giriş de çalışır.</summary>
+public sealed record RemoteUserBundle(
+    string CompanyId,
+    string CompanyName,
+    string UserId,
+    string Username,
+    string PasswordHash,
+    string? FullName,
+    bool IsActive,
+    IReadOnlyList<string> RoleKeys,
+    IReadOnlyList<ModulePermission> Permissions,
+    IReadOnlyList<string> Buttons,
+    bool CanViewAllBranches = false);
+
 /// <summary>
 /// Kimlik doğrulama + brute-force kilidi. 5 ardışık hatalı denemeden sonra 5 dk kilit.
 /// Başarılı login kilidi sıfırlar. company_id login isteğinden bağımsız; oturum onunla kurulur.
@@ -58,8 +73,30 @@ public sealed class AuthService
         var roles = LoadRoleKeys(conn, user!.Value.Id);
         var perms = LoadPermissions(conn, user.Value.Id);
         CreateSession(conn, user.Value.Id, companyId, now);
-        var session = new SessionContext(user.Value.Id, companyId, roles, perms);
+        var session = new SessionContext(user.Value.Id, companyId, roles, perms, LoadViewAllBranches(conn, user.Value.Id));
         return new LoginResult(true, false, 0, session);
+    }
+
+    /// <summary>Firma-BAĞIMSIZ giriş: kullanıcı adı birden çok firmada olabilir. Web login companyId
+    /// göndermediğinde kullanılır — kullanıcı adına sahip tüm firmalar taranır, parola tutan firma ile
+    /// tam Login akışı (kilit + oturum) çalışır. Hiçbiri tutmazsa hatalı.</summary>
+    public LoginResult LoginAnyCompany(string username, string password)
+    {
+        using var conn = _factory.Create();
+        var candidates = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT company_id, password_hash FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$u", username);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                if (PasswordHasher.Verify(password, r.GetString(1)))
+                    candidates.Add(r.GetString(0));
+        }
+        if (candidates.Count == 0)
+            return new LoginResult(false, false, 0, null, "Kullanıcı adı veya parola hatalı.");
+        // Parola tutan (tek) firma ile tam akış
+        return Login(candidates[0], username, password);
     }
 
     /// <summary>
@@ -79,7 +116,155 @@ public sealed class AuthService
         }
         var roles = LoadRoleKeys(conn, userId);
         var perms = LoadPermissions(conn, userId);
-        return new SessionContext(userId, companyId, roles, perms);
+        return new SessionContext(userId, companyId, roles, perms, LoadViewAllBranches(conn, userId));
+    }
+
+    /// <summary>users.can_view_all_branches bayrağını okur (yoksa false).</summary>
+    private static bool LoadViewAllBranches(SqliteConnection conn, string userId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COALESCE(can_view_all_branches,0) FROM users WHERE id=$id;";
+        cmd.Parameters.AddWithValue("$id", userId);
+        var v = cmd.ExecuteScalar();
+        return v is not null && Convert.ToInt64(v) == 1;
+    }
+
+    /// <summary>SUNUCU tarafı: kullanıcı adı+parola doğrula ve tam kullanıcı paketini döndür (masaüstü senkron
+    /// girişi için). Geçersizse null. Firma/kilit isteğe bağlı — sunucu tüm firmaların kullanıcısını doğrular.</summary>
+    public RemoteUserBundle? ExportForSync(string companyId, string username, string password)
+    {
+        using var conn = _factory.Create();
+
+        // Kullanıcıyı bul; companyId boşsa TÜM firmalar taranır (kullanıcı adı birden çok firmada olabilir).
+        using var find = conn.CreateCommand();
+        if (string.IsNullOrWhiteSpace(companyId))
+            find.CommandText = "SELECT id, company_id, password_hash, full_name FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
+        else
+        {
+            find.CommandText = "SELECT id, company_id, password_hash, full_name FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
+            find.Parameters.AddWithValue("$c", companyId);
+        }
+        find.Parameters.AddWithValue("$u", username);
+        string? userId = null, coId = null, fullName = null, hash = null;
+        using (var r = find.ExecuteReader())
+        {
+            while (r.Read())
+            {
+                if (!PasswordHasher.Verify(password, r.GetString(2))) continue;
+                userId = r.GetString(0); coId = r.GetString(1); hash = r.GetString(2);
+                fullName = r.IsDBNull(3) ? null : r.GetString(3);
+                break;
+            }
+        }
+        if (userId is null || coId is null || hash is null) return null;
+
+        var roles = LoadRoleKeys(conn, userId);
+        var perms = LoadPermissions(conn, userId);
+        string coName = coId;
+        using (var cn = conn.CreateCommand())
+        {
+            cn.CommandText = "SELECT name FROM companies WHERE id=$c;";
+            cn.Parameters.AddWithValue("$c", coId);
+            coName = cn.ExecuteScalar() as string ?? coId;
+        }
+        return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
+            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId));
+    }
+
+    /// <summary>MASAÜSTÜ tarafı: sunucudan gelen kullanıcı paketini YEREL DB'ye yazar (upsert). Sonrasında
+    /// normal yerel Login çalışır (offline dahil). Roller sistem-global olduğundan role_key ile eşlenir.</summary>
+    public void ImportRemoteUser(RemoteUserBundle b)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        // 1) Firma (FK) — yoksa oluştur
+        using (var c = conn.CreateCommand())
+        {
+            c.Transaction = tx;
+            c.CommandText = "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES($id,$n,$now,$now,1,0);";
+            c.Parameters.AddWithValue("$id", b.CompanyId);
+            c.Parameters.AddWithValue("$n", b.CompanyName);
+            c.Parameters.AddWithValue("$now", now);
+            c.ExecuteNonQuery();
+        }
+        // 2) Kullanıcı (upsert, id korunur)
+        using (var u = conn.CreateCommand())
+        {
+            u.Transaction = tx;
+            u.CommandText =
+                "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, is_active, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$un,$h,$f,$va,1,$now,$now,1,0) " +
+                "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, is_active=1, is_deleted=0, updated_at=$now;";
+            u.Parameters.AddWithValue("$id", b.UserId);
+            u.Parameters.AddWithValue("$c", b.CompanyId);
+            u.Parameters.AddWithValue("$un", b.Username);
+            u.Parameters.AddWithValue("$h", b.PasswordHash);
+            u.Parameters.AddWithValue("$f", (object?)b.FullName ?? DBNull.Value);
+            u.Parameters.AddWithValue("$va", b.CanViewAllBranches ? 1 : 0);
+            u.Parameters.AddWithValue("$now", now);
+            u.ExecuteNonQuery();
+        }
+        // 3) Roller (tam değiştir)
+        using (var d = conn.CreateCommand())
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_roles WHERE user_id=$u;"; d.Parameters.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        foreach (var rk in b.RoleKeys.Distinct())
+        {
+            string? roleId;
+            using (var rq = conn.CreateCommand())
+            {
+                rq.Transaction = tx;
+                rq.CommandText = "SELECT id FROM roles WHERE role_key=$k AND is_deleted=0 ORDER BY (company_id IS NULL) DESC LIMIT 1;";
+                rq.Parameters.AddWithValue("$k", rk);
+                roleId = rq.ExecuteScalar() as string;
+            }
+            if (roleId is null) continue;
+            using var ir = conn.CreateCommand();
+            ir.Transaction = tx;
+            ir.CommandText = "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);";
+            ir.Parameters.AddWithValue("$u", b.UserId);
+            ir.Parameters.AddWithValue("$r", roleId);
+            ir.ExecuteNonQuery();
+        }
+        // 4) Yetkiler (tam değiştir)
+        using (var d = conn.CreateCommand())
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_permissions WHERE user_id=$u;"; d.Parameters.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        foreach (var p in b.Permissions)
+        {
+            using var ip = conn.CreateCommand();
+            ip.Transaction = tx;
+            ip.CommandText =
+                "INSERT INTO user_permissions(id, company_id, user_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version) " +
+                "VALUES($id,$c,$u,$m,$v,$cr,$e,$d,$now,$now,1);";
+            ip.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ip.Parameters.AddWithValue("$c", b.CompanyId);
+            ip.Parameters.AddWithValue("$u", b.UserId);
+            ip.Parameters.AddWithValue("$m", p.ModuleKey);
+            ip.Parameters.AddWithValue("$v", p.CanView ? 1 : 0);
+            ip.Parameters.AddWithValue("$cr", p.CanCreate ? 1 : 0);
+            ip.Parameters.AddWithValue("$e", p.CanEdit ? 1 : 0);
+            ip.Parameters.AddWithValue("$d", p.CanDelete ? 1 : 0);
+            ip.Parameters.AddWithValue("$now", now);
+            ip.ExecuteNonQuery();
+        }
+        // 5) Özel buton izinleri (tam değiştir)
+        using (var d = conn.CreateCommand())
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_button_permissions WHERE user_id=$u;"; d.Parameters.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        foreach (var bk in b.Buttons.Distinct())
+        {
+            using var ib = conn.CreateCommand();
+            ib.Transaction = tx;
+            ib.CommandText =
+                "INSERT INTO user_button_permissions(id, company_id, user_id, button_key, created_at) VALUES($id,$c,$u,$b,$now);";
+            ib.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ib.Parameters.AddWithValue("$c", b.CompanyId);
+            ib.Parameters.AddWithValue("$u", b.UserId);
+            ib.Parameters.AddWithValue("$b", bk);
+            ib.Parameters.AddWithValue("$now", now);
+            ib.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 
     private (int count, long? lastFailMs) ConsecutiveFailures(SqliteConnection conn, string companyId, string username)

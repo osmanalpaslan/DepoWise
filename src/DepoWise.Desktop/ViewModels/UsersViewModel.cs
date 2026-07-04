@@ -24,6 +24,11 @@ public sealed partial class UsersViewModel : ViewModelBase
     public bool CanManage => AccessControl.Can(_session, "users", PermissionAction.Edit);
     /// <summary>Sil + şifre değiştir yalnız Admin / Süper Admin.</summary>
     public bool CanManageUsers => AccessControl.IsAdmin(_session);
+    /// <summary>"Tüm Şubeler" yetkisini YALNIZ Süper Admin belirler.</summary>
+    public bool IsSuperAdmin => _session.IsSuperAdmin;
+
+    /// <summary>Yeni kullanıcı formunda "Tüm Şubeler" yetkisi (yalnız Süper Admin).</summary>
+    [ObservableProperty] private bool _newViewAllBranches;
 
     [ObservableProperty] private string _newPasswordForSelected = "";
 
@@ -179,19 +184,41 @@ public sealed partial class UsersViewModel : ViewModelBase
                 FullName: string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim(),
                 RoleKeys: roles,
                 CompanyId: _session.CompanyId,
-                BranchId: FormBranch?.Id));
+                BranchId: FormBranch?.Id,
+                CanViewAllBranches: IsSuperAdmin && NewViewAllBranches));
 
             // Yetki şablonu seçildiyse yetkileri şablona göre yaz (yalnız Süper Admin)
             if (tplData is not null)
                 DesktopServices.Permissions.SaveForUser(_session, newUserId, tplData.Modules, tplData.Buttons);
 
             ShowAdd = false;
+            NewViewAllBranches = false;
             Load();
             Status = SelectedTemplate is not null
                 ? $"Kullanıcı oluşturuldu (yetkiler '{SelectedTemplate.Name}' şablonundan)."
                 : "Kullanıcı oluşturuldu.";
         }
         catch (Exception ex) { FormError = "Oluşturulamadı: " + ex.Message; }
+    }
+
+    /// <summary>Seçili kullanıcının "Tüm Şubeler" yetkisini aç/kapat — YALNIZ Süper Admin.</summary>
+    [RelayCommand]
+    private async Task ToggleViewAllBranches()
+    {
+        if (Selected is null) { Status = "Kullanıcı seçin."; return; }
+        if (!IsSuperAdmin) { Status = "Bu yetkiyi yalnız Süper Admin belirleyebilir."; return; }
+        bool target = !Selected.CanViewAllBranches;
+        if (!await ConfirmService.AskAsync(
+                target ? $"'{Selected.Username}' kullanıcısına Tüm Şubeler yetkisi verilsin mi?"
+                       : $"'{Selected.Username}' kullanıcısından Tüm Şubeler yetkisi kaldırılsın mı?", "Tüm Şubeler Yetkisi"))
+            return;
+        try
+        {
+            DesktopServices.Users.SetViewAllBranches(_session, Selected.Id, target);
+            Load();
+            Status = target ? "Tüm Şubeler yetkisi verildi." : "Tüm Şubeler yetkisi kaldırıldı.";
+        }
+        catch (Exception ex) { Status = "İşlem başarısız: " + ex.Message; }
     }
 
     [RelayCommand]

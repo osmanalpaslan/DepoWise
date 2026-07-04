@@ -29,7 +29,7 @@ public static class MachineGate
         {
             try
             {
-                var json = JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName });
+                var json = JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName, branchId = DesktopServices.CurrentBranchId });
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var resp = await _http.PostAsync(url!.TrimEnd('/') + "/api/machines/register", content);
                 if (resp.IsSuccessStatusCode)
@@ -47,6 +47,10 @@ public static class MachineGate
         if (string.Equals(status, "revoked", StringComparison.OrdinalIgnoreCase))
             return (false, "Bu makine pasife alınmış. Girişe kapalı. İnternete bağlanıp süper adminin makineyi aktifleştirmesi gerekir.");
 
+        if (string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
+            return (false, "Bu makine firmanın makine kotasını aştığı için onay bekliyor. Süper adminin bu makineyi onaylaması (veya başka bir makineyi pasife alması) gerekir.");
+
+        // status 'active' → izin. Çevrimdışı ve hiç durum yoksa (null) engelleme (ilk kurulum senaryosu).
         return (true, "");
     }
 

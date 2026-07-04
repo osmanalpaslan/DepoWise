@@ -13,8 +13,8 @@
         <ctrl:Toolbar Grid.Row="0" Title="Güncelleme Yönetimi (Süper Admin)">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="Kurulu sürüm:" Classes="Helper" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Kurulu sürüm:" Classes="Helper" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
@@ -23,10 +23,10 @@
         <!-- Paket yayınla / kur -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="14">
-                <TextBlock Text="PAKET YAYINLA / KUR" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="PAKET YAYINLA / KUR" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <Button Classes="Secondary" Content="📦 Paket Dosyası Seç" Command="{Binding PickFileCommand}"/>
-                    <TextBlock Text="{Binding PickedFileName}" Classes="Body" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="{Binding PickedFileName}" Classes="Body" VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Sürüm (X.Y.Z)" IsRequired="True" Width="150">
@@ -51,14 +51,14 @@
 
                 <!-- % ilerleme -->
                 <StackPanel Spacing="4" IsVisible="{Binding IsUpdating}">
-                    <TextBlock Text="Kuruluyor..." Classes="Helper"/>
+                    <SelectableTextBlock Text="Kuruluyor..." Classes="Helper"/>
                     <Grid ColumnDefinitions="*,Auto">
                         <ProgressBar Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding UpdateProgress}" Height="10"/>
-                        <TextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Body" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Body" Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </Grid>
                 </StackPanel>
 
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="Yayınla" Command="{Binding PublishCommand}"/>
@@ -73,24 +73,24 @@
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-                            <TextBlock Grid.Column="0" Text="SÜRÜM" MinWidth="90"/>
-                            <TextBlock Grid.Column="1" Text="BOYUT" MinWidth="90"/>
-                            <TextBlock Grid.Column="2" Text="MİN" MinWidth="80"/>
-                            <TextBlock Grid.Column="3" Text="İMZA" MinWidth="80"/>
-                            <TextBlock Grid.Column="4" Text="NOTLAR" MinWidth="160"/>
-                            <TextBlock Grid.Column="5" Text="TARİH" MinWidth="130"/>
+                            <SelectableTextBlock Grid.Column="0" Text="SÜRÜM" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="1" Text="BOYUT" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="2" Text="MİN" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="3" Text="İMZA" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="4" Text="NOTLAR" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="130"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="upd:ReleaseRow">
                                 <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding Version}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding SizeDisplay}" MinWidth="90" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding MinSupportedVersion}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding SignedDisplay}" MinWidth="80" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="4" Text="{Binding NotesDisplay}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Version}" MinWidth="90" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding SizeDisplay}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MinSupportedVersion}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding SignedDisplay}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding NotesDisplay}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -102,6 +102,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Yayın yok" Message="Henüz güncelleme paketi yayınlanmadı." IsVisible="{Binding !HasRows}"/>
         </Panel>
 
-        <TextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

@@ -20,7 +20,7 @@
 
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
             <StackPanel Spacing="14" MaxWidth="640" HorizontalAlignment="Left">
-                <TextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Ad Soyad" IsRequired="True" Width="240">
                         <TextBox Classes="Field" Text="{Binding FFullName}"/>
@@ -35,14 +35,14 @@
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şube" Width="200">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="orgz:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="orgz:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Aktif" Width="80">
                         <CheckBox IsChecked="{Binding FActive}" VerticalAlignment="Center"/>
                     </ctrl:FormField>
                 </StackPanel>
-                <TextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
+                <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <Button Classes="Secondary" Content="İptal" Command="{Binding CancelAddCommand}"/>
@@ -53,32 +53,34 @@
 
         <Border Grid.Row="2" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding HasSelection}">
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="Seçili:" Classes="Helper" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding Selected.FullName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <SelectableTextBlock Text="Seçili:" Classes="Helper" VerticalAlignment="Center"/>
+                <SelectableTextBlock Text="{Binding Selected.FullName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <Button Classes="Secondary" Content="Düzenle" Command="{Binding BeginEditCommand}" IsVisible="{Binding CanEdit}"/>
                 <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"/>
             </StackPanel>
         </Border>
 
         <Panel Grid.Row="3" Margin="0,16,0,0">
-            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True">
                 <DockPanel>
+                    <TextBox Classes="Search" DockPanel.Dock="Top" Margin="0,0,0,8"
+                             Text="{Binding Search}" PlaceholderText="Personel ara (ad / unvan / telefon)"/>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid ColumnDefinitions="*,*,Auto,Auto">
-                            <TextBlock Grid.Column="0" Text="AD SOYAD" MinWidth="180"/>
-                            <TextBlock Grid.Column="1" Text="UNVAN" MinWidth="160"/>
-                            <TextBlock Grid.Column="2" Text="TELEFON" MinWidth="130"/>
-                            <TextBlock Grid.Column="3" Text="DURUM" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="0" Text="AD SOYAD" MinWidth="180"/>
+                            <SelectableTextBlock Grid.Column="1" Text="UNVAN" MinWidth="160"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TELEFON" MinWidth="130"/>
+                            <SelectableTextBlock Grid.Column="3" Text="DURUM" MinWidth="80"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="org:PersonnelRecord">
                                 <Grid ColumnDefinitions="*,*,Auto,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding FullName}" MinWidth="180" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Title}" MinWidth="160" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" MinWidth="80" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding FullName}" MinWidth="180" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Title}" MinWidth="160" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Phone}" MinWidth="130" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" MinWidth="80" VerticalAlignment="Center"
                                                Text="{Binding IsActive, Converter={x:Static vm:ActiveTextConverter.Instance}}"/>
                                 </Grid>
                             </DataTemplate>
@@ -91,6 +93,6 @@
             <ctrl:StatePanel Mode="Empty" Title="Personel yok" Message="Henüz personel yok." IsVisible="{Binding IsEmpty}"/>
         </Panel>
 
-        <TextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

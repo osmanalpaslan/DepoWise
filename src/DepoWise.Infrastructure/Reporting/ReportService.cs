@@ -45,8 +45,12 @@ ORDER BY m.code;";
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // KM = Σ(current-prev) [geçerli sayaç çiftlerinde]; Ort. Tüketim (L/km) = toplam litre / toplam km.
         cmd.CommandText = @"
-SELECT v.internal_code, COUNT(fd.id), COALESCE(SUM(CAST(fd.liters AS REAL)),0),
+SELECT v.internal_code, COUNT(fd.id),
+       COALESCE(SUM(CASE WHEN fd.prev_meter IS NOT NULL AND fd.current_meter IS NOT NULL
+              THEN CAST(fd.current_meter AS REAL)-CAST(fd.prev_meter AS REAL) ELSE 0 END),0),
+       COALESCE(SUM(CAST(fd.liters AS REAL)),0),
        COALESCE(SUM(CAST(fd.liters AS REAL)*CAST(fd.unit_price AS REAL)),0)
 FROM fuel_distributions fd JOIN vehicles v ON v.id=fd.vehicle_id
 WHERE fd.company_id=$c AND fd.is_deleted=0
@@ -55,10 +59,19 @@ GROUP BY fd.vehicle_id ORDER BY v.internal_code;";
         cmd.Parameters.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            rows.Add(new object?[] { r.GetString(0), r.GetInt32(1), r.GetDouble(2), r.GetDouble(3) });
-        return new TableModel("Yakıt Tüketim", new[] { "Araç", "İşlem", "Litre", "Tutar" }, rows);
+        int totIslem = 0; double totKm = 0, totLitre = 0, totTutar = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var islem = r.GetInt32(1); var km = r.GetDouble(2); var litre = r.GetDouble(3); var tutar = r.GetDouble(4);
+                var lkm = km > 0 ? litre / km : 0;
+                rows.Add(new object?[] { r.GetString(0), islem, km, litre, lkm, tutar });
+                totIslem += islem; totKm += km; totLitre += litre; totTutar += tutar;
+            }
+        if (rows.Count > 0)
+            rows.Add(new object?[] { "TOPLAM", totIslem, totKm, totLitre, totKm > 0 ? totLitre / totKm : 0, totTutar });
+        return new TableModel("Yakıt Tüketim",
+            new[] { "Araç", "İşlem", "KM", "Litre", "Ort. Tüketim (L/km)", "Tutar" }, rows);
     }
 
     /// <summary>Genel Rapor — araç başına birleşik: KM, Litre, L/km, Malzeme Maliyeti, Yakıt Maliyeti, Toplam.</summary>
@@ -86,13 +99,17 @@ GROUP BY v.id ORDER BY v.internal_code;";
         cmd.Parameters.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-        {
-            var km = r.GetDouble(2); var litre = r.GetDouble(3); var fuel = r.GetDouble(4); var mat = r.GetDouble(5);
-            var lkm = km > 0 ? litre / km : 0;
-            rows.Add(new object?[] { r.GetString(0), r.GetString(1), km, litre, lkm, mat, fuel, mat + fuel });
-        }
+        double tKm = 0, tLitre = 0, tFuel = 0, tMat = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var km = r.GetDouble(2); var litre = r.GetDouble(3); var fuel = r.GetDouble(4); var mat = r.GetDouble(5);
+                var lkm = km > 0 ? litre / km : 0;
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1), km, litre, lkm, mat, fuel, mat + fuel });
+                tKm += km; tLitre += litre; tFuel += fuel; tMat += mat;
+            }
+        if (rows.Count > 0)
+            rows.Add(new object?[] { "TOPLAM", "", tKm, tLitre, tKm > 0 ? tLitre / tKm : 0, tMat, tFuel, tMat + tFuel });
         return new TableModel("Genel Rapor",
             new[] { "Araç", "Plaka", "KM", "Litre", "L/km", "Malzeme Maliyeti", "Yakıt Maliyeti", "Toplam" }, rows);
     }

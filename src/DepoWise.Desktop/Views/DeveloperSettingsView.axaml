@@ -15,8 +15,8 @@
             <StackPanel Spacing="14" MaxWidth="560" HorizontalAlignment="Left">
                 <Expander Header="Geliştirici Modu" IsExpanded="True" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Geliştirici kodu girilince açılır → kullanıcı süper admin yetkilerine sahip olur. Çıkış yapınca otomatik kapanır." Classes="Helper" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding DeveloperStatusText}" Classes="Body" FontWeight="SemiBold"/>
+                        <SelectableTextBlock Text="Geliştirici kodu girilince açılır → kullanıcı süper admin yetkilerine sahip olur. Çıkış yapınca otomatik kapanır." Classes="Helper" TextWrapping="Wrap"/>
+                        <SelectableTextBlock Text="{Binding DeveloperStatusText}" Classes="Body" FontWeight="SemiBold"/>
                         <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding !DeveloperActive}">
                             <ctrl:FormField Label="Geliştirici Kodu" Width="220">
                                 <TextBox Classes="Field" Text="{Binding DeveloperCode}" PasswordChar="●"/>
@@ -30,7 +30,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="2" Text="{Binding Status}" Classes="Helper" Margin="0,12,0,0"
+        <SelectableTextBlock Grid.Row="2" Text="{Binding Status}" Classes="Helper" Margin="0,12,0,0"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

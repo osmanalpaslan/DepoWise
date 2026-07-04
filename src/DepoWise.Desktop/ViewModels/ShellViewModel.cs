@@ -33,6 +33,26 @@ public sealed partial class ShellViewModel : ViewModelBase
     public bool IsSuperAdmin => _session.IsSuperAdmin || DeveloperMode.IsActive;
     [ObservableProperty] private IReadOnlyList<NavGroupVm> _groups = System.Array.Empty<NavGroupVm>();
 
+    // ── Menü arama: kutuya yazınca eşleşen ekranlar düz liste olarak altında çıkar; tıklayınca açılır ──
+    [ObservableProperty] private string _menuSearch = "";
+    public System.Collections.ObjectModel.ObservableCollection<MenuSearchItem> MenuSearchResults { get; } = new();
+    public bool IsSearchingMenu => !string.IsNullOrWhiteSpace(MenuSearch);
+
+    partial void OnMenuSearchChanged(string value)
+    {
+        MenuSearchResults.Clear();
+        OnPropertyChanged(nameof(IsSearchingMenu));
+        var q = (value ?? "").Trim();
+        if (q.Length == 0) return;
+        var ci = System.Globalization.CultureInfo.GetCultureInfo("tr-TR");
+        bool Has(string s) => ci.CompareInfo.IndexOf(s ?? "", q,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+        foreach (var g in Groups)
+            foreach (var c in g.Children)
+                if (Has(c.Title) || Has(g.Title))
+                    MenuSearchResults.Add(new MenuSearchItem($"{g.Title} › {c.Title}", c.Key));
+    }
+
     [ObservableProperty] private ViewModelBase? _currentPage;
     [ObservableProperty] private string _currentTitle = "";
     [ObservableProperty] private string _currentContext = "";
@@ -51,11 +71,62 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// <summary>serverurl.txt / ayar yoksa (ör. kaynaktan çalıştırma) varsayılan bulut adresi.</summary>
     private const string DefaultServerUrl = "https://depowise-erp.fly.dev";
 
+    // ── Eşitle: sunucudan tanımları çek (%'li ilerleme + başarı bildirimi) ──
+    [ObservableProperty] private bool _isSyncing;
+    [ObservableProperty] private int _syncProgress;
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task Sync()
+    {
+        if (IsSyncing) return;
+        IsSyncing = true; SyncProgress = 0;
+        try
+        {
+            var ok = await LookupSyncService.SyncNowAsync(p =>
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => SyncProgress = p));
+            // Tanım çekme + iş verisini sunucuya gönder (web görünürlüğü).
+            await BusinessSyncPushService.PushAsync();
+            await ConfirmService.AskAsync(
+                ok ? "Eşitleme başarıyla tamamlandı. Tanımlar güncel." :
+                     "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
+                "Eşitle", "Tamam", "Tamam", danger: !ok);
+        }
+        finally { IsSyncing = false; SyncProgress = 0; }
+    }
+
+    // İş verisi push throttle: 30 sn tick'te değil, ~3 dk'da bir tam snapshot gönder (bant tasarrufu).
+    private DateTime _lastBusinessPush = DateTime.MinValue;
+    private async System.Threading.Tasks.Task MaybePushBusinessAsync()
+    {
+        if ((DateTime.UtcNow - _lastBusinessPush).TotalSeconds < 180) return;
+        _lastBusinessPush = DateTime.UtcNow;
+        await BusinessSyncPushService.PushAsync();
+        await WarnConflictsAsync();
+    }
+
+    // Push sonrası: admin ile çakışılan kayıtlar varsa personeli bilgilendir (bir kez), sonra 'görüldü' işaretle.
+    private async System.Threading.Tasks.Task WarnConflictsAsync()
+    {
+        try
+        {
+            var items = await BusinessSyncPushService.GetUnseenConflictsAsync();
+            if (items.Count == 0) return;
+            var msg = "Aşağıdaki kayıtlarda admin (web) ile aynı anda değişiklik yapıldı.\n" +
+                      "En son düzenleyen geçerli oldu; kayıt tekrar düzenlenene kadar bu geçerlidir:\n\n" +
+                      string.Join("\n", items);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                await ConfirmService.AskAsync(msg, "Senkron Çakışması", "Tamam", "Tamam"));
+            await BusinessSyncPushService.MarkSeenAsync();
+        }
+        catch { }
+    }
+
+    // Not: MenuSearchItem record'u dosya sonunda (namespace düzeyinde) tanımlı.
     private void StartConnectionMonitor()
     {
         _ = PingAsync();
         _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); }; // ping + heartbeat (last_seen güncel)
+        _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); await CheckUserChangedAsync(); await MaybePushBusinessAsync(); }; // ping + heartbeat + yetki + iş verisi push
         _connTimer.Start();
     }
 
@@ -72,7 +143,32 @@ public sealed partial class ShellViewModel : ViewModelBase
         catch { SetConn("#EF4444", "Çevrimdışı"); }
     }
 
-    /// <summary>Bu makineyi buluta 'pending' cihaz olarak kaydeder → web Makine Yönetimi'nde görünür (admin onaylar).</summary>
+    private bool _machineBlockHandled;
+    private readonly string? _authSig = ServerAuthClient.AuthSig;
+    private bool _userChangeHandled;
+
+    /// <summary>Giriş yapılmışken web'de kullanıcının yetki/şifresi değişirse (imza değişir) uyarı + otomatik
+    /// çıkış → tekrar giriş gerekir. Yalnız çevrimiçi + JWT varsa çalışır; çevrimdışında tetiklenmez.</summary>
+    private async System.Threading.Tasks.Task CheckUserChangedAsync()
+    {
+        if (_userChangeHandled || _authSig is null || _session.IsSuperAdmin) return;
+        var cur = await ServerAuthClient.FetchAuthSigAsync();
+        if (cur is null || cur == _authSig) return; // erişilemedi ya da değişmemiş
+        _userChangeHandled = true;
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            _connTimer?.Stop();
+            await ConfirmService.AskAsync(
+                "Kullanıcınızda güncelleme yapılmıştır (yetki/şifre değişti). Değişikliklerin geçerli olması için " +
+                "çıkış yapıp tekrar giriş yapmanız gerekir.",
+                "Kullanıcı Güncellendi", "Çıkış Yap", "Çıkış Yap", danger: true);
+            DepoWise.Desktop.App.Current?.Logout();
+        });
+    }
+
+    /// <summary>Bu makineyi buluta kaydeder (heartbeat). Dönen durum 'revoked'/'pending' ise (kota dışı ya da
+    /// pasife alınmış) çalışan oturum ANINDA sonlandırılır: uyarı gösterilir + otomatik çıkış yapılır.
+    /// Süper admin oturumu etkilenmez.</summary>
     private async System.Threading.Tasks.Task RegisterMachineAsync()
     {
         var url = ResolveServerUrl();
@@ -80,9 +176,27 @@ public sealed partial class ShellViewModel : ViewModelBase
         try
         {
             var companyId = DesktopServices.Session?.CompanyId ?? DesktopServices.DefaultCompanyId;
-            var json = System.Text.Json.JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName });
+            var json = System.Text.Json.JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName, branchId = DesktopServices.CurrentBranchId });
             using var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
-            await _pingHttp.PostAsync(url!.TrimEnd('/') + "/api/machines/register", content);
+            using var resp = await _pingHttp.PostAsync(url!.TrimEnd('/') + "/api/machines/register", content);
+            if (!resp.IsSuccessStatusCode) return;
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            var status = doc.RootElement.TryGetProperty("status", out var st) ? st.GetString() : null;
+
+            if (_session.IsSuperAdmin || _machineBlockHandled) return;
+            if (status is "revoked" or "pending")
+            {
+                _machineBlockHandled = true;
+                var msg = status == "revoked"
+                    ? "Bu makine süper admin tarafından PASİFE alındı. Oturumunuz kapatılıyor. Tekrar giriş için makinenin yeniden aktifleştirilmesi gerekir."
+                    : "Bu makine firmanın makine kotasını aştığı için ONAY BEKLİYOR. Oturumunuz kapatılıyor. Süper adminin makineyi onaylaması gerekir.";
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    _connTimer?.Stop();
+                    await ConfirmService.AskAsync(msg, "Makine Erişimi Kapatıldı", "Tamam", "Tamam", danger: true);
+                    DepoWise.Desktop.App.Current?.Logout();
+                });
+            }
         }
         catch { }
     }
@@ -125,7 +239,65 @@ public sealed partial class ShellViewModel : ViewModelBase
 
         Navigate("dashboard");
         StartConnectionMonitor();
+        StartUpdateWatcher();
         _ = RegisterMachineAsync();
+    }
+
+    // ── Otomatik güncelleme: giriş sonrası + her 10 dk'da bir kontrol; yeni sürüm varsa ONAY sorar.
+    // Onay verilmezse 10 dk sonra tekrar sorar. Onaylanınca indirir, kurar, uygulamayı kapatıp yeniden açar. ──
+    private Avalonia.Threading.DispatcherTimer? _updateTimer;
+    private bool _updateBusy;
+
+    private void StartUpdateWatcher()
+    {
+        _ = CheckForUpdateAndPromptAsync();
+        _updateTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
+        _updateTimer.Tick += async (_, _) => await CheckForUpdateAndPromptAsync();
+        _updateTimer.Start();
+    }
+
+    private async System.Threading.Tasks.Task CheckForUpdateAndPromptAsync()
+    {
+        if (_updateBusy) return;
+        try
+        {
+            // Otomatik güncelleme kapalıysa oto-uyarı atlanır (kullanıcı ana ekrandan elle kurar).
+            if (DesktopServices.Settings.Get(_session.CompanyId, DashboardViewModel.AutoUpdateKey) == "0") return;
+            var url = ResolveServerUrl();
+            if (string.IsNullOrWhiteSpace(url)) return;
+            var latest = await DesktopServices.UpdateApi.GetLatestAsync(url!);
+            if (latest is null || string.IsNullOrWhiteSpace(latest.DownloadUrl)) return;
+            var res = DesktopServices.Update.Check(latest);
+            if (!res.UpdateAvailable) return;
+
+            _updateBusy = true;
+            var ok = await ConfirmService.AskAsync(
+                $"Yeni sürüm mevcut: {latest.Version} (mevcut {res.CurrentVersion}).\n\n" +
+                "Şimdi indirilip kurulsun mu? Uygulama otomatik kapanıp yeniden açılacak. Veritabanınıza dokunulmaz.",
+                "Güncelleme Mevcut", "İndir ve Kur", "Daha Sonra");
+            if (!ok) { _updateBusy = false; return; } // 10 dk sonra tekrar sorar
+
+            // İndirme yüzdesi üst barda canlı gösterilir (0–100).
+            SetConn("#3B82F6", "Güncelleme indiriliyor… %0");
+            var bytes = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
+                p => Avalonia.Threading.Dispatcher.UIThread.Post(() => SetConn("#3B82F6", $"Güncelleme indiriliyor… %{p}")));
+            SetConn("#3B82F6", "Kuruluyor… %100");
+
+            // Yeniden başlatma öncesi bilgilendirme — kullanıcı Tamam'a basınca uygulama kapanıp yeniden açılır.
+            await ConfirmService.AskAsync(
+                "Güncelleme indirildi. Uygulamanız yeniden başlatılacaktır, lütfen bekleyiniz…",
+                "Yeniden Başlatılıyor", "Tamam", "Tamam");
+
+            SetConn("#3B82F6", "Yeniden başlatılıyor…");
+            UpdateInstaller.InstallAndRestart(bytes, latest.Version, latest.ChecksumSha256);
+            // Uygulamayı kapat → harici yardımcı dosyaları kopyalayıp uygulamayı yeniden açar.
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            _updateBusy = false;
+            try { await ConfirmService.AskAsync("Güncelleme başarısız: " + ex.Message, "Güncelleme", "Tamam", "Tamam"); } catch { }
+        }
     }
 
     private static IReadOnlyList<NavGroupVm> BuildGroups(SessionContext s)
@@ -175,7 +347,6 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Çöp Kutusu", "trash"),
                 new NavLinkVm("Sistem Logu", "audit"),
                 new NavLinkVm("Yedek Yönetimi", "backup"),
-                new NavLinkVm("Sunucu Yedekleri", "server_backups"),
                 new NavLinkVm("Makine Yönetimi", "machines"),
             }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
@@ -192,6 +363,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             }),
             new NavGroupVm("🛠️", "Ayarlar", "settings", new[]
             {
+                new NavLinkVm("Tema", "theme"),
                 new NavLinkVm("Geliştirici Modu", "settings:developer"),
                 new NavLinkVm("Yetki Şablonları", "permission_templates"),
                 new NavLinkVm("Hakkında", "about"),
@@ -357,6 +529,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Makine Yönetimi";
                 CurrentContext = "Makine onay/aktif-pasif + kota (Süper Admin)";
                 break;
+            case "theme":
+                CurrentPage = new ThemeSettingsViewModel();
+                CurrentTitle = "Ayarlar — Tema";
+                CurrentContext = "Koyu / Açık / Sistem tema seçimi";
+                break;
             case "settings:developer":
                 CurrentPage = new DeveloperSettingsViewModel(_session);
                 CurrentTitle = "Ayarlar — Geliştirici Modu";
@@ -502,3 +679,5 @@ public sealed partial class PlaceholderViewModel : ViewModelBase
         Message = $"\"{title}\" ekranı yakında. İş mantığı ve servis katmanı hazır ve testli; ekran bağlama sırada.";
     }
 }
+
+public sealed record MenuSearchItem(string Display, string Key);

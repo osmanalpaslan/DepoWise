@@ -76,11 +76,64 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTimeOffse
 // ── Kimlik doğrulama → JWT ──
 app.MapPost("/api/auth/login", (LoginDto dto) =>
 {
-    var res = svc.Auth.Login(dto.CompanyId ?? "DEPOWISE", dto.Username, dto.Password);
+    bool allBranches = string.Equals(dto.BranchId, BranchConstants.AllBranchesId, StringComparison.Ordinal);
+    // Gerçek şube seçildiyse önce ŞUBE ŞİFRESİ doğrulanır (şubede şifre tanımlı değilse serbest). "Tüm Şubeler" sanal seçimdir.
+    if (!allBranches && !string.IsNullOrWhiteSpace(dto.BranchId))
+    {
+        var co = string.IsNullOrWhiteSpace(dto.CompanyId) ? "DEPOWISE" : dto.CompanyId!;
+        if (!svc.Branches.VerifyBranchPassword(co, dto.BranchId!, dto.BranchPassword))
+            return Results.Json(new { error = "Şube şifresi hatalı." }, statusCode: 401);
+    }
+    // companyId verilmezse (web) firma-bağımsız giriş: kullanıcı adı hangi firmadaysa oraya girer.
+    var res = string.IsNullOrWhiteSpace(dto.CompanyId)
+        ? svc.Auth.LoginAnyCompany(dto.Username, dto.Password)
+        : svc.Auth.Login(dto.CompanyId!, dto.Username, dto.Password);
     if (!res.Success || res.Session is null)
         return Results.Json(new { error = res.Locked ? $"Kilitli ({res.SecondsRemaining}sn)" : res.Error }, statusCode: 401);
+    // "Tüm Şubeler" seçimi YALNIZ yetkili kullanıcıya açık.
+    if (allBranches && !res.Session.CanViewAllBranches)
+        return Results.Json(new { error = "Bu kullanıcının Tüm Şubeler yetkisi yok." }, statusCode: 403);
     var token = JwtTokens.Issue(jwtKey, res.Session.UserId, res.Session.CompanyId);
-    return Results.Ok(new { token, userId = res.Session.UserId, companyId = res.Session.CompanyId, isSuperAdmin = res.Session.IsSuperAdmin });
+    // 2 aşamalı login: kullanıcının KENDİ firmasının adı + şubeleri döner (kullanıcı firma listesini görmez).
+    var companyName = svc.Companies.GetName(res.Session.CompanyId);
+    var branches = svc.Branches.ListForLogin(res.Session.CompanyId)
+        .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+    return Results.Ok(new { token, userId = res.Session.UserId, companyId = res.Session.CompanyId,
+        companyName, branches, isSuperAdmin = res.Session.IsSuperAdmin, branchId = dto.BranchId,
+        canViewAllBranches = res.Session.CanViewAllBranches });
+});
+
+// Masaüstü senkron girişi: yerel DB'de olmayan (web'te oluşturulan) kullanıcıyı sunucu doğrular ve
+// tam paketini döndürür → masaüstü yerele yazıp giriş yapar. Geçersizse 401.
+app.MapPost("/api/auth/sync-login", (LoginDto dto) =>
+{
+    var bundle = svc.Auth.ExportForSync(dto.CompanyId ?? "", dto.Username, dto.Password);
+    return bundle is null
+        ? Results.Json(new { error = "Kullanıcı adı veya parola hatalı." }, statusCode: 401)
+        : Results.Ok(bundle);
+});
+
+// ── Login ekranı için PUBLIC firma + şube listesi (anonim; kod+şifre-var-mı) ──
+app.MapGet("/api/public/companies", () =>
+{
+    using var conn = svc.Factory.Create();
+    using var cmd = conn.CreateCommand();
+    cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
+    var list = new List<object>();
+    using var r = cmd.ExecuteReader();
+    while (r.Read()) list.Add(new { id = r.GetString(0), name = r.GetString(1) });
+    return Results.Ok(list);
+});
+app.MapGet("/api/public/branches", (string companyId) =>
+{
+    if (string.IsNullOrWhiteSpace(companyId)) return Results.Ok(Array.Empty<object>());
+    var rows = svc.Branches.ListForLogin(companyId);
+    return Results.Ok(rows.Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword }));
+});
+app.MapPost("/api/public/verify-branch", (VerifyBranchDto d) =>
+{
+    var co = string.IsNullOrWhiteSpace(d.CompanyId) ? "DEPOWISE" : d.CompanyId!;
+    return Results.Ok(new { ok = svc.Branches.VerifyBranchPassword(co, d.BranchId, d.BranchPassword) });
 });
 
 // ── Senkron (cihaz token'ı) ──
@@ -98,24 +151,54 @@ app.MapGet("/sync/pull", (HttpRequest req, long after, int limit) =>
 });
 app.MapPost("/sync/enroll", (EnrollDto dto) => Results.Ok(svc.Enrollment.Enroll(dto.CompanyId, dto.Key, dto.DeviceName)));
 
+// İş verisi SNAPSHOT push (JWT) — masaüstü kendi firmasının iş tablolarını gönderir; sunucu upsert eder
+// (company_id oturumdan zorlanır). Web adminleri bu veriyi görür. Faz 2 "güvenli web görünürlüğü".
+app.MapPost("/api/sync/business-push", async (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    using var doc = await System.Text.Json.JsonDocument.ParseAsync(c.Request.Body);
+    var res = svc.BusinessSync.Apply(s.CompanyId, doc.RootElement);
+    return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, errors = res.Errors });
+}).RequireAuthorization();
+
+// Çakışmalar — admin (tümü) / personel (görmediği, şube kapsamında)
+app.MapGet("/api/sync/conflicts", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.BusinessSync.ListConflicts(s.CompanyId)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/sync/conflicts/unseen", (HttpContext c, string? branchId) =>
+    S(c) is { } s ? Results.Ok(svc.BusinessSync.ListUnseen(s.CompanyId, string.IsNullOrWhiteSpace(branchId) ? null : branchId)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/sync/conflicts/seen", (HttpContext c, ConflictSeenDto d) =>
+    S(c) is { } s ? Results.Ok(new { marked = svc.BusinessSync.MarkSeen(s.CompanyId, string.IsNullOrWhiteSpace(d.BranchId) ? null : d.BranchId) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/sync/conflicts/{id}/resolve", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.BusinessSync.ResolveConflict(s.CompanyId, id)) }) : Results.Unauthorized()).RequireAuthorization();
+
 // ── Makine yönetimi (JWT — admin) ──
-app.MapGet("/api/machines", (HttpContext ctx) =>
+app.MapGet("/api/machines", (HttpContext ctx, string? companyId) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    var rows = svc.Enrollment.ListDevices(s).Select(d => new
+    var rows = svc.Enrollment.ListDevices(s, companyId).Select(d => new
     {
         id = d.Id, name = d.Name, status = d.Status, statusText = d.StatusText,
         lastSeenText = d.LastSeenText, createdText = d.CreatedText, canActivate = d.CanActivate, isActive = d.IsActive,
+        companyId = d.CompanyId, companyName = d.CompanyName, quota = d.Quota, branchName = d.BranchText,
+        ip = d.IpText, ipv4 = d.Ip4Text, ipv6 = d.Ip6Text,
         online = d.LastSeenAt is long t && (now - t) <= 90_000, // son 90 sn içinde ping = çevrimiçi
     });
     return Results.Ok(rows);
 }).RequireAuthorization();
+// Firma makine kotası (yalnız süper admin)
+app.MapPost("/api/companies/{id}/machine-quota", (HttpContext ctx, string id, QuotaDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.Enrollment.SetQuota(s, id, d.Quota);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 // Sıfır-sürtünmeli kayıt: masaüstü açılışta kendini 'pending' cihaz olarak kaydeder (auth gerekmez).
-app.MapPost("/api/machines/register", (MachineRegisterDto d) =>
+app.MapPost("/api/machines/register", (HttpContext ctx, MachineRegisterDto d) =>
     Results.Ok(svc.Enrollment.RegisterSelf(
         string.IsNullOrWhiteSpace(d.CompanyId) ? "DEPOWISE" : d.CompanyId!,
-        string.IsNullOrWhiteSpace(d.MachineName) ? "Bilinmeyen Makine" : d.MachineName!)));
+        string.IsNullOrWhiteSpace(d.MachineName) ? "Bilinmeyen Makine" : d.MachineName!,
+        ClientIp(ctx), string.IsNullOrWhiteSpace(d.BranchId) ? null : d.BranchId)));
 app.MapPost("/api/machines/{id}/approve", (HttpContext ctx, string id) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
@@ -133,8 +216,78 @@ app.MapPost("/api/machines/{id}/reactivate", (HttpContext ctx, string id) =>
     svc.Enrollment.Reactivate(s, id);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+app.MapDelete("/api/machines/{id}", (HttpContext ctx, string id) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.Enrollment.DeleteDevice(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 
 // ── Kullanıcının menüsü/yetkileri (masaüstüyle AYNI AccessControl) → web menüyü buna göre çizer ──
+// ── Kullanıcı yetki/şifre "imzası" (masaüstü değişiklik tespiti) ──
+// Parola + roller + yetkiler + buton izinleri + aktiflik hash'i. Web'de değişince imza değişir → masaüstü uyarır.
+app.MapGet("/api/me/authsig", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    using var conn = svc.Factory.Create();
+    string ph = ""; int active = 1;
+    using (var c = conn.CreateCommand())
+    {
+        c.CommandText = "SELECT password_hash, is_active FROM users WHERE id=$u;";
+        c.Parameters.AddWithValue("$u", s.UserId);
+        using var r = c.ExecuteReader();
+        if (r.Read()) { ph = r.GetString(0); active = r.GetInt32(1); }
+    }
+    var roles = new List<string>();
+    using (var c = conn.CreateCommand())
+    {
+        c.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u ORDER BY r.role_key;";
+        c.Parameters.AddWithValue("$u", s.UserId);
+        using var r = c.ExecuteReader(); while (r.Read()) roles.Add(r.GetString(0));
+    }
+    var perms = new List<string>();
+    using (var c = conn.CreateCommand())
+    {
+        c.CommandText = "SELECT module_key,can_view,can_create,can_edit,can_delete FROM user_permissions WHERE user_id=$u ORDER BY module_key;";
+        c.Parameters.AddWithValue("$u", s.UserId);
+        using var r = c.ExecuteReader();
+        while (r.Read()) perms.Add($"{r.GetString(0)}:{r.GetInt64(1)}{r.GetInt64(2)}{r.GetInt64(3)}{r.GetInt64(4)}");
+    }
+    var buttons = new List<string>();
+    using (var c = conn.CreateCommand())
+    {
+        c.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=$u ORDER BY button_key;";
+        c.Parameters.AddWithValue("$u", s.UserId);
+        using var r = c.ExecuteReader(); while (r.Read()) buttons.Add(r.GetString(0));
+    }
+    var raw = $"{ph}|{active}|{string.Join(",", roles)}|{string.Join(",", perms)}|{string.Join(",", buttons)}";
+    var sig = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(raw)));
+    return Results.Ok(new { sig });
+}).RequireAuthorization();
+
+// ── Kullanıcı bazlı web tema tercihi (her kullanıcıya özel; cihazdan bağımsız) ──
+app.MapGet("/api/me/theme", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var mode = svc.Settings.Get(s.CompanyId, $"web_theme_mode:{s.UserId}");
+    var color = svc.Settings.Get(s.CompanyId, $"web_theme_color:{s.UserId}");
+    var style = svc.Settings.Get(s.CompanyId, $"web_theme_style:{s.UserId}");
+    return Results.Ok(new
+    {
+        mode = string.IsNullOrEmpty(mode) ? "dark" : mode,
+        color = string.IsNullOrEmpty(color) ? "blue" : color,
+        style = string.IsNullOrEmpty(style) ? "classic" : style,
+    });
+}).RequireAuthorization();
+app.MapPost("/api/me/theme", (HttpContext ctx, UserThemeDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    if (!string.IsNullOrEmpty(d.Mode)) svc.Settings.Set(s.CompanyId, $"web_theme_mode:{s.UserId}", d.Mode, s.UserId);
+    if (!string.IsNullOrEmpty(d.Color)) svc.Settings.Set(s.CompanyId, $"web_theme_color:{s.UserId}", d.Color, s.UserId);
+    if (!string.IsNullOrEmpty(d.Style)) svc.Settings.Set(s.CompanyId, $"web_theme_style:{s.UserId}", d.Style, s.UserId);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 app.MapGet("/api/me/menu", (HttpContext ctx) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
@@ -151,6 +304,21 @@ app.MapGet("/api/me/menu", (HttpContext ctx) =>
     return Results.Ok(new { isSuperAdmin = s.IsSuperAdmin, modules = mods });
 }).RequireAuthorization();
 
+// ── Ana ekran: kritik uyarılar (bakım + muayene/sigorta + düşük stok + yakıt) ──
+app.MapGet("/api/dashboard", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var sum = svc.Dashboard.GetSummary(s);
+    return Results.Ok(new
+    {
+        alerts = sum.Alerts.Select(a => new
+        {
+            kind = a.Kind.ToString(), title = a.Title, detail = a.Detail,
+            navigateKey = a.NavigateKey, isCritical = a.IsCritical, icon = a.Icon,
+        }),
+    });
+}).RequireAuthorization();
+
 // ── Firmalar (Süper Admin) ──
 app.MapGet("/api/companies", (HttpContext ctx) =>
 {
@@ -161,7 +329,7 @@ app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     var id = svc.Companies.Create(s, new DepoWise.Infrastructure.Organization.NewCompany(
-        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson));
+        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson, dto.MaxUsers));
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
@@ -169,7 +337,14 @@ app.MapPut("/api/companies/{id}", (HttpContext ctx, string id, NewCompanyDto dto
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     svc.Companies.Update(s, id, new DepoWise.Infrastructure.Organization.NewCompany(
-        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson));
+        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson, dto.MaxUsers));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapDelete("/api/companies/{id}", (HttpContext ctx, string id) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.Companies.Delete(s, id);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -177,6 +352,14 @@ app.MapPut("/api/companies/{id}", (HttpContext ctx, string id, NewCompanyDto dto
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);
 static string? Doc(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+static string? ClientIp(HttpContext c)
+{
+    var fly = c.Request.Headers["Fly-Client-IP"].ToString();
+    if (!string.IsNullOrWhiteSpace(fly)) return fly;
+    var xff = c.Request.Headers["X-Forwarded-For"].ToString();
+    if (!string.IsNullOrWhiteSpace(xff)) return xff.Split(',')[0].Trim();
+    return c.Connection.RemoteIpAddress?.ToString();
+}
 static bool Void(Action a) { a(); return true; }
 
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
@@ -254,7 +437,7 @@ app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized(
     : Results.Ok(RoleKeys.Seed.Where(r => r.Key != RoleKeys.SuperAdmin).Select(r => new { key = r.Key, name = r.Name }))).RequireAuthorization();
 
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
-app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Branches.GetUsers(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
@@ -265,7 +448,7 @@ app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
     // Firma: YALNIZ süper admin seçebilir; diğerleri kendi firmasına bağlar (yetki yükseltme engeli).
     var companyId = s.IsSuperAdmin && !string.IsNullOrWhiteSpace(d.CompanyId) ? d.CompanyId! : s.CompanyId;
     var id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
-        d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId));
+        d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId, d.CanViewAllBranches));
     return Results.Ok(new { id });
 }).RequireAuthorization();
 app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
@@ -309,6 +492,91 @@ app.MapPut("/api/lookups/{table}/{id}", (HttpContext c, string table, string id,
     if (!s.IsSuperAdmin) return Results.Json(new { error = "Alan adı değişimi yalnız süper admin." }, statusCode: 403);
     svc.Lookups.Rename(s, table, id, d.Name);
     return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Tanım (lookup) senkronu: masaüstü giriş sonrası TÜM firma tanımlarını çeker → yerele yazar.
+// Böylece web'te eklenen/yeniden adlandırılan tanımlar tüm makinelerde görünür (id korunur, ad güncellenir).
+app.MapGet("/api/lookups/sync", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var company = s.CompanyId;
+    using var conn = svc.Factory.Create();
+    List<Dictionary<string, object?>> Rows(string sql)
+    {
+        var list = new List<Dictionary<string, object?>>();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("$c", company);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var row = new Dictionary<string, object?>();
+            for (int i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = r.IsDBNull(i) ? null : r.GetValue(i);
+            list.Add(row);
+        }
+        return list;
+    }
+    return Results.Ok(new
+    {
+        companyId = company,
+        units = Rows("SELECT id,name FROM units WHERE company_id=$c AND is_deleted=0;"),
+        suppliers = Rows("SELECT id,name FROM suppliers WHERE company_id=$c AND is_deleted=0;"),
+        vehicleTypes = Rows("SELECT id,name FROM vehicle_types WHERE company_id=$c AND is_deleted=0;"),
+        vehicleCategories = Rows("SELECT id,name FROM vehicle_categories WHERE company_id=$c AND is_deleted=0;"),
+        materialCategories = Rows("SELECT id,name,parent_id FROM material_categories WHERE company_id=$c AND is_deleted=0;"),
+        brands = Rows("SELECT id,name,brand_type FROM brands WHERE company_id=$c AND is_deleted=0;"),
+        vehicleModels = Rows("SELECT id,name,brand_id FROM vehicle_models WHERE company_id=$c AND is_deleted=0;"),
+        branches = Rows("SELECT id,name,kind,parent_id FROM branches WHERE company_id=$c AND is_deleted=0;"),
+    });
+}).RequireAuthorization();
+
+// TEST verisi temizleme — YALNIZ süper admin. İş/test kayıtlarını siler; auth (users/roles/
+// permissions), companies, app_settings, app_releases, schema_migrations KORUNUR → giriş + sürümler bozulmaz.
+app.MapPost("/api/admin/reset-data", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Bu işlem yalnız süper admin." }, statusCode: 403);
+
+    var clearTables = new[]
+    {
+        // Malzeme + stok
+        "materials","material_equivalents","material_compatible_vehicles",
+        "stock_movements","stock_balances","stock_documents","stock_count_lines",
+        // Araç + bakım
+        "vehicles","vehicle_maintenances","maintenance_materials","vehicle_inspections",
+        "vehicle_meter_logs","vehicle_templates","vehicle_template_materials",
+        "maintenance_definitions","maintenance_definition_vehicles",
+        // Personel + operasyon
+        "personnel","fuel_depot_entries","fuel_distributions","daily_activities",
+        // Talepler
+        "material_requests","material_request_items","request_status_history",
+        // Tanımlar (lookup)
+        "material_categories","brands","units","suppliers",
+        "vehicle_types","vehicle_categories","vehicle_models","fx_rates",
+        // Dosyalar + loglar + oturum + sync (test makineleri/kayıtları)
+        "file_records","audit_logs","login_attempts","sessions","user_scopes",
+        "sync_devices","sync_outbox","sync_inbox","server_changes","sync_conflicts","enrollment_keys",
+    };
+
+    using var conn = svc.Factory.Create();
+    using (var pragma = conn.CreateCommand()) { pragma.CommandText = "PRAGMA foreign_keys=OFF;"; pragma.ExecuteNonQuery(); }
+    using var tx = conn.BeginTransaction();
+    var cleared = new List<string>();
+    foreach (var t in clearTables)
+    {
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = $"DELETE FROM {t};";
+            var n = cmd.ExecuteNonQuery();
+            cleared.Add($"{t}:{n}");
+        }
+        catch (Exception ex) { cleared.Add($"{t}:HATA {ex.Message}"); }
+    }
+    tx.Commit();
+    using (var pragma = conn.CreateCommand()) { pragma.CommandText = "PRAGMA foreign_keys=ON;"; pragma.ExecuteNonQuery(); }
+    return Results.Ok(new { ok = true, cleared });
 }).RequireAuthorization();
 
 // Stok Sayım — fark kadar 'adjustment' hareketi
@@ -671,7 +939,7 @@ app.MapGet("/api/requests/{id}/pdf", (HttpContext c, string id, bool? economic) 
 app.MapDelete("/api/personnel/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Lookups.Delete(s, "personnel", id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/branches/{id}", (HttpContext c, string id, BranchDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId))) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/branches/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
@@ -688,6 +956,12 @@ app.MapDelete("/api/users/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.DeleteUser(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users/{id}/branch", (HttpContext c, string id, IdDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.AssignUser(s, id, string.IsNullOrWhiteSpace(d.Id) ? null : d.Id)) }) : Results.Unauthorized()).RequireAuthorization();
+// "Tüm Şubeler" yetkisi — YALNIZ süper admin belirler.
+app.MapPost("/api/users/{id}/all-branches", (HttpContext c, string id, ActiveDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetViewAllBranches(s, id, d.Active)) }) : Results.Unauthorized()).RequireAuthorization();
+// Kota izleme (kullanıcı + admin kullanımı).
+app.MapGet("/api/quota-monitor", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Users.GetQuotaMonitor(s)) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Yetkiler (kullanıcı bazlı modül matrisi) ──
 app.MapGet("/api/permissions/{userId}", (HttpContext c, string userId) =>
@@ -821,21 +1095,25 @@ app.MapDelete("/api/backups", (HttpContext ctx, string company, DateOnly from, D
 app.Run();
 
 // ── İstek gövde tipleri ──
-record LoginDto(string? CompanyId, string Username, string Password);
+record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
 record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
-record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson);
+record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0);
 record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true);
-record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId);
-record MachineRegisterDto(string? CompanyId, string? MachineName);
+record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false);
+record MachineRegisterDto(string? CompanyId, string? MachineName, string? BranchId = null);
+record QuotaDto(int Quota);
+record VerifyBranchDto(string? CompanyId, string BranchId, string? BranchPassword);
+record ConflictSeenDto(string? BranchId);
+record UserThemeDto(string? Mode, string? Color, string? Style);
 record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds);
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
-record BranchDto(string Name, string? Kind, string? ParentId);
+record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
 record DeveloperDto(string? Code, bool Active);

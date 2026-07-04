@@ -10,11 +10,28 @@
     <ScrollViewer Background="{DynamicResource AppBackgroundBrush}" Padding="24">
         <StackPanel Spacing="20">
 
+            <!-- Makine + Şube -->
+            <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="{StaticResource Radius8}" Padding="12,8" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SelectableTextBlock Text="🖥" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Text="Makine:" Classes="Helper" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Text="{Binding MachineName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Border Width="1" Background="{DynamicResource BorderSubtleBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <SelectableTextBlock Text="🏢" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Text="{Binding BranchName}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- Hata durumu -->
             <Border IsVisible="{Binding HasError}" Background="{DynamicResource SurfaceElevatedBrush}"
                     BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius8}" Padding="12,10">
-                <TextBlock Text="{Binding LoadError}" Classes="Body"
+                <SelectableTextBlock Text="{Binding LoadError}" Classes="Body"
                            Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
             </Border>
 
@@ -22,19 +39,19 @@
             <Border Background="{DynamicResource SurfaceElevatedBrush}" CornerRadius="{StaticResource Radius8}" Padding="14,12">
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="Uygulama Sürümü" Classes="Helper"/>
-                        <TextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold"/>
+                        <SelectableTextBlock Text="Uygulama Sürümü" Classes="Helper"/>
+                        <SelectableTextBlock Text="{Binding CurrentVersion}" Classes="Body" FontWeight="SemiBold"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="4">
                         <Border Background="{DynamicResource WarningBrush}" CornerRadius="6" Padding="10,4"
                                 HorizontalAlignment="Left" IsVisible="{Binding UpdateAvailable}">
-                            <TextBlock Text="🔔 Yeni güncelleme mevcut!" Foreground="White" FontWeight="Bold"/>
+                            <SelectableTextBlock Text="🔔 Yeni güncelleme mevcut!" Foreground="White" FontWeight="Bold"/>
                         </Border>
-                        <TextBlock Text="{Binding UpdateMessage}" Classes="Body" TextWrapping="Wrap"
+                        <SelectableTextBlock Text="{Binding UpdateMessage}" Classes="Body" TextWrapping="Wrap"
                                    IsVisible="{Binding UpdateMessage, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsUpdating}">
                             <ProgressBar Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding UpdateProgress}" Height="8"/>
-                            <TextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Helper" VerticalAlignment="Center"/>
+                            <SelectableTextBlock Grid.Column="1" Text="{Binding UpdateProgress, StringFormat='%{0}'}" Classes="Helper" VerticalAlignment="Center"/>
                         </Grid>
                         <Expander Header="Hata ayrıntılarını göster" IsVisible="{Binding HasUpdateError}" Margin="0,4,0,0">
                             <SelectableTextBlock Text="{Binding UpdateErrorDetail}" TextWrapping="Wrap"
@@ -43,6 +60,9 @@
                         </Expander>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <ToggleSwitch IsChecked="{Binding AutoUpdateEnabled}" VerticalAlignment="Center"
+                                      OnContent="Otomatik: Açık" OffContent="Otomatik: Kapalı"
+                                      ToolTip.Tip="Açıkken yeni sürüm çıkınca otomatik onay penceresi gelir (reddedilirse 10 dk'da bir tekrar sorar)"/>
                         <Button Classes="Primary" Content="⬇ Güncellemeyi İndir ve Kur" Command="{Binding InstallUpdateCommand}"
                                 IsVisible="{Binding CanApplyUpdate}" ToolTip.Tip="Güncellemeyi indirir ve kurar (veritabanı korunur)"/>
                         <Button Classes="Secondary" Content="🔄 Kontrol Et" Command="{Binding CheckUpdateCommand}"
@@ -53,7 +73,7 @@
 
             <!-- ===== Özet ===== -->
             <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
-                <TextBlock Text="ÖZET" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="ÖZET" Classes="SectionTitle"/>
                 <ItemsControl ItemsSource="{Binding Cards}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -68,8 +88,8 @@
                                     <Grid ColumnDefinitions="Auto,*">
                                         <Border Grid.Column="0" Classes="IconChip" VerticalAlignment="Center"/>
                                         <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{Binding Value}" Classes="KpiValue"/>
-                                            <TextBlock Text="{Binding Label}" Classes="KpiLabel"
+                                            <SelectableTextBlock Text="{Binding Value}" Classes="KpiValue"/>
+                                            <SelectableTextBlock Text="{Binding Label}" Classes="KpiLabel"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                     </Grid>
@@ -82,7 +102,7 @@
 
             <!-- ===== Kritik Uyarılar ===== -->
             <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
-                <TextBlock Text="KRİTİK UYARILAR" Classes="SectionTitle"/>
+                <SelectableTextBlock Text="KRİTİK UYARILAR" Classes="SectionTitle"/>
 
                 <!-- Uyarı varsa: liste -->
                 <ItemsControl ItemsSource="{Binding Alerts}" IsVisible="{Binding HasAlerts}">
@@ -96,16 +116,19 @@
                                     <!-- Sol renk çubuğu (kritik=kırmızı / değilse turuncu) -->
                                     <Border Grid.Column="0" Width="4" CornerRadius="2"
                                             Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"/>
-                                    <!-- İkon placeholder -->
-                                    <Border Grid.Column="1" Width="26" Height="26" Margin="10,0,0,0"
-                                            CornerRadius="{StaticResource Radius6}"
-                                            Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"
-                                            Opacity="0.22"/>
+                                    <!-- İkon (uyarı tipine göre) -->
+                                    <Panel Grid.Column="1" Width="26" Height="26" Margin="10,0,0,0">
+                                        <Border CornerRadius="{StaticResource Radius6}"
+                                                Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"
+                                                Opacity="0.22"/>
+                                        <SelectableTextBlock Text="{Binding Icon}" FontSize="14"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Panel>
                                     <!-- Başlık + detay -->
                                     <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
-                                        <TextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold"
+                                        <SelectableTextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Detail}" Classes="Helper"
+                                        <SelectableTextBlock Text="{Binding Detail}" Classes="Helper"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </Grid>
@@ -121,10 +144,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Border Width="22" Height="22" CornerRadius="11"
                                 Background="{DynamicResource SuccessBrush}">
-                            <TextBlock Text="✓" Foreground="White" FontWeight="Bold" FontSize="13"
+                            <SelectableTextBlock Text="✓" Foreground="White" FontWeight="Bold" FontSize="13"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="Aktif kritik uyarı yok." Classes="Body" VerticalAlignment="Center"/>
+                        <SelectableTextBlock Text="Aktif kritik uyarı yok." Classes="Body" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
