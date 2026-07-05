@@ -304,6 +304,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         var all = new[]
         {
+            // Uyarılar — ayrı üst menü, birleşik uyarı ekranı (şema notu).
+            new NavGroupVm("🔔", "Uyarılar", "alerts", new[] { new NavLinkVm("Uyarılar", "alerts") }),
             new NavGroupVm("📦", "Malzemeler", "materials", new[]
             {
                 new NavLinkVm("Malzeme Listesi", "materials"),
@@ -330,8 +332,6 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Bakım Tanımları Girişi", "maintenance:defs"),
                 new NavLinkVm("Araç Bakımları Girişi", "maintenance:records"),
-                // "Uyarılar" M2'de ayrı üst menüye taşınacak.
-                new NavLinkVm("Uyarılar", "maintenance:alerts"),
             }),
             new NavGroupVm("⛽", "Yakıt", "fuel", new[]
             {
@@ -417,6 +417,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new DashboardViewModel(_session);
                 CurrentTitle = "Genel Özet";
                 CurrentContext = "Özet istatistikler ve kritik uyarılar";
+                break;
+            case "alerts":
+                CurrentPage = new AlertsViewModel(_session);
+                CurrentTitle = "Uyarılar";
+                CurrentContext = "Tüm aktif uyarılar (bakım, muayene, stok, yakıt)";
                 break;
             case "materials":
                 CurrentPage = new MaterialsViewModel(_session);

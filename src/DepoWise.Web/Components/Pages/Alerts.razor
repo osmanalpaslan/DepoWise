@@ -1,0 +1,93 @@
+@page "/alerts"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject NavigationManager Nav
+
+<PageTitle>Uyarılar — DepoWise</PageTitle>
+
+<div class="d-flex align-center mb-4">
+    <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" Color="Color.Warning" Class="mr-2" />
+    <MudText Typo="Typo.h5">Uyarılar</MudText>
+    <MudSpacer />
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+</div>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+    Tüm aktif uyarılar (bakım, muayene/sigorta, düşük stok, yakıt). Ana ekranda "okundu" yapılsa da aktif olduğu sürece burada kalır.
+</MudText>
+
+@if (_alerts is null)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else if (_alerts.Count == 0)
+{
+    <MudPaper Class="pa-6 d-flex flex-column align-center" Elevation="0" Style="border:1px dashed var(--mud-palette-lines-default);border-radius:16px;">
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Class="mt-2">Aktif uyarı yok.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudStack Spacing="2">
+        @foreach (var a in _alerts)
+        {
+            <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;cursor:pointer;border-left:5px solid {(a.IsCritical ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")};")"
+                      @onclick="@(() => Open(a.NavigateKey))">
+                <div class="d-flex align-center">
+                    <MudAvatar Color="@(a.IsCritical ? Color.Error : Color.Warning)" Variant="Variant.Outlined" Class="mr-3">
+                        <MudIcon Icon="@IconFor(a.Kind)" />
+                    </MudAvatar>
+                    <div class="flex-grow-1">
+                        <MudText Typo="Typo.body1"><b>@a.Title</b></MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
+                    </div>
+                    @if (a.IsCritical) { <MudChip T="string" Size="Size.Small" Color="Color.Error">Kritik</MudChip> }
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="mud-text-secondary" />
+                </div>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical);
+    private List<Alert>? _alerts;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _alerts = null;
+        try
+        {
+            var doc = await Api.GetObjectAsync("/api/dashboard");
+            var list = new List<Alert>();
+            if (doc.TryGetProperty("alerts", out var arr) && arr.ValueKind == JsonValueKind.Array)
+                foreach (var a in arr.EnumerateArray())
+                    list.Add(new Alert(
+                        a.GetProperty("kind").GetString() ?? "",
+                        a.GetProperty("title").GetString() ?? "",
+                        a.TryGetProperty("detail", out var d) ? d.GetString() ?? "" : "",
+                        a.TryGetProperty("navigateKey", out var n) ? n.GetString() ?? "" : "",
+                        a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True));
+            _alerts = list;
+        }
+        catch { _alerts = new(); }
+    }
+
+    private static string IconFor(string kind) => kind switch
+    {
+        "Maintenance" => Icons.Material.Filled.Build,
+        "Inspection" => Icons.Material.Filled.VerifiedUser,
+        "LowStock" => Icons.Material.Filled.Inventory2,
+        "Fuel" => Icons.Material.Filled.LocalGasStation,
+        _ => Icons.Material.Filled.Warning,
+    };
+
+    private void Open(string navigateKey)
+    {
+        if (string.IsNullOrEmpty(navigateKey)) return;
+        Nav.NavigateTo("/" + navigateKey.Replace(":", "/"));
+    }
+}

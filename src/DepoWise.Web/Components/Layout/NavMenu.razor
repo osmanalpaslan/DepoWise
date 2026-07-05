@@ -69,6 +69,11 @@
     // Masaüstü ShellViewModel.BuildGroups ile BİREBİR (isim/grup/sıra). Kaynak: Menu_ve_Ekran_Semasi (M1).
     private static readonly Group[] Groups =
     {
+        // Uyarılar — ayrı üst menü, birleşik uyarı ekranı (şema notu). Herkese görünür; ekran yetkiye göre filtreler.
+        new("Uyarılar", Icons.Material.Filled.NotificationsActive, new[]
+        {
+            new Link("Uyarılar", "", "alerts"),
+        }),
         new("Malzemeler", Icons.Material.Filled.Inventory2, new[]
         {
             new Link("Malzeme Listesi", "materials", "materials"),
@@ -95,8 +100,6 @@
         {
             new Link("Bakım Tanımları Girişi", "maintenance", "maintenance/defs"),
             new Link("Araç Bakımları Girişi", "maintenance", "maintenance/records"),
-            // "Uyarılar" M2'de ayrı üst menüye (birleşik uyarı ekranı) taşınacak.
-            new Link("Uyarılar", "maintenance", "maintenance/alerts"),
         }),
         new("Yakıt", Icons.Material.Filled.LocalGasStation, new[]
         {

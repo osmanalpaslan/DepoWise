@@ -75,9 +75,9 @@ public static class AppModules
         ("sync", "Senkronizasyon"),
     };
 
-    /// <summary>Yetki kontrolünden muaf, herkese görünür modüller.</summary>
+    /// <summary>Yetki kontrolünden muaf, herkese görünür modüller (Uyarılar ekranı yetkiye göre kendi filtreler).</summary>
     public static bool IsPublic(string moduleKey)
-        => moduleKey is Dashboard or About or Theme;
+        => moduleKey is Dashboard or About or Theme or "alerts";
 
     /// <summary>
     /// Yalnız Süper Admin erişebilir; Firma Admini dahil hiç kimseye ATANAMAZ (admin bypass geçersiz).

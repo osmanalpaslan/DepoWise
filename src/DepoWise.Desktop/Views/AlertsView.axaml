@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:rep="using:DepoWise.Application.Reports"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="640"
+             x:Class="DepoWise.Desktop.Views.AlertsView"
+             x:DataType="vm:AlertsViewModel">
+    <ScrollViewer Background="{DynamicResource AppBackgroundBrush}" Padding="24">
+        <StackPanel Spacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <SelectableTextBlock Text="🔔" FontSize="20" VerticalAlignment="Center"/>
+                <SelectableTextBlock Text="Uyarılar" Classes="SectionTitle" VerticalAlignment="Center"/>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}" Margin="12,0,0,0"/>
+            </StackPanel>
+            <SelectableTextBlock Classes="Helper"
+                Text="Tüm aktif uyarılar (bakım, muayene/sigorta, düşük stok, yakıt). Ana ekranda okundu yapılsa da aktif olduğu sürece burada kalır."/>
+
+            <SelectableTextBlock Text="{Binding LoadError}" Foreground="{DynamicResource DangerBrush}"
+                       IsVisible="{Binding LoadError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+            <ItemsControl ItemsSource="{Binding Alerts}" IsVisible="{Binding HasAlerts}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="rep:DashboardAlert">
+                        <Button Classes="Ghost" Padding="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
+                                Margin="0,0,0,8"
+                                Command="{Binding $parent[ItemsControl].((vm:AlertsViewModel)DataContext).OpenAlertCommand}"
+                                CommandParameter="{Binding}" ToolTip.Tip="İlgili ekranı aç">
+                            <Border Classes="AlertRow">
+                                <Grid ColumnDefinitions="4,Auto,*,Auto">
+                                    <Border Grid.Column="0" Width="4" CornerRadius="2"
+                                            Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}"/>
+                                    <Panel Grid.Column="1" Width="26" Height="26" Margin="10,0,0,0">
+                                        <Border CornerRadius="{StaticResource Radius6}"
+                                                Background="{Binding IsCritical, Converter={x:Static vm:AlertBrush.Instance}}" Opacity="0.22"/>
+                                        <SelectableTextBlock Text="{Binding Icon}" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Panel>
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="1">
+                                        <SelectableTextBlock Text="{Binding Title}" Classes="Body" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <SelectableTextBlock Text="{Binding Detail}" Classes="Helper" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border IsVisible="{Binding !HasAlerts}" Background="{DynamicResource SurfaceElevatedBrush}"
+                    CornerRadius="{StaticResource Radius8}" Padding="14,10" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Border Width="22" Height="22" CornerRadius="11" Background="{DynamicResource SuccessBrush}">
+                        <SelectableTextBlock Text="✓" Foreground="White" FontWeight="Bold" FontSize="13"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <SelectableTextBlock Text="Aktif uyarı yok." Classes="Body" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
