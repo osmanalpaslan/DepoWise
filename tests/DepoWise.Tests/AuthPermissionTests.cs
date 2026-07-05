@@ -324,6 +324,35 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void KisitliModul_AltRoleVerilemez_AdminOlunca_Verilir()
+    {
+        var users = new UserService(_factory, _clock);
+        var perms = new PermissionService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var su = auth.Login("A", "root", "root123").Session!;
+
+        var adminId = users.CreateUser(su, new NewUser("adm", "p12345", null, new[] { RoleKeys.CompanyAdmin }, CompanyId: "A"));
+        var staffId = users.CreateUser(su, new NewUser("per", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+        var admin = auth.Login("A", "adm", "p12345").Session!;
+
+        // Firma admini Personel'e KISITLI modül (branches) veremez → hata
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            perms.SaveForUser(admin, staffId, new[] { new ModulePermission("branches", true, false, false, false) }, Array.Empty<string>()));
+        Assert.Contains("Admin", ex.Message);
+
+        // Kısıtlı OLMAYAN modül (materials) verilebilir
+        perms.SaveForUser(admin, staffId, new[] { new ModulePermission("materials", true, false, false, false) }, Array.Empty<string>());
+
+        // Süper admin kuraldan muaf: Personel'e doğrudan kısıtlı verebilir
+        var staff2 = users.CreateUser(su, new NewUser("per2", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+        perms.SaveForUser(su, staff2, new[] { new ModulePermission("audit", true, false, false, false) }, Array.Empty<string>());
+
+        // Hedef Admin ise kısıtlı modül kaydı reddedilmez (süper admin aktörle; admin zaten hepsine erişir)
+        perms.SaveForUser(su, adminId, new[] { new ModulePermission("branches", true, false, false, false) }, Array.Empty<string>());
+    }
+
+    [Fact]
     public void SubeKodSifre_YalnizAdmin_GorurVeDegistirir()
     {
         var users = new UserService(_factory, _clock);

@@ -50,6 +50,10 @@
 
     public void Clear() { _state.Clear(); StateHasChanged(); }
 
+    /// <summary>En az bir bayrağı açık olan modül anahtarları (#3 kısıtlı modül kontrolü için).</summary>
+    public IEnumerable<string> SelectedKeys()
+        => _state.Where(kv => kv.Value.Any(b => b)).Select(kv => kv.Key);
+
     /// <summary>Sunucuya gönderilecek satırlar (en az bir bayrak açık olanlar).</summary>
     public List<object> Collect()
         => _state.Where(kv => kv.Value.Any(b => b))

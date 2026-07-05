@@ -85,6 +85,13 @@ public static class AppModules
     /// </summary>
     public static bool IsSuperAdminOnly(string moduleKey)
         => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates" or "server_status";
+
+    /// <summary>
+    /// #3 (şema Rol Durumları): Bu modüller alt rollere (Personel) VERİLEMEZ — verilmek istenirse kullanıcı
+    /// önce Admin'e yükseltilmelidir (web'de uyarı penceresi + otomatik yükseltme). Süper admin bu kuraldan muaf.
+    /// </summary>
+    public static bool IsAdminRestricted(string moduleKey)
+        => moduleKey is "users" or "permissions" or "branches" or "audit" or "backup";
 }
 
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>

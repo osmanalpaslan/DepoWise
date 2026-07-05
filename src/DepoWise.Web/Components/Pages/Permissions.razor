@@ -36,6 +36,8 @@
 @code {
     private List<ApiClient.Opt> _users = new(), _modules = new(), _buttons = new();
     private HashSet<string> _adminOnly = new();
+    private readonly HashSet<string> _restricted = new();   // #3: alt role verilemeyen modüller
+    private readonly HashSet<string> _adminUserIds = new();  // hedef Admin/Süper mi
     private readonly HashSet<string> _btnSel = new();
     private string? _userId;
 
@@ -45,9 +47,25 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _users = await Api.OptionsAsync("/api/users", "id", "username", "fullName");
+        await LoadUsers();
         await LoadModules();
         try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
+    }
+
+    private async Task LoadUsers()
+    {
+        _users = new(); _adminUserIds.Clear();
+        try
+        {
+            foreach (var e in await Api.GetArrayAsync("/api/users"))
+            {
+                var id = S(e, "id"); if (id == "") continue;
+                var name = S(e, "username"); if (name == "") name = S(e, "fullName");
+                _users.Add(new ApiClient.Opt(id, name));
+                if (e.TryGetProperty("isAdmin", out var a) && a.ValueKind == JsonValueKind.True) _adminUserIds.Add(id);
+            }
+        }
+        catch { }
     }
 
     private async Task LoadModules()
@@ -58,6 +76,7 @@
             var key = S(e, "key"); if (key == "") continue;
             _modules.Add(new ApiClient.Opt(key, S(e, "label")));
             if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
+            if (e.TryGetProperty("restricted", out var r) && r.ValueKind == JsonValueKind.True) _restricted.Add(key);
         }
     }
 
@@ -84,12 +103,38 @@
     private async Task Save()
     {
         if (string.IsNullOrEmpty(_userId) || _matrix is null) return;
-        if (!await Dialog.Confirm("Yetkiler kaydedilsin mi?")) return;
+
+        // #3: Kısıtlı modül (Yönetim/Kullanıcı/Yetkiler...) seçili + hedef Admin değil + aktör süper admin değil →
+        // uyarı: onaylanırsa kullanıcı Admin'e yükseltilir (Admin tüm ekranlara erişir).
+        bool restrictedSelected = _matrix.SelectedKeys().Any(k => _restricted.Contains(k));
+        bool targetIsAdmin = _adminUserIds.Contains(_userId);
+        bool needUpgrade = restrictedSelected && !targetIsAdmin && !Auth.IsSuperAdmin;
+        if (needUpgrade)
+        {
+            if (!await Dialog.Confirm(
+                "Seçtiğiniz ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir. " +
+                "Onaylarsanız bu kullanıcının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?",
+                "Evet, Admin Yap", danger: true)) return;
+        }
+        else if (!await Dialog.Confirm("Yetkiler kaydedilsin mi?")) return;
+
         _busy = true; _msg = null;
         try
         {
-            var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = _btnSel.ToList() });
-            _ok = err is null; _msg = err ?? "Yetkiler kaydedildi.";
+            if (needUpgrade)
+            {
+                // Admin'e yükselt → Admin zaten TÜM ekranlara erişir; granular yetki kaydına gerek yok
+                // (ayrıca hedef artık admin olduğundan #8 gereği firma admini onun yetkisini düzenleyemez).
+                var rerr = await Api.PostAsync($"/api/users/{_userId}/roles", new { roles = new[] { "role-company-admin" } });
+                if (rerr is not null) { _ok = false; _msg = "Rol yükseltilemedi: " + rerr; return; }
+                _adminUserIds.Add(_userId!);
+                _ok = true; _msg = "Kullanıcı Admin yapıldı — tüm ekranlara erişebilir.";
+            }
+            else
+            {
+                var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = _btnSel.ToList() });
+                _ok = err is null; _msg = err ?? "Yetkiler kaydedildi.";
+            }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }

@@ -60,6 +60,21 @@ public sealed class PermissionService
         var companyId = EnsureUserOwned(conn, tx, actor, userId);
         EnsureManageableTarget(conn, tx, actor, userId); // #8: admin başka admin/süperadminin yetkisini düzenleyemez
 
+        // #3: Kısıtlı modüller (Yönetim/Kullanıcı/Yetkiler...) alt role VERİLEMEZ. Süper admin muaf.
+        // Hedef admin/süper değilse ve kısıtlı bir modül veriliyorsa reddet → web önce Admin'e yükseltir.
+        if (!actor.IsSuperAdmin)
+        {
+            var restricted = modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+                                                 && AppModules.IsAdminRestricted(m.ModuleKey)).ToList();
+            if (restricted.Count > 0
+                && !HasRole(conn, tx, userId, RoleKeys.CompanyAdmin)
+                && !HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
+            {
+                throw new InvalidOperationException(
+                    "Bu ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir. Önce kullanıcıyı Admin yapın.");
+            }
+        }
+
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
         // (Firmaya ilk açılan sınırlı admin, kendi yetkisi dışındaki alanları başkasına atayamaz.)
         var (clampMods, clampBtns) = GrantableLimit(conn, tx, actor);

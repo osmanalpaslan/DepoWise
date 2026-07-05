@@ -713,7 +713,7 @@ app.MapGet("/api/modules", (HttpContext c) =>
     // #7 (şema notu): Süper admin yetkileri yetki AĞACINDA GÖRÜNMEZ — süper-admin-özel modüller
     // hiç kimseye (süper admin dahil) yetki matrisinde listelenmez; süper admin zaten bypass eder.
     var mods = AppModules.All.Where(m => !AppModules.IsSuperAdminOnly(m.Key))
-        .Select(m => new { key = m.Key, label = m.Label, adminOnly = false });
+        .Select(m => new { key = m.Key, label = m.Label, adminOnly = false, restricted = AppModules.IsAdminRestricted(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();
 

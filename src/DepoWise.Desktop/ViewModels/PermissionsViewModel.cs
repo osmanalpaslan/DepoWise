@@ -92,9 +92,30 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         if (SelectedUser is null) { Status = "Önce kullanıcı seçin."; return; }
         if (!CanManage) { Status = "Yetki yok."; return; }
-        if (!await ConfirmService.AskAsync($"'{SelectedUser.Username}' kullanıcısının yetkileri kaydedilsin mi?", "Yetkileri Kaydet")) return;
+
+        // #3: Kısıtlı modül seçili + hedef Admin değil + aktör süper admin değil → önce Admin'e yükselt (uyarı).
+        bool restrictedSelected = Modules.Any(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+                                                   && AppModules.IsAdminRestricted(m.Key));
+        bool needUpgrade = restrictedSelected && !SelectedUser.IsAdmin && !_session.IsSuperAdmin;
+        if (needUpgrade)
+        {
+            if (!await ConfirmService.AskAsync(
+                    $"Seçtiğiniz ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir.\n\n" +
+                    $"'{SelectedUser.Username}' kullanıcısının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?",
+                    "Evet, Admin Yap")) return;
+        }
+        else if (!await ConfirmService.AskAsync($"'{SelectedUser.Username}' kullanıcısının yetkileri kaydedilsin mi?", "Yetkileri Kaydet")) return;
+
         try
         {
+            if (needUpgrade)
+            {
+                // Admin'e yükselt → Admin zaten tüm ekranlara erişir; granular yetki kaydına gerek yok.
+                DesktopServices.Users.SetRoles(_session, SelectedUser.Id, new[] { RoleKeys.CompanyAdmin });
+                LoadUsers();
+                Status = "Kullanıcı Admin yapıldı — tüm ekranlara erişebilir. (Yeniden giriş yapınca tam etkin olur.)";
+                return;
+            }
             var mods = Modules.Select(m => new ModulePermission(m.Key, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete)).ToList();
             var btns = Buttons.Where(b => b.Granted).Select(b => b.Key).ToList();
             DesktopServices.Permissions.SaveForUser(_session, SelectedUser.Id, mods, btns);
