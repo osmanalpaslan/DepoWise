@@ -314,22 +314,23 @@ public sealed partial class ShellViewModel : ViewModelBase
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
             {
                 new NavLinkVm("Araç Listesi", "vehicles"),
-                new NavLinkVm("Şablonlar", "vehicle_templates:templates"),
                 new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
+                new NavLinkVm("Şablonlar", "vehicle_templates:templates"),
                 new NavLinkVm("Muayene / Sigorta", "inspection"),
             }),
             new NavGroupVm("🧑‍🔧", "Personel", "personnel", new[]
             {
-                new NavLinkVm("Personel", "personnel"),
+                new NavLinkVm("Personel Girişi", "personnel"),
             }),
             new NavGroupVm("📋", "Günlük Faaliyet", "daily_activity", new[]
             {
-                new NavLinkVm("Günlük Faaliyet", "daily_activity"),
+                new NavLinkVm("Günlük Faaliyet Girişi", "daily_activity"),
             }),
             new NavGroupVm("🔧", "Bakım Takibi", "maintenance", new[]
             {
-                new NavLinkVm("Bakım Tanımları", "maintenance:defs"),
-                new NavLinkVm("Araç Bakımları", "maintenance:records"),
+                new NavLinkVm("Bakım Tanımları Girişi", "maintenance:defs"),
+                new NavLinkVm("Araç Bakımları Girişi", "maintenance:records"),
+                // "Uyarılar" M2'de ayrı üst menüye taşınacak.
                 new NavLinkVm("Uyarılar", "maintenance:alerts"),
             }),
             new NavGroupVm("⛽", "Yakıt", "fuel", new[]
@@ -338,16 +339,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Depo Girişleri", "fuel:depot"),
                 new NavLinkVm("Özet", "fuel:summary"),
             }),
-            new NavGroupVm("👤", "Yönetim", "users", new[]
+            new NavGroupVm("👤", "Yönetim", "branches", new[]
             {
-                new NavLinkVm("Firma Tanım", "companies"),
-                new NavLinkVm("Güncelleme Yönetimi", "releases"),
                 new NavLinkVm("Şube / Şantiye", "branches"),
-                new NavLinkVm("Yetkiler", "permissions"),
-                new NavLinkVm("Çöp Kutusu", "trash"),
                 new NavLinkVm("Sistem Logu", "audit"),
                 new NavLinkVm("Yedek Yönetimi", "backup"),
-                new NavLinkVm("Makine Yönetimi", "machines"),
             }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {
@@ -355,18 +351,34 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Talep Onaylama", "requests:approve"),
             }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
+            // Yönetici Raporları — alt raporlar planlanıyor (şimdilik genel Raporlar).
+            new NavGroupVm("📈", "Yönetici Raporları", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
             new NavGroupVm("🔁", "İmport / Export", "import_export", new[] { new NavLinkVm("İmport / Export", "import_export") }),
-            new NavGroupVm("⚙️", "Tanımlar", "definitions", new[]
+            new NavGroupVm("👥", "Kullanıcı", "users", new[]
             {
-                new NavLinkVm("Tanımlar", "definitions"),
-                new NavLinkVm("Kullanıcılar", "users"),
+                new NavLinkVm("Kullanıcı Tanım", "users"),
+                new NavLinkVm("Yetkiler", "permissions"),
+                new NavLinkVm("Yetki Şablonları", "permission_templates"),
             }),
             new NavGroupVm("🛠️", "Ayarlar", "settings", new[]
             {
-                new NavLinkVm("Tema", "theme"),
+                new NavLinkVm("Tanım Düzenle", "definitions"),
                 new NavLinkVm("Geliştirici Modu", "settings:developer"),
-                new NavLinkVm("Yetki Şablonları", "permission_templates"),
+                new NavLinkVm("Tema", "theme"),
                 new NavLinkVm("Hakkında", "about"),
+            }),
+            // Web Yönetimi — süper admin (Canlı Sunucu + Kota İzleme yalnız webte, masaüstünde yok).
+            new NavGroupVm("🛡️", "Web Yönetimi", "companies", new[]
+            {
+                new NavLinkVm("Firma Tanım", "companies"),
+                new NavLinkVm("Güncelleme Yönetimi", "releases"),
+                new NavLinkVm("Makine Yönetimi", "machines"),
+                new NavLinkVm("Sunucu Yedekleri", "server_backups"),
+            }),
+            // Çöp Kutusu — kendi admin menüsü.
+            new NavGroupVm("🗑️", "Çöp Kutusu", "trash", new[]
+            {
+                new NavLinkVm("Çöp Kutusu Listesi", "trash"),
             }),
         };
 
