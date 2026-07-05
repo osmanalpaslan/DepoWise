@@ -48,6 +48,16 @@
                     <SelectableTextBlock Text="Şube / Şantiye" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
                     <ComboBox ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch}" HorizontalAlignment="Stretch"/>
                 </StackPanel>
+                <!-- L1: seçilen şubenin kodu otomatik gösterilir -->
+                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding ShowBranchCode}">
+                    <SelectableTextBlock Text="Şube Kodu:" Foreground="{DynamicResource Brand.OnSurfaceVariant.Brush}"/>
+                    <SelectableTextBlock Text="{Binding SelectedBranchCode}" FontWeight="SemiBold"
+                                         Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                </StackPanel>
+                <!-- L2: makinenin kendi şubesi seçiliyse şifre istenmeden girilebilir -->
+                <SelectableTextBlock Text="✓ Bu makinenin şubesi — şube şifresi gerekmez."
+                                     IsVisible="{Binding SelectedIsMachineBranch}"
+                                     Foreground="{DynamicResource Brand.Success.Brush}"/>
                 <StackPanel Spacing="4" IsVisible="{Binding ShowBranchPassword}">
                     <SelectableTextBlock Text="Şube Şifresi" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
                     <TextBox Text="{Binding BranchPassword}" PasswordChar="•" PlaceholderText="••••••" />

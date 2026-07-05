@@ -51,9 +51,28 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private ServerAuthClient.LoginBranch? _selectedBranch;
     [ObservableProperty] private string _branchPassword = "";
     public bool HasBranches => Branches.Count > 0;
-    public bool ShowBranchPassword => SelectedBranch?.HasPassword == true;
 
-    partial void OnSelectedBranchChanged(ServerAuthClient.LoginBranch? value) => OnPropertyChanged(nameof(ShowBranchPassword));
+    // Bu makineye tanımlı şube (ilk giriş şubesi). Seçilen şube buysa şifre SORULMAZ (L2).
+    private string? _machineHomeBranchId;
+
+    /// <summary>Seçilen şube makinenin şubesi mi? (öyleyse şube şifresi istenmez)</summary>
+    public bool SelectedIsMachineBranch => SelectedBranch is not null && !string.IsNullOrEmpty(_machineHomeBranchId)
+        && SelectedBranch.Id == _machineHomeBranchId;
+
+    /// <summary>Şube şifresi alanı: şube şifreli VE makinenin kendi şubesi değilse gösterilir (L1/L2).</summary>
+    public bool ShowBranchPassword => SelectedBranch?.HasPassword == true && !SelectedIsMachineBranch;
+
+    /// <summary>Seçilen şubenin kodu (login'de otomatik gösterilir — L1).</summary>
+    public string? SelectedBranchCode => SelectedBranch?.Code;
+    public bool ShowBranchCode => !string.IsNullOrEmpty(SelectedBranch?.Code);
+
+    partial void OnSelectedBranchChanged(ServerAuthClient.LoginBranch? value)
+    {
+        OnPropertyChanged(nameof(ShowBranchPassword));
+        OnPropertyChanged(nameof(SelectedIsMachineBranch));
+        OnPropertyChanged(nameof(SelectedBranchCode));
+        OnPropertyChanged(nameof(ShowBranchCode));
+    }
 
     public LoginViewModel()
     {
@@ -109,6 +128,7 @@ public sealed partial class LoginViewModel : ViewModelBase
 
             _authedSession = result.Session;
             _authedCompanyId = result.Session.CompanyId;
+            _machineHomeBranchId = DesktopServices.Settings.Get(_authedCompanyId, MachineHomeBranchKey); // L2
 
             // Kullanıcının KENDİ firmasının şubelerini yükle (firma listesi gösterilmez).
             await LoadBranchesForUserAsync(_authedCompanyId!, result.Session.CanViewAllBranches);
@@ -139,7 +159,8 @@ public sealed partial class LoginViewModel : ViewModelBase
         try
         {
             // Gerçek şube seçildiyse ve şifre gerekiyorsa ONLINE doğrula (çevrimdışıysa atlanır).
-            if (SelectedBranch is not null && SelectedBranch.HasPassword)
+            // L2: seçilen şube bu makinenin kendi şubesiyse şube şifresi İSTENMEZ (direkt giriş).
+            if (SelectedBranch is not null && SelectedBranch.HasPassword && !SelectedIsMachineBranch)
             {
                 var ok = await ServerAuthClient.VerifyBranchAsync(_authedCompanyId ?? "", SelectedBranch.Id, BranchPassword);
                 if (ok == false) { Error = "Şube şifresi hatalı."; return; }
