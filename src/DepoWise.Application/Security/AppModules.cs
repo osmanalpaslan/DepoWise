@@ -71,6 +71,7 @@ public static class AppModules
         ("server_backups", "Sunucu Yedekleri"),
         ("machines", "Makine Yönetimi"),
         ("permission_templates", "Yetki Şablonları"),
+        ("server_status", "Canlı Sunucu Durumu"),
         ("sync", "Senkronizasyon"),
     };
 
@@ -83,7 +84,7 @@ public static class AppModules
     /// Firma Tanım platform sahibinindir; çok-firmalı dağıtımda firma admini başka firmayı yönetemez.
     /// </summary>
     public static bool IsSuperAdminOnly(string moduleKey)
-        => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates";
+        => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates" or "server_status";
 }
 
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>

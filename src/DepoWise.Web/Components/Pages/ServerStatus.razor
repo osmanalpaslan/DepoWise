@@ -1,0 +1,139 @@
+@page "/server-status"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@implements IDisposable
+
+<PageTitle>Canlı Sunucu — DepoWise</PageTitle>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız süper admin içindir.</MudAlert>
+}
+else
+{
+    <div class="d-flex align-center mb-4">
+        <span class="dw-pulse @(_online ? "on" : "off")"></span>
+        <MudText Typo="Typo.h5" Class="ml-2">Canlı Sunucu Durumu</MudText>
+        <MudSpacer />
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">@(_online ? "Bağlı — 3 sn'de bir yenilenir" : "Bağlantı bekleniyor…")</MudText>
+    </div>
+
+    @if (_err is not null) { <MudAlert Severity="Severity.Warning" Class="mb-3">@_err</MudAlert> }
+
+    <MudGrid Spacing="3">
+        @foreach (var k in Kpis())
+        {
+            <MudItem xs="6" sm="4" md="3" lg="2">
+                <MudPaper Class="pa-3" Elevation="2" Style="border-radius:14px;height:100%">
+                    <div class="d-flex align-center mb-1">
+                        <MudIcon Icon="@k.Icon" Color="@ColorOf(k.Color)" Size="Size.Small" Class="mr-2" />
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@k.Label</MudText>
+                    </div>
+                    <div class="dw-kpi-val">@k.Val</div>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mt-4" Elevation="2">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Bellek (son @_mem.Count örnek)</MudText>
+        <div class="dw-spark">
+            @foreach (var m in _mem)
+            {
+                var h = _memMax > 0 ? (int)(m / _memMax * 100) : 0;
+                <div class="dw-bar" style="height:@(Math.Max(4,h))%"></div>
+            }
+        </div>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">.NET @_dotnet · sunucu saati @_serverTime</MudText>
+    </MudPaper>
+}
+
+<style>
+    .dw-pulse { width:12px;height:12px;border-radius:50%;display:inline-block; }
+    .dw-pulse.on { background:#22c55e; box-shadow:0 0 0 0 rgba(34,197,94,.7); animation:dwp 1.6s infinite; }
+    .dw-pulse.off { background:#94a3b8; }
+    @@keyframes dwp { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)} 70%{box-shadow:0 0 0 10px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
+    .dw-spark { display:flex; align-items:flex-end; gap:3px; height:90px; }
+    .dw-bar { flex:1; min-width:3px; background:linear-gradient(180deg,#3b82f6,#1e3a8a); border-radius:3px 3px 0 0; transition:height .4s ease; }
+    .dw-kpi-val { font-size:1.4rem; font-weight:700; transition:color .3s ease; }
+</style>
+
+@code {
+    private System.Threading.Timer? _timer;
+    private bool _online;
+    private string? _err;
+    private string _uptime = "—", _version = "—", _dotnet = "—", _serverTime = "—";
+    private double _wsMb, _gcMb, _dbMb, _memMax = 1;
+    private int _threads, _machines, _companies, _users;
+    private long _requests;
+    private readonly List<double> _mem = new();
+
+    protected override void OnInitialized()
+    {
+        if (!Auth.IsSuperAdmin) return;
+        _timer = new System.Threading.Timer(async _ => await Poll(), null, 0, 3000);
+    }
+
+    private async Task Poll()
+    {
+        try
+        {
+            var d = await Api.GetObjectAsync("/api/server/status");
+            _uptime = FormatUptime(Num(d, "uptimeSeconds"));
+            _wsMb = Num(d, "workingSetMb");
+            _gcMb = Num(d, "gcMemoryMb");
+            _dbMb = Num(d, "dbSizeMb");
+            _threads = (int)Num(d, "threadCount");
+            _machines = (int)Num(d, "machinesOnline");
+            _companies = (int)Num(d, "companies");
+            _users = (int)Num(d, "users");
+            _requests = (long)Num(d, "requestCount");
+            _version = Str(d, "latestVersion");
+            _dotnet = Str(d, "dotnet");
+            _serverTime = d.TryGetProperty("serverTimeUtc", out var st) ? st.ToString() : "—";
+            _mem.Add(_wsMb);
+            if (_mem.Count > 40) _mem.RemoveAt(0);
+            _memMax = _mem.Count > 0 ? Math.Max(1, _mem.Max()) : 1;
+            _online = true; _err = null;
+        }
+        catch (Exception ex) { _online = false; _err = "Durum alınamadı: " + ex.Message; }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private sealed record KpiItem(string Label, string Val, string Icon, string Color);
+
+    private IEnumerable<KpiItem> Kpis() => new[]
+    {
+        new KpiItem("Çalışma Süresi", _uptime, Icons.Material.Filled.Timer, "info"),
+        new KpiItem("Çevrimiçi Makine", _machines.ToString(), Icons.Material.Filled.DevicesOther, _machines > 0 ? "success" : "default"),
+        new KpiItem("Çalışma Belleği", $"{_wsMb:0.0} MB", Icons.Material.Filled.Memory, "warning"),
+        new KpiItem("GC Belleği", $"{_gcMb:0.0} MB", Icons.Material.Filled.DataUsage, "default"),
+        new KpiItem("Thread", _threads.ToString(), Icons.Material.Filled.Timeline, "default"),
+        new KpiItem("DB Boyutu", $"{_dbMb:0.00} MB", Icons.Material.Filled.Storage, "info"),
+        new KpiItem("Firma", _companies.ToString(), Icons.Material.Filled.Business, "default"),
+        new KpiItem("Kullanıcı", _users.ToString(), Icons.Material.Filled.People, "default"),
+        new KpiItem("İstek Sayısı", _requests.ToString("N0"), Icons.Material.Filled.SwapVert, "default"),
+        new KpiItem("Son Sürüm", _version, Icons.Material.Filled.NewReleases, "success"),
+    };
+
+    private static Color ColorOf(string c) => c switch
+    {
+        "success" => Color.Success, "warning" => Color.Warning, "info" => Color.Info, "error" => Color.Error, _ => Color.Default
+    };
+
+    private static double Num(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
+    private static string Str(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "—" : "—";
+
+    private static string FormatUptime(double sec)
+    {
+        var t = TimeSpan.FromSeconds(sec);
+        return t.TotalDays >= 1 ? $"{(int)t.TotalDays}g {t.Hours}s {t.Minutes}d"
+             : t.TotalHours >= 1 ? $"{t.Hours}s {t.Minutes}d {t.Seconds}sn"
+             : $"{t.Minutes}d {t.Seconds}sn";
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

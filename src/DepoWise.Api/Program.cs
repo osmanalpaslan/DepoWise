@@ -39,6 +39,10 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// #19 — canlı sunucu durumu için hafif istek sayacı.
+_ = ServerMetrics.Start; // başlangıç anını sabitle
+app.Use(async (ctx, next) => { System.Threading.Interlocked.Increment(ref ServerMetrics.Requests); await next(); });
+
 // Hata → doğru HTTP kodu (ForbiddenException 403, geçersiz istek 400, diğer 500)
 app.Use(async (ctx, next) =>
 {
@@ -72,6 +76,48 @@ SessionContext? Session(HttpContext ctx)
 // ── Sağlık ──
 app.MapGet("/", () => Results.Ok(new { app = "DepoWise.Api", status = "ok" }));
 app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTimeOffset.UtcNow }));
+
+// #19 — Canlı sunucu durumu (YALNIZ süper admin). Süreç + veri + canlılık metrikleri (web animasyonlu ekran poll eder).
+app.MapGet("/api/server/status", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+
+    var proc = System.Diagnostics.Process.GetCurrentProcess();
+    const double MB = 1024d * 1024d;
+    long dbBytes = 0, companies = 0, users = 0, machinesOnline = 0;
+    try
+    {
+        using var conn = svc.Factory.Create();
+        using (var c = conn.CreateCommand()) { c.CommandText = "PRAGMA page_count;"; var pc = Convert.ToInt64(c.ExecuteScalar()); c.CommandText = "PRAGMA page_size;"; var ps = Convert.ToInt64(c.ExecuteScalar()); dbBytes = pc * ps; }
+        using (var c = conn.CreateCommand()) { c.CommandText = "SELECT COUNT(*) FROM companies WHERE is_deleted=0;"; companies = Convert.ToInt64(c.ExecuteScalar()); }
+        using (var c = conn.CreateCommand()) { c.CommandText = "SELECT COUNT(*) FROM users WHERE is_deleted=0;"; users = Convert.ToInt64(c.ExecuteScalar()); }
+        using (var c = conn.CreateCommand())
+        {
+            c.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE last_seen_at IS NOT NULL AND last_seen_at > $t;";
+            c.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 5 * 60 * 1000);
+            machinesOnline = Convert.ToInt64(c.ExecuteScalar());
+        }
+    }
+    catch { }
+    string? latest = null; try { latest = svc.Releases.Latest()?.Version; } catch { }
+
+    return Results.Ok(new
+    {
+        uptimeSeconds = (long)(DateTimeOffset.UtcNow - ServerMetrics.Start).TotalSeconds,
+        workingSetMb = Math.Round(proc.WorkingSet64 / MB, 1),
+        gcMemoryMb = Math.Round(GC.GetTotalMemory(false) / MB, 1),
+        threadCount = proc.Threads.Count,
+        dotnet = Environment.Version.ToString(),
+        dbSizeMb = Math.Round(dbBytes / MB, 2),
+        companies,
+        users,
+        machinesOnline,
+        latestVersion = latest ?? "—",
+        requestCount = System.Threading.Interlocked.Read(ref ServerMetrics.Requests),
+        serverTimeUtc = DateTimeOffset.UtcNow,
+    });
+}).RequireAuthorization();
 
 // ── Kimlik doğrulama → JWT ──
 app.MapPost("/api/auth/login", (LoginDto dto) =>
@@ -1152,3 +1198,10 @@ record PasswordDto(string Password);
 record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
 record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons);
 record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons);
+
+/// <summary>#19 — Canlı sunucu durumu sayaçları (süreç boyunca).</summary>
+static class ServerMetrics
+{
+    public static long Requests;
+    public static readonly DateTimeOffset Start = DateTimeOffset.UtcNow;
+}
