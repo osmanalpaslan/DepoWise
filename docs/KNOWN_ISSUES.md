@@ -12,7 +12,6 @@
 - **R21:** UpdateService dosya tabanlı kurulum/rollback mantığı + testleri hazır; gerçek HTTP indirme transport, masaüstü güncelleme UI ekranı (yüzde göstergesi) ve canlı uygulama dosyalarının değişimi henüz bağlanmadı. Etki: orta.
 - **R20:** SyncServer push'ta `accepted` işlemler şu an `sync_inbox` + `server_changes` feed'ine yazılıyor; gerçek iş tablolarına apply (upsert) iş-servisleriyle bağlanacak. Idempotency/doğrulama/conflict çekirdeği hazır. Etki: orta.
 - **R19:** Sync HTTP transport katmanı (push/pull endpoint'leri), DPAPI `ISecretProtector` gerçek implementasyonu, retry/backoff ve 0-100 non-blocking ilerleme UI henüz yok (servis mantığı + testler hazır). Etki: orta.
-- **R18:** Fotoğraf optimizasyonu (max 1200px/JPEG kalite) henüz uygulanmadı — şu an içerik passthrough saklanıyor (yalnız boyut/MIME/magic-byte doğrulanıyor). Gerçek resize için image lib (ör. SixLabors.ImageSharp) eklenecek. Etki: düşük (güvenlik kontrolleri tam; yalnız boyut optimizasyonu eksik).
 - **R17:** İçe aktarım şu an yalnız malzeme seti (dry-run+commit). Araç/diğer setler aynı desenle (`ImportRow`/dry-run) eklenecek. Ayrıca commit'te mevcut kod "updated" sayılıyor ama alanlar güncellenmiyor (idempotent no-op); gerçek güncelleme akışı sonra. Etki: orta.
 - **R16:** Talep PDF binary üretimi şu an yalnız .NET (QuestPDF). Web tarafı aynı `RequestPdfModel`'i kullanıyor ama binary render hattı (ör. server-side PDF lib) henüz eklenmedi. Etki: düşük (web PDF sonraki bir adımda).
 - **R15:** Günlük faaliyet bakımında `MaintenanceService.Save` ve `daily_activities` insert ayrı transaction'larda (MaintenanceService kendi tx'ini commit eder). Her ikisi de idempotent → retry ile tutarlı; nadir partial-fail penceresinde bakım kaydı oluşup faaliyet referansı eksik kalabilir (retry düzeltir). İleride tek tx'e alınabilir. Etki: düşük.
@@ -24,6 +23,7 @@
 - **R8:** Web `getServerSession` henüz oturum çözmüyor (imzalı cookie + DB session lookup Faz 05'e bırakıldı); şu an fail-closed null döner → `/api/v1/me` daima 401. Davranış güvenli; işlevsel oturum web tarafında Faz 05'te bağlanacak. Etki: orta.
 
 ## Kapatılan
+- **R18:** Foto optimizasyonu yapıldı — `ImageOptimizer` (SkiaSharp, ücretsiz; ImageSharp lisans maliyeti yerine): en uzun kenar >1600px küçültme + JPEG Q82; çözülemezse orijinal (graceful). Fly Linux native asset doğrulandı. Test: `ImageOptimizerTests`.
 - **R12:** LIKE araması artık Türkçe duyarsız — `SqliteConnectionFactory` `like()`'ı `SqlLikeTr` ile override eder (İ/ı/ş/ç/ğ/ü/ö). Tüm sorgular otomatik faydalanır. Test: `TurkishLikeTests`.
 - Büyük tek prompt yerine faz bazlı çalışma paketi oluşturuldu.
 - Proje adı ve dosyalar DepoWise olarak standartlaştırıldı.
