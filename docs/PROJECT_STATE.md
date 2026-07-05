@@ -172,3 +172,9 @@
 
 ## Bilinen engeller
 - Bkz. `KNOWN_ISSUES.md`.
+
+## 05.07.2026 — Güvenlik sertleştirmesi
+- K1 JWT anahtarı zorunlu, K2 seed şifre env/rastgele, K3 login rate limit, Y1 reset-data üretimde kapalı, Y2 jenerik 500 + log, K5 web oturum kapısı, Y8 autocomplete. Build + 70 test yeşil. DEPLOY BEKLİYOR: `fly secrets set DEPOWISE_JWT_KEY=...` sonrası API+Web yeniden yayınlanmalı.
+
+## 05.07.2026 (2) — Sync güvenliği + oturum + updater
+- business-push yetki+doğrulama (ADR-053), JWT refresh (ADR-054), updater rollback (ADR-055) eklendi. TAM suit 238/238 yeşil. DEPLOY BEKLİYOR (API+Web) + masaüstü yeni sürüm yayını.

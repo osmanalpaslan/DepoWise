@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DepoWise.Application.Common;
+using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using Microsoft.Data.Sqlite;
 
@@ -51,6 +52,45 @@ public sealed class BusinessSyncService
         "stock_documents",
         "material_requests",
         "material_request_items",
+    };
+
+    /// <summary>Her iş tablosunun ait olduğu yetki modülü (business-push yetki kontrolü için).
+    /// Kullanıcı bir tabloyu ancak ilgili modülde Create VEYA Edit yetkisi varsa push edebilir.</summary>
+    private static readonly IReadOnlyDictionary<string, string> TableModule = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["units"] = "definitions",
+        ["suppliers"] = "definitions",
+        ["brands"] = "definitions",
+        ["material_categories"] = "definitions",
+        ["vehicle_types"] = "definitions",
+        ["vehicle_categories"] = "definitions",
+        ["vehicle_models"] = "definitions",
+        ["maintenance_definitions"] = "maintenance",
+        ["personnel"] = "personnel",
+        ["materials"] = "materials",
+        ["stock_balances"] = "stock",
+        ["stock_movements"] = "stock",
+        ["stock_documents"] = "stock",
+        ["vehicles"] = "vehicles",
+        ["vehicle_maintenances"] = "maintenance",
+        ["maintenance_materials"] = "maintenance",
+        ["fuel_depot_entries"] = "fuel",
+        ["fuel_distributions"] = "fuel",
+        ["daily_activities"] = "daily_activity",
+        ["material_requests"] = "requests",
+        ["material_request_items"] = "requests",
+    };
+
+    /// <summary>Negatif olamayacak sayısal alanlar (tablo bazında). Bozuk/kötü niyetli snapshot bunları
+    /// eksi değerle gönderirse satır reddedilir (stok/tutar tutarlılığı).</summary>
+    private static readonly IReadOnlyDictionary<string, string[]> NonNegativeFields = new Dictionary<string, string[]>(StringComparer.Ordinal)
+    {
+        ["stock_balances"] = new[] { "quantity", "qty", "balance" },
+        ["stock_movements"] = new[] { "quantity", "qty" },
+        ["material_request_items"] = new[] { "quantity", "qty" },
+        ["fuel_distributions"] = new[] { "liters", "unit_price", "amount", "total" },
+        ["fuel_depot_entries"] = new[] { "liters", "unit_price", "amount", "total" },
+        ["materials"] = new[] { "unit_price" },
     };
 
     /// <summary>Yerel DB'den firmanın iş tablolarını JSON snapshot olarak üretir (masaüstü push için).
@@ -169,7 +209,22 @@ public sealed class BusinessSyncService
         "materials", "vehicles", "personnel", "material_requests", "vehicle_maintenances",
     };
 
-    public ApplyResult Apply(string companyId, JsonElement payload)
+    /// <summary>Yetki-farkında uygulama: oturumun yazma (Create/Edit) yetkisi olmayan modüllerin tabloları
+    /// UYGULANMAZ (Y3 — en yetkisiz kullanıcının tüm firma verisini ezmesi engellenir). Admin/SüperAdmin tam yetkili.</summary>
+    public ApplyResult Apply(SessionContext session, JsonElement payload)
+    {
+        bool CanWrite(string table)
+        {
+            if (!TableModule.TryGetValue(table, out var moduleKey)) return false; // eşlenmemiş tabloya izin yok
+            return AccessControl.Can(session, moduleKey, PermissionAction.Create)
+                || AccessControl.Can(session, moduleKey, PermissionAction.Edit);
+        }
+        return ApplyCore(session.CompanyId, payload, CanWrite);
+    }
+
+    public ApplyResult Apply(string companyId, JsonElement payload) => ApplyCore(companyId, payload, null);
+
+    private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable)
     {
         if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("tables", out var tablesEl) ||
             tablesEl.ValueKind != JsonValueKind.Object)
@@ -190,6 +245,14 @@ public sealed class BusinessSyncService
         {
             if (!tablesEl.TryGetProperty(table, out var rowsEl) || rowsEl.ValueKind != JsonValueKind.Array) continue;
             if (!TableExists(conn, table)) continue;
+            // Yetki: kullanıcı bu tablonun modülünde yazamıyorsa tüm tablo atlanır (hata değil, sessiz atla).
+            if (canWriteTable is not null && !canWriteTable(table))
+            {
+                int n = 0; foreach (var _ in rowsEl.EnumerateArray()) n++;
+                skipped += n;
+                if (errors.Count < 20 && n > 0) errors.Add($"{table}: yetki yok (atlandı).");
+                continue;
+            }
             var cols = ColumnNames(conn, table);
             var pk = PrimaryKey(conn, table);
             if (pk.Count == 0) continue; // PK yoksa güvenli upsert yapılamaz
@@ -200,6 +263,14 @@ public sealed class BusinessSyncService
             foreach (var rowEl in rowsEl.EnumerateArray())
             {
                 if (rowEl.ValueKind != JsonValueKind.Object) { skipped++; continue; }
+                // İçerik doğrulaması: tenant uyuşmazlığı + negatif değer reddedilir.
+                var (okRow, reason) = ValidateRow(table, rowEl, companyId);
+                if (!okRow)
+                {
+                    skipped++;
+                    if (errors.Count < 20) errors.Add($"{table}: {reason}");
+                    continue;
+                }
                 try
                 {
                     // Çakışma tespiti (upsert ÖNCESİ sunucu durumu okunur)
@@ -310,7 +381,7 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
         return (uid, name);
     }
 
-    private static long ReadLong(JsonElement row, string name)
+    private static long ReadLong(JsonElement row, string name) // updated_at okuma yardımcı
     {
         if (row.TryGetProperty(name, out var v))
         {
@@ -365,6 +436,30 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
             if (pkIndex > 0) pk.Add((pkIndex, r.GetString(1)));
         }
         return pk.OrderBy(p => p.Order).Select(p => p.Name).ToList();
+    }
+
+    /// <summary>Satır içerik doğrulaması: tabloya göre negatif olamayacak sayısal alanlar eksi olamaz
+    /// (bozuk/kötü niyetli snapshot stok/tutarı eksiye çekemez). Değer sayı VEYA sayısal string olabilir.
+    /// Not: company_id UpsertRow'da oturumdan zorlandığı için burada ayrıca kontrol edilmez (tenant güvenli).</summary>
+    private static (bool Ok, string? Reason) ValidateRow(string table, JsonElement row, string companyId)
+    {
+        if (NonNegativeFields.TryGetValue(table, out var fields))
+            foreach (var f in fields)
+                if (row.TryGetProperty(f, out var fv) && TryReadNumber(fv, out var d) && d < 0)
+                    return (false, $"negatif değer: {f}={d}.");
+
+        return (true, null);
+    }
+
+    /// <summary>JSON değeri sayı ya da sayısal string ise double'a çevirir (SQLite TEXT affinity toleransı).</summary>
+    private static bool TryReadNumber(JsonElement v, out double d)
+    {
+        d = 0;
+        if (v.ValueKind == JsonValueKind.Number) return v.TryGetDouble(out d);
+        if (v.ValueKind == JsonValueKind.String)
+            return double.TryParse(v.GetString(), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out d);
+        return false;
     }
 
     private static object? JsonToDb(JsonElement v) => v.ValueKind switch

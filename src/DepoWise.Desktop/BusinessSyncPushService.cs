@@ -23,9 +23,12 @@ public static class BusinessSyncPushService
     public static async Task PushAsync()
     {
         var url = ResolveServerUrl();
-        var token = ServerAuthClient.Token;
         var companyId = DesktopServices.Session?.CompanyId;
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(companyId)) return;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return;
+        // Push öncesi token süresi yaklaştıysa yenile (uzun oturumda sync sessizce durmasın).
+        await ServerAuthClient.EnsureFreshTokenAsync();
+        var token = ServerAuthClient.Token;
+        if (string.IsNullOrWhiteSpace(token)) return;
         try
         {
             var baseUrl = url!.TrimEnd('/');
@@ -37,9 +40,11 @@ public static class BusinessSyncPushService
             };
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var resp = await _http.SendAsync(req);
-            _ = resp.IsSuccessStatusCode; // sonuç önemli değil; sonraki tur tekrar dener
+            // 401 → token beklenmedik şekilde geçersiz; bir kez yenilemeyi dene (yine olmazsa SessionExpired sinyali).
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                await ServerAuthClient.EnsureFreshTokenAsync();
         }
-        catch { /* sessiz — sync best-effort */ }
+        catch { /* sessiz — sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
     }
 
     /// <summary>Personelin görmediği açık çakışmaları çeker (şube kapsamında). Gösterildikten sonra

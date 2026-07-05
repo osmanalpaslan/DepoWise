@@ -302,3 +302,23 @@ Her kayıt aşağıdaki şablonla eklenir.
 - **Geçen/Kalan:**
 - **Kanıt/log yolu:**
 - **COMODO host ve DB yolu:** Uygulanamaz / değer
+
+## 05.07.2026 — Güvenlik sertleştirme sonrası doğrulama
+- Ortam: Linux sandbox, .NET SDK 8.0.128, NuGet offline fallback (host cache).
+- `dotnet build DepoWise.Api` (Release): BAŞARILI, 0 hata.
+- `dotnet build DepoWise.Web` (Release): BAŞARILI, 0 hata.
+- `dotnet test` filtre SecurityHardening+AuthPermission: 30/30 GEÇTİ.
+- `dotnet test` filtre SyncTests+BusinessSync+StockOperation: 30/30 GEÇTİ.
+- `dotnet test` filtre EndToEnd+DatabaseFoundation+CompanyGrant: 10/10 GEÇTİ.
+- Canlı web (depowise-web.fly.dev): tanım ekle/sil CRUD çalıştı; F5 bug'ı, kullanıcı formu autofill ve server-status yetki hatası canlıda tespit edildi (düzeltme kodda, deploy bekliyor).
+
+## 05.07.2026 — business-push yetki+doğrulama
+- `dotnet build Api` + `Tests` (Release): 0 hata.
+- BusinessSync testleri: 9/9 GEÇTİ (3 yeni: Apply_YetkisizModul_TablosuUygulanmaz, Apply_Admin_TumTablolariYazabilir, Apply_NegatifStokBakiyesi_Reddedilir).
+- Sync+AuthPermission+StockOperation birleşik: 56/56 GEÇTİ.
+
+## 05.07.2026 — JWT refresh + updater rollback
+- Api + Web + Desktop + Tests (Release): 0 hata derlendi.
+- Yeni: JwtTokenTests 4/4 GEÇTİ. (test projesine DepoWise.Api referansı eklendi.)
+- TAM test suit: 238/238 GEÇTİ (regresyon yok).
+- Updater gerçek PowerShell yolu: Windows'ta manuel/entegrasyon testi gerekli (Linux sandbox'ta çalıştırılamaz).

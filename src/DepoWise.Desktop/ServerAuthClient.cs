@@ -77,6 +77,63 @@ public static class ServerAuthClient
     /// <summary>Giriş anındaki kullanıcı yetki/şifre imzası (değişiklik tespiti için).</summary>
     public static string? AuthSig { get; private set; }
 
+    /// <summary>Saklı token'ın son geçerlilik anı (UTC). Yenileme zamanlaması için.</summary>
+    public static DateTime? TokenExpiresUtc { get; private set; }
+
+    /// <summary>Oturum sunucuda geçersizleşti (token süresi doldu ve yenilenemedi). UI kullanıcıyı
+    /// tekrar girişe yönlendirebilir — sync artık sessizce durmuyor, sinyal veriyor.</summary>
+    public static bool SessionExpired { get; private set; }
+
+    /// <summary>Token süresinin dolmasına bu süreden az kaldıysa proaktif yenilenir.</summary>
+    private static readonly TimeSpan RefreshMargin = TimeSpan.FromHours(2);
+
+    /// <summary>JWT'nin exp alanından son geçerlilik anını okur (doğrulama yapmadan; zamanlama için).</summary>
+    private static DateTime? ReadJwtExpiry(string token)
+    {
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length < 2) return null;
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4) { case 2: payload += "=="; break; case 3: payload += "="; break; }
+            using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(payload)));
+            if (doc.RootElement.TryGetProperty("exp", out var e) && e.TryGetInt64(out var secs))
+                return DateTimeOffset.FromUnixTimeSeconds(secs).UtcDateTime;
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>Token süresi yaklaştıysa /api/auth/refresh ile yeniler. Süre çoksa dokunmaz.
+    /// 401 → oturum süresi dolmuş, yenilenemez (SessionExpired=true). Çevrimdışıysa dokunmaz (tekrar denenir).
+    /// Yetki gerektiren her çağrıdan önce çağrılmalı.</summary>
+    public static async Task EnsureFreshTokenAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token) || string.IsNullOrWhiteSpace(BaseUrl)) return;
+        if (TokenExpiresUtc is DateTime exp && exp - DateTime.UtcNow > RefreshMargin) return; // hâlâ taze
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, BaseUrl!.TrimEnd('/') + "/api/auth/refresh");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            using var resp = await _http.SendAsync(req);
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                // Token gerçekten süresi dolmuş/geçersiz → yenilenemez. UI'ya sinyal ver.
+                SessionExpired = true;
+                return;
+            }
+            if (!resp.IsSuccessStatusCode) return; // 5xx/ağ → çevrimdışı gibi, sonra tekrar dene
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            if (doc.RootElement.TryGetProperty("token", out var t) && t.GetString() is { Length: > 0 } nt)
+            {
+                Token = nt;
+                TokenExpiresUtc = ReadJwtExpiry(nt);
+                SessionExpired = false;
+            }
+        }
+        catch { /* çevrimdışı — sonraki turda tekrar denenir */ }
+    }
+
     /// <summary>Sunucudan güncel kullanıcı imzasını çeker (Token ile). Erişilemezse null.</summary>
     public static async Task<string?> FetchAuthSigAsync()
     {
@@ -134,6 +191,8 @@ public static class ServerAuthClient
             using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
             Token = doc.RootElement.TryGetProperty("token", out var t) ? t.GetString() : null;
             BaseUrl = baseUrl;
+            TokenExpiresUtc = Token is null ? null : ReadJwtExpiry(Token);
+            SessionExpired = false; // taze giriş
             AuthSig = await FetchAuthSigAsync(); // giriş anındaki yetki/şifre imzası
         }
         catch { }

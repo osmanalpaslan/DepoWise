@@ -13,6 +13,10 @@ public static class JwtTokens
 {
     public const string CompanyClaim = "company";
 
+    /// <summary>Erişim token'ı ömrü (saat). Masaüstü, süresi dolmadan /api/auth/refresh ile yeniler
+    /// (uzun oturumda sync'in sessizce durmasını önler).</summary>
+    public const int ExpiryHours = 12;
+
     public static string Issue(string signingKey, string userId, string companyId)
     {
         var creds = new SigningCredentials(
@@ -24,9 +28,21 @@ public static class JwtTokens
         };
         var token = new JwtSecurityToken(
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(12),
+            expires: DateTime.UtcNow.AddHours(ExpiryHours),
             signingCredentials: creds);
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>Token'ın son geçerlilik anını (UTC) doğrulama YAPMADAN okur — istemci tarafı yenileme
+    /// zamanlaması içindir (ne zaman refresh çağrılacağını bilmek için). Okunamazsa null.</summary>
+    public static DateTime? ReadExpiry(string token)
+    {
+        try
+        {
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            return jwt.ValidTo == DateTime.MinValue ? null : jwt.ValidTo.ToUniversalTime();
+        }
+        catch { return null; }
     }
 
     public static TokenValidationParameters ValidationParameters(string signingKey) => new()

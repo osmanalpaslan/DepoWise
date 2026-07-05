@@ -286,3 +286,23 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-050 — Release candidate checksum yayın akışı
 - **Karar:** RC artefaktı Release publish + zip; kimliği SHA-256 ile sabitlenir (`RELEASE_CANDIDATE.md`). Üretim dağıtımında bu checksum `ReleaseService.Publish` ile yayınlanır; updater indirme sonrası doğrular (bozuk paket kurulmaz). artefaktlar git'e dahil edilmez (`.gitignore artifacts/`).
 - **Gerekçe:** Analiz §6.19; izlenebilir/yeniden üretilebilir yayın.
+
+### ADR-051 — Yayın güvenliği sertleştirmesi (05.07.2026)
+- **Karar:** (1) JWT anahtarı üretimde zorunlu; `DEPOWISE_JWT_KEY` yoksa API açılmaz (dev fallback yalnız Development). (2) Seed admin/superadmin şifreleri sabit değil: env (`DEPOWISE_SEED_ADMIN_PASSWORD` / `DEPOWISE_SEED_SUPERADMIN_PASSWORD`) veya rastgele üretilip bir kez konsola yazılır. (3) `/api/admin/reset-data` üretimde `DEPOWISE_ALLOW_RESET=1` olmadan 403. (4) `/api/auth/login` ve `/api/auth/sync-login` IP bazlı 30 istek/5 dk sınırlı (RateLimiter ilk kez bağlandı; NAT arkası ofisler için gevşek pencere). (5) 500 hatalarında ham exception mesajı client'a dönmez; konsol loguna yazılır.
+- **Gerekçe:** Canlı test + kod incelemesi bulguları (bilinen dev anahtarı + bilinen seed şifreyle tam ele geçirme; brute-force sınırsızdı).
+
+### ADR-052 — Web oturum geri yükleme kapısı (05.07.2026)
+- **Karar:** MainLayout, oturum ProtectedLocalStorage'dan geri yüklenene kadar `@Body` render etmez (spinner). `Auth.Loaded` artık restore tamamlanınca set edilir.
+- **Gerekçe:** F5/doğrudan URL'de sayfalar token'sız API çağrısı yapıp yanlış "kayıt yok"/"yalnız süper admin" gösteriyordu (canlıda doğrulandı: /users, /server-status, /definitions).
+
+### ADR-053 — business-push yetki + içerik doğrulaması (05.07.2026)
+- **Karar:** `BusinessSyncService.Apply(SessionContext, payload)` overload'ı eklendi. (1) Yetki: her iş tablosu bir yetki modülüne eşlendi (TableModule); kullanıcı ilgili modülde Create VEYA Edit yetkisi yoksa o tablonun tüm satırları UYGULANMAZ (hata değil, sessiz atla + errors'a not). Admin/SüperAdmin tam yetkili. (2) İçerik: NonNegativeFields ile stok/yakıt/tutar alanları negatifse satır reddedilir (sayı ve sayısal-string toleranslı). company_id zaten UpsertRow'da oturumdan zorlandığı için ayrıca kontrol edilmez. Endpoint `Apply(s, ...)` çağırıyor. Eski `Apply(companyId, ...)` overload'ı korundu (yetkisiz, testler için).
+- **Gerekçe:** Y3 — en yetkisiz kullanıcının JWT'siyle firmanın tüm tablolarını ezmesi / negatif stok yazması engellendi. 3 yeni test (yetkisiz modül atlama, admin tam yazma, negatif bakiye reddi) + mevcut 6 BusinessSync testi geçti.
+
+### ADR-054 — JWT yenileme (kayan oturum) (05.07.2026)
+- **Karar:** Sunucuya `POST /api/auth/refresh` eklendi (RequireAuthorization; geçerli token → aynı kullanıcı/firma için taze token, yetkiler DB'den). `JwtTokens.ExpiryHours=12` sabiti + `ReadExpiry`. Masaüstü `ServerAuthClient`: token exp'i saklanır (TokenExpiresUtc), `EnsureFreshTokenAsync` süreye <2 saat kalınca yeniler; 401'de `SessionExpired=true` (UI tekrar-girişe yönlendirebilir). `BusinessSyncPushService.PushAsync` push öncesi token yeniler, 401'de bir kez daha dener.
+- **Gerekçe:** Y5 — 12 saatten uzun masaüstü oturumda sync sessizce duruyordu; artık kayan oturum + açık sinyal. 4 yeni JwtToken testi (claim/süre, doğrulama, farklı-anahtar reddi, yenileme kimliği korur).
+
+### ADR-055 — Updater yedek + rollback + bütünlük guard'ı (05.07.2026)
+- **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
+- **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.

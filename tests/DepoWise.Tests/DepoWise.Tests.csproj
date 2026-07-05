@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\DepoWise.Api\DepoWise.Api.csproj" />
     <ProjectReference Include="..\..\src\DepoWise.Infrastructure\DepoWise.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DepoWise.Application\DepoWise.Application.csproj" />
     <ProjectReference Include="..\..\src\DepoWise.Domain\DepoWise.Domain.csproj" />

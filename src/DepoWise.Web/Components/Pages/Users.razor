@@ -12,7 +12,7 @@
         <MudText Typo="Typo.subtitle1" Class="mb-2">YENİ KULLANICI</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_u" Label="Kullanıcı Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_p" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_p" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_f" Label="Ad Soyad" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             @if (Auth.IsSuperAdmin)
             {
@@ -78,7 +78,7 @@
         @if (Auth.CanEdit("users") && CanManageSelected)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mt-2" Wrap="Wrap.Wrap">
-                <MudTextField @bind-Value="_newPass" Label="Yeni şifre" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" />
+                <MudTextField @bind-Value="_newPass" Label="Yeni şifre" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" UserAttributes="_newPw" />
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ChangePassword">Şifre Değiştir</MudButton>
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ToggleActive">Aktif / Pasif</MudButton>
                 @if (Auth.CanDelete("users")) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteUser">Kullanıcıyı Sil</MudButton> }
@@ -117,6 +117,8 @@
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    // Tarayıcılar login formu sanıp KAYITLI superadmin şifresini dolduruyordu; "new-password" bunu engeller.
+    private static readonly Dictionary<string, object?> _newPw = new() { ["autocomplete"] = "new-password" };
 
     private string _u = "", _p = "", _f = "";
     private bool _viewAll;

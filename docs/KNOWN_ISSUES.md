@@ -31,3 +31,11 @@
 - COMODO güvenli çalıştırma zinciri (hook + UseAppHost=false + mutlak DB yolu) doğrulandı (Faz 00).
 - R1 (kaynak kod yoktu): Faz 01'de çözüm iskeleti kuruldu, baseline build+test+web build yeşil.
 - `next` CVE-2025-66478: 15.5.19 yamalı sürüme yükseltilerek kapatıldı (Faz 01).
+
+## 05.07.2026 — Açık kalan bilinen sorunlar (canlı test + inceleme)
+- Sync üretim yolu LWW'li tek yönlü snapshot (`business-push`); operation-id'li `/sync/push` masaüstünce kullanılmıyor. `stock_balances` LWW satırı olarak taşınıyor; iş verisi pull edilmiyor (2. makine senaryosunda veri ezilir/görünmez). Çok makineli kullanım öncesi çözülmeli.
+- (ÇÖZÜLDÜ 05.07.2026 ADR-053) business-push artık modül-bazlı yetki + negatif değer doğrulaması yapıyor.
+- (ÇÖZÜLDÜ 05.07.2026 ADR-054) JWT refresh eklendi; kayan oturum + SessionExpired sinyali.
+- (ÇÖZÜLDÜ 05.07.2026 ADR-055) Updater artık yedekliyor + başarısızlıkta rollback yapıyor + bütünlük guard./gerçek PS yolu Windows entegrasyon testi bekliyor.
+- Web: `soon/about`, `soon/trash` placeholder; TrashService'in API ucu yok. Server-status bellek grafiği hep %100 gösteriyor (normalize hatası).
+- Sunucuda ILogger yok; ~40 boş catch bloğu gözlemlenebilirliği düşürüyor (500 loglaması eklendi, gerisi açık).

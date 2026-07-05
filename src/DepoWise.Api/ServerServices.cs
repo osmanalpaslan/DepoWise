@@ -107,13 +107,31 @@ public sealed class ServerServices
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM users;";
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
-            Users.EnsureInitialAdmin("DEPOWISE", "admin", "admin123", RoleKeys.CompanyAdmin);
+        {
+            var pw = SeedPassword("DEPOWISE_SEED_ADMIN_PASSWORD", "admin");
+            Users.EnsureInitialAdmin("DEPOWISE", "admin", pw, RoleKeys.CompanyAdmin);
+        }
 
         using var cmd2 = conn.CreateCommand();
         cmd2.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$k;";
         cmd2.Parameters.AddWithValue("$k", RoleKeys.SuperAdmin);
         if (Convert.ToInt64(cmd2.ExecuteScalar()) == 0)
-            Users.EnsureInitialAdmin("DEPOWISE", "superadmin", "superadmin", RoleKeys.SuperAdmin);
+        {
+            var pw = SeedPassword("DEPOWISE_SEED_SUPERADMIN_PASSWORD", "superadmin");
+            Users.EnsureInitialAdmin("DEPOWISE", "superadmin", pw, RoleKeys.SuperAdmin);
+        }
+    }
+
+    /// <summary>İlk kurulum şifresi: env'den; yoksa RASTGELE üretilir ve bir kez konsola/loga yazılır.
+    /// Sabit "admin123"/"superadmin" varsayılanları kaldırıldı (bilinen kimlikle ele geçirme riski).</summary>
+    private static string SeedPassword(string envName, string user)
+    {
+        var fromEnv = Environment.GetEnvironmentVariable(envName);
+        if (!string.IsNullOrWhiteSpace(fromEnv)) return fromEnv;
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        var pw = new string(System.Security.Cryptography.RandomNumberGenerator.GetItems<char>(chars, 16));
+        Console.WriteLine($"[DepoWise] İlk '{user}' kullanıcısı oluşturuldu. Geçici şifre: {pw} — hemen değiştirin. ({envName} ile önceden belirlenebilir.)");
+        return pw;
     }
 
     /// <summary>JWT'den (userId+companyId) tam oturumu SUNUCUDA yeniden kurar — yetkiler token'dan değil DB'den.</summary>
@@ -121,3 +139,4 @@ public sealed class ServerServices
         => string.IsNullOrEmpty(companyId) || string.IsNullOrEmpty(userId)
             ? null : Auth.CreateSessionForUser(companyId, userId);
 }
+

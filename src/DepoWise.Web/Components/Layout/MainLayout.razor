@@ -31,7 +31,18 @@
     </MudDrawer>
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
-            @Body
+            @* Oturum tarayıcı deposundan yüklenmeden sayfa render EDİLMEZ. Aksi halde F5/doğrudan URL'de
+               sayfalar token'sız API çağrısı yapıp yanlış "kayıt yok" / "yetkisiz" gösteriyordu. *@
+            @if (Auth.Loaded)
+            {
+                @Body
+            }
+            else
+            {
+                <div class="d-flex justify-center align-center" style="height:60vh">
+                    <MudProgressCircular Indeterminate="true" />
+                </div>
+            }
         </MudContainer>
     </MudMainContent>
 </MudLayout>
@@ -59,6 +70,7 @@
     };
 
     private MudThemeProvider _mud = default!;
+    private bool _authInit; // OnAfterRenderAsync ilk-çalışma koruması
 
     protected override void OnInitialized()
     {
@@ -92,8 +104,8 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || Auth.Loaded) return;
-        Auth.Loaded = true;
+        if (!firstRender || _authInit) return;
+        _authInit = true; // yeniden giriş koruması (Auth.Loaded artık restore BİTİNCE set edilir)
         try
         {
             // Kayıtlı tema modunu yükle ve uygula
@@ -143,6 +155,9 @@
             }
         }
         catch { }
+
+        // Oturum geri yükleme TAMAMLANDI → sayfalar artık render edilebilir (token hazır).
+        Auth.Loaded = true;
 
         // Boşta kalma: 20 dk etkileşim olmazsa otomatik çıkış (boş circuit'ler sunucuyu yormasın).
         try

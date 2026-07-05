@@ -22,10 +22,19 @@ var dataDir = Environment.GetEnvironmentVariable("DEPOWISE_SERVER_DATA")
               ?? Path.Combine(builder.Environment.ContentRootPath, "data");
 builder.Services.AddSingleton(new ServerServices(dataDir));
 
-// JWT imza anahtarı: config > env > geliştirme varsayılanı (üretimde MUTLAKA gizli ayarla)
+// JWT imza anahtarı: config > env. Üretimde ZORUNLU — yoksa uygulama açılmaz (bilinen dev anahtarıyla
+// token üretilip tüm firmalara girilebileceği için fallback yalnız Development'ta çalışır).
 var jwtKey = builder.Configuration["Jwt:Key"]
-             ?? Environment.GetEnvironmentVariable("DEPOWISE_JWT_KEY")
-             ?? "dev-only-change-me-please-32chars-minimum-secret-key";
+             ?? Environment.GetEnvironmentVariable("DEPOWISE_JWT_KEY");
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    if (builder.Environment.IsDevelopment())
+        jwtKey = "dev-only-change-me-please-32chars-minimum-secret-key";
+    else
+        throw new InvalidOperationException(
+            "DEPOWISE_JWT_KEY tanımlı değil. Üretimde JWT imza anahtarı zorunludur. " +
+            "Örnek: fly secrets set DEPOWISE_JWT_KEY=<rastgele-64-karakter>");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o => o.TokenValidationParameters = JwtTokens.ValidationParameters(jwtKey));
@@ -50,7 +59,12 @@ app.Use(async (ctx, next) =>
     catch (ForbiddenException ex) { await Write(ctx, 403, ex.Message); }
     catch (ArgumentException ex) { await Write(ctx, 400, ex.Message); }
     catch (InvalidOperationException ex) { await Write(ctx, 400, ex.Message); }
-    catch (Exception ex) { await Write(ctx, 500, ex.Message); }
+    catch (Exception ex)
+    {
+        // Ham exception mesajı client'a SIZDIRILMAZ (dosya yolu/SQL detayı içerebilir) — sunucu loguna yazılır.
+        Console.Error.WriteLine($"[500] {DateTimeOffset.UtcNow:O} {ctx.Request.Method} {ctx.Request.Path} → {ex}");
+        await Write(ctx, 500, "Sunucuda beklenmeyen bir hata oluştu. Sorun devam ederse yöneticinize bildirin.");
+    }
 });
 static Task Write(HttpContext ctx, int code, string msg)
 {
@@ -58,6 +72,11 @@ static Task Write(HttpContext ctx, int code, string msg)
     ctx.Response.ContentType = "application/json";
     return ctx.Response.WriteAsJsonAsync(new { error = msg });
 }
+
+// IP bazlı giriş sınırı (brute-force / PBKDF2 DoS koruması). Kullanıcı-adı bazlı kilit AuthService'te zaten
+// var; bu sayaç farklı kullanıcı adlarıyla taramayı keser. NAT arkasındaki ofisler (aynı IP'den çok kullanıcı)
+// kilitlenmesin diye pencere gevşek tutuldu: 30 istek / 5 dk / IP.
+var loginLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
 
 // Cihaz senkron token'ı (JWT değil) — ham Authorization
 static string? DeviceToken(HttpRequest r)
@@ -120,8 +139,11 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
 }).RequireAuthorization();
 
 // ── Kimlik doğrulama → JWT ──
-app.MapPost("/api/auth/login", (LoginDto dto) =>
+app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
 {
+    var rl = loginLimiter.Check("login:" + (ClientIp(http) ?? "unknown"));
+    if (!rl.Allowed)
+        return Results.Json(new { error = $"Çok fazla giriş denemesi. {rl.RetrySeconds} sn sonra tekrar deneyin." }, statusCode: 429);
     bool allBranches = string.Equals(dto.BranchId, BranchConstants.AllBranchesId, StringComparison.Ordinal);
     // Gerçek şube seçildiyse önce ŞUBE ŞİFRESİ doğrulanır (şubede şifre tanımlı değilse serbest). "Tüm Şubeler" sanal seçimdir.
     if (!allBranches && !string.IsNullOrWhiteSpace(dto.BranchId))
@@ -149,10 +171,23 @@ app.MapPost("/api/auth/login", (LoginDto dto) =>
         canViewAllBranches = res.Session.CanViewAllBranches });
 });
 
+// ── Token yenileme: geçerli JWT ile taze JWT al (kayan oturum) ──
+// Masaüstü, token süresi dolmadan bunu çağırır → 12 saatten uzun oturumda sync sessizce durmaz.
+// Yetkiler token'dan değil DB'den; kullanıcı hâlâ geçerli/aktif mi diye oturum yeniden kurulur.
+app.MapPost("/api/auth/refresh", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized(); // süresi dolmuş/geçersiz token → 401
+    var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId);
+    return Results.Ok(new { token, expiresInSeconds = JwtTokens.ExpiryHours * 3600 });
+}).RequireAuthorization();
+
 // Masaüstü senkron girişi: yerel DB'de olmayan (web'te oluşturulan) kullanıcıyı sunucu doğrular ve
 // tam paketini döndürür → masaüstü yerele yazıp giriş yapar. Geçersizse 401.
-app.MapPost("/api/auth/sync-login", (LoginDto dto) =>
+app.MapPost("/api/auth/sync-login", (HttpContext http, LoginDto dto) =>
 {
+    var rl = loginLimiter.Check("login:" + (ClientIp(http) ?? "unknown"));
+    if (!rl.Allowed)
+        return Results.Json(new { error = $"Çok fazla giriş denemesi. {rl.RetrySeconds} sn sonra tekrar deneyin." }, statusCode: 429);
     var bundle = svc.Auth.ExportForSync(dto.CompanyId ?? "", dto.Username, dto.Password);
     return bundle is null
         ? Results.Json(new { error = "Kullanıcı adı veya parola hatalı." }, statusCode: 401)
@@ -203,7 +238,8 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     using var doc = await System.Text.Json.JsonDocument.ParseAsync(c.Request.Body);
-    var res = svc.BusinessSync.Apply(s.CompanyId, doc.RootElement);
+    // Yetki-farkında: kullanıcının yazamadığı modüllerin tabloları uygulanmaz + içerik doğrulaması yapılır.
+    var res = svc.BusinessSync.Apply(s, doc.RootElement);
     return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, errors = res.Errors });
 }).RequireAuthorization();
 
@@ -586,6 +622,10 @@ app.MapPost("/api/admin/reset-data", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (!s.IsSuperAdmin) return Results.Json(new { error = "Bu işlem yalnız süper admin." }, statusCode: 403);
+    // TÜM firmaların iş verisini siler → üretimde varsayılan KAPALI. Bilinçli açmak için
+    // DEPOWISE_ALLOW_RESET=1 ortam değişkeni gerekir (Development'ta serbest).
+    if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DEPOWISE_ALLOW_RESET") != "1")
+        return Results.Json(new { error = "Veri sıfırlama üretim sunucusunda kapalıdır (DEPOWISE_ALLOW_RESET=1 gerekli)." }, statusCode: 403);
 
     var clearTables = new[]
     {

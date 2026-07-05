@@ -176,6 +176,74 @@ public class BusinessSyncTests : IDisposable
         Assert.Equal("0", Scalar(_dst, "SELECT COUNT(*) FROM data_conflicts WHERE entity_id='p1';")); // çakışma YOK
     }
 
+    // ── Yetki + içerik doğrulaması (Y3) ──
+
+    private static DepoWise.Application.Security.SessionContext Session(
+        string company, string[] roles, params (string module, bool create, bool edit)[] perms)
+    {
+        var mods = perms.Select(p => new DepoWise.Application.Security.ModulePermission(
+            p.module, CanView: true, CanCreate: p.create, CanEdit: p.edit, CanDelete: false));
+        return new DepoWise.Application.Security.SessionContext(
+            "u1", company, roles, new DepoWise.Application.Security.PermissionSet(mods));
+    }
+
+    [Fact]
+    public void Apply_YetkisizModul_TablosuUygulanmaz()
+    {
+        // Personel kullanıcısı yalnız 'personnel' yazabiliyor; materials yazma yetkisi YOK.
+        SeedCompany(_src, "ACME");
+        SeedCompany(_dst, "ACME");
+        InsertPersonnel(_src, "p1", "ACME", "Ali", 100);
+        Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
+                   "VALUES('m1','ACME','K1','İzinsiz Malzeme','0','0',1,100,1,0);");
+
+        var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
+        using var doc = JsonDocument.Parse(snap);
+        var s = Session("ACME", new[] { DepoWise.Application.Security.RoleKeys.Staff }, ("personnel", true, true));
+        new BusinessSyncService(_dst, _clock).Apply(s, doc.RootElement);
+
+        // personnel uygulandı, materials (yetkisiz) uygulanmadı
+        Assert.Equal("Ali", Scalar(_dst, "SELECT full_name FROM personnel WHERE id='p1';"));
+        Assert.Null(Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
+    }
+
+    [Fact]
+    public void Apply_Admin_TumTablolariYazabilir()
+    {
+        SeedCompany(_src, "ACME");
+        SeedCompany(_dst, "ACME");
+        Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
+                   "VALUES('m1','ACME','K1','Malzeme','0','0',1,100,1,0);");
+
+        var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
+        using var doc = JsonDocument.Parse(snap);
+        var admin = Session("ACME", new[] { DepoWise.Application.Security.RoleKeys.CompanyAdmin });
+        new BusinessSyncService(_dst, _clock).Apply(admin, doc.RootElement);
+
+        Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
+    }
+
+    [Fact]
+    public void Apply_NegatifStokBakiyesi_Reddedilir()
+    {
+        SeedCompany(_src, "ACME");
+        SeedCompany(_dst, "ACME");
+        Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
+                   "VALUES('m1','ACME','K1','Malzeme','0','0',1,100,1,0);");
+        // Bozuk snapshot: negatif bakiye
+        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,quantity,updated_at) VALUES('ACME','m1','-9',50);");
+
+        var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
+        using var doc = JsonDocument.Parse(snap);
+        var admin = Session("ACME", new[] { DepoWise.Application.Security.RoleKeys.CompanyAdmin });
+        var res = new BusinessSyncService(_dst, _clock).Apply(admin, doc.RootElement);
+
+        // materials uygulandı, negatif bakiye reddedildi
+        Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
+        Assert.Null(Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
+        Assert.Contains(res.Errors, e => e.Contains("negatif"));
+    }
+
     public void Dispose()
     {
         try { SqliteConnection.ClearAllPools(); File.Delete(_srcPath); File.Delete(_dstPath); } catch { }
