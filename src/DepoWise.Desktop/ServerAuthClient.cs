@@ -84,6 +84,17 @@ public static class ServerAuthClient
     /// tekrar girişe yönlendirebilir — sync artık sessizce durmuyor, sinyal veriyor.</summary>
     public static bool SessionExpired { get; private set; }
 
+    /// <summary>Oturum ilk kez geçersizleştiğinde bir kez tetiklenir (UI: dialog + tekrar giriş).</summary>
+    public static event Action? SessionExpiredRaised;
+
+    /// <summary>SessionExpired'ı true yapar ve (yalnız geçişte) UI olayını tetikler.</summary>
+    private static void MarkSessionExpired()
+    {
+        if (SessionExpired) return;
+        SessionExpired = true;
+        try { SessionExpiredRaised?.Invoke(); } catch { }
+    }
+
     /// <summary>Token süresinin dolmasına bu süreden az kaldıysa proaktif yenilenir.</summary>
     private static readonly TimeSpan RefreshMargin = TimeSpan.FromHours(2);
 
@@ -119,7 +130,7 @@ public static class ServerAuthClient
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
                 // Token gerçekten süresi dolmuş/geçersiz → yenilenemez. UI'ya sinyal ver.
-                SessionExpired = true;
+                MarkSessionExpired();
                 return;
             }
             if (!resp.IsSuccessStatusCode) return; // 5xx/ağ → çevrimdışı gibi, sonra tekrar dene

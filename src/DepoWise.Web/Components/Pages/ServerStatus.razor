@@ -39,9 +39,15 @@ else
     <MudPaper Class="pa-4 mt-4" Elevation="2">
         <MudText Typo="Typo.subtitle2" Class="mb-2">Bellek (son @_mem.Count örnek)</MudText>
         <div class="dw-spark">
+            @{
+                var mn = _mem.Count > 0 ? _mem.Min() : 0;
+                var mx = _mem.Count > 0 ? _mem.Max() : 1;
+                var range = mx - mn;
+            }
             @foreach (var m in _mem)
             {
-                var h = _memMax > 0 ? (int)(m / _memMax * 100) : 0;
+                // Min-max normalize: değişim görünür olsun (hep %100 pegleme yok). Sabitse orta yükseklik.
+                var h = range > 0.0001 ? (int)(15 + (m - mn) / range * 85) : 50;
                 <div class="dw-bar" style="height:@(Math.Max(4,h))%"></div>
             }
         </div>

@@ -241,6 +241,25 @@ public sealed partial class ShellViewModel : ViewModelBase
         StartConnectionMonitor();
         StartUpdateWatcher();
         _ = RegisterMachineAsync();
+
+        ServerAuthClient.SessionExpiredRaised += OnSessionExpired; // oturum düşünce tekrar giriş
+    }
+
+    private bool _sessionExpiredHandled;
+
+    /// <summary>Oturum süresi doldu ve yenilenemedi → kullanıcıya bilgi ver, tekrar girişe yönlendir.</summary>
+    private void OnSessionExpired()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+        {
+            if (_sessionExpiredHandled) return;
+            _sessionExpiredHandled = true;
+            await ConfirmService.AskAsync(
+                "Oturum süreniz doldu (uzun süre çevrimdışı kalınmış olabilir). Lütfen tekrar giriş yapın.",
+                "Oturum Süresi Doldu", "Tekrar Giriş", "Tekrar Giriş");
+            ServerAuthClient.SessionExpiredRaised -= OnSessionExpired;
+            DepoWise.Desktop.App.Current?.Logout();
+        });
     }
 
     // ── Otomatik güncelleme: giriş sonrası + her 10 dk'da bir kontrol; yeni sürüm varsa ONAY sorar.
