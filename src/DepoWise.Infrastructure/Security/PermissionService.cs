@@ -65,7 +65,8 @@ public sealed class PermissionService
         if (!actor.IsSuperAdmin)
         {
             var restricted = modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
-                                                 && AppModules.IsAdminRestricted(m.ModuleKey)).ToList();
+                && (AppModules.IsAdminRestricted(m.ModuleKey)
+                    || DepoWise.Infrastructure.Organization.CompanyGrantService.IsCompanyRestricted(conn, tx, companyId, m.ModuleKey))).ToList();
             if (restricted.Count > 0
                 && !HasRole(conn, tx, userId, RoleKeys.CompanyAdmin)
                 && !HasRole(conn, tx, userId, RoleKeys.SuperAdmin))

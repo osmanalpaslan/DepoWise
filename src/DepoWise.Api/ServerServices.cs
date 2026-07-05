@@ -19,6 +19,7 @@ public sealed class ServerServices
     public AuthService Auth { get; }
     public UserService Users { get; }
     public DepoWise.Infrastructure.Organization.CompanyService Companies { get; }
+    public DepoWise.Infrastructure.Organization.CompanyGrantService CompanyGrants { get; }
     public SyncServer Sync { get; }
     public ReleaseService Releases { get; }
     public EnrollmentService Enrollment { get; }
@@ -63,6 +64,7 @@ public sealed class ServerServices
         Auth = new AuthService(Factory, clock);
         Users = new UserService(Factory, clock);
         Companies = new DepoWise.Infrastructure.Organization.CompanyService(Factory, clock);
+        CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
         Sync = new SyncServer(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
         Enrollment = new EnrollmentService(Factory, clock);

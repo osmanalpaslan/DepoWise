@@ -1,0 +1,122 @@
+@page "/company-permissions"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<PageTitle>Firma Yetki Kontrol — DepoWise</PageTitle>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız süper admin içindir.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" GutterBottom="true">Firma Yetki Kontrol</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+        Bir firmanın adminlerinin Personel'e <b>verebildiği</b> ve <b>veremediği</b> yetkiler. "Yalnız Admin (global)" satırlar
+        her firmada kısıtlıdır. Ek olarak bu firmaya özel modülleri de "yalnız Admin" yapabilirsiniz (verilmek istenirse kullanıcı
+        Admin'e yükseltilir).
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudSelect T="string" @bind-Value="_companyId" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" @bind-Value:after="Load">
+            @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+        </MudSelect>
+    </MudPaper>
+
+    @if (_rows is not null)
+    {
+        <MudPaper Class="pa-4" Elevation="2" Style="max-width:760px;">
+            <MudTable Items="_rows" Dense="true" Hover="true" T="Row">
+                <HeaderContent>
+                    <MudTh>EKRAN / MODÜL</MudTh><MudTh>DURUM</MudTh><MudTh Style="text-align:center">Firmaya Özel Kısıt</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Label</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Size="Size.Small" Color="@(context.GlobalRestricted ? Color.Error : context.CompanyRestricted ? Color.Warning : Color.Success)">
+                            @context.StatusText
+                        </MudChip>
+                    </MudTd>
+                    <MudTd Style="text-align:center">
+                        @if (context.GlobalRestricted)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Error" />
+                        }
+                        else
+                        {
+                            <MudCheckBox T="bool" Value="context.CompanyRestricted" ValueChanged="v => context.CompanyRestricted = v" Dense="true" Color="Color.Warning" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+            </MudStack>
+            @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+        </MudPaper>
+    }
+}
+
+@code {
+    private sealed class Row
+    {
+        public string ModuleKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public bool GlobalRestricted { get; set; }
+        public bool CompanyRestricted { get; set; }
+        public string StatusText { get; set; } = "";
+    }
+
+    private List<ApiClient.Opt> _companies = new();
+    private string? _companyId;
+    private List<Row>? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsSuperAdmin) return;
+        _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+    }
+
+    private async Task Load()
+    {
+        _rows = null; _msg = null;
+        if (string.IsNullOrEmpty(_companyId)) return;
+        try
+        {
+            var list = new List<Row>();
+            foreach (var e in await Api.GetArrayAsync($"/api/company-permissions/{_companyId}"))
+                list.Add(new Row
+                {
+                    ModuleKey = S(e, "moduleKey"),
+                    Label = S(e, "label"),
+                    GlobalRestricted = B(e, "globalRestricted"),
+                    CompanyRestricted = B(e, "companyRestricted"),
+                    StatusText = S(e, "statusText"),
+                });
+            _rows = list;
+        }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private async Task Save()
+    {
+        if (_rows is null || string.IsNullOrEmpty(_companyId)) return;
+        if (!await Dialog.Confirm("Firma yetki kısıtları kaydedilsin mi?")) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var restricted = _rows.Where(r => !r.GlobalRestricted && r.CompanyRestricted).Select(r => r.ModuleKey).ToList();
+            var err = await Api.PostAsync($"/api/company-permissions/{_companyId}", new { restrictedKeys = restricted });
+            _ok = err is null; _msg = err ?? "Kaydedildi.";
+            if (_ok) await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool B(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+}

@@ -722,6 +722,12 @@ app.MapGet("/api/buttons", (HttpContext c) =>
     S(c) is null ? Results.Unauthorized()
         : Results.Ok(SpecialButtons.All.Select(b => new { key = b.Key, label = b.Label }))).RequireAuthorization();
 
+// #6 — Firma Yetki Kontrol (yalnız süper admin, yalnız web): firma bazında verilebilir/verilemez modüller.
+app.MapGet("/api/company-permissions/{companyId}", (HttpContext c, string companyId) =>
+    S(c) is { } s ? Results.Ok(svc.CompanyGrants.GetControl(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/company-permissions/{companyId}", (HttpContext c, string companyId, GrantLimitDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CompanyGrants.SetLimits(s, companyId, d.RestrictedKeys ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
+
 // ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
 app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s ? Results.Ok(new { showCompany = s.IsSuperAdmin }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
@@ -1168,6 +1174,7 @@ record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);
+record GrantLimitDto(List<string>? RestrictedKeys);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null);
