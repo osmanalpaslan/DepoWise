@@ -59,10 +59,12 @@ public sealed partial class DashboardViewModel : ViewModelBase
     }
 
     private readonly string _companyId;
+    private readonly SessionContext _session;
 
     public DashboardViewModel(SessionContext session)
     {
         _companyId = session.CompanyId;
+        _session = session;
         try { CurrentVersion = DesktopServices.Update.CurrentVersion(); } catch { }
         try { _autoUpdateEnabled = DesktopServices.Settings.Get(_companyId, AutoUpdateKey) != "0"; } catch { }
         try
@@ -74,7 +76,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
             Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials"));
             Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve"));
             Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null));
-            foreach (var a in s.Alerts) Alerts.Add(a);
+            foreach (var a in s.Alerts) if (!a.Read) Alerts.Add(a); // #18: okunmuşları ana ekranda gösterme
         }
         catch (Exception ex)
         {
@@ -105,6 +107,16 @@ public sealed partial class DashboardViewModel : ViewModelBase
     {
         if (alert is null) return;
         ShellViewModel.Current?.NavigateTo(alert.NavigateKey, alert.EntityId);
+    }
+
+    /// <summary>#18 — Uyarıyı okundu işaretle → ana ekrandan kaldır (ilgili modül ekranında kalır).</summary>
+    [RelayCommand]
+    private void MarkAlertRead(DashboardAlert? alert)
+    {
+        if (alert is null) return;
+        try { DesktopServices.Dashboard.MarkAlertRead(_session, alert.Key, alert.Signature); } catch { }
+        Alerts.Remove(alert);
+        OnPropertyChanged(nameof(HasAlerts));
     }
 
     /// <summary>Kurulum aracının uygulama klasörüne yazdığı serverurl.txt (varsa). Bağlantı ayarı otomatik gelsin diye.</summary>

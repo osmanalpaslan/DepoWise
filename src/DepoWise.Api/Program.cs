@@ -315,9 +315,13 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
         {
             kind = a.Kind.ToString(), title = a.Title, detail = a.Detail,
             navigateKey = a.NavigateKey, isCritical = a.IsCritical, icon = a.Icon,
+            key = a.Key, signature = a.Signature, read = a.Read, // #18
         }),
     });
 }).RequireAuthorization();
+// #18 — Uyarıyı kullanıcı için "okundu" işaretle (ana ekrandan gizlenir; hali değişince yeniden görünür).
+app.MapPost("/api/alerts/read", (HttpContext ctx, AlertReadDto d) =>
+    Session(ctx) is { } s ? Results.Ok(new { ok = Void(() => svc.Dashboard.MarkAlertRead(s, d.Key ?? "", d.Signature ?? "")) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Firmalar (Süper Admin) ──
 app.MapGet("/api/companies", (HttpContext ctx) =>
@@ -1116,6 +1120,7 @@ record UserThemeDto(string? Mode, string? Color, string? Style);
 record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds);
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
+record AlertReadDto(string? Key, string? Signature);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null);

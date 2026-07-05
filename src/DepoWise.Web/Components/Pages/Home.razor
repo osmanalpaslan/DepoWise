@@ -48,6 +48,11 @@
                                     <MudText Typo="Typo.body1"><b>@a.Title</b></MudText>
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
                                 </div>
+                                <div @onclick:stopPropagation="true" @onclick="@(() => {})">
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                                               StartIcon="@Icons.Material.Filled.DoneAll"
+                                               OnClick="@(() => MarkRead(a))">okundu</MudButton>
+                                </div>
                                 <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="mud-text-secondary" />
                             </div>
                         </MudPaper>
@@ -108,7 +113,7 @@
 }
 
 @code {
-    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical);
+    private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string Key, string Signature);
     private List<Alert>? _alerts;
     private List<JsonElement>? _conflicts;
 
@@ -123,12 +128,18 @@
             var list = new List<Alert>();
             if (doc.TryGetProperty("alerts", out var arr) && arr.ValueKind == JsonValueKind.Array)
                 foreach (var a in arr.EnumerateArray())
+                {
+                    // #18: okunmuş uyarılar ana ekranda gösterilmez (imza uyuşuyorsa).
+                    if (a.TryGetProperty("read", out var rd) && rd.ValueKind == JsonValueKind.True) continue;
                     list.Add(new Alert(
                         a.GetProperty("kind").GetString() ?? "",
                         a.GetProperty("title").GetString() ?? "",
                         a.TryGetProperty("detail", out var d) ? d.GetString() ?? "" : "",
                         a.TryGetProperty("navigateKey", out var n) ? n.GetString() ?? "" : "",
-                        a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True));
+                        a.TryGetProperty("isCritical", out var c) && c.ValueKind == JsonValueKind.True,
+                        a.TryGetProperty("key", out var k) ? k.GetString() ?? "" : "",
+                        a.TryGetProperty("signature", out var sg) ? sg.GetString() ?? "" : ""));
+                }
             _alerts = list;
             StateHasChanged();
         }
@@ -163,6 +174,14 @@
         "Fuel" => Icons.Material.Filled.LocalGasStation,
         _ => Icons.Material.Filled.Warning,
     };
+
+    // #18: uyarıyı okundu işaretle → ana ekrandan kaldır (ilgili modül ekranında kalmaya devam eder).
+    private async Task MarkRead(Alert a)
+    {
+        try { await Api.PostAsync("/api/alerts/read", new { key = a.Key, signature = a.Signature }); } catch { }
+        _alerts = _alerts?.FindAll(x => x.Key != a.Key);
+        StateHasChanged();
+    }
 
     private void Open(string navigateKey)
     {

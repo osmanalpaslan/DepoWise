@@ -80,7 +80,44 @@ public sealed class DashboardService
             }
         }
 
+        // #18: kullanıcının "okundu" işaretleri — imza eşleşiyorsa Read=true (ana ekranda gizlenir).
+        var reads = LoadAlertReads(conn, s.UserId);
+        for (int i = 0; i < alerts.Count; i++)
+            if (reads.TryGetValue(alerts[i].Key, out var sig) && sig == alerts[i].Signature)
+                alerts[i] = alerts[i] with { Read = true };
+
         return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts);
+    }
+
+    private static Dictionary<string, string> LoadAlertReads(SqliteConnection conn, string userId)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT alert_key, signature FROM alert_reads WHERE user_id=$u;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetString(0)] = r.GetString(1);
+        return map;
+    }
+
+    /// <summary>#18 — Uyarıyı kullanıcı için "okundu" işaretler (imzayla; hali değişirse yeniden görünür).</summary>
+    public void MarkAlertRead(SessionContext s, string alertKey, string signature)
+    {
+        if (string.IsNullOrWhiteSpace(alertKey)) return;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+INSERT INTO alert_reads(id, company_id, user_id, alert_key, signature, created_at)
+VALUES($id,$c,$u,$k,$sig,$now)
+ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=$sig, created_at=$now;";
+        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$u", s.UserId);
+        cmd.Parameters.AddWithValue("$k", alertKey);
+        cmd.Parameters.AddWithValue("$sig", signature ?? "");
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.ExecuteNonQuery();
     }
 
     private static int Count(SqliteConnection conn, string table, string companyId)

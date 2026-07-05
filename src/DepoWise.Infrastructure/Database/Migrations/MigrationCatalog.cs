@@ -35,5 +35,6 @@ public static class MigrationCatalog
         new Migration028_DataConflicts(),
         new Migration029_TwoRoleModel(),
         new Migration030_SplitPermScreens(),
+        new Migration031_AlertReads(),
     };
 }

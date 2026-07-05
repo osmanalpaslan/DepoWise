@@ -131,6 +131,10 @@
                                         <SelectableTextBlock Text="{Binding Detail}" Classes="Helper"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
+                                    <!-- #18: okundu → ana ekrandan kaldır (ilgili modül ekranında kalır) -->
+                                    <Button Grid.Column="3" Classes="Secondary" Content="okundu" Margin="8,0,10,0" VerticalAlignment="Center"
+                                            Command="{Binding $parent[ItemsControl].((vm:DashboardViewModel)DataContext).MarkAlertReadCommand}"
+                                            CommandParameter="{Binding}" ToolTip.Tip="Ana ekrandan gizle"/>
                                 </Grid>
                             </Border>
                             </Button>
