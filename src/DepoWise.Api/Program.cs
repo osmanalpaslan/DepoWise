@@ -762,6 +762,22 @@ app.MapGet("/api/buttons", (HttpContext c) =>
     S(c) is null ? Results.Unauthorized()
         : Results.Ok(SpecialButtons.All.Select(b => new { key = b.Key, label = b.Label }))).RequireAuthorization();
 
+// Çöp Kutusu — silinen master-data'yı listeler/geri yükler. Yeniden kimlik doğrulama (parola) ister.
+app.MapPost("/api/trash", (HttpContext c, ReauthDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+        return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
+    return Results.Ok(svc.Trash.List(s, reauthenticated: true));
+}).RequireAuthorization();
+app.MapPost("/api/trash/restore", (HttpContext c, TrashRestoreDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+        return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
+    return Results.Ok(new { ok = Void(() => svc.Trash.Restore(s, d.Table ?? "", d.Id ?? "", reauthenticated: true)) });
+}).RequireAuthorization();
+
 // #6 — Firma Yetki Kontrol (yalnız süper admin, yalnız web): firma bazında verilebilir/verilemez modüller.
 app.MapGet("/api/company-permissions/{companyId}", (HttpContext c, string companyId) =>
     S(c) is { } s ? Results.Ok(svc.CompanyGrants.GetControl(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
@@ -1215,6 +1231,8 @@ record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);
 record GrantLimitDto(List<string>? RestrictedKeys);
+record ReauthDto(string? Password);
+record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null);

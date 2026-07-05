@@ -1,0 +1,110 @@
+@page "/trash"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<PageTitle>Çöp Kutusu — DepoWise</PageTitle>
+
+<div class="d-flex align-center mb-3">
+    <MudIcon Icon="@Icons.Material.Filled.DeleteSweep" Color="Color.Warning" Class="mr-2" />
+    <MudText Typo="Typo.h5">Çöp Kutusu</MudText>
+</div>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    Silinen tanım kayıtları (malzeme, araç, personel, şube, marka, kategori...). Güvenlik için parolanızı
+    tekrar girmeniz gerekir. "Geri Yükle" ile kayıt tekrar aktif olur.
+</MudText>
+
+@if (!_verified)
+{
+    <MudPaper Class="pa-4" Elevation="2" Style="max-width:420px;">
+        <MudTextField @bind-Value="_password" Label="Parolanız" InputType="InputType.Password"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey" />
+        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="Open" Disabled="_busy">
+            @(_busy ? "Açılıyor…" : "Çöp Kutusunu Aç")
+        </MudButton>
+        @if (_err is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_err</MudAlert> }
+    </MudPaper>
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudText Typo="Typo.h6">Silinen Kayıtlar (@(_items?.Count ?? 0))</MudText><MudSpacer />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Reload">Yenile</MudButton>
+        </MudStack>
+        @if (_items is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_items.Count == 0) { <MudText Class="mud-text-secondary">Çöp kutusu boş.</MudText> }
+        else
+        {
+            <MudTable Items="_items" Dense="true" Hover="true" Striped="true" T="TrashRow">
+                <HeaderContent><MudTh>TÜR</MudTh><MudTh>AD / KOD</MudTh><MudTh></MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@TableLabel(context.Table)</MudTd>
+                    <MudTd>@(string.IsNullOrEmpty(context.Label) ? "—" : context.Label)</MudTd>
+                    <MudTd Style="text-align:right">
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                   StartIcon="@Icons.Material.Filled.Restore" OnClick="@(() => Restore(context))">Geri Yükle</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+@code {
+    private sealed record TrashRow(string Table, string Id, string Label);
+    private string? _password;
+    private bool _verified, _busy, _ok;
+    private string? _err, _msg;
+    private List<TrashRow>? _items;
+
+    private async Task OnKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Open(); }
+
+    private async Task Open()
+    {
+        _err = null; _busy = true;
+        try
+        {
+            if (await LoadList()) { _verified = true; }
+            else _err = "Parola hatalı veya erişim yok.";
+        }
+        catch (Exception ex) { _err = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Reload() { await LoadList(); }
+
+    private async Task<bool> LoadList()
+    {
+        var doc = await Api.PostJsonAsync("/api/trash", new { password = _password });
+        if (doc is null) return false;
+        var list = new List<TrashRow>();
+        if (doc.Value.ValueKind == JsonValueKind.Array)
+            foreach (var e in doc.Value.EnumerateArray())
+                list.Add(new TrashRow(S(e, "table"), S(e, "id"), S(e, "label")));
+        _items = list;
+        return true;
+    }
+
+    private async Task Restore(TrashRow row)
+    {
+        if (!await Dialog.Confirm($"'{row.Label}' geri yüklensin mi?")) return;
+        _msg = null;
+        var err = await Api.PostAsync("/api/trash/restore", new { table = row.Table, id = row.Id, password = _password });
+        _ok = err is null; _msg = err ?? "Geri yüklendi.";
+        if (_ok) { _items?.Remove(row); }
+    }
+
+    private static string TableLabel(string t) => t switch
+    {
+        "materials" => "Malzeme", "vehicles" => "Araç", "personnel" => "Personel", "branches" => "Şube",
+        "suppliers" => "Tedarikçi", "brands" => "Marka", "units" => "Birim",
+        "material_categories" => "Malzeme Kategorisi", "vehicle_templates" => "Araç Genel Tanım",
+        "vehicle_types" => "Makine Tipi", "vehicle_categories" => "Araç Kategorisi",
+        "vehicle_models" => "Model", "maintenance_definitions" => "Bakım Tanımı", _ => t
+    };
+
+    private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+}

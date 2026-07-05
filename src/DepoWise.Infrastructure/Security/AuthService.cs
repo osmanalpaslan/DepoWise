@@ -99,6 +99,19 @@ public sealed class AuthService
         return Login(candidates[0], username, password);
     }
 
+    /// <summary>Yeniden kimlik doğrulama (ör. Çöp Kutusu): oturumdaki kullanıcının parolasını tekrar doğrular.</summary>
+    public bool VerifyUserPassword(string companyId, string userId, string password)
+    {
+        if (string.IsNullOrEmpty(password)) return false;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT password_hash FROM users WHERE id=$u AND company_id=$c AND is_active=1 AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        var hash = cmd.ExecuteScalar() as string;
+        return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
+    }
+
     /// <summary>
     /// Parola olmadan oturum kurar (yalnız "Beni Hatırla" token doğrulaması SONRASI çağrılır).
     /// Kullanıcı aktif değilse/yoksa null döner. Roller + yetkiler yüklenir.

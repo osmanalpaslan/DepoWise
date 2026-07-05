@@ -46,6 +46,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Security.PermissionTemplateService PermissionTemplates { get; }
     public DepoWise.Infrastructure.Database.AuditLogService AuditLog { get; }
     public DepoWise.Infrastructure.Files.FileService Files { get; }
+    public DepoWise.Infrastructure.Files.TrashService Trash { get; }
     public DepoWise.Application.Files.IFileStorageProvider Storage { get; }
     public DepoWise.Infrastructure.Vehicles.VehicleTemplateService VehicleTemplates { get; }
     public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
@@ -91,6 +92,7 @@ public sealed class ServerServices
         AuditLog = new DepoWise.Infrastructure.Database.AuditLogService(Factory);
         Storage = new DepoWise.Infrastructure.Files.LocalFileStorageProvider(Path.Combine(dataDir, "files"));
         Files = new DepoWise.Infrastructure.Files.FileService(Factory, Storage, clock);
+        Trash = new DepoWise.Infrastructure.Files.TrashService(Factory, clock);
         VehicleTemplates = new DepoWise.Infrastructure.Vehicles.VehicleTemplateService(Factory, clock);
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
