@@ -155,6 +155,8 @@ public sealed partial class LoginViewModel : ViewModelBase
     {
         if (_authedSession is null) { Back(); return; }
         Error = null;
+        // B1: şube seçimi ZORUNLU (Tüm Şubeler de geçerli bir seçimdir).
+        if (SelectedBranch is null) { Error = "Lütfen giriş yapılacak şubeyi seçin."; return; }
         IsBusy = true;
         try
         {
@@ -186,8 +188,10 @@ public sealed partial class LoginViewModel : ViewModelBase
                     PlayWarningSound();
                     var proceed = await ConfirmService.AskAsync(
                         $"Bu bilgisayar \"{homeName}\" şubesine tanımlıdır.\n\n" +
-                        $"Farklı bir şube (\"{SelectedBranch?.Name}\") ile giriş yapıyorsunuz. Girdiğiniz veriler " +
-                        "bu bilgisayarın ait olduğu şubeye YAZILMAYACAKTIR.\n\nYine de devam etmek istiyor musunuz?",
+                        $"Şu an \"{SelectedBranch?.Name}\" şubesi ile giriş yapıyorsunuz. Girdiğiniz tüm kayıtlar " +
+                        $"\"{SelectedBranch?.Name}\" şubesine yazılacaktır.\n\n" +
+                        $"Bu makinenin şubesi (\"{homeName}\") için işlem yapmak istiyorsanız, lütfen o şubenin " +
+                        "kullanıcısı ile giriş yapın.\n\nYine de devam etmek istiyor musunuz?",
                         "Farklı Şube Girişi", "Devam et ve giriş yap", "İptal", danger: true);
                     if (!proceed) return;
                 }
