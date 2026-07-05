@@ -37,5 +37,8 @@
 - (ÇÖZÜLDÜ 05.07.2026 ADR-053) business-push artık modül-bazlı yetki + negatif değer doğrulaması yapıyor.
 - (ÇÖZÜLDÜ 05.07.2026 ADR-054) JWT refresh eklendi; kayan oturum + SessionExpired sinyali.
 - (ÇÖZÜLDÜ 05.07.2026 ADR-055) Updater artık yedekliyor + başarısızlıkta rollback yapıyor + bütünlük guard./gerçek PS yolu Windows entegrasyon testi bekliyor.
-- Web: `soon/about`, `soon/trash` placeholder; TrashService'in API ucu yok. Server-status bellek grafiği hep %100 gösteriyor (normalize hatası).
-- Sunucuda ILogger yok; ~40 boş catch bloğu gözlemlenebilirliği düşürüyor (500 loglaması eklendi, gerisi açık).
+- (ÇÖZÜLDÜ 05.07.2026) Çöp Kutusu web API'si eklendi: `POST /api/trash` + `/api/trash/restore` (parola ile yeniden doğrulama), web `Trash.razor` (/trash). `soon/about` hâlâ placeholder.
+- (ÇÖZÜLDÜ 05.07.2026) Server-status bellek grafiği min-max normalize edildi (artık hep %100 değil).
+- (ÇÖZÜLDÜ 05.07.2026) SessionExpired UI'ya bağlandı: masaüstü oturum düşünce dialog + tekrar giriş (`ShellViewModel.OnSessionExpired`).
+- Sunucuda ILogger yok; ~40 boş catch bloğu gözlemlenebilirliği düşürüyor (500 loglaması eklendi, gerisi açık). *(orta öncelik — launch için kabul edilebilir)*
+- Güvenlik sertleştirme adayları (bu turda dokunulmadı, ayrı inceleme): CORS AllowAnyOrigin (Blazor Server side-call olduğundan tarayıcıdan kullanılmıyor, düşük risk), `/api/machines/register` anonim, `serverurl.txt` düz metin, 1 GB gövde limiti.

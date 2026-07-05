@@ -5,7 +5,11 @@
 > **Nasıl güncellersin?** İlgili ekranın altına düz cümleyle "şöyle olsun / şu yanlış / şunu ekle"
 > yaz. Anlamakta zorlanırsam sana sorarım, birlikte netleştiririz.
 >
-> Son güncelleme: 2026-07-05 · Son masaüstü paket: **1.0.34** · Migration: **032** · Test: 231
+> Son güncelleme: 2026-07-05 · Son masaüstü paket: **1.0.34** (sıradaki 1.0.35 bekliyor) · Migration: **032** · Test: 238
+>
+> **05.07 sonrası eklenen (web+API canlı, masaüstü kısmı 1.0.35'te):** güvenlik sertleştirmesi (JWT anahtarı zorunlu,
+> seed şifreleri, login rate-limit, business-push yetki+doğrulama, JWT yenileme, updater yedek+rollback), **Çöp Kutusu gerçek**
+> (parola ile), Canlı Sunucu grafik fix, oturum düşünce tekrar-giriş uyarısı.
 
 ---
 
