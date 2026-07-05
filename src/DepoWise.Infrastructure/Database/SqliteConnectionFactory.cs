@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Infrastructure.Database;
@@ -47,6 +50,32 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
                 "PRAGMA busy_timeout=5000;";
             cmd.ExecuteNonQuery();
         }
+
+        // R12 — Türkçe duyarsız arama: SQLite'ın 2 argümanlı like()'ını Türkçe kültürle override et.
+        // Böylece TÜM sorgulardaki `col LIKE @term` otomatik İ/ı/ş/ç/ğ/ü/ö duyarsız çalışır (ekstra kod gerekmez).
+        conn.CreateFunction<string?, string?, long>("like", (pattern, value) => SqlLikeTr(pattern, value) ? 1L : 0L);
         return conn;
+    }
+
+    private static readonly CultureInfo Tr = new("tr-TR");
+
+    /// <summary>SQL LIKE (yalın % / _ joker) — her iki tarafı Türkçe küçük harfe indirip eşleştirir.</summary>
+    internal static bool SqlLikeTr(string? pattern, string? value)
+    {
+        if (pattern is null || value is null) return false;
+        var lp = pattern.ToLower(Tr);
+        var lv = value.ToLower(Tr);
+        var sb = new StringBuilder("^");
+        foreach (var ch in lp)
+        {
+            switch (ch)
+            {
+                case '%': sb.Append(".*"); break;
+                case '_': sb.Append('.'); break;
+                default: sb.Append(Regex.Escape(ch.ToString())); break;
+            }
+        }
+        sb.Append('$');
+        return Regex.IsMatch(lv, sb.ToString(), RegexOptions.Singleline | RegexOptions.CultureInvariant);
     }
 }

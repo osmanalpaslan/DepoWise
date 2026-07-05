@@ -19,12 +19,12 @@
 - **R14:** `MaintenanceService.GetAlerts` GROUP BY + MAX(created_at) ile en-son bakımı seçerken SQLite bare-column davranışına dayanıyor; aynı created_at'te tie belirsiz olabilir (testlerde saat ilerletilerek garanti). İleride pencere fonksiyonu/alt sorgu ile sağlamlaştırılabilir. Etki: düşük.
 - **R13:** Stok bakiyesi material-global (şube bazlı değil); transfer net-zero. Şube bazlı bakiye + şube negatif kontrolü sonraki fazda. Etki: orta (çok şubeli stok ayrımı henüz yok).
 - **R11:** `material_compatible_vehicles.vehicle_id` şu an FK'siz serbest metin (vehicles tablosu Faz 08). Faz 08'de FK + referans bütünlüğü eklenecek. Etki: düşük (geçici).
-- **R12:** Malzeme listesinde LIKE araması varsayılan SQLite (ASCII case-insensitive); Türkçe duyarsız LIKE override henüz eklenmedi (CLAUDE.md AlpDepo standardı). Gerekirse Faz 07+ eklenir. Etki: düşük.
 - **R10:** Personel ve firma/şube modüllerinin UI ekranları (liste/form/import-export) henüz bağlanmadı; servis + iş kuralları + testler hazır. İlgili ekranlar sonraki UI fazlarında MenuBuilder/AccessControl ile bağlanacak. Etki: orta.
 - **R9:** Masaüstü shell şu an **preview admin oturumu** ile menüyü gösteriyor (login akışı Faz 05). Yetki mantığı testlerle doğrulandı; gerçek oturum + firma override tema Faz 05'te bağlanacak. Etki: orta (UI önizleme).
 - **R8:** Web `getServerSession` henüz oturum çözmüyor (imzalı cookie + DB session lookup Faz 05'e bırakıldı); şu an fail-closed null döner → `/api/v1/me` daima 401. Davranış güvenli; işlevsel oturum web tarafında Faz 05'te bağlanacak. Etki: orta.
 
 ## Kapatılan
+- **R12:** LIKE araması artık Türkçe duyarsız — `SqliteConnectionFactory` `like()`'ı `SqlLikeTr` ile override eder (İ/ı/ş/ç/ğ/ü/ö). Tüm sorgular otomatik faydalanır. Test: `TurkishLikeTests`.
 - Büyük tek prompt yerine faz bazlı çalışma paketi oluşturuldu.
 - Proje adı ve dosyalar DepoWise olarak standartlaştırıldı.
 - CLAUDE.md ↔ V6 analiz çelişki taraması yapıldı; çelişki yok (Faz 00).
