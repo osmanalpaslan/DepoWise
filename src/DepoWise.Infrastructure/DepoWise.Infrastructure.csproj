@@ -10,6 +10,10 @@
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
     <PackageReference Include="QuestPDF" Version="2026.6.1" />
+    <!-- Foto optimizasyonu (resize/JPEG) — ImageSharp lisans maliyeti yerine ücretsiz SkiaSharp.
+         Linux (Fly aspnet:8.0 Debian) için native NoDependencies (fontconfig gerektirmez). -->
+    <PackageReference Include="SkiaSharp" Version="2.88.8" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.8" />
   </ItemGroup>
 
   <PropertyGroup>

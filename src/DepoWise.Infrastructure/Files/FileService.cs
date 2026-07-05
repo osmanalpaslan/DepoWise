@@ -42,9 +42,12 @@ public sealed class FileService
         var v = FileValidation.ValidateImage(fileName, declaredMime, content);
         if (!v.Ok) throw new InvalidOperationException(v.Error);
 
-        var safeName = FileValidation.SafeFileName(fileName, v.DetectedExt!);
-        var storageKey = _storage.Save(s.CompanyId, entityType, entityId, safeName, content);
-        var sha = Convert.ToHexString(SHA256.HashData(content));
+        // Foto optimizasyonu (SkiaSharp): büyük görseli küçült + JPEG'e sıkıştır. Çözülemezse orijinal kalır.
+        var (optMime, optBytes) = ImageOptimizer.Optimize(content, v.DetectedMime!);
+        var ext = optMime == "image/jpeg" ? "jpg" : v.DetectedExt!;
+        var safeName = FileValidation.SafeFileName(fileName, ext);
+        var storageKey = _storage.Save(s.CompanyId, entityType, entityId, safeName, optBytes);
+        var sha = Convert.ToHexString(SHA256.HashData(optBytes));
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = Guid.NewGuid().ToString("N");
 
@@ -63,16 +66,16 @@ VALUES($id,$c,$et,$eid,'photo',$prov,$key,$mime,$size,$sha,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$eid", entityId);
             cmd.Parameters.AddWithValue("$prov", _storage.ProviderName);
             cmd.Parameters.AddWithValue("$key", storageKey);
-            cmd.Parameters.AddWithValue("$mime", v.DetectedMime!);
-            cmd.Parameters.AddWithValue("$size", content.Length);
+            cmd.Parameters.AddWithValue("$mime", optMime);
+            cmd.Parameters.AddWithValue("$size", optBytes.Length);
             cmd.Parameters.AddWithValue("$sha", sha);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "file_record", id, AuditActions.Create, s.UserId,
-            AfterJson: $"{{\"entity\":\"{entityType}\",\"mime\":\"{v.DetectedMime}\"}}"), _clock);
+            AfterJson: $"{{\"entity\":\"{entityType}\",\"mime\":\"{optMime}\"}}"), _clock);
         tx.Commit();
-        return new FileRecordDto(id, entityType, entityId, storageKey, v.DetectedMime, content.Length);
+        return new FileRecordDto(id, entityType, entityId, storageKey, optMime, optBytes.Length);
     }
 
     public IReadOnlyList<FileRecordDto> GetPhotos(SessionContext s, string entityType, string entityId)
