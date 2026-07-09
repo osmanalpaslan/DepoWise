@@ -307,6 +307,24 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-057 — Gerçek mimari kaydı: Web=Blazor, sunucu DB=SQLite (09.07.2026)
+- **Bağlam:** `CLAUDE.md`/`DECISIONS.md` (ADR-000/005) web tarafını Next.js+Drizzle+PostgreSQL olarak
+  tanımlıyordu. Commit geçmişi incelendiğinde: `apps/web` (Next.js) son kez 2026-06-27'de değişmiş (0 commit
+  son 2 haftada); `src/DepoWise.Web` (Blazor Server, MudBlazor) 2026-07-02'den beri 56 commit almış ve
+  canlıda (`depowise-web.fly.dev`) çalışan gerçek uygulama bu. Ayrıca `src/DepoWise.Api`/`Infrastructure`
+  yalnız `Microsoft.Data.Sqlite` referans ediyor (Npgsql/PostgreSQL sürücüsü hiç eklenmemiş);
+  `ServerServices.cs` sunucu DB'sini `depowise-server.db` (SQLite, Fly.io kalıcı disk `/data`) olarak açıyor.
+  PostgreSQL/Drizzle hiç üretime alınmadı (R4/R7'de zaten "uygulanmadı" olarak işaretliydi, ama CLAUDE.md
+  hâlâ PostgreSQL'i "değişmez mimari" gibi gösteriyordu — çelişki).
+- **Karar:** Dokümanlar gerçeğe uydurulur: **Web = Blazor Server (`src/DepoWise.Web`)**, **API/sunucu DB =
+  SQLite** (`depowise-server.db`). `apps/web` kod tabanında kalır ama **donmuş/referans** olarak işaretlenir;
+  üzerinde aktif geliştirme yapılmaz. PostgreSQL'e geçiş (R4/R7) bir **gelecek karar** olarak açık kalır —
+  şu an iptal edilmiyor, sadece "yapılıyor" değil "yapılmadı ve planlanmıyor (henüz)" olarak netleştirilir.
+- **Kapsam dışı / karar verilmedi:** PostgreSQL'e geçilip geçilmeyeceği, `apps/web`'in silinip silinmeyeceği.
+  Bunlar kullanıcı talimatı bekliyor; bu ADR yalnız **mevcut durumu doğru kaydetmek** içindir.
+- **Gerekçe:** CLAUDE.md §1 "çelişkide kararı DECISIONS.md'ye yaz" kuralı; kod/dokuman tutarlılığı, gelecekte
+  yanlış yönlendirme riski (ör. Next.js'e zaman harcamak veya PostgreSQL varmış gibi davranmak).
+
 ### ADR-056 — COMODO kısıtlaması kaldırıldı, yeni PC (09.07.2026)
 - **Bağlam:** Kullanıcı bilgisayarını formatladı ve geliştirmeyi COMODO'nun kurulu olmadığı farklı bir PC'ye taşıdı. COMODO'nun Auto-Containment özelliği imzasız EXE/BAT'ı sanal alanda çalıştırıp sahte/boş bir DB'ye yazdırdığı için (bkz. `docs/COMODO_RUNBOOK.md`) bu kısıtlama konulmuştu; yeni makinede COMODO yok.
 - **Karar:** `.claude/hooks/comodo_guard.ps1`'i tetikleyen PreToolUse hook `.claude/settings.json`'dan kaldırıldı. `CLAUDE.md` §6, `DEVAM.md` §5 ve `BASLAMA_REHBERI.md` güncellendi: proje EXE/BAT artık doğrudan çalıştırılabilir. `dotnet build`/`dotnet run` yine de önerilen yöntem olarak kaldı (alışkanlık/tutarlılık, zorunluluk değil).

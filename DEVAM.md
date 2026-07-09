@@ -14,9 +14,10 @@
 ## 1. Bu proje nedir? (tek paragraf)
 
 **DepoWise** — çok firmalı (multi-tenant) depo/stok/araç/bakım/yakıt yönetim sistemi.
-Üç parça, tek beyin: **Masaüstü** (Windows/.NET 8 + Avalonia, yerel SQLite) + **Web** (Next.js
-tarayıcı) + **API** (sunucu, Fly.io). İş kuralları ve yetkiler API'de tek yerde. Detaylı
+Üç parça, tek beyin: **Masaüstü** (Windows/.NET 8 + Avalonia, yerel SQLite) + **Web** (Blazor Server/.NET,
+MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve yetkiler API'de tek yerde. Detaylı
 çalışma mantığı: [docs/PROJE_REHBERI.md](docs/PROJE_REHBERI.md) (ortak defterimiz).
+> Not: `apps/web` (eski Next.js denemesi) 2026-06-27'den beri donmuş; aktif web `src/DepoWise.Web`'dir (ADR-057).
 
 ---
 
@@ -78,7 +79,9 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 - Geliştirme derleme: `dotnet build DepoWise.sln`
 - Test: `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj`
 - Masaüstü çalıştır: `dotnet run --project src/DepoWise.Desktop`
-- Web: `cd apps/web && npm run dev | npm run build | npm run typecheck`
+- Web (Blazor, gerçek/aktif): `dotnet run --project src/DepoWise.Web`
+- API (sunucu, yerel): `dotnet run --project src/DepoWise.Api`
+- (`apps/web` eski Next.js denemesi — donmuş, kullanılmıyor; bkz. ADR-057)
 
 ---
 

@@ -28,8 +28,12 @@
 - 8'den fazla dosyaya yayılan işi alt adımlara böl.
 - Her faz sonunda state dosyalarını güncelle. Bağlam büyürse `/compact` öner ve aynı fazdan devam et.
 
-## 4. Mimari değişmezler
-- Web: Next.js/TypeScript strict/Drizzle/PostgreSQL. Masaüstü: .NET 8/Avalonia/MVVM/Dapper/SQLite.
+## 4. Mimari değişmezler (güncel — 2026-07-09, ADR-057)
+- **Web: Blazor Server/.NET (MudBlazor)** — `src/DepoWise.Web`, canlıda `depowise-web.fly.dev`. `apps/web`
+  (Next.js/Drizzle/PostgreSQL) 2026-06-27'den beri donmuş/terk edilmiş; yalnız referans/geçmiş, aktif
+  geliştirme yok. Masaüstü: .NET 8/Avalonia/MVVM/Dapper/SQLite.
+- **API/sunucu veritabanı: SQLite** (`depowise-server.db`, Fly.io kalıcı disk `/data`) — planlanan
+  PostgreSQL/Drizzle (ADR-000/005) hiç üretime alınmadı, gerçek çalışan sistem uçtan uca SQLite (bkz. R4/R7).
 - Web ve masaüstü işlevsel olarak eşit; piksel eşitliği zorunlu değil.
 - API `/api/v1`, ortak hata modeli, correlation id, OpenAPI sözleşmesi.
 - `company_id` yalnız güvenilir session/server context'ten gelir.
