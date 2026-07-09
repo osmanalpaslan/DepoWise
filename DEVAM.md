@@ -43,19 +43,34 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 
 ---
 
-## 3. SIRADAKI TEK IŞ
+## 3. SIRADAKI TEK IŞ — Masaüstü 1.0.35'i yayınla (yarın, farklı PC'de)
 
 > Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1 kuralı).
+> Kullanıcı 09.07 gecesi ara verdi; yarın **farklı bir PC'den** devam edecek. Önce §0'daki
+> "yeni PC'de ilk yapılacaklar" adımlarını uygula.
 
-1. **Masaüstü 1.0.35 paketini web'den yayınla (SEN yapmalısın — Süper Admin girişi gerekir):**
-   - Paket hazır: `artifacts/rc/DepoWise-desktop-1.0.35.zip` (bu makinede, gitignore'lu — repo'ya girmez).
-   - `https://depowise-web.fly.dev/releases` sayfasına Süper Admin ile giriş yap.
-   - Sürüm: `1.0.35`, Notlar: (foto optimizasyonu, güvenlik sertleştirmesi, login/şube damgalama)
-   - Dosya olarak yukarıdaki zip'i seç → **"Yayınla"** butonuna bas.
-   - Masaüstü açık olan makineler 60 sn içinde otomatik günceleme uyarısı alır.
-2. ~~Deploy bekleyenler~~ **TAMAMLANDI (09.07.2026):** `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı,
-   API (`depowise-erp`) + Web (`depowise-web`) yeniden yayınlandı ve doğrulandı (ikisi de HTTP 200).
-   05.07 güvenlik/sync/oturum/updater değişikliklerinin tamamı artık canlıda.
+**Tek kalan iş: Masaüstü 1.0.35 paketini yayınlamak.** İki yol var:
+
+**A) Otomatik (önerilen) — `scripts/publish_release.mjs` ile, tarayıcı gerekmez:**
+   1. Yeni PC'de paket YOK (zip gitignore'lu, repoya girmez). Önce YENİDEN TOPLA:
+      `dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -o artifacts/rc/desktop-1.0.35 -p:Version=1.0.35`
+      sonra klasörü zip'le (PowerShell: `Compress-Archive artifacts/rc/desktop-1.0.35/* artifacts/rc/DepoWise-desktop-1.0.35.zip`).
+   2. Süper Admin bilgisini ortam değişkeni yap (kullanıcı kendi terminalinde):
+      `setx DEPOWISE_ADMIN_USER "..."` ve `setx DEPOWISE_ADMIN_PASS "..."`
+   3. Çalıştır: `node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.35.zip 1.0.35 "foto opt + guvenlik + login/sube"`
+   4. Script login yapar, checksum'ı KENDİ hesaplar, yükler, sunucuda "latest = 1.0.35" doğrular.
+   5. Bittiğinde ortam değişkenlerini SİL (şifre kalıcı kalmasın):
+      `[Environment]::SetEnvironmentVariable("DEPOWISE_ADMIN_PASS",$null,"User")` (USER için de).
+
+**B) Elle — web'den:** `https://depowise-web.fly.dev/releases` → Süper Admin girişi → Sürüm `1.0.35`,
+   notlar, zip'i seç → **"Yayınla"**. (Bu da geçerli; Süper Admin girişi ister.)
+
+> Her iki yolda da: yayından sonra masaüstü açık makineler 60 sn içinde otomatik güncelleme uyarısı alır.
+> Not: 09.07'de bu adım Süper Admin şifresi bende olmadığı için tamamlanamadı — kullanıcının kimlik bilgisi lazım.
+
+**(TAMAMLANDI 09.07.2026) Deploy:** `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı, API (`depowise-erp`)
++ Web (`depowise-web`) yeniden yayınlandı ve doğrulandı (ikisi de HTTP 200). 05.07 güvenlik/sync/oturum/updater
+değişikliklerinin tamamı artık canlıda.
 
 **Senden girdi bekleyenler** (PROJE_REHBERI §6):
 - Yönetici Raporları alt raporları hangileri olsun?
@@ -67,7 +82,7 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 
 - **R10:** Kalan operasyonel modül ekranlarının UI bağlanması (Malzemeler bağlı, gerisi sırada).
 - **R8/R9:** Web oturum kalıcılığı + masaüstü/web login akışı (büyük kısmı 05.07'de bağlandı).
-- **R4/R7:** Canlı PostgreSQL migration (SQLite tam; PG SQL üretildi ama uygulanmadı).
+- **R4/R7:** (ADR-057) PostgreSQL'e geçilmedi; gerçek sistem uçtan uca SQLite. Artık "engel" değil — PostgreSQL sadece gelecek bir seçenek (karar kullanıcıya bırakıldı).
 - **R22:** Code-signing (imzasız sürümde şeffaf uyarı var — maliyet kararı bekliyor).
 
 > Tam açık/kapalı liste: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
@@ -75,6 +90,11 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 ---
 
 ## 5. Çalıştırma / Güvenli Komutlar
+
+**Yeni/temiz PC'de ilk kurulum (araçlar):** git, GitHub CLI (`gh`), .NET 8 SDK, Node.js, flyctl gerekir.
+Windows'ta hepsi winget ile: `winget install Git.Git GitHub.cli Microsoft.DotNet.SDK.8 OpenJS.NodeJS.LTS Fly-io.flyctl`.
+Sonra `gh auth login` (GitHub), `flyctl auth login` (deploy için), `git clone https://github.com/osmanalpaslan/DepoWise`.
+`OPENAI_API_KEY`, `DEPOWISE_ADMIN_*` gibi ortam değişkenleri makineye özeldir — yeni PC'de yeniden ayarlanır.
 
 - Bu makinede COMODO yok (2026-07-09'da yeni PC'ye geçildi) — EXE/BAT doğrudan çalıştırma yasağı kalktı (ADR-056). `dotnet` ile çalıştırma yine de önerilir.
 - Masaüstü (senin makinen): uygulamayı kapat → **"DepoWise (Gercek DB)"** kısayolundan aç.
