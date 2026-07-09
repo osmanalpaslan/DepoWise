@@ -64,8 +64,9 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 
 ---
 
-## 5. Çalıştırma / Güvenli Komutlar (COMODO kuralı: EXE/BAT değil `dotnet`)
+## 5. Çalıştırma / Güvenli Komutlar
 
+- Bu makinede COMODO yok (2026-07-09'da yeni PC'ye geçildi) — EXE/BAT doğrudan çalıştırma yasağı kalktı (ADR-056). `dotnet` ile çalıştırma yine de önerilir.
 - Masaüstü (senin makinen): uygulamayı kapat → **"DepoWise (Gercek DB)"** kısayolundan aç.
 - Geliştirme derleme: `dotnet build DepoWise.sln`
 - Test: `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj`

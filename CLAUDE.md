@@ -44,12 +44,13 @@
 - Aranabilir çoklu seçimde seçimler aramada korunur; tümünü seç yalnız filtre sonucunu ekler.
 - Ağır rapor Sorgula/Filtrele tıklanmadan çalışmaz.
 
-## 6. COMODO - kritik
-- Geliştirme makinesinde proje EXE veya BAT doğrudan çalıştırma.
-- `dotnet build`, `dotnet run --project ...` veya `dotnet <dll>` kullan.
-- Debug `UseAppHost=false` kalmalı.
-- SQLite mutlak `%LOCALAPPDATA%\DepoWise\Data` yolunda; Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000.
-- COMODO testi: host=dotnet, gerçek DB yolu, write/read health ve yeniden açılışta veri kalıcılığı.
+## 6. COMODO - artık geçerli değil (2026-07-09, ADR-056)
+- Geliştirme COMODO'suz yeni bir bilgisayara taşındı; EXE/BAT'ı doğrudan çalıştırma yasağı ve
+  bunu zorlayan PreToolUse hook'u (`.claude/hooks/comodo_guard.ps1`) kaldırıldı.
+  `dotnet build` / `dotnet run --project ...` / `dotnet <dll>` yine de geçerli ve önerilen yöntem.
+- Geçmiş kurallar ve geri ekleme talimatı: `docs/COMODO_RUNBOOK.md` (yalnız ileride tekrar
+  COMODO'lu bir makineye dönülürse kullanılır).
+- SQLite mutlak `%LOCALAPPDATA%\DepoWise\Data` yolunda; Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000 — bu kural COMODO'dan bağımsız, her zaman geçerli.
 
 ## 7. Test ve bitirme
 - Her değişiklikte en dar test; faz sonunda build + ilgili unit/integration/e2e.

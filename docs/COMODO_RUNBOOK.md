@@ -1,5 +1,12 @@
 # DepoWise COMODO Güvenli Geliştirme Runbook
 
+> **GÜNCEL DURUM (2026-07-09):** Geliştirme yeni bir bilgisayara taşındı; bu makinede COMODO
+> kurulu değil. Bu nedenle `.claude/hooks/comodo_guard.ps1` PreToolUse hook'u
+> `.claude/settings.json`'dan çıkarıldı (ADR-056) — proje EXE/BAT artık doğrudan
+> çalıştırılabilir. Bu dosya ve hook script'i, ileride tekrar bir COMODO'lu makinede
+> geliştirme yapılırsa hook'u `.claude/settings.json`'a geri eklemek için referans olarak
+> saklanıyor.
+
 ## Sorunun nedeni
 Geliştirme makinesindeki Auto-Containment imzasız proje apphost EXE veya BAT dosyasını sanal alanda çalıştırabilir. Bu durumda uygulama sanal bir DB'ye yazar; gerçek DB boş görünür.
 

@@ -306,3 +306,9 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 ### ADR-055 — Updater yedek + rollback + bütünlük guard'ı (05.07.2026)
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
+
+### ADR-056 — COMODO kısıtlaması kaldırıldı, yeni PC (09.07.2026)
+- **Bağlam:** Kullanıcı bilgisayarını formatladı ve geliştirmeyi COMODO'nun kurulu olmadığı farklı bir PC'ye taşıdı. COMODO'nun Auto-Containment özelliği imzasız EXE/BAT'ı sanal alanda çalıştırıp sahte/boş bir DB'ye yazdırdığı için (bkz. `docs/COMODO_RUNBOOK.md`) bu kısıtlama konulmuştu; yeni makinede COMODO yok.
+- **Karar:** `.claude/hooks/comodo_guard.ps1`'i tetikleyen PreToolUse hook `.claude/settings.json`'dan kaldırıldı. `CLAUDE.md` §6, `DEVAM.md` §5 ve `BASLAMA_REHBERI.md` güncellendi: proje EXE/BAT artık doğrudan çalıştırılabilir. `dotnet build`/`dotnet run` yine de önerilen yöntem olarak kaldı (alışkanlık/tutarlılık, zorunluluk değil).
+- **Kapsam dışı:** `Directory.Build.props`'taki `UseAppHost=false` ayarına dokunulmadı (ayrı bir build/paketleme kararı; gerekirse ileride ayrıca değerlendirilir). SQLite mutlak DB yolu, WAL, Cache=Private kuralları COMODO'dan bağımsız olduğu için aynen korundu.
+- **Geri alma:** İleride tekrar bir COMODO'lu makinede geliştirme yapılırsa `docs/COMODO_RUNBOOK.md`'deki adımlarla hook ve kısıtlamalar geri eklenmelidir.
