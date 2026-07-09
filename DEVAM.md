@@ -24,13 +24,17 @@ tarayıcı) + **API** (sunucu, Fly.io). İş kuralları ve yetkiler API'de tek y
 
 **Genel durum:** Backend + iş mantığı **yayın adayı (1.0.0-rc)** olgunlukta — 17 fazın hepsi
 bitti, 238 test yeşil. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım (yayın engellerini
-kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34**.
+kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34**
+(yeni: 1.0.35 yerelde hazır, bkz. aşağı).
 
-**En son yaptıklarım (bugün, 2026-07-09 — henüz bir masaüstü paketine girmedi):**
+**Bugün (2026-07-09), yeni bilgisayara geçiş sonrası:**
+- Proje bu makineye klonlandı; `dotnet build` (0 hata) ve `dotnet test` (238/238 yeşil) ile doğrulandı — geliştirmeye devam edilebilir.
+- **Masaüstü 1.0.35 paketi yerelde toplandı** (`dotnet publish -c Release -p:Version=1.0.35`), zip'lendi, SHA-256 hesaplandı. **Henüz web'e yüklenip yayınlanmadı** — bu adım Süper Admin girişi gerektirdiği için tarayıcıdan elle yapılmalı (bkz. §3).
+- Not: `apps/web` (Next.js) 2 haftadır güncellenmiyor; gerçek/canlı web artık `src/DepoWise.Web` (Blazor/MudBlazor). CLAUDE.md/DECISIONS.md bunu henüz yansıtmıyor — düzeltilmesi bekliyor.
+
+**Önceki (2026-07-05):**
 - **Grup 1 (login):** Masaüstü login'de şube kodu gösteriliyor; makinenin kendi şubesinde şifre sorulmuyor.
 - **Grup 2 (şube damgalama):** Zorunlu şube seçimi + farklı şube seçilince netleştirilmiş uyarı.
-
-**Ondan önce (2026-07-05, web+API canlıda, masaüstü 1.0.35'te toplanacak):**
 - Güvenlik sertleştirmesi (JWT anahtarı zorunlu, seed şifre env/rastgele, login rate-limit,
   business-push yetki+doğrulama, JWT yenileme/kayan oturum, updater yedek+rollback).
 - Çöp Kutusu gerçek yapıldı (parola ile), Canlı Sunucu grafik düzeltmesi, oturum düşünce tekrar-giriş uyarısı.
@@ -41,9 +45,12 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 
 > Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1 kuralı).
 
-1. **Masaüstü 1.0.35 paketini topla ve yayınla** — bekleyen işler (foto optimizasyonu R18,
-   05.07 güvenlik turu, Grup 1/2 login+şube damgalama) bu pakette birleşecek. Web'den
-   "Güncelleme Yönetimi" ile yayınla → masaüstü 60 sn'de otomatik uyarır.
+1. **Masaüstü 1.0.35 paketini web'den yayınla (SEN yapmalısın — Süper Admin girişi gerekir):**
+   - Paket hazır: `artifacts/rc/DepoWise-desktop-1.0.35.zip` (bu makinede, gitignore'lu — repo'ya girmez).
+   - `https://depowise-web.fly.dev/releases` sayfasına Süper Admin ile giriş yap.
+   - Sürüm: `1.0.35`, Notlar: (foto optimizasyonu, güvenlik sertleştirmesi, login/şube damgalama)
+   - Dosya olarak yukarıdaki zip'i seç → **"Yayınla"** butonuna bas.
+   - Masaüstü açık olan makineler 60 sn içinde otomatik günceleme uyarısı alır.
 2. **Deploy bekleyenler:** 05.07 güvenlik + sync + updater değişiklikleri için
    `fly secrets set DEPOWISE_JWT_KEY=...` sonrası **API + Web yeniden yayınlanmalı** (bkz. PROJECT_STATE 05.07 notları).
 
