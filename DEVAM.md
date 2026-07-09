@@ -31,7 +31,8 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
 **Bugün (2026-07-09), yeni bilgisayara geçiş sonrası:**
 - Proje bu makineye klonlandı; `dotnet build` (0 hata) ve `dotnet test` (238/238 yeşil) ile doğrulandı — geliştirmeye devam edilebilir.
 - **Masaüstü 1.0.35 paketi yerelde toplandı** (`dotnet publish -c Release -p:Version=1.0.35`), zip'lendi, SHA-256 hesaplandı. **Henüz web'e yüklenip yayınlanmadı** — bu adım Süper Admin girişi gerektirdiği için tarayıcıdan elle yapılmalı (bkz. §3).
-- Not: `apps/web` (Next.js) 2 haftadır güncellenmiyor; gerçek/canlı web artık `src/DepoWise.Web` (Blazor/MudBlazor). CLAUDE.md/DECISIONS.md bunu henüz yansıtmıyor — düzeltilmesi bekliyor.
+- Dokuman/gerçek mimari tutarsızlığı düzeltildi (ADR-057): `apps/web` (Next.js) donmuş olarak işaretlendi; gerçek/canlı web `src/DepoWise.Web` (Blazor/MudBlazor), sunucu DB'si SQLite (PostgreSQL hiç kullanılmadı).
+- **API + Web güvenlik yeniden-yayını tamamlandı:** `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı, her iki servis yeniden yayınlandı ve doğrulandı (HTTP 200). 05.07 güvenlik/sync/oturum/updater değişiklikleri artık canlıda.
 
 **Önceki (2026-07-05):**
 - **Grup 1 (login):** Masaüstü login'de şube kodu gösteriliyor; makinenin kendi şubesinde şifre sorulmuyor.
@@ -52,8 +53,9 @@ kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev
    - Sürüm: `1.0.35`, Notlar: (foto optimizasyonu, güvenlik sertleştirmesi, login/şube damgalama)
    - Dosya olarak yukarıdaki zip'i seç → **"Yayınla"** butonuna bas.
    - Masaüstü açık olan makineler 60 sn içinde otomatik günceleme uyarısı alır.
-2. **Deploy bekleyenler:** 05.07 güvenlik + sync + updater değişiklikleri için
-   `fly secrets set DEPOWISE_JWT_KEY=...` sonrası **API + Web yeniden yayınlanmalı** (bkz. PROJECT_STATE 05.07 notları).
+2. ~~Deploy bekleyenler~~ **TAMAMLANDI (09.07.2026):** `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı,
+   API (`depowise-erp`) + Web (`depowise-web`) yeniden yayınlandı ve doğrulandı (ikisi de HTTP 200).
+   05.07 güvenlik/sync/oturum/updater değişikliklerinin tamamı artık canlıda.
 
 **Senden girdi bekleyenler** (PROJE_REHBERI §6):
 - Yönetici Raporları alt raporları hangileri olsun?

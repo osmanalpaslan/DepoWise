@@ -168,13 +168,16 @@
 - `dotnet build DepoWise.sln`
 - `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj`
 - `dotnet run --project src/DepoWise.Desktop` (veya `dotnet <DLL>` — EXE/BAT yok)
-- Web: `cd apps/web && npm run dev | npm run build | npm run typecheck`
+- Web (Blazor, gerçek/aktif): `dotnet run --project src/DepoWise.Web` (bkz. ADR-057; `apps/web` donmuş)
 
 ## Bilinen engeller
 - Bkz. `KNOWN_ISSUES.md`.
 
 ## 05.07.2026 — Güvenlik sertleştirmesi
-- K1 JWT anahtarı zorunlu, K2 seed şifre env/rastgele, K3 login rate limit, Y1 reset-data üretimde kapalı, Y2 jenerik 500 + log, K5 web oturum kapısı, Y8 autocomplete. Build + 70 test yeşil. DEPLOY BEKLİYOR: `fly secrets set DEPOWISE_JWT_KEY=...` sonrası API+Web yeniden yayınlanmalı.
+- K1 JWT anahtarı zorunlu, K2 seed şifre env/rastgele, K3 login rate limit, Y1 reset-data üretimde kapalı, Y2 jenerik 500 + log, K5 web oturum kapısı, Y8 autocomplete. Build + 70 test yeşil. ~~DEPLOY BEKLİYOR~~ **DEPLOY EDİLDİ (09.07.2026)**: `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı, API+Web yeniden yayınlandı ve doğrulandı (bkz. aşağı).
 
 ## 05.07.2026 (2) — Sync güvenliği + oturum + updater
-- business-push yetki+doğrulama (ADR-053), JWT refresh (ADR-054), updater rollback (ADR-055) eklendi. TAM suit 238/238 yeşil. DEPLOY BEKLİYOR (API+Web) + masaüstü yeni sürüm yayını.
+- business-push yetki+doğrulama (ADR-053), JWT refresh (ADR-054), updater rollback (ADR-055) eklendi. TAM suit 238/238 yeşil. ~~DEPLOY BEKLİYOR~~ **DEPLOY EDİLDİ (09.07.2026)** (API+Web); masaüstü yeni sürüm (1.0.35) yerelde hazır, web'e yükleme kullanıcı tarafından yapılacak (bkz. DEVAM.md).
+
+## 09.07.2026 — API + Web güvenlik deploy'u tamamlandı
+- `flyctl` kuruldu, fly.io hesabına giriş yapıldı. Rastgele 64-hex `DEPOWISE_JWT_KEY` üretilip `depowise-erp` uygulamasına secret olarak eklendi (`fly secrets set ... --stage`). `flyctl deploy --config fly.toml --app depowise-erp` ve `flyctl deploy --config fly.web.toml --app depowise-web` ile her iki servis yeniden yayınlandı. Doğrulama: her iki makine de `started` durumda, `https://depowise-erp.fly.dev/` ve `https://depowise-web.fly.dev/` HTTP 200 dönüyor — 05.07 güvenlik/sync/oturum/updater değişikliklerinin tamamı artık canlıda.
