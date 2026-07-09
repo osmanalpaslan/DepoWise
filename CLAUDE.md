@@ -1,5 +1,12 @@
 # DepoWise - Claude Code Ana Kuralları
 
+## 0. Oturum devri ve iki-PC senkronu (HER OTURUMDA — önce bu)
+- Bu proje birden fazla bilgisayarda geliştiriliyor; tek gerçek kaynak GitHub: `github.com/osmanalpaslan/DepoWise`.
+- **Oturum başında:** önce `git pull` (temiz ağaçta; kirliyse önce kullanıcıya sor, ezme/reset yapma), sonra `DEVAM.md`'yi oku. Bağlamı buradan al, kullanıcıya tekrar sorma.
+- **Anlamlı bir iş bitince** (commit atılan her değişiklikte) `DEVAM.md`'yi güncelle: §2 "en son yaptıklarım", §3 "sıradaki tek iş" ve üstteki "son güncelleme" tarihini yeniden yaz. Gerekirse `docs/PROJECT_STATE.md`/`KNOWN_ISSUES.md`/`DECISIONS.md`'yi de eşle.
+- **Oturum/iş sonunda:** değişiklikleri commit et ve `git push` yap ki diğer PC bir sonraki `pull`'da aynı durumu görsün. Kullanıcı aksini söylemedikçe push'u atlama.
+- `DEVAM.md` kısa ve teknik-olmayan kalır; ayrıntı `docs/` altındadır. Çelişkide `DEVAM.md` özet, `docs/` bağlayıcıdır.
+
 ## 1. Proje kimliği ve kaynak önceliği
 - Bu projenin tek adı **DepoWise**'tır.
 - Bağlayıcı analiz: `docs/DEPOWISE_ANALYSIS.md`.
