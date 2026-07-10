@@ -138,6 +138,45 @@ public class AuthPermissionTests : IDisposable
         TenantAccessGuard.EnsureOwnership(su, "B"); // süper admin sahiplik kontrolünden muaf
     }
 
+    // ---- Çok firmalı süper admin oturumu (seçilen firma bağlamında oturum) ----
+    [Fact]
+    public void SuperAdmin_SectigiFirmada_Oturum_Acabilir()
+    {
+        var users = new UserService(_factory, _clock);
+        var suId = users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin); // home firma A
+        users.EnsureInitialAdmin("B", "badmin", "b12345", RoleKeys.CompanyAdmin);          // firma B var
+        var auth = new AuthService(_factory, _clock);
+
+        // Süper admin, kendi firması OLMAYAN B için oturum açabilir → oturum B bağlamında, süper admin rolüyle.
+        var sess = auth.CreateSessionForUser("B", suId);
+        Assert.NotNull(sess);
+        Assert.Equal("B", sess!.CompanyId);
+        Assert.True(sess.IsSuperAdmin);
+    }
+
+    [Fact]
+    public void NormalAdmin_BaskaFirmada_Oturum_Acamaz()
+    {
+        var users = new UserService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var admId = users.EnsureInitialAdmin("A", "adm", "adm123", RoleKeys.CompanyAdmin); // home A, süper admin DEĞİL
+        users.EnsureInitialAdmin("B", "badmin", "b12345", RoleKeys.CompanyAdmin);           // firma B var
+        var auth = new AuthService(_factory, _clock);
+
+        Assert.Null(auth.CreateSessionForUser("B", admId));     // çapraz firma yalnız süper admin → reddedilir
+        Assert.NotNull(auth.CreateSessionForUser("A", admId));  // kendi firmasında sorunsuz
+    }
+
+    [Fact]
+    public void SuperAdmin_OlmayanFirmada_Oturum_Acamaz()
+    {
+        var users = new UserService(_factory, _clock);
+        var suId = users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+
+        Assert.Null(auth.CreateSessionForUser("YOK", suId)); // var olmayan firma → null
+    }
+
     // ---- Yetki yükseltme ----
     [Fact]
     public void AdminOlmayan_AdminRolu_Atayamaz()

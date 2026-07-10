@@ -158,18 +158,48 @@ app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
         : svc.Auth.Login(dto.CompanyId!, dto.Username, dto.Password);
     if (!res.Success || res.Session is null)
         return Results.Json(new { error = res.Locked ? $"Kilitli ({res.SecondsRemaining}sn)" : res.Error }, statusCode: 401);
-    // "Tüm Şubeler" seçimi YALNIZ yetkili kullanıcıya açık.
-    if (allBranches && !res.Session.CanViewAllBranches)
+    // "Tüm Şubeler" artık admin + süper admin'de DAİMA açık (rapor için); ayrıca özel yetki (flag) verilmiş kullanıcıda.
+    bool effAllBranches = res.Session.CanViewAllBranches || res.Session.IsSuperAdmin || res.Session.IsCompanyAdmin;
+    if (allBranches && !effAllBranches)
         return Results.Json(new { error = "Bu kullanıcının Tüm Şubeler yetkisi yok." }, statusCode: 403);
     var token = JwtTokens.Issue(jwtKey, res.Session.UserId, res.Session.CompanyId);
     // 2 aşamalı login: kullanıcının KENDİ firmasının adı + şubeleri döner (kullanıcı firma listesini görmez).
+    // Süper admin: firma seçebilsin diye tüm firmalar da döner (Adım 1b: /api/auth/select-company ile firma seçilir).
     var companyName = svc.Companies.GetName(res.Session.CompanyId);
     var branches = svc.Branches.ListForLogin(res.Session.CompanyId)
         .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+    object? companies = null;
+    if (res.Session.IsSuperAdmin)
+    {
+        using var cc = svc.Factory.Create();
+        using var cmd = cc.CreateCommand();
+        cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
+        var cl = new List<object>();
+        using var rr = cmd.ExecuteReader();
+        while (rr.Read()) cl.Add(new { id = rr.GetString(0), name = rr.GetString(1) });
+        companies = cl;
+    }
     return Results.Ok(new { token, userId = res.Session.UserId, companyId = res.Session.CompanyId,
         companyName, branches, isSuperAdmin = res.Session.IsSuperAdmin, branchId = dto.BranchId,
-        canViewAllBranches = res.Session.CanViewAllBranches });
+        canViewAllBranches = effAllBranches, companies });
 });
+
+// ── Adım 1b (YALNIZ süper admin): firma seç → o firma bağlamında YENİ token + o firmanın şubeleri ──
+// Süper admin seçtiği firmayı o firmanın admini gibi yönetir (tüm ekranlar/kayıtlar). Token firmayı taşır;
+// sonraki isteklerde SessionFor süper admin için çapraz-firma oturumu kurar (AuthService.CreateSessionForUser).
+app.MapPost("/api/auth/select-company", (HttpContext c, SelectCompanyDto d) =>
+{
+    var s = Session(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin firma seçebilir." }, statusCode: 403);
+    if (string.IsNullOrWhiteSpace(d.CompanyId)) return Results.Json(new { error = "Firma seçilmedi." }, statusCode: 400);
+    var name = svc.Companies.GetName(d.CompanyId!);
+    if (string.IsNullOrEmpty(name)) return Results.Json(new { error = "Firma bulunamadı." }, statusCode: 404);
+    var token = JwtTokens.Issue(jwtKey, s.UserId, d.CompanyId!);
+    var branches = svc.Branches.ListForLogin(d.CompanyId!)
+        .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+    return Results.Ok(new { token, userId = s.UserId, companyId = d.CompanyId, companyName = name,
+        branches, isSuperAdmin = true, canViewAllBranches = true });
+}).RequireAuthorization();
 
 // ── Token yenileme: geçerli JWT ile taze JWT al (kayan oturum) ──
 // Masaüstü, token süresi dolmadan bunu çağırır → 12 saatten uzun oturumda sync sessizce durmaz.
@@ -1214,6 +1244,7 @@ app.Run();
 
 // ── İstek gövde tipleri ──
 record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
+record SelectCompanyDto(string? CompanyId);
 record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);

@@ -113,23 +113,48 @@ public sealed class AuthService
     }
 
     /// <summary>
-    /// Parola olmadan oturum kurar (yalnız "Beni Hatırla" token doğrulaması SONRASI çağrılır).
-    /// Kullanıcı aktif değilse/yoksa null döner. Roller + yetkiler yüklenir.
+    /// Parola olmadan oturum kurar (yalnız "Beni Hatırla" token doğrulaması SONRASI ya da JWT'den oturum
+    /// yeniden kurulurken çağrılır). Kullanıcı aktif değilse/yoksa null döner. Roller + yetkiler yüklenir.
+    ///
+    /// ÇOK FİRMALI SÜPER ADMİN: İstenen firma kullanıcının kendi (home) firması değilse, YALNIZ Süper Admin
+    /// başka bir (var olan) firma bağlamında oturum açabilir — böylece seçtiği firmayı o firmanın admini gibi
+    /// yönetir. Süper admin olmayan kullanıcı çapraz firma isteğinde null döner (tenant fail-closed).
     /// </summary>
     public SessionContext? CreateSessionForUser(string companyId, string userId)
     {
         TenantGuard.Require(companyId);
         using var conn = _factory.Create();
+
+        // Kullanıcının kendi (home) firmasını ve aktif olup olmadığını bul.
+        string? homeCompany;
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT COUNT(*) FROM users WHERE id=$id AND company_id=$c AND is_active=1 AND is_deleted=0;";
+            cmd.CommandText = "SELECT company_id FROM users WHERE id=$id AND is_active=1 AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$id", userId);
-            cmd.Parameters.AddWithValue("$c", companyId);
-            if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) return null;
+            homeCompany = cmd.ExecuteScalar() as string;
         }
+        if (homeCompany is null) return null; // kullanıcı yok/pasif/silinmiş
+
         var roles = LoadRoleKeys(conn, userId);
+
+        // İstenen firma home firma DEĞİLSE: yalnız süper admin + firma gerçekten var olmalı.
+        if (!string.Equals(homeCompany, companyId, StringComparison.Ordinal))
+        {
+            if (!roles.Contains(DepoWise.Application.Security.RoleKeys.SuperAdmin)) return null; // çapraz firma yalnız süper admin
+            if (!CompanyExists(conn, companyId)) return null;                            // hedef firma geçerli mi
+        }
+
         var perms = LoadPermissions(conn, userId);
         return new SessionContext(userId, companyId, roles, perms, LoadViewAllBranches(conn, userId));
+    }
+
+    /// <summary>Verilen firma id'si var (ve silinmemiş) mi?</summary>
+    private static bool CompanyExists(SqliteConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     /// <summary>users.can_view_all_branches bayrağını okur (yoksa false).</summary>
