@@ -35,7 +35,7 @@
             <HeaderContent>
                 <MudTh>Bağlantı</MudTh>
                 @if (Auth.IsSuperAdmin) { <MudTh>Firma</MudTh> }
-                <MudTh>Makine</MudTh><MudTh>Şube</MudTh><MudTh>IPv4</MudTh><MudTh>IPv6</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
+                <MudTh>Makine</MudTh><MudTh>İl</MudTh><MudTh>Şube (atama)</MudTh><MudTh>IPv4</MudTh><MudTh>IPv6</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
             <RowTemplate>
                 <MudTd>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
@@ -45,7 +45,14 @@
                 </MudTd>
                 @if (Auth.IsSuperAdmin) { <MudTd>@context.CompanyName</MudTd> }
                 <MudTd>@context.Name</MudTd>
-                <MudTd>@context.BranchName</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(context.Province) ? "—" : context.Province)</MudTd>
+                <MudTd>
+                    <MudSelect T="string" Value="@context.BranchId" ValueChanged="@(v => AssignBranch(context, v))"
+                               Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                               Placeholder="Şube seç…" Style="min-width:160px">
+                        @foreach (var b in BranchesFor(context.CompanyId)) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudTd>
                 <MudTd><code style="font-size:12px">@context.Ipv4</code></MudTd>
                 <MudTd><code style="font-size:12px">@context.Ipv6</code></MudTd>
                 <MudTd>@context.StatusText</MudTd>
@@ -65,10 +72,14 @@
 @code {
     private List<MachineDto>? _machines;
     private List<ApiClient.Opt> _companies = new();
+    private readonly Dictionary<string, List<ApiClient.Opt>> _branchesByCompany = new();
     private string? _companyId;
     private int _quota = 3;
     private string? _error, _msg;
     private string? _lastCompany;
+
+    private List<ApiClient.Opt> BranchesFor(string companyId)
+        => _branchesByCompany.TryGetValue(companyId, out var list) ? list : new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,8 +109,35 @@
     private async Task Load()
     {
         _error = null;
-        try { _machines = await Api.GetMachinesAsync(Auth.IsSuperAdmin ? _companyId : null); SyncQuota(); }
+        try
+        {
+            _machines = await Api.GetMachinesAsync(Auth.IsSuperAdmin ? _companyId : null);
+            SyncQuota();
+            await LoadBranchesForMachines();
+        }
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+    }
+
+    // Listedeki makinelerin firmalarına ait şubeleri (atama açılır-listesi için) yükle.
+    private async Task LoadBranchesForMachines()
+    {
+        if (_machines is null) return;
+        foreach (var cid in _machines.Select(m => m.CompanyId).Where(c => !string.IsNullOrEmpty(c)).Distinct())
+            if (!_branchesByCompany.ContainsKey(cid))
+                _branchesByCompany[cid] = await Api.GetBranchOptionsAsync(cid);
+    }
+
+    private async Task AssignBranch(MachineDto m, string? branchId)
+    {
+        _msg = _error = null;
+        var err = await Api.AssignMachineBranchAsync(m.Id, branchId);
+        if (err is null)
+        {
+            var bname = string.IsNullOrEmpty(branchId) ? null : BranchesFor(m.CompanyId).FirstOrDefault(b => b.Id == branchId)?.Name;
+            _msg = string.IsNullOrEmpty(branchId) ? $"'{m.Name}' makinesinin şube ataması kaldırıldı." : $"'{m.Name}' → '{bname}' şubesine atandı.";
+            await Load();
+        }
+        else _error = err;
     }
 
     private async Task SaveQuota()

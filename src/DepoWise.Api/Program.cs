@@ -292,8 +292,8 @@ app.MapGet("/api/machines", (HttpContext ctx, string? companyId) =>
     {
         id = d.Id, name = d.Name, status = d.Status, statusText = d.StatusText,
         lastSeenText = d.LastSeenText, createdText = d.CreatedText, canActivate = d.CanActivate, isActive = d.IsActive,
-        companyId = d.CompanyId, companyName = d.CompanyName, quota = d.Quota, branchName = d.BranchText,
-        ip = d.IpText, ipv4 = d.Ip4Text, ipv6 = d.Ip6Text,
+        companyId = d.CompanyId, companyName = d.CompanyName, quota = d.Quota, branchName = d.BranchText, branchId = d.BranchId,
+        ip = d.IpText, ipv4 = d.Ip4Text, ipv6 = d.Ip6Text, province = GeoIp.Province(d.Ip4, d.Ip6),
         online = d.LastSeenAt is long t && (now - t) <= 90_000, // son 90 sn içinde ping = çevrimiçi
     });
     return Results.Ok(rows);

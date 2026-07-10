@@ -9,7 +9,7 @@ public sealed record LoginCompanyDto(string Id, string Name);
 public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin, string? BranchId = null,
     string? CompanyName = null, bool CanViewAllBranches = false, List<LoginBranchDto>? Branches = null,
     List<LoginCompanyDto>? Companies = null);
-public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "");
+public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "", string BranchId = "", string Province = "");
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
@@ -284,6 +284,21 @@ public sealed class ApiClient
     public Task RevokeMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/revoke"));
     public Task ReactivateMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/reactivate"));
     public Task DeleteMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Delete, $"/api/machines/{id}"));
+    /// <summary>Admin makineye şube atar (boş branchId → atama kaldırılır).</summary>
+    public Task<string?> AssignMachineBranchAsync(string id, string? branchId) =>
+        PostAsync($"/api/machines/{id}/branch", new { branchId });
+    /// <summary>Bir firmanın şubelerini seçenek olarak döndürür (makineye şube atama için).</summary>
+    public async Task<List<Opt>> GetBranchOptionsAsync(string companyId)
+    {
+        try
+        {
+            var resp = await _http.SendAsync(Req(HttpMethod.Get, $"/api/public/branches?companyId={Uri.EscapeDataString(companyId)}"));
+            if (!resp.IsSuccessStatusCode) return new();
+            var arr = await resp.Content.ReadFromJsonAsync<List<LoginBranchDto>>();
+            return arr is null ? new() : arr.Select(b => new Opt(b.Id, b.Name)).ToList();
+        }
+        catch { return new(); }
+    }
 
     public async Task<ReleaseDto?> GetLatestReleaseAsync()
     {

@@ -359,7 +359,7 @@ public sealed class EnrollmentService
         using var cmd = conn.CreateCommand();
         var sb = "SELECT d.id, d.device_name, d.status, d.last_seen_at, d.created_at, d.company_id, " +
                  "COALESCE(c.name, d.company_id), COALESCE(c.machine_quota,3), COALESCE(d.ip_address,''), " +
-                 "COALESCE(d.ip_v4,''), COALESCE(d.ip_v6,''), COALESCE(br.name,'') " +
+                 "COALESCE(d.ip_v4,''), COALESCE(d.ip_v6,''), COALESCE(br.name,''), COALESCE(d.branch_id,'') " +
                  "FROM sync_devices d LEFT JOIN companies c ON c.id=d.company_id " +
                  "LEFT JOIN branches br ON br.id=d.branch_id ";
         if (!s.IsSuperAdmin) { sb += "WHERE d.company_id=$c "; }
@@ -373,7 +373,7 @@ public sealed class EnrollmentService
         while (r.Read())
             list.Add(new DeviceRow(r.GetString(0), r.GetString(1), r.GetString(2),
                 r.IsDBNull(3) ? null : r.GetInt64(3), r.GetInt64(4), r.GetString(5), r.GetString(6), r.GetInt32(7),
-                r.GetString(8), r.GetString(9), r.GetString(10), r.GetString(11)));
+                r.GetString(8), r.GetString(9), r.GetString(10), r.GetString(11), r.GetString(12)));
         return list;
     }
 
@@ -390,7 +390,7 @@ public sealed class EnrollmentService
 
 public sealed record DeviceRow(string Id, string Name, string Status, long? LastSeenAt, long CreatedAt,
     string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ip4 = "", string Ip6 = "",
-    string BranchName = "")
+    string BranchName = "", string BranchId = "")
 {
     public string IpText => string.IsNullOrEmpty(Ip) ? "—" : Ip;
     public string Ip4Text => string.IsNullOrEmpty(Ip4) ? "—" : Ip4;
