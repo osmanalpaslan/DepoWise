@@ -5,8 +5,10 @@ using System.Security.Cryptography;
 namespace DepoWise.Web.Services;
 
 public sealed record LoginBranchDto(string Id, string Name, string? Code, bool HasPassword);
+public sealed record LoginCompanyDto(string Id, string Name);
 public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin, string? BranchId = null,
-    string? CompanyName = null, bool CanViewAllBranches = false, List<LoginBranchDto>? Branches = null);
+    string? CompanyName = null, bool CanViewAllBranches = false, List<LoginBranchDto>? Branches = null,
+    List<LoginCompanyDto>? Companies = null);
 public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "");
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0);
@@ -58,6 +60,26 @@ public sealed class ApiClient
             try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
                   if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Giriş başarısız.", null); } catch { }
             return ("Kullanıcı adı veya parola hatalı.", null);
+        }
+        var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
+        return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);
+    }
+
+    /// <summary>ADIM 1b (YALNIZ süper admin): firma seçilince o firma bağlamında YENİ token + o firmanın şubelerini
+    /// döndürür. Adım 1'de alınan token (henüz AuthState'e yazılmadı) Authorization olarak elle eklenir.</summary>
+    public async Task<(string? Error, LoginResponse? Data)> SelectCompanyAsync(string step1Token, string companyId)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/select-company")
+        {
+            Content = JsonContent.Create(new { companyId })
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", step1Token);
+        var resp = await _http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode)
+        {
+            try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                  if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Firma seçilemedi.", null); } catch { }
+            return ("Firma seçilemedi.", null);
         }
         var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
         return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);

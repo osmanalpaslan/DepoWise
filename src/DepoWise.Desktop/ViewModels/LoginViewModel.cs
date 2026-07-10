@@ -131,7 +131,9 @@ public sealed partial class LoginViewModel : ViewModelBase
             _machineHomeBranchId = DesktopServices.Settings.Get(_authedCompanyId, MachineHomeBranchKey); // L2
 
             // Kullanıcının KENDİ firmasının şubelerini yükle (firma listesi gösterilmez).
-            await LoadBranchesForUserAsync(_authedCompanyId!, result.Session.CanViewAllBranches);
+            // "Tüm Şubeler" artık admin + süper admin'de DAİMA açık (rapor için); ayrıca özel yetki (flag) verilmişse.
+            bool canAll = result.Session.CanViewAllBranches || result.Session.IsSuperAdmin || result.Session.IsCompanyAdmin;
+            await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
             CompanyName = ResolveCompanyName(_authedCompanyId!);
             SelectedBranch = null; BranchPassword = "";
             Step = 2; // şube seçimine geç
@@ -169,8 +171,8 @@ public sealed partial class LoginViewModel : ViewModelBase
             }
             bool isAllBranches = SelectedBranch?.Id == BranchConstants.AllBranchesId;
 
-            // "Tüm Şubeler" seçimi YALNIZ yetkili kullanıcıya açık.
-            if (isAllBranches && !_authedSession.CanViewAllBranches)
+            // "Tüm Şubeler" admin + süper admin'de daima açık; ayrıca özel yetki (flag) verilmiş kullanıcıda.
+            if (isAllBranches && !(_authedSession.CanViewAllBranches || _authedSession.IsSuperAdmin || _authedSession.IsCompanyAdmin))
             {
                 Error = "Bu kullanıcının Tüm Şubeler yetkisi yok."; return;
             }

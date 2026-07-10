@@ -21,11 +21,24 @@
             @(_busy ? "Doğrulanıyor…" : "Devam")
         </MudButton>
     }
+    else if (_step == 2)
+    {
+        @* Yalnız süper admin: hangi firmayı yöneteceğini seçer *@
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-1">Süper Admin</MudText>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">Yönetmek istediğiniz firmayı seçin.</MudText>
+        <MudSelect T="string" @bind-Value="_selectedCompanyId" Label="Firma" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+            @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+        </MudSelect>
+        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoStep2" Disabled="_busy">
+            @(_busy ? "Yükleniyor…" : "Devam")
+        </MudButton>
+        <MudButton FullWidth="true" Variant="Variant.Text" Class="mt-2" OnClick="BackToStep1" Disabled="_busy">← Geri</MudButton>
+    }
     else
     {
         <MudText Typo="Typo.body2" Class="mud-text-secondary mb-1">@_companyName</MudText>
         <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">Şube seçip giriş yapın.</MudText>
-        <MudSelect T="string" @bind-Value="_branchId" Label="Şube / Şantiye" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Clearable="true">
+        <MudSelect T="string" @bind-Value="_branchId" Label="Şube / Şantiye" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
             @if (_canViewAllBranches)
             {
                 <MudSelectItem T="string" Value="@AllBranches">🌐 Tüm Şubeler</MudSelectItem>
@@ -37,10 +50,10 @@
             <MudTextField @bind-Value="_branchPassword" Label="Şube Şifresi" InputType="InputType.Password"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey2" />
         }
-        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoStep2" Disabled="_busy">
+        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoFinalize" Disabled="_busy">
             @(_busy ? "Giriş yapılıyor…" : "Giriş")
         </MudButton>
-        <MudButton FullWidth="true" Variant="Variant.Text" Class="mt-2" OnClick="BackToStep1" Disabled="_busy">← Geri</MudButton>
+        <MudButton FullWidth="true" Variant="Variant.Text" Class="mt-2" OnClick="BackFromBranch" Disabled="_busy">← Geri</MudButton>
     }
 
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert> }
@@ -48,12 +61,15 @@
 
 @code {
     private const string AllBranches = "__all__"; // API BranchConstants.AllBranchesId ile aynı
-    private int _step = 1;
+    private int _step = 1; // 1=kimlik, 2=firma (yalnız süper admin), 3=şube
     private string _username = "", _password = "";
     private string? _branchId, _branchPassword;
+    private string? _selectedCompanyId;
     private string _companyName = "";
     private bool _canViewAllBranches;
+    private bool _isSuperAdmin;
     private List<LoginBranchDto> _branches = new();
+    private List<LoginCompanyDto> _companies = new();
     private LoginResponse? _authData;
     private string? _error;
     private bool _busy;
@@ -65,8 +81,9 @@
         _branchId is not null && _branchId != AllBranches && (_branches.FirstOrDefault(b => b.Id == _branchId)?.HasPassword ?? false);
 
     private async Task OnKey1(KeyboardEventArgs e) { if (e.Key == "Enter") await DoStep1(); }
-    private async Task OnKey2(KeyboardEventArgs e) { if (e.Key == "Enter") await DoStep2(); }
+    private async Task OnKey2(KeyboardEventArgs e) { if (e.Key == "Enter") await DoFinalize(); }
 
+    // ── ADIM 1: kimlik doğrulama ──
     private async Task DoStep1()
     {
         _error = null; _busy = true;
@@ -75,22 +92,72 @@
             var (err, data) = await Api.AuthenticateAsync(_username.Trim(), _password);
             if (err is not null || data is null) { _error = err ?? "Giriş başarısız."; return; }
             _authData = data;
-            _companyName = string.IsNullOrEmpty(data.CompanyName) ? "" : data.CompanyName!;
-            _canViewAllBranches = data.CanViewAllBranches;
-            _branches = data.Branches ?? new();
-            _branchId = null; _branchPassword = null;
-            _step = 2;
+            _isSuperAdmin = data.IsSuperAdmin;
+
+            // Süper admin: önce FİRMA seçer (Adım 2). Diğerleri doğrudan şube seçimine (Adım 3).
+            if (data.IsSuperAdmin && data.Companies is { Count: > 0 })
+            {
+                _companies = data.Companies;
+                _selectedCompanyId = null;
+                _step = 2;
+            }
+            else
+            {
+                LoadBranchStep(data);
+                _step = 3;
+            }
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
         finally { _busy = false; }
     }
 
-    private void BackToStep1() { _step = 1; _error = null; _branchId = null; _branchPassword = null; }
-
+    // ── ADIM 2: (süper admin) firma seç → o firma bağlamında yeni token + şubeler ──
     private async Task DoStep2()
     {
         if (_authData is null) { BackToStep1(); return; }
+        if (string.IsNullOrWhiteSpace(_selectedCompanyId)) { _error = "Lütfen bir firma seçin."; return; }
         _error = null; _busy = true;
+        try
+        {
+            var (err, data) = await Api.SelectCompanyAsync(_authData.Token, _selectedCompanyId!);
+            if (err is not null || data is null) { _error = err ?? "Firma seçilemedi."; return; }
+            _authData = data;      // yeni token + seçilen firma bağlamı
+            LoadBranchStep(data);
+            _step = 3;
+        }
+        catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private void LoadBranchStep(LoginResponse data)
+    {
+        _companyName = string.IsNullOrEmpty(data.CompanyName) ? "" : data.CompanyName!;
+        _canViewAllBranches = data.CanViewAllBranches;
+        _branches = data.Branches ?? new();
+        _branchId = null; _branchPassword = null;
+    }
+
+    private void BackToStep1()
+    {
+        _step = 1; _error = null;
+        _selectedCompanyId = null; _branchId = null; _branchPassword = null;
+    }
+
+    // Şube adımından geri: süper admin ise firma seçimine, değilse kimliğe.
+    private void BackFromBranch()
+    {
+        _error = null; _branchId = null; _branchPassword = null;
+        _step = (_isSuperAdmin && _companies.Count > 0) ? 2 : 1;
+    }
+
+    // ── ADIM 3: şube seçimi (ZORUNLU) + giriş tamamlama ──
+    private async Task DoFinalize()
+    {
+        if (_authData is null) { BackToStep1(); return; }
+        _error = null;
+        // Şube seçimi ZORUNLU ("Tüm Şubeler" de geçerli bir seçimdir).
+        if (string.IsNullOrWhiteSpace(_branchId)) { _error = "Lütfen giriş yapılacak şubeyi seçin."; return; }
+        _busy = true;
         try
         {
             bool allBranches = _branchId == AllBranches;
@@ -101,7 +168,8 @@
                 var ok = await Api.VerifyBranchAsync(_authData.CompanyId, _branchId!, _branchPassword);
                 if (!ok) { _error = "Şube şifresi hatalı."; return; }
             }
-            await Api.FinalizeSignInAsync(_authData, _branchId, _username.Trim());
+            var branchId = allBranches ? null : _branchId;
+            await Api.FinalizeSignInAsync(_authData, branchId, _username.Trim());
             await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}|{Auth.BranchId}|{Safe(Auth.CompanyName)}|{Safe(Auth.UserName)}");
             await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
             Nav.NavigateTo("/", forceLoad: true);
