@@ -307,6 +307,17 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-058 — Çok firmalı süper admin girişi + zorunlu şube + Tüm Şubeler (09.07.2026)
+- **Bağlam:** Kullanıcı talebi: (1) web'de şube seçmeden giriş yapılabiliyordu → engellenmeli; (2) süper admin girişte FİRMA + şube seçip o firmayı yönetmeli; (3) admin kendi firmasının bir şubesini seçmeli (zorunlu); (4) "Tüm Şubeler" seçeneği admin + süper admin'de daima açık olmalı (rapor için); (5) bir firma personeli başka firmanın kaydını görmemeli.
+- **Karar:**
+  - (5) zaten sağlanıyor: `TenantAccessGuard` (payload firma reddi + `EnsureOwnership` fail-closed), testlerle kanıtlı. Ek iş yok.
+  - (2) **Çapraz-firma süper admin oturumu:** `AuthService.CreateSessionForUser` süper admin'in kendi (home) firması olmayan var olan bir firma için de oturum kurmasına izin verir (süper admin değilse null → fail-closed). Yeni uç `POST /api/auth/select-company` (yalnız süper admin) seçilen firma için YENİ JWT (company claim = seçilen firma) + o firmanın şubelerini döner. Böylece süper admin, operasyonel/veri uçlarında (şube/malzeme/stok/araç… — `s.CompanyId` ile kapsamlanan "Pattern B") seçtiği firma olarak çalışır. Uçtan uca doğrulandı: seçilen firmada oluşturulan şube yalnız o firmada görünür.
+  - Not (Pattern A): `IsSuperAdmin ? tüm firmalar : kendi` mantığı taşıyan platform ekranları (kullanıcı listesi, firma listesi, makineler) süper admin'e çapraz kalmaya devam eder — bu kasıtlı platform gözetimi, sızıntı değil.
+  - (1)(3) **Şube zorunlu:** web login'de şube seçilmeden giriş engellendi (masaüstünde zaten zorunluydu).
+  - (4) **Tüm Şubeler:** sunucu login yanıtı + masaüstü, `canViewAllBranches = flag || IsCompanyAdmin || IsSuperAdmin` olarak hesaplar; enforcement de bu efektif değere göre.
+- **Kapsam (ADR-058 kararı):** Süper admin FİRMA seçimi **yalnız web**. Masaüstünde yapılmadı çünkü masaüstü çevrimdışı-öncelikli ve yerel SQLite **tek firmaya** ait (senkronla gelen); seçilen başka firmanın verisi yerelde olmadığından anlamlı değil. Masaüstünde yalnız "Tüm Şubeler admin/süper admin" + (zaten var olan) şube-zorunlu geçerli.
+- **Gerekçe:** Kullanıcının son açık talebi (CLAUDE.md §1). Küçük, geri alınabilir sunucu değişikliği (mevcut normal-kullanıcı davranışı birebir korunur; yalnız süper admin için yeni yetenek). 3 yeni güvenlik testi + tam suit 241/241 yeşil + canlı-benzeri yerel e2e.
+
 ### ADR-057 — Gerçek mimari kaydı: Web=Blazor, sunucu DB=SQLite (09.07.2026)
 - **Bağlam:** `CLAUDE.md`/`DECISIONS.md` (ADR-000/005) web tarafını Next.js+Drizzle+PostgreSQL olarak
   tanımlıyordu. Commit geçmişi incelendiğinde: `apps/web` (Next.js) son kez 2026-06-27'de değişmiş (0 commit
