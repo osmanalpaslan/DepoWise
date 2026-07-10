@@ -28,11 +28,10 @@ bitti, **241 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşam
 kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34**
 (yeni: 1.0.35 yerelde hazır, bkz. aşağı).
 
-**Bugün (2026-07-10) — makine-şube modeli, ADIM 1 (sunucu+web) canlıda (ADR-059):**
-- Admin **web makine ekranından her makineye şube atayabiliyor** (otoriter); makine artık login şubesini yazmıyor.
-- Makine ekranında **İl** sütunu (IP'den yaklaşık il, best-effort).
-- Makine kayıt yanıtı atanan şubeyi döndürüyor (masaüstü önbelleği için hazır). Test 243/243, canlı.
-- **KALAN — Adım 2 (masaüstü):** ana sayfada makine şubesini göster; farklı-şube uyarısını admin-şubesine bağla; internet yoksa makine şubesine otomatik giriş; kullanıcı/makine şubesi yoksa girişi engelle. Yeni masaüstü paketi (1.0.35) ile görünür olacak.
+**Bugün (2026-07-10) — makine-şube modeli TAMAM (ADR-059), sunucu+web canlıda, masaüstü kodda:**
+- **Web (canlı):** Admin makine ekranından her makineye **şube atıyor** (otoriter); makine login şubesini yazmıyor. **İl** sütunu (IP'den, best-effort).
+- **Masaüstü (kodda; yeni pakette görünür):** ana sayfa **makine şubesini** gösterir; internet yoksa **makine şubesine otomatik giriş**; internet varsa şube seçimi; **kullanıcı veya makine şubesi yoksa giriş engellenir**; farklı-şube uyarısı admin-şubesine göre. Kullanıcı şubesi artık sunucudan senkron olur.
+- Test 243/243 (+1). **Masaüstü GUI akışı gerçek makinede test edilmeli.** Görmek için 1.0.35 paketi yayınlanmalı (aşağı §3).
 
 **Bugün (2026-07-10) — giriş (login) davranışı yeniden düzenlendi (ADR-058), canlıda:**
 - **Web 3 adımlı giriş:** kimlik → (süper admin ise) FİRMA seçimi → şube (ZORUNLU). Süper admin seçtiği firmayı o firmanın admini gibi yönetir (operasyonel veriler o firmaya kapsamlanır — yerel API'de e2e doğrulandı). Yeni uç: `POST /api/auth/select-company`.
