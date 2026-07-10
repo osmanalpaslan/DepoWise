@@ -81,6 +81,28 @@ public static class DesktopServices
     /// <summary>"Tüm Şubeler" modunda giriş yapıldı mı (yetkili kullanıcı) — okuma tüm şubeleri kapsar.</summary>
     public static bool CurrentAllBranches { get; set; }
 
+    /// <summary>Bu makineye ADMIN'in web'den atadığı şube (id) — ana ekranda gösterilir; çevrimdışı otomatik giriş
+    /// bununla yapılır. Kayıt/heartbeat yanıtından gelir (MachineGate), çevrimdışı için önbelleğe alınır.</summary>
+    public static string? MachineBranchId { get; set; }
+    /// <summary>Makineye atanmış şubenin adı (ana ekran gösterimi).</summary>
+    public static string? MachineBranchName { get; set; }
+
+    /// <summary>Kullanıcının (admin'in atadığı) kendi şubesini + adını okur (yereldeki users.branch_id).</summary>
+    public static (string? BranchId, string? BranchName) LoadUserBranch(string userId)
+    {
+        try
+        {
+            using var conn = Factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT u.branch_id, b.name FROM users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=$id;";
+            cmd.Parameters.AddWithValue("$id", userId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return (null, null);
+            return (r.IsDBNull(0) ? null : r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1));
+        }
+        catch { return (null, null); }
+    }
+
     public static void Initialize(BootstrapResult boot)
     {
         var clock = new SystemClock();

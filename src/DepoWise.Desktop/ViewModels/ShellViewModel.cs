@@ -176,12 +176,19 @@ public sealed partial class ShellViewModel : ViewModelBase
         try
         {
             var companyId = DesktopServices.Session?.CompanyId ?? DesktopServices.DefaultCompanyId;
-            var json = System.Text.Json.JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName, branchId = DesktopServices.CurrentBranchId });
+            // Makine şubesi login şubesinden yazılmaz (admin atar) — göndermiyoruz.
+            var json = System.Text.Json.JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName });
             using var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
             using var resp = await _pingHttp.PostAsync(url!.TrimEnd('/') + "/api/machines/register", content);
             if (!resp.IsSuccessStatusCode) return;
             using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            var status = doc.RootElement.TryGetProperty("status", out var st) ? st.GetString() : null;
+            var root = doc.RootElement;
+            var status = root.TryGetProperty("status", out var st) ? st.GetString() : null;
+            // Makinenin (admin-atanmış) şubesini güncel tut → ana ekran anlık yansır (admin web'den değiştirirse).
+            var mBid = root.TryGetProperty("branchId", out var bi) && bi.ValueKind != System.Text.Json.JsonValueKind.Null ? bi.GetString() : null;
+            var mBn = root.TryGetProperty("branchName", out var bn) && bn.ValueKind != System.Text.Json.JsonValueKind.Null ? bn.GetString() : null;
+            DesktopServices.MachineBranchId = string.IsNullOrWhiteSpace(mBid) ? null : mBid;
+            DesktopServices.MachineBranchName = string.IsNullOrWhiteSpace(mBn) ? null : mBn;
 
             if (_session.IsSuperAdmin || _machineBlockHandled) return;
             if (status is "revoked" or "pending")

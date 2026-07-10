@@ -30,8 +30,8 @@ public sealed partial class LoginViewModel : ViewModelBase
     public string AppName => DesktopServices.Branding.AppName;
     [ObservableProperty] private string _companyName = "";
 
-    // Bu bilgisayarın "ait olduğu şube" (ilk şube girişinde yerele kaydedilir; farklı şube uyarısı buna göre).
-    private const string MachineHomeBranchKey = "machine.home_branch_id";
+    // Çevrimiçi mi giriş yapıldı (ADIM 1'de belirlenir): çevrimdışıysa makine şubesine otomatik giriş yapılır.
+    private bool _online;
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool MessageBeep(uint uType);
@@ -52,12 +52,9 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private string _branchPassword = "";
     public bool HasBranches => Branches.Count > 0;
 
-    // Bu makineye tanımlı şube (ilk giriş şubesi). Seçilen şube buysa şifre SORULMAZ (L2).
-    private string? _machineHomeBranchId;
-
-    /// <summary>Seçilen şube makinenin şubesi mi? (öyleyse şube şifresi istenmez)</summary>
-    public bool SelectedIsMachineBranch => SelectedBranch is not null && !string.IsNullOrEmpty(_machineHomeBranchId)
-        && SelectedBranch.Id == _machineHomeBranchId;
+    /// <summary>Seçilen şube, makinenin (admin-atanmış) şubesi mi? (öyleyse şube şifresi istenmez — L2)</summary>
+    public bool SelectedIsMachineBranch => SelectedBranch is not null && !string.IsNullOrEmpty(DesktopServices.MachineBranchId)
+        && SelectedBranch.Id == DesktopServices.MachineBranchId;
 
     /// <summary>Şube şifresi alanı: şube şifreli VE makinenin kendi şubesi değilse gösterilir (L1/L2).</summary>
     public bool ShowBranchPassword => SelectedBranch?.HasPassword == true && !SelectedIsMachineBranch;
@@ -128,14 +125,45 @@ public sealed partial class LoginViewModel : ViewModelBase
 
             _authedSession = result.Session;
             _authedCompanyId = result.Session.CompanyId;
-            _machineHomeBranchId = DesktopServices.Settings.Get(_authedCompanyId, MachineHomeBranchKey); // L2
-
-            // Kullanıcının KENDİ firmasının şubelerini yükle (firma listesi gösterilmez).
-            // "Tüm Şubeler" artık admin + süper admin'de DAİMA açık (rapor için); ayrıca özel yetki (flag) verilmişse.
-            bool canAll = result.Session.CanViewAllBranches || result.Session.IsSuperAdmin || result.Session.IsCompanyAdmin;
-            await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
+            _online = srv.State == ServerAuthClient.AuthState.Ok;
             CompanyName = ResolveCompanyName(_authedCompanyId!);
-            SelectedBranch = null; BranchPassword = "";
+
+            // ── Makine kapısı + makinenin (admin-atanmış) şubesi (çevrimiçi kayıt/heartbeat; çevrimdışı önbellek) ──
+            // Süper admin makine kısıtlarından muaftır.
+            MachineGate.MachineCheck mc = await MachineGate.CheckAsync(_authedSession.CompanyId);
+            if (!_authedSession.IsSuperAdmin && !mc.Allowed) { Error = mc.Reason; return; }
+
+            bool canAll = result.Session.CanViewAllBranches || result.Session.IsSuperAdmin || result.Session.IsCompanyAdmin;
+
+            if (!_authedSession.IsSuperAdmin)
+            {
+                // #5a: Makineye şube tanımlı değilse giriş YOK.
+                if (string.IsNullOrEmpty(DesktopServices.MachineBranchId))
+                {
+                    Error = "Bu makineye şube tanımlanmamış. Web'den yöneticinizin (admin) bu makineye şube ataması gerekir.";
+                    return;
+                }
+                // #5b: Kullanıcıya şube tanımlı değilse (ve Tüm Şubeler yetkisi yoksa) giriş YOK.
+                var (userBranchId, _) = DesktopServices.LoadUserBranch(_authedSession.UserId);
+                if (string.IsNullOrEmpty(userBranchId) && !canAll)
+                {
+                    Error = "Kullanıcınıza şube tanımlanmamış. Web'den yöneticinizin size şube ataması gerekir.";
+                    return;
+                }
+
+                // #2 (offline): internet yoksa makinenin şubesine OTOMATİK giriş (şube seçimi yok).
+                if (!_online)
+                {
+                    await FinalizeLoginAsync(DesktopServices.MachineBranchId, DesktopServices.MachineBranchName, isAllBranches: false, warnOnDifferent: false);
+                    return;
+                }
+            }
+
+            // Çevrimiçi (veya süper admin): şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa).
+            await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
+            var (ubId, _2) = DesktopServices.LoadUserBranch(_authedSession.UserId);
+            SelectedBranch = Branches.FirstOrDefault(b => b.Id == ubId) ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
+            BranchPassword = "";
             Step = 2; // şube seçimine geç
         }
         catch (Exception ex) { Error = "Giriş hatası: " + ex.Message; }
@@ -151,82 +179,74 @@ public sealed partial class LoginViewModel : ViewModelBase
         Branches.Clear(); SelectedBranch = null; BranchPassword = "";
     }
 
-    // ── ADIM 2: şube seçimi + giriş tamamlama ──
+    // ── ADIM 2: şube seçimi + giriş tamamlama (yalnız çevrimiçi / süper admin) ──
     [RelayCommand]
     private async System.Threading.Tasks.Task Login()
     {
         if (_authedSession is null) { Back(); return; }
         Error = null;
-        // B1: şube seçimi ZORUNLU (Tüm Şubeler de geçerli bir seçimdir).
+        // Şube seçimi ZORUNLU ("Tüm Şubeler" de geçerli bir seçimdir).
         if (SelectedBranch is null) { Error = "Lütfen giriş yapılacak şubeyi seçin."; return; }
         IsBusy = true;
         try
         {
-            // Gerçek şube seçildiyse ve şifre gerekiyorsa ONLINE doğrula (çevrimdışıysa atlanır).
-            // L2: seçilen şube bu makinenin kendi şubesiyse şube şifresi İSTENMEZ (direkt giriş).
-            if (SelectedBranch is not null && SelectedBranch.HasPassword && !SelectedIsMachineBranch)
+            // Gerçek şube + şifre varsa ONLINE doğrula. L2: seçilen şube makinenin şubesiyse şifre İSTENMEZ.
+            if (SelectedBranch.HasPassword && !SelectedIsMachineBranch)
             {
                 var ok = await ServerAuthClient.VerifyBranchAsync(_authedCompanyId ?? "", SelectedBranch.Id, BranchPassword);
                 if (ok == false) { Error = "Şube şifresi hatalı."; return; }
             }
-            bool isAllBranches = SelectedBranch?.Id == BranchConstants.AllBranchesId;
-
-            // "Tüm Şubeler" admin + süper admin'de daima açık; ayrıca özel yetki (flag) verilmiş kullanıcıda.
+            bool isAllBranches = SelectedBranch.Id == BranchConstants.AllBranchesId;
             if (isAllBranches && !(_authedSession.CanViewAllBranches || _authedSession.IsSuperAdmin || _authedSession.IsCompanyAdmin))
             {
                 Error = "Bu kullanıcının Tüm Şubeler yetkisi yok."; return;
             }
-
-            var selectedBranchId = isAllBranches ? null : SelectedBranch?.Id;
-            var companyKey = _authedCompanyId;
-
-            // Farklı şube uyarısı (#2): bu bilgisayar bir şubeye tanımlıysa ve BAŞKA şube ile giriş yapılıyorsa uyar + ses.
-            if (selectedBranchId is not null)
-            {
-                var home = DesktopServices.Settings.Get(companyKey, MachineHomeBranchKey);
-                if (!string.IsNullOrEmpty(home) && home != selectedBranchId)
-                {
-                    var homeName = Branches.FirstOrDefault(b => b.Id == home)?.Name ?? "başka bir şube";
-                    PlayWarningSound();
-                    var proceed = await ConfirmService.AskAsync(
-                        $"Bu bilgisayar \"{homeName}\" şubesine tanımlıdır.\n\n" +
-                        $"Şu an \"{SelectedBranch?.Name}\" şubesi ile giriş yapıyorsunuz. Girdiğiniz tüm kayıtlar " +
-                        $"\"{SelectedBranch?.Name}\" şubesine yazılacaktır.\n\n" +
-                        $"Bu makinenin şubesi (\"{homeName}\") için işlem yapmak istiyorsanız, lütfen o şubenin " +
-                        "kullanıcısı ile giriş yapın.\n\nYine de devam etmek istiyor musunuz?",
-                        "Farklı Şube Girişi", "Devam et ve giriş yap", "İptal", danger: true);
-                    if (!proceed) return;
-                }
-            }
-
-            // Şube bağlamı erken yazılır → makine kaydı (gate + heartbeat) firma+şube ile oluşur.
-            DesktopServices.CurrentBranchId = selectedBranchId;
-            DesktopServices.CurrentBranchName = isAllBranches ? "Tüm Şubeler" : SelectedBranch?.Name;
-            DesktopServices.CurrentAllBranches = isAllBranches;
-
-            // Makine kapısı: kota dışı/pasif makineden giriş engellenir (süper admin hariç).
-            if (!_authedSession.IsSuperAdmin)
-            {
-                var (allowed, gateReason) = await MachineGate.CheckAsync(_authedSession.CompanyId);
-                if (!allowed) { Error = gateReason; return; }
-            }
-
-            _authedSession.OperatingBranchId = selectedBranchId;
-            DesktopServices.Session = _authedSession;
-
-            // İlk şube girişi → bu bilgisayarın "ait olduğu şube" olarak kaydet (farklı şube uyarısı buna göre).
-            if (selectedBranchId is not null && string.IsNullOrEmpty(DesktopServices.Settings.Get(companyKey, MachineHomeBranchKey)))
-                DesktopServices.Settings.Set(companyKey, MachineHomeBranchKey, selectedBranchId);
-
-            _ = LookupSyncService.PullAsync(Username.Trim(), Password);   // tanım senkronu
-            _ = BusinessSyncPushService.PushAsync();                       // iş verisi push (web görünürlüğü)
-            RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
-            if (RememberMe) RememberMeService.Save(_authedSession);
-            else RememberMeService.Clear();
-            OnLoggedIn?.Invoke(_authedSession);
+            var workingBranchId = isAllBranches ? null : SelectedBranch.Id;
+            var workingBranchName = isAllBranches ? "Tüm Şubeler" : SelectedBranch.Name;
+            if (!await FinalizeLoginAsync(workingBranchId, workingBranchName, isAllBranches, warnOnDifferent: true))
+                return; // kullanıcı farklı-şube uyarısında iptal etti
         }
         catch (Exception ex) { Error = "Giriş hatası: " + ex.Message; }
         finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// Oturumu tamamlar. <paramref name="workingBranchId"/> = kaydın yazılacağı ÇALIŞMA şubesi (null = Tüm Şubeler).
+    /// Ana ekranda MAKİNE şubesi gösterilir; işlemler çalışma şubesiyle damgalanır. Çalışma şubesi makine
+    /// şubesinden farklıysa (yalnız çevrimiçi seçimde) uyarı verilir. Dönen false = kullanıcı iptal etti.
+    /// </summary>
+    private async System.Threading.Tasks.Task<bool> FinalizeLoginAsync(string? workingBranchId, string? workingBranchName, bool isAllBranches, bool warnOnDifferent)
+    {
+        if (_authedSession is null) return false;
+
+        // Farklı şube uyarısı: çalışma şubesi, makinenin (admin-atanmış) şubesinden farklıysa uyar.
+        if (warnOnDifferent && workingBranchId is not null && !string.IsNullOrEmpty(DesktopServices.MachineBranchId)
+            && workingBranchId != DesktopServices.MachineBranchId)
+        {
+            var machineName = DesktopServices.MachineBranchName ?? "makine şubesi";
+            PlayWarningSound();
+            var proceed = await ConfirmService.AskAsync(
+                $"Bu makine \"{machineName}\" şubesine tanımlıdır.\n\n" +
+                $"Şu an \"{workingBranchName}\" şubesi ile giriş yapıyorsunuz. Girdiğiniz tüm kayıtlar " +
+                $"\"{workingBranchName}\" şubesine yazılacak; MAKİNE şubesine (\"{machineName}\") YAZILMAYACAKTIR.\n\n" +
+                "Devam etmek istiyor musunuz?",
+                "Farklı Şube Girişi", "Devam et ve giriş yap", "İptal", danger: true);
+            if (!proceed) return false;
+        }
+
+        DesktopServices.CurrentBranchId = workingBranchId;
+        DesktopServices.CurrentBranchName = isAllBranches ? "Tüm Şubeler" : workingBranchName;
+        DesktopServices.CurrentAllBranches = isAllBranches;
+        _authedSession.OperatingBranchId = workingBranchId;
+        DesktopServices.Session = _authedSession;
+
+        _ = LookupSyncService.PullAsync(Username.Trim(), Password);   // tanım senkronu
+        _ = BusinessSyncPushService.PushAsync();                       // iş verisi push (web görünürlüğü)
+        RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
+        if (RememberMe) RememberMeService.Save(_authedSession);
+        else RememberMeService.Clear();
+        OnLoggedIn?.Invoke(_authedSession);
+        return true;
     }
 
     private async System.Threading.Tasks.Task LoadBranchesForUserAsync(string companyId, bool canViewAllBranches)

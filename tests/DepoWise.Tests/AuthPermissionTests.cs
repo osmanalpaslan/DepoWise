@@ -177,6 +177,41 @@ public class AuthPermissionTests : IDisposable
         Assert.Null(auth.CreateSessionForUser("YOK", suId)); // var olmayan firma → null
     }
 
+    // ---- Kullanıcı şubesi senkronu (ExportForSync → ImportRemoteUser branch_id taşır) ----
+    [Fact]
+    public void KullaniciSubesi_Sunucudan_Yerele_Senkronlanir()
+    {
+        // SUNUCU tarafı: süper admin + şubeli personel
+        var users = new UserService(_factory, _clock);
+        var branches = new BranchService(_factory, _clock);
+        var suId = users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var su = new AuthService(_factory, _clock).Login("A", "root", "root123").Session!;
+        var branchId = branches.Create(su, new NewBranch("Şantiye 1"));
+        users.CreateUser(su, new NewUser("depocu", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A", BranchId: branchId));
+
+        var auth = new AuthService(_factory, _clock);
+        var bundle = auth.ExportForSync("A", "depocu", "p12345");
+        Assert.NotNull(bundle);
+        Assert.Equal(branchId, bundle!.BranchId); // export şubeyi taşır
+
+        // MASAÜSTÜ tarafı (ayrı yerel DB): import sonrası users.branch_id yazılmalı
+        var localPath = Path.Combine(Path.GetTempPath(), "depowise_auth_local_" + Guid.NewGuid().ToString("N") + ".db");
+        try
+        {
+            var localFactory = new SqliteConnectionFactory(localPath);
+            new MigrationRunner(localFactory).Run();
+            var localAuth = new AuthService(localFactory, _clock);
+            localAuth.ImportRemoteUser(bundle);
+
+            using var conn = localFactory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT branch_id FROM users WHERE id=$id;";
+            cmd.Parameters.AddWithValue("$id", bundle.UserId);
+            Assert.Equal(branchId, cmd.ExecuteScalar() as string);
+        }
+        finally { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(localPath); } catch { } }
+    }
+
     // ---- Yetki yükseltme ----
     [Fact]
     public void AdminOlmayan_AdminRolu_Atayamaz()

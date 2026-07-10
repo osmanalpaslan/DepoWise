@@ -25,7 +25,8 @@ public sealed record RemoteUserBundle(
     IReadOnlyList<string> RoleKeys,
     IReadOnlyList<ModulePermission> Permissions,
     IReadOnlyList<string> Buttons,
-    bool CanViewAllBranches = false);
+    bool CanViewAllBranches = false,
+    string? BranchId = null);
 
 /// <summary>
 /// Kimlik doğrulama + brute-force kilidi. 5 ardışık hatalı denemeden sonra 5 dk kilit.
@@ -176,14 +177,14 @@ public sealed class AuthService
         // Kullanıcıyı bul; companyId boşsa TÜM firmalar taranır (kullanıcı adı birden çok firmada olabilir).
         using var find = conn.CreateCommand();
         if (string.IsNullOrWhiteSpace(companyId))
-            find.CommandText = "SELECT id, company_id, password_hash, full_name FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
+            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
         else
         {
-            find.CommandText = "SELECT id, company_id, password_hash, full_name FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
+            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
             find.Parameters.AddWithValue("$c", companyId);
         }
         find.Parameters.AddWithValue("$u", username);
-        string? userId = null, coId = null, fullName = null, hash = null;
+        string? userId = null, coId = null, fullName = null, hash = null, branchId = null;
         using (var r = find.ExecuteReader())
         {
             while (r.Read())
@@ -191,6 +192,7 @@ public sealed class AuthService
                 if (!PasswordHasher.Verify(password, r.GetString(2))) continue;
                 userId = r.GetString(0); coId = r.GetString(1); hash = r.GetString(2);
                 fullName = r.IsDBNull(3) ? null : r.GetString(3);
+                branchId = r.IsDBNull(4) ? null : r.GetString(4);
                 break;
             }
         }
@@ -206,7 +208,7 @@ public sealed class AuthService
             coName = cn.ExecuteScalar() as string ?? coId;
         }
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
-            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId));
+            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId);
     }
 
     /// <summary>MASAÜSTÜ tarafı: sunucudan gelen kullanıcı paketini YEREL DB'ye yazar (upsert). Sonrasında
@@ -232,15 +234,16 @@ public sealed class AuthService
         {
             u.Transaction = tx;
             u.CommandText =
-                "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, is_active, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$un,$h,$f,$va,1,$now,$now,1,0) " +
-                "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, is_active=1, is_deleted=0, updated_at=$now;";
+                "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, branch_id, is_active, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$un,$h,$f,$va,$bid,1,$now,$now,1,0) " +
+                "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, branch_id=$bid, is_active=1, is_deleted=0, updated_at=$now;";
             u.Parameters.AddWithValue("$id", b.UserId);
             u.Parameters.AddWithValue("$c", b.CompanyId);
             u.Parameters.AddWithValue("$un", b.Username);
             u.Parameters.AddWithValue("$h", b.PasswordHash);
             u.Parameters.AddWithValue("$f", (object?)b.FullName ?? DBNull.Value);
             u.Parameters.AddWithValue("$va", b.CanViewAllBranches ? 1 : 0);
+            u.Parameters.AddWithValue("$bid", (object?)b.BranchId ?? DBNull.Value);
             u.Parameters.AddWithValue("$now", now);
             u.ExecuteNonQuery();
         }

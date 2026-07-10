@@ -46,9 +46,23 @@ public sealed partial class DashboardViewModel : ViewModelBase
     /// <summary>Bu makinenin adı — ana ekranda gösterilir.</summary>
     public string MachineName => Environment.MachineName;
 
-    /// <summary>Giriş yapılan şube (login'de seçilen) — ana ekranda gösterilir.</summary>
-    public string BranchName => string.IsNullOrEmpty(DesktopServices.CurrentBranchName) ? "Tüm / Belirsiz" : DesktopServices.CurrentBranchName!;
-    public bool HasBranch => !string.IsNullOrEmpty(DesktopServices.CurrentBranchName);
+    /// <summary>Ana ekranda gösterilen şube = MAKİNENİN (admin'in web'den atadığı) şubesi. Çalışma şubesi
+    /// (login'de seçilen) makine şubesinden farklıysa parantez içinde belirtilir. Makine şubesi yoksa
+    /// (yalnız süper admin senaryosu) çalışma şubesine düşer.</summary>
+    public string BranchName
+    {
+        get
+        {
+            var machine = DesktopServices.MachineBranchName;
+            var working = DesktopServices.CurrentBranchName;
+            if (string.IsNullOrEmpty(machine))
+                return string.IsNullOrEmpty(working) ? "Tüm / Belirsiz" : working!;
+            if (!DesktopServices.CurrentAllBranches && !string.IsNullOrEmpty(working) && working != machine)
+                return $"{machine}  (çalışma: {working})";
+            return machine!;
+        }
+    }
+    public bool HasBranch => !string.IsNullOrEmpty(DesktopServices.MachineBranchName) || !string.IsNullOrEmpty(DesktopServices.CurrentBranchName);
 
     /// <summary>Otomatik güncelleme açık/kapalı (app_settings). Kapalıysa ShellViewModel 10 dk'lık oto-uyarıyı atlar.</summary>
     public const string AutoUpdateKey = "auto_update_enabled";
