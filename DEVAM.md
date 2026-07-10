@@ -21,14 +21,21 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-09)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-10)
 
 **Genel durum:** Backend + iş mantığı **yayın adayı (1.0.0-rc)** olgunlukta — 17 fazın hepsi
-bitti, 238 test yeşil. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım (yayın engellerini
+bitti, **241 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım (yayın engellerini
 kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34**
 (yeni: 1.0.35 yerelde hazır, bkz. aşağı).
 
-**Bugün (2026-07-09), yeni bilgisayara geçiş sonrası:**
+**Bugün (2026-07-10) — giriş (login) davranışı yeniden düzenlendi (ADR-058), canlıda:**
+- **Web 3 adımlı giriş:** kimlik → (süper admin ise) FİRMA seçimi → şube (ZORUNLU). Süper admin seçtiği firmayı o firmanın admini gibi yönetir (operasyonel veriler o firmaya kapsamlanır — yerel API'de e2e doğrulandı). Yeni uç: `POST /api/auth/select-company`.
+- **"Tüm Şubeler"** artık admin + süper admin'de daima açık (rapor için) — web + masaüstü.
+- Firma izolasyonu (personel başka firmayı görmez) zaten sağlanıyordu (TenantAccessGuard); doğrulandı.
+- Masaüstü: "Tüm Şubeler" kuralı eklendi; süper admin FİRMA seçimi masaüstünde YOK (çevrimdışı tek-firma yerel DB kısıtı). Bu değişiklik masaüstünde ancak **yeni paket** (1.0.35 sonrası) yayınlanınca görünür.
+- API + Web yeniden yayınlandı ve doğrulandı (login sayfası 200, select-company ucu canlı).
+
+**Önceki bugün (2026-07-09), yeni bilgisayara geçiş sonrası:**
 - Proje bu makineye klonlandı; `dotnet build` (0 hata) ve `dotnet test` (238/238 yeşil) ile doğrulandı — geliştirmeye devam edilebilir.
 - **Masaüstü 1.0.35 paketi yerelde toplandı** (`dotnet publish -c Release -p:Version=1.0.35`), zip'lendi, SHA-256 hesaplandı. **Henüz web'e yüklenip yayınlanmadı** — bu adım Süper Admin girişi gerektirdiği için tarayıcıdan elle yapılmalı (bkz. §3).
 - Dokuman/gerçek mimari tutarsızlığı düzeltildi (ADR-057): `apps/web` (Next.js) donmuş olarak işaretlendi; gerçek/canlı web `src/DepoWise.Web` (Blazor/MudBlazor), sunucu DB'si SQLite (PostgreSQL hiç kullanılmadı).
