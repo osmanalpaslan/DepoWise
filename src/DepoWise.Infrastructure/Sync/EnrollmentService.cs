@@ -8,6 +8,9 @@ using Microsoft.Data.Sqlite;
 namespace DepoWise.Infrastructure.Sync;
 
 public sealed record EnrollResult(string DeviceId, string Status);
+/// <summary>Makine kayıt/heartbeat yanıtı: durum + makinenin ADMIN tarafından atanmış şubesi (varsa).
+/// Masaüstü bu şubeyi önbelleğe alır (çevrimdışı otomatik giriş + ana ekran + farklı-şube uyarısı için).</summary>
+public sealed record RegisterResult(string DeviceId, string Status, string? BranchId, string? BranchName);
 public sealed record DeviceToken(string DeviceId, string Token);
 
 /// <summary>
@@ -99,7 +102,10 @@ public sealed class EnrollmentService
     /// KOTA MANTIĞI: firmanın aktif makine sayısı kotanın altındaysa makine otomatik 'active' olur ve giriş
     /// yapabilir; kota doluysa 'pending' kalır (süper admin onaylayana / başka makineyi pasife alana kadar
     /// giriş yapamaz). Pasife alınmış (revoked) makine otomatik aktifleşmez — yalnız süper admin açar.</summary>
-    public EnrollResult RegisterSelf(string companyId, string deviceName, string? ip = null, string? branchId = null)
+    /// <summary>Makine kendini kaydeder/heartbeat atar. NOT: makinenin şubesi (branch_id) ARTIK login'de seçilen
+    /// şubeyle YAZILMAZ — şube yalnız admin tarafından web'den atanır (AssignBranch, otoriter). <paramref name="branchId"/>
+    /// parametresi geriye dönük uyumluluk için korunur ama yazımda kullanılmaz.</summary>
+    public RegisterResult RegisterSelf(string companyId, string deviceName, string? ip = null, string? branchId = null)
     {
         TenantGuard.Require(companyId);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -144,21 +150,22 @@ public sealed class EnrollmentService
             var newStatus = existingStatus ?? "pending";
             if (existingStatus == "pending" && ActiveCount(existingId) < quota) newStatus = "active";
 
+            // Şube (branch_id) BURADA GÜNCELLENMEZ — admin ataması otoriterdir (AssignBranch).
             using var upd = conn.CreateCommand();
             upd.Transaction = tx;
             upd.CommandText = "UPDATE sync_devices SET last_seen_at=$now, updated_at=$now, status=$s, " +
-                "ip_address=COALESCE($ip, ip_address), ip_v4=COALESCE($ip4, ip_v4), ip_v6=COALESCE($ip6, ip_v6), " +
-                "branch_id=COALESCE($bid, branch_id) WHERE id=$id;";
+                "ip_address=COALESCE($ip, ip_address), ip_v4=COALESCE($ip4, ip_v4), ip_v6=COALESCE($ip6, ip_v6) " +
+                "WHERE id=$id;";
             upd.Parameters.AddWithValue("$now", now);
             upd.Parameters.AddWithValue("$s", newStatus);
             upd.Parameters.AddWithValue("$ip", (object?)ip ?? System.DBNull.Value);
             upd.Parameters.AddWithValue("$ip4", (object?)ip4 ?? System.DBNull.Value);
             upd.Parameters.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
-            upd.Parameters.AddWithValue("$bid", (object?)branchId ?? System.DBNull.Value);
             upd.Parameters.AddWithValue("$id", existingId);
             upd.ExecuteNonQuery();
+            var (exBid, exBname) = ReadDeviceBranch(conn, tx, existingId);
             tx.Commit();
-            return new EnrollResult(existingId, newStatus);
+            return new RegisterResult(existingId, newStatus, exBid, exBname);
         }
 
         var status = ActiveCount(null) < quota ? "active" : "pending";
@@ -176,12 +183,68 @@ public sealed class EnrollmentService
             ins.Parameters.AddWithValue("$ip", (object?)ip ?? System.DBNull.Value);
             ins.Parameters.AddWithValue("$ip4", (object?)ip4 ?? System.DBNull.Value);
             ins.Parameters.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
-            ins.Parameters.AddWithValue("$bid", (object?)branchId ?? System.DBNull.Value);
+            ins.Parameters.AddWithValue("$bid", System.DBNull.Value); // yeni makine: şube YOK, admin atar
             ins.Parameters.AddWithValue("$now", now);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
-        return new EnrollResult(deviceId, status);
+        return new RegisterResult(deviceId, status, null, null); // yeni makine → şubesiz
+    }
+
+    /// <summary>Bir makinenin (cihazın) atanmış şubesini + adını okur.</summary>
+    private static (string? BranchId, string? BranchName) ReadDeviceBranch(SqliteConnection conn, SqliteTransaction tx, string deviceId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT d.branch_id, br.name FROM sync_devices d LEFT JOIN branches br ON br.id=d.branch_id WHERE d.id=$id;";
+        cmd.Parameters.AddWithValue("$id", deviceId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return (null, null);
+        var bid = r.IsDBNull(0) ? null : r.GetString(0);
+        var bname = r.IsDBNull(1) ? null : r.GetString(1);
+        return (bid, bname);
+    }
+
+    /// <summary>Admin bir makineye ŞUBE atar (otoriter). Şube makinenin firmasına ait olmalı. Süper admin tüm
+    /// firmalarda; diğer admin yalnız kendi firmasında. branchId boş → atama kaldırılır (şubesiz).</summary>
+    public void AssignBranch(SessionContext s, string deviceId, string? branchId)
+    {
+        if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Makineye şube atama yalnız admin.");
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+
+        // Makineyi bul + firmasını al (tenant kontrolü)
+        string? machineCompany = null;
+        using (var find = conn.CreateCommand())
+        {
+            find.Transaction = tx;
+            find.CommandText = "SELECT company_id FROM sync_devices WHERE id=$id;";
+            find.Parameters.AddWithValue("$id", deviceId);
+            machineCompany = find.ExecuteScalar() as string;
+        }
+        if (machineCompany is null) throw new ForbiddenException("Makine bulunamadı.");
+        if (!s.IsSuperAdmin && !string.Equals(machineCompany, s.CompanyId, StringComparison.Ordinal))
+            throw new ForbiddenException("Bu makine başka firmaya ait.");
+
+        // Şube (verildiyse) aynı firmaya ait ve geçerli olmalı
+        if (!string.IsNullOrWhiteSpace(branchId))
+        {
+            using var bc = conn.CreateCommand();
+            bc.Transaction = tx;
+            bc.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$b AND company_id=$c AND is_deleted=0;";
+            bc.Parameters.AddWithValue("$b", branchId);
+            bc.Parameters.AddWithValue("$c", machineCompany);
+            if (Convert.ToInt64(bc.ExecuteScalar()) == 0) throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+        }
+
+        using var upd = conn.CreateCommand();
+        upd.Transaction = tx;
+        upd.CommandText = "UPDATE sync_devices SET branch_id=$b, updated_at=$now WHERE id=$id;";
+        upd.Parameters.AddWithValue("$b", (object?)(string.IsNullOrWhiteSpace(branchId) ? null : branchId) ?? System.DBNull.Value);
+        upd.Parameters.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
+        upd.Parameters.AddWithValue("$id", deviceId);
+        upd.ExecuteNonQuery();
+        tx.Commit();
     }
 
     private static int QuotaFor(SqliteConnection conn, SqliteTransaction tx, string companyId)

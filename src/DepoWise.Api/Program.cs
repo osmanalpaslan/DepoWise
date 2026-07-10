@@ -334,6 +334,13 @@ app.MapDelete("/api/machines/{id}", (HttpContext ctx, string id) =>
     svc.Enrollment.DeleteDevice(s, id);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+// Admin makineye ŞUBE atar (otoriter). branchId boş → atama kaldırılır.
+app.MapPost("/api/machines/{id}/branch", (HttpContext ctx, string id, AssignBranchDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.Enrollment.AssignBranch(s, id, string.IsNullOrWhiteSpace(d.BranchId) ? null : d.BranchId);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 
 // ── Kullanıcının menüsü/yetkileri (masaüstüyle AYNI AccessControl) → web menüyü buna göre çizer ──
 // ── Kullanıcı yetki/şifre "imzası" (masaüstü değişiklik tespiti) ──
@@ -1245,6 +1252,7 @@ app.Run();
 // ── İstek gövde tipleri ──
 record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
 record SelectCompanyDto(string? CompanyId);
+record AssignBranchDto(string? BranchId);
 record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);

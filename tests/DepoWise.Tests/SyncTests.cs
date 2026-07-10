@@ -4,6 +4,7 @@ using DepoWise.Application.Sync;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Security;
 using DepoWise.Infrastructure.Sync;
 using Xunit;
@@ -42,6 +43,47 @@ public class SyncTests : IDisposable
         var key = _enroll.CreateEnrollmentKey(_admin);
         var dev = _enroll.Enroll("A", key, "Personel-1");
         return _enroll.ApproveDevice(_admin, dev.DeviceId).Token;
+    }
+
+    // ---- Makine şube ataması (admin otoriter, login ezmez) ----
+    [Fact]
+    public void Makine_Sube_AdminAtar_LoginEzmez()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var branchId = branches.Create(_admin, new NewBranch("Merkez"));
+
+        // Yeni makine kaydı: login şubesi gönderilse bile ARTIK yazılmaz → şubesiz.
+        var reg = _enroll.RegisterSelf("A", "PC-1", null, branchId);
+        Assert.Null(reg.BranchId);
+
+        // Admin şube atar → otoriter.
+        _enroll.AssignBranch(_admin, reg.DeviceId, branchId);
+
+        // Sonraki heartbeat login şubesini ezemez; admin ataması korunur.
+        var reg2 = _enroll.RegisterSelf("A", "PC-1", null, "baska-sube-denemesi");
+        Assert.Equal(branchId, reg2.BranchId);
+        Assert.Equal("Merkez", reg2.BranchName);
+    }
+
+    [Fact]
+    public void Makine_Sube_Atama_YalnizAdmin_VeGecerliSube()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var branchId = branches.Create(_admin, new NewBranch("Merkez"));
+        var reg = _enroll.RegisterSelf("A", "PC-2");
+
+        // Personel (admin değil) atayamaz.
+        var staff = new SessionContext("staff1", "A", new[] { RoleKeys.Staff }, PermissionSet.Empty);
+        Assert.Throws<ForbiddenException>(() => _enroll.AssignBranch(staff, reg.DeviceId, branchId));
+
+        // Var olmayan/başka firmanın şubesi atanamaz.
+        Assert.Throws<ForbiddenException>(() => _enroll.AssignBranch(_admin, reg.DeviceId, "olmayan-sube"));
+
+        // Geçerli şube → atanır; boş → atama kaldırılır (şubesiz).
+        _enroll.AssignBranch(_admin, reg.DeviceId, branchId);
+        Assert.Equal(branchId, _enroll.RegisterSelf("A", "PC-2").BranchId);
+        _enroll.AssignBranch(_admin, reg.DeviceId, null);
+        Assert.Null(_enroll.RegisterSelf("A", "PC-2").BranchId);
     }
 
     // ---- Enrollment ----
