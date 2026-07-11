@@ -22,5 +22,12 @@ public partial class ConfirmWindow : Window
         cancel.Click += (_, _) => Close(false);
     }
 
+    /// <summary>Açık pencerenin mesajını canlı günceller (ör. güncelleme paketi değişince yeni pencere açmadan).</summary>
+    public void SetMessage(string message)
+    {
+        var t = this.FindControl<TextBlock>("MsgText");
+        if (t is not null) t.Text = message;
+    }
+
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 }

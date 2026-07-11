@@ -297,21 +297,37 @@ public sealed partial class ShellViewModel : ViewModelBase
     }
 
     // ── Otomatik güncelleme: giriş sonrası + her 10 dk'da bir kontrol; yeni sürüm varsa ONAY sorar.
-    // Onay verilmezse 10 dk sonra tekrar sorar. Onaylanınca indirir, kurar, uygulamayı kapatıp yeniden açar. ──
+    // KURALLAR (kullanıcı isteği):
+    //  • Aynı anda TEK güncelleme penceresi açılır (birikmez). Pencere açıkken yeni paket çıkarsa
+    //    yeni pencere açılmaz — açık pencerenin MESAJI güncellenir.
+    //  • "Ertele" = 10 dakika; süre pencerede yazılıdır. İndirilen paket saklanır (erteleyince tekrar inmez).
+    //  • Yeniden başlatma onayı ayrı: "Şimdi Yeniden Başlat" / "10 Dakika Ertele". ──
     private Avalonia.Threading.DispatcherTimer? _updateTimer;
-    private bool _updateBusy;
+    private bool _updateBusy;                              // indir/kur kritik bölümü — tek akış
+    private Views.ConfirmWindow? _availableWindow;         // açık "güncelleme mevcut" penceresi (varsa)
+    private DepoWise.Application.Update.UpdatePackage? _latestForPrompt; // açık pencere için güncel hedef
+    private DateTime _updateSnoozeUntilUtc = DateTime.MinValue;
+    private byte[]? _pendingBytes; private string? _pendingVersion, _pendingChecksum; // indirilmiş, kurulum bekleyen paket
+    private const int SnoozeMinutes = 10;
 
     private void StartUpdateWatcher()
     {
         _ = CheckForUpdateAndPromptAsync();
-        _updateTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
+        _updateTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         _updateTimer.Tick += async (_, _) => await CheckForUpdateAndPromptAsync();
         _updateTimer.Start();
     }
 
+    private static Avalonia.Controls.Window? MainWin()
+        => Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime d ? d.MainWindow : null;
+
+    private string AvailableMsg(DepoWise.Application.Update.UpdatePackage latest, string current)
+        => $"Yeni sürüm mevcut: {latest.Version} (mevcut {current}).\n\n" +
+           "Şimdi indirilip kurulsun mu? Uygulama otomatik kapanıp yeniden açılacak. Veritabanınıza dokunulmaz.\n\n" +
+           $"Ertelerseniz {SnoozeMinutes} dakika sonra tekrar hatırlatılır.";
+
     private async System.Threading.Tasks.Task CheckForUpdateAndPromptAsync()
     {
-        if (_updateBusy) return;
         try
         {
             // Otomatik güncelleme kapalıysa oto-uyarı atlanır (kullanıcı ana ekrandan elle kurar).
@@ -323,32 +339,58 @@ public sealed partial class ShellViewModel : ViewModelBase
             var res = DesktopServices.Update.Check(latest);
             if (!res.UpdateAvailable) return;
 
+            // (D) Pencere zaten açıksa: yeni sürüm geldiyse SADECE mesajı güncelle, yeni pencere AÇMA.
+            if (_availableWindow is not null)
+            {
+                _latestForPrompt = latest;
+                _availableWindow.SetMessage(AvailableMsg(latest, res.CurrentVersion));
+                return;
+            }
+            // Erteleme süresi dolmadıysa sessiz geç.
+            if (DateTime.UtcNow < _updateSnoozeUntilUtc) return;
+            // İndir/kur akışı zaten sürüyorsa tekrar başlatma.
+            if (_updateBusy) return;
             _updateBusy = true;
-            var ok = await ConfirmService.AskAsync(
-                $"Yeni sürüm mevcut: {latest.Version} (mevcut {res.CurrentVersion}).\n\n" +
-                "Şimdi indirilip kurulsun mu? Uygulama otomatik kapanıp yeniden açılacak. Veritabanınıza dokunulmaz.",
-                "Güncelleme Mevcut", "İndir ve Kur", "Daha Sonra");
-            if (!ok) { _updateBusy = false; return; } // 10 dk sonra tekrar sorar
 
-            // İndirme yüzdesi üst barda canlı gösterilir (0–100).
-            SetConn("#3B82F6", "Güncelleme indiriliyor… %0");
-            var bytes = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
-                p => Avalonia.Threading.Dispatcher.UIThread.Post(() => SetConn("#3B82F6", $"Güncelleme indiriliyor… %{p}")));
-            SetConn("#3B82F6", "Kuruluyor… %100");
+            try
+            {
+                // Erteleme sonrası: paket zaten indirilmiş ve sürüm değişmemişse doğrudan yeniden-başlat onayına git.
+                bool havePending = _pendingBytes is not null && _pendingVersion == latest.Version;
+                if (!havePending)
+                {
+                    _latestForPrompt = latest;
+                    var win = new Views.ConfirmWindow("Güncelleme Mevcut", AvailableMsg(latest, res.CurrentVersion), "İndir ve Kur", $"{SnoozeMinutes} Dakika Ertele", false);
+                    _availableWindow = win;
+                    bool install;
+                    try { var owner = MainWin(); install = owner is null ? false : await win.ShowDialog<bool>(owner); }
+                    finally { _availableWindow = null; }
+                    if (!install) { _updateSnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes); return; }
 
-            // Yeniden başlatma öncesi bilgilendirme — kullanıcı Tamam'a basınca uygulama kapanıp yeniden açılır.
-            await ConfirmService.AskAsync(
-                "Güncelleme indirildi. Uygulamanız yeniden başlatılacaktır, lütfen bekleyiniz…",
-                "Yeniden Başlatılıyor", "Tamam", "Tamam");
+                    // Kullanıcı beklerken yeni paket gelmiş olabilir → en güncel hedefi kullan.
+                    latest = _latestForPrompt ?? latest;
+                    SetConn("#3B82F6", "Güncelleme indiriliyor… %0");
+                    _pendingBytes = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
+                        p => Avalonia.Threading.Dispatcher.UIThread.Post(() => SetConn("#3B82F6", $"Güncelleme indiriliyor… %{p}")));
+                    _pendingVersion = latest.Version; _pendingChecksum = latest.ChecksumSha256;
+                    SetConn("#3B82F6", "İndirildi — yeniden başlatma bekleniyor.");
+                }
 
-            SetConn("#3B82F6", "Yeniden başlatılıyor…");
-            UpdateInstaller.InstallAndRestart(bytes, latest.Version, latest.ChecksumSha256);
-            // Uygulamayı kapat → harici yardımcı dosyaları kopyalayıp uygulamayı yeniden açar.
-            Environment.Exit(0);
+                // (C) Yeniden başlatma onayı: Ertele (10 dk) / Şimdi Yeniden Başlat.
+                var restart = await ConfirmService.AskAsync(
+                    $"Güncelleme indirildi (sürüm {_pendingVersion}). Kurulumun tamamlanması için uygulama yeniden başlatılmalı.\n\n" +
+                    $"Şimdi yeniden başlatabilir veya erteleyebilirsiniz. Her erteleme {SnoozeMinutes} dakikadır; süre dolunca tekrar sorulur.",
+                    "Güncelleme Hazır — Yeniden Başlat", "Şimdi Yeniden Başlat", $"{SnoozeMinutes} Dakika Ertele");
+                if (!restart) { _updateSnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes); return; }
+
+                SetConn("#3B82F6", "Yeniden başlatılıyor…");
+                UpdateInstaller.InstallAndRestart(_pendingBytes!, _pendingVersion!, _pendingChecksum);
+                Environment.Exit(0); // uygulamayı kapat → yardımcı kopyalar + yeniden açar
+            }
+            finally { _updateBusy = false; }
         }
         catch (Exception ex)
         {
-            _updateBusy = false;
+            _updateBusy = false; _availableWindow = null;
             try { await ConfirmService.AskAsync("Güncelleme başarısız: " + ex.Message, "Güncelleme", "Tamam", "Tamam"); } catch { }
         }
     }
