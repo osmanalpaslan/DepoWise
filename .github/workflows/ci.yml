@@ -1,0 +1,29 @@
+name: CI
+
+# Her push ve pull request'te otomatik derleme + test. Bozulma anında yakalanır (yeşil/kırmızı rozet).
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch: {}   # elle tetikleme
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: .NET 8 kur
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Sunucu bileşenleri (canlıya giden): API test projesi tarafından, Web ayrıca derlenir.
+      # Not: DepoWise.Setup (net8.0-windows) ve DepoWise.Desktop (Windows hedefli) CI'da derlenmez;
+      # bunlar yerelde derlenir/paketlenir. Çekirdek iş mantığı + API + Web burada doğrulanır.
+      - name: Web (Blazor) derle
+        run: dotnet build src/DepoWise.Web/DepoWise.Web.csproj -c Release --nologo
+
+      - name: Test (API + Infrastructure + Application + Domain, 247 test)
+        run: dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Release --nologo --logger "console;verbosity=minimal"
