@@ -44,7 +44,11 @@ DepoWise; depo/stok, araç, bakım, yakıt ve personel yönetimini tek yerden ya
   - **Pasif Firmalar (Sözleşme Yenileme):** Silinen firmalar bu bölümde durur. **"Aktife Al"** ile firma geri
     gelir ve pasife alınan kullanıcılar tekrar giriş yapabilir. *(Yeni — 2026-07-11)*
 - **Şube:** Şube tanımları ve şube şifreleri.
-- **Personel:** Ad, unvan, telefon, şube. (Kullanıcı hesabından ayrıdır — bkz. yol haritası.)
+- **Çalışan Yönetimi (Personel + Kullanıcı, birleşik):** Ad soyad, unvan, telefon, şube, aktif.
+  - Her satırda **erişim rozeti**: *Saha* (yalnız personel), *Kullanıcı* veya *Admin* (uygulama hesabı olanlar).
+  - Yeni/düzenle formunda **"Uygulama erişimi ver"** (admin) ile aynı ekrandan kullanıcı hesabı (kullanıcı adı/şifre/rol) açılır — bir çalışana tek hesap.
+  - **Olası aynı kişi** uyarısı (ad/telefon) mükerrer kaydı engeller; hesap açılmadan kaydederken **"yalnız saha personeli mi?"** onayı sorulur.
+  - Admin, mevcut hesabın **bağını kaldırabilir** (hesap silinmez, çalışandan çözülür). *(Yeni — 2026-07-12; web + masaüstü)*
 - **Kullanıcı:** Uygulamaya girecek hesaplar; rol ve şube ataması.
 - **Yetkiler:** Kullanıcı bazında hangi ekranı görebileceği/işlem yapabileceği (yetki matrisi).
 - **Kota İzleme:** Firma başına kullanıcı/admin kotası **ve anlık ONLINE kullanıcı sayısı**
