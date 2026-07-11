@@ -12,6 +12,14 @@
 }
 else
 {
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+        <b>Bu ekran nasıl dolar?</b> Yedekler masaüstü uygulamasında alınır (her makinede <b>günde 1 kez otomatik</b> +
+        istendiğinde elle "Yedek Al"). Masaüstünde <b>Ayarlar › Sunucu Yedek</b> altında sunucu adresi tanımlıysa
+        her yedek buluta yüklenir ve burada görünür. Sunucu yüklenen yedekleri <b>hiçbir zaman silmez</b> (tam arşiv);
+        yerelde 30 günlük döngü işler. <b>Liste boşsa</b>: henüz hiçbir masaüstü sunucuya yükleme yapmamış demektir
+        (sunucu adresi tanımsız olabilir). Aşağıdan firma + tarih seçip <b>Listele</b>'ye basın.
+    </MudAlert>
+
     <MudPaper Class="pa-4 mb-3" Elevation="2">
         <MudGrid Spacing="2" Class="align-center">
             <MudItem xs="12" md="3">

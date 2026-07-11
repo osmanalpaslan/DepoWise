@@ -128,7 +128,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         _ = PingAsync();
         _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); await CheckUserChangedAsync(); await MaybePushBusinessAsync(); }; // ping + heartbeat + yetki + iş verisi push
+        _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); await CheckUserChangedAsync(); await MaybePushBusinessAsync(); await MaybeDailyBackupAsync(); }; // ping + heartbeat + yetki + iş verisi push + günlük yedek
         _connTimer.Start();
     }
 
@@ -148,6 +148,31 @@ public sealed partial class ShellViewModel : ViewModelBase
     private bool _machineBlockHandled;
     private readonly string? _authSig = ServerAuthClient.AuthSig;
     private bool _userChangeHandled;
+
+    // #2 — Otomatik günlük yedek: bugün alınmış yerel yedek yoksa bir kez alır (VACUUM INTO + 30 gün rotasyon
+    // BackupService içinde). Sunucu adresi tanımlıysa buluta yükler. Kontrol saatte bir yapılır (disk taramasını sınırlar).
+    private DateTime _lastBackupCheck = DateTime.MinValue;
+    private async System.Threading.Tasks.Task MaybeDailyBackupAsync()
+    {
+        if ((DateTime.UtcNow - _lastBackupCheck).TotalHours < 1) return;
+        _lastBackupCheck = DateTime.UtcNow;
+        try
+        {
+            if (!AccessControl.Can(_session, "backup", PermissionAction.Create)) return;
+            var today = DateTime.Today;
+            var hasToday = DesktopServices.Backup.ListBackups()
+                .Any(b => DateTimeOffset.FromUnixTimeMilliseconds(b.CreatedAt).LocalDateTime.Date == today);
+            if (hasToday) return;
+            var path = DesktopServices.Backup.Backup(); // yerel yedek (retention dahil)
+            var url = DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerUrl);
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                var token = DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerToken);
+                await DesktopServices.BackupUpload.UploadAsync(url!, token, _session.CompanyId, Environment.MachineName, path);
+            }
+        }
+        catch { /* yedek başarısızlığı uygulamayı etkilemez */ }
+    }
 
     /// <summary>Giriş yapılmışken web'de kullanıcının yetki/şifresi değişirse (imza değişir) uyarı + otomatik
     /// çıkış → tekrar giriş gerekir. Yalnız çevrimiçi + JWT varsa çalışır; çevrimdışında tetiklenmez.</summary>

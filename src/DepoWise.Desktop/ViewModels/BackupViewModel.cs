@@ -11,7 +11,7 @@ namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>
 /// Yedek Yönetimi — yedek al (VACUUM INTO), listele, geri yükle (yeniden başlat gerekir), klasörü aç.
-/// Günlük otomatik yedek + 30 gün saklama servis tarafında.
+/// Otomatik günlük yedek ShellViewModel.MaybeDailyBackupAsync ile alınır; 30 gün rotasyon BackupService'te.
 /// </summary>
 public sealed partial class BackupViewModel : ViewModelBase
 {
