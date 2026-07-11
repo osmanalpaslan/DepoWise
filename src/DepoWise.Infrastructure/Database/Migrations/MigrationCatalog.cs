@@ -37,5 +37,6 @@ public static class MigrationCatalog
         new Migration030_SplitPermScreens(),
         new Migration031_AlertReads(),
         new Migration032_CompanyGrantLimits(),
+        new Migration033_UserPersonnelLink(),
     };
 }

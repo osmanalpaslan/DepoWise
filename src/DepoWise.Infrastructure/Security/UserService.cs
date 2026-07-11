@@ -13,7 +13,8 @@ public sealed record NewUser(
     string? CompanyId = null,
     IReadOnlyList<ModulePermission>? Permissions = null,
     string? BranchId = null,
-    bool CanViewAllBranches = false);
+    bool CanViewAllBranches = false,
+    string? PersonnelId = null);   // #6: hesabın bağlı olduğu personel (opsiyonel; bir personele tek kullanıcı)
 
 public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles, string? BranchId, string? BranchName,
     bool CanViewAllBranches = false, bool IsAdmin = false)
@@ -21,6 +22,9 @@ public sealed record UserRow(string Id, string Username, string? FullName, bool 
     public string BranchDisplay => CanViewAllBranches ? "Tüm Şubeler" : (string.IsNullOrEmpty(BranchName) ? "—" : BranchName!);
     public string StatusText => IsActive ? "Aktif" : "Pasif";
 }
+
+/// <summary>#6 — Bir personele bağlı kullanıcı hesabının özeti (çalışan listesi rozeti için).</summary>
+public sealed record PersonnelAccount(string UserId, string Username, bool IsActive, bool IsAdmin);
 
 /// <summary>Kota izleme satırı (F): firma kullanıcı + admin kullanımı vs limit.</summary>
 public sealed record QuotaMonitorRow(string CompanyId, string CompanyName, int MaxUsers, int UserCount, int AdminLimit, int AdminCount, int ActiveCount = 0)
@@ -292,9 +296,13 @@ ORDER BY u.username;";
         // "Tüm Şubeler" yetkisi YALNIZ Süper Admin tarafından verilebilir (fail-closed).
         int viewAll = (dto.CanViewAllBranches && actor.IsSuperAdmin) ? 1 : 0;
 
+        // #6: personele bağlanıyorsa — personel bu firmada olmalı ve zaten bir hesabı olmamalı (tek kullanıcı).
+        var personnelId = string.IsNullOrWhiteSpace(dto.PersonnelId) ? null : dto.PersonnelId;
+        if (personnelId is not null) EnsurePersonnelLinkable(conn, tx, companyId, personnelId, null);
+
         Insert(conn, tx,
-            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, is_active, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$u,$h,$f,$b,$va,1,$now,$now,1,0);",
+            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, personnel_id, is_active, created_at, updated_at, version, is_deleted) " +
+            "VALUES($id,$c,$u,$h,$f,$b,$va,$pid,1,$now,$now,1,0);",
             cmd =>
             {
                 cmd.Parameters.AddWithValue("$id", userId);
@@ -304,6 +312,7 @@ ORDER BY u.username;";
                 cmd.Parameters.AddWithValue("$f", (object?)dto.FullName ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("$va", viewAll);
+                cmd.Parameters.AddWithValue("$pid", (object?)personnelId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("$now", now);
             });
 
@@ -338,6 +347,82 @@ ORDER BY u.username;";
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Create, actor.UserId), _clock);
         tx.Commit();
         return userId;
+    }
+
+    /// <summary>#6 — Personel bir kullanıcı hesabına bağlanabilir mi? Firma eşleşmeli, personel silinmemiş olmalı
+    /// ve o personele başka bir aktif kullanıcı bağlı OLMAMALI (bir personele tek kullanıcı).</summary>
+    private static void EnsurePersonnelLinkable(SqliteConnection conn, SqliteTransaction tx, string companyId, string personnelId, string? excludeUserId)
+    {
+        using (var p = conn.CreateCommand())
+        {
+            p.Transaction = tx;
+            p.CommandText = "SELECT COUNT(*) FROM personnel WHERE id=$p AND company_id=$c AND is_deleted=0;";
+            p.Parameters.AddWithValue("$p", personnelId);
+            p.Parameters.AddWithValue("$c", companyId);
+            if (Convert.ToInt64(p.ExecuteScalar()) == 0)
+                throw new InvalidOperationException("Bağlanacak personel bulunamadı (firma dışı veya silinmiş).");
+        }
+        using var q = conn.CreateCommand();
+        q.Transaction = tx;
+        q.CommandText = "SELECT COUNT(*) FROM users WHERE personnel_id=$p AND is_deleted=0 AND ($x IS NULL OR id<>$x);";
+        q.Parameters.AddWithValue("$p", personnelId);
+        q.Parameters.AddWithValue("$x", (object?)excludeUserId ?? DBNull.Value);
+        if (Convert.ToInt64(q.ExecuteScalar()) > 0)
+            throw new InvalidOperationException("Bu personele zaten bir kullanıcı hesabı bağlı. Bir personele yalnız bir hesap bağlanabilir.");
+    }
+
+    /// <summary>Var olan bir kullanıcıyı bir personele bağlar (yanlış bağı düzeltme). YALNIZ Admin / Süper Admin.</summary>
+    public void LinkPersonnel(SessionContext actor, string userId, string? personnelId)
+    {
+        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Personel bağı yalnız Admin / Süper Admin tarafından değiştirilir.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureManageableTarget(conn, tx, actor, userId);
+        string companyId;
+        using (var q = conn.CreateCommand())
+        {
+            q.Transaction = tx;
+            q.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
+            q.Parameters.AddWithValue("$u", userId);
+            companyId = q.ExecuteScalar() as string ?? throw new InvalidOperationException("Kullanıcı bulunamadı.");
+        }
+        if (!actor.IsSuperAdmin && !string.Equals(companyId, actor.CompanyId, StringComparison.Ordinal))
+            throw new ForbiddenException("Başka firmanın kullanıcısı düzenlenemez.");
+        var pid = string.IsNullOrWhiteSpace(personnelId) ? null : personnelId;
+        if (pid is not null) EnsurePersonnelLinkable(conn, tx, companyId, pid, userId);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE users SET personnel_id=$p, updated_at=$now WHERE id=$u AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$p", (object?)pid ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$u", userId);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Bir personele bağlı kullanıcı hesabının özeti (yoksa null). Çalışan listesinde rozet için.</summary>
+    public IReadOnlyDictionary<string, PersonnelAccount> AccountsByPersonnel(string companyId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT u.personnel_id, u.id, u.username, u.is_active,
+  (SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+     WHERE ur.user_id=u.id AND r.role_key IN ($ca,$sa))
+FROM users u
+WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$ca", RoleKeys.CompanyAdmin);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        var map = new Dictionary<string, PersonnelAccount>(StringComparer.Ordinal);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            map[r.GetString(0)] = new PersonnelAccount(r.GetString(1), r.GetString(2), r.GetInt64(3) == 1, r.GetInt64(4) > 0);
+        return map;
     }
 
     /// <summary>Firma admin kotası = max_users'ın %20'si, en az 1 (ör. 10 → 2, 5 → 1).</summary>

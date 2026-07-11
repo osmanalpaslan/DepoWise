@@ -87,6 +87,32 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void Calisan_MukerrerPersonel_VeTekKullanici()
+    {
+        var su = SuperAdmin(); // firma A + süper admin
+        var pers = new PersonnelService(_factory, _scope, _clock);
+        var users = new UserService(_factory, _clock);
+
+        var p1 = pers.Create(su, new NewPersonnel("Ahmet Yılmaz", "Şoför", "0555 111 22 33", null, true));
+
+        // Mükerrer: ad eşleşmesi (aynı yazım)
+        Assert.Contains(pers.FindDuplicates(su, "Ahmet Yılmaz", null, null), d => d.Id == p1);
+        // Mükerrer: telefon eşleşmesi (farklı ad, farklı biçim)
+        Assert.Contains(pers.FindDuplicates(su, "Farklı Kişi", "0555-111-2233", null), d => d.Id == p1);
+        // Kendini hariç tut → boş
+        Assert.Empty(pers.FindDuplicates(su, "Ahmet Yılmaz", null, p1));
+
+        // Bir personele tek kullanıcı
+        var u1 = users.CreateUser(su, new NewUser("ahmet", "p12345", "Ahmet", new[] { RoleKeys.Staff }, CompanyId: su.CompanyId, PersonnelId: p1));
+        var u2 = users.CreateUser(su, new NewUser("mehmet", "p12345", "Mehmet", new[] { RoleKeys.Staff }, CompanyId: su.CompanyId));
+        Assert.Throws<InvalidOperationException>(() => users.LinkPersonnel(su, u2, p1)); // p1 zaten bağlı
+        // u1 çözülünce u2 bağlanabilir
+        users.LinkPersonnel(su, u1, null);
+        users.LinkPersonnel(su, u2, p1);
+        Assert.Single(users.AccountsByPersonnel(su.CompanyId).Where(kv => kv.Key == p1));
+    }
+
+    [Fact]
     public void Firma_YenidenAktiflestirme_KullanicilariGeriAktifEder()
     {
         var users = new UserService(_factory, _clock);

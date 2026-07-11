@@ -29,6 +29,39 @@ public sealed class PersonnelService
         _clock = clock ?? new SystemClock();
     }
 
+    /// <summary>#6 — Olası aynı kişi: aynı firmada ad (normalize) VEYA telefon eşleşen personeller (silinmemiş).
+    /// Farklı şubelerde aynı kişinin farkında olmadan iki kez eklenmesini önlemek için kayıt öncesi çağrılır.</summary>
+    public IReadOnlyList<PersonnelRecord> FindDuplicates(SessionContext session, string fullName, string? phone, string? excludeId)
+    {
+        AccessControl.Require(session, Module, PermissionAction.View);
+        var name = NormalizeName(fullName);
+        var digits = DigitsOnly(phone);
+        if (name.Length == 0 && digits.Length == 0) return Array.Empty<PersonnelRecord>();
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at FROM personnel " +
+            "WHERE company_id=$c AND is_deleted=0 AND ($x IS NULL OR id<>$x) AND (" +
+            "  ($n <> '' AND REPLACE(LOWER(full_name),' ','')=$n) OR " +
+            "  ($d <> '' AND phone IS NOT NULL AND REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'(',''),')','')=$d)" +
+            ");";
+        cmd.Parameters.AddWithValue("$c", session.CompanyId);
+        cmd.Parameters.AddWithValue("$x", (object?)excludeId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$n", name);
+        cmd.Parameters.AddWithValue("$d", digits);
+        var list = new List<PersonnelRecord>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+                r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
+                r.GetInt64(6) == 1, r.GetInt64(7)));
+        return list;
+    }
+
+    private static string NormalizeName(string? s) => (s ?? "").Trim().ToLowerInvariant().Replace(" ", "");
+    private static string DigitsOnly(string? s) => new string((s ?? "").Where(char.IsDigit).ToArray());
+
     public string Create(SessionContext session, NewPersonnel dto)
     {
         AccessControl.Require(session, Module, PermissionAction.Create);
