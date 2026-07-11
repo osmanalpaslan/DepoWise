@@ -153,7 +153,7 @@
 - Sıradaki dilimler: Stok işlemleri, Araçlar, Bakım ekranları; ardından web UI (tasarım + Beni Hatırla web'e de uygulanacak).
 
 ## Yayın engelleri (genel kullanıcı yayını öncesi kapanmalı)
-- **R10:** Operasyonel modül ekranları bağlanıyor (Malzemeler bağlandı; kalan modüller sırada).
+- **~~R10~~ (KAPANDI 11.07):** Tüm operasyonel + yönetim ekranları bağlandı (masaüstü menü anahtarları → gerçek ViewModel'ler; web 34 sayfa). GUI gerçek-kullanım testi kullanıcıda.
 - **R8/R9:** Web oturum kalıcılığı + masaüstü/web login akışı (büyük kısmı bağlandı, 05-11.07).
 - **~~R4/R7~~ (ARTIK ENGEL DEĞİL, ADR-057):** Sistem SQLite ile çalışıyor; PostgreSQL yalnız ölçek gerekince (MALIYET_KALEMLERI #2).
 - **R22:** Code-signing — ücretli, yayın öncesine ertelendi (MALIYET_KALEMLERI #3); imzasız sürümde şeffaf uyarı var.
