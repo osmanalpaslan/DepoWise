@@ -48,7 +48,7 @@ bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşam
 - (7) ✅ Yük testi aracı (`scripts/loadtest.mjs`); yerel baseline ~6400 req/s. Gerçek kapasite prod-boyutta ölçülmeli.
 - (6) 📄 PostgreSQL-hazırlık PLANI yazıldı (`docs/POSTGRESQL_HAZIRLIK.md`) — ölçek gerekince; temel hazır (38 servis soyut fabrika).
 - (2c) ⏳ Tam kimlikli çift-yönlü senkron (ileri çakışmalar) — ertelendi, `docs/SENKRON_YOL_HARITASI.md`.
-- **Kalan tek elle iş: 1.0.35 masaüstü paketini yayınla** (süper admin girişi gerekir — kullanıcı/creds).
+- ✅ **1.0.35 masaüstü paketi YAYINLANDI (11.07)** — self-contained (.NET gerektirmez, 85 MB), canlıda "en güncel sürüm=1.0.35". Masaüstü açık makineler 60 sn'de otomatik güncelleme uyarısı alır. Sonraki paket için: `dotnet publish ... --self-contained -p:Version=X.Y.Z` → zip → `node scripts/publish_release.mjs <zip> <sürüm> "<not>"` (env: DEPOWISE_ADMIN_USER/PASS).
 - Test 247/247 · maddi kalemler: `docs/MALIYET_KALEMLERI.md`.
 
 **Bugünkü büyük işler (hepsi canlıda + commit'li):** "Süper Admin" rolü kullanıcı oluştururken yalnız süper admin'e listelenir (`/api/roles` düzeltmesi — web; masaüstü zaten uyguluyordu; sunucu RoleAssignmentGuard zaten zorluyor). ADR-060 (MASAÜSTÜ süper admin login: "makine firması/şubesi ile giriş" kutucukları VEYA firma+şube seçimi; süper admin hiçbir koşulda engellenmez; seçilen firma yerele upsert + çapraz-firma oturumu — canlı deploy sürüyor), ADR-058 (süper admin firma seçimi + zorunlu şube + Tüm Şubeler),

@@ -5,7 +5,7 @@
 > **Nasıl güncellersin?** İlgili ekranın altına düz cümleyle "şöyle olsun / şu yanlış / şunu ekle"
 > yaz. Anlamakta zorlanırsam sana sorarım, birlikte netleştiririz.
 >
-> Son güncelleme: 2026-07-11 · Son masaüstü paket: **1.0.34** (1.0.35 yerelde hazır, web'e yüklenmedi) · Migration: **032** · Test: **244**
+> Son güncelleme: 2026-07-11 · Son masaüstü paket: **1.0.35** (yayınlandı, self-contained) · Migration: **032** · Test: **244**
 >
 > **Mimari (ADR-057):** Web = **Blazor** (`src/DepoWise.Web`), sunucu DB = **SQLite**. (`apps/web` Next.js donmuş.)
 >
