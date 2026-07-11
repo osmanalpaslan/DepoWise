@@ -84,10 +84,11 @@ public sealed partial class ShellViewModel : ViewModelBase
         {
             var ok = await LookupSyncService.SyncNowAsync(p =>
                 Avalonia.Threading.Dispatcher.UIThread.Post(() => SyncProgress = p));
-            // Tanım çekme + iş verisini sunucuya gönder (web görünürlüğü).
+            // Tanım çekme + iş verisini gönder (web görünürlüğü) + DİĞER makinelerin verisini geri çek (çok makineli görünürlük).
             await BusinessSyncPushService.PushAsync();
+            await BusinessSyncPullService.PullAsync();
             await ConfirmService.AskAsync(
-                ok ? "Eşitleme başarıyla tamamlandı. Tanımlar güncel." :
+                ok ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
                      "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
                 "Eşitle", "Tamam", "Tamam", danger: !ok);
         }
@@ -101,6 +102,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         if ((DateTime.UtcNow - _lastBusinessPush).TotalSeconds < 180) return;
         _lastBusinessPush = DateTime.UtcNow;
         await BusinessSyncPushService.PushAsync();
+        await BusinessSyncPullService.PullAsync(); // diğer makinelerin verisini geri çek (çok makineli görünürlük)
         await WarnConflictsAsync();
     }
 

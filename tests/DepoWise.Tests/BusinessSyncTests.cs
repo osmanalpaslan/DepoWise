@@ -62,6 +62,52 @@ public class BusinessSyncTests : IDisposable
     }
 
     [Fact]
+    public void CokMakineli_GeriCekme_BMakinesi_ANinVerisiniGorur()
+    {
+        // A makinesi (_src) + Sunucu (_dst) + B makinesi (3. DB)
+        var bPath = Path.Combine(Path.GetTempPath(), "dw_bsync_b_" + Guid.NewGuid().ToString("N") + ".db");
+        var bFactory = new SqliteConnectionFactory(bPath);
+        try
+        {
+            new MigrationRunner(bFactory).Run();
+            SeedCompany(_src, "ACME"); SeedCompany(_dst, "ACME"); SeedCompany(bFactory, "ACME");
+
+            // A makinesi personel girer → sunucuya PUSH
+            InsertPersonnel(_src, "pA", "ACME", "Ahmet (A makinesi)", 100);
+            using (var snapA = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME")))
+                new BusinessSyncService(_dst, _clock).Apply("ACME", snapA.RootElement);
+
+            // B makinesi başta A'nın verisini GÖRMEZ
+            Assert.Null(Scalar(bFactory, "SELECT full_name FROM personnel WHERE id='pA';"));
+
+            // B makinesi GERİ-ÇEKER (server → B) → artık A'nın verisini görür
+            using (var snapS = JsonDocument.Parse(new BusinessSyncService(_dst, _clock).BuildSnapshot("ACME")))
+                new BusinessSyncService(bFactory, _clock).ApplyPull("ACME", snapS.RootElement,
+                    new HashSet<string>(StringComparer.Ordinal) { "stock_balances" });
+
+            Assert.Equal("Ahmet (A makinesi)", Scalar(bFactory, "SELECT full_name FROM personnel WHERE id='pA';"));
+        }
+        finally { try { SqliteConnection.ClearAllPools(); File.Delete(bPath); } catch { } }
+    }
+
+    [Fact]
+    public void GeriCekme_HaricTutulanTablo_Uygulanmaz()
+    {
+        SeedCompany(_src, "ACME"); SeedCompany(_dst, "ACME");
+        // Sunucuda bir stock_balances satırı (türetilmiş) olsun
+        Exec(_src, "INSERT INTO materials(id,company_id,code,name,unit_price,currency_code,created_at,updated_at,version,is_deleted) " +
+                   "VALUES('m1','ACME','K1','Malzeme',0,'TRY',1,100,1,0);");
+        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,quantity,updated_at) VALUES('ACME','m1',5,100);");
+
+        using var snap = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME"));
+        new BusinessSyncService(_dst, _clock).ApplyPull("ACME", snap.RootElement,
+            new HashSet<string>(StringComparer.Ordinal) { "stock_balances" });
+
+        Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';")); // malzeme uygulandı
+        Assert.Null(Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';")); // stock_balances HARİÇ
+    }
+
+    [Fact]
     public void Snapshot_SunucudaKayitOlusturur()
     {
         SeedCompany(_src, "ACME");

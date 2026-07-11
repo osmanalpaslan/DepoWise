@@ -309,7 +309,11 @@ public sealed partial class LoginViewModel : ViewModelBase
         DesktopServices.Session = _authedSession;
 
         _ = LookupSyncService.PullAsync(Username.Trim(), Password);   // tanım senkronu
-        _ = BusinessSyncPushService.PushAsync();                       // iş verisi push (web görünürlüğü)
+        _ = System.Threading.Tasks.Task.Run(async () =>              // iş verisi: önce gönder, sonra diğer makinelerinkini çek
+        {
+            await BusinessSyncPushService.PushAsync();
+            await BusinessSyncPullService.PullAsync();
+        });
         RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
         if (RememberMe) RememberMeService.Save(_authedSession);
         else RememberMeService.Clear();

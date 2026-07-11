@@ -273,6 +273,15 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
     return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, errors = res.Errors });
 }).RequireAuthorization();
 
+// İş verisi GERİ-ÇEKME (server → masaüstü): firmanın iş tablolarını snapshot olarak döndürür → masaüstü
+// diğer makinelerin verisini görür (çok makineli görünürlük). Oturumdaki firma zorlanır (tenant güvenli).
+app.MapGet("/api/sync/business-pull", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var snapshot = svc.BusinessSync.BuildSnapshot(s.CompanyId, "server");
+    return Results.Content(snapshot, "application/json");
+}).RequireAuthorization();
+
 // Çakışmalar — admin (tümü) / personel (görmediği, şube kapsamında)
 app.MapGet("/api/sync/conflicts", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(svc.BusinessSync.ListConflicts(s.CompanyId)) : Results.Unauthorized()).RequireAuthorization();

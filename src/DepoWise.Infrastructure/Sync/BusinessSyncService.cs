@@ -224,7 +224,13 @@ public sealed class BusinessSyncService
 
     public ApplyResult Apply(string companyId, JsonElement payload) => ApplyCore(companyId, payload, null);
 
-    private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable)
+    /// <summary>GERİ-ÇEKME (server → masaüstü): sunucudan gelen firmanın iş verisini YEREL DB'ye uygular (LWW).
+    /// Trusted (sunucu) veri olduğundan yazma-yetkisi filtresi yoktur. <paramref name="excludeTables"/> ile
+    /// belirli tablolar atlanır — örn. stock_balances (türetilmiş; sunucu-otoriteli hesaplama 2b'de gelecek).</summary>
+    public ApplyResult ApplyPull(string companyId, JsonElement payload, ISet<string>? excludeTables = null)
+        => ApplyCore(companyId, payload, null, excludeTables);
+
+    private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable, ISet<string>? excludeTables = null)
     {
         if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("tables", out var tablesEl) ||
             tablesEl.ValueKind != JsonValueKind.Object)
@@ -243,6 +249,7 @@ public sealed class BusinessSyncService
 
         foreach (var table in Tables) // FK-güvenli sıra
         {
+            if (excludeTables is not null && excludeTables.Contains(table)) continue; // geri-çekmede hariç (ör. stock_balances)
             if (!tablesEl.TryGetProperty(table, out var rowsEl) || rowsEl.ValueKind != JsonValueKind.Array) continue;
             if (!TableExists(conn, table)) continue;
             // Yetki: kullanıcı bu tablonun modülünde yazamıyorsa tüm tablo atlanır (hata değil, sessiz atla).
