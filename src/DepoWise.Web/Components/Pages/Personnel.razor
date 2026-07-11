@@ -4,19 +4,65 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-<MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">Çalışan Yönetimi</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
+    Hem <b>saha personeli</b> hem <b>uygulama kullanıcısı</b> tek yerde. Bir çalışana “Uygulama erişimi” verirseniz
+    kullanıcı hesabı (giriş) açılır. Bir çalışana yalnız <b>bir</b> hesap bağlanır.
+</MudText>
 
 @if (Auth.CanCreate("personnel"))
 {
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:680px;">
-        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ PERSONEL" : "PERSONEL DÜZENLE")</MudText>
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ÇALIŞAN" : "ÇALIŞAN DÜZENLE")</MudText>
+
+        @if (_dups.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                <b>Olası aynı kişi:</b> @string.Join(" · ", _dups.Select(DupLabel)) başka kayıtta var.
+                Aynı kişiyse kaydı açıp düzenleyin (Vazgeç); farklı kişiyse kaydı sürdürün.
+            </MudAlert>
+        }
+
         <MudGrid Spacing="2">
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Ad Soyad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad Soyad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" @bind-Value:after="OnKeyFieldsChanged" Label="Ad Soyad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="6"><MudTextField @bind-Value="_title" Label="Unvan" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="4"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_phone" @bind-Value:after="OnKeyFieldsChanged" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="5"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
             <MudItem xs="6" md="3" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_active" Label="Aktif" Dense="true" /></MudItem>
         </MudGrid>
+
+        @* ── Uygulama erişimi (kullanıcı hesabı) ── *@
+        @if (Auth.IsAdmin)
+        {
+            @if (_hasAccount)
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">
+                    Bu çalışanın uygulama hesabı var: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
+                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="RemoveAccount">Hesabı Kaldır</MudButton>
+                </MudAlert>
+            }
+            else
+            {
+                <div class="mt-2">
+                    <MudSwitch T="bool" @bind-Value="_grantAccess" Color="Color.Primary" Label="Uygulama erişimi ver (kullanıcı hesabı aç)" />
+                </div>
+                @if (_grantAccess)
+                {
+                    <MudGrid Spacing="2" Class="mt-0">
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_username" Label="Kullanıcı adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" @bind-Value="_roleKey" Label="Rol" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("role-staff")">Personel</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("role-company-admin")">Firma Admini</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_password" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                    </MudGrid>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ayrıntılı ekran yetkileri “Yetkiler” ekranından ayarlanır.</MudText>
+                }
+            }
+        }
+
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
@@ -27,23 +73,32 @@
 
 <MudPaper Class="pa-4" Elevation="2">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
-        <MudText Typo="Typo.h6">Personel Listesi</MudText><MudSpacer />
-        <MudTextField @bind-Value="_q" Placeholder="Personel ara (ad / unvan / telefon)" Immediate="true"
+        <MudText Typo="Typo.h6">Çalışan Listesi</MudText><MudSpacer />
+        <MudTextField @bind-Value="_q" Placeholder="Ara (ad / unvan / telefon)" Immediate="true"
                       Margin="Margin.Dense" Variant="Variant.Outlined" Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width:320px" Clearable="true" />
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz personel yok.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz çalışan yok.</MudText> }
     else
     {
         <MudTable Items="Filtered" Dense="true" Hover="true" Striped="true" T="JsonElement">
-            <HeaderContent><MudTh>AD SOYAD</MudTh><MudTh>UNVAN</MudTh><MudTh>TELEFON</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh></HeaderContent>
+            <HeaderContent><MudTh>AD SOYAD</MudTh><MudTh>UNVAN</MudTh><MudTh>TELEFON</MudTh><MudTh>ERİŞİM</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
-                @{ var id = Str(context, "id"); }
+                @{ var id = Str(context, "id"); var hasAcc = Bool(context, "hasAccount"); }
                 <MudTd>@Str(context, "fullName")</MudTd>
                 <MudTd>@Str(context, "title")</MudTd>
                 <MudTd>@Str(context, "phone")</MudTd>
+                <MudTd>
+                    @if (hasAcc)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="@(Bool(context, "accountAdmin") ? Color.Info : Color.Success)">
+                            @(Bool(context, "accountAdmin") ? "Admin" : "Kullanıcı") · @Str(context, "username")
+                        </MudChip>
+                    }
+                    else { <MudChip T="string" Size="Size.Small" Color="Color.Warning">Saha</MudChip> }
+                </MudTd>
                 <MudTd>@(Bool(context, "isActive") ? "Aktif" : "Pasif")</MudTd>
                 <MudTd>
                     @if (Auth.CanEdit("personnel")) { <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => BeginEdit(context))">Düzenle</MudButton> }
@@ -63,7 +118,14 @@
     private List<ApiClient.Opt> _branches = new();
     private JsonElement[]? _rows;
     private string _q = "";
-    private string? _msg; private bool _ok; private bool _busy; private bool _err;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    // Hesap / mükerrer
+    private bool _grantAccess;
+    private string _username = "", _password = "", _roleKey = "role-staff";
+    private bool _hasAccount, _accountAdmin; private string _accountUsername = "";
+    private List<JsonElement> _dups = new();
+    private bool _dupAck;
 
     private IEnumerable<JsonElement> Filtered
     {
@@ -85,39 +147,112 @@
 
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/personnel"); } catch { _rows = Array.Empty<JsonElement>(); } }
 
+    // Ad/telefon değişince olası mükerrer kaydı arka planda sorgula (yalnız yeni kayıtta).
+    private async Task OnKeyFieldsChanged()
+    {
+        _dupAck = false;
+        if (_editId is not null || string.IsNullOrWhiteSpace(_name)) { _dups = new(); return; }
+        try
+        {
+            var arr = await Api.GetArrayAsync($"/api/personnel/duplicates?fullName={Uri.EscapeDataString(_name)}&phone={Uri.EscapeDataString(_phone ?? "")}");
+            _dups = arr.ToList();
+        }
+        catch { _dups = new(); }
+    }
+
     private void BeginEdit(JsonElement r)
     {
         _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = Str(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _msg = null;
+        _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
+        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff"; _dups = new(); _dupAck = false;
     }
 
     private async Task Save()
     {
-        _err = true; _msg = null;
+        _msg = null;
         if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad Soyad zorunlu."; _ok = false; return; }
-        if (!await Dialog.Confirm(_editId is null ? "Personel eklensin mi?" : "Personel güncellensin mi?")) return;
+
+        // Yeni kayıt: mükerrer uyarısı (onaylanmadıysa)
+        if (_editId is null && _dups.Count > 0 && !_dupAck)
+        {
+            var names = string.Join("\n• ", _dups.Select(DupLabel));
+            if (!await Dialog.Confirm($"Aşağıdaki kişi(ler) zaten kayıtlı olabilir:\n\n• {names}\n\nAynı kişiyse Vazgeç deyip mevcut kaydı düzenleyin. Farklı kişiyse devam edin.", "Farklı kişi, devam et", danger: false))
+                return;
+            _dupAck = true;
+        }
+
+        bool wantAccount = Auth.IsAdmin && !_hasAccount && _grantAccess;
+        // Yeni kayıt + hesap yoksa: "saha personeli mi?" onayı
+        if (_editId is null && !wantAccount)
+        {
+            if (!await Dialog.Confirm("Bu çalışana uygulama erişimi (kullanıcı hesabı) verilmedi. Yalnız saha personeli olarak mı kaydedilsin?", "Evet, saha personeli"))
+                return;
+        }
+        if (wantAccount && (string.IsNullOrWhiteSpace(_username) || _password.Length < 4))
+        { _msg = "Hesap için kullanıcı adı ve en az 4 karakter şifre gerekli."; _ok = false; return; }
+
         _busy = true;
         try
         {
             var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active };
-            var err = _editId is null ? await Api.PostAsync("/api/personnel", body) : await Api.PutAsync($"/api/personnel/{_editId}", body);
-            _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
-            if (_ok) { Clear(); await LoadList(); }
+            string? id = _editId;
+            if (_editId is null)
+            {
+                var doc = await Api.PostJsonAsync("/api/personnel", body);
+                if (doc is null || !doc.Value.TryGetProperty("id", out var idv) || idv.ValueKind != JsonValueKind.String)
+                { _ok = false; _msg = "Çalışan eklenemedi."; return; }
+                id = idv.GetString();
+            }
+            else
+            {
+                var err = await Api.PutAsync($"/api/personnel/{_editId}", body);
+                if (err is not null) { _ok = false; _msg = err; return; }
+            }
+
+            if (wantAccount)
+            {
+                var accErr = await Api.PostAsync($"/api/personnel/{id}/account",
+                    new { username = _username.Trim(), password = _password, roleKey = _roleKey, branchId = _branch });
+                if (accErr is not null) { _ok = false; _msg = "Çalışan kaydedildi ama hesap açılamadı: " + accErr; await LoadList(); return; }
+            }
+            _ok = true; _msg = _editId is null ? "Eklendi." : "Güncellendi.";
+            Clear(); await LoadList();
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
 
+    private async Task RemoveAccount()
+    {
+        if (_editId is null) return;
+        if (!await Dialog.Confirm($"'{_accountUsername}' hesabının bu çalışana bağı kaldırılsın mı? (Hesap silinmez, bağ çözülür.)", "Evet, Kaldır", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/personnel/{_editId}/account");
+        _ok = err is null; _msg = err ?? "Hesap bağı kaldırıldı.";
+        if (_ok) { _hasAccount = false; _accountUsername = ""; await LoadList(); }
+    }
+
     private async Task Delete(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
-        if (!await Dialog.Confirm("Bu personel silinsin mi?", "Evet, Sil", danger: true)) return;
+        if (!await Dialog.Confirm("Bu çalışan silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/personnel/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await LoadList();
     }
 
-    private void Clear() { _err = false; _editId = null; _name = _title = _phone = ""; _branch = null; _active = true; }
+    private void Clear()
+    {
+        _editId = null; _name = _title = _phone = ""; _branch = null; _active = true;
+        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff";
+        _hasAccount = false; _accountAdmin = false; _accountUsername = ""; _dups = new(); _dupAck = false;
+    }
+
+    private static string DupLabel(JsonElement e)
+    {
+        var n = Str(e, "fullName"); var ph = Str(e, "phone");
+        return string.IsNullOrEmpty(ph) ? n : $"{n} ({ph})";
+    }
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Str(JsonElement row, string key)
