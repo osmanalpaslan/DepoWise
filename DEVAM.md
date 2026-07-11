@@ -34,6 +34,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 > - Yeni kullanım kılavuzu: `docs/KULLANIM_KILAVUZU.md`. Testler yeşil (251/251). **Canlıda:** API+Web deploy edildi
 >   (depowise-erp/web.fly.dev doğrulandı). **Masaüstü 1.0.37 YAYINLANDI** (self-contained 85.4 MB, checksum f85b4174…);
 >   açık makineler 60 sn'de otomatik güncelleme uyarısı alır.
+>
+> **Bugün 2. tur (2026-07-11) — ADR-063 (C/D/#5 uygulandı, #6 taslak):**
+> - **C** Güncelleme yeniden-başlat penceresi: "Şimdi Yeniden Başlat" / "10 Dakika Ertele" (her erteleme 10 dk, yazılı). *(masaüstü)*
+> - **D** Güncelleme bildirimleri birikmez: tek pencere; yeni paket çıkarsa açık pencerenin mesajı güncellenir. *(masaüstü)*
+> - **#5** Firma Yetki Kontrol **yeni tasarım uygulandı** (web, canlı) — özet kutular, arama, gruplama, 3 durumlu kontrol.
+> - **#6** Çalışan Yönetimi (Personel+Kullanıcı birleşik) **taslak hazır → onay bekliyor**: `docs/mockups/calisan-yonetimi-A.html`
+>   (mükerrer kişi uyarısı, tek kullanıcı, admin+ düzeltme, "saha personeli mi?" onayı).
+> - **Web deploy edildi** (company-permissions 200). **Masaüstü 1.0.38 YAYINLANDI** (checksum 6c13eb7a…). Test 251/251.
 
 
 > **✅ ÇÖZÜLDÜ (kesin) — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
