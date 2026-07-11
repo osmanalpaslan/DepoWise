@@ -97,6 +97,8 @@ static Task Write(HttpContext ctx, int code, string msg)
 // var; bu sayaç farklı kullanıcı adlarıyla taramayı keser. NAT arkasındaki ofisler (aynı IP'den çok kullanıcı)
 // kilitlenmesin diye pencere gevşek tutuldu: 30 istek / 5 dk / IP.
 var loginLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
+// Anonim liste uçları (firma/şube listesi) için gevşek sınır — normal girişi etkilemez, bot taramasını (scraping) keser.
+var publicLimiter = new RateLimiter(120, TimeSpan.FromMinutes(1));
 
 // Cihaz senkron token'ı (JWT değil) — ham Authorization
 static string? DeviceToken(HttpRequest r)
@@ -245,8 +247,9 @@ app.MapPost("/api/auth/sync-login", (HttpContext http, LoginDto dto) =>
 });
 
 // ── Login ekranı için PUBLIC firma + şube listesi (anonim; kod+şifre-var-mı) ──
-app.MapGet("/api/public/companies", () =>
+app.MapGet("/api/public/companies", (HttpContext http) =>
 {
+    if (!publicLimiter.Check("pub:" + (ClientIp(http) ?? "?")).Allowed) return Results.StatusCode(429);
     using var conn = svc.Factory.Create();
     using var cmd = conn.CreateCommand();
     cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
@@ -255,14 +258,18 @@ app.MapGet("/api/public/companies", () =>
     while (r.Read()) list.Add(new { id = r.GetString(0), name = r.GetString(1) });
     return Results.Ok(list);
 });
-app.MapGet("/api/public/branches", (string companyId) =>
+app.MapGet("/api/public/branches", (HttpContext http, string companyId) =>
 {
+    if (!publicLimiter.Check("pub:" + (ClientIp(http) ?? "?")).Allowed) return Results.StatusCode(429);
     if (string.IsNullOrWhiteSpace(companyId)) return Results.Ok(Array.Empty<object>());
     var rows = svc.Branches.ListForLogin(companyId);
     return Results.Ok(rows.Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword }));
 });
-app.MapPost("/api/public/verify-branch", (VerifyBranchDto d) =>
+app.MapPost("/api/public/verify-branch", (HttpContext http, VerifyBranchDto d) =>
 {
+    // Şube ŞİFRESİ doğrulaması → brute-force koruması (login ile aynı sıkı sınır: 30/5dk/IP).
+    var rl = loginLimiter.Check("branch:" + (ClientIp(http) ?? "?"));
+    if (!rl.Allowed) return Results.Json(new { error = $"Çok fazla deneme. {rl.RetrySeconds} sn sonra." }, statusCode: 429);
     var co = string.IsNullOrWhiteSpace(d.CompanyId) ? "DEPOWISE" : d.CompanyId!;
     return Results.Ok(new { ok = svc.Branches.VerifyBranchPassword(co, d.BranchId, d.BranchPassword) });
 });
