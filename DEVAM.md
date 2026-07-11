@@ -37,7 +37,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım. Web + API canlıda
 (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34** (1.0.35 henüz web'e yüklenmedi).
 
-**Ücretsiz sağlam-temel yol haritası (11.07):** (1) ✅ Kural kitabı gerçeğe uyduruldu (belge↔gerçek uyumsuzluğu — DEPOWISE_ANALYSIS/PROJE_REHBERI/PROJECT_STATE). (2a) ✅ Çok-makineli senkron GÖRÜNÜRLÜK: iş verisi geri-çekme (`/api/sync/business-pull` + `BusinessSyncPullService`); B makinesi artık A'nın verisini görür (test 246/246). Kalan: 2b stok sunucu-otoriteli, 2c tam kimlikli senkron (bkz. `docs/SENKRON_YOL_HARITASI.md`). Sıradaki ücretsiz: (3) sunucu log/gözlemlenebilirlik, (4) CI, (5) R10 UI, (6) PostgreSQL-hazırlık, (7) yük testi, (8) 1.0.35 yayını. Maddi kalemler: `docs/MALIYET_KALEMLERI.md`.
+**Ücretsiz sağlam-temel yol haritası (11.07) — çoğu TAMAM:**
+- (1) ✅ Kural kitabı gerçeğe uyduruldu (belge↔gerçek — DEPOWISE_ANALYSIS/PROJE_REHBERI/PROJECT_STATE + hafıza notu).
+- (2a) ✅ Çok-makineli senkron GÖRÜNÜRLÜK: iş verisi geri-çekme (`/api/sync/business-pull` + `BusinessSyncPullService`).
+- (2b) ✅ Stok bakiyesi SUNUCU-OTORİTELİ (`StockService.RecomputeBalances`, push sonrası) → "ezilme" çözüldü.
+- (3) ✅ Sunucu log/gözlemlenebilirlik (istek + açılış logu) — canlıda doğrulandı (`[REQ]/[WRN]/[ERR]`).
+- (4) ✅ CI (GitHub Actions: her push'ta Web derleme + 247 test) — ilk çalışma yeşil.
+- (9) ✅ Güvenlik: anonim uçlara rate limit (companies/branches gevşek; verify-branch sıkı brute-force).
+- (5) ✅ R10 aslen bitmiş (tüm menü→ViewModel bağlı; web 34 sayfa) — belgelendi.
+- (7) ✅ Yük testi aracı (`scripts/loadtest.mjs`); yerel baseline ~6400 req/s. Gerçek kapasite prod-boyutta ölçülmeli.
+- (6) 📄 PostgreSQL-hazırlık PLANI yazıldı (`docs/POSTGRESQL_HAZIRLIK.md`) — ölçek gerekince; temel hazır (38 servis soyut fabrika).
+- (2c) ⏳ Tam kimlikli çift-yönlü senkron (ileri çakışmalar) — ertelendi, `docs/SENKRON_YOL_HARITASI.md`.
+- **Kalan tek elle iş: 1.0.35 masaüstü paketini yayınla** (süper admin girişi gerekir — kullanıcı/creds).
+- Test 247/247 · maddi kalemler: `docs/MALIYET_KALEMLERI.md`.
 
 **Bugünkü büyük işler (hepsi canlıda + commit'li):** "Süper Admin" rolü kullanıcı oluştururken yalnız süper admin'e listelenir (`/api/roles` düzeltmesi — web; masaüstü zaten uyguluyordu; sunucu RoleAssignmentGuard zaten zorluyor). ADR-060 (MASAÜSTÜ süper admin login: "makine firması/şubesi ile giriş" kutucukları VEYA firma+şube seçimi; süper admin hiçbir koşulda engellenmez; seçilen firma yerele upsert + çapraz-firma oturumu — canlı deploy sürüyor), ADR-058 (süper admin firma seçimi + zorunlu şube + Tüm Şubeler),
 ADR-059 (admin-atanmış makine şubesi + IP'den il; masaüstü: ana ekranda makine şubesi, çevrimdışı oto-giriş,
