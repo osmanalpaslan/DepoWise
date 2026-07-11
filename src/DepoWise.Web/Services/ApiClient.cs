@@ -105,9 +105,13 @@ public sealed class ApiClient
         await RefreshMenuAsync();
     }
 
-    public async Task<List<MachineDto>> GetMachinesAsync(string? companyId = null)
+    public async Task<List<MachineDto>> GetMachinesAsync(string? companyId = null, string? branchId = null, bool unassigned = false)
     {
-        var url = string.IsNullOrWhiteSpace(companyId) ? "/api/machines" : $"/api/machines?companyId={companyId}";
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(companyId)) q.Add($"companyId={Uri.EscapeDataString(companyId)}");
+        if (!string.IsNullOrWhiteSpace(branchId)) q.Add($"branchId={Uri.EscapeDataString(branchId)}");
+        if (unassigned) q.Add("unassigned=true");
+        var url = "/api/machines" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
         var resp = await _http.SendAsync(Req(HttpMethod.Get, url));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<MachineDto>>() ?? new();

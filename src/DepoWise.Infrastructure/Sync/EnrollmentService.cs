@@ -357,9 +357,11 @@ public sealed class EnrollmentService
         cmd.ExecuteNonQuery();
     }
 
-    /// <summary>Kayıtlı makineler. Süper admin TÜM firmaların makinelerini görür (firma adı + kota ile);
-    /// diğer adminler yalnız kendi firmalarını. İsteğe bağlı companyId ile süper admin filtreleyebilir.</summary>
-    public IReadOnlyList<DeviceRow> ListDevices(SessionContext s, string? companyFilter = null)
+    /// <summary>Kayıtlı makineler — filtreli. Süper admin TÜM firmaları görür; diğer admin yalnız kendi firmasını.
+    /// <paramref name="companyFilter"/> + <paramref name="branchFilter"/> ile daraltılır (firma→şube akışı).
+    /// <paramref name="unassignedOnly"/>=true → yalnız ŞUBESİ ATANMAMIŞ ("kayıtsız") makineler; süper admin için
+    /// firma bağımsızdır. Her çağrı yalnız istenen kümeyi çeker (menü açılışında tüm makineleri çekmeden).</summary>
+    public IReadOnlyList<DeviceRow> ListDevices(SessionContext s, string? companyFilter = null, string? branchFilter = null, bool unassignedOnly = false)
     {
         if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz listesi yalnız admin.");
         using var conn = _factory.Create();
@@ -369,12 +371,18 @@ public sealed class EnrollmentService
                  "COALESCE(d.ip_v4,''), COALESCE(d.ip_v6,''), COALESCE(br.name,''), COALESCE(d.branch_id,'') " +
                  "FROM sync_devices d LEFT JOIN companies c ON c.id=d.company_id " +
                  "LEFT JOIN branches br ON br.id=d.branch_id ";
-        if (!s.IsSuperAdmin) { sb += "WHERE d.company_id=$c "; }
-        else if (!string.IsNullOrWhiteSpace(companyFilter)) { sb += "WHERE d.company_id=$c "; }
+
+        var conds = new List<string>();
+        // Tenant sınırı: süper admin değilse daima kendi firması. Kayıtsız modda süper admin firma-bağımsız.
+        if (!s.IsSuperAdmin) { conds.Add("d.company_id=$c"); cmd.Parameters.AddWithValue("$c", s.CompanyId); }
+        else if (!unassignedOnly && !string.IsNullOrWhiteSpace(companyFilter)) { conds.Add("d.company_id=$c"); cmd.Parameters.AddWithValue("$c", companyFilter!); }
+
+        if (unassignedOnly) conds.Add("d.branch_id IS NULL"); // "kayıtsız" = şube atanmamış
+        else if (!string.IsNullOrWhiteSpace(branchFilter)) { conds.Add("d.branch_id=$b"); cmd.Parameters.AddWithValue("$b", branchFilter!); }
+
+        if (conds.Count > 0) sb += "WHERE " + string.Join(" AND ", conds) + " ";
         sb += "ORDER BY d.created_at DESC;";
         cmd.CommandText = sb;
-        if (!s.IsSuperAdmin) cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        else if (!string.IsNullOrWhiteSpace(companyFilter)) cmd.Parameters.AddWithValue("$c", companyFilter!);
         var list = new List<DeviceRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

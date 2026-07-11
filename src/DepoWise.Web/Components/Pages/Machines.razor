@@ -7,28 +7,50 @@
 <PageTitle>Makineler — DepoWise</PageTitle>
 
 <MudText Typo="Typo.h5" GutterBottom="true">Makine Yönetimi</MudText>
-<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Kayıtlı makineleri onaylayın / pasife alın. Firma kotası dahilindeki makineler otomatik giriş yapabilir. (Süper Admin)</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Önce firma + şube seçip sorgulayın; ya da şube atanmamış "Kayıtsız Makineler"i listeleyin. Her sorgu yalnız seçilen makineleri çeker.</MudText>
 
 <MudPaper Class="pa-4" Elevation="2">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
-        @if (Auth.IsSuperAdmin)
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
+        <MudSelect T="string" @bind-Value="_mode" Label="Görünüm" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="min-width:190px">
+            <MudSelectItem T="string" Value="@("byBranch")">Firma + Şube</MudSelectItem>
+            <MudSelectItem T="string" Value="@("unassigned")">Kayıtsız Makineler (şubesiz)</MudSelectItem>
+        </MudSelect>
+
+        @if (_mode == "byBranch")
         {
-            <MudSelect T="string" @bind-Value="_companyId" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="min-width:220px" Dense="true">
-                @foreach (var co in _companies) { <MudSelectItem T="string" Value="@co.Id">@co.Name</MudSelectItem> }
-            </MudSelect>
-            @if (!string.IsNullOrEmpty(_companyId))
+            @if (Auth.IsSuperAdmin)
             {
-                <MudNumericField T="int" @bind-Value="_quota" Label="Makine Kotası" Min="1" Max="999" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px" />
-                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveQuota">Kotayı Kaydet</MudButton>
+                <MudSelect T="string" Value="_companyId" ValueChanged="OnCompanyChanged" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="min-width:200px" Dense="true">
+                    @foreach (var co in _companies) { <MudSelectItem T="string" Value="@co.Id">@co.Name</MudSelectItem> }
+                </MudSelect>
+            }
+            <MudSelect T="string" @bind-Value="_branchId" Label="Şube / Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="min-width:200px" Dense="true"
+                       Disabled="@(Auth.IsSuperAdmin && string.IsNullOrEmpty(_companyId))">
+                @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+            </MudSelect>
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Query"
+                       Disabled="@(string.IsNullOrEmpty(_branchId))">Sorgula</MudButton>
+            @if (Auth.IsSuperAdmin && !string.IsNullOrEmpty(_companyId))
+            {
+                <MudNumericField T="int" @bind-Value="_quota" Label="Makine Kotası" Min="1" Max="999" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px" />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="SaveQuota">Kotayı Kaydet</MudButton>
             }
         }
+        else
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Query">Kayıtsız Makineleri Getir</MudButton>
+        }
+
         <MudSpacer />
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+        @if (_machines is not null) { <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Query">Yenile</MudButton> }
     </MudStack>
+
     @if (_msg is not null) { <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">@_msg</MudAlert> }
     @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
-    @if (_machines is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Kayıtlı makine yok (makineler açıldığında otomatik listelenir).</MudText> }
+
+    @if (_loading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_machines is null) { <MudText Class="mud-text-secondary">Sorgulamak için firma + şube seçip "Sorgula"ya basın, ya da "Kayıtsız Makineler"i getirin.</MudText> }
+    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Bu seçimde makine yok.</MudText> }
     else
     {
         <MudTable Items="_machines" Dense="true" Hover="true" Striped="true">
@@ -70,13 +92,16 @@
 </MudPaper>
 
 @code {
-    private List<MachineDto>? _machines;
+    private List<MachineDto>? _machines;   // null = henüz sorgulanmadı
+    private bool _loading;
+    private string _mode = "byBranch";
     private List<ApiClient.Opt> _companies = new();
-    private readonly Dictionary<string, List<ApiClient.Opt>> _branchesByCompany = new();
+    private List<ApiClient.Opt> _branches = new();                       // seçili firmanın (veya kendi firmasının) şubeleri
+    private readonly Dictionary<string, List<ApiClient.Opt>> _branchesByCompany = new(); // atama açılır-listesi için
     private string? _companyId;
+    private string? _branchId;
     private int _quota = 3;
     private string? _error, _msg;
-    private string? _lastCompany;
 
     private List<ApiClient.Opt> BranchesFor(string companyId)
         => _branchesByCompany.TryGetValue(companyId, out var list) ? list : new();
@@ -84,38 +109,48 @@
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.IsAuthenticated) return;
-        if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
-        await Load();
+        if (Auth.IsSuperAdmin)
+            _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+        else if (!string.IsNullOrEmpty(Auth.CompanyId))
+        {
+            _branches = await Api.GetBranchOptionsAsync(Auth.CompanyId);   // normal admin: kendi firması
+            _branchesByCompany[Auth.CompanyId] = _branches;
+        }
+        // Makineler burada YÜKLENMEZ (lazy) — kullanıcı seçim yapıp Sorgula'ya basınca çekilir.
     }
 
-    protected override async Task OnAfterRenderAsync(bool first)
+    private async Task OnCompanyChanged(string? companyId)
     {
-        if (Auth.IsSuperAdmin && _companyId != _lastCompany)
-        {
-            _lastCompany = _companyId;
-            await Load();
-            SyncQuota();
-            StateHasChanged();
-        }
+        _companyId = companyId;
+        _branchId = null;
+        _branches = string.IsNullOrEmpty(companyId) ? new() : await Api.GetBranchOptionsAsync(companyId);
+        if (!string.IsNullOrEmpty(companyId)) _branchesByCompany[companyId] = _branches;
+        SyncQuota();
     }
 
     private void SyncQuota()
     {
-        if (string.IsNullOrEmpty(_companyId)) return;
         var m = _machines?.FirstOrDefault(x => x.CompanyId == _companyId);
         if (m is not null) _quota = m.Quota;
     }
 
-    private async Task Load()
+    private async Task Query()
     {
-        _error = null;
+        _error = _msg = null; _loading = true;
         try
         {
-            _machines = await Api.GetMachinesAsync(Auth.IsSuperAdmin ? _companyId : null);
+            if (_mode == "unassigned")
+                _machines = await Api.GetMachinesAsync(unassigned: true);
+            else
+            {
+                var company = Auth.IsSuperAdmin ? _companyId : Auth.CompanyId;
+                _machines = await Api.GetMachinesAsync(company, _branchId);
+            }
             SyncQuota();
             await LoadBranchesForMachines();
         }
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
+        finally { _loading = false; }
     }
 
     // Listedeki makinelerin firmalarına ait şubeleri (atama açılır-listesi için) yükle.
@@ -135,7 +170,7 @@
         {
             var bname = string.IsNullOrEmpty(branchId) ? null : BranchesFor(m.CompanyId).FirstOrDefault(b => b.Id == branchId)?.Name;
             _msg = string.IsNullOrEmpty(branchId) ? $"'{m.Name}' makinesinin şube ataması kaldırıldı." : $"'{m.Name}' → '{bname}' şubesine atandı.";
-            await Load();
+            await Query();
         }
         else _error = err;
     }
@@ -145,16 +180,16 @@
         _msg = _error = null;
         if (string.IsNullOrEmpty(_companyId)) return;
         var err = await Api.SetMachineQuotaAsync(_companyId, _quota);
-        if (err is null) { _msg = $"Kota {_quota} olarak kaydedildi."; await Load(); }
+        if (err is null) { _msg = $"Kota {_quota} olarak kaydedildi."; }
         else _error = err;
     }
 
-    private async Task Approve(string id) { try { await Api.ApproveMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
-    private async Task Revoke(string id) { try { await Api.RevokeMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
-    private async Task Reactivate(string id) { try { await Api.ReactivateMachineAsync(id); await Load(); } catch (Exception ex) { _error = ex.Message; } }
+    private async Task Approve(string id) { try { await Api.ApproveMachineAsync(id); await Query(); } catch (Exception ex) { _error = ex.Message; } }
+    private async Task Revoke(string id) { try { await Api.RevokeMachineAsync(id); await Query(); } catch (Exception ex) { _error = ex.Message; } }
+    private async Task Reactivate(string id) { try { await Api.ReactivateMachineAsync(id); await Query(); } catch (Exception ex) { _error = ex.Message; } }
     private async Task Delete(MachineDto m)
     {
         if (!await Dialog.Confirm($"'{m.Name}' makine kaydı kalıcı olarak silinsin mi?", "Evet, Sil", danger: true)) return;
-        try { await Api.DeleteMachineAsync(m.Id); await Load(); } catch (Exception ex) { _error = ex.Message; }
+        try { await Api.DeleteMachineAsync(m.Id); await Query(); } catch (Exception ex) { _error = ex.Message; }
     }
 }

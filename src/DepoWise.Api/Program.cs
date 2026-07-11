@@ -321,12 +321,15 @@ app.MapPost("/api/sync/conflicts/seen", (HttpContext c, ConflictSeenDto d) =>
 app.MapPost("/api/sync/conflicts/{id}/resolve", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.BusinessSync.ResolveConflict(s.CompanyId, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
-// ── Makine yönetimi (JWT — admin) ──
-app.MapGet("/api/machines", (HttpContext ctx, string? companyId) =>
+// ── Makine yönetimi (JWT — admin) ── firma+şube filtresi VEYA kayıtsız (şubesiz) makineler (firma bağımsız)
+app.MapGet("/api/machines", (HttpContext ctx, string? companyId, string? branchId, bool? unassigned) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    var rows = svc.Enrollment.ListDevices(s, companyId).Select(d => new
+    var rows = svc.Enrollment.ListDevices(s,
+        string.IsNullOrWhiteSpace(companyId) ? null : companyId,
+        string.IsNullOrWhiteSpace(branchId) ? null : branchId,
+        unassigned == true).Select(d => new
     {
         id = d.Id, name = d.Name, status = d.Status, statusText = d.StatusText,
         lastSeenText = d.LastSeenText, createdText = d.CreatedText, canActivate = d.CanActivate, isActive = d.IsActive,

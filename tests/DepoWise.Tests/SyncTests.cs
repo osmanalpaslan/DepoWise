@@ -66,6 +66,28 @@ public class SyncTests : IDisposable
     }
 
     [Fact]
+    public void Makine_Listesi_Filtreler_Sube_ve_Kayitsiz()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var branchId = branches.Create(_admin, new NewBranch("Merkez"));
+        // İki makine: biri şube atanmış, biri kayıtsız (şubesiz)
+        var m1 = _enroll.RegisterSelf("A", "PC-Atanmis").DeviceId;
+        _enroll.AssignBranch(_admin, m1, branchId);
+        _enroll.RegisterSelf("A", "PC-Kayitsiz"); // şubesiz kalır
+
+        // Tümü (filtre yok)
+        Assert.Equal(2, _enroll.ListDevices(_admin).Count);
+        // Şube filtresi → yalnız atanmış
+        var byBranch = _enroll.ListDevices(_admin, companyFilter: null, branchFilter: branchId);
+        Assert.Single(byBranch);
+        Assert.Equal("PC-Atanmis", byBranch[0].Name);
+        // Kayıtsız → yalnız şubesiz
+        var unassigned = _enroll.ListDevices(_admin, companyFilter: null, branchFilter: null, unassignedOnly: true);
+        Assert.Single(unassigned);
+        Assert.Equal("PC-Kayitsiz", unassigned[0].Name);
+    }
+
+    [Fact]
     public void Makine_Sube_Atama_YalnizAdmin_VeGecerliSube()
     {
         var branches = new BranchService(_factory, _clock);
