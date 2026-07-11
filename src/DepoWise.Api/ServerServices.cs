@@ -122,6 +122,17 @@ public sealed class ServerServices
             var pw = SeedPassword("DEPOWISE_SEED_SUPERADMIN_PASSWORD", "superadmin");
             Users.EnsureInitialAdmin("DEPOWISE", "superadmin", pw, RoleKeys.SuperAdmin);
         }
+
+        // SELF-HEAL (kilit kurtarma): pasife düşmüş süper admin(ler)i her açılışta yeniden aktifleştir. Süper admin
+        // platform sahibidir, hiçbir koşulda pasif kalmamalı. Firma silme artık süper admini pasife almıyor
+        // (CompanyService.Delete); bu satır geçmişte kilitlenmiş kurulumları da bir redeploy ile kurtarır.
+        using var heal = conn.CreateCommand();
+        heal.CommandText =
+            "UPDATE users SET is_active=1 WHERE is_deleted=0 AND is_active=0 " +
+            "AND id IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$k);";
+        heal.Parameters.AddWithValue("$k", RoleKeys.SuperAdmin);
+        var healed = heal.ExecuteNonQuery();
+        if (healed > 0) Console.WriteLine($"[DepoWise] Self-heal: {healed} pasif süper admin yeniden aktifleştirildi.");
     }
 
     /// <summary>İlk kurulum şifresi: env'den; yoksa RASTGELE üretilir ve bir kez konsola/loga yazılır.

@@ -26,8 +26,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 > **Bugün (2026-07-12) — #6 Çalışan Yönetimi MASAÜSTÜ tamamlandı (Faz4):**
 > - Masaüstü Personel ekranı → **Çalışan Yönetimi**: erişim rozeti (Saha/Kullanıcı/Admin), mükerrer kişi uyarısı,
 >   "Uygulama erişimi ver" ile aynı formda hesap açma (kullanıcı adı/şifre/rol), saha-personeli onayı, hesap bağını kaldır (admin).
->   Web (Faz3) ile işlevsel eşit. Build 0 hata, **test 252/252**. *(Henüz masaüstü paketi yayınlanmadı.)*
-> - **Sıradaki:** son promttaki **hata listesi** — ilk ve kritik olan **süper admin login olamama** (§3).
+>   Web (Faz3) ile işlevsel eşit. Build 0 hata, **test 253/253**. *(Henüz masaüstü paketi yayınlanmadı.)*
+>
+> **Bugün (2026-07-12) — KRİTİK ÇÖZÜLDÜ: süper admin kilitlenme (ADR-064):**
+> - Kök neden: firma silinince o firmadaki TÜM kullanıcılar pasife alınıyordu; süper admin kendi firmasını silince
+>   kendini kilitliyordu ("kullanıcı adı veya parola hatalı"). Çözüm: firma silme süper admini pasife almaz +
+>   sunucu açılışında pasif süper adminleri aktifleştiren self-heal + regresyon testi. Hafızaya kaydedildi.
+> - **⚠️ CANLI TAKİP:** Kilitli süper admin canlıda ancak **API (`depowise-erp`) yeniden yayınlanınca** açılır (self-heal).
+> - **Sıradaki:** son promttaki kalan hatalar — silinen şubeler her yerde listeleniyor, firma listesi 401, masaüstü-web firma senkron, unvan sabit tanım, kota online dedup, logolar.
 
 > **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
 > - **#1 Pasif firma yeniden aktifleştirme (sözleşme yenileme):** Firma silinince kullanıcılar pasife alınıyordu;

@@ -174,12 +174,17 @@ ORDER BY c.name;";
 
         // Bağlı kullanıcılar SİLİNMEZ, yalnız PASİFE alınır (is_active=0, is_deleted=0). Yanlışlıkla firma silinirse
         // kullanıcılar korunur; firma geri yüklenince tekrar aktifleştirilebilir. Kullanıcı verisi kaybolmaz.
+        // KRİTİK: Süper Admin ASLA pasife alınmaz (platform sahibi) — aksi halde kendi home firmasını silen
+        // süper admin sistemden tamamen kilitlenir ("kullanıcı adı veya parola hatalı"). Bkz. self-heal (ServerServices).
         using (var deact = conn.CreateCommand())
         {
             deact.Transaction = tx;
-            deact.CommandText = "UPDATE users SET is_active=0, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=1;";
+            deact.CommandText =
+                "UPDATE users SET is_active=0, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=1 " +
+                "AND id NOT IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$sa);";
             deact.Parameters.AddWithValue("$id", id);
             deact.Parameters.AddWithValue("$now", now);
+            deact.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
             deact.ExecuteNonQuery();
         }
         using (var cmd = conn.CreateCommand())

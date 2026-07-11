@@ -87,6 +87,29 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void Firma_Silme_SuperAdmini_PasifeAlmaz() // regresyon: süper admin kendi firmasını silince kilitlenmemeli
+    {
+        var su = SuperAdmin(); // firma A + süper admin (su.UserId)
+        var svc = new DepoWise.Infrastructure.Organization.CompanyService(_factory, _clock);
+
+        svc.Delete(su, "A"); // süper admin KENDİ home firmasını siler
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT is_active, is_deleted FROM users WHERE id=$u;";
+        cmd.Parameters.AddWithValue("$u", su.UserId);
+        using var r = cmd.ExecuteReader();
+        Assert.True(r.Read());
+        Assert.Equal(1L, r.GetInt64(0)); // is_active=1 → süper admin AKTİF kalmalı (kilitlenmez)
+        Assert.Equal(0L, r.GetInt64(1)); // is_deleted=0
+
+        // Ve tekrar giriş yapabilmeli (kritik senaryo: çıkış → yeniden login)
+        var auth = new AuthService(_factory, _clock);
+        var login = auth.Login("A", "root", "root123");
+        Assert.True(login.Success);
+    }
+
+    [Fact]
     public void Calisan_MukerrerPersonel_VeTekKullanici()
     {
         var su = SuperAdmin(); // firma A + süper admin
