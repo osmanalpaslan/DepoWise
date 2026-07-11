@@ -16,8 +16,9 @@ namespace DepoWise.Desktop;
 public static class BusinessSyncPullService
 {
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
-    // Geri-çekmede uygulanmayan tablolar (türetilmiş/otoriteli olması gerekenler).
-    private static readonly System.Collections.Generic.HashSet<string> Exclude = new(StringComparer.Ordinal) { "stock_balances" };
+    // Senkron 2b sonrası: stock_balances artık SUNUCU-OTORİTELİ (push sonrası sunucu hareketlerden hesaplar) →
+    // geri-çekmede uygulanır (LWW; sunucunun birleşik/doğru bakiyesi gelir). Hariç tablo kalmadı.
+    private static readonly System.Collections.Generic.HashSet<string>? Exclude = null;
 
     /// <summary>Sunucudan firmanın iş snapshot'ını çekip yerele uygular. Hata → sessiz (best-effort).</summary>
     public static async Task PullAsync()

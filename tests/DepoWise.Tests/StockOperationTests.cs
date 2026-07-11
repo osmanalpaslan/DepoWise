@@ -38,6 +38,23 @@ public class StockOperationTests : IDisposable
     private string Mat(string code) => _materials.Create(_admin, new NewMaterial(code, code));
 
     [Fact]
+    public void RecomputeBalances_HareketDefterindenDogruHesaplar_BozukSnapshotEzmez()
+    {
+        var m = Mat("M-RC");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "op-a"); // +10
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, "op-b");  // +5  → 15
+        _stock.IssueOut(_admin, new[] { new StockLine(m, 3m) }, "op-c");   // -3  → 12
+
+        // Bakiyeyi KASTEN boz (kötü/eski istemci snapshot'ı gibi) → recompute düzeltmeli
+        using (var conn = _factory.Create())
+        using (var cmd = conn.CreateCommand())
+        { cmd.CommandText = "UPDATE stock_balances SET quantity='999' WHERE material_id=$m;"; cmd.Parameters.AddWithValue("$m", m); cmd.ExecuteNonQuery(); }
+
+        _stock.RecomputeBalances("A"); // hareket defterinden yeniden hesapla (sunucu-otoriteli)
+        Assert.Equal(12m, _stock.GetBalance(m)); // 10+5-3 = 12 (999 düzeltildi)
+    }
+
+    [Fact]
     public void Giris_BakiyeyiArtirir_BelgeNoUretir()
     {
         var m = Mat("M-1");

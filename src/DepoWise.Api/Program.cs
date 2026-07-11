@@ -270,6 +270,8 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
     using var doc = await System.Text.Json.JsonDocument.ParseAsync(c.Request.Body);
     // Yetki-farkında: kullanıcının yazamadığı modüllerin tabloları uygulanmaz + içerik doğrulaması yapılır.
     var res = svc.BusinessSync.Apply(s, doc.RootElement);
+    // Senkron 2b: hareketler uygulandıktan sonra stok bakiyesini SUNUCU yeniden hesaplar (birleşik, otoriteli).
+    try { svc.Stock.RecomputeBalances(s.CompanyId); } catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {ex.Message}"); }
     return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, errors = res.Errors });
 }).RequireAuthorization();
 

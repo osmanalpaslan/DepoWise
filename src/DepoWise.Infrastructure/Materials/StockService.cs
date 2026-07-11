@@ -260,6 +260,50 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
+    /// <summary>
+    /// SUNUCU-OTORİTELİ bakiye (Senkron 2b): firmanın TÜM stok bakiyelerini hareket defterinden yeniden hesaplar.
+    /// balance(malzeme) = Σ(direction × quantity) tüm hareketler (ters hareket ayrı satır olarak toplama girer).
+    /// Money ile decimal-kesin (quantity TEXT). Çok makineli senkronda push sonrası çağrılır → makinelerin
+    /// birleşik hareketlerinden DOĞRU tek bakiye üretir (istemci snapshot'ı birbirini ezmez).
+    /// </summary>
+    public void RecomputeBalances(string companyId)
+    {
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+
+        var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        using (var read = conn.CreateCommand())
+        {
+            read.Transaction = tx;
+            read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=$c;";
+            read.Parameters.AddWithValue("$c", companyId);
+            using var r = read.ExecuteReader();
+            while (r.Read())
+            {
+                var mat = r.GetString(0);
+                long dir = r.GetInt64(1);
+                var qty = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
+                totals.TryGetValue(mat, out var cur);
+                totals[mat] = cur + dir * qty;
+            }
+        }
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var (mat, total) in totals)
+        {
+            using var up = conn.CreateCommand();
+            up.Transaction = tx;
+            up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now) " +
+                "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
+            up.Parameters.AddWithValue("$c", companyId);
+            up.Parameters.AddWithValue("$m", mat);
+            up.Parameters.AddWithValue("$q", Money.Serialize(total));
+            up.Parameters.AddWithValue("$now", now);
+            up.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
     private static string InsertMovement(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId,
         string documentId, string movementType, int direction, decimal quantity, decimal? unitPrice, string? currency,
         decimal? fxRate, string operationId, string? note, long now, string? branchId, string? branchFromId, string? groupId, string? reversesId,
