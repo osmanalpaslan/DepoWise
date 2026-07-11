@@ -186,6 +186,7 @@ Sonra `gh auth login` (GitHub), `flyctl auth login` (deploy için), `git clone h
 
 | İhtiyaç | Dosya |
 |---|---|
+| **Yarım kalan işler + testleri (sıradaki ne?)** | [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
 | Ekranların çalışma mantığı + backlog (ortak defter) | [docs/PROJE_REHBERI.md](docs/PROJE_REHBERI.md) |
 | Detaylı faz faz ne yapıldı | [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) |
 | Açık/kapalı bilinen sorunlar (R-numaraları) | [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) |
