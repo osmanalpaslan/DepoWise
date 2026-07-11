@@ -36,7 +36,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım. Web + API canlıda
 (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34** (1.0.35 henüz web'e yüklenmedi).
 
-**Bugünkü büyük işler (hepsi canlıda + commit'li):** ADR-058 (süper admin firma seçimi + zorunlu şube + Tüm Şubeler),
+**Bugünkü büyük işler (hepsi canlıda + commit'li):** ADR-060 (MASAÜSTÜ süper admin login: "makine firması/şubesi ile giriş" kutucukları VEYA firma+şube seçimi; süper admin hiçbir koşulda engellenmez; seçilen firma yerele upsert + çapraz-firma oturumu — canlı deploy sürüyor), ADR-058 (süper admin firma seçimi + zorunlu şube + Tüm Şubeler),
 ADR-059 (admin-atanmış makine şubesi + IP'den il; masaüstü: ana ekranda makine şubesi, çevrimdışı oto-giriş,
 kullanıcı/makine şubesi yoksa giriş engeli). Masaüstü değişiklikleri **1.0.35 paketi yayınlanınca** görünür.
 **Açık küçük iş:** Oze Group firmasının sunucuda 0 şubesi var (şubeler web-otoriteli; geçmişte masaüstünde kalmış) →

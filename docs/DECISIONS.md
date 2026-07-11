@@ -307,6 +307,16 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-060 — Masaüstü süper admin girişi: firma+şube seçimi / makine firması-şubesi (10.07.2026)
+- **Bağlam:** Masaüstünde süper admin kendi firmasına (DEPOWISE) giriyordu → web'de yönettiği firmanın (ör. Oze Group) şubelerini göremiyordu. Kullanıcı isteği: "süper adminin firması olmaz, bütün firmalara erişebilir. Login 2. aşamada 'makine firması ile giriş' + 'makine şubesi ile giriş' kutucukları olsun; işaretliyse makineye tanımlı firma+şube ile gir, değilse firma+şube seç; ve hiçbir koşul süper admini durdurmasın."
+- **Karar:**
+  - Sunucu: makine kayıt/heartbeat yanıtı artık makinenin **firmasını** da döner (`RegisterResult.CompanyId/Name`; `ReadDeviceInfo` companies join). Masaüstü bunu önbelleğe alır (çevrimdışı için).
+  - Masaüstü `LoginViewModel`: süper admin ADIM 2 = iki kutucuk (**Makine firması ile giriş**, **Makine şubesi ile giriş**; makine firması/şubesi varsa varsayılan işaretli) + firma ComboBox (işaretsizken) + şube ComboBox. Süper admin **hiçbir koşulda engellenmez** (şube seçilmese bile → Tüm Şubeler).
+  - Seçilen firma süper adminin kendi firması değilse: firma + şubeleri **yerel DB'ye upsert** edilir ve `AuthService.CreateSessionForUser` ile **çapraz-firma oturumu** kurulur (bu, masaüstü `AuthService`'inin ADR-057'deki süper admin çapraz-firma yeteneğini kullanır).
+  - Normal (süper olmayan) kullanıcı akışı ADR-059'daki gibi kalır (makine/kullanıcı şubesi zorunlu, çevrimdışı oto-giriş).
+- **Bilinen sınır:** Seçilen başka firmanın **operasyonel verisi** (stok/araç/bakım…) yerelde yoksa o ekranlar boş olabilir — bu akış yalnız firma+şube **tanımlarını** yerele senkronlar; iş verisi senkronu ayrı bir konu. Gerçek çok-firmalı kullanımda test edilmeli.
+- **Gerekçe:** Kullanıcının son açık talebi (CLAUDE.md §1). Suit 244/244, masaüstü açılış smoke-test OK; GUI login akışı gerçek makinede doğrulanmalı. Görünürlük: yeni masaüstü paketi (1.0.35) veya dev kısayolu (güncel DLL).
+
 ### ADR-059 — Admin-tanımlı makine şubesi + IP'den il (10.07.2026, TAMAM — sunucu+web+masaüstü)
 - **Bağlam:** Kullanıcı isteği: makinenin şubesi artık "ilk giriş yapanın şubesi" (yerel) değil, **admin'in web'den atadığı** şube olsun (otoriter). Ana sayfa bu şubeyi göstersin; farklı şube personeli girip işlem yaparsa "kayıtlar makine şubesine yazılmaz" uyarısı; internet yoksa makinenin şubesine otomatik giriş; kullanıcıya VEYA makineye şube tanımlı değilse giriş engellensin. Makine atama ekranı IP'den il gösterip tanımayı kolaylaştırsın.
 - **Karar (Adım 1 — sunucu + web, TAMAM):**
