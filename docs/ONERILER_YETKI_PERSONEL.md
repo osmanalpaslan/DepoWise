@@ -1,11 +1,16 @@
 # Öneriler — Firma Yetki Kontrol (#5) ve Personel+Yetki Birleştirme (#6)
 
-> Durum: **ÖNERİ / ONAY BEKLİYOR.** Bu belgedeki hiçbir şey henüz koda uygulanmadı.
-> Kullanıcı beğenirse ilgili başlık uygulanır. Son güncelleme: 2026-07-11.
+> Durum: **#5 UYGULANDI (web).** **#6 ONAY BEKLİYOR** (Fikir A seçildi, taslak hazır).
+> Son güncelleme: 2026-07-11.
 
 ---
 
-## #5 — Firma Yetki Kontrol ekranı yeni tasarım (görsel taslak hazır)
+## #5 — Firma Yetki Kontrol ekranı yeni tasarım — ✅ UYGULANDI (web, 2026-07-11)
+
+> Kullanıcı taslağı beğendi → `CompanyPermissions.razor` yeni tasarıma geçirildi (özet kutular, arama,
+> gruplama, 3 durumlu kontrol, değişiklik sayacı + yapışkan kaydet). API sözleşmesi korundu.
+
+### (Orijinal öneri — arşiv)
 
 **Neden değişiklik?** Mevcut ekran; düz bir modül tablosu + tek "Firmaya Özel Kısıt" onay kutusu +
 renkli etiketlerden oluşuyor. "Kısıt" kavramı ve neyin kime etki ettiği net değil.
@@ -69,4 +74,17 @@ Tek ekran, üç sekme: **Bilgiler | Uygulama Erişimi | Yetkiler**. A'nın aynı
 **Önerim:** **Fikir A** (küçük ekipler için sade), büyürse C'ye kolayca dönüşür.
 Kural gereği bu birleştirme yapılırsa **hem web hem masaüstünde** yapılır ve diğer ekranlar bozulmaz.
 
-**Sıradaki adım:** Bir fikir seçin → o fikrin görsel taslağını hazırlayıp onayınıza sunayım; sonra uygularım.
+### ✅ Seçim: Fikir A — görsel taslak hazır (onay bekliyor)
+- Canlı önizleme (artifact): _sohbetteki bağlantı_
+- Repoda kalıcı kopya: [`docs/mockups/calisan-yonetimi-A.html`](mockups/calisan-yonetimi-A.html)
+
+**Kullanıcının sorduğu kurallar ve taslaktaki karşılığı:**
+1. **Aynı kişi mükerrer eklenmesi (farklı şubelerde):** Kayıtta **ad + telefon** (veya farklı şubede aynı ad)
+   benzeri çalışan varsa **uyarı** çıkar, olası eşleşme listelenir → **"Birleştir"** veya **"Farklı kişi, devam et"**.
+   Böylece aynı kişi farkında olmadan iki kez açılmaz.
+2. **Bir personele tek kullanıcı:** Bir çalışan kaydına en fazla **bir** uygulama hesabı bağlanır; ikinci hesap engellenir.
+3. **Yanlış bağlanırsa düzeltme:** Hesap bağı düzenlenebilir/kaldırılabilir; **yalnız Admin ve üstü** roller yapar.
+4. **Kullanıcı seçilmezse:** Kayıtta uygulama erişimi kapalıysa **"Bu kişi saha personeli mi?"** onay penceresi açılır.
+
+**Sıradaki adım:** Taslağı onaylarsanız Fikir A'yı **web + masaüstüne** uygularım (kurallar dahil). Değişiklik
+isterseniz taslağı güncellerim.

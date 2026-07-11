@@ -61,7 +61,8 @@ DepoWise; depo/stok, araç, bakım, yakıt ve personel yönetimini tek yerden ya
   animasyonlu yüzde göstergeleri** (yeşil/sarı/kırmızı eşik), online kullanıcı, çevrimiçi makine, çalışma
   süresi, veritabanı boyutu vb. *(Yeni — 2026-07-11)*
 - **Firma Yetki Kontrol:** Bir firmanın adminlerinin personele verebildiği ekranların belirlenmesi.
-  *(Yeniden tasarım önerisi hazırlandı — bkz. `docs/ONERILER_YETKI_PERSONEL.md`.)*
+  **Yeni tasarım:** üstte özet kutular (Serbest / Yalnız Admin / Global kilit), ekran arama, gruplu liste,
+  her ekranda 3 durumlu net kontrol ve değişiklik sayacı. *(Yenilendi — 2026-07-11)*
 - **Sunucu Yedekleri:** Masaüstü uygulamalarının buluta yüklediği yedekler. Firma + tarih seçip **Listele**.
 
 ---
@@ -79,8 +80,13 @@ DepoWise; depo/stok, araç, bakım, yakıt ve personel yönetimini tek yerden ya
 
 ## 6. Güncelleme (masaüstü)
 
-Yeni sürüm çıktığında masaüstü uygulaması bunu kendisi algılar ve güncelleme penceresi açar. Uygulama
-"kendi kendine yeterli" (self-contained) paketlenir; ayrıca .NET vb. kurmanız gerekmez.
+Yeni sürüm çıktığında masaüstü uygulaması bunu kendisi algılar ve **tek bir** güncelleme penceresi açar
+(pencereler birikmez; yeni paket çıkarsa açık pencerenin mesajı güncellenir). Uygulama "kendi kendine
+yeterli" (self-contained) paketlenir; ayrıca .NET vb. kurmanız gerekmez.
+
+- **"İndir ve Kur"** ile paket iner; ardından **"Şimdi Yeniden Başlat"** veya **"10 Dakika Ertele"** seçersiniz.
+- **Her erteleme 10 dakikadır** (pencerede yazılıdır); süre dolunca tekrar sorulur. Ertelerseniz indirilen paket
+  saklanır, tekrar inmez. *(Yeni — 2026-07-11)*
 
 ---
 
