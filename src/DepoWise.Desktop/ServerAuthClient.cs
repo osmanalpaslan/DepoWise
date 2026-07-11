@@ -145,6 +145,24 @@ public static class ServerAuthClient
         catch { /* çevrimdışı — sonraki turda tekrar denenir */ }
     }
 
+    /// <summary>İLK KURULUM: makinenin şubesi henüz yoksa giriş yapan kullanıcının şubesini makineye tanımlar
+    /// (onay sonrası). Sunucu, zaten atanmışsa dokunmaz. Dönen: atandı mı (null = erişilemedi).</summary>
+    public static async Task<bool?> SelfAssignMachineBranchAsync(string machineName, string branchId)
+    {
+        if (string.IsNullOrWhiteSpace(Token) || string.IsNullOrWhiteSpace(BaseUrl)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, BaseUrl!.TrimEnd('/') + "/api/machines/self-assign")
+            { Content = new StringContent(JsonSerializer.Serialize(new { machineName, branchId }), System.Text.Encoding.UTF8, "application/json") };
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.TryGetProperty("assigned", out var v) && v.ValueKind == JsonValueKind.True;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Sunucudan güncel kullanıcı imzasını çeker (Token ile). Erişilemezse null.</summary>
     public static async Task<string?> FetchAuthSigAsync()
     {

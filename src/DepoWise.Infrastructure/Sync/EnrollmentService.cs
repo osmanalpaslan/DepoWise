@@ -254,6 +254,52 @@ public sealed class EnrollmentService
         tx.Commit();
     }
 
+    /// <summary>İLK KURULUM oto-atama: giriş yapan kullanıcı, makinesinin şubesi HENÜZ ATANMAMIŞSA (branch_id NULL)
+    /// kendi firması+şubesini makineye tanımlar (masaüstü onay penceresinden sonra çağrılır). Zaten atanmışsa
+    /// DOKUNMAZ (admin ataması otoriter kalır). Şube kullanıcının firmasına ait olmalı. Dönen: atandı mı.</summary>
+    public bool SelfAssignBranchIfUnset(SessionContext s, string machineName, string branchId)
+    {
+        if (string.IsNullOrWhiteSpace(machineName) || string.IsNullOrWhiteSpace(branchId)) return false;
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+
+        // Makineyi (firma+ad) bul + mevcut şubesi
+        string? deviceId = null, currentBranch = null;
+        using (var find = conn.CreateCommand())
+        {
+            find.Transaction = tx;
+            find.CommandText = "SELECT id, branch_id FROM sync_devices WHERE company_id=$c AND device_name=$n ORDER BY created_at LIMIT 1;";
+            find.Parameters.AddWithValue("$c", s.CompanyId);
+            find.Parameters.AddWithValue("$n", machineName);
+            using var r = find.ExecuteReader();
+            if (r.Read()) { deviceId = r.GetString(0); currentBranch = r.IsDBNull(1) ? null : r.GetString(1); }
+        }
+        if (deviceId is null) return false;                 // makine kaydı yok (register önce çalışmalı)
+        if (!string.IsNullOrEmpty(currentBranch)) return false; // zaten atanmış → admin otoriter, dokunma
+
+        // Şube kullanıcının firmasına ait mi
+        using (var bc = conn.CreateCommand())
+        {
+            bc.Transaction = tx;
+            bc.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$b AND company_id=$c AND is_deleted=0;";
+            bc.Parameters.AddWithValue("$b", branchId);
+            bc.Parameters.AddWithValue("$c", s.CompanyId);
+            if (Convert.ToInt64(bc.ExecuteScalar()) == 0) throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+        }
+
+        using (var upd = conn.CreateCommand())
+        {
+            upd.Transaction = tx;
+            upd.CommandText = "UPDATE sync_devices SET branch_id=$b, updated_at=$now WHERE id=$id AND branch_id IS NULL;";
+            upd.Parameters.AddWithValue("$b", branchId);
+            upd.Parameters.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
+            upd.Parameters.AddWithValue("$id", deviceId);
+            var n = upd.ExecuteNonQuery();
+            tx.Commit();
+            return n > 0;
+        }
+    }
+
     private static int QuotaFor(SqliteConnection conn, SqliteTransaction tx, string companyId)
     {
         using var cmd = conn.CreateCommand();

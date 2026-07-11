@@ -382,6 +382,16 @@ app.MapPost("/api/machines/{id}/branch", (HttpContext ctx, string id, AssignBran
     svc.Enrollment.AssignBranch(s, id, string.IsNullOrWhiteSpace(d.BranchId) ? null : d.BranchId);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+// İLK KURULUM oto-atama (masaüstü, onay sonrası): makinenin şubesi henüz yoksa giriş yapan kullanıcı
+// kendi firması+şubesini makineye tanımlar. Zaten atanmışsa dokunmaz (admin otoriter).
+app.MapPost("/api/machines/self-assign", (HttpContext ctx, SelfAssignDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.MachineName) || string.IsNullOrWhiteSpace(d.BranchId))
+        return Results.Json(new { error = "Makine adı ve şube gerekli." }, statusCode: 400);
+    var assigned = svc.Enrollment.SelfAssignBranchIfUnset(s, d.MachineName!, d.BranchId!);
+    return Results.Ok(new { assigned });
+}).RequireAuthorization();
 
 // ── Kullanıcının menüsü/yetkileri (masaüstüyle AYNI AccessControl) → web menüyü buna göre çizer ──
 // ── Kullanıcı yetki/şifre "imzası" (masaüstü değişiklik tespiti) ──
@@ -1299,6 +1309,7 @@ app.Run();
 record LoginDto(string? CompanyId, string Username, string Password, string? BranchId = null, string? BranchPassword = null);
 record SelectCompanyDto(string? CompanyId);
 record AssignBranchDto(string? BranchId);
+record SelfAssignDto(string? MachineName, string? BranchId);
 record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);

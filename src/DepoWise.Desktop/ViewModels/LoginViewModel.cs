@@ -32,6 +32,8 @@ public sealed partial class LoginViewModel : ViewModelBase
 
     // Çevrimiçi mi giriş yapıldı (ADIM 1'de belirlenir): çevrimdışıysa makine şubesine otomatik giriş yapılır.
     private bool _online;
+    // İlk kurulum mu (makinenin şubesi henüz yok): seçilen şube, onay sonrası makineye tanımlanır.
+    private bool _firstMachineSetup;
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool MessageBeep(uint uType);
@@ -194,12 +196,6 @@ public sealed partial class LoginViewModel : ViewModelBase
                 return;
             }
 
-            // #5a: Makineye şube tanımlı değilse giriş YOK.
-            if (string.IsNullOrEmpty(DesktopServices.MachineBranchId))
-            {
-                Error = "Bu makineye şube tanımlanmamış. Web'den yöneticinizin (admin) bu makineye şube ataması gerekir.";
-                return;
-            }
             // #5b: Kullanıcıya şube tanımlı değilse (ve Tüm Şubeler yetkisi yoksa) giriş YOK.
             var (userBranchId, _) = DesktopServices.LoadUserBranch(_authedSession.UserId);
             if (string.IsNullOrEmpty(userBranchId) && !canAll)
@@ -208,17 +204,31 @@ public sealed partial class LoginViewModel : ViewModelBase
                 return;
             }
 
-            // #2 (offline): internet yoksa makinenin şubesine OTOMATİK giriş (şube seçimi yok).
-            if (!_online)
+            bool machineHasBranch = !string.IsNullOrEmpty(DesktopServices.MachineBranchId);
+            _firstMachineSetup = false;
+
+            if (!machineHasBranch)
             {
+                // İLK KURULUM: makine şubesi henüz yok → ilk giriş yapan kullanıcı, onaylarsa kendi şubesini makineye
+                // tanımlar (aşağıda FinalizeLoginAsync'te onay + sunucu ataması). Çevrimdışıysa yapılamaz (sunucu gerekli).
+                if (!_online)
+                {
+                    Error = "Bu makine ilk kez kuruluyor; makine şubesini tanımlamak için internet bağlantısı gerekli. Bağlanıp tekrar deneyin.";
+                    return;
+                }
+                _firstMachineSetup = true;
+            }
+            else if (!_online)
+            {
+                // Makine şubesi var + çevrimdışı → makine şubesine OTOMATİK giriş (şube seçimi yok).
                 await FinalizeLoginAsync(DesktopServices.MachineBranchId, DesktopServices.MachineBranchName, isAllBranches: false, warnOnDifferent: false);
                 return;
             }
 
-            // Çevrimiçi normal kullanıcı: şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa).
+            // Çevrimiçi: şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa). İlk kurulumda seçilen şube
+            // (onay sonrası) makinenin şubesi olur.
             await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
-            var (ubId, _2) = DesktopServices.LoadUserBranch(_authedSession.UserId);
-            SelectedBranch = Branches.FirstOrDefault(b => b.Id == ubId) ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
+            SelectedBranch = Branches.FirstOrDefault(b => b.Id == userBranchId) ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
             BranchPassword = "";
             Step = 2; // şube seçimine geç
         }
@@ -234,6 +244,7 @@ public sealed partial class LoginViewModel : ViewModelBase
         _authedSession = null; _authedCompanyId = null;
         Branches.Clear(); SelectedBranch = null; BranchPassword = "";
         IsSuperAdminMode = false; Companies.Clear(); SelectedCompany = null;
+        _firstMachineSetup = false;
     }
 
     // ── ADIM 2: şube seçimi + giriş tamamlama (yalnız çevrimiçi / süper admin) ──
@@ -286,6 +297,32 @@ public sealed partial class LoginViewModel : ViewModelBase
     private async System.Threading.Tasks.Task<bool> FinalizeLoginAsync(string? workingBranchId, string? workingBranchName, bool isAllBranches, bool warnOnDifferent)
     {
         if (_authedSession is null) return false;
+
+        // İLK KURULUM: makine şubesi henüz yok → seçilen şube, ONAY sonrası makineye tanımlanır (sunucu). "Tüm Şubeler"
+        // ilk kurulumda makine şubesi olamaz (belirli bir şube gerekir) — kullanıcıdan gerçek şube seçmesi istenir.
+        if (_firstMachineSetup)
+        {
+            if (workingBranchId is null)
+            {
+                Error = "İlk kurulumda makine için belirli bir şube seçin (\"Tüm Şubeler\" olamaz).";
+                return false;
+            }
+            PlayWarningSound();
+            var confirm = await ConfirmService.AskAsync(
+                $"Bu bilgisayar İLK KEZ kuruluyor.\n\nBu makine \"{CompanyName}\" firması, \"{workingBranchName}\" şubesi için " +
+                "tanımlanacaktır. Bundan sonra bu makinede yapılan işlemler bu şubeye ait olur (yönetici daha sonra web'den değiştirebilir).\n\n" +
+                "Onaylıyor musunuz?",
+                "İlk Kurulum — Makine Şubesi", "Onayla ve Kur", "İptal", danger: false);
+            if (!confirm) return false;
+            var assigned = await ServerAuthClient.SelfAssignMachineBranchAsync(Environment.MachineName, workingBranchId);
+            if (assigned == true)
+            {
+                DesktopServices.MachineBranchId = workingBranchId;
+                DesktopServices.MachineBranchName = workingBranchName;
+            }
+            // assigned false/null: bu arada admin/başka makine atamış olabilir ya da erişilemedi → yine de girişe devam
+            _firstMachineSetup = false;
+        }
 
         // Farklı şube uyarısı: çalışma şubesi, makinenin (admin-atanmış) şubesinden farklıysa uyar.
         if (warnOnDifferent && workingBranchId is not null && !string.IsNullOrEmpty(DesktopServices.MachineBranchId)

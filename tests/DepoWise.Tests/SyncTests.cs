@@ -66,6 +66,23 @@ public class SyncTests : IDisposable
     }
 
     [Fact]
+    public void Makine_IlkKurulum_SelfAssign_YalnizBossaAtar_Ezmez()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var b1 = branches.Create(_admin, new NewBranch("Merkez"));
+        var b2 = branches.Create(_admin, new NewBranch("Şube 2"));
+        _enroll.RegisterSelf("A", "PC-Ilk"); // şubesiz
+
+        // İlk kurulum: boşken atar
+        Assert.True(_enroll.SelfAssignBranchIfUnset(_admin, "PC-Ilk", b1));
+        Assert.Equal(b1, _enroll.RegisterSelf("A", "PC-Ilk").BranchId);
+
+        // İkinci çağrı: zaten atanmış → EZMEZ (admin otoriter)
+        Assert.False(_enroll.SelfAssignBranchIfUnset(_admin, "PC-Ilk", b2));
+        Assert.Equal(b1, _enroll.RegisterSelf("A", "PC-Ilk").BranchId);
+    }
+
+    [Fact]
     public void Makine_Listesi_Filtreler_Sube_ve_Kayitsiz()
     {
         var branches = new BranchService(_factory, _clock);
