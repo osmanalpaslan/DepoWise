@@ -87,6 +87,32 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void Firma_YenidenAktiflestirme_KullanicilariGeriAktifEder()
+    {
+        var users = new UserService(_factory, _clock);
+        var su = SuperAdmin();
+        var uid = users.EnsureInitialAdmin("REACT", "reactu", "p12345", RoleKeys.CompanyAdmin);
+        var svc = new DepoWise.Infrastructure.Organization.CompanyService(_factory, _clock);
+
+        svc.Delete(su, "REACT");                 // firma pasif + kullanıcı pasif
+        var n = svc.Reactivate(su, "REACT");     // sözleşme yenileme
+
+        Assert.Equal(1, n);                      // 1 kullanıcı geri aktifleşti
+        using var conn = _factory.Create();
+        using (var cc = conn.CreateCommand())
+        {
+            cc.CommandText = "SELECT is_deleted FROM companies WHERE id='REACT';";
+            Assert.Equal(0L, Convert.ToInt64(cc.ExecuteScalar())); // firma geri geldi
+        }
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT is_active FROM users WHERE id=$u;";
+        cmd.Parameters.AddWithValue("$u", uid);
+        Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar())); // kullanıcı tekrar aktif
+        // Admin olmayan reactivate yasak
+        Assert.Throws<ForbiddenException>(() => svc.Reactivate(Admin("A"), "REACT"));
+    }
+
+    [Fact]
     public void Firma_BaskaFirmaErisimi_Reddedilir()
     {
         var svc = new CompanyService(_factory, _clock);

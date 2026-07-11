@@ -284,6 +284,14 @@ public sealed class ApiClient
         return resp.IsSuccessStatusCode ? null : $"Hata {(int)resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}";
     }
 
+    /// <summary>Pasife alınmış (silinmiş) firmalar — yeniden aktifleştirme ekranı için.</summary>
+    public async Task<List<CompanyDto>> GetDeletedCompaniesAsync()
+    {
+        var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies/deleted"));
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<CompanyDto>>() ?? new();
+    }
+
     public Task ApproveMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/approve"));
     public Task RevokeMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/revoke"));
     public Task ReactivateMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/reactivate"));

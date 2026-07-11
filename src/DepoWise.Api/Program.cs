@@ -522,6 +522,19 @@ app.MapDelete("/api/companies/{id}", (HttpContext ctx, string id) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// Pasife alınmış firmalar + yeniden aktifleştirme (sözleşme yenileme) — yalnız süper admin.
+app.MapGet("/api/companies/deleted", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.Companies.ListDeleted(s));
+}).RequireAuthorization();
+app.MapPost("/api/companies/{id}/reactivate", (HttpContext ctx, string id) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    var reactivated = svc.Companies.Reactivate(s, id);
+    return Results.Ok(new { ok = true, reactivatedUsers = reactivated });
+}).RequireAuthorization();
+
 // ── İş modülleri: liste (okuma) uçları — hepsi yetki korumalı (servis AccessControl.View) ──
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);

@@ -110,7 +110,61 @@ UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph
         tx.Commit();
     }
 
-    /// <summary>Firma sil (soft-delete). Yalnız süper admin. Bağlı aktif kullanıcı varsa engellenir.</summary>
+    /// <summary>Pasife alınmış (silinmiş / sözleşmesi biten) firmalar. Yalnız süper admin — yeniden aktifleştirme ekranı için.</summary>
+    public IReadOnlyList<CompanyRow> ListDeleted(SessionContext s)
+    {
+        if (!s.IsSuperAdmin) throw new ForbiddenException("Yalnız süper admin.");
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT c.id, c.name, c.tax_no, c.tax_office, c.address, c.phone, c.email, c.authorized_person,
+       (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_deleted = 0),
+       COALESCE(c.max_users,0)
+FROM companies c
+WHERE c.is_deleted = 1
+ORDER BY c.name;";
+        var list = new List<CompanyRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new CompanyRow(r.GetString(0), r.GetString(1),
+                S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), r.GetInt32(8), r.GetInt32(9)));
+        return list;
+    }
+
+    /// <summary>
+    /// Pasife alınmış firmayı yeniden aktifleştirir (sözleşme yenileme). Firma silinince pasife alınan
+    /// kullanıcılar da tekrar aktif edilir ki süreç kaldığı yerden devam etsin. Yalnız süper admin.
+    /// </summary>
+    public int Reactivate(SessionContext s, string id)
+    {
+        if (!s.IsSuperAdmin) throw new ForbiddenException("Yalnız süper admin.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE companies SET is_deleted=0, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=1;";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$now", now);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Pasif firma bulunamadı.");
+        }
+        int reactivatedUsers;
+        using (var u = conn.CreateCommand())
+        {
+            u.Transaction = tx;
+            // Firma silinince pasife alınan (is_active=0, is_deleted=0) kullanıcıları tekrar aktifleştir.
+            u.CommandText = "UPDATE users SET is_active=1, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=0;";
+            u.Parameters.AddWithValue("$id", id);
+            u.Parameters.AddWithValue("$now", now);
+            reactivatedUsers = u.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+        return reactivatedUsers;
+    }
+
+    /// <summary>Firma sil (soft-delete). Yalnız süper admin. Bağlı kullanıcılar SİLİNMEZ, pasife alınır (geri yüklenebilir).</summary>
     public void Delete(SessionContext s, string id)
     {
         if (!s.IsSuperAdmin) throw new ForbiddenException("Firma silme yalnız süper admin.");

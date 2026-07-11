@@ -21,6 +21,9 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     public bool CanDelete => _session.IsSuperAdmin;
 
     public ObservableCollection<CompanyRow> Items { get; } = new();
+    /// <summary>Pasife alınmış (silinmiş) firmalar — sözleşme yenileme / yeniden aktifleştirme.</summary>
+    public ObservableCollection<CompanyRow> DeletedItems { get; } = new();
+    public bool HasDeleted => DeletedItems.Count > 0;
 
     [ObservableProperty] private string? _status;
     [ObservableProperty]
@@ -65,11 +68,33 @@ public sealed partial class CompaniesViewModel : ViewModelBase
             Items.Clear();
             foreach (var c in DesktopServices.Companies.List(_session)) Items.Add(c);
             Status = $"{Items.Count} firma";
+            DeletedItems.Clear();
+            if (_session.IsSuperAdmin)
+                foreach (var c in DesktopServices.Companies.ListDeleted(_session)) DeletedItems.Add(c);
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         Selected = null;
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasRows));
+        OnPropertyChanged(nameof(HasDeleted));
+    }
+
+    /// <summary>Pasife alınmış firmayı yeniden aktifleştirir (sözleşme yenileme). Kullanıcılar tekrar aktif olur.</summary>
+    [RelayCommand]
+    private async Task Reactivate(CompanyRow? row)
+    {
+        if (row is null) { Status = "Firma seçin."; return; }
+        if (!_session.IsSuperAdmin) { Status = "Yetki yok (yalnız Süper Admin)."; return; }
+        if (!await ConfirmService.AskAsync(
+                $"'{row.Name}' firması yeniden aktifleştirilsin mi?\nFirma geri gelir ve silme sırasında pasife alınan kullanıcılar tekrar giriş yapabilir.",
+                "Aktife Al", "Evet, Aktife Al", "Vazgeç")) return;
+        try
+        {
+            var n = DesktopServices.Companies.Reactivate(_session, row.Id);
+            Load();
+            Status = $"'{row.Name}' aktifleştirildi. {n} kullanıcı yeniden aktif edildi.";
+        }
+        catch (Exception ex) { Status = "Aktifleştirilemedi: " + ex.Message; }
     }
 
     [RelayCommand]
@@ -109,7 +134,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     {
         if (Selected is null) { Status = "Firma seçin."; return; }
         if (!CanDelete) { Status = "Yetki yok (yalnız Süper Admin)."; return; }
-        if (!await ConfirmService.AskAsync($"'{Selected.Name}' firması silinsin mi? (Bağlı kullanıcı varsa engellenir.)",
+        if (!await ConfirmService.AskAsync($"'{Selected.Name}' firması silinsin mi?\nBağlı kullanıcılar SİLİNMEZ, pasife alınır; firma aşağıdaki 'Pasif Firmalar' bölümünden geri getirilebilir.",
                 "Firma Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
         try
         {

@@ -66,6 +66,46 @@
     }
 </MudPaper>
 
+@* ── Pasife alınmış firmalar (sözleşme yenileme / yeniden aktifleştirme) — yalnız süper admin ── *@
+@if (Auth.IsSuperAdmin)
+{
+    <MudPaper Class="pa-4 mt-4" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Color="Color.Warning" Class="mr-1" />
+            <MudText Typo="Typo.h6">Pasif Firmalar (Sözleşme Yenileme)</MudText><MudSpacer />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadDeleted">
+                @(_showDeleted ? "Yenile" : "Göster")
+            </MudButton>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Silinen firmalar buraya düşer; verileri ve pasife alınan kullanıcıları saklanır. "Aktife Al" ile firma
+            geri gelir ve kullanıcılar tekrar giriş yapabilir hale gelir.
+        </MudText>
+        @if (_showDeleted)
+        {
+            @if (_deleted is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_deleted.Count == 0) { <MudText Class="mud-text-secondary">Pasif firma yok.</MudText> }
+            else
+            {
+                <MudTable Items="_deleted" Dense="true" Hover="true" Striped="true">
+                    <HeaderContent><MudTh>Firma</MudTh><MudTh>Vergi No</MudTh><MudTh>Yetkili</MudTh><MudTh>Kullanıcı</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Name</MudTd>
+                        <MudTd>@(string.IsNullOrEmpty(context.TaxNo) ? "—" : context.TaxNo)</MudTd>
+                        <MudTd>@(string.IsNullOrEmpty(context.AuthorizedPerson) ? "—" : context.AuthorizedPerson)</MudTd>
+                        <MudTd>@context.UserCount</MudTd>
+                        <MudTd Style="text-align:right">
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                       StartIcon="@Icons.Material.Filled.Restore" OnClick="@(() => Reactivate(context))">Aktife Al</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        }
+        @if (_delMsg is not null) { <MudAlert Severity="@(_delOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_delMsg</MudAlert> }
+    </MudPaper>
+}
+
 @code {
     private List<CompanyDto>? _items;
     private string? _error;
@@ -93,10 +133,32 @@
 
     private async Task Delete(CompanyDto c)
     {
-        if (!await Dialog.Confirm($"'{c.Name}' firması silinsin mi? (Bağlı kullanıcı varsa engellenir.)", "Evet, Sil", danger: true)) return;
+        if (!await Dialog.Confirm($"'{c.Name}' firması silinsin mi? Bağlı kullanıcılar SİLİNMEZ, pasife alınır; firma 'Pasif Firmalar' bölümünden geri getirilebilir.", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/companies/{c.Id}");
-        _ok = err is null; _msg = err ?? "Firma silindi.";
+        _ok = err is null; _msg = err ?? "Firma pasife alındı. Geri getirmek için aşağıdaki 'Pasif Firmalar' bölümünü kullanın.";
         await Load();
+        if (_showDeleted) await LoadDeleted();
+    }
+
+    // ── Pasif firmalar ──
+    private bool _showDeleted;
+    private List<CompanyDto>? _deleted;
+    private string? _delMsg; private bool _delOk;
+
+    private async Task LoadDeleted()
+    {
+        _showDeleted = true; _deleted = null; _delMsg = null;
+        try { _deleted = await Api.GetDeletedCompaniesAsync(); }
+        catch (Exception ex) { _delMsg = "Yüklenemedi: " + ex.Message; _delOk = false; _deleted = new(); }
+    }
+
+    private async Task Reactivate(CompanyDto c)
+    {
+        if (!await Dialog.Confirm($"'{c.Name}' firması yeniden aktifleştirilsin mi? Firma geri gelir ve bu firmada silme sırasında pasife alınan kullanıcılar tekrar giriş yapabilir hale gelir.", "Evet, Aktife Al")) return;
+        _delMsg = null;
+        var err = await Api.PostAsync($"/api/companies/{c.Id}/reactivate", new { });
+        _delOk = err is null; _delMsg = err ?? $"'{c.Name}' yeniden aktifleştirildi.";
+        if (_delOk) { await Load(); await LoadDeleted(); }
     }
 
     private void ClearForm()

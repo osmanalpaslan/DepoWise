@@ -9,7 +9,7 @@
              x:Class="DepoWise.Desktop.Views.CompaniesView"
              x:DataType="vm:CompaniesViewModel">
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Firma Tanım (Süper Admin)"
                       PrimaryActionText="Yeni Firma" PrimaryActionCommand="{Binding NewCompanyCommand}">
             <ctrl:Toolbar.FilterContent>
@@ -128,6 +128,28 @@
             </Border>
         </Grid>
 
-        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <!-- Pasif firmalar (sözleşme yenileme / yeniden aktifleştirme) — yalnız süper adminde dolu olur -->
+        <Expander Grid.Row="3" Margin="0,16,0,0" IsVisible="{Binding HasDeleted}"
+                  Header="Pasif Firmalar — Sözleşme Yenileme">
+            <StackPanel Spacing="8">
+                <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                    Text="Silinen firmalar burada saklanır; verileri ve pasife alınan kullanıcıları kaybolmaz. 'Aktife Al' ile firma geri gelir ve kullanıcılar tekrar giriş yapabilir."/>
+                <ItemsControl ItemsSource="{Binding DeletedItems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="org:CompanyRow">
+                            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,4">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding TaxDisplay}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <Button Grid.Column="2" Classes="Primary" Content="Aktife Al"
+                                        Command="{Binding $parent[UserControl].((vm:CompaniesViewModel)DataContext).ReactivateCommand}"
+                                        CommandParameter="{Binding}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Expander>
+
+        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>
