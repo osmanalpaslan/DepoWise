@@ -17,9 +17,7 @@ TestResults/
 *.db
 *.db-wal
 *.db-shm
-artifacts/logs/
-artifacts/temp/
-artifacts/rc/
+artifacts/
 
 # IDE/OS
 .vs/
