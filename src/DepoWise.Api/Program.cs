@@ -569,7 +569,44 @@ static bool Void(Action a) { a(); return true; }
 
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Branches.List(s)) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/personnel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Personnel.List(s, Page()).Items) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/personnel", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var acc = svc.Users.AccountsByPersonnel(s.CompanyId); // #6: personel → bağlı kullanıcı rozeti
+    var rows = svc.Personnel.List(s, Page()).Items.Select(p =>
+    {
+        acc.TryGetValue(p.Id, out var a);
+        return new
+        {
+            p.Id, p.CompanyId, p.BranchId, p.FullName, p.Title, p.Phone, p.IsActive, p.CreatedAt,
+            hasAccount = a is not null, userId = a?.UserId, username = a?.Username,
+            accountActive = a?.IsActive ?? false, accountAdmin = a?.IsAdmin ?? false,
+        };
+    });
+    return Results.Ok(rows);
+}).RequireAuthorization();
+// #6 — Olası aynı kişi (mükerrer) sorgusu: kayıt öncesi uyarı için.
+app.MapGet("/api/personnel/duplicates", (HttpContext c, string? fullName, string? phone, string? excludeId) =>
+    S(c) is { } s ? Results.Ok(svc.Personnel.FindDuplicates(s, fullName ?? "", phone, excludeId)) : Results.Unauthorized()).RequireAuthorization();
+// #6 — Personele uygulama hesabı aç (kullanıcı oluştur + bağla). Admin+.
+app.MapPost("/api/personnel/{id}/account", (HttpContext c, string id, AccountDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var p = svc.Personnel.Get(s, id) ?? throw new InvalidOperationException("Personel bulunamadı.");
+    var roles = new[] { string.IsNullOrWhiteSpace(d.RoleKey) ? "role-staff" : d.RoleKey! };
+    var uid = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
+        d.Username, d.Password, p.FullName, roles, CompanyId: s.CompanyId, BranchId: d.BranchId ?? p.BranchId, PersonnelId: id));
+    return Results.Ok(new { userId = uid });
+}).RequireAuthorization();
+// #6 — Personelin hesabını çöz (kullanıcıyı silmez, bağı kaldırır). Admin+.
+app.MapDelete("/api/personnel/{id}/account", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!svc.Users.AccountsByPersonnel(s.CompanyId).TryGetValue(id, out var a))
+        return Results.Json(new { error = "Bu personele bağlı hesap yok." }, statusCode: 400);
+    svc.Users.LinkPersonnel(s, a.UserId, null);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 app.MapGet("/api/materials", (HttpContext c, string? search) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1362,6 +1399,7 @@ record PushOp(string OperationId, string EntityType, string EntityId, string Pay
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0);
 record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true);
+record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false);
 record MachineRegisterDto(string? CompanyId, string? MachineName, string? BranchId = null);
 record QuotaDto(int Quota);

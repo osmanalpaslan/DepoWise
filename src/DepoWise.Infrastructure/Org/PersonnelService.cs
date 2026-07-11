@@ -190,6 +190,13 @@ public sealed class PersonnelService
         tx.Commit();
     }
 
+    /// <summary>Tek personel kaydı (tenant korumalı). Hesap açma vb. için.</summary>
+    public PersonnelRecord? Get(SessionContext session, string id)
+    {
+        AccessControl.Require(session, Module, PermissionAction.View);
+        return GetOwned(session, id);
+    }
+
     private PersonnelRecord? GetOwned(SessionContext session, string id)
     {
         using var conn = _factory.Create();
