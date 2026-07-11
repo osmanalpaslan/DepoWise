@@ -32,7 +32,8 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 > - Kök neden: firma silinince o firmadaki TÜM kullanıcılar pasife alınıyordu; süper admin kendi firmasını silince
 >   kendini kilitliyordu ("kullanıcı adı veya parola hatalı"). Çözüm: firma silme süper admini pasife almaz +
 >   sunucu açılışında pasif süper adminleri aktifleştiren self-heal + regresyon testi. Hafızaya kaydedildi.
-> - **⚠️ CANLI TAKİP:** Kilitli süper admin canlıda ancak **API (`depowise-erp`) yeniden yayınlanınca** açılır (self-heal).
+> - **CANLI:** API (`depowise-erp`) **yeniden yayınlandı** (12.07) — fix + self-heal canlıda. Self-heal sunucuda pasif
+>   süper admin bulmadı → canlı süper admin zaten aktif; yaşanan kilit muhtemelen **masaüstü** yerel DB'deydi (sync ile açılır).
 > - **Sıradaki:** son promttaki kalan hatalar — silinen şubeler her yerde listeleniyor, firma listesi 401, masaüstü-web firma senkron, unvan sabit tanım, kota online dedup, logolar.
 
 > **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
