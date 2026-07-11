@@ -44,6 +44,10 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAn
 var app = builder.Build();
 var svc = app.Services.GetRequiredService<ServerServices>();
 
+// Gözlemlenebilirlik: açılış özeti (canlıda "sunucu nasıl başladı" tek bakışta). Sır DEĞİL — yalnız durum.
+Console.WriteLine($"[START] {DateTimeOffset.UtcNow:O} DepoWise.Api env={app.Environment.EnvironmentName} " +
+                  $"dataDir={dataDir} jwtKey={(string.IsNullOrEmpty(jwtKey) ? "YOK" : "var")}");
+
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -51,6 +55,22 @@ app.UseAuthorization();
 // #19 — canlı sunucu durumu için hafif istek sayacı.
 _ = ServerMetrics.Start; // başlangıç anını sabitle
 app.Use(async (ctx, next) => { System.Threading.Interlocked.Increment(ref ServerMetrics.Requests); await next(); });
+
+// Gözlemlenebilirlik: her istek için tek satır erişim logu (metot/yol/durum/süre). Fly.io bunu toplar → canlıda
+// ne olup bittiği + hangi istek yavaş/hatalı görünür. Yüksek-frekanslı yoklamalar (health/status) loglanmaz (gürültü).
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value ?? "";
+    bool noisy = path == "/health" || path == "/" || path.StartsWith("/api/server/status");
+    var sw = noisy ? null : System.Diagnostics.Stopwatch.StartNew();
+    await next();
+    if (sw is null) return;
+    sw.Stop();
+    var code = ctx.Response.StatusCode;
+    var tag = code >= 500 ? "ERR" : code >= 400 ? "WRN" : (sw.ElapsedMilliseconds > 1500 ? "SLW" : "REQ");
+    var line = $"[{tag}] {DateTimeOffset.UtcNow:O} {ctx.Request.Method} {path} {code} {sw.ElapsedMilliseconds}ms";
+    if (code >= 500) Console.Error.WriteLine(line); else Console.WriteLine(line);
+});
 
 // Hata → doğru HTTP kodu (ForbiddenException 403, geçersiz istek 400, diğer 500)
 app.Use(async (ctx, next) =>
