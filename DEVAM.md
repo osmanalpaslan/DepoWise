@@ -31,7 +31,9 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 > - **#2 Yedek:** Masaüstünde **günde 1 kez otomatik yerel yedek** + yedek ekranlarına "nasıl dolar" bilgi paneli.
 > - **#5 (öneri):** Firma Yetki Kontrol yeni tasarım taslağı → `docs/mockups/firma-yetki-v2.html`.
 > - **#6 (öneri):** Personel+Yetki birleştirme fikirleri → `docs/ONERILER_YETKI_PERSONEL.md`. **İkisi de onay bekliyor.**
-> - Yeni kullanım kılavuzu: `docs/KULLANIM_KILAVUZU.md`. Testler yeşil (+1). Masaüstü değişiklikleri **1.0.37 paketiyle** görünür.
+> - Yeni kullanım kılavuzu: `docs/KULLANIM_KILAVUZU.md`. Testler yeşil (251/251). **Canlıda:** API+Web deploy edildi
+>   (depowise-erp/web.fly.dev doğrulandı). **Masaüstü 1.0.37 YAYINLANDI** (self-contained 85.4 MB, checksum f85b4174…);
+>   açık makineler 60 sn'de otomatik güncelleme uyarısı alır.
 
 
 > **✅ ÇÖZÜLDÜ (kesin) — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
