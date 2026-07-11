@@ -104,15 +104,23 @@ public sealed partial class LoginViewModel : ViewModelBase
     /// <summary>Şube seçici (ComboBox) görünürlüğü: normal kullanıcıda daima; süper adminde yalnız "makine şubesi" işaretsizken.</summary>
     public bool ShowBranchSelector => !IsSuperAdminMode || ShowSuperBranchPicker;
 
+    // Kurulum sırasında (özellikler toplu atanırken) tekrar-tekrar şube yüklemeyi engelleyen bayrak.
+    private bool _suppressBranchReload;
+
     partial void OnUseMachineCompanyChanged(bool value)
     {
         // Makine firması işaretsizse → makine şubesi de anlamsız (şube firmaya bağlı) → kapat.
         if (!value) UseMachineBranch = false;
         else if (HasMachineCompany) SelectedCompany = Companies.FirstOrDefault(c => c.Id == DesktopServices.MachineCompanyId);
+        if (_suppressBranchReload) return;
         _ = ReloadSuperBranchesAsync();
     }
 
-    partial void OnSelectedCompanyChanged(ServerAuthClient.LoginCompany? value) => _ = ReloadSuperBranchesAsync();
+    partial void OnSelectedCompanyChanged(ServerAuthClient.LoginCompany? value)
+    {
+        if (_suppressBranchReload) return;
+        _ = ReloadSuperBranchesAsync();
+    }
 
     public LoginViewModel()
     {
@@ -312,6 +320,8 @@ public sealed partial class LoginViewModel : ViewModelBase
     // ── SÜPER ADMIN Adım 2 kurulumu + giriş ──
     private async System.Threading.Tasks.Task SetupSuperAdminStep2Async()
     {
+        // Kurulumda özellikleri toplu ata; her atamanın ayrı şube yüklemesini tetiklemesini ENGELLE (çiftlenme önlenir).
+        _suppressBranchReload = true;
         IsSuperAdminMode = true;
         UseMachineCompany = HasMachineCompany;  // makine firması varsa varsayılan işaretli
         UseMachineBranch = HasMachineBranch;    // makine şubesi varsa varsayılan işaretli
@@ -327,17 +337,25 @@ public sealed partial class LoginViewModel : ViewModelBase
             ?? Companies.FirstOrDefault(c => c.Id == _authedCompanyId)
             ?? Companies.FirstOrDefault();
 
-        await ReloadSuperBranchesAsync();
+        _suppressBranchReload = false;
+        await ReloadSuperBranchesAsync(); // TEK yükleme
     }
 
-    /// <summary>Süper admin: etkin firmanın (makine firması ya da seçilen) şubelerini yükler.</summary>
+    /// <summary>Süper admin: etkin firmanın (makine firması ya da seçilen) şubelerini yükler. Eşzamanlı çağrıya karşı korumalı.</summary>
+    private bool _reloadingSuperBranches;
     private async System.Threading.Tasks.Task ReloadSuperBranchesAsync()
     {
         if (!IsSuperAdminMode) return;
-        var companyId = UseMachineCompany ? DesktopServices.MachineCompanyId : SelectedCompany?.Id;
-        if (string.IsNullOrEmpty(companyId)) { Branches.Clear(); OnPropertyChanged(nameof(HasBranches)); return; }
-        await LoadBranchesForUserAsync(companyId, canViewAllBranches: true); // süper admin → Tüm Şubeler daima
-        SelectedBranch = Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId) ?? Branches.FirstOrDefault();
+        if (_reloadingSuperBranches) return; // eşzamanlı ikinci yükleme → çiftlenmeyi önle
+        _reloadingSuperBranches = true;
+        try
+        {
+            var companyId = UseMachineCompany ? DesktopServices.MachineCompanyId : SelectedCompany?.Id;
+            if (string.IsNullOrEmpty(companyId)) { Branches.Clear(); OnPropertyChanged(nameof(HasBranches)); return; }
+            await LoadBranchesForUserAsync(companyId, canViewAllBranches: true); // süper admin → Tüm Şubeler daima
+            SelectedBranch = Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId) ?? Branches.FirstOrDefault();
+        }
+        finally { _reloadingSuperBranches = false; }
     }
 
     private void LoadLocalCompanies()
