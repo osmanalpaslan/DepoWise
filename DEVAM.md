@@ -21,12 +21,30 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-10)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-10, akşam)
+
+> **⚠️ AÇIK SORUN (öncelik) — masaüstü .NET runtime hatası (bu PC'ye özel, kod değil):**
+> Masaüstü `.exe` (apphost) çift tıklanınca **"You must install or update .NET to run this application"** veriyor
+> (.NET 8 SDK+runtime KURULU olmasına rağmen). Kök neden: winget ile kurulan .NET, apphost'un runtime'ı bulması
+> için gereken kaydı düzgün yapmamış (`.NET location` exe'nin kendi klasörünü gösteriyor, `C:\Program Files\dotnet`'i değil).
+> **Denenenler (kısmen çözdü ama çift-tık hâlâ patlıyor):** `DOTNET_ROOT=C:\Program Files\dotnet` (user+machine),
+> registry `HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\{x64,x86}\InstallLocation`, Explorer restart, kısayolu `dotnet run -c Debug`e çevirme.
+> `dotnet run` TERMİNALDEN çalışıyor; apphost `.exe` çift-tıkla hâlâ başarısız.
+> **Sonraki oturumda EN SAĞLAM çözüm sırası:** (1) Kısayolu apphost'suz yap: önce `dotnet build -c Debug`, sonra kısayol
+> hedefi = `C:\Program Files\dotnet\dotnet.exe` argüman = `"…\src\DepoWise.Desktop\bin\Debug\net8.0\DepoWise.Desktop.dll"`
+> (muxer runtime'ı DAİMA bulur, apphost devre dışı). (2) Olmazsa .NET'i winget yerine **resmi Microsoft installer**'dan
+> (dot.net) kurup onar. (3) Ya da self-contained yayınla (`dotnet publish -c Release --self-contained -r win-x64`).
+> Bu sorun repoyu/diğer PC'leri ETKİLEMEZ — yalnız bu makinenin .NET kurulumuyla ilgili.
 
 **Genel durum:** Backend + iş mantığı **yayın adayı (1.0.0-rc)** olgunlukta — 17 fazın hepsi
-bitti, **241 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım (yayın engellerini
-kapatıyorum). Web + API canlıda (`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34**
-(yeni: 1.0.35 yerelde hazır, bkz. aşağı).
+bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım. Web + API canlıda
+(`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34** (1.0.35 henüz web'e yüklenmedi).
+
+**Bugünkü büyük işler (hepsi canlıda + commit'li):** ADR-058 (süper admin firma seçimi + zorunlu şube + Tüm Şubeler),
+ADR-059 (admin-atanmış makine şubesi + IP'den il; masaüstü: ana ekranda makine şubesi, çevrimdışı oto-giriş,
+kullanıcı/makine şubesi yoksa giriş engeli). Masaüstü değişiklikleri **1.0.35 paketi yayınlanınca** görünür.
+**Açık küçük iş:** Oze Group firmasının sunucuda 0 şubesi var (şubeler web-otoriteli; geçmişte masaüstünde kalmış) →
+kullanıcı web'den "Şube/Şantiye" ekranından ekleyecek.
 
 **Bugün (2026-07-10) — makine-şube modeli TAMAM (ADR-059), sunucu+web canlıda, masaüstü kodda:**
 - **Web (canlı):** Admin makine ekranından her makineye **şube atıyor** (otoriter); makine login şubesini yazmıyor. **İl** sütunu (IP'den, best-effort).
