@@ -6,6 +6,7 @@
 <MudText Typo="Typo.h5" GutterBottom="true">Kota İzleme</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
     Firma başına kullanıcı ve admin kotası kullanımı. Admin kotası, firma kullanıcı kotasının %20'sidir (en az 1).
+    <b>ONLINE</b> sütunu, son 5 dakika içinde uygulamaya veya web'e istek gönderen (aktif) kullanıcı sayısını gösterir.
 </MudText>
 
 <MudPaper Class="pa-4" Elevation="2">
@@ -19,7 +20,7 @@
     {
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="JsonElement">
             <HeaderContent>
-                <MudTh>FİRMA</MudTh><MudTh>KULLANICI</MudTh><MudTh>AKTİF</MudTh><MudTh>ADMİN</MudTh>
+                <MudTh>FİRMA</MudTh><MudTh>KULLANICI</MudTh><MudTh>AKTİF</MudTh><MudTh>ADMİN</MudTh><MudTh>ONLINE</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd>@Str(context, "companyName")</MudTd>
@@ -31,6 +32,11 @@
                 </MudTd>
                 <MudTd>
                     <MudChip T="string" Size="Size.Small" Color="@(Bool(context, "adminFull") ? Color.Error : Color.Info)">@Str(context, "adminText")</MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@(Num(context, "onlineCount") > 0 ? Color.Success : Color.Default)">
+                        @Str(context, "onlineText")
+                    </MudChip>
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -56,4 +62,6 @@
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ToString()) : "";
     private static bool Bool(JsonElement e, string k)
         => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+    private static double Num(JsonElement e, string k)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
 }

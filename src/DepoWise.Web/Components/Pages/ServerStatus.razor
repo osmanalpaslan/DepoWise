@@ -36,6 +36,37 @@ else
         }
     </MudGrid>
 
+    @* #3 — CPU% ve Bellek% canlı (animasyonlu) göstergeler *@
+    <MudGrid Spacing="3" Class="mt-1">
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2" Style="border-radius:14px;">
+                <div class="d-flex align-center mb-1">
+                    <MudIcon Icon="@Icons.Material.Filled.Memory" Color="@GaugeColor(_cpuPct)" Size="Size.Small" Class="mr-2" />
+                    <MudText Typo="Typo.subtitle2">İşlemci Kullanımı (CPU)</MudText><MudSpacer />
+                    <MudText Typo="Typo.h6" Style="@($"color:{GaugeHex(_cpuPct)}")">@_cpuPct.ToString("0.0")%</MudText>
+                </div>
+                <div class="dw-gauge"><div class="dw-gauge-fill" style="width:@W(_cpuPct)%;background:@GaugeHex(_cpuPct)"></div></div>
+                <div class="dw-spark mt-2" style="height:56px">
+                    @foreach (var v in _cpuHist) { <div class="dw-bar2" style="height:@W(Math.Max(3, v))%;background:@GaugeHex(v)"></div> }
+                </div>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2" Style="border-radius:14px;">
+                <div class="d-flex align-center mb-1">
+                    <MudIcon Icon="@Icons.Material.Filled.DataUsage" Color="@GaugeColor(_memPct)" Size="Size.Small" Class="mr-2" />
+                    <MudText Typo="Typo.subtitle2">Bellek Kullanımı (RAM)</MudText><MudSpacer />
+                    <MudText Typo="Typo.h6" Style="@($"color:{GaugeHex(_memPct)}")">@_memPct.ToString("0.0")%</MudText>
+                </div>
+                <div class="dw-gauge"><div class="dw-gauge-fill" style="width:@W(_memPct)%;background:@GaugeHex(_memPct)"></div></div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_wsMb.ToString("0.0") MB / @_memLimitMb.ToString("0") MB limit</MudText>
+                <div class="dw-spark mt-2" style="height:56px">
+                    @foreach (var v in _memHist) { <div class="dw-bar2" style="height:@W(Math.Max(3, v))%;background:@GaugeHex(v)"></div> }
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
     <MudPaper Class="pa-4 mt-4" Elevation="2">
         <MudText Typo="Typo.subtitle2" Class="mb-2">Bellek (son @_mem.Count örnek)</MudText>
         <div class="dw-spark">
@@ -63,6 +94,9 @@ else
     .dw-spark { display:flex; align-items:flex-end; gap:3px; height:90px; }
     .dw-bar { flex:1; min-width:3px; background:linear-gradient(180deg,#3b82f6,#1e3a8a); border-radius:3px 3px 0 0; transition:height .4s ease; }
     .dw-kpi-val { font-size:1.4rem; font-weight:700; transition:color .3s ease; }
+    .dw-gauge { width:100%; height:14px; border-radius:8px; background:rgba(148,163,184,.25); overflow:hidden; }
+    .dw-gauge-fill { height:100%; border-radius:8px; transition:width .5s ease, background .5s ease; }
+    .dw-bar2 { flex:1; min-width:2px; border-radius:3px 3px 0 0; transition:height .4s ease, background .4s ease; align-self:flex-end; }
 </style>
 
 @code {
@@ -71,9 +105,12 @@ else
     private string? _err;
     private string _uptime = "—", _version = "—", _dotnet = "—", _serverTime = "—";
     private double _wsMb, _gcMb, _dbMb, _memMax = 1;
-    private int _threads, _machines, _companies, _users;
+    private double _cpuPct, _memPct, _memLimitMb;
+    private int _threads, _machines, _companies, _users, _usersOnline;
     private long _requests;
     private readonly List<double> _mem = new();
+    private readonly List<double> _cpuHist = new();
+    private readonly List<double> _memHist = new();
 
     protected override void OnInitialized()
     {
@@ -90,11 +127,17 @@ else
             _wsMb = Num(d, "workingSetMb");
             _gcMb = Num(d, "gcMemoryMb");
             _dbMb = Num(d, "dbSizeMb");
+            _cpuPct = Num(d, "cpuPercent");
+            _memPct = Num(d, "memPercent");
+            _memLimitMb = Num(d, "memLimitMb");
+            _usersOnline = (int)Num(d, "usersOnline");
             _threads = (int)Num(d, "threadCount");
             _machines = (int)Num(d, "machinesOnline");
             _companies = (int)Num(d, "companies");
             _users = (int)Num(d, "users");
             _requests = (long)Num(d, "requestCount");
+            _cpuHist.Add(_cpuPct); if (_cpuHist.Count > 40) _cpuHist.RemoveAt(0);
+            _memHist.Add(_memPct); if (_memHist.Count > 40) _memHist.RemoveAt(0);
             _version = Str(d, "latestVersion");
             _dotnet = Str(d, "dotnet");
             _serverTime = d.TryGetProperty("serverTimeUtc", out var st) ? st.ToString() : "—";
@@ -112,6 +155,7 @@ else
     private IEnumerable<KpiItem> Kpis() => new[]
     {
         new KpiItem("Çalışma Süresi", _uptime, Icons.Material.Filled.Timer, "info"),
+        new KpiItem("Online Kullanıcı", _usersOnline.ToString(), Icons.Material.Filled.PersonPin, _usersOnline > 0 ? "success" : "default"),
         new KpiItem("Çevrimiçi Makine", _machines.ToString(), Icons.Material.Filled.DevicesOther, _machines > 0 ? "success" : "default"),
         new KpiItem("Çalışma Belleği", $"{_wsMb:0.0} MB", Icons.Material.Filled.Memory, "warning"),
         new KpiItem("GC Belleği", $"{_gcMb:0.0} MB", Icons.Material.Filled.DataUsage, "default"),
@@ -127,6 +171,12 @@ else
     {
         "success" => Color.Success, "warning" => Color.Warning, "info" => Color.Info, "error" => Color.Error, _ => Color.Default
     };
+
+    // #3 — gösterge yardımcıları: eşik renkleri (yeşil<%60, turuncu<%85, kırmızı≥%85) + kültür-güvenli yüzde.
+    private static readonly System.Globalization.CultureInfo Ci = System.Globalization.CultureInfo.InvariantCulture;
+    private static string W(double v) => Math.Clamp(v, 0, 100).ToString("0.#", Ci);
+    private static Color GaugeColor(double p) => p >= 85 ? Color.Error : p >= 60 ? Color.Warning : Color.Success;
+    private static string GaugeHex(double p) => p >= 85 ? "#ef4444" : p >= 60 ? "#f59e0b" : "#22c55e";
 
     private static double Num(JsonElement e, string k)
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;

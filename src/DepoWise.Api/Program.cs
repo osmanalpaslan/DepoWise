@@ -54,7 +54,15 @@ app.UseAuthorization();
 
 // #19 — canlı sunucu durumu için hafif istek sayacı.
 _ = ServerMetrics.Start; // başlangıç anını sabitle
-app.Use(async (ctx, next) => { System.Threading.Interlocked.Increment(ref ServerMetrics.Requests); await next(); });
+app.Use(async (ctx, next) =>
+{
+    System.Threading.Interlocked.Increment(ref ServerMetrics.Requests);
+    // #4 — Online kullanıcı izleme: kimliği doğrulanmış her istekte kullanıcıyı "görüldü" işaretle (bellek-içi, ücretsiz).
+    var uid = ctx.User?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    if (!string.IsNullOrEmpty(uid))
+        ServerPresence.Touch(uid, ctx.User!.FindFirstValue(JwtTokens.CompanyClaim) ?? "");
+    await next();
+});
 
 // Gözlemlenebilirlik: her istek için tek satır erişim logu (metot/yol/durum/süre). Fly.io bunu toplar → canlıda
 // ne olup bittiği + hangi istek yavaş/hatalı görünür. Yüksek-frekanslı yoklamalar (health/status) loglanmaz (gürültü).
@@ -143,17 +151,27 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
     catch { }
     string? latest = null; try { latest = svc.Releases.Latest()?.Version; } catch { }
 
+    // Bellek limiti (container/cgroup) — .NET GC bunu görür; yoksa 256 MB (Fly.io makine boyutu) varsay.
+    var gcInfo = GC.GetGCMemoryInfo();
+    double memLimitMb = gcInfo.TotalAvailableMemoryBytes > 0 ? gcInfo.TotalAvailableMemoryBytes / MB : 256d;
+    double wsMb = proc.WorkingSet64 / MB;
+    double memPercent = memLimitMb > 0 ? Math.Round(Math.Clamp(wsMb / memLimitMb * 100.0, 0, 100), 1) : 0;
+
     return Results.Ok(new
     {
         uptimeSeconds = (long)(DateTimeOffset.UtcNow - ServerMetrics.Start).TotalSeconds,
-        workingSetMb = Math.Round(proc.WorkingSet64 / MB, 1),
+        workingSetMb = Math.Round(wsMb, 1),
         gcMemoryMb = Math.Round(GC.GetTotalMemory(false) / MB, 1),
+        cpuPercent = ServerMetrics.SampleCpuPercent(),
+        memPercent,
+        memLimitMb = Math.Round(memLimitMb, 0),
         threadCount = proc.Threads.Count,
         dotnet = Environment.Version.ToString(),
         dbSizeMb = Math.Round(dbBytes / MB, 2),
         companies,
         users,
         machinesOnline,
+        usersOnline = ServerPresence.TotalOnline(),
         latestVersion = latest ?? "—",
         requestCount = System.Threading.Interlocked.Read(ref ServerMetrics.Requests),
         serverTimeUtc = DateTimeOffset.UtcNow,
@@ -1185,7 +1203,22 @@ app.MapPost("/api/users/{id}/all-branches", (HttpContext c, string id, ActiveDto
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetViewAllBranches(s, id, d.Active)) }) : Results.Unauthorized()).RequireAuthorization();
 // Kota izleme (kullanıcı + admin kullanımı).
 app.MapGet("/api/quota-monitor", (HttpContext c) =>
-    S(c) is { } s ? Results.Ok(svc.Users.GetQuotaMonitor(s)) : Results.Unauthorized()).RequireAuthorization();
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var online = ServerPresence.OnlineByCompany(); // #4: firma başına anlık online kullanıcı
+    var rows = svc.Users.GetQuotaMonitor(s).Select(r =>
+    {
+        var n = online.TryGetValue(r.CompanyId, out var v) ? v : 0;
+        return new
+        {
+            r.CompanyId, r.CompanyName,
+            r.UserText, r.ActiveText, r.AdminText, r.UserFull, r.AdminFull,
+            onlineCount = n,
+            onlineText = n > 0 ? $"{n} online" : "—",
+        };
+    });
+    return Results.Ok(rows);
+}).RequireAuthorization();
 
 // ── Yetkiler (kullanıcı bazlı modül matrisi) ──
 app.MapGet("/api/permissions/{userId}", (HttpContext c, string userId) =>
@@ -1379,4 +1412,50 @@ static class ServerMetrics
 {
     public static long Requests;
     public static readonly DateTimeOffset Start = DateTimeOffset.UtcNow;
+
+    // CPU% örnekleme: iki poll arasındaki işlemci-zamanı farkını duvar-saati farkına oranlar (çekirdek sayısına böler).
+    private static readonly object _cpuLock = new();
+    private static TimeSpan _lastCpu = TimeSpan.Zero;
+    private static DateTime _lastCpuAt = DateTime.MinValue;
+
+    public static double SampleCpuPercent()
+    {
+        lock (_cpuLock)
+        {
+            var proc = System.Diagnostics.Process.GetCurrentProcess();
+            var now = DateTime.UtcNow;
+            var cpu = proc.TotalProcessorTime;
+            if (_lastCpuAt == DateTime.MinValue) { _lastCpu = cpu; _lastCpuAt = now; return 0; }
+            var wallMs = (now - _lastCpuAt).TotalMilliseconds;
+            var usedMs = (cpu - _lastCpu).TotalMilliseconds;
+            _lastCpu = cpu; _lastCpuAt = now;
+            if (wallMs <= 0) return 0;
+            var pct = usedMs / (wallMs * Math.Max(1, Environment.ProcessorCount)) * 100.0;
+            return Math.Round(Math.Clamp(pct, 0, 100), 1);
+        }
+    }
+}
+
+/// <summary>#4 — Bellek-içi online kullanıcı izleme (tek sunucu; kalıcı depo gerektirmez, ücretsiz).</summary>
+static class ServerPresence
+{
+    private const long WindowMs = 5 * 60 * 1000; // son 5 dk = "online"
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Seen, string Company)> _seen = new();
+
+    public static void Touch(string userId, string companyId)
+        => _seen[userId] = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), companyId);
+
+    public static int TotalOnline()
+    {
+        var cut = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - WindowMs;
+        return _seen.Count(kv => kv.Value.Seen >= cut);
+    }
+
+    public static Dictionary<string, int> OnlineByCompany()
+    {
+        var cut = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - WindowMs;
+        return _seen.Where(kv => kv.Value.Seen >= cut)
+                    .GroupBy(kv => kv.Value.Company)
+                    .ToDictionary(g => g.Key, g => g.Count());
+    }
 }
