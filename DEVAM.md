@@ -23,18 +23,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-10, akşam)
 
-> **⚠️ AÇIK SORUN (öncelik) — masaüstü .NET runtime hatası (bu PC'ye özel, kod değil):**
-> Masaüstü `.exe` (apphost) çift tıklanınca **"You must install or update .NET to run this application"** veriyor
-> (.NET 8 SDK+runtime KURULU olmasına rağmen). Kök neden: winget ile kurulan .NET, apphost'un runtime'ı bulması
-> için gereken kaydı düzgün yapmamış (`.NET location` exe'nin kendi klasörünü gösteriyor, `C:\Program Files\dotnet`'i değil).
-> **Denenenler (kısmen çözdü ama çift-tık hâlâ patlıyor):** `DOTNET_ROOT=C:\Program Files\dotnet` (user+machine),
-> registry `HKLM\SOFTWARE\dotnet\Setup\InstalledVersions\{x64,x86}\InstallLocation`, Explorer restart, kısayolu `dotnet run -c Debug`e çevirme.
-> `dotnet run` TERMİNALDEN çalışıyor; apphost `.exe` çift-tıkla hâlâ başarısız.
-> **Sonraki oturumda EN SAĞLAM çözüm sırası:** (1) Kısayolu apphost'suz yap: önce `dotnet build -c Debug`, sonra kısayol
-> hedefi = `C:\Program Files\dotnet\dotnet.exe` argüman = `"…\src\DepoWise.Desktop\bin\Debug\net8.0\DepoWise.Desktop.dll"`
-> (muxer runtime'ı DAİMA bulur, apphost devre dışı). (2) Olmazsa .NET'i winget yerine **resmi Microsoft installer**'dan
-> (dot.net) kurup onar. (3) Ya da self-contained yayınla (`dotnet publish -c Release --self-contained -r win-x64`).
-> Bu sorun repoyu/diğer PC'leri ETKİLEMEZ — yalnız bu makinenin .NET kurulumuyla ilgili.
+> **✅ ÇÖZÜLDÜ — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
+> Belirti: masaüstü apphost `.exe` çift tıklanınca "You must install or update .NET" (SDK+runtime kurulu olmasına rağmen).
+> Kök neden: winget ile kurulan .NET, apphost'un runtime'ı bulması için gereken kaydı düzgün yapmamıştı.
+> **Kalıcı çözüm:** Masaüstü kısayolu ("DepoWise (Gelistirme)") artık apphost `.exe` yerine **DLL'i doğrudan muxer ile**
+> çalıştırıyor: hedef `C:\Program Files\dotnet\dotnet.exe`, argüman `"…\src\DepoWise.Desktop\bin\Debug\net8.0\DepoWise.Desktop.dll"`.
+> Muxer runtime'ı daima bulur → hata yok (5 sn'de açılıyor, doğrulandı). Ayrıca `DOTNET_ROOT` (user+machine) ve registry InstallLocation da ayarlandı.
+> **DİKKAT:** Bu kısayol DLL'i çalıştırır, kod değişince otomatik derlemez. Kod değiştirdikten sonra masaüstünü güncel görmek için önce:
+> `dotnet build src/DepoWise.Desktop -c Debug` çalıştır (sonra kısayol yeni DLL'i açar). Bu sorun repoyu/diğer PC'leri etkilemez.
 
 **Genel durum:** Backend + iş mantığı **yayın adayı (1.0.0-rc)** olgunlukta — 17 fazın hepsi
 bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım. Web + API canlıda
