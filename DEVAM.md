@@ -23,14 +23,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-10, akşam)
 
-> **✅ ÇÖZÜLDÜ — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
-> Belirti: masaüstü apphost `.exe` çift tıklanınca "You must install or update .NET" (SDK+runtime kurulu olmasına rağmen).
-> Kök neden: winget ile kurulan .NET, apphost'un runtime'ı bulması için gereken kaydı düzgün yapmamıştı.
-> **Kalıcı çözüm:** Masaüstü kısayolu ("DepoWise (Gelistirme)") artık apphost `.exe` yerine **DLL'i doğrudan muxer ile**
-> çalıştırıyor: hedef `C:\Program Files\dotnet\dotnet.exe`, argüman `"…\src\DepoWise.Desktop\bin\Debug\net8.0\DepoWise.Desktop.dll"`.
-> Muxer runtime'ı daima bulur → hata yok (5 sn'de açılıyor, doğrulandı). Ayrıca `DOTNET_ROOT` (user+machine) ve registry InstallLocation da ayarlandı.
-> **DİKKAT:** Bu kısayol DLL'i çalıştırır, kod değişince otomatik derlemez. Kod değiştirdikten sonra masaüstünü güncel görmek için önce:
-> `dotnet build src/DepoWise.Desktop -c Debug` çalıştır (sonra kısayol yeni DLL'i açar). Bu sorun repoyu/diğer PC'leri etkilemez.
+> **✅ ÇÖZÜLDÜ (kesin) — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
+> Belirti: masaüstü apphost `.exe` "You must install or update .NET" (SDK+runtime kurulu olmasına rağmen). Kök neden:
+> winget .NET kurulumu apphost'un runtime'ı bulması için gereken kaydı yapmamıştı; DOTNET_ROOT/registry düzeltmeleri
+> tam oturmadı.
+> **Kesin çözüm:** Masaüstü **self-contained** yayınlandı (runtime uygulama içinde) ve kısayol ("DepoWise (Gelistirme)")
+> bu exe'ye bağlandı: `artifacts/desktop-selfcontained/DepoWise.Desktop.exe`. Bu exe hiçbir .NET kurulumuna/aramaya
+> BAĞLI DEĞİL → hata imkânsız (DOTNET_ROOT olmadan bile açıldı, doğrulandı).
+> **Yeniden üretmek için** (kod değişince güncel görmek için): `dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -r win-x64 --self-contained true -p:UseAppHost=true -o artifacts/desktop-selfcontained`
+> (kısayol aynı exe'yi açar). `artifacts/` gitignore'da. Bu sorun repoyu/diğer PC'leri etkilemez.
 
 **Genel durum:** Backend + iş mantığı **yayın adayı (1.0.0-rc)** olgunlukta — 17 fazın hepsi
 bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım. Web + API canlıda
