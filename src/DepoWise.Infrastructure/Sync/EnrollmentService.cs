@@ -8,9 +8,11 @@ using Microsoft.Data.Sqlite;
 namespace DepoWise.Infrastructure.Sync;
 
 public sealed record EnrollResult(string DeviceId, string Status);
-/// <summary>Makine kayıt/heartbeat yanıtı: durum + makinenin ADMIN tarafından atanmış şubesi (varsa).
-/// Masaüstü bu şubeyi önbelleğe alır (çevrimdışı otomatik giriş + ana ekran + farklı-şube uyarısı için).</summary>
-public sealed record RegisterResult(string DeviceId, string Status, string? BranchId, string? BranchName);
+/// <summary>Makine kayıt/heartbeat yanıtı: durum + makinenin firması + ADMIN tarafından atanmış şubesi (varsa).
+/// Masaüstü bunları önbelleğe alır (çevrimdışı otomatik giriş + ana ekran + farklı-şube uyarısı + süper admin
+/// "makine firması/şubesi ile giriş" seçenekleri için).</summary>
+public sealed record RegisterResult(string DeviceId, string Status, string? BranchId, string? BranchName,
+    string? CompanyId = null, string? CompanyName = null);
 public sealed record DeviceToken(string DeviceId, string Token);
 
 /// <summary>
@@ -163,9 +165,9 @@ public sealed class EnrollmentService
             upd.Parameters.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
             upd.Parameters.AddWithValue("$id", existingId);
             upd.ExecuteNonQuery();
-            var (exBid, exBname) = ReadDeviceBranch(conn, tx, existingId);
+            var (exBid, exBname, exCid, exCname) = ReadDeviceInfo(conn, tx, existingId);
             tx.Commit();
-            return new RegisterResult(existingId, newStatus, exBid, exBname);
+            return new RegisterResult(existingId, newStatus, exBid, exBname, exCid, exCname);
         }
 
         var status = ActiveCount(null) < quota ? "active" : "pending";
@@ -187,22 +189,27 @@ public sealed class EnrollmentService
             ins.Parameters.AddWithValue("$now", now);
             ins.ExecuteNonQuery();
         }
+        var (_, _, nCid, nCname) = ReadDeviceInfo(conn, tx, deviceId);
         tx.Commit();
-        return new RegisterResult(deviceId, status, null, null); // yeni makine → şubesiz
+        return new RegisterResult(deviceId, status, null, null, nCid, nCname); // yeni makine → şubesiz (firma bilinir)
     }
 
-    /// <summary>Bir makinenin (cihazın) atanmış şubesini + adını okur.</summary>
-    private static (string? BranchId, string? BranchName) ReadDeviceBranch(SqliteConnection conn, SqliteTransaction tx, string deviceId)
+    /// <summary>Bir makinenin firması + atanmış şubesi (id + ad) bilgisini okur.</summary>
+    private static (string? BranchId, string? BranchName, string? CompanyId, string? CompanyName) ReadDeviceInfo(SqliteConnection conn, SqliteTransaction tx, string deviceId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT d.branch_id, br.name FROM sync_devices d LEFT JOIN branches br ON br.id=d.branch_id WHERE d.id=$id;";
+        cmd.CommandText = "SELECT d.branch_id, br.name, d.company_id, co.name " +
+                          "FROM sync_devices d LEFT JOIN branches br ON br.id=d.branch_id " +
+                          "LEFT JOIN companies co ON co.id=d.company_id WHERE d.id=$id;";
         cmd.Parameters.AddWithValue("$id", deviceId);
         using var r = cmd.ExecuteReader();
-        if (!r.Read()) return (null, null);
-        var bid = r.IsDBNull(0) ? null : r.GetString(0);
-        var bname = r.IsDBNull(1) ? null : r.GetString(1);
-        return (bid, bname);
+        if (!r.Read()) return (null, null, null, null);
+        return (
+            r.IsDBNull(0) ? null : r.GetString(0),
+            r.IsDBNull(1) ? null : r.GetString(1),
+            r.IsDBNull(2) ? null : r.GetString(2),
+            r.IsDBNull(3) ? null : r.GetString(3));
     }
 
     /// <summary>Admin bir makineye ŞUBE atar (otoriter). Şube makinenin firmasına ait olmalı. Süper admin tüm

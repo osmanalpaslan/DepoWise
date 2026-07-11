@@ -17,8 +17,8 @@ public static class MachineGate
 {
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(6) };
 
-    /// <summary>Makine durum + atanmış şube kontrolü sonucu.</summary>
-    public sealed record MachineCheck(bool Allowed, string Reason, string? Status, string? BranchId, string? BranchName, bool Online);
+    /// <summary>Makine durum + firma + atanmış şube kontrolü sonucu.</summary>
+    public sealed record MachineCheck(bool Allowed, string Reason, string? Status, string? BranchId, string? BranchName, bool Online, string? CompanyId = null, string? CompanyName = null);
 
     private static string StatusFile => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "machine_status.txt");
@@ -28,7 +28,7 @@ public static class MachineGate
     public static async Task<MachineCheck> CheckAsync(string companyId)
     {
         var url = ResolveServerUrl();
-        string? status = null, branchId = null, branchName = null;
+        string? status = null, branchId = null, branchName = null, mCompanyId = null, mCompanyName = null;
         bool online = false;
 
         if (!string.IsNullOrWhiteSpace(url))
@@ -44,45 +44,47 @@ public static class MachineGate
                     online = true;
                     using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
                     var root = doc.RootElement;
-                    status = root.TryGetProperty("status", out var st) ? st.GetString() : null;
-                    branchId = root.TryGetProperty("branchId", out var bi) && bi.ValueKind != JsonValueKind.Null ? bi.GetString() : null;
-                    branchName = root.TryGetProperty("branchName", out var bn) && bn.ValueKind != JsonValueKind.Null ? bn.GetString() : null;
+                    static string? Str(JsonElement r, string p) => r.TryGetProperty(p, out var v) && v.ValueKind != JsonValueKind.Null ? v.GetString() : null;
+                    status = Str(root, "status");
+                    branchId = Str(root, "branchId"); branchName = Str(root, "branchName");
+                    mCompanyId = Str(root, "companyId"); mCompanyName = Str(root, "companyName");
                     if (status is not null) TryWrite(StatusFile, status);
-                    TryWrite(BranchFile, $"{branchId}|{branchName}"); // çevrimdışı için önbelleğe al (boş da olabilir)
+                    // çevrimdışı için önbelleğe al: branchId|branchName|companyId|companyName
+                    TryWrite(BranchFile, $"{branchId}|{branchName}|{mCompanyId}|{mCompanyName}");
                 }
             }
             catch { /* çevrimdışı → önbelleğe düş */ }
         }
 
-        if (!online) // çevrimdışı: son bilinen durum + şube önbellekten
+        if (!online) // çevrimdışı: son bilinen durum + şube/firma önbellekten
         {
             status = TryRead(StatusFile);
-            var (cbId, cbName) = ReadBranchCache();
-            branchId = cbId; branchName = cbName;
+            (branchId, branchName, mCompanyId, mCompanyName) = ReadInfoCache();
         }
 
-        // Makine şubesini uygulama geneline yaz (ana ekran + çevrimdışı otomatik giriş kullanır).
+        // Makine firması + şubesini uygulama geneline yaz (ana ekran + çevrimdışı oto-giriş + süper admin seçenekleri).
         DesktopServices.MachineBranchId = string.IsNullOrWhiteSpace(branchId) ? null : branchId;
         DesktopServices.MachineBranchName = string.IsNullOrWhiteSpace(branchName) ? null : branchName;
+        DesktopServices.MachineCompanyId = string.IsNullOrWhiteSpace(mCompanyId) ? null : mCompanyId;
+        DesktopServices.MachineCompanyName = string.IsNullOrWhiteSpace(mCompanyName) ? null : mCompanyName;
 
         if (string.Equals(status, "revoked", StringComparison.OrdinalIgnoreCase))
-            return new MachineCheck(false, "Bu makine pasife alınmış. Girişe kapalı. İnternete bağlanıp süper adminin makineyi aktifleştirmesi gerekir.", status, branchId, branchName, online);
+            return new MachineCheck(false, "Bu makine pasife alınmış. Girişe kapalı. İnternete bağlanıp süper adminin makineyi aktifleştirmesi gerekir.", status, branchId, branchName, online, mCompanyId, mCompanyName);
 
         if (string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
-            return new MachineCheck(false, "Bu makine firmanın makine kotasını aştığı için onay bekliyor. Süper adminin bu makineyi onaylaması (veya başka bir makineyi pasife alması) gerekir.", status, branchId, branchName, online);
+            return new MachineCheck(false, "Bu makine firmanın makine kotasını aştığı için onay bekliyor. Süper adminin bu makineyi onaylaması (veya başka bir makineyi pasife alması) gerekir.", status, branchId, branchName, online, mCompanyId, mCompanyName);
 
         // status 'active' → izin. Çevrimdışı ve hiç durum yoksa (null) engelleme (ilk kurulum senaryosu).
-        return new MachineCheck(true, "", status, branchId, branchName, online);
+        return new MachineCheck(true, "", status, branchId, branchName, online, mCompanyId, mCompanyName);
     }
 
-    private static (string? BranchId, string? BranchName) ReadBranchCache()
+    private static (string? BranchId, string? BranchName, string? CompanyId, string? CompanyName) ReadInfoCache()
     {
         var raw = TryRead(BranchFile);
-        if (string.IsNullOrWhiteSpace(raw)) return (null, null);
-        var i = raw.IndexOf('|');
-        if (i < 0) return (raw, null);
-        var id = raw[..i]; var name = raw[(i + 1)..];
-        return (string.IsNullOrWhiteSpace(id) ? null : id, string.IsNullOrWhiteSpace(name) ? null : name);
+        if (string.IsNullOrWhiteSpace(raw)) return (null, null, null, null);
+        var parts = raw.Split('|');
+        string? At(int i) => i < parts.Length && !string.IsNullOrWhiteSpace(parts[i]) ? parts[i] : null;
+        return (At(0), At(1), At(2), At(3));
     }
 
     private static void TryWrite(string path, string value)

@@ -87,6 +87,11 @@ public static class DesktopServices
     /// <summary>Makineye atanmış şubenin adı (ana ekran gösterimi).</summary>
     public static string? MachineBranchName { get; set; }
 
+    /// <summary>Makinenin (kayıtlı olduğu) firması — süper admin "makine firması ile giriş" seçeneği için.</summary>
+    public static string? MachineCompanyId { get; set; }
+    /// <summary>Makinenin firmasının adı.</summary>
+    public static string? MachineCompanyName { get; set; }
+
     /// <summary>Kullanıcının (admin'in atadığı) kendi şubesini + adını okur (yereldeki users.branch_id).</summary>
     public static (string? BranchId, string? BranchName) LoadUserBranch(string userId)
     {

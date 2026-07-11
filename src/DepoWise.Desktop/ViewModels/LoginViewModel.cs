@@ -71,6 +71,49 @@ public sealed partial class LoginViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowBranchCode));
     }
 
+    // ── SÜPER ADMIN girişi (Adım 2): makine firması/şubesi ile giriş VEYA firma+şube seç ──
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCompanyPicker))]
+    [NotifyPropertyChangedFor(nameof(ShowSuperBranchPicker))]
+    [NotifyPropertyChangedFor(nameof(ShowBranchSelector))]
+    private bool _isSuperAdminMode;
+
+    public System.Collections.ObjectModel.ObservableCollection<ServerAuthClient.LoginCompany> Companies { get; } = new();
+    [ObservableProperty] private ServerAuthClient.LoginCompany? _selectedCompany;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowCompanyPicker))]
+    [NotifyPropertyChangedFor(nameof(ShowSuperBranchPicker))]
+    [NotifyPropertyChangedFor(nameof(ShowBranchSelector))]
+    private bool _useMachineCompany = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSuperBranchPicker))]
+    [NotifyPropertyChangedFor(nameof(ShowBranchSelector))]
+    private bool _useMachineBranch = true;
+
+    public bool HasMachineCompany => !string.IsNullOrEmpty(DesktopServices.MachineCompanyId);
+    public bool HasMachineBranch => !string.IsNullOrEmpty(DesktopServices.MachineBranchId);
+    public string MachineCompanyLabel => "Makine firması ile giriş" + (string.IsNullOrEmpty(DesktopServices.MachineCompanyName) ? "" : $" ({DesktopServices.MachineCompanyName})");
+    public string MachineBranchLabel => "Makine şubesi ile giriş" + (string.IsNullOrEmpty(DesktopServices.MachineBranchName) ? "" : $" ({DesktopServices.MachineBranchName})");
+
+    /// <summary>Firma seçici: süper admin modunda VE "makine firması" işaretli DEĞİLKEN gösterilir.</summary>
+    public bool ShowCompanyPicker => IsSuperAdminMode && !UseMachineCompany;
+    /// <summary>Süper admin şube seçici: süper admin modunda VE "makine şubesi" işaretli DEĞİLKEN gösterilir.</summary>
+    public bool ShowSuperBranchPicker => IsSuperAdminMode && !UseMachineBranch;
+    /// <summary>Şube seçici (ComboBox) görünürlüğü: normal kullanıcıda daima; süper adminde yalnız "makine şubesi" işaretsizken.</summary>
+    public bool ShowBranchSelector => !IsSuperAdminMode || ShowSuperBranchPicker;
+
+    partial void OnUseMachineCompanyChanged(bool value)
+    {
+        // Makine firması işaretsizse → makine şubesi de anlamsız (şube firmaya bağlı) → kapat.
+        if (!value) UseMachineBranch = false;
+        else if (HasMachineCompany) SelectedCompany = Companies.FirstOrDefault(c => c.Id == DesktopServices.MachineCompanyId);
+        _ = ReloadSuperBranchesAsync();
+    }
+
+    partial void OnSelectedCompanyChanged(ServerAuthClient.LoginCompany? value) => _ = ReloadSuperBranchesAsync();
+
     public LoginViewModel()
     {
         // Çıkış sonrası: son giren kullanıcı adını login ekranına doldur (Beni Hatırla işaretli varsayılan).
@@ -135,31 +178,36 @@ public sealed partial class LoginViewModel : ViewModelBase
 
             bool canAll = result.Session.CanViewAllBranches || result.Session.IsSuperAdmin || result.Session.IsCompanyAdmin;
 
-            if (!_authedSession.IsSuperAdmin)
+            // ── SÜPER ADMIN: hiçbir koşul engellemez. Adım 2'de "makine firması/şubesi ile giriş" VEYA firma+şube seç. ──
+            if (_authedSession.IsSuperAdmin)
             {
-                // #5a: Makineye şube tanımlı değilse giriş YOK.
-                if (string.IsNullOrEmpty(DesktopServices.MachineBranchId))
-                {
-                    Error = "Bu makineye şube tanımlanmamış. Web'den yöneticinizin (admin) bu makineye şube ataması gerekir.";
-                    return;
-                }
-                // #5b: Kullanıcıya şube tanımlı değilse (ve Tüm Şubeler yetkisi yoksa) giriş YOK.
-                var (userBranchId, _) = DesktopServices.LoadUserBranch(_authedSession.UserId);
-                if (string.IsNullOrEmpty(userBranchId) && !canAll)
-                {
-                    Error = "Kullanıcınıza şube tanımlanmamış. Web'den yöneticinizin size şube ataması gerekir.";
-                    return;
-                }
-
-                // #2 (offline): internet yoksa makinenin şubesine OTOMATİK giriş (şube seçimi yok).
-                if (!_online)
-                {
-                    await FinalizeLoginAsync(DesktopServices.MachineBranchId, DesktopServices.MachineBranchName, isAllBranches: false, warnOnDifferent: false);
-                    return;
-                }
+                await SetupSuperAdminStep2Async();
+                Step = 2;
+                return;
             }
 
-            // Çevrimiçi (veya süper admin): şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa).
+            // #5a: Makineye şube tanımlı değilse giriş YOK.
+            if (string.IsNullOrEmpty(DesktopServices.MachineBranchId))
+            {
+                Error = "Bu makineye şube tanımlanmamış. Web'den yöneticinizin (admin) bu makineye şube ataması gerekir.";
+                return;
+            }
+            // #5b: Kullanıcıya şube tanımlı değilse (ve Tüm Şubeler yetkisi yoksa) giriş YOK.
+            var (userBranchId, _) = DesktopServices.LoadUserBranch(_authedSession.UserId);
+            if (string.IsNullOrEmpty(userBranchId) && !canAll)
+            {
+                Error = "Kullanıcınıza şube tanımlanmamış. Web'den yöneticinizin size şube ataması gerekir.";
+                return;
+            }
+
+            // #2 (offline): internet yoksa makinenin şubesine OTOMATİK giriş (şube seçimi yok).
+            if (!_online)
+            {
+                await FinalizeLoginAsync(DesktopServices.MachineBranchId, DesktopServices.MachineBranchName, isAllBranches: false, warnOnDifferent: false);
+                return;
+            }
+
+            // Çevrimiçi normal kullanıcı: şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa).
             await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
             var (ubId, _2) = DesktopServices.LoadUserBranch(_authedSession.UserId);
             SelectedBranch = Branches.FirstOrDefault(b => b.Id == ubId) ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
@@ -177,6 +225,7 @@ public sealed partial class LoginViewModel : ViewModelBase
         Error = null; Step = 1;
         _authedSession = null; _authedCompanyId = null;
         Branches.Clear(); SelectedBranch = null; BranchPassword = "";
+        IsSuperAdminMode = false; Companies.Clear(); SelectedCompany = null;
     }
 
     // ── ADIM 2: şube seçimi + giriş tamamlama (yalnız çevrimiçi / süper admin) ──
@@ -185,6 +234,17 @@ public sealed partial class LoginViewModel : ViewModelBase
     {
         if (_authedSession is null) { Back(); return; }
         Error = null;
+
+        // SÜPER ADMIN: hiçbir koşul engellemez (şube seçilmemiş olsa bile → Tüm Şubeler).
+        if (IsSuperAdminMode)
+        {
+            IsBusy = true;
+            try { await SuperAdminLoginAsync(); }
+            catch (Exception ex) { Error = "Giriş hatası: " + ex.Message; }
+            finally { IsBusy = false; }
+            return;
+        }
+
         // Şube seçimi ZORUNLU ("Tüm Şubeler" de geçerli bir seçimdir).
         if (SelectedBranch is null) { Error = "Lütfen giriş yapılacak şubeyi seçin."; return; }
         IsBusy = true;
@@ -247,6 +307,123 @@ public sealed partial class LoginViewModel : ViewModelBase
         else RememberMeService.Clear();
         OnLoggedIn?.Invoke(_authedSession);
         return true;
+    }
+
+    // ── SÜPER ADMIN Adım 2 kurulumu + giriş ──
+    private async System.Threading.Tasks.Task SetupSuperAdminStep2Async()
+    {
+        IsSuperAdminMode = true;
+        UseMachineCompany = HasMachineCompany;  // makine firması varsa varsayılan işaretli
+        UseMachineBranch = HasMachineBranch;    // makine şubesi varsa varsayılan işaretli
+        foreach (var n in new[] { nameof(HasMachineCompany), nameof(HasMachineBranch), nameof(MachineCompanyLabel), nameof(MachineBranchLabel), nameof(ShowCompanyPicker), nameof(ShowSuperBranchPicker) })
+            OnPropertyChanged(n);
+
+        Companies.Clear();
+        var online = await ServerAuthClient.GetLoginCompaniesAsync();
+        if (online is not null) foreach (var c in online) Companies.Add(c);
+        else LoadLocalCompanies(); // çevrimdışı → yerel firmalar
+
+        SelectedCompany = Companies.FirstOrDefault(c => c.Id == DesktopServices.MachineCompanyId)
+            ?? Companies.FirstOrDefault(c => c.Id == _authedCompanyId)
+            ?? Companies.FirstOrDefault();
+
+        await ReloadSuperBranchesAsync();
+    }
+
+    /// <summary>Süper admin: etkin firmanın (makine firması ya da seçilen) şubelerini yükler.</summary>
+    private async System.Threading.Tasks.Task ReloadSuperBranchesAsync()
+    {
+        if (!IsSuperAdminMode) return;
+        var companyId = UseMachineCompany ? DesktopServices.MachineCompanyId : SelectedCompany?.Id;
+        if (string.IsNullOrEmpty(companyId)) { Branches.Clear(); OnPropertyChanged(nameof(HasBranches)); return; }
+        await LoadBranchesForUserAsync(companyId, canViewAllBranches: true); // süper admin → Tüm Şubeler daima
+        SelectedBranch = Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId) ?? Branches.FirstOrDefault();
+    }
+
+    private void LoadLocalCompanies()
+    {
+        try
+        {
+            using var conn = DesktopServices.Factory.Create();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) Companies.Add(new ServerAuthClient.LoginCompany(r.GetString(0), r.GetString(1)));
+        }
+        catch { }
+    }
+
+    private async System.Threading.Tasks.Task SuperAdminLoginAsync()
+    {
+        // Firma çöz: makine firması (işaretliyse) → yoksa seçilen → yoksa süper adminin kendi firması (login DAİMA mümkün).
+        var companyId = (UseMachineCompany ? DesktopServices.MachineCompanyId : SelectedCompany?.Id) ?? _authedCompanyId!;
+        var companyName = Companies.FirstOrDefault(c => c.Id == companyId)?.Name ?? ResolveCompanyName(companyId);
+
+        // Şube çöz: makine şubesi (işaretliyse) → yoksa seçilen → yoksa Tüm Şubeler (engelleme yok).
+        string? branchId; string? branchName; bool isAll;
+        if (UseMachineBranch && !string.IsNullOrEmpty(DesktopServices.MachineBranchId))
+        { branchId = DesktopServices.MachineBranchId; branchName = DesktopServices.MachineBranchName; isAll = false; }
+        else if (SelectedBranch is not null && SelectedBranch.Id != BranchConstants.AllBranchesId)
+        { branchId = SelectedBranch.Id; branchName = SelectedBranch.Name; isAll = false; }
+        else
+        { branchId = null; branchName = "Tüm Şubeler"; isAll = true; }
+
+        // Seçilen firma süper adminin kendi firması değilse: firmayı + şubelerini YERELE yaz + çapraz-firma oturumu kur.
+        if (!string.Equals(companyId, _authedCompanyId, StringComparison.Ordinal))
+        {
+            await UpsertCompanyAndBranchesLocalAsync(companyId, companyName);
+            var cross = DesktopServices.Auth.CreateSessionForUser(companyId, _authedSession!.UserId);
+            if (cross is null) { Error = "Seçilen firma bağlamında oturum kurulamadı (internet gerekebilir)."; return; }
+            _authedSession = cross;
+            _authedCompanyId = companyId;
+        }
+        CompanyName = companyName;
+        DesktopServices.MachineBranchName ??= null; // (ana ekran makine şubesini gösterir; değişmez)
+
+        await FinalizeLoginAsync(branchId, branchName, isAll, warnOnDifferent: false);
+    }
+
+    /// <summary>Süper adminin seçtiği (kendi olmayan) firmayı + şubelerini yerel DB'ye yazar → çapraz-firma oturumu +
+    /// ekranlar için firma/şube mevcut olur. Operasyonel veri senkronu ayrı (bu yalnız firma+şube tanımları).</summary>
+    private async System.Threading.Tasks.Task UpsertCompanyAndBranchesLocalAsync(string companyId, string companyName)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        try
+        {
+            using var conn = DesktopServices.Factory.Create();
+            using (var c = conn.CreateCommand())
+            {
+                c.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($id,$n,$now,$now,1,0) " +
+                                "ON CONFLICT(id) DO UPDATE SET name=$n, is_deleted=0, updated_at=$now;";
+                c.Parameters.AddWithValue("$id", companyId);
+                c.Parameters.AddWithValue("$n", companyName);
+                c.Parameters.AddWithValue("$now", now);
+                c.ExecuteNonQuery();
+            }
+        }
+        catch { }
+
+        try
+        {
+            var online = await ServerAuthClient.GetLoginBranchesAsync(companyId);
+            if (online is null) return; // çevrimdışı → yerelde zaten olanla devam
+            using var conn = DesktopServices.Factory.Create();
+            foreach (var b in online)
+            {
+                if (b.Id == BranchConstants.AllBranchesId) continue;
+                using var c = conn.CreateCommand();
+                c.CommandText = "INSERT INTO branches(id,company_id,name,kind,code,created_at,updated_at,version,is_deleted) " +
+                                "VALUES($id,$c,$n,'branch',$code,$now,$now,1,0) " +
+                                "ON CONFLICT(id) DO UPDATE SET company_id=$c, name=$n, code=$code, is_deleted=0, updated_at=$now;";
+                c.Parameters.AddWithValue("$id", b.Id);
+                c.Parameters.AddWithValue("$c", companyId);
+                c.Parameters.AddWithValue("$n", b.Name);
+                c.Parameters.AddWithValue("$code", (object?)b.Code ?? System.DBNull.Value);
+                c.Parameters.AddWithValue("$now", now);
+                c.ExecuteNonQuery();
+            }
+        }
+        catch { }
     }
 
     private async System.Threading.Tasks.Task LoadBranchesForUserAsync(string companyId, bool canViewAllBranches)

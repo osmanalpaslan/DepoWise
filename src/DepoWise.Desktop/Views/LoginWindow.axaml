@@ -43,8 +43,26 @@
             <!-- ADIM 2: şube seçimi -->
             <StackPanel Spacing="16" IsVisible="{Binding IsStep2}">
                 <SelectableTextBlock Text="{Binding CompanyName}" HorizontalAlignment="Center" FontWeight="SemiBold"
+                           IsVisible="{Binding !IsSuperAdminMode}"
                            Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                <StackPanel Spacing="4">
+
+                <!-- SÜPER ADMIN: makine firması/şubesi ile giriş VEYA firma+şube seç -->
+                <StackPanel Spacing="10" IsVisible="{Binding IsSuperAdminMode}">
+                    <SelectableTextBlock Text="Süper Admin — firma ve şube seçimi" HorizontalAlignment="Center"
+                                         FontWeight="SemiBold" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <CheckBox Content="{Binding MachineCompanyLabel}" IsChecked="{Binding UseMachineCompany}"
+                              IsVisible="{Binding HasMachineCompany}"
+                              Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <StackPanel Spacing="4" IsVisible="{Binding ShowCompanyPicker}">
+                        <SelectableTextBlock Text="Firma" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                        <ComboBox ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    <CheckBox Content="{Binding MachineBranchLabel}" IsChecked="{Binding UseMachineBranch}"
+                              IsVisible="{Binding HasMachineBranch}"
+                              Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="4" IsVisible="{Binding ShowBranchSelector}">
                     <SelectableTextBlock Text="Şube / Şantiye" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
                     <ComboBox ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch}" HorizontalAlignment="Stretch"/>
                 </StackPanel>
