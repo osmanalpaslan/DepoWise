@@ -13,46 +13,102 @@
 else
 {
     <MudText Typo="Typo.h5" GutterBottom="true">Firma Yetki Kontrol</MudText>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
-        Bir firmanın adminlerinin Personel'e <b>verebildiği</b> ve <b>veremediği</b> yetkiler. "Yalnız Admin (global)" satırlar
-        her firmada kısıtlıdır. Ek olarak bu firmaya özel modülleri de "yalnız Admin" yapabilirsiniz (verilmek istenirse kullanıcı
-        Admin'e yükseltilir).
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
+        Her firmada, o firmanın <b>adminlerinin kendi personeline verebileceği</b> ekranları belirlersiniz.
+        Bir ekranı <b>“Yalnız Admin”</b> yaparsanız o firmanın adminleri bu ekranı personele açamaz.
+        <b>Global kilitli</b> (🔒) ekranlar tüm firmalarda kısıtlıdır ve değiştirilemez.
     </MudText>
 
-    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
-        <MudSelect T="string" @bind-Value="_companyId" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" @bind-Value:after="Load">
-            @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
-        </MudSelect>
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudGrid Spacing="2" Class="align-center">
+            <MudItem xs="12" md="5">
+                <MudSelect T="string" @bind-Value="_companyId" Label="Firma" Margin="Margin.Dense" Variant="Variant.Outlined" @bind-Value:after="Load">
+                    @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="7">
+                <MudTextField @bind-Value="_search" Immediate="true" Placeholder="Ekran ara (örn. yakıt, rapor, bakım…)"
+                              Margin="Margin.Dense" Variant="Variant.Outlined" Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" Disabled="@(_rows is null)" />
+            </MudItem>
+        </MudGrid>
     </MudPaper>
 
     @if (_rows is not null)
     {
-        <MudPaper Class="pa-4" Elevation="2" Style="max-width:760px;">
-            <MudTable Items="_rows" Dense="true" Hover="true" T="Row">
-                <HeaderContent>
-                    <MudTh>EKRAN / MODÜL</MudTh><MudTh>DURUM</MudTh><MudTh Style="text-align:center">Firmaya Özel Kısıt</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.Label</MudTd>
-                    <MudTd>
-                        <MudChip T="string" Size="Size.Small" Color="@(context.GlobalRestricted ? Color.Error : context.CompanyRestricted ? Color.Warning : Color.Success)">
-                            @context.StatusText
-                        </MudChip>
-                    </MudTd>
-                    <MudTd Style="text-align:center">
-                        @if (context.GlobalRestricted)
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="4">
+                <MudPaper Class="pa-3" Elevation="1" Style="border-radius:12px">
+                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-success)">@_rows.Count(r => !r.GlobalRestricted && !r.CompanyRestricted)</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Serbest — admin personele verebilir</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-3" Elevation="1" Style="border-radius:12px">
+                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-warning)">@_rows.Count(r => !r.GlobalRestricted && r.CompanyRestricted)</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Yalnız Admin — firmaya özel kısıt</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-3" Elevation="1" Style="border-radius:12px">
+                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-error)">@_rows.Count(r => r.GlobalRestricted)</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Global kilit — değiştirilemez</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @foreach (var grp in Grouped())
+        {
+            <MudPaper Class="pa-3 mb-3" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+                    <MudText Typo="Typo.subtitle2" Class="mud-text-secondary" Style="letter-spacing:.05em">@grp.Key.ToUpper()</MudText>
+                    <MudSpacer />
+                    @if (grp.Any(r => !r.GlobalRestricted))
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => BulkFree(grp.Key))">Tümünü serbest bırak</MudButton>
+                    }
+                </MudStack>
+                @foreach (var r in grp)
+                {
+                    <div class="d-flex align-center py-2" style="border-top:1px solid var(--mud-palette-lines-default)">
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.body2" Style="font-weight:600">@r.Label</MudText>
+                            @if (!string.IsNullOrEmpty(Hint(r.ModuleKey))) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@Hint(r.ModuleKey)</MudText> }
+                        </div>
+                        @if (r.GlobalRestricted)
                         {
-                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Error" />
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Lock" Variant="Variant.Text">Global kilit</MudChip>
                         }
                         else
                         {
-                            <MudCheckBox T="bool" Value="context.CompanyRestricted" ValueChanged="v => context.CompanyRestricted = v" Dense="true" Color="Color.Warning" />
+                            <MudButton Size="Size.Small" DisableElevation="true"
+                                       Variant="@(!r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
+                                       Color="@(!r.CompanyRestricted ? Color.Success : Color.Default)"
+                                       OnClick="@(() => Set(r, false))" Class="mr-1">🟢 Serbest</MudButton>
+                            <MudButton Size="Size.Small" DisableElevation="true"
+                                       Variant="@(r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
+                                       Color="@(r.CompanyRestricted ? Color.Warning : Color.Default)"
+                                       OnClick="@(() => Set(r, true))">🟡 Yalnız Admin</MudButton>
                         }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
+                    </div>
+                }
+            </MudPaper>
+        }
+
+        @if (Grouped().Sum(g => g.Count()) == 0)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">Aramayla eşleşen ekran yok.</MudAlert>
+        }
+
+        <MudPaper Class="pa-3 mt-3" Elevation="4" Style="position:sticky;bottom:8px;border-radius:12px">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @if (_changes > 0) { <b>@_changes değişiklik</b> } else { <span>Değişiklik yok</span> } bekliyor
+                    · kaydedilince o firmanın adminleri anında etkilenir
+                </MudText>
+                <MudSpacer />
+                <MudButton Variant="Variant.Text" OnClick="Load" Disabled="@(_busy || _changes == 0)">Geri al</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="@(_busy || _changes == 0)">Kaydet</MudButton>
             </MudStack>
             @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
         </MudPaper>
@@ -66,12 +122,14 @@ else
         public string Label { get; set; } = "";
         public bool GlobalRestricted { get; set; }
         public bool CompanyRestricted { get; set; }
-        public string StatusText { get; set; } = "";
+        public bool Original { get; set; }   // yüklenen ilk durum (değişiklik sayımı için)
     }
 
     private List<ApiClient.Opt> _companies = new();
     private string? _companyId;
     private List<Row>? _rows;
+    private string _search = "";
+    private int _changes;
     private string? _msg; private bool _ok; private bool _busy;
 
     protected override async Task OnInitializedAsync()
@@ -82,23 +140,51 @@ else
 
     private async Task Load()
     {
-        _rows = null; _msg = null;
+        _rows = null; _msg = null; _changes = 0;
         if (string.IsNullOrEmpty(_companyId)) return;
         try
         {
             var list = new List<Row>();
             foreach (var e in await Api.GetArrayAsync($"/api/company-permissions/{_companyId}"))
+            {
+                var cr = B(e, "companyRestricted");
                 list.Add(new Row
                 {
                     ModuleKey = S(e, "moduleKey"),
                     Label = S(e, "label"),
                     GlobalRestricted = B(e, "globalRestricted"),
-                    CompanyRestricted = B(e, "companyRestricted"),
-                    StatusText = S(e, "statusText"),
+                    CompanyRestricted = cr,
+                    Original = cr,
                 });
+            }
             _rows = list;
         }
         catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private void Set(Row r, bool restricted)
+    {
+        if (r.GlobalRestricted || r.CompanyRestricted == restricted) return;
+        r.CompanyRestricted = restricted;
+        Recount();
+    }
+
+    private void BulkFree(string group)
+    {
+        if (_rows is null) return;
+        foreach (var r in _rows.Where(r => !r.GlobalRestricted && Group(r.ModuleKey) == group))
+            r.CompanyRestricted = false;
+        Recount();
+    }
+
+    private void Recount() => _changes = _rows?.Count(r => r.CompanyRestricted != r.Original) ?? 0;
+
+    private IEnumerable<IGrouping<string, Row>> Grouped()
+    {
+        if (_rows is null) return Enumerable.Empty<IGrouping<string, Row>>();
+        var q = _search?.Trim() ?? "";
+        var rows = q.Length == 0 ? _rows : _rows.Where(r => r.Label.Contains(q, StringComparison.OrdinalIgnoreCase));
+        return rows.GroupBy(r => Group(r.ModuleKey)).OrderBy(g => GroupOrder(g.Key));
     }
 
     private async Task Save()
@@ -116,6 +202,30 @@ else
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
+
+    // ── Modülleri gruplama (istemci tarafı; API değişmeden). Bilinmeyen anahtar → "Diğer". ──
+    private static string Group(string key) => key switch
+    {
+        "materials" or "stock" or "stock_count" or "requests" => "Depo & Operasyon",
+        "vehicles" or "vehicle_templates" or "inspection" or "maintenance" or "fuel" => "Araç & Bakım",
+        "reports" or "daily_activity" or "audit" => "Rapor & Kayıt",
+        "companies" or "users" or "permissions" or "roles" or "personnel" or "branches"
+            or "quota_monitor" or "server_status" or "server_backups" or "machines" => "Yönetim (yalnız adminler)",
+        _ => "Diğer",
+    };
+    private static int GroupOrder(string g) => g switch
+    {
+        "Depo & Operasyon" => 0, "Araç & Bakım" => 1, "Rapor & Kayıt" => 2, "Yönetim (yalnız adminler)" => 3, _ => 9
+    };
+    private static string Hint(string key) => key switch
+    {
+        "reports" => "Ağır raporlar — sunucu yükü",
+        "fuel" => "Yakıt girişi ve tüketim",
+        "requests" => "Talep oluştur, onaya gönder",
+        "maintenance" => "Planlı / arıza bakımı",
+        "stock" => "Giriş / çıkış / transfer",
+        _ => "",
+    };
 
     private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
     private static bool B(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
