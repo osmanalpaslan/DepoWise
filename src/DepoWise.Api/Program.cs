@@ -556,8 +556,13 @@ app.MapGet("/api/materials/subcategories", (HttpContext c, string? parentId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListCategories(s, string.IsNullOrWhiteSpace(parentId) ? null : parentId)) : Results.Unauthorized()).RequireAuthorization();
 
 // Roller (kullanıcı oluşturma için)
-app.MapGet("/api/roles", (HttpContext c) => S(c) is null ? Results.Unauthorized()
-    : Results.Ok(RoleKeys.Seed.Where(r => r.Key != RoleKeys.SuperAdmin).Select(r => new { key = r.Key, name = r.Name }))).RequireAuthorization();
+app.MapGet("/api/roles", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // Süper Admin rolü YALNIZ süper admin'e listelenir (başka roller kullanıcı oluştururken görmez).
+    var roles = RoleKeys.Seed.Where(r => r.Key != RoleKeys.SuperAdmin || s.IsSuperAdmin);
+    return Results.Ok(roles.Select(r => new { key = r.Key, name = r.Name }));
+}).RequireAuthorization();
 
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
 app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password))) }) : Results.Unauthorized()).RequireAuthorization();
