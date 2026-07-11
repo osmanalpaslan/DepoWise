@@ -21,7 +21,18 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-10, akşam)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-11, akşam)
+
+> **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
+> - **#1 Pasif firma yeniden aktifleştirme (sözleşme yenileme):** Firma silinince kullanıcılar pasife alınıyordu;
+>   artık "Pasif Firmalar" bölümünden **Aktife Al** ile firma + kullanıcılar geri gelir. (Web + masaüstü + API)
+> - **#3 Canlı Sunucu:** İşlemci (CPU) ve Bellek (RAM) için **animasyonlu yüzde göstergeleri**. (Web-only ekran)
+> - **#4 Kota İzleme:** Firma başına **anlık ONLINE kullanıcı** (son 5 dk). (Web-only ekran)
+> - **#2 Yedek:** Masaüstünde **günde 1 kez otomatik yerel yedek** + yedek ekranlarına "nasıl dolar" bilgi paneli.
+> - **#5 (öneri):** Firma Yetki Kontrol yeni tasarım taslağı → `docs/mockups/firma-yetki-v2.html`.
+> - **#6 (öneri):** Personel+Yetki birleştirme fikirleri → `docs/ONERILER_YETKI_PERSONEL.md`. **İkisi de onay bekliyor.**
+> - Yeni kullanım kılavuzu: `docs/KULLANIM_KILAVUZU.md`. Testler yeşil (+1). Masaüstü değişiklikleri **1.0.37 paketiyle** görünür.
+
 
 > **✅ ÇÖZÜLDÜ (kesin) — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
 > Belirti: masaüstü apphost `.exe` "You must install or update .NET" (SDK+runtime kurulu olmasına rağmen). Kök neden:

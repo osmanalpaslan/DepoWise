@@ -1,0 +1,238 @@
+<title>Firma Yetki Kontrol — Yeni Tasarım Taslağı</title>
+<style>
+  :root {
+    --ground: #eef2f7; --surface: #ffffff; --surface-2: #f8fafc;
+    --ink: #0f172a; --muted: #64748b; --line: #e2e8f0;
+    --brand: #2563eb; --brand-soft: #dbeafe;
+    --ok: #16a34a; --ok-soft: #dcfce7;
+    --warn: #d97706; --warn-soft: #fef3c7;
+    --lock: #dc2626; --lock-soft: #fee2e2;
+    --shadow: 0 1px 2px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.06);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0b1220; --surface: #131c2e; --surface-2: #0f172a;
+      --ink: #e6edf7; --muted: #93a2ba; --line: #24314a;
+      --brand: #5b9bff; --brand-soft: #17294d;
+      --ok: #34d399; --ok-soft: #10331f; --warn: #f0b429; --warn-soft: #3a2c0c;
+      --lock: #f87171; --lock-soft: #3a1717;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #eef2f7; --surface: #ffffff; --surface-2: #f8fafc;
+    --ink: #0f172a; --muted: #64748b; --line: #e2e8f0;
+    --brand: #2563eb; --brand-soft: #dbeafe;
+    --ok: #16a34a; --ok-soft: #dcfce7; --warn: #d97706; --warn-soft: #fef3c7;
+    --lock: #dc2626; --lock-soft: #fee2e2;
+    --shadow: 0 1px 2px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.06);
+  }
+  :root[data-theme="dark"] {
+    --ground: #0b1220; --surface: #131c2e; --surface-2: #0f172a;
+    --ink: #e6edf7; --muted: #93a2ba; --line: #24314a;
+    --brand: #5b9bff; --brand-soft: #17294d;
+    --ok: #34d399; --ok-soft: #10331f; --warn: #f0b429; --warn-soft: #3a2c0c;
+    --lock: #f87171; --lock-soft: #3a1717;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+    line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 20px 120px; }
+  .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  h1 { font-size: 26px; margin: 4px 0 6px; text-wrap: balance; letter-spacing: -.01em; }
+  .lede { color: var(--muted); max-width: 68ch; margin: 0 0 20px; font-size: 14.5px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .toolbar { padding: 16px; display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  select, .search input {
+    background: var(--surface-2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 9px; padding: 9px 12px; font-size: 14px; font-family: inherit; min-width: 220px;
+  }
+  .search { position: relative; flex: 1; min-width: 200px; }
+  .search input { width: 100%; padding-left: 34px; }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .spacer { flex: 1; }
+
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+  .stat { flex: 1; min-width: 150px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+  .stat .n { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; }
+  .stat .k { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.lock { background: var(--lock); }
+
+  .group { margin-top: 18px; }
+  .group-head { display: flex; align-items: center; gap: 10px; padding: 0 4px 8px; }
+  .group-head h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 700; }
+  .group-head .rule { flex: 1; height: 1px; background: var(--line); }
+  .group-head .bulk { font-size: 12.5px; color: var(--brand); cursor: pointer; font-weight: 600; background: none; border: none; }
+
+  .rows { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: none; }
+  .row .name { font-weight: 600; font-size: 14.5px; }
+  .row .hint { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+  /* segmented 3-state control */
+  .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 7px 12px; border-radius: 7px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"][data-v="ok"]   { background: var(--ok-soft); color: var(--ok); }
+  .seg button[aria-pressed="true"][data-v="warn"]  { background: var(--warn-soft); color: var(--warn); }
+  .seg .lockstate { color: var(--lock); font-weight: 700; padding: 7px 12px; display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+
+  .locked .name::after { content: "GLOBAL"; font-size: 10px; letter-spacing: .08em; margin-left: 8px; color: var(--lock); background: var(--lock-soft); padding: 2px 6px; border-radius: 999px; vertical-align: middle; font-weight: 700; }
+
+  .savebar {
+    position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(8px); border-top: 1px solid var(--line); padding: 12px 20px;
+    display: flex; align-items: center; gap: 14px; justify-content: center;
+  }
+  .savebar .inner { width: 100%; max-width: 980px; display: flex; align-items: center; gap: 12px; }
+  .changes { font-size: 13px; color: var(--muted); }
+  .changes b { color: var(--ink); }
+  .btn { font-family: inherit; font-weight: 600; font-size: 14px; border-radius: 9px; padding: 10px 18px; cursor: pointer; border: 1px solid transparent; }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+  .note { font-size: 12px; color: var(--muted); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin: 6px 4px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .themebtn { position: fixed; top: 14px; right: 14px; z-index: 10; background: var(--surface); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 7px 11px; cursor: pointer; font-family: inherit; font-size: 13px; box-shadow: var(--shadow); }
+  @media (max-width: 620px) {
+    .row { grid-template-columns: 1fr; }
+    .seg { flex-wrap: wrap; }
+  }
+</style>
+
+<button class="themebtn" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'?'light':'dark')">🌓 Tema</button>
+
+<div class="wrap">
+  <div class="eyebrow">Süper Admin · Öneri Taslağı (v2)</div>
+  <h1>Firma Yetki Kontrol</h1>
+  <p class="lede">
+    Her firmada, o firmanın <b>adminlerinin kendi personeline verebileceği</b> ekranları belirlersiniz.
+    Bir ekranı <b>“Yalnız Admin”</b> yaparsanız, o firmanın adminleri bu ekranı personele açamaz — yalnız adminler kullanır.
+    <b>Global kilitli</b> ekranlar (kırmızı) tüm firmalarda kısıtlıdır ve değiştirilemez.
+  </p>
+
+  <div class="card toolbar">
+    <div class="field">
+      <label>Firma</label>
+      <select>
+        <option>Akbaş Nakliyat A.Ş.</option>
+        <option>Deniz Lojistik Ltd.</option>
+        <option>Yıldız İnşaat</option>
+      </select>
+    </div>
+    <div class="search field">
+      <label>Ekran ara</label>
+      <div style="position:relative">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input placeholder="Örn. yakıt, rapor, bakım…">
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n"><span class="dot ok"></span><span id="c-ok">14</span></div><div class="k">Serbest — admin personele verebilir</div></div>
+    <div class="stat"><div class="n"><span class="dot warn"></span><span id="c-warn">3</span></div><div class="k">Yalnız Admin — bu firmaya özel kısıt</div></div>
+    <div class="stat"><div class="n"><span class="dot lock"></span><span id="c-lock">5</span></div><div class="k">Global kilit — değiştirilemez</div></div>
+  </div>
+
+  <div class="legend">
+    <span><span class="dot ok"></span> Serbest</span>
+    <span><span class="dot warn"></span> Yalnız Admin (firmaya özel)</span>
+    <span><span class="dot lock"></span> Global kilit</span>
+  </div>
+
+  <!-- GROUP: İşlemler -->
+  <div class="group">
+    <div class="group-head"><h2>Depo & Operasyon</h2><div class="rule"></div><button class="bulk">Tümünü serbest bırak</button></div>
+    <div class="rows" id="rows"></div>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><h2>Araç & Bakım</h2><div class="rule"></div><button class="bulk">Tümünü serbest bırak</button></div>
+    <div class="rows" id="rows2"></div>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><h2>Yönetim (yalnız adminler)</h2><div class="rule"></div></div>
+    <div class="rows" id="rows3"></div>
+  </div>
+</div>
+
+<div class="savebar">
+  <div class="inner">
+    <span class="changes"><b id="chg">2</b> değişiklik bekliyor</span>
+    <span class="note">· Kaydedilince o firmanın adminleri anında etkilenir</span>
+    <span class="spacer" style="flex:1"></span>
+    <button class="btn ghost">Değişiklikleri geri al</button>
+    <button class="btn primary">Kaydet</button>
+  </div>
+</div>
+
+<script>
+  const opGroup = [
+    ["Stok Hareketleri", "Giriş / çıkış / transfer", "ok"],
+    ["Malzeme Talebi", "Talep oluştur, onaya gönder", "ok"],
+    ["Stok Sayımı", "Fiziksel sayım ve fark", "ok"],
+    ["Günlük Faaliyet", "Bakım + stok düşümü", "ok"],
+    ["Raporlar", "Ağır raporlar — sunucu yükü", "warn"],
+  ];
+  const vehGroup = [
+    ["Araç / Makine", "Araç kartı ve tanımlar", "ok"],
+    ["Bakım Takibi", "Planlı / arıza bakımı", "ok"],
+    ["Yakıt", "Yakıt girişi ve tüketim", "warn"],
+    ["Muayene", "Muayene ve sigorta", "ok"],
+  ];
+  const admGroup = [
+    ["Firma Tanım", "Yalnız süper admin", "lock"],
+    ["Kullanıcı Yönetimi", "Hesap açma / kapama", "lock"],
+    ["Yetkiler", "Yetki matrisi", "lock"],
+    ["Kota İzleme", "Kullanıcı kotaları", "lock"],
+    ["Sunucu Durumu", "Canlı sunucu metrikleri", "lock"],
+  ];
+
+  function seg(state){
+    if(state==="lock") return '<span class="lockstate">🔒 Global kilit</span>';
+    return `<div class="seg">
+      <button data-v="ok"   aria-pressed="${state==='ok'}">🟢 Serbest</button>
+      <button data-v="warn" aria-pressed="${state==='warn'}">🟡 Yalnız Admin</button>
+    </div>`;
+  }
+  function render(list, el){
+    document.getElementById(el).innerHTML = list.map(([n,h,s])=>`
+      <div class="row ${s==='lock'?'locked':''}">
+        <div><div class="name">${n}</div><div class="hint">${h}</div></div>
+        <div>${seg(s)}</div>
+      </div>`).join("");
+  }
+  render(opGroup,"rows"); render(vehGroup,"rows2"); render(admGroup,"rows3");
+
+  function recount(){
+    let ok=0,warn=0,lock=0;
+    document.querySelectorAll(".row").forEach(r=>{
+      if(r.classList.contains("locked")) { lock++; return; }
+      const on = r.querySelector('[data-v="warn"][aria-pressed="true"]');
+      if(on) warn++; else ok++;
+    });
+    c_ok.textContent=ok; c_warn.textContent=warn; c_lock.textContent=lock;
+  }
+  document.addEventListener("click",e=>{
+    const b=e.target.closest(".seg button"); if(!b) return;
+    b.parentElement.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b));
+    recount();
+    chg.textContent = (parseInt(chg.textContent)||0)+1;
+  });
+  recount();
+</script>
