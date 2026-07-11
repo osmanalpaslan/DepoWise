@@ -116,14 +116,18 @@ UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph
         if (!s.IsSuperAdmin) throw new ForbiddenException("Firma silme yalnız süper admin.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
-        using (var chk = conn.CreateCommand())
-        {
-            chk.CommandText = "SELECT COUNT(*) FROM users WHERE company_id=$id AND is_deleted=0;";
-            chk.Parameters.AddWithValue("$id", id);
-            if (Convert.ToInt64(chk.ExecuteScalar()) > 0)
-                throw new InvalidOperationException("Bu firmaya bağlı kullanıcılar var. Önce kullanıcıları silin.");
-        }
         using var tx = conn.BeginTransaction();
+
+        // Bağlı kullanıcılar SİLİNMEZ, yalnız PASİFE alınır (is_active=0, is_deleted=0). Yanlışlıkla firma silinirse
+        // kullanıcılar korunur; firma geri yüklenince tekrar aktifleştirilebilir. Kullanıcı verisi kaybolmaz.
+        using (var deact = conn.CreateCommand())
+        {
+            deact.Transaction = tx;
+            deact.CommandText = "UPDATE users SET is_active=0, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=1;";
+            deact.Parameters.AddWithValue("$id", id);
+            deact.Parameters.AddWithValue("$now", now);
+            deact.ExecuteNonQuery();
+        }
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;

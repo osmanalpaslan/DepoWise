@@ -67,6 +67,26 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void Firma_Silme_Kullanicilari_Silmez_PasifeAlir()
+    {
+        var users = new UserService(_factory, _clock);
+        var su = SuperAdmin(); // firma A + süper admin
+        var uid = users.EnsureInitialAdmin("DELCO", "delu", "p12345", RoleKeys.CompanyAdmin); // firma DELCO + kullanıcı
+        var svc = new DepoWise.Infrastructure.Organization.CompanyService(_factory, _clock); // API'nin kullandığı servis
+
+        svc.Delete(su, "DELCO"); // artık HATA VERMEZ; kullanıcıları pasife alır, silmez
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT is_active, is_deleted FROM users WHERE id=$u;";
+        cmd.Parameters.AddWithValue("$u", uid);
+        using var r = cmd.ExecuteReader();
+        Assert.True(r.Read());
+        Assert.Equal(0L, r.GetInt64(0)); // is_active=0 → PASİF
+        Assert.Equal(0L, r.GetInt64(1)); // is_deleted=0 → SİLİNMEDİ (korundu)
+    }
+
+    [Fact]
     public void Firma_BaskaFirmaErisimi_Reddedilir()
     {
         var svc = new CompanyService(_factory, _clock);
