@@ -1,8 +1,25 @@
 # DEPOWISE GÜNCEL PROJE ANALİZİ VE MİMARİ KURALLARI (V6)
 
 **Tarih:** 26.06.2026  
-**Durum:** Uygulama geliştirmesinde bağlayıcı kaynak  
+**Durum:** Uygulama geliştirmesinde bağlayıcı kaynak (İŞ KURALLARI için). **Mimari/teknoloji kısımları evrildi — aşağıdaki güncel nota bak.**  
 **Kapsam:** Web + masaüstü + merkezi API + yerel offline veri + senkronizasyon
+
+---
+
+> ## ⚠️ GÜNCEL MİMARİ NOTU (2026-07-11) — ÖNCE BUNU OKU
+> Bu belge V6 orijinal vizyonudur; **iş kuralları (bölüm 4-11) hâlâ bağlayıcıdır**. Ancak bazı **teknoloji/mimari**
+> tercihleri sonradan değişti. Aşağıdakilerde bu belgeye DEĞİL, gerçeğe + `DECISIONS.md`'ye güven:
+>
+> | Bu belge diyor (eski) | GERÇEK (güncel) | Karar |
+> |---|---|---|
+> | Web: **Next.js** | Web: **Blazor Server (.NET, MudBlazor)** = `src/DepoWise.Web` (`apps/web` donmuş) | ADR-057 |
+> | Merkezi DB: **PostgreSQL + Drizzle** | **SQLite** (`depowise-server.db`, Fly.io) — PostgreSQL gelecekte ölçek için | ADR-057 |
+> | **6 rol** (bölüm 4) | **3 rol**: Süper Admin · Admin · Personel | `RoleKeys.Seed` |
+> | **COMODO** çalıştırma kuralları (bölüm 10) | Artık geçersiz (yeni PC'de Comodo yok) | ADR-056 |
+>
+> Güncel durum daima `DEVAM.md` + `DECISIONS.md`'dedir. Aşağıdaki metinde ilgili yerlere "**GÜNCEL:**" notu eklendi.
+
+---
 
 ## 1. Amaç ve kaynak önceliği
 
@@ -30,8 +47,10 @@ DepoWise; malzeme/stok, araç, bakım, muayene-sigorta, yakıt, günlük faaliye
 
 ## 3. Temel mimari
 
-- **Web:** Next.js + TypeScript strict; merkezi UI, yönetim ve `/api/v1` uçları.
-- **Merkezi veri:** PostgreSQL + migration + Drizzle. Geliştirmede yerel PostgreSQL çalıştırılabilir; üretim sağlayıcısı tek bir markaya bağlanmaz.
+> **GÜNCEL (ADR-057):** Web = **Blazor Server (.NET, MudBlazor)**, Merkezi veri = **SQLite**. Aşağıdaki Next.js/PostgreSQL satırları V6 planıdır; uygulanmadı.
+
+- **Web:** ~~Next.js + TypeScript~~ → **Blazor Server (.NET/MudBlazor)**; merkezi UI, yönetim; API `/api/v1` uçları .NET tarafında.
+- **Merkezi veri:** ~~PostgreSQL + Drizzle~~ → **SQLite** (`depowise-server.db`, Fly.io kalıcı disk). PostgreSQL ölçek gerekince gelecek seçenek (bkz. MALIYET_KALEMLERI.md #2).
 - **Masaüstü:** .NET 8 + Avalonia UI + MVVM.
 - **Yerel veri:** SQLite + Dapper; `Cache=Private`, WAL, `busy_timeout=5000`, `foreign_keys=ON`.
 - **Sözleşme:** OpenAPI ve ortak hata modeli. Web ve masaüstünde iş sonucu eşit; kritik kural API/Application katmanında, offline gerekli kurallar masaüstünde aynı kabul testleriyle uygulanır.
@@ -39,6 +58,10 @@ DepoWise; malzeme/stok, araç, bakım, muayene-sigorta, yakıt, günlük faaliye
 - **Dosya:** `file_records` metadata ve storage provider arayüzü; DB base64 varsayılan değil.
 
 ## 4. Roller
+
+> **GÜNCEL:** Uygulanan model **3 roldür**: **Süper Admin · Admin (Firma Admini) · Personel**. Aşağıdaki 6-rol
+> listesi V6 vizyonudur; "Yönetici/Onaycı, Depo, Operasyon, Salt Okunur" ayrımı tek "Personel" rolüne + **ekran ekran
+> yetkilere** taşındı (yani bu kişiler Personel'dir, kime hangi ekran açıksa onu görür). `RoleKeys.Seed`.
 
 - **Süper Admin:** Tüm firmaları görür; firma oluşturur/günceller; süper admin oluşturabilir; sistem ayarları, yayın paketleri ve global tanımları yönetir.
 - **Firma Admini:** Yalnız kendi firmasını ve yetkili şubelerini görür; kullanıcı oluşturur ancak firma değiştiremez; şube ve rol sınırları içinde yetki verir.
@@ -161,6 +184,10 @@ Ek kurallar:
 - **Tedarik zinciri:** Lock dosyaları, npm/NuGet denetimi, kritik açıkların takibi; CI mümkün olduğunda otomatik.
 
 ## 10. COMODO geliştirme kuralları
+
+> **GÜNCEL (ADR-056):** Bu bölüm ARTIK GEÇERLİ DEĞİL. Geliştirme, Comodo'nun olmadığı yeni bir bilgisayara taşındı;
+> EXE/BAT yasağı ve hook kaldırıldı. `dotnet` ile çalıştırma yine önerilir. SQLite mutlak yol/WAL kuralları (aşağıda)
+> Comodo'dan bağımsız, hâlâ geçerli. Geçmiş için: `docs/COMODO_RUNBOOK.md`.
 
 - Geliştirme makinesinde proje apphost EXE veya BAT doğrudan çalıştırılmaz.
 - Derleme güvenilir terminalde `dotnet build` ile yapılır.

@@ -1,8 +1,8 @@
 # PROJECT STATE
 
-**Son güncelleme:** 2026-06-26
-**Aktif faz:** Faz 17 — Uçtan Uca Doğrulama, Dokümantasyon ve Yayın Adayı
-**Durum:** Tamamlandı — **Backend/iş mantığı YAYIN ADAYI (1.0.0-rc)**; genel kullanıcı yayını için UI/entegrasyon engelleri açık (R10, R8/R9, R4/R7).
+**Son güncelleme:** 2026-07-11 (mimari notu + güncel durum; faz gövdesi tarihseldir)
+**Aktif faz:** Faz 17 sonrası — UI bağlama + canlı yayın cilası + ölçek-öncesi sağlamlaştırma
+**Durum:** **Backend/iş mantığı YAYIN ADAYI**; **244 test yeşil**, migration 032. Web+API canlı (Blazor/SQLite, ADR-057). Açık engeller: R10 (UI bağlama), R8/R9 (login — büyük kısmı bağlandı). **NOT: R4/R7 (PostgreSQL) artık yayın engeli DEĞİL** — sistem SQLite ile çalışıyor; PostgreSQL yalnız ölçek gerekince (ADR-057, MALIYET_KALEMLERI #2).
 
 ## Tamamlanan (Faz 17)
 - **Uçtan uca entegrasyon testi**: temiz DB'de çapraz-modül tam akış (malzeme/stok → araç/bakım/uyarı → talep onay-stok-değişmez → kontrollü çıkış → sync idempotent → yedek/geri yükleme) + tenant izolasyonu (`EndToEndTests`).
@@ -154,9 +154,10 @@
 
 ## Yayın engelleri (genel kullanıcı yayını öncesi kapanmalı)
 - **R10:** Operasyonel modül ekranları bağlanıyor (Malzemeler bağlandı; kalan modüller sırada).
-- **R8/R9:** Web oturum kalıcılığı + masaüstü/web login akışı bağlanmalı.
-- **R4/R7:** Yerel/üretim PostgreSQL canlı migration uygulanmadı (SQLite tarafı tam; PG migration SQL üretildi).
-- **R22:** Code-signing (imzasız sürümde şeffaf uyarı var).
+- **R8/R9:** Web oturum kalıcılığı + masaüstü/web login akışı (büyük kısmı bağlandı, 05-11.07).
+- **~~R4/R7~~ (ARTIK ENGEL DEĞİL, ADR-057):** Sistem SQLite ile çalışıyor; PostgreSQL yalnız ölçek gerekince (MALIYET_KALEMLERI #2).
+- **R22:** Code-signing — ücretli, yayın öncesine ertelendi (MALIYET_KALEMLERI #3); imzasız sürümde şeffaf uyarı var.
+- **YENİ (ölçek-öncesi sağlamlaştırma):** çok-makineli senkron açığı (2. makine veri ezme — KNOWN_ISSUES 05.07), sunucu log/gözlemlenebilirlik (~40 boş catch), CI (otomatik test). Ayrıntı: DEVAM.md öneri listesi.
 
 ## Açık işler (yayın-engeli değil)
 - Updater transport/UI (R21); sync transport/UI (R19); push apply (R20); foto opt (R18); import modül kapsamı (R17); web PDF render (R16); şube-bazlı stok (R13); vehicle FK (R11); alert GROUP BY sağlamlaştırma (R14); npm dev-araç audit (R23).
