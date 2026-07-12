@@ -258,6 +258,45 @@ public sealed class EnrollmentService
         tx.Commit();
     }
 
+    /// <summary>SÜPER ADMIN bir makinenin FİRMASINI değiştirir (çapraz-firma). Hedef firma var olmalı ve
+    /// SİLİNMEMİŞ olmalı. Firma değişince ŞUBE ataması KALDIRILIR (şube eski firmaya aitti) → admin yeni
+    /// firmada tekrar şube atar. Yalnız süper admin (çapraz-firma yetkisi gerektirir).</summary>
+    public void AssignCompany(SessionContext s, string deviceId, string companyId)
+    {
+        if (!s.IsSuperAdmin) throw new ForbiddenException("Makine firması değiştirme yalnız süper admin.");
+        if (string.IsNullOrWhiteSpace(companyId)) throw new ForbiddenException("Firma gerekli.");
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction(deferred: false);
+
+        // Hedef firma geçerli (var + silinmemiş) olmalı — silinmiş firmaya makine atanamaz.
+        using (var cc = conn.CreateCommand())
+        {
+            cc.Transaction = tx;
+            cc.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
+            cc.Parameters.AddWithValue("$c", companyId);
+            if (Convert.ToInt64(cc.ExecuteScalar()) == 0) throw new ForbiddenException("Firma bulunamadı.");
+        }
+
+        // Makine var mı
+        using (var fc = conn.CreateCommand())
+        {
+            fc.Transaction = tx;
+            fc.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE id=$id;";
+            fc.Parameters.AddWithValue("$id", deviceId);
+            if (Convert.ToInt64(fc.ExecuteScalar()) == 0) throw new ForbiddenException("Makine bulunamadı.");
+        }
+
+        // Firma değişir + şube ataması kaldırılır (şube eski firmaya ait; yeni firmada geçersiz).
+        using var upd = conn.CreateCommand();
+        upd.Transaction = tx;
+        upd.CommandText = "UPDATE sync_devices SET company_id=$c, branch_id=NULL, updated_at=$now WHERE id=$id;";
+        upd.Parameters.AddWithValue("$c", companyId);
+        upd.Parameters.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
+        upd.Parameters.AddWithValue("$id", deviceId);
+        upd.ExecuteNonQuery();
+        tx.Commit();
+    }
+
     /// <summary>İLK KURULUM oto-atama: giriş yapan kullanıcı, makinesinin şubesi HENÜZ ATANMAMIŞSA (branch_id NULL)
     /// kendi firması+şubesini makineye tanımlar (masaüstü onay penceresinden sonra çağrılır). Zaten atanmışsa
     /// DOKUNMAZ (admin ataması otoriter kalır). Şube kullanıcının firmasına ait olmalı. Dönen: atandı mı.</summary>

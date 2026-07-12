@@ -299,6 +299,9 @@ public sealed class ApiClient
     /// <summary>Admin makineye şube atar (boş branchId → atama kaldırılır).</summary>
     public Task<string?> AssignMachineBranchAsync(string id, string? branchId) =>
         PostAsync($"/api/machines/{id}/branch", new { branchId });
+    /// <summary>Süper admin makinenin firmasını değiştirir (şube ataması otomatik kalkar).</summary>
+    public Task<string?> AssignMachineCompanyAsync(string id, string companyId) =>
+        PostAsync($"/api/machines/{id}/company", new { companyId });
     /// <summary>Bir firmanın şubelerini seçenek olarak döndürür (makineye şube atama için).</summary>
     public async Task<List<Opt>> GetBranchOptionsAsync(string companyId)
     {

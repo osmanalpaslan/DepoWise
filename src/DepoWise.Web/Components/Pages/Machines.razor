@@ -56,7 +56,7 @@
         <MudTable Items="_machines" Dense="true" Hover="true" Striped="true">
             <HeaderContent>
                 <MudTh>Bağlantı</MudTh>
-                @if (Auth.IsSuperAdmin) { <MudTh>Firma</MudTh> }
+                @if (Auth.IsSuperAdmin) { <MudTh>Firma (değiştir)</MudTh> }
                 <MudTh>Makine</MudTh><MudTh>İl</MudTh><MudTh>Şube (atama)</MudTh><MudTh>IPv4</MudTh><MudTh>IPv6</MudTh><MudTh>Durum</MudTh><MudTh>Son Görülme</MudTh><MudTh>Kayıt</MudTh><MudTh /></HeaderContent>
             <RowTemplate>
                 <MudTd>
@@ -65,7 +65,16 @@
                         <MudText Typo="Typo.caption">@(context.Online ? "Bağlı" : "Çevrimdışı")</MudText>
                     </MudStack>
                 </MudTd>
-                @if (Auth.IsSuperAdmin) { <MudTd>@context.CompanyName</MudTd> }
+                @if (Auth.IsSuperAdmin)
+                {
+                    <MudTd>
+                        <MudSelect T="string" Value="@context.CompanyId" ValueChanged="@(v => AssignCompany(context, v))"
+                                   Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                   Placeholder="Firma seç…" Style="min-width:170px">
+                            @foreach (var co in _companies) { <MudSelectItem T="string" Value="@co.Id">@co.Name</MudSelectItem> }
+                        </MudSelect>
+                    </MudTd>
+                }
                 <MudTd>@context.Name</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.Province) ? "—" : context.Province)</MudTd>
                 <MudTd>
@@ -172,6 +181,18 @@
             _msg = string.IsNullOrEmpty(branchId) ? $"'{m.Name}' makinesinin şube ataması kaldırıldı." : $"'{m.Name}' → '{bname}' şubesine atandı.";
             await Query();
         }
+        else _error = err;
+    }
+
+    // Süper admin makinenin firmasını değiştirir (şube ataması otomatik kalkar). Makine yeni firmaya taşınır.
+    private async Task AssignCompany(MachineDto m, string? companyId)
+    {
+        _msg = _error = null;
+        if (string.IsNullOrEmpty(companyId) || companyId == m.CompanyId) return;
+        var cname = _companies.FirstOrDefault(c => c.Id == companyId)?.Name ?? companyId;
+        if (!await Dialog.Confirm($"'{m.Name}' makinesi '{cname}' firmasına taşınsın mı? Mevcut şube ataması kaldırılacaktır.", "Evet, Değiştir", danger: true)) return;
+        var err = await Api.AssignMachineCompanyAsync(m.Id, companyId);
+        if (err is null) { _msg = $"'{m.Name}' makinesi '{cname}' firmasına taşındı (şube ataması kaldırıldı)."; await Query(); }
         else _error = err;
     }
 

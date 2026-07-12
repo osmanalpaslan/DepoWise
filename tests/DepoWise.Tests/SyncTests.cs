@@ -165,6 +165,33 @@ public class SyncTests : IDisposable
         Assert.Null(after.BranchName);
     }
 
+    // ---- Makine FİRMA değiştirme (yalnız süper admin; şube ataması otomatik kalkar) ----
+    [Fact]
+    public void Makine_Firma_Degistir_YalnizSuperAdmin_SubeKalkar()
+    {
+        var users = new UserService(_factory, _clock);
+        var su = new SessionContext(users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin),
+            "A", new[] { RoleKeys.SuperAdmin }, PermissionSet.Empty);
+        UpsertCompany("A", "A Firması");
+        UpsertCompany("B", "B Firması");
+        var branches = new BranchService(_factory, _clock);
+        var branchA = branches.Create(_admin, new NewBranch("A-Merkez"));
+        var reg = _enroll.RegisterSelf("A", "PC-Tasi");
+        _enroll.AssignBranch(_admin, reg.DeviceId, branchA);
+        Assert.Equal(branchA, _enroll.RegisterSelf("A", "PC-Tasi").BranchId);
+
+        // Normal admin firma değiştiremez (çapraz-firma yalnız süper admin).
+        Assert.Throws<ForbiddenException>(() => _enroll.AssignCompany(_admin, reg.DeviceId, "B"));
+        // Var olmayan/silinmiş firmaya taşınamaz.
+        Assert.Throws<ForbiddenException>(() => _enroll.AssignCompany(su, reg.DeviceId, "YOK"));
+
+        // Süper admin → firma B'ye taşır; şube ataması KALKAR.
+        _enroll.AssignCompany(su, reg.DeviceId, "B");
+        var moved = _enroll.RegisterSelf("B", "PC-Tasi");
+        Assert.Equal("B", moved.CompanyId);
+        Assert.Null(moved.BranchId);
+    }
+
     private void UpsertCompany(string id, string name)
     {
         using var conn = _factory.Create();
