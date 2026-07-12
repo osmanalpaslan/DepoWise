@@ -307,6 +307,13 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-070 — TAM KESİNTİ: sunucu diski doldu (güncelleme paketleri) → saklama politikası (12.07.2026)
+- **Olay:** 1.0.41 yayınlanırken önce yükleme, sonra **login bile 500** vermeye başladı. Log: `SQLite Error 13: 'database or disk is full'`. Fly.io kalıcı diski (`/data`, **974 MB**) **%100 dolmuştu** → SQLite hiçbir şey yazamıyor → **tüm API çöküyor** (login dahil). Kod hatası DEĞİL, operasyonel kapasite hatası.
+- **Kök neden:** Her masaüstü paketi **~85 MB** ve `/data/releases` altında **hiç temizlenmiyordu**. 11 paket birikmişti (1.0.31…1.0.41) = **892 MB**. Sunucu DB'si yalnızca 1 MB. Güncelleyici **daima en son sürümü** indirdiği için eski paketler tamamen ölü ağırlıktı.
+- **Acil müdahale:** Eski paketler silindi (en güncel 1.0.40 korunarak) + yarım kalmış bozuk 1.0.41 paketi silindi → disk **%100 → %17** (756 MB boş). Canlı düzeldi, 1.0.41 yeniden yayınlandı (checksum `2825aa71…`).
+- **Kalıcı çözüm:** `ReleaseStore.SaveAsync` artık her yayından sonra `PruneOld()` çağırır: **en yeni `KeepCount=3` paket dışındakiler otomatik silinir** (geri dönüş ihtimaline karşı 3 tutulur). Temizlik hatası yayını bozmaz (sessiz geçilir).
+- **Ders / gelecek:** ~1 GB disk + 85 MB paket = **~11 sürümlük tavan**. Paket boyutu self-contained olduğu için büyük. İleride paket boyutu artarsa veya sürüm hızı artarsa `KeepCount` düşürülmeli ya da disk büyütülmeli (`fly volumes extend`). Disk dolması **sessiz değil, ölümcül** bir arızadır: SQLite yazamaz → her uç 500.
+
 ### ADR-069 — SİLMEDE WEB (SUNUCU) TAM OTORİTER: silinen kayıt makinelerin yerel DB'sinden de düşer (12.07.2026)
 - **Talep (kullanıcı):** "Web'te bir kayıt silindiyse ilgili şubenin makinesindeki yerel DB'de de silinsin. **Web tam otoriter olacak.**"
 - **Mevcut durum / bulunan iki açık:**
