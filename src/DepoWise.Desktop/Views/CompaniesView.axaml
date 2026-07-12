@@ -13,7 +13,7 @@
         <ctrl:Toolbar Grid.Row="0" Title="Firma Tanım (Süper Admin)"
                       PrimaryActionText="Yeni Firma" PrimaryActionCommand="{Binding NewCompanyCommand}">
             <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding RefreshCommand}"/>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
@@ -90,7 +90,7 @@
                     </DockPanel>
                 </Border>
                 <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
-                                 ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+                                 ActionText="Tekrar Dene" ActionCommand="{Binding RefreshCommand}" IsVisible="{Binding HasError}"/>
                 <ctrl:StatePanel Mode="Empty" Title="Firma yok" Message="Henüz firma tanımlanmadı." IsVisible="{Binding IsEmpty}"/>
             </Panel>
 

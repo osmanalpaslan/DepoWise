@@ -307,6 +307,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-071 — Masaüstü firma ekle/sil web ile eşitlenmiyordu → FİRMALAR SUNUCU-OTORİTELİ (12.07.2026)
+- **Belirti (kullanıcı):** "Masaüstü firma tanım ekranından eklediğim/sildiğim firma verileri web ile zaman geçse de hâlâ eşitlenmemiş."
+- **Kök neden:** Masaüstü `CompaniesViewModel` **yalnız YEREL DB'ye** yazıyordu (`DesktopServices.Companies` = yerel `CompanyService`). Firmalar iş senkronu tablo listesinde de **yok** (`BusinessSyncService.Tables` içinde `companies` bulunmuyor) → masaüstünde yapılan firma değişikliği sunucuya **hiçbir yoldan** ulaşmıyordu. Aynı şekilde web'de eklenen/silinen firma da masaüstüne inmiyordu.
+- **Karar (kullanıcının "web tam otoriter" kuralı):** Firmalar **sunucu-otoriteli** yapıldı — şubelerdeki (ADR-066) modelin aynısı:
+  - Yeni `CompanySyncService` (masaüstü): **ekle / güncelle / sil / aktifleştir** doğrudan **sunucu API'sine** gider (`/api/companies…`, JWT ile). **Çevrimiçi zorunlu** — çevrimdışıysa net mesaj (`OfflineException`), sessizce yerele yazıp sapma üretmez.
+  - `MirrorLocalAsync()`: sunucudaki firma listesi yerele **aynalanır**; sunucuda **artık olmayan** yerel firmalar **pasife alınır**. Girişte (`FinalizeLoginAsync`), ekran açılışında ve "Yenile"de çalışır.
+- **Sonuç:** Masaüstü ↔ web firma verisi birebir aynı. Yerel `CompanyService.Create/Delete` artık masaüstü UI'dan çağrılmıyor (sunucu tarafında API'nin kullandığı servis olarak kalır).
+- **Test:** Build 0 hata, suit 262/262. (Ağ bağımlı akış olduğu için birim test yerine sunucu API'si + aynalama mantığı üzerinden doğrulanır; şube aynalama testi aynı deseni kapsar.)
+
 ### ADR-070 — TAM KESİNTİ: sunucu diski doldu (güncelleme paketleri) → saklama politikası (12.07.2026)
 - **Olay:** 1.0.41 yayınlanırken önce yükleme, sonra **login bile 500** vermeye başladı. Log: `SQLite Error 13: 'database or disk is full'`. Fly.io kalıcı diski (`/data`, **974 MB**) **%100 dolmuştu** → SQLite hiçbir şey yazamıyor → **tüm API çöküyor** (login dahil). Kod hatası DEĞİL, operasyonel kapasite hatası.
 - **Kök neden:** Her masaüstü paketi **~85 MB** ve `/data/releases` altında **hiç temizlenmiyordu**. 11 paket birikmişti (1.0.31…1.0.41) = **892 MB**. Sunucu DB'si yalnızca 1 MB. Güncelleyici **daima en son sürümü** indirdiği için eski paketler tamamen ölü ağırlıktı.

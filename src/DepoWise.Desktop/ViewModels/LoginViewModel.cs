@@ -341,6 +341,8 @@ public sealed partial class LoginViewModel : ViewModelBase
 
         // Şubeler sunucu-otoriteli → her girişte yerel kopyayı sunucuyla aynala (silinenler yerelde de düşer).
         await MirrorServerBranchesLocalAsync(_authedSession.CompanyId);
+        // Firmalar da sunucu-otoriteli (web'de eklenen/silinen firma masaüstünde doğru görünsün).
+        await CompanySyncService.MirrorLocalAsync();
 
         DesktopServices.CurrentBranchId = workingBranchId;
         DesktopServices.CurrentBranchName = isAllBranches ? "Tüm Şubeler" : workingBranchName;

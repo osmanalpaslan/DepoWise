@@ -56,6 +56,16 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     public CompaniesViewModel(SessionContext session)
     {
         _session = session;
+        Load();                 // önce yereli göster (anında açılsın)
+        _ = Refresh();          // sonra sunucudan aynala (çevrimiçiyse) — web'deki değişiklikler yansır
+    }
+
+    /// <summary>Sunucudaki firma listesini yerele aynalar (çevrimiçiyse), sonra listeyi tazeler.
+    /// FİRMALAR WEB-OTORİTELİ: web'de eklenen/silinen firma böylece masaüstünde de doğru görünür.</summary>
+    [RelayCommand]
+    private async Task Refresh()
+    {
+        await CompanySyncService.MirrorLocalAsync();
         Load();
     }
 
@@ -90,9 +100,9 @@ public sealed partial class CompaniesViewModel : ViewModelBase
                 "Aktife Al", "Evet, Aktife Al", "Vazgeç")) return;
         try
         {
-            var n = DesktopServices.Companies.Reactivate(_session, row.Id);
-            Load();
-            Status = $"'{row.Name}' aktifleştirildi. {n} kullanıcı yeniden aktif edildi.";
+            await CompanySyncService.ReactivateAsync(row.Id);   // SUNUCU otoriter
+            await Refresh();                                     // sunucudan aynala
+            Status = $"'{row.Name}' aktifleştirildi.";
         }
         catch (Exception ex) { Status = "Aktifleştirilemedi: " + ex.Message; }
     }
@@ -138,8 +148,8 @@ public sealed partial class CompaniesViewModel : ViewModelBase
                 "Firma Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
         try
         {
-            DesktopServices.Companies.Delete(_session, Selected.Id);
-            Load();
+            await CompanySyncService.DeleteAsync(Selected.Id);   // SUNUCU otoriter (web ile eşitlenir)
+            await Refresh();
             Status = "Firma silindi.";
         }
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
@@ -150,17 +160,27 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     {
         FormError = null;
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Firma adı zorunlu."; return; }
-        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers);
         var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(editing ? "Firma güncellensin mi?" : "Firma oluşturulsun mu?", "Kaydet")) return;
+
+        // SUNUCUYA yaz (firmalar web-otoriteli). Sunucu API'si `NewCompanyDto` alanlarını bekler.
+        var body = new
+        {
+            name = FormName.Trim(),
+            taxNo = Empty(FormTaxNo), taxOffice = Empty(FormTaxOffice), address = Empty(FormAddress),
+            phone = Empty(FormPhone), email = Empty(FormEmail), authorizedPerson = Empty(FormAuthorized),
+            maxUsers = FormMaxUsers,
+        };
         try
         {
-            if (editing) DesktopServices.Companies.Update(_session, EditId!, dto);
-            else DesktopServices.Companies.Create(_session, dto);
+            if (editing) await CompanySyncService.UpdateAsync(EditId!, body);
+            else await CompanySyncService.CreateAsync(body);
             ShowAdd = false; EditId = null;
-            Load();
+            await Refresh();                                     // sunucudan aynala → web ile birebir
             Status = editing ? "Firma güncellendi." : "Firma oluşturuldu.";
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 }
