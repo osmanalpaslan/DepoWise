@@ -307,6 +307,19 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-069 — SİLMEDE WEB (SUNUCU) TAM OTORİTER: silinen kayıt makinelerin yerel DB'sinden de düşer (12.07.2026)
+- **Talep (kullanıcı):** "Web'te bir kayıt silindiyse ilgili şubenin makinesindeki yerel DB'de de silinsin. **Web tam otoriter olacak.**"
+- **Mevcut durum / bulunan iki açık:**
+  1. **Diriliş (pull):** Geri-çekmede `UpsertRow` **LWW** uyguluyordu (`excluded.updated_at >= tablo.updated_at`). Makinede kayıt web'deki silmeden SONRA düzenlenmişse (yerel `updated_at` daha büyük), gelen `is_deleted=1` **atlanıyor** ve kayıt yerelde canlı kalıyordu.
+  2. **Diriliş (push):** Masaüstü girişte **önce PUSH sonra PULL** yapıyor. Makine, web'de silinmiş kaydı `is_deleted=0` + daha yeni `updated_at` ile push edince **sunucuda kayıt diriliyor**, ardından pull ile TÜM makinelere geri yayılıyordu. (Bu, tek başına (1)'i düzeltmeyi de boşa çıkarırdı.)
+- **Karar (iki yönlü, simetrik):**
+  - **PULL (`ApplyPull`, `serverAuthoritativeDeletes`):** Sunucudan gelen satır `is_deleted=1` ise **LWW koşulu uygulanmaz** → silme **her zaman kazanır**, yereldeki daha yeni düzenleme silmeyi engelleyemez.
+  - **PUSH (`Apply`, `protectServerDeletes`):** Sunucuda `is_deleted=1` olan kayıt, cihazın `is_deleted=0` satırıyla **geri getirilemez** (`NOT (tablo.is_deleted=1 AND excluded.is_deleted=0)`). Kaydı geri getirmenin tek yolu **web'den** yeniden aktifleştirmektir.
+  - **Silme dışındaki alanlarda LWW aynen korunur** (yerelde yapılmış yeni düzenleme, sunucunun eski sürümüyle ezilmez) — karşı-kontrol testiyle sabitlendi.
+- **Ek:** `personnel_titles` (unvan sabit tanımları) senkron tablo listesine + `TableModule` (yetki eşlemesi, `personnel`) eklendi — yeni tablo hiç senkronlanmıyordu.
+- **Kapsam notu:** `branches`/`companies` iş senkronunda değildir (web-otoriteli); şube silme yansıması ADR-066'da ayrıca çözüldü.
+- **Test (3 yeni):** `Webte_Silinen_Kayit_Yerelde_De_Silinir_SUNUCU_OTORITER` · `Sunucuda_Silinen_Kayit_Cihaz_Pushuyla_Diriltilemez` · `GeriCekmede_SilinmemisKayitta_LWW_Korunur`. Suit **262/262**.
+
 ### ADR-068 — Firma silince 401 + liste yüklenmiyor: süper admin oturumu öksüz kalıyordu (12.07.2026)
 - **Belirti (kullanıcı):** "Firma listesinde silinmiş firma listelenmeye devam ediyordu, tekrar sildim → **401 Unauthorized**; ayrıca firmalar hiç yüklenmiyor."
 - **Kök neden:** Süper admin bir firmayı **seçip o firmanın bağlamında** çalışabiliyor (ADR-058, JWT company claim = seçilen firma). O firmayı **silince** token'daki firma geçersiz hâle geliyor. `AuthService.CreateSessionForUser` çapraz-firma dalında `CompanyExists` false görüp **null** dönüyordu → `Session(ctx)` null → **her istek 401**. Sonuç zinciri: silme başarılı olur (o an oturum geçerli) → liste yenileme isteği 401 → **UI'da eski/silinmiş firma görünmeye devam eder** → tekrar silmeye basınca 401 → sonrasında hiçbir şey yüklenmez. (Liste sorgusu zaten `is_deleted=0` filtreliydi; hata orada değildi.)

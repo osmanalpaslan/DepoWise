@@ -38,6 +38,7 @@ public sealed class BusinessSyncService
         "vehicle_categories",
         "vehicle_models",
         "maintenance_definitions",
+        "personnel_titles",          // unvan sabit tanımları (personel formundaki liste)
         // iş kayıtları
         "personnel",
         "materials",
@@ -66,6 +67,7 @@ public sealed class BusinessSyncService
         ["vehicle_categories"] = "definitions",
         ["vehicle_models"] = "definitions",
         ["maintenance_definitions"] = "maintenance",
+        ["personnel_titles"] = "personnel",   // unvan tanımları personel modülüne bağlı
         ["personnel"] = "personnel",
         ["materials"] = "materials",
         ["stock_balances"] = "stock",
@@ -210,7 +212,12 @@ public sealed class BusinessSyncService
     };
 
     /// <summary>Yetki-farkında uygulama: oturumun yazma (Create/Edit) yetkisi olmayan modüllerin tabloları
-    /// UYGULANMAZ (Y3 — en yetkisiz kullanıcının tüm firma verisini ezmesi engellenir). Admin/SüperAdmin tam yetkili.</summary>
+    /// UYGULANMAZ (Y3 — en yetkisiz kullanıcının tüm firma verisini ezmesi engellenir). Admin/SüperAdmin tam yetkili.
+    ///
+    /// SUNUCU (WEB) SİLMEDE OTORİTER — DİRİLTME YASAK: sunucuda silinmiş (is_deleted=1) bir kayıt, cihazın
+    /// push'uyla (is_deleted=0, daha yeni updated_at) GERİ GETİRİLEMEZ. Aksi halde masaüstü giriş sırasında
+    /// önce push yaptığı için web'de silinen kayıt sunucuda diriliyor, ardından pull ile makinelere geri yayılıyordu.
+    /// Kaydı geri getirmenin tek yolu web'den yeniden aktifleştirmektir.</summary>
     public ApplyResult Apply(SessionContext session, JsonElement payload)
     {
         bool CanWrite(string table)
@@ -219,18 +226,24 @@ public sealed class BusinessSyncService
             return AccessControl.Can(session, moduleKey, PermissionAction.Create)
                 || AccessControl.Can(session, moduleKey, PermissionAction.Edit);
         }
-        return ApplyCore(session.CompanyId, payload, CanWrite);
+        return ApplyCore(session.CompanyId, payload, CanWrite, protectServerDeletes: true);
     }
 
-    public ApplyResult Apply(string companyId, JsonElement payload) => ApplyCore(companyId, payload, null);
+    public ApplyResult Apply(string companyId, JsonElement payload)
+        => ApplyCore(companyId, payload, null, protectServerDeletes: true);
 
     /// <summary>GERİ-ÇEKME (server → masaüstü): sunucudan gelen firmanın iş verisini YEREL DB'ye uygular (LWW).
     /// Trusted (sunucu) veri olduğundan yazma-yetkisi filtresi yoktur. <paramref name="excludeTables"/> ile
-    /// belirli tablolar atlanır — örn. stock_balances (türetilmiş; sunucu-otoriteli hesaplama 2b'de gelecek).</summary>
+    /// belirli tablolar atlanır — örn. stock_balances (türetilmiş; sunucu-otoriteli hesaplama 2b'de gelecek).
+    ///
+    /// SİLMEDE SUNUCU (WEB) TAM OTORİTERDİR: gelen satır <c>is_deleted=1</c> ise LWW koşulu ATLANIR ve silme
+    /// yerelde koşulsuz uygulanır. Aksi halde makinede daha yeni bir düzenleme, web'de silinmiş kaydı "diriltiyordu".
+    /// (Bu yalnız PULL yönünde geçerlidir; push'ta normal LWW korunur.)</summary>
     public ApplyResult ApplyPull(string companyId, JsonElement payload, ISet<string>? excludeTables = null)
-        => ApplyCore(companyId, payload, null, excludeTables);
+        => ApplyCore(companyId, payload, null, excludeTables, serverAuthoritativeDeletes: true);
 
-    private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable, ISet<string>? excludeTables = null)
+    private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable,
+        ISet<string>? excludeTables = null, bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
     {
         if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("tables", out var tablesEl) ||
             tablesEl.ValueKind != JsonValueKind.Object)
@@ -282,7 +295,8 @@ public sealed class BusinessSyncService
                 {
                     // Çakışma tespiti (upsert ÖNCESİ sunucu durumu okunur)
                     if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
-                    if (UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now)) upserted++;
+                    if (UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now,
+                                  serverAuthoritativeDeletes, protectServerDeletes)) upserted++;
                     else skipped++;
                 }
                 catch (Exception ex)
@@ -399,7 +413,8 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
     }
 
     private bool UpsertRow(SqliteConnection conn, string table, HashSet<string> tableCols, List<string> pk, bool hasCompany,
-        bool hasUpdated, string companyId, JsonElement row, long now)
+        bool hasUpdated, string companyId, JsonElement row, long now,
+        bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
     {
         // Satırın verdiği kolonlar ∩ gerçek tablo kolonları
         var values = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -418,8 +433,24 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
         var conflictTarget = string.Join(", ", pk);
         var updateSet = string.Join(", ", colList.Where(c => !pk.Contains(c)).Select(c => $"{c}=excluded.{c}"));
 
-        // LWW: updated_at varsa yalnız gelen >= mevcut ise güncelle
-        var whereLww = hasUpdated ? $" WHERE excluded.updated_at >= {table}.updated_at" : "";
+        bool hasDeleted = tableCols.Contains("is_deleted");
+
+        // (A) PULL — SİLME SUNUCU-OTORİTELİ: gelen satır silinmişse LWW koşulu uygulanmaz; silme her zaman kazanır.
+        // Aksi halde makinedeki daha yeni bir düzenleme, web'de silinmiş kaydı yerelde "diriltiyordu".
+        bool incomingDeleted = serverAuthoritativeDeletes && hasDeleted
+            && values.TryGetValue("is_deleted", out var delVal)
+            && delVal is not null && Convert.ToInt64(delVal) == 1;
+
+        // LWW: updated_at varsa yalnız gelen >= mevcut ise güncelle (sunucudan gelen silme hariç — yukarı bak)
+        var conds = new List<string>();
+        if (hasUpdated && !incomingDeleted) conds.Add($"excluded.updated_at >= {table}.updated_at");
+
+        // (B) PUSH — DİRİLTME YASAK: sunucuda silinmiş kayıt, cihazın "silinmemiş" satırıyla geri getirilemez.
+        // (Masaüstü girişte önce push yaptığı için web'de silinen kayıt sunucuda diriliyordu.)
+        if (protectServerDeletes && hasDeleted)
+            conds.Add($"NOT ({table}.is_deleted = 1 AND excluded.is_deleted = 0)");
+
+        var whereLww = conds.Count > 0 ? " WHERE " + string.Join(" AND ", conds) : "";
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = updateSet.Length == 0

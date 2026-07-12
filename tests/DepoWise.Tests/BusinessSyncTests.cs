@@ -62,6 +62,68 @@ public class BusinessSyncTests : IDisposable
     }
 
     [Fact]
+    public void Webte_Silinen_Kayit_Yerelde_De_Silinir_SUNUCU_OTORITER()
+    {
+        // WEB TAM OTORİTER: sunucuda (web) silinen kayıt, makinenin yerel DB'sinde de silinmeli —
+        // makinede daha YENİ bir düzenleme olsa bile. (Eskiden LWW yüzünden silme atlanıyor, kayıt "diriliyordu".)
+        SeedCompany(_src, "ACME");   // _src = SUNUCU (web)
+        SeedCompany(_dst, "ACME");   // _dst = MAKİNE (yerel)
+
+        InsertPersonnel(_src, "P1", "ACME", "Ali", updatedAt: 1000);
+        InsertPersonnel(_dst, "P1", "ACME", "Ali", updatedAt: 1000);
+
+        // 1) Web'de SİLİNDİ (soft delete, updated_at=2000)
+        Exec(_src, "UPDATE personnel SET is_deleted=1, updated_at=2000 WHERE id='P1';");
+        // 2) Makinede kayıt DAHA SONRA düzenlendi (updated_at=3000) → LWW'ye göre yerel "daha yeni"
+        Exec(_dst, "UPDATE personnel SET full_name='Ali (yerelde degisti)', updated_at=3000 WHERE id='P1';");
+
+        // 3) Geri-çekme: sunucu snapshot'ı makineye uygulanır
+        using var snap = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME"));
+        new BusinessSyncService(_dst, _clock).ApplyPull("ACME", snap.RootElement);
+
+        // Silme KAZANMALI (yerel daha yeni olmasına rağmen)
+        Assert.Equal("1", Scalar(_dst, "SELECT is_deleted FROM personnel WHERE id='P1';"));
+    }
+
+    [Fact]
+    public void Sunucuda_Silinen_Kayit_Cihaz_Pushuyla_Diriltilemez()
+    {
+        // Masaüstü girişte ÖNCE PUSH sonra PULL yapar. Web'de silinmiş bir kaydı makine "silinmemiş" ve daha yeni
+        // updated_at ile push ederse, eskiden sunucuda kayıt DİRİLİYOR, sonra pull ile tüm makinelere geri yayılıyordu.
+        SeedCompany(_src, "ACME");   // _src = MAKİNE (push eden)
+        SeedCompany(_dst, "ACME");   // _dst = SUNUCU (web)
+
+        InsertPersonnel(_dst, "P9", "ACME", "Ayse", updatedAt: 1000);
+        Exec(_dst, "UPDATE personnel SET is_deleted=1, updated_at=2000 WHERE id='P9';");   // web'de SİLİNDİ
+
+        // Makinede kayıt hâlâ canlı ve DAHA YENİ (henüz silmeyi görmemiş)
+        InsertPersonnel(_src, "P9", "ACME", "Ayse (makinede canli)", updatedAt: 9000);
+
+        // Makine sunucuya push eder (server-side apply)
+        using var snap = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME", "MPC"));
+        new BusinessSyncService(_dst, _clock).Apply("ACME", snap.RootElement);
+
+        // Sunucudaki silme KORUNMALI (diriltilmemeli)
+        Assert.Equal("1", Scalar(_dst, "SELECT is_deleted FROM personnel WHERE id='P9';"));
+    }
+
+    [Fact]
+    public void GeriCekmede_SilinmemisKayitta_LWW_Korunur()
+    {
+        // Karşı kontrol: silme SÖZ KONUSU DEĞİLSE eski LWW davranışı aynen sürer —
+        // makinedeki daha yeni düzenleme, sunucunun eski sürümüyle EZİLMEZ.
+        SeedCompany(_src, "ACME"); SeedCompany(_dst, "ACME");
+        InsertPersonnel(_src, "P2", "ACME", "Veli (sunucu eski)", updatedAt: 1000);
+        InsertPersonnel(_dst, "P2", "ACME", "Veli (yerel yeni)", updatedAt: 5000);
+
+        using var snap = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME"));
+        new BusinessSyncService(_dst, _clock).ApplyPull("ACME", snap.RootElement);
+
+        Assert.Equal("Veli (yerel yeni)", Scalar(_dst, "SELECT full_name FROM personnel WHERE id='P2';"));
+        Assert.Equal("0", Scalar(_dst, "SELECT is_deleted FROM personnel WHERE id='P2';"));
+    }
+
+    [Fact]
     public void CokMakineli_GeriCekme_BMakinesi_ANinVerisiniGorur()
     {
         // A makinesi (_src) + Sunucu (_dst) + B makinesi (3. DB)

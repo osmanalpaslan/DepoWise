@@ -14,23 +14,17 @@
 
 Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
-### 1. Firma listesi: 401 Unauthorized + silinmiş firma listeleniyor + firmalar hiç yüklenmiyor
-- **Sorun:** Firma listesinde silinmiş firma görünmeye devam ediyor; tekrar silmeye çalışınca **401 Unauthorized**; ardından firmalar hiç yüklenemiyor.
-- **Aşamalar:** (a) Firma listeleme + silme uçlarında yetki/oturum akışını incele (401 nereden). (b) Silinmiş firma filtresini düzelt. (c) Oturum/JWT süresi veya süper admin firma bağlamı kaynaklı 401 ise onar.
-- **Testler:** Firma sil → listeden düşer · süper admin oturumu düşmeden liste yenilenir · birim test: silinmiş firma listelenmez · build + test.
-- **Not:** Süper admin kilitlenme hatası (ADR-064) çözüldü; bu 401 farklı olabilir, ayrı incele.
-
-### 2. Masaüstü firma ekle/sil web ile eşitlenmiyor
+### 1. Masaüstü firma ekle/sil web ile eşitlenmiyor
 - **Sorun:** Masaüstü Firma Tanım'dan eklenen/silinen firma, zaman geçse de web ile eşitlenmiyor.
 - **Aşamalar:** (a) Firmanın hangi tarafta otoriter olduğunu netleştir (firma sunucu-otoriteli mi?). (b) Masaüstü→sunucu senkron akışında firma push/pull var mı kontrol et. (c) Eksikse ekle veya kullanıcıya doğru akışı (web'den ekleme) netleştir.
 - **Testler:** Masaüstünde firma ekle → web'de görün · sil → web'den düşer · senkron birim/integration testi.
 
-### 3. Kota İzleme "Online" dedup (aynı kullanıcı web+masaüstü = 1)
+### 2. Kota İzleme "Online" dedup (aynı kullanıcı web+masaüstü = 1)
 - **Sorun:** Aynı kullanıcı hem web hem masaüstünden girmişse **2** değil **1** online sayılmalı (anlık login değil, kullanıcı-online durumu).
 - **Aşamalar:** (a) Online sayımını yapan yeri bul (`Program.cs` "son 5 dakika" bellek-içi izleme). (b) Sayımı kullanıcı bazında **DISTINCT** yap (aynı kullanıcı tek sayılsın). (c) Web ekranını doğrula.
 - **Testler:** Aynı kullanıcı 2 platformdan aktif → online=1 · farklı kullanıcılar ayrı sayılır · birim test.
 
-### 4. Logolar (kaliteyi koruyarak projeye ekleme)
+### 3. Logolar (kaliteyi koruyarak projeye ekleme)
 - **Kaynak:** `C:\Users\Osman Alpaslan\Desktop\Logo Dosyalarım` (dosya adları ortam/yer belirtiyor).
 - **Aşamalar:** (a) Dosyaları incele (hangi ortam/yer). (b) Web ve masaüstünde doğru yerlere yerleştir. (c) **Düşük çözünürlüğe düşürme; kaliteyi koru.** (d) Login/başlık/favicon gibi yerlere bağla.
 - **Testler:** Web + masaüstünde logo net görünür (bulanık değil) · farklı ekran/DPI'da bozulmaz.
@@ -57,6 +51,13 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 - ✅ **Silinen şubeler her yerde listeleniyordu (ADR-066)** — kök neden: şubeler sunucu-otoriteli ama masaüstü
   yerel kopyası sunucudan yalnız **upsert** ediliyordu; silinenler yerelde kalıyordu. Artık her girişte sunucu
   şube listesi **aynalanır** (sunucuda olmayan yerel şube pasife alınır). Regresyon testi eklendi.
+- ✅ **Firma silince 401 + firmalar yüklenmiyordu (ADR-068)** — süper admin, **içinde çalıştığı** firmayı silince
+  token'daki firma geçersiz kalıyor, sonraki **her istek 401** dönüyordu (liste yüklenmiyor, ekranda silinmiş firma
+  kalıyor, tekrar silme 401). Artık: firma **silinmişse** süper admin **home firmasına düşer** (oturum yaşar);
+  firma **hiç yoksa** (sahte id) fail-closed korunur.
+- ✅ **SİLMEDE WEB TAM OTORİTER (ADR-069)** — web'de silinen kayıt **makinelerin yerel DB'sinden de düşer**
+  (silme artık LWW'yi aşar) **ve** sunucuda silinen kayıt **cihaz push'uyla diriltilemez**. Silme dışındaki
+  LWW davranışı korundu. Unvan tanımları (`personnel_titles`) senkron listesine eklendi. 3 yeni test.
 - ✅ **CANLIYA ALINDI (12.07):** API + Web yeniden yayınlandı (health 200; `/api/personnel-titles` ayakta).
   **Masaüstü 1.0.40 YAYINLANDI** (self-contained 85.4 MB, checksum `6fcd76b3…`; sunucuda "en güncel = 1.0.40").
   Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 tümüyle kapandı. Test 258/258.
