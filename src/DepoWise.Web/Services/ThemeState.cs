@@ -19,11 +19,11 @@ public sealed class ThemeState
     /// <summary>MudThemeProvider'a verilen efektif değer (system çözümlendikten sonra).</summary>
     public bool IsDark { get; set; } = true;
 
-    /// <summary>Seçili renk teması (Palettes anahtarı).</summary>
-    public string Color { get; set; } = "blue";
+    /// <summary>Seçili renk teması (Palettes anahtarı). İlk açılış varsayılanı: Kehribar.</summary>
+    public string Color { get; set; } = "amber";
 
-    /// <summary>Seçili görünüm stili (Styles anahtarı) — köşe, gölge, boşluk, menü/üstbar dokusu.</summary>
-    public string Style { get; set; } = "classic";
+    /// <summary>Seçili görünüm stili (Styles anahtarı) — köşe, gölge, boşluk, menü/üstbar dokusu. İlk açılış: Yumuşak.</summary>
+    public string Style { get; set; } = "soft";
 
     /// <summary>Kullanılabilir modern görünüm stilleri (ücretsiz, MudBlazor+CSS ile). Tema ekranında listelenir.</summary>
     public static readonly (string Key, string Name, string Desc)[] Styles =

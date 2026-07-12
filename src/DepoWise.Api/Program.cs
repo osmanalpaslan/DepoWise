@@ -479,9 +479,10 @@ app.MapGet("/api/me/theme", (HttpContext ctx) =>
     var style = svc.Settings.Get(s.CompanyId, $"web_theme_style:{s.UserId}");
     return Results.Ok(new
     {
+        // İLK AÇILIŞ varsayılanı (kayıt yoksa): Koyu / Yumuşak / Kehribar. Kullanıcı değiştirince kaydı bu ezer.
         mode = string.IsNullOrEmpty(mode) ? "dark" : mode,
-        color = string.IsNullOrEmpty(color) ? "blue" : color,
-        style = string.IsNullOrEmpty(style) ? "classic" : style,
+        color = string.IsNullOrEmpty(color) ? "amber" : color,
+        style = string.IsNullOrEmpty(style) ? "soft" : style,
     });
 }).RequireAuthorization();
 app.MapPost("/api/me/theme", (HttpContext ctx, UserThemeDto d) =>

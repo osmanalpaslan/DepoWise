@@ -20,8 +20,8 @@ public static class ThemeService
     /// <summary>Şu anki mod ("Dark"/"Light"/"System").</summary>
     public static string CurrentMode { get; private set; } = Dark;
 
-    /// <summary>Şu anki renk teması anahtarı.</summary>
-    public static string CurrentAccent { get; private set; } = "blue";
+    /// <summary>Şu anki renk teması anahtarı. İlk açılış varsayılanı: Kehribar (amber).</summary>
+    public static string CurrentAccent { get; private set; } = "amber";
 
     /// <summary>Kullanılabilir renk temaları (ana/accent renk).</summary>
     public static readonly (string Key, string Name, string Hex)[] Accents =
@@ -51,9 +51,10 @@ public static class ThemeService
     /// <summary>Kayıtlı stil + mod + renk temasını oku ve uygula (açılışta çağrılır).</summary>
     public static void ApplySaved()
     {
-        var mode = Dark; var accent = "blue"; var style = "fluent";
+        // İLK AÇILIŞ varsayılanı (kayıt yoksa): Fluent / Koyu / Kehribar. Kullanıcı değiştirince kaydı bu ezer.
+        var mode = Dark; var accent = "amber"; var style = "fluent";
         try { mode = DesktopServices.Settings.Get(DesktopServices.DefaultCompanyId, Key) ?? Dark; } catch { }
-        try { accent = DesktopServices.Settings.Get(DesktopServices.DefaultCompanyId, AccentKey) ?? "blue"; } catch { }
+        try { accent = DesktopServices.Settings.Get(DesktopServices.DefaultCompanyId, AccentKey) ?? "amber"; } catch { }
         try { style = DesktopServices.Settings.Get(DesktopServices.DefaultCompanyId, StyleKey) ?? "fluent"; } catch { }
         ApplyStyle(style, persist: false);
         ApplyAccent(accent, persist: false);

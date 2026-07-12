@@ -128,11 +128,11 @@ public sealed class ApiClient
         {
             var doc = await GetObjectAsync("/api/me/theme");
             var mode = doc.TryGetProperty("mode", out var m) ? m.GetString() ?? "dark" : "dark";
-            var color = doc.TryGetProperty("color", out var c) ? c.GetString() ?? "blue" : "blue";
-            var style = doc.TryGetProperty("style", out var st) ? st.GetString() ?? "classic" : "classic";
+            var color = doc.TryGetProperty("color", out var c) ? c.GetString() ?? "amber" : "amber";
+            var style = doc.TryGetProperty("style", out var st) ? st.GetString() ?? "soft" : "soft";
             return (mode, color, style);
         }
-        catch { return ("dark", "blue", "classic"); }
+        catch { return ("dark", "amber", "soft"); } // İlk açılış varsayılanı: Koyu / Kehribar / Yumuşak
     }
 
     public Task<string?> SaveUserThemeAsync(string mode, string color, string style) =>
