@@ -49,8 +49,21 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 > - **CANLIDA:** API + Web yayında. **Masaüstü 1.0.40 YAYINLANDI** (checksum `6fcd76b3…`) — #6 nihai hâli (ADR-067: tek ekran + koşullar).
 >   Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 kapandı.
 >
+>
+> **Bugün (2026-07-12) — 3. tur: senkron otoritesi + KRİTİK canlı arıza:**
+> - **Firma silince 401 / firmalar yüklenmiyor (ADR-068)** çözüldü: süper admin içinde çalıştığı firmayı silince
+>   oturumu öksüz kalıyordu → artık home firmaya düşer (sahte firma id'de fail-closed korunur).
+> - **SİLMEDE WEB TAM OTORİTER (ADR-069):** web'de silinen kayıt makinelerin yerel DB'sinden de düşer
+>   (silme LWW'yi aşar) ve sunucuda silinen kayıt cihaz push'uyla **diriltilemez**.
+> - **Firmalar sunucu-otoriteli (ADR-071):** masaüstü Firma Tanım artık sunucuya yazar (çevrimiçi zorunlu) ve
+>   sunucu listesi yerele aynalanır → masaüstü ↔ web firma verisi birebir aynı.
+> - **⚠️ KRİTİK (ADR-070):** Sunucu diski (974 MB) **doldu** → SQLite yazamadı → **login dahil tüm API 500**.
+>   Sebep: 85 MB'lık güncelleme paketleri hiç temizlenmiyordu (11 paket = 892 MB). Eski paketler silindi
+>   (disk %100 → %36) + **otomatik saklama politikası** eklendi (en yeni 3 paket tutulur, doğrulandı).
+> - **CANLIDA:** API + Web yayında (200). **Masaüstü 1.0.42 YAYINLANDI.** Test **262/262**.
+>
 > - **Sıradaki:** bekleyen hatalar — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)
->   (firma listesi 401 · masaüstü-web firma senkron · kota online dedup · logolar).
+>   (kota online dedup · logolar).
 
 > **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
 > - **#1 Pasif firma yeniden aktifleştirme (sözleşme yenileme):** Firma silinince kullanıcılar pasife alınıyordu;
