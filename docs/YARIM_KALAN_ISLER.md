@@ -14,12 +14,7 @@
 
 Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
-### 1. Kota İzleme "Online" dedup (aynı kullanıcı web+masaüstü = 1)
-- **Sorun:** Aynı kullanıcı hem web hem masaüstünden girmişse **2** değil **1** online sayılmalı (anlık login değil, kullanıcı-online durumu).
-- **Aşamalar:** (a) Online sayımını yapan yeri bul (`Program.cs` "son 5 dakika" bellek-içi izleme). (b) Sayımı kullanıcı bazında **DISTINCT** yap (aynı kullanıcı tek sayılsın). (c) Web ekranını doğrula.
-- **Testler:** Aynı kullanıcı 2 platformdan aktif → online=1 · farklı kullanıcılar ayrı sayılır · birim test.
-
-### 2. Logolar (kaliteyi koruyarak projeye ekleme)
+### 1. Logolar (kaliteyi koruyarak projeye ekleme)
 - **Kaynak:** `C:\Users\Osman Alpaslan\Desktop\Logo Dosyalarım` (dosya adları ortam/yer belirtiyor).
 - **Aşamalar:** (a) Dosyaları incele (hangi ortam/yer). (b) Web ve masaüstünde doğru yerlere yerleştir. (c) **Düşük çözünürlüğe düşürme; kaliteyi koru.** (d) Login/başlık/favicon gibi yerlere bağla.
 - **Testler:** Web + masaüstünde logo net görünür (bulanık değil) · farklı ekran/DPI'da bozulmaz.
@@ -58,6 +53,11 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
   ve **OFFLINE-FIRST kuyruk** (ADR-072): işlem önce **yerele** yazılır + **kuyruğa** alınır, internet gelince
   **sırayla** işlenir. Yeniden denemede **hata düşmez** (idempotent: aynı işlem tekrar gelirse mükerrer kayıt/hata yok).
   Eşitleme sırası: **1) firma → 2) sabit tanımlar/lookup → 3) iş kayıtları** (paralel değil, sırayla).
+- ✅ **Kota İzleme "ONLINE" dedup (ADR-073)** — inceleme sonucu: sayım **zaten kullanıcı bazında tekildi**
+  (ilk günden beri `userId` anahtarlı), aynı kişi iki platformdan girse **1** sayılıyordu; düzeltilecek hata yoktu.
+  Yapılanlar: şart **4 testle sabitlendi** (regresyon) + gerçek bir kusur giderildi (eski kayıtlar sözlükten hiç
+  silinmiyordu → bellek sızıntısı). **Not:** ekranda 2 gördüysen ya iki **farklı kullanıcı** online'dı ya da
+  **"AKTİF"** sütunu (aktif kullanıcı sayısı) ile **"ONLINE"** karıştı — tekrarlarsa hangi kullanıcılarla olduğunu bildir.
 - ⚠️ **KRİTİK OLAY — sunucu diski doldu (ADR-070):** `/data` (974 MB) %100 doldu → SQLite yazamadı →
   **login dahil tüm API 500** (tam kesinti). Sebep: her masaüstü paketi ~85 MB ve eski paketler hiç
   temizlenmiyordu (11 paket = 892 MB). Eski paketler silindi (disk %100 → %17) ve **otomatik saklama

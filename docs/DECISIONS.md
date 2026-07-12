@@ -307,6 +307,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-073 — Kota İzleme "ONLINE": zaten kullanıcı-bazlı tekildi; testle sabitlendi + bellek sızıntısı düzeltildi (12.07.2026)
+- **Talep (kullanıcı):** "Kota izleme ekranındaki online kolonunda aynı kullanıcı hem web'ten hem masaüstünden login olmuşsa **1 online** görünmeli; anlık login durumunu değil **kullanıcı** online durumunu almalı."
+- **İnceleme sonucu (önemli):** Bu davranış **zaten doğruydu**. `ServerPresence` sözlüğü **ilk yazıldığı günden beri `userId` ile anahtarlı** (`_seen[userId] = …`, commit `03b4709`, #4 özelliği). Aynı kullanıcının ikinci platformu **yeni kayıt açmaz, mevcut kaydı tazeler** → çift sayım mimari olarak imkânsız. JWT `sub` claim'i her iki platformda da aynı `userId`'dir (tek token üretici). Yani düzeltilecek bir sayım hatası **yoktu**.
+- **Yapılanlar (gerçek katkı):**
+  1. **Kanıt/regresyon:** `ServerPresenceTests` (4 test) — aynı kullanıcı iki platformdan → **1**; farklı kullanıcılar → ayrı; 5 dk penceresi dışındaki düşer; **aynı kullanıcı iki farklı firmada bile tek kişi** sayılır (süper admin firma seçimi senaryosu). Şart artık koda çivilendi.
+  2. **Gerçek kusur düzeltildi:** Pencere dışında kalan kayıtlar sözlükten **hiç silinmiyordu** (süresiz büyüme = bellek sızıntısı). `Prune()` eklendi; okuma sırasında eski kayıtlar düşürülür.
+  3. `ServerPresence` test edilebilir hâle getirildi (`nowMs` enjekte edilebilir saat, `ResetForTests`).
+- **Kullanıcıya not:** Ekranda 2 görülmüşse muhtemelen (a) **farklı iki kullanıcı** online'dı, ya da (b) **"AKTİF"** sütunu (firmadaki aktif kullanıcı sayısı) ile **"ONLINE"** karıştırıldı. Tekrar görülürse hangi kullanıcılarla olduğu bilgisiyle bildirilmeli.
+
 ### ADR-072 — Firma işlemleri OFFLINE-FIRST: yerele yaz + kuyruk, internet gelince SIRAYLA eşitle (12.07.2026)
 - **Bağlam:** ADR-071 firma işlemlerini **çevrimiçi zorunlu** yapmıştı. Kullanıcı bunu reddetti: *"İnternete bağlanana kadar işlemleri yerel DB'ye yazsın, bağlanınca sırasıyla eşitlemeye başlasın. Ama eşitleme sırasında kayıtlar hataya düşmemeli. Önce sabit tanımlar ve hataya düşürebilecek tanımlar eşitlenmeli, sonra diğer kayıtlar."*
 - **Karar (offline-first + kuyruk):**

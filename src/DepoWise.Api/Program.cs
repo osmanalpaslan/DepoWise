@@ -1487,26 +1487,51 @@ static class ServerMetrics
     }
 }
 
-/// <summary>#4 — Bellek-içi online kullanıcı izleme (tek sunucu; kalıcı depo gerektirmez, ücretsiz).</summary>
-static class ServerPresence
+/// <summary>#4 — Bellek-içi online KULLANICI izleme (tek sunucu; kalıcı depo gerektirmez, ücretsiz).
+///
+/// TEKİLLEŞTİRME (kullanıcının şartı): Sayım **oturum/login başına değil, KULLANICI başınadır**. Sözlük
+/// <c>userId</c> ile anahtarlanır → aynı kullanıcı hem web'den hem masaüstünden girse (hatta birden çok sekme/
+/// makine) **1 online** sayılır. Farklı kullanıcılar ayrı sayılır. Bkz. <c>ServerPresenceTests</c>.
+///
+/// Not: Kullanıcı birden çok platformda farklı FİRMA bağlamındaysa (süper admin firma seçimi), en SON istek
+/// attığı firmada online görünür — kişi tek olduğundan çift sayılmaz.
+/// </summary>
+public static class ServerPresence
 {
-    private const long WindowMs = 5 * 60 * 1000; // son 5 dk = "online"
+    /// <summary>Bu süre içinde istek atan kullanıcı "online" sayılır.</summary>
+    public const long WindowMs = 5 * 60 * 1000; // son 5 dk
+
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Seen, string Company)> _seen = new();
 
-    public static void Touch(string userId, string companyId)
-        => _seen[userId] = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), companyId);
+    /// <summary>Kimliği doğrulanmış her istekte çağrılır. Anahtar userId → aynı kullanıcının ikinci platformu
+    /// yeni kayıt AÇMAZ, mevcut kaydı tazeler (tekilleştirme burada olur).</summary>
+    public static void Touch(string userId, string companyId, long? nowMs = null)
+        => _seen[userId] = (nowMs ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), companyId);
 
-    public static int TotalOnline()
+    public static int TotalOnline(long? nowMs = null)
     {
-        var cut = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - WindowMs;
+        var cut = (nowMs ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) - WindowMs;
+        Prune(cut);
         return _seen.Count(kv => kv.Value.Seen >= cut);
     }
 
-    public static Dictionary<string, int> OnlineByCompany()
+    /// <summary>Firma → online KULLANICI sayısı (kişi bazında tekil).</summary>
+    public static Dictionary<string, int> OnlineByCompany(long? nowMs = null)
     {
-        var cut = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - WindowMs;
+        var cut = (nowMs ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) - WindowMs;
+        Prune(cut);
         return _seen.Where(kv => kv.Value.Seen >= cut)
                     .GroupBy(kv => kv.Value.Company)
                     .ToDictionary(g => g.Key, g => g.Count());
     }
+
+    /// <summary>Pencerenin dışında kalan kayıtları sözlükten düşür (yoksa süresiz büyür — bellek sızıntısı).</summary>
+    private static void Prune(long cut)
+    {
+        foreach (var kv in _seen)
+            if (kv.Value.Seen < cut) _seen.TryRemove(kv.Key, out _);
+    }
+
+    /// <summary>Yalnız test için: izleyiciyi sıfırla.</summary>
+    public static void ResetForTests() => _seen.Clear();
 }
