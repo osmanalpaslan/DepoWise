@@ -1,7 +1,7 @@
 # Öneriler — Firma Yetki Kontrol (#5) ve Personel+Yetki Birleştirme (#6)
 
-> Durum: **#5 UYGULANDI (web).** **#6 ONAY BEKLİYOR** (Fikir A seçildi, taslak hazır).
-> Son güncelleme: 2026-07-11.
+> Durum: **#5 UYGULANDI (web).** **#6 UYGULANDI — Fikir B** (web + masaüstü, ADR-065).
+> Son güncelleme: 2026-07-12.
 
 ---
 
@@ -74,8 +74,21 @@ Tek ekran, üç sekme: **Bilgiler | Uygulama Erişimi | Yetkiler**. A'nın aynı
 **Önerim:** **Fikir A** (küçük ekipler için sade), büyürse C'ye kolayca dönüşür.
 Kural gereği bu birleştirme yapılırsa **hem web hem masaüstünde** yapılır ve diğer ekranlar bozulmaz.
 
-### ✅ Seçim: Fikir A — görsel taslak hazır (onay bekliyor)
-- Canlı önizleme (artifact): _sohbetteki bağlantı_
+### ✅ NİHAİ SEÇİM: **Fikir B** — UYGULANDI (12.07.2026, web + masaüstü)
+
+> **Önemli:** Önce Fikir A taslağı hazırlanıp uygulanmıştı. Kullanıcı 12.07'de **Fikir B'yi seçtiğini** belirtti;
+> ekranlar B'ye çevrildi (ADR-065). Aşağıdaki A taslağı **tarihsel kayıt** olarak durur.
+
+**Uygulanan (Fikir B + kullanıcının eklemeleri):**
+- **Personel** ve **Kullanıcılar** ekranları **ayrı** kalır. Personel ekranında hesap açılmaz.
+- **Kullanıcılar** formunda **"Personel seç (bağla)"** alanı → hesap bir personel kaydına bağlanır
+  (ad soyad tekrar yazılmaz). Yalnız hesabı olmayan personeller listelenir; bir personele **tek** hesap.
+- **Personel** formunda **☐ Saha personeli** kutucuğu (kullanıcının eklemesi).
+- **Uyarı penceresi:** kullanıcı bağlı DEĞİLSE ve "Saha personeli" işaretli DEĞİLSE →
+  *"Bu personele uygulama kullanıcısı bağlanmadı. Saha personeli mi?"* Kutucuk işaretliyse **koşul hiç çalışmaz**.
+- **Unvan sabit tanım + "+"** (kullanıcının ayrı talebi): unvan listeden seçilir, "+" ile yeni tanım eklenir.
+
+**Tarihsel — ilk taslak (Fikir A):**
 - Repoda kalıcı kopya: [`docs/mockups/calisan-yonetimi-A.html`](mockups/calisan-yonetimi-A.html)
 
 **Kullanıcının sorduğu kurallar ve taslaktaki karşılığı:**

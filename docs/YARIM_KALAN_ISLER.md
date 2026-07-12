@@ -30,17 +30,12 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 - **Aşamalar:** (a) Firmanın hangi tarafta otoriter olduğunu netleştir (firma sunucu-otoriteli mi?). (b) Masaüstü→sunucu senkron akışında firma push/pull var mı kontrol et. (c) Eksikse ekle veya kullanıcıya doğru akışı (web'den ekleme) netleştir.
 - **Testler:** Masaüstünde firma ekle → web'de görün · sil → web'den düşer · senkron birim/integration testi.
 
-### 4. Personel "Unvan" alanı sabit tanım + "+" ile yeni tanım ekleme
-- **Sorun:** Unvan şu an serbest metin; sabit tanım listesi olmalı, yanında "+" ile yeni unvan eklenebilmeli.
-- **Aşamalar:** (a) Unvan tanımları için veri katmanı (tablo/migration + servis). (b) API uçları (liste + ekle). (c) Web Çalışan Yönetimi ekranında seçim + "+" ekleme. (d) Masaüstünde aynısı. (Ortak ekran → **iki platform**.)
-- **Testler:** Unvan ekle → listede çıkar · çalışan kaydında seçilir · tenant izolasyonu (başka firma unvanını görmez) · build + test.
-
-### 5. Kota İzleme "Online" dedup (aynı kullanıcı web+masaüstü = 1)
+### 4. Kota İzleme "Online" dedup (aynı kullanıcı web+masaüstü = 1)
 - **Sorun:** Aynı kullanıcı hem web hem masaüstünden girmişse **2** değil **1** online sayılmalı (anlık login değil, kullanıcı-online durumu).
 - **Aşamalar:** (a) Online sayımını yapan yeri bul (`Program.cs` "son 5 dakika" bellek-içi izleme). (b) Sayımı kullanıcı bazında **DISTINCT** yap (aynı kullanıcı tek sayılsın). (c) Web ekranını doğrula.
 - **Testler:** Aynı kullanıcı 2 platformdan aktif → online=1 · farklı kullanıcılar ayrı sayılır · birim test.
 
-### 6. Logolar (kaliteyi koruyarak projeye ekleme)
+### 5. Logolar (kaliteyi koruyarak projeye ekleme)
 - **Kaynak:** `C:\Users\Osman Alpaslan\Desktop\Logo Dosyalarım` (dosya adları ortam/yer belirtiyor).
 - **Aşamalar:** (a) Dosyaları incele (hangi ortam/yer). (b) Web ve masaüstünde doğru yerlere yerleştir. (c) **Düşük çözünürlüğe düşürme; kaliteyi koru.** (d) Login/başlık/favicon gibi yerlere bağla.
 - **Testler:** Web + masaüstünde logo net görünür (bulanık değil) · farklı ekran/DPI'da bozulmaz.
@@ -59,7 +54,12 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
 ## C. Bu Oturumda Tamamlananlar (2026-07-12)
 
-- ✅ **Çalışan Yönetimi masaüstü (Faz4)** — web ile eşit (rozet, mükerrer uyarı, hesap açma, saha onayı, bağ kaldır). Test 253/253.
 - ✅ **KRİTİK süper admin kilitlenme (ADR-064)** — firma silme süper admini pasife almaz + açılışta self-heal + regresyon testi. Canlı API redeploy edildi.
+- ✅ **#6 Fikir B'ye çevrildi (ADR-065)** — web + masaüstü:
+  - Personel ve Kullanıcılar ekranları **ayrı**; Personel ekranında hesap açma kaldırıldı.
+  - Kullanıcılar formunda **"Personel seç (bağla)"** + listede PERSONEL sütunu.
+  - Personel formunda **☐ Saha personeli**; kullanıcı bağlı değil + kutucuk işaretsizse **uyarı penceresi** (kutucuk işaretliyse çıkmaz).
+  - **Unvan sabit tanım listesi + "+"** ile yeni tanım ekleme.
+  - Test **257/257**. *(Canlıya alınmadı — web deploy + masaüstü paketi gerekiyor.)*
 
 > Önceki oturumlarda tamamlananların tam listesi: `DEVAM.md` §2 ve `docs/DECISIONS.md` (ADR-062/063).

@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Org;
 using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Security;
 
@@ -109,6 +111,23 @@ public sealed partial class UsersViewModel : ViewModelBase
     [ObservableProperty] private string _newFullName = "";
     [ObservableProperty] private string? _formError;
 
+    // Fikir B — "Personel seç": hesabı hangi personele bağlayacağız (hesabı olmayan personeller listelenir).
+    public ObservableCollection<PersonnelRecord> LinkablePersonnel { get; } = new();
+    [ObservableProperty] private PersonnelRecord? _formPersonnel;
+
+    /// <summary>Hesabı olmayan personelleri yükler (bir personele tek kullanıcı kuralı).</summary>
+    private void LoadLinkablePersonnel()
+    {
+        try
+        {
+            LinkablePersonnel.Clear();
+            var taken = DesktopServices.Users.AccountsByPersonnel(_session.CompanyId);
+            foreach (var p in DesktopServices.Personnel.List(_session, new PageRequest { Limit = 500 }).Items)
+                if (!taken.ContainsKey(p.Id)) LinkablePersonnel.Add(p);
+        }
+        catch { }
+    }
+
     public UsersViewModel(SessionContext session)
     {
         _session = session;
@@ -151,6 +170,7 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok."; return; }
         LoadAssignableRoles();
         NewUsername = ""; NewPassword = ""; NewFullName = ""; FormError = null; FormBranch = null;
+        FormPersonnel = null; LoadLinkablePersonnel();
         foreach (var r in AssignableRoles) r.IsSelected = false;
         SelectedTemplate = null;
         if (CanUseTemplates && Templates.Count == 0)
@@ -193,7 +213,8 @@ public sealed partial class UsersViewModel : ViewModelBase
                 RoleKeys: roles,
                 CompanyId: _session.CompanyId,
                 BranchId: FormBranch?.Id,
-                CanViewAllBranches: IsSuperAdmin && NewViewAllBranches));
+                CanViewAllBranches: IsSuperAdmin && NewViewAllBranches,
+                PersonnelId: FormPersonnel?.Id));   // Fikir B: hesabı personele bağla
 
             // Yetki şablonu seçildiyse yetkileri şablona göre yaz (yalnız Süper Admin)
             if (tplData is not null)

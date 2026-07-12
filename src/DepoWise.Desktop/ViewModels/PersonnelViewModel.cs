@@ -12,7 +12,7 @@ using DepoWise.Infrastructure.Security;
 
 namespace DepoWise.Desktop.ViewModels;
 
-/// <summary>Liste satırı: personel + bağlı kullanıcı hesabı rozeti (#6 Çalışan Yönetimi).</summary>
+/// <summary>Liste satırı: personel + (varsa) bağlı kullanıcı hesabı rozeti.</summary>
 public sealed class PersonnelRowVm
 {
     public PersonnelRecord Record { get; }
@@ -24,14 +24,19 @@ public sealed class PersonnelRowVm
     public string? Phone => Record.Phone;
     public string? BranchId => Record.BranchId;
     public bool IsActive => Record.IsActive;
+    public bool IsFieldStaff => Record.IsFieldStaff;
     public string StatusText => Record.IsActive ? "Aktif" : "Pasif";
     public bool HasAccount => Account is not null;
-    public string AccessBadge => Account is null ? "Saha" : (Account.IsAdmin ? "Admin · " + Account.Username : "Kullanıcı · " + Account.Username);
+    /// <summary>ERİŞİM sütunu: hesap varsa Kullanıcı/Admin, yoksa "Saha personeli" ya da uyarı ("Kullanıcı yok").</summary>
+    public string AccessBadge => Account is not null
+        ? (Account.IsAdmin ? "Admin · " + Account.Username : "Kullanıcı · " + Account.Username)
+        : (Record.IsFieldStaff ? "Saha personeli" : "Kullanıcı yok");
 }
 
 /// <summary>
-/// Çalışan Yönetimi (#6) — personel + uygulama kullanıcısı tek ekranda. Liste + yeni/düzenle + sil; "Uygulama
-/// erişimi ver" ile hesap açılır (bir personele tek hesap). Mükerrer kişi uyarısı + saha-personeli onayı.
+/// Personel (Fikir B) — yalnız personel kayıtları. Uygulama hesabı AÇILMAZ; hesap "Kullanıcılar" ekranından
+/// açılıp "Personel seç" ile bu kayda bağlanır. Kullanıcı bağlı değilse ve "Saha personeli" işaretli değilse
+/// kaydederken uyarı çıkar. Unvan sabit tanım listesinden seçilir ("+" ile yeni tanım eklenir).
 /// </summary>
 public sealed partial class PersonnelViewModel : ViewModelBase
 {
@@ -81,29 +86,24 @@ public sealed partial class PersonnelViewModel : ViewModelBase
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string? _editId;
     [ObservableProperty] private string _fFullName = "";
-    [ObservableProperty] private string _fTitle = "";
+    [ObservableProperty] private string? _fTitle;        // unvan: sabit tanım listesinden seçilir
     [ObservableProperty] private string _fPhone = "";
     [ObservableProperty] private BranchRow? _fBranch;
     [ObservableProperty] private bool _fActive = true;
+    [ObservableProperty] private bool _fFieldStaff;      // "Saha personeli" — işaretliyse kullanıcı uyarısı çıkmaz
     [ObservableProperty] private string? _formError;
-    public string FormTitle => EditId is null ? "YENİ ÇALIŞAN" : "ÇALIŞAN DÜZENLE";
+    public string FormTitle => EditId is null ? "YENİ PERSONEL" : "PERSONEL DÜZENLE";
 
-    // ── #6 Hesap / mükerrer alanları ──
+    // ── Unvan sabit tanımları + "+" ile ekleme ──
+    public ObservableCollection<string> Titles { get; } = new();
+    [ObservableProperty] private bool _showAddTitle;
+    [ObservableProperty] private string _newTitle = "";
+
+    // ── Bağlı hesap (yalnız bilgi; hesap işlemleri Kullanıcılar ekranında) + mükerrer ──
     [ObservableProperty] private string? _fDupWarning;   // olası aynı kişi uyarısı
     private bool _dupAck;
-    [ObservableProperty] private bool _fHasAccount;      // düzenlenen çalışanın hesabı var mı
+    [ObservableProperty] private bool _fHasAccount;      // düzenlenen personelin hesabı var mı
     [ObservableProperty] private string _fAccountInfo = "";
-    private string? _fAccountUserId;
-    [ObservableProperty] private bool _fGrantAccess;     // yeni hesap aç
-    [ObservableProperty] private string _fUsername = "";
-    [ObservableProperty] private string _fPassword = "";
-    [ObservableProperty] private bool _fRoleAdmin;       // false=Personel, true=Firma Admini
-    /// <summary>Hesap açma alanları görünsün mü (admin + hesabı yok + toggle açık).</summary>
-    public bool ShowAccountFields => CanManageAccounts && !FHasAccount && FGrantAccess;
-    /// <summary>"Uygulama erişimi ver" toggle'ı görünsün mü (admin + hesabı yok).</summary>
-    public bool ShowGrantToggle => CanManageAccounts && !FHasAccount;
-    partial void OnFGrantAccessChanged(bool value) => OnPropertyChanged(nameof(ShowAccountFields));
-    partial void OnFHasAccountChanged(bool value) { OnPropertyChanged(nameof(ShowAccountFields)); OnPropertyChanged(nameof(ShowGrantToggle)); }
     partial void OnFFullNameChanged(string value) => UpdateDupWarning();
     partial void OnFPhoneChanged(string value) => UpdateDupWarning();
 
@@ -140,8 +140,9 @@ public sealed partial class PersonnelViewModel : ViewModelBase
                 _all.Add(new PersonnelRowVm(p, accounts.TryGetValue(p.Id, out var a) ? a : null));
             if (Branches.Count == 0)
                 try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
+            LoadTitles();
             ApplyFilter();
-            Status = $"{_all.Count} çalışan";
+            Status = $"{_all.Count} personel";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         Selected = null;
@@ -150,35 +151,67 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasError));
     }
 
+    /// <summary>Unvan sabit tanımlarını (firma bazlı) yükler.</summary>
+    private void LoadTitles()
+    {
+        try
+        {
+            Titles.Clear();
+            foreach (var t in DesktopServices.PersonnelTitles.List(_session)) Titles.Add(t.Name);
+        }
+        catch { }
+    }
+
+    /// <summary>"+" — yeni unvan tanımı ekler ve seçili yapar.</summary>
+    [RelayCommand]
+    private void AddTitle()
+    {
+        var name = (NewTitle ?? "").Trim();
+        if (name.Length == 0) { FormError = "Unvan adı boş olamaz."; return; }
+        try
+        {
+            var t = DesktopServices.PersonnelTitles.Create(_session, name);
+            LoadTitles();
+            FTitle = t.Name;                 // yeni unvanı doğrudan seç
+            ShowAddTitle = false; NewTitle = ""; FormError = null;
+            Status = "Unvan eklendi.";
+        }
+        catch (Exception ex) { FormError = "Unvan eklenemedi: " + ex.Message; }
+    }
+
+    [RelayCommand]
+    private void ToggleAddTitle() { ShowAddTitle = !ShowAddTitle; NewTitle = ""; }
+
     [RelayCommand]
     private void NewPersonnel()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
-        EditId = null; FFullName = ""; FTitle = ""; FPhone = ""; FBranch = null; FActive = true; FormError = null;
+        EditId = null; FFullName = ""; FTitle = null; FPhone = ""; FBranch = null; FActive = true;
+        FFieldStaff = false; FormError = null;
         ResetAccountFields();
         ShowAdd = true; OnPropertyChanged(nameof(FormTitle));
     }
 
-    /// <summary>Hesap/mükerrer alanlarını başlangıç durumuna al.</summary>
+    /// <summary>Hesap bilgisi / mükerrer / unvan-ekleme alanlarını başlangıç durumuna al.</summary>
     private void ResetAccountFields()
     {
         FDupWarning = null; _dupAck = false;
-        FHasAccount = false; FAccountInfo = ""; _fAccountUserId = null;
-        FGrantAccess = false; FUsername = ""; FPassword = ""; FRoleAdmin = false;
+        FHasAccount = false; FAccountInfo = "";
+        ShowAddTitle = false; NewTitle = "";
     }
 
     [RelayCommand]
     private void BeginEdit()
     {
-        if (Selected is null) { Status = "Çalışan seçin."; return; }
+        if (Selected is null) { Status = "Personel seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
-        EditId = Selected.Id; FFullName = Selected.FullName; FTitle = Selected.Title ?? "";
+        EditId = Selected.Id; FFullName = Selected.FullName; FTitle = Selected.Title;
         FPhone = Selected.Phone ?? ""; FBranch = Branches.FirstOrDefault(b => b.Id == Selected.BranchId);
-        FActive = Selected.IsActive; FormError = null;
+        FActive = Selected.IsActive; FFieldStaff = Selected.IsFieldStaff; FormError = null;
         ResetAccountFields();
         if (Selected.Account is { } acc)
         {
-            FHasAccount = true; _fAccountUserId = acc.UserId;
+            FHasAccount = true;
             FAccountInfo = $"{acc.Username} · {(acc.IsAdmin ? "Firma Admini" : "Personel")}";
         }
         ShowAdd = true; OnPropertyChanged(nameof(FormTitle));
@@ -193,71 +226,48 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         FormError = null;
         if (string.IsNullOrWhiteSpace(FFullName)) { FormError = "Ad soyad zorunlu."; return; }
         var editing = EditId is not null;
-        bool wantAccount = CanManageAccounts && !FHasAccount && FGrantAccess;
-        if (wantAccount)
-        {
-            if (string.IsNullOrWhiteSpace(FUsername)) { FormError = "Kullanıcı adı zorunlu."; return; }
-            if (string.IsNullOrWhiteSpace(FPassword)) { FormError = "Şifre zorunlu."; return; }
-        }
 
-        // Mükerrer kişi uyarısı: kullanıcı yine de kaydetmek isterse onaylatılır (yalnız yeni kayıt).
+        // Mükerrer kişi uyarısı (yalnız yeni kayıt).
         if (!editing && FDupWarning is not null && !_dupAck)
         {
-            if (!await ConfirmService.AskAsync(FDupWarning + "\nYine de yeni çalışan olarak kaydedilsin mi?", "Olası aynı kişi")) return;
+            if (!await ConfirmService.AskAsync(FDupWarning + "\nYine de yeni personel olarak kaydedilsin mi?", "Olası aynı kişi")) return;
             _dupAck = true;
         }
-        // Yeni kayıt + hesap verilmiyorsa: "yalnız saha personeli mi?" onayı.
-        if (!editing && !wantAccount)
+
+        // Fikir B: kullanıcı bağlı DEĞİLSE ve "Saha personeli" işaretli DEĞİLSE uyar.
+        // Kutucuk işaretliyse bu koşul hiç çalışmaz.
+        if (!FHasAccount && !FFieldStaff)
         {
-            if (!await ConfirmService.AskAsync("Bu çalışana uygulama erişimi (kullanıcı hesabı) verilmedi. Yalnız saha personeli olarak mı kaydedilsin?", "Saha personeli", "Evet, saha personeli")) return;
+            if (!await ConfirmService.AskAsync(
+                    "Bu personele uygulama kullanıcısı bağlanmadı. Saha personeli mi?\n\n" +
+                    "• Evet ise \"Saha personeli\" olarak kaydedilir.\n" +
+                    "• Hayır ise Vazgeç deyin; hesabı \"Kullanıcılar\" ekranından açıp bu personele bağlayın.",
+                    "Saha personeli", "Evet, saha personeli")) return;
+            FFieldStaff = true;   // onayladı → kutucuk işaretlenir
         }
-        else if (!await ConfirmService.AskAsync(editing ? "Çalışan güncellensin mi?" : "Çalışan eklensin mi?", "Kaydet")) return;
+        else if (!await ConfirmService.AskAsync(editing ? "Personel güncellensin mi?" : "Personel eklensin mi?", "Kaydet")) return;
 
         var dto = new NewPersonnel(FFullName.Trim(),
-            string.IsNullOrWhiteSpace(FTitle) ? null : FTitle.Trim(),
+            string.IsNullOrWhiteSpace(FTitle) ? null : FTitle!.Trim(),
             string.IsNullOrWhiteSpace(FPhone) ? null : FPhone.Trim(),
-            FBranch?.Id, FActive);
+            FBranch?.Id, FActive, FFieldStaff);
         try
         {
-            string personnelId;
-            if (editing) { DesktopServices.Personnel.Update(_session, EditId!, dto); personnelId = EditId!; }
-            else personnelId = DesktopServices.Personnel.Create(_session, dto);
-
-            if (wantAccount)
-            {
-                var roleKey = FRoleAdmin ? RoleKeys.CompanyAdmin : RoleKeys.Staff;
-                DesktopServices.Users.CreateUser(_session, new NewUser(
-                    FUsername.Trim(), FPassword, FFullName.Trim(),
-                    new[] { roleKey }, _session.CompanyId, null, FBranch?.Id, false, personnelId));
-            }
+            if (editing) DesktopServices.Personnel.Update(_session, EditId!, dto);
+            else DesktopServices.Personnel.Create(_session, dto);
             ShowAdd = false; EditId = null; Load();
-            Status = editing ? "Çalışan güncellendi." : (wantAccount ? "Çalışan + hesap eklendi." : "Çalışan eklendi.");
+            Status = editing ? "Personel güncellendi." : "Personel eklendi.";
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
-    }
-
-    /// <summary>Admin: çalışanın kullanıcı hesabı bağını çözer (hesap silinmez).</summary>
-    [RelayCommand]
-    private async Task RemoveAccount()
-    {
-        if (!CanManageAccounts || _fAccountUserId is null) return;
-        if (!await ConfirmService.AskAsync($"'{FAccountInfo}' hesabının bu çalışana bağı kaldırılsın mı? (Hesap silinmez, bağ çözülür.)", "Bağı kaldır", "Evet, Kaldır", "Vazgeç", danger: true)) return;
-        try
-        {
-            DesktopServices.Users.LinkPersonnel(_session, _fAccountUserId, null);
-            FHasAccount = false; FAccountInfo = ""; _fAccountUserId = null; Load();
-            Status = "Hesap bağı kaldırıldı.";
-        }
-        catch (Exception ex) { FormError = "Kaldırılamadı: " + ex.Message; }
     }
 
     [RelayCommand]
     private async Task Delete()
     {
-        if (Selected is null) { Status = "Çalışan seçin."; return; }
+        if (Selected is null) { Status = "Personel seçin."; return; }
         if (!CanDelete) { Status = "Yetki yok."; return; }
-        if (!await ConfirmService.AskAsync($"'{Selected.FullName}' silinsin mi?", "Çalışan Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
-        try { DesktopServices.Personnel.SoftDelete(_session, Selected.Id); Load(); Status = "Çalışan silindi."; }
+        if (!await ConfirmService.AskAsync($"'{Selected.FullName}' silinsin mi?", "Personel Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try { DesktopServices.Personnel.SoftDelete(_session, Selected.Id); Load(); Status = "Personel silindi."; }
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
     }
 }

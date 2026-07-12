@@ -34,7 +34,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 >   sunucu açılışında pasif süper adminleri aktifleştiren self-heal + regresyon testi. Hafızaya kaydedildi.
 > - **CANLI:** API (`depowise-erp`) **yeniden yayınlandı** (12.07) — fix + self-heal canlıda. Self-heal sunucuda pasif
 >   süper admin bulmadı → canlı süper admin zaten aktif; yaşanan kilit muhtemelen **masaüstü** yerel DB'deydi (sync ile açılır).
-> - **Sıradaki:** son promttaki kalan hatalar — silinen şubeler her yerde listeleniyor, firma listesi 401, masaüstü-web firma senkron, unvan sabit tanım, kota online dedup, logolar.
+> **Bugün (2026-07-12) — #6 Fikir B'ye çevrildi (ADR-065), web + masaüstü:**
+> - Kullanıcı "Fikir B"yi seçti (belgede A yazılıydı). Personel ve Kullanıcılar ekranları **ayrı**;
+>   Personel ekranındaki hesap açma **kaldırıldı**. Kullanıcılar formunda **"Personel seç (bağla)"**.
+> - Personel formunda **☐ Saha personeli** kutucuğu + kullanıcı bağlı değilse **uyarı penceresi**
+>   (kutucuk işaretliyse uyarı çıkmaz). **Unvan artık sabit tanım listesi + "+"** ile eklenir.
+> - Test **257/257**. **Canlıya alınmadı** → web deploy + masaüstü paketi gerekiyor.
+>
+> - **Sıradaki:** bekleyen hatalar — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)
+>   (silinen şubeler her yerde listeleniyor · firma listesi 401 · masaüstü-web firma senkron · kota online dedup · logolar).
 
 > **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
 > - **#1 Pasif firma yeniden aktifleştirme (sözleşme yenileme):** Firma silinince kullanıcılar pasife alınıyordu;

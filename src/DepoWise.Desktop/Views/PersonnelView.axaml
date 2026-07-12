@@ -11,8 +11,8 @@
              x:DataType="vm:PersonnelViewModel">
 
     <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
-        <ctrl:Toolbar Grid.Row="0" Title="Çalışan Yönetimi"
-                      PrimaryActionText="Yeni Çalışan" PrimaryActionCommand="{Binding NewPersonnelCommand}">
+        <ctrl:Toolbar Grid.Row="0" Title="Personel"
+                      PrimaryActionText="Yeni Personel" PrimaryActionCommand="{Binding NewPersonnelCommand}">
             <ctrl:Toolbar.FilterContent>
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
             </ctrl:Toolbar.FilterContent>
@@ -25,9 +25,19 @@
                     <ctrl:FormField Label="Ad Soyad" IsRequired="True" Width="240">
                         <TextBox Classes="Field" Text="{Binding FFullName}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Unvan" Width="180">
-                        <TextBox Classes="Field" Text="{Binding FTitle}"/>
+                    <!-- Unvan: sabit tanım listesinden seçilir; "+" ile yeni tanım eklenir -->
+                    <ctrl:FormField Label="Unvan" Width="220">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ComboBox Classes="Field" Width="180" ItemsSource="{Binding Titles}" SelectedItem="{Binding FTitle}"/>
+                            <Button Classes="Secondary" Content="+" Width="34" ToolTip.Tip="Yeni unvan tanımı ekle"
+                                    Command="{Binding ToggleAddTitleCommand}" IsVisible="{Binding CanWrite}"/>
+                        </StackPanel>
                     </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowAddTitle}">
+                    <TextBox Classes="Field" Width="200" Watermark="Yeni unvan" Text="{Binding NewTitle}"/>
+                    <Button Classes="Primary" Content="Ekle" Command="{Binding AddTitleCommand}"/>
+                    <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ToggleAddTitleCommand}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Telefon" Width="180">
@@ -38,8 +48,12 @@
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="orgz:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Aktif" Width="80">
+                    <ctrl:FormField Label="Aktif" Width="70">
                         <CheckBox IsChecked="{Binding FActive}" VerticalAlignment="Center"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Saha personeli" Width="130">
+                        <CheckBox IsChecked="{Binding FFieldStaff}" VerticalAlignment="Center"
+                                  ToolTip.Tip="İşaretlenirse bu kişi uygulamaya girmez; kullanıcı bağlanmadı uyarısı çıkmaz."/>
                     </ctrl:FormField>
                 </StackPanel>
                 <!-- Olası aynı kişi uyarısı (#6) -->
@@ -48,27 +62,11 @@
                                          Foreground="{DynamicResource WarningBrush}"/>
                 </Border>
 
-                <!-- Mevcut hesap bilgisi + bağı kaldır (admin) -->
+                <!-- Bağlı hesap: yalnız bilgi. Hesap işlemleri "Kullanıcılar" ekranından yapılır (Fikir B). -->
                 <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding FHasAccount}">
                     <SelectableTextBlock Text="Uygulama hesabı:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding FAccountInfo}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Button Classes="Secondary" Content="Hesap bağını kaldır" Command="{Binding RemoveAccountCommand}"
-                            IsVisible="{Binding CanManageAccounts}"/>
-                </StackPanel>
-
-                <!-- Uygulama erişimi ver toggle (admin + hesabı yok) -->
-                <CheckBox Content="Bu çalışana uygulama erişimi (kullanıcı hesabı) ver"
-                          IsChecked="{Binding FGrantAccess}" IsVisible="{Binding ShowGrantToggle}"/>
-                <StackPanel Spacing="14" IsVisible="{Binding ShowAccountFields}">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Kullanıcı Adı" IsRequired="True" Width="200">
-                            <TextBox Classes="Field" Text="{Binding FUsername}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Şifre" IsRequired="True" Width="200">
-                            <TextBox Classes="Field" PasswordChar="●" Text="{Binding FPassword}"/>
-                        </ctrl:FormField>
-                    </StackPanel>
-                    <CheckBox Content="Firma Admini (işaretli değilse Personel)" IsChecked="{Binding FRoleAdmin}"/>
+                    <SelectableTextBlock Text="(hesap işlemleri: Kullanıcılar ekranı)" Classes="Helper" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"

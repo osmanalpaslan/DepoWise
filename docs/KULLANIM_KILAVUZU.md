@@ -44,11 +44,18 @@ DepoWise; depo/stok, araç, bakım, yakıt ve personel yönetimini tek yerden ya
   - **Pasif Firmalar (Sözleşme Yenileme):** Silinen firmalar bu bölümde durur. **"Aktife Al"** ile firma geri
     gelir ve pasife alınan kullanıcılar tekrar giriş yapabilir. *(Yeni — 2026-07-11)*
 - **Şube:** Şube tanımları ve şube şifreleri.
-- **Çalışan Yönetimi (Personel + Kullanıcı, birleşik):** Ad soyad, unvan, telefon, şube, aktif.
-  - Her satırda **erişim rozeti**: *Saha* (yalnız personel), *Kullanıcı* veya *Admin* (uygulama hesabı olanlar).
-  - Yeni/düzenle formunda **"Uygulama erişimi ver"** (admin) ile aynı ekrandan kullanıcı hesabı (kullanıcı adı/şifre/rol) açılır — bir çalışana tek hesap.
-  - **Olası aynı kişi** uyarısı (ad/telefon) mükerrer kaydı engeller; hesap açılmadan kaydederken **"yalnız saha personeli mi?"** onayı sorulur.
-  - Admin, mevcut hesabın **bağını kaldırabilir** (hesap silinmez, çalışandan çözülür). *(Yeni — 2026-07-12; web + masaüstü)*
+- **Personel:** Ad soyad, **unvan**, telefon, şube, aktif, **☐ Saha personeli**.
+  - **Unvan artık sabit tanımdır:** listeden seçilir. Listede yoksa yanındaki **"+"** ile yeni unvan tanımı eklersiniz
+    (firma bazlı; aynı unvan iki kez tanımlanamaz).
+  - **☐ Saha personeli:** Uygulamaya girmeyecek kişiler için işaretleyin.
+  - **Uyarı penceresi:** Personeli kaydederken **kullanıcı bağlı değilse** ve **"Saha personeli" işaretli değilse**,
+    *"Bu personele uygulama kullanıcısı bağlanmadı. Saha personeli mi?"* diye sorulur. Kutucuk işaretliyse bu uyarı **hiç çıkmaz**.
+  - **Olası aynı kişi** uyarısı (ad/telefon) mükerrer kaydı engeller.
+  - Listede **erişim rozeti**: *Kullanıcı/Admin* (hesabı var) · *Saha personeli* · *Kullanıcı yok* (dikkat).
+- **Kullanıcı:** Uygulamaya girecek hesaplar; rol ve şube ataması.
+  - **"Personel seç (bağla)"**: Hesabı bir personel kaydına bağlarsınız — ad soyad tekrar yazılmaz.
+    Yalnız **hesabı olmayan** personeller listelenir (bir personele **tek** hesap).
+  - Listede **PERSONEL** sütunu hesabın hangi personele ait olduğunu gösterir. *(Yeni — 2026-07-12; web + masaüstü)*
 - **Kullanıcı:** Uygulamaya girecek hesaplar; rol ve şube ataması.
 - **Yetkiler:** Kullanıcı bazında hangi ekranı görebileceği/işlem yapabileceği (yetki matrisi).
 - **Kota İzleme:** Firma başına kullanıcı/admin kotası **ve anlık ONLINE kullanıcı sayısı**
