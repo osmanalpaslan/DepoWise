@@ -72,7 +72,6 @@ public static class AppModules
         ("machines", "Makine Yönetimi"),
         ("permission_templates", "Yetki Şablonları"),
         ("server_status", "Canlı Sunucu Durumu"),
-        ("sync", "Senkronizasyon"),
     };
 
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller (Uyarılar ekranı yetkiye göre kendi filtreler).</summary>
