@@ -48,11 +48,12 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 ## C. Bu Oturumda Tamamlananlar (2026-07-12)
 
 - ✅ **KRİTİK süper admin kilitlenme (ADR-064)** — firma silme süper admini pasife almaz + açılışta self-heal + regresyon testi. Canlı API redeploy edildi.
-- ✅ **#6 Fikir B'ye çevrildi (ADR-065)** — web + masaüstü:
-  - Personel ve Kullanıcılar ekranları **ayrı**; Personel ekranında hesap açma kaldırıldı.
-  - Kullanıcılar formunda **"Personel seç (bağla)"** + listede PERSONEL sütunu.
-  - Personel formunda **☐ Saha personeli**; kullanıcı bağlı değil + kutucuk işaretsizse **uyarı penceresi** (kutucuk işaretliyse çıkmaz).
-  - **Unvan sabit tanım listesi + "+"** ile yeni tanım ekleme.
+- ✅ **#6 NİHAİ: Fikir A — tek ekran + koşullar (ADR-067)** — web + masaüstü:
+  - **Personel ekranında hesap açma** ("Uygulama erişimi ver" → kullanıcı adı/şifre/rol) + "Hesabı kaldır".
+  - **☐ Saha personeli** kutucuğu; hesap yoksa/açılmıyorsa + kutucuk işaretsizse **uyarı penceresi** (işaretliyse çıkmaz).
+  - **Unvan sabit tanım listesi + "+"** ile yeni tanım ekleme · mükerrer kişi uyarısı · bir personele tek hesap.
+  - Kullanıcılar ekranındaki "Personel seç (bağla)" + PERSONEL sütunu ikinci yol olarak duruyor.
+  - *(Kısa geçmiş: önce B (ayrı ekran) yapıldı, beğenilmedi → A'ya dönüldü, koşullar korundu.)*
 - ✅ **Silinen şubeler her yerde listeleniyordu (ADR-066)** — kök neden: şubeler sunucu-otoriteli ama masaüstü
   yerel kopyası sunucudan yalnız **upsert** ediliyordu; silinenler yerelde kalıyordu. Artık her girişte sunucu
   şube listesi **aynalanır** (sunucuda olmayan yerel şube pasife alınır). Regresyon testi eklendi.

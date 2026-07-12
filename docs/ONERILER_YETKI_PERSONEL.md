@@ -1,6 +1,7 @@
 # Öneriler — Firma Yetki Kontrol (#5) ve Personel+Yetki Birleştirme (#6)
 
-> Durum: **#5 UYGULANDI (web).** **#6 UYGULANDI — Fikir B** (web + masaüstü, ADR-065).
+> Durum: **#5 UYGULANDI (web).** **#6 NİHAİ: Fikir A (tek ekran) + koşullar** (web + masaüstü, **ADR-067**).
+> Kısa geçmiş: A (koşulsuz) → B (ayrı ekran, ADR-065) → kullanıcı beğenmedi → **A + B'nin koşulları** (ADR-067).
 > Son güncelleme: 2026-07-12.
 
 ---

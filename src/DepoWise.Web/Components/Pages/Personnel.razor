@@ -6,8 +6,8 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
-    Personel kayıtları burada tutulur. Bir personelin uygulamaya <b>giriş yapabilmesi</b> için
-    <b>Kullanıcılar</b> ekranından hesap açıp <b>“Personel seç”</b> ile bu kayda bağlarsınız.
+    Personel ve uygulama kullanıcısı <b>tek ekranda</b>. Kişi uygulamaya girecekse aynı formdan
+    <b>“Uygulama erişimi ver”</b> ile hesabını açarsınız (bir personele <b>tek</b> hesap).
     Uygulamaya girmeyecek kişiler için <b>“Saha personeli”</b> kutucuğunu işaretleyin.
 </MudText>
 
@@ -55,17 +55,41 @@
             <MudItem xs="6" md="2" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_active" Label="Aktif" Dense="true" /></MudItem>
             <MudItem xs="6" md="2" Class="d-flex align-center">
                 <MudTooltip Text="İşaretlenirse bu kişi uygulamaya girmez; kullanıcı bağlanmadı uyarısı çıkmaz.">
-                    <MudCheckBox T="bool" @bind-Value="_fieldStaff" Label="Saha personeli" Dense="true" />
+                    <MudCheckBox T="bool" @bind-Value="_fieldStaff" @bind-Value:after="OnFieldStaffChanged" Label="Saha personeli" Dense="true" />
                 </MudTooltip>
             </MudItem>
         </MudGrid>
 
-        @if (_hasAccount)
+        @* ── Uygulama erişimi (kullanıcı hesabı) — aynı ekranda (Fikir A) ── *@
+        @if (Auth.IsAdmin)
         {
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
-                Bu personelin uygulama hesabı var: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
-                Hesap işlemleri <b>Kullanıcılar</b> ekranından yapılır.
-            </MudAlert>
+            @if (_hasAccount)
+            {
+                <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">
+                    Bu personelin uygulama hesabı var: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
+                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="RemoveAccount">Hesabı Kaldır</MudButton>
+                </MudAlert>
+            }
+            else if (!_fieldStaff)
+            {
+                <div class="mt-2">
+                    <MudSwitch T="bool" @bind-Value="_grantAccess" Color="Color.Primary" Label="Uygulama erişimi ver (kullanıcı hesabı aç)" />
+                </div>
+                @if (_grantAccess)
+                {
+                    <MudGrid Spacing="2" Class="mt-0">
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_username" Label="Kullanıcı adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" @bind-Value="_roleKey" Label="Rol" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                <MudSelectItem T="string" Value="@("role-staff")">Personel</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("role-company-admin")">Firma Admini</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_password" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" /></MudItem>
+                    </MudGrid>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ayrıntılı ekran yetkileri “Yetkiler” ekranından ayarlanır.</MudText>
+                }
+            }
         }
 
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
@@ -125,6 +149,8 @@
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    // Tarayıcı bu formu login sanıp kayıtlı şifreyi doldurmasın diye.
+    private static readonly Dictionary<string, object?> _newPw = new() { ["autocomplete"] = "new-password" };
     private string? _editId;
     private string _name = "", _phone = "";
     private string? _title;                 // unvan: sabit tanım listesinden seçilir
@@ -138,7 +164,9 @@
     private string _q = "";
     private string? _msg; private bool _ok; private bool _busy;
 
-    // Bağlı hesap (yalnız bilgi — hesap işlemleri Kullanıcılar ekranında) + mükerrer
+    // Uygulama erişimi (hesap açma — aynı ekranda) + bağlı hesap bilgisi + mükerrer
+    private bool _grantAccess;
+    private string _username = "", _password = "", _roleKey = "role-staff";
     private bool _hasAccount, _accountAdmin; private string _accountUsername = "";
     private List<JsonElement> _dups = new();
     private bool _dupAck;
@@ -176,6 +204,12 @@
 
     private void CancelAddTitle() { _addTitle = false; _newTitle = ""; }
 
+    /// <summary>"Saha personeli" işaretlenirse hesap açma anahtarı kapanır (kişi uygulamaya girmeyecek).</summary>
+    private void OnFieldStaffChanged()
+    {
+        if (_fieldStaff) { _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff"; }
+    }
+
     // "+" — yeni unvan tanımı ekler ve seçili hale getirir.
     private async Task AddTitle()
     {
@@ -207,6 +241,7 @@
         _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
+        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff";
         _dups = new(); _dupAck = false; CancelAddTitle();
     }
 
@@ -224,14 +259,19 @@
             _dupAck = true;
         }
 
-        // Fikir B: kullanıcı bağlı DEĞİLSE ve "Saha personeli" işaretli DEĞİLSE uyar.
-        // Kutucuk işaretliyse bu koşul hiç çalışmaz (kişi bilinçli olarak saha personelidir).
-        if (!_hasAccount && !_fieldStaff)
+        // Bu kayıtta hesap açılıyor mu? (admin + hesabı yok + saha değil + anahtar açık)
+        bool wantAccount = Auth.IsAdmin && !_hasAccount && !_fieldStaff && _grantAccess;
+        if (wantAccount && (string.IsNullOrWhiteSpace(_username) || _password.Length < 4))
+        { _msg = "Hesap için kullanıcı adı ve en az 4 karakter şifre gerekli."; _ok = false; return; }
+
+        // KOŞUL (değişmedi): hesap YOKSA ve açılMIYORSA ve "Saha personeli" işaretli DEĞİLSE uyar.
+        // Kutucuk işaretliyse bu koşul hiç çalışmaz.
+        if (!_hasAccount && !wantAccount && !_fieldStaff)
         {
             if (!await Dialog.Confirm(
                     "Bu personele uygulama kullanıcısı bağlanmadı. Saha personeli mi?\n\n" +
                     "• Evet ise “Saha personeli” olarak kaydedilir (kutucuk işaretlenir).\n" +
-                    "• Hayır ise Vazgeç deyin; kullanıcı hesabını “Kullanıcılar” ekranından açıp bu personele bağlayın.",
+                    "• Hayır ise Vazgeç deyip “Uygulama erişimi ver” ile hesabını açın.",
                     "Evet, saha personeli"))
                 return;
             _fieldStaff = true;   // onayladı → kutucuk işaretlenir, bir daha sorulmaz
@@ -241,22 +281,41 @@
         try
         {
             var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active, isFieldStaff = _fieldStaff };
+            string? id = _editId;
             if (_editId is null)
             {
                 var doc = await Api.PostJsonAsync("/api/personnel", body);
                 if (doc is null || !doc.Value.TryGetProperty("id", out var idv) || idv.ValueKind != JsonValueKind.String)
                 { _ok = false; _msg = "Personel eklenemedi."; return; }
+                id = idv.GetString();
             }
             else
             {
                 var err = await Api.PutAsync($"/api/personnel/{_editId}", body);
                 if (err is not null) { _ok = false; _msg = err; return; }
             }
-            _ok = true; _msg = _editId is null ? "Eklendi." : "Güncellendi.";
+
+            if (wantAccount)
+            {
+                var accErr = await Api.PostAsync($"/api/personnel/{id}/account",
+                    new { username = _username.Trim(), password = _password, roleKey = _roleKey, branchId = _branch });
+                if (accErr is not null) { _ok = false; _msg = "Personel kaydedildi ama hesap açılamadı: " + accErr; await LoadList(); return; }
+            }
+            _ok = true; _msg = _editId is null ? (wantAccount ? "Personel + hesap eklendi." : "Eklendi.") : "Güncellendi.";
             Clear(); await LoadList();
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    /// <summary>Admin: personelin hesap bağını çözer (hesap silinmez).</summary>
+    private async Task RemoveAccount()
+    {
+        if (_editId is null) return;
+        if (!await Dialog.Confirm($"'{_accountUsername}' hesabının bu personele bağı kaldırılsın mı? (Hesap silinmez, bağ çözülür.)", "Evet, Kaldır", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/personnel/{_editId}/account");
+        _ok = err is null; _msg = err ?? "Hesap bağı kaldırıldı.";
+        if (_ok) { _hasAccount = false; _accountUsername = ""; await LoadList(); }
     }
 
     private async Task Delete(string id)
@@ -271,6 +330,7 @@
     private void Clear()
     {
         _editId = null; _name = _phone = ""; _title = null; _branch = null; _active = true; _fieldStaff = false;
+        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff";
         _hasAccount = false; _accountAdmin = false; _accountUsername = ""; _dups = new(); _dupAck = false;
         CancelAddTitle();
     }

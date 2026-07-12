@@ -307,6 +307,17 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-067 — #6 NİHAİ: **Fikir A** (tek ekran), B'nin koşulları korunarak (12.07.2026)
+- **Bağlam:** ADR-065 ile Fikir B uygulandı (Personel/Kullanıcılar ayrı; hesap açma Kullanıcılar'a taşındı). Kullanıcı canlıda gördükten sonra **ayrı ekran yapısını beğenmedi** ve **Fikir A'ya dönülmesini** istedi: *"A'yı yapalım... ama koşullar aynı kalsın."*
+- **Karar (A + B'de eklenen koşulların TAMAMI korunur):**
+  - **Personel ekranında hesap açma GERİ GELDİ:** "Uygulama erişimi ver" anahtarı → kullanıcı adı / şifre / rol; hesap aynı formda açılır ve personele bağlanır (`POST /api/personnel/{id}/account`). Admin **"Hesabı kaldır"** ile bağı çözebilir.
+  - **Korunanlar:** `☐ Saha personeli` kutucuğu · hesap yoksa/açılmıyorsa **ve** kutucuk işaretli değilse **uyarı penceresi** (kutucuk işaretliyse koşul hiç çalışmaz) · mükerrer kişi uyarısı · **unvan sabit tanım + "+"** · bir personele **tek** hesap.
+  - **Çelişki önleme:** "Saha personeli" işaretlenirse hesap açma anahtarı otomatik kapanır ve gizlenir (kişi uygulamaya girmeyecek).
+  - **Kullanıcılar ekranındaki "Personel seç (bağla)" KALDI** — kaldırmak gerekmedi; ikinci (isteğe bağlı) yol olarak duruyor, A'yı bozmuyor. PERSONEL sütunu da kalır.
+- **Veri katmanı değişmedi** (Migration033/034 aynen geçerli): `users.personnel_id`, `personnel.is_field_staff`, `personnel_titles`. Yalnız UI/akış değişti → geri alınabilir.
+- **Test:** 258/258. **Kapsam:** web + masaüstü.
+- **Gerekçe:** Kullanıcının son açık talebi (CLAUDE.md §1). ADR-065'in yerini alır (B artık geçerli değil); ADR-063/064'teki A ise koşulsuz sürümdü — bu ADR "A + koşullar" nihai hâlidir.
+
 ### ADR-066 — Silinen şubeler masaüstünde listelenmeye devam ediyordu (12.07.2026)
 - **Belirti:** Web'de silinen şube, masaüstünde **tüm şube alanlarında** (personel, kullanıcı, stok, araç…) görünmeye devam ediyordu.
 - **Kök neden:** Sunucu/web tarafındaki TÜM şube okuma sorguları zaten `is_deleted=0` filtreliydi (hata orada değildi). Şubeler **sunucu-otoriteli** (`BusinessSyncService.Tables` içinde YOK — iş senkronuna dahil değil). Masaüstünün yerel şube kopyası ise sunucudan **yalnız UPSERT** ediliyordu (`LoginViewModel`), üstelik bu yalnız **süper admin firma seçimi** yolunda çağrılıyordu. Sunucuda silinen şube yerelde `is_deleted=0` olarak kalıyor, hiçbir zaman düşmüyordu.
