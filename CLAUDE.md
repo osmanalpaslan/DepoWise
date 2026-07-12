@@ -23,6 +23,21 @@
 - Mevcut çalışan kodu yeniden yazma; küçük, geri alınabilir değişiklik yap.
 - Kullanıcının git değişikliklerini silme, resetleme veya ezme.
 
+### 2.1 Motor (model) seçimi — HER işin başında (kullanıcı kuralı, 2026-07-12)
+> Kullanıcı maddi olarak dikkatli; fiyat/performans önemli. Bu yüzden her yeni iş talebinden **sonra**,
+> işe başlamadan **önce** Claude hangi motorun uygun olduğunu **tek satırla** söyler; kullanıcı motoru
+> değiştirir ("değiştirdim" / "devam" / "başla" der); Claude **ancak ondan sonra** işleme başlar.
+
+- **Akış:** (1) talebi oku → (2) uygun motoru öner → (3) kullanıcının onayını bekle → (4) işe başla.
+  Önerilen motor zaten açıksa "**mevcut motor (X) yeterli, değiştirme gerekmez**" de ve yine kısa onay bekle.
+- Öneri kalıbı: **"Bu iş için önerilen motor: X — [tek cümle gerekçe]."**
+- **Seçim rehberi (karmaşıklık × hata maliyeti):**
+  - **Haiku 4.5** — çok basit: metin/etiket/yorum düzeltme, tek dosyada ufak değişiklik, log/dosya okuma, biçimlendirme, salt-okunur özet.
+  - **Sonnet 5 (VARSAYILAN)** — rutin özellik/hata işleri, orta karmaşıklık, UI bağlama, birkaç dosya, testli ama riski düşük değişiklikler. Fiyat/performansın en iyisi.
+  - **Opus 4.8** — zor/riskli: yetki-güvenlik, tenant sızıntısı, senkron/LWW/idempotency, migration/şema, ~6'dan çok dosyaya yayılan refactor, "neden kırıldı" derin hata avı, mimari karar. **Hatanın maliyeti yüksekse Opus.**
+- Emin değilsen bir üst kademeyi öner (güvenlik/para/senkrona dokunan işte Sonnet yerine Opus).
+- Kullanıcı açıkça "sen seç / geçme / beklemeden başla" derse: öneriyi yine yaz ama beklemeden devam et.
+
 ## 3. Token tasarrufu
 - Önce glob/grep, sonra gerekli satır aralığı. Değişmemiş dosyaları tekrar okuma.
 - Tam dosyayı yanıta yapıştırma; değişen dosyalar + kısa gerekçe + test sonucu ver.
