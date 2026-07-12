@@ -174,6 +174,8 @@ public sealed class PermissionService
         if (string.Equals(userId, actor.UserId, StringComparison.Ordinal)) return;
         if (HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
             throw new ForbiddenException("Süper admin kullanıcı düzenlenemez.");
+        if (HasRole(conn, tx, userId, RoleKeys.RestrictedSuperAdmin))
+            throw new ForbiddenException("Kısıtlı Süper Admin kullanıcıyı yalnız süper admin düzenleyebilir.");
         if (HasRole(conn, tx, userId, RoleKeys.CompanyAdmin))
             throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
     }

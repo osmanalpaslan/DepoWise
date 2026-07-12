@@ -17,6 +17,8 @@ public static class RoleAssignmentGuard
             {
                 case RoleKeys.SuperAdmin when !actor.IsSuperAdmin:
                     throw new ForbiddenException("Yetki yükseltme reddedildi: Süper Admin yalnız Süper Admin tarafından atanır.");
+                case RoleKeys.RestrictedSuperAdmin when !actor.IsSuperAdmin:
+                    throw new ForbiddenException("Yetki yükseltme reddedildi: Kısıtlı Süper Admin rolünü yalnız Süper Admin atar.");
                 case RoleKeys.CompanyAdmin when !AccessControl.IsAdmin(actor):
                     throw new ForbiddenException("Yetki yükseltme reddedildi: Firma Admini rolünü yalnız admin atar.");
             }

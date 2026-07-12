@@ -40,5 +40,6 @@ public static class MigrationCatalog
         new Migration033_UserPersonnelLink(),
         new Migration034_FieldStaffAndTitles(),
         new Migration035_SplitRequestApproval(),
+        new Migration036_RestrictedSuperAdmin(),
     };
 }

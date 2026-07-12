@@ -720,8 +720,8 @@ app.MapGet("/api/materials/subcategories", (HttpContext c, string? parentId) =>
 app.MapGet("/api/roles", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    // Süper Admin rolü YALNIZ süper admin'e listelenir (başka roller kullanıcı oluştururken görmez).
-    var roles = RoleKeys.Seed.Where(r => r.Key != RoleKeys.SuperAdmin || s.IsSuperAdmin);
+    // Süper Admin ve Kısıtlı Süper Admin rolleri YALNIZ süper admin'e listelenir (yalnız o atayabilir).
+    var roles = RoleKeys.Seed.Where(r => (r.Key != RoleKeys.SuperAdmin && r.Key != RoleKeys.RestrictedSuperAdmin) || s.IsSuperAdmin);
     return Results.Ok(roles.Select(r => new { key = r.Key, name = r.Name }));
 }).RequireAuthorization();
 

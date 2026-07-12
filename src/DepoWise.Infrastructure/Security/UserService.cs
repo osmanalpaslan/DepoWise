@@ -158,8 +158,21 @@ ORDER BY u.username;";
         if (string.Equals(userId, actor.UserId, StringComparison.Ordinal)) return; // kendini yönetebilir
         if (IsSuperAdminUser(conn, tx, userId))
             throw new ForbiddenException("Süper admin kullanıcı düzenlenemez.");
+        if (HasRoleKey(conn, tx, userId, RoleKeys.RestrictedSuperAdmin))
+            throw new ForbiddenException("Kısıtlı Süper Admin kullanıcıyı yalnız süper admin düzenleyebilir.");
         if (IsCompanyAdminUser(conn, tx, userId))
             throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
+    }
+
+    private static bool HasRoleKey(SqliteConnection conn, SqliteTransaction tx, string userId, string roleKey)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.role_key=$k;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.Parameters.AddWithValue("$k", roleKey);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     private static bool IsSuperAdminUser(SqliteConnection conn, SqliteTransaction tx, string userId)

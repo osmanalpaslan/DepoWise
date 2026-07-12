@@ -13,6 +13,7 @@ public enum PermissionAction
 public static class RoleKeys
 {
     public const string SuperAdmin = "role-super-admin";
+    public const string RestrictedSuperAdmin = "role-restricted-super-admin"; // Admin ile Süper Admin arası (Migration036)
     public const string CompanyAdmin = "role-company-admin";
     public const string Staff = "role-staff";           // Personel (2-rol modeli, Migration029)
 
@@ -25,10 +26,11 @@ public static class RoleKeys
     /// <summary>Eski roller — Migration029 bunları Personel'e taşır + soft-delete eder.</summary>
     public static readonly IReadOnlyList<string> Legacy = new[] { Manager, Warehouse, Operation, ReadOnly };
 
-    /// <summary>Aktif rol modeli: Personel + Admin + sistemsel Süper Admin.</summary>
+    /// <summary>Aktif rol modeli: Personel + Admin + Kısıtlı Süper Admin + sistemsel Süper Admin.</summary>
     public static readonly IReadOnlyList<(string Key, string Name, bool IsSystem)> Seed = new[]
     {
         (SuperAdmin, "Süper Admin", true),
+        (RestrictedSuperAdmin, "Kısıtlı Süper Admin", true),
         (CompanyAdmin, "Admin", true),
         (Staff, "Personel", true),
     };

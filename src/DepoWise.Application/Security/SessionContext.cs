@@ -23,6 +23,10 @@ public sealed class SessionContext : ITenantContext
     public bool IsSuperAdmin => RoleKeys.Contains(Security.RoleKeys.SuperAdmin);
     public bool IsCompanyAdmin => RoleKeys.Contains(Security.RoleKeys.CompanyAdmin);
 
+    /// <summary>Admin ile Süper Admin arası rol. Admin bypass'ı YOKTUR (yalnız açıkça verilen yetkiler);
+    /// ek olarak süper adminin devrettiği süper-admin-only ekranlara erişebilir.</summary>
+    public bool IsRestrictedSuperAdmin => RoleKeys.Contains(Security.RoleKeys.RestrictedSuperAdmin);
+
     public SessionContext(string userId, string companyId, IEnumerable<string> roleKeys, PermissionSet permissions,
         bool canViewAllBranches = false)
     {
