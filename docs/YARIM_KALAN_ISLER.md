@@ -10,12 +10,27 @@
 
 ---
 
-## A. Bekleyen İşler (sıradaki hata listesi — son promttan)
+## A. Bekleyen İşler (sıradaki hata listesi — son promttan 2026-07-12)
 
 Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
-**Şu an bekleyen iş YOK.** Son promttaki tüm maddeler tamamlandı. 🎉
-Yeni iş çıktıkça buraya eklenecek.
+1. **[BUG] Makine firması: silinen eski firma girişte hâlâ çıkıyor.** Makinenin atanmış firması
+   silindiği hâlde, tekrar login olunca makine firmasının yanında **eski (silinmiş) firma** listede
+   çıkıyor ve ona login olunabiliyor. Kural: makineye hangi firma+şube atandıysa makine firması **odur**;
+   silinmiş/atanmamış firma seçenek olarak çıkmamalı.
+2. **[ÖZELLİK] Makine yönetimi ekranında firma değiştirme.** Şu an yalnız şube değişimi var; **firma
+   değiştirme** de eklenmeli (web + masaüstü + API).
+3. **[ÖZELLİK] Canlı sunucu ekranı: disk kapasitesi + paket silme.** Sunucu durumu ekranında disk
+   doluluğu **canlı** görülmeli; eski güncelleme paketleri bu ekrandan **manuel silinebilmeli**.
+4. **[LOGO] Web logosu düzeltme.** Masaüstü login logosu tamam; web'de sorunlu. Web'de de
+   `masaüstü uygulama simge logosu.png` kullanılacak, **arka plan olmayacak**.
+5. **[TEMA] İlk açılış varsayılan teması** (sonra kullanıcı değiştirebilir):
+   - Masaüstü: **Stil Fluent / Koyu mod / renk Kehribar**.
+   - Web: **Tema Koyu / Stil Yumuşak / renk Kehribar**.
+6. **[DEĞİŞİKLİK] Personel ekranı: kullanıcı AÇMA değil, mevcut kullanıcıyı BAĞLAMA.** ADR-067'deki
+   "hesap açma" alanı yerine, personele **mevcut bir kullanıcıyı bağlama** alanı olmalı (web + masaüstü).
+7. **[ÖZELLİK] Firma yetki kontrol ekranı: global kilit.** Süper admin **global kilit** ayarını
+   buradan güncelleyebilmeli.
 
 ---
 
