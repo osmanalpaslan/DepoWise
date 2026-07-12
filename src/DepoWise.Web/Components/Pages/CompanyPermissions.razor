@@ -16,7 +16,8 @@ else
     <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
         Her firmada, o firmanın <b>adminlerinin kendi personeline verebileceği</b> ekranları belirlersiniz.
         Bir ekranı <b>“Yalnız Admin”</b> yaparsanız o firmanın adminleri bu ekranı personele açamaz.
-        <b>Global kilitli</b> (🔒) ekranlar tüm firmalarda kısıtlıdır ve değiştirilemez.
+        <b>Global kilit</b> (🔒) tüm firmalarda geçerlidir; süper admin olarak açıp kapatabilirsiniz.
+        <b>“Global kilit (sabit)”</b> etiketli ekranlar yapısal olarak kilitlidir ve değiştirilemez.
     </MudText>
 
     <MudPaper Class="pa-4 mb-3" Elevation="2">
@@ -39,20 +40,20 @@ else
         <MudGrid Spacing="2" Class="mb-2">
             <MudItem xs="4">
                 <MudPaper Class="pa-3" Elevation="1" Style="border-radius:12px">
-                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-success)">@_rows.Count(r => !r.GlobalRestricted && !r.CompanyRestricted)</MudText>
+                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-success)">@_rows.Count(r => !r.GlobalEffective && !r.CompanyRestricted)</MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Serbest — admin personele verebilir</MudText>
                 </MudPaper>
             </MudItem>
             <MudItem xs="4">
                 <MudPaper Class="pa-3" Elevation="1" Style="border-radius:12px">
-                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-warning)">@_rows.Count(r => !r.GlobalRestricted && r.CompanyRestricted)</MudText>
+                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-warning)">@_rows.Count(r => !r.GlobalEffective && r.CompanyRestricted)</MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Yalnız Admin — firmaya özel kısıt</MudText>
                 </MudPaper>
             </MudItem>
             <MudItem xs="4">
                 <MudPaper Class="pa-3" Elevation="1" Style="border-radius:12px">
-                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-error)">@_rows.Count(r => r.GlobalRestricted)</MudText>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Global kilit — değiştirilemez</MudText>
+                    <MudText Typo="Typo.h5" Style="color:var(--mud-palette-error)">@_rows.Count(r => r.GlobalEffective)</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Global kilit — tüm firmalar</MudText>
                 </MudPaper>
             </MudItem>
         </MudGrid>
@@ -63,7 +64,7 @@ else
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
                     <MudText Typo="Typo.subtitle2" Class="mud-text-secondary" Style="letter-spacing:.05em">@grp.Key.ToUpper()</MudText>
                     <MudSpacer />
-                    @if (grp.Any(r => !r.GlobalRestricted))
+                    @if (grp.Any(r => !r.GlobalEffective))
                     {
                         <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => BulkFree(grp.Key))">Tümünü serbest bırak</MudButton>
                     }
@@ -75,20 +76,33 @@ else
                             <MudText Typo="Typo.body2" Style="font-weight:600">@r.Label</MudText>
                             @if (!string.IsNullOrEmpty(Hint(r.ModuleKey))) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@Hint(r.ModuleKey)</MudText> }
                         </div>
-                        @if (r.GlobalRestricted)
+                        @if (r.GlobalHardLocked)
                         {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Lock" Variant="Variant.Text">Global kilit</MudChip>
+                            @* Derleme-zamanı sabit kilit — değiştirilemez. *@
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Lock" Variant="Variant.Text">Global kilit (sabit)</MudChip>
                         }
                         else
                         {
-                            <MudButton Size="Size.Small" DisableElevation="true"
-                                       Variant="@(!r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
-                                       Color="@(!r.CompanyRestricted ? Color.Success : Color.Default)"
-                                       OnClick="@(() => Set(r, false))" Class="mr-1">🟢 Serbest</MudButton>
-                            <MudButton Size="Size.Small" DisableElevation="true"
-                                       Variant="@(r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
-                                       Color="@(r.CompanyRestricted ? Color.Warning : Color.Default)"
-                                       OnClick="@(() => Set(r, true))">🟡 Yalnız Admin</MudButton>
+                            @* Firmaya özel ayar — yalnız global kilit KAPALIYKEN anlamlı. *@
+                            @if (!r.GlobalDynamicLocked)
+                            {
+                                <MudButton Size="Size.Small" DisableElevation="true"
+                                           Variant="@(!r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
+                                           Color="@(!r.CompanyRestricted ? Color.Success : Color.Default)"
+                                           OnClick="@(() => Set(r, false))" Class="mr-1">🟢 Serbest</MudButton>
+                                <MudButton Size="Size.Small" DisableElevation="true"
+                                           Variant="@(r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
+                                           Color="@(r.CompanyRestricted ? Color.Warning : Color.Default)"
+                                           OnClick="@(() => Set(r, true))" Class="mr-1">🟡 Yalnız Admin</MudButton>
+                            }
+                            @* Süper admin: DİNAMİK global kilit (tüm firmalar) — aç/kapat. *@
+                            <MudTooltip Text="Tüm firmalarda kısıtla (global kilit). Açıkken firmaya özel ayar geçersizdir.">
+                                <MudButton Size="Size.Small" DisableElevation="true"
+                                           Variant="@(r.GlobalDynamicLocked ? Variant.Filled : Variant.Outlined)"
+                                           Color="@(r.GlobalDynamicLocked ? Color.Error : Color.Default)"
+                                           StartIcon="@Icons.Material.Filled.Lock"
+                                           OnClick="@(() => ToggleGlobal(r))">@(r.GlobalDynamicLocked ? "Global kilit açık" : "Global kilit")</MudButton>
+                            </MudTooltip>
                         }
                     </div>
                 }
@@ -120,9 +134,13 @@ else
     {
         public string ModuleKey { get; set; } = "";
         public string Label { get; set; } = "";
-        public bool GlobalRestricted { get; set; }
+        public bool GlobalHardLocked { get; set; }        // derleme-zamanı sabit kilit (değiştirilemez)
+        public bool GlobalDynamicLocked { get; set; }     // süper adminin açıp kapatabildiği global kilit
+        public bool GlobalOriginal { get; set; }          // dinamik global kilidin yüklenen ilk durumu
         public bool CompanyRestricted { get; set; }
-        public bool Original { get; set; }   // yüklenen ilk durum (değişiklik sayımı için)
+        public bool Original { get; set; }                // firma kısıtının yüklenen ilk durumu
+        /// <summary>Etkin global kilit (sabit VEYA dinamik) — bu haldeyken firmaya özel ayar anlamsızdır.</summary>
+        public bool GlobalEffective => GlobalHardLocked || GlobalDynamicLocked;
     }
 
     private List<ApiClient.Opt> _companies = new();
@@ -148,11 +166,16 @@ else
             foreach (var e in await Api.GetArrayAsync($"/api/company-permissions/{_companyId}"))
             {
                 var cr = B(e, "companyRestricted");
+                var hard = B(e, "globalHardLocked");
+                var globalEff = B(e, "globalRestricted");         // etkin (sabit VEYA dinamik)
+                var dyn = globalEff && !hard;                     // dinamik = etkin ama sabit değil
                 list.Add(new Row
                 {
                     ModuleKey = S(e, "moduleKey"),
                     Label = S(e, "label"),
-                    GlobalRestricted = B(e, "globalRestricted"),
+                    GlobalHardLocked = hard,
+                    GlobalDynamicLocked = dyn,
+                    GlobalOriginal = dyn,
                     CompanyRestricted = cr,
                     Original = cr,
                 });
@@ -164,20 +187,28 @@ else
 
     private void Set(Row r, bool restricted)
     {
-        if (r.GlobalRestricted || r.CompanyRestricted == restricted) return;
+        if (r.GlobalEffective || r.CompanyRestricted == restricted) return;
         r.CompanyRestricted = restricted;
+        Recount();
+    }
+
+    /// <summary>Süper admin: dinamik global kilidi (tüm firmalar) aç/kapat. Sabit kilit değiştirilemez.</summary>
+    private void ToggleGlobal(Row r)
+    {
+        if (r.GlobalHardLocked) return;
+        r.GlobalDynamicLocked = !r.GlobalDynamicLocked;
         Recount();
     }
 
     private void BulkFree(string group)
     {
         if (_rows is null) return;
-        foreach (var r in _rows.Where(r => !r.GlobalRestricted && Group(r.ModuleKey) == group))
+        foreach (var r in _rows.Where(r => !r.GlobalEffective && Group(r.ModuleKey) == group))
             r.CompanyRestricted = false;
         Recount();
     }
 
-    private void Recount() => _changes = _rows?.Count(r => r.CompanyRestricted != r.Original) ?? 0;
+    private void Recount() => _changes = _rows?.Count(r => r.CompanyRestricted != r.Original || r.GlobalDynamicLocked != r.GlobalOriginal) ?? 0;
 
     private IEnumerable<IGrouping<string, Row>> Grouped()
     {
@@ -190,11 +221,22 @@ else
     private async Task Save()
     {
         if (_rows is null || string.IsNullOrEmpty(_companyId)) return;
-        if (!await Dialog.Confirm("Firma yetki kısıtları kaydedilsin mi?")) return;
+        bool globalChanged = _rows.Any(r => r.GlobalDynamicLocked != r.GlobalOriginal);
+        if (!await Dialog.Confirm(globalChanged
+                ? "Değişiklikler kaydedilsin mi? Global kilit değişiklikleri TÜM firmaları etkiler."
+                : "Firma yetki kısıtları kaydedilsin mi?")) return;
         _busy = true; _msg = null;
         try
         {
-            var restricted = _rows.Where(r => !r.GlobalRestricted && r.CompanyRestricted).Select(r => r.ModuleKey).ToList();
+            // 1) DİNAMİK global kilit (tüm firmalar) — değiştiyse önce onu kaydet.
+            if (globalChanged)
+            {
+                var globalLocks = _rows.Where(r => !r.GlobalHardLocked && r.GlobalDynamicLocked).Select(r => r.ModuleKey).ToList();
+                var gerr = await Api.PostAsync("/api/global-permissions", new { restrictedKeys = globalLocks });
+                if (gerr is not null) { _ok = false; _msg = "Global kilit kaydedilemedi: " + gerr; _busy = false; return; }
+            }
+            // 2) Firmaya özel kısıtlar (global kilitli olanlar hariç).
+            var restricted = _rows.Where(r => !r.GlobalEffective && r.CompanyRestricted).Select(r => r.ModuleKey).ToList();
             var err = await Api.PostAsync($"/api/company-permissions/{_companyId}", new { restrictedKeys = restricted });
             _ok = err is null; _msg = err ?? "Kaydedildi.";
             if (_ok) await Load();
