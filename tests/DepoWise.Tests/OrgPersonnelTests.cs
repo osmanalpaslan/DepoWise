@@ -109,6 +109,54 @@ public class OrgPersonnelTests : IDisposable
         Assert.True(login.Success);
     }
 
+    // ---- Fikir B: saha personeli kutucuğu + unvan sabit tanım ----
+    [Fact]
+    public void SahaPersoneli_Kutucugu_Kaydedilir_VeOkunur()
+    {
+        var su = SuperAdmin();
+        var pers = new PersonnelService(_factory, _scope, _clock);
+
+        var sahaId = pers.Create(su, new NewPersonnel("Saha Adam", "İşçi", "0555", null, true, IsFieldStaff: true));
+        var normalId = pers.Create(su, new NewPersonnel("Ofis Adam", "Memur", "0666", null, true)); // varsayılan false
+
+        Assert.True(pers.Get(su, sahaId)!.IsFieldStaff);
+        Assert.False(pers.Get(su, normalId)!.IsFieldStaff);
+
+        // Düzenlemede de korunur / değiştirilebilir
+        pers.Update(su, normalId, new NewPersonnel("Ofis Adam", "Memur", "0666", null, true, IsFieldStaff: true));
+        Assert.True(pers.Get(su, normalId)!.IsFieldStaff);
+    }
+
+    [Fact]
+    public void Unvan_Tanimi_Eklenir_Listelenir_MukerrerOlmaz()
+    {
+        var su = SuperAdmin();
+        var titles = new PersonnelTitleService(_factory, _clock);
+
+        var t1 = titles.Create(su, "Şoför");
+        var t2 = titles.Create(su, "  şoför  ");   // kırpılır + büyük/küçük harf duyarsız → AYNI kayıt döner
+        Assert.Equal(t1.Id, t2.Id);
+
+        titles.Create(su, "Operatör");
+        var list = titles.List(su);
+        Assert.Equal(2, list.Count);                       // mükerrer eklenmedi
+        Assert.Contains(list, t => t.Name == "Şoför");
+        Assert.Contains(list, t => t.Name == "Operatör");
+
+        Assert.Throws<InvalidOperationException>(() => titles.Create(su, "   ")); // boş unvan
+    }
+
+    [Fact]
+    public void Unvan_Tanimlari_FirmayaIzole()
+    {
+        var su = SuperAdmin();                       // firma A
+        var titles = new PersonnelTitleService(_factory, _clock);
+        titles.Create(su, "Şoför");                  // A firmasına unvan
+
+        var adminB = Admin("B");                     // farklı firma
+        Assert.Empty(titles.List(adminB));           // B, A'nın unvanını GÖRMEZ (tenant izolasyonu)
+    }
+
     [Fact]
     public void Calisan_MukerrerPersonel_VeTekKullanici()
     {

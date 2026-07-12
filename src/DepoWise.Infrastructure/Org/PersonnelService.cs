@@ -7,9 +7,11 @@ namespace DepoWise.Infrastructure.Org;
 
 public sealed record PersonnelRecord(
     string Id, string CompanyId, string? BranchId, string FullName,
-    string? Title, string? Phone, bool IsActive, long CreatedAt);
+    string? Title, string? Phone, bool IsActive, long CreatedAt,
+    bool IsFieldStaff = false);   // Fikir B: "Saha personeli" — işaretliyse kullanıcı-bağlı uyarısı çıkmaz
 
-public sealed record NewPersonnel(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true);
+public sealed record NewPersonnel(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true,
+    bool IsFieldStaff = false);
 
 /// <summary>
 /// Personel CRUD — tenant + "personnel" permission + şube kapsamı fail-closed; soft delete/restore;
@@ -41,7 +43,7 @@ public sealed class PersonnelService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at FROM personnel " +
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff FROM personnel " +
             "WHERE company_id=$c AND is_deleted=0 AND ($x IS NULL OR id<>$x) AND (" +
             "  ($n <> '' AND REPLACE(LOWER(full_name),' ','')=$n) OR " +
             "  ($d <> '' AND phone IS NOT NULL AND REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'(',''),')','')=$d)" +
@@ -55,7 +57,7 @@ public sealed class PersonnelService
         while (r.Read())
             list.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
                 r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-                r.GetInt64(6) == 1, r.GetInt64(7)));
+                r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1));
         return list;
     }
 
@@ -75,8 +77,8 @@ public sealed class PersonnelService
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "INSERT INTO personnel(id, company_id, branch_id, full_name, title, phone, is_active, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$b,$n,$t,$p,$a,$now,$now,1,0);";
+                "INSERT INTO personnel(id, company_id, branch_id, full_name, title, phone, is_active, is_field_staff, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$b,$n,$t,$p,$a,$fs,$now,$now,1,0);";
             Bind(cmd, id, session.CompanyId, dto, now);
             cmd.ExecuteNonQuery();
         }
@@ -100,13 +102,14 @@ public sealed class PersonnelService
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "UPDATE personnel SET branch_id=$b, full_name=$n, title=$t, phone=$p, is_active=$a, " +
+                "UPDATE personnel SET branch_id=$b, full_name=$n, title=$t, phone=$p, is_active=$a, is_field_staff=$fs, " +
                 "version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
             cmd.Parameters.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$n", dto.FullName);
             cmd.Parameters.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$p", (object?)dto.Phone ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$a", dto.IsActive ? 1 : 0);
+            cmd.Parameters.AddWithValue("$fs", dto.IsFieldStaff ? 1 : 0);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", session.CompanyId);
@@ -131,7 +134,7 @@ public sealed class PersonnelService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at FROM personnel " +
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff FROM personnel " +
             "WHERE company_id = $c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT $limit;";
@@ -153,7 +156,7 @@ public sealed class PersonnelService
                 if (!isAdmin && branchId is not null && !allowedBranches.Contains(branchId)) continue;
                 items.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), branchId,
                     r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-                    r.GetInt64(6) == 1, r.GetInt64(7)));
+                    r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1));
             }
         }
 
@@ -202,7 +205,7 @@ public sealed class PersonnelService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at FROM personnel " +
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff FROM personnel " +
             "WHERE id = $id AND company_id = $c;";
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", session.CompanyId);
@@ -210,7 +213,7 @@ public sealed class PersonnelService
         if (!r.Read()) return null;
         return new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
             r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-            r.GetInt64(6) == 1, r.GetInt64(7));
+            r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1);
     }
 
     private static void Bind(SqliteCommand cmd, string id, string companyId, NewPersonnel dto, long now)
@@ -222,6 +225,7 @@ public sealed class PersonnelService
         cmd.Parameters.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$p", (object?)dto.Phone ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$a", dto.IsActive ? 1 : 0);
+        cmd.Parameters.AddWithValue("$fs", dto.IsFieldStaff ? 1 : 0);
         cmd.Parameters.AddWithValue("$now", now);
     }
 }
