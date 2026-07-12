@@ -20,9 +20,12 @@ doğrulandı) · git push edildi. Ayrıntı §C.
 
 ## B. Onay / Aksiyon Bekleyenler (senden)
 
-- **Personel ekranını gözden geçir** (canlıda): tek ekranda **"Uygulama erişimi ver"** (kullanıcı adı/şifre/rol),
-  **☐ Saha personeli**, **unvan listesi + "+"**, uyarı penceresi. Beğendin mi, değişiklik ister misin?
-- **Masaüstü:** açık makineler 60 sn içinde **1.0.46** güncelleme uyarısı alır; güncelleyip ekranları gör.
+- **Personel ekranını gözden geçir** (canlıda): artık **"Mevcut kullanıcıyı bağla"** (hesap açma yok; ADR-081) +
+  **☐ Saha personeli** + **unvan listesi "+"**. Beğendin mi, değişiklik ister misin?
+- **Masaüstü:** açık makineler **1.0.47** güncelleme uyarısı alır; güncelleyip yeni ekranları gör.
+- **QA raporu (2026-07-12):** proje geneli tarama yapıldı → [docs/tests/PROJECT_QA_Report.md](docs/tests/PROJECT_QA_Report.md).
+  273/273 test yeşil, kritik hata yok. Onayına açık **4 küçük iyileştirme** var (login boş-alan mesajı, sayfa-içi
+  yetki guard'ı, Inspection/StockCount özel testleri, build uyarıları). İstersen uygularım.
 
 ---
 
