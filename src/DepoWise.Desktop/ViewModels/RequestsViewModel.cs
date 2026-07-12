@@ -26,7 +26,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "requests", PermissionAction.Create);
-    public bool CanApproveButton => AccessControl.Can(_session, "requests", PermissionAction.Edit);
+    public bool CanApproveButton => AccessControl.Can(_session, "request_approval", PermissionAction.Edit); // Talep Onaylama ayrı yetki
 
     public ObservableCollection<RequestRow> Items { get; } = new();
     public ObservableCollection<RequestRow> PendingItems { get; } = new();

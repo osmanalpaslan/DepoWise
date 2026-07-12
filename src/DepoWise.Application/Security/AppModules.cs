@@ -61,7 +61,8 @@ public static class AppModules
         ("inspection", "Muayene / Sigorta"),
         ("fuel", "Yakıt"),
         ("daily_activity", "Günlük Faaliyet"),
-        ("requests", "Malzeme Talep"),
+        ("requests", "Talep Formu"),
+        ("request_approval", "Talep Onaylama"),
         ("personnel", "Personel"),
         ("reports", "Raporlar"),
         ("import_export", "İmport / Export"),
@@ -96,7 +97,7 @@ public static class AppModules
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>
 public static class SpecialButtons
 {
-    public const string Approve = "btn-approve";          // talep onay
+    public const string Approve = "btn-approve";          // LEGACY — Talep Onaylama artık "request_approval" MODÜLÜ (Migration035). Yalnız migration string referansı.
     public const string Reverse = "btn-reverse";          // ters kayıt / iptal
     public const string RestoreTrash = "btn-restore";     // çöp kutusu geri yükle
     public const string ResetDatabase = "btn-reset-db";   // DB sıfırlama
@@ -106,7 +107,6 @@ public static class SpecialButtons
     /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
     {
-        (Approve, "Talep Onayla / Reddet"),
         (RestoreTrash, "Çöp Kutusu Geri Yükle"),
         (ResetDatabase, "Veritabanı Sıfırlama"),
         (ChangeCompanyLogo, "Firma Logosu Değiştir"),

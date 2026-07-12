@@ -39,5 +39,6 @@ public static class MigrationCatalog
         new Migration032_CompanyGrantLimits(),
         new Migration033_UserPersonnelLink(),
         new Migration034_FieldStaffAndTitles(),
+        new Migration035_SplitRequestApproval(),
     };
 }

@@ -162,6 +162,24 @@ public class RequestTests : IDisposable
     }
 
     [Fact]
+    public void TalepFormu_ve_Onaylama_AyriYetki()
+    {
+        var m = Mat("M-1");
+        var r = _requests.Create(_admin, new NewRequest(new[] { new RequestItemInput(m, 1m) }, SubmitImmediately: true));
+
+        // Yalnız FORM yetkisi (requests edit) olan ONAYLAYAMAZ — onay ayrı yetki (request_approval).
+        var formOnly = new SessionContext("form", "A", Array.Empty<string>(),
+            new PermissionSet(new[] { new ModulePermission("requests", true, true, true, false) }));
+        Assert.Throws<ForbiddenException>(() => _requests.Approve(formOnly, r.Id));
+
+        // Yalnız ONAYLAMA yetkisi (request_approval edit) olan ONAYLAR — form yazma gerekmez.
+        var approver = new SessionContext("appr", "A", Array.Empty<string>(),
+            new PermissionSet(new[] { new ModulePermission("request_approval", true, false, true, false) }));
+        _requests.Approve(approver, r.Id);
+        Assert.Equal(RequestStatus.Approved, _requests.GetStatus(approver, r.Id));
+    }
+
+    [Fact]
     public void OnayliTalepten_KontrolluStokCikis_StokDuser()
     {
         var m = Mat("M-1");

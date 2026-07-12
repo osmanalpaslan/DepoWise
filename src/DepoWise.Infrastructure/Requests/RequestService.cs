@@ -39,7 +39,8 @@ public sealed record RequestPdfData(
 /// </summary>
 public sealed class RequestService
 {
-    private const string Module = "requests";
+    private const string Module = "requests";                 // Talep Formu (oluştur/düzenle/görüntüle)
+    private const string ApprovalModule = "request_approval"; // Talep Onaylama (ayrı ekran + ayrı yetki)
     private readonly IDbConnectionFactory _factory;
     private readonly StockService _stock;
     private readonly IClock _clock;
@@ -206,15 +207,14 @@ WHERE i.request_id=$r ORDER BY m.code;";
 
     public void Approve(SessionContext s, string requestId)
     {
-        AccessControl.RequireButton(s, SpecialButtons.Approve);
-        Transition(s, requestId, RequestStatus.Approved, PermissionAction.Edit, null, setApproval: true);
+        // Onay ayrı ekran/yetki: "Talep Onaylama" (request_approval). Form (requests) Edit'i YETMEZ.
+        Transition(s, requestId, RequestStatus.Approved, PermissionAction.Edit, null, setApproval: true, gateModule: ApprovalModule);
     }
 
     public void Reject(SessionContext s, string requestId, string reason)
     {
-        AccessControl.RequireButton(s, SpecialButtons.Approve);
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Ret gerekçesi zorunlu.");
-        Transition(s, requestId, RequestStatus.Rejected, PermissionAction.Edit, reason);
+        Transition(s, requestId, RequestStatus.Rejected, PermissionAction.Edit, reason, gateModule: ApprovalModule);
     }
 
     public void Cancel(SessionContext s, string requestId, string? reason = null)
@@ -351,9 +351,9 @@ WHERE i.request_id=$r ORDER BY m.code;";
     }
 
     // ---- çekirdek ----
-    private void Transition(SessionContext s, string requestId, RequestStatus to, PermissionAction perm, string? reason, bool setApproval = false)
+    private void Transition(SessionContext s, string requestId, RequestStatus to, PermissionAction perm, string? reason, bool setApproval = false, string? gateModule = null)
     {
-        AccessControl.Require(s, Module, perm);
+        AccessControl.Require(s, gateModule ?? Module, perm);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction(deferred: false);

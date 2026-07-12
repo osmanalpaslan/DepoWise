@@ -161,8 +161,8 @@
                         }
                         <MudTextField @bind-Value="_rejectReason" Label="Ret Gerekçesi" HelperText="Reddetmek için zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-2" />
                         <MudStack Row="true" Class="mt-1" Spacing="2">
-                            @if (Auth.CanEdit("requests")) { <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => Approve(Str(dd,"id")))">Onayla</MudButton> }
-                            @if (Auth.CanEdit("requests")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => Reject(Str(dd,"id")))">Reddet</MudButton> }
+                            @if (Auth.CanEdit("request_approval")) { <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => Approve(Str(dd,"id")))">Onayla</MudButton> }
+                            @if (Auth.CanEdit("request_approval")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => Reject(Str(dd,"id")))">Reddet</MudButton> }
                         </MudStack>
                     }
                 </MudPaper>

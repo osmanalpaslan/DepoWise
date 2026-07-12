@@ -87,7 +87,7 @@ public class AuthPermissionTests : IDisposable
         var s = Session("A", "u1");
         Assert.False(AccessControl.Can(s, "materials", PermissionAction.View));
         Assert.False(AccessControl.CanSeeMenu(s, "materials"));
-        Assert.False(AccessControl.CanUseButton(s, SpecialButtons.Approve));
+        Assert.False(AccessControl.Can(s, "request_approval", PermissionAction.Edit)); // Talep Onaylama ayrı yetki, deny-by-default
         Assert.Throws<ForbiddenException>(() => AccessControl.Require(s, "materials", PermissionAction.Create));
     }
 
@@ -321,7 +321,7 @@ public class AuthPermissionTests : IDisposable
         Assert.False(AccessControl.Can(op, "materials", PermissionAction.Delete));
         Assert.False(AccessControl.Can(op, "vehicles", PermissionAction.View)); // verilmeyen ekran gizli
         Assert.True(AccessControl.CanUseButton(op, SpecialButtons.AddLookup));
-        Assert.False(AccessControl.CanUseButton(op, SpecialButtons.Approve));
+        Assert.False(AccessControl.Can(op, "request_approval", PermissionAction.Edit)); // onay ayrı yetki, verilmedi
     }
 
     [Fact]
