@@ -34,16 +34,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 >   sunucu açılışında pasif süper adminleri aktifleştiren self-heal + regresyon testi. Hafızaya kaydedildi.
 > - **CANLI:** API (`depowise-erp`) **yeniden yayınlandı** (12.07) — fix + self-heal canlıda. Self-heal sunucuda pasif
 >   süper admin bulmadı → canlı süper admin zaten aktif; yaşanan kilit muhtemelen **masaüstü** yerel DB'deydi (sync ile açılır).
-> **Bugün (2026-07-12) — #6 Fikir B'ye çevrildi (ADR-065), web + masaüstü:**
-> - Kullanıcı "Fikir B"yi seçti (belgede A yazılıydı). Personel ve Kullanıcılar ekranları **ayrı**;
->   Personel ekranındaki hesap açma **kaldırıldı**. Kullanıcılar formunda **"Personel seç (bağla)"**.
-> - Personel formunda **☐ Saha personeli** kutucuğu + kullanıcı bağlı değilse **uyarı penceresi**
->   (kutucuk işaretliyse uyarı çıkmaz). **Unvan artık sabit tanım listesi + "+"** ile eklenir.
+> **Bugün (2026-07-12) — #6 NİHAİ HÂL: Fikir A (tek ekran) + koşullar (ADR-067), web + masaüstü:**
+> - Kısa geçmiş: önce **B** (Personel/Kullanıcılar ayrı ekran, ADR-065) yapıldı → kullanıcı **beğenmedi** →
+>   **A'ya dönüldü**, ama B'de eklenen koşullar korundu. *(ADR-065 artık geçersiz.)*
+> - **Personel ekranında hesap açma** geri geldi: "Uygulama erişimi ver" → kullanıcı adı/şifre/rol (tek ekran),
+>   admin "Hesabı kaldır" ile bağı çözebilir.
+> - **Korunan koşullar:** ☐ Saha personeli kutucuğu · hesap yoksa/açılmıyorsa **ve** kutucuk işaretsizse
+>   **uyarı penceresi** (işaretliyse hiç çıkmaz) · **unvan sabit tanım + "+"** · mükerrer kişi uyarısı · tek hesap.
+> - Kullanıcılar ekranındaki "Personel seç (bağla)" + PERSONEL sütunu ikinci yol olarak duruyor.
 >
 > **Bugün (2026-07-12) — silinen şube hatası çözüldü (ADR-066) + HEPSİ CANLIDA:**
 > - Şubeler sunucu-otoriteli ama masaüstü yerel kopyası yalnız upsert ediliyordu → silinen şube yerelde kalıyordu.
 >   Artık her girişte sunucu şube listesi **aynalanır** (silinen şube yerelde de düşer). Test **258/258**.
-> - **CANLIDA:** API + Web yeniden yayınlandı. **Masaüstü 1.0.39 YAYINLANDI** (checksum `9417d134…`).
+> - **CANLIDA:** API + Web yayında. **Masaüstü 1.0.40 YAYINLANDI** (checksum `6fcd76b3…`) — #6 nihai hâli (ADR-067: tek ekran + koşullar).
 >   Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 kapandı.
 >
 > - **Sıradaki:** bekleyen hatalar — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)

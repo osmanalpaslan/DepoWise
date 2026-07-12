@@ -39,9 +39,9 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
 ## B. Onay / Aksiyon Bekleyenler (senden)
 
-- **Yeni ekranları gözden geçir** (canlıda): **Personel** (unvan listesi + "+", ☐ Saha personeli, uyarı penceresi)
-  ve **Kullanıcılar** ("Personel seç (bağla)", PERSONEL sütunu). Beğendin mi, değişiklik ister misin?
-- **Masaüstü:** açık makineler 60 sn içinde **1.0.39** güncelleme uyarısı alır; güncelleyip yeni ekranları gör.
+- **Personel ekranını gözden geçir** (canlıda): tek ekranda **"Uygulama erişimi ver"** (kullanıcı adı/şifre/rol),
+  **☐ Saha personeli**, **unvan listesi + "+"**, uyarı penceresi. Beğendin mi, değişiklik ister misin?
+- **Masaüstü:** açık makineler 60 sn içinde **1.0.40** güncelleme uyarısı alır; güncelleyip ekranı gör.
 
 ---
 
@@ -58,7 +58,7 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
   yerel kopyası sunucudan yalnız **upsert** ediliyordu; silinenler yerelde kalıyordu. Artık her girişte sunucu
   şube listesi **aynalanır** (sunucuda olmayan yerel şube pasife alınır). Regresyon testi eklendi.
 - ✅ **CANLIYA ALINDI (12.07):** API + Web yeniden yayınlandı (health 200; `/api/personnel-titles` ayakta).
-  **Masaüstü 1.0.39 YAYINLANDI** (self-contained 85.4 MB, checksum `9417d134…`; sunucuda "en güncel = 1.0.39").
+  **Masaüstü 1.0.40 YAYINLANDI** (self-contained 85.4 MB, checksum `6fcd76b3…`; sunucuda "en güncel = 1.0.40").
   Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 tümüyle kapandı. Test 258/258.
 
 > Önceki oturumlarda tamamlananların tam listesi: `DEVAM.md` §2 ve `docs/DECISIONS.md` (ADR-062/063).
