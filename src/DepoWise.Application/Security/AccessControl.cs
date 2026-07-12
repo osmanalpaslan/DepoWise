@@ -14,10 +14,23 @@ public static class AccessControl
     {
         // Herkese açık modüller yalnız okuma için açıktır.
         if (AppModules.IsPublic(moduleKey)) return action == PermissionAction.View;
-        // Yalnız Süper Admin'e açık modüller (Firma Tanım): admin bypass GEÇERSİZ, atanamaz.
-        if (AppModules.IsSuperAdminOnly(moduleKey)) return s.IsSuperAdmin || DeveloperMode.IsActive;
+        // Yalnız Süper Admin'e açık modüller (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım):
+        // Süper Admin tam yetkili; firma admini bypass GEÇERSİZ. Süper admin bunları YALNIZ "Kısıtlı Süper Admin"e
+        // devredebilir → o rol de yalnız AÇIKÇA verilen işlem kadar erişir.
+        if (AppModules.IsSuperAdminOnly(moduleKey))
+        {
+            if (s.IsSuperAdmin || DeveloperMode.IsActive) return true;
+            if (s.IsRestrictedSuperAdmin) return Explicit(s, moduleKey, action);
+            return false;
+        }
         if (IsAdmin(s)) return true;
 
+        return Explicit(s, moduleKey, action);
+    }
+
+    /// <summary>Açıkça verilmiş modül izni (deny-by-default; rol bypass'ı yok).</summary>
+    private static bool Explicit(SessionContext s, string moduleKey, PermissionAction action)
+    {
         var p = s.Permissions.For(moduleKey);
         if (p is null) return false; // deny-by-default
         return action switch

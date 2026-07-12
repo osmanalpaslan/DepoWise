@@ -83,6 +83,44 @@ public class RestrictedSuperAdminTests : IDisposable
             _perms.SaveForUser(admin, rsaId, new[] { new ModulePermission("materials", true, false, false, false) }, Array.Empty<string>()));
     }
 
+    [Fact]
+    public void SuperAdminOnly_YalnizKisitliSuperAdmine_Devredilebilir()
+    {
+        var su = Su();
+        var rsaId = _users.CreateUser(su, new NewUser("ksa", "p12345", null, new[] { RoleKeys.RestrictedSuperAdmin }, CompanyId: "A"));
+        var staffId = _users.CreateUser(su, new NewUser("per", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+
+        // Süper admin, Kota İzleme'yi (süper-admin-only) Kısıtlı Süper Admin'e VEREBİLİR
+        _perms.SaveForUser(su, rsaId, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>());
+
+        // Personel'e VERİLEMEZ (rol uygun değil)
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            _perms.SaveForUser(su, staffId, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>()));
+        Assert.Contains("Kısıtlı Süper Admin", ex.Message);
+    }
+
+    [Fact]
+    public void KisitliSuperAdmin_YalnizDevredilenSuperAdminOnlyEkrani_Gorur()
+    {
+        var su = Su();
+        var rsaId = _users.CreateUser(su, new NewUser("ksa", "p12345", null, new[] { RoleKeys.RestrictedSuperAdmin }, CompanyId: "A"));
+        _perms.SaveForUser(su, rsaId, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>());
+
+        var rsa = _auth.Login("A", "ksa", "p12345").Session!;
+        Assert.True(AccessControl.Can(rsa, "quota_monitor", PermissionAction.View));   // devredildi
+        Assert.False(AccessControl.Can(rsa, "quota_monitor", PermissionAction.Edit));  // yalnız View verildi
+        Assert.False(AccessControl.Can(rsa, "machines", PermissionAction.View));       // devredilmeyen süper-admin-only gizli
+    }
+
+    [Fact]
+    public void FirmaAdmini_KotaIzleme_Goremez()
+    {
+        // Kota İzleme artık süper-admin-only → firma admini (bypass) dahi göremez
+        var admin = new SessionContext("adm", "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        Assert.False(AccessControl.Can(admin, "quota_monitor", PermissionAction.View));
+        Assert.False(AccessControl.CanSeeMenu(admin, "quota_monitor"));
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }

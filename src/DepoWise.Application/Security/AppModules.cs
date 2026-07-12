@@ -86,7 +86,8 @@ public static class AppModules
     /// Firma Tanım platform sahibinindir; çok-firmalı dağıtımda firma admini başka firmayı yönetemez.
     /// </summary>
     public static bool IsSuperAdminOnly(string moduleKey)
-        => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates" or "server_status";
+        => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates"
+            or "server_status" or "quota_monitor";
 
     /// <summary>
     /// #3 (şema Rol Durumları): Bu modüller alt rollere (Personel) VERİLEMEZ — verilmek istenirse kullanıcı

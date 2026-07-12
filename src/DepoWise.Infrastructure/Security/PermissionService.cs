@@ -77,6 +77,18 @@ public sealed class PermissionService
             }
         }
 
+        // Süper-admin-only ekranlar (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım) YALNIZ
+        // "Kısıtlı Süper Admin" (veya süper admin) hedefe verilebilir — süper admin dahil kimse başka role veremez.
+        var superOnly = modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+            && AppModules.IsSuperAdminOnly(m.ModuleKey)).ToList();
+        if (superOnly.Count > 0
+            && !HasRole(conn, tx, userId, RoleKeys.RestrictedSuperAdmin)
+            && !HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
+        {
+            throw new InvalidOperationException(
+                "Bu ekranlar (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım) yalnız 'Kısıtlı Süper Admin' rolüne verilebilir. Önce kullanıcıya bu rolü atayın.");
+        }
+
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
         // (Firmaya ilk açılan sınırlı admin, kendi yetkisi dışındaki alanları başkasına atayamaz.)
         var (clampMods, clampBtns) = GrantableLimit(conn, tx, actor);

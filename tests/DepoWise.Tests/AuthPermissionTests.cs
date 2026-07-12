@@ -473,12 +473,13 @@ public class AuthPermissionTests : IDisposable
         Assert.Throws<ForbiddenException>(() => companies.List(admin));
         Assert.Throws<ForbiddenException>(() => companies.Create(admin, new NewCompany("X")));
 
-        // Explicit izin verilse bile (manager) erişemez
+        // Süper-admin-only ekran düz Personel'e VERİLEMEZ (yeni model: yalnız Kısıtlı Süper Admin'e).
         var perms = new PermissionService(_factory, _clock);
         var mgrId = users.CreateUser(su, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Staff }));
-        perms.SaveForUser(su, mgrId, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>());
+        Assert.Throws<InvalidOperationException>(() =>
+            perms.SaveForUser(su, mgrId, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>()));
         var mgr = auth.Login("A", "mgr", "p12345").Session!;
-        Assert.False(AccessControl.Can(mgr, "companies", PermissionAction.View));
+        Assert.False(AccessControl.Can(mgr, "companies", PermissionAction.View)); // izin hiç kaydedilmedi → erişim yok
 
         // Süper Admin yapar
         Assert.True(AccessControl.Can(su, "companies", PermissionAction.Create));
