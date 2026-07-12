@@ -14,11 +14,9 @@
 
     <Border Background="{DynamicResource Brand.Surface.Brush}" Padding="32">
         <StackPanel Spacing="16" VerticalAlignment="Center">
-            <!-- Masaüstü SEMBOL logosu (kare). Logo LACİVERT ağırlıklı → koyu temada kaybolmasın diye
-                 daima beyaz zeminli kutuda gösterilir. Yüksek çözünürlüklü kaynak (838px) → net görünür. -->
-            <Border Background="White" CornerRadius="16" Padding="10" HorizontalAlignment="Center">
-                <Image Source="/Assets/app-icon.png" Width="170" Height="170" Stretch="Uniform"/>
-            </Border>
+            <!-- Masaüstü SEMBOL logosu (şeffaf PNG, arka plan YOK — yalnız logo). Kaynak 838px → net. -->
+            <Image Source="/Assets/app-icon.png" Width="170" Height="170"
+                   HorizontalAlignment="Center" Stretch="Uniform"/>
             <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
                        Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
 

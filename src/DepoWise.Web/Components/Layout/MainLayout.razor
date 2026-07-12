@@ -15,11 +15,8 @@
 
 <MudLayout>
     <MudAppBar Elevation="1" Color="Color.Primary">
-        @* Logo: üst bar koyu (#1e293b / primary) olduğu için sembolün lacivert kısımları kaybolmasın diye
-           beyaz yuvarlak kutu içinde gösterilir. Tam (istifli) logo bu yükseklikte okunmaz — giriş ekranında kullanılır. *@
-        <div style="background:#fff;border-radius:8px;padding:3px;display:flex;align-items:center;margin-right:12px;">
-            <img src="logo.png" alt="DepoWise" style="height:30px;width:auto;display:block;" />
-        </div>
+        @* Logo — şeffaf, arka plan YOK (yalnız logo). *@
+        <img src="logo.png" alt="DepoWise" style="height:34px;width:auto;display:block;margin-right:12px;" />
         <MudText Typo="Typo.h6">DepoWise Yönetim</MudText>
         <MudSpacer />
         @if (Auth.IsAuthenticated)
