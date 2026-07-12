@@ -39,10 +39,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 >   Personel ekranındaki hesap açma **kaldırıldı**. Kullanıcılar formunda **"Personel seç (bağla)"**.
 > - Personel formunda **☐ Saha personeli** kutucuğu + kullanıcı bağlı değilse **uyarı penceresi**
 >   (kutucuk işaretliyse uyarı çıkmaz). **Unvan artık sabit tanım listesi + "+"** ile eklenir.
-> - Test **257/257**. **Canlıya alınmadı** → web deploy + masaüstü paketi gerekiyor.
+>
+> **Bugün (2026-07-12) — silinen şube hatası çözüldü (ADR-066) + HEPSİ CANLIDA:**
+> - Şubeler sunucu-otoriteli ama masaüstü yerel kopyası yalnız upsert ediliyordu → silinen şube yerelde kalıyordu.
+>   Artık her girişte sunucu şube listesi **aynalanır** (silinen şube yerelde de düşer). Test **258/258**.
+> - **CANLIDA:** API + Web yeniden yayınlandı. **Masaüstü 1.0.39 YAYINLANDI** (checksum `9417d134…`).
+>   Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 kapandı.
 >
 > - **Sıradaki:** bekleyen hatalar — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)
->   (silinen şubeler her yerde listeleniyor · firma listesi 401 · masaüstü-web firma senkron · kota online dedup · logolar).
+>   (firma listesi 401 · masaüstü-web firma senkron · kota online dedup · logolar).
 
 > **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
 > - **#1 Pasif firma yeniden aktifleştirme (sözleşme yenileme):** Firma silinince kullanıcılar pasife alınıyordu;

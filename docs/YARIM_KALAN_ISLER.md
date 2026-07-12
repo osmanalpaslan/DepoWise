@@ -39,11 +39,9 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
 ## B. Onay / Aksiyon Bekleyenler (senden)
 
-- **Canlı web süper admin girişini test et** (`depowise-web.fly.dev`). Çalışıyorsa ADR-064 tümüyle kapanır.
-  Hâlâ "kullanıcı adı veya parola hatalı" derse farklı kök neden var → haber ver.
-- **Masaüstü paketi yayını:** Çalışan Yönetimi (Faz4) ve ADR-064 fix'inin masaüstünde görünmesi için yeni
-  sürüm paketlenip yayınlanmalı (`node scripts/publish_release.mjs …`). Süper admin kimliği gerekir.
-- **Çalışan Yönetimi görsel onayın:** Beğendin mi, değişiklik ister misin?
+- **Yeni ekranları gözden geçir** (canlıda): **Personel** (unvan listesi + "+", ☐ Saha personeli, uyarı penceresi)
+  ve **Kullanıcılar** ("Personel seç (bağla)", PERSONEL sütunu). Beğendin mi, değişiklik ister misin?
+- **Masaüstü:** açık makineler 60 sn içinde **1.0.39** güncelleme uyarısı alır; güncelleyip yeni ekranları gör.
 
 ---
 
@@ -55,9 +53,11 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
   - Kullanıcılar formunda **"Personel seç (bağla)"** + listede PERSONEL sütunu.
   - Personel formunda **☐ Saha personeli**; kullanıcı bağlı değil + kutucuk işaretsizse **uyarı penceresi** (kutucuk işaretliyse çıkmaz).
   - **Unvan sabit tanım listesi + "+"** ile yeni tanım ekleme.
-  - Test **257/257**. *(Canlıya alınmadı — web deploy + masaüstü paketi gerekiyor.)*
 - ✅ **Silinen şubeler her yerde listeleniyordu (ADR-066)** — kök neden: şubeler sunucu-otoriteli ama masaüstü
   yerel kopyası sunucudan yalnız **upsert** ediliyordu; silinenler yerelde kalıyordu. Artık her girişte sunucu
-  şube listesi **aynalanır** (sunucuda olmayan yerel şube pasife alınır). Regresyon testi eklendi (258/258).
+  şube listesi **aynalanır** (sunucuda olmayan yerel şube pasife alınır). Regresyon testi eklendi.
+- ✅ **CANLIYA ALINDI (12.07):** API + Web yeniden yayınlandı (health 200; `/api/personnel-titles` ayakta).
+  **Masaüstü 1.0.39 YAYINLANDI** (self-contained 85.4 MB, checksum `9417d134…`; sunucuda "en güncel = 1.0.39").
+  Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 tümüyle kapandı. Test 258/258.
 
 > Önceki oturumlarda tamamlananların tam listesi: `DEVAM.md` §2 ve `docs/DECISIONS.md` (ADR-062/063).
