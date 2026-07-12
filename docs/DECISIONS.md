@@ -307,6 +307,23 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-072 — Firma işlemleri OFFLINE-FIRST: yerele yaz + kuyruk, internet gelince SIRAYLA eşitle (12.07.2026)
+- **Bağlam:** ADR-071 firma işlemlerini **çevrimiçi zorunlu** yapmıştı. Kullanıcı bunu reddetti: *"İnternete bağlanana kadar işlemleri yerel DB'ye yazsın, bağlanınca sırasıyla eşitlemeye başlasın. Ama eşitleme sırasında kayıtlar hataya düşmemeli. Önce sabit tanımlar ve hataya düşürebilecek tanımlar eşitlenmeli, sonra diğer kayıtlar."*
+- **Karar (offline-first + kuyruk):**
+  - Firma ekle/güncelle/sil/aktifleştir **ÖNCE YEREL DB'ye** yazılır (çevrimdışı tam çalışır), sonra **`sync_outbox`** tablosuna kuyruklanır (mevcut `OutboxWriter` — tanımlıydı ama hiç kullanılmıyordu; artık bağlandı).
+  - İnternet gelince kuyruk **FIFO** (oluşturulma sırası) işlenir → aynı firmanın `create → update → delete` sırası korunur. Bir işlem kalıcı hata (4xx) verirse **sonrakiler işlenmez** (sıra bozulmasın); 5xx/ağ hatası **geçici** sayılır, kuyrukta kalır ve tekrar denenir.
+- **"Hataya düşmemeli" şartı → İDEMPOTENCY (kritik):** Yeniden denemede aynı işlem birden çok kez gelebilir. Sunucu tarafı idempotent yapıldı:
+  - `CompanyService.Create(s, dto, explicitId)`: masaüstünün **çevrimdışı ürettiği id** ile oluşturur (yerel ↔ sunucu id'leri eşleşir) ve `ON CONFLICT(id) DO UPDATE` ile **tekrar gelirse hata vermez**. API `NewCompanyDto.Id` alanı eklendi (web'den gelen istekte null → sunucu id üretir).
+  - `Delete` / `Update` / `Reactivate`: "0 satır etkilendi" artık hata değil — kayıt **zaten o durumdaysa** sessizce başarılı. Yalnız firma **hiç yoksa** hata (fail-closed korunur).
+- **SENKRON SIRASI (kullanıcının şartı — önce hataya düşürebilecek tanımlar):**
+  1. **Firma kuyruğu** (en üst ebeveyn; olmadan diğer kayıtlar FK/tenant hatası verir)
+  2. **Tanımlar/lookup** (`LookupSyncService`)
+  3. **İş verisi** push→pull (`BusinessSyncService.Tables` **zaten FK-güvenli sırada**: units/suppliers/brands/kategoriler… → personel/malzeme/araç/stok…)
+  Bunlar eskiden **paralel** başlatılıyordu (iş kaydı, ebeveyn tanımı gelmeden gidip hata verebilirdi) → artık **sırayla `await`** edilir.
+- **Veri kaybı koruması:** `MirrorLocalAsync` kuyrukta **bekleyen işlem varken çalışmaz** — yoksa henüz gönderilmemiş yerel firma "sunucuda yok" sanılıp silinirdi.
+- **UI:** Kuyrukta iş varsa kullanıcıya bildirilir: *"N işlem çevrimdışı kuyrukta — internet gelince eşitlenecek."*
+- **Test:** `Firma_Kuyruk_TekrarGonderiminde_HataVermez_IDEMPOTENT` (aynı create/delete/reactivate iki kez → hata yok, mükerrer kayıt yok; olmayan firmada fail-closed). Suit **263/263**.
+
 ### ADR-071 — Masaüstü firma ekle/sil web ile eşitlenmiyordu → FİRMALAR SUNUCU-OTORİTELİ (12.07.2026)
 - **Belirti (kullanıcı):** "Masaüstü firma tanım ekranından eklediğim/sildiğim firma verileri web ile zaman geçse de hâlâ eşitlenmemiş."
 - **Kök neden:** Masaüstü `CompaniesViewModel` **yalnız YEREL DB'ye** yazıyordu (`DesktopServices.Companies` = yerel `CompanyService`). Firmalar iş senkronu tablo listesinde de **yok** (`BusinessSyncService.Tables` içinde `companies` bulunmuyor) → masaüstünde yapılan firma değişikliği sunucuya **hiçbir yoldan** ulaşmıyordu. Aynı şekilde web'de eklenen/silinen firma da masaüstüne inmiyordu.

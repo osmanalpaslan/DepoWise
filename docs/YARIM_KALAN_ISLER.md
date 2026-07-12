@@ -53,10 +53,11 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 - ✅ **SİLMEDE WEB TAM OTORİTER (ADR-069)** — web'de silinen kayıt **makinelerin yerel DB'sinden de düşer**
   (silme artık LWW'yi aşar) **ve** sunucuda silinen kayıt **cihaz push'uyla diriltilemez**. Silme dışındaki
   LWW davranışı korundu. Unvan tanımları (`personnel_titles`) senkron listesine eklendi. 3 yeni test.
-- ✅ **Masaüstü firma ekle/sil web ile eşitlenmiyordu (ADR-071)** — kök neden: masaüstü Firma Tanım **yalnız yerel
-  DB'ye** yazıyordu ve firmalar iş senkronunda hiç yoktu → sunucuya ulaşmıyordu. Artık **firmalar sunucu-otoriteli**:
-  ekle/güncelle/sil/aktifleştir doğrudan sunucu API'sine gider (çevrimiçi zorunlu, aksi halde net uyarı) ve
-  sunucu listesi yerele **aynalanır** (sunucuda olmayan firma yerelde pasife alınır).
+- ✅ **Masaüstü firma ekle/sil web ile eşitlenmiyordu (ADR-071 + ADR-072)** — kök neden: masaüstü Firma Tanım **yalnız yerel
+  DB'ye** yazıyordu ve firmalar iş senkronunda hiç yoktu → sunucuya ulaşmıyordu. Artık **firmalar sunucu-otoriteli**
+  ve **OFFLINE-FIRST kuyruk** (ADR-072): işlem önce **yerele** yazılır + **kuyruğa** alınır, internet gelince
+  **sırayla** işlenir. Yeniden denemede **hata düşmez** (idempotent: aynı işlem tekrar gelirse mükerrer kayıt/hata yok).
+  Eşitleme sırası: **1) firma → 2) sabit tanımlar/lookup → 3) iş kayıtları** (paralel değil, sırayla).
 - ⚠️ **KRİTİK OLAY — sunucu diski doldu (ADR-070):** `/data` (974 MB) %100 doldu → SQLite yazamadı →
   **login dahil tüm API 500** (tam kesinti). Sebep: her masaüstü paketi ~85 MB ve eski paketler hiç
   temizlenmiyordu (11 paket = 892 MB). Eski paketler silindi (disk %100 → %17) ve **otomatik saklama

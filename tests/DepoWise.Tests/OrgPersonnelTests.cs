@@ -110,6 +110,40 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void Firma_Kuyruk_TekrarGonderiminde_HataVermez_IDEMPOTENT()
+    {
+        // ÇEVRİMDIŞI KUYRUK: masaüstü offline firma oluşturur, internet gelince kuyruk sunucuya işlenir.
+        // Ağ kopması/yeniden deneme yüzünden AYNI işlem birden çok kez gelebilir → HATA VERMEMELİ.
+        var su = SuperAdmin();
+        var svc = new DepoWise.Infrastructure.Organization.CompanyService(_factory, _clock);
+        var dto = new DepoWise.Infrastructure.Organization.NewCompany("Offline Firma", MaxUsers: 5);
+        const string clientId = "offline-company-id-1";   // masaüstünün çevrimdışı ürettiği id
+
+        // 1) Kuyruk ilk kez işlenir — istemcinin id'si ile oluşturulur (yerel ↔ sunucu id'leri eşleşsin)
+        var id1 = svc.Create(su, dto, clientId);
+        Assert.Equal(clientId, id1);
+
+        // 2) AYNI işlem tekrar gönderilir (retry) → hata YOK, mükerrer kayıt YOK
+        var id2 = svc.Create(su, dto with { Name = "Offline Firma (guncel)" }, clientId);
+        Assert.Equal(clientId, id2);
+        Assert.Single(svc.List(su), c => c.Id == clientId);
+        Assert.Equal("Offline Firma (guncel)", svc.List(su).Single(c => c.Id == clientId).Name);
+
+        // 3) Silme iki kez gelirse de hata vermez (kuyruk tekrarı)
+        svc.Delete(su, clientId);
+        svc.Delete(su, clientId);                                   // idempotent — fırlatmamalı
+        Assert.DoesNotContain(svc.List(su), c => c.Id == clientId);
+
+        // 4) Aktifleştirme iki kez gelirse de hata vermez
+        svc.Reactivate(su, clientId);
+        svc.Reactivate(su, clientId);                               // idempotent
+        Assert.Contains(svc.List(su), c => c.Id == clientId);
+
+        // 5) Gerçekten olmayan firma → yine de hata (fail-closed korunur)
+        Assert.Throws<ForbiddenException>(() => svc.Delete(su, "hic-olmayan-id"));
+    }
+
+    [Fact]
     public void SuperAdmin_CalistigiFirmayiSilince_Oturum_Dusmez_401_Vermez()
     {
         // Senaryo (kullanıcının yaşadığı hata): süper admin bir firmayı SEÇİP onun bağlamında çalışıyor,

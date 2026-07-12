@@ -341,8 +341,9 @@ public sealed partial class LoginViewModel : ViewModelBase
 
         // Şubeler sunucu-otoriteli → her girişte yerel kopyayı sunucuyla aynala (silinenler yerelde de düşer).
         await MirrorServerBranchesLocalAsync(_authedSession.CompanyId);
-        // Firmalar da sunucu-otoriteli (web'de eklenen/silinen firma masaüstünde doğru görünsün).
-        await CompanySyncService.MirrorLocalAsync();
+        // FİRMA: önce çevrimdışı kuyruk sunucuya işlenir, sonra sunucunun listesi yerele aynalanır.
+        // Firma en üst ebeveyn tanımdır — diğer senkronlardan ÖNCE oturmalı (yoksa FK/tenant hatası).
+        await CompanySyncService.FlushThenSyncAsync();
 
         DesktopServices.CurrentBranchId = workingBranchId;
         DesktopServices.CurrentBranchName = isAllBranches ? "Tüm Şubeler" : workingBranchName;
@@ -350,11 +351,18 @@ public sealed partial class LoginViewModel : ViewModelBase
         _authedSession.OperatingBranchId = workingBranchId;
         DesktopServices.Session = _authedSession;
 
-        _ = LookupSyncService.PullAsync(Username.Trim(), Password);   // tanım senkronu
-        _ = System.Threading.Tasks.Task.Run(async () =>              // iş verisi: önce gönder, sonra diğer makinelerinkini çek
+        // SENKRON SIRASI (hataya düşmesin diye kesin sıra — önce tanımlar, sonra kayıtlar):
+        //   1) FİRMA kuyruğu   → yukarıda tamamlandı (en üst ebeveyn)
+        //   2) TANIMLAR/lookup → şube, birim, kategori… (iş kayıtlarının FK ebeveynleri)
+        //   3) İŞ VERİSİ       → push (BusinessSyncService.Tables zaten FK-güvenli sırada), sonra pull
+        // Paralel çalıştırılırsa iş kaydı, ebeveyn tanımı gelmeden gidip hata verebilir → SIRAYLA await edilir.
+        var u = Username.Trim(); var p = Password;
+        _ = System.Threading.Tasks.Task.Run(async () =>
         {
-            await BusinessSyncPushService.PushAsync();
-            await BusinessSyncPullService.PullAsync();
+            await CompanySyncService.TryFlushAsync();   // arada biriken firma işlemi kalmasın
+            await LookupSyncService.PullAsync(u, p);    // 2) tanımlar
+            await BusinessSyncPushService.PushAsync();  // 3) iş verisi: önce gönder
+            await BusinessSyncPullService.PullAsync();  //    sonra diğer makinelerinkini çek
         });
         RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
         if (RememberMe) RememberMeService.Save(_authedSession);

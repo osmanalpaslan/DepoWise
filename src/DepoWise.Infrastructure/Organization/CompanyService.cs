@@ -64,12 +64,19 @@ ORDER BY c.name;";
         return list;
     }
 
-    public string Create(SessionContext s, NewCompany dto)
+    /// <summary>
+    /// Firma oluşturur. <paramref name="explicitId"/> verilirse O id ile oluşturulur — masaüstü ÇEVRİMDIŞI
+    /// oluşturduğu firmayı, internet gelince aynı id ile sunucuya işleyebilsin diye (yerel ↔ sunucu id'leri eşleşir).
+    ///
+    /// İDEMPOTENT: aynı id ile tekrar gelirse (kuyruk yeniden denemesi / çift gönderim) HATA VERMEZ, mevcut kaydı
+    /// günceller. Kuyruk tekrar denemelerinde "zaten var" hatasına düşmemek için şart.
+    /// </summary>
+    public string Create(SessionContext s, NewCompany dto, string? explicitId = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Firma adı zorunlu.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-        var id = Guid.NewGuid().ToString("N");
+        var id = string.IsNullOrWhiteSpace(explicitId) ? Guid.NewGuid().ToString("N") : explicitId!;
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         using (var cmd = conn.CreateCommand())
@@ -77,7 +84,9 @@ ORDER BY c.name;";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO companies(id, name, tax_no, tax_office, address, phone, email, authorized_person, max_users, created_at, updated_at, version, is_deleted)
-VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$now,$now,1,0);";
+VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$now,$now,1,0)
+ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
+    authorized_person=$ap, max_users=$mu, is_deleted=0, version=companies.version+1, updated_at=$now;";
             Bind(cmd, dto);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$now", now);
@@ -104,10 +113,23 @@ UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph
             Bind(cmd, dto);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$now", now);
-            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Firma bulunamadı.");
+            // İDEMPOTENT: silinmiş firmada 0 satır dönebilir; kayıt hiç yoksa gerçek hata.
+            if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
+                throw new ForbiddenException("Firma bulunamadı.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Update, s.UserId), _clock);
         tx.Commit();
+    }
+
+    /// <summary>Firma kaydı (silinmiş olsa bile) var mı? İdempotent kuyruk tekrarlarında "zaten uygulanmış"
+    /// ile "gerçekten yok" ayrımı için.</summary>
+    private static bool CompanyRowExists(SqliteConnection conn, SqliteTransaction tx, string id)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$id;";
+        cmd.Parameters.AddWithValue("$id", id);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     /// <summary>Pasife alınmış (silinmiş / sözleşmesi biten) firmalar. Yalnız süper admin — yeniden aktifleştirme ekranı için.</summary>
@@ -147,7 +169,9 @@ ORDER BY c.name;";
             cmd.CommandText = "UPDATE companies SET is_deleted=0, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=1;";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$now", now);
-            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Pasif firma bulunamadı.");
+            // İDEMPOTENT: 0 satır = firma zaten aktif (kuyruk tekrar denemesi) → hata verme. Hiç yoksa hata.
+            if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
+                throw new ForbiddenException("Firma bulunamadı.");
         }
         int reactivatedUsers;
         using (var u = conn.CreateCommand())
@@ -193,7 +217,10 @@ ORDER BY c.name;";
             cmd.CommandText = "UPDATE companies SET is_deleted=1, updated_at=$now WHERE id=$id AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$now", now);
-            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Firma bulunamadı.");
+            // İDEMPOTENT: 0 satır = firma zaten silinmiş (kuyruk tekrar denemesi) → hata verme.
+            // Yalnız firma HİÇ YOKSA hata (gerçek hatalı istek).
+            if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
+                throw new ForbiddenException("Firma bulunamadı.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Delete, s.UserId), _clock);
         tx.Commit();

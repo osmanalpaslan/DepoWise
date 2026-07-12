@@ -65,7 +65,9 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     [RelayCommand]
     private async Task Refresh()
     {
-        await CompanySyncService.MirrorLocalAsync();
+        // SIRA ÖNEMLİ: önce çevrimdışı kuyruk sunucuya işlenir, SONRA sunucunun listesi yerele aynalanır.
+        // (Kuyruk boşalmadan aynalanırsa, henüz gönderilmemiş yerel firma "sunucuda yok" sanılıp silinirdi.)
+        await CompanySyncService.FlushThenSyncAsync();
         Load();
     }
 
@@ -100,9 +102,9 @@ public sealed partial class CompaniesViewModel : ViewModelBase
                 "Aktife Al", "Evet, Aktife Al", "Vazgeç")) return;
         try
         {
-            await CompanySyncService.ReactivateAsync(row.Id);   // SUNUCU otoriter
-            await Refresh();                                     // sunucudan aynala
-            Status = $"'{row.Name}' aktifleştirildi.";
+            await CompanySyncService.ReactivateAsync(row.Id);   // yerel + kuyruk
+            await Refresh();
+            Status = $"'{row.Name}' aktifleştirildi." + PendingNote();
         }
         catch (Exception ex) { Status = "Aktifleştirilemedi: " + ex.Message; }
     }
@@ -148,9 +150,9 @@ public sealed partial class CompaniesViewModel : ViewModelBase
                 "Firma Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
         try
         {
-            await CompanySyncService.DeleteAsync(Selected.Id);   // SUNUCU otoriter (web ile eşitlenir)
+            await CompanySyncService.DeleteAsync(Selected.Id);   // yerel + kuyruk (çevrimdışı çalışır)
             await Refresh();
-            Status = "Firma silindi.";
+            Status = "Firma silindi." + PendingNote();
         }
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
     }
@@ -160,27 +162,25 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     {
         FormError = null;
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Firma adı zorunlu."; return; }
+        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers);
         var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(editing ? "Firma güncellensin mi?" : "Firma oluşturulsun mu?", "Kaydet")) return;
-
-        // SUNUCUYA yaz (firmalar web-otoriteli). Sunucu API'si `NewCompanyDto` alanlarını bekler.
-        var body = new
-        {
-            name = FormName.Trim(),
-            taxNo = Empty(FormTaxNo), taxOffice = Empty(FormTaxOffice), address = Empty(FormAddress),
-            phone = Empty(FormPhone), email = Empty(FormEmail), authorizedPerson = Empty(FormAuthorized),
-            maxUsers = FormMaxUsers,
-        };
         try
         {
-            if (editing) await CompanySyncService.UpdateAsync(EditId!, body);
-            else await CompanySyncService.CreateAsync(body);
+            // Yerele yazar + kuyruğa alır; çevrimiçiyse hemen sunucuya işlenir (çevrimdışıysa bekler).
+            if (editing) await CompanySyncService.UpdateAsync(EditId!, dto);
+            else await CompanySyncService.CreateAsync(dto);
             ShowAdd = false; EditId = null;
-            await Refresh();                                     // sunucudan aynala → web ile birebir
-            Status = editing ? "Firma güncellendi." : "Firma oluşturuldu.";
+            await Refresh();
+            Status = (editing ? "Firma güncellendi." : "Firma oluşturuldu.") + PendingNote();
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }
 
-    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    /// <summary>Kuyrukta bekleyen işlem varsa kullanıcıya çevrimdışı olduğunu söyle.</summary>
+    private static string PendingNote()
+    {
+        var n = CompanySyncService.PendingCount();
+        return n > 0 ? $" ({n} işlem çevrimdışı kuyrukta — internet gelince eşitlenecek.)" : "";
+    }
 }
