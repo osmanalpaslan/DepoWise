@@ -199,9 +199,13 @@ public sealed class EnrollmentService
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT d.branch_id, br.name, d.company_id, co.name " +
-                          "FROM sync_devices d LEFT JOIN branches br ON br.id=d.branch_id " +
-                          "LEFT JOIN companies co ON co.id=d.company_id WHERE d.id=$id;";
+        // Makine firması/şubesi yalnız SİLİNMEMİŞSE döndürülür. Aksi halde (firma/şube silinmişse) makine
+        // bilgisi NULL gelir → süper admin login ekranı silinmiş firmayı "makine firması" olarak SUNMAZ ve
+        // ona giriş yapılamaz. (br.id/co.id join'den okunur; silinmişse join eşleşmez → NULL.)
+        cmd.CommandText = "SELECT br.id, br.name, co.id, co.name " +
+                          "FROM sync_devices d " +
+                          "LEFT JOIN branches br ON br.id=d.branch_id AND br.is_deleted=0 " +
+                          "LEFT JOIN companies co ON co.id=d.company_id AND co.is_deleted=0 WHERE d.id=$id;";
         cmd.Parameters.AddWithValue("$id", deviceId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return (null, null, null, null);

@@ -377,15 +377,29 @@ public sealed partial class LoginViewModel : ViewModelBase
         // Kurulumda özellikleri toplu ata; her atamanın ayrı şube yüklemesini tetiklemesini ENGELLE (çiftlenme önlenir).
         _suppressBranchReload = true;
         IsSuperAdminMode = true;
-        UseMachineCompany = HasMachineCompany;  // makine firması varsa varsayılan işaretli
-        UseMachineBranch = HasMachineBranch;    // makine şubesi varsa varsayılan işaretli
-        foreach (var n in new[] { nameof(HasMachineCompany), nameof(HasMachineBranch), nameof(MachineCompanyLabel), nameof(MachineBranchLabel), nameof(ShowCompanyPicker), nameof(ShowSuperBranchPicker) })
-            OnPropertyChanged(n);
 
+        // Firma listesini ÖNCE yükle; "makine firması" geçerliliğini bu listeye göre belirle.
         Companies.Clear();
         var online = await ServerAuthClient.GetLoginCompaniesAsync();
         if (online is not null) foreach (var c in online) Companies.Add(c);
         else LoadLocalCompanies(); // çevrimdışı → yerel firmalar
+
+        // MAKİNE FİRMASI SİLİNMİŞSE (geçerli firma listesinde yok) makine firması/şubesi olarak SUNMA →
+        // silinmiş firma "Makine firması ile giriş" olarak çıkmaz, ona giriş yapılamaz; süper admin geçerli
+        // firma seçer. (Liste hiç yüklenemediyse — Count==0 — dokunma; geçici hatada makine firmasını kaybetme.)
+        if (Companies.Count > 0 && !string.IsNullOrEmpty(DesktopServices.MachineCompanyId)
+            && !Companies.Any(c => c.Id == DesktopServices.MachineCompanyId))
+        {
+            DesktopServices.MachineCompanyId = null;
+            DesktopServices.MachineCompanyName = null;
+            DesktopServices.MachineBranchId = null;   // firma geçersizse şube de anlamsız
+            DesktopServices.MachineBranchName = null;
+        }
+
+        UseMachineCompany = HasMachineCompany;  // makine firması varsa (ve geçerliyse) varsayılan işaretli
+        UseMachineBranch = HasMachineBranch;    // makine şubesi varsa varsayılan işaretli
+        foreach (var n in new[] { nameof(HasMachineCompany), nameof(HasMachineBranch), nameof(MachineCompanyLabel), nameof(MachineBranchLabel), nameof(ShowCompanyPicker), nameof(ShowSuperBranchPicker) })
+            OnPropertyChanged(n);
 
         SelectedCompany = Companies.FirstOrDefault(c => c.Id == DesktopServices.MachineCompanyId)
             ?? Companies.FirstOrDefault(c => c.Id == _authedCompanyId)

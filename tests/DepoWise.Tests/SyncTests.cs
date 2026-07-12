@@ -125,6 +125,71 @@ public class SyncTests : IDisposable
         Assert.Null(_enroll.RegisterSelf("A", "PC-2").BranchId);
     }
 
+    // ---- Silinen firma/şube makine bilgisi olarak DÖNMEZ (süper admin login ekranı eski firmayı sunmasın) ----
+    [Fact]
+    public void Makine_SilinenFirma_MakineFirmasiOlarakDonmez()
+    {
+        UpsertCompany("A", "A Firması");
+        var branches = new BranchService(_factory, _clock);
+        var branchId = branches.Create(_admin, new NewBranch("Merkez"));
+        var reg = _enroll.RegisterSelf("A", "PC-Sil");
+        _enroll.AssignBranch(_admin, reg.DeviceId, branchId);
+
+        // Silinmeden önce: makine firması + şubesi görünür.
+        var before = _enroll.RegisterSelf("A", "PC-Sil");
+        Assert.Equal("A", before.CompanyId);
+        Assert.Equal("A Firması", before.CompanyName);
+        Assert.Equal(branchId, before.BranchId);
+
+        // Firma silinir → makine firması NULL döner (silinmiş firma makine firması olarak sunulamaz/giriş yapılamaz).
+        SetCompanyDeleted("A");
+        var after = _enroll.RegisterSelf("A", "PC-Sil");
+        Assert.Null(after.CompanyId);
+        Assert.Null(after.CompanyName);
+    }
+
+    [Fact]
+    public void Makine_SilinenSube_MakineSubesiOlarakDonmez()
+    {
+        UpsertCompany("A", "A Firması");
+        var branches = new BranchService(_factory, _clock);
+        var branchId = branches.Create(_admin, new NewBranch("Merkez"));
+        var reg = _enroll.RegisterSelf("A", "PC-SubeSil");
+        _enroll.AssignBranch(_admin, reg.DeviceId, branchId);
+        Assert.Equal(branchId, _enroll.RegisterSelf("A", "PC-SubeSil").BranchId);
+
+        // Şube silinir → makine şubesi NULL döner (firma sağlam kalsa da).
+        SetBranchDeleted(branchId);
+        var after = _enroll.RegisterSelf("A", "PC-SubeSil");
+        Assert.Null(after.BranchId);
+        Assert.Null(after.BranchName);
+    }
+
+    private void UpsertCompany(string id, string name)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        cmd.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($i,$n,$t,$t,1,0) " +
+                          "ON CONFLICT(id) DO UPDATE SET name=$n, is_deleted=0, updated_at=$t;";
+        cmd.Parameters.AddWithValue("$i", id);
+        cmd.Parameters.AddWithValue("$n", name);
+        cmd.Parameters.AddWithValue("$t", now);
+        cmd.ExecuteNonQuery();
+    }
+
+    private void SetCompanyDeleted(string id) => ExecNonQuery("UPDATE companies SET is_deleted=1 WHERE id=$i;", ("$i", id));
+    private void SetBranchDeleted(string id) => ExecNonQuery("UPDATE branches SET is_deleted=1 WHERE id=$i;", ("$i", id));
+
+    private void ExecNonQuery(string sql, params (string, object)[] ps)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        foreach (var (k, v) in ps) cmd.Parameters.AddWithValue(k, v);
+        cmd.ExecuteNonQuery();
+    }
+
     // ---- Enrollment ----
     [Fact]
     public void Enrollment_Anahtar_TekKullanimlik()
