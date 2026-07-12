@@ -307,6 +307,14 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-068 — Firma silince 401 + liste yüklenmiyor: süper admin oturumu öksüz kalıyordu (12.07.2026)
+- **Belirti (kullanıcı):** "Firma listesinde silinmiş firma listelenmeye devam ediyordu, tekrar sildim → **401 Unauthorized**; ayrıca firmalar hiç yüklenmiyor."
+- **Kök neden:** Süper admin bir firmayı **seçip o firmanın bağlamında** çalışabiliyor (ADR-058, JWT company claim = seçilen firma). O firmayı **silince** token'daki firma geçersiz hâle geliyor. `AuthService.CreateSessionForUser` çapraz-firma dalında `CompanyExists` false görüp **null** dönüyordu → `Session(ctx)` null → **her istek 401**. Sonuç zinciri: silme başarılı olur (o an oturum geçerli) → liste yenileme isteği 401 → **UI'da eski/silinmiş firma görünmeye devam eder** → tekrar silmeye basınca 401 → sonrasında hiçbir şey yüklenmez. (Liste sorgusu zaten `is_deleted=0` filtreliydi; hata orada değildi.)
+- **Karar:** Çapraz-firma dalında **"silinmiş firma"** ile **"hiç var olmamış firma"** ayrıldı:
+  - Firma **kaydı hiç yoksa** (uydurma/sahte id) → `null` (fail-closed **korunur**; `SuperAdmin_OlmayanFirmada_Oturum_Acamaz` testi hâlâ geçer).
+  - Firma **var ama silinmişse** → süper admin **kendi (home) firmasına düşürülür**, oturum yaşar. Süper admin platform sahibidir; hiçbir işlem onu kilitleyemez (ADR-064 ile aynı ilke).
+- **Test:** `SuperAdmin_CalistigiFirmayiSilince_Oturum_Dusmez_401_Vermez` (seç → sil → oturum yaşar, home'a düşer, liste yüklenir ve silinen firma listede yoktur). Suit **259/259**.
+
 ### ADR-067 — #6 NİHAİ: **Fikir A** (tek ekran), B'nin koşulları korunarak (12.07.2026)
 - **Bağlam:** ADR-065 ile Fikir B uygulandı (Personel/Kullanıcılar ayrı; hesap açma Kullanıcılar'a taşındı). Kullanıcı canlıda gördükten sonra **ayrı ekran yapısını beğenmedi** ve **Fikir A'ya dönülmesini** istedi: *"A'yı yapalım... ama koşullar aynı kalsın."*
 - **Karar (A + B'de eklenen koşulların TAMAMI korunur):**

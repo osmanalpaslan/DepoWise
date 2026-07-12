@@ -110,6 +110,34 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void SuperAdmin_CalistigiFirmayiSilince_Oturum_Dusmez_401_Vermez()
+    {
+        // Senaryo (kullanıcının yaşadığı hata): süper admin bir firmayı SEÇİP onun bağlamında çalışıyor,
+        // sonra o firmayı siliyor. Eskiden token'daki firma geçersiz olduğu için sonraki her istek 401 dönüyor,
+        // firma listesi hiç yüklenemiyordu. Artık home firmaya düşer, oturum yaşar.
+        var su = SuperAdmin();                                  // home firma = "A"
+        var svc = new DepoWise.Infrastructure.Organization.CompanyService(_factory, _clock);
+        var target = svc.Create(su, new DepoWise.Infrastructure.Organization.NewCompany("Silinecek Firma"));
+
+        var auth = new AuthService(_factory, _clock);
+        var crossSession = auth.CreateSessionForUser(target, su.UserId);   // seçilen firmada çalışıyor
+        Assert.NotNull(crossSession);
+        Assert.Equal(target, crossSession!.CompanyId);
+
+        svc.Delete(su, target);                                  // içinde çalıştığı firmayı siler
+
+        // Sonraki istek: oturum DÜŞMEMELİ (eskiden null → 401)
+        var after = auth.CreateSessionForUser(target, su.UserId);
+        Assert.NotNull(after);
+        Assert.Equal("A", after!.CompanyId);                     // home firmaya düştü
+        Assert.True(after.IsSuperAdmin);
+
+        // Ve firma listesi çalışmalı; silinen firma listede OLMAMALI
+        var list = svc.List(after);
+        Assert.DoesNotContain(list, c => c.Id == target);
+    }
+
+    [Fact]
     public void Sube_Silinince_HicbirListede_Gorunmez() // regresyon: silinen şube tüm şube alanlarından düşmeli
     {
         var su = SuperAdmin();

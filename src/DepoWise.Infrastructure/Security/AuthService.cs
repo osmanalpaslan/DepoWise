@@ -138,11 +138,21 @@ public sealed class AuthService
 
         var roles = LoadRoleKeys(conn, userId);
 
-        // İstenen firma home firma DEĞİLSE: yalnız süper admin + firma gerçekten var olmalı.
+        // İstenen firma home firma DEĞİLSE: yalnız süper admin çapraz-firma oturumu açabilir.
         if (!string.Equals(homeCompany, companyId, StringComparison.Ordinal))
         {
             if (!roles.Contains(DepoWise.Application.Security.RoleKeys.SuperAdmin)) return null; // çapraz firma yalnız süper admin
-            if (!CompanyExists(conn, companyId)) return null;                            // hedef firma geçerli mi
+
+            // KİLİTLENME KORUMASI (silinmiş firma) vs FAIL-CLOSED (hiç olmayan firma) ayrımı:
+            //  • Firma KAYDI HİÇ YOKSA (uydurma/geçersiz id) → null. Sahte token'a karşı fail-closed kalır.
+            //  • Firma VAR ama SİLİNMİŞSE → süper admin kendi (home) firmasına düşürülür, oturum yaşar.
+            //    Süper admin İÇİNDE ÇALIŞTIĞI firmayı silebiliyor; eskiden token'daki firma geçersiz olduğu için
+            //    sonraki HER istek 401 dönüyordu (firma listesi hiç yüklenmiyor, tekrar silme 401 veriyordu).
+            if (!CompanyExists(conn, companyId))
+            {
+                if (!CompanyRowExists(conn, companyId)) return null;   // hiç var olmamış firma → fail-closed
+                companyId = homeCompany;                                // silinmiş firma → home'a düş (kilitlenme yok)
+            }
         }
 
         var perms = LoadPermissions(conn, userId);
@@ -154,6 +164,15 @@ public sealed class AuthService
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
+    /// <summary>Firma KAYDI hiç var mı (silinmiş olsa bile)? "Silinmiş firma" ile "hiç olmamış firma" ayrımı için.</summary>
+    private static bool CompanyRowExists(SqliteConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c;";
         cmd.Parameters.AddWithValue("$c", companyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
