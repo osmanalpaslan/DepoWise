@@ -3,6 +3,12 @@
 @inject ApiClient Api
 @inject AuthState Auth
 
+@if (!Auth.CanView("quota_monitor"))
+{
+    <MudAlert Severity="Severity.Error">Bu ekran için yetkiniz yok (Kota İzleme).</MudAlert>
+}
+else
+{
 <MudText Typo="Typo.h5" GutterBottom="true">Kota İzleme</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
     Firma başına kullanıcı ve admin kotası kullanımı. Admin kotası, firma kullanıcı kotasının %20'sidir (en az 1).
@@ -43,6 +49,7 @@
     }
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
 </MudPaper>
+}
 
 @code {
     private JsonElement[]? _rows;

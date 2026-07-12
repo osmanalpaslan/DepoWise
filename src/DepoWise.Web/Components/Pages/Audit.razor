@@ -1,7 +1,14 @@
 @page "/audit"
 @using System.Text.Json
 @inject ApiClient Api
+@inject AuthState Auth
 
+@if (!Auth.CanView("audit"))
+{
+    <MudAlert Severity="Severity.Error">Bu ekran için yetkiniz yok (Sistem Logu / Audit).</MudAlert>
+}
+else
+{
 <MudText Typo="Typo.h5" GutterBottom="true">Sistem Logu</MudText>
 
 <MudPaper Class="pa-4" Elevation="2">
@@ -35,6 +42,7 @@
         }
     }
 </MudPaper>
+}
 
 @code {
     private JsonElement[]? _rows;

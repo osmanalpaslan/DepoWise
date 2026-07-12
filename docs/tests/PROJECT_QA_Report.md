@@ -90,6 +90,11 @@ Başarılı! — Başarısız: 0, Başarılı: 273, Atlanan: 0, Toplam: 273, Sü
 ## 7. Sonuç
 Proje **sağlıklı**: 273/273 test yeşil, build temiz, kritik güvenlik/tenant/senkron desenleri yerinde, silme-onayı ve numeric/tarih doğrulama kuralları tutarlı uygulanmış. Bulunan 4 madde **kritik değil** (3 düşük + 1 orta test-kapsamı). Öneriler §8 (chat yanıtı ve KNOWN_ISSUES'a taşınabilir).
 
+> **GÜNCELLEME (2026-07-12):** B1–B4'ün tamamı **uygulandı** → test **281/281** (8 yeni). B1 login boş-alan
+> mesajı düzeltildi; B2 Audit/QuotaMonitor/Developer sayfa-içi yetki guard'ı eklendi (Trash reauth ile korunuyor,
+> rol guard'ı eklenmedi); B3 InspectionTests + StockCountTests (idempotent retry dahil); B4 CS8604 + MUD0002
+> (DisableElevation→DropShadow, PanelClass→TabPanelsClass, title→MudTooltip) temizlendi. B1/B2/B4-web canlı için deploy bekliyor.
+
 ## 8. Kısa öneriler (madde madde)
 ### Çalışma mantığı
 - Web login boş-alan mesajını "gerekli" yap (B1).

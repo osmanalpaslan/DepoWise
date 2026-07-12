@@ -383,7 +383,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 if (!restart) { _updateSnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes); return; }
 
                 SetConn("#3B82F6", "Yeniden başlatılıyor…");
-                UpdateInstaller.InstallAndRestart(_pendingBytes!, _pendingVersion!, _pendingChecksum);
+                UpdateInstaller.InstallAndRestart(_pendingBytes!, _pendingVersion!, _pendingChecksum!);
                 Environment.Exit(0); // uygulamayı kapat → yardımcı kopyalar + yeniden açar
             }
             finally { _updateBusy = false; }

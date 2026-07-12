@@ -23,9 +23,10 @@ doğrulandı) · git push edildi. Ayrıntı §C.
 - **Personel ekranını gözden geçir** (canlıda): artık **"Mevcut kullanıcıyı bağla"** (hesap açma yok; ADR-081) +
   **☐ Saha personeli** + **unvan listesi "+"**. Beğendin mi, değişiklik ister misin?
 - **Masaüstü:** açık makineler **1.0.47** güncelleme uyarısı alır; güncelleyip yeni ekranları gör.
-- **QA raporu (2026-07-12):** proje geneli tarama yapıldı → [docs/tests/PROJECT_QA_Report.md](docs/tests/PROJECT_QA_Report.md).
-  273/273 test yeşil, kritik hata yok. Onayına açık **4 küçük iyileştirme** var (login boş-alan mesajı, sayfa-içi
-  yetki guard'ı, Inspection/StockCount özel testleri, build uyarıları). İstersen uygularım.
+- **QA raporu (2026-07-12):** proje geneli tarama → [docs/tests/PROJECT_QA_Report.md](docs/tests/PROJECT_QA_Report.md).
+  **4 küçük iyileştirmenin TAMAMI uygulandı** (B1 login boş-alan mesajı · B2 Audit/QuotaMonitor/Developer sayfa-içi
+  yetki guard'ı · B3 Inspection + StockCount özel testleri, 8 yeni test · B4 build uyarıları CS8604/MUD0002 temizlendi).
+  Test **281/281 yeşil**. ⏳ B1/B2/B4-web canlıda görünmesi için **Web deploy** bekliyor (onayına açık).
 
 ---
 

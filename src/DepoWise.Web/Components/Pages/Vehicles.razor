@@ -177,7 +177,7 @@
                 </MudStack>
 
                 @* Araç detay sekmeleri — ilgili ekranlardan canlı veri *@
-                <MudTabs Elevation="0" Rounded="true" Class="mt-3" PanelClass="pa-2" MinimumTabWidth="60px">
+                <MudTabs Elevation="0" Rounded="true" Class="mt-3" TabPanelsClass="pa-2" MinimumTabWidth="60px">
                     <MudTabPanel Text="Uyumlu Malzemeler">
                         @if (_dMaterials.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
                         else { @foreach (var m in _dMaterials) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(m, "code") · @Str(m, "name")</MudText><MudText Typo="Typo.body2">@Str(m, "quantity")</MudText></MudStack> } }

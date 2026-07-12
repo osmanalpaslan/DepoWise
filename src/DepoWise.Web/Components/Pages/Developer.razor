@@ -4,6 +4,12 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
+@if (!Auth.IsAdmin)
+{
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız admin içindir (Geliştirici Modu).</MudAlert>
+}
+else
+{
 <MudText Typo="Typo.h5" GutterBottom="true">Geliştirici Modu</MudText>
 
 <MudPaper Class="pa-4" Elevation="2" Style="max-width:520px;">
@@ -26,6 +32,7 @@
     }
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
 </MudPaper>
+}
 
 @code {
     private bool _active;

@@ -16,7 +16,7 @@
                 @if (Auth.IsSuperAdmin)
                 {
                     <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" Title="Adı değiştir (ID korunur)" OnClick="@(() => Rename(it))" />
+                    <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
                 }
                 else
                 {

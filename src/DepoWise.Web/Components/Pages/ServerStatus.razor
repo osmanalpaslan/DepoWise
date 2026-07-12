@@ -132,7 +132,7 @@ else
                     <MudTd>
                         @if (!context.IsLatest)
                         {
-                            <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => DeletePackage(context)" title="Sil" Disabled="_pkgBusy" />
+                            <MudTooltip Text="Sil"><MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => DeletePackage(context)" Disabled="_pkgBusy" /></MudTooltip>
                         }
                     </MudTd>
                 </RowTemplate>

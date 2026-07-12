@@ -90,7 +90,10 @@
     // ── ADIM 1: kimlik doğrulama ──
     private async Task DoStep1()
     {
-        _error = null; _busy = true;
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        { _error = "Kullanıcı adı ve parola gerekli."; return; }
+        _busy = true;
         try
         {
             var (err, data) = await Api.AuthenticateAsync(_username.Trim(), _password);

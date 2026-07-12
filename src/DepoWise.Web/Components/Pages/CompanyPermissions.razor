@@ -86,18 +86,18 @@ else
                             @* Firmaya özel ayar — yalnız global kilit KAPALIYKEN anlamlı. *@
                             @if (!r.GlobalDynamicLocked)
                             {
-                                <MudButton Size="Size.Small" DisableElevation="true"
+                                <MudButton Size="Size.Small" DropShadow="false"
                                            Variant="@(!r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
                                            Color="@(!r.CompanyRestricted ? Color.Success : Color.Default)"
                                            OnClick="@(() => Set(r, false))" Class="mr-1">🟢 Serbest</MudButton>
-                                <MudButton Size="Size.Small" DisableElevation="true"
+                                <MudButton Size="Size.Small" DropShadow="false"
                                            Variant="@(r.CompanyRestricted ? Variant.Filled : Variant.Outlined)"
                                            Color="@(r.CompanyRestricted ? Color.Warning : Color.Default)"
                                            OnClick="@(() => Set(r, true))" Class="mr-1">🟡 Yalnız Admin</MudButton>
                             }
                             @* Süper admin: DİNAMİK global kilit (tüm firmalar) — aç/kapat. *@
                             <MudTooltip Text="Tüm firmalarda kısıtla (global kilit). Açıkken firmaya özel ayar geçersizdir.">
-                                <MudButton Size="Size.Small" DisableElevation="true"
+                                <MudButton Size="Size.Small" DropShadow="false"
                                            Variant="@(r.GlobalDynamicLocked ? Variant.Filled : Variant.Outlined)"
                                            Color="@(r.GlobalDynamicLocked ? Color.Error : Color.Default)"
                                            StartIcon="@Icons.Material.Filled.Lock"
