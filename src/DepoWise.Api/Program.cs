@@ -157,8 +157,18 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
     double wsMb = proc.WorkingSet64 / MB;
     double memPercent = memLimitMb > 0 ? Math.Round(Math.Clamp(wsMb / memLimitMb * 100.0, 0, 100), 1) : 0;
 
+    // DİSK (Fly.io kalıcı disk /data) — canlı doluluk. Disk dolunca SQLite yazamaz → tam kesinti (ADR-070).
+    var disk = svc.ReleasePackages.GetDiskInfo();
+    double diskPercent = disk.TotalBytes > 0 ? Math.Round((double)disk.UsedBytes / disk.TotalBytes * 100.0, 1) : 0;
+
     return Results.Ok(new
     {
+        diskTotalMb = Math.Round(disk.TotalBytes / MB, 1),
+        diskFreeMb = Math.Round(disk.FreeBytes / MB, 1),
+        diskUsedMb = Math.Round(disk.UsedBytes / MB, 1),
+        diskPercent,
+        packagesMb = Math.Round(disk.PackagesBytes / MB, 1),
+        packageCount = disk.PackageCount,
         uptimeSeconds = (long)(DateTimeOffset.UtcNow - ServerMetrics.Start).TotalSeconds,
         workingSetMb = Math.Round(wsMb, 1),
         gcMemoryMb = Math.Round(GC.GetTotalMemory(false) / MB, 1),
@@ -1382,6 +1392,32 @@ app.MapGet("/api/releases/{version}/download", (string version) =>
     var path = svc.ReleasePackages.PathFor(version);
     return path is null ? Results.NotFound() : Results.File(path, "application/octet-stream", Path.GetFileName(path));
 });
+
+// ── Güncelleme paketleri (disk) — canlı sunucu ekranı: listele + MANUEL sil (süper admin) ──
+app.MapGet("/api/releases/packages", (HttpContext ctx) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    var latest = svc.Releases.Latest()?.Version;
+    var rows = svc.ReleasePackages.ListPackages().Select(p => new
+    {
+        version = p.Version, fileName = p.FileName, sizeBytes = p.SizeBytes,
+        sizeMb = Math.Round(p.SizeBytes / (1024d * 1024d), 1),
+        modifiedUtc = p.ModifiedUtc, isLatest = string.Equals(p.Version, latest, StringComparison.Ordinal),
+    });
+    return Results.Ok(rows);
+}).RequireAuthorization();
+app.MapDelete("/api/releases/packages/{version}", (HttpContext ctx, string version) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    // En güncel sürümü silmeyi engelle (masaüstü güncelleyicisi onu indirir → kırılır).
+    if (string.Equals(version, svc.Releases.Latest()?.Version, StringComparison.Ordinal))
+        return Results.Json(new { error = "En güncel sürümün paketi silinemez." }, statusCode: 400);
+    return svc.ReleasePackages.Delete(version)
+        ? Results.Ok(new { ok = true })
+        : Results.Json(new { error = "Paket bulunamadı." }, statusCode: 404);
+}).RequireAuthorization();
 
 // ── Sunucu yedek (bulut) ──
 app.MapPost("/api/backups", async (HttpRequest req) =>

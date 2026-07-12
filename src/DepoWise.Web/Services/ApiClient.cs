@@ -11,6 +11,7 @@ public sealed record LoginResponse(string Token, string UserId, string CompanyId
     List<LoginCompanyDto>? Companies = null);
 public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "", string BranchId = "", string Province = "");
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
+public sealed record ReleasePackageDto(string Version, string FileName, long SizeBytes, double SizeMb, DateTime ModifiedUtc, bool IsLatest);
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
 public sealed record RoleDto(string Key, string Name);
@@ -314,6 +315,22 @@ public sealed class ApiClient
         }
         catch { return new(); }
     }
+
+    /// <summary>Diskteki güncelleme paketleri (canlı sunucu ekranı, süper admin).</summary>
+    public async Task<List<ReleasePackageDto>> GetReleasePackagesAsync()
+    {
+        try
+        {
+            var r = await _http.SendAsync(Req(HttpMethod.Get, "/api/releases/packages"));
+            if (!r.IsSuccessStatusCode) return new();
+            return await r.Content.ReadFromJsonAsync<List<ReleasePackageDto>>() ?? new();
+        }
+        catch { return new(); }
+    }
+
+    /// <summary>Bir güncelleme paketini MANUEL siler (en güncel sürüm silinemez).</summary>
+    public Task<string?> DeleteReleasePackageAsync(string version) =>
+        DeleteAsync($"/api/releases/packages/{Uri.EscapeDataString(version)}");
 
     public async Task<ReleaseDto?> GetLatestReleaseAsync()
     {

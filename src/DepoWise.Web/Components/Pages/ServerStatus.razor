@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IDialogService Dialog
 @implements IDisposable
 
 <PageTitle>Canlı Sunucu — DepoWise</PageTitle>
@@ -36,9 +37,9 @@ else
         }
     </MudGrid>
 
-    @* #3 — CPU% ve Bellek% canlı (animasyonlu) göstergeler *@
+    @* #3 — CPU% · Bellek% · Disk% canlı (animasyonlu) göstergeler *@
     <MudGrid Spacing="3" Class="mt-1">
-        <MudItem xs="12" md="6">
+        <MudItem xs="12" md="4">
             <MudPaper Class="pa-4" Elevation="2" Style="border-radius:14px;">
                 <div class="d-flex align-center mb-1">
                     <MudIcon Icon="@Icons.Material.Filled.Memory" Color="@GaugeColor(_cpuPct)" Size="Size.Small" Class="mr-2" />
@@ -51,7 +52,22 @@ else
                 </div>
             </MudPaper>
         </MudItem>
-        <MudItem xs="12" md="6">
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="2" Style="border-radius:14px;">
+                <div class="d-flex align-center mb-1">
+                    <MudIcon Icon="@Icons.Material.Filled.Storage" Color="@GaugeColor(_diskPct)" Size="Size.Small" Class="mr-2" />
+                    <MudText Typo="Typo.subtitle2">Disk Kullanımı (/data)</MudText><MudSpacer />
+                    <MudText Typo="Typo.h6" Style="@($"color:{GaugeHex(_diskPct)}")">@_diskPct.ToString("0.0")%</MudText>
+                </div>
+                <div class="dw-gauge"><div class="dw-gauge-fill" style="width:@W(_diskPct)%;background:@GaugeHex(_diskPct)"></div></div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@FmtMb(_diskUsedMb) / @FmtMb(_diskTotalMb) · boş @FmtMb(_diskFreeMb) · paketler @FmtMb(_packagesMb) (@_packageCount)</MudText>
+                <div class="dw-spark mt-2" style="height:40px">
+                    @foreach (var v in _diskHist) { <div class="dw-bar2" style="height:@W(Math.Max(3, v))%;background:@GaugeHex(v)"></div> }
+                </div>
+                @if (_diskPct >= 85) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">Disk kritik! Dolarsa tüm API 500 verir. Eski paketleri silin.</MudAlert> }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
             <MudPaper Class="pa-4" Elevation="2" Style="border-radius:14px;">
                 <div class="d-flex align-center mb-1">
                     <MudIcon Icon="@Icons.Material.Filled.DataUsage" Color="@GaugeColor(_memPct)" Size="Size.Small" Class="mr-2" />
@@ -84,6 +100,45 @@ else
         </div>
         <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">.NET @_dotnet · sunucu saati @_serverTime</MudText>
     </MudPaper>
+
+    @* Güncelleme paketleri — disk yükünü buradan yönet: eski paketleri MANUEL sil (ADR-070). *@
+    <MudPaper Class="pa-4 mt-4" Elevation="2">
+        <div class="d-flex align-center mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1">Güncelleme Paketleri (disk)</MudText>
+            <MudSpacer />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadPackages" Disabled="_pkgBusy">Yenile</MudButton>
+        </div>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">Masaüstü güncelleyici daima EN GÜNCEL sürümü indirir; eski paketler disk yükü yapar. En güncel sürümün paketi silinemez.</MudText>
+
+        @if (_pkgMsg is not null) { <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">@_pkgMsg</MudAlert> }
+        @if (_pkgErr is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">@_pkgErr</MudAlert> }
+
+        @if (_packages is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_packages.Count == 0) { <MudText Class="mud-text-secondary">Diskte güncelleme paketi yok.</MudText> }
+        else
+        {
+            <MudTable Items="_packages" Dense="true" Hover="true" Striped="true">
+                <HeaderContent>
+                    <MudTh>Sürüm</MudTh><MudTh>Dosya</MudTh><MudTh>Boyut</MudTh><MudTh>Değişiklik (UTC)</MudTh><MudTh /></HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        @context.Version
+                        @if (context.IsLatest) { <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ml-1">en güncel</MudChip> }
+                    </MudTd>
+                    <MudTd><code style="font-size:12px">@context.FileName</code></MudTd>
+                    <MudTd>@context.SizeMb.ToString("0.0") MB</MudTd>
+                    <MudTd>@context.ModifiedUtc.ToString("dd.MM.yyyy HH:mm")</MudTd>
+                    <MudTd>
+                        @if (!context.IsLatest)
+                        {
+                            <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => DeletePackage(context)" title="Sil" Disabled="_pkgBusy" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
 }
 
 <style>
@@ -106,16 +161,25 @@ else
     private string _uptime = "—", _version = "—", _dotnet = "—", _serverTime = "—";
     private double _wsMb, _gcMb, _dbMb, _memMax = 1;
     private double _cpuPct, _memPct, _memLimitMb;
+    private double _diskPct, _diskTotalMb, _diskFreeMb, _diskUsedMb, _packagesMb;
+    private int _packageCount;
     private int _threads, _machines, _companies, _users, _usersOnline;
     private long _requests;
     private readonly List<double> _mem = new();
     private readonly List<double> _cpuHist = new();
     private readonly List<double> _memHist = new();
+    private readonly List<double> _diskHist = new();
 
-    protected override void OnInitialized()
+    // Güncelleme paketleri (disk) — canlı 3 sn poll'de yenilenmez; ilk yükleme + silme sonrası yenilenir.
+    private List<ReleasePackageDto>? _packages;
+    private string? _pkgErr, _pkgMsg;
+    private bool _pkgBusy;
+
+    protected override async Task OnInitializedAsync()
     {
         if (!Auth.IsSuperAdmin) return;
         _timer = new System.Threading.Timer(async _ => await Poll(), null, 0, 3000);
+        await LoadPackages();
     }
 
     private async Task Poll()
@@ -136,8 +200,15 @@ else
             _companies = (int)Num(d, "companies");
             _users = (int)Num(d, "users");
             _requests = (long)Num(d, "requestCount");
+            _diskPct = Num(d, "diskPercent");
+            _diskTotalMb = Num(d, "diskTotalMb");
+            _diskFreeMb = Num(d, "diskFreeMb");
+            _diskUsedMb = Num(d, "diskUsedMb");
+            _packagesMb = Num(d, "packagesMb");
+            _packageCount = (int)Num(d, "packageCount");
             _cpuHist.Add(_cpuPct); if (_cpuHist.Count > 40) _cpuHist.RemoveAt(0);
             _memHist.Add(_memPct); if (_memHist.Count > 40) _memHist.RemoveAt(0);
+            _diskHist.Add(_diskPct); if (_diskHist.Count > 40) _diskHist.RemoveAt(0);
             _version = Str(d, "latestVersion");
             _dotnet = Str(d, "dotnet");
             _serverTime = d.TryGetProperty("serverTimeUtc", out var st) ? st.ToString() : "—";
@@ -150,6 +221,31 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
+    private async Task LoadPackages()
+    {
+        _pkgErr = _pkgMsg = null; _pkgBusy = true;
+        try { _packages = await Api.GetReleasePackagesAsync(); }
+        catch (Exception ex) { _pkgErr = "Paketler yüklenemedi: " + ex.Message; }
+        finally { _pkgBusy = false; await InvokeAsync(StateHasChanged); }
+    }
+
+    private async Task DeletePackage(ReleasePackageDto p)
+    {
+        _pkgErr = _pkgMsg = null;
+        if (!await Dialog.Confirm($"'{p.Version}' güncelleme paketi ({p.SizeMb:0.0} MB) diskten silinsin mi?", "Evet, Sil", danger: true)) return;
+        _pkgBusy = true;
+        try
+        {
+            var err = await Api.DeleteReleasePackageAsync(p.Version);
+            if (err is null) { _pkgMsg = $"'{p.Version}' paketi silindi ({p.SizeMb:0.0} MB boşaldı)."; await LoadPackages(); }
+            else _pkgErr = err;
+        }
+        catch (Exception ex) { _pkgErr = ex.Message; }
+        finally { _pkgBusy = false; await InvokeAsync(StateHasChanged); }
+    }
+
+    private static string FmtMb(double mb) => mb >= 1024 ? $"{mb / 1024.0:0.0} GB" : $"{mb:0.0} MB";
+
     private sealed record KpiItem(string Label, string Val, string Icon, string Color);
 
     private IEnumerable<KpiItem> Kpis() => new[]
@@ -161,6 +257,8 @@ else
         new KpiItem("GC Belleği", $"{_gcMb:0.0} MB", Icons.Material.Filled.DataUsage, "default"),
         new KpiItem("Thread", _threads.ToString(), Icons.Material.Filled.Timeline, "default"),
         new KpiItem("DB Boyutu", $"{_dbMb:0.00} MB", Icons.Material.Filled.Storage, "info"),
+        new KpiItem("Disk (/data)", $"{_diskPct:0.0}%", Icons.Material.Filled.Storage, _diskPct >= 85 ? "error" : _diskPct >= 60 ? "warning" : "success"),
+        new KpiItem("Disk Boş", FmtMb(_diskFreeMb), Icons.Material.Filled.SdStorage, _diskFreeMb < 100 ? "error" : "default"),
         new KpiItem("Firma", _companies.ToString(), Icons.Material.Filled.Business, "default"),
         new KpiItem("Kullanıcı", _users.ToString(), Icons.Material.Filled.People, "default"),
         new KpiItem("İstek Sayısı", _requests.ToString("N0"), Icons.Material.Filled.SwapVert, "default"),

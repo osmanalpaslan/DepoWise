@@ -52,4 +52,65 @@ public sealed class ReleaseStore
         var path = Path.Combine(_root, $"DepoWise-{Safe(version)}.pkg");
         return File.Exists(path) ? path : null;
     }
+
+    public sealed record PackageInfo(string Version, string FileName, long SizeBytes, DateTime ModifiedUtc);
+
+    /// <summary>Diskteki güncelleme paketleri (en yeni önce). Canlı sunucu ekranı bunu listeler.</summary>
+    public IReadOnlyList<PackageInfo> ListPackages()
+    {
+        try
+        {
+            return new DirectoryInfo(_root).GetFiles("DepoWise-*.pkg")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .Select(f => new PackageInfo(VersionOf(f.Name), f.Name, f.Length, f.LastWriteTimeUtc))
+                .ToList();
+        }
+        catch { return Array.Empty<PackageInfo>(); }
+    }
+
+    /// <summary>"DepoWise-1.0.47.pkg" → "1.0.47".</summary>
+    private static string VersionOf(string fileName)
+    {
+        var n = Path.GetFileNameWithoutExtension(fileName);
+        const string pre = "DepoWise-";
+        return n.StartsWith(pre, StringComparison.Ordinal) ? n[pre.Length..] : n;
+    }
+
+    /// <summary>Belirli sürümün paketini MANUEL siler (süper admin, canlı sunucu ekranı). Yoksa false.</summary>
+    public bool Delete(string version)
+    {
+        try
+        {
+            var path = Path.Combine(_root, $"DepoWise-{Safe(version)}.pkg");
+            if (!File.Exists(path)) return false;
+            File.Delete(path);
+            Console.WriteLine($"[DepoWise] Güncelleme paketi MANUEL silindi: {version}");
+            return true;
+        }
+        catch { return false; }
+    }
+
+    public sealed record DiskInfo(long TotalBytes, long FreeBytes, long UsedBytes, long PackagesBytes, int PackageCount);
+
+    /// <summary>Paketlerin bulunduğu diskin (Fly.io kalıcı disk /data) canlı doluluk bilgisi + paket toplamı.</summary>
+    public DiskInfo GetDiskInfo()
+    {
+        long total = 0, free = 0;
+        try
+        {
+            var drive = DriveInfo.GetDrives()
+                .Where(d => d.IsReady && _root.StartsWith(d.RootDirectory.FullName, StringComparison.Ordinal))
+                .OrderByDescending(d => d.RootDirectory.FullName.Length)
+                .FirstOrDefault();
+            if (drive is not null) { total = drive.TotalSize; free = drive.AvailableFreeSpace; }
+        }
+        catch { }
+        long pkgBytes = 0; int pkgCount = 0;
+        try
+        {
+            foreach (var f in new DirectoryInfo(_root).GetFiles("DepoWise-*.pkg")) { pkgBytes += f.Length; pkgCount++; }
+        }
+        catch { }
+        return new DiskInfo(total, free, total - free, pkgBytes, pkgCount);
+    }
 }
