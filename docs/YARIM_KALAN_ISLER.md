@@ -26,7 +26,8 @@ doğrulandı) · git push edildi. Ayrıntı §C.
 - **QA raporu (2026-07-12):** proje geneli tarama → [docs/tests/PROJECT_QA_Report.md](docs/tests/PROJECT_QA_Report.md).
   **4 küçük iyileştirmenin TAMAMI uygulandı** (B1 login boş-alan mesajı · B2 Audit/QuotaMonitor/Developer sayfa-içi
   yetki guard'ı · B3 Inspection + StockCount özel testleri, 8 yeni test · B4 build uyarıları CS8604/MUD0002 temizlendi).
-  Test **281/281 yeşil**. ⏳ B1/B2/B4-web canlıda görünmesi için **Web deploy** bekliyor (onayına açık).
+  Test **281/281 yeşil**. ⏳ **DEPLOY EDİLMEMİŞ WEB DEĞİŞİKLİĞİ VAR** (B1/B2/B4-web): kullanıcı kararı = *bir sonraki
+  web işiyle birlikte* deploy edilecek. Sonraki Web deploy'unda bu değişiklikler de otomatik gider — unutma.
 
 ---
 
