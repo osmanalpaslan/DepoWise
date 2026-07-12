@@ -27,8 +27,8 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **283/283 yeşil** (`dotnet test`) |
-| **Şema** | Migration **035** (son: `btn-approve` → `request_approval` modülü taşıma) |
+| **Testler** | **294/294 yeşil** (`dotnet test`) |
+| **Şema** | Migration **037** (son: firma yetki düzeyi Serbest/Admin/Süper Admin) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 · ⚠️ Adım 1 API değişikliği **deploy edilmedi** |
 | **Web** | `depowise-web.fly.dev` — **canlı** · ⚠️ Adım 1 web değişikliği **deploy edilmedi** |
 | **Masaüstü** | **1.0.47 yayında** (Adım 1 masaüstü değişikliği yeni pakette gidecek) |
@@ -77,13 +77,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Büyük yetki/ekran promptu — Adım 2:** yeni ara rol (admin ile süper admin arası) + delegasyon tavanı
-> (kişi kendine verilenden fazlasını veremez) + süper-admin-only ekranların ağaçta yalnız süper admine
-> görünmesi + Firma Yetki Kontrol modelinin **Serbest/Admin/Süper Admin**'e çevrilmesi. Ayrıntı ve tüm
-> adımlar (2–7): [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
+> **Büyük yetki/ekran promptu — Adım 3:** Firma Tanım ekranı: admin + normal kullanıcı sayısı **ayrı ayrı**
+> girilsin (mevcut %20 admin kuralı kalkacak) + **makine kotası** aynı ekrana eklensin. Tüm adımlar (3–7):
+> [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
 >
-> **Adım 1 bitti** (test 283/283): Sync kaldırıldı · Talep → Form+Onaylama (Migration035) · özel butonlar
-> ağacın içinde. ⚠️ **Deploy edilmedi** (kullanıcı kararı: sonraki web işiyle birlikte; **API'yi de** deploy et).
+> **Adım 1 + 2 bitti** (test 294/294): Sync kaldırıldı · Talep→Form/Onaylama · Kısıtlı Süper Admin rolü +
+> delegasyon tavanı + süper-admin-only reorg + Firma Yetki Kontrol 3-düzey. ⚠️ **Deploy edilmedi**
+> (kullanıcı kararı: sonraki web işiyle birlikte; şema 035→037, **API'yi de** deploy et).
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·

@@ -24,13 +24,14 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ✅ **Eksik ekran denetimi:** tüm operasyonel ekranlar ağaçta; eksik yok (`company-permissions`/`developer`/`trash` gerekçeli hariç).
 - 📄 Rapor: [docs/tests/Yetki_Agaci_Test_Report.md](docs/tests/Yetki_Agaci_Test_Report.md).
 
-### ⏳ Adım 2 — Yeni ara rol + delegasyon tavanı + süper-admin-only reorg (SIRADA)
-- Admin ile süper admin arası **yeni rol**; kişi **kendine verilenden fazlasını veremez**; ağaçta yalnız kendine açık yetkiler görünür.
-- Süper-admin-only ekranlar (Kota İzleme, Canlı Sunucu, Sunucu Yedekleri, Makine Yönetimi, Güncelleme Yönetimi,
-  Firma Tanım) yalnız süper adminde + ağaçta yalnız süper admin görür; süper admin isterse **yeni role** devredebilir.
-- **Kota İzleme** yalnız süper admin + yetki verdiği.
-- Firma Yetki Kontrol modeli **Serbest / Admin / Süper Admin** (Global kilit yerine).
-- Admin'e yükseltme uyarısında **hangi yetkiler sebep** bilgisi listelensin.
+### ✅ Adım 2 — Yeni ara rol + delegasyon tavanı + süper-admin-only reorg (TAMAMLANDI, test 294/294, DEPLOY EDİLMEDİ)
+- ✅ **"Kısıtlı Süper Admin"** rolü (admin ile süper admin arası); admin bypass'ı yok; yalnız süper admin atar (Migration036).
+- ✅ Süper-admin-only ekranlar (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım) yalnız süper adminde;
+  süper admin **Kısıtlı Süper Admin'e** devredebilir. **Kota İzleme** süper-admin-only oldu.
+- ✅ **Delegasyon tavanı + ağaç görünürlüğü:** aktör yalnız kendi verebileceği yetkileri görür; veremeyeceği ağaçta yok.
+- ✅ Firma Yetki Kontrol modeli **Serbest / Admin / Süper Admin** (Global kilit kaldırıldı; Migration037).
+- ✅ Admin'e yükseltme uyarısında **sebep ekranlar madde madde** listeleniyor (web + masaüstü).
+- 📄 Rapor: [docs/tests/Yetki_Rol_Delegasyon_Test_Report.md](docs/tests/Yetki_Rol_Delegasyon_Test_Report.md).
 
 ### ⏳ Adım 3 — Firma Tanım ekranı: admin + normal kullanıcı sayısı **ayrı** + **makine kotası** (mevcut %20 admin kuralı kalkacak).
 ### ⏳ Adım 4 — Yetki Şablonu: **firma seçimi** + "tüm firmalar" + firma-bazlı görünürlük.

@@ -97,13 +97,14 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         if (!CanManage) { Status = "Yetki yok."; return; }
 
         // #3: Kısıtlı modül seçili + hedef Admin değil + aktör süper admin değil → önce Admin'e yükselt (uyarı).
-        bool restrictedSelected = Modules.Any(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
-                                                   && AppModules.IsAdminRestricted(m.Key));
-        bool needUpgrade = restrictedSelected && !SelectedUser.IsAdmin && !_session.IsSuperAdmin;
+        var causeNodes = Modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+                                            && AppModules.IsAdminRestricted(m.Key)).ToList();
+        bool needUpgrade = causeNodes.Count > 0 && !SelectedUser.IsAdmin && !_session.IsSuperAdmin;
         if (needUpgrade)
         {
+            var causeList = "• " + string.Join("\n• ", causeNodes.Select(m => m.Label));
             if (!await ConfirmService.AskAsync(
-                    $"Seçtiğiniz ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir.\n\n" +
+                    $"Seçtiğiniz şu ekranlar yalnız Admin'e verilebilir:\n{causeList}\n\n" +
                     $"'{SelectedUser.Username}' kullanıcısının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?",
                     "Evet, Admin Yap")) return;
         }

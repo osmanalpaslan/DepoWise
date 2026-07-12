@@ -98,15 +98,16 @@
 
         // #3: Kısıtlı modül (Yönetim/Kullanıcı/Yetkiler...) seçili + hedef Admin değil + aktör süper admin değil →
         // uyarı: onaylanırsa kullanıcı Admin'e yükseltilir (Admin tüm ekranlara erişir).
-        bool restrictedSelected = _matrix.SelectedKeys().Any(k => _restricted.Contains(k));
+        var causeKeys = _matrix.SelectedKeys().Where(k => _restricted.Contains(k)).ToList();
         bool targetIsAdmin = _adminUserIds.Contains(_userId);
-        bool needUpgrade = restrictedSelected && !targetIsAdmin && !Auth.IsSuperAdmin;
+        bool needUpgrade = causeKeys.Count > 0 && !targetIsAdmin && !Auth.IsSuperAdmin;
         if (needUpgrade)
         {
-            if (!await Dialog.Confirm(
-                "Seçtiğiniz ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir. " +
-                "Onaylarsanız bu kullanıcının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?",
-                "Evet, Admin Yap", danger: true)) return;
+            var causeNames = causeKeys.Select(k => _modules.FirstOrDefault(m => m.Id == k)?.Name ?? k);
+            var reason =
+                "Seçtiğiniz şu ekranlar yalnız Admin'e verilebilir:\n• " + string.Join("\n• ", causeNames) +
+                "\n\nOnaylarsanız bu kullanıcının rolü ADMIN olarak değiştirilecek ve TÜM ekranlara erişebilecektir. Devam edilsin mi?";
+            if (!await Dialog.Confirm(reason, "Evet, Admin Yap", danger: true)) return;
         }
         else if (!await Dialog.Confirm("Yetkiler kaydedilsin mi?")) return;
 
