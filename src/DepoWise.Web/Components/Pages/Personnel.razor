@@ -4,10 +4,11 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-<MudText Typo="Typo.h5" GutterBottom="true">Çalışan Yönetimi</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
-    Hem <b>saha personeli</b> hem <b>uygulama kullanıcısı</b> tek yerde. Bir çalışana “Uygulama erişimi” verirseniz
-    kullanıcı hesabı (giriş) açılır. Bir çalışana yalnız <b>bir</b> hesap bağlanır.
+    Personel kayıtları burada tutulur. Bir personelin uygulamaya <b>giriş yapabilmesi</b> için
+    <b>Kullanıcılar</b> ekranından hesap açıp <b>“Personel seç”</b> ile bu kayda bağlarsınız.
+    Uygulamaya girmeyecek kişiler için <b>“Saha personeli”</b> kutucuğunu işaretleyin.
 </MudText>
 
 @if (Auth.CanCreate("personnel"))
@@ -25,42 +26,46 @@
 
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" @bind-Value:after="OnKeyFieldsChanged" Label="Ad Soyad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="6"><MudTextField @bind-Value="_title" Label="Unvan" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+
+            @* Unvan: SABİT TANIM listesinden seçilir; "+" ile yeni tanım eklenir. *@
+            <MudItem xs="12" md="6">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <div style="flex:1"><LookupSelect Label="Unvan" @bind-Value="_title" Items="_titles" /></div>
+                    @if (Auth.CanCreate("personnel"))
+                    {
+                        <MudTooltip Text="Yeni unvan tanımı ekle">
+                            <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Variant="Variant.Outlined"
+                                           Color="Color.Primary" OnClick="@(() => _addTitle = !_addTitle)" />
+                        </MudTooltip>
+                    }
+                </MudStack>
+                @if (_addTitle)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                        <MudTextField @bind-Value="_newTitle" Label="Yeni unvan" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                      UserAttributes="_noAuto" Immediate="true" />
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="AddTitle">Ekle</MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="CancelAddTitle">Vazgeç</MudButton>
+                    </MudStack>
+                }
+            </MudItem>
+
             <MudItem xs="6" md="4"><MudTextField @bind-Value="_phone" @bind-Value:after="OnKeyFieldsChanged" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="5"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
-            <MudItem xs="6" md="3" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_active" Label="Aktif" Dense="true" /></MudItem>
+            <MudItem xs="6" md="4"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
+            <MudItem xs="6" md="2" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_active" Label="Aktif" Dense="true" /></MudItem>
+            <MudItem xs="6" md="2" Class="d-flex align-center">
+                <MudTooltip Text="İşaretlenirse bu kişi uygulamaya girmez; kullanıcı bağlanmadı uyarısı çıkmaz.">
+                    <MudCheckBox T="bool" @bind-Value="_fieldStaff" Label="Saha personeli" Dense="true" />
+                </MudTooltip>
+            </MudItem>
         </MudGrid>
 
-        @* ── Uygulama erişimi (kullanıcı hesabı) ── *@
-        @if (Auth.IsAdmin)
+        @if (_hasAccount)
         {
-            @if (_hasAccount)
-            {
-                <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">
-                    Bu çalışanın uygulama hesabı var: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
-                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="RemoveAccount">Hesabı Kaldır</MudButton>
-                </MudAlert>
-            }
-            else
-            {
-                <div class="mt-2">
-                    <MudSwitch T="bool" @bind-Value="_grantAccess" Color="Color.Primary" Label="Uygulama erişimi ver (kullanıcı hesabı aç)" />
-                </div>
-                @if (_grantAccess)
-                {
-                    <MudGrid Spacing="2" Class="mt-0">
-                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_username" Label="Kullanıcı adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudSelect T="string" @bind-Value="_roleKey" Label="Rol" Margin="Margin.Dense" Variant="Variant.Outlined">
-                                <MudSelectItem T="string" Value="@("role-staff")">Personel</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("role-company-admin")">Firma Admini</MudSelectItem>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_password" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-                    </MudGrid>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ayrıntılı ekran yetkileri “Yetkiler” ekranından ayarlanır.</MudText>
-                }
-            }
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                Bu personelin uygulama hesabı var: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
+                Hesap işlemleri <b>Kullanıcılar</b> ekranından yapılır.
+            </MudAlert>
         }
 
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
@@ -73,14 +78,14 @@
 
 <MudPaper Class="pa-4" Elevation="2">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
-        <MudText Typo="Typo.h6">Çalışan Listesi</MudText><MudSpacer />
+        <MudText Typo="Typo.h6">Personel Listesi</MudText><MudSpacer />
         <MudTextField @bind-Value="_q" Placeholder="Ara (ad / unvan / telefon)" Immediate="true"
                       Margin="Margin.Dense" Variant="Variant.Outlined" Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search" Style="max-width:320px" Clearable="true" />
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz çalışan yok.</MudText> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Henüz personel yok.</MudText> }
     else
     {
         <MudTable Items="Filtered" Dense="true" Hover="true" Striped="true" T="JsonElement">
@@ -97,7 +102,16 @@
                             @(Bool(context, "accountAdmin") ? "Admin" : "Kullanıcı") · @Str(context, "username")
                         </MudChip>
                     }
-                    else { <MudChip T="string" Size="Size.Small" Color="Color.Warning">Saha</MudChip> }
+                    else if (Bool(context, "isFieldStaff"))
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default">Saha personeli</MudChip>
+                    }
+                    else
+                    {
+                        <MudTooltip Text="Kullanıcı bağlı değil ve saha personeli olarak da işaretlenmemiş.">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">Kullanıcı yok</MudChip>
+                        </MudTooltip>
+                    }
                 </MudTd>
                 <MudTd>@(Bool(context, "isActive") ? "Aktif" : "Pasif")</MudTd>
                 <MudTd>
@@ -112,17 +126,19 @@
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private string? _editId;
-    private string _name = "", _title = "", _phone = "";
+    private string _name = "", _phone = "";
+    private string? _title;                 // unvan: sabit tanım listesinden seçilir
     private string? _branch;
     private bool _active = true;
+    private bool _fieldStaff;               // "Saha personeli" — işaretliyse kullanıcı-bağlı uyarısı çıkmaz
     private List<ApiClient.Opt> _branches = new();
+    private List<ApiClient.Opt> _titles = new();
+    private bool _addTitle; private string _newTitle = "";   // "+" ile yeni unvan tanımı
     private JsonElement[]? _rows;
     private string _q = "";
     private string? _msg; private bool _ok; private bool _busy;
 
-    // Hesap / mükerrer
-    private bool _grantAccess;
-    private string _username = "", _password = "", _roleKey = "role-staff";
+    // Bağlı hesap (yalnız bilgi — hesap işlemleri Kullanıcılar ekranında) + mükerrer
     private bool _hasAccount, _accountAdmin; private string _accountUsername = "";
     private List<JsonElement> _dups = new();
     private bool _dupAck;
@@ -141,11 +157,37 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Auth.CanCreate("personnel")) _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+        if (Auth.CanCreate("personnel"))
+        {
+            _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+            await LoadTitles();
+        }
         await LoadList();
     }
 
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/personnel"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    // Unvan tanımları — değer olarak ADI kullanılır (personnel.title metin saklar).
+    private async Task LoadTitles()
+    {
+        try { _titles = await Api.OptionsAsync("/api/personnel-titles", "name", "name"); }
+        catch { _titles = new(); }
+    }
+
+    private void CancelAddTitle() { _addTitle = false; _newTitle = ""; }
+
+    // "+" — yeni unvan tanımı ekler ve seçili hale getirir.
+    private async Task AddTitle()
+    {
+        var name = _newTitle?.Trim() ?? "";
+        if (name.Length == 0) { _msg = "Unvan adı boş olamaz."; _ok = false; return; }
+        var err = await Api.PostAsync("/api/personnel-titles", new { name });
+        if (err is not null) { _msg = "Unvan eklenemedi: " + err; _ok = false; return; }
+        await LoadTitles();
+        _title = name;              // yeni unvanı doğrudan seç
+        CancelAddTitle();
+        _ok = true; _msg = "Unvan eklendi.";
+    }
 
     // Ad/telefon değişince olası mükerrer kaydı arka planda sorgula (yalnız yeni kayıtta).
     private async Task OnKeyFieldsChanged()
@@ -162,10 +204,10 @@
 
     private void BeginEdit(JsonElement r)
     {
-        _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = Str(r, "title"); _phone = Str(r, "phone");
-        _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _msg = null;
+        _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
+        _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
-        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff"; _dups = new(); _dupAck = false;
+        _dups = new(); _dupAck = false; CancelAddTitle();
     }
 
     private async Task Save()
@@ -182,39 +224,33 @@
             _dupAck = true;
         }
 
-        bool wantAccount = Auth.IsAdmin && !_hasAccount && _grantAccess;
-        // Yeni kayıt + hesap yoksa: "saha personeli mi?" onayı
-        if (_editId is null && !wantAccount)
+        // Fikir B: kullanıcı bağlı DEĞİLSE ve "Saha personeli" işaretli DEĞİLSE uyar.
+        // Kutucuk işaretliyse bu koşul hiç çalışmaz (kişi bilinçli olarak saha personelidir).
+        if (!_hasAccount && !_fieldStaff)
         {
-            if (!await Dialog.Confirm("Bu çalışana uygulama erişimi (kullanıcı hesabı) verilmedi. Yalnız saha personeli olarak mı kaydedilsin?", "Evet, saha personeli"))
+            if (!await Dialog.Confirm(
+                    "Bu personele uygulama kullanıcısı bağlanmadı. Saha personeli mi?\n\n" +
+                    "• Evet ise “Saha personeli” olarak kaydedilir (kutucuk işaretlenir).\n" +
+                    "• Hayır ise Vazgeç deyin; kullanıcı hesabını “Kullanıcılar” ekranından açıp bu personele bağlayın.",
+                    "Evet, saha personeli"))
                 return;
+            _fieldStaff = true;   // onayladı → kutucuk işaretlenir, bir daha sorulmaz
         }
-        if (wantAccount && (string.IsNullOrWhiteSpace(_username) || _password.Length < 4))
-        { _msg = "Hesap için kullanıcı adı ve en az 4 karakter şifre gerekli."; _ok = false; return; }
 
         _busy = true;
         try
         {
-            var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active };
-            string? id = _editId;
+            var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active, isFieldStaff = _fieldStaff };
             if (_editId is null)
             {
                 var doc = await Api.PostJsonAsync("/api/personnel", body);
                 if (doc is null || !doc.Value.TryGetProperty("id", out var idv) || idv.ValueKind != JsonValueKind.String)
-                { _ok = false; _msg = "Çalışan eklenemedi."; return; }
-                id = idv.GetString();
+                { _ok = false; _msg = "Personel eklenemedi."; return; }
             }
             else
             {
                 var err = await Api.PutAsync($"/api/personnel/{_editId}", body);
                 if (err is not null) { _ok = false; _msg = err; return; }
-            }
-
-            if (wantAccount)
-            {
-                var accErr = await Api.PostAsync($"/api/personnel/{id}/account",
-                    new { username = _username.Trim(), password = _password, roleKey = _roleKey, branchId = _branch });
-                if (accErr is not null) { _ok = false; _msg = "Çalışan kaydedildi ama hesap açılamadı: " + accErr; await LoadList(); return; }
             }
             _ok = true; _msg = _editId is null ? "Eklendi." : "Güncellendi.";
             Clear(); await LoadList();
@@ -223,19 +259,10 @@
         finally { _busy = false; }
     }
 
-    private async Task RemoveAccount()
-    {
-        if (_editId is null) return;
-        if (!await Dialog.Confirm($"'{_accountUsername}' hesabının bu çalışana bağı kaldırılsın mı? (Hesap silinmez, bağ çözülür.)", "Evet, Kaldır", danger: true)) return;
-        var err = await Api.DeleteAsync($"/api/personnel/{_editId}/account");
-        _ok = err is null; _msg = err ?? "Hesap bağı kaldırıldı.";
-        if (_ok) { _hasAccount = false; _accountUsername = ""; await LoadList(); }
-    }
-
     private async Task Delete(string id)
     {
         if (string.IsNullOrEmpty(id)) return;
-        if (!await Dialog.Confirm("Bu çalışan silinsin mi?", "Evet, Sil", danger: true)) return;
+        if (!await Dialog.Confirm("Bu personel silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/personnel/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await LoadList();
@@ -243,9 +270,9 @@
 
     private void Clear()
     {
-        _editId = null; _name = _title = _phone = ""; _branch = null; _active = true;
-        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff";
+        _editId = null; _name = _phone = ""; _title = null; _branch = null; _active = true; _fieldStaff = false;
         _hasAccount = false; _accountAdmin = false; _accountUsername = ""; _dups = new(); _dupAck = false;
+        CancelAddTitle();
     }
 
     private static string DupLabel(JsonElement e)

@@ -23,6 +23,16 @@
                 </MudItem>
             }
             <MudItem xs="12" md="6"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
+
+            @* Fikir B — Kullanıcıyı bir PERSONEL kaydına bağla (ad soyad tekrar yazılmaz; bir personele tek hesap). *@
+            <MudItem xs="12" md="6">
+                <LookupSelect Label="Personel seç (bağla)" @bind-Value="_personnelId" Items="_personnel" />
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Bu hesabın hangi personele ait olduğunu seçin. Listede yoksa önce <b>Personel</b> ekranından ekleyin.
+                    Hesabı olmayan personeller listelenir.
+                </MudText>
+            </MudItem>
+
             @if (Auth.IsSuperAdmin)
             {
                 <MudItem xs="12" md="6">
@@ -103,10 +113,11 @@
     else
     {
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" OnRowClick="@(e => SelectUser(e.Item))" T="JsonElement">
-            <HeaderContent><MudTh>KULLANICI</MudTh><MudTh>AD SOYAD</MudTh><MudTh>ROLLER</MudTh><MudTh>ŞUBE</MudTh><MudTh>DURUM</MudTh></HeaderContent>
+            <HeaderContent><MudTh>KULLANICI</MudTh><MudTh>AD SOYAD</MudTh><MudTh>PERSONEL</MudTh><MudTh>ROLLER</MudTh><MudTh>ŞUBE</MudTh><MudTh>DURUM</MudTh></HeaderContent>
             <RowTemplate>
                 <MudTd>@Str(context, "username")</MudTd>
                 <MudTd>@Str(context, "fullName")</MudTd>
+                <MudTd>@Str(context, "personnelDisplay")</MudTd>
                 <MudTd>@Str(context, "roles")</MudTd>
                 <MudTd>@Str(context, "branchDisplay")</MudTd>
                 <MudTd>@Str(context, "statusText")</MudTd>
@@ -123,9 +134,10 @@
     private string _u = "", _p = "", _f = "";
     private bool _viewAll;
     private string? _companyId, _branch, _templateId;
+    private string? _personnelId;                       // Fikir B: hesabın bağlanacağı personel
     private string? _role;
     private List<RoleDto> _roles = new();
-    private List<ApiClient.Opt> _companies = new(), _branches = new();
+    private List<ApiClient.Opt> _companies = new(), _branches = new(), _personnel = new();
     private JsonElement[] _templates = Array.Empty<JsonElement>();
     private string? _msg; private bool _ok; private bool _busy;
 
@@ -147,10 +159,25 @@
             _companies = await Api.OptionsAsync("/api/companies", "id", "name");
             try { _templates = await Api.GetArrayAsync("/api/permission-templates"); } catch { }
         }
+        await LoadPersonnel();
         await Load();
     }
 
     private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/users"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    // Bağlanabilir personeller = hesabı OLMAYANLAR (bir personele tek kullanıcı kuralı).
+    private async Task LoadPersonnel()
+    {
+        try
+        {
+            var rows = await Api.GetArrayAsync("/api/personnel");
+            _personnel = rows
+                .Where(r => !Bool(r, "hasAccount"))
+                .Select(r => new ApiClient.Opt(Str(r, "id"), Str(r, "fullName")))
+                .ToList();
+        }
+        catch { _personnel = new(); }
+    }
 
 
     private async Task Create()
@@ -167,7 +194,8 @@
                 username = _u.Trim(), password = _p, fullName = _f,
                 roleKeys = string.IsNullOrEmpty(_role) ? new List<string>() : new List<string> { _role },
                 companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branch,
-                canViewAllBranches = Auth.IsSuperAdmin && _viewAll
+                canViewAllBranches = Auth.IsSuperAdmin && _viewAll,
+                personnelId = _personnelId          // Fikir B: hesabı personele bağla
             });
             // Yetki şablonu seçildiyse yeni kullanıcının yetkilerini şablona göre yaz
             if (err is null && id is not null && !string.IsNullOrEmpty(_templateId))
@@ -182,13 +210,13 @@
                 catch { }
             }
             _ok = err is null; _msg = err ?? "Oluşturuldu.";
-            if (_ok) { ClearForm(); await Load(); }
+            if (_ok) { ClearForm(); await Load(); await LoadPersonnel(); }   // bağlanan personel listeden düşer
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
 
-    private void ClearForm() { _u = _p = _f = ""; _viewAll = false; _companyId = _branch = _templateId = _role = null; }
+    private void ClearForm() { _u = _p = _f = ""; _viewAll = false; _companyId = _branch = _templateId = _role = _personnelId = null; }
 
     private bool _selViewAll;
 
