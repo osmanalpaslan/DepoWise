@@ -30,7 +30,7 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
 - **Personel ekranını gözden geçir** (canlıda): tek ekranda **"Uygulama erişimi ver"** (kullanıcı adı/şifre/rol),
   **☐ Saha personeli**, **unvan listesi + "+"**, uyarı penceresi. Beğendin mi, değişiklik ister misin?
-- **Masaüstü:** açık makineler 60 sn içinde **1.0.42** güncelleme uyarısı alır; güncelleyip ekranları gör.
+- **Masaüstü:** açık makineler 60 sn içinde **1.0.43** güncelleme uyarısı alır; güncelleyip ekranları gör.
 
 ---
 
