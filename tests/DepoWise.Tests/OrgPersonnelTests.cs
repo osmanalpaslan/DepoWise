@@ -109,6 +109,25 @@ public class OrgPersonnelTests : IDisposable
         Assert.True(login.Success);
     }
 
+    [Fact]
+    public void Sube_Silinince_HicbirListede_Gorunmez() // regresyon: silinen şube tüm şube alanlarından düşmeli
+    {
+        var su = SuperAdmin();
+        var branches = new DepoWise.Infrastructure.Organization.BranchService(_factory, _clock);
+        var keep = branches.Create(su, new DepoWise.Infrastructure.Organization.NewBranch("Kalan", "branch", null, null, null));
+        var gone = branches.Create(su, new DepoWise.Infrastructure.Organization.NewBranch("Silinen", "branch", null, null, null));
+
+        branches.Delete(su, gone);
+
+        var list = branches.List(su);
+        Assert.Contains(list, b => b.Id == keep);
+        Assert.DoesNotContain(list, b => b.Id == gone);   // silinen şube listelenmez
+
+        // Şube seçicilerinin beslendiği kapsam çözümleyicisi de silineni vermemeli
+        var allowed = _scope.AllowedBranchIds(su);
+        Assert.DoesNotContain(gone, allowed);
+    }
+
     // ---- Fikir B: saha personeli kutucuğu + unvan sabit tanım ----
     [Fact]
     public void SahaPersoneli_Kutucugu_Kaydedilir_VeOkunur()

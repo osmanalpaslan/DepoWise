@@ -307,6 +307,13 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-066 — Silinen şubeler masaüstünde listelenmeye devam ediyordu (12.07.2026)
+- **Belirti:** Web'de silinen şube, masaüstünde **tüm şube alanlarında** (personel, kullanıcı, stok, araç…) görünmeye devam ediyordu.
+- **Kök neden:** Sunucu/web tarafındaki TÜM şube okuma sorguları zaten `is_deleted=0` filtreliydi (hata orada değildi). Şubeler **sunucu-otoriteli** (`BusinessSyncService.Tables` içinde YOK — iş senkronuna dahil değil). Masaüstünün yerel şube kopyası ise sunucudan **yalnız UPSERT** ediliyordu (`LoginViewModel`), üstelik bu yalnız **süper admin firma seçimi** yolunda çağrılıyordu. Sunucuda silinen şube yerelde `is_deleted=0` olarak kalıyor, hiçbir zaman düşmüyordu.
+- **Karar:** Şube aynalama `MirrorServerBranchesLocalAsync` metoduna çıkarıldı ve **her girişte** (`FinalizeLoginAsync`, tüm kullanıcılar) çağrılıyor. Sunucudan gelenler upsert edilir; **sunucunun listesinde ARTIK OLMAYAN yerel şubeler pasife alınır** (`is_deleted=1`). Çevrimdışıysa hiçbir şey yapılmaz (yereldekiyle devam — offline-first korunur).
+- **Test:** `OrgPersonnelTests.Sube_Silinince_HicbirListede_Gorunmez` (liste + `ScopeResolver.AllowedBranchIds`). Suit 258/258.
+- **Gerekçe:** Şube tek otoriteye (sunucu) bağlı olduğundan yerel kopya birebir ayna olmalı; yalnız-upsert modeli silmeyi hiç yansıtmıyordu.
+
 ### ADR-065 — #6 revizyon: Fikir A → **Fikir B** + saha personeli kutucuğu + unvan sabit tanım (12.07.2026)
 - **Bağlam:** #6 (Personel+Kullanıcı birleştirme) ADR-063/064'te **Fikir A** ("tek Çalışan kaydı, aynı ekranda hesap açma") olarak uygulanmıştı. Kullanıcı 12.07'de **Fikir B'yi seçtiğini** belirtti (belgede A yazılıydı — çelişki kullanıcının son açık talebi lehine çözüldü, CLAUDE.md §1).
 - **Karar (Fikir B + kullanıcının eklemeleri):**
