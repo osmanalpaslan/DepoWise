@@ -5,23 +5,34 @@ using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Infrastructure.Organization;
 
-/// <summary>Firma Yetki Kontrol satırı (#6). grantable = firma admini bu modülü Personel'e doğrudan verebilir mi.
-/// <paramref name="GlobalRestricted"/> ETKİN global kilit (sabit VEYA dinamik). <paramref name="GlobalHardLocked"/>
-/// derleme-zamanı SABİT kilit (değiştirilemez); false ise süper admin dinamik global kilidi açıp kapatabilir.</summary>
-public sealed record CompanyGrantRow(string ModuleKey, string Label, bool GlobalRestricted, bool CompanyRestricted, bool GlobalHardLocked = false)
+/// <summary>Firma Yetki Kontrol satırı: her ekranın o firmadaki DÜZEYİ.
+/// Level: "serbest" (tüm personele verilebilir) / "admin" (yalnız admin+) / "superadmin" (yalnız süper admin +
+/// Kısıtlı Süper Admin). <paramref name="Hard"/> = derleme-zamanı sabit (değiştirilemez):
+/// IsAdminRestricted → sabit "admin", IsSuperAdminOnly → sabit "superadmin".</summary>
+public sealed record CompanyGrantRow(string ModuleKey, string Label, string Level, bool Hard)
 {
-    /// <summary>Etkin: global VEYA firmaya özel kısıt yoksa verilebilir.</summary>
-    public bool Grantable => !GlobalRestricted && !CompanyRestricted;
-    public string StatusText => GlobalRestricted ? "Yalnız Admin (global)" : CompanyRestricted ? "Yalnız Admin (firma)" : "Verilebilir";
+    /// <summary>Serbest = firma admini bu ekranı doğrudan Personel'e verebilir.</summary>
+    public bool Grantable => Level == CompanyGrantService.LevelFree;
+    public string StatusText => Level switch
+    {
+        CompanyGrantService.LevelSuper => "Süper Admin",
+        CompanyGrantService.LevelAdmin => "Admin",
+        _ => "Serbest",
+    };
 }
 
 /// <summary>
-/// #6 — Firma Yetki Kontrol (YALNIZ Süper Admin, yalnız web). Bir firmanın adminlerinin Personel'e
-/// verebildiği/veremediği modülleri gösterir; süper admin firmaya özel EK kısıt ekleyebilir.
-/// Global IsAdminRestricted her zaman geçerlidir; bu servis firmaya özel sıkılaştırma yönetir.
+/// Firma Yetki Kontrol (YALNIZ Süper Admin, yalnız web). Bir firmadaki her ekranın erişim DÜZEYİNİ yönetir:
+/// Serbest / Admin / Süper Admin. Serbest = satır yok; admin/superadmin = company_grant_limits satırı + level.
+/// Enforcement PermissionService'te (grant-time): admin düzeyi → hedef admin olmalı; superadmin düzeyi →
+/// hedef Kısıtlı Süper Admin (veya süper admin) olmalı.
 /// </summary>
 public sealed class CompanyGrantService
 {
+    public const string LevelFree = "serbest";
+    public const string LevelAdmin = "admin";
+    public const string LevelSuper = "superadmin";
+
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
 
@@ -31,77 +42,34 @@ public sealed class CompanyGrantService
         _clock = clock ?? new SystemClock();
     }
 
-    /// <summary>Süper adminin belirlediği DİNAMİK global kilit ayarının saklandığı global app_settings anahtarı.</summary>
-    public const string GlobalLockKey = "global_grant_limits";
-
     public IReadOnlyList<CompanyGrantRow> GetControl(SessionContext s, string companyId)
     {
         if (!s.IsSuperAdmin) throw new ForbiddenException("Firma Yetki Kontrol yalnız süper admine açıktır.");
-        var company = LoadCompanyLimits(companyId);
-        HashSet<string> globalLocks;
-        using (var conn = _factory.Create()) globalLocks = LoadGlobalLocks(conn);
+        var levels = LoadCompanyLevels(companyId);
         var rows = new List<CompanyGrantRow>();
         foreach (var (key, label) in AppModules.All)
         {
-            if (AppModules.IsPublic(key) || AppModules.IsSuperAdminOnly(key)) continue; // atanamaz/gizli
-            bool hard = AppModules.IsAdminRestricted(key);                    // derleme-zamanı sabit kilit
-            bool globalEff = hard || globalLocks.Contains(key);              // etkin global kilit (sabit VEYA dinamik)
-            rows.Add(new CompanyGrantRow(key, label, globalEff, company.Contains(key), hard));
+            if (AppModules.IsPublic(key)) continue;
+            if (AppModules.IsSuperAdminOnly(key)) { rows.Add(new CompanyGrantRow(key, label, LevelSuper, true)); continue; }
+            if (AppModules.IsAdminRestricted(key)) { rows.Add(new CompanyGrantRow(key, label, LevelAdmin, true)); continue; }
+            var lvl = levels.TryGetValue(key, out var l) ? l : LevelFree;
+            rows.Add(new CompanyGrantRow(key, label, lvl, false));
         }
         return rows;
     }
 
-    /// <summary>DİNAMİK global kilidi (tüm firmalar) TAM DEĞİŞTİRİR. YALNIZ süper admin. Derleme-zamanı sabit
-    /// kilitli (IsAdminRestricted) / süper-admin-özel / public modüller yok sayılır (zaten değiştirilemez).</summary>
-    public void SetGlobalLocks(SessionContext s, IReadOnlyList<string> moduleKeys)
-    {
-        if (!s.IsSuperAdmin) throw new ForbiddenException("Global kilit yalnız süper admine açıktır.");
-        var keys = moduleKeys
-            .Where(k => AppModules.All.Any(m => m.Key == k) && !AppModules.IsAdminRestricted(k)
-                        && !AppModules.IsSuperAdminOnly(k) && !AppModules.IsPublic(k))
-            .Distinct(StringComparer.Ordinal).ToList();
-        var value = string.Join(",", keys);
-        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-        using var conn = _factory.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-INSERT INTO app_settings(id, company_id, setting_key, setting_value, updated_at)
-VALUES($id, NULL, $k, $v, $now)
-ON CONFLICT(IFNULL(company_id,''), setting_key)
-DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at;";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$k", GlobalLockKey);
-        cmd.Parameters.AddWithValue("$v", value);
-        cmd.Parameters.AddWithValue("$now", now);
-        cmd.ExecuteNonQuery();
-    }
-
-    /// <summary>DİNAMİK global kilit kümesi (global app_settings satırından; virgülle ayrık modül anahtarları).</summary>
-    private static HashSet<string> LoadGlobalLocks(SqliteConnection conn, SqliteTransaction? tx = null)
-    {
-        using var cmd = conn.CreateCommand();
-        if (tx is not null) cmd.Transaction = tx;
-        cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key=$k;";
-        cmd.Parameters.AddWithValue("$k", GlobalLockKey);
-        var raw = cmd.ExecuteScalar() as string;
-        return string.IsNullOrWhiteSpace(raw)
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : new HashSet<string>(raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), StringComparer.Ordinal);
-    }
-
-    /// <summary>PermissionService için: modül DİNAMİK global kilitli mi (tüm firmalarda)?</summary>
-    public static bool IsGlobalRestricted(SqliteConnection conn, SqliteTransaction tx, string moduleKey)
-        => LoadGlobalLocks(conn, tx).Contains(moduleKey);
-
-    /// <summary>Firmaya özel kısıtlı modülleri TAM DEĞİŞTİRİR (global-restricted olanlar yok sayılır).</summary>
-    public void SetLimits(SessionContext s, string companyId, IReadOnlyList<string> restrictedKeys)
+    /// <summary>Firma bazında ekran düzeylerini TAM DEĞİŞTİRİR. Yalnız süper admin. Serbest = satır silinir;
+    /// admin/superadmin = satır yazılır. Sabit (IsAdminRestricted/IsSuperAdminOnly/public) modüller yok sayılır.</summary>
+    public void SetLevels(SessionContext s, string companyId, IReadOnlyDictionary<string, string> levels)
     {
         if (!s.IsSuperAdmin) throw new ForbiddenException("Firma Yetki Kontrol yalnız süper admine açıktır.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-        var keys = restrictedKeys
-            .Where(k => AppModules.All.Any(m => m.Key == k) && !AppModules.IsAdminRestricted(k)
-                        && !AppModules.IsSuperAdminOnly(k) && !AppModules.IsPublic(k))
-            .Distinct().ToList();
+        var clean = levels
+            .Where(kv => AppModules.All.Any(m => m.Key == kv.Key)
+                        && !AppModules.IsAdminRestricted(kv.Key) && !AppModules.IsSuperAdminOnly(kv.Key) && !AppModules.IsPublic(kv.Key)
+                        && (kv.Value == LevelAdmin || kv.Value == LevelSuper))  // serbest = satır yok
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         using (var del = conn.CreateCommand())
@@ -111,38 +79,50 @@ DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.upda
             del.Parameters.AddWithValue("$c", companyId);
             del.ExecuteNonQuery();
         }
-        foreach (var k in keys)
+        foreach (var (key, level) in clean)
         {
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = "INSERT INTO company_grant_limits(id, company_id, module_key, created_at) VALUES($id,$c,$k,$now);";
+            ins.CommandText = "INSERT INTO company_grant_limits(id, company_id, module_key, level, created_at) VALUES($id,$c,$k,$lvl,$now);";
             ins.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
             ins.Parameters.AddWithValue("$c", companyId);
-            ins.Parameters.AddWithValue("$k", k);
+            ins.Parameters.AddWithValue("$k", key);
+            ins.Parameters.AddWithValue("$lvl", level);
             ins.Parameters.AddWithValue("$now", now);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
     }
 
-    private HashSet<string> LoadCompanyLimits(string companyId)
+    private Dictionary<string, string> LoadCompanyLevels(string companyId)
     {
-        var set = new HashSet<string>(StringComparer.Ordinal);
+        var d = new Dictionary<string, string>(StringComparer.Ordinal);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT module_key FROM company_grant_limits WHERE company_id=$c;";
+        cmd.CommandText = "SELECT module_key, level FROM company_grant_limits WHERE company_id=$c;";
         cmd.Parameters.AddWithValue("$c", companyId);
         using var r = cmd.ExecuteReader();
-        while (r.Read()) set.Add(r.GetString(0));
-        return set;
+        while (r.Read()) d[r.GetString(0)] = r.GetString(1);
+        return d;
     }
 
-    /// <summary>PermissionService için: modül, bu firmada firmaya-özel kısıtlı mı?</summary>
+    /// <summary>PermissionService için: modül bu firmada kısıtlı mı (admin VEYA superadmin düzeyi = satır var)?</summary>
     public static bool IsCompanyRestricted(SqliteConnection conn, SqliteTransaction tx, string companyId, string moduleKey)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$k;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$k", moduleKey);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
+    /// <summary>PermissionService için: modül bu firmada "Süper Admin" düzeyinde mi (yalnız kısıtlı süper admine verilir)?</summary>
+    public static bool IsCompanySuperRestricted(SqliteConnection conn, SqliteTransaction tx, string companyId, string moduleKey)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$k AND level='superadmin';";
         cmd.Parameters.AddWithValue("$c", companyId);
         cmd.Parameters.AddWithValue("$k", moduleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;

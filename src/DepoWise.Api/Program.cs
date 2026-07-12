@@ -987,11 +987,8 @@ app.MapPost("/api/trash/restore", (HttpContext c, TrashRestoreDto d) =>
 // #6 — Firma Yetki Kontrol (yalnız süper admin, yalnız web): firma bazında verilebilir/verilemez modüller.
 app.MapGet("/api/company-permissions/{companyId}", (HttpContext c, string companyId) =>
     S(c) is { } s ? Results.Ok(svc.CompanyGrants.GetControl(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
-app.MapPost("/api/company-permissions/{companyId}", (HttpContext c, string companyId, GrantLimitDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CompanyGrants.SetLimits(s, companyId, d.RestrictedKeys ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
-// DİNAMİK global kilit (tüm firmalar) — yalnız süper admin. Firma yetki kontrol ekranından güncellenir.
-app.MapPost("/api/global-permissions", (HttpContext c, GrantLimitDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CompanyGrants.SetGlobalLocks(s, d.RestrictedKeys ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/company-permissions/{companyId}", (HttpContext c, string companyId, GrantLevelDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CompanyGrants.SetLevels(s, companyId, d.Levels ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
 app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s ? Results.Ok(new { showCompany = s.IsSuperAdmin }) : Results.Unauthorized()).RequireAuthorization();
@@ -1487,7 +1484,7 @@ record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);
-record GrantLimitDto(List<string>? RestrictedKeys);
+record GrantLevelDto(Dictionary<string, string>? Levels);
 record ReauthDto(string? Password);
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);

@@ -60,13 +60,27 @@ public sealed class PermissionService
         var companyId = EnsureUserOwned(conn, tx, actor, userId);
         EnsureManageableTarget(conn, tx, actor, userId); // #8: admin başka admin/süperadminin yetkisini düzenleyemez
 
-        // #3: Kısıtlı modüller (Yönetim/Kullanıcı/Yetkiler...) alt role VERİLEMEZ. Süper admin muaf.
-        // Hedef admin/süper değilse ve kısıtlı bir modül veriliyorsa reddet → web önce Admin'e yükseltir.
+        // Süper Admin düzeyi ekranlar (derleme-sabit süper-admin-only VEYA firma "superadmin" düzeyi) YALNIZ
+        // "Kısıtlı Süper Admin" (veya süper admin) hedefe verilebilir — süper admin dahil kimse başka role veremez.
+        var superOnlyKeys = modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+            && (AppModules.IsSuperAdminOnly(m.ModuleKey)
+                || DepoWise.Infrastructure.Organization.CompanyGrantService.IsCompanySuperRestricted(conn, tx, companyId, m.ModuleKey)))
+            .Select(m => m.ModuleKey).ToHashSet(StringComparer.Ordinal);
+        if (superOnlyKeys.Count > 0
+            && !HasRole(conn, tx, userId, RoleKeys.RestrictedSuperAdmin)
+            && !HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
+        {
+            throw new InvalidOperationException(
+                "Bu ekranlar (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım veya 'Süper Admin' düzeyine alınmış ekranlar) yalnız 'Kısıtlı Süper Admin' rolüne verilebilir. Önce kullanıcıya bu rolü atayın.");
+        }
+
+        // #3: "Admin" düzeyi kısıtlı modüller (Yönetim/Kullanıcı/Yetkiler + firma-admin düzeyi) alt role VERİLEMEZ.
+        // Süper admin muaf. Süper-admin düzeyi olanlar yukarıda ele alındı → burada tekrar sayılmaz.
         if (!actor.IsSuperAdmin)
         {
             var restricted = modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+                && !superOnlyKeys.Contains(m.ModuleKey)
                 && (AppModules.IsAdminRestricted(m.ModuleKey)
-                    || DepoWise.Infrastructure.Organization.CompanyGrantService.IsGlobalRestricted(conn, tx, m.ModuleKey)
                     || DepoWise.Infrastructure.Organization.CompanyGrantService.IsCompanyRestricted(conn, tx, companyId, m.ModuleKey))).ToList();
             if (restricted.Count > 0
                 && !HasRole(conn, tx, userId, RoleKeys.CompanyAdmin)
@@ -75,18 +89,6 @@ public sealed class PermissionService
                 throw new InvalidOperationException(
                     "Bu ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir. Önce kullanıcıyı Admin yapın.");
             }
-        }
-
-        // Süper-admin-only ekranlar (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım) YALNIZ
-        // "Kısıtlı Süper Admin" (veya süper admin) hedefe verilebilir — süper admin dahil kimse başka role veremez.
-        var superOnly = modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
-            && AppModules.IsSuperAdminOnly(m.ModuleKey)).ToList();
-        if (superOnly.Count > 0
-            && !HasRole(conn, tx, userId, RoleKeys.RestrictedSuperAdmin)
-            && !HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
-        {
-            throw new InvalidOperationException(
-                "Bu ekranlar (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım) yalnız 'Kısıtlı Süper Admin' rolüne verilebilir. Önce kullanıcıya bu rolü atayın.");
         }
 
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
