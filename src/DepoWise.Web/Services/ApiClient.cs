@@ -229,6 +229,19 @@ public sealed class ApiClient
     }
 
     public sealed record Opt(string Id, string Name);
+    public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive);
+
+    /// <summary>Bir personele bağlanabilir (henüz bağsız) mevcut kullanıcılar (Admin+).</summary>
+    public async Task<List<LinkableUser>> GetLinkableUsersAsync()
+    {
+        try
+        {
+            var r = await _http.SendAsync(Req(HttpMethod.Get, "/api/personnel/linkable-users"));
+            if (!r.IsSuccessStatusCode) return new();
+            return await r.Content.ReadFromJsonAsync<List<LinkableUser>>() ?? new();
+        }
+        catch { return new(); }
+    }
 
     /// <summary>Bir liste ucundan (id,name) seçenekleri — dropdown'lar için. nameKey birden çok olabilir (ilk dolu olan).</summary>
     public async Task<List<Opt>> OptionsAsync(string path, string idKey = "id", params string[] nameKeys)

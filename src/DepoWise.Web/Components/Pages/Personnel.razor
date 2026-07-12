@@ -6,8 +6,8 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
-    Personel ve uygulama kullanıcısı <b>tek ekranda</b>. Kişi uygulamaya girecekse aynı formdan
-    <b>“Uygulama erişimi ver”</b> ile hesabını açarsınız (bir personele <b>tek</b> hesap).
+    Kişi uygulamaya girecekse, önce <b>“Kullanıcılar”</b> ekranından hesabını açın; sonra bu formdan
+    <b>“Mevcut kullanıcıyı bağla”</b> ile o hesabı bu personele bağlarsınız (bir personele <b>tek</b> hesap).
     Uygulamaya girmeyecek kişiler için <b>“Saha personeli”</b> kutucuğunu işaretleyin.
 </MudText>
 
@@ -60,34 +60,43 @@
             </MudItem>
         </MudGrid>
 
-        @* ── Uygulama erişimi (kullanıcı hesabı) — aynı ekranda (Fikir A) ── *@
+        @* ── Uygulama erişimi: MEVCUT kullanıcıyı bağla (hesap açma yok — hesaplar "Kullanıcılar" ekranında açılır) ── *@
         @if (Auth.IsAdmin)
         {
             @if (_hasAccount)
             {
                 <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">
-                    Bu personelin uygulama hesabı var: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
-                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="RemoveAccount">Hesabı Kaldır</MudButton>
+                    Bu personele bağlı uygulama hesabı: <b>@_accountUsername</b> (@(_accountAdmin ? "Firma Admini" : "Personel")).
+                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="RemoveAccount">Bağı Kaldır</MudButton>
                 </MudAlert>
             }
             else if (!_fieldStaff)
             {
                 <div class="mt-2">
-                    <MudSwitch T="bool" @bind-Value="_grantAccess" Color="Color.Primary" Label="Uygulama erişimi ver (kullanıcı hesabı aç)" />
+                    <MudSwitch T="bool" @bind-Value="_grantAccess" Color="Color.Primary" Label="Mevcut kullanıcıyı bağla" />
                 </div>
                 @if (_grantAccess)
                 {
-                    <MudGrid Spacing="2" Class="mt-0">
-                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_username" Label="Kullanıcı adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudSelect T="string" @bind-Value="_roleKey" Label="Rol" Margin="Margin.Dense" Variant="Variant.Outlined">
-                                <MudSelectItem T="string" Value="@("role-staff")">Personel</MudSelectItem>
-                                <MudSelectItem T="string" Value="@("role-company-admin")">Firma Admini</MudSelectItem>
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="12" md="6"><MudTextField @bind-Value="_password" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" /></MudItem>
-                    </MudGrid>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Ayrıntılı ekran yetkileri “Yetkiler” ekranından ayarlanır.</MudText>
+                    @if (_linkableUsers.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-1">
+                            Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcı yok. Önce <b>“Kullanıcılar”</b> ekranından hesap açın.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="2" Class="mt-0">
+                            <MudItem xs="12" md="8">
+                                <MudSelect T="string" @bind-Value="_linkUserId" Label="Bağlanacak kullanıcı *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                                    @foreach (var u in _linkableUsers)
+                                    {
+                                        <MudSelectItem T="string" Value="@u.Id">@u.Username@(string.IsNullOrEmpty(u.FullName) ? "" : $" — {u.FullName}")@(u.IsActive ? "" : " (pasif)")</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                        </MudGrid>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Yalnız henüz bir personele bağlı olmayan kullanıcılar listelenir. Ekran yetkileri “Yetkiler” ekranından ayarlanır.</MudText>
+                    }
                 }
             }
         }
@@ -149,8 +158,6 @@
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
-    // Tarayıcı bu formu login sanıp kayıtlı şifreyi doldurmasın diye.
-    private static readonly Dictionary<string, object?> _newPw = new() { ["autocomplete"] = "new-password" };
     private string? _editId;
     private string _name = "", _phone = "";
     private string? _title;                 // unvan: sabit tanım listesinden seçilir
@@ -164,9 +171,10 @@
     private string _q = "";
     private string? _msg; private bool _ok; private bool _busy;
 
-    // Uygulama erişimi (hesap açma — aynı ekranda) + bağlı hesap bilgisi + mükerrer
+    // Uygulama erişimi: MEVCUT kullanıcıyı bağla (hesap açma yok) + bağlı hesap bilgisi + mükerrer
     private bool _grantAccess;
-    private string _username = "", _password = "", _roleKey = "role-staff";
+    private string? _linkUserId;                       // bağlanacak mevcut kullanıcı
+    private List<ApiClient.LinkableUser> _linkableUsers = new();
     private bool _hasAccount, _accountAdmin; private string _accountUsername = "";
     private List<JsonElement> _dups = new();
     private bool _dupAck;
@@ -190,10 +198,18 @@
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");
             await LoadTitles();
         }
+        if (Auth.IsAdmin) await LoadLinkableUsers();
         await LoadList();
     }
 
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/personnel"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    // Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcılar — "mevcut kullanıcıyı bağla" listesi.
+    private async Task LoadLinkableUsers()
+    {
+        try { _linkableUsers = await Api.GetLinkableUsersAsync(); }
+        catch { _linkableUsers = new(); }
+    }
 
     // Unvan tanımları — değer olarak ADI kullanılır (personnel.title metin saklar).
     private async Task LoadTitles()
@@ -204,10 +220,10 @@
 
     private void CancelAddTitle() { _addTitle = false; _newTitle = ""; }
 
-    /// <summary>"Saha personeli" işaretlenirse hesap açma anahtarı kapanır (kişi uygulamaya girmeyecek).</summary>
+    /// <summary>"Saha personeli" işaretlenirse kullanıcı bağlama kapanır (kişi uygulamaya girmeyecek).</summary>
     private void OnFieldStaffChanged()
     {
-        if (_fieldStaff) { _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff"; }
+        if (_fieldStaff) { _grantAccess = false; _linkUserId = null; }
     }
 
     // "+" — yeni unvan tanımı ekler ve seçili hale getirir.
@@ -241,7 +257,7 @@
         _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
-        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff";
+        _grantAccess = false; _linkUserId = null;
         _dups = new(); _dupAck = false; CancelAddTitle();
     }
 
@@ -259,19 +275,19 @@
             _dupAck = true;
         }
 
-        // Bu kayıtta hesap açılıyor mu? (admin + hesabı yok + saha değil + anahtar açık)
-        bool wantAccount = Auth.IsAdmin && !_hasAccount && !_fieldStaff && _grantAccess;
-        if (wantAccount && (string.IsNullOrWhiteSpace(_username) || _password.Length < 4))
-        { _msg = "Hesap için kullanıcı adı ve en az 4 karakter şifre gerekli."; _ok = false; return; }
+        // Bu kayıtta mevcut kullanıcı bağlanıyor mu? (admin + hesabı yok + saha değil + anahtar açık + kullanıcı seçili)
+        bool wantLink = Auth.IsAdmin && !_hasAccount && !_fieldStaff && _grantAccess && !string.IsNullOrEmpty(_linkUserId);
+        if (Auth.IsAdmin && !_hasAccount && !_fieldStaff && _grantAccess && string.IsNullOrEmpty(_linkUserId))
+        { _msg = "Bağlanacak kullanıcıyı seçin (veya anahtarı kapatın)."; _ok = false; return; }
 
-        // KOŞUL (değişmedi): hesap YOKSA ve açılMIYORSA ve "Saha personeli" işaretli DEĞİLSE uyar.
+        // KOŞUL (değişmedi): hesap YOKSA ve bağlanMIYORSA ve "Saha personeli" işaretli DEĞİLSE uyar.
         // Kutucuk işaretliyse bu koşul hiç çalışmaz.
-        if (!_hasAccount && !wantAccount && !_fieldStaff)
+        if (!_hasAccount && !wantLink && !_fieldStaff)
         {
             if (!await Dialog.Confirm(
                     "Bu personele uygulama kullanıcısı bağlanmadı. Saha personeli mi?\n\n" +
                     "• Evet ise “Saha personeli” olarak kaydedilir (kutucuk işaretlenir).\n" +
-                    "• Hayır ise Vazgeç deyip “Uygulama erişimi ver” ile hesabını açın.",
+                    "• Hayır ise Vazgeç deyip “Mevcut kullanıcıyı bağla” ile bir kullanıcı bağlayın.",
                     "Evet, saha personeli"))
                 return;
             _fieldStaff = true;   // onayladı → kutucuk işaretlenir, bir daha sorulmaz
@@ -295,14 +311,13 @@
                 if (err is not null) { _ok = false; _msg = err; return; }
             }
 
-            if (wantAccount)
+            if (wantLink)
             {
-                var accErr = await Api.PostAsync($"/api/personnel/{id}/account",
-                    new { username = _username.Trim(), password = _password, roleKey = _roleKey, branchId = _branch });
-                if (accErr is not null) { _ok = false; _msg = "Personel kaydedildi ama hesap açılamadı: " + accErr; await LoadList(); return; }
+                var linkErr = await Api.PostAsync($"/api/personnel/{id}/link-user", new { userId = _linkUserId });
+                if (linkErr is not null) { _ok = false; _msg = "Personel kaydedildi ama kullanıcı bağlanamadı: " + linkErr; await LoadList(); return; }
             }
-            _ok = true; _msg = _editId is null ? (wantAccount ? "Personel + hesap eklendi." : "Eklendi.") : "Güncellendi.";
-            Clear(); await LoadList();
+            _ok = true; _msg = _editId is null ? (wantLink ? "Personel eklendi + kullanıcı bağlandı." : "Eklendi.") : "Güncellendi.";
+            Clear(); if (Auth.IsAdmin) await LoadLinkableUsers(); await LoadList();
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
@@ -315,7 +330,7 @@
         if (!await Dialog.Confirm($"'{_accountUsername}' hesabının bu personele bağı kaldırılsın mı? (Hesap silinmez, bağ çözülür.)", "Evet, Kaldır", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/personnel/{_editId}/account");
         _ok = err is null; _msg = err ?? "Hesap bağı kaldırıldı.";
-        if (_ok) { _hasAccount = false; _accountUsername = ""; await LoadList(); }
+        if (_ok) { _hasAccount = false; _accountUsername = ""; if (Auth.IsAdmin) await LoadLinkableUsers(); await LoadList(); }
     }
 
     private async Task Delete(string id)
@@ -330,7 +345,7 @@
     private void Clear()
     {
         _editId = null; _name = _phone = ""; _title = null; _branch = null; _active = true; _fieldStaff = false;
-        _grantAccess = false; _username = ""; _password = ""; _roleKey = "role-staff";
+        _grantAccess = false; _linkUserId = null;
         _hasAccount = false; _accountAdmin = false; _accountUsername = ""; _dups = new(); _dupAck = false;
         CancelAddTitle();
     }

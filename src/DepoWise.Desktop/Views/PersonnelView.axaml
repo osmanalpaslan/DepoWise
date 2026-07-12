@@ -62,27 +62,35 @@
                                          Foreground="{DynamicResource WarningBrush}"/>
                 </Border>
 
-                <!-- Uygulama erişimi (kullanıcı hesabı) — aynı ekranda -->
+                <!-- Uygulama erişimi: MEVCUT kullanıcıyı bağla (hesap açma yok) -->
                 <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding FHasAccount}">
-                    <SelectableTextBlock Text="Uygulama hesabı:" Classes="Helper" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Bağlı uygulama hesabı:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding FAccountInfo}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Button Classes="Secondary" Content="Hesabı kaldır" Command="{Binding RemoveAccountCommand}"
+                    <Button Classes="Secondary" Content="Bağı kaldır" Command="{Binding RemoveAccountCommand}"
                             IsVisible="{Binding CanManageAccounts}"/>
                 </StackPanel>
 
-                <CheckBox Content="Uygulama erişimi ver (kullanıcı hesabı aç)"
+                <CheckBox Content="Mevcut kullanıcıyı bağla"
                           IsChecked="{Binding FGrantAccess}" IsVisible="{Binding ShowGrantToggle}"/>
-                <StackPanel Spacing="14" IsVisible="{Binding ShowAccountFields}">
-                    <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Kullanıcı Adı" IsRequired="True" Width="200">
-                            <TextBox Classes="Field" Text="{Binding FUsername}"/>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Şifre" IsRequired="True" Width="200">
-                            <TextBox Classes="Field" PasswordChar="●" Text="{Binding FPassword}"/>
-                        </ctrl:FormField>
-                    </StackPanel>
-                    <CheckBox Content="Firma Admini (işaretli değilse Personel)" IsChecked="{Binding FRoleAdmin}"/>
-                    <SelectableTextBlock Text="Ayrıntılı ekran yetkileri 'Yetkiler' ekranından ayarlanır." Classes="Helper"/>
+                <StackPanel Spacing="10" IsVisible="{Binding ShowAccountFields}">
+                    <ctrl:FormField Label="Bağlanacak Kullanıcı" IsRequired="True" Width="360"
+                                    IsVisible="{Binding HasLinkableUsers}">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding LinkableUsers}" SelectedItem="{Binding FLinkUser}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock>
+                                        <Run Text="{Binding Username}"/>
+                                        <Run Text="{Binding FullName, StringFormat=' — {0}'}"/>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding !HasLinkableUsers}"
+                                         Text="Bağlanabilir (henüz bir personele bağlı olmayan) kullanıcı yok. Önce 'Kullanıcılar' ekranından hesap açın."/>
+                    <SelectableTextBlock Text="Yalnız henüz bir personele bağlı olmayan kullanıcılar listelenir. Ekran yetkileri 'Yetkiler' ekranından ayarlanır."
+                                         Classes="Helper" TextWrapping="Wrap" IsVisible="{Binding HasLinkableUsers}"/>
                 </StackPanel>
 
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"

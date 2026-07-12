@@ -29,6 +29,9 @@ public sealed record UserRow(string Id, string Username, string? FullName, bool 
 /// <summary>#6 — Bir personele bağlı kullanıcı hesabının özeti (çalışan listesi rozeti için).</summary>
 public sealed record PersonnelAccount(string UserId, string Username, bool IsActive, bool IsAdmin);
 
+/// <summary>Bir personele bağlanabilir (henüz bağsız) kullanıcı — personel ekranı "kullanıcı bağla" listesi.</summary>
+public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive);
+
 /// <summary>Kota izleme satırı (F): firma kullanıcı + admin kullanımı vs limit.</summary>
 public sealed record QuotaMonitorRow(string CompanyId, string CompanyName, int MaxUsers, int UserCount, int AdminLimit, int AdminCount, int ActiveCount = 0)
 {
@@ -376,6 +379,32 @@ ORDER BY u.username;";
         q.Parameters.AddWithValue("$x", (object?)excludeUserId ?? DBNull.Value);
         if (Convert.ToInt64(q.ExecuteScalar()) > 0)
             throw new InvalidOperationException("Bu personele zaten bir kullanıcı hesabı bağlı. Bir personele yalnız bir hesap bağlanabilir.");
+    }
+
+    /// <summary>Bir personele BAĞLANABİLİR kullanıcılar: firmanın henüz hiçbir personele bağlı OLMAYAN
+    /// (personnel_id NULL), silinmemiş kullanıcıları (süper admin kullanıcıları hariç). Personel ekranındaki
+    /// "mevcut kullanıcıyı bağla" açılır listesi bunu kullanır. YALNIZ Admin / Süper Admin.</summary>
+    public IReadOnlyList<LinkableUser> ListLinkableUsers(SessionContext actor)
+    {
+        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Bağlanabilir kullanıcı listesi yalnız Admin / Süper Admin.");
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT u.id, u.username, u.full_name, u.is_active
+FROM users u
+WHERE u.is_deleted=0 AND u.personnel_id IS NULL
+  AND ($all=1 OR u.company_id=$c)
+  AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+                  WHERE ur.user_id=u.id AND r.role_key=$sa)
+ORDER BY u.username;";
+        cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.Parameters.AddWithValue("$c", actor.CompanyId);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        var list = new List<LinkableUser>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new LinkableUser(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetInt64(3) == 1));
+        return list;
     }
 
     /// <summary>Var olan bir kullanıcıyı bir personele bağlar (yanlış bağı düzeltme). YALNIZ Admin / Süper Admin.</summary>

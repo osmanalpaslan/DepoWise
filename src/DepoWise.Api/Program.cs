@@ -627,6 +627,19 @@ app.MapPost("/api/personnel/{id}/account", (HttpContext c, string id, AccountDto
         d.Username, d.Password, p.FullName, roles, CompanyId: s.CompanyId, BranchId: d.BranchId ?? p.BranchId, PersonnelId: id));
     return Results.Ok(new { userId = uid });
 }).RequireAuthorization();
+// #6 (revize) — Personele BAĞLANABİLİR mevcut kullanıcılar (henüz hiçbir personele bağlı olmayan). Admin+.
+app.MapGet("/api/personnel/linkable-users", (HttpContext c) =>
+    S(c) is { } s
+        ? Results.Ok(svc.Users.ListLinkableUsers(s).Select(u => new { id = u.Id, username = u.Username, fullName = u.FullName, isActive = u.IsActive }))
+        : Results.Unauthorized()).RequireAuthorization();
+// #6 (revize) — MEVCUT kullanıcıyı personele bağla (YENİ hesap açmaz; kullanıcılar "Kullanıcılar" ekranında açılır). Admin+.
+app.MapPost("/api/personnel/{id}/link-user", (HttpContext c, string id, LinkUserDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.UserId)) return Results.Json(new { error = "Bağlanacak kullanıcı seçilmedi." }, statusCode: 400);
+    svc.Users.LinkPersonnel(s, d.UserId!, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 // #6 — Personelin hesabını çöz (kullanıcıyı silmez, bağı kaldırır). Admin+.
 app.MapDelete("/api/personnel/{id}/account", (HttpContext c, string id) =>
 {
@@ -1458,6 +1471,7 @@ record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false);
 record TitleDto(string Name);
 record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);
+record LinkUserDto(string? UserId);
 record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false, string? PersonnelId = null);
 record MachineRegisterDto(string? CompanyId, string? MachineName, string? BranchId = null);
 record QuotaDto(int Quota);

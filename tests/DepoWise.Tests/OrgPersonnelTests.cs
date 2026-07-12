@@ -284,6 +284,40 @@ public class OrgPersonnelTests : IDisposable
         Assert.Single(users.AccountsByPersonnel(su.CompanyId).Where(kv => kv.Key == p1));
     }
 
+    // ---- Personele MEVCUT kullanıcı bağlama: bağlanabilir liste (yeni akış — hesap açma değil) ----
+    [Fact]
+    public void BaglanabilirKullanicilar_YalnizBagsiz_SuperAdminHaric()
+    {
+        var su = SuperAdmin(); // firma A + süper admin (root)
+        var pers = new PersonnelService(_factory, _scope, _clock);
+        var users = new UserService(_factory, _clock);
+
+        var p1 = pers.Create(su, new NewPersonnel("Bağlı Kişi", "Şoför", "0555", null));
+        var uLinked = users.CreateUser(su, new NewUser("bagli", "p12345", "Bağlı",
+            new[] { RoleKeys.Staff }, CompanyId: su.CompanyId, PersonnelId: p1));
+        var uFree = users.CreateUser(su, new NewUser("serbest", "p12345", "Serbest",
+            new[] { RoleKeys.Staff }, CompanyId: su.CompanyId));
+
+        var linkable = users.ListLinkableUsers(su);
+        Assert.Contains(linkable, u => u.Id == uFree);              // bağsız → listede
+        Assert.DoesNotContain(linkable, u => u.Id == uLinked);      // bağlı → listede değil
+        Assert.DoesNotContain(linkable, u => u.Username == "root"); // süper admin → listede değil
+
+        // Serbest kullanıcıyı bir personele bağla → artık bağlanabilir değil.
+        var p2 = pers.Create(su, new NewPersonnel("İkinci Kişi", "Memur", "0666", null));
+        users.LinkPersonnel(su, uFree, p2);
+        Assert.DoesNotContain(users.ListLinkableUsers(su), u => u.Id == uFree);
+    }
+
+    [Fact]
+    public void BaglanabilirKullanicilar_YalnizAdmin()
+    {
+        var su = SuperAdmin();
+        var users = new UserService(_factory, _clock);
+        var staff = new SessionContext("staff-x", su.CompanyId, new[] { RoleKeys.Staff }, PermissionSet.Empty);
+        Assert.Throws<ForbiddenException>(() => users.ListLinkableUsers(staff));
+    }
+
     [Fact]
     public void Firma_YenidenAktiflestirme_KullanicilariGeriAktifEder()
     {
