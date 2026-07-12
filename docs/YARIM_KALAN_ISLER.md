@@ -12,9 +12,9 @@
 
 ## A. Bekleyen İşler (sıradaki hata listesi — son promttan 2026-07-12)
 
-**Kod tarafı: 7 maddenin TAMAMI yapıldı, derlendi ve test edildi (273/273 yeşil). Commit + push edildi.**
-⏳ **Kalan: CANLIYA ALMA** — API + Web deploy ve masaüstü **1.0.47** paketi (kullanıcı onayı bekliyor;
-deploy dışa dönük + masaüstü paketi tüm makinelere otomatik güncelleme gönderir). Ayrıntı §C.
+**Şu an bekleyen iş YOK.** Son promttaki 7 maddenin TAMAMI yapıldı, test edildi (273/273 yeşil) ve
+**CANLIYA ALINDI:** API + Web deploy (health 200) · masaüstü **1.0.47** yayınlandı (sunucuda "en güncel"
+doğrulandı) · git push edildi. Ayrıntı §C.
 
 ---
 
@@ -28,7 +28,7 @@ deploy dışa dönük + masaüstü paketi tüm makinelere otomatik güncelleme g
 
 ## C. Bu Oturumda Tamamlananlar (2026-07-12)
 
-### 2. prompt (ADR-076…082) — kod tamam, test 273/273, canlıya alma bekliyor
+### 2. prompt (ADR-076…082) — CANLIYA ALINDI (test 273/273; API+Web deploy, masaüstü 1.0.47)
 
 > **Not:** Bu 7 ADR'nin **commit mesajları ADR-075…081** etiketli; DECISIONS.md'de doğru sıra **ADR-076…082**
 > (075 numarası zaten "logo arka plan" kararına aitti — birer kaydırma).

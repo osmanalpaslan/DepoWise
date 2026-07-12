@@ -29,11 +29,11 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 |---|---|
 | **Testler** | **273/273 yeşil** (`dotnet test`) |
 | **Şema** | Migration **034** (son: `is_field_staff` + `personnel_titles`) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — canlı; **ADR-076…082 deploy bekliyor** |
-| **Web** | `depowise-web.fly.dev` — canlı; **ADR-076…082 deploy bekliyor** |
-| **Masaüstü** | **1.0.46 yayında** — ADR-076/080 için **1.0.47 paketi bekliyor** |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (ADR-076…082 yayında) |
+| **Web** | `depowise-web.fly.dev` — **canlı**, 200 (ADR-076…082 yayında) |
+| **Masaüstü** | **1.0.47 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **CANLIYA ALMA** (kod tamam) — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+| **Bekleyen iş** | **YOK** — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
 
 > **Bekleyen işleri her zaman [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)'den oku.**
 > Kullanıcı "yarıda kalan işler ne?" diye sorduğunda bakılacak tek liste odur; her değişiklikte güncellenir.
@@ -77,10 +77,9 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **CANLIYA ALMA (kullanıcı onayı bekliyor).** 2. promttaki 7 maddenin (ADR-076…082; commit'lerde 075…081) kodu tamam,
-> test 273/273 yeşil, git push edildi. Kalan tek iş: **API + Web deploy** ve **masaüstü 1.0.47 paketi**
-> (dışa dönük + masaüstü paketi tüm makinelere otomatik güncelleme gönderdiği için onay bekleniyor).
-> Komutlar §5'te. Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
+> **Şu an bekleyen iş YOK.** 2. promttaki 7 madde (ADR-076…082; commit'lerde 075…081) kod + test + **canlıya
+> alma** tamamlandı: API + Web deploy (health 200) ve **masaüstü 1.0.47** yayınlandı (sunucuda "en güncel").
+> Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·
