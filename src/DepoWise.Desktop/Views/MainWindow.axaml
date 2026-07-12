@@ -19,10 +19,12 @@
         <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <!-- Marka ikonu -->
+                <!-- Marka ikonu (daraltılmış çubuk) — koyu temada kaybolmasın diye beyaz kutuda -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="0">
-                    <Image Source="/Assets/app-icon-256.png" Width="30" Height="30"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Background="White" CornerRadius="8" Padding="3"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Image Source="/Assets/app-icon-256.png" Width="30" Height="30"/>
+                    </Border>
                 </Border>
                 <!-- Kullanıcı avatarı (alt) -->
                 <Border DockPanel.Dock="Bottom" Height="56">
@@ -59,10 +61,16 @@
                 Background="{DynamicResource SidebarBackgroundBrush}"
                 BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <!-- Logo -->
+                <!-- Logo (açık kenar çubuğu). Tam logo İSTİFLİ olduğundan 30px yükseklikte okunmaz →
+                     sembol + marka yazısı kullanılır. Sembol koyu temada kaybolmasın diye beyaz kutuda. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
-                    <Image Source="/Assets/logo.png" Height="30" HorizontalAlignment="Left"
-                           VerticalAlignment="Center" Stretch="Uniform"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Border Background="White" CornerRadius="8" Padding="3" VerticalAlignment="Center">
+                            <Image Source="/Assets/app-icon-256.png" Width="30" Height="30"/>
+                        </Border>
+                        <SelectableTextBlock Text="DepoWise" Classes="SectionTitle" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    </StackPanel>
                 </Border>
                 <!-- Kullanıcı -->
                 <Border DockPanel.Dock="Bottom" Height="56" Padding="16,0"

@@ -307,6 +307,20 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+### ADR-074 — Marka logoları web + masaüstüne eklendi (kalite korunarak) (12.07.2026)
+- **Kaynak:** `Desktop\Logo Dosyalarım` — iki dosya, ikisi de **1536×1024**:
+  - `Web +Uygulama içi Logo.png` — **istifli tam logo** (görsel + "DepoWise" + slogan). Arka planı **opak beyaz**di.
+  - `masaüstü uygulama simge logosu.png` — **sembol** (yazısız değil, kısa marka; **şeffaf**, A=0).
+- **İşleme (kalite korunur — yalnız küçültme, HighQualityBicubic, kayıpsız PNG; hiç büyütme yok):**
+  1. **Tam logo şeffaflaştırıldı:** dış beyaz zemin **kenarlardan flood-fill** ile alfa=0 yapıldı. Basit "beyazı sil" yapılsaydı **kamyonun beyaz kabini ve yol çizgileri delinirdi**; flood-fill yalnız *dıştan erişilebilen* beyazı siler → iç beyazlar korundu (görsel doğrulandı). Kenar yumuşatma için eşik gradyanı (190–232) → halo yok. Sonra içerik sınırına kırpıldı: **1040×841**.
+  2. **Sembol:** alfa sınırına kırpıldı (748×538) → **kare** tuvale ortalandı (%6 boşluk) → 838×838 → 16/24/32/48/64/128/256 px üretildi → **7 boyutlu `.ico`** (PNG gömülü, Vista+ standardı).
+- **Yerleşim:**
+  - Masaüstü: `Assets/logo.png` (tam logo), `Assets/app-icon-256.png` (sembol), `Assets/app-logo.ico` (pencere ikonu).
+  - **`.exe` simgesi:** csproj'da `<ApplicationIcon>` **hiç ayarlı değildi** → exe varsayılan .NET ikonuyla çıkıyordu. Eklendi; gömülü olduğu doğrulandı. Kullanılmayan `avalonia-logo.ico` (şablon artığı) silindi.
+  - Web: `wwwroot/logo.png`, `favicon.png` (256), `favicon.ico` (çok boyutlu) + `apple-touch-icon`.
+- **KOYU TEMA KURALI (önemli):** Logo **lacivert ağırlıklı** — şeffaf hâliyle koyu zemine konursa lacivert kısımlar **kaybolur**. Bu yüzden logo/sembol her yerde **beyaz yuvarlak kutu** içinde gösterilir (açık temada kart zaten beyaz → fark edilmez; koyu temada bilinçli "logo plakası" gibi durur). Geçerli yerler: web üst bar + web giriş kartı, masaüstü giriş ekranı + kenar çubuğu.
+- **Ölçek kararı:** Tam logo **istifli** (1040×841) → 30 px yükseklikte **okunmaz**. Bu yüzden dar alanlarda (masaüstü kenar çubuğu, web üst barı) **sembol** kullanılır; tam logo yalnız **giriş ekranlarında** (geniş, açık zemin) gösterilir.
+
 ### ADR-073 — Kota İzleme "ONLINE": zaten kullanıcı-bazlı tekildi; testle sabitlendi + bellek sızıntısı düzeltildi (12.07.2026)
 - **Talep (kullanıcı):** "Kota izleme ekranındaki online kolonunda aynı kullanıcı hem web'ten hem masaüstünden login olmuşsa **1 online** görünmeli; anlık login durumunu değil **kullanıcı** online durumunu almalı."
 - **İnceleme sonucu (önemli):** Bu davranış **zaten doğruydu**. `ServerPresence` sözlüğü **ilk yazıldığı günden beri `userId` ile anahtarlı** (`_seen[userId] = …`, commit `03b4709`, #4 özelliği). Aynı kullanıcının ikinci platformu **yeni kayıt açmaz, mevcut kaydı tazeler** → çift sayım mimari olarak imkânsız. JWT `sub` claim'i her iki platformda da aynı `userId`'dir (tek token üretici). Yani düzeltilecek bir sayım hatası **yoktu**.

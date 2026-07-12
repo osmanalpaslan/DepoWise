@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- EXE dosya simgesi (Gezgin/görev çubuğu/kısayol). Eskiden ayarlı DEĞİLDİ → varsayılan .NET ikonu görünüyordu. -->
+    <ApplicationIcon>Assets\app-logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

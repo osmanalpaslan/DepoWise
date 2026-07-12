@@ -9,6 +9,13 @@
 <PageTitle>Giriş — DepoWise</PageTitle>
 
 <MudPaper Class="pa-8" Elevation="4" Style="max-width:440px;width:100%;margin-top:10vh;">
+    @* Tam logo (istifli). Logo LACİVERT ağırlıklı olduğundan koyu temada kaybolmaması için daima
+       beyaz zeminli kutuda gösterilir (açık temada kart zaten beyaz → fark edilmez). *@
+    <div style="display:flex;justify-content:center;margin-bottom:20px;">
+        <div style="background:#fff;border-radius:12px;padding:14px 18px;">
+            <img src="logo.png" alt="DepoWise" style="width:100%;max-width:230px;height:auto;display:block;" />
+        </div>
+    </div>
     <MudText Typo="Typo.h5" Class="mb-1">DepoWise Yönetim</MudText>
 
     @if (_step == 1)

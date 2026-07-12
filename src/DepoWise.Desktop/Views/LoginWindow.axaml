@@ -14,7 +14,10 @@
 
     <Border Background="{DynamicResource Brand.Surface.Brush}" Padding="32">
         <StackPanel Spacing="16" VerticalAlignment="Center">
-            <Image Source="/Assets/logo.png" Width="220" HorizontalAlignment="Center" Stretch="Uniform"/>
+            <!-- Logo LACİVERT ağırlıklı → koyu temada kaybolmasın diye daima beyaz zeminli kutuda gösterilir. -->
+            <Border Background="White" CornerRadius="12" Padding="14,12" HorizontalAlignment="Center">
+                <Image Source="/Assets/logo.png" Width="200" Stretch="Uniform"/>
+            </Border>
             <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
                        Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
 

@@ -14,10 +14,8 @@
 
 Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 
-### 1. Logolar (kaliteyi koruyarak projeye ekleme)
-- **Kaynak:** `C:\Users\Osman Alpaslan\Desktop\Logo Dosyalarım` (dosya adları ortam/yer belirtiyor).
-- **Aşamalar:** (a) Dosyaları incele (hangi ortam/yer). (b) Web ve masaüstünde doğru yerlere yerleştir. (c) **Düşük çözünürlüğe düşürme; kaliteyi koru.** (d) Login/başlık/favicon gibi yerlere bağla.
-- **Testler:** Web + masaüstünde logo net görünür (bulanık değil) · farklı ekran/DPI'da bozulmaz.
+**Şu an bekleyen iş YOK.** Son promttaki tüm maddeler tamamlandı. 🎉
+Yeni iş çıktıkça buraya eklenecek.
 
 ---
 
@@ -58,6 +56,10 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
   Yapılanlar: şart **4 testle sabitlendi** (regresyon) + gerçek bir kusur giderildi (eski kayıtlar sözlükten hiç
   silinmiyordu → bellek sızıntısı). **Not:** ekranda 2 gördüysen ya iki **farklı kullanıcı** online'dı ya da
   **"AKTİF"** sütunu (aktif kullanıcı sayısı) ile **"ONLINE"** karıştı — tekrarlarsa hangi kullanıcılarla olduğunu bildir.
+- ✅ **Marka logoları eklendi (ADR-074)** — web + masaüstü. Tam logonun **opak beyaz zemini şeffaflaştırıldı**
+  (flood-fill: kamyonun beyaz kabini/yol çizgileri korunarak), sembolden **7 boyutlu `.ico`** üretildi.
+  **`.exe` simgesi hiç ayarlı değildi** (varsayılan .NET ikonu çıkıyordu) → düzeltildi. Favicon + giriş ekranları +
+  üst bar/kenar çubuğu bağlandı. Kalite korundu (hiç büyütme yok, kayıpsız PNG).
 - ⚠️ **KRİTİK OLAY — sunucu diski doldu (ADR-070):** `/data` (974 MB) %100 doldu → SQLite yazamadı →
   **login dahil tüm API 500** (tam kesinti). Sebep: her masaüstü paketi ~85 MB ve eski paketler hiç
   temizlenmiyordu (11 paket = 892 MB). Eski paketler silindi (disk %100 → %17) ve **otomatik saklama
