@@ -41,6 +41,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Requests.RequestService Requests { get; }
     public DepoWise.Infrastructure.Organization.BranchService Branches { get; }
     public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
+    public DepoWise.Infrastructure.Org.PersonnelTitleService PersonnelTitles { get; }
     public DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService MaintenanceDefinitions { get; }
     public DepoWise.Infrastructure.Security.PermissionService Permissions { get; }
     public DepoWise.Infrastructure.Security.PermissionTemplateService PermissionTemplates { get; }
@@ -86,6 +87,7 @@ public sealed class ServerServices
         Requests = new DepoWise.Infrastructure.Requests.RequestService(Factory, new DepoWise.Infrastructure.Materials.StockService(Factory, clock), clock);
         Branches = new DepoWise.Infrastructure.Organization.BranchService(Factory, clock);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
+        PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
         MaintenanceDefinitions = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(Factory, clock);
         Permissions = new DepoWise.Infrastructure.Security.PermissionService(Factory, clock);
         PermissionTemplates = new DepoWise.Infrastructure.Security.PermissionTemplateService(Factory, clock);

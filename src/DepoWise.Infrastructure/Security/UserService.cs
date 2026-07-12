@@ -17,10 +17,13 @@ public sealed record NewUser(
     string? PersonnelId = null);   // #6: hesabın bağlı olduğu personel (opsiyonel; bir personele tek kullanıcı)
 
 public sealed record UserRow(string Id, string Username, string? FullName, bool IsActive, string Roles, string? BranchId, string? BranchName,
-    bool CanViewAllBranches = false, bool IsAdmin = false)
+    bool CanViewAllBranches = false, bool IsAdmin = false,
+    string? PersonnelId = null, string? PersonnelName = null)   // Fikir B: hesabın bağlı olduğu personel
 {
     public string BranchDisplay => CanViewAllBranches ? "Tüm Şubeler" : (string.IsNullOrEmpty(BranchName) ? "—" : BranchName!);
     public string StatusText => IsActive ? "Aktif" : "Pasif";
+    /// <summary>Kullanıcı listesinde "Personel" sütunu — bağlı değilse "—".</summary>
+    public string PersonnelDisplay => string.IsNullOrEmpty(PersonnelName) ? "—" : PersonnelName!;
 }
 
 /// <summary>#6 — Bir personele bağlı kullanıcı hesabının özeti (çalışan listesi rozeti için).</summary>
@@ -63,9 +66,11 @@ SELECT u.id, u.username, u.full_name, u.is_active,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id),
   u.branch_id, b.name, COALESCE(u.can_view_all_branches,0),
   (SELECT COUNT(*) FROM user_roles ur2 JOIN roles r2 ON r2.id = ur2.role_id
-     WHERE ur2.user_id = u.id AND r2.role_key IN ($ca,$sa))
+     WHERE ur2.user_id = u.id AND r2.role_key IN ($ca,$sa)),
+  u.personnel_id, p.full_name          -- Fikir B: bağlı personel (varsa)
 FROM users u
 LEFT JOIN branches b ON b.id = u.branch_id
+LEFT JOIN personnel p ON p.id = u.personnel_id AND p.is_deleted = 0
 WHERE u.is_deleted = 0 AND ($all = 1 OR u.company_id = $c)
   -- Süper Admin kullanıcı kayıtları yalnız Süper Admin'e görünür (diğer roller göremez)
   AND ($all = 1 OR NOT EXISTS (
@@ -86,7 +91,9 @@ ORDER BY u.username;";
                 r.IsDBNull(5) ? null : r.GetString(5),
                 r.IsDBNull(6) ? null : r.GetString(6),
                 r.GetInt64(7) == 1,
-                r.GetInt64(8) > 0));
+                r.GetInt64(8) > 0,
+                r.IsDBNull(9) ? null : r.GetString(9),
+                r.IsDBNull(10) ? null : r.GetString(10)));
         return list;
     }
 

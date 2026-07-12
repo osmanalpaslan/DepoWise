@@ -579,12 +579,21 @@ app.MapGet("/api/personnel", (HttpContext c) =>
         return new
         {
             p.Id, p.CompanyId, p.BranchId, p.FullName, p.Title, p.Phone, p.IsActive, p.CreatedAt,
+            isFieldStaff = p.IsFieldStaff,   // Fikir B: "Saha personeli" kutucuğu
             hasAccount = a is not null, userId = a?.UserId, username = a?.Username,
             accountActive = a?.IsActive ?? false, accountAdmin = a?.IsAdmin ?? false,
         };
     });
     return Results.Ok(rows);
 }).RequireAuthorization();
+
+// Fikir B — Unvan SABİT TANIM listesi (personel formunda seçilir, "+" ile yeni eklenir).
+app.MapGet("/api/personnel-titles", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.PersonnelTitles.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/personnel-titles", (HttpContext c, TitleDto d) =>
+    S(c) is { } s ? Results.Ok(svc.PersonnelTitles.Create(s, d.Name)) : Results.Unauthorized()).RequireAuthorization();
+app.MapDelete("/api/personnel-titles/{id}", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.PersonnelTitles.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 // #6 — Olası aynı kişi (mükerrer) sorgusu: kayıt öncesi uyarı için.
 app.MapGet("/api/personnel/duplicates", (HttpContext c, string? fullName, string? phone, string? excludeId) =>
     S(c) is { } s ? Results.Ok(svc.Personnel.FindDuplicates(s, fullName ?? "", phone, excludeId)) : Results.Unauthorized()).RequireAuthorization();
@@ -686,16 +695,17 @@ app.MapGet("/api/roles", (HttpContext c) =>
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
 app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Branches.GetUsers(s, id)) : Results.Unauthorized()).RequireAuthorization();
-app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive)) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive))) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     // Firma: YALNIZ süper admin seçebilir; diğerleri kendi firmasına bağlar (yetki yükseltme engeli).
     var companyId = s.IsSuperAdmin && !string.IsNullOrWhiteSpace(d.CompanyId) ? d.CompanyId! : s.CompanyId;
     var id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
-        d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId, d.CanViewAllBranches));
+        d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId, d.CanViewAllBranches,
+        string.IsNullOrWhiteSpace(d.PersonnelId) ? null : d.PersonnelId));   // Fikir B: "Personel seç" ile bağla
     return Results.Ok(new { id });
 }).RequireAuthorization();
 app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
@@ -1398,9 +1408,10 @@ record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0);
 record NameDto(string Name);
-record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true);
+record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false);
+record TitleDto(string Name);
 record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);
-record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false);
+record NewUserDto(string Username, string Password, string? FullName, List<string>? RoleKeys, string? CompanyId, string? BranchId, bool CanViewAllBranches = false, string? PersonnelId = null);
 record MachineRegisterDto(string? CompanyId, string? MachineName, string? BranchId = null);
 record QuotaDto(int Quota);
 record VerifyBranchDto(string? CompanyId, string BranchId, string? BranchPassword);

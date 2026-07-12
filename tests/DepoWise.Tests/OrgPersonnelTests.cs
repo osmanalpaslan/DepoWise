@@ -147,6 +147,26 @@ public class OrgPersonnelTests : IDisposable
     }
 
     [Fact]
+    public void Kullanici_PersoneleBaglanir_ListedeGorunur() // Fikir B: Kullanıcılar ekranındaki "Personel seç"
+    {
+        var su = SuperAdmin();
+        var pers = new PersonnelService(_factory, _scope, _clock);
+        var users = new UserService(_factory, _clock);
+
+        var pid = pers.Create(su, new NewPersonnel("Bagli Kisi", "Şoför", "0555", null));
+        users.CreateUser(su, new NewUser("bagli", "p12345", "Bagli Kisi",
+            new[] { RoleKeys.Staff }, "A", PersonnelId: pid));
+
+        var row = users.ListUsers(su).Single(u => u.Username == "bagli");
+        Assert.Equal(pid, row.PersonnelId);
+        Assert.Equal("Bagli Kisi", row.PersonnelName);   // liste bağlı personeli gösterir
+
+        // Bir personele İKİNCİ hesap bağlanamaz (tek kullanıcı kuralı korunur)
+        Assert.ThrowsAny<Exception>(() => users.CreateUser(su, new NewUser("ikinci", "p12345", "X",
+            new[] { RoleKeys.Staff }, "A", PersonnelId: pid)));
+    }
+
+    [Fact]
     public void Unvan_Tanimlari_FirmayaIzole()
     {
         var su = SuperAdmin();                       // firma A
