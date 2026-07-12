@@ -1,7 +1,8 @@
-@* Modül × (Oku/Yaz/Düzelt/Sil) yetki matrisi — Yetkiler ve Yetki Şablonları ekranlarında ortak. *@
+@* Modül × (Oku/Yaz/Düzelt/Sil) yetki matrisi — Yetkiler ve Yetki Şablonları ekranlarında ortak.
+   Özel işlem yetkileri (özel butonlar) de AYNI ağacın içinde tek-onaylı satır olarak listelenir. *@
 <MudSimpleTable Dense="true" Bordered="true" Style="max-width:640px;">
     <thead>
-        <tr><th>Modül</th><th>Oku</th><th>Yaz</th><th>Düzelt</th><th>Sil</th></tr>
+        <tr><th>Modül / İşlem</th><th>Oku</th><th>Yaz</th><th>Düzelt</th><th>Sil</th></tr>
     </thead>
     <tbody>
         @foreach (var m in Modules)
@@ -23,6 +24,21 @@
                 }
             </tr>
         }
+        @if (Buttons is { Count: > 0 })
+        {
+            <tr><td colspan="5" class="pt-3"><b>İşlem Yetkileri (özel butonlar)</b></td></tr>
+            @foreach (var b in Buttons)
+            {
+                var bkey = b.Id;
+                <tr>
+                    <td>@b.Name</td>
+                    <td colspan="4">
+                        <MudCheckBox T="bool" Dense="true" Label="Yetki ver"
+                                     Value="@GetBtn(bkey)" ValueChanged="@(v => SetBtn(bkey, v))" />
+                    </td>
+                </tr>
+            }
+        }
     </tbody>
 </MudSimpleTable>
 
@@ -30,8 +46,11 @@
     [Parameter] public List<ApiClient.Opt> Modules { get; set; } = new();
     /// <summary>Süper-admin-only modül anahtarları — kilit rozeti gösterilir (#6).</summary>
     [Parameter] public HashSet<string>? AdminOnly { get; set; }
+    /// <summary>Özel işlem yetkileri (özel butonlar) — ağacın içinde tek-onaylı satır olarak gösterilir.</summary>
+    [Parameter] public List<ApiClient.Opt>? Buttons { get; set; }
 
     private readonly Dictionary<string, bool[]> _state = new();
+    private readonly HashSet<string> _btn = new();
 
     private bool Get(string key, int idx) => _state.TryGetValue(key, out var a) && a[idx];
     private void Set(string key, int idx, bool v)
@@ -39,6 +58,9 @@
         if (!_state.TryGetValue(key, out var a)) { a = new bool[4]; _state[key] = a; }
         a[idx] = v;
     }
+
+    private bool GetBtn(string key) => _btn.Contains(key);
+    private void SetBtn(string key, bool v) { if (v) _btn.Add(key); else _btn.Remove(key); }
 
     /// <summary>Kayıtlı yetkileri yükle: (moduleKey, view, create, edit, delete).</summary>
     public void LoadFrom(IEnumerable<(string Key, bool V, bool C, bool E, bool D)> data)
@@ -48,11 +70,22 @@
         StateHasChanged();
     }
 
-    public void Clear() { _state.Clear(); StateHasChanged(); }
+    /// <summary>Kayıtlı özel buton yetkilerini yükle.</summary>
+    public void LoadButtons(IEnumerable<string> keys)
+    {
+        _btn.Clear();
+        foreach (var k in keys) _btn.Add(k);
+        StateHasChanged();
+    }
+
+    public void Clear() { _state.Clear(); _btn.Clear(); StateHasChanged(); }
 
     /// <summary>En az bir bayrağı açık olan modül anahtarları (#3 kısıtlı modül kontrolü için).</summary>
     public IEnumerable<string> SelectedKeys()
         => _state.Where(kv => kv.Value.Any(b => b)).Select(kv => kv.Key);
+
+    /// <summary>Seçili özel buton anahtarları.</summary>
+    public List<string> CollectButtons() => _btn.ToList();
 
     /// <summary>Sunucuya gönderilecek satırlar (en az bir bayrak açık olanlar).</summary>
     public List<object> Collect()

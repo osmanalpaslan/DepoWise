@@ -10,11 +10,41 @@
 
 ---
 
-## A. Bekleyen İşler (sıradaki hata listesi — son promttan 2026-07-12)
+## A. Bekleyen İşler — BÜYÜK YETKİ/EKRAN PROMPTU (2026-07-12)
 
-**Şu an bekleyen iş YOK.** Son promttaki 7 maddenin TAMAMI yapıldı, test edildi (273/273 yeşil) ve
-**CANLIYA ALINDI:** API + Web deploy (health 200) · masaüstü **1.0.47** yayınlandı (sunucuda "en güncel"
-doğrulandı) · git push edildi. Ayrıntı §C.
+Kullanıcı ~16 maddelik büyük bir yetki+ekran revizyonu verdi. **Adım adım, test edilebilir dilimler**
+halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **Opus 4.8** (güvenlik/rol/tenant).
+
+### ✅ Adım 1 — Yetki ağacı temeli (TAMAMLANDI, test 283/283, DEPLOY EDİLMEDİ)
+- ✅ **Sync yetkisi kaldırıldı** (ölü madde; eşitleme cihaz-token bazlı, her kullanıcıda zaten aktif). Kullanıcı onayıyla.
+- ✅ **Talep ikiye bölündü:** `requests` = **Talep Formu**, yeni `request_approval` = **Talep Onaylama**
+  (ayrı ekran+yetki). Onay/ret artık `request_approval` Edit ister. `btn-approve` kaldırıldı + **Migration035**
+  mevcut yetkileri yeni modüle taşıdı. Web+masaüstü onay butonu yeni yetkiye bağlandı (eski UI/servis mismatch giderildi).
+- ✅ **Özel işlem yetkileri ağacın içinde** listeleniyor (PermMatrix tek-onaylı satırlar; web). Masaüstü zaten aynı panelde.
+- ✅ **Eksik ekran denetimi:** tüm operasyonel ekranlar ağaçta; eksik yok (`company-permissions`/`developer`/`trash` gerekçeli hariç).
+- 📄 Rapor: [docs/tests/Yetki_Agaci_Test_Report.md](docs/tests/Yetki_Agaci_Test_Report.md).
+
+### ⏳ Adım 2 — Yeni ara rol + delegasyon tavanı + süper-admin-only reorg (SIRADA)
+- Admin ile süper admin arası **yeni rol**; kişi **kendine verilenden fazlasını veremez**; ağaçta yalnız kendine açık yetkiler görünür.
+- Süper-admin-only ekranlar (Kota İzleme, Canlı Sunucu, Sunucu Yedekleri, Makine Yönetimi, Güncelleme Yönetimi,
+  Firma Tanım) yalnız süper adminde + ağaçta yalnız süper admin görür; süper admin isterse **yeni role** devredebilir.
+- **Kota İzleme** yalnız süper admin + yetki verdiği.
+- Firma Yetki Kontrol modeli **Serbest / Admin / Süper Admin** (Global kilit yerine).
+- Admin'e yükseltme uyarısında **hangi yetkiler sebep** bilgisi listelensin.
+
+### ⏳ Adım 3 — Firma Tanım ekranı: admin + normal kullanıcı sayısı **ayrı** + **makine kotası** (mevcut %20 admin kuralı kalkacak).
+### ⏳ Adım 4 — Yetki Şablonu: **firma seçimi** + "tüm firmalar" + firma-bazlı görünürlük.
+### ⏳ Adım 5 — **Malzeme yeni-kayıt şablonu** ekranı (araç şablonuna benzer); admin=global, diğer kullanıcı kendi makinesinde; şablon-dışı kayıtta uyarı ("Ana Yetkiliye Bilgi verilmelidir!").
+### ⏳ Adım 6 — Kullanıcı oluştururken **şube zorunlu** (süper admin hariç); şube yoksa engelle + uyarı.
+### ⏳ Adım 7 — UI: **logo/tema renk uyumu** (web + masaüstü login).
+
+### Açıklanan (işlem yapılmadı):
+- **Fly.io ölçekleme:** personal/kullanım-bazlı hesapta makine/RAM/disk **üçü de ücretli**; bedava maksimum yok;
+  disk küçültülemez (geri alınamaz maliyet). Kullanıcı kuralı gereği **hiçbir değişiklik yapılmadı**.
+
+> ⏳ **DEPLOY EDİLMEMİŞ WEB DEĞİŞİKLİĞİ VAR** (Adım 1 web + eski B1/B2/B4): kullanıcı kararı = *sonraki web
+> işiyle birlikte* deploy edilecek. Sonraki Web deploy'unda otomatik gider — unutma. **API değişikliği de var**
+> (AppModules/RequestService/Migration035) → API'yi de deploy et.
 
 ---
 

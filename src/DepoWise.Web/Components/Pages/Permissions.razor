@@ -20,14 +20,7 @@
 
     @if (!string.IsNullOrEmpty(_userId))
     {
-        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" />
-        @if (_buttons.Count > 0)
-        {
-            <MudText Typo="Typo.subtitle2" Class="mt-3">Özel İşlem Yetkileri</MudText>
-            <MudStack Row="true" Wrap="Wrap.Wrap">
-                @foreach (var b in _buttons) { <MudCheckBox T="bool" Label="@b.Name" Value="_btnSel.Contains(b.Id)" ValueChanged="v => ToggleBtn(b.Id, v)" Dense="true" /> }
-            </MudStack>
-        }
+        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" />
         <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
     }
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
@@ -38,10 +31,8 @@
     private HashSet<string> _adminOnly = new();
     private readonly HashSet<string> _restricted = new();   // #3: alt role verilemeyen modüller
     private readonly HashSet<string> _adminUserIds = new();  // hedef Admin/Süper mi
-    private readonly HashSet<string> _btnSel = new();
     private string? _userId;
 
-    private void ToggleBtn(string key, bool on) { if (on) _btnSel.Add(key); else _btnSel.Remove(key); }
     private PermMatrix? _matrix;
     private string? _msg; private bool _ok; private bool _busy;
 
@@ -92,10 +83,11 @@
                 foreach (var m in mods.EnumerateArray())
                     list.Add((S(m, "moduleKey"), B(m, "canView"), B(m, "canCreate"), B(m, "canEdit"), B(m, "canDelete")));
             _matrix.LoadFrom(list);
-            _btnSel.Clear();
+            var btnKeys = new List<string>();
             if (doc.TryGetProperty("buttons", out var btns) && btns.ValueKind == JsonValueKind.Array)
                 foreach (var b in btns.EnumerateArray())
-                    if (b.ValueKind == JsonValueKind.String) _btnSel.Add(b.GetString() ?? "");
+                    if (b.ValueKind == JsonValueKind.String) btnKeys.Add(b.GetString() ?? "");
+            _matrix.LoadButtons(btnKeys);
         }
         catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
     }
@@ -132,7 +124,7 @@
             }
             else
             {
-                var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = _btnSel.ToList() });
+                var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = _matrix.CollectButtons() });
                 _ok = err is null; _msg = err ?? "Yetkiler kaydedildi.";
             }
         }

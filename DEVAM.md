@@ -27,13 +27,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **273/273 yeşil** (`dotnet test`) |
-| **Şema** | Migration **034** (son: `is_field_staff` + `personnel_titles`) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (ADR-076…082 yayında) |
-| **Web** | `depowise-web.fly.dev` — **canlı**, 200 (ADR-076…082 yayında) |
-| **Masaüstü** | **1.0.47 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Testler** | **283/283 yeşil** (`dotnet test`) |
+| **Şema** | Migration **035** (son: `btn-approve` → `request_approval` modülü taşıma) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 · ⚠️ Adım 1 API değişikliği **deploy edilmedi** |
+| **Web** | `depowise-web.fly.dev` — **canlı** · ⚠️ Adım 1 web değişikliği **deploy edilmedi** |
+| **Masaüstü** | **1.0.47 yayında** (Adım 1 masaüstü değişikliği yeni pakette gidecek) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+| **Bekleyen iş** | **VAR — büyük yetki/ekran promptu, Adım 1 bitti, Adım 2+ sırada** → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
 
 > **Bekleyen işleri her zaman [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)'den oku.**
 > Kullanıcı "yarıda kalan işler ne?" diye sorduğunda bakılacak tek liste odur; her değişiklikte güncellenir.
@@ -77,9 +77,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Şu an bekleyen iş YOK.** 2. promttaki 7 madde (ADR-076…082; commit'lerde 075…081) kod + test + **canlıya
-> alma** tamamlandı: API + Web deploy (health 200) ve **masaüstü 1.0.47** yayınlandı (sunucuda "en güncel").
-> Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
+> **Büyük yetki/ekran promptu — Adım 2:** yeni ara rol (admin ile süper admin arası) + delegasyon tavanı
+> (kişi kendine verilenden fazlasını veremez) + süper-admin-only ekranların ağaçta yalnız süper admine
+> görünmesi + Firma Yetki Kontrol modelinin **Serbest/Admin/Süper Admin**'e çevrilmesi. Ayrıntı ve tüm
+> adımlar (2–7): [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
+>
+> **Adım 1 bitti** (test 283/283): Sync kaldırıldı · Talep → Form+Onaylama (Migration035) · özel butonlar
+> ağacın içinde. ⚠️ **Deploy edilmedi** (kullanıcı kararı: sonraki web işiyle birlikte; **API'yi de** deploy et).
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·
