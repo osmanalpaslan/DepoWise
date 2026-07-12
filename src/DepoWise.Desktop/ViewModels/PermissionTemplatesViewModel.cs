@@ -45,7 +45,8 @@ public sealed partial class PermissionTemplatesViewModel : ViewModelBase
         _session = session;
         foreach (var (key, label) in AppModules.All)
         {
-            if (AppModules.IsPublic(key) || AppModules.IsSuperAdminOnly(key)) continue;
+            if (AppModules.IsPublic(key)) continue;
+            if (!AccessControl.CanGrantModule(_session, key)) continue; // delegasyon tavanı + süper-admin-only görünürlük
             Modules.Add(new TemplateModuleRow(key, label));
         }
         // Şablona rol seçimi (Süper Admin hariç roller — süper admin şablonla atanmaz)

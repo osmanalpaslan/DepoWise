@@ -954,17 +954,19 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
 app.MapGet("/api/modules", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    // #7 (şema notu): Süper admin yetkileri yetki AĞACINDA GÖRÜNMEZ — süper-admin-özel modüller
-    // hiç kimseye (süper admin dahil) yetki matrisinde listelenmez; süper admin zaten bypass eder.
-    var mods = AppModules.All.Where(m => !AppModules.IsSuperAdminOnly(m.Key))
-        .Select(m => new { key = m.Key, label = m.Label, adminOnly = false, restricted = AppModules.IsAdminRestricted(m.Key) });
+    // Delegasyon tavanı: aktör yalnız KENDİ verebileceği modülleri görür (veremeyeceği yetkiler ağaçta yok).
+    // Süper-admin-only ekranlar yalnız süper admine (devretmek için) ve o ekranı taşıyan kısıtlı süper admine görünür.
+    var mods = AppModules.All
+        .Where(m => AccessControl.CanGrantModule(s, m.Key))
+        .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();
 
-// Özel buton yetkileri kataloğu (yetki ağacı buton bölümü — web parity #15).
+// Özel buton yetkileri kataloğu (yetki ağacı buton bölümü — web parity #15). Delegasyon tavanı uygulanır.
 app.MapGet("/api/buttons", (HttpContext c) =>
-    S(c) is null ? Results.Unauthorized()
-        : Results.Ok(SpecialButtons.All.Select(b => new { key = b.Key, label = b.Label }))).RequireAuthorization();
+    S(c) is { } s
+        ? Results.Ok(SpecialButtons.All.Where(b => AccessControl.CanGrantButton(s, b.Key)).Select(b => new { key = b.Key, label = b.Label }))
+        : Results.Unauthorized()).RequireAuthorization();
 
 // Çöp Kutusu — silinen master-data'yı listeler/geri yükler. Yeniden kimlik doğrulama (parola) ister.
 app.MapPost("/api/trash", (HttpContext c, ReauthDto d) =>

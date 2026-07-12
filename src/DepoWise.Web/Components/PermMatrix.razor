@@ -12,7 +12,7 @@
                     @m.Name
                     @if (AdminOnly is not null && AdminOnly.Contains(m.Id))
                     {
-                        <MudTooltip Text="Yalnız Süper Admin — bu yetki alt rollere atanamaz.">
+                        <MudTooltip Text="Süper Admin ekranı — yalnız 'Kısıtlı Süper Admin' rolüne verilebilir.">
                             <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Warning" Class="ml-1" />
                         </MudTooltip>
                     }

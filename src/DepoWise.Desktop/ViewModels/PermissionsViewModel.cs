@@ -43,12 +43,15 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         foreach (var (key, label) in AppModules.All)
         {
-            // Dashboard/About herkese açık; Firma Tanım yalnız Süper Admin (atanamaz) → ağaçta yok.
-            if (AppModules.IsPublic(key) || AppModules.IsSuperAdminOnly(key)) continue;
+            if (AppModules.IsPublic(key)) continue;                       // Dashboard/About/Tema herkese açık
+            if (!AccessControl.CanGrantModule(_session, key)) continue;   // delegasyon tavanı + süper-admin-only görünürlük
             Modules.Add(new ModulePermNode(key, label));
         }
         foreach (var (key, label) in SpecialButtons.All)
+        {
+            if (!AccessControl.CanGrantButton(_session, key)) continue;   // aktörün veremeyeceği buton ağaçta yok
             Buttons.Add(new ButtonPermNode(key, label));
+        }
     }
 
     [RelayCommand]

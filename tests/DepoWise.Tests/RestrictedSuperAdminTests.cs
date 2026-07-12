@@ -121,6 +121,45 @@ public class RestrictedSuperAdminTests : IDisposable
         Assert.False(AccessControl.CanSeeMenu(admin, "quota_monitor"));
     }
 
+    // ---- Adım 2c: yetki ağacı görünürlüğü (delegasyon tavanı) ----
+    private static SessionContext S(string role, params ModulePermission[] mods)
+        => new("u", "A", new[] { role }, new PermissionSet(mods));
+
+    [Fact]
+    public void Agac_SuperAdmin_TumunuGorur_SuperAdminOnlyDahil()
+    {
+        var su = S(RoleKeys.SuperAdmin);
+        Assert.True(AccessControl.CanGrantModule(su, "materials"));
+        Assert.True(AccessControl.CanGrantModule(su, "machines"));       // süper-admin-only devretmek için görünür
+        Assert.True(AccessControl.CanGrantModule(su, "quota_monitor"));
+        Assert.True(AccessControl.CanGrantButton(su, SpecialButtons.ResetDatabase));
+    }
+
+    [Fact]
+    public void Agac_IlkAdmin_NormalTumunu_SuperAdminOnlyGizli()
+    {
+        var admin = S(RoleKeys.CompanyAdmin); // açık izni yok → ilk admin (sınırsız normal)
+        Assert.True(AccessControl.CanGrantModule(admin, "materials"));
+        Assert.False(AccessControl.CanGrantModule(admin, "machines"));   // süper-admin-only asla
+        Assert.False(AccessControl.CanGrantModule(admin, "quota_monitor"));
+        Assert.True(AccessControl.CanGrantButton(admin, SpecialButtons.ChangeCompanyLogo));
+    }
+
+    [Fact]
+    public void Agac_SinirliAktor_YalnizSahipOlduguGorunur()
+    {
+        // Kısıtlı süper admin yalnız quota_monitor taşıyor
+        var rsa = S(RoleKeys.RestrictedSuperAdmin, new ModulePermission("quota_monitor", true, false, false, false));
+        Assert.True(AccessControl.CanGrantModule(rsa, "quota_monitor"));
+        Assert.False(AccessControl.CanGrantModule(rsa, "materials"));    // taşımadığı normal modül gizli
+        Assert.False(AccessControl.CanGrantModule(rsa, "machines"));     // taşımadığı süper-admin-only gizli
+
+        // Sınırlı admin (açık izinli) yalnız verdiği modülü görür
+        var limited = S(RoleKeys.CompanyAdmin, new ModulePermission("materials", true, true, false, false));
+        Assert.True(AccessControl.CanGrantModule(limited, "materials"));
+        Assert.False(AccessControl.CanGrantModule(limited, "vehicles")); // veremeyeceği yetki ağaçta yok
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }

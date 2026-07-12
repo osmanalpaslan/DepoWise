@@ -47,6 +47,37 @@ public static class AccessControl
     public static bool CanSeeMenu(SessionContext s, string moduleKey)
         => Can(s, moduleKey, PermissionAction.View);
 
+    /// <summary>Aktörün AÇIKÇA verilmiş herhangi bir izni (modül bayrağı veya buton) var mı?
+    /// Yoksa firma admini "ilk admin" sayılır (geriye dönük uyum → sınırsız).</summary>
+    private static bool HasAnyExplicit(SessionContext s)
+        => s.Permissions.Modules.Any(m => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
+           || s.Permissions.Buttons.Any();
+
+    /// <summary>
+    /// Yetki AĞACINDA aktörün görebileceği/verebileceği modül mü (delegasyon tavanı):
+    /// - Süper Admin: tümü (süper-admin-only dahil — devretmek için).
+    /// - Kısıtlı Süper Admin / sınırlı admin/personel: YALNIZ kendi sahip olduğu modüller.
+    /// - Açık izni hiç olmayan firma admini (ilk admin): tüm NORMAL modüller (süper-admin-only hariç).
+    /// Aktörün veremeyeceği yetkiler ağaçta hiç görünmez.
+    /// </summary>
+    public static bool CanGrantModule(SessionContext s, string moduleKey)
+    {
+        if (s.IsSuperAdmin || DeveloperMode.IsActive) return true;
+        var own = s.Permissions.For(moduleKey);
+        if (own is not null && (own.CanView || own.CanCreate || own.CanEdit || own.CanDelete)) return true;
+        if (!AppModules.IsSuperAdminOnly(moduleKey) && s.IsCompanyAdmin && !HasAnyExplicit(s)) return true;
+        return false;
+    }
+
+    /// <summary>Yetki ağacında aktörün verebileceği özel buton mu (delegasyon tavanı; modülle aynı mantık).</summary>
+    public static bool CanGrantButton(SessionContext s, string buttonKey)
+    {
+        if (s.IsSuperAdmin || DeveloperMode.IsActive) return true;
+        if (s.Permissions.HasButton(buttonKey)) return true;
+        if (s.IsCompanyAdmin && !HasAnyExplicit(s)) return true;
+        return false;
+    }
+
     /// <summary>Özel buton/alan: admin bypass + açık izin; aksi halde gizli (deny-by-default).</summary>
     public static bool CanUseButton(SessionContext s, string buttonKey)
         => IsAdmin(s) || s.Permissions.HasButton(buttonKey);
