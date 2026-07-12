@@ -307,6 +307,62 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 - **Karar:** `UpdateInstaller`: (1) kurulum öncesi paket ana exe içermiyorsa kurulum hiç başlatılmaz (bütünlük guard). (2) PowerShell yardımcısı önce mevcut kurulumu `backup` dizinine yedekler; yedek alınamazsa güncelleme başlatılmaz. (3) staging→install kopyalaması başarısızsa (robocopy>=8) yedekten geri alınır ve sürüm YAZILMAZ (bozuk/yarım güncelleme kalıcı olmaz). (4) yalnız başarıda current.txt yazılır. Checksum kontrolü korunur.
 - **Gerekçe:** Y4 — eski yardımcı başarısız kopyada bile sürümü yazıp exe'yi başlatıyor, yedek almıyordu. NOT: gerçek PS yolu Windows entegrasyon testi gerektirir; senkron ApplyUpdate rollback'i (UpdateService) mevcut testlerde kapsanıyor.
 
+> **NUMARA NOTU (ADR-076…082):** Aşağıdaki 7 ADR'nin **commit mesajları ADR-075…081** etiketlendi; ancak
+> ADR-075 numarası zaten yukarıdaki "logo arka plan" kararına aitti → DECISIONS.md'de doğru sıra **076-082**
+> (commit'ler birer eksik: commit-075 = ADR-076, …, commit-081 = ADR-082). Git history yeniden yazılmadı.
+
+### ADR-076 — Silinen makine firması/şubesi girişe makine bilgisi olarak SUNULMAZ (12.07.2026) [commit: ADR-075]
+- **Bağlam:** Süper admin, makinenin atanmış firmasını silince tekrar login'de "Makine firması ile giriş
+  (silinmiş firma)" çıkıyor ve ona giriş yapılabiliyordu. Kök neden: `EnrollmentService.ReadDeviceInfo`
+  join'leri `is_deleted` filtrelemiyordu → silinmiş firma/şube adı-id'si makine bilgisi olarak dönüyordu.
+- **Karar:** (server) `ReadDeviceInfo` join'lerine `AND is_deleted=0`; silinmişse NULL döner. (masaüstü)
+  `SetupSuperAdminStep2Async`: makine firması geçerli firma listesinde yoksa makine firması/şubesi sayılmaz
+  (liste hiç yüklenemediyse dokunulmaz). 2 regresyon testi (SyncTests).
+- **Kural:** Makineye hangi firma+şube atandıysa makine firması **odur**; silinmiş/atanmamış firma seçenek değildir.
+
+### ADR-077 — Makine yönetiminde FİRMA değiştirme (web, süper admin) (12.07.2026) [commit: ADR-076]
+- **Karar:** `EnrollmentService.AssignCompany(s, deviceId, companyId)` — yalnız süper admin (çapraz-firma);
+  hedef firma var+silinmemiş olmalı; **şube ataması otomatik kalkar** (şube eski firmaya aitti). API:
+  `POST /api/machines/{id}/company`. Web `Machines.razor`: süper admine "Firma (değiştir)" seçim sütunu + onaylı taşıma.
+- **Kapsam:** Masaüstü makine ekranı zaten şube/firma değiştirme içermiyor (yalnız kota/aktif/sil) → dokunulmadı;
+  kullanıcının "sadece şube değiştirebiliyorum" dediği ekran web'di. 1 regresyon testi.
+
+### ADR-078 — Canlı sunucu ekranı: disk kapasitesi (canlı) + güncelleme paketi manuel silme (12.07.2026) [commit: ADR-077]
+- **Karar:** `ReleaseStore`: `GetDiskInfo` (DriveInfo ile `/data` doluluk), `ListPackages`, `Delete`.
+  `/api/server/status`'a disk alanları (diskPercent/Free/Used/packages) — 3 sn'de bir canlı. Yeni uçlar:
+  `GET /api/releases/packages` + `DELETE /api/releases/packages/{version}` (süper admin; **en güncel sürüm silinemez**).
+  Web `ServerStatus.razor`: canlı disk göstergesi (gauge + spark + %85 kritik uyarı) + KPI + paket tablosu (onaylı silme).
+- **Gerekçe:** ADR-070'teki disk-dolması tam kesintisine karşı süper adminin diski canlı görüp eski paketi elle temizlemesi.
+
+### ADR-079 — Web logosu masaüstünün temiz şeffaf logosuna eşitlendi (arka plan yok) (12.07.2026) [commit: ADR-078]
+- **Bağlam:** Web `logo.png`'de flood-fill şeffaflık "Depo" harflerinin içine sızmıştı (dama deseni görünüyordu)
+  + fazladan slogan vardı. Masaüstü login'de "tam olmuş" logo `Assets/app-icon.png` (şeffaf, arka plansız).
+- **Karar:** `app-icon.png` → `wwwroot/logo.png` olarak kopyalandı (birebir). Login + üst bar CSS zaten şeffaf.
+  Kullanıcının verdiği kaynak `masaüstü uygulama simge logosu.png` (2.2 MB, opak turuncu zeminli işlenmemiş orijinal)
+  yerine, zaten şeffaf/işlenmiş masaüstü asset'i tercih edildi ("arka plan olmasın" garantisi).
+
+### ADR-080 — İlk açılış tema varsayılanları (12.07.2026) [commit: ADR-079]
+- **Karar (kayıt yoksa uygulanan varsayılan; kullanıcı değiştirince kaydı ezer):** Masaüstü **Fluent / Koyu / Kehribar**
+  (`ThemeService`: accent varsayılanı blue→amber; mod Dark, stil fluent zaten hedefti). Web **Koyu / Yumuşak / Kehribar**
+  (server `/api/me/theme` + ApiClient fallback + `ThemeState`: color→amber, style→soft; mode dark zaten).
+
+### ADR-081 — Personel ekranı: hesap AÇMA yerine MEVCUT kullanıcıyı BAĞLAMA (12.07.2026) [commit: ADR-080]
+- **Kullanıcı talimatı:** Personel ekranında kullanıcı **açma** alanı değil, personele **mevcut kullanıcıyı bağlama** alanı olmalı.
+- **Karar:** ADR-067'deki inline "hesap aç" (kullanıcı adı/şifre/rol) alanı kaldırıldı; yerine **bağlanabilir
+  (henüz bir personele bağlı olmayan, süper-admin olmayan) mevcut kullanıcı** seçimi geldi (web + masaüstü).
+  `UserService.ListLinkableUsers`; `GET /api/personnel/linkable-users` + `POST /api/personnel/{id}/link-user`
+  (mevcut `LinkPersonnel` kullanılır). Hesaplar artık yalnız "Kullanıcılar" ekranında açılır. 2 regresyon testi.
+- **Not:** "Saha personeli" kutucuğu + bağlanmadıysa uyarı koşulu korundu (bağlama üzerinden). Eski `/account` (hesap aç) ucu kaldı ama kullanılmıyor.
+
+### ADR-082 — Firma yetki kontrol: süper admin DİNAMİK global kilidi açıp kapatabilir (12.07.2026) [commit: ADR-081]
+- **Bağlam:** "Global kilit" salt derleme-zamanı sabitiydi (`AppModules.IsAdminRestricted`) ve UI'da salt-okunurdu.
+- **Karar:** İki katman: (1) **SABİT** kilit (IsAdminRestricted — değiştirilemez), (2) süper adminin yönettiği
+  **DİNAMİK** global kilit (tüm firmalar). Dinamik kilit **migration'sız**, global `app_settings` satırında saklanır
+  (`company_id NULL`, key=`global_grant_limits`). `CompanyGrantService.SetGlobalLocks`/`IsGlobalRestricted`;
+  `GetControl` satırına `GlobalHardLocked` alanı. Enforcement `PermissionService.SaveForUser`'a `IsGlobalRestricted`
+  eklendi (alt role verilemez). API: `POST /api/global-permissions` (süper admin). Web: "Global kilit" toggle
+  (sabit olanlar "sabit" rozetiyle salt-okunur), Save hem firma hem global kilidi kaydeder. 1 regresyon testi.
+
 ### ADR-074 — Marka logoları web + masaüstüne eklendi (kalite korunarak) (12.07.2026)
 - **Kaynak:** `Desktop\Logo Dosyalarım` — iki dosya, ikisi de **1536×1024**:
   - `Web +Uygulama içi Logo.png` — **istifli tam logo** (görsel + "DepoWise" + slogan). Arka planı **opak beyaz**di.

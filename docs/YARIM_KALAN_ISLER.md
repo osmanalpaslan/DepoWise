@@ -12,25 +12,9 @@
 
 ## A. Bekleyen İşler (sıradaki hata listesi — son promttan 2026-07-12)
 
-Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
-
-1. **[BUG] Makine firması: silinen eski firma girişte hâlâ çıkıyor.** Makinenin atanmış firması
-   silindiği hâlde, tekrar login olunca makine firmasının yanında **eski (silinmiş) firma** listede
-   çıkıyor ve ona login olunabiliyor. Kural: makineye hangi firma+şube atandıysa makine firması **odur**;
-   silinmiş/atanmamış firma seçenek olarak çıkmamalı.
-2. **[ÖZELLİK] Makine yönetimi ekranında firma değiştirme.** Şu an yalnız şube değişimi var; **firma
-   değiştirme** de eklenmeli (web + masaüstü + API).
-3. **[ÖZELLİK] Canlı sunucu ekranı: disk kapasitesi + paket silme.** Sunucu durumu ekranında disk
-   doluluğu **canlı** görülmeli; eski güncelleme paketleri bu ekrandan **manuel silinebilmeli**.
-4. **[LOGO] Web logosu düzeltme.** Masaüstü login logosu tamam; web'de sorunlu. Web'de de
-   `masaüstü uygulama simge logosu.png` kullanılacak, **arka plan olmayacak**.
-5. **[TEMA] İlk açılış varsayılan teması** (sonra kullanıcı değiştirebilir):
-   - Masaüstü: **Stil Fluent / Koyu mod / renk Kehribar**.
-   - Web: **Tema Koyu / Stil Yumuşak / renk Kehribar**.
-6. **[DEĞİŞİKLİK] Personel ekranı: kullanıcı AÇMA değil, mevcut kullanıcıyı BAĞLAMA.** ADR-067'deki
-   "hesap açma" alanı yerine, personele **mevcut bir kullanıcıyı bağlama** alanı olmalı (web + masaüstü).
-7. **[ÖZELLİK] Firma yetki kontrol ekranı: global kilit.** Süper admin **global kilit** ayarını
-   buradan güncelleyebilmeli.
+**Kod tarafı: 7 maddenin TAMAMI yapıldı, derlendi ve test edildi (273/273 yeşil). Commit + push edildi.**
+⏳ **Kalan: CANLIYA ALMA** — API + Web deploy ve masaüstü **1.0.47** paketi (kullanıcı onayı bekliyor;
+deploy dışa dönük + masaüstü paketi tüm makinelere otomatik güncelleme gönderir). Ayrıntı §C.
 
 ---
 
@@ -43,6 +27,26 @@ Aşağıdakiler henüz **yapılmadı**. Sıra yukarıdan aşağıya.
 ---
 
 ## C. Bu Oturumda Tamamlananlar (2026-07-12)
+
+### 2. prompt (ADR-076…082) — kod tamam, test 273/273, canlıya alma bekliyor
+
+> **Not:** Bu 7 ADR'nin **commit mesajları ADR-075…081** etiketli; DECISIONS.md'de doğru sıra **ADR-076…082**
+> (075 numarası zaten "logo arka plan" kararına aitti — birer kaydırma).
+
+- ✅ **ADR-076 — Silinen makine firması/şubesi girişe sunulmaz** (server `ReadDeviceInfo` join'lerine
+  `is_deleted=0` + masaüstü: makine firması geçerli firma listesinde yoksa sayılmaz). 2 test.
+- ✅ **ADR-077 — Makine yönetiminde FİRMA değiştirme** (web, süper admin): `AssignCompany` (şube ataması
+  otomatik kalkar) + `POST /api/machines/{id}/company` + web sütunu. 1 test.
+- ✅ **ADR-078 — Canlı sunucu ekranı: disk (canlı) + paket silme**: `ReleaseStore.GetDiskInfo/ListPackages/Delete`,
+  `/api/server/status` disk alanları, `GET/DELETE /api/releases/packages`, web gauge + paket tablosu.
+- ✅ **ADR-079 — Web logosu** masaüstünün temiz şeffaf logosuna (`app-icon.png`) eşitlendi, arka plan yok.
+- ✅ **ADR-080 — İlk açılış tema varsayılanları**: Masaüstü Fluent/Koyu/Kehribar, Web Koyu/Yumuşak/Kehribar.
+- ✅ **ADR-081 — Personel ekranı: hesap AÇMA yerine mevcut kullanıcıyı BAĞLAMA** (web + masaüstü):
+  `ListLinkableUsers` + `POST /api/personnel/{id}/link-user`. 2 test.
+- ✅ **ADR-082 — Firma yetki kontrol: süper admin DİNAMİK global kilidi açıp kapatabilir**
+  (`SetGlobalLocks`/`IsGlobalRestricted`, global app_settings, enforcement + web toggle). 1 test.
+
+### 1. prompt (2026-07-12, ADR-064…074) — canlıda
 
 - ✅ **KRİTİK süper admin kilitlenme (ADR-064)** — firma silme süper admini pasife almaz + açılışta self-heal + regresyon testi. Canlı API redeploy edildi.
 - ✅ **#6 NİHAİ: Fikir A — tek ekran + koşullar (ADR-067)** — web + masaüstü:

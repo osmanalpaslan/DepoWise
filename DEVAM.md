@@ -27,13 +27,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **267/267 yeşil** (`dotnet test`) |
+| **Testler** | **273/273 yeşil** (`dotnet test`) |
 | **Şema** | Migration **034** (son: `is_field_staff` + `personnel_titles`) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
-| **Web** | `depowise-web.fly.dev` — **canlı**, 200 |
-| **Masaüstü** | **1.0.46 yayında** (sunucuda "en güncel" doğrulandı) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — canlı; **ADR-076…082 deploy bekliyor** |
+| **Web** | `depowise-web.fly.dev` — canlı; **ADR-076…082 deploy bekliyor** |
+| **Masaüstü** | **1.0.46 yayında** — ADR-076/080 için **1.0.47 paketi bekliyor** |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+| **Bekleyen iş** | **CANLIYA ALMA** (kod tamam) — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
 
 > **Bekleyen işleri her zaman [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)'den oku.**
 > Kullanıcı "yarıda kalan işler ne?" diye sorduğunda bakılacak tek liste odur; her değişiklikte güncellenir.
@@ -77,8 +77,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Şu an bekleyen iş YOK.** Son kullanıcı promtundaki tüm maddeler tamamlandı ve canlıya alındı.
-> Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
+> **CANLIYA ALMA (kullanıcı onayı bekliyor).** 2. promttaki 7 maddenin (ADR-076…082; commit'lerde 075…081) kodu tamam,
+> test 273/273 yeşil, git push edildi. Kalan tek iş: **API + Web deploy** ve **masaüstü 1.0.47 paketi**
+> (dışa dönük + masaüstü paketi tüm makinelere otomatik güncelleme gönderdiği için onay bekleniyor).
+> Komutlar §5'te. Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
+
+**Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
+makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·
+ilk açılış tema varsayılanları · personel ekranı "mevcut kullanıcıyı bağla" · firma yetki kontrol global kilit.
 
 **Kullanıcıdan onay/geri bildirim bekleyenler:**
 - Yeni **Personel ekranını** (tek ekranda hesap açma + saha kutucuğu + unvan "+") canlıda gözden geçirmesi.
