@@ -7,7 +7,9 @@
 - **Her anlamlı değişiklikten HEMEN sonra commit + `git push`** yap; oturum sonunu bekleme. Bir dosya grubu tamamlandığında, bir hata düzeltildiğinde, bir özellik çalıştığında commit'le ve gönder. Kural: yerelde push'suz iş biriktirme.
 - **Her push öncesi `DEVAM.md`'yi güncel tut:** §2 "en son yaptıklarım", §3 "sıradaki tek iş" ve üstteki "son güncelleme" tarihini yeniden yaz. Gerekirse `docs/PROJECT_STATE.md`/`KNOWN_ISSUES.md`/`DECISIONS.md`'yi de eşle ve aynı commit'e dahil et.
 - **Oturum/yanıt bitmeden önce:** commit edilmemiş değişiklik kalmadığından emin ol (`git status` temiz + origin ile senkron). Kullanıcı açıkça "gönderme" demedikçe push'u asla atlama.
+- **Bekleyen işlerin tek listesi: `docs/YARIM_KALAN_ISLER.md`.** Kullanıcı "yarıda kalan işler ne / sırada ne var" dediğinde buradan cevapla. Her anlamlı değişiklikten sonra güncelle: biten maddeyi "Tamamlananlar"a taşı, yeni iş çıkınca ekle, tarihi yenile.
 - `DEVAM.md` kısa ve teknik-olmayan kalır; ayrıntı `docs/` altındadır. Çelişkide `DEVAM.md` özet, `docs/` bağlayıcıdır.
+- **Arayüz fark etmez** (VS Code eklentisi / Claude Code masaüstü uygulaması / terminal): kurallar `CLAUDE.md` + `.claude/` + `DEVAM.md`'dedir ve git ile taşınır. Yeni arayüzde de akış aynıdır: `git pull` → `DEVAM.md` → `docs/YARIM_KALAN_ISLER.md`.
 
 ## 1. Proje kimliği ve kaynak önceliği
 - Bu projenin tek adı **DepoWise**'tır.

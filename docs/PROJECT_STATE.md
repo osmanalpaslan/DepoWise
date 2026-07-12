@@ -1,8 +1,25 @@
 # PROJECT STATE
 
-**Son güncelleme:** 2026-07-11 (mimari notu + güncel durum; faz gövdesi tarihseldir)
-**Aktif faz:** Faz 17 sonrası — UI bağlama + canlı yayın cilası + ölçek-öncesi sağlamlaştırma
-**Durum:** **Backend/iş mantığı YAYIN ADAYI**; **244 test yeşil**, migration 032. Web+API canlı (Blazor/SQLite, ADR-057). Açık engeller: R10 (UI bağlama), R8/R9 (login — büyük kısmı bağlandı). **NOT: R4/R7 (PostgreSQL) artık yayın engeli DEĞİL** — sistem SQLite ile çalışıyor; PostgreSQL yalnız ölçek gerekince (ADR-057, MALIYET_KALEMLERI #2).
+**Son güncelleme:** 2026-07-12 (ADR-064…074; faz gövdesi tarihseldir)
+**Aktif faz:** Faz 17 sonrası — kullanıcı geri bildirimi + canlı yayın cilası
+**Durum:** **Backend/iş mantığı YAYIN ADAYI**; **267 test yeşil**, **migration 034**. Web + API canlı
+(`depowise-web.fly.dev` / `depowise-erp.fly.dev`, Blazor/SQLite — ADR-057). **Masaüstü 1.0.46 yayında.**
+**Bekleyen iş yok** (bkz. `docs/YARIM_KALAN_ISLER.md`). **NOT: R4/R7 (PostgreSQL) yayın engeli DEĞİL** —
+sistem uçtan uca SQLite; PostgreSQL yalnız ölçek gerekirse (ADR-057, MALIYET_KALEMLERI #2).
+
+**Bu oturumun (12.07) kalıcı mimari sonuçları — yeni geliştiricinin bilmesi gerekenler:**
+- **Süper admin hiçbir koşulda kilitlenemez** (ADR-064/068): firma silme onu pasife almaz; sunucu açılışında
+  self-heal var; silinmiş firmada oturum home firmaya düşer. Kullanıcıları toplu pasife alan HER yeni yolda
+  süper admini hariç tut.
+- **WEB (SUNUCU) SİLMEDE TAM OTORİTER** (ADR-069): pull'da `is_deleted=1` LWW'yi aşar; push'ta sunucudaki
+  silme cihaz tarafından diriltilemez.
+- **Firmalar ve şubeler sunucu-otoriteli** (ADR-066/071): yerel kopya sunucudan **aynalanır** (sunucuda
+  olmayan kayıt yerelde pasife alınır).
+- **Firma işlemleri OFFLINE-FIRST + kuyruk** (ADR-072): yerele yaz → `sync_outbox` → internet gelince
+  **sırayla** işlenir; sunucu tarafı **idempotent** (tekrar gönderimde hata yok).
+  **Eşitleme sırası: 1) firma → 2) sabit tanımlar/lookup → 3) iş kayıtları** (paralel DEĞİL).
+- **Sunucu diski ~1 GB, paket ~85 MB** (ADR-070): dolarsa **tüm API 500**. Otomatik saklama politikası
+  en yeni 3 paketi tutar.
 
 ## Tamamlanan (Faz 17)
 - **Uçtan uca entegrasyon testi**: temiz DB'de çapraz-modül tam akış (malzeme/stok → araç/bakım/uyarı → talep onay-stok-değişmez → kontrollü çıkış → sync idempotent → yedek/geri yükleme) + tenant izolasyonu (`EndToEndTests`).

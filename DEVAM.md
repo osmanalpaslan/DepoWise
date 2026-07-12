@@ -23,165 +23,71 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-12)
 
-> **Bugün (2026-07-12) — #6 Çalışan Yönetimi MASAÜSTÜ tamamlandı (Faz4):**
-> - Masaüstü Personel ekranı → **Çalışan Yönetimi**: erişim rozeti (Saha/Kullanıcı/Admin), mükerrer kişi uyarısı,
->   "Uygulama erişimi ver" ile aynı formda hesap açma (kullanıcı adı/şifre/rol), saha-personeli onayı, hesap bağını kaldır (admin).
->   Web (Faz3) ile işlevsel eşit. Build 0 hata, **test 253/253**. *(Henüz masaüstü paketi yayınlanmadı.)*
->
-> **Bugün (2026-07-12) — KRİTİK ÇÖZÜLDÜ: süper admin kilitlenme (ADR-064):**
-> - Kök neden: firma silinince o firmadaki TÜM kullanıcılar pasife alınıyordu; süper admin kendi firmasını silince
->   kendini kilitliyordu ("kullanıcı adı veya parola hatalı"). Çözüm: firma silme süper admini pasife almaz +
->   sunucu açılışında pasif süper adminleri aktifleştiren self-heal + regresyon testi. Hafızaya kaydedildi.
-> - **CANLI:** API (`depowise-erp`) **yeniden yayınlandı** (12.07) — fix + self-heal canlıda. Self-heal sunucuda pasif
->   süper admin bulmadı → canlı süper admin zaten aktif; yaşanan kilit muhtemelen **masaüstü** yerel DB'deydi (sync ile açılır).
-> **Bugün (2026-07-12) — #6 NİHAİ HÂL: Fikir A (tek ekran) + koşullar (ADR-067), web + masaüstü:**
-> - Kısa geçmiş: önce **B** (Personel/Kullanıcılar ayrı ekran, ADR-065) yapıldı → kullanıcı **beğenmedi** →
->   **A'ya dönüldü**, ama B'de eklenen koşullar korundu. *(ADR-065 artık geçersiz.)*
-> - **Personel ekranında hesap açma** geri geldi: "Uygulama erişimi ver" → kullanıcı adı/şifre/rol (tek ekran),
->   admin "Hesabı kaldır" ile bağı çözebilir.
-> - **Korunan koşullar:** ☐ Saha personeli kutucuğu · hesap yoksa/açılmıyorsa **ve** kutucuk işaretsizse
->   **uyarı penceresi** (işaretliyse hiç çıkmaz) · **unvan sabit tanım + "+"** · mükerrer kişi uyarısı · tek hesap.
-> - Kullanıcılar ekranındaki "Personel seç (bağla)" + PERSONEL sütunu ikinci yol olarak duruyor.
->
-> **Bugün (2026-07-12) — silinen şube hatası çözüldü (ADR-066) + HEPSİ CANLIDA:**
-> - Şubeler sunucu-otoriteli ama masaüstü yerel kopyası yalnız upsert ediliyordu → silinen şube yerelde kalıyordu.
->   Artık her girişte sunucu şube listesi **aynalanır** (silinen şube yerelde de düşer). Test **258/258**.
-> - **CANLIDA:** API + Web yayında. **Masaüstü 1.0.40 YAYINLANDI** (checksum `6fcd76b3…`) — #6 nihai hâli (ADR-067: tek ekran + koşullar).
->   Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 kapandı.
->
->
-> **Bugün (2026-07-12) — 3. tur: senkron otoritesi + KRİTİK canlı arıza:**
-> - **Firma silince 401 / firmalar yüklenmiyor (ADR-068)** çözüldü: süper admin içinde çalıştığı firmayı silince
->   oturumu öksüz kalıyordu → artık home firmaya düşer (sahte firma id'de fail-closed korunur).
-> - **SİLMEDE WEB TAM OTORİTER (ADR-069):** web'de silinen kayıt makinelerin yerel DB'sinden de düşer
->   (silme LWW'yi aşar) ve sunucuda silinen kayıt cihaz push'uyla **diriltilemez**.
-> - **Firmalar sunucu-otoriteli (ADR-071):** masaüstü Firma Tanım artık sunucuya yazar (çevrimiçi zorunlu) ve
->   sunucu listesi yerele aynalanır → masaüstü ↔ web firma verisi birebir aynı.
-> - **⚠️ KRİTİK (ADR-070):** Sunucu diski (974 MB) **doldu** → SQLite yazamadı → **login dahil tüm API 500**.
->   Sebep: 85 MB'lık güncelleme paketleri hiç temizlenmiyordu (11 paket = 892 MB). Eski paketler silindi
->   (disk %100 → %36) + **otomatik saklama politikası** eklendi (en yeni 3 paket tutulur, doğrulandı).
-> - **CANLIDA:** API + Web yayında (200). **Masaüstü 1.0.42 YAYINLANDI.** Test **262/262**.
->
-> - **Sıradaki:** bekleyen hatalar — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)
->   (kota online dedup · logolar).
+### 🟢 Tek bakışta güncel durum
 
-> **Bugün (2026-07-11) — ADR-062: 4 özellik canlı + 2 öneri onay bekliyor.**
-> - **#1 Pasif firma yeniden aktifleştirme (sözleşme yenileme):** Firma silinince kullanıcılar pasife alınıyordu;
->   artık "Pasif Firmalar" bölümünden **Aktife Al** ile firma + kullanıcılar geri gelir. (Web + masaüstü + API)
-> - **#3 Canlı Sunucu:** İşlemci (CPU) ve Bellek (RAM) için **animasyonlu yüzde göstergeleri**. (Web-only ekran)
-> - **#4 Kota İzleme:** Firma başına **anlık ONLINE kullanıcı** (son 5 dk). (Web-only ekran)
-> - **#2 Yedek:** Masaüstünde **günde 1 kez otomatik yerel yedek** + yedek ekranlarına "nasıl dolar" bilgi paneli.
-> - **#5 (öneri):** Firma Yetki Kontrol yeni tasarım taslağı → `docs/mockups/firma-yetki-v2.html`.
-> - **#6 (öneri):** Personel+Yetki birleştirme fikirleri → `docs/ONERILER_YETKI_PERSONEL.md`. **İkisi de onay bekliyor.**
-> - Yeni kullanım kılavuzu: `docs/KULLANIM_KILAVUZU.md`. Testler yeşil (251/251). **Canlıda:** API+Web deploy edildi
->   (depowise-erp/web.fly.dev doğrulandı). **Masaüstü 1.0.37 YAYINLANDI** (self-contained 85.4 MB, checksum f85b4174…);
->   açık makineler 60 sn'de otomatik güncelleme uyarısı alır.
->
-> **Bugün 2. tur (2026-07-11) — ADR-063 (C/D/#5 uygulandı, #6 taslak):**
-> - **C** Güncelleme yeniden-başlat penceresi: "Şimdi Yeniden Başlat" / "10 Dakika Ertele" (her erteleme 10 dk, yazılı). *(masaüstü)*
-> - **D** Güncelleme bildirimleri birikmez: tek pencere; yeni paket çıkarsa açık pencerenin mesajı güncellenir. *(masaüstü)*
-> - **#5** Firma Yetki Kontrol **yeni tasarım uygulandı** (web, canlı) — özet kutular, arama, gruplama, 3 durumlu kontrol.
-> - **#6** Çalışan Yönetimi (Personel+Kullanıcı birleşik) **taslak hazır → onay bekliyor**: `docs/mockups/calisan-yonetimi-A.html`
->   (mükerrer kişi uyarısı, tek kullanıcı, admin+ düzeltme, "saha personeli mi?" onayı).
-> - **Web deploy edildi** (company-permissions 200). **Masaüstü 1.0.38 YAYINLANDI** (checksum 6c13eb7a…). Test 251/251.
+| Ne | Durum |
+|---|---|
+| **Testler** | **267/267 yeşil** (`dotnet test`) |
+| **Şema** | Migration **034** (son: `is_field_staff` + `personnel_titles`) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
+| **Web** | `depowise-web.fly.dev` — **canlı**, 200 |
+| **Masaüstü** | **1.0.46 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Git** | temiz + `origin/master` ile senkron |
+| **Bekleyen iş** | **YOK** — bkz. [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
 
+> **Bekleyen işleri her zaman [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)'den oku.**
+> Kullanıcı "yarıda kalan işler ne?" diye sorduğunda bakılacak tek liste odur; her değişiklikte güncellenir.
 
-> **✅ ÇÖZÜLDÜ (kesin) — masaüstü .NET runtime hatası (bu PC'ye özeldi, kod değil):**
-> Belirti: masaüstü apphost `.exe` "You must install or update .NET" (SDK+runtime kurulu olmasına rağmen). Kök neden:
-> winget .NET kurulumu apphost'un runtime'ı bulması için gereken kaydı yapmamıştı; DOTNET_ROOT/registry düzeltmeleri
-> tam oturmadı.
-> **Kesin çözüm:** Masaüstü **self-contained** yayınlandı (runtime uygulama içinde) ve kısayol ("DepoWise (Gelistirme)")
-> bu exe'ye bağlandı: `artifacts/desktop-selfcontained/DepoWise.Desktop.exe`. Bu exe hiçbir .NET kurulumuna/aramaya
-> BAĞLI DEĞİL → hata imkânsız (DOTNET_ROOT olmadan bile açıldı, doğrulandı).
-> **Yeniden üretmek için** (kod değişince güncel görmek için): `dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -r win-x64 --self-contained true -p:UseAppHost=true -o artifacts/desktop-selfcontained`
-> (kısayol aynı exe'yi açar). `artifacts/` gitignore'da. Bu sorun repoyu/diğer PC'leri etkilemez.
+### Bu oturumda yapılanlar (2026-07-12) — ADR-064 … ADR-074
 
-**Genel durum:** Backend + iş mantığı **yayın adayı (1.0.0-rc)** olgunlukta — 17 fazın hepsi
-bitti, **243 test yeşil**. Şu an **UI bağlama + canlı yayın cilası** aşamasındayım. Web + API canlıda
-(`depowise-erp.fly.dev`, `depowise-web.fly.dev`); masaüstü paketi **1.0.34** (1.0.35 henüz web'e yüklenmedi).
+**Kritik olaylar (ikisi de çözüldü, önlem alındı):**
+- **ADR-064 — Süper admin kilitlenmesi:** Firma silme, o firmadaki *tüm* kullanıcıları pasife alıyordu; süper admin
+  kendi firmasını silince sistemden tamamen kilitleniyordu ("kullanıcı adı veya parola hatalı"). Artık firma silme
+  süper admini **asla** pasife almaz + sunucu açılışında pasif süper adminleri aktifleştiren **self-heal** var.
+- **ADR-070 — TAM KESİNTİ: sunucu diski doldu.** `/data` (974 MB) %100 dolunca SQLite yazamadı → **login dahil tüm
+  API 500**. Sebep: her masaüstü paketi ~85 MB ve eski paketler hiç temizlenmiyordu (11 paket = 892 MB).
+  Eski paketler silindi (%100 → %36) + **otomatik saklama politikası** (en yeni 3 paket tutulur, `ReleaseStore.PruneOld`).
+  ⚠️ **Disk dolması sessiz değil ÖLÜMCÜLdür.** Teşhis: `flyctl ssh console --config fly.toml -C "df -h /data"`.
 
-**Ücretsiz sağlam-temel yol haritası (11.07) — çoğu TAMAM:**
-- (1) ✅ Kural kitabı gerçeğe uyduruldu (belge↔gerçek — DEPOWISE_ANALYSIS/PROJE_REHBERI/PROJECT_STATE + hafıza notu).
-- (2a) ✅ Çok-makineli senkron GÖRÜNÜRLÜK: iş verisi geri-çekme (`/api/sync/business-pull` + `BusinessSyncPullService`).
-- (2b) ✅ Stok bakiyesi SUNUCU-OTORİTELİ (`StockService.RecomputeBalances`, push sonrası) → "ezilme" çözüldü.
-- (3) ✅ Sunucu log/gözlemlenebilirlik (istek + açılış logu) — canlıda doğrulandı (`[REQ]/[WRN]/[ERR]`).
-- (4) ✅ CI (GitHub Actions: her push'ta Web derleme + 247 test) — ilk çalışma yeşil.
-- (9) ✅ Güvenlik: anonim uçlara rate limit (companies/branches gevşek; verify-branch sıkı brute-force).
-- (5) ✅ R10 aslen bitmiş (tüm menü→ViewModel bağlı; web 34 sayfa) — belgelendi.
-- (7) ✅ Yük testi aracı (`scripts/loadtest.mjs`); yerel baseline ~6400 req/s. Gerçek kapasite prod-boyutta ölçülmeli.
-- (6) 📄 PostgreSQL-hazırlık PLANI yazıldı (`docs/POSTGRESQL_HAZIRLIK.md`) — ölçek gerekince; temel hazır (38 servis soyut fabrika).
-- (2c) ⏳ Tam kimlikli çift-yönlü senkron (ileri çakışmalar) — ertelendi, `docs/SENKRON_YOL_HARITASI.md`.
-- ✅ **1.0.36 masaüstü paketi YAYINLANDI (11.07)** — self-contained (.NET gerektirmez, 85 MB), canlıda "en güncel sürüm=1.0.35". Masaüstü açık makineler 60 sn'de otomatik güncelleme uyarısı alır. Sonraki paket için: `dotnet publish ... --self-contained -p:Version=X.Y.Z` → zip → `node scripts/publish_release.mjs <zip> <sürüm> "<not>"` (env: DEPOWISE_ADMIN_USER/PASS).
-- Test 247/247 · maddi kalemler: `docs/MALIYET_KALEMLERI.md`.
+**Özellik / hata işleri:**
+- **ADR-067 — #6 Personel ekranı NİHAİ hâli (Fikir A):** personel + uygulama kullanıcısı **tek ekranda**
+  ("Uygulama erişimi ver" → kullanıcı adı/şifre/rol; "Hesabı kaldır"). Koşullar: **☐ Saha personeli** kutucuğu ·
+  hesap yoksa/açılmıyorsa **ve** kutucuk işaretsizse **uyarı penceresi** (işaretliyse hiç çıkmaz) ·
+  **unvan sabit tanım + "+"** · mükerrer kişi uyarısı · bir personele tek hesap.
+  *(Geçmiş: önce Fikir B — ayrı ekran — yapıldı, kullanıcı beğenmedi → A'ya dönüldü, koşullar korundu. ADR-065 geçersiz.)*
+- **ADR-066 — Silinen şubeler her yerde listeleniyordu:** şubeler sunucu-otoriteli ama masaüstü yerel kopyası
+  yalnız *upsert* ediliyordu → silinen şube yerelde kalıyordu. Artık her girişte sunucu şube listesi **aynalanır**.
+- **ADR-068 — Firma silince 401 + firmalar yüklenmiyor:** süper admin **içinde çalıştığı** firmayı silince
+  token'daki firma geçersiz kalıyor, sonraki her istek 401 dönüyordu. Artık silinmiş firmada **home firmaya düşer**
+  (oturum yaşar); *hiç var olmayan* firmada fail-closed korunur.
+- **ADR-069 — SİLMEDE WEB TAM OTORİTER:** web'de silinen kayıt makinelerin yerel DB'sinden de **düşer**
+  (silme LWW'yi aşar) **ve** sunucuda silinen kayıt **cihaz push'uyla diriltilemez**. Silme dışındaki LWW korundu.
+- **ADR-071/072 — Firmalar sunucu-otoriteli + OFFLINE-FIRST kuyruk:** masaüstünde eklenen/silinen firma web'e hiç
+  ulaşmıyordu. Artık işlem **önce yerele** yazılır + **kuyruğa** (`sync_outbox`) alınır; internet gelince **sırayla**
+  işlenir. Yeniden denemede **hata düşmez** (idempotent). **Eşitleme sırası: 1) firma → 2) sabit tanımlar → 3) iş kayıtları.**
+- **ADR-073 — Kota "ONLINE":** inceleme sonucu **zaten kullanıcı bazında tekildi** (aynı kişi web+masaüstü = 1);
+  düzeltilecek hata yoktu. Şart 4 testle sabitlendi + gerçek bir bellek sızıntısı giderildi.
+- **ADR-074 — Marka logoları** (web + masaüstü): tam logonun opak beyaz zemini flood-fill ile şeffaflaştırıldı
+  (kamyonun beyaz kabini korunarak), sembolden 7 boyutlu `.ico` üretildi, **`.exe` simgesi** (hiç ayarlı değildi) eklendi.
+  **Kullanıcı isteği: logoların arkasında beyaz kutu OLMAYACAK — yalnız logo.**
 
-**Bugünkü büyük işler (hepsi canlıda + commit'li):** "Süper Admin" rolü kullanıcı oluştururken yalnız süper admin'e listelenir (`/api/roles` düzeltmesi — web; masaüstü zaten uyguluyordu; sunucu RoleAssignmentGuard zaten zorluyor). ADR-060 (MASAÜSTÜ süper admin login: "makine firması/şubesi ile giriş" kutucukları VEYA firma+şube seçimi; süper admin hiçbir koşulda engellenmez; seçilen firma yerele upsert + çapraz-firma oturumu — canlı deploy sürüyor), ADR-058 (süper admin firma seçimi + zorunlu şube + Tüm Şubeler),
-ADR-059 (admin-atanmış makine şubesi + IP'den il; masaüstü: ana ekranda makine şubesi, çevrimdışı oto-giriş,
-kullanıcı/makine şubesi yoksa giriş engeli). Masaüstü değişiklikleri **1.0.35 paketi yayınlanınca** görünür.
-**Açık küçük iş:** Oze Group firmasının sunucuda 0 şubesi var (şubeler web-otoriteli; geçmişte masaüstünde kalmış) →
-kullanıcı web'den "Şube/Şantiye" ekranından ekleyecek.
-
-**Bugün (2026-07-10) — makine-şube modeli TAMAM (ADR-059), sunucu+web canlıda, masaüstü kodda:**
-- **Web (canlı):** Admin makine ekranından her makineye **şube atıyor** (otoriter); makine login şubesini yazmıyor. **İl** sütunu (IP'den, best-effort).
-- **Masaüstü (kodda; yeni pakette görünür):** ana sayfa **makine şubesini** gösterir; internet yoksa **makine şubesine otomatik giriş**; internet varsa şube seçimi; **kullanıcı veya makine şubesi yoksa giriş engellenir**; farklı-şube uyarısı admin-şubesine göre. Kullanıcı şubesi artık sunucudan senkron olur.
-- Test 243/243 (+1). **Masaüstü GUI akışı gerçek makinede test edilmeli.** Görmek için 1.0.35 paketi yayınlanmalı (aşağı §3).
-
-**Bugün (2026-07-10) — giriş (login) davranışı yeniden düzenlendi (ADR-058), canlıda:**
-- **Web 3 adımlı giriş:** kimlik → (süper admin ise) FİRMA seçimi → şube (ZORUNLU). Süper admin seçtiği firmayı o firmanın admini gibi yönetir (operasyonel veriler o firmaya kapsamlanır — yerel API'de e2e doğrulandı). Yeni uç: `POST /api/auth/select-company`.
-- **"Tüm Şubeler"** artık admin + süper admin'de daima açık (rapor için) — web + masaüstü.
-- Firma izolasyonu (personel başka firmayı görmez) zaten sağlanıyordu (TenantAccessGuard); doğrulandı.
-- Masaüstü: "Tüm Şubeler" kuralı eklendi; süper admin FİRMA seçimi masaüstünde YOK (çevrimdışı tek-firma yerel DB kısıtı). Bu değişiklik masaüstünde ancak **yeni paket** (1.0.35 sonrası) yayınlanınca görünür.
-- API + Web yeniden yayınlandı ve doğrulandı (login sayfası 200, select-company ucu canlı).
-
-**Önceki bugün (2026-07-09), yeni bilgisayara geçiş sonrası:**
-- Proje bu makineye klonlandı; `dotnet build` (0 hata) ve `dotnet test` (238/238 yeşil) ile doğrulandı — geliştirmeye devam edilebilir.
-- **Masaüstü 1.0.35 paketi yerelde toplandı** (`dotnet publish -c Release -p:Version=1.0.35`), zip'lendi, SHA-256 hesaplandı. **Henüz web'e yüklenip yayınlanmadı** — bu adım Süper Admin girişi gerektirdiği için tarayıcıdan elle yapılmalı (bkz. §3).
-- Dokuman/gerçek mimari tutarsızlığı düzeltildi (ADR-057): `apps/web` (Next.js) donmuş olarak işaretlendi; gerçek/canlı web `src/DepoWise.Web` (Blazor/MudBlazor), sunucu DB'si SQLite (PostgreSQL hiç kullanılmadı).
-- **API + Web güvenlik yeniden-yayını tamamlandı:** `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı, her iki servis yeniden yayınlandı ve doğrulandı (HTTP 200). 05.07 güvenlik/sync/oturum/updater değişiklikleri artık canlıda.
-
-**Önceki (2026-07-05):**
-- **Grup 1 (login):** Masaüstü login'de şube kodu gösteriliyor; makinenin kendi şubesinde şifre sorulmuyor.
-- **Grup 2 (şube damgalama):** Zorunlu şube seçimi + farklı şube seçilince netleştirilmiş uyarı.
-- Güvenlik sertleştirmesi (JWT anahtarı zorunlu, seed şifre env/rastgele, login rate-limit,
-  business-push yetki+doğrulama, JWT yenileme/kayan oturum, updater yedek+rollback).
-- Çöp Kutusu gerçek yapıldı (parola ile), Canlı Sunucu grafik düzeltmesi, oturum düşünce tekrar-giriş uyarısı.
+> Daha eski oturumların ayrıntısı: `docs/DECISIONS.md` (ADR-056…063) ve `docs/PROJECT_STATE.md`.
 
 ---
 
-## 3. SIRADAKI TEK IŞ — Masaüstü 1.0.35'i yayınla (yarın, farklı PC'de)
+## 3. SIRADAKI TEK IŞ
 
-> Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1 kuralı).
-> Kullanıcı 09.07 gecesi ara verdi; yarın **farklı bir PC'den** devam edecek. Önce §0'daki
-> "yeni PC'de ilk yapılacaklar" adımlarını uygula.
+> **Şu an bekleyen iş YOK.** Son kullanıcı promtundaki tüm maddeler tamamlandı ve canlıya alındı.
+> Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
 
-**Tek kalan iş: Masaüstü 1.0.35 paketini yayınlamak.** İki yol var:
+**Kullanıcıdan onay/geri bildirim bekleyenler:**
+- Yeni **Personel ekranını** (tek ekranda hesap açma + saha kutucuğu + unvan "+") canlıda gözden geçirmesi.
+- **Logo yerleşimi**: arka plansız hâliyle beğendi mi? (Koyu temada logo lacivert ağırlıklı olduğu için kontrast
+  düşebilir — kullanıcı bunu bilerek arka planı istemedi. Şikâyet gelirse koyu tema için açık renkli logo varyantı gerekir.)
 
-**A) Otomatik (önerilen) — `scripts/publish_release.mjs` ile, tarayıcı gerekmez:**
-   1. Yeni PC'de paket YOK (zip gitignore'lu, repoya girmez). Önce YENİDEN TOPLA:
-      `dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -o artifacts/rc/desktop-1.0.35 -p:Version=1.0.35`
-      sonra klasörü zip'le (PowerShell: `Compress-Archive artifacts/rc/desktop-1.0.35/* artifacts/rc/DepoWise-desktop-1.0.35.zip`).
-   2. Süper Admin bilgisini ortam değişkeni yap (kullanıcı kendi terminalinde):
-      `setx DEPOWISE_ADMIN_USER "..."` ve `setx DEPOWISE_ADMIN_PASS "..."`
-   3. Çalıştır: `node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.35.zip 1.0.35 "foto opt + guvenlik + login/sube"`
-   4. Script login yapar, checksum'ı KENDİ hesaplar, yükler, sunucuda "latest = 1.0.35" doğrular.
-   5. Bittiğinde ortam değişkenlerini SİL (şifre kalıcı kalmasın):
-      `[Environment]::SetEnvironmentVariable("DEPOWISE_ADMIN_PASS",$null,"User")` (USER için de).
-
-**B) Elle — web'den:** `https://depowise-web.fly.dev/releases` → Süper Admin girişi → Sürüm `1.0.35`,
-   notlar, zip'i seç → **"Yayınla"**. (Bu da geçerli; Süper Admin girişi ister.)
-
-> Her iki yolda da: yayından sonra masaüstü açık makineler 60 sn içinde otomatik güncelleme uyarısı alır.
-> Not: 09.07'de bu adım Süper Admin şifresi bende olmadığı için tamamlanamadı — kullanıcının kimlik bilgisi lazım.
-
-**(TAMAMLANDI 09.07.2026) Deploy:** `DEPOWISE_JWT_KEY` fly secret olarak ayarlandı, API (`depowise-erp`)
-+ Web (`depowise-web`) yeniden yayınlandı ve doğrulandı (ikisi de HTTP 200). 05.07 güvenlik/sync/oturum/updater
-değişikliklerinin tamamı artık canlıda.
-
-**Senden girdi bekleyenler** (PROJE_REHBERI §6):
-- Yönetici Raporları alt raporları hangileri olsun?
-- Menü adı ↔ ekran başlığı hizalansın mı?
+**Yeni iş geldiğinde:** önce `docs/YARIM_KALAN_ISLER.md`'ye ekle, sonra uygula, bitince oraya "Tamamlananlar"a taşı.
 
 ---
-
 ## 4. AÇIK YAYIN ENGELLERI (genel kullanıcı yayını öncesi)
 
 - **R10:** Kalan operasyonel modül ekranlarının UI bağlanması (Malzemeler bağlı, gerisi sırada).
@@ -208,6 +114,38 @@ Sonra `gh auth login` (GitHub), `flyctl auth login` (deploy için), `git clone h
 - Web (Blazor, gerçek/aktif): `dotnet run --project src/DepoWise.Web`
 - API (sunucu, yerel): `dotnet run --project src/DepoWise.Api`
 - (`apps/web` eski Next.js denemesi — donmuş, kullanılmıyor; bkz. ADR-057)
+
+### Canlıya alma (deploy) — doğrulanmış komutlar
+
+```bash
+flyctl deploy --config fly.toml     --ha=false   # API  → depowise-erp.fly.dev
+flyctl deploy --config fly.web.toml --ha=false   # Web  → depowise-web.fly.dev
+curl -s -o /dev/null -w "%{http_code}" https://depowise-erp.fly.dev/health   # 200 bekle
+```
+> **API'yi de deploy etmeyi unutma** eğer `src/DepoWise.Api`, `Infrastructure` ya da migration değiştiyse —
+> yeni web eski API'ye çarparsa 404/500 alır.
+
+### Masaüstü paketi yayınlama (sürüm artır!)
+
+```bash
+dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -r win-x64 \
+  --self-contained true -p:UseAppHost=true -p:Version=1.0.47 -o artifacts/rc/desktop-1.0.47
+# PowerShell: Compress-Archive -Path "artifacts\rc\desktop-1.0.47\*" -DestinationPath "artifacts\rc\DepoWise-desktop-1.0.47.zip" -Force
+node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.47.zip 1.0.47 "sürüm notu"
+```
+- Kimlik: `DEPOWISE_ADMIN_USER` / `DEPOWISE_ADMIN_PASS` **ortam değişkenlerinden** okunur (bu makinede kurulu).
+- Script login olur, checksum'ı kendi hesaplar, yükler ve "en güncel sürüm" doğrulamasını yapar.
+- Açık masaüstüler 60 sn içinde otomatik güncelleme uyarısı alır.
+- Sunucu **en yeni 3 paketi** tutar (ADR-070); eskiler otomatik silinir.
+
+### ⚠️ Sunucu diski (ADR-070 — tam kesinti yaşandı)
+
+```bash
+flyctl ssh console --config fly.toml -C "df -h /data"        # doluluk
+flyctl logs --config fly.toml --no-tail | grep -i "disk is full"
+```
+Disk dolarsa SQLite yazamaz → **login dahil her uç 500 döner.** Çare: `/data/releases` altındaki eski
+`.pkg` dosyalarını sil (en günceli koru).
 
 ---
 

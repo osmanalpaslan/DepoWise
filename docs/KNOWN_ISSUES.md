@@ -1,5 +1,31 @@
 # KNOWN ISSUES
 
+> Son güncelleme: 2026-07-12
+
+## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
+
+- **R30 — Sunucu diski dolarsa TÜM API 500 döner** (ADR-070, 12.07'de **yaşandı**). Fly.io kalıcı diski
+  `/data` ~**974 MB**; her masaüstü paketi ~**85 MB** → **~11 sürümlük tavan**. Disk dolunca SQLite hiçbir şey
+  yazamaz, **login dahil her uç 500** verir (sessiz değil, ölümcül).
+  **Önlem (uygulandı):** `ReleaseStore.PruneOld` → yayında en yeni **3 paket** tutulur, eskiler otomatik silinir.
+  **Teşhis:** `flyctl ssh console --config fly.toml -C "df -h /data"`.
+  **Kalan risk:** paket boyutu büyürse veya sürüm hızı artarsa `KeepCount` düşürülmeli ya da
+  `fly volumes extend` ile disk büyütülmeli. Etki: **kritik**.
+
+## Çözüldü (12.07.2026)
+
+- **Süper admin kilitlenmesi** (ADR-064): firma silme, süper admin dahil tüm kullanıcıları pasife alıyordu →
+  süper admin kendi firmasını silince sistemden tamamen kilitleniyordu. Firma silme artık süper admini hariç
+  tutar + sunucu açılışında **self-heal**. Regresyon testi var.
+- **Firma silince 401 + firmalar yüklenmiyor** (ADR-068): süper admin içinde çalıştığı firmayı silince
+  token'daki firma geçersiz kalıyordu → her istek 401. Artık home firmaya düşer (sahte firma id'de fail-closed).
+- **Silinen şubeler her yerde listeleniyordu** (ADR-066): masaüstü yerel kopyası sunucudan yalnız upsert
+  ediliyordu. Artık her girişte **aynalanır**.
+- **Masaüstü firma ekle/sil web'e ulaşmıyordu** (ADR-071/072): firmalar iş senkronunda yoktu ve yalnız yerele
+  yazılıyordu. Artık sunucu-otoriteli + **offline kuyruk** (idempotent, sıralı).
+- **Webte silinen kayıt makinede kalıyordu** (ADR-069): LWW silmeyi eziyordu; ayrıca cihaz push'u sunucudaki
+  silmeyi diriltiyordu. İkisi de kapatıldı.
+
 ## Açık
 - **R5:** Web ve masaüstü health şu an DB'ye fiilen bağlanmıyor (web config-kontrolü, masaüstü yerel SQLite write/read). Gerçek PostgreSQL bağlantı health'i Faz 02'de eklenecek. Etki: düşük.
 - **R6:** `dotnet test` çıktısında MSBuild "MSB4011 Directory.Build.props ikinci kez içe aktarıldı" benzeri bilgi mesajı görülebilir; build/test sonucunu etkilemiyor. Etki: kozmetik.

@@ -23,7 +23,7 @@ Yeni iş çıktıkça buraya eklenecek.
 
 - **Personel ekranını gözden geçir** (canlıda): tek ekranda **"Uygulama erişimi ver"** (kullanıcı adı/şifre/rol),
   **☐ Saha personeli**, **unvan listesi + "+"**, uyarı penceresi. Beğendin mi, değişiklik ister misin?
-- **Masaüstü:** açık makineler 60 sn içinde **1.0.43** güncelleme uyarısı alır; güncelleyip ekranları gör.
+- **Masaüstü:** açık makineler 60 sn içinde **1.0.46** güncelleme uyarısı alır; güncelleyip ekranları gör.
 
 ---
 
@@ -64,7 +64,7 @@ Yeni iş çıktıkça buraya eklenecek.
   **login dahil tüm API 500** (tam kesinti). Sebep: her masaüstü paketi ~85 MB ve eski paketler hiç
   temizlenmiyordu (11 paket = 892 MB). Eski paketler silindi (disk %100 → %17) ve **otomatik saklama
   politikası** eklendi (en yeni 3 paket tutulur). Hafızaya kaydedildi.
-- ✅ **CANLIYA ALINDI (12.07):** API + Web yayında (health 200). **Masaüstü 1.0.42 YAYINLANDI.**
-  Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 tümüyle kapandı. Test **262/262**.
+- ✅ **CANLIYA ALINDI (12.07):** API + Web yayında (health 200). **Masaüstü 1.0.46 YAYINLANDI.**
+  Yayın sırasında **süper admin canlı girişi doğrulandı** → ADR-064 tümüyle kapandı. Test **267/267**.
 
 > Önceki oturumlarda tamamlananların tam listesi: `DEVAM.md` §2 ve `docs/DECISIONS.md` (ADR-062/063).

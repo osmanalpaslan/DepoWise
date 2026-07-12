@@ -322,3 +322,37 @@ Her kayıt aşağıdaki şablonla eklenir.
 - Yeni: JwtTokenTests 4/4 GEÇTİ. (test projesine DepoWise.Api referansı eklendi.)
 - TAM test suit: 238/238 GEÇTİ (regresyon yok).
 - Updater gerçek PowerShell yolu: Windows'ta manuel/entegrasyon testi gerekli (Linux sandbox'ta çalıştırılamaz).
+
+## 2026-07-12 — ADR-064…074 (süper admin kilidi, senkron otoritesi, offline kuyruk, logolar)
+
+**Komut:** `dotnet build DepoWise.sln -c Debug` · `dotnet test tests/DepoWise.Tests/DepoWise.Tests.csproj -c Debug`
+**Sonuç:** Build **0 hata** · Test **267/267 yeşil** (oturum başında 251 idi → **+16 yeni test**)
+
+**Eklenen kritik testler (hepsi kullanıcının bildirdiği gerçek hataları çiviliyor):**
+
+| Test | Neyi garanti ediyor |
+|---|---|
+| `OrgPersonnelTests.Firma_Silme_SuperAdmini_PasifeAlmaz` | Süper admin kendi firmasını silse bile **pasife alınmaz** ve **tekrar giriş yapabilir** (ADR-064) |
+| `OrgPersonnelTests.SuperAdmin_CalistigiFirmayiSilince_Oturum_Dusmez_401_Vermez` | İçinde çalıştığı firmayı silince oturum **düşmez**, home firmaya düşer; firma listesi yüklenir (ADR-068) |
+| `AuthPermissionTests.SuperAdmin_OlmayanFirmada_Oturum_Acamaz` *(mevcut, korundu)* | **Hiç var olmayan** firma id'sinde **fail-closed** (sahte token koruması bozulmadı) |
+| `OrgPersonnelTests.Sube_Silinince_HicbirListede_Gorunmez` | Silinen şube ne listede ne şube-kapsam çözümleyicisinde çıkar (ADR-066) |
+| `BusinessSyncTests.Webte_Silinen_Kayit_Yerelde_De_Silinir_SUNUCU_OTORITER` | Web'de silinen kayıt, makinede **daha yeni düzenleme olsa bile** yerelde silinir (ADR-069) |
+| `BusinessSyncTests.Sunucuda_Silinen_Kayit_Cihaz_Pushuyla_Diriltilemez` | Cihaz push'u sunucudaki silmeyi **diriltemez** (ADR-069) |
+| `BusinessSyncTests.GeriCekmede_SilinmemisKayitta_LWW_Korunur` | Karşı-kontrol: **silme dışında** LWW davranışı bozulmadı |
+| `OrgPersonnelTests.Firma_Kuyruk_TekrarGonderiminde_HataVermez_IDEMPOTENT` | Offline kuyruk yeniden denerse **hata yok, mükerrer kayıt yok**; olmayan firmada yine hata (ADR-072) |
+| `OrgPersonnelTests.SahaPersoneli_Kutucugu_Kaydedilir_VeOkunur` | "Saha personeli" kutucuğu kalıcı (ADR-067) |
+| `OrgPersonnelTests.Unvan_Tanimi_Eklenir_Listelenir_MukerrerOlmaz` | Unvan sabit tanımı; **Türkçe duyarlı** mükerrer kontrolü ("Şoför" == "şoför") |
+| `OrgPersonnelTests.Unvan_Tanimlari_FirmayaIzole` | Unvan tanımlarında **tenant izolasyonu** |
+| `OrgPersonnelTests.Kullanici_PersoneleBaglanir_ListedeGorunur` | Kullanıcı↔personel bağı + **bir personele tek hesap** |
+| `ServerPresenceTests` (4 test) | Kota ONLINE **kullanıcı bazında tekil**: aynı kişi web+masaüstü = **1**; farklı kullanıcılar ayrı; 5 dk penceresi; aynı kişi iki firmada bile tek |
+
+**Canlı doğrulamalar:**
+- API `depowise-erp.fly.dev/health` → **200** · Web `depowise-web.fly.dev` → **200**
+- Yeni uç `/api/personnel-titles` → **401** (var, auth istiyor — 404 değil)
+- Süper admin **canlı girişi doğrulandı** (paket yayın scripti login oldu: `Giris OK (superAdmin)`)
+- Masaüstü **1.0.46** yayınlandı; sunucuda "en güncel sürüm" doğrulandı
+- Paket saklama politikası doğrulandı: `/data/releases` altında **tam 3 paket** kaldı; disk %100 → **%36**
+- `.exe` simgesi gömülü doğrulandı (7 boyutlu `.ico`); web `logo.png`/`favicon.png`/`favicon.ico` → 200
+
+**Bilinen flake:** Tam suit ilk koşuda `OrgPersonnelTests` bir kez SQLite "disk/prepare" hatası verdi (paralel
+dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatası değil, ortam kaynaklı.

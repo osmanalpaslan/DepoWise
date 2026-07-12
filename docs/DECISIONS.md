@@ -318,8 +318,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
   - Masaüstü: `Assets/logo.png` (tam logo), `Assets/app-icon-256.png` (sembol), `Assets/app-logo.ico` (pencere ikonu).
   - **`.exe` simgesi:** csproj'da `<ApplicationIcon>` **hiç ayarlı değildi** → exe varsayılan .NET ikonuyla çıkıyordu. Eklendi; gömülü olduğu doğrulandı. Kullanılmayan `avalonia-logo.ico` (şablon artığı) silindi.
   - Web: `wwwroot/logo.png`, `favicon.png` (256), `favicon.ico` (çok boyutlu) + `apple-touch-icon`.
-- **KOYU TEMA KURALI (önemli):** Logo **lacivert ağırlıklı** — şeffaf hâliyle koyu zemine konursa lacivert kısımlar **kaybolur**. Bu yüzden logo/sembol her yerde **beyaz yuvarlak kutu** içinde gösterilir (açık temada kart zaten beyaz → fark edilmez; koyu temada bilinçli "logo plakası" gibi durur). Geçerli yerler: web üst bar + web giriş kartı, masaüstü giriş ekranı + kenar çubuğu.
 - **Ölçek kararı:** Tam logo **istifli** (1040×841) → 30 px yükseklikte **okunmaz**. Bu yüzden dar alanlarda (masaüstü kenar çubuğu, web üst barı) **sembol** kullanılır; tam logo yalnız **giriş ekranlarında** (geniş, açık zemin) gösterilir.
+- ⚠️ **GÜNCELLENDİ → bkz. ADR-075.** Bu ADR'de başlangıçta logoların arkasına "beyaz yuvarlak kutu" konmuştu (koyu temada lacivert logo kaybolmasın diye). **Kullanıcı bunu reddetti; arka plan KALDIRILDI.** Aşağıdaki ADR-075 bağlayıcıdır.
+
+### ADR-075 — Logoların arkasında ARKA PLAN OLMAYACAK (yalnız logo) (12.07.2026)
+- **Kullanıcı talimatı (bağlayıcı):** *"logo ve uygulama içine beyaz arka plan ekleyerek logoları uygulamışsın. arka plan olmamalı sadece logo olmalı."*
+- **Karar:** Logo/sembol **hiçbir yerde** arka plan kutusuna sarılmaz. Şeffaf PNG **doğrudan** kullanılır. Kaldırıldığı 5 yer: masaüstü **LoginWindow**, masaüstü **MainWindow** (daraltılmış + açık kenar çubuğu), web **MainLayout** üst barı, web **Login** kartı.
+- **Neden not düşülüyor:** ADR-074'te (kendi kararımla) beyaz kutu eklenmişti; belgede öyle kalırsa **sonraki oturumlar bunu geri koyar**. Bu ADR onu geçersiz kılar.
+- **Bilinen ödünleşim (kullanıcı bilerek kabul etti):** Logo **lacivert ağırlıklı** olduğundan **koyu temada** kontrastı düşebilir (sarı/beyaz kısımlar görünür kalır). Kullanıcı şikâyet ederse çözüm **arka plan eklemek DEĞİL**, koyu tema için **açık renkli logo varyantı** üretmektir.
+- **Masaüstü giriş ekranı** ayrıca tam logo yerine **sembol logosunu** kullanır (kullanıcı isteği); yüksek çözünürlük için `Assets/app-icon.png` (838×838) eklendi, kullanılmayan masaüstü `logo.png` kaldırıldı.
 
 ### ADR-073 — Kota İzleme "ONLINE": zaten kullanıcı-bazlı tekildi; testle sabitlendi + bellek sızıntısı düzeltildi (12.07.2026)
 - **Talep (kullanıcı):** "Kota izleme ekranındaki online kolonunda aynı kullanıcı hem web'ten hem masaüstünden login olmuşsa **1 online** görünmeli; anlık login durumunu değil **kullanıcı** online durumunu almalı."
