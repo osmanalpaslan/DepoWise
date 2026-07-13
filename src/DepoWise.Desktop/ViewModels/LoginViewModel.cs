@@ -27,6 +27,14 @@ public sealed partial class LoginViewModel : ViewModelBase
     public bool IsStep1 => Step == 1;
     public bool IsStep2 => Step == 2;
 
+    /// <summary>Web'de giriş yap — tarayıcıda web uygulamasını açar.</summary>
+    [RelayCommand]
+    private void OpenWeb()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://depowise-web.fly.dev") { UseShellExecute = true }); }
+        catch { /* tarayıcı açılamazsa sessiz geç */ }
+    }
+
     public string AppName => DesktopServices.Branding.AppName;
     [ObservableProperty] private string _companyName = "";
 

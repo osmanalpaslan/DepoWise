@@ -3,101 +3,221 @@
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="460"
+        mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="620"
         x:Class="DepoWise.Desktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
-        Width="420" Height="600" CanResize="False"
+        Width="440" Height="640" CanResize="False"
         Icon="/Assets/app-logo.ico"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource Brand.Surface.Brush}"
+        TransparencyLevelHint="None"
         Title="DepoWise — Giriş">
 
-    <Border Background="{DynamicResource Brand.Surface.Brush}" Padding="32">
-        <StackPanel Spacing="16" VerticalAlignment="Center">
-            <!-- Masaüstü SEMBOL logosu (şeffaf PNG, arka plan YOK — yalnız logo). Kaynak 838px → net. -->
-            <Image Source="/Assets/app-icon.png" Width="170" Height="170"
-                   HorizontalAlignment="Center" Stretch="Uniform"/>
-            <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center" Opacity="0.6"
-                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+    <Window.Background>
+        <RadialGradientBrush Center="50%,-8%" GradientOrigin="50%,-8%" RadiusX="90%" RadiusY="75%">
+            <GradientStop Color="#14263B" Offset="0"/>
+            <GradientStop Color="#0C1725" Offset="0.55"/>
+            <GradientStop Color="#080F19" Offset="1"/>
+        </RadialGradientBrush>
+    </Window.Background>
 
-            <!-- ADIM 1: kimlik -->
-            <StackPanel Spacing="16" IsVisible="{Binding IsStep1}">
-                <StackPanel Spacing="4" Margin="0,6,0,0">
-                    <SelectableTextBlock Text="Kullanıcı Adı" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                    <TextBox Text="{Binding Username}" PlaceholderText="admin" />
-                </StackPanel>
-                <StackPanel Spacing="4">
-                    <SelectableTextBlock Text="Parola" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                    <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="••••••" />
-                </StackPanel>
-                <CheckBox Content="Beni hatırla" IsChecked="{Binding RememberMe}"
-                          Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                <SelectableTextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
-                           TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                <Button Content="Devam" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                        Padding="0,12" Margin="0,8,0,0"
-                        Background="{DynamicResource Brand.Primary.Brush}"
-                        Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                        Command="{Binding ContinueCommand}" IsDefault="True"
-                        IsEnabled="{Binding !IsBusy}"/>
-            </StackPanel>
+    <Window.Styles>
+        <Style Selector="Border.Field">
+            <Setter Property="Background" Value="#0E1826"/>
+            <Setter Property="BorderBrush" Value="#243750"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Padding" Value="13,0"/>
+        </Style>
+        <Style Selector="Border.Field:pointerover">
+            <Setter Property="BorderBrush" Value="#33507A"/>
+        </Style>
+        <Style Selector="PathIcon.FieldIcon">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Foreground" Value="#6C7C93"/>
+            <Setter Property="Margin" Value="0,0,11,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox.Bare">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#EEF3F9"/>
+            <Setter Property="CaretBrush" Value="#F5A623"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+        </Style>
+        <Style Selector="TextBox.Bare:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="TextBox.Bare:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <!-- Adım 2 için koyu ComboBox -->
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#0E1826"/>
+            <Setter Property="BorderBrush" Value="#243750"/>
+            <Setter Property="Foreground" Value="#EEF3F9"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Padding" Value="13,0"/>
+        </Style>
+        <Style Selector="TextBlock.Lbl">
+            <Setter Property="Foreground" Value="#A9B6C8"/>
+            <Setter Property="FontSize" Value="12.5"/>
+        </Style>
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#F5A623"/>
+            <Setter Property="Foreground" Value="#241703"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="14.5"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#F8B740"/>
+            <Setter Property="Foreground" Value="#241703"/>
+        </Style>
+        <Style Selector="Button.Ghost">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="#2B4162"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#D3DCE8"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.Ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#12203350"/>
+            <Setter Property="Foreground" Value="#EAF0F7"/>
+        </Style>
+        <Style Selector="Button.Link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#8FA0B6"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+    </Window.Styles>
 
-            <!-- ADIM 2: şube seçimi -->
-            <StackPanel Spacing="16" IsVisible="{Binding IsStep2}">
-                <SelectableTextBlock Text="{Binding CompanyName}" HorizontalAlignment="Center" FontWeight="SemiBold"
-                           IsVisible="{Binding !IsSuperAdminMode}"
-                           Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+    <Grid>
+        <!-- Kurumsal iş-makineleri zemini (yarı şeffaf) -->
+        <Image Source="/Assets/login-bg.png" Opacity="0.10" Stretch="UniformToFill"
+               HorizontalAlignment="Center" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
 
-                <!-- SÜPER ADMIN: makine firması/şubesi ile giriş VEYA firma+şube seç -->
-                <StackPanel Spacing="10" IsVisible="{Binding IsSuperAdminMode}">
-                    <SelectableTextBlock Text="Süper Admin — firma ve şube seçimi" HorizontalAlignment="Center"
-                                         FontWeight="SemiBold" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                    <CheckBox Content="{Binding MachineCompanyLabel}" IsChecked="{Binding UseMachineCompany}"
-                              IsVisible="{Binding HasMachineCompany}"
-                              Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                    <StackPanel Spacing="4" IsVisible="{Binding ShowCompanyPicker}">
-                        <SelectableTextBlock Text="Firma" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                        <ComboBox ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}" HorizontalAlignment="Stretch"/>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="14" MaxWidth="372" Margin="34,28" VerticalAlignment="Center">
+                <!-- Logo (tam DepoWise logosu, şeffaf) -->
+                <Image Source="/Assets/app-icon.png" Width="200" Height="200"
+                       HorizontalAlignment="Center" Stretch="Uniform"/>
+                <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center"
+                                     FontSize="14" Foreground="#9FB0C6" Margin="0,-14,0,4"/>
+
+                <!-- ADIM 1: kimlik -->
+                <StackPanel Spacing="12" IsVisible="{Binding IsStep1}">
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="Lbl" Text="Kullanıcı Adı"/>
+                        <Border Classes="Field">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Grid.Column="0" Classes="FieldIcon" Data="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z"/>
+                                <TextBox Grid.Column="1" Classes="Bare" Text="{Binding Username}" Watermark="Kullanıcı adı"/>
+                            </Grid>
+                        </Border>
                     </StackPanel>
-                    <CheckBox Content="{Binding MachineBranchLabel}" IsChecked="{Binding UseMachineBranch}"
-                              IsVisible="{Binding HasMachineBranch}"
-                              Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="Lbl" Text="Parola"/>
+                        <Border Classes="Field">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Grid.Column="0" Classes="FieldIcon" Data="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/>
+                                <TextBox Grid.Column="1" Classes="Bare" Text="{Binding Password}" PasswordChar="●" Watermark="••••••"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <CheckBox Content="Beni hatırla" IsChecked="{Binding RememberMe}" Foreground="#B7C2D2" Margin="0,2,0,0"/>
+
+                    <SelectableTextBlock Text="{Binding Error}" Foreground="#FF9B9B" TextWrapping="Wrap"
+                                         IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <Button Classes="Primary" Command="{Binding ContinueCommand}" IsDefault="True"
+                            IsEnabled="{Binding !IsBusy}" Margin="0,6,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="DEVAM" VerticalAlignment="Center"/>
+                            <PathIcon Width="18" Height="18" Foreground="#241703"
+                                      Data="M5 12h12l-4.5-4.5L14 6l7 7-7 7-1.5-1.5L17 14H5z"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- veya ayıracı -->
+                    <Grid ColumnDefinitions="*,Auto,*" Margin="0,8,0,0">
+                        <Border Grid.Column="0" Height="1" Background="#243750" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="veya" Margin="12,0" Foreground="#6C7C93" FontSize="12" VerticalAlignment="Center"/>
+                        <Border Grid.Column="2" Height="1" Background="#243750" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <Button Classes="Ghost" Command="{Binding OpenWebCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <PathIcon Width="17" Height="17" Foreground="#9FB0C6"
+                                      Data="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 6h-2.6a13 13 0 0 0-1.1-3.2A8 8 0 0 1 18.9 8ZM12 4c.8 0 1.9 1.5 2.4 4H9.6C10.1 5.5 11.2 4 12 4ZM4.3 14a8 8 0 0 1 0-4h3a18 18 0 0 0 0 4Zm.8 2h2.6c.3 1.2.7 2.3 1.1 3.2A8 8 0 0 1 5.1 16ZM9.6 16h4.8c-.5 2.5-1.6 4-2.4 4s-1.9-1.5-2.4-4Zm5.1 3.2c.4-.9.8-2 1.1-3.2h2.6a8 8 0 0 1-3.7 3.2ZM16.7 14a18 18 0 0 0 0-4h3a8 8 0 0 1 0 4Z"/>
+                            <TextBlock Text="Web'de Giriş Yap" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
-                <StackPanel Spacing="4" IsVisible="{Binding ShowBranchSelector}">
-                    <SelectableTextBlock Text="Şube / Şantiye" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                    <ComboBox ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch}" HorizontalAlignment="Stretch"/>
+                <!-- ADIM 2: şube seçimi (mevcut akış korunur) -->
+                <StackPanel Spacing="14" IsVisible="{Binding IsStep2}">
+                    <SelectableTextBlock Text="{Binding CompanyName}" HorizontalAlignment="Center" FontWeight="SemiBold"
+                                         IsVisible="{Binding !IsSuperAdminMode}" Foreground="#EEF3F9"/>
+
+                    <StackPanel Spacing="10" IsVisible="{Binding IsSuperAdminMode}">
+                        <SelectableTextBlock Text="Süper Admin — firma ve şube seçimi" HorizontalAlignment="Center"
+                                             FontWeight="SemiBold" Foreground="#EEF3F9"/>
+                        <CheckBox Content="{Binding MachineCompanyLabel}" IsChecked="{Binding UseMachineCompany}"
+                                  IsVisible="{Binding HasMachineCompany}" Foreground="#B7C2D2"/>
+                        <StackPanel Spacing="6" IsVisible="{Binding ShowCompanyPicker}">
+                            <TextBlock Classes="Lbl" Text="Firma"/>
+                            <ComboBox ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}" HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        <CheckBox Content="{Binding MachineBranchLabel}" IsChecked="{Binding UseMachineBranch}"
+                                  IsVisible="{Binding HasMachineBranch}" Foreground="#B7C2D2"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding ShowBranchSelector}">
+                        <TextBlock Classes="Lbl" Text="Şube / Şantiye"/>
+                        <ComboBox ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch}" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding ShowBranchCode}">
+                        <TextBlock Classes="Lbl" Text="Şube Kodu:"/>
+                        <SelectableTextBlock Text="{Binding SelectedBranchCode}" FontWeight="SemiBold" Foreground="#EEF3F9"/>
+                    </StackPanel>
+                    <SelectableTextBlock Text="✓ Bu makinenin şubesi — şube şifresi gerekmez."
+                                         IsVisible="{Binding SelectedIsMachineBranch}" Foreground="#5FD08A"/>
+                    <StackPanel Spacing="7" IsVisible="{Binding ShowBranchPassword}">
+                        <TextBlock Classes="Lbl" Text="Şube Şifresi"/>
+                        <Border Classes="Field">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Grid.Column="0" Classes="FieldIcon" Data="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/>
+                                <TextBox Grid.Column="1" Classes="Bare" Text="{Binding BranchPassword}" PasswordChar="●" Watermark="••••••"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                    <SelectableTextBlock Text="{Binding Error}" Foreground="#FF9B9B" TextWrapping="Wrap"
+                                         IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <Button Classes="Primary" Content="GİRİŞ YAP" Command="{Binding LoginCommand}" IsDefault="True"
+                            IsEnabled="{Binding !IsBusy}" Margin="0,4,0,0"/>
+                    <Button Classes="Link" Content="← Geri" Command="{Binding BackCommand}" IsEnabled="{Binding !IsBusy}"/>
                 </StackPanel>
-                <!-- L1: seçilen şubenin kodu otomatik gösterilir -->
-                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding ShowBranchCode}">
-                    <SelectableTextBlock Text="Şube Kodu:" Foreground="{DynamicResource Brand.OnSurfaceVariant.Brush}"/>
-                    <SelectableTextBlock Text="{Binding SelectedBranchCode}" FontWeight="SemiBold"
-                                         Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                </StackPanel>
-                <!-- L2: makinenin kendi şubesi seçiliyse şifre istenmeden girilebilir -->
-                <SelectableTextBlock Text="✓ Bu makinenin şubesi — şube şifresi gerekmez."
-                                     IsVisible="{Binding SelectedIsMachineBranch}"
-                                     Foreground="{DynamicResource Brand.Success.Brush}"/>
-                <StackPanel Spacing="4" IsVisible="{Binding ShowBranchPassword}">
-                    <SelectableTextBlock Text="Şube Şifresi" Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-                    <TextBox Text="{Binding BranchPassword}" PasswordChar="•" PlaceholderText="••••••" />
-                </StackPanel>
-                <SelectableTextBlock Text="{Binding Error}" Foreground="{DynamicResource Brand.Danger.Brush}"
-                           TextWrapping="Wrap" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                <Button Content="Giriş Yap" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                        Padding="0,12" Margin="0,8,0,0"
-                        Background="{DynamicResource Brand.Primary.Brush}"
-                        Foreground="{DynamicResource Brand.OnPrimary.Brush}"
-                        Command="{Binding LoginCommand}" IsDefault="True"
-                        IsEnabled="{Binding !IsBusy}"/>
-                <Button Content="← Geri" HorizontalAlignment="Center" Background="Transparent"
-                        Foreground="{DynamicResource Brand.OnSurface.Brush}"
-                        Command="{Binding BackCommand}" IsEnabled="{Binding !IsBusy}"/>
+
+                <SelectableTextBlock Text="Web'de tanımlı kullanıcı bilgilerinizle giriş yapın." HorizontalAlignment="Center"
+                                     Opacity="0.5" FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                                     Foreground="#8FA0B6" Margin="0,4,0,0"/>
             </StackPanel>
-
-            <SelectableTextBlock Text="Web'de tanımlı kullanıcı bilgilerinizle giriş yapın." HorizontalAlignment="Center"
-                       Opacity="0.5" FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
-                       Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
-        </StackPanel>
-    </Border>
+        </ScrollViewer>
+    </Grid>
 </Window>

@@ -8,65 +8,125 @@
 
 <PageTitle>Giriş — DepoWise</PageTitle>
 
-<MudPaper Class="pa-8" Elevation="4" Style="max-width:440px;width:100%;margin-top:10vh;">
-    @* Logo — şeffaf, arka plan YOK (yalnız logo). *@
-    <div style="display:flex;justify-content:center;margin-bottom:20px;">
-        <img src="logo.png" alt="DepoWise" style="width:100%;max-width:250px;height:auto;display:block;" />
-    </div>
-    <MudText Typo="Typo.h5" Class="mb-1">DepoWise Yönetim</MudText>
+<div class="dw-login-bg">
+    <img class="dw-login-scene" src="login-bg.png" alt="" aria-hidden="true" />
+    <div class="dw-login-card">
+        <img class="dw-logo" src="logo.png" alt="DepoWise" />
 
-    @if (_step == 1)
-    {
-        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">Hesabınızla giriş yapın.</MudText>
-        <MudTextField @bind-Value="_username" Label="Kullanıcı adı" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
-        <MudTextField @bind-Value="_password" Label="Parola" InputType="InputType.Password" Variant="Variant.Outlined"
-                      Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey1" />
-        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoStep1" Disabled="_busy">
-            @(_busy ? "Doğrulanıyor…" : "Devam")
-        </MudButton>
-    }
-    else if (_step == 2)
-    {
-        @* Yalnız süper admin: hangi firmayı yöneteceğini seçer *@
-        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-1">Süper Admin</MudText>
-        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">Yönetmek istediğiniz firmayı seçin.</MudText>
-        <MudSelect T="string" @bind-Value="_selectedCompanyId" Label="Firma" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
-            @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
-        </MudSelect>
-        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoStep2" Disabled="_busy">
-            @(_busy ? "Yükleniyor…" : "Devam")
-        </MudButton>
-        <MudButton FullWidth="true" Variant="Variant.Text" Class="mt-2" OnClick="BackToStep1" Disabled="_busy">← Geri</MudButton>
-    }
-    else
-    {
-        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-1">@_companyName</MudText>
-        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4">Şube seçip giriş yapın.</MudText>
-        <MudSelect T="string" @bind-Value="_branchId" Label="Şube / Şantiye" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
-            @if (_canViewAllBranches)
-            {
-                <MudSelectItem T="string" Value="@AllBranches">🌐 Tüm Şubeler</MudSelectItem>
-            }
-            @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name @(string.IsNullOrEmpty(b.Code) ? "" : $"({b.Code})")</MudSelectItem> }
-        </MudSelect>
-        @if (SelectedBranchHasPassword)
+        @if (_step == 1)
         {
-            <MudTextField @bind-Value="_branchPassword" Label="Şube Şifresi" InputType="InputType.Password"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" OnKeyUp="OnKey2" />
-        }
-        <MudButton FullWidth="true" Variant="Variant.Filled" Color="Color.Primary" OnClick="DoFinalize" Disabled="_busy">
-            @(_busy ? "Giriş yapılıyor…" : "Giriş")
-        </MudButton>
-        <MudButton FullWidth="true" Variant="Variant.Text" Class="mt-2" OnClick="BackFromBranch" Disabled="_busy">← Geri</MudButton>
-    }
+            <h1 class="dw-title">DepoWise Yönetim</h1>
+            <p class="dw-sub">Hesabınızla giriş yapın.</p>
 
-    @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert> }
-</MudPaper>
+            <label class="dw-label">Kullanıcı adı</label>
+            <div class="dw-field">
+                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z"/></svg>
+                <input type="text" placeholder="Kullanıcı adı" @bind="_username" @bind:event="oninput" @onkeyup="OnKey1" autocomplete="username" />
+            </div>
+
+            <label class="dw-label">Parola</label>
+            <div class="dw-field">
+                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                <input type="@(_showPass ? "text" : "password")" placeholder="••••••" @bind="_password" @bind:event="oninput" @onkeyup="OnKey1" autocomplete="current-password" />
+                <button type="button" class="dw-eye" @onclick="() => _showPass = !_showPass" tabindex="-1" aria-label="Parolayı göster/gizle">
+                    @if (_showPass)
+                    { <svg viewBox="0 0 24 24"><path d="M2 5.3 3.3 4l16.7 16.7-1.3 1.3-2.8-2.8A11 11 0 0 1 12 20C6 20 1.7 15.6 1 12c.3-1.6 1.4-3.6 3.1-5.2L2 5.3Zm7.5 7.5 1.7 1.7a2 2 0 0 1-1.7-1.7ZM12 6c6 0 10.3 4.4 11 8-.3 1.4-1.1 3-2.5 4.4l-2-2A6 6 0 0 0 12 8h-.3l-1.8-1.8C10.6 6.1 11.3 6 12 6Z"/></svg> }
+                    else
+                    { <svg viewBox="0 0 24 24"><path d="M12 5C6 5 1.7 9.4 1 13c.7 3.6 5 8 11 8s10.3-4.4 11-8c-.7-3.6-5-8-11-8Zm0 13a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg> }
+                </button>
+            </div>
+
+            <button class="dw-btn" @onclick="DoStep1" disabled="@_busy">
+                @(_busy ? "Doğrulanıyor…" : "DEVAM")
+                @if (!_busy) { <svg viewBox="0 0 24 24" class="dw-arrow"><path d="M5 12h12l-4.5-4.5L14 6l7 7-7 7-1.5-1.5L17 14H5z"/></svg> }
+            </button>
+        }
+        else if (_step == 2)
+        {
+            <h1 class="dw-title">Süper Admin</h1>
+            <p class="dw-sub">Yönetmek istediğiniz firmayı seçin.</p>
+            <label class="dw-label">Firma</label>
+            <select class="dw-select" @bind="_selectedCompanyId">
+                <option value="">Firma seçin…</option>
+                @foreach (var co in _companies) { <option value="@co.Id">@co.Name</option> }
+            </select>
+            <button class="dw-btn" @onclick="DoStep2" disabled="@_busy">@(_busy ? "Yükleniyor…" : "DEVAM")</button>
+            <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
+        }
+        else
+        {
+            <h1 class="dw-title">@(_step == 3 && !string.IsNullOrEmpty(_companyName) ? _companyName : "Giriş")</h1>
+            <p class="dw-sub">Şube / şantiye seçip giriş yapın.</p>
+            <label class="dw-label">Şube / Şantiye</label>
+            <select class="dw-select" @bind="_branchId">
+                <option value="">Şube seçin…</option>
+                @if (_canViewAllBranches) { <option value="@AllBranches">🌐 Tüm Şubeler</option> }
+                @foreach (var b in _branches) { <option value="@b.Id">@b.Name @(string.IsNullOrEmpty(b.Code) ? "" : $"({b.Code})")</option> }
+            </select>
+            @if (SelectedBranchHasPassword)
+            {
+                <label class="dw-label">Şube Şifresi</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="password" placeholder="••••••" @bind="_branchPassword" @bind:event="oninput" @onkeyup="OnKey2" />
+                </div>
+            }
+            <button class="dw-btn" @onclick="DoFinalize" disabled="@_busy">@(_busy ? "Giriş yapılıyor…" : "GİRİŞ")</button>
+            <button class="dw-link" @onclick="BackFromBranch" disabled="@_busy">← Geri</button>
+        }
+
+        @if (_error is not null) { <div class="dw-error">@_error</div> }
+    </div>
+</div>
+
+<style>
+    .dw-login-bg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:auto;
+        background:radial-gradient(1200px 700px at 50% -10%,#132234 0%,#0b1420 55%,#080e17 100%);}
+    .dw-login-scene{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(1500px,140%);
+        max-width:none;opacity:.10;pointer-events:none;user-select:none;filter:saturate(1.1);}
+    .dw-login-card{position:relative;z-index:1;width:min(92vw,430px);margin:6vh 0;
+        background:rgba(18,27,41,.92);border:1px solid rgba(255,255,255,.07);border-radius:22px;
+        padding:36px 34px 34px;box-shadow:0 30px 90px rgba(0,0,0,.6);backdrop-filter:blur(6px);}
+    .dw-logo{display:block;margin:0 auto 12px;width:190px;max-width:74%;height:auto;}
+    .dw-title{color:#fff;font-size:22px;font-weight:700;text-align:center;margin:2px 0 4px;letter-spacing:.01em;}
+    .dw-sub{color:#8fa0b6;text-align:center;font-size:13.5px;margin:0 0 20px;}
+    .dw-label{display:block;color:#a9b6c8;font-size:12.5px;font-weight:500;margin:15px 2px 7px;}
+    .dw-field{display:flex;align-items:center;gap:10px;height:50px;padding:0 13px;
+        background:#0e1826;border:1px solid #243750;border-radius:13px;transition:border-color .15s,box-shadow .15s;}
+    .dw-field:focus-within{border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,.14);}
+    .dw-ico{width:19px;height:19px;fill:#6c7c93;flex:0 0 auto;}
+    .dw-field input{flex:1;min-width:0;height:100%;background:transparent;border:none;outline:none;
+        color:#eef3f9;font-size:14.5px;font-family:inherit;}
+    .dw-field input::placeholder{color:#5d6c81;}
+    .dw-eye{background:none;border:none;cursor:pointer;display:flex;padding:4px;color:#6c7c93;}
+    .dw-eye svg{width:19px;height:19px;fill:currentColor;}
+    .dw-eye:hover{color:#aab6c8;}
+    .dw-btn{width:100%;height:52px;margin-top:24px;border:none;border-radius:13px;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:10px;
+        background:linear-gradient(180deg,#F8B740,#F3A31C);color:#241703;font-weight:700;font-size:15px;
+        letter-spacing:.04em;box-shadow:0 10px 26px rgba(243,163,28,.30);transition:filter .15s,transform .04s;}
+    .dw-btn:hover{filter:brightness(1.06);}
+    .dw-btn:active{transform:translateY(1px);}
+    .dw-btn:disabled{opacity:.6;cursor:default;box-shadow:none;}
+    .dw-arrow{width:20px;height:20px;fill:#241703;}
+    .dw-select{width:100%;height:50px;padding:0 13px;background:#0e1826;border:1px solid #243750;
+        border-radius:13px;color:#eef3f9;font-size:14.5px;font-family:inherit;outline:none;appearance:none;
+        background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236c7c93'><path d='M7 10l5 5 5-5z'/></svg>");
+        background-repeat:no-repeat;background-position:right 12px center;background-size:20px;}
+    .dw-select:focus{border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,.14);}
+    .dw-select option{background:#0e1826;color:#eef3f9;}
+    .dw-link{width:100%;margin-top:12px;background:none;border:none;cursor:pointer;
+        color:#8fa0b6;font-size:13px;font-family:inherit;text-align:center;}
+    .dw-link:hover{color:#cdd6e2;}
+    .dw-error{margin-top:16px;background:rgba(224,72,72,.12);border:1px solid rgba(224,72,72,.4);
+        color:#ffb4b4;padding:11px 13px;border-radius:11px;font-size:13px;}
+</style>
 
 @code {
     private const string AllBranches = "__all__"; // API BranchConstants.AllBranchesId ile aynı
     private int _step = 1; // 1=kimlik, 2=firma (yalnız süper admin), 3=şube
     private string _username = "", _password = "";
+    private bool _showPass;
     private string? _branchId, _branchPassword;
     private string? _selectedCompanyId;
     private string _companyName = "";
