@@ -9,7 +9,6 @@
 <PageTitle>Giriş — DepoWise</PageTitle>
 
 <div class="dw-login-bg">
-    <img class="dw-login-scene" src="login-bg.png" alt="" aria-hidden="true" />
     <div class="dw-login-card">
         <img class="dw-logo" src="logo.png" alt="DepoWise" />
 
@@ -81,9 +80,8 @@
 
 <style>
     .dw-login-bg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:auto;
-        background:radial-gradient(1200px 700px at 50% -10%,#132234 0%,#0b1420 55%,#080e17 100%);}
-    .dw-login-scene{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(1500px,140%);
-        max-width:none;opacity:.10;pointer-events:none;user-select:none;filter:saturate(1.1);}
+        background:linear-gradient(180deg,rgba(8,13,22,.34) 0%,rgba(8,13,22,.50) 45%,rgba(6,11,19,.72) 100%),
+            url("login-hero.png") center/cover no-repeat;background-color:#080e17;}
     .dw-login-card{position:relative;z-index:1;width:min(92vw,430px);margin:6vh 0;
         background:rgba(18,27,41,.92);border:1px solid rgba(255,255,255,.07);border-radius:22px;
         padding:36px 34px 34px;box-shadow:0 30px 90px rgba(0,0,0,.6);backdrop-filter:blur(6px);}
