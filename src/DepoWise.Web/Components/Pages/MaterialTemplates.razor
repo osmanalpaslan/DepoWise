@@ -1,0 +1,159 @@
+@page "/material-templates"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudText Typo="Typo.h5" GutterBottom="true">Malzeme Şablonları</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:74ch;">
+    Yeni malzeme kaydında kullanılacak <b>örnek şablonlar</b>. Admin şablonları tüm kullanıcılarda görünür;
+    diğer kullanıcıların oluşturduğu şablonlar yalnız kendilerinde görünür. Tek tip kayıt raporlamayı korur.
+</MudText>
+
+@if (Auth.CanCreate("material_templates"))
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
+        <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "Yeni Şablon" : "Şablon Düzenle")</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Şablon Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod (örnek)" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3">
+                <MudSelect T="string" @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var t in _types) { <MudSelectItem T="string" Value="@t">@t</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Kategori" @bind-Value="_cat" Items="_cats" AddTable="material_categories" OnAdded="ReloadCats" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Birim" @bind-Value="_unit" Items="_units" AddTable="units" OnAdded="ReloadUnits" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Marka" @bind-Value="_brand" Items="_brands" AddTable="brands" OnAdded="ReloadBrands" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Tedarikçi" @bind-Value="_sup" Items="_sups" AddTable="suppliers" OnAdded="ReloadSups" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_min" Label="Min. Stok" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-2" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : _editId is null ? "Şablonu Kaydet" : "Değişiklikleri Kaydet")</MudButton>
+            @if (_editId is not null) { <MudButton Variant="Variant.Text" OnClick="ClearForm">Vazgeç</MudButton> }
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h6">Şablonlar</MudText><MudSpacer />
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Şablon yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
+            <HeaderContent><MudTh>Ad</MudTh><MudTh>Kod</MudTh><MudTh>Kapsam</MudTh><MudTh></MudTh></HeaderContent>
+            <RowTemplate>
+                @{ var id = Str(context, "id"); }
+                <MudTd>@Str(context, "name")</MudTd>
+                <MudTd>@(string.IsNullOrEmpty(Str(context, "code")) ? "—" : Str(context, "code"))</MudTd>
+                <MudTd>@Str(context, "scopeText")</MudTd>
+                <MudTd>
+                    @if (Auth.CanEdit("material_templates"))
+                    {
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="@(() => BeginEdit(id))" />
+                    }
+                    @if (Auth.CanDelete("material_templates"))
+                    {
+                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => Delete(id))" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
+    private string? _editId;
+    private string _name = "", _code = "", _desc = "";
+    private string? _type, _cat, _unit, _brand, _sup;
+    private decimal _min, _price;
+    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
+    private JsonElement[]? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.CanCreate("material_templates"))
+        {
+            _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+            _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
+            _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
+            _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+        }
+        await Load();
+    }
+
+    private async Task ReloadCats() => _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+    private async Task ReloadUnits() => _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
+    private async Task ReloadBrands() => _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
+    private async Task ReloadSups() => _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+
+    private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/material-templates"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    private async Task BeginEdit(string id)
+    {
+        try
+        {
+            var t = await Api.GetObjectAsync($"/api/material-templates/{id}");
+            _editId = id;
+            _name = Str(t, "name"); _code = Str(t, "code"); _type = NullId(t, "type"); _desc = Str(t, "description");
+            _cat = NullId(t, "categoryId"); _unit = NullId(t, "unitId"); _brand = NullId(t, "brandId"); _sup = NullId(t, "supplierId");
+            _min = Dec(t, "minStock"); _price = Dec(t, "unitPrice");
+            _msg = null;
+        }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _msg = "Şablon adı zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null ? "Şablon oluşturulsun mu?" : "Şablon güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            var body = new
+            {
+                name = _name.Trim(), code = Empty(_code), type = _type,
+                categoryId = _cat, unitId = _unit, brandId = _brand, supplierId = _sup,
+                minStock = _min, unitPrice = _price, currency = "TRY", description = Empty(_desc)
+            };
+            var err = _editId is null
+                ? await Api.PostAsync("/api/material-templates", body)
+                : await Api.PutAsync($"/api/material-templates/{_editId}", body);
+            _ok = err is null; _msg = err ?? (_editId is null ? "Şablon oluşturuldu." : "Güncellendi.");
+            if (_ok) { ClearForm(); await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Delete(string id)
+    {
+        if (!await Dialog.Confirm("Bu şablon silinsin mi?", "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/material-templates/{id}");
+        _msg = err ?? "Silindi."; _ok = err is null;
+        await Load();
+    }
+
+    private void ClearForm()
+    {
+        _editId = null; _name = _code = _desc = ""; _type = _cat = _unit = _brand = _sup = null; _min = _price = 0; _msg = null;
+    }
+
+    private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+}

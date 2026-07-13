@@ -406,7 +406,12 @@
     {
         _err = true; _msg = null;
         if (string.IsNullOrWhiteSpace(_code)) { _msg = "İç kod zorunlu."; _ok = false; return; }
-        if (!await Dialog.Confirm(_editId is null ? "Araç kaydedilsin mi?" : "Araç güncellensin mi?")) return;
+        // Şablon dışı kayıt uyarısı (yalnız yeni kayıt + şablon seçilmemişse) — tek tip kayıt için.
+        if (_editId is null && string.IsNullOrEmpty(_template))
+        {
+            if (!await Dialog.Confirm("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?", "Evet, Devam Et", danger: true)) return;
+        }
+        else if (!await Dialog.Confirm(_editId is null ? "Araç kaydedilsin mi?" : "Araç güncellensin mi?")) return;
         _busy = true;
         try
         {

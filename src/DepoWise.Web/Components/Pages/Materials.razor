@@ -13,6 +13,14 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ MALZEME" : "MALZEME DÜZENLE")</MudText>
 
+        @if (_editId is null && _templates.Count > 0)
+        {
+            <MudSelect T="string" Value="_templateId" ValueChanged="ApplyTemplate" Label="Şablon (örnek kayıt)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                       HelperText="Şablon seçerseniz alanlar önden dolar. Şablon seçmeden kaydederseniz uyarı çıkar (tek tip kayıt için).">
+                @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
+            </MudSelect>
+        }
+
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-1 mb-1">Tanım</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Error="_err && string.IsNullOrWhiteSpace(_code)" ErrorText="Kod zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
@@ -201,6 +209,8 @@
     private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
 
     private string? _editId;
+    private string? _templateId;
+    private List<ApiClient.Opt> _templates = new();
     private string _code = "", _name = "", _type = "Yedek Parça";
     private string? _cat, _subCat, _unit, _brand, _sup;
     private decimal _min, _price, _opening;
@@ -228,6 +238,7 @@
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
             _vehicles = await Api.OptionsAsync("/api/vehicles", "id", "display");
+            try { _templates = await Api.OptionsAsync("/api/material-templates", "id", "name"); } catch { }
             // Liste ekranından "Düzenle" ile gelindiyse (?edit=id) kaydı forma yükle
             var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
             if (q.TryGetValue("edit", out var eid) && !string.IsNullOrEmpty(eid))
@@ -345,12 +356,33 @@
         if (_ok) { _detail = null; await Load(); }
     }
 
+    /// <summary>Şablon seçilince malzeme formunu önden doldurur (örnek kayıt).</summary>
+    private async Task ApplyTemplate(string? id)
+    {
+        _templateId = id;
+        if (string.IsNullOrEmpty(id)) return;
+        try
+        {
+            var t = await Api.GetObjectAsync($"/api/material-templates/{id}");
+            _code = Str(t, "code"); if (!string.IsNullOrEmpty(Str(t, "name"))) _name = Str(t, "name");
+            var tp = Str(t, "type"); if (!string.IsNullOrEmpty(tp)) _type = tp;
+            _cat = NullId(t, "categoryId"); _unit = NullId(t, "unitId"); _brand = NullId(t, "brandId"); _sup = NullId(t, "supplierId");
+            _min = Dec(t, "minStock"); _price = Dec(t, "unitPrice"); _desc = Str(t, "description");
+        }
+        catch { }
+    }
+
     private async Task Save()
     {
         _err = true; _msg = null;
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
         if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
-        if (!await Dialog.Confirm(_editId is null ? "Malzeme kaydedilsin mi?" : "Malzeme güncellensin mi?")) return;
+        // Şablon dışı kayıt uyarısı (yalnız yeni kayıt + şablon seçilmemişse) — tek tip kayıt için.
+        if (_editId is null && string.IsNullOrEmpty(_templateId))
+        {
+            if (!await Dialog.Confirm("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?", "Evet, Devam Et", danger: true)) return;
+        }
+        else if (!await Dialog.Confirm(_editId is null ? "Malzeme kaydedilsin mi?" : "Malzeme güncellensin mi?")) return;
         _busy = true;
         try
         {
