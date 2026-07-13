@@ -57,6 +57,7 @@ public static class AppModules
         ("definitions", "Tanımlar"),
         ("settings", "Ayarlar"),
         ("materials", "Malzemeler"),
+        ("material_templates", "Malzeme Şablonları"),
         ("stock", "Stok İşlemleri"),
         ("vehicles", "Araçlar"),
         ("maintenance", "Bakım"),

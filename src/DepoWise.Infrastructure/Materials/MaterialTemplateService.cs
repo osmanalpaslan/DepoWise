@@ -1,0 +1,206 @@
+using System.Globalization;
+using DepoWise.Application.Common;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Database;
+using Microsoft.Data.Sqlite;
+
+namespace DepoWise.Infrastructure.Materials;
+
+public sealed record NewMaterialTemplate(
+    string Name, string? Code = null, string? Type = null, string? CategoryId = null, string? UnitId = null,
+    string? BrandId = null, string? SupplierId = null, decimal MinStock = 0m, decimal UnitPrice = 0m,
+    string Currency = "TRY", string? Description = null);
+
+public sealed record MaterialTemplateRecord(
+    string Id, string Name, string? Code, string? Type, string? CategoryId, string? UnitId,
+    string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string Currency, string? Description);
+
+/// <summary>Şablon listesi satırı. IsGlobal = admin şablonu (herkese görünür); Mine = aktör oluşturmuş.</summary>
+public sealed record MaterialTemplateRow(string Id, string Name, string? Code, string? UnitName, bool IsGlobal, bool Mine)
+{
+    public string CodeDisplay => string.IsNullOrEmpty(Code) ? "—" : Code!;
+    public string ScopeText => IsGlobal ? "Genel (tüm kullanıcılar)" : "Kişisel";
+    public override string ToString() => Name;
+}
+
+/// <summary>
+/// Malzeme yeni-kayıt şablonu (Araç Genel Tanım benzeri). Görünürlük OLUŞTURAN bazlı: admin şablonu (is_global=1)
+/// firmada herkese; diğer kullanıcının şablonu yalnız kendisine görünür. Tenant + "material_templates" yetkisi.
+/// </summary>
+public sealed class MaterialTemplateService
+{
+    private const string Module = "material_templates";
+    private readonly IDbConnectionFactory _factory;
+    private readonly IClock _clock;
+
+    public MaterialTemplateService(IDbConnectionFactory factory, IClock? clock = null)
+    {
+        _factory = factory;
+        _clock = clock ?? new SystemClock();
+    }
+
+    private static string D(decimal v) => v.ToString(CultureInfo.InvariantCulture);
+    private static decimal P(string? v) => decimal.TryParse(v, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0m;
+
+    public string Create(SessionContext s, NewMaterialTemplate dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Şablon adı zorunlu.");
+        var id = Guid.NewGuid().ToString("N");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        bool isGlobal = AccessControl.IsAdmin(s); // admin şablonu herkese görünür; diğerininki kişisel
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+INSERT INTO material_templates(id, company_id, name, code, type, category_id, unit_id, brand_id, supplier_id,
+    min_stock, unit_price, currency, description, created_by, is_global, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$n,$code,$t,$cat,$u,$br,$sup,$min,$up,$cur,$desc,$by,$g,$now,$now,1,0);";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
+            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$t", (object?)Norm(dto.Type) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$u", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$min", D(dto.MinStock));
+            cmd.Parameters.AddWithValue("$up", D(dto.UnitPrice));
+            cmd.Parameters.AddWithValue("$cur", dto.Currency);
+            cmd.Parameters.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$by", s.UserId);
+            cmd.Parameters.AddWithValue("$g", isGlobal ? 1 : 0);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", id, AuditActions.Create, s.UserId), _clock);
+        tx.Commit();
+        return id;
+    }
+
+    /// <summary>Görünür şablonlar: admin şablonları (is_global) + aktörün kendi şablonları. Ad araması.</summary>
+    public IReadOnlyList<MaterialTemplateRow> List(SessionContext s, string? search = null, int limit = 200)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT t.id, t.name, t.code, u.name, t.is_global, t.created_by
+FROM material_templates t
+LEFT JOIN units u ON u.id = t.unit_id
+WHERE t.company_id=$c AND t.is_deleted=0
+  AND (t.is_global=1 OR t.created_by=$me)
+  AND ($s IS NULL OR t.name LIKE $like OR COALESCE(t.code,'') LIKE $like)
+ORDER BY t.is_global DESC, t.name LIMIT $lim;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$me", s.UserId);
+        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
+        cmd.Parameters.AddWithValue("$lim", limit);
+        var list = new List<MaterialTemplateRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new MaterialTemplateRow(r.GetString(0), r.GetString(1),
+                r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3),
+                r.GetInt64(4) == 1, !r.IsDBNull(5) && r.GetString(5) == s.UserId));
+        return list;
+    }
+
+    /// <summary>Şablon içeriği (yeni malzeme formunu doldurmak için). Görünürlük: global veya aktörün kendi şablonu.</summary>
+    public MaterialTemplateRecord? Get(SessionContext s, string templateId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT id, name, code, type, category_id, unit_id, brand_id, supplier_id, min_stock, unit_price, currency, description
+FROM material_templates
+WHERE id=$id AND company_id=$c AND is_deleted=0 AND (is_global=1 OR created_by=$me);";
+        cmd.Parameters.AddWithValue("$id", templateId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$me", s.UserId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        return new MaterialTemplateRecord(r.GetString(0), r.GetString(1), S(2), S(3), S(4), S(5), S(6), S(7),
+            P(r.GetString(8)), P(r.GetString(9)), r.GetString(10), S(11));
+    }
+
+    public void Update(SessionContext s, string templateId, NewMaterialTemplate dto)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureManageable(conn, tx, s, templateId);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+UPDATE material_templates SET name=$n, code=$code, type=$t, category_id=$cat, unit_id=$u, brand_id=$br,
+    supplier_id=$sup, min_stock=$min, unit_price=$up, currency=$cur, description=$desc,
+    version=version+1, updated_at=$now
+WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
+            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$t", (object?)Norm(dto.Type) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$u", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$min", D(dto.MinStock));
+            cmd.Parameters.AddWithValue("$up", D(dto.UnitPrice));
+            cmd.Parameters.AddWithValue("$cur", dto.Currency);
+            cmd.Parameters.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", templateId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", templateId, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    public void Delete(SessionContext s, string templateId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Delete);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureManageable(conn, tx, s, templateId);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE material_templates SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", templateId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", templateId, AuditActions.Delete, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>Düzenleme/silme: global şablonu yalnız admin; kişisel şablonu yalnız sahibi (veya admin) yönetir.</summary>
+    private static void EnsureManageable(SqliteConnection conn, SqliteTransaction tx, SessionContext s, string templateId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT created_by, is_global FROM material_templates WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$id", templateId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+        var createdBy = r.IsDBNull(0) ? null : r.GetString(0);
+        bool isGlobal = r.GetInt64(1) == 1;
+        if (AccessControl.IsAdmin(s)) return;                       // admin tümünü yönetir
+        if (isGlobal) throw new ForbiddenException("Genel şablonu yalnız admin düzenleyebilir.");
+        if (createdBy != s.UserId) throw new ForbiddenException("Yalnız kendi şablonunuzu düzenleyebilirsiniz.");
+    }
+
+    private static string? Norm(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+}

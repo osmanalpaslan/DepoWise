@@ -50,6 +50,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Files.TrashService Trash { get; }
     public DepoWise.Application.Files.IFileStorageProvider Storage { get; }
     public DepoWise.Infrastructure.Vehicles.VehicleTemplateService VehicleTemplates { get; }
+    public DepoWise.Infrastructure.Materials.MaterialTemplateService MaterialTemplates { get; }
     public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
     public DepoWise.Infrastructure.Reporting.ReportService Reports { get; }
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
@@ -96,6 +97,7 @@ public sealed class ServerServices
         Files = new DepoWise.Infrastructure.Files.FileService(Factory, Storage, clock);
         Trash = new DepoWise.Infrastructure.Files.TrashService(Factory, clock);
         VehicleTemplates = new DepoWise.Infrastructure.Vehicles.VehicleTemplateService(Factory, clock);
+        MaterialTemplates = new DepoWise.Infrastructure.Materials.MaterialTemplateService(Factory, clock);
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection);

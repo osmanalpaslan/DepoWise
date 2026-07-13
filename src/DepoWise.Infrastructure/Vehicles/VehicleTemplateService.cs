@@ -56,10 +56,12 @@ public sealed class VehicleTemplateService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO vehicle_templates(id, company_id, name, internal_code, vehicle_type_id, category_id, brand_id,
-    vehicle_model_id, production_year, default_meter_unit, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$now,$now,1,0);";
+    vehicle_model_id, production_year, default_meter_unit, created_by, is_global, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$by,$g,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$by", s.UserId);
+            cmd.Parameters.AddWithValue("$g", AccessControl.IsAdmin(s) ? 1 : 0); // admin şablonu herkese; diğeri kişisel
             cmd.Parameters.AddWithValue("$n", dto.Name);
             cmd.Parameters.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
@@ -131,9 +133,11 @@ LEFT JOIN vehicle_categories vc ON vc.id = t.category_id
 LEFT JOIN brands b ON b.id = t.brand_id
 LEFT JOIN vehicle_models vm ON vm.id = t.vehicle_model_id
 WHERE t.company_id=$c AND t.is_deleted=0
+  AND (t.is_global=1 OR t.created_by=$me)
   AND ($s IS NULL OR t.name LIKE $like OR COALESCE(t.internal_code,'') LIKE $like)
 ORDER BY t.name LIMIT $lim;";
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$me", s.UserId);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");

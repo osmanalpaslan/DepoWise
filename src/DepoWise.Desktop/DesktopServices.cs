@@ -48,6 +48,7 @@ public static class DesktopServices
     public static DashboardService Dashboard { get; private set; } = null!;
     public static VehicleService Vehicles { get; private set; } = null!;
     public static VehicleTemplateService VehicleTemplates { get; private set; } = null!;
+    public static MaterialTemplateService MaterialTemplates { get; private set; } = null!;
     public static MaintenanceService Maintenance { get; private set; } = null!;
     public static MaintenanceDefinitionService MaintenanceDefs { get; private set; } = null!;
     public static InspectionService Inspection { get; private set; } = null!;
@@ -126,6 +127,7 @@ public static class DesktopServices
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
         Vehicles = new VehicleService(Factory, clock);
         VehicleTemplates = new VehicleTemplateService(Factory, clock);
+        MaterialTemplates = new MaterialTemplateService(Factory, clock);
         Fuel = new FuelService(Factory, clock);
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
         RequestPdf = new RequestPdfService();
