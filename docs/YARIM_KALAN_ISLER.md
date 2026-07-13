@@ -42,7 +42,12 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ✅ `ListForUserCreation`: kullanıcı-oluşturma yetkili aktör kendi firması + tüm-firma şablonlarını görür (tenant izolasyonu).
 - ✅ Web firma seçici + kapsam sütunu; Users ekranı şablon listesi `for-user` (web + masaüstü).
 - 📄 Rapor: [docs/tests/Yetki_Sablonu_Test_Report.md](docs/tests/Yetki_Sablonu_Test_Report.md).
-### ⏳ Adım 5 — **Malzeme yeni-kayıt şablonu** ekranı (araç şablonuna benzer); admin=global, diğer kullanıcı kendi makinesinde; şablon-dışı kayıtta uyarı ("Ana Yetkiliye Bilgi verilmelidir!").
+### ✅ Adım 5 — Malzeme yeni-kayıt şablonu + şablon-dışı uyarı (TAMAMLANDI, test 307/307, DEPLOY EDİLMEDİ)
+- ✅ `material_templates` tablosu + servis + modül + web yönetim ekranı (Malzeme menüsü); malzeme create'te şablon seçici.
+- ✅ Görünürlük **oluşturana göre** (kullanıcı onayı): admin=global, diğerinin şablonu yalnız kendisine (araç dahil; Migration040).
+- ✅ Şablon-dışı kayıtta uyarı ("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!") — malzeme + araç, web + masaüstü.
+- ⚠️ Masaüstü Malzeme Şablonları YÖNETİM ekranı (Avalonia) eklenmedi (web'den yönetilir); masaüstünde seçim+uyarı çalışır.
+- 📄 Rapor: [docs/tests/Malzeme_Sablonu_Test_Report.md](docs/tests/Malzeme_Sablonu_Test_Report.md).
 ### ⏳ Adım 6 — Kullanıcı oluştururken **şube zorunlu** (süper admin hariç); şube yoksa engelle + uyarı.
 ### ⏳ Adım 7 — UI: **logo/tema renk uyumu** (web + masaüstü login).
 

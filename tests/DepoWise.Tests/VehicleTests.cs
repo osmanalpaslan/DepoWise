@@ -203,6 +203,24 @@ public class VehicleTests : IDisposable
 
     // ---- Şablon ----
     [Fact]
+    public void AracSablonu_Gorunurluk_OlusturanaGore()
+    {
+        // Admin şablonu global → personel görür; personel şablonu yalnız kendisine.
+        var staff = new SessionContext("st", "A", new[] { RoleKeys.Staff },
+            new PermissionSet(new[] { new ModulePermission("vehicle_templates", true, true, true, true) }));
+        var adminTpl = _templates.Create(_admin, new NewVehicleTemplate("Admin Şablon"));
+        var staffTpl = _templates.Create(staff, new NewVehicleTemplate("Personel Şablon"));
+
+        var staffList = _templates.List(staff).Select(t => t.Id).ToHashSet();
+        Assert.Contains(adminTpl, staffList);   // admin global görünür
+        Assert.Contains(staffTpl, staffList);   // kendi şablonu görünür
+
+        var adminList = _templates.List(_admin).Select(t => t.Id).ToHashSet();
+        Assert.Contains(adminTpl, adminList);
+        Assert.DoesNotContain(staffTpl, adminList); // personelin kişisel şablonu admin listesinde YOK
+    }
+
+    [Fact]
     public void Sablon_YeniAraciDoldurur_VeMalzemeleriKopyalar()
     {
         var brand = new LookupService(_factory, _clock).AddBrand(_admin, "Cat", "vehicle");

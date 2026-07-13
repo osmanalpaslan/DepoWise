@@ -70,6 +70,30 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
     [ObservableProperty] private LookupItem? _selectedBrand;
     [ObservableProperty] private LookupItem? _selectedSupplier;
 
+    // Malzeme şablonu (örnek kayıt) — seçilince form önden dolar; seçilmezse kayıtta uyarı çıkar.
+    public ObservableCollection<DepoWise.Infrastructure.Materials.MaterialTemplateRow> MaterialTemplates { get; } = new();
+    [ObservableProperty] private DepoWise.Infrastructure.Materials.MaterialTemplateRow? _selectedMaterialTemplate;
+
+    partial void OnSelectedMaterialTemplateChanged(DepoWise.Infrastructure.Materials.MaterialTemplateRow? value)
+    {
+        if (value is null) return;
+        try
+        {
+            var t = DesktopServices.MaterialTemplates.Get(_session, value.Id);
+            if (t is null) return;
+            if (!string.IsNullOrWhiteSpace(t.Code)) NewCode = t.Code!;
+            if (!string.IsNullOrWhiteSpace(t.Name)) NewName = t.Name;
+            if (!string.IsNullOrWhiteSpace(t.Type)) NewType = t.Type!;
+            NewMinStock = t.MinStock; NewUnitPrice = t.UnitPrice;
+            if (!string.IsNullOrWhiteSpace(t.Description)) NewDescription = t.Description!;
+            SelectedCategory = Categories.FirstOrDefault(c => c.Id == t.CategoryId);
+            SelectedUnit = Units.FirstOrDefault(u => u.Id == t.UnitId);
+            SelectedBrand = Brands.FirstOrDefault(b => b.Id == t.BrandId);
+            SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == t.SupplierId);
+        }
+        catch { }
+    }
+
     private bool _lookupsLoaded;
 
     partial void OnSelectedCategoryChanged(LookupItem? value)
@@ -166,8 +190,14 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
             Status = "Kod ve ad zorunlu."; return;
         }
         if (SelectedUnit is null) { Status = "Birim seçin."; return; }
+        if (!editing && SelectedMaterialTemplate is null)
+        {
+            // Şablon dışı kayıt uyarısı (tek tip kayıt için).
+            if (!await ConfirmService.AskAsync("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?",
+                    "Şablon Dışı Kayıt", "Evet, Devam Et", "Vazgeç", danger: true)) return;
+        }
 
-        if (!editing && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
+        if (!editing && SelectedMaterialTemplate is not null && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
 
         // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
         var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;
@@ -266,7 +296,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
         NewCode = ""; NewName = ""; NewUnitPrice = 0; NewMinStock = 0;
         NewOpeningStock = 0; NewDescription = ""; NewType = "Yedek Parça";
         SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;
-        SelectedBrand = null; SelectedSupplier = null;
+        SelectedBrand = null; SelectedSupplier = null; SelectedMaterialTemplate = null;
         IsAddingCategory = IsAddingSubCategory = IsAddingUnit = IsAddingBrand = IsAddingSupplier = false;
         foreach (var p in VehiclePicks) p.IsSelected = false;
         VehicleSearch = "";
@@ -287,6 +317,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
             Units.Clear(); foreach (var u in DesktopServices.Lookups.List(_session, "units")) Units.Add(u);
             Brands.Clear(); foreach (var b in DesktopServices.Lookups.ListBrands(_session, "material")) Brands.Add(b);
             Suppliers.Clear(); foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(sp);
+            MaterialTemplates.Clear();
+            try { foreach (var t in DesktopServices.MaterialTemplates.List(_session)) MaterialTemplates.Add(t); } catch { }
             LoadVehiclePicks();
             _lookupsLoaded = true;
         }

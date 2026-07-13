@@ -32,6 +32,14 @@
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
+                <!-- Şablon (örnek kayıt) — yalnız yeni kayıt; seçilmezse kayıtta uyarı -->
+                <ctrl:FormField Label="Şablon (örnek kayıt)" Width="360"
+                                IsVisible="{Binding !IsEditMode}"
+                                HelpText="Şablon seçerseniz alanlar önden dolar. Şablon seçmeden kaydederseniz uyarı çıkar.">
+                    <ComboBox Classes="Field" ItemsSource="{Binding MaterialTemplates}"
+                              SelectedItem="{Binding SelectedMaterialTemplate}" HorizontalAlignment="Stretch"/>
+                </ctrl:FormField>
+
                 <!-- Grup 1: Tanım -->
                 <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">

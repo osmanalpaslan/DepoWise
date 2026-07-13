@@ -207,7 +207,16 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         bool editing = IsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode)) { Status = "İç kod zorunlu."; return; }
-        if (!editing && !await ConfirmService.AskAsync("Yeni araç kaydedilsin mi?", "Kaydet")) return;
+        if (!editing)
+        {
+            // Şablon dışı kayıt uyarısı (tek tip kayıt için).
+            if (SelectedTemplate is null)
+            {
+                if (!await ConfirmService.AskAsync("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?",
+                        "Şablon Dışı Kayıt", "Evet, Devam Et", "Vazgeç", danger: true)) return;
+            }
+            else if (!await ConfirmService.AskAsync("Yeni araç kaydedilsin mi?", "Kaydet")) return;
+        }
 
         if (editing)
         {
