@@ -27,8 +27,8 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **307/307 yeşil** (`dotnet test`) |
-| **Şema** | Migration **040** (son: malzeme şablonları + şablon oluşturan-görünürlüğü) |
+| **Testler** | **312/312 yeşil** (`dotnet test`) |
+| **Şema** | Migration **040** (kullanıcı-şube zorunluluğu şema gerektirmedi) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 · ⚠️ Adım 1 API değişikliği **deploy edilmedi** |
 | **Web** | `depowise-web.fly.dev` — **canlı** · ⚠️ Adım 1 web değişikliği **deploy edilmedi** |
 | **Masaüstü** | **1.0.47 yayında** (Adım 1 masaüstü değişikliği yeni pakette gidecek) |
@@ -77,13 +77,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Büyük yetki/ekran promptu — Adım 6:** Kullanıcı oluştururken **şube ZORUNLU** (süper admin hariç);
-> şube açılmamışsa kullanıcı oluşturmaya izin verme + uyarı; şube/şantiye oluşunca kullanıcı kaydı yapılabilsin.
-> Tüm adımlar (6–7): [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
+> **Büyük yetki/ekran promptu — Adım 7 (SON):** UI — uygulama logosu ile **login ekranlarının tema/renkleri
+> uyumlu** olsun (web + masaüstü). İlk büyük promptun UI maddesi. Ayrıntı: [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
 >
-> **Adım 1–5 bitti** (test 307/307): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon + Firma
+> **Adım 1–6 bitti** (test 312/312): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon + Firma
 > Yetki Kontrol 3-düzey · Firma Tanım ayrı admin/personel + makine kotası · Yetki Şablonu firma-kapsamlı ·
-> Malzeme şablonu + şablon-dışı uyarı. ⚠️ **Deploy edilmedi** (sonraki web işiyle; şema 035→040, **API'yi de** deploy et).
+> Malzeme şablonu + şablon-dışı uyarı · Kullanıcı-şube zorunluluğu. ⚠️ **Deploy edilmedi** (sonraki web işiyle;
+> şema 035→040, **API'yi de** deploy et).
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·

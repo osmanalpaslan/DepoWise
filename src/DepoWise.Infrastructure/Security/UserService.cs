@@ -518,6 +518,46 @@ ORDER BY c.name;";
         return list;
     }
 
+    /// <summary>Adım 6: Kullanıcı oluşturma AKIŞINDA (web API + masaüstü) çağrılır — operasyonel (personel)
+    /// kullanıcı için şube/şantiye ZORUNLU. Muaf: Süper Admin, Kısıtlı Süper Admin (platform) ve Admin
+    /// (firma-geneli yönetici). Şube yoksa "önce şube oluştur" mesajı; varsa "şube seçin"; seçilen şube
+    /// firmaya ait ve geçerli olmalı. Servis çekirdeği (CreateUser) bunu ZORLAMAZ; sınır katmanı çağırır.</summary>
+    public void ValidateBranchForNewUser(SessionContext actor, string? requestedCompanyId, IReadOnlyList<string> roleKeys, string? branchId)
+    {
+        bool exempt = roleKeys.Any(k =>
+            string.Equals(k, RoleKeys.SuperAdmin, StringComparison.Ordinal)
+            || string.Equals(k, RoleKeys.RestrictedSuperAdmin, StringComparison.Ordinal)
+            || string.Equals(k, RoleKeys.CompanyAdmin, StringComparison.Ordinal));
+        if (exempt) return;
+        var companyId = RoleAssignmentGuard.ResolveTargetCompany(actor, requestedCompanyId);
+        using var conn = _factory.Create();
+        if (string.IsNullOrWhiteSpace(branchId))
+            throw new InvalidOperationException(CompanyHasBranch(conn, companyId)
+                ? "Şube/şantiye zorunlu. Kullanıcıya bir şube seçin."
+                : "Bu firmada henüz şube/şantiye yok. Önce Şube/Şantiye ekranından bir şube oluşturun, sonra kullanıcı ekleyin.");
+        EnsureBranchInCompany(conn, companyId, branchId!);
+    }
+
+    /// <summary>Firmada aktif (silinmemiş) en az bir şube/şantiye var mı?</summary>
+    private static bool CompanyHasBranch(SqliteConnection conn, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
+    /// <summary>Seçilen şube bu firmaya ait ve geçerli (silinmemiş) mi? Değilse hata (tenant + geçerlilik).</summary>
+    private static void EnsureBranchInCompany(SqliteConnection conn, string companyId, string branchId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$b AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$b", branchId);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new InvalidOperationException("Seçilen şube geçersiz veya bu firmaya ait değil.");
+    }
+
     private static int CountCompanyAdmins(SqliteConnection conn, SqliteTransaction tx, string companyId)
     {
         using var cmd = conn.CreateCommand();

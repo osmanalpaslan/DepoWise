@@ -22,7 +22,17 @@
                     </MudSelect>
                 </MudItem>
             }
-            <MudItem xs="12" md="6"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Şube / Şantiye *" @bind-Value="_branch" Items="_branches" /></MudItem>
+            @if (_branches.Count == 0)
+            {
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        Bu firmada henüz <b>şube/şantiye</b> yok. Personel kullanıcısı oluşturabilmek için önce
+                        <MudLink Href="branches">Şube / Şantiye</MudLink> ekranından bir şube ekleyin.
+                        (Süper Admin / Admin kullanıcıları şube gerektirmez.)
+                    </MudAlert>
+                </MudItem>
+            }
 
             @* Fikir B — Kullanıcıyı bir PERSONEL kaydına bağla (ad soyad tekrar yazılmaz; bir personele tek hesap). *@
             <MudItem xs="12" md="6">

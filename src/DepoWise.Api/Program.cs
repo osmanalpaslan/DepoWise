@@ -623,6 +623,8 @@ app.MapPost("/api/personnel/{id}/account", (HttpContext c, string id, AccountDto
     var s = S(c); if (s is null) return Results.Unauthorized();
     var p = svc.Personnel.Get(s, id) ?? throw new InvalidOperationException("Personel bulunamadı.");
     var roles = new[] { string.IsNullOrWhiteSpace(d.RoleKey) ? "role-staff" : d.RoleKey! };
+    // Adım 6: personele hesap açarken de şube zorunlu (personelin şubesi ya da seçilen şube).
+    svc.Users.ValidateBranchForNewUser(s, s.CompanyId, roles, d.BranchId ?? p.BranchId);
     var uid = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
         d.Username, d.Password, p.FullName, roles, CompanyId: s.CompanyId, BranchId: d.BranchId ?? p.BranchId, PersonnelId: id));
     return Results.Ok(new { userId = uid });
@@ -736,6 +738,8 @@ app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     // Firma: YALNIZ süper admin seçebilir; diğerleri kendi firmasına bağlar (yetki yükseltme engeli).
     var companyId = s.IsSuperAdmin && !string.IsNullOrWhiteSpace(d.CompanyId) ? d.CompanyId! : s.CompanyId;
+    // Adım 6: operasyonel (personel) kullanıcıda şube/şantiye zorunlu (süper/kısıtlı-süper admin + admin muaf).
+    svc.Users.ValidateBranchForNewUser(s, d.CompanyId, d.RoleKeys ?? new List<string>(), d.BranchId);
     var id = svc.Users.CreateUser(s, new DepoWise.Infrastructure.Security.NewUser(
         d.Username, d.Password, d.FullName, d.RoleKeys ?? new List<string>(), companyId, null, d.BranchId, d.CanViewAllBranches,
         string.IsNullOrWhiteSpace(d.PersonnelId) ? null : d.PersonnelId));   // Fikir B: "Personel seç" ile bağla

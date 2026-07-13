@@ -48,8 +48,13 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ✅ Şablon-dışı kayıtta uyarı ("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!") — malzeme + araç, web + masaüstü.
 - ⚠️ Masaüstü Malzeme Şablonları YÖNETİM ekranı (Avalonia) eklenmedi (web'den yönetilir); masaüstünde seçim+uyarı çalışır.
 - 📄 Rapor: [docs/tests/Malzeme_Sablonu_Test_Report.md](docs/tests/Malzeme_Sablonu_Test_Report.md).
-### ⏳ Adım 6 — Kullanıcı oluştururken **şube zorunlu** (süper admin hariç); şube yoksa engelle + uyarı.
-### ⏳ Adım 7 — UI: **logo/tema renk uyumu** (web + masaüstü login).
+### ✅ Adım 6 — Kullanıcı oluştururken şube zorunlu (TAMAMLANDI, test 312/312, DEPLOY EDİLMEDİ)
+- ✅ Operasyonel (personel) kullanıcıda **şube/şantiye zorunlu**; Süper/Kısıtlı Süper Admin **ve Admin** muaf.
+- ✅ Şube yoksa engelle + yönlendirme mesajı; şube firmaya ait/geçerli olmalı. Web'de zorunlu alan + şube-yok uyarısı.
+- ✅ Enforcement oluşturma-akışı sınırında (API + masaüstü VM); mevcut testler bozulmadı (`ValidateBranchForNewUser`).
+- 📄 Rapor: [docs/tests/Kullanici_Sube_Zorunlulugu_Test_Report.md](docs/tests/Kullanici_Sube_Zorunlulugu_Test_Report.md).
+
+### ⏳ Adım 7 (SON) — UI: **logo/tema renk uyumu** (web + masaüstü login). İlk büyük promptun UI maddesi.
 
 ### Açıklanan (işlem yapılmadı):
 - **Fly.io ölçekleme:** personal/kullanım-bazlı hesapta makine/RAM/disk **üçü de ücretli**; bedava maksimum yok;

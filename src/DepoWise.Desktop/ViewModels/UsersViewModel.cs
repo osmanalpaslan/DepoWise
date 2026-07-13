@@ -206,6 +206,8 @@ public sealed partial class UsersViewModel : ViewModelBase
             return;
         try
         {
+            // Adım 6: operasyonel (personel) kullanıcıda şube/şantiye zorunlu (süper/kısıtlı-süper admin + admin muaf).
+            DesktopServices.Users.ValidateBranchForNewUser(_session, _session.CompanyId, roles, FormBranch?.Id);
             var newUserId = DesktopServices.Users.CreateUser(_session, new NewUser(
                 Username: NewUsername.Trim(),
                 Password: NewPassword,
