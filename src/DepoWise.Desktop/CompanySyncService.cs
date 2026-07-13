@@ -72,6 +72,7 @@ public static class CompanySyncService
             id,
             name = d.Name, taxNo = d.TaxNo, taxOffice = d.TaxOffice, address = d.Address,
             phone = d.Phone, email = d.Email, authorizedPerson = d.AuthorizedPerson, maxUsers = d.MaxUsers,
+            maxAdmins = d.MaxAdmins, machineQuota = d.MachineQuota,
         });
 
     /// <summary>İşlemi outbox'a yazar (operation_id benzersiz → tekrar gönderim güvenli).</summary>

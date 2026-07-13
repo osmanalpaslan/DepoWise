@@ -33,7 +33,10 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ✅ Admin'e yükseltme uyarısında **sebep ekranlar madde madde** listeleniyor (web + masaüstü).
 - 📄 Rapor: [docs/tests/Yetki_Rol_Delegasyon_Test_Report.md](docs/tests/Yetki_Rol_Delegasyon_Test_Report.md).
 
-### ⏳ Adım 3 — Firma Tanım ekranı: admin + normal kullanıcı sayısı **ayrı** + **makine kotası** (mevcut %20 admin kuralı kalkacak).
+### ✅ Adım 3 — Firma Tanım: ayrı admin/personel kotası + makine kotası (TAMAMLANDI, test 298/298, DEPLOY EDİLMEDİ)
+- ✅ `max_admins` (admin) + `max_users` (normal/personel) AYRI; **%20 admin kuralı kaldırıldı** (Migration038).
+- ✅ **Makine kotası** (`machine_quota`) Firma Tanım ekranında (web + masaüstü). Kota enforcement + QuotaMonitor güncellendi.
+- 📄 Rapor: [docs/tests/Firma_Tanim_Kota_Test_Report.md](docs/tests/Firma_Tanim_Kota_Test_Report.md).
 ### ⏳ Adım 4 — Yetki Şablonu: **firma seçimi** + "tüm firmalar" + firma-bazlı görünürlük.
 ### ⏳ Adım 5 — **Malzeme yeni-kayıt şablonu** ekranı (araç şablonuna benzer); admin=global, diğer kullanıcı kendi makinesinde; şablon-dışı kayıtta uyarı ("Ana Yetkiliye Bilgi verilmelidir!").
 ### ⏳ Adım 6 — Kullanıcı oluştururken **şube zorunlu** (süper admin hariç); şube yoksa engelle + uyarı.

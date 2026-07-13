@@ -7,16 +7,20 @@ namespace DepoWise.Infrastructure.Organization;
 
 public sealed record CompanyRow(
     string Id, string Name, string? TaxNo, string? TaxOffice, string? Address,
-    string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0)
+    string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0,
+    int MaxAdmins = 0, int MachineQuota = 3)
 {
     public string TaxDisplay => string.IsNullOrEmpty(TaxNo) ? "—" : TaxNo!;
-    /// <summary>Maks kullanıcı (0 = sınırsız). Admin sınırı = MaxUsers'ın 2/10'u (ileride uygulanır).</summary>
+    /// <summary>Maks NORMAL (personel) kullanıcı (0 = sınırsız).</summary>
     public string MaxUsersText => MaxUsers <= 0 ? "Sınırsız" : MaxUsers.ToString();
+    public string MaxAdminsText => MaxAdmins <= 0 ? "Sınırsız" : MaxAdmins.ToString();
+    public string MachineQuotaText => MachineQuota <= 0 ? "Sınırsız" : MachineQuota.ToString();
 }
 
 public sealed record NewCompany(
     string Name, string? TaxNo = null, string? TaxOffice = null, string? Address = null,
-    string? Phone = null, string? Email = null, string? AuthorizedPerson = null, int MaxUsers = 0);
+    string? Phone = null, string? Email = null, string? AuthorizedPerson = null, int MaxUsers = 0,
+    int MaxAdmins = 0, int MachineQuota = 3);
 
 /// <summary>
 /// Firma Tanım — YALNIZ Süper Admin (AccessControl "companies" süper-admin-only; admin bypass geçersiz).
@@ -52,7 +56,7 @@ public sealed class CompanyService
         cmd.CommandText = @"
 SELECT c.id, c.name, c.tax_no, c.tax_office, c.address, c.phone, c.email, c.authorized_person,
        (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_deleted = 0),
-       COALESCE(c.max_users,0)
+       COALESCE(c.max_users,0), COALESCE(c.max_admins,0), COALESCE(c.machine_quota,3)
 FROM companies c
 WHERE c.is_deleted = 0
 ORDER BY c.name;";
@@ -60,7 +64,7 @@ ORDER BY c.name;";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new CompanyRow(r.GetString(0), r.GetString(1),
-                S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), r.GetInt32(8), r.GetInt32(9)));
+                S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), r.GetInt32(8), r.GetInt32(9), r.GetInt32(10), r.GetInt32(11)));
         return list;
     }
 
@@ -83,10 +87,10 @@ ORDER BY c.name;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = @"
-INSERT INTO companies(id, name, tax_no, tax_office, address, phone, email, authorized_person, max_users, created_at, updated_at, version, is_deleted)
-VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$now,$now,1,0)
+INSERT INTO companies(id, name, tax_no, tax_office, address, phone, email, authorized_person, max_users, max_admins, machine_quota, created_at, updated_at, version, is_deleted)
+VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$ma,$mq,$now,$now,1,0)
 ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
-    authorized_person=$ap, max_users=$mu, is_deleted=0, version=companies.version+1, updated_at=$now;";
+    authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, is_deleted=0, version=companies.version+1, updated_at=$now;";
             Bind(cmd, dto);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$now", now);
@@ -109,7 +113,7 @@ ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, 
             cmd.Transaction = tx;
             cmd.CommandText = @"
 UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
-    authorized_person=$ap, max_users=$mu, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=0;";
+    authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=0;";
             Bind(cmd, dto);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$now", now);
@@ -141,7 +145,7 @@ UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph
         cmd.CommandText = @"
 SELECT c.id, c.name, c.tax_no, c.tax_office, c.address, c.phone, c.email, c.authorized_person,
        (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.is_deleted = 0),
-       COALESCE(c.max_users,0)
+       COALESCE(c.max_users,0), COALESCE(c.max_admins,0), COALESCE(c.machine_quota,3)
 FROM companies c
 WHERE c.is_deleted = 1
 ORDER BY c.name;";
@@ -149,7 +153,7 @@ ORDER BY c.name;";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new CompanyRow(r.GetString(0), r.GetString(1),
-                S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), r.GetInt32(8), r.GetInt32(9)));
+                S(r, 2), S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7), r.GetInt32(8), r.GetInt32(9), r.GetInt32(10), r.GetInt32(11)));
         return list;
     }
 
@@ -236,6 +240,8 @@ ORDER BY c.name;";
         cmd.Parameters.AddWithValue("$em", (object?)Norm(dto.Email) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$ap", (object?)Norm(dto.AuthorizedPerson) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$mu", dto.MaxUsers < 0 ? 0 : dto.MaxUsers);
+        cmd.Parameters.AddWithValue("$ma", dto.MaxAdmins < 0 ? 0 : dto.MaxAdmins);
+        cmd.Parameters.AddWithValue("$mq", dto.MachineQuota < 0 ? 0 : dto.MachineQuota);
     }
 
     private static string? Norm(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();

@@ -541,7 +541,7 @@ app.MapPost("/api/companies", (HttpContext ctx, NewCompanyDto dto) =>
     // dto.Id: masaüstünün ÇEVRİMDIŞI ürettiği firma id'si (kuyruk işlenirken gelir) → aynı id ile oluşturulur,
     // tekrar gönderimde idempotent (hata vermez). Web'den gelen normal istekte null'dır → sunucu id üretir.
     var id = svc.Companies.Create(s, new DepoWise.Infrastructure.Organization.NewCompany(
-        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson, dto.MaxUsers), dto.Id);
+        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson, dto.MaxUsers, dto.MaxAdmins, dto.MachineQuota), dto.Id);
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
@@ -549,7 +549,7 @@ app.MapPut("/api/companies/{id}", (HttpContext ctx, string id, NewCompanyDto dto
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
     svc.Companies.Update(s, id, new DepoWise.Infrastructure.Organization.NewCompany(
-        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson, dto.MaxUsers));
+        dto.Name, dto.TaxNo, dto.TaxOffice, dto.Address, dto.Phone, dto.Email, dto.AuthorizedPerson, dto.MaxUsers, dto.MaxAdmins, dto.MachineQuota));
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -1468,7 +1468,7 @@ record SelfAssignDto(string? MachineName, string? BranchId);
 record EnrollDto(string CompanyId, string Key, string DeviceName);
 record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
-record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0, string? Id = null);
+record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0, string? Id = null, int MaxAdmins = 0, int MachineQuota = 3);
 record NameDto(string Name);
 record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false);
 record TitleDto(string Name);

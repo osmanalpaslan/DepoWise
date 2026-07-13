@@ -42,5 +42,6 @@ public static class MigrationCatalog
         new Migration035_SplitRequestApproval(),
         new Migration036_RestrictedSuperAdmin(),
         new Migration037_GrantLevel(),
+        new Migration038_CompanyMaxAdmins(),
     };
 }

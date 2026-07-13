@@ -28,9 +28,16 @@
                     <ctrl:FormField Label="Yetkili" Width="220">
                         <TextBox Classes="Field" Text="{Binding FormAuthorized}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Maks. Kullanıcı (0=sınırsız)" Width="200"
-                                    HelpText="Admin sınırı = bu sayının %20'si.">
+                    <ctrl:FormField Label="Maks. Admin (0=∞)" Width="150" HelpText="Admin kullanıcı kotası">
+                        <NumericUpDown Classes="Field" Value="{Binding FormMaxAdmins}" Minimum="0" Maximum="100000"
+                                       FormatString="0" ShowButtonSpinner="True"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Maks. Personel (0=∞)" Width="150" HelpText="Normal kullanıcı kotası">
                         <NumericUpDown Classes="Field" Value="{Binding FormMaxUsers}" Minimum="0" Maximum="100000"
+                                       FormatString="0" ShowButtonSpinner="True"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Makine Kotası (0=∞)" Width="150" HelpText="Kayıtlı makine sayısı">
+                        <NumericUpDown Classes="Field" Value="{Binding FormMachineQuota}" Minimum="0" Maximum="100000"
                                        FormatString="0" ShowButtonSpinner="True"/>
                     </ctrl:FormField>
                 </StackPanel>

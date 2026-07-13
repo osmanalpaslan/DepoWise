@@ -50,6 +50,8 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     [ObservableProperty] private string _formEmail = "";
     [ObservableProperty] private string _formAuthorized = "";
     [ObservableProperty] private int _formMaxUsers;
+    [ObservableProperty] private int _formMaxAdmins;
+    [ObservableProperty] private int _formMachineQuota = 3;
     [ObservableProperty] private string? _formError;
     public string FormTitle => EditId is null ? "YENİ FİRMA" : "FİRMA DÜZENLE";
 
@@ -115,7 +117,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok (yalnız Süper Admin)."; return; }
         EditId = null;
         FormName = ""; FormTaxNo = ""; FormTaxOffice = ""; FormAddress = "";
-        FormPhone = ""; FormEmail = ""; FormAuthorized = ""; FormMaxUsers = 0; FormError = null;
+        FormPhone = ""; FormEmail = ""; FormAuthorized = ""; FormMaxUsers = 0; FormMaxAdmins = 0; FormMachineQuota = 3; FormError = null;
         ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle));
     }
@@ -134,6 +136,8 @@ public sealed partial class CompaniesViewModel : ViewModelBase
         FormEmail = Selected.Email ?? "";
         FormAuthorized = Selected.AuthorizedPerson ?? "";
         FormMaxUsers = Selected.MaxUsers;
+        FormMaxAdmins = Selected.MaxAdmins;
+        FormMachineQuota = Selected.MachineQuota;
         FormError = null; ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle));
     }
@@ -162,7 +166,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     {
         FormError = null;
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Firma adı zorunlu."; return; }
-        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers);
+        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers, FormMaxAdmins, FormMachineQuota);
         var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(editing ? "Firma güncellensin mi?" : "Firma oluşturulsun mu?", "Kaydet")) return;
         try

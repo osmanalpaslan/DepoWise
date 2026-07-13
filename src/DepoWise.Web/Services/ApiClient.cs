@@ -12,7 +12,7 @@ public sealed record LoginResponse(string Token, string UserId, string CompanyId
 public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "", string BranchId = "", string Province = "");
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record ReleasePackageDto(string Version, string FileName, long SizeBytes, double SizeMb, DateTime ModifiedUtc, bool IsLatest);
-public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0);
+public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0, int MaxAdmins = 0, int MachineQuota = 3);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
 public sealed record RoleDto(string Key, string Name);
 public sealed record MenuResponse(bool IsSuperAdmin, bool IsAdmin, List<MenuModule> Modules);

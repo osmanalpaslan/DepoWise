@@ -32,15 +32,15 @@ public sealed record PersonnelAccount(string UserId, string Username, bool IsAct
 /// <summary>Bir personele bağlanabilir (henüz bağsız) kullanıcı — personel ekranı "kullanıcı bağla" listesi.</summary>
 public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive);
 
-/// <summary>Kota izleme satırı (F): firma kullanıcı + admin kullanımı vs limit.</summary>
-public sealed record QuotaMonitorRow(string CompanyId, string CompanyName, int MaxUsers, int UserCount, int AdminLimit, int AdminCount, int ActiveCount = 0)
+/// <summary>Kota izleme satırı: NORMAL (personel) ve ADMIN kullanımı AYRI kotalar (max_users / max_admins).</summary>
+public sealed record QuotaMonitorRow(string CompanyId, string CompanyName, int MaxUsers, int NormalCount, int MaxAdmins, int AdminCount, int ActiveCount = 0)
 {
-    public string UserText => MaxUsers > 0 ? $"{UserCount} / {MaxUsers}" : $"{UserCount} / ∞";
-    public string AdminText => MaxUsers > 0 ? $"{AdminCount} / {AdminLimit}" : $"{AdminCount} / ∞";
+    public string UserText => MaxUsers > 0 ? $"{NormalCount} / {MaxUsers}" : $"{NormalCount} / ∞";
+    public string AdminText => MaxAdmins > 0 ? $"{AdminCount} / {MaxAdmins}" : $"{AdminCount} / ∞";
     /// <summary>Aktif kullanıcı sayısı (pasifler hariç) — kotaya sayılan toplamdan ayrı gösterilir.</summary>
     public string ActiveText => $"{ActiveCount} aktif";
-    public bool UserFull => MaxUsers > 0 && UserCount >= MaxUsers;
-    public bool AdminFull => MaxUsers > 0 && AdminCount >= AdminLimit;
+    public bool UserFull => MaxUsers > 0 && NormalCount >= MaxUsers;
+    public bool AdminFull => MaxAdmins > 0 && AdminCount >= MaxAdmins;
 }
 
 /// <summary>
@@ -246,19 +246,14 @@ ORDER BY u.username;";
         if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
         EnsureManageableTarget(conn, tx, actor, userId); // #8: admin başka admini/süperadmini düzenleyemez
 
-        // Admin kotası (F): kullanıcıya admin rolü EKLENİYORSA (daha önce admin değilse) %20 sınırı kontrol edilir.
+        // Admin kotası: kullanıcıya admin rolü EKLENİYORSA (daha önce admin değilse) max_admins kontrol edilir.
         bool willBeAdmin = roleKeys.Any(k => string.Equals(k, RoleKeys.CompanyAdmin, StringComparison.Ordinal));
         bool wasAdmin = IsCompanyAdminUser(conn, tx, userId);
         if (willBeAdmin && !wasAdmin)
         {
-            int maxUsers = CompanyMaxUsers(conn, tx, companyId);
-            if (maxUsers > 0)
-            {
-                int adminLimit = AdminLimit(maxUsers);
-                if (CountCompanyAdmins(conn, tx, companyId) >= adminLimit)
-                    throw new InvalidOperationException(
-                        $"Admin kotası dolu (maks {adminLimit} admin — firma kotasının %20'si). Admin rolü atanamaz.");
-            }
+            var (_, maxAdmins) = CompanyQuotas(conn, tx, companyId);
+            if (maxAdmins > 0 && CountCompanyAdmins(conn, tx, companyId) >= maxAdmins)
+                throw new InvalidOperationException($"Admin kotası dolu (maks {maxAdmins}). Admin rolü atanamaz.");
         }
 
         Insert(conn, tx, "DELETE FROM user_roles WHERE user_id=$u;", cmd => cmd.Parameters.AddWithValue("$u", userId));
@@ -288,32 +283,21 @@ ORDER BY u.username;";
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
 
-        // Kullanıcı kotası: firma max_users > 0 ve dolmuşsa yeni kullanıcı engellenir.
-        int maxUsers = 0;
-        using (var q = conn.CreateCommand())
-        {
-            q.Transaction = tx;
-            q.CommandText = "SELECT COALESCE(max_users,0), " +
-                "(SELECT COUNT(*) FROM users u WHERE u.company_id=$c AND u.is_deleted=0) FROM companies WHERE id=$c;";
-            q.Parameters.AddWithValue("$c", companyId);
-            using var r = q.ExecuteReader();
-            if (r.Read())
-            {
-                maxUsers = r.GetInt32(0); var count = r.GetInt32(1);
-                if (maxUsers > 0 && count >= maxUsers)
-                    throw new InvalidOperationException($"Firma kullanıcı kotası dolu (maks {maxUsers}). Yeni kullanıcı eklenemez.");
-            }
-        }
-
-        // Admin kotası (F): firmada admin kullanıcı sayısı max_users'ın %20'si ile sınırlı (ör. 10 → 2, en az 1).
+        // Kota: admin ve NORMAL (personel) kullanıcı AYRI kotalanır (max_admins / max_users; 0 = sınırsız).
         bool assigningAdmin = dto.RoleKeys.Any(k => string.Equals(k, RoleKeys.CompanyAdmin, StringComparison.Ordinal));
-        if (assigningAdmin && maxUsers > 0)
+        bool assigningElevated = dto.RoleKeys.Any(k =>
+            string.Equals(k, RoleKeys.SuperAdmin, StringComparison.Ordinal)
+            || string.Equals(k, RoleKeys.RestrictedSuperAdmin, StringComparison.Ordinal));
+        var (maxUsers, maxAdmins) = CompanyQuotas(conn, tx, companyId);
+        if (assigningAdmin)
         {
-            int adminLimit = AdminLimit(maxUsers);
-            int adminCount = CountCompanyAdmins(conn, tx, companyId);
-            if (adminCount >= adminLimit)
-                throw new InvalidOperationException(
-                    $"Admin kotası dolu (maks {adminLimit} admin — firma kotasının %20'si). Yeni admin eklenemez.");
+            if (maxAdmins > 0 && CountCompanyAdmins(conn, tx, companyId) >= maxAdmins)
+                throw new InvalidOperationException($"Admin kotası dolu (maks {maxAdmins}). Yeni admin eklenemez.");
+        }
+        else if (!assigningElevated) // normal (personel) kotası — süper/kısıtlı-süper admin kotaya sayılmaz
+        {
+            if (maxUsers > 0 && CountCompanyNormalUsers(conn, tx, companyId) >= maxUsers)
+                throw new InvalidOperationException($"Firma kullanıcı kotası dolu (maks {maxUsers} personel). Yeni kullanıcı eklenemez.");
         }
 
         // "Tüm Şubeler" yetkisi YALNIZ Süper Admin tarafından verilebilir (fail-closed).
@@ -474,8 +458,32 @@ WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
         return map;
     }
 
-    /// <summary>Firma admin kotası = max_users'ın %20'si, en az 1 (ör. 10 → 2, 5 → 1).</summary>
-    public static int AdminLimit(int maxUsers) => maxUsers <= 0 ? int.MaxValue : Math.Max(1, maxUsers * 20 / 100);
+    /// <summary>Firma kotaları: (maxUsers = normal/personel, maxAdmins = admin). 0 = sınırsız.</summary>
+    private static (int MaxUsers, int MaxAdmins) CompanyQuotas(SqliteConnection conn, SqliteTransaction tx, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COALESCE(max_users,0), COALESCE(max_admins,0) FROM companies WHERE id=$c;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (r.GetInt32(0), r.GetInt32(1)) : (0, 0);
+    }
+
+    /// <summary>Normal (personel) kullanıcı sayısı — admin/süper-admin/kısıtlı-süper-admin ROLÜ OLMAYANLAR.</summary>
+    private static int CountCompanyNormalUsers(SqliteConnection conn, SqliteTransaction tx, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText =
+            "SELECT COUNT(*) FROM users u WHERE u.company_id=$c AND u.is_deleted=0 " +
+            "AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id " +
+            "                WHERE ur.user_id=u.id AND r.role_key IN ($rk,$sa,$rsa));";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$rk", RoleKeys.CompanyAdmin);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        cmd.Parameters.AddWithValue("$rsa", RoleKeys.RestrictedSuperAdmin);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
 
     /// <summary>Kota izleme (F): firma başına kullanıcı + admin kullanımı. Süper Admin tümünü, diğerleri kendi firmasını görür.</summary>
     public IReadOnlyList<QuotaMonitorRow> GetQuotaMonitor(SessionContext actor)
@@ -483,27 +491,30 @@ WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
         AccessControl.Require(actor, "quota_monitor", PermissionAction.View); // #15: ayrı yetki (eski: users)
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // Normal = admin/süper-admin/kısıtlı-süper-admin ROLÜ OLMAYAN kullanıcı (personel).
         cmd.CommandText = @"
-SELECT c.id, c.name, COALESCE(c.max_users,0),
-  (SELECT COUNT(*) FROM users u WHERE u.company_id=c.id AND u.is_deleted=0),
+SELECT c.id, c.name, COALESCE(c.max_users,0), COALESCE(c.max_admins,0),
   (SELECT COUNT(DISTINCT u.id) FROM users u
      JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
      WHERE u.company_id=c.id AND u.is_deleted=0 AND r.role_key=$rk),
+  (SELECT COUNT(*) FROM users u WHERE u.company_id=c.id AND u.is_deleted=0
+     AND NOT EXISTS (SELECT 1 FROM user_roles ur2 JOIN roles r2 ON r2.id=ur2.role_id
+                     WHERE ur2.user_id=u.id AND r2.role_key IN ($rk,$sa,$rsa))),
   (SELECT COUNT(*) FROM users u WHERE u.company_id=c.id AND u.is_deleted=0 AND u.is_active=1)
 FROM companies c
 WHERE c.is_deleted=0 AND ($all=1 OR c.id=$c)
 ORDER BY c.name;";
         cmd.Parameters.AddWithValue("$rk", RoleKeys.CompanyAdmin);
+        cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        cmd.Parameters.AddWithValue("$rsa", RoleKeys.RestrictedSuperAdmin);
         cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
         cmd.Parameters.AddWithValue("$c", actor.CompanyId);
         var list = new List<QuotaMonitorRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
-        {
-            int max = r.GetInt32(2);
-            list.Add(new QuotaMonitorRow(r.GetString(0), r.GetString(1), max,
-                r.GetInt32(3), AdminLimit(max), r.GetInt32(4), r.GetInt32(5)));
-        }
+            // 0:id 1:name 2:max_users 3:max_admins 4:adminCount 5:normalCount 6:activeCount
+            list.Add(new QuotaMonitorRow(r.GetString(0), r.GetString(1), r.GetInt32(2),
+                r.GetInt32(5), r.GetInt32(3), r.GetInt32(4), r.GetInt32(6)));
         return list;
     }
 
@@ -530,16 +541,6 @@ ORDER BY c.name;";
         cmd.Parameters.AddWithValue("$u", userId);
         cmd.Parameters.AddWithValue("$rk", RoleKeys.CompanyAdmin);
         return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
-    }
-
-    private static int CompanyMaxUsers(SqliteConnection conn, SqliteTransaction tx, string companyId)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COALESCE(max_users,0) FROM companies WHERE id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        var v = cmd.ExecuteScalar();
-        return v is null ? 0 : Convert.ToInt32(v);
     }
 
     /// <summary>"Tüm Şubeler" yetkisini ayarlar — YALNIZ Süper Admin.</summary>

@@ -15,11 +15,18 @@
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_taxOffice" Label="Vergi Dairesi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="4"><MudTextField @bind-Value="_email" Label="E-posta" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="12" md="4"><MudTextField @bind-Value="_person" Label="Yetkili Kişi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="12" md="4">
-                <MudNumericField T="int" @bind-Value="_maxUsers" Label="Maks. Kullanıcı (0 = sınırsız)" Min="0" Max="100000"
-                                 Margin="Margin.Dense" Variant="Variant.Outlined"
-                                 HelperText="Admin sınırı = bu sayının %20'si." />
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_person" Label="Yetkili Kişi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="2">
+                <MudNumericField T="int" @bind-Value="_maxAdmins" Label="Maks. Admin (0 = ∞)" Min="0" Max="100000"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" HelperText="Admin kullanıcı kotası" />
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudNumericField T="int" @bind-Value="_maxUsers" Label="Maks. Personel (0 = ∞)" Min="0" Max="100000"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" HelperText="Normal kullanıcı kotası" />
+            </MudItem>
+            <MudItem xs="6" md="2">
+                <MudNumericField T="int" @bind-Value="_machineQuota" Label="Makine Kotası (0 = ∞)" Min="0" Max="100000"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" HelperText="Kayıtlı makine sayısı" />
             </MudItem>
             <MudItem xs="12"><MudTextField @bind-Value="_address" Label="Adres" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
@@ -43,14 +50,14 @@
     else
     {
         <MudTable Items="_items" Dense="true" Hover="true" Striped="true">
-            <HeaderContent><MudTh>Firma</MudTh><MudTh>Vergi No</MudTh><MudTh>Telefon</MudTh><MudTh>Yetkili</MudTh><MudTh>Kullanıcı</MudTh><MudTh>Maks. Kul.</MudTh><MudTh></MudTh></HeaderContent>
+            <HeaderContent><MudTh>Firma</MudTh><MudTh>Vergi No</MudTh><MudTh>Telefon</MudTh><MudTh>Yetkili</MudTh><MudTh>Kullanıcı</MudTh><MudTh>Admin/Personel/Makine</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
                 <MudTd>@context.Name</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.TaxNo) ? "—" : context.TaxNo)</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.Phone) ? "—" : context.Phone)</MudTd>
                 <MudTd>@(string.IsNullOrEmpty(context.AuthorizedPerson) ? "—" : context.AuthorizedPerson)</MudTd>
                 <MudTd>@context.UserCount</MudTd>
-                <MudTd>@(context.MaxUsers <= 0 ? "Sınırsız" : context.MaxUsers.ToString())</MudTd>
+                <MudTd>@Q(context.MaxAdmins) / @Q(context.MaxUsers) / @Q(context.MachineQuota)</MudTd>
                 <MudTd>
                     @if (Auth.CanEdit("companies"))
                     {
@@ -112,7 +119,11 @@
     private string? _editId;
     private string _name = "", _taxNo = "", _taxOffice = "", _phone = "", _email = "", _person = "", _address = "";
     private int _maxUsers;
+    private int _maxAdmins;
+    private int _machineQuota = 3;
     private string? _msg; private bool _ok; private bool _busy;
+
+    private static string Q(int v) => v <= 0 ? "∞" : v.ToString();
 
     protected override async Task OnInitializedAsync() { if (Auth.IsAuthenticated) await Load(); }
 
@@ -128,6 +139,7 @@
         _editId = c.Id;
         _name = c.Name; _taxNo = c.TaxNo ?? ""; _phone = c.Phone ?? ""; _person = c.AuthorizedPerson ?? "";
         _email = c.Email ?? ""; _taxOffice = ""; _address = ""; _maxUsers = c.MaxUsers;
+        _maxAdmins = c.MaxAdmins; _machineQuota = c.MachineQuota;
         _msg = null;
     }
 
@@ -165,6 +177,7 @@
     {
         _editId = null;
         _name = _taxNo = _taxOffice = _phone = _email = _person = _address = ""; _maxUsers = 0;
+        _maxAdmins = 0; _machineQuota = 3;
         _msg = null;
     }
 
@@ -179,7 +192,8 @@
             var body = new
             {
                 name = _name.Trim(), taxNo = _taxNo, taxOffice = _taxOffice,
-                address = _address, phone = _phone, email = _email, authorizedPerson = _person, maxUsers = _maxUsers
+                address = _address, phone = _phone, email = _email, authorizedPerson = _person,
+                maxUsers = _maxUsers, maxAdmins = _maxAdmins, machineQuota = _machineQuota
             };
             var err = _editId is null
                 ? await Api.CreateCompanyAsync(body)
