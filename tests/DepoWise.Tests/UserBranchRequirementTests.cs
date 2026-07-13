@@ -87,12 +87,21 @@ public class UserBranchRequirementTests : IDisposable
     }
 
     [Fact]
-    public void SuperAdmin_ve_Admin_Muaf()
+    public void YalnizPlatformRolleri_Muaf()
     {
-        // Şube olmasa bile platform rolleri + admin şube gerektirmez
+        // Şube olmasa bile platform rolleri (süper / kısıtlı süper admin) şube gerektirmez
         _users.ValidateBranchForNewUser(_su, "A", new[] { RoleKeys.SuperAdmin }, branchId: null);
         _users.ValidateBranchForNewUser(_su, "A", new[] { RoleKeys.RestrictedSuperAdmin }, branchId: null);
-        _users.ValidateBranchForNewUser(_su, "A", new[] { RoleKeys.CompanyAdmin }, branchId: null);
+    }
+
+    [Fact]
+    public void Admin_da_SubeZorunlu()
+    {
+        // Admin artık muaf DEĞİL — şubesiz reddedilir; firmanın herhangi bir şubesiyle geçer.
+        Assert.Throws<InvalidOperationException>(() =>
+            _users.ValidateBranchForNewUser(_su, "A", new[] { RoleKeys.CompanyAdmin }, branchId: null));
+        var b = AddBranch("A");
+        _users.ValidateBranchForNewUser(_su, "A", new[] { RoleKeys.CompanyAdmin }, b); // firmanın herhangi bir şubesi geçerli
     }
 
     public void Dispose()

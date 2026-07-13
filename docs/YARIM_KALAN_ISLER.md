@@ -49,7 +49,7 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ⚠️ Masaüstü Malzeme Şablonları YÖNETİM ekranı (Avalonia) eklenmedi (web'den yönetilir); masaüstünde seçim+uyarı çalışır.
 - 📄 Rapor: [docs/tests/Malzeme_Sablonu_Test_Report.md](docs/tests/Malzeme_Sablonu_Test_Report.md).
 ### ✅ Adım 6 — Kullanıcı oluştururken şube zorunlu (TAMAMLANDI, test 312/312, DEPLOY EDİLMEDİ)
-- ✅ Operasyonel (personel) kullanıcıda **şube/şantiye zorunlu**; Süper/Kısıtlı Süper Admin **ve Admin** muaf.
+- ✅ **Admin dahil** tüm firma kullanıcılarında **şube/şantiye zorunlu**; muaf yalnız Süper/Kısıtlı Süper Admin. Admin firmanın herhangi bir şubesiyle geçer.
 - ✅ Şube yoksa engelle + yönlendirme mesajı; şube firmaya ait/geçerli olmalı. Web'de zorunlu alan + şube-yok uyarısı.
 - ✅ Enforcement oluşturma-akışı sınırında (API + masaüstü VM); mevcut testler bozulmadı (`ValidateBranchForNewUser`).
 - 📄 Rapor: [docs/tests/Kullanici_Sube_Zorunlulugu_Test_Report.md](docs/tests/Kullanici_Sube_Zorunlulugu_Test_Report.md).

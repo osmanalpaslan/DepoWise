@@ -518,16 +518,16 @@ ORDER BY c.name;";
         return list;
     }
 
-    /// <summary>Adım 6: Kullanıcı oluşturma AKIŞINDA (web API + masaüstü) çağrılır — operasyonel (personel)
-    /// kullanıcı için şube/şantiye ZORUNLU. Muaf: Süper Admin, Kısıtlı Süper Admin (platform) ve Admin
-    /// (firma-geneli yönetici). Şube yoksa "önce şube oluştur" mesajı; varsa "şube seçin"; seçilen şube
-    /// firmaya ait ve geçerli olmalı. Servis çekirdeği (CreateUser) bunu ZORLAMAZ; sınır katmanı çağırır.</summary>
+    /// <summary>Adım 6: Kullanıcı oluşturma AKIŞINDA (web API + masaüstü) çağrılır — Admin dahil TÜM firma
+    /// kullanıcıları için şube/şantiye ZORUNLU. Muaf YALNIZ platform rolleri: Süper Admin, Kısıtlı Süper Admin.
+    /// Admin için firmanın HERHANGİ bir şubesi geçerlidir. Şube yoksa "önce şube oluştur" mesajı; varsa
+    /// "şube seçin"; seçilen şube firmaya ait ve geçerli olmalı. Servis çekirdeği (CreateUser) bunu ZORLAMAZ;
+    /// sınır katmanı (API + masaüstü VM) çağırır.</summary>
     public void ValidateBranchForNewUser(SessionContext actor, string? requestedCompanyId, IReadOnlyList<string> roleKeys, string? branchId)
     {
         bool exempt = roleKeys.Any(k =>
             string.Equals(k, RoleKeys.SuperAdmin, StringComparison.Ordinal)
-            || string.Equals(k, RoleKeys.RestrictedSuperAdmin, StringComparison.Ordinal)
-            || string.Equals(k, RoleKeys.CompanyAdmin, StringComparison.Ordinal));
+            || string.Equals(k, RoleKeys.RestrictedSuperAdmin, StringComparison.Ordinal));
         if (exempt) return;
         var companyId = RoleAssignmentGuard.ResolveTargetCompany(actor, requestedCompanyId);
         using var conn = _factory.Create();
