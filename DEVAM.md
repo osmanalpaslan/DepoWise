@@ -29,11 +29,11 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 |---|---|
 | **Testler** | **312/312 yeşil** (`dotnet test`) |
 | **Şema** | Migration **040** (kullanıcı-şube zorunluluğu şema gerektirmedi) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 · ⚠️ Adım 1 API değişikliği **deploy edilmedi** |
-| **Web** | `depowise-web.fly.dev` — **canlı** · ⚠️ Adım 1 web değişikliği **deploy edilmedi** |
-| **Masaüstü** | **1.0.47 yayında** (Adım 1 masaüstü değişikliği yeni pakette gidecek) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (Adım 1–7 deploy edildi; şema 040) |
+| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 (yeni tasarım canlıda) |
+| **Masaüstü** | **1.0.48 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **VAR — büyük yetki/ekran promptu, Adım 1 bitti, Adım 2+ sırada** → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+| **Bekleyen iş** | **YOK** — büyük yetki/ekran promptu (Adım 1–7) + deploy tamam → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
 
 > **Bekleyen işleri her zaman [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)'den oku.**
 > Kullanıcı "yarıda kalan işler ne?" diye sorduğunda bakılacak tek liste odur; her değişiklikte güncellenir.
@@ -77,13 +77,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **BÜYÜK YETKİ/EKRAN PROMPTU TAMAMLANDI (Adım 1–7).** Kalan tek iş: **canlıya alma (deploy)** — kullanıcı
-> kararıyla ertelenmişti; ilk fırsatta **API + Web deploy + masaüstü yeni sürüm** yapılmalı (şema 035→040).
+> **Şu an bekleyen iş YOK.** Büyük yetki/ekran promptu (Adım 1–7) kod + test (313/313) + **CANLIYA ALINDI**
+> (2026-07-13): API + Web deploy (health/login 200), masaüstü **1.0.48** yayınlandı (sunucuda "en güncel").
+> Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
 >
-> **Adım 1–7 bitti** (test 313/313): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon + Firma
-> Yetki Kontrol 3-düzey · Firma Tanım ayrı admin/personel + makine kotası · Yetki Şablonu firma-kapsamlı ·
-> Malzeme şablonu + şablon-dışı uyarı · Kullanıcı-şube zorunluluğu (admin dahil) · **Login ekranları yeni tasarım**.
-> ⚠️ **Deploy edilmedi** — biriken şema **035→040**; deploy'da **API'yi de** gönder + masaüstü paketini yayınla.
+> **Bu turda yapılanlar (Adım 1–7):** Sync kaldırıldı · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon +
+> Firma Yetki Kontrol 3-düzey · Firma Tanım ayrı admin/personel + makine kotası · Yetki Şablonu firma-kapsamlı ·
+> Malzeme şablonu + şablon-dışı uyarı · Kullanıcı-şube zorunluluğu (admin dahil) · yeni login tasarımı (fotoğraf zemini).
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·

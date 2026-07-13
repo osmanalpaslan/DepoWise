@@ -61,7 +61,11 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 
 ---
 
-## ✅ BÜYÜK YETKİ/EKRAN PROMPTU TAMAMLANDI (Adım 1–7). Kalan tek iş: **canlıya alma (deploy)**.
+## ✅ BÜYÜK YETKİ/EKRAN PROMPTU TAMAMLANDI + CANLIYA ALINDI (2026-07-13)
+**Şu an bekleyen iş YOK.** Adım 1–7 kod + test (313/313) + **deploy** tamamlandı:
+- **API** (`depowise-erp`) deploy → health **200** (Migration 035→040 sunucuda uygulandı).
+- **Web** (`depowise-web`) deploy → login **200** (yeni tasarım + fotoğraf zemini canlı).
+- **Masaüstü 1.0.48** yayınlandı (sunucuda "en güncel" doğrulandı) — açık makineler otomatik güncelleme uyarısı alır.
 
 ### Açıklanan (işlem yapılmadı):
 - **Fly.io ölçekleme:** personal/kullanım-bazlı hesapta makine/RAM/disk **üçü de ücretli**; bedava maksimum yok;
