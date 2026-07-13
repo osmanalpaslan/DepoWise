@@ -37,7 +37,11 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ✅ `max_admins` (admin) + `max_users` (normal/personel) AYRI; **%20 admin kuralı kaldırıldı** (Migration038).
 - ✅ **Makine kotası** (`machine_quota`) Firma Tanım ekranında (web + masaüstü). Kota enforcement + QuotaMonitor güncellendi.
 - 📄 Rapor: [docs/tests/Firma_Tanim_Kota_Test_Report.md](docs/tests/Firma_Tanim_Kota_Test_Report.md).
-### ⏳ Adım 4 — Yetki Şablonu: **firma seçimi** + "tüm firmalar" + firma-bazlı görünürlük.
+### ✅ Adım 4 — Yetki Şablonu: firma seçimi + tüm firmalar + firma-bazlı görünürlük (TAMAMLANDI, test 302/302, DEPLOY EDİLMEDİ)
+- ✅ `scope_all` kolonu (Migration039); şablon bir firmaya veya Tüm Firmalar'a. Ağaç seçilen firmanın admine açık modülleri.
+- ✅ `ListForUserCreation`: kullanıcı-oluşturma yetkili aktör kendi firması + tüm-firma şablonlarını görür (tenant izolasyonu).
+- ✅ Web firma seçici + kapsam sütunu; Users ekranı şablon listesi `for-user` (web + masaüstü).
+- 📄 Rapor: [docs/tests/Yetki_Sablonu_Test_Report.md](docs/tests/Yetki_Sablonu_Test_Report.md).
 ### ⏳ Adım 5 — **Malzeme yeni-kayıt şablonu** ekranı (araç şablonuna benzer); admin=global, diğer kullanıcı kendi makinesinde; şablon-dışı kayıtta uyarı ("Ana Yetkiliye Bilgi verilmelidir!").
 ### ⏳ Adım 6 — Kullanıcı oluştururken **şube zorunlu** (süper admin hariç); şube yoksa engelle + uyarı.
 ### ⏳ Adım 7 — UI: **logo/tema renk uyumu** (web + masaüstü login).

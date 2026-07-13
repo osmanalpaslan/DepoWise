@@ -13,12 +13,19 @@
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_name" Label="Şablon Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="12" md="6">
+                <MudSelect T="string" Value="_companyId" ValueChanged="OnCompanyChanged" Label="Firma *"
+                           HelperText="Şablon bu firmaya tanımlanır. 'Tüm Firmalar' → tüm firmalarda listelenir." Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@_allCompanies">Tüm Firmalar</MudSelectItem>
+                    @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
                 <MudSelect T="string" @bind-Value="_roleKey" Label="Rol (opsiyonel)" HelperText="Şablon seçilince kullanıcıya bu rol de atanır." Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
                     @foreach (var r in _roles) { <MudSelectItem T="string" Value="@r.Key">@r.Name</MudSelectItem> }
                 </MudSelect>
             </MudItem>
         </MudGrid>
-        <MudText Typo="Typo.subtitle2" Class="mt-2">Yetkiler</MudText>
+        <MudText Typo="Typo.subtitle2" Class="mt-2">Yetkiler (@(_companyId == _allCompanies ? "tüm firmalar için admine açık" : "seçilen firmada admine açık"))</MudText>
         @if (_viewedName is not null) { <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">Görüntülenen şablon: <b>@_viewedName</b> — düzenleyip yeni ad ile kaydedebilirsiniz.</MudAlert> }
         <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" />
         <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" OnClick="Create" Disabled="_busy">@(_busy ? "…" : "Şablonu Kaydet")</MudButton>
@@ -36,10 +43,11 @@
     else
     {
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
-            <HeaderContent><MudTh>Ad</MudTh><MudTh></MudTh></HeaderContent>
+            <HeaderContent><MudTh>Ad</MudTh><MudTh>Kapsam</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
                 @{ var id = Str(context, "id"); var nm = Str(context, "name"); }
                 <MudTd>@nm</MudTd>
+                <MudTd>@Str(context, "scopeText")</MudTd>
                 <MudTd>
                     <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" OnClick="@(() => ViewTemplate(id, nm))" />
                     @if (Auth.CanDelete("permission_templates"))
@@ -54,8 +62,11 @@
 
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private const string _allCompanies = "";   // "Tüm Firmalar" seçimi
     private string _name = "";
     private string? _roleKey;
+    private string _companyId = _allCompanies;
+    private List<ApiClient.Opt> _companies = new();
     private List<RoleDto> _roles = new();
     private List<ApiClient.Opt> _modules = new(), _buttons = new();
     private HashSet<string> _adminOnly = new();
@@ -65,15 +76,35 @@
 
     protected override async Task OnInitializedAsync()
     {
-        foreach (var e in await Api.GetArrayAsync("/api/modules"))
-        {
-            var key = MS(e, "key"); if (key == "") continue;
-            _modules.Add(new ApiClient.Opt(key, MS(e, "label")));
-            if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
-        }
+        try { _companies = await Api.OptionsAsync("/api/companies", "id", "name"); } catch { }
         try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
         try { _roles = await Api.GetRolesAsync(); } catch { }
+        await LoadModules();
         await LoadList();
+    }
+
+    /// <summary>Seçilen firmanın admine açık modüllerini ağaca yükler (firma yok → tüm firmalar).</summary>
+    private async Task LoadModules()
+    {
+        _modules = new(); _adminOnly = new();
+        var url = string.IsNullOrEmpty(_companyId) ? "/api/permission-templates/modules" : $"/api/permission-templates/modules?companyId={_companyId}";
+        try
+        {
+            foreach (var e in await Api.GetArrayAsync(url))
+            {
+                var key = MS(e, "key"); if (key == "") continue;
+                _modules.Add(new ApiClient.Opt(key, MS(e, "label")));
+                if (e.TryGetProperty("adminOnly", out var a) && a.ValueKind == JsonValueKind.True) _adminOnly.Add(key);
+            }
+        }
+        catch { }
+    }
+
+    private async Task OnCompanyChanged(string value)
+    {
+        _companyId = value ?? _allCompanies;
+        _viewedName = null; _matrix?.Clear();
+        await LoadModules();
     }
 
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/permission-templates"); } catch { _rows = Array.Empty<JsonElement>(); } }
@@ -86,7 +117,8 @@
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/permission-templates", new { name = _name.Trim(), roleKey = _roleKey, modules = _matrix?.Collect() ?? new(), buttons = _matrix?.CollectButtons() ?? new() });
+            bool scopeAll = string.IsNullOrEmpty(_companyId);
+            var err = await Api.PostAsync("/api/permission-templates", new { name = _name.Trim(), roleKey = _roleKey, modules = _matrix?.Collect() ?? new(), buttons = _matrix?.CollectButtons() ?? new(), companyId = scopeAll ? null : _companyId, scopeAll });
             _ok = err is null; _msg = err ?? "Şablon oluşturuldu.";
             if (_ok) { _name = ""; _roleKey = null; _viewedName = null; _matrix?.Clear(); await LoadList(); }
         }

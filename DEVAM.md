@@ -27,8 +27,8 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **298/298 yeşil** (`dotnet test`) |
-| **Şema** | Migration **038** (son: firma ayrı admin/personel + makine kotası) |
+| **Testler** | **302/302 yeşil** (`dotnet test`) |
+| **Şema** | Migration **039** (son: yetki şablonu firma-kapsamı scope_all) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 · ⚠️ Adım 1 API değişikliği **deploy edilmedi** |
 | **Web** | `depowise-web.fly.dev` — **canlı** · ⚠️ Adım 1 web değişikliği **deploy edilmedi** |
 | **Masaüstü** | **1.0.47 yayında** (Adım 1 masaüstü değişikliği yeni pakette gidecek) |
@@ -77,13 +77,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Büyük yetki/ekran promptu — Adım 4:** Yetki Şablonu ekranı: şablon oluşturulacak **firma seçimi** +
-> "tüm firmalar" seçeneği + firma-bazlı görünürlük (firma seçilirse yalnız o firmanın kullanıcı-oluşturma
-> yetkili kullanıcıları o şablonu görür). Tüm adımlar (4–7): [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
+> **Büyük yetki/ekran promptu — Adım 5:** Malzeme yeni-kayıt ŞABLONU ekranı (araç şablonuna benzer):
+> admin=global şablon (tüm makinelerde), diğer kullanıcı kendi makinesinde; şablon-dışı kayıtta uyarı
+> ("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!"). Tüm adımlar (5–7):
+> [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
 >
-> **Adım 1 + 2 + 3 bitti** (test 298/298): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon +
-> Firma Yetki Kontrol 3-düzey · Firma Tanım ayrı admin/personel + makine kotası. ⚠️ **Deploy edilmedi**
-> (kullanıcı kararı: sonraki web işiyle birlikte; şema 035→038, **API'yi de** deploy et).
+> **Adım 1–4 bitti** (test 302/302): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon + Firma
+> Yetki Kontrol 3-düzey · Firma Tanım ayrı admin/personel + makine kotası · Yetki Şablonu firma-kapsamlı.
+> ⚠️ **Deploy edilmedi** (kullanıcı kararı: sonraki web işiyle birlikte; şema 035→039, **API'yi de** deploy et).
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·

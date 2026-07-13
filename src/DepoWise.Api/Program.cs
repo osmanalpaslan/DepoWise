@@ -1318,7 +1318,25 @@ app.MapPost("/api/permissions/{userId}", (HttpContext c, string userId, PermSave
 }).RequireAuthorization();
 
 // ── Yetki Şablonları ──
+// Şablon YÖNETİM listesi (süper admin — tüm firmalar + kapsam).
 app.MapGet("/api/permission-templates", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.PermissionTemplates.List(s)) : Results.Unauthorized()).RequireAuthorization();
+// Kullanıcı OLUŞTURMA için görünür şablonlar (kendi firması + tüm-firma; users/Create yetkisi).
+app.MapGet("/api/permission-templates/for-user", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.PermissionTemplates.ListForUserCreation(s)) : Results.Unauthorized()).RequireAuthorization();
+// Şablon ağacı: SEÇİLEN firmanın admine açık modülleri (companyId boş → tüm firmalar için derleme admine-açık set).
+app.MapGet("/api/permission-templates/modules", (HttpContext c, string? companyId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    IEnumerable<(string Key, string Label, bool Restricted)> rows;
+    if (string.IsNullOrWhiteSpace(companyId)) // tüm firmalar
+        rows = AppModules.All.Where(m => !AppModules.IsPublic(m.Key) && !AppModules.IsSuperAdminOnly(m.Key))
+            .Select(m => (m.Key, m.Label, AppModules.IsAdminRestricted(m.Key)));
+    else // seçilen firma — "Süper Admin" düzeyine alınan ekranlar admine açık değildir
+        rows = svc.CompanyGrants.GetControl(s, companyId)
+            .Where(r => r.Level != DepoWise.Infrastructure.Organization.CompanyGrantService.LevelSuper)
+            .Select(r => (r.ModuleKey, r.Label, r.Level == DepoWise.Infrastructure.Organization.CompanyGrantService.LevelAdmin));
+    return Results.Ok(rows.Select(r => new { key = r.Key, label = r.Label, adminOnly = false, restricted = r.Restricted }));
+}).RequireAuthorization();
 app.MapGet("/api/permission-templates/{id}", (HttpContext c, string id) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1329,7 +1347,7 @@ app.MapPost("/api/permission-templates", (HttpContext c, TemplateDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var mods = (d.Modules ?? new()).Select(m => new ModulePermission(m.ModuleKey, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete));
-    var id = svc.PermissionTemplates.Create(s, d.Name, d.RoleKey, mods, d.Buttons ?? new());
+    var id = svc.PermissionTemplates.Create(s, d.Name, d.RoleKey, mods, d.Buttons ?? new(), d.CompanyId, d.ScopeAll);
     return Results.Ok(new { id });
 }).RequireAuthorization();
 app.MapDelete("/api/permission-templates/{id}", (HttpContext c, string id) =>
@@ -1517,7 +1535,7 @@ record ActiveDto(bool Active);
 record PasswordDto(string Password);
 record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
 record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons);
-record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons);
+record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons, string? CompanyId = null, bool ScopeAll = false);
 
 /// <summary>#19 — Canlı sunucu durumu sayaçları (süreç boyunca).</summary>
 static class ServerMetrics

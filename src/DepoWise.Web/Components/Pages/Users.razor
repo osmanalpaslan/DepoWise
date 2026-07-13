@@ -41,9 +41,9 @@
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Bu kullanıcı tüm şube verisiyle çalışabilir (yalnız Süper Admin verir).</MudText>
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudSelect T="string" @bind-Value="_templateId" Label="Yetki Şablonu (Süper Admin)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                               HelperText="Seçilirse yeni kullanıcının yetkileri bu şablona göre yazılır.">
-                        @foreach (var t in _templates) { <MudSelectItem T="string" Value="@Str(t, "id")">@Str(t, "name")</MudSelectItem> }
+                    <MudSelect T="string" @bind-Value="_templateId" Label="Yetki Şablonu" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                               HelperText="Firmanıza özel + tüm-firma şablonları. Seçilirse yetkiler bu şablona göre yazılır.">
+                        @foreach (var t in _templates) { <MudSelectItem T="string" Value="@Str(t, "id")">@Str(t, "name")@(B(t, "scopeAll") ? " (tüm firmalar)" : "")</MudSelectItem> }
                     </MudSelect>
                 </MudItem>
             }
@@ -157,7 +157,7 @@
         if (Auth.IsSuperAdmin)
         {
             _companies = await Api.OptionsAsync("/api/companies", "id", "name");
-            try { _templates = await Api.GetArrayAsync("/api/permission-templates"); } catch { }
+            try { _templates = await Api.GetArrayAsync("/api/permission-templates/for-user"); } catch { }
         }
         await LoadPersonnel();
         await Load();
@@ -288,4 +288,6 @@
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
     private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+    private static bool B(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
 }

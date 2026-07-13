@@ -102,7 +102,7 @@ public sealed partial class UsersViewModel : ViewModelBase
     // Yetki şablonları (yalnız Süper Admin) — yeni kullanıcıda seçilir, yetkiler ona göre yazılır
     public ObservableCollection<PermissionTemplateRow> Templates { get; } = new();
     [ObservableProperty] private PermissionTemplateRow? _selectedTemplate;
-    public bool CanUseTemplates => _session.IsSuperAdmin;
+    public bool CanUseTemplates => CanWrite; // kullanıcı-oluşturma yetkili aktör firmasına özel + tüm-firma şablonlarını görür
 
     // Form
     [ObservableProperty] private bool _showAdd;
@@ -174,7 +174,7 @@ public sealed partial class UsersViewModel : ViewModelBase
         foreach (var r in AssignableRoles) r.IsSelected = false;
         SelectedTemplate = null;
         if (CanUseTemplates && Templates.Count == 0)
-            try { foreach (var t in DesktopServices.PermissionTemplates.List(_session)) Templates.Add(t); } catch { }
+            try { foreach (var t in DesktopServices.PermissionTemplates.ListForUserCreation(_session)) Templates.Add(t); } catch { }
         ShowAdd = true;
     }
 

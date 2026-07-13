@@ -43,5 +43,6 @@ public static class MigrationCatalog
         new Migration036_RestrictedSuperAdmin(),
         new Migration037_GrantLevel(),
         new Migration038_CompanyMaxAdmins(),
+        new Migration039_TemplateScope(),
     };
 }
