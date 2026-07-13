@@ -54,7 +54,14 @@ halinde uygulanıyor (her dilim: build + ilgili test + commit + push). Motor: **
 - ✅ Enforcement oluşturma-akışı sınırında (API + masaüstü VM); mevcut testler bozulmadı (`ValidateBranchForNewUser`).
 - 📄 Rapor: [docs/tests/Kullanici_Sube_Zorunlulugu_Test_Report.md](docs/tests/Kullanici_Sube_Zorunlulugu_Test_Report.md).
 
-### ⏳ Adım 7 (SON) — UI: **logo/tema renk uyumu** (web + masaüstü login). İlk büyük promptun UI maddesi.
+### ✅ Adım 7 (SON) — Login ekranları yeni tasarım (TAMAMLANDI, build 0 hata, DEPLOY EDİLMEDİ)
+- ✅ Web + masaüstü login: koyu lacivert tema + **kurumsal iş-makineleri silüet zemini** (yarı şeffaf) + logo + ikonlu inputlar + amber DEVAM.
+- ✅ Web: parola göster/gizle; Masaüstü: Beni hatırla + "veya" ayıracı + **Web'de Giriş Yap** (yeni OpenWeb komutu). Çok-adımlı akışlar korundu.
+- ✅ Arka plan `login-bg.png` SkiaSharp ile üretildi (depo/vinç/kamyon/ekskavatör). Not: lisanslı stok foto indirilemedi → özel vektör sahne; telifli foto verilirse tek dosya değişimiyle takılır.
+
+---
+
+## ✅ BÜYÜK YETKİ/EKRAN PROMPTU TAMAMLANDI (Adım 1–7). Kalan tek iş: **canlıya alma (deploy)**.
 
 ### Açıklanan (işlem yapılmadı):
 - **Fly.io ölçekleme:** personal/kullanım-bazlı hesapta makine/RAM/disk **üçü de ücretli**; bedava maksimum yok;

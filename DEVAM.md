@@ -77,13 +77,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Büyük yetki/ekran promptu — Adım 7 (SON):** UI — uygulama logosu ile **login ekranlarının tema/renkleri
-> uyumlu** olsun (web + masaüstü). İlk büyük promptun UI maddesi. Ayrıntı: [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) §A.
+> **BÜYÜK YETKİ/EKRAN PROMPTU TAMAMLANDI (Adım 1–7).** Kalan tek iş: **canlıya alma (deploy)** — kullanıcı
+> kararıyla ertelenmişti; ilk fırsatta **API + Web deploy + masaüstü yeni sürüm** yapılmalı (şema 035→040).
 >
-> **Adım 1–6 bitti** (test 312/312): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon + Firma
+> **Adım 1–7 bitti** (test 313/313): Sync · Talep→Form/Onaylama · Kısıtlı Süper Admin + delegasyon + Firma
 > Yetki Kontrol 3-düzey · Firma Tanım ayrı admin/personel + makine kotası · Yetki Şablonu firma-kapsamlı ·
-> Malzeme şablonu + şablon-dışı uyarı · Kullanıcı-şube zorunluluğu. ⚠️ **Deploy edilmedi** (sonraki web işiyle;
-> şema 035→040, **API'yi de** deploy et).
+> Malzeme şablonu + şablon-dışı uyarı · Kullanıcı-şube zorunluluğu (admin dahil) · **Login ekranları yeni tasarım**.
+> ⚠️ **Deploy edilmedi** — biriken şema **035→040**; deploy'da **API'yi de** gönder + masaüstü paketini yayınla.
 
 **Bu oturumda yapılanlar (2. prompt, ADR-076…082):** silinen makine firması/şubesi girişe sunulmuyor ·
 makine yönetiminde firma değiştirme · canlı sunucu ekranında disk + paket silme · web logosu düzeltildi ·
