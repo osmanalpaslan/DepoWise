@@ -1,0 +1,194 @@
+@page "/machine-backups"
+@using System.Text.Json
+@using System.Globalization
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<PageTitle>Makine Yedekleri — DepoWise</PageTitle>
+
+@if (!Auth.CanView("machine_backups"))
+{
+    <MudAlert Severity="Severity.Error">Bu ekran için yetkiniz yok (Makine Yedekleri).</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" GutterBottom="true">Makine Yedekleri</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:78ch;">
+        Masaüstü makineler <b>her gün</b> otomatik yedek alıp sunucuya yükler. Bir ay tamamlanınca o ayın günlük
+        yedekleri tek bir <b>aylık ZIP arşivine</b> alınır ve ham dosyalar silinir (yer kaplamasın).
+        Aylık arşivler <b>3 yıl</b> saklanır. Disk kritik doluluğa yaklaşırsa en eski arşivler otomatik budanır.
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h6">Makineler</MudText>
+            <MudSpacer />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+            @if (Auth.IsSuperAdmin)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2"
+                           StartIcon="@Icons.Material.Filled.Archive" OnClick="RunMaintenance" Disabled="_busy">
+                    @(_busy ? "…" : "Arşivle / Temizle")
+                </MudButton>
+            }
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">
+            Henüz sunucuya yüklenmiş makine yedeği yok. Masaüstü uygulamalar giriş yaptıkça günlük yedeklerini buraya yükler.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Makine</MudTh><MudTh>Firma</MudTh><MudTh>Şube / Şantiye</MudTh><MudTh>Durum</MudTh><MudTh>IP</MudTh>
+                <MudTh>Son Yedek</MudTh><MudTh>Bu Ay (günlük)</MudTh><MudTh>Arşiv (aylık)</MudTh><MudTh>Toplam</MudTh><MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{ var co = Str(context, "companyId"); var ma = Str(context, "machine"); }
+                <MudTd>
+                    <b>@ma</b>
+                    @if (!B(context, "known")) { <MudTooltip Text="Bu makine 'Makine Yönetimi'nde kayıtlı değil (silinmiş olabilir)."><MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" Class="ml-1" /></MudTooltip> }
+                </MudTd>
+                <MudTd>@Str(context, "companyName")</MudTd>
+                <MudTd>@Str(context, "branchName")</MudTd>
+                <MudTd>@Str(context, "status")</MudTd>
+                <MudTd>@Str(context, "ip")</MudTd>
+                <MudTd>@Date(context, "lastBackup")</MudTd>
+                <MudTd>@Num(context, "dailyCount") adet · @Bytes(context,"dailyBytes")</MudTd>
+                <MudTd>@Num(context, "archiveCount") ay · @Bytes(context,"archiveBytes")</MudTd>
+                <MudTd><b>@Bytes(context,"totalBytes")</b></MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="@(() => OpenDetail(co, ma))">Yedekler</MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+
+    @* ── Seçilen makinenin yedek detayı ── *@
+    @if (_detailMachine is not null)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.h6">@_detailMachine — Yedekler</MudText>
+                <MudSpacer />
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _detailMachine = null)">Kapat</MudButton>
+            </MudStack>
+
+            <MudText Typo="Typo.subtitle2" Class="mb-1">Aylık Arşivler (ZIP · 3 yıl saklanır)</MudText>
+            @if (_archives is null || _archives.Length == 0)
+            {
+                <MudText Class="mud-text-secondary mb-3">Henüz aylık arşiv yok (ay tamamlanınca oluşur).</MudText>
+            }
+            else
+            {
+                <MudTable Items="_archives" Dense="true" Hover="true" Class="mb-3">
+                    <HeaderContent><MudTh>Ay</MudTh><MudTh>Boyut</MudTh><MudTh>Oluşturma</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd><b>@Str(context, "month")</b></MudTd>
+                        <MudTd>@Bytes(context,"sizeBytes")</MudTd>
+                        <MudTd>@Date(context, "createdAt")</MudTd>
+                        <MudTd>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+                                       Href="@DownloadUrl(Str(context, "name"))" Target="_blank">İndir</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="mb-1">Bu Ayın Günlük Yedekleri (henüz arşivlenmedi)</MudText>
+            @if (_daily is null || _daily.Length == 0)
+            {
+                <MudText Class="mud-text-secondary">Bu ay için günlük yedek yok.</MudText>
+            }
+            else
+            {
+                <MudTable Items="_daily" Dense="true" Hover="true">
+                    <HeaderContent><MudTh>Dosya</MudTh><MudTh>Tarih</MudTh><MudTh>Boyut</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@Str(context, "fileName")</MudTd>
+                        <MudTd>@Date(context, "date")</MudTd>
+                        <MudTd>@Bytes(context,"sizeBytes")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private JsonElement[]? _rows;
+    private JsonElement[]? _archives;
+    private JsonElement[]? _daily;
+    private string? _detailCompany, _detailMachine;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync() { if (Auth.CanView("machine_backups")) await Load(); }
+
+    private async Task Load()
+    {
+        _rows = null; _msg = null;
+        try { _rows = await Api.GetArrayAsync("/api/machine-backups"); }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task OpenDetail(string company, string machine)
+    {
+        _detailCompany = company; _detailMachine = machine; _archives = null; _daily = null;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/machine-backups/detail?company={Uri.EscapeDataString(company)}&machine={Uri.EscapeDataString(machine)}");
+            if (d.TryGetProperty("archives", out var a) && a.ValueKind == JsonValueKind.Array) _archives = a.EnumerateArray().ToArray();
+            if (d.TryGetProperty("daily", out var dl) && dl.ValueKind == JsonValueKind.Array) _daily = dl.EnumerateArray().ToArray();
+        }
+        catch (Exception ex) { _msg = "Detay yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private string DownloadUrl(string name) =>
+        $"/api/machine-backups/download?company={Uri.EscapeDataString(_detailCompany ?? "")}&machine={Uri.EscapeDataString(_detailMachine ?? "")}&name={Uri.EscapeDataString(name)}";
+
+    private async Task RunMaintenance()
+    {
+        if (!await Dialog.Confirm("Tamamlanan aylar ZIP'lensin, ham günlük yedekler silinsin ve 3 yılı aşan arşivler budansın mı?")) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync("/api/machine-backups/maintenance", new { });
+            _ok = err is null; _msg = err ?? "Arşivleme/temizlik tamamlandı.";
+            if (_ok) { await Load(); if (_detailMachine is not null) await OpenDetail(_detailCompany!, _detailMachine!); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    // ---- yardımcılar ----
+    private static string Str(JsonElement r, string k)
+        => r.ValueKind == JsonValueKind.Object && r.TryGetProperty(k, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static bool B(JsonElement r, string k)
+        => r.ValueKind == JsonValueKind.Object && r.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+    private static string Num(JsonElement r, string k)
+        => r.ValueKind == JsonValueKind.Object && r.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64().ToString() : "0";
+    private static string Bytes(JsonElement r, string k)
+    {
+        if (r.ValueKind != JsonValueKind.Object || !r.TryGetProperty(k, out var v) || v.ValueKind != JsonValueKind.Number) return "—";
+        double b = v.GetInt64();
+        if (b <= 0) return "—";
+        string[] u = { "B", "KB", "MB", "GB" };
+        int i = 0;
+        while (b >= 1024 && i < u.Length - 1) { b /= 1024; i++; }
+        return b.ToString(i == 0 ? "0" : "0.0", CultureInfo.InvariantCulture) + " " + u[i];
+    }
+    private static string Date(JsonElement r, string k)
+    {
+        var s = Str(r, k);
+        return DateTimeOffset.TryParse(s, out var d) ? d.LocalDateTime.ToString("dd/MM/yyyy HH:mm") : "—";
+    }
+}

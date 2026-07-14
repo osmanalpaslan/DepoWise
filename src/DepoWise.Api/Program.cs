@@ -1480,8 +1480,75 @@ app.MapPost("/api/backups", async (HttpRequest req) =>
     if (file is null) return Results.BadRequest(new { error = "file yok" });
     await using var fs = file.OpenReadStream();
     await svc.Backups.SaveAsync(form["company"].ToString(), form["machine"].ToString(), form["filename"].ToString(), fs, req.HttpContext.RequestAborted);
+    // Bakım (6 saatte bir): tamamlanan ayları zip'le + ham dosyaları sil + 3 yılı aşanları buda + disk koruması.
+    svc.MachineBackups.RunMaintenanceThrottled();
     return Results.Ok(new { ok = true });
 });
+
+// ── Makine Yedekleri ekranı (süper admin): özet + aylık arşivler + indirme + elle bakım ──
+app.MapGet("/api/machine-backups", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "machine_backups", PermissionAction.View);
+    // Makine bilgisi (firma/şube/durum/IP) ile yedek özetini birleştir. Eşleşme: makine adı = device_name.
+    var devices = svc.Enrollment.ListDevices(s).ToList();
+    var sums = svc.MachineBackups.Summaries();
+    // Tenant: süper admin değilse yalnız kendi firması.
+    var rows = sums
+        .Where(b => s.IsSuperAdmin || string.Equals(b.CompanyId, s.CompanyId, StringComparison.Ordinal))
+        .Select(b =>
+        {
+            var d = devices.FirstOrDefault(x =>
+                string.Equals(x.CompanyId, b.CompanyId, StringComparison.Ordinal) &&
+                string.Equals(x.Name, b.Machine, StringComparison.OrdinalIgnoreCase));
+            return new
+            {
+                b.CompanyId, b.Machine, b.DailyCount, b.DailyBytes, b.ArchiveCount, b.ArchiveBytes, b.TotalBytes,
+                lastBackup = b.LastBackup,
+                companyName = string.IsNullOrEmpty(d?.CompanyName) ? b.CompanyId : d!.CompanyName,
+                branchName = string.IsNullOrEmpty(d?.BranchName) ? "—" : d!.BranchName,
+                status = d?.Status ?? "—",
+                ip = string.IsNullOrEmpty(d?.Ip) ? "—" : d!.Ip,
+                lastSeenAt = d?.LastSeenAt,
+                known = d is not null,   // sunucuda yedeği var ama makine kaydı yoksa false
+            };
+        })
+        .OrderByDescending(x => x.lastBackup)
+        .ToList();
+    return Results.Ok(rows);
+}).RequireAuthorization();
+
+app.MapGet("/api/machine-backups/detail", (HttpContext c, string company, string machine) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "machine_backups", PermissionAction.View);
+    if (!s.IsSuperAdmin && !string.Equals(company, s.CompanyId, StringComparison.Ordinal))
+        return Results.Json(new { error = "Başka firmaya ait." }, statusCode: 403);
+    return Results.Ok(new
+    {
+        archives = svc.MachineBackups.ListArchives(company, machine),   // aylık zip'ler (3 yıl)
+        daily = svc.MachineBackups.ListDaily(company, machine),         // henüz arşivlenmemiş (bu ay)
+    });
+}).RequireAuthorization();
+
+app.MapGet("/api/machine-backups/download", (HttpContext c, string company, string machine, string name) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "machine_backups", PermissionAction.View);
+    if (!s.IsSuperAdmin && !string.Equals(company, s.CompanyId, StringComparison.Ordinal))
+        return Results.Json(new { error = "Başka firmaya ait." }, statusCode: 403);
+    var p = svc.MachineBackups.ResolveArchive(company, machine, name);
+    if (p is null) return Results.NotFound(new { error = "Arşiv bulunamadı." });
+    return Results.File(p, "application/zip", Path.GetFileName(p));
+}).RequireAuthorization();
+
+// Elle bakım (arşivle + buda + disk koruması) — yalnız süper admin.
+app.MapPost("/api/machine-backups/maintenance", (HttpContext c) =>
+{
+    var s = S(c); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
+    svc.MachineBackups.RunMaintenance();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 app.MapGet("/api/backups", (HttpContext ctx, string company, DateOnly from, DateOnly to) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();

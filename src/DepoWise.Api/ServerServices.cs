@@ -24,6 +24,8 @@ public sealed class ServerServices
     public ReleaseService Releases { get; }
     public EnrollmentService Enrollment { get; }
     public BackupStore Backups { get; }
+    /// <summary>Makine yedekleri: aylık zip arşivleme + 3 yıl saklama + disk koruması.</summary>
+    public MachineBackupArchiver MachineBackups { get; }
     public ReleaseStore ReleasePackages { get; }
     public SyncValidator SyncValidator { get; }
     public BusinessSyncService BusinessSync { get; }
@@ -72,6 +74,7 @@ public sealed class ServerServices
         Releases = new ReleaseService(Factory, clock);
         Enrollment = new EnrollmentService(Factory, clock);
         Backups = new BackupStore(Path.Combine(dataDir, "backups"));
+        MachineBackups = new MachineBackupArchiver(Path.Combine(dataDir, "backups"));
         ReleasePackages = new ReleaseStore(Path.Combine(dataDir, "releases"));
         SyncValidator = new SyncValidator(Factory);
         BusinessSync = new BusinessSyncService(Factory, clock);

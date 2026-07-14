@@ -164,10 +164,19 @@ public sealed partial class ShellViewModel : ViewModelBase
                 .Any(b => DateTimeOffset.FromUnixTimeMilliseconds(b.CreatedAt).LocalDateTime.Date == today);
             if (hasToday) return;
             var path = DesktopServices.Backup.Backup(); // yerel yedek (retention dahil)
+            // Sunucu yedek ucu: ayrı ayarlanmışsa onu kullan, YOKSA API sunucusuna düş (varsayılan olarak
+            // günlük yedekler sunucuya gider; sunucu ay sonunda zip'ler + 3 yıl saklar → "Makine Yedekleri" ekranı).
             var url = DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerUrl);
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                var b = ResolveServerUrl();
+                if (!string.IsNullOrWhiteSpace(b)) url = b.TrimEnd('/') + "/api/backups";
+            }
             if (!string.IsNullOrWhiteSpace(url))
             {
+                // Token: özel ayar yoksa oturum token'ına düş (yedek ucu Bearer varlığı arar).
                 var token = DesktopServices.Settings.Get(_session.CompanyId, SettingKeys.BackupServerToken);
+                if (string.IsNullOrWhiteSpace(token)) token = ServerAuthClient.Token;
                 await DesktopServices.BackupUpload.UploadAsync(url!, token, _session.CompanyId, Environment.MachineName, path);
             }
         }
