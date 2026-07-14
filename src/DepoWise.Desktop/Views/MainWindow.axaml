@@ -22,7 +22,7 @@
             <DockPanel>
                 <!-- Marka ikonu (daraltılmış çubuk) — şeffaf, arka plan yok -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="0">
-                    <Image Source="/Assets/app-icon-256.png" Width="32" Height="32"
+                    <Image Source="/Assets/app-icon-256.png" Width="46" Height="46"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <!-- Kullanıcı avatarı (alt) -->
@@ -63,7 +63,7 @@
                 <!-- Logo (açık kenar çubuğu) — şeffaf, arka plan yok. Sembol + marka yazısı. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Image Source="/Assets/app-icon-256.png" Width="32" Height="32" VerticalAlignment="Center"/>
+                        <Image Source="/Assets/app-icon-256.png" Width="48" Height="48" VerticalAlignment="Center"/>
                         <SelectableTextBlock Text="DepoWise" Classes="SectionTitle" VerticalAlignment="Center"
                                              Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
                     </StackPanel>
