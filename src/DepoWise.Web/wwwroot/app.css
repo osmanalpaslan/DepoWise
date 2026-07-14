@@ -127,3 +127,63 @@ h1:focus {
 @media (prefers-reduced-motion: reduce) {
     .mud-navmenu .mud-nav-group a.mud-nav-link { animation: none; }
 }
+
+/* ============================================================
+   DepoWise — modern FORMLAR ve TABLOLAR (web)
+   ============================================================ */
+
+/* ---- Kartlar / paneller ---- */
+.mud-paper { border-radius: 16px; }
+.mud-paper.mud-elevation-2, .mud-paper.mud-elevation-4 {
+    border: 1px solid var(--mud-palette-lines-default);
+}
+
+/* ---- Form alanları (outlined input / select / date) ---- */
+.mud-input.mud-input-outlined .mud-input-outlined-border { border-radius: 12px; transition: border-color .16s ease, box-shadow .16s ease; }
+.mud-input.mud-input-outlined:hover .mud-input-outlined-border {
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 42%, var(--mud-palette-lines-default));
+}
+.mud-input.mud-input-outlined.mud-focused .mud-input-outlined-border {
+    border-width: 1px !important;
+    border-color: var(--mud-palette-primary) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-primary) 16%, transparent);
+}
+/* butonlar biraz yuvarlak + yumuşak geçiş */
+.mud-button-root { border-radius: 10px; transition: filter .15s ease, transform .05s ease, background-color .15s ease; }
+.mud-button-root:hover { filter: brightness(1.06); }
+.mud-button-root:active { transform: translateY(1px); }
+
+/* ---- Tablolar ---- */
+.mud-table {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--mud-palette-lines-default);
+}
+.mud-table .mud-table-head .mud-table-cell {
+    font-weight: 600;
+    font-size: .76rem;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    white-space: nowrap;
+}
+.mud-table .mud-table-body .mud-table-cell {
+    border-bottom: 1px solid color-mix(in srgb, var(--mud-palette-lines-default) 55%, transparent);
+}
+.mud-table .mud-table-body .mud-table-row { transition: background-color .13s ease; }
+.mud-table .mud-table-body .mud-table-row:hover {
+    background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent) !important;
+}
+.mud-table .mud-table-body .mud-table-row:last-child .mud-table-cell { border-bottom: none; }
+
+/* basit tablo (MudSimpleTable — yetki matrisi vb.) */
+.mud-simple-table { border-radius: 14px; overflow: hidden; border: 1px solid var(--mud-palette-lines-default); }
+.mud-simple-table thead th {
+    font-weight: 600; font-size: .76rem; letter-spacing: .045em; text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent);
+}
+.mud-simple-table tbody tr { transition: background-color .13s ease; }
+.mud-simple-table tbody tr:hover { background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent); }

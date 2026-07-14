@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        xmlns:local="using:DepoWise.Desktop"
         xmlns:a11y="using:Avalonia.Automation"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -110,7 +111,10 @@
                                                            Opacity="0.6" VerticalAlignment="Center"/>
                                             </Grid>
                                         </ToggleButton>
+                                        <!-- Alt-liste: açılışta yumuşak beliriş (opacity geçişi; Classes=NavChildren) -->
                                         <ItemsControl ItemsSource="{Binding Children}" IsVisible="{Binding IsExpanded}"
+                                                      Classes="NavChildren"
+                                                      Opacity="{Binding IsExpanded, Converter={x:Static local:Conv.BoolToOpacity}}"
                                                       Margin="10,2,0,6">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:NavLinkVm">
@@ -135,7 +139,8 @@
         <DockPanel Grid.Column="2" Background="{DynamicResource AppBackgroundBrush}">
             <!-- Üst bar (56–64px) -->
             <Border DockPanel.Dock="Top" Height="60" Background="{DynamicResource TopBarBackgroundBrush}"
-                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="16,0">
+                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="16,0"
+                    BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Panel daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" Content="☰" FontSize="16"

@@ -304,4 +304,82 @@
         <Setter Property="BorderThickness" Value="2"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
     </Style>
+
+    <!-- ============================================================
+         MODERNİZASYON KATMANI — form alanları + tablolar
+         (Avalonia'da sonraki stil kazanır; üstteki temel stilleri inceltir)
+         ============================================================ -->
+
+    <!-- Form alanları: daha yumuşak köşe, ferah yükseklik -->
+    <Style Selector="TextBox.Field">
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="ComboBox.Field">
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="NumericUpDown.Field">
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="MinHeight" Value="40"/>
+    </Style>
+
+    <!-- Kenarlık/zemin geçişleri: hover ve odak yumuşak olsun -->
+    <Style Selector="TextBox.Field /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ComboBox.Field /template/ Border#Background">
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ComboBox.Field:pointerover /template/ Border#Background">
+        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+
+    <!-- Butonlarda yumuşak zemin geçişi -->
+    <Style Selector="Button.Primary /template/ ContentPresenter, Button.Secondary /template/ ContentPresenter, Button.Ghost /template/ ContentPresenter, Button.Danger /template/ ContentPresenter">
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- Tablolar: daha yumuşak köşe, ferah başlık, yumuşak satır hover -->
+    <Style Selector="Border.Table">
+        <Setter Property="CornerRadius" Value="12"/>
+    </Style>
+    <Style Selector="Border.TableHeader">
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+    <Style Selector="Border.TableHeader :is(TextBlock)">
+        <Setter Property="LetterSpacing" Value="0.6"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+    <!-- satır: yumuşak hover geçişi + biraz daha ferah -->
+    <Style Selector="ListBox.Table ListBoxItem">
+        <Setter Property="MinHeight" Value="44"/>
+    </Style>
+    <Style Selector="ListBox.Table ListBoxItem /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.13"/>
+            </Transitions>
+        </Setter>
+    </Style>
 </Styles>

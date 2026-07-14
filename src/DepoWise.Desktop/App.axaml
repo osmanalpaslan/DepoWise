@@ -151,6 +151,32 @@
             <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
         </Style>
 
+        <!-- ===== Menü alt-listesi: açılışta abartısız beliriş (opacity geçişi) ===== -->
+        <Style Selector="ItemsControl.NavChildren">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.20" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- Nav öğelerinde yumuşak renk/opaklık geçişi (hover/aktif) -->
+        <Style Selector="Button.NavLink">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.NavTop, ToggleButton.NavGroup, Button.NavRail">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
         <!-- Klavye odağı görünürlüğü (erişilebilirlik) -->
         <Style Selector="Button.NavLink:focus-visible /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
