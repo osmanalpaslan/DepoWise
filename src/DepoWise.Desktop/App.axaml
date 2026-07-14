@@ -17,6 +17,20 @@
                 <ResourceInclude Source="/Themes/Scales.axaml"/>
                 <ResourceInclude Source="/Themes/ComponentThemes.axaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Kehribar (#F5A623) yarı şeffaf menü/üst bar katmanı. Zemin brush'ının üstüne biner;
+                 opaklık düşük tutulur ki metin/ikon kontrastı bozulmasın (her iki temada da geçerli). -->
+            <SolidColorBrush x:Key="AmberBarEdgeBrush" Color="#F5A623" Opacity="0.34"/>
+            <LinearGradientBrush x:Key="AmberBarOverlayBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+                <GradientStop Color="#33F5A623" Offset="0"/>
+                <GradientStop Color="#1AF5A623" Offset="0.45"/>
+                <GradientStop Color="#0AF5A623" Offset="1"/>
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="AmberSideOverlayBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#24F5A623" Offset="0"/>
+                <GradientStop Color="#0FF5A623" Offset="0.4"/>
+                <GradientStop Color="#06F5A623" Offset="1"/>
+            </LinearGradientBrush>
         </ResourceDictionary>
     </Application.Resources>
 

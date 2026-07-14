@@ -21,19 +21,30 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-12)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-14)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **312/312 yeşil** (`dotnet test`) |
-| **Şema** | Migration **040** (kullanıcı-şube zorunluluğu şema gerektirmedi) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (Adım 1–7 deploy edildi; şema 040) |
-| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 (yeni tasarım canlıda) |
-| **Masaüstü** | **1.0.48 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Testler** | **317/317 yeşil** (`dotnet test`) |
+| **Şema** | Migration **041** (`role_grant_limits` — Rol Yetki Kontrol) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
+| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
+| **Masaüstü** | **1.0.52 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** — büyük yetki/ekran promptu (Adım 1–7) + deploy tamam → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+| **Bekleyen iş** | **YOK** → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+
+### Bu oturumda yapılanlar (2026-07-14)
+
+- **Makine Yedekleri ekranı** (süper admin): makine/firma/şube detayı + günlük yedekler + **aylık ZIP arşivi**.
+  Masaüstü **her gün** yedek yükler; ay tamamlanınca günlükler tek ZIP'e alınır, hamlar silinir; arşivler
+  **3 yıl** saklanır. **Disk koruması:** disk kritikleşirse en eski arşivler otomatik budanır (ADR-070 dersi).
+- **Rol Yetki Kontrol ekranı** (süper admin): ekran × rol matrisi. Bir ekranı bir role kapatınca →
+  yetki ağacında **görünmez**, grant **reddedilir**, verilmiş olsa bile **erişim kapanır** (Admin bypass'ı dahil).
+  Süper admin muaf. Yapısal kilitler (süper-admin-only / admin-kısıtlı) değiştirilemez.
+- **Kehribar menü teması:** web ve masaüstü üst bar + kenar menüye yarı şeffaf kehribar katman.
+- Uygulama içi **logo boyutları** büyütüldü; masaüstü login "GİRİŞ YAP" yazısı ortalandı.
 
 > **Bekleyen işleri her zaman [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md)'den oku.**
 > Kullanıcı "yarıda kalan işler ne?" diye sorduğunda bakılacak tek liste odur; her değişiklikte güncellenir.

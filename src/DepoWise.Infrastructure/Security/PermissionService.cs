@@ -51,6 +51,16 @@ public sealed class PermissionService
         return new UserPermissionData(mods, buttons);
     }
 
+    /// <summary>Yetki ağacı için: hedef kullanıcının ROLÜNE kapatılmış modüller (Rol Yetki Kontrol).
+    /// Bu modüller ağaçta hiç gösterilmez.</summary>
+    public IReadOnlySet<string> BlockedModulesForUser(SessionContext actor, string userId)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        EnsureUserOwned(conn, null, actor, userId);
+        return Organization.RoleGrantService.BlockedForUser(conn, null, userId);
+    }
+
     public void SaveForUser(SessionContext actor, string userId, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
     {
         AccessControl.Require(actor, Module, PermissionAction.Edit);
@@ -89,6 +99,20 @@ public sealed class PermissionService
                 throw new InvalidOperationException(
                     "Bu ekranlar (Yönetim / Kullanıcı / Yetkiler vb.) yalnız Admin'e verilebilir. Önce kullanıcıyı Admin yapın.");
             }
+        }
+
+        // Rol Yetki Kontrol: hedefin ROLÜNE kapatılmış ekran kimse tarafından (süper admin dahil) verilemez.
+        // Açmak için önce "Rol Yetki Kontrol" ekranından o rol için serbest bırakılmalıdır.
+        var roleBlocked = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForUser(conn, tx, userId);
+        if (roleBlocked.Count > 0)
+        {
+            var hits = modules
+                .Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete) && roleBlocked.Contains(m.ModuleKey))
+                .Select(m => ModuleLabel(m.ModuleKey)).ToList();
+            if (hits.Count > 0)
+                throw new InvalidOperationException(
+                    "Bu ekranlar kullanıcının rolüne kapatılmıştır ve verilemez: " + string.Join(", ", hits) +
+                    ". Açmak için 'Rol Yetki Kontrol' ekranından ilgili rol için serbest bırakın.");
         }
 
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
@@ -193,6 +217,9 @@ public sealed class PermissionService
         if (HasRole(conn, tx, userId, RoleKeys.CompanyAdmin))
             throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
     }
+
+    private static string ModuleLabel(string moduleKey)
+        => AppModules.All.FirstOrDefault(m => m.Key == moduleKey).Label ?? moduleKey;
 
     private static bool HasRole(SqliteConnection conn, SqliteTransaction tx, string userId, string roleKey)
     {

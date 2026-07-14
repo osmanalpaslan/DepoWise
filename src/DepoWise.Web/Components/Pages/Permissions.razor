@@ -9,7 +9,7 @@
 <MudPaper Class="pa-4" Elevation="2" Style="max-width:760px;">
     <MudGrid Spacing="2" Class="align-center mb-2">
         <MudItem xs="12" md="6">
-            <MudSelect T="string" @bind-Value="_userId" Label="Kullanıcı" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="string" @bind-Value="_userId" Label="Kullanıcı" Margin="Margin.Dense" Variant="Variant.Outlined" @bind-Value:after="OnUserChanged">
                 @foreach (var u in _users) { <MudSelectItem T="string" Value="@u.Id">@u.Name</MudSelectItem> }
             </MudSelect>
         </MudItem>
@@ -59,10 +59,19 @@
         catch { }
     }
 
-    private async Task LoadModules()
+    /// <summary>Kullanıcı değişince ağacı ONUN ROLÜNE göre yeniden kur — Rol Yetki Kontrol'de o role
+    /// kapatılmış ekranlar ağaçta hiç görünmez.</summary>
+    private async Task OnUserChanged()
+    {
+        _msg = null;
+        try { await LoadModules(_userId); } catch (Exception ex) { _msg = "Ekran listesi yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private async Task LoadModules(string? userId = null)
     {
         _modules = new(); _adminOnly = new();
-        foreach (var e in await Api.GetArrayAsync("/api/modules"))
+        var url = string.IsNullOrEmpty(userId) ? "/api/modules" : $"/api/modules?userId={Uri.EscapeDataString(userId)}";
+        foreach (var e in await Api.GetArrayAsync(url))
         {
             var key = S(e, "key"); if (key == "") continue;
             _modules.Add(new ApiClient.Opt(key, S(e, "label")));

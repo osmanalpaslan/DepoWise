@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -35,16 +36,21 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     public PermissionsViewModel(SessionContext session)
     {
         _session = session;
-        BuildTree();
+        BuildTree(null);
         LoadUsers();
     }
 
-    private void BuildTree()
+    /// <summary>Ağacı kurar. <paramref name="blocked"/> = Rol Yetki Kontrol ile hedefin ROLÜNE kapatılmış
+    /// modüller — bunlar ağaçta HİÇ görünmez (süper admin kapattıysa kimse veremez).</summary>
+    private void BuildTree(IReadOnlySet<string>? blocked)
     {
+        Modules.Clear();
+        Buttons.Clear();
         foreach (var (key, label) in AppModules.All)
         {
             if (AppModules.IsPublic(key)) continue;                       // Dashboard/About/Tema herkese açık
             if (!AccessControl.CanGrantModule(_session, key)) continue;   // delegasyon tavanı + süper-admin-only görünürlük
+            if (blocked is not null && blocked.Contains(key)) continue;   // Rol Yetki Kontrol: bu role kapalı
             Modules.Add(new ModulePermNode(key, label));
         }
         foreach (var (key, label) in SpecialButtons.All)
@@ -68,10 +74,13 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     partial void OnSelectedUserChanged(UserRow? value)
     {
-        ResetTree();
-        if (value is null) return;
+        if (value is null) { BuildTree(null); ResetTree(); return; }
         try
         {
+            // Ağacı hedefin ROLÜNE göre yeniden kur: süper adminin o role kapattığı ekranlar listelenmez.
+            BuildTree(DesktopServices.Permissions.BlockedModulesForUser(_session, value.Id));
+            ResetTree();
+
             var data = DesktopServices.Permissions.GetForUser(_session, value.Id);
             foreach (var m in Modules)
             {

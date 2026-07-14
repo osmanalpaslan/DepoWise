@@ -27,6 +27,11 @@ public sealed class SessionContext : ITenantContext
     /// ek olarak süper adminin devrettiği süper-admin-only ekranlara erişebilir.</summary>
     public bool IsRestrictedSuperAdmin => RoleKeys.Contains(Security.RoleKeys.RestrictedSuperAdmin);
 
+    /// <summary>Rol Yetki Kontrol ile bu kullanıcının ROLÜNE kapatılmış modüller (role_grant_limits).
+    /// Admin bypass'ından ÖNCE uygulanır → kapalı ekran adminde de açılmaz. Süper adminde daima boştur.
+    /// Oturum kurulurken AuthService doldurur.</summary>
+    public IReadOnlySet<string> BlockedModules { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+
     public SessionContext(string userId, string companyId, IEnumerable<string> roleKeys, PermissionSet permissions,
         bool canViewAllBranches = false)
     {

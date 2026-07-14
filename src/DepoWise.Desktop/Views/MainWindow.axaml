@@ -18,7 +18,9 @@
 
         <!-- ===== İkon rayı (48–56px) ===== -->
         <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+                BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,1,0">
+            <!-- Kehribar yarı şeffaf katman (kenar menü) -->
+            <Border Background="{DynamicResource AmberSideOverlayBrush}">
             <DockPanel>
                 <!-- Marka ikonu (daraltılmış çubuk) — şeffaf, arka plan yok -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="0">
@@ -53,12 +55,15 @@
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
+            </Border>
         </Border>
 
         <!-- ===== Açıklamalı menü paneli (190–220px, daraltılabilir) ===== -->
         <Border Grid.Column="1" Width="210" IsVisible="{Binding IsNavPanelOpen}"
                 Background="{DynamicResource SidebarBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+                BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,1,0">
+            <!-- Kehribar yarı şeffaf katman (menü paneli) -->
+            <Border Background="{DynamicResource AmberSideOverlayBrush}">
             <DockPanel>
                 <!-- Logo (açık kenar çubuğu) — şeffaf, arka plan yok. Sembol + marka yazısı. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
@@ -133,14 +138,16 @@
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
+            </Border>
         </Border>
 
         <!-- ===== Sağ içerik ===== -->
         <DockPanel Grid.Column="2" Background="{DynamicResource AppBackgroundBrush}">
-            <!-- Üst bar (56–64px) -->
+            <!-- Üst bar (56–64px) — kehribar yarı şeffaf katman -->
             <Border DockPanel.Dock="Top" Height="60" Background="{DynamicResource TopBarBackgroundBrush}"
-                    BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="16,0"
+                    BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,0,1"
                     BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
+                <Border Background="{DynamicResource AmberBarOverlayBrush}" Padding="16,0">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Panel daralt/genişlet -->
                     <Button Grid.Column="0" Classes="IconGhost" Content="☰" FontSize="16"
@@ -196,6 +203,7 @@
                                 a11y:AutomationProperties.Name="Çıkış yap"/>
                     </StackPanel>
                 </Grid>
+                </Border>
             </Border>
 
             <!-- İçerik (modül ekranı; ViewLocator VM->View) -->

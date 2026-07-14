@@ -1,0 +1,204 @@
+@page "/role-permissions"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<PageTitle>Rol Yetki Kontrol — DepoWise</PageTitle>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız süper admin içindir.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h5" GutterBottom="true">Rol Yetki Kontrol</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:80ch;">
+        Her ekranın <b>hangi role verilebileceğini</b> burada belirlersiniz. Bir ekranı bir role
+        <b>kapattığınızda</b>: o roldeki kullanıcılara yetki verilirken ekran <b>yetki ağacında hiç görünmez</b>,
+        kaydedilmeye çalışılırsa <b>reddedilir</b> ve daha önce verilmiş olsa bile <b>erişim kapanır</b>
+        (Admin'in genel yetkisi de bunu aşamaz). <b>Süper Admin</b> bu kısıtlardan muaftır.
+        <b>Kilit</b> ikonlu hücreler yapısal olarak zaten kapalıdır ve değiştirilemez.
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudTextField @bind-Value="_search" Immediate="true" Placeholder="Ekran ara (örn. yakıt, rapor, bakım…)"
+                      Margin="Margin.Dense" Variant="Variant.Outlined" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" Disabled="@(_rows is null)" />
+    </MudPaper>
+
+    @if (_rows is null)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+    }
+    else
+    {
+        <MudPaper Class="pa-0" Elevation="2">
+            <MudSimpleTable Dense="true" Hover="true" Style="overflow-x:auto;">
+                <thead>
+                    <tr>
+                        <th style="min-width:230px">Ekran</th>
+                        @foreach (var r in _roles)
+                        {
+                            <th style="text-align:center;min-width:150px">
+                                @r.Name
+                                <div>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => BulkAll(r.Id, false))">Tümü açık</MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="@(() => BulkAll(r.Id, true))">Tümü kapalı</MudButton>
+                                </div>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Filtered())
+                    {
+                        <tr>
+                            <td><b>@row.Label</b></td>
+                            @foreach (var r in _roles)
+                            {
+                                var cell = row.Cells[r.Id];
+                                <td style="text-align:center">
+                                    @if (cell.Hard)
+                                    {
+                                        <MudTooltip Text="Yapısal olarak kapalı — bu ekran bu role zaten verilemez.">
+                                            <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Default" Size="Size.Small" />
+                                        </MudTooltip>
+                                    }
+                                    else
+                                    {
+                                        <MudSwitch T="bool" Value="@(!cell.Blocked)" Color="Color.Success" UnCheckedColor="Color.Error"
+                                                   ValueChanged="@((bool open) => Toggle(cell, open))" />
+                                        <div>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@(cell.Blocked ? "Kapalı" : "Açık")</MudText>
+                                        </div>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+
+        @if (!Filtered().Any()) { <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">Aramayla eşleşen ekran yok.</MudAlert> }
+
+        <MudPaper Class="pa-3 mt-3" Elevation="4" Style="position:sticky;bottom:8px;border-radius:12px">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @if (_changes > 0) { <b>@_changes değişiklik</b> } else { <span>Değişiklik yok</span> } bekliyor
+                    · kaydedilince ilgili roldeki kullanıcılar <b>yeniden giriş yapınca</b> tam etkin olur
+                </MudText>
+                <MudSpacer />
+                <MudButton Variant="Variant.Text" OnClick="Load" Disabled="@(_busy || _changes == 0)">Geri al</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="@(_busy || _changes == 0)">Kaydet</MudButton>
+            </MudStack>
+            @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+        </MudPaper>
+    }
+}
+
+@code {
+    private sealed class Cell
+    {
+        public bool Blocked { get; set; }
+        public bool Original { get; set; }
+        public bool Hard { get; set; }
+    }
+    private sealed class Row
+    {
+        public string ModuleKey { get; set; } = "";
+        public string Label { get; set; } = "";
+        public Dictionary<string, Cell> Cells { get; } = new(StringComparer.Ordinal);
+    }
+
+    private List<ApiClient.Opt> _roles = new();   // Id = roleKey, Name = görünen ad
+    private List<Row>? _rows;
+    private string _search = "";
+    private int _changes;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsSuperAdmin) await Load();
+    }
+
+    private async Task Load()
+    {
+        _rows = null; _msg = null; _changes = 0;
+        try
+        {
+            var doc = await Api.GetObjectAsync("/api/role-permissions");
+            _roles = new();
+            if (doc.TryGetProperty("roles", out var roles) && roles.ValueKind == JsonValueKind.Array)
+                foreach (var r in roles.EnumerateArray())
+                    _roles.Add(new ApiClient.Opt(S(r, "key"), S(r, "name")));
+
+            var list = new List<Row>();
+            if (doc.TryGetProperty("modules", out var mods) && mods.ValueKind == JsonValueKind.Array)
+                foreach (var m in mods.EnumerateArray())
+                {
+                    var row = new Row { ModuleKey = S(m, "moduleKey"), Label = S(m, "label") };
+                    if (m.TryGetProperty("cells", out var cells) && cells.ValueKind == JsonValueKind.Array)
+                        foreach (var c in cells.EnumerateArray())
+                        {
+                            var blocked = B(c, "blocked");
+                            row.Cells[S(c, "roleKey")] = new Cell { Blocked = blocked, Original = blocked, Hard = B(c, "hard") };
+                        }
+                    list.Add(row);
+                }
+            _rows = list;
+        }
+        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private void Toggle(Cell cell, bool open)
+    {
+        if (cell.Hard) return;
+        cell.Blocked = !open;
+        Recount();
+    }
+
+    private void BulkAll(string roleKey, bool blocked)
+    {
+        if (_rows is null) return;
+        foreach (var r in Filtered())
+            if (r.Cells.TryGetValue(roleKey, out var c) && !c.Hard) c.Blocked = blocked;
+        Recount();
+    }
+
+    private void Recount()
+        => _changes = _rows?.Sum(r => r.Cells.Values.Count(c => !c.Hard && c.Blocked != c.Original)) ?? 0;
+
+    private IEnumerable<Row> Filtered()
+    {
+        if (_rows is null) return Enumerable.Empty<Row>();
+        var q = _search?.Trim() ?? "";
+        return q.Length == 0 ? _rows : _rows.Where(r => r.Label.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task Save()
+    {
+        if (_rows is null) return;
+        if (!await Dialog.Confirm(
+            "Rol yetkileri kaydedilsin mi? Kapatılan ekranlar ilgili roldeki kullanıcılarda yetki ağacından kalkar ve erişim reddedilir.")) return;
+
+        _busy = true; _msg = null;
+        try
+        {
+            // Yalnız yapısal olmayan (Hard değil) ve KAPALI hücreler gönderilir; gönderilmeyen = açık.
+            var blocked = _roles.ToDictionary(
+                r => r.Id,
+                r => _rows.Where(x => x.Cells.TryGetValue(r.Id, out var c) && !c.Hard && c.Blocked)
+                          .Select(x => x.ModuleKey).ToList());
+            var err = await Api.PostAsync("/api/role-permissions", new { blocked });
+            _ok = err is null; _msg = err ?? "Kaydedildi. İlgili kullanıcılar yeniden giriş yapınca tam etkin olur.";
+            if (_ok) await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool B(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+}

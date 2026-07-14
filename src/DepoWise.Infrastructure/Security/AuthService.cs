@@ -74,7 +74,10 @@ public sealed class AuthService
         var roles = LoadRoleKeys(conn, user!.Value.Id);
         var perms = LoadPermissions(conn, user.Value.Id);
         CreateSession(conn, user.Value.Id, companyId, now);
-        var session = new SessionContext(user.Value.Id, companyId, roles, perms, LoadViewAllBranches(conn, user.Value.Id));
+        var session = new SessionContext(user.Value.Id, companyId, roles, perms, LoadViewAllBranches(conn, user.Value.Id))
+        {
+            BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
+        };
         return new LoginResult(true, false, 0, session);
     }
 
@@ -156,7 +159,10 @@ public sealed class AuthService
         }
 
         var perms = LoadPermissions(conn, userId);
-        return new SessionContext(userId, companyId, roles, perms, LoadViewAllBranches(conn, userId));
+        return new SessionContext(userId, companyId, roles, perms, LoadViewAllBranches(conn, userId))
+        {
+            BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
+        };
     }
 
     /// <summary>Verilen firma id'si var (ve silinmemiş) mi?</summary>

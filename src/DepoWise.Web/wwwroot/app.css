@@ -54,11 +54,15 @@ h1:focus {
    DepoWise — modern kabuk: üst bar (AppBar) + kenar menü (Drawer/Nav)
    ============================================================ */
 
-/* ---- Üst bar ---- */
+/* ---- Üst bar ----
+   Kehribar (#F5A623) uyumlu YARI ŞEFFAF ton: koyu lacivert zemin üzerine kehribar sızıntısı.
+   Alt kenarda ince kehribar çizgi. Metin/ikon kontrastı korunur (zemin koyu kalır). */
 .mud-appbar {
-    border-bottom: 1px solid rgba(148, 163, 184, .14);
+    background-image:
+        linear-gradient(90deg, rgba(245, 166, 35, .20) 0%, rgba(245, 166, 35, .10) 42%, rgba(245, 166, 35, .04) 100%) !important;
+    border-bottom: 1px solid rgba(245, 166, 35, .34);
     box-shadow: 0 4px 22px rgba(2, 6, 12, .34) !important;
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px) saturate(115%);
 }
 .mud-appbar .mud-toolbar { min-height: 60px; }
 .mud-appbar img { filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
@@ -81,8 +85,13 @@ h1:focus {
 }
 .dw-logout.mud-button-root:hover { background: rgba(255, 255, 255, .13); }
 
-/* ---- Kenar menü (Drawer + Nav) ---- */
-.mud-drawer { border-right: 1px solid rgba(148, 163, 184, .10) !important; }
+/* ---- Kenar menü (Drawer + Nav) ----
+   Üst bar ile aynı kehribar ailesi; dikey ve daha soluk (uzun yüzey → okunabilirlik önce gelir). */
+.mud-drawer {
+    background-image:
+        linear-gradient(180deg, rgba(245, 166, 35, .13) 0%, rgba(245, 166, 35, .05) 38%, rgba(245, 166, 35, .02) 100%) !important;
+    border-right: 1px solid rgba(245, 166, 35, .20) !important;
+}
 .mud-navmenu { padding: 6px 8px; }
 
 /* arama kutusu biraz nefes alsın */

@@ -76,6 +76,7 @@ public static class AppModules
         ("machines", "Makine Yönetimi"),
         ("machine_backups", "Makine Yedekleri"),
         ("permission_templates", "Yetki Şablonları"),
+        ("role_permissions", "Rol Yetki Kontrol"),
         ("server_status", "Canlı Sunucu Durumu"),
     };
 
@@ -89,7 +90,7 @@ public static class AppModules
     /// </summary>
     public static bool IsSuperAdminOnly(string moduleKey)
         => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates"
-            or "server_status" or "quota_monitor" or "machine_backups";
+            or "server_status" or "quota_monitor" or "machine_backups" or "role_permissions";
 
     /// <summary>
     /// #3 (şema Rol Durumları): Bu modüller alt rollere (Personel) VERİLEMEZ — verilmek istenirse kullanıcı

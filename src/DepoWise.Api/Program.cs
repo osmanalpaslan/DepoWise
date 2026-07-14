@@ -955,13 +955,17 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
 }).RequireAuthorization();
 
 // ── Modül kataloğu (yetki matrisi için) ──
-app.MapGet("/api/modules", (HttpContext c) =>
+app.MapGet("/api/modules", (HttpContext c, string? userId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    // Rol Yetki Kontrol: hedef kullanıcı verildiyse, ONUN ROLÜNE kapatılmış ekranlar ağaçta HİÇ görünmez.
+    var roleBlocked = string.IsNullOrWhiteSpace(userId)
+        ? (IReadOnlySet<string>)new HashSet<string>()
+        : svc.Permissions.BlockedModulesForUser(s, userId!);
     // Delegasyon tavanı: aktör yalnız KENDİ verebileceği modülleri görür (veremeyeceği yetkiler ağaçta yok).
     // Süper-admin-only ekranlar yalnız süper admine (devretmek için) ve o ekranı taşıyan kısıtlı süper admine görünür.
     var mods = AppModules.All
-        .Where(m => AccessControl.CanGrantModule(s, m.Key))
+        .Where(m => AccessControl.CanGrantModule(s, m.Key) && !roleBlocked.Contains(m.Key))
         .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();
@@ -993,6 +997,34 @@ app.MapGet("/api/company-permissions/{companyId}", (HttpContext c, string compan
     S(c) is { } s ? Results.Ok(svc.CompanyGrants.GetControl(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/company-permissions/{companyId}", (HttpContext c, string companyId, GrantLevelDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.CompanyGrants.SetLevels(s, companyId, d.Levels ?? new())) }) : Results.Unauthorized()).RequireAuthorization();
+
+// Rol Yetki Kontrol (yalnız süper admin): ekran x rol matrisi. Kapatılan ekran o rolde yetki ağacında
+// görünmez, verilemez ve (verilmişse) oturumda düşürülür — admin bypass'ı dahil.
+app.MapGet("/api/role-permissions", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var rows = svc.RoleGrants.GetControl(s).Select(r => new
+    {
+        moduleKey = r.ModuleKey,
+        label = r.Label,
+        cells = r.Cells.Select(x => new { roleKey = x.RoleKey, blocked = x.Blocked, hard = x.Hard }),
+    });
+    return Results.Ok(new
+    {
+        roles = DepoWise.Infrastructure.Organization.RoleGrantService.ManagedRoles.Select(r => new { key = r.Key, name = r.Name }),
+        modules = rows,
+    });
+}).RequireAuthorization();
+
+app.MapPost("/api/role-permissions", (HttpContext c, RoleGrantDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var map = (d.Blocked ?? new()).ToDictionary(
+        kv => kv.Key,
+        kv => (IReadOnlyList<string>)(kv.Value ?? new List<string>()),
+        StringComparer.Ordinal);
+    return Results.Ok(new { ok = Void(() => svc.RoleGrants.SetMatrix(s, map)) });
+}).RequireAuthorization();
 
 // ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
 app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s ? Results.Ok(new { showCompany = s.IsSuperAdmin }) : Results.Unauthorized()).RequireAuthorization();
@@ -1588,6 +1620,7 @@ record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);
 record GrantLevelDto(Dictionary<string, string>? Levels);
+record RoleGrantDto(Dictionary<string, List<string>>? Blocked);
 record ReauthDto(string? Password);
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);

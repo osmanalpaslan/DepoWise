@@ -14,6 +14,10 @@ public static class AccessControl
     {
         // Herkese açık modüller yalnız okuma için açıktır.
         if (AppModules.IsPublic(moduleKey)) return action == PermissionAction.View;
+
+        // Rol Yetki Kontrol: süper adminin bu ROLE kapattığı ekran — admin bypass'ı dahil hiçbir yolla açılmaz.
+        // (Süper admin ve geliştirici modu muaf; aksi halde platform sahibi kendini kilitler.)
+        if (!s.IsSuperAdmin && !DeveloperMode.IsActive && s.BlockedModules.Contains(moduleKey)) return false;
         // Yalnız Süper Admin'e açık modüller (Kota, Canlı Sunucu, Yedekler, Makine, Güncelleme, Firma Tanım):
         // Süper Admin tam yetkili; firma admini bypass GEÇERSİZ. Süper admin bunları YALNIZ "Kısıtlı Süper Admin"e
         // devredebilir → o rol de yalnız AÇIKÇA verilen işlem kadar erişir.
