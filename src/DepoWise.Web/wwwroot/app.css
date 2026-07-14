@@ -49,3 +49,81 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* ============================================================
+   DepoWise — modern kabuk: üst bar (AppBar) + kenar menü (Drawer/Nav)
+   ============================================================ */
+
+/* ---- Üst bar ---- */
+.mud-appbar {
+    border-bottom: 1px solid rgba(148, 163, 184, .14);
+    box-shadow: 0 4px 22px rgba(2, 6, 12, .34) !important;
+    backdrop-filter: blur(6px);
+}
+.mud-appbar .mud-toolbar { min-height: 60px; }
+.mud-appbar img { filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+
+/* kullanıcı "chip"i */
+.dw-userchip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 4px 13px 4px 7px; margin-right: 8px;
+    background: rgba(255, 255, 255, .09);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 999px; line-height: 1.15;
+}
+.dw-userchip .mud-icon-root { font-size: 1.75rem; opacity: .92; }
+.dw-userchip-meta { display: flex; flex-direction: column; }
+.dw-userchip-name { font-size: .84rem; font-weight: 600; letter-spacing: .01em; }
+.dw-userchip-sub { font-size: .7rem; opacity: .78; }
+.dw-logout.mud-button-root {
+    border: 1px solid rgba(255, 255, 255, .20); border-radius: 10px;
+    transition: background-color .16s ease;
+}
+.dw-logout.mud-button-root:hover { background: rgba(255, 255, 255, .13); }
+
+/* ---- Kenar menü (Drawer + Nav) ---- */
+.mud-drawer { border-right: 1px solid rgba(148, 163, 184, .10) !important; }
+.mud-navmenu { padding: 6px 8px; }
+
+/* arama kutusu biraz nefes alsın */
+.mud-navmenu .mud-input-control { border-radius: 12px; }
+
+/* nav linkler → yuvarlatılmış "pill" + yumuşak hover */
+.mud-navmenu .mud-nav-link {
+    position: relative;
+    border-radius: 11px;
+    margin: 2px 4px;
+    padding-top: 9px; padding-bottom: 9px;
+    transition: background-color .16s ease, color .16s ease, transform .05s ease;
+}
+.mud-navmenu .mud-nav-link:hover { background: rgba(148, 163, 184, .12); }
+.mud-navmenu .mud-nav-link:active { transform: scale(.99); }
+
+/* aktif ekran vurgusu: primary tonlu zemin + sol aksan cubugu */
+.mud-navmenu .mud-nav-link.active {
+    background: color-mix(in srgb, var(--mud-palette-primary) 18%, transparent);
+    color: var(--mud-palette-primary) !important;
+    font-weight: 600;
+}
+.mud-navmenu .mud-nav-link.active .mud-nav-link-icon { color: var(--mud-palette-primary) !important; }
+.mud-navmenu .mud-nav-link.active::before {
+    content: ""; position: absolute; left: 3px; top: 9px; bottom: 9px;
+    width: 3px; border-radius: 3px; background: var(--mud-palette-primary);
+}
+
+/* grup başlıkları: hafif ayrışsın */
+.mud-navmenu .mud-nav-group > .mud-nav-link { font-weight: 500; opacity: .95; }
+/* grup içi linkler biraz girintili */
+.mud-navmenu .mud-nav-group .mud-nav-link { padding-left: 15px; }
+
+/* ---- Alt-liste açılış animasyonu (abartısız fade + hafif kayma, ince stagger) ---- */
+@keyframes dwNavIn { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: none; } }
+.mud-navmenu .mud-nav-group a.mud-nav-link { animation: dwNavIn .24s ease both; }
+.mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(2) { animation-delay: .03s; }
+.mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(3) { animation-delay: .06s; }
+.mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(4) { animation-delay: .09s; }
+.mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(5) { animation-delay: .12s; }
+.mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(n+6) { animation-delay: .15s; }
+@media (prefers-reduced-motion: reduce) {
+    .mud-navmenu .mud-nav-group a.mud-nav-link { animation: none; }
+}

@@ -22,10 +22,16 @@
         @if (Auth.IsAuthenticated)
         {
             <MudTooltip Text="Ekran + tanım bilgisi (ad · kod · ID)">
-                <MudIconButton Icon="@Icons.Material.Filled.Info" Color="Color.Inherit" OnClick="ShowScreenInfo" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Info" Color="Color.Inherit" OnClick="ShowScreenInfo" />
             </MudTooltip>
-            <MudText Class="mr-4" Typo="Typo.body2">@(string.IsNullOrEmpty(Auth.UserName) ? "" : Auth.UserName + " · ")@Auth.CompanyDisplay @(Auth.IsSuperAdmin ? "· Süper Admin" : "")</MudText>
-            <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">Çıkış</MudButton>
+            <div class="dw-userchip">
+                <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
+                <div class="dw-userchip-meta">
+                    <span class="dw-userchip-name">@(string.IsNullOrEmpty(Auth.UserName) ? "Kullanıcı" : Auth.UserName)</span>
+                    <span class="dw-userchip-sub">@Auth.CompanyDisplay@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</span>
+                </div>
+            </div>
+            <MudButton Color="Color.Inherit" Class="dw-logout ml-2" StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">Çıkış</MudButton>
         }
     </MudAppBar>
     <MudDrawer Open="true" Elevation="2" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
