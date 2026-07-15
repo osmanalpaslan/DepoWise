@@ -617,6 +617,14 @@ static string? ClientIp(HttpContext c)
     return c.Connection.RemoteIpAddress?.ToString();
 }
 static bool Void(Action a) { a(); return true; }
+// Araç sınır kuralları (madde 8+1): şantiye/şube zorunlu + makul üretim yılı.
+static void RequireVehicleFields(string? branchId, int? productionYear)
+{
+    if (string.IsNullOrWhiteSpace(branchId))
+        throw new ArgumentException("Araç için şantiye/şube seçimi zorunludur.");
+    if (!DepoWise.Application.Ui.FieldChecks.YearInRange(productionYear))
+        throw new ArgumentException($"Üretim yılı {DepoWise.Application.Ui.FieldChecks.MinVehicleYear}–{DepoWise.Application.Ui.FieldChecks.MaxVehicleYear} aralığında olmalı.");
+}
 
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches", (HttpContext c, string? companyId) => S(c) is { } s ? Results.Ok(svc.Branches.List(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
@@ -1050,6 +1058,7 @@ app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     var code = d.Code?.Trim() ?? "";
     if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Kod zorunlu.");
+    if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
     if (string.IsNullOrWhiteSpace(d.Name)) throw new ArgumentException("Ad zorunlu.");
     if (d.Quantity < 0) throw new ArgumentException("Eklenecek stok negatif olamaz.");
     var found = svc.Materials.List(s, Page(), code).Items
@@ -1070,6 +1079,7 @@ app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.MaterialId)) throw new ArgumentException("Malzeme seçin.");
     if (d.Quantity <= 0) throw new ArgumentException("Miktar sıfırdan büyük olmalı.");
+    if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
     svc.Stock.IssueOut(s,
         new[] { new DepoWise.Infrastructure.Materials.StockLine(d.MaterialId, d.Quantity) },
         Guid.NewGuid().ToString("N"), d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
@@ -1296,8 +1306,12 @@ app.MapGet("/api/fuel/summary", (HttpContext c) =>
     });
 }).RequireAuthorization();
 app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
-    S(c) is { } s ? Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
-        d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note)), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur."); // madde 8
+    return Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
+        d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note)), Guid.NewGuid().ToString("N")) });
+}).RequireAuthorization();
 app.MapPost("/api/fuel/depot", (HttpContext c, DepotEntryDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(
         d.Liters, d.UnitPrice, "TRY", d.SupplierId, Doc(d.InvoiceNo), Doc(d.Note), d.EntryDate), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
@@ -1321,10 +1335,14 @@ app.MapDelete("/api/daily/{id}", (HttpContext c, string id) =>
 
 // ── Araçlar (ekle/sil) ──
 app.MapPost("/api/vehicles", (HttpContext c, NewVehicleDto d) =>
-    S(c) is { } s ? Results.Ok(new { id = svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle(
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    RequireVehicleFields(d.BranchId, d.ProductionYear); // madde 8+1: şube zorunlu + makul yıl
+    return Results.Ok(new { id = svc.Vehicles.Create(s, new DepoWise.Infrastructure.Vehicles.NewVehicle(
         d.InternalCode, Doc(d.Plate), d.ProductionYear, d.CurrentMeter, string.IsNullOrWhiteSpace(d.MeterUnit) ? "km" : d.MeterUnit,
         d.BranchId, d.DriverPersonnelId, Doc(d.ChassisNo), Doc(d.EngineNo), string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
-        d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.TemplateId)) }) : Results.Unauthorized()).RequireAuthorization();
+        d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.TemplateId)) });
+}).RequireAuthorization();
 app.MapDelete("/api/vehicles/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Vehicles.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/{id}", (HttpContext c, string id) =>
@@ -1339,6 +1357,7 @@ app.MapGet("/api/vehicles/{id}/movements", (HttpContext c, string id) =>
 app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    RequireVehicleFields(d.BranchId, d.ProductionYear); // madde 8+1
     svc.Vehicles.Update(s, id, new DepoWise.Infrastructure.Vehicles.UpdateVehicle(
         Doc(d.Plate), d.ProductionYear, string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
         Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId));

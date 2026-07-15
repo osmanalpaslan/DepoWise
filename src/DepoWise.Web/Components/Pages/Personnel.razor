@@ -266,6 +266,9 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad Soyad zorunlu."; _ok = false; return; }
+        // Yumuşak uyarı: telefon biçimi makul değilse — kullanıcı yine de geçebilir (madde 6).
+        if (!DepoWise.Web.Services.FieldChecks.PhoneLooksValid(_phone)
+            && !await Dialog.Confirm("Telefon numarası eksik/hatalı görünüyor. Yine de kaydedilsin mi?", "Evet, Kaydet")) return;
 
         // Yeni kayıt: mükerrer uyarısı (onaylanmadıysa)
         if (_editId is null && _dups.Count > 0 && !_dupAck)

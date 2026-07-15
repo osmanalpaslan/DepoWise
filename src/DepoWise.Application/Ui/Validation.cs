@@ -33,6 +33,41 @@ public static class DateInput
 }
 
 /// <summary>
+/// Ortak alan kontrolleri (web + masaüstü + sunucu). Kesin kurallar (yıl aralığı) servis katmanında
+/// zorlanır; "yumuşak" kontroller (plaka/telefon biçimi, çok büyük değer) UI'da UYARI için kullanılır
+/// (kullanıcı yine de devam edebilir).
+/// </summary>
+public static class FieldChecks
+{
+    // Üretim yılı makul aralığı (iş makineleri eski olabilir → alt sınır düşük).
+    public const int MinVehicleYear = 1950;
+    public static int MaxVehicleYear => System.DateTimeOffset.UtcNow.Year + 1;
+    public static bool YearInRange(int? year) => year is null || (year >= MinVehicleYear && year <= MaxVehicleYear);
+
+    /// <summary>Türk plaka biçimi (34 ABC 123 vb.): 2 rakam + 1-3 harf + 2-4 rakam, ya da 2 rakam + 1-2 harf +
+    /// 4-5 rakam. Boşluklar serbest. İş makinesi/plakasız araçlar buna uymayabilir → çağıran YALNIZ uyarı verir.</summary>
+    public static bool PlateLooksTurkish(string? plate)
+    {
+        if (string.IsNullOrWhiteSpace(plate)) return true; // boş plaka bu kontrolü tetiklemez
+        var p = plate.Replace(" ", "").Replace("-", "").ToUpperInvariant();
+        return System.Text.RegularExpressions.Regex.IsMatch(p, "^[0-9]{2}[A-ZÇĞİÖŞÜ]{1,4}[0-9]{2,5}$");
+    }
+
+    /// <summary>Telefon "makul" mü: yalnız uyarı için. Sadece rakam/boşluk/+/-/parantez ve 7-15 hane.</summary>
+    public static bool PhoneLooksValid(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return true; // boş telefon uyarı vermez
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length < 7 || digits.Length > 15) return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(phone.Trim(), @"^[0-9+\-()\s]+$");
+    }
+
+    /// <summary>Yanlışlıkla girilmiş olabilecek "çok büyük" sayı eşiği (yalnız uyarı için).</summary>
+    public const decimal LargeValueThreshold = 1_000_000m;
+    public static bool IsSuspiciouslyLarge(decimal value) => value >= LargeValueThreshold;
+}
+
+/// <summary>
 /// Numerik alan doğrulama — negatif ve sınır dışı fail-closed. Web `validateNumeric` ile aynı.
 /// </summary>
 public static class NumericInput

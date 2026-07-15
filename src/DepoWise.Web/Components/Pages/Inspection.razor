@@ -97,6 +97,12 @@
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         var isInspection = _docType == "inspection";
         if (isInspection && _result == "Ertelendi" && _postponeDate is null) { _msg = "Ertelendi seçildi: erteleme tarihi zorunlu."; _ok = false; return; }
+        // Tarih mantığı uyarıları (madde 5+9) — kullanıcı onaylarsa engellenmez.
+        var nextForCheck = isInspection && _result == "Ertelendi" ? _postponeDate : _nextDate;
+        if (_lastDate is not null && nextForCheck is not null && nextForCheck < _lastDate
+            && !await Dialog.Confirm("Sonraki tarih, son tarihten ÖNCE görünüyor (mantıksız olabilir). Yine de kaydedilsin mi?", "Evet, Kaydet")) return;
+        if (nextForCheck is not null && nextForCheck.Value.Date < DateTime.Today
+            && !await Dialog.Confirm("Sonraki tarih geçmişte kalıyor. Yine de kaydedilsin mi?", "Evet, Kaydet")) return;
         if (!await Dialog.Confirm($"{DocLabel} belgesi kaydedilsin mi?")) return;
         _busy = true;
         try

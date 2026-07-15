@@ -24,8 +24,8 @@
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Tanım</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="6" md="4"><MudTextField @bind-Value="_code" Label="İç Kod *" Disabled="@(_editId is not null)" Error="_err && string.IsNullOrWhiteSpace(_code)" ErrorText="İç kod zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="4"><MudTextField @bind-Value="_plate" Label="Plaka" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="4"><MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Min="0" Max="2100" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="6" md="4"><MudTextField @bind-Value="_plate" Label="Plaka" Placeholder="34 ABC 123" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            <MudItem xs="6" md="4"><MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Min="@DepoWise.Web.Services.FieldChecks.MinVehicleYear" Max="@DepoWise.Web.Services.FieldChecks.MaxVehicleYear" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Durum &amp; Sayaç</MudText>
@@ -60,7 +60,7 @@
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Konum &amp; Atama</MudText>
         <MudGrid Spacing="2">
-            <MudItem xs="12" md="6"><LookupSelect Label="Şantiye / Şube" @bind-Value="_branch" Items="_branches" CreatePath="/api/branches" CreateField="name" OnAdded="ReloadBranches" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Şantiye / Şube *" @bind-Value="_branch" Items="_branches" CreatePath="/api/branches" CreateField="name" OnAdded="ReloadBranches" /></MudItem>
             <MudItem xs="12" md="6"><LookupSelect Label="Sürücü" @bind-Value="_driver" Items="_drivers" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadDrivers" /></MudItem>
         </MudGrid>
 
@@ -411,6 +411,14 @@
     {
         _err = true; _msg = null;
         if (string.IsNullOrWhiteSpace(_code)) { _msg = "İç kod zorunlu."; _ok = false; return; }
+        // Zorunlu: şantiye/şube (madde 8).
+        if (string.IsNullOrWhiteSpace(_branch)) { _msg = "Şantiye / şube seçimi zorunludur."; _ok = false; return; }
+        // Yumuşak uyarı: plaka Türk biçimine uymuyorsa (iş makinesi/plakasız için kullanıcı yine de geçebilir — madde 2).
+        if (!DepoWise.Web.Services.FieldChecks.PlateLooksTurkish(_plate)
+            && !await Dialog.Confirm("Plaka standart Türk plaka biçimine (34 ABC 123) uymuyor. İş makinesi/plakasız araç ise geçebilirsiniz.\n\nYine de kaydedilsin mi?", "Evet, Kaydet")) return;
+        // Yumuşak uyarı: sayaç çok büyük (yanlış giriş olabilir — madde 7).
+        if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_meter)
+            && !await Dialog.Confirm($"Sayaç değeri çok büyük görünüyor ({_meter:0.##}). Emin misiniz?", "Evet, Doğru")) return;
         // Şablon dışı kayıt uyarısı (yalnız yeni kayıt + şablon seçilmemişse) — tek tip kayıt için.
         if (_editId is null && string.IsNullOrEmpty(_template))
         {

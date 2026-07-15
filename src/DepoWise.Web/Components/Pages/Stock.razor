@@ -57,7 +57,7 @@
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_branch" Label="Şube" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
             }
 
-            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_personnel" Label="Personel (Şoför/Teslim)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_personnelList)</MudSelect></MudItem>
+            <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_personnel" Label="Personel (Şoför/Teslim) *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_personnelList)</MudSelect></MudItem>
             <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_vehicle" Label="Araç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_vehicles)</MudSelect></MudItem>
 
             <MudItem xs="6" md="3"><MudTextField @bind-Value="_invoiceNo" Label="Fatura / İrsaliye No" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
@@ -230,6 +230,9 @@
     private async Task Save()
     {
         _msg = null;
+        if (string.IsNullOrWhiteSpace(_personnel)) { _msg = "Personel (işlemi yapan) zorunludur."; _ok = false; return; } // madde 8
+        if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_qty)
+            && !await Dialog.Confirm($"Miktar çok büyük görünüyor ({_qty:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
         if (!await Dialog.Confirm($"{_kind} işlemi kaydedilsin mi?")) return;
         _busy = true;
         try

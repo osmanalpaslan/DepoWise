@@ -24,7 +24,7 @@
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_liters" Label="Litre *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (₺/L)" HelperText="Varsayılan: güncel fiyat." Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudTextField Value="@((_liters * _price).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Veren" @bind-Value="_person" Items="_personnel" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Veren *" @bind-Value="_person" Items="_personnel" /></MudItem>
                 </MudGrid>
                 <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text" OnClick="ClearDist">İptal</MudButton>
@@ -170,6 +170,9 @@
         _msg = null;
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         if (_liters <= 0) { _msg = "Litre girin."; _ok = false; return; }
+        if (string.IsNullOrWhiteSpace(_person)) { _msg = "Yakıtı veren personeli seçin."; _ok = false; return; } // madde 8
+        if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_liters)
+            && !await Dialog.Confirm($"Litre değeri çok büyük görünüyor ({_liters:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
         if (!await Dialog.Confirm("Yakıt dağıtımı kaydedilsin mi?")) return;
         _busy = true;
         try
