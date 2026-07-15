@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Web",
+        "--urls",
+        "http://localhost:5282",
+        "--",
+        "--Api:BaseUrl=https://depowise-erp.fly.dev"
+      ],
+      "port": 5282
+    }
+  ]
+}
