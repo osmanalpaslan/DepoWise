@@ -79,10 +79,8 @@
                                   ItemsSource="{Binding LinkableUsers}" SelectedItem="{Binding FLinkUser}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock>
-                                        <Run Text="{Binding Username}"/>
-                                        <Run Text="{Binding FullName, StringFormat=' — {0}'}"/>
-                                    </TextBlock>
+                                    <!-- Yalnız Ad Soyad + şube (kullanıcı adı gizli — kullanıcı isteği) -->
+                                    <TextBlock Text="{Binding Display}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>

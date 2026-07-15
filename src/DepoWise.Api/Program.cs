@@ -635,7 +635,7 @@ app.MapPost("/api/personnel/{id}/account", (HttpContext c, string id, AccountDto
 // #6 (revize) — Personele BAĞLANABİLİR mevcut kullanıcılar (henüz hiçbir personele bağlı olmayan). Admin+.
 app.MapGet("/api/personnel/linkable-users", (HttpContext c) =>
     S(c) is { } s
-        ? Results.Ok(svc.Users.ListLinkableUsers(s).Select(u => new { id = u.Id, username = u.Username, fullName = u.FullName, isActive = u.IsActive }))
+        ? Results.Ok(svc.Users.ListLinkableUsers(s).Select(u => new { id = u.Id, username = u.Username, fullName = u.FullName, isActive = u.IsActive, branchName = u.BranchName, display = u.Display }))
         : Results.Unauthorized()).RequireAuthorization();
 // #6 (revize) — MEVCUT kullanıcıyı personele bağla (YENİ hesap açmaz; kullanıcılar "Kullanıcılar" ekranında açılır). Admin+.
 app.MapPost("/api/personnel/{id}/link-user", (HttpContext c, string id, LinkUserDto d) =>

@@ -196,3 +196,13 @@ h1:focus {
 }
 .mud-simple-table tbody tr { transition: background-color .13s ease; }
 .mud-simple-table tbody tr:hover { background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent); }
+
+/* ============================================================
+   Seçili / tıklanan satır vurgusu — tema-uyumlu (tema değişince renk değişir)
+   MudTable @bind-SelectedItem kullanan ekranlarda otomatik uygulanır (.mud-selected-row).
+   ============================================================ */
+.mud-table .mud-table-body .mud-table-row.mud-selected-row,
+.mud-table .mud-table-body .mud-table-row.mud-selected-row:hover {
+    background: color-mix(in srgb, var(--mud-palette-primary) 20%, transparent) !important;
+    box-shadow: inset 3px 0 0 0 var(--mud-palette-primary);
+}

@@ -229,7 +229,14 @@ public sealed class ApiClient
     }
 
     public sealed record Opt(string Id, string Name);
-    public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive);
+    public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive, string? BranchName = null, string? Display = null)
+    {
+        /// <summary>Gösterim: yalnız Ad Soyad + şube (kullanıcı adı gizli).</summary>
+        public string Label => !string.IsNullOrWhiteSpace(Display) ? Display!
+            : (string.IsNullOrWhiteSpace(FullName) ? Username : FullName!)
+              + (string.IsNullOrWhiteSpace(BranchName) ? "" : $" — {BranchName}")
+              + (IsActive ? "" : " (pasif)");
+    }
 
     /// <summary>Bir personele bağlanabilir (henüz bağsız) mevcut kullanıcılar (Admin+).</summary>
     public async Task<List<LinkableUser>> GetLinkableUsersAsync()

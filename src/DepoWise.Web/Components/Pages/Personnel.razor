@@ -90,7 +90,7 @@
                                 <MudSelect T="string" @bind-Value="_linkUserId" Label="Bağlanacak kullanıcı *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
                                     @foreach (var u in _linkableUsers)
                                     {
-                                        <MudSelectItem T="string" Value="@u.Id">@u.Username@(string.IsNullOrEmpty(u.FullName) ? "" : $" — {u.FullName}")@(u.IsActive ? "" : " (pasif)")</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@u.Id">@u.Label</MudSelectItem>
                                     }
                                 </MudSelect>
                             </MudItem>

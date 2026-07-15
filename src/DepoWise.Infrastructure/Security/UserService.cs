@@ -30,7 +30,19 @@ public sealed record UserRow(string Id, string Username, string? FullName, bool 
 public sealed record PersonnelAccount(string UserId, string Username, bool IsActive, bool IsAdmin);
 
 /// <summary>Bir personele bağlanabilir (henüz bağsız) kullanıcı — personel ekranı "kullanıcı bağla" listesi.</summary>
-public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive);
+public sealed record LinkableUser(string Id, string Username, string? FullName, bool IsActive, string? BranchName = null)
+{
+    /// <summary>Personel ekranı gösterimi: YALNIZ Ad Soyad + şube (kullanıcı adı gizli — kullanıcı isteği).</summary>
+    public string Display
+    {
+        get
+        {
+            var name = string.IsNullOrWhiteSpace(FullName) ? Username : FullName!;
+            var text = string.IsNullOrWhiteSpace(BranchName) ? name : $"{name} — {BranchName}";
+            return IsActive ? text : text + " (pasif)";
+        }
+    }
+}
 
 /// <summary>Kota izleme satırı: NORMAL (personel) ve ADMIN kullanımı AYRI kotalar (max_users / max_admins).</summary>
 public sealed record QuotaMonitorRow(string CompanyId, string CompanyName, int MaxUsers, int NormalCount, int MaxAdmins, int AdminCount, int ActiveCount = 0)
@@ -387,20 +399,22 @@ ORDER BY u.username;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT u.id, u.username, u.full_name, u.is_active
+SELECT u.id, u.username, u.full_name, u.is_active, b.name
 FROM users u
+LEFT JOIN branches b ON b.id = u.branch_id AND b.is_deleted=0
 WHERE u.is_deleted=0 AND u.personnel_id IS NULL
   AND ($all=1 OR u.company_id=$c)
   AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
                   WHERE ur.user_id=u.id AND r.role_key=$sa)
-ORDER BY u.username;";
+ORDER BY u.full_name, u.username;";
         cmd.Parameters.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
         cmd.Parameters.AddWithValue("$c", actor.CompanyId);
         cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
         var list = new List<LinkableUser>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add(new LinkableUser(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetInt64(3) == 1));
+            list.Add(new LinkableUser(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetInt64(3) == 1,
+                r.IsDBNull(4) ? null : r.GetString(4)));
         return list;
     }
 
