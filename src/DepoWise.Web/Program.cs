@@ -14,7 +14,11 @@ builder.Services.AddDataProtection()
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    // KRİTİK: InputFile ile fotoğraf yükleme dosya baytlarını SignalR devresi üzerinden akıtır. Varsayılan
+    // MaximumReceiveMessageSize = 32 KB olduğundan, birkaç yüz KB'lik bir foto seçilince devre DÜŞÜYOR →
+    // kayıt sunucuda oluşsa bile ekran takılı kalıyor (spinner sonsuz döner). 12 MB'a çıkarıldı (foto akışı için).
+    .AddHubOptions(o => o.MaximumReceiveMessageSize = 12 * 1024 * 1024);
 builder.Services.AddMudServices();
 
 // API tabanı (appsettings: Api:BaseUrl) — web yalnız bu API'yi tüketir (iş kuralı taşımaz).
