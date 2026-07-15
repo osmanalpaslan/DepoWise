@@ -150,15 +150,23 @@ ORDER BY name;";
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         EnsureKnownTable(table);
-        var id = Guid.NewGuid().ToString("N");
+        name = (name ?? "").Trim();
+        if (string.IsNullOrEmpty(name)) throw new ArgumentException("Ad boş olamaz.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        // TEKİLLEŞTİRME (madde 9+11): aynı ad + aynı ayırt edici (parent_id/brand_type/brand_id) zaten varsa
+        // YENİ satır AÇMA — mevcut Tanım ID'yi döndür. Böylece aynı isimli birden çok tanım oluşmaz (tek Tanım ID).
+        var existing = FindByName(conn, tx, table, s.CompanyId, name, extra);
+        if (existing is not null) { tx.Commit(); return existing; }
+
+        var id = Guid.NewGuid().ToString("N");
         var cols = "id, company_id, name, created_at, updated_at, version, is_deleted";
         var vals = "$id, $c, $n, $now, $now, 1, 0";
         foreach (var (col, _) in extra) { cols += $", {col}"; vals += $", ${col}"; }
 
-        using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction();
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -173,6 +181,24 @@ ORDER BY name;";
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return id;
+    }
+
+    /// <summary>Aynı ad (harf duyarsız) + aynı ayırt edici sütunlarla AKTİF kayıt varsa id'sini döndürür.
+    /// Tekilleştirme (dedup) — aynı isimli birden çok tanım oluşmasını engeller.</summary>
+    private static string? FindByName(SqliteConnection conn, SqliteTransaction tx, string table, string companyId,
+        string name, (string Col, object Val)[] extra)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        var sql = $"SELECT id FROM {table} WHERE company_id=$c AND is_deleted=0 AND name=$n COLLATE NOCASE";
+        foreach (var (col, val) in extra)
+            sql += (val is System.DBNull) ? $" AND {col} IS NULL" : $" AND {col}=${col}";
+        sql += " LIMIT 1;";
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$n", name);
+        foreach (var (col, val) in extra) if (val is not System.DBNull) cmd.Parameters.AddWithValue($"${col}", val);
+        return cmd.ExecuteScalar() as string;
     }
 
     /// <summary>Tanımı yeniden adlandır (tenant + "definitions"/Edit).</summary>

@@ -2,13 +2,14 @@
 @inject ApiClient Api
 
 <MudAutocomplete T="string" Value="@Value" ValueChanged="Changed" Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
-                 SearchFunc="Search" ToStringFunc="IdToName" Clearable="true" Dense="true" Disabled="@Disabled"
+                 SearchFunc="Search" ToStringFunc="IdToName" Clearable="true" Dense="true" Disabled="@(Disabled || _busy)"
                  ResetValueOnEmptyText="false" CoerceText="true" CoerceValue="false" Strict="false"
                  MaxItems="null" Placeholder="Ara / seç..."
                  Adornment="@(CanAdd ? Adornment.End : Adornment.None)"
                  AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick="Add">
     <ItemTemplate Context="id">@IdToName(id)</ItemTemplate>
 </MudAutocomplete>
+@if (_busy) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-n1" Style="height:2px" /> }
 
 @code {
     [Parameter] public string? Value { get; set; }
@@ -44,26 +45,45 @@
         return Task.FromResult(src.Select(o => o.Id));
     }
 
+    private bool _busy;
+
     private async Task Add()
     {
-        if (!CanAdd) return;
+        if (!CanAdd || _busy) return;
         var dlg = await Dialog.ShowAsync<NameInputDialog>("Yeni Kayıt",
             new DialogParameters { ["Label"] = "Ad" },
             new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
         var res = await dlg.Result;
-        if (res is null || res.Canceled || res.Data is not string name) return;
+        if (res is null || res.Canceled || res.Data is not string raw) return;
+        var name = raw.Trim();
+        if (name.Length == 0) return;
 
-        string? err;
-        if (CreatePath is not null)
+        // DUPLICATE KONTROLÜ (madde 9): aynı ad zaten varsa yeni tanım OLUŞTURMA — uyar ve mevcut olanı seç.
+        var dup = Items.FirstOrDefault(o => string.Equals(o.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        if (dup is not null)
         {
-            var body = new Dictionary<string, object?> { [CreateField] = name };
-            if (ExtraField is not null) body[ExtraField] = ExtraValue;
-            err = await Api.PostAsync(CreatePath, body);
+            await Dialog.Confirm($"\"{name}\" adında bir tanım zaten mevcut. Mevcut olan seçildi.", okText: "Tamam", cancelText: "");
+            await Changed(dup.Id);
+            return;
         }
-        else
+
+        _busy = true; // Kaydet sırasında yükleme simgesi
+        try
         {
-            err = await Api.PostAsync($"/api/lookups/{AddTable}", new { name });
+            string? err;
+            if (CreatePath is not null)
+            {
+                var body = new Dictionary<string, object?> { [CreateField] = name };
+                if (ExtraField is not null) body[ExtraField] = ExtraValue;
+                err = await Api.PostAsync(CreatePath, body);
+            }
+            else
+            {
+                err = await Api.PostAsync($"/api/lookups/{AddTable}", new { name });
+            }
+            if (err is null) await OnAdded.InvokeAsync(name);
+            else await Dialog.Confirm("Eklenemedi: " + err, okText: "Tamam", cancelText: "");
         }
-        if (err is null) await OnAdded.InvokeAsync(name);
+        finally { _busy = false; }
     }
 }
