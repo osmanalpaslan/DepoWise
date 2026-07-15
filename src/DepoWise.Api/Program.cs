@@ -751,6 +751,14 @@ app.MapGet("/api/lookups/vehicle_brands", (HttpContext c) => S(c) is { } s ? Res
 // Malzeme alt kategorileri (seçili kategorinin çocukları)
 app.MapGet("/api/materials/subcategories", (HttpContext c, string? parentId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListCategories(s, string.IsNullOrWhiteSpace(parentId) ? null : parentId)) : Results.Unauthorized()).RequireAuthorization();
+// Alt kategori EKLE — seçili KATEGORİYE bağlı (parent_id). Dedup: aynı üst altında aynı ad tek Tanım ID.
+app.MapPost("/api/materials/subcategories", (HttpContext c, SubCategoryDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.ParentId)) return Results.Json(new { error = "Önce bir kategori seçin." }, statusCode: 400);
+    try { return Results.Ok(new { id = svc.Lookups.AddCategory(s, d.Name, d.ParentId) }); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
 
 // Roller (kullanıcı oluşturma için)
 app.MapGet("/api/roles", (HttpContext c) =>
@@ -1698,6 +1706,7 @@ record RolesDto(List<string>? Roles);
 record ActiveDto(bool Active);
 record PasswordDto(string Password);
 record ChangeInitialPwDto(string? NewPassword);
+record SubCategoryDto(string Name, string? ParentId);
 record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
 record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons);
 record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons, string? CompanyId = null, bool ScopeAll = false);

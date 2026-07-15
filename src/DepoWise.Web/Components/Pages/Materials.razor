@@ -36,9 +36,13 @@
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6"><LookupSelect Label="Kategori" @bind-Value="_cat" Items="_cats" AddTable="material_categories" OnAdded="ReloadCats" /></MudItem>
             <MudItem xs="12" md="6">
-                <MudSelect T="string" @bind-Value="_subCat" Label="Alt Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_subCats.Count == 0)">
-                    @foreach (var o in _subCats) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
-                </MudSelect>
+                @* Alt Kategori: seçili KATEGORİYE bağlı; "+" ile o kategoriye alt kategori eklenir (parent_id=_cat).
+                   Kategori seçilene kadar pasif; seçilince o kategorinin alt kategorileri listelenir. *@
+                <LookupSelect Label="Alt Kategori" @bind-Value="_subCat" Items="_subCats"
+                              CreatePath="/api/materials/subcategories" CreateField="name"
+                              ExtraField="parentId" ExtraValue="@_cat"
+                              Disabled="@string.IsNullOrEmpty(_cat)" OnAdded="ReloadSubCats" />
+                @if (string.IsNullOrEmpty(_cat)) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Önce kategori seçin.</MudText> }
             </MudItem>
             <MudItem xs="12" md="6">
                 <LookupSelect Label="Birim *" @bind-Value="_unit" Items="_units" AddTable="units" OnAdded="ReloadUnits" />
@@ -282,6 +286,14 @@
     }
 
     private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+    // Alt kategori "+" sonrası: seçili kategorinin alt kategorilerini tazele + yeni ekleneni seç.
+    private async Task ReloadSubCats(string name)
+    {
+        if (string.IsNullOrEmpty(_cat)) return;
+        _subCats = await Api.OptionsAsync($"/api/materials/subcategories?parentId={_cat}", "id", "name");
+        var added = _subCats.FirstOrDefault(o => string.Equals(o.Name, name?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (added is not null) _subCat = added.Id;
+    }
     private async Task ReloadUnits(string _) => _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
     private async Task ReloadBrands(string _) => _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
     private async Task ReloadSups(string _) => _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
