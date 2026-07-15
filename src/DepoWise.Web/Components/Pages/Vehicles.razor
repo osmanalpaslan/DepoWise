@@ -163,7 +163,8 @@
                     {
                         <div style="position:relative;width:72px;height:72px;margin:0 8px 8px 0;">
                             <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
-                            @if (Auth.CanEdit("vehicles"))
+                            @* Foto silme YALNIZ düzenleme modunda (bu araç "Düzenle" ile açıkken). Salt görüntülemede silinemez. *@
+                            @if (Auth.CanEdit("vehicles") && _editId == did)
                             {
                                 <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:0;right:0;background:#99000000;" OnClick="@(() => DeletePhoto(ph.Id))" />
                             }
