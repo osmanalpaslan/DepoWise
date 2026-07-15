@@ -21,19 +21,28 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-14)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-15)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **317/317 yeşil** (`dotnet test`) |
-| **Şema** | Migration **041** (`role_grant_limits` — Rol Yetki Kontrol) |
+| **Testler** | **321/321 yeşil** (`dotnet test`) |
+| **Şema** | Migration **042** (`must_change_password` — ilk giriş zorunlu şifre) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.52 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Masaüstü** | **1.0.53 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+| **Bekleyen iş** | **VAR** — büyük 17-maddelik istek sürüyor → [docs/YARIM_KALAN_ISLER.md](docs/YARIM_KALAN_ISLER.md) |
+
+### Bu oturumda (2026-07-15) tamamlananlar (17-maddelik istekten)
+- **Tenant:** Şube ekranında firma seçici (süper admin tümü, diğerleri kendi firması); `/api/companies/options`.
+- **Yetki ağacı:** yetkisiz/verilmeyecek kalemler kilit yerine TAMAMEN gizli; hedef-kullanıcı bazlı.
+- **İlk giriş zorunlu şifre** (web+masaüstü Adım 4); Migration042.
+- **"Bağlanacak kullanıcı"** yalnız Ad Soyad + şube.
+- **Seçili satır** tema-uyumlu vurgu (CSS temeli).
+- **KRİTİK:** Foto yüklerken ekran takılması → SignalR MaximumReceiveMessageSize 32KB→12MB.
+- **Araç foto silme** yalnız düzenleme modunda.
 
 ### Bu oturumda yapılanlar (2026-07-14)
 
@@ -85,6 +94,16 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 > Daha eski oturumların ayrıntısı: `docs/DECISIONS.md` (ADR-056…063) ve `docs/PROJECT_STATE.md`.
 
 ---
+
+## 2.1 SÜREN 17-MADDELİK İSTEK — kalan maddeler (2026-07-15)
+Tamamlananlar §2'de. **Kalan (sırayla, testli + commit'li):**
+- **5** — Tüm ekranlarda onay penceresi + satıra tıklayıp düzenleme açılınca iptalde liste hiç tıklanmamış gibi kalması.
+- **8** — "+" tanımı kaydetmeden kalıcı olmasın; Kaydet'te dönen yükleme simgesi (spinner).
+- **9** — Duplicate kontrolü ("+" alanlarında aynı ad; ürün kodu vb. benzersizlik).
+- **10/11** — Alt kategori aktif + "+" + kategoriye bağlı; aynı isimli tanımların tek Tanım ID'de birleştirilmesi (şema kararı).
+- **12** — Malzeme/araç şablonlarına foto + malzeme şablonunda "uyumlu araçlar".
+- **14** — Malzeme kaydı yavaşlığı + foto görünürlüğü (13 düzeltilince doğrula).
+- **16/17** — Masaüstü paritesi + EN SON sunucu/local temizleme (temiz test ortamı).
 
 ## 3. SIRADAKI TEK IŞ
 
