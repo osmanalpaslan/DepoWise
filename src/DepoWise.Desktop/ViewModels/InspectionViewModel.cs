@@ -100,6 +100,12 @@ public sealed partial class InspectionViewModel : ViewModelBase
         if (!CanWrite) { FormError = "Yetki yok."; return; }
         if (FVehicle is null) { FormError = "Araç seçin."; return; }
         if (IsPostponed && FPostponeDate is null) { FormError = "Ertelendi seçildi: erteleme tarihi zorunlu."; return; }
+        // Tarih mantığı uyarıları (madde 5+9) — kullanıcı onaylarsa engellenmez.
+        var nextForCheck = IsPostponed ? FPostponeDate : FNextDate;
+        if (FLastDate is not null && nextForCheck is not null && nextForCheck < FLastDate
+            && !await ConfirmService.AskAsync("Sonraki tarih, son tarihten ÖNCE görünüyor (mantıksız olabilir). Yine de kaydedilsin mi?", "Tarih Uyarısı", "Evet, Kaydet")) return;
+        if (nextForCheck is not null && nextForCheck.Value.Date < DateTimeOffset.Now.Date
+            && !await ConfirmService.AskAsync("Sonraki tarih geçmişte kalıyor. Yine de kaydedilsin mi?", "Tarih Uyarısı", "Evet, Kaydet")) return;
         if (!await ConfirmService.AskAsync($"{FDocType} belgesi kaydedilsin mi?", "Muayene / Sigorta")) return;
         try
         {

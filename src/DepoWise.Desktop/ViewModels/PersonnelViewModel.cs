@@ -264,6 +264,9 @@ public sealed partial class PersonnelViewModel : ViewModelBase
     {
         FormError = null;
         if (string.IsNullOrWhiteSpace(FFullName)) { FormError = "Ad soyad zorunlu."; return; }
+        // Yumuşak uyarı: telefon biçimi makul değilse — kullanıcı yine de geçebilir (madde 6).
+        if (!DepoWise.Application.Ui.FieldChecks.PhoneLooksValid(FPhone)
+            && !await ConfirmService.AskAsync("Telefon numarası eksik/hatalı görünüyor. Yine de kaydedilsin mi?", "Telefon Uyarısı", "Evet, Kaydet")) return;
         var editing = EditId is not null;
 
         // Mükerrer kişi uyarısı (yalnız yeni kayıt).

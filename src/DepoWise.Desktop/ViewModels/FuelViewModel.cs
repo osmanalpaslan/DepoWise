@@ -138,6 +138,9 @@ public sealed partial class FuelViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok."; return; }
         if (DistVehicle is null) { Status = "Araç seçin."; return; }
         if (DistLiters <= 0) { Status = "Litre pozitif olmalı."; return; }
+        if (DistPersonnel is null) { Status = "Yakıtı veren personeli seçin."; return; } // madde 8
+        if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(DistLiters)
+            && !await ConfirmService.AskAsync($"Litre değeri çok büyük görünüyor ({DistLiters:0.##}). Emin misiniz?", "Litre Uyarısı", "Evet, Doğru")) return; // madde 7
         if (!await ConfirmService.AskAsync($"{DistLiters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {DistTotalText})", "Kaydet")) return;
         try
         {

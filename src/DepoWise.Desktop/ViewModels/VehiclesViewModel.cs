@@ -207,6 +207,15 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         bool editing = IsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewCode)) { Status = "İç kod zorunlu."; return; }
+        // Zorunlu: şantiye/şube (madde 8) + makul üretim yılı (madde 1).
+        if (SelBranch is null) { Status = "Araç için şantiye/şube seçimi zorunludur."; return; }
+        if (!DepoWise.Application.Ui.FieldChecks.YearInRange(NewYear > 0 ? NewYear : (int?)null))
+        { Status = $"Üretim yılı {DepoWise.Application.Ui.FieldChecks.MinVehicleYear}–{DepoWise.Application.Ui.FieldChecks.MaxVehicleYear} aralığında olmalı."; return; }
+        // Yumuşak uyarılar (kullanıcı yine de geçebilir): plaka biçimi (madde 2) + çok büyük sayaç (madde 7).
+        if (!DepoWise.Application.Ui.FieldChecks.PlateLooksTurkish(NewPlate)
+            && !await ConfirmService.AskAsync("Plaka standart Türk plaka biçimine (34 ABC 123) uymuyor. İş makinesi/plakasız araç ise geçebilirsiniz.\n\nYine de kaydedilsin mi?", "Plaka Uyarısı", "Evet, Kaydet")) return;
+        if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(NewMeter)
+            && !await ConfirmService.AskAsync($"Sayaç değeri çok büyük görünüyor ({NewMeter:0.##}). Emin misiniz?", "Sayaç Uyarısı", "Evet, Doğru")) return;
         if (!editing)
         {
             // Şablon dışı kayıt uyarısı (tek tip kayıt için).
