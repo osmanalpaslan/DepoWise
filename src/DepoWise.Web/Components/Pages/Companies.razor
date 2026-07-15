@@ -134,8 +134,9 @@
         catch (Exception ex) { _error = "Yüklenemedi: " + ex.Message; }
     }
 
-    private void BeginEdit(CompanyDto c)
+    private async Task BeginEdit(CompanyDto c)
     {
+        if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
         _editId = c.Id;
         _name = c.Name; _taxNo = c.TaxNo ?? ""; _phone = c.Phone ?? ""; _person = c.AuthorizedPerson ?? "";
         _email = c.Email ?? ""; _taxOffice = ""; _address = ""; _maxUsers = c.MaxUsers;

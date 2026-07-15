@@ -207,7 +207,11 @@
 @code {
     [Parameter] public string? Section { get; set; }
     private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase);
-    private void EditNav(string id) => Nav.NavigateTo($"/materials/new?edit={id}");
+    private async Task EditNav(string id)
+    {
+        if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        Nav.NavigateTo($"/materials/new?edit={id}");
+    }
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };

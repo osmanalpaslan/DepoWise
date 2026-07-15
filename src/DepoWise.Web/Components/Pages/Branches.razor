@@ -141,8 +141,10 @@
         try { _branchUsers = await Api.GetArrayAsync($"/api/branches/{Str(row, "id")}/users"); } catch { _branchUsers = Array.Empty<JsonElement>(); }
     }
 
-    private void BeginEdit(JsonElement d)
+    private async Task BeginEdit(JsonElement d)
     {
+        // Düzenlemeye giriş onayı: iptal edilirse form doldurulmaz (liste hiç tıklanmamış gibi kalır).
+        if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
         _editId = Str(d, "id"); _name = Str(d, "name"); _kind = string.IsNullOrEmpty(Str(d, "kind")) ? "branch" : Str(d, "kind");
         _code = Str(d, "code"); _password = "";
         _parent = NullS(d, "parentId"); _msg = null;

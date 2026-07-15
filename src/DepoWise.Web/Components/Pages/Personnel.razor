@@ -252,8 +252,9 @@
         catch { _dups = new(); }
     }
 
-    private void BeginEdit(JsonElement r)
+    private async Task BeginEdit(JsonElement r)
     {
+        if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
         _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
