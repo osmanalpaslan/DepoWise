@@ -29,7 +29,34 @@
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_min" Label="Min. Stok" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-SelectedValues="_compatVehicles" Label="Uyumlu Araçlar" MultiSelection="true"
+                           Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                           MultiSelectionTextFunc="@(sel => $"{sel.Count} araç seçili")">
+                    @foreach (var v in _vehicles) { <MudSelectItem T="string" Value="@v.Id">@v.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
         </MudGrid>
+
+        @* Şablon fotoğrafları — genel foto altyapısı (entity_type=material_template) *@
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fotoğraflar</MudText>
+        <InputFile OnChange="OnFiles" multiple accept="image/*" />
+        @if (_staged.Count > 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@_staged.Count foto kaydedince yüklenecek.</MudText> }
+        @if (_editId is not null && _photos.Count > 0)
+        {
+            <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-2">
+                @foreach (var ph in _photos)
+                {
+                    <div style="position:relative;width:72px;height:72px;margin:0 8px 8px 0;">
+                        <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
+                        @if (Auth.CanEdit("material_templates"))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:0;right:0;background:#99000000;" OnClick="@(() => DeletePhoto(ph.Id))" />
+                        }
+                    </div>
+                }
+            </MudStack>
+        }
         <MudStack Row="true" Class="mt-2" Spacing="2">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : _editId is null ? "Şablonu Kaydet" : "Değişiklikleri Kaydet")</MudButton>
             @if (_editId is not null) { <MudButton Variant="Variant.Text" OnClick="ClearForm">Vazgeç</MudButton> }
@@ -75,7 +102,12 @@
     private string _name = "", _code = "", _desc = "";
     private string? _type, _cat, _unit, _brand, _sup;
     private decimal _min, _price;
-    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
+    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new(), _vehicles = new();
+    private IReadOnlyCollection<string> _compatVehicles = new HashSet<string>();
+    private readonly List<Staged> _staged = new();
+    private readonly List<PhotoRef> _photos = new();
+    private sealed record Staged(string Name, byte[] Bytes, string Mime);
+    private sealed record PhotoRef(string Id, string Url);
     private JsonElement[]? _rows;
     private string? _msg; private bool _ok; private bool _busy;
 
@@ -87,6 +119,7 @@
             _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+            try { _vehicles = await Api.OptionsAsync("/api/vehicles/options", "id", "display"); } catch { }
         }
         await Load();
     }
@@ -107,9 +140,47 @@
             _name = Str(t, "name"); _code = Str(t, "code"); _type = NullId(t, "type"); _desc = Str(t, "description");
             _cat = NullId(t, "categoryId"); _unit = NullId(t, "unitId"); _brand = NullId(t, "brandId"); _sup = NullId(t, "supplierId");
             _min = Dec(t, "minStock"); _price = Dec(t, "unitPrice");
+            var cv = Str(t, "compatibleVehicleIds");
+            _compatVehicles = string.IsNullOrWhiteSpace(cv) ? new HashSet<string>()
+                : cv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+            _staged.Clear();
+            await LoadPhotos(id);
             _msg = null;
         }
         catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    private async Task LoadPhotos(string id)
+    {
+        _photos.Clear();
+        try
+        {
+            foreach (var p in await Api.GetArrayAsync($"/api/templates/material/{id}/photos"))
+            {
+                var url = await Api.GetImageDataUrlAsync(Str(p, "url"));
+                if (url is not null) _photos.Add(new PhotoRef(Str(p, "id"), url));
+            }
+        }
+        catch { }
+    }
+
+    private async Task OnFiles(InputFileChangeEventArgs e)
+    {
+        foreach (var f in e.GetMultipleFiles(10))
+        {
+            using var ms = new MemoryStream();
+            await f.OpenReadStream(8 * 1024 * 1024).CopyToAsync(ms);
+            var mime = string.IsNullOrEmpty(f.ContentType) || f.ContentType == "application/octet-stream" ? "image/jpeg" : f.ContentType;
+            _staged.Add(new Staged(f.Name, ms.ToArray(), mime));
+        }
+    }
+
+    private async Task DeletePhoto(string fileId)
+    {
+        if (_editId is null) return;
+        if (!await Dialog.Confirm("Bu fotoğraf silinsin mi?", "Evet, Sil", danger: true)) return;
+        await Api.DeleteAsync($"/api/templates/material/{_editId}/photos/{fileId}");
+        await LoadPhotos(_editId);
     }
 
     private async Task Save()
@@ -124,11 +195,15 @@
             {
                 name = _name.Trim(), code = Empty(_code), type = _type,
                 categoryId = _cat, unitId = _unit, brandId = _brand, supplierId = _sup,
-                minStock = _min, unitPrice = _price, currency = "TRY", description = Empty(_desc)
+                minStock = _min, unitPrice = _price, currency = "TRY", description = Empty(_desc),
+                compatibleVehicleIds = _compatVehicles.Any() ? string.Join(",", _compatVehicles) : null
             };
-            var err = _editId is null
-                ? await Api.PostAsync("/api/material-templates", body)
-                : await Api.PutAsync($"/api/material-templates/{_editId}", body);
+            string? err; string? savedId = _editId;
+            if (_editId is null) (err, savedId) = await Api.CreateAsync("/api/material-templates", body);
+            else err = await Api.PutAsync($"/api/material-templates/{_editId}", body);
+            // Bekleyen fotoğrafları oluşan/güncellenen şablona yükle.
+            if (err is null && savedId is not null && _staged.Count > 0)
+                await Api.UploadFilesAsync($"/api/templates/material/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
             _ok = err is null; _msg = err ?? (_editId is null ? "Şablon oluşturuldu." : "Güncellendi.");
             if (_ok) { ClearForm(); await Load(); }
         }
@@ -147,6 +222,7 @@
     private void ClearForm()
     {
         _editId = null; _name = _code = _desc = ""; _type = _cat = _unit = _brand = _sup = null; _min = _price = 0; _msg = null;
+        _compatVehicles = new HashSet<string>(); _staged.Clear(); _photos.Clear();
     }
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();

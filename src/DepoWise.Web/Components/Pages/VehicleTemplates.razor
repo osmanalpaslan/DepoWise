@@ -25,6 +25,12 @@
                 </MudSelect>
             </MudItem>
         </MudGrid>
+
+        @* Şablon fotoğrafları (entity_type=vehicle_template) — kaydedince yüklenir *@
+        <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fotoğraflar</MudText>
+        <InputFile OnChange="OnFiles" multiple accept="image/*" />
+        @if (_staged.Count > 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">@_staged.Count foto kaydedince yüklenecek.</MudText> }
+
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Kaydet</MudButton>
@@ -60,6 +66,8 @@
     private string? _type, _cat, _brand, _model;
     private int? _year;
     private IReadOnlyCollection<string> _matSel = new HashSet<string>();
+    private readonly List<Staged> _staged = new();
+    private sealed record Staged(string Name, byte[] Bytes, string Mime);
 
     private List<ApiClient.Opt> _types = new(), _cats = new(), _brands = new(), _models = new(), _materials = new();
     private JsonElement[]? _rows;
@@ -102,11 +110,13 @@
         _busy = true;
         try
         {
-            var err = await Api.PostAsync("/api/vehicle-templates", new
+            var (err, savedId) = await Api.CreateAsync("/api/vehicle-templates", new
             {
                 name = _name.Trim(), internalCode = Empty(_code), vehicleTypeId = _type, categoryId = _cat,
                 brandId = _brand, vehicleModelId = _model, productionYear = _year, materialIds = _matSel.ToList()
             });
+            if (err is null && savedId is not null && _staged.Count > 0)
+                await Api.UploadFilesAsync($"/api/templates/vehicle/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
             _ok = err is null; _msg = err ?? "Şablon kaydedildi.";
             if (_ok) { Clear(); await Load(); }
         }
@@ -121,7 +131,18 @@
         _msg = err ?? "Silindi."; _ok = err is null; await Load();
     }
 
-    private void Clear() { _name = _code = ""; _type = _cat = _brand = _model = null; _year = null; _matSel = new HashSet<string>(); }
+    private async Task OnFiles(InputFileChangeEventArgs e)
+    {
+        foreach (var f in e.GetMultipleFiles(10))
+        {
+            using var ms = new MemoryStream();
+            await f.OpenReadStream(8 * 1024 * 1024).CopyToAsync(ms);
+            var mime = string.IsNullOrEmpty(f.ContentType) || f.ContentType == "application/octet-stream" ? "image/jpeg" : f.ContentType;
+            _staged.Add(new Staged(f.Name, ms.ToArray(), mime));
+        }
+    }
+
+    private void Clear() { _name = _code = ""; _type = _cat = _brand = _model = null; _year = null; _matSel = new HashSet<string>(); _staged.Clear(); }
 
     private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
     private static string Str(JsonElement row, string key)

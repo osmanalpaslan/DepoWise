@@ -20,6 +20,7 @@ public sealed class FileService
         ["material"] = "materials",
         ["vehicle"] = "vehicles",
         ["vehicle_template"] = "vehicles",
+        ["material_template"] = "materials",
         ["personnel"] = "personnel",
     };
 

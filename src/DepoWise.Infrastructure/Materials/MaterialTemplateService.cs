@@ -9,11 +9,12 @@ namespace DepoWise.Infrastructure.Materials;
 public sealed record NewMaterialTemplate(
     string Name, string? Code = null, string? Type = null, string? CategoryId = null, string? UnitId = null,
     string? BrandId = null, string? SupplierId = null, decimal MinStock = 0m, decimal UnitPrice = 0m,
-    string Currency = "TRY", string? Description = null);
+    string Currency = "TRY", string? Description = null, string? CompatibleVehicleIds = null);
 
 public sealed record MaterialTemplateRecord(
     string Id, string Name, string? Code, string? Type, string? CategoryId, string? UnitId,
-    string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string Currency, string? Description);
+    string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string Currency, string? Description,
+    string? CompatibleVehicleIds = null);
 
 /// <summary>Şablon listesi satırı. IsGlobal = admin şablonu (herkese görünür); Mine = aktör oluşturmuş.</summary>
 public sealed record MaterialTemplateRow(string Id, string Name, string? Code, string? UnitName, bool IsGlobal, bool Mine)
@@ -56,8 +57,8 @@ public sealed class MaterialTemplateService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO material_templates(id, company_id, name, code, type, category_id, unit_id, brand_id, supplier_id,
-    min_stock, unit_price, currency, description, created_by, is_global, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$n,$code,$t,$cat,$u,$br,$sup,$min,$up,$cur,$desc,$by,$g,$now,$now,1,0);";
+    min_stock, unit_price, currency, description, compatible_vehicle_ids, created_by, is_global, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$n,$code,$t,$cat,$u,$br,$sup,$min,$up,$cur,$desc,$cv,$by,$g,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
@@ -71,6 +72,7 @@ VALUES($id,$c,$n,$code,$t,$cat,$u,$br,$sup,$min,$up,$cur,$desc,$by,$g,$now,$now,
             cmd.Parameters.AddWithValue("$up", D(dto.UnitPrice));
             cmd.Parameters.AddWithValue("$cur", dto.Currency);
             cmd.Parameters.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$by", s.UserId);
             cmd.Parameters.AddWithValue("$g", isGlobal ? 1 : 0);
             cmd.Parameters.AddWithValue("$now", now);
@@ -117,7 +119,7 @@ ORDER BY t.is_global DESC, t.name LIMIT $lim;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT id, name, code, type, category_id, unit_id, brand_id, supplier_id, min_stock, unit_price, currency, description
+SELECT id, name, code, type, category_id, unit_id, brand_id, supplier_id, min_stock, unit_price, currency, description, compatible_vehicle_ids
 FROM material_templates
 WHERE id=$id AND company_id=$c AND is_deleted=0 AND (is_global=1 OR created_by=$me);";
         cmd.Parameters.AddWithValue("$id", templateId);
@@ -127,7 +129,7 @@ WHERE id=$id AND company_id=$c AND is_deleted=0 AND (is_global=1 OR created_by=$
         if (!r.Read()) return null;
         string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
         return new MaterialTemplateRecord(r.GetString(0), r.GetString(1), S(2), S(3), S(4), S(5), S(6), S(7),
-            P(r.GetString(8)), P(r.GetString(9)), r.GetString(10), S(11));
+            P(r.GetString(8)), P(r.GetString(9)), r.GetString(10), S(11), S(12));
     }
 
     public void Update(SessionContext s, string templateId, NewMaterialTemplate dto)
@@ -142,7 +144,7 @@ WHERE id=$id AND company_id=$c AND is_deleted=0 AND (is_global=1 OR created_by=$
             cmd.Transaction = tx;
             cmd.CommandText = @"
 UPDATE material_templates SET name=$n, code=$code, type=$t, category_id=$cat, unit_id=$u, brand_id=$br,
-    supplier_id=$sup, min_stock=$min, unit_price=$up, currency=$cur, description=$desc,
+    supplier_id=$sup, min_stock=$min, unit_price=$up, currency=$cur, description=$desc, compatible_vehicle_ids=$cv,
     version=version+1, updated_at=$now
 WHERE id=$id AND company_id=$c AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
@@ -156,6 +158,7 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$up", D(dto.UnitPrice));
             cmd.Parameters.AddWithValue("$cur", dto.Currency);
             cmd.Parameters.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", templateId);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
