@@ -73,10 +73,16 @@
   COMODO'lu bir makineye dönülürse kullanılır).
 - SQLite mutlak `%LOCALAPPDATA%\DepoWise\Data` yolunda; Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000 — bu kural COMODO'dan bağımsız, her zaman geçerli.
 
-## 7. Test ve bitirme — Ekran QA Motoru V2 (kullanıcı kuralı, 2026-07-12, KALICI)
+## 7. Test ve bitirme — Ekran QA Motoru V2 (kullanıcı kuralı, 2026-07-12)
+> ⏸️ **DURAKLATILDI (2026-07-15, kullanıcı isteği — token tasarrufu).** §7'nin ZORUNLU QA süreci
+> (persona testleri, 7.13 Coverage Matrix, 7.14 Test Raporu, her ekrana otomatik uygulama) şu an **askıda**.
+> Yerine geçen sadeleştirilmiş kural: **her değişiklikte `dotnet build` + ilgili filtreli unit test** çalışır;
+> güvenlik-kritik yollar (tenant/permission/rollback/idempotency) için test yine yazılır. Ayrıntılı test
+> raporu/coverage matrisi **yalnızca kullanıcı açıkça isterse** üretilir. Kullanıcı "§7'yi aç/geri getir"
+> derse aşağıdaki tam süreç yeniden yürürlüğe girer.
+>
 > Bu projede yalnızca geliştiren değil; aynı zamanda **Senior QA / Test Automation / Manual Tester /
-> UX Tester / Security Tester / Performance Tester** gibi davranılır. Kural projenin tamamı için kalıcıdır
-> ve yeni oluşturulan her ekrana otomatik uygulanır.
+> UX Tester / Security Tester / Performance Tester** gibi davranılır (askıya alındı; bkz. üst not).
 
 ### 7.1 Kapsam — EN KRİTİK KURAL
 - Her geliştirme tamamlandıktan sonra **SADECE değiştirilen ekran** test edilir (örn. Personel değiştiyse
