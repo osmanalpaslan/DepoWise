@@ -11,6 +11,16 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:600px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ŞUBE" : "ŞUBE DÜZENLE")</MudText>
         <MudGrid Spacing="2">
+            @* Firma seçimi: yalnız süper adminde ve birden çok firma varsa görünür. Diğer roller kendi firmasına sabittir. *@
+            @if (Auth.IsSuperAdmin && _companies.Count > 1)
+            {
+                <MudItem xs="12">
+                    <MudSelect T="string" @bind-Value="_companyId" Label="Firma *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               @bind-Value:after="OnCompanyChanged" Disabled="@(_editId is not null)">
+                        @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+            }
             <MudItem xs="12" md="7"><MudTextField @bind-Value="_name" Label="Ad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="5">
                 <MudSelect T="string" @bind-Value="_kind" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined">
@@ -96,18 +106,29 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private string? _editId, _parent;
     private string _name = "", _kind = "branch", _code = "", _password = "";
+    private List<ApiClient.Opt> _companies = new();   // firma seçici (süper admin tümü; diğerleri kendi firması)
+    private string? _companyId;                        // seçili firma (null = oturum firması)
     private List<ApiClient.Opt> _parentOptions = new();
     private JsonElement[]? _rows;
     private JsonElement? _detail;
     private JsonElement[] _branchUsers = Array.Empty<JsonElement>();
     private string? _msg; private bool _ok; private bool _busy; private bool _err;
 
-    protected override async Task OnInitializedAsync() => await Load();
+    protected override async Task OnInitializedAsync()
+    {
+        try { _companies = await Api.OptionsAsync("/api/companies/options", "id", "name"); } catch { }
+        _companyId = _companies.FirstOrDefault()?.Id;
+        await Load();
+    }
+
+    private async Task OnCompanyChanged() { _detail = null; _branchUsers = Array.Empty<JsonElement>(); Clear(); await Load(); }
+
+    private string BranchQuery() => string.IsNullOrEmpty(_companyId) ? "/api/branches" : $"/api/branches?companyId={Uri.EscapeDataString(_companyId)}";
 
     private async Task Load()
     {
         _rows = null;
-        try { _rows = await Api.GetArrayAsync("/api/branches"); } catch { _rows = Array.Empty<JsonElement>(); }
+        try { _rows = await Api.GetArrayAsync(BranchQuery()); } catch { _rows = Array.Empty<JsonElement>(); }
         _parentOptions = (_rows ?? Array.Empty<JsonElement>()).Where(r => Str(r, "id") != _editId)
             .Select(r => new ApiClient.Opt(Str(r, "id"), Str(r, "name"))).ToList();
     }
@@ -136,7 +157,7 @@
         _busy = true;
         try
         {
-            var body = new { name = _name.Trim(), kind = _kind, parentId = _parent, code = _code, password = _password };
+            var body = new { name = _name.Trim(), kind = _kind, parentId = _parent, code = _code, password = _password, companyId = _companyId };
             var err = _editId is null ? await Api.PostAsync("/api/branches", body) : await Api.PutAsync($"/api/branches/{_editId}", body);
             _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
             if (_ok) { Clear(); await Load(); }

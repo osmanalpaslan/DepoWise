@@ -8,15 +8,8 @@
         @foreach (var m in Modules)
         {
             <tr>
-                <td>
-                    @m.Name
-                    @if (AdminOnly is not null && AdminOnly.Contains(m.Id))
-                    {
-                        <MudTooltip Text="Süper Admin ekranı — yalnız 'Kısıtlı Süper Admin' rolüne verilebilir.">
-                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Warning" Class="ml-1" />
-                        </MudTooltip>
-                    }
-                </td>
+                @* Yetki ağacında kilit/kısıt gösterilmez: verilemeyecek kalemler zaten hiç listelenmez (hedef bazlı filtre). *@
+                <td>@m.Name</td>
                 @for (int i = 0; i < 4; i++)
                 {
                     var idx = i; var key = m.Id;

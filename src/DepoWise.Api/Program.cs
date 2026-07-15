@@ -588,7 +588,10 @@ static string? ClientIp(HttpContext c)
 static bool Void(Action a) { a(); return true; }
 
 app.MapGet("/api/users", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Users.ListUsers(s)) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/branches", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Branches.List(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/branches", (HttpContext c, string? companyId) => S(c) is { } s ? Results.Ok(svc.Branches.List(s, companyId)) : Results.Unauthorized()).RequireAuthorization();
+// Firma seçicileri için tenant-kapsamlı liste: süper admin tümü, diğerleri YALNIZ kendi firması.
+app.MapGet("/api/companies/options", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(svc.Companies.Selectable(s).Select(x => new { id = x.Id, name = x.Name })) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/personnel", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -728,7 +731,7 @@ app.MapGet("/api/roles", (HttpContext c) =>
 }).RequireAuthorization();
 
 // ── Yazma (ekle/sil) uçları — servis AccessControl (Create/Delete) enforce eder ──
-app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password))) }) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Branches.Create(s, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)), d.CompanyId) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Branches.GetUsers(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
@@ -958,14 +961,25 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
 app.MapGet("/api/modules", (HttpContext c, string? userId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    // Rol Yetki Kontrol: hedef kullanıcı verildiyse, ONUN ROLÜNE kapatılmış ekranlar ağaçta HİÇ görünmez.
-    var roleBlocked = string.IsNullOrWhiteSpace(userId)
-        ? (IReadOnlySet<string>)new HashSet<string>()
-        : svc.Permissions.BlockedModulesForUser(s, userId!);
-    // Delegasyon tavanı: aktör yalnız KENDİ verebileceği modülleri görür (veremeyeceği yetkiler ağaçta yok).
-    // Süper-admin-only ekranlar yalnız süper admine (devretmek için) ve o ekranı taşıyan kısıtlı süper admine görünür.
+
+    // HEDEF-KULLANICI bazlı ağaç: bir kullanıcı seçiliyse, ağaç YALNIZ o kullanıcıya gerçekten VERİLEBİLECEK
+    // ekranları gösterir — verilemeyecek olanlar kilitle DEĞİL, TAMAMEN gizli (kullanıcı isteği).
+    IReadOnlySet<string> roleBlocked = new HashSet<string>();
+    IReadOnlyList<string> targetRoles = System.Array.Empty<string>();
+    if (!string.IsNullOrWhiteSpace(userId))
+    {
+        roleBlocked = svc.Permissions.BlockedModulesForUser(s, userId!); // Rol Yetki Kontrol: role kapalı → gizli
+        targetRoles = svc.Users.GetRoleKeys(s, userId!);
+    }
+    bool targetCanReceiveSuperOnly = targetRoles.Contains(RoleKeys.RestrictedSuperAdmin) || targetRoles.Contains(RoleKeys.SuperAdmin);
+    bool hasTarget = !string.IsNullOrWhiteSpace(userId);
+
     var mods = AppModules.All
-        .Where(m => AccessControl.CanGrantModule(s, m.Key) && !roleBlocked.Contains(m.Key))
+        .Where(m => AccessControl.CanGrantModule(s, m.Key)          // aktörün delegasyon tavanı
+                    && !roleBlocked.Contains(m.Key)                  // hedefin rolüne kapalı → gizli
+                    // Süper-admin-only ekran: hedef seçiliyse yalnız (Kısıtlı) Süper Admin'e görünür; hedef yoksa
+                    // (yeni kullanıcı/şablon) süper admine devir için görünür kalır.
+                    && !(hasTarget && AppModules.IsSuperAdminOnly(m.Key) && !targetCanReceiveSuperOnly))
         .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();
@@ -1313,7 +1327,7 @@ app.MapGet("/api/requests/{id}/pdf", (HttpContext c, string id, bool? economic) 
 app.MapDelete("/api/personnel/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Lookups.Delete(s, "personnel", id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/branches/{id}", (HttpContext c, string id, BranchDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)))) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)), d.CompanyId)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/branches/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
@@ -1625,7 +1639,7 @@ record ReauthDto(string? Password);
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
-record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null);
+record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
 record DeveloperDto(string? Code, bool Active);

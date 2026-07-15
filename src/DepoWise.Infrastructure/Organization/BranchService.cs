@@ -37,9 +37,15 @@ public sealed class BranchService
         _clock = clock ?? new SystemClock();
     }
 
-    public IReadOnlyList<BranchRow> List(SessionContext s)
+    /// <summary>Süper admin başka firmayı yönetebilir (companyId); süper-admin-altı roller YALNIZ kendi firması
+    /// (payload yok sayılır, tenant izolasyonu). TenantAccessGuard fail-closed çözer.</summary>
+    private static string ResolveCompany(SessionContext s, string? companyId)
+        => TenantAccessGuard.ResolveCompanyId(s, companyId);
+
+    public IReadOnlyList<BranchRow> List(SessionContext s, string? companyId = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
+        var cid = ResolveCompany(s, companyId);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -50,7 +56,7 @@ FROM branches b
 LEFT JOIN branches p ON p.id = b.parent_id
 WHERE b.company_id = $c AND b.is_deleted = 0
 ORDER BY b.name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.Parameters.AddWithValue("$c", cid);
         // #5: Şube kodu + şifresi yalnız Admin / Süper Admin'e görünür; Personel'de maskelenir.
         bool admin = AccessControl.IsAdmin(s);
         var list = new List<BranchRow>();
@@ -65,17 +71,18 @@ ORDER BY b.name;";
         return list;
     }
 
-    public string Create(SessionContext s, NewBranch dto)
+    public string Create(SessionContext s, NewBranch dto, string? companyId = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Şube adı zorunlu.");
+        var cid = ResolveCompany(s, companyId); // süper admin hedef firma; diğerleri kendi firması
         // #5: Kod/şifre yalnız admin belirleyebilir; admin olmayan gönderse de yok sayılır.
         bool admin = AccessControl.IsAdmin(s);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
-        if (dto.ParentId is not null) EnsureBranchOwned(conn, tx, s.CompanyId, dto.ParentId);
+        if (dto.ParentId is not null) EnsureBranchOwned(conn, tx, cid, dto.ParentId);
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -83,7 +90,7 @@ ORDER BY b.name;";
                 "INSERT INTO branches(id, company_id, parent_id, name, kind, code, password_hash, created_at, updated_at, version, is_deleted) " +
                 "VALUES($id,$c,$p,$n,$k,$code,$pw,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$c", cid);
             cmd.Parameters.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
             cmd.Parameters.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
@@ -93,22 +100,23 @@ ORDER BY b.name;";
             cmd.Parameters.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
-        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "branch", id, AuditActions.Create, s.UserId), _clock);
+        AuditWriter.Write(conn, tx, new AuditEntry(cid, "branch", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return id;
     }
 
-    public void Update(SessionContext s, string id, NewBranch dto)
+    public void Update(SessionContext s, string id, NewBranch dto, string? companyId = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Şube adı zorunlu.");
         if (dto.ParentId == id) throw new InvalidOperationException("Şube kendi üst şubesi olamaz.");
+        var cid = ResolveCompany(s, companyId);
         bool admin = AccessControl.IsAdmin(s); // #5: kod/şifre yalnız admin değiştirir
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
-        EnsureBranchOwned(conn, tx, s.CompanyId, id);
-        if (dto.ParentId is not null) EnsureBranchOwned(conn, tx, s.CompanyId, dto.ParentId);
+        EnsureBranchOwned(conn, tx, cid, id);
+        if (dto.ParentId is not null) EnsureBranchOwned(conn, tx, cid, dto.ParentId);
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -128,10 +136,10 @@ ORDER BY b.name;";
             }
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.Parameters.AddWithValue("$c", cid);
             cmd.ExecuteNonQuery();
         }
-        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "branch", id, AuditActions.Update, s.UserId), _clock);
+        AuditWriter.Write(conn, tx, new AuditEntry(cid, "branch", id, AuditActions.Update, s.UserId), _clock);
         tx.Commit();
     }
 

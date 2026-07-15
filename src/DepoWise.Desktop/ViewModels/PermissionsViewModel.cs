@@ -41,16 +41,21 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     }
 
     /// <summary>Ağacı kurar. <paramref name="blocked"/> = Rol Yetki Kontrol ile hedefin ROLÜNE kapatılmış
-    /// modüller — bunlar ağaçta HİÇ görünmez (süper admin kapattıysa kimse veremez).</summary>
-    private void BuildTree(IReadOnlySet<string>? blocked)
+    /// modüller (HİÇ görünmez). <paramref name="targetRoles"/> verilirse süper-admin-only ekranlar yalnız
+    /// (Kısıtlı) Süper Admin hedefe gösterilir; verilemeyecek kalemler kilitle DEĞİL, tamamen gizli.</summary>
+    private void BuildTree(IReadOnlySet<string>? blocked, IReadOnlyList<string>? targetRoles = null)
     {
         Modules.Clear();
         Buttons.Clear();
+        bool hasTarget = targetRoles is not null;
+        bool targetCanReceiveSuperOnly = targetRoles is not null &&
+            (targetRoles.Contains(RoleKeys.RestrictedSuperAdmin) || targetRoles.Contains(RoleKeys.SuperAdmin));
         foreach (var (key, label) in AppModules.All)
         {
             if (AppModules.IsPublic(key)) continue;                       // Dashboard/About/Tema herkese açık
             if (!AccessControl.CanGrantModule(_session, key)) continue;   // delegasyon tavanı + süper-admin-only görünürlük
             if (blocked is not null && blocked.Contains(key)) continue;   // Rol Yetki Kontrol: bu role kapalı
+            if (hasTarget && AppModules.IsSuperAdminOnly(key) && !targetCanReceiveSuperOnly) continue; // hedefe verilemez → gizli
             Modules.Add(new ModulePermNode(key, label));
         }
         foreach (var (key, label) in SpecialButtons.All)
@@ -77,8 +82,10 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         if (value is null) { BuildTree(null); ResetTree(); return; }
         try
         {
-            // Ağacı hedefin ROLÜNE göre yeniden kur: süper adminin o role kapattığı ekranlar listelenmez.
-            BuildTree(DesktopServices.Permissions.BlockedModulesForUser(_session, value.Id));
+            // Ağacı hedefin ROLÜNE göre yeniden kur: kapalı + verilemeyecek (süper-admin-only) ekranlar listelenmez.
+            var blocked = DesktopServices.Permissions.BlockedModulesForUser(_session, value.Id);
+            var targetRoles = DesktopServices.Users.GetRoleKeys(_session, value.Id);
+            BuildTree(blocked, targetRoles);
             ResetTree();
 
             var data = DesktopServices.Permissions.GetForUser(_session, value.Id);

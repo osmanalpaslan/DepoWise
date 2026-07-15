@@ -48,6 +48,26 @@ public sealed class CompanyService
         return cmd.ExecuteScalar() as string ?? "";
     }
 
+    /// <summary>Firma SEÇİCİLERİ için tenant-kapsamlı liste (Şube, Kullanıcı vb. ekranlarındaki firma dropdown'u).
+    /// Süper admin TÜM firmaları; süper-admin-altı roller YALNIZ kendi firmasını görür. "companies" yetkisi
+    /// GEREKTİRMEZ (kendi firmasını görmek yetki değil) — ama başka firmayı asla döndürmez (tenant izolasyonu).</summary>
+    public IReadOnlyList<(string Id, string Name)> Selectable(SessionContext s)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        if (s.IsSuperAdmin)
+            cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
+        else
+        {
+            cmd.CommandText = "SELECT id, name FROM companies WHERE id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        }
+        var list = new List<(string, string)>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add((r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
     public IReadOnlyList<CompanyRow> List(SessionContext s)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
