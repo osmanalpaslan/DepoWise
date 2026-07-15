@@ -981,6 +981,66 @@ app.MapPost("/api/settings/developer", (HttpContext c, DeveloperDto d) =>
     return Results.Ok(new { active = d.Active });
 }).RequireAuthorization();
 
+// ── TEMİZ TEST ORTAMI: tüm operasyonel/tenant kayıtlarını siler; YALNIZ çağıran süper admini + firmasını +
+// sistem rollerini korur (giriş korunur). Süper admin + parola yeniden doğrulama zorunlu. GERİ ALINAMAZ. ──
+app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+        return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
+
+    // Korunan tablolar: migration geçmişi, sqlite iç tabloları, sistem rolleri. Özel işlenenler: users/companies/user_roles.
+    var keepWhole = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "schema_migrations", "sqlite_sequence", "roles" };
+    using var conn = svc.Factory.Create();
+    var tables = new List<string>();
+    using (var q = conn.CreateCommand())
+    {
+        q.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+        using var r = q.ExecuteReader();
+        while (r.Read()) tables.Add(r.GetString(0));
+    }
+    using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
+    using var tx = conn.BeginTransaction();
+    foreach (var t in tables)
+    {
+        if (keepWhole.Contains(t)) continue;
+        string sql = t.ToLowerInvariant() switch
+        {
+            "users" => "DELETE FROM users WHERE id <> $me;",
+            "companies" => "DELETE FROM companies WHERE id <> $co;",
+            "user_roles" => "DELETE FROM user_roles WHERE user_id <> $me;",
+            "user_permissions" => "DELETE FROM user_permissions WHERE user_id <> $me;",
+            "user_button_permissions" => "DELETE FROM user_button_permissions WHERE user_id <> $me;",
+            _ => $"DELETE FROM \"{t}\";",
+        };
+        using var del = conn.CreateCommand();
+        del.Transaction = tx; del.CommandText = sql;
+        if (sql.Contains("$me")) del.Parameters.AddWithValue("$me", s.UserId);
+        if (sql.Contains("$co")) del.Parameters.AddWithValue("$co", s.CompanyId);
+        del.ExecuteNonQuery();
+    }
+    tx.Commit();
+    using (var on = conn.CreateCommand()) { on.CommandText = "PRAGMA foreign_keys=ON;"; on.ExecuteNonQuery(); }
+
+    // Diskteki fotoğraf ve makine yedeklerini de temizle (yer kaplamasın; ADR-070).
+    int filesDeleted = 0;
+    try
+    {
+        foreach (var sub in new[] { "files", "backups" })
+        {
+            var dir = System.IO.Path.Combine(dataDir, sub);
+            if (System.IO.Directory.Exists(dir))
+            {
+                foreach (var f in System.IO.Directory.EnumerateFiles(dir, "*", System.IO.SearchOption.AllDirectories))
+                { try { System.IO.File.Delete(f); filesDeleted++; } catch { } }
+            }
+        }
+    }
+    catch { }
+    return Results.Ok(new { ok = true, tablesCleared = tables.Count, filesDeleted, keptUser = s.UserId, keptCompany = s.CompanyId });
+}).RequireAuthorization();
+
 // ── Stok İşlemleri (Yeni Kayıt / Transfer / Depo Çıkışı + hareket iptali) — masaüstüyle birebir ──
 app.MapGet("/api/stock/balance/{materialId}", (HttpContext c, string materialId) =>
     S(c) is null ? Results.Unauthorized() : Results.Ok(new { balance = svc.Stock.GetBalance(materialId) })).RequireAuthorization();
