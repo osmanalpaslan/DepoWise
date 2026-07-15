@@ -31,9 +31,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **043** (`compatible_vehicle_ids` — şablon uyumlu araçlar) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.54 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Masaüstü** | **1.0.55 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** — 17-maddelik istek tamamlandı + temiz test ortamı hazır |
+| **Bekleyen iş** | **YOK** — 17-madde + QA alan doğrulamaları tamam; temiz test ortamı hazır |
+
+### QA alan doğrulamaları (2026-07-16)
+Zorunlu: araç şantiye/şube + makul üretim yılı; yakıt/stok personel. Yumuşak uyarı (kullanıcı geçebilir):
+plaka Türk biçimi (iş makinesi muaf), telefon biçimi, çok büyük sayı, muayene tarih mantığı. Sayaç kuralı
+(düşük değer aracın KM'sini değiştirmez) zaten doğruydu. Web + masaüstü + API sınır katmanı; FieldChecks ortak.
 
 ### 17-maddelik istek — TAMAMLANDI (2026-07-15)
 Tenant firma seçici · yetki ağacı tam gizleme · ilk-login şifre · bağlanacak kullanıcı (ad+şube) ·
