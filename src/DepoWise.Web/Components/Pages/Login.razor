@@ -47,6 +47,23 @@
                 @if (!_busy) { <svg viewBox="0 0 24 24" class="dw-arrow"><path d="M5 12h12l-4.5-4.5L14 6l7 7-7 7-1.5-1.5L17 14H5z"/></svg> }
             </button>
         }
+        else if (_step == 4)
+        {
+            <h1 class="dw-title">Yeni Şifre Belirleyin</h1>
+            <p class="dw-sub">Güvenlik için ilk girişte kendi şifrenizi oluşturmalısınız.</p>
+            <label class="dw-label">Yeni Şifre</label>
+            <div class="dw-field">
+                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                <input type="password" placeholder="En az 4 karakter" @bind="_newPass" @bind:event="oninput" @onkeyup="OnKeyPass" autocomplete="new-password" />
+            </div>
+            <label class="dw-label">Yeni Şifre (Tekrar)</label>
+            <div class="dw-field">
+                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                <input type="password" placeholder="••••••" @bind="_newPass2" @bind:event="oninput" @onkeyup="OnKeyPass" autocomplete="new-password" />
+            </div>
+            <button class="dw-btn" @onclick="DoSetPassword" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "ŞİFREYİ BELİRLE")</button>
+            <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
+        }
         else if (_step == 2)
         {
             <h1 class="dw-title">Süper Admin</h1>
@@ -142,6 +159,7 @@
     private const string AllBranches = "__all__"; // API BranchConstants.AllBranchesId ile aynı
     private int _step = 1; // 1=kimlik, 2=firma (yalnız süper admin), 3=şube
     private string _username = "", _password = "";
+    private string _newPass = "", _newPass2 = "";   // ilk giriş şifre belirleme (Adım 4)
     private bool _showPass;
     private bool _rememberMe;
     // Chrome tarayıcı, autocomplete ipuçlarını yok sayıp kayıtlı şifreyi otomatik doldurur.
@@ -195,6 +213,9 @@
             _authData = data;
             _isSuperAdmin = data.IsSuperAdmin;
 
+            // GÜVENLİK: yeni kullanıcı / admin-reset → önce kendi şifresini belirlemek zorunda (Adım 4).
+            if (data.MustChangePassword) { _newPass = ""; _newPass2 = ""; _step = 4; return; }
+
             // Süper admin: önce FİRMA seçer (Adım 2). Diğerleri doğrudan şube seçimine (Adım 3).
             if (data.IsSuperAdmin && data.Companies is { Count: > 0 })
             {
@@ -211,6 +232,29 @@
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
         finally { _busy = false; }
     }
+
+    // ── ADIM 4: İLK GİRİŞ şifre belirleme (yeni kullanıcı / admin-reset) ──
+    private async Task DoSetPassword()
+    {
+        if (_authData is null) { BackToStep1(); return; }
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_newPass) || _newPass.Length < 4) { _error = "Yeni şifre en az 4 karakter olmalı."; return; }
+        if (_newPass != _newPass2) { _error = "Şifreler eşleşmiyor."; return; }
+        _busy = true;
+        try
+        {
+            var (err, data) = await Api.ChangeInitialPasswordAsync(_authData.Token, _newPass);
+            if (err is not null || data is null) { _error = err ?? "Şifre belirlenemedi."; return; }
+            _authData = data; _newPass = ""; _newPass2 = "";
+            // Şifre belirlendi → normal akış: süper admin firma seçer, diğerleri şube.
+            if (data.IsSuperAdmin && data.Companies is { Count: > 0 }) { _companies = data.Companies; _selectedCompanyId = null; _step = 2; }
+            else { LoadBranchStep(data); _step = 3; }
+        }
+        catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task OnKeyPass(KeyboardEventArgs e) { if (e.Key == "Enter") await DoSetPassword(); }
 
     // ── ADIM 2: (süper admin) firma seç → o firma bağlamında yeni token + şubeler ──
     private async Task DoStep2()
@@ -242,6 +286,7 @@
     {
         _step = 1; _error = null;
         _selectedCompanyId = null; _branchId = null; _branchPassword = null;
+        _newPass = ""; _newPass2 = "";
     }
 
     // Şube adımından geri: süper admin ise firma seçimine, değilse kimliğe.

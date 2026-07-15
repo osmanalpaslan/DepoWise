@@ -19,13 +19,19 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _rememberMe = true;
 
-    // Adım: 1 = kimlik, 2 = şube seçimi
+    // Adım: 1 = kimlik, 2 = şube seçimi, 4 = ilk giriş şifre belirleme
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStep1))]
     [NotifyPropertyChangedFor(nameof(IsStep2))]
+    [NotifyPropertyChangedFor(nameof(IsStepSetPassword))]
     private int _step = 1;
     public bool IsStep1 => Step == 1;
     public bool IsStep2 => Step == 2;
+    public bool IsStepSetPassword => Step == 4;
+
+    // İlk giriş şifre belirleme (Adım 4)
+    [ObservableProperty] private string _newPassword = "";
+    [ObservableProperty] private string _newPassword2 = "";
 
     /// <summary>Web'de giriş yap — tarayıcıda web uygulamasını açar.</summary>
     [RelayCommand]
@@ -189,6 +195,19 @@ public sealed partial class LoginViewModel : ViewModelBase
             _online = srv.State == ServerAuthClient.AuthState.Ok;
             CompanyName = ResolveCompanyName(_authedCompanyId!);
 
+            // GÜVENLİK: yeni kullanıcı / admin-reset → önce kendi şifresini belirlemek zorunda (Adım 4).
+            if (result.MustChangePassword)
+            {
+                if (!_online)
+                {
+                    Error = "İlk giriş şifrenizi belirlemek için internet bağlantısı gerekli. Bağlanıp tekrar deneyin.";
+                    return;
+                }
+                NewPassword = ""; NewPassword2 = "";
+                Step = 4;
+                return;
+            }
+
             // ── Makine kapısı + makinenin (admin-atanmış) şubesi (çevrimiçi kayıt/heartbeat; çevrimdışı önbellek) ──
             // Süper admin makine kısıtlarından muaftır.
             MachineGate.MachineCheck mc = await MachineGate.CheckAsync(_authedSession.CompanyId);
@@ -253,6 +272,32 @@ public sealed partial class LoginViewModel : ViewModelBase
         Branches.Clear(); SelectedBranch = null; BranchPassword = "";
         IsSuperAdminMode = false; Companies.Clear(); SelectedCompany = null;
         _firstMachineSetup = false;
+        NewPassword = ""; NewPassword2 = "";
+    }
+
+    // ── ADIM 4: İLK GİRİŞ şifre belirleme (yeni kullanıcı / admin-reset) ──
+    [RelayCommand]
+    private async System.Threading.Tasks.Task SetPassword()
+    {
+        Error = null;
+        if (string.IsNullOrWhiteSpace(NewPassword) || NewPassword.Length < 4) { Error = "Yeni şifre en az 4 karakter olmalı."; return; }
+        if (NewPassword != NewPassword2) { Error = "Şifreler eşleşmiyor."; return; }
+        IsBusy = true;
+        try
+        {
+            // Web KAYNAK-OTORİTE: önce sunucuda değiştir (must_change sıfırlanır), sonra yerel kopya güncellenir.
+            var ok = await ServerAuthClient.ChangeInitialPasswordAsync(NewPassword);
+            if (!ok) { Error = "Şifre sunucuda belirlenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."; return; }
+            if (_authedSession is not null)
+                try { DesktopServices.Users.ChangeOwnPassword(_authedSession, NewPassword); } catch { }
+            // Yeni şifreyle normal akışı baştan çalıştır (must_change artık 0 → şube/giriş adımına iner).
+            Password = NewPassword;
+            NewPassword = ""; NewPassword2 = "";
+            Step = 1;
+            await ContinueCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex) { Error = "Şifre belirleme hatası: " + ex.Message; }
+        finally { IsBusy = false; }
     }
 
     // ── ADIM 2: şube seçimi + giriş tamamlama (yalnız çevrimiçi / süper admin) ──

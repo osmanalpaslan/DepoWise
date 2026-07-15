@@ -8,7 +8,7 @@ public sealed record LoginBranchDto(string Id, string Name, string? Code, bool H
 public sealed record LoginCompanyDto(string Id, string Name);
 public sealed record LoginResponse(string Token, string UserId, string CompanyId, bool IsSuperAdmin, string? BranchId = null,
     string? CompanyName = null, bool CanViewAllBranches = false, List<LoginBranchDto>? Branches = null,
-    List<LoginCompanyDto>? Companies = null);
+    List<LoginCompanyDto>? Companies = null, bool MustChangePassword = false);
 public sealed record MachineDto(string Id, string Name, string Status, string StatusText, string LastSeenText, string CreatedText, bool CanActivate, bool IsActive, bool Online, string CompanyId = "", string CompanyName = "", int Quota = 3, string Ip = "", string Ipv4 = "", string Ipv6 = "", string BranchName = "", string BranchId = "", string Province = "");
 public sealed record ReleaseDto(string Version, string? ReleaseNotes, bool Signed, string? DownloadUrl);
 public sealed record ReleasePackageDto(string Version, string FileName, long SizeBytes, double SizeMb, DateTime ModifiedUtc, bool IsLatest);
@@ -61,6 +61,26 @@ public sealed class ApiClient
             try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
                   if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Giriş başarısız.", null); } catch { }
             return ("Kullanıcı adı veya parola hatalı.", null);
+        }
+        var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
+        return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);
+    }
+
+    /// <summary>İLK GİRİŞ şifre belirleme: mustChangePassword kullanıcı yeni şifresini AYNI login ekranından
+    /// belirler. Adım 1'deki token Bearer olarak eklenir; başarıda firma/şube akışına devam edilecek yanıt döner.</summary>
+    public async Task<(string? Error, LoginResponse? Data)> ChangeInitialPasswordAsync(string step1Token, string newPassword)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/change-initial-password")
+        {
+            Content = JsonContent.Create(new { newPassword })
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", step1Token);
+        var resp = await _http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode)
+        {
+            try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                  if (e.TryGetProperty("error", out var m)) return (m.GetString() ?? "Şifre belirlenemedi.", null); } catch { }
+            return ("Şifre belirlenemedi.", null);
         }
         var data = await resp.Content.ReadFromJsonAsync<LoginResponse>();
         return data is null ? ("Sunucu yanıtı okunamadı.", null) : (null, data);

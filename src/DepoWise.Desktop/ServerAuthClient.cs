@@ -209,6 +209,23 @@ public static class ServerAuthClient
         catch { return new(AuthState.Offline, null); } // ağ yok → çevrimdışı
     }
 
+    /// <summary>İLK GİRİŞ şifre belirleme: saklanan token (AuthenticateAsync sonrası) ile sunucuda kendi şifresini
+    /// değiştirir (must_change_password sıfırlanır). Başarıda true. Token yoksa / hata → false.</summary>
+    public static async Task<bool> ChangeInitialPasswordAsync(string newPassword)
+    {
+        var baseUrl = BaseUrl; var token = Token;
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(token)) return false;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl!.TrimEnd('/') + "/api/auth/change-initial-password");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            req.Content = new StringContent(JsonSerializer.Serialize(new { newPassword }), Encoding.UTF8, "application/json");
+            using var resp = await _http.SendAsync(req);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
     /// <summary>/api/auth/login ile JWT alıp saklar (Eşitle vb. için). Hata olursa token null kalır.</summary>
     private static async Task StoreTokenAsync(string baseUrl, string username, string password)
     {

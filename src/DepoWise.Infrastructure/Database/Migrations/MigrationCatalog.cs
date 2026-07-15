@@ -46,5 +46,6 @@ public static class MigrationCatalog
         new Migration039_TemplateScope(),
         new Migration040_MaterialTemplates(),
         new Migration041_RoleGrantLimits(),
+        new Migration042_MustChangePassword(),
     };
 }

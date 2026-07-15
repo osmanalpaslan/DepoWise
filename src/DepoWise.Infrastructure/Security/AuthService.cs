@@ -10,7 +10,8 @@ public sealed record LoginResult(
     bool Locked,
     int SecondsRemaining,
     SessionContext? Session,
-    string? Error = null);
+    string? Error = null,
+    bool MustChangePassword = false);   // yeni kullanıcı / admin-reset → ilk girişte şifre belirleme zorunlu
 
 /// <summary>Uzak (sunucu) kullanıcı paketi — masaüstü yerel DB'de kullanıcı yoksa sunucudan çekip
 /// yerele yazmak için. password_hash (bcrypt) taşınır → sonraki açılışlarda offline giriş de çalışır.</summary>
@@ -26,7 +27,8 @@ public sealed record RemoteUserBundle(
     IReadOnlyList<ModulePermission> Permissions,
     IReadOnlyList<string> Buttons,
     bool CanViewAllBranches = false,
-    string? BranchId = null);
+    string? BranchId = null,
+    bool MustChangePassword = false);   // ilk giriş şifre belirleme zorunluluğu yerele taşınır
 
 /// <summary>
 /// Kimlik doğrulama + brute-force kilidi. 5 ardışık hatalı denemeden sonra 5 dk kilit.
@@ -78,7 +80,16 @@ public sealed class AuthService
         {
             BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
         };
-        return new LoginResult(true, false, 0, session);
+        return new LoginResult(true, false, 0, session, MustChangePassword: MustChangePassword(conn, user.Value.Id));
+    }
+
+    /// <summary>Kullanıcı ilk giriş(ler)inde şifre belirlemek zorunda mı (Migration042).</summary>
+    private static bool MustChangePassword(SqliteConnection conn, string userId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COALESCE(must_change_password,0) FROM users WHERE id=$u;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) == 1;
     }
 
     /// <summary>Firma-BAĞIMSIZ giriş: kullanıcı adı birden çok firmada olabilir. Web login companyId
@@ -202,14 +213,15 @@ public sealed class AuthService
         // Kullanıcıyı bul; companyId boşsa TÜM firmalar taranır (kullanıcı adı birden çok firmada olabilir).
         using var find = conn.CreateCommand();
         if (string.IsNullOrWhiteSpace(companyId))
-            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
+            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
         else
         {
-            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
+            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
             find.Parameters.AddWithValue("$c", companyId);
         }
         find.Parameters.AddWithValue("$u", username);
         string? userId = null, coId = null, fullName = null, hash = null, branchId = null;
+        bool mustChange = false;
         using (var r = find.ExecuteReader())
         {
             while (r.Read())
@@ -218,6 +230,7 @@ public sealed class AuthService
                 userId = r.GetString(0); coId = r.GetString(1); hash = r.GetString(2);
                 fullName = r.IsDBNull(3) ? null : r.GetString(3);
                 branchId = r.IsDBNull(4) ? null : r.GetString(4);
+                mustChange = r.GetInt64(5) == 1;
                 break;
             }
         }
@@ -233,7 +246,7 @@ public sealed class AuthService
             coName = cn.ExecuteScalar() as string ?? coId;
         }
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
-            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId);
+            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId, mustChange);
     }
 
     /// <summary>MASAÜSTÜ tarafı: sunucudan gelen kullanıcı paketini YEREL DB'ye yazar (upsert). Sonrasında
@@ -259,9 +272,9 @@ public sealed class AuthService
         {
             u.Transaction = tx;
             u.CommandText =
-                "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, branch_id, is_active, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$un,$h,$f,$va,$bid,1,$now,$now,1,0) " +
-                "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, branch_id=$bid, is_active=1, is_deleted=0, updated_at=$now;";
+                "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, branch_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
+                "VALUES($id,$c,$un,$h,$f,$va,$bid,1,$mcp,$now,$now,1,0) " +
+                "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, branch_id=$bid, is_active=1, is_deleted=0, must_change_password=$mcp, updated_at=$now;";
             u.Parameters.AddWithValue("$id", b.UserId);
             u.Parameters.AddWithValue("$c", b.CompanyId);
             u.Parameters.AddWithValue("$un", b.Username);
@@ -269,6 +282,7 @@ public sealed class AuthService
             u.Parameters.AddWithValue("$f", (object?)b.FullName ?? DBNull.Value);
             u.Parameters.AddWithValue("$va", b.CanViewAllBranches ? 1 : 0);
             u.Parameters.AddWithValue("$bid", (object?)b.BranchId ?? DBNull.Value);
+            u.Parameters.AddWithValue("$mcp", b.MustChangePassword ? 1 : 0);
             u.Parameters.AddWithValue("$now", now);
             u.ExecuteNonQuery();
         }

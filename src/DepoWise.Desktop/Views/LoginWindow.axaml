@@ -178,6 +178,40 @@
                     </Button>
                 </StackPanel>
 
+                <!-- ADIM 4: İLK GİRİŞ şifre belirleme (yeni kullanıcı / admin-reset) -->
+                <StackPanel Spacing="12" IsVisible="{Binding IsStepSetPassword}">
+                    <SelectableTextBlock Text="Yeni Şifre Belirleyin" HorizontalAlignment="Center" FontWeight="SemiBold" Foreground="#EEF3F9"/>
+                    <SelectableTextBlock Text="Güvenlik için ilk girişte kendi şifrenizi oluşturmalısınız."
+                                         Foreground="#9FB0C6" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="Lbl" Text="Yeni Şifre"/>
+                        <Border Classes="Field">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Grid.Column="0" Classes="FieldIcon" Data="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/>
+                                <TextBox Grid.Column="1" Classes="Bare" Text="{Binding NewPassword}" PasswordChar="●" Watermark="En az 4 karakter"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Spacing="7">
+                        <TextBlock Classes="Lbl" Text="Yeni Şifre (Tekrar)"/>
+                        <Border Classes="Field">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <PathIcon Grid.Column="0" Classes="FieldIcon" Data="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/>
+                                <TextBox Grid.Column="1" Classes="Bare" Text="{Binding NewPassword2}" PasswordChar="●" Watermark="••••••"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                    <SelectableTextBlock Text="{Binding Error}" Foreground="#FF9B9B" TextWrapping="Wrap"
+                                         IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <Button Classes="Primary" Command="{Binding SetPasswordCommand}" IsDefault="True"
+                            IsEnabled="{Binding !IsBusy}" Margin="0,4,0,0" HorizontalAlignment="Stretch">
+                        <TextBlock Text="ŞİFREYİ BELİRLE" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Button Classes="Ghost" Command="{Binding BackCommand}" HorizontalAlignment="Center">
+                        <TextBlock Text="← Geri"/>
+                    </Button>
+                </StackPanel>
+
                 <!-- ADIM 2: şube seçimi (mevcut akış korunur) -->
                 <StackPanel Spacing="14" IsVisible="{Binding IsStep2}">
                     <SelectableTextBlock Text="{Binding CompanyName}" HorizontalAlignment="Center" FontWeight="SemiBold"

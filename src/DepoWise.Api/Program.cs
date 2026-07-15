@@ -231,8 +231,39 @@ app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
     }
     return Results.Ok(new { token, userId = res.Session.UserId, companyId = res.Session.CompanyId,
         companyName, branches, isSuperAdmin = res.Session.IsSuperAdmin, branchId = dto.BranchId,
-        canViewAllBranches = effAllBranches, companies });
+        canViewAllBranches = effAllBranches, companies,
+        mustChangePassword = res.MustChangePassword });   // true → istemci ilk giriş şifre ekranını gösterir
 });
+
+// ── İLK GİRİŞ şifre belirleme: parolası doğru ama şifre değiştirmesi zorunlu kullanıcı, AYNI login ekranından
+// yeni şifresini belirler. Bearer token (login'den) ile kimlik doğrulanır; kendi şifresini değiştirir. ──
+app.MapPost("/api/auth/change-initial-password", (HttpContext c, ChangeInitialPwDto d) =>
+{
+    var s = Session(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.NewPassword) || d.NewPassword!.Length < 4)
+        return Results.Json(new { error = "Yeni şifre en az 4 karakter olmalı." }, statusCode: 400);
+    try { svc.Users.ChangeOwnPassword(s, d.NewPassword!); }
+    catch (Exception ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+    // Şifre belirlendi → normal login akışına devam (firma/şube seçimi). Taze token + firma bağlamı döner.
+    var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId);
+    var companyName = svc.Companies.GetName(s.CompanyId);
+    var branches = svc.Branches.ListForLogin(s.CompanyId)
+        .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+    object? companies = null;
+    if (s.IsSuperAdmin)
+    {
+        using var cc = svc.Factory.Create();
+        using var cmd = cc.CreateCommand();
+        cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
+        var cl = new List<object>();
+        using var rr = cmd.ExecuteReader();
+        while (rr.Read()) cl.Add(new { id = rr.GetString(0), name = rr.GetString(1) });
+        companies = cl;
+    }
+    bool effAll = s.IsSuperAdmin || s.IsCompanyAdmin || s.CanViewAllBranches;
+    return Results.Ok(new { token, userId = s.UserId, companyId = s.CompanyId, companyName, branches,
+        isSuperAdmin = s.IsSuperAdmin, canViewAllBranches = effAll, companies, mustChangePassword = false });
+}).RequireAuthorization();
 
 // ── Adım 1b (YALNIZ süper admin): firma seç → o firma bağlamında YENİ token + o firmanın şubeleri ──
 // Süper admin seçtiği firmayı o firmanın admini gibi yönetir (tüm ekranlar/kayıtlar). Token firmayı taşır;
@@ -1666,6 +1697,7 @@ record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? Request
 record RolesDto(List<string>? Roles);
 record ActiveDto(bool Active);
 record PasswordDto(string Password);
+record ChangeInitialPwDto(string? NewPassword);
 record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
 record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons);
 record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons, string? CompanyId = null, bool ScopeAll = false);

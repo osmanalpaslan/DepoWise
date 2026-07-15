@@ -136,10 +136,35 @@ ORDER BY u.username;";
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+        // Admin başkasının şifresini sıfırladığında, o kullanıcı bir sonraki girişte kendi şifresini
+        // yeniden belirlemek zorunda (must_change_password=1). Kendi şifresini değiştiriyorsa zorunluluk aranmaz.
+        bool self = string.Equals(userId, actor.UserId, StringComparison.Ordinal);
         var companyId = AffectUser(conn, tx, actor, userId,
-            "UPDATE users SET password_hash=$h, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);",
-            now, cmd => cmd.Parameters.AddWithValue("$h", PasswordHasher.Hash(newPassword)));
+            "UPDATE users SET password_hash=$h, must_change_password=$mcp, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);",
+            now, cmd => { cmd.Parameters.AddWithValue("$h", PasswordHasher.Hash(newPassword)); cmd.Parameters.AddWithValue("$mcp", self ? 0 : 1); });
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>İLK GİRİŞ şifre belirleme: kullanıcı KENDİ şifresini değiştirir + must_change_password sıfırlanır.
+    /// Oturum sahibinden başkasına dokunmaz (self-service). Min 4 karakter.</summary>
+    public void ChangeOwnPassword(SessionContext actor, string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 4)
+            throw new ArgumentException("Şifre en az 4 karakter olmalı.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE users SET password_hash=$h, must_change_password=0, updated_at=$now WHERE id=$u AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$h", PasswordHasher.Hash(newPassword));
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$u", actor.UserId);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "user", actor.UserId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
     }
 
@@ -320,8 +345,9 @@ ORDER BY u.username;";
         if (personnelId is not null) EnsurePersonnelLinkable(conn, tx, companyId, personnelId, null);
 
         Insert(conn, tx,
-            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, personnel_id, is_active, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$u,$h,$f,$b,$va,$pid,1,$now,$now,1,0);",
+            // Güvenlik: yeni kullanıcı ilk giriş(ler)inde kendi şifresini belirlemek zorunda (must_change_password=1).
+            "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, personnel_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
+            "VALUES($id,$c,$u,$h,$f,$b,$va,$pid,1,1,$now,$now,1,0);",
             cmd =>
             {
                 cmd.Parameters.AddWithValue("$id", userId);
