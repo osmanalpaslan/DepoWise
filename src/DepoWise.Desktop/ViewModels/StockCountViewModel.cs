@@ -93,6 +93,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Stok Sayım")) return;   // "Tüm Şubeler" modunda işlem yok
         if (SelectedMaterial is null) { FormError = "Malzeme seçin."; return; }
         if (string.IsNullOrWhiteSpace(Reason)) { FormError = "Gerekçe zorunlu."; return; }
         var diff = CountedQty - SystemBalance;

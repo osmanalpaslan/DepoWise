@@ -27,13 +27,29 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **328/328 yeşil** (`dotnet test`) |
+| **Testler** | **332/332 yeşil** (`dotnet test`) |
 | **Şema** | Migration **043** (`compatible_vehicle_ids` — şablon uyumlu araçlar) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.56 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### Firma/şube karışmasını önleme — 3 faz (2026-07-16)
+**Faz 1 — Şube ekranı:** firma kutusu "birden çok firma varsa" koşuluna bağlıydı + firma listesi hatası
+sessizce yutuluyordu → süper adminde kutu HİÇ çıkmıyordu. Artık daima görünür, hata gösterilir ve
+varsayılan **kendi firman** (alfabetik ilk firma değil). Masaüstü şube ekranına firma seçici eklendi (yoktu).
+
+**Faz 2 — Aktif Firma (ADR: ekran-başı firma kutusu REDDEDİLDİ):** süper admin üst bardan firmayı değiştirir
+(`/api/auth/select-company` → yeni jeton); tüm ekranlar o firmada çalışır, şube bağlamı sıfırlanır.
+Gerekçe: CLAUDE.md §4 "firma kimliği yalnız güvenilir oturumdan gelir" — her ekrana firma kutusu koymak
+bu kuralı deler ve riski 30 ekrana yayardı. Masaüstünde firma GİRİŞTE seçilir (yerel veri ona göre eşitlenir);
+üst barda **aktif firma + çalışma şubesi rozeti** eklendi.
+
+**Faz 3 — "Tüm Şubeler" koruması:** bu modda çalışma şubesi yoktur → stok hareketi şubesiz (`branch_id NULL`)
+düşüyordu. Artık şube bazlı 7 ekranda (Malzemeler, Araçlar, Stok Giriş-Çıkış, Stok Sayım, Yakıt ×2, Bakım,
+Muayene) **yazma engellenir**: uyarı penceresi çıkıp çıkış/giriş ile şube seçmesi istenir. **Okuma serbest.**
+Ortak kod: `DepoWise.Web/Services/BranchGuard.cs` + `DepoWise.Desktop/BranchGuard.cs`. 4 yeni test.
 
 ### Kullanıcıda firma seçimi + Firma Tanım'da ilk şube (2026-07-16)
 - **Kullanıcı Tanım:** firma seçme kutusu YALNIZ süper adminde; seçilen firmaya kullanıcı açılır.

@@ -8,6 +8,12 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Malzeme — Yeni Kayıt" : "Malzeme Listesi")</MudText>
 
+@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@if (Auth.IsAllBranches())
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+}
+
 @if (_isNew && Auth.CanCreate("materials"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
@@ -391,6 +397,8 @@
     private async Task Save()
     {
         _err = true; _msg = null;
+        // "Tüm Şubeler" modunda yazma yok: açılış stoğu hareketi şubesiz düşerdi (hangi şantiyeye ait olduğu kaybolur).
+        if (!await Dialog.RequireBranchAsync(Auth, "Malzemeler")) return;
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
         if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
         // Şablon dışı kayıt uyarısı (yalnız yeni kayıt + şablon seçilmemişse) — tek tip kayıt için.

@@ -11,15 +11,25 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:600px;">
         <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editId is null ? "YENİ ŞUBE" : "ŞUBE DÜZENLE")</MudText>
         <MudGrid Spacing="2">
-            @* Firma seçimi: yalnız süper adminde ve birden çok firma varsa görünür. Diğer roller kendi firmasına sabittir. *@
-            @if (Auth.IsSuperAdmin && _companies.Count > 1)
+            @* Firma seçimi: süper adminde DAİMA görünür (tek firma olsa bile — hangi firmaya şube açtığı
+               ekranda yazılı olmalı). Diğer roller kendi firmasına sabittir; sunucu da bunu fail-closed zorlar. *@
+            @if (Auth.IsSuperAdmin)
             {
                 <MudItem xs="12">
                     <MudSelect T="string" @bind-Value="_companyId" Label="Firma *" Margin="Margin.Dense" Variant="Variant.Outlined"
-                               @bind-Value:after="OnCompanyChanged" Disabled="@(_editId is not null)">
+                               @bind-Value:after="OnCompanyChanged" Disabled="@(_editId is not null)"
+                               HelperText="Şube bu firmaya bağlı oluşturulur.">
                         @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
                     </MudSelect>
                 </MudItem>
+                @if (_companyError is not null)
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Error" Dense="true">
+                            Firma listesi yüklenemedi: @_companyError — şube yanlış firmaya açılabilir, lütfen sayfayı yenileyin.
+                        </MudAlert>
+                    </MudItem>
+                }
             }
             <MudItem xs="12" md="7"><MudTextField @bind-Value="_name" Label="Ad *" Error="_err && string.IsNullOrWhiteSpace(_name)" ErrorText="Ad zorunlu." Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="6" md="5">
@@ -113,11 +123,18 @@
     private JsonElement? _detail;
     private JsonElement[] _branchUsers = Array.Empty<JsonElement>();
     private string? _msg; private bool _ok; private bool _busy; private bool _err;
+    private string? _companyError;   // firma listesi yüklenemedi → sessizce yutma, kullanıcıya söyle
 
     protected override async Task OnInitializedAsync()
     {
-        try { _companies = await Api.OptionsAsync("/api/companies/options", "id", "name"); } catch { }
-        _companyId = _companies.FirstOrDefault()?.Id;
+        try
+        {
+            _companies = await Api.OptionsAsync("/api/companies/options", "id", "name");
+            if (_companies.Count == 0) _companyError = "liste boş döndü";
+        }
+        catch (Exception ex) { _companyError = ex.Message; }
+        // Varsayılan KENDİ firman — alfabetik ilk firma değil (yanlış firmaya şube açma riski).
+        _companyId = _companies.FirstOrDefault(c => c.Id == Auth.CompanyId)?.Id ?? _companies.FirstOrDefault()?.Id;
         await Load();
     }
 

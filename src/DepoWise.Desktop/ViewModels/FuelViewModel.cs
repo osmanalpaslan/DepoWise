@@ -136,6 +136,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     private async Task SaveDist()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Yakıt")) return;   // "Tüm Şubeler" modunda işlem yok
         if (DistVehicle is null) { Status = "Araç seçin."; return; }
         if (DistLiters <= 0) { Status = "Litre pozitif olmalı."; return; }
         if (DistPersonnel is null) { Status = "Yakıtı veren personeli seçin."; return; } // madde 8
@@ -184,6 +185,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     private async Task SaveDepot()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Yakıt Depo Girişi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (DepotLiters <= 0 || DepotPrice <= 0) { Status = "Litre ve birim fiyat pozitif olmalı."; return; }
         if (!await ConfirmService.AskAsync($"{DepotLiters:0.##} L depo girişi kaydedilsin mi? (Toplam {DepotTotalText})", "Kaydet")) return;
         try

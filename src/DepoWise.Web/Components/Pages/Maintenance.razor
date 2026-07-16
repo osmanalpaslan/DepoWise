@@ -7,6 +7,12 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Bakım Takibi — @SecTitle</MudText>
 
+@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@if (Auth.IsAllBranches())
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+}
+
     @* ═══════════ BAKIM TANIMLARI ═══════════ *@
     @if (_sec == "defs")
     {
@@ -356,6 +362,7 @@
     private async Task SaveMnt()
     {
         _mMsg = null;
+        if (!await Dialog.RequireBranchAsync(Auth, "Bakım Takibi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_mVehicle is null) { _mMsg = "Araç seçin."; _mOk = false; return; }
         if (string.IsNullOrEmpty(_mDefId)) { _mMsg = "Bakım tanımı seçin."; _mOk = false; return; }
         if (!await Dialog.Confirm("Bakım kaydı oluşturulsun mu? (seçili malzemeler stoktan düşer)")) return;

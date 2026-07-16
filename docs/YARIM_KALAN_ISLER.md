@@ -10,6 +10,23 @@
 
 ---
 
+## ✅ Firma/şube karışmasını önleme — Faz 1-2-3 (2026-07-16) — TAMAMLANDI
+
+Test **332/332**. Kullanıcı şikâyeti: "süper adminken şube ekranında firma kutusu yok; birden çok firma
+olacak, hiçbir tanım karışmamalı."
+
+- **Faz 1 — Şube ekranı firma kutusu:** kutu `_companies.Count > 1` koşuluna bağlıydı **ve** firma listesi
+  hatası sessizce yutuluyordu → süper adminde kutu hiç görünmüyordu. Artık daima görünür + hata gösterilir.
+  Varsayılan **kendi firman** (eskiden alfabetik ilk firma → yanlış firmaya şube açma riski). Masaüstüne de eklendi.
+- **Faz 2 — Aktif Firma seçici (üst bar, web):** `/api/auth/select-company` ile oturum firması değişir → tüm
+  ekranlar o firmada çalışır. **Ekran-başı firma kutusu bilinçli olarak REDDEDİLDİ** (CLAUDE.md §4: firma
+  kimliği yalnız güvenilir oturumdan gelir; 30 ekrana kutu = risk + maliyet). Masaüstünde firma girişte seçilir;
+  üst barda aktif firma + çalışma şubesi rozeti eklendi.
+- **Faz 3 — "Tüm Şubeler" koruması:** bu modda şube bazlı 7 ekranda yazma engellenir (uyarı penceresi →
+  çıkış/giriş ile şube seç). Okuma serbest. Gerçek kusur: bu modda stok hareketi `branch_id NULL` düşüyordu.
+
+---
+
 ## ✅ Kullanıcıda firma seçimi + Firma Tanım'da ilk şube (2026-07-16) — TAMAMLANDI
 
 **Şu an bekleyen iş YOK.** Test **328/328** yeşil (5 yeni tenant testi).

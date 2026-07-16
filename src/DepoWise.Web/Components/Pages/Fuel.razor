@@ -7,6 +7,12 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Yakıt — @SecTitle</MudText>
 
+@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@if (Auth.IsAllBranches())
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+}
+
     @* ═══════════ YAKIT DAĞITIMLARI ═══════════ *@
     @if (_sec == "dist")
     {
@@ -168,6 +174,7 @@
     private async Task Distribute()
     {
         _msg = null;
+        if (!await Dialog.RequireBranchAsync(Auth, "Yakıt")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         if (_liters <= 0) { _msg = "Litre girin."; _ok = false; return; }
         if (string.IsNullOrWhiteSpace(_person)) { _msg = "Yakıtı veren personeli seçin."; _ok = false; return; } // madde 8
@@ -192,6 +199,7 @@
     private async Task AddDepot()
     {
         _dMsg = null;
+        if (!await Dialog.RequireBranchAsync(Auth, "Yakıt Depo Girişi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_dLiters <= 0 || _dPrice <= 0) { _dMsg = "Litre ve birim fiyat girin."; _dOk = false; return; }
         if (!await Dialog.Confirm("Depo girişi kaydedilsin mi?")) return;
         _busy = true;

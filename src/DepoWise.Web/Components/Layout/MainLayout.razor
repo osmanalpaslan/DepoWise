@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject NavigationManager Nav
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 @inject DepoWise.Web.Services.ThemeState Theme
 @inject IJSRuntime JS
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
@@ -21,6 +22,18 @@
         <MudSpacer />
         @if (Auth.IsAuthenticated)
         {
+            @* AKTİF FİRMA (yalnız süper admin) — oturumun firmasını değiştirir; tüm ekranlar bu firmada çalışır.
+               Firma kimliği ekranlardan DEĞİL, sunucunun verdiği oturumdan gelir (CLAUDE.md §4). *@
+            @if (Auth.IsSuperAdmin && _companies.Count > 0)
+            {
+                <MudTooltip Text="Aktif firma — tüm ekranlar seçtiğiniz firmada çalışır">
+                    <MudSelect T="string" Value="Auth.CompanyId" ValueChanged="SwitchCompany" Dense="true" Margin="Margin.Dense"
+                               Variant="Variant.Outlined" Class="dw-companyswitch mr-2" Style="min-width:210px;"
+                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Business" Disabled="_switching">
+                        @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                    </MudSelect>
+                </MudTooltip>
+            }
             <MudTooltip Text="Ekran + tanım bilgisi (ad · kod · ID)">
                 <MudIconButton Icon="@Icons.Material.Outlined.Info" Color="Color.Inherit" OnClick="ShowScreenInfo" />
             </MudTooltip>
@@ -56,6 +69,51 @@
 </MudLayout>
 
 @code {
+    // ── AKTİF FİRMA seçici (yalnız süper admin) ──────────────────────────────────────────────
+    private List<ApiClient.Opt> _companies = new();
+    private bool _switching;
+
+    /// <summary>Süper adminin firma listesini yükler (üst bar seçicisi). Diğer roller için hiç çağrılmaz.</summary>
+    private async Task LoadCompaniesAsync()
+    {
+        if (!Auth.IsSuperAdmin) { _companies = new(); return; }
+        try { _companies = await Api.OptionsAsync("/api/companies/options", "id", "name"); } catch { _companies = new(); }
+    }
+
+    /// <summary>Aktif firmayı değiştirir: sunucu YENİ bir oturum jetonu (token) üretir → firma artık güvenilir
+    /// oturum bilgisinden gelir. Şube bağlamı sıfırlanır (şubeler firmaya özeldir) ve sayfa tazelenir.</summary>
+    private async Task SwitchCompany(string? companyId)
+    {
+        if (string.IsNullOrEmpty(companyId) || companyId == Auth.CompanyId || _switching) return;
+        var name = _companies.FirstOrDefault(c => c.Id == companyId)?.Name ?? companyId;
+        if (!await DialogService.Confirm(
+                $"Aktif firma '{name}' olarak değiştirilsin mi?\n\nTüm ekranlar bu firmada çalışacak; kayıtlar bu firmaya yazılır.",
+                okText: "Evet, Geç")) return;
+        _switching = true;
+        try
+        {
+            var (err, data) = await Api.SelectCompanyAsync(Auth.Token!, companyId);
+            if (err is not null || data is null)
+            {
+                Snackbar.Add("Firma değiştirilemedi: " + (err ?? "bilinmeyen hata"), Severity.Error);
+                return;
+            }
+            // Şube DAİMA sıfırlanır: eski firmanın şubesi yeni firmada geçersizdir (yanlış şubeye kayıt riski).
+            Auth.SignIn(data.Token, data.UserId, data.CompanyId, data.IsSuperAdmin,
+                branchId: null, companyName: data.CompanyName, userName: Auth.UserName);
+            try
+            {
+                await LocalStorage.SetAsync("dw_auth",
+                    $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}||{Auth.CompanyName}|{Auth.UserName}");
+            }
+            catch { }
+            await Api.RefreshMenuAsync();
+            // Açık ekranı yeni firmayla baştan yükle (eski firmanın listeleri ekranda kalmasın).
+            Nav.NavigateTo(Nav.Uri, forceLoad: true);
+        }
+        finally { _switching = false; }
+    }
+
     private MudTheme _theme = BuildTheme("#2563eb");
 
     private static MudTheme BuildTheme(string primary) => new()
@@ -151,6 +209,7 @@
                         p.Length > 5 ? (string.IsNullOrEmpty(p[5]) ? null : p[5]) : null,
                         p.Length > 6 ? (string.IsNullOrEmpty(p[6]) ? null : p[6]) : null);
                     await Api.RefreshMenuAsync();
+                    await LoadCompaniesAsync();   // üst bar "Aktif Firma" seçicisi (yalnız süper admin)
                     // Kullanıcıya ÖZEL tema (sunucudan) — cihazdan bağımsız, her kullanıcı kendi teması
                     try
                     {

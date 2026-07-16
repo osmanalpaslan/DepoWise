@@ -185,6 +185,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
         TriedSave = true;
         bool editing = IsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
+        // "Tüm Şubeler" modunda yazma yok: açılış stoğu hareketi şubesiz düşerdi.
+        if (!await BranchGuard.RequireBranchAsync(_session, "Malzemeler")) return;
         if (string.IsNullOrWhiteSpace(NewCode) || string.IsNullOrWhiteSpace(NewName))
         {
             Status = "Kod ve ad zorunlu."; return;

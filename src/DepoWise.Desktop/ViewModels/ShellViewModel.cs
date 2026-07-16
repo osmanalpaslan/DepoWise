@@ -19,6 +19,19 @@ public sealed partial class ShellViewModel : ViewModelBase
     public string AppName { get; }
     public string CompanyName { get; }
     public string DisplayName { get; }
+    /// <summary>AKTİF FİRMA — oturumun bağlı olduğu firmanın adı. Üst barda DAİMA görünür: süper admin
+    /// birden çok firma yönetebildiği için "hangi firmaya kayıt açıyorum?" sorusu ekranda cevaplı olmalı.
+    /// Masaüstünde firma GİRİŞTE seçilir (yerel veri o firmaya göre eşitlenir); değiştirmek için çıkış/giriş.</summary>
+    public string ActiveCompanyName { get; }
+    /// <summary>Süper adminde firmanın yanında rol rozeti gösterilir.</summary>
+    public string ActiveCompanyTip { get; }
+
+    /// <summary>ÇALIŞMA ŞUBESİ — girişte seçilen şube ya da "Tüm Şubeler". Üst barda görünür.
+    /// "Tüm Şubeler" modunda şube bazlı ekranlarda işlem YAPILAMAZ (bkz. BranchGuard).</summary>
+    public string ActiveBranchName { get; }
+    /// <summary>"Tüm Şubeler" modunda rozet uyarı rengine döner (işlem yapılamayacağı ekranda belli olsun).</summary>
+    public bool IsAllBranches { get; }
+    public string ActiveBranchTip { get; }
     public string Initial { get; }
     public string Welcome { get; }
     public string BuildStamp { get; } = BuildInfo();
@@ -274,6 +287,18 @@ public sealed partial class ShellViewModel : ViewModelBase
         _session = session;
         AppName = DesktopServices.Branding.AppName;
         CompanyName = DesktopServices.Branding.CompanyName;
+        // Aktif firma adı oturumun firmasından okunur (marka adı değil) — yanlış firmaya kayıt açmayı önler.
+        string activeCompany;
+        try { activeCompany = DesktopServices.Companies.GetName(session.CompanyId); } catch { activeCompany = ""; }
+        ActiveCompanyName = string.IsNullOrWhiteSpace(activeCompany) ? session.CompanyId : activeCompany;
+        ActiveCompanyTip = session.IsSuperAdmin
+            ? $"Aktif firma: {ActiveCompanyName} (Süper Admin)\nKayıtlar bu firmaya yazılır. Firmayı değiştirmek için çıkış yapıp giriş ekranından seçin."
+            : $"Aktif firma: {ActiveCompanyName}";
+        IsAllBranches = BranchGuard.IsAllBranches(session);
+        ActiveBranchName = IsAllBranches ? "Tüm Şubeler" : (DesktopServices.CurrentBranchName ?? "—");
+        ActiveBranchTip = IsAllBranches
+            ? "Tüm Şubeler modu: tüm şubelerin kayıtlarını GÖREBİLİRSİNİZ ama malzeme/araç/stok gibi şube bazlı ekranlarda İŞLEM YAPAMAZSINIZ.\nİşlem için çıkış yapıp ilgili şubeyi seçerek girin."
+            : $"Çalışma şubesi: {ActiveBranchName}\nBu oturumdaki işlemler bu şubeye yazılır.";
         DisplayName = DesktopServices.DisplayName(session.UserId);
         Initial = string.IsNullOrWhiteSpace(DisplayName) ? "?" : DisplayName.Substring(0, 1).ToUpperInvariant();
         Welcome = $"Hoş geldiniz, {DisplayName} — {DateTime.Now:dd MMMM yyyy dddd}";

@@ -191,6 +191,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Malzeme Giriş-Çıkış")) return;   // "Tüm Şubeler" modunda işlem yok
         if (PersonnelSel is null) { FormError = "Personel (işlemi yapan) zorunludur."; return; } // madde 8
         if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(Quantity)
             && !await ConfirmService.AskAsync($"Miktar çok büyük görünüyor ({Quantity:0.##}). Emin misiniz?", "Miktar Uyarısı", "Evet, Doğru")) return; // madde 7

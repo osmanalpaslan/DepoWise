@@ -6,6 +6,12 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Stok İşlemleri</MudText>
 
+@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@if (Auth.IsAllBranches())
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+}
+
 @if (Auth.CanCreate("stock"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:1000px;">
@@ -230,6 +236,7 @@
     private async Task Save()
     {
         _msg = null;
+        if (!await Dialog.RequireBranchAsync(Auth, "Malzeme Giriş-Çıkış")) return;   // "Tüm Şubeler" modunda işlem yok
         if (string.IsNullOrWhiteSpace(_personnel)) { _msg = "Personel (işlemi yapan) zorunludur."; _ok = false; return; } // madde 8
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_qty)
             && !await Dialog.Confirm($"Miktar çok büyük görünüyor ({_qty:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7

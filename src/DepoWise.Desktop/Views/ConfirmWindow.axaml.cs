@@ -17,6 +17,8 @@ public partial class ConfirmWindow : Window
         var cancel = this.FindControl<Button>("CancelBtn")!;
         ok.Content = okText;
         cancel.Content = cancelText;
+        // cancelText boş → yalnız "Tamam" olan BİLGİ penceresi (boş buton gösterme).
+        cancel.IsVisible = !string.IsNullOrEmpty(cancelText);
         if (danger) { ok.Classes.Remove("Primary"); ok.Classes.Add("Danger"); }
         ok.Click += (_, _) => Close(true);
         cancel.Click += (_, _) => Close(false);

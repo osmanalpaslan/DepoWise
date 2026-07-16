@@ -206,6 +206,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         TriedSave = true;
         bool editing = IsEditMode;
         if (editing ? !CanEdit : !CanWrite) { Status = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Araçlar")) return;   // "Tüm Şubeler" modunda işlem yok
         if (string.IsNullOrWhiteSpace(NewCode)) { Status = "İç kod zorunlu."; return; }
         // Zorunlu: şantiye/şube (madde 8) + makul üretim yılı (madde 1).
         if (SelBranch is null) { Status = "Araç için şantiye/şube seçimi zorunludur."; return; }

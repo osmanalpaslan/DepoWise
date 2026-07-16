@@ -8,6 +8,12 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
 
+@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@if (Auth.IsAllBranches())
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+}
+
 @if (_isNew && Auth.CanCreate("vehicles"))
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
@@ -410,6 +416,7 @@
     private async Task Save()
     {
         _err = true; _msg = null;
+        if (!await Dialog.RequireBranchAsync(Auth, "Araçlar")) return;   // "Tüm Şubeler" modunda işlem yok
         if (string.IsNullOrWhiteSpace(_code)) { _msg = "İç kod zorunlu."; _ok = false; return; }
         // Zorunlu: şantiye/şube (madde 8).
         if (string.IsNullOrWhiteSpace(_branch)) { _msg = "Şantiye / şube seçimi zorunludur."; _ok = false; return; }

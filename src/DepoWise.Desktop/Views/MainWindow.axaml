@@ -187,6 +187,27 @@
                     </StackPanel>
                     <!-- Kullanıcı -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <!-- AKTİF FİRMA: hangi firmaya kayıt açtığın daima görünür (yanlış firma riskine karşı) -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="10,4"
+                                VerticalAlignment="Center" Margin="0,0,6,0"
+                                ToolTip.Tip="{Binding ActiveCompanyTip}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <SelectableTextBlock Text="🏢" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Text="{Binding ActiveCompanyName}" Classes="Helper" FontWeight="SemiBold"
+                                                     VerticalAlignment="Center" MaxWidth="160" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Border>
+                        <!-- ÇALIŞMA ŞUBESİ: "Tüm Şubeler" modunda uyarı renginde — o modda şube bazlı ekranlarda işlem yapılamaz -->
+                        <Border CornerRadius="12" Padding="10,4" VerticalAlignment="Center" Margin="0,0,6,0"
+                                Background="{DynamicResource SurfaceBrush}" ToolTip.Tip="{Binding ActiveBranchTip}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <SelectableTextBlock Text="📍" VerticalAlignment="Center"/>
+                                <SelectableTextBlock Text="{Binding ActiveBranchName}" Classes="Helper" FontWeight="SemiBold"
+                                                     VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis"/>
+                                <SelectableTextBlock Text="⚠" VerticalAlignment="Center" IsVisible="{Binding IsAllBranches}"
+                                                     Foreground="{DynamicResource WarningBrush}" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Border>
                         <StackPanel VerticalAlignment="Center" Spacing="3" Margin="0,0,6,0">
                             <SelectableTextBlock Text="{Binding BuildStamp}" Classes="Helper" ToolTip.Tip="Çalışan derleme zamanı"/>
                             <SelectableTextBlock Text="{Binding Version}" Classes="Helper" FontWeight="SemiBold"

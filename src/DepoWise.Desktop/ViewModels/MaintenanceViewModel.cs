@@ -426,6 +426,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     private async Task SaveMnt()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Bakım Takibi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (MntVehicle is null) { Status = "Araç seçin."; return; }
         if (MntDef is null) { Status = "Bakım tanımı seçin."; return; }
         if (MntLines.Any(l => l.Quantity <= 0)) { Status = "Malzeme miktarı pozitif olmalı."; return; }

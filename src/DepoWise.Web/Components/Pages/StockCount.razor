@@ -6,6 +6,12 @@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Stok Sayım</MudText>
 
+@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@if (Auth.IsAllBranches())
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+}
+
 @if (!Auth.CanCreate("stock"))
 {
     <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
@@ -71,6 +77,7 @@ else
     private async Task Save()
     {
         _msg = null;
+        if (!await Dialog.RequireBranchAsync(Auth, "Stok Sayım")) return;   // "Tüm Şubeler" modunda işlem yok
         if (string.IsNullOrWhiteSpace(_reason)) { _msg = "Sayım gerekçesi zorunlu."; _ok = false; return; }
         var changed = (_rows ?? new()).Where(r => r.Counted != r.SystemStock).ToList();
         if (changed.Count == 0) { _msg = "Farklı sayılan malzeme yok."; _ok = false; return; }

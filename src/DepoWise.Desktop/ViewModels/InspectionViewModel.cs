@@ -98,6 +98,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
+        if (!await BranchGuard.RequireBranchAsync(_session, "Muayene / Sigorta")) return;   // "Tüm Şubeler" modunda işlem yok
         if (FVehicle is null) { FormError = "Araç seçin."; return; }
         if (IsPostponed && FPostponeDate is null) { FormError = "Ertelendi seçildi: erteleme tarihi zorunlu."; return; }
         // Tarih mantığı uyarıları (madde 5+9) — kullanıcı onaylarsa engellenmez.

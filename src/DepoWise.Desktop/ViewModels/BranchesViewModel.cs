@@ -28,6 +28,24 @@ public sealed partial class BranchesViewModel : ViewModelBase
     public ObservableCollection<BranchUserRow> BranchUsers { get; } = new();
     public ObservableCollection<string> KindOptions { get; } = new() { "Şube", "Şantiye" };
 
+    /// <summary>Firma seçici — YALNIZ süper adminde görünür; şube seçilen firmaya bağlı açılır.
+    /// Süper-admin-altı roller kendi firmasına kilitlidir (BranchService fail-closed zorlar).</summary>
+    public bool IsSuperAdmin => _session.IsSuperAdmin;
+    public ObservableCollection<CompanyPick> Companies { get; } = new();
+    [ObservableProperty] private CompanyPick? _selectedCompany;
+
+    /// <summary>Listelenen/oluşturulan şubelerin firması: süper admin seçtiyse o, aksi halde oturumun firması.</summary>
+    private string TargetCompanyId => IsSuperAdmin && SelectedCompany is not null ? SelectedCompany.Id : _session.CompanyId;
+
+    /// <summary>Firma değişti: liste + form o firmaya göre yenilenir (şube yanlış firmaya açılmasın).</summary>
+    partial void OnSelectedCompanyChanged(CompanyPick? value)
+    {
+        if (_loading) return;
+        CancelAdd();
+        Load();
+    }
+    private bool _loading;
+
     [ObservableProperty] private string? _status;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -57,6 +75,14 @@ public sealed partial class BranchesViewModel : ViewModelBase
     public BranchesViewModel(SessionContext session)
     {
         _session = session;
+        // Firma seçici (yalnız süper admin) — varsayılan KENDİ firması, alfabetik ilk firma değil.
+        if (_session.IsSuperAdmin)
+        {
+            _loading = true;
+            try { foreach (var (id, name) in DesktopServices.Companies.Selectable(_session)) Companies.Add(new CompanyPick(id, name)); } catch { }
+            SelectedCompany = Companies.FirstOrDefault(c => c.Id == _session.CompanyId) ?? Companies.FirstOrDefault();
+            _loading = false;
+        }
         Load();
     }
 
@@ -68,7 +94,7 @@ public sealed partial class BranchesViewModel : ViewModelBase
             LoadError = null;
             Items.Clear();
             ParentOptions.Clear();
-            foreach (var b in DesktopServices.Branches.List(_session)) { Items.Add(b); ParentOptions.Add(b); }
+            foreach (var b in DesktopServices.Branches.List(_session, TargetCompanyId)) { Items.Add(b); ParentOptions.Add(b); }
             Status = $"{Items.Count} şube / şantiye";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
@@ -127,8 +153,9 @@ public sealed partial class BranchesViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync(editing ? "Şube güncellensin mi?" : "Şube oluşturulsun mu?", "Kaydet")) return;
         try
         {
+            // Şube SEÇİLİ firmaya bağlı açılır (süper admin başka firmaya açabilir; diğerleri kendi firmasına kilitli).
             if (editing) DesktopServices.Branches.Update(_session, EditId!, dto);
-            else DesktopServices.Branches.Create(_session, dto);
+            else DesktopServices.Branches.Create(_session, dto, TargetCompanyId);
             ShowAdd = false; EditId = null;
             Load();
             Status = editing ? "Şube güncellendi." : "Şube oluşturuldu.";
