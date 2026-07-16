@@ -31,7 +31,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **043** (`compatible_vehicle_ids` — şablon uyumlu araçlar) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.56 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Masaüstü** | **1.0.57 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
 
