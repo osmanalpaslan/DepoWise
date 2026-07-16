@@ -27,13 +27,21 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **341/341 yeşil** (`dotnet test`) |
+| **Testler** | **347/347 yeşil** (`dotnet test`) |
 | **Şema** | Migration **044** (özel kod + firma silme künyesi — ADR-083) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.58 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### Kullanıcı firması değiştirilemez — doğrulandı (2026-07-16)
+Kullanıcı sordu: "kullanıcı oluşmuş ise süper admin dahil hiç kimse firmasını değiştirememeli — yapı böyle mi?"
+Kod incelemesi: `users.company_id`'yi güncelleyen HİÇBİR UPDATE yok (7 UPDATE'te company_id yalnız WHERE
+filtresinde), firma değiştiren API ucu yok, masaüstü senkronu `users` tablosuna hiç dokunmuyor. Tek istisna
+(`AuthService.ImportRemoteUser`) firma DEĞİŞTİRMEZ — sunucudaki gerçeği yerele yansıtır. **Yapı doğru.**
+6 yeni test (`UserCompanyImmutableTests`) bunu davranışsal olarak kilitler: şube atama/rol/aktif-pasif/
+şifre/tüm-şubeler hiçbiri firmayı etkilemiyor + `UserService`'te "firma değiştir" imzalı metod yok.
 
 ### ⚠️ Kalıcı Silme ekranı (2026-07-16, ADR-083) — GERİ ALINAMAZ
 **Ne işe yarar:** Firma Tanım firmayı *pasife alır*; bu yeni ekran firmayı ve TÜM verisini (kullanıcılar,
