@@ -60,6 +60,17 @@
                 <ctrl:FormField Label="Adres">
                     <TextBox Classes="Field" Text="{Binding FormAddress}" AcceptsReturn="True" Height="60"/>
                 </ctrl:FormField>
+                <!-- Yeni firmaya bağlı ilk şube/şantiye (yalnız YENİ firmada görünür) -->
+                <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding ShowBranchField}">
+                    <ctrl:FormField Label="İlk Şube / Şantiye Adı" IsRequired="True" Width="320"
+                                    HelpText="Firma ile birlikte bu şube oluşturulur. Şubesiz firmaya kullanıcı eklenemez.">
+                        <TextBox Classes="Field" Text="{Binding FormBranchName}"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Türü" Width="150">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding BranchKindOptions}" SelectedItem="{Binding FormBranchKind}"/>
+                    </ctrl:FormField>
+                </StackPanel>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

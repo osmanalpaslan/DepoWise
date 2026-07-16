@@ -30,13 +30,15 @@ public static class CompanySyncService
 
     // ── Yerel + kuyruk (çevrimdışı çalışır) ───────────────────────────────────────────────
 
-    /// <summary>Firma oluştur: YERELE yaz + kuyruğa al. Çevrimiçiyse kuyruk hemen işlenir.</summary>
-    public static async Task CreateAsync(DepoWise.Infrastructure.Organization.NewCompany dto)
+    /// <summary>Firma oluştur: YERELE yaz + kuyruğa al. Çevrimiçiyse kuyruk hemen işlenir.
+    /// Yeni firmanın id'sini döndürür (çağıran, firmaya bağlı ilk şubeyi açmak için kullanır).</summary>
+    public static async Task<string> CreateAsync(DepoWise.Infrastructure.Organization.NewCompany dto)
     {
         var session = DesktopServices.Session ?? throw new InvalidOperationException("Oturum yok.");
         var id = DesktopServices.Companies.Create(session, dto);          // yerel (offline çalışır)
         Enqueue("create", id, Payload(dto, id));
         await TryFlushAsync();
+        return id;
     }
 
     /// <summary>Firma güncelle: YERELE yaz + kuyruğa al.</summary>

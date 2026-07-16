@@ -55,6 +55,14 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     [ObservableProperty] private string? _formError;
     public string FormTitle => EditId is null ? "YENİ FİRMA" : "FİRMA DÜZENLE";
 
+    /// <summary>Yeni firmaya bağlı İLK şube/şantiye — firma şubesiz kalırsa o firmaya kullanıcı açılamaz.
+    /// Yalnız YENİ firmada sorulur (düzenlemede gizli; şubeler Şube / Şantiye ekranından yönetilir).</summary>
+    [ObservableProperty] private string _formBranchName = "";
+    [ObservableProperty] private string _formBranchKind = "Şube";
+    public ObservableCollection<string> BranchKindOptions { get; } = new() { "Şube", "Şantiye" };
+    /// <summary>İlk şube alanı yalnız yeni firma eklerken görünür.</summary>
+    public bool ShowBranchField => EditId is null;
+
     public CompaniesViewModel(SessionContext session)
     {
         _session = session;
@@ -118,8 +126,10 @@ public sealed partial class CompaniesViewModel : ViewModelBase
         EditId = null;
         FormName = ""; FormTaxNo = ""; FormTaxOffice = ""; FormAddress = "";
         FormPhone = ""; FormEmail = ""; FormAuthorized = ""; FormMaxUsers = 0; FormMaxAdmins = 0; FormMachineQuota = 3; FormError = null;
+        FormBranchName = ""; FormBranchKind = "Şube";
         ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle));
+        OnPropertyChanged(nameof(ShowBranchField));
     }
 
     [RelayCommand]
@@ -140,6 +150,7 @@ public sealed partial class CompaniesViewModel : ViewModelBase
         FormMachineQuota = Selected.MachineQuota;
         FormError = null; ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle));
+        OnPropertyChanged(nameof(ShowBranchField));
     }
 
     [RelayCommand]
@@ -166,17 +177,37 @@ public sealed partial class CompaniesViewModel : ViewModelBase
     {
         FormError = null;
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Firma adı zorunlu."; return; }
-        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers, FormMaxAdmins, FormMachineQuota);
         var editing = EditId is not null;
-        if (!await ConfirmService.AskAsync(editing ? "Firma güncellensin mi?" : "Firma oluşturulsun mu?", "Kaydet")) return;
+        if (!editing && string.IsNullOrWhiteSpace(FormBranchName)) { FormError = "İlk şube / şantiye adı zorunlu."; return; }
+        var dto = new NewCompany(FormName.Trim(), FormTaxNo, FormTaxOffice, FormAddress, FormPhone, FormEmail, FormAuthorized, FormMaxUsers, FormMaxAdmins, FormMachineQuota);
+        if (!await ConfirmService.AskAsync(editing
+                ? "Firma güncellensin mi?"
+                : $"Firma oluşturulsun mu?\n\n'{FormBranchName.Trim()}' şubesi de bu firmaya bağlı oluşturulacak.", "Kaydet")) return;
         try
         {
             // Yerele yazar + kuyruğa alır; çevrimiçiyse hemen sunucuya işlenir (çevrimdışıysa bekler).
             if (editing) await CompanySyncService.UpdateAsync(EditId!, dto);
-            else await CompanySyncService.CreateAsync(dto);
+            else
+            {
+                var newId = await CompanySyncService.CreateAsync(dto);
+                // Firma oluştu → ilk şubeyi AYNI firmaya bağla. Şube açılamazsa firma kaydı DURUR;
+                // kullanıcıyı yanıltmadan söyle (şube sonradan Şube / Şantiye ekranından eklenebilir).
+                try
+                {
+                    DesktopServices.Branches.Create(_session,
+                        new NewBranch(FormBranchName.Trim(), FormBranchKind == "Şantiye" ? "site" : "branch"), newId);
+                }
+                catch (Exception bex)
+                {
+                    ShowAdd = false; EditId = null;
+                    await Refresh();
+                    Status = $"Firma oluşturuldu, ancak şube oluşturulamadı: {bex.Message} Şube / Şantiye ekranından elle ekleyin.";
+                    return;
+                }
+            }
             ShowAdd = false; EditId = null;
             await Refresh();
-            Status = (editing ? "Firma güncellendi." : "Firma oluşturuldu.") + PendingNote();
+            Status = (editing ? "Firma güncellendi." : $"Firma ve '{FormBranchName.Trim()}' şubesi oluşturuldu.") + PendingNote();
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }

@@ -36,11 +36,48 @@ public sealed partial class UsersViewModel : ViewModelBase
 
     public ObservableCollection<UserRow> Items { get; } = new();
     public ObservableCollection<RolePick> AssignableRoles { get; } = new();
+    /// <summary>Seçili kullanıcıya şube atama listesi — DAİMA oturumun kendi firması.</summary>
     public ObservableCollection<BranchRow> Branches { get; } = new();
+    /// <summary>Yeni kullanıcı formundaki şube listesi — SEÇİLİ firmaya göre (süper admin başka firma seçebilir).
+    /// Atama listesinden ayrıdır; yoksa firma değişince seçili kullanıcının şube kutusu da bozulurdu.</summary>
+    public ObservableCollection<BranchRow> FormBranches { get; } = new();
+
+    /// <summary>Kullanıcı oluştururken firma seçimi — YALNIZ süper adminde görünür (bkz. IsSuperAdmin).
+    /// Süper-admin-altı roller kendi firmasına kilitlidir; servis (RoleAssignmentGuard) da bunu fail-closed zorlar.</summary>
+    public ObservableCollection<CompanyPick> Companies { get; } = new();
+    [ObservableProperty] private CompanyPick? _formCompany;
+
+    /// <summary>Yeni kullanıcının bağlanacağı firma: süper admin seçtiyse o, aksi halde oturumun firması.</summary>
+    private string TargetCompanyId => IsSuperAdmin && FormCompany is not null ? FormCompany.Id : _session.CompanyId;
+    /// <summary>Seçili firma kendi firmamız mı? Personel bağlama yalnız kendi firmasında mümkün
+    /// (PersonnelService tenant'a kilitli — başka firmanın personeli listelenmez).</summary>
+    public bool FormCompanyIsOwn => !IsSuperAdmin || FormCompany is null
+        || string.Equals(FormCompany.Id, _session.CompanyId, StringComparison.Ordinal);
+    /// <summary>Başka firma seçiliyken personel bağlama kutusu gizlenir, yerine açıklama gösterilir.</summary>
+    public bool ShowOtherCompanyPersonnelNote => !FormCompanyIsOwn;
 
     // Yeni kullanıcı formundaki şube + seçili kullanıcıya atanacak şube
     [ObservableProperty] private BranchRow? _formBranch;
     [ObservableProperty] private BranchRow? _assignBranch;
+
+    /// <summary>Firma değişti: şube + personel seçimleri sıfırlanır, listeler yeni firmaya göre yeniden yüklenir
+    /// (aksi halde başka firmanın şubesi seçili kalır ve servis kaydı reddeder).</summary>
+    partial void OnFormCompanyChanged(CompanyPick? value)
+    {
+        FormBranch = null; FormPersonnel = null;
+        LoadFormBranches();
+        LoadLinkablePersonnel();
+        OnPropertyChanged(nameof(FormCompanyIsOwn));
+        OnPropertyChanged(nameof(ShowOtherCompanyPersonnelNote));
+    }
+
+    /// <summary>Form şubelerini SEÇİLİ firmaya göre yükler. BranchService tenant'ı fail-closed çözer:
+    /// süper admin olmayan aktör companyId gönderse de yalnız kendi firmasının şubelerini alır.</summary>
+    private void LoadFormBranches()
+    {
+        FormBranches.Clear();
+        try { foreach (var b in DesktopServices.Branches.List(_session, TargetCompanyId)) FormBranches.Add(b); } catch { }
+    }
 
     [ObservableProperty] private string? _status;
     [ObservableProperty]
@@ -115,12 +152,14 @@ public sealed partial class UsersViewModel : ViewModelBase
     public ObservableCollection<PersonnelRecord> LinkablePersonnel { get; } = new();
     [ObservableProperty] private PersonnelRecord? _formPersonnel;
 
-    /// <summary>Hesabı olmayan personelleri yükler (bir personele tek kullanıcı kuralı).</summary>
+    /// <summary>Hesabı olmayan personelleri yükler (bir personele tek kullanıcı kuralı).
+    /// Başka firma seçiliyse liste BOŞ kalır — personel listesi oturumun firmasına kilitlidir.</summary>
     private void LoadLinkablePersonnel()
     {
+        LinkablePersonnel.Clear();
+        if (!FormCompanyIsOwn) { FormPersonnel = null; return; }
         try
         {
-            LinkablePersonnel.Clear();
             var taken = DesktopServices.Users.AccountsByPersonnel(_session.CompanyId);
             foreach (var p in DesktopServices.Personnel.List(_session, new PageRequest { Limit = 500 }).Items)
                 if (!taken.ContainsKey(p.Id)) LinkablePersonnel.Add(p);
@@ -170,6 +209,14 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (!CanWrite) { Status = "Yetki yok."; return; }
         LoadAssignableRoles();
         NewUsername = ""; NewPassword = ""; NewFullName = ""; FormError = null; FormBranch = null;
+        // Firma seçici (yalnız süper admin) — varsayılan KENDİ firması, böylece şube listesiyle uyumlu başlar.
+        if (IsSuperAdmin)
+        {
+            if (Companies.Count == 0)
+                try { foreach (var (id, name) in DesktopServices.Companies.Selectable(_session)) Companies.Add(new CompanyPick(id, name)); } catch { }
+            FormCompany = Companies.FirstOrDefault(c => c.Id == _session.CompanyId) ?? Companies.FirstOrDefault();
+        }
+        LoadFormBranches();
         FormPersonnel = null; LoadLinkablePersonnel();
         foreach (var r in AssignableRoles) r.IsSelected = false;
         SelectedTemplate = null;
@@ -188,6 +235,7 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (!CanWrite) { FormError = "Yetki yok."; return; }
         if (string.IsNullOrWhiteSpace(NewUsername)) { FormError = "Kullanıcı adı zorunlu."; return; }
         if (string.IsNullOrWhiteSpace(NewPassword) || NewPassword.Length < 4) { FormError = "Şifre en az 4 karakter olmalı."; return; }
+        if (IsSuperAdmin && FormCompany is null) { FormError = "Firma seçin."; return; }
 
         var roles = AssignableRoles.Where(r => r.IsSelected).Select(r => r.Key).ToList();
 
@@ -201,19 +249,21 @@ public sealed partial class UsersViewModel : ViewModelBase
         }
 
         var rolesText = roles.Count == 0 ? "rol YOK (hiçbir ekran görmez)" : string.Join(", ", roles);
+        var companyText = IsSuperAdmin && FormCompany is not null ? $"\nFirma: {FormCompany.Name}" : "";
         if (!await ConfirmService.AskAsync(
-                $"Kullanıcı oluşturulsun mu?\n\nKullanıcı: {NewUsername.Trim()}\nRoller: {rolesText}\n\nModül yetkileri 'Yetkiler' ekranından verilir.", "Kullanıcı Oluştur"))
+                $"Kullanıcı oluşturulsun mu?\n\nKullanıcı: {NewUsername.Trim()}{companyText}\nRoller: {rolesText}\n\nModül yetkileri 'Yetkiler' ekranından verilir.", "Kullanıcı Oluştur"))
             return;
         try
         {
             // Adım 6: operasyonel (personel) kullanıcıda şube/şantiye zorunlu (süper/kısıtlı-süper admin + admin muaf).
-            DesktopServices.Users.ValidateBranchForNewUser(_session, _session.CompanyId, roles, FormBranch?.Id);
+            // Şube, HEDEF firmaya göre doğrulanır — süper admin başka firmaya kullanıcı açabilir.
+            DesktopServices.Users.ValidateBranchForNewUser(_session, TargetCompanyId, roles, FormBranch?.Id);
             var newUserId = DesktopServices.Users.CreateUser(_session, new NewUser(
                 Username: NewUsername.Trim(),
                 Password: NewPassword,
                 FullName: string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim(),
                 RoleKeys: roles,
-                CompanyId: _session.CompanyId,
+                CompanyId: TargetCompanyId,
                 BranchId: FormBranch?.Id,
                 CanViewAllBranches: IsSuperAdmin && NewViewAllBranches,
                 PersonnelId: FormPersonnel?.Id));   // Fikir B: hesabı personele bağla
@@ -317,6 +367,9 @@ public sealed partial class UsersViewModel : ViewModelBase
         catch (Exception ex) { Status = "Atanamadı: " + ex.Message; }
     }
 }
+
+/// <summary>Firma seçici satırı (yalnız süper adminin gördüğü "Firma" kutusu).</summary>
+public sealed record CompanyPick(string Id, string Name);
 
 public sealed partial class RolePick : ObservableObject
 {

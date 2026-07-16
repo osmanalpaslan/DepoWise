@@ -6,7 +6,21 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-12**
+> Son güncelleme: **2026-07-16**
+
+---
+
+## ✅ Kullanıcıda firma seçimi + Firma Tanım'da ilk şube (2026-07-16) — TAMAMLANDI
+
+**Şu an bekleyen iş YOK.** Test **328/328** yeşil (5 yeni tenant testi).
+
+- **Kullanıcı Tanım — firma seçme kutusu (yalnız süper admin):** seçilen firmaya kullanıcı açılır.
+  Web'de kutu vardı ama **şube listesi eski firmadan kalıyordu** (yanlış firmaya şube atama riski) → firma
+  değişince şube listesi yenileniyor. **Masaüstünde kutu hiç yoktu** → eklendi. Personel bağlama yalnız
+  kendi firmasında (personel listesi tenant'a kilitli); başka firmada açıklama gösterilir.
+- **Firma Tanım — "İlk Şube / Şantiye Adı" (yeni firmada zorunlu):** firma ile birlikte o firmaya bağlı
+  şube oluşur. Sebep: şubesiz firmaya kullanıcı açılamıyordu (çıkmaz sokak). Düzenlemede alan gizli.
+- Şube açılamazsa firma kaydı **durur**, kullanıcıya açıkça söylenir (elle ekleyebilir).
 
 ---
 

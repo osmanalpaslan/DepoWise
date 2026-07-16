@@ -29,6 +29,20 @@
                                  Margin="Margin.Dense" Variant="Variant.Outlined" HelperText="Kayıtlı makine sayısı" />
             </MudItem>
             <MudItem xs="12"><MudTextField @bind-Value="_address" Label="Adres" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            @* Yeni firmaya bağlı İLK şube/şantiye — firma şubesiz kalırsa o firmaya kullanıcı açılamaz. *@
+            @if (_editId is null)
+            {
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_branchName" Label="İlk Şube / Şantiye Adı *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                  HelperText="Firma ile birlikte bu şube oluşturulur. Şubesiz firmaya kullanıcı eklenemez; sonradan Şube / Şantiye ekranından yenisi eklenebilir." />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_branchKind" Label="Türü" Margin="Margin.Dense" Variant="Variant.Outlined">
+                        <MudSelectItem T="string" Value="@("branch")">Şube</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("site")">Şantiye</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            }
         </MudGrid>
         <MudStack Row="true" Class="mt-2" Spacing="2">
             <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">
@@ -121,6 +135,7 @@
     private int _maxUsers;
     private int _maxAdmins;
     private int _machineQuota = 3;
+    private string _branchName = "", _branchKind = "branch";   // yeni firmanın ilk şubesi
     private string? _msg; private bool _ok; private bool _busy;
 
     private static string Q(int v) => v <= 0 ? "∞" : v.ToString();
@@ -178,7 +193,7 @@
     {
         _editId = null;
         _name = _taxNo = _taxOffice = _phone = _email = _person = _address = ""; _maxUsers = 0;
-        _maxAdmins = 0; _machineQuota = 3;
+        _maxAdmins = 0; _machineQuota = 3; _branchName = ""; _branchKind = "branch";
         _msg = null;
     }
 
@@ -186,7 +201,10 @@
     {
         _msg = null;
         if (string.IsNullOrWhiteSpace(_name)) { _msg = "Firma adı zorunlu."; _ok = false; return; }
-        if (!await Dialog.Confirm(_editId is null ? "Yeni firma eklensin mi?" : "Firma bilgileri güncellensin mi?")) return;
+        if (_editId is null && string.IsNullOrWhiteSpace(_branchName)) { _msg = "İlk şube / şantiye adı zorunlu."; _ok = false; return; }
+        if (!await Dialog.Confirm(_editId is null
+                ? $"Yeni firma eklensin mi? '{_branchName.Trim()}' şubesi de bu firmaya bağlı oluşturulacak."
+                : "Firma bilgileri güncellensin mi?")) return;
         _busy = true;
         try
         {
@@ -196,10 +214,29 @@
                 address = _address, phone = _phone, email = _email, authorizedPerson = _person,
                 maxUsers = _maxUsers, maxAdmins = _maxAdmins, machineQuota = _machineQuota
             };
-            var err = _editId is null
-                ? await Api.CreateCompanyAsync(body)
-                : await Api.PutAsync($"/api/companies/{_editId}", body);
-            _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
+            string? err;
+            if (_editId is null)
+            {
+                string? newId;
+                (err, newId) = await Api.CreateAsync("/api/companies", body);
+                // Firma oluştu → ilk şubeyi AYNI firmaya bağla (companyId'yi süper admin gönderebilir).
+                if (err is null && !string.IsNullOrEmpty(newId))
+                {
+                    var bErr = await Api.PostAsync("/api/branches",
+                        new { name = _branchName.Trim(), kind = _branchKind, companyId = newId });
+                    if (bErr is not null)
+                    {
+                        // Firma kaydı DURUYOR; yalnız şube açılamadı — kullanıcıyı yanıltmadan söyle.
+                        _ok = false;
+                        _msg = $"Firma eklendi, ancak şube oluşturulamadı: {bErr} Şube / Şantiye ekranından elle ekleyin.";
+                        await Load();
+                        return;
+                    }
+                }
+            }
+            else err = await Api.PutAsync($"/api/companies/{_editId}", body);
+            _ok = err is null;
+            _msg = err ?? (_editId is null ? $"Firma ve '{_branchName.Trim()}' şubesi eklendi." : "Güncellendi.");
             if (_ok) { ClearForm(); await Load(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }

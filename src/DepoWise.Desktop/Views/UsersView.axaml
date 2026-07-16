@@ -35,18 +35,31 @@
                     <ctrl:FormField Label="Ad Soyad" Width="220">
                         <TextBox Classes="Field" Text="{Binding NewFullName}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Şube" Width="220" HelpText="Boş = şubesiz.">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormBranch}">
+                    <!-- Firma seçimi YALNIZ süper adminde görünür; kullanıcı seçilen firmaya bağlı oluşturulur -->
+                    <ctrl:FormField Label="Firma" IsRequired="True" Width="220" IsVisible="{Binding IsSuperAdmin}"
+                                    HelpText="Kullanıcı bu firmaya bağlı oluşturulur. Firma değişince şube listesi yenilenir.">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Companies}" SelectedItem="{Binding FormCompany}">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:CompanyPick"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="14">
+                    <ctrl:FormField Label="Şube" Width="220" HelpText="Seçili firmanın şubeleri. Boş = şubesiz.">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding FormBranches}" SelectedItem="{Binding FormBranch}">
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
                     <!-- Fikir B: hesabı bir PERSONEL kaydına bağla (hesabı olmayan personeller listelenir) -->
-                    <ctrl:FormField Label="Personel seç (bağla)" Width="220"
+                    <ctrl:FormField Label="Personel seç (bağla)" Width="220" IsVisible="{Binding FormCompanyIsOwn}"
                                     HelpText="Bu hesap hangi personele ait? Listede yoksa önce Personel ekranından ekleyin.">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LinkablePersonnel}" SelectedItem="{Binding FormPersonnel}">
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="orgp:PersonnelRecord"><SelectableTextBlock Text="{Binding FullName}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
                     </ctrl:FormField>
+                    <SelectableTextBlock Classes="Helper" Width="240" TextWrapping="Wrap" VerticalAlignment="Center"
+                                         IsVisible="{Binding ShowOtherCompanyPersonnelNote}"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         Text="Başka firma seçili: personel bağlama burada yapılamaz. Kullanıcı oluşturulduktan sonra o firmanın Personel ekranından bağlanabilir."/>
                 </StackPanel>
                 <ctrl:FormField Label="Rol" HelpText="Tek rol seçilir. Rol verilmezse kullanıcı hiçbir ekran görmez (yetkiler ayrıca verilir).">
                     <ItemsControl ItemsSource="{Binding AssignableRoles}">

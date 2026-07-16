@@ -21,19 +21,29 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-15)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-16)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **323/323 yeşil** (`dotnet test`) |
+| **Testler** | **328/328 yeşil** (`dotnet test`) |
 | **Şema** | Migration **043** (`compatible_vehicle_ids` — şablon uyumlu araçlar) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.55 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** — 17-madde + QA alan doğrulamaları tamam; temiz test ortamı hazır |
+| **Bekleyen iş** | **YOK** |
+
+### Kullanıcıda firma seçimi + Firma Tanım'da ilk şube (2026-07-16)
+- **Kullanıcı Tanım:** firma seçme kutusu YALNIZ süper adminde; seçilen firmaya kullanıcı açılır.
+  Firma değişince **şube listesi o firmaya göre yenilenir** (asıl kusur buydu: web'de kutu vardı ama
+  şube listesi eski firmadan kalıyordu). Masaüstünde kutu hiç yoktu → eklendi (`FormBranches` ayrı liste).
+  Personel bağlama yalnız KENDİ firmasında (personel listesi tenant'a kilitli) — başka firmada açıklama gösterilir.
+- **Firma Tanım:** yeni firmada **"İlk Şube / Şantiye Adı" zorunlu**; firma ile birlikte o firmaya bağlı
+  oluşturulur (şubesiz firmaya kullanıcı açılamıyordu). Düzenlemede alan gizli.
+- 5 yeni tenant testi (`UserCompanySelectorTests`): başka firmaya kullanıcı · yabancı şube reddi ·
+  admin'in firma seçememesi · şubesiz firma · firma+ilk şube akışı.
 
 ### QA alan doğrulamaları (2026-07-16)
 Zorunlu: araç şantiye/şube + makul üretim yılı; yakıt/stok personel. Yumuşak uyarı (kullanıcı geçebilir):

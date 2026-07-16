@@ -14,33 +14,51 @@
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_u" Label="Kullanıcı Adı *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_p" Label="Şifre *" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_f" Label="Ad Soyad" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+            @* Firma seçimi YALNIZ süper adminde görünür; seçilen firmaya ait kullanıcı oluşturulur.
+               Firma değişince şube listesi o firmaya göre yeniden yüklenir (yanlış firmaya şube atanmasın). *@
             @if (Auth.IsSuperAdmin)
             {
                 <MudItem xs="12" md="6">
-                    <MudSelect T="string" @bind-Value="_companyId" Label="Firma *" Margin="Margin.Dense" Variant="Variant.Outlined">
+                    <MudSelect T="string" Value="_companyId" ValueChanged="OnCompanyChanged" Label="Firma *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               HelperText="Kullanıcı bu firmaya bağlı oluşturulur.">
                         @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
                     </MudSelect>
                 </MudItem>
             }
             <MudItem xs="12" md="6"><LookupSelect Label="Şube / Şantiye *" @bind-Value="_branch" Items="_branches" /></MudItem>
-            @if (_branches.Count == 0)
+            @if (_branchesLoading)
+            {
+                <MudItem xs="12"><MudProgressLinear Indeterminate="true" Size="Size.Small" /></MudItem>
+            }
+            else if (_branches.Count == 0)
             {
                 <MudItem xs="12">
                     <MudAlert Severity="Severity.Warning" Dense="true">
-                        Bu firmada henüz <b>şube/şantiye</b> yok. Kullanıcı oluşturabilmek için önce
-                        <MudLink Href="branches">Şube / Şantiye</MudLink> ekranından bir şube ekleyin.
+                        @(SelectedIsOwnCompany ? "Bu firmada" : "Seçilen firmada") henüz <b>şube/şantiye</b> yok. Kullanıcı oluşturabilmek için önce
+                        <MudLink Href="branches">Şube / Şantiye</MudLink> ekranından bu firmaya bir şube ekleyin.
                         (Yalnız Süper Admin kullanıcıları şube gerektirmez.)
                     </MudAlert>
                 </MudItem>
             }
 
-            @* Fikir B — Kullanıcıyı bir PERSONEL kaydına bağla (ad soyad tekrar yazılmaz; bir personele tek hesap). *@
+            @* Fikir B — Kullanıcıyı bir PERSONEL kaydına bağla (ad soyad tekrar yazılmaz; bir personele tek hesap).
+               Personel listesi yalnız KENDİ firmanız için gelir; başka firma seçiliyken bağlama kapalıdır. *@
             <MudItem xs="12" md="6">
-                <LookupSelect Label="Personel seç (bağla)" @bind-Value="_personnelId" Items="_personnel" />
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                    Bu hesabın hangi personele ait olduğunu seçin. Listede yoksa önce <b>Personel</b> ekranından ekleyin.
-                    Hesabı olmayan personeller listelenir.
-                </MudText>
+                @if (SelectedIsOwnCompany)
+                {
+                    <LookupSelect Label="Personel seç (bağla)" @bind-Value="_personnelId" Items="_personnel" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Bu hesabın hangi personele ait olduğunu seçin. Listede yoksa önce <b>Personel</b> ekranından ekleyin.
+                        Hesabı olmayan personeller listelenir.
+                    </MudText>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Başka bir firma seçili: personel bağlama burada yapılamaz. Kullanıcı oluşturulduktan sonra
+                        o firmanın <b>Personel</b> ekranından bağlanabilir.
+                    </MudAlert>
+                }
             </MudItem>
 
             @if (Auth.IsSuperAdmin)
@@ -159,25 +177,59 @@
     private string? _selMsg; private bool _selOk;
 
     private JsonElement[]? _rows;
+    private bool _branchesLoading;
+
+    /// <summary>Seçili firma = oturumun kendi firması mı? (Süper admin başka firma seçebilir.)
+    /// Personel bağlama yalnız kendi firmasında mümkün — personel listesi tenant'a kilitli.</summary>
+    private bool SelectedIsOwnCompany => !Auth.IsSuperAdmin || string.IsNullOrEmpty(_companyId) || _companyId == Auth.CompanyId;
 
     protected override async Task OnInitializedAsync()
     {
         try { _roles = await Api.GetRolesAsync(); } catch { }
-        _branches = await Api.OptionsAsync("/api/branches", "id", "name");
         if (Auth.IsSuperAdmin)
         {
-            _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+            _companies = await Api.OptionsAsync("/api/companies/options", "id", "name");
+            _companyId = Auth.CompanyId;   // varsayılan: kendi firması (şube listesiyle uyumlu başlar)
             try { _templates = await Api.GetArrayAsync("/api/permission-templates/for-user"); } catch { }
         }
+        await LoadBranches();
         await LoadPersonnel();
         await Load();
+    }
+
+    /// <summary>Şubeleri SEÇİLİ firmaya göre yükler. Sunucu (BranchService) tenant'ı fail-closed çözer:
+    /// süper admin dışındaki roller companyId gönderse de yalnız kendi firmasının şubelerini görür.</summary>
+    private async Task LoadBranches()
+    {
+        _branchesLoading = true;
+        try
+        {
+            var path = Auth.IsSuperAdmin && !string.IsNullOrEmpty(_companyId)
+                ? $"/api/branches?companyId={Uri.EscapeDataString(_companyId)}"
+                : "/api/branches";
+            _branches = await Api.OptionsAsync(path, "id", "name");
+        }
+        catch { _branches = new(); }
+        finally { _branchesLoading = false; }
+    }
+
+    /// <summary>Firma değişti: şube + personel seçimleri sıfırlanır ve yeni firmaya göre yeniden yüklenir
+    /// (aksi halde başka firmanın şubesi seçili kalır ve sunucu kaydı reddeder).</summary>
+    private async Task OnCompanyChanged(string? companyId)
+    {
+        _companyId = companyId;
+        _branch = null; _personnelId = null; _msg = null;
+        await LoadBranches();
+        await LoadPersonnel();
     }
 
     private async Task Load() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/users"); } catch { _rows = Array.Empty<JsonElement>(); } }
 
     // Bağlanabilir personeller = hesabı OLMAYANLAR (bir personele tek kullanıcı kuralı).
+    // Başka firma seçiliyse liste boştur: /api/personnel yalnız oturumun firmasını döndürür (tenant izolasyonu).
     private async Task LoadPersonnel()
     {
+        if (!SelectedIsOwnCompany) { _personnel = new(); _personnelId = null; return; }
         try
         {
             var rows = await Api.GetArrayAsync("/api/personnel");
@@ -220,13 +272,19 @@
                 catch { }
             }
             _ok = err is null; _msg = err ?? "Oluşturuldu.";
-            if (_ok) { ClearForm(); await Load(); await LoadPersonnel(); }   // bağlanan personel listeden düşer
+            if (_ok) { await ClearForm(); await Load(); await LoadPersonnel(); }   // bağlanan personel listeden düşer
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
     }
 
-    private void ClearForm() { _u = _p = _f = ""; _viewAll = false; _companyId = _branch = _templateId = _role = _personnelId = null; }
+    // Form temizlenince firma KENDİ firmasına döner; şube/personel listeleri buna göre tazelenir.
+    private async Task ClearForm()
+    {
+        _u = _p = _f = ""; _viewAll = false; _branch = _templateId = _role = _personnelId = null;
+        var back = Auth.IsSuperAdmin ? Auth.CompanyId : null;
+        if (_companyId != back) { _companyId = back; await LoadBranches(); await LoadPersonnel(); }
+    }
 
     private bool _selViewAll;
 
