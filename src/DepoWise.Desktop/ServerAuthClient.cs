@@ -163,6 +163,28 @@ public static class ServerAuthClient
         catch { return null; }
     }
 
+    /// <summary>
+    /// ADR-083 — Bu makinenin firması sunucuda KALICI silindi mi? (eşitleme adımında sorulur)
+    /// Dönen: true = silindi (yerel veri temizlenecek), false = duruyor, null = erişilemedi/çevrimdışı.
+    ///
+    /// null ile false AYRI tutulur: çevrimdışı bir makinenin yerel verisini "cevap alamadım" diye
+    /// silmek felaket olur. Silme YALNIZ sunucu açıkça "silindi" dediğinde yapılır (fail-safe).
+    /// </summary>
+    public static async Task<bool?> IsCompanyPurgedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token) || string.IsNullOrWhiteSpace(BaseUrl)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, BaseUrl!.TrimEnd('/') + "/api/sync/purge-status");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.TryGetProperty("purged", out var v) && v.ValueKind == JsonValueKind.True;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Sunucudan güncel kullanıcı imzasını çeker (Token ile). Erişilemezse null.</summary>
     public static async Task<string?> FetchAuthSigAsync()
     {

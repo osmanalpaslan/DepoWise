@@ -58,6 +58,8 @@
 - Stok hareket defteri ana kaynaktır; doğrudan bakiye değiştirme yok.
 - Stok, sayaç, yakıt, bakım ve onayda LWW yasaktır. Operation id + transaction + idempotency kullan.
 - Operasyonel kaydı fiziksel silme; iptal/ters kayıt ve audit kullan.
+  **Tek istisna (ADR-083):** süper adminin web'deki "Kalıcı Silme" ekranı — FİRMA bazlı, geri alınamaz,
+  özel kod + şifre + firma adı teyidi ile; kendi firması silinemez. Başka hiçbir yerde fiziksel silme yok.
 
 ## 5. UI ve yetki
 - Deny-by-default; menü, işlem, alan ve özel buton yetkisi UI ile API'da aynı uygulanır.

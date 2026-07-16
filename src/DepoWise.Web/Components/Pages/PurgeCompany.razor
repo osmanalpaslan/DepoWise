@@ -1,0 +1,206 @@
+@page "/purge-company"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   KALICI SİLME (ADR-083) — GERİ ALINAMAZ. Firma Tanım firmayı PASİFE ALIR; burası TAMAMEN SİLER.
+   Kilit: süper admin + özel kod + şifre + firma adını birebir yazma. Kendi firman silinemez.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Kalıcı Silme — Firma Verisi</MudText>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız Süper Admin içindir.</MudAlert>
+}
+else if (!_unlocked)
+{
+    @* ── KİLİT: özel kod ── *@
+    <MudPaper Class="pa-4" Elevation="2" Style="max-width:480px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" />
+            <MudText Typo="Typo.h6">Özel Kod</MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Bu ekran firma verisini <b>geri alınamaz</b> şekilde siler. Açmak için ilk girişinizde belirlediğiniz
+            <b>özel kodu</b> girin.
+        </MudText>
+        <MudTextField @bind-Value="_code" Label="Özel Kod" InputType="InputType.Password" Margin="Margin.Dense"
+                      Variant="Variant.Outlined" UserAttributes="_newPw" OnKeyUp="OnKeyUnlock" />
+        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" OnClick="Unlock" Disabled="_busy" FullWidth="true">
+            @(_busy ? "Kontrol ediliyor…" : "KİLİDİ AÇ")
+        </MudButton>
+        @if (_lockMsg is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_lockMsg</MudAlert> }
+    </MudPaper>
+}
+else
+{
+    @* ── SİLME FORMU ── *@
+    <MudAlert Severity="Severity.Error" Class="mb-4" Icon="@Icons.Material.Filled.Warning">
+        <b>DİKKAT — bu işlem geri alınamaz.</b> Seçilen firmanın <b>tüm kayıtları</b> (kullanıcılar, şubeler,
+        malzemeler, araçlar, stok hareketleri, fotoğraflar ve sunucu yedekleri) sunucudan <b>kalıcı olarak</b> silinir.
+        Firmanın makinelerindeki yerel veri, o makine bir sonraki girişinde eşitleme adımında silinir.
+        Yalnızca pasife almak istiyorsanız <MudLink Href="companies">Firma Tanım</MudLink> ekranını kullanın.
+    </MudAlert>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:620px;">
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <MudSelect T="string" Value="_companyId" ValueChanged="OnCompanyPicked" Label="Silinecek Firma *"
+                           Margin="Margin.Dense" Variant="Variant.Outlined"
+                           HelperText="Kendi bağlı olduğunuz firma bu listede yoktur (kilitlenmeyi önlemek için).">
+                    @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                </MudSelect>
+                @if (_companies.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Silinebilecek başka firma yok. (Kendi firmanız listelenmez.)
+                    </MudText>
+                }
+            </MudItem>
+
+            @if (!string.IsNullOrEmpty(_companyId))
+            {
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_confirmName" Label="@($"Onay: firma adını birebir yazın — {SelectedName}")"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto"
+                                  Error="@(_confirmName.Length > 0 && _confirmName != SelectedName)"
+                                  ErrorText="Firma adı birebir eşleşmiyor." />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_password" Label="Şifreniz *" InputType="InputType.Password"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_code" Label="Özel Kod *" InputType="InputType.Password"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="ClearForm" Disabled="_busy">Temizle</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever"
+                       OnClick="Purge" Disabled="@(_busy || !CanSubmit)">
+                @(_busy ? "SİLİNİYOR…" : "FİRMAYI VE TÜM VERİSİNİ KALICI SİL")
+            </MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+
+    @* ── Silme künyeleri: ne zaman ne silindi ── *@
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudText Typo="Typo.h6">Kalıcı Silinen Firmalar</MudText><MudSpacer />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadPurges">Yenile</MudButton>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Bu kayıt, firmanın makinelerine "verini sil" haberini taşır — bu yüzden silinmez.
+        </MudText>
+        @if (_purges is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_purges.Length == 0) { <MudText Class="mud-text-secondary">Henüz kalıcı silinen firma yok.</MudText> }
+        else
+        {
+            <MudTable Items="_purges" Dense="true" Hover="true" Striped="true" T="JsonElement">
+                <HeaderContent><MudTh>FİRMA</MudTh><MudTh>SİLİNME ZAMANI</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "companyName")</MudTd>
+                    <MudTd>@Str(context, "purgedAt")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
+}
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private static readonly Dictionary<string, object?> _newPw = new() { ["autocomplete"] = "new-password" };
+
+    private bool _unlocked;
+    private string _code = "", _password = "", _confirmName = "";
+    private string? _companyId;
+    private List<ApiClient.Opt> _companies = new();
+    private JsonElement[]? _purges;
+    private string? _lockMsg, _msg; private bool _ok; private bool _busy;
+
+    private string SelectedName => _companies.FirstOrDefault(c => c.Id == _companyId)?.Name ?? "";
+
+    /// <summary>Silme butonu ancak HER doğrulama tamamsa açılır (yanlış tıklamayı önler).</summary>
+    private bool CanSubmit => !string.IsNullOrEmpty(_companyId)
+        && _confirmName == SelectedName && SelectedName.Length > 0
+        && _password.Length > 0 && _code.Length > 0;
+
+    private async Task OnKeyUnlock(KeyboardEventArgs e) { if (e.Key == "Enter") await Unlock(); }
+
+    /// <summary>Özel kodu SUNUCUDA doğrular (istemcide kod tutulmaz). Sunucu ayrıca her silme isteğinde
+    /// kodu tekrar ister — kilit açmak tek başına yetmez.</summary>
+    private async Task Unlock()
+    {
+        _lockMsg = null;
+        if (string.IsNullOrWhiteSpace(_code)) { _lockMsg = "Özel kodu girin."; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/auth/special-code/verify", new { code = _code });
+            if (err is not null) { _lockMsg = "Özel kod hatalı."; return; }
+            _unlocked = true;
+            await LoadCompanies();
+            await LoadPurges();
+        }
+        catch (Exception ex) { _lockMsg = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    /// <summary>Silinebilir firmalar = KENDİ firman HARİÇ hepsi (sunucu da ayrıca reddeder — çift koruma).</summary>
+    private async Task LoadCompanies()
+    {
+        try
+        {
+            var all = await Api.OptionsAsync("/api/companies/options", "id", "name");
+            _companies = all.Where(c => c.Id != Auth.CompanyId).ToList();
+        }
+        catch { _companies = new(); }
+    }
+
+    private async Task LoadPurges()
+    {
+        _purges = null;
+        try { _purges = await Api.GetArrayAsync("/api/admin/purges"); } catch { _purges = Array.Empty<JsonElement>(); }
+    }
+
+    private void OnCompanyPicked(string? id) { _companyId = id; _confirmName = ""; _msg = null; }
+
+    private void ClearForm() { _companyId = null; _confirmName = ""; _password = ""; _msg = null; }
+
+    private async Task Purge()
+    {
+        _msg = null;
+        if (!CanSubmit) return;
+        var name = SelectedName;
+        // Son kez, açıkça sor — buraya kadar geldiyse kullanıcı ne yaptığını bilmeli.
+        if (!await Dialog.Confirm(
+                $"'{name}' firması ve TÜM verisi kalıcı olarak silinecek.\n\n" +
+                $"Bu işlem GERİ ALINAMAZ. Kullanıcılar, şubeler, malzemeler, araçlar, stok hareketleri, " +
+                $"fotoğraflar ve sunucu yedekleri silinir; bu firmanın kullanıcıları bir daha giriş yapamaz.\n\n" +
+                $"Devam edilsin mi?", "EVET, KALICI SİL", "Vazgeç", danger: true)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/admin/purge-company", new
+            {
+                companyId = _companyId, password = _password, specialCode = _code, confirmName = _confirmName,
+            });
+            _ok = err is null;
+            _msg = err ?? $"'{name}' firması ve tüm verisi kalıcı olarak silindi. Bu firmanın makineleri, bir sonraki girişlerinde eşitleme adımında yerel verilerini silecek.";
+            if (_ok) { ClearForm(); await LoadCompanies(); await LoadPurges(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}

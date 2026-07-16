@@ -27,13 +27,28 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **332/332 yeşil** (`dotnet test`) |
-| **Şema** | Migration **043** (`compatible_vehicle_ids` — şablon uyumlu araçlar) |
+| **Testler** | **341/341 yeşil** (`dotnet test`) |
+| **Şema** | Migration **044** (özel kod + firma silme künyesi — ADR-083) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.57 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### ⚠️ Kalıcı Silme ekranı (2026-07-16, ADR-083) — GERİ ALINAMAZ
+**Ne işe yarar:** Firma Tanım firmayı *pasife alır*; bu yeni ekran firmayı ve TÜM verisini (kullanıcılar,
+şubeler, malzeme, araç, stok, fotoğraflar, sunucu yedekleri) **kalıcı siler**. Temiz test ortamı içindir.
+
+**Nasıl açılır:** Yönetim menüsü → **Kalıcı Silme** (yalnız web, yalnız süper admin). Ekran **özel kod** ile
+açılır. Özel kod, süper adminin **ilk web girişinde** oluşturduğu, şifresinden AYRI bir sırdır; unutulursa
+şifreyle yenisi belirlenir.
+
+**Silme için gereken:** özel kod + şifre + firma adını birebir yazma. **Kendi firmanı silemezsin** (ADR-064/068
+dersi: kilitlenirsin). Silinince geriye yalnız **künye** kalır; o firmanın makineleri bir sonraki girişte
+eşitleme adımında künyeyi görüp **yerel veriyi siler ve login'e döner** → o firmayla artık girilemez.
+Çevrimdışı makinede hiçbir şey silinmez (sunucu "silindi" demedikçe dokunulmaz).
+
+**Masaüstünde:** yeni ekran YOK, login'de özel kod alanı YOK (kullanıcı kararı) — yalnız algılama var.
 
 ### Firma/şube karışmasını önleme — 3 faz (2026-07-16)
 **Faz 1 — Şube ekranı:** firma kutusu "birden çok firma varsa" koşuluna bağlıydı + firma listesi hatası

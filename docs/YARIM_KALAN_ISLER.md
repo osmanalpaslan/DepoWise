@@ -10,6 +10,20 @@
 
 ---
 
+## ✅ Kalıcı Silme ekranı + özel kod (2026-07-16, ADR-083) — TAMAMLANDI
+
+Test **341/341**. Şema **Migration 044**. ⚠️ **GERİ ALINAMAZ** — `CLAUDE.md` §4'ün bilinçli istisnası.
+
+- **Kalıcı Silme** (web, süper-admin-only): firma + TÜM verisi (fotoğraf/yedek dahil) fiziksel silinir.
+  Firma Tanım *pasife alır*; bu ekran *siler*. Kilit: **özel kod + şifre + firma adını birebir yazma**.
+- **Özel kod:** süper adminin ilk web girişinde oluşturulur, hash'lenir; unutulursa şifreyle yenilenir.
+  Kod yoksa ekran açılmaz (fail-closed). Diğer rollerin giriş akışı değişmez.
+- **Kendi firmanı silemezsin** (ADR-064/068: kilitlenme + 401 dersi) — hem serviste hem ekranda engelli.
+- **Masaüstü:** yeni ekran/alan YOK; eşitleme adımı künyeyi görüp yerel veriyi siler → login'e döner.
+  Çevrimdışıysa yerel veriye DOKUNULMAZ (fail-safe).
+
+---
+
 ## ✅ Firma/şube karışmasını önleme — Faz 1-2-3 (2026-07-16) — TAMAMLANDI
 
 Test **332/332**. Kullanıcı şikâyeti: "süper adminken şube ekranında firma kutusu yok; birden çok firma

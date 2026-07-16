@@ -392,6 +392,11 @@ public sealed partial class LoginViewModel : ViewModelBase
             if (!proceed) return false;
         }
 
+        // ADR-083 — KALICI SİLME ALGILAMA: her şeyden ÖNCE. Firma sunucuda kalıcı silindiyse bu makinenin
+        // yerel verisi temizlenir ve login'e dönülür. Kuyruk/push'tan ÖNCE olmalı; aksi halde makine
+        // silinmiş firmanın kayıtlarını sunucuya geri gönderip veriyi diriltir.
+        if (await HandleCompanyPurgeAsync(_authedSession.CompanyId)) return false;
+
         // Şubeler sunucu-otoriteli → her girişte yerel kopyayı sunucuyla aynala (silinenler yerelde de düşer).
         await MirrorServerBranchesLocalAsync(_authedSession.CompanyId);
         // FİRMA: önce çevrimdışı kuyruk sunucuya işlenir, sonra sunucunun listesi yerele aynalanır.
@@ -422,6 +427,45 @@ public sealed partial class LoginViewModel : ViewModelBase
         else RememberMeService.Clear();
         OnLoggedIn?.Invoke(_authedSession);
         return true;
+    }
+
+    /// <summary>
+    /// ADR-083 — Eşitleme adımı: firma sunucuda KALICI silindiyse yerel veriyi temizler ve login'e döner.
+    /// Dönen: true = silindi ve temizlendi (giriş İPTAL), false = devam edilebilir.
+    ///
+    /// Çevrimdışıysa (null) HİÇBİR ŞEY yapılmaz — "cevap alamadım" diye yerel veri silinmez (fail-safe).
+    /// Silme yalnız sunucu açıkça "silindi" dediğinde uygulanır.
+    /// </summary>
+    private async System.Threading.Tasks.Task<bool> HandleCompanyPurgeAsync(string companyId)
+    {
+        bool? purged;
+        try { purged = await ServerAuthClient.IsCompanyPurgedAsync(); }
+        catch { return false; }              // erişilemedi → dokunma
+        if (purged != true) return false;    // false ya da null (çevrimdışı) → dokunma
+
+        Error = "Firma kalıcı silinmiş — bu makinedeki kayıtlar temizleniyor…";
+        int rows = 0;
+        try { rows = LocalPurgeService.PurgeLocalCompany(companyId); }
+        catch (Exception ex)
+        {
+            await ConfirmService.AskAsync(
+                $"Firmanız sunucuda kalıcı olarak silinmiş, ancak bu makinedeki kayıtlar temizlenemedi:\n\n{ex.Message}\n\n" +
+                "Uygulamayı yeniden başlatın; sorun sürerse yöneticinize bildirin.",
+                "Yerel Veri Temizlenemedi", "Tamam", "");
+            return true;   // yine de giriş yaptırma — firma sunucuda yok
+        }
+
+        // "Beni hatırla" kaydı da düşer: silinen firmaya otomatik giriş denenmesin.
+        try { RememberMeService.Clear(); } catch { }
+        DesktopServices.Session = null;
+
+        await ConfirmService.AskAsync(
+            $"Firmanız sunucuda KALICI olarak silinmiştir.\n\n" +
+            $"Bu makinedeki {rows} kayıt temizlendi. Bu firmayla artık giriş yapılamaz.\n\n" +
+            "Bilginiz dışında olduğunu düşünüyorsanız yöneticinize başvurun.",
+            "Firma Silindi", "Tamam", "");
+        Error = null;
+        return true;   // login ekranında kal
     }
 
     // ── SÜPER ADMIN Adım 2 kurulumu + giriş ──

@@ -991,6 +991,97 @@ app.MapPost("/api/settings/developer", (HttpContext c, DeveloperDto d) =>
 
 // ── TEMİZ TEST ORTAMI: tüm operasyonel/tenant kayıtlarını siler; YALNIZ çağıran süper admini + firmasını +
 // sistem rollerini korur (giriş korunur). Süper admin + parola yeniden doğrulama zorunlu. GERİ ALINAMAZ. ──
+// ══════════════════ ÖZEL KOD + FİRMA KALICI SİLME (ADR-083) ══════════════════
+// ⚠️ CLAUDE.md §4 "operasyonel kaydı fiziksel silme" kuralının BİLİNÇLİ istisnası (kullanıcı talebi 2026-07-16).
+// Firma Tanım PASİFE ALIR; burası GERİ ALINAMAZ SİLER. Koruma: süper admin + şifre + özel kod + kendi firması yasak.
+
+/// Özel kod durumu — web login "ilk defa oluştur" ekranını buna göre gösterir.
+app.MapGet("/api/auth/special-code/status", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    // Süper admin DEĞİLSE özel kod kavramı hiç yok → giriş akışı değişmez (required=false).
+    return Results.Ok(new { required = s.IsSuperAdmin, hasCode = s.IsSuperAdmin && svc.SpecialCode.HasCode(s.UserId) });
+}).RequireAuthorization();
+
+/// Özel kod belirle. İLK kez ise şifre istenmez (kullanıcı zaten giriş yapmış); DEĞİŞTİRİRKEN şifre zorunlu
+/// (unutulursa şifreyle sıfırlanabilsin — kullanıcı kararı 2026-07-16).
+app.MapPost("/api/auth/special-code", (HttpContext c, SpecialCodeDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Özel kod yalnız süper adminde bulunur." }, statusCode: 403);
+    var exists = svc.SpecialCode.HasCode(s.UserId);
+    if (exists && !svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+        return Results.Json(new { error = "Özel kodu değiştirmek için şifrenizi doğru girin." }, statusCode: 403);
+    svc.SpecialCode.SetCode(s, d.Code ?? "");
+    return Results.Ok(new { ok = true, replaced = exists });
+}).RequireAuthorization();
+
+/// Kalıcı Silme ekranının kilidi: özel kodu doğrular. Kod yoksa daima false (fail-closed).
+app.MapPost("/api/auth/special-code/verify", (HttpContext c, SpecialCodeDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return svc.SpecialCode.Verify(s, d.Code ?? "")
+        ? Results.Ok(new { ok = true })
+        : Results.Json(new { error = "Özel kod hatalı." }, statusCode: 403);
+}).RequireAuthorization();
+
+/// Kalıcı silinmiş firmaların künyeleri (ekranda "ne zaman ne silindi" listesi).
+app.MapGet("/api/admin/purges", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    return Results.Ok(svc.CompanyPurge.ListPurges(s).Select(p => new
+    {
+        companyId = p.CompanyId, companyName = p.CompanyName, purgedBy = p.PurgedBy,
+        purgedAt = DateTimeOffset.FromUnixTimeMilliseconds(p.PurgedAt).ToLocalTime().ToString("dd.MM.yyyy HH:mm"),
+    }));
+}).RequireAuthorization();
+
+/// Masaüstü eşitleme adımı: "benim firmam kalıcı silindi mi?" → evetse yerel veriyi siler, login'e döner.
+/// Kimliği doğrulanmış her kullanıcı KENDİ firmasını sorabilir (başkasınınkini değil — tenant sızıntısı olmasın).
+app.MapGet("/api/sync/purge-status", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var p = svc.CompanyPurge.GetPurge(s.CompanyId);
+    return Results.Ok(new { purged = p is not null, companyName = p?.CompanyName, purgedAt = p?.PurgedAt });
+}).RequireAuthorization();
+
+/// FİRMA KALICI SİLME — geri alınamaz. Süper admin + şifre + özel kod + firma adı teyidi.
+app.MapPost("/api/admin/purge-company", (HttpContext c, PurgeCompanyDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+        return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
+    if (!svc.SpecialCode.Verify(s, d.SpecialCode ?? ""))
+        return Results.Json(new { error = "Özel kod hatalı." }, statusCode: 403);
+
+    var companyId = d.CompanyId ?? "";
+    var name = svc.CompanyPurge.FindName(companyId);
+    if (name is null) return Results.Json(new { error = "Firma bulunamadı." }, statusCode: 404);
+    // Yanlış firmayı silmeye karşı SON kilit: kullanıcı firma adını birebir yazmalı.
+    if (!string.Equals((d.ConfirmName ?? "").Trim(), name, StringComparison.Ordinal))
+        return Results.Json(new { error = $"Doğrulama başarısız: firma adını birebir yazın ({name})." }, statusCode: 400);
+
+    DepoWise.Infrastructure.Organization.PurgeResult res;
+    try { res = svc.CompanyPurge.Purge(s, companyId); }
+    catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+
+    // Diskteki fotoğraflar (files/{companyId}) + makine yedekleri (backups/{companyId}) de silinir —
+    // "tamamen siler" (kullanıcı kararı) + disk dolması geçmişte tüm sistemi düşürmüştü (ADR-070).
+    int dirsDeleted = 0;
+    foreach (var sub in new[] { "files", "backups" })
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(dataDir, sub, companyId);
+            if (System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
+        }
+        catch { /* dosya silinemese de DB purge'ü geçerli; künye yazıldı */ }
+    }
+    return Results.Ok(new { ok = true, companyName = res.CompanyName, tablesTouched = res.TablesTouched, rowsDeleted = res.RowsDeleted, dirsDeleted });
+}).RequireAuthorization();
+
 app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1795,6 +1886,9 @@ record AlertReadDto(string? Key, string? Signature);
 record GrantLevelDto(Dictionary<string, string>? Levels);
 record RoleGrantDto(Dictionary<string, List<string>>? Blocked);
 record ReauthDto(string? Password);
+// ADR-083 — özel kod + firma kalıcı silme
+record SpecialCodeDto(string? Code, string? Password);
+record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode, string? ConfirmName);
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);

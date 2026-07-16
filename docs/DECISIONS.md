@@ -12,6 +12,45 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-083 — Firma KALICI silme + "özel kod" (16.07.2026, TAMAM — API+web+masaüstü)
+
+> ⚠️ **Bu ADR, `CLAUDE.md` §4'ün "Operasyonel kaydı fiziksel silme; iptal/ters kayıt ve audit kullan"
+> kuralının BİLİNÇLİ ve SINIRLI bir istisnasıdır.** `CLAUDE.md` §1 gereği kullanıcının açık talebi bu
+> dosyanın üstündedir; karar burada kayıt altına alınmıştır.
+
+- **Bağlam:** Kullanıcı sistemi gerçek verilerle uçtan uca test etmek istiyor ve bunun için bir firmanın tüm
+  kayıtlarını hem sunucudan hem makinelerden **tamamen** silebilmesi gerekiyor. Mevcut Firma Tanım ekranı
+  firmayı yalnız **pasife alır** (soft delete) — veri diskte ve makinelerde durmaya devam eder, temiz test
+  ortamı kurulamaz.
+- **Karar:** Yeni **"Kalıcı Silme"** ekranı (yalnız **web**, `purge_company`, süper-admin-only, devredilemez).
+  Seçilen firmanın tüm satırları `company_id` üzerinden fiziksel silinir; fotoğraflar (`files/{id}`) ve makine
+  yedekleri (`backups/{id}`) diskten silinir. **Kapsam yalnız FİRMA bazlıdır** — normal iş akışlarında silme
+  YASAK olmaya devam eder (iptal/ters kayıt + audit).
+- **Kilit (çok katmanlı, fail-closed):** süper admin **+ özel kod + şifre + firma adını birebir yazma**.
+  - **Özel kod:** şifreden AYRI bir sır; yalnız süper adminde vardır, ilk **web** girişinde oluşturulur,
+    `users.special_code_hash`'te **hash**'lenir. Unutulursa süper admin **şifresiyle** yenisi belirlenir
+    (ekran kalıcı kilitlenmesin — kullanıcı kararı). Kod yoksa doğrulama **daima false** (kodsuz ekran açılmaz).
+  - **Kendi firmanı silmek YASAK:** ADR-064'te kendi firmasını silen süper admin sistemden kilitlendi,
+    ADR-068'de oturumu 401'e düştü. Kalıcı silmede telafisi YOK → hem serviste hem ekranda engellenir.
+- **Künye (tombstone) — `company_purges`:** silme sonrası kalan tek iz. Purge sırasında **asla silinmez**.
+  Masaüstü giriş sonrası eşitleme adımında `/api/sync/purge-status` ile bunu sorar; "silinmiş" ise **yerel
+  veriyi temizler ve login'e döner**. Künye olmasaydı çevrimdışı bir makine kendi kopyasını sunucuya geri
+  push edip **veriyi diriltirdi**.
+- **Sıra kritik:** masaüstünde purge kontrolü, çevrimdışı kuyruk (`sync_outbox`) sunucuya **işlenmeden ÖNCE**
+  çalışır — aksi halde makine silinmiş firmanın kayıtlarını geri gönderir.
+- **Fail-safe:** sunucuya erişilemezse (çevrimdışı, `null`) yerel veriye **DOKUNULMAZ**. Silme yalnız sunucu
+  açıkça "silindi" dediğinde uygulanır — "cevap alamadım" yerel veri silme gerekçesi değildir.
+- **Korunanlar:** `schema_migrations`, `sqlite_sequence`, `company_purges` ve sistem rolleri
+  (`roles.company_id IS NULL` = tüm firmalar) — aksi halde purge'den sonra hiçbir firmada rol atanamazdı.
+- **Kapsam dışı (kullanıcı kararı):** masaüstünde **yeni ekran yok** ve **login'de özel kod alanı yok**;
+  masaüstü yalnız silmeyi algılar. Silme işlemi web'den yapılır.
+- **Şema:** Migration **044** (`users.special_code_hash` + `company_purges`).
+- **Test:** `CompanyPurgeTests` (9) — kendi firması silinemez · süper admin olmayan silemez · firma+verisi gider
+  ve künye kalır · silinen firmanın kullanıcısı giriş yapamaz · **başka firmaya dokunmaz** · sistem rolleri
+  korunur · künye yalnız silinmiş firmada döner · özel kod fail-closed/kısa kod reddi/rol kısıtı.
+
+---
+
 ## Faz 00 kararları (2026-06-26)
 
 ### ADR-001 — Çözüm/klasör düzeni

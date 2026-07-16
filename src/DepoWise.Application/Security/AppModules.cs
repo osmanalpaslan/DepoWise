@@ -78,6 +78,7 @@ public static class AppModules
         ("permission_templates", "Yetki Şablonları"),
         ("role_permissions", "Rol Yetki Kontrol"),
         ("server_status", "Canlı Sunucu Durumu"),
+        ("purge_company", "Kalıcı Silme"),          // ADR-083 — geri alınamaz firma silme (web, özel kod ile)
     };
 
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller (Uyarılar ekranı yetkiye göre kendi filtreler).</summary>
@@ -90,7 +91,8 @@ public static class AppModules
     /// </summary>
     public static bool IsSuperAdminOnly(string moduleKey)
         => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates"
-            or "server_status" or "quota_monitor" or "machine_backups" or "role_permissions";
+            or "server_status" or "quota_monitor" or "machine_backups" or "role_permissions"
+            or "purge_company";   // ADR-083 — geri alınamaz silme; devredilemez, yalnız süper admin
 
     /// <summary>
     /// #3 (şema Rol Durumları): Bu modüller alt rollere (Personel) VERİLEMEZ — verilmek istenirse kullanıcı

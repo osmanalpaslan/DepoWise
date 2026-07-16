@@ -19,6 +19,10 @@ public sealed class ServerServices
     public AuthService Auth { get; }
     public UserService Users { get; }
     public DepoWise.Infrastructure.Organization.CompanyService Companies { get; }
+    /// <summary>Firma KALICI silme (ADR-083) — Firma Tanım'ın pasife almasından farklı, geri alınamaz.</summary>
+    public DepoWise.Infrastructure.Organization.CompanyPurgeService CompanyPurge { get; }
+    /// <summary>"Özel kod" — Kalıcı Silme ekranının kilidi (yalnız süper admin).</summary>
+    public SpecialCodeService SpecialCode { get; }
     public DepoWise.Infrastructure.Organization.CompanyGrantService CompanyGrants { get; }
     public DepoWise.Infrastructure.Organization.RoleGrantService RoleGrants { get; }
     public SyncServer Sync { get; }
@@ -70,6 +74,8 @@ public sealed class ServerServices
         Auth = new AuthService(Factory, clock);
         Users = new UserService(Factory, clock);
         Companies = new DepoWise.Infrastructure.Organization.CompanyService(Factory, clock);
+        CompanyPurge = new DepoWise.Infrastructure.Organization.CompanyPurgeService(Factory, clock);
+        SpecialCode = new SpecialCodeService(Factory, clock);
         CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
         RoleGrants = new DepoWise.Infrastructure.Organization.RoleGrantService(Factory, clock);
         Sync = new SyncServer(Factory, clock);

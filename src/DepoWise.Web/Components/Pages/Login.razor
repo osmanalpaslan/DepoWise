@@ -64,6 +64,27 @@
             <button class="dw-btn" @onclick="DoSetPassword" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "ŞİFREYİ BELİRLE")</button>
             <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
         }
+        else if (_step == 5)
+        {
+            @* ÖZEL KOD (ADR-083) — YALNIZ süper adminde ve yalnız ilk kez sorulur.
+               Şifreden AYRI bir sırdır; Kalıcı Silme ekranının kilidini açar. *@
+            <h1 class="dw-title">Özel Kod Oluşturun</h1>
+            <p class="dw-sub">
+                Bu kod, <b>Kalıcı Silme</b> ekranının kilididir — firma verisini geri alınamaz şekilde silen ekran.
+                Şifrenizden ayrı, kendinize saklayacağınız bir kod belirleyin. Unutursanız şifrenizle yenisini belirleyebilirsiniz.
+            </p>
+            <label class="dw-label">Özel Kod</label>
+            <div class="dw-field">
+                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                <input type="password" placeholder="En az 6 karakter" @bind="_code1" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
+            </div>
+            <label class="dw-label">Özel Kod (Tekrar)</label>
+            <div class="dw-field">
+                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                <input type="password" placeholder="••••••" @bind="_code2" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
+            </div>
+            <button class="dw-btn" @onclick="DoSetSpecialCode" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "KODU OLUŞTUR")</button>
+        }
         else if (_step == 2)
         {
             <h1 class="dw-title">Süper Admin</h1>
@@ -256,6 +277,42 @@
 
     private async Task OnKeyPass(KeyboardEventArgs e) { if (e.Key == "Enter") await DoSetPassword(); }
 
+    // ── ÖZEL KOD (ADR-083) — yalnız süper admin, yalnız ilk kez ────────────────────────────────
+    private string _code1 = "", _code2 = "";
+    private async Task OnKeyCode(KeyboardEventArgs e) { if (e.Key == "Enter") await DoSetSpecialCode(); }
+
+    /// <summary>Süper adminin özel kodu var mı? Hata olursa akışı KESME (false) — giriş engellenmemeli;
+    /// kod bir sonraki girişte yine sorulur. Kalıcı Silme ekranı zaten kodsuz açılmaz (fail-closed).</summary>
+    private async Task<bool> NeedsSpecialCodeAsync()
+    {
+        if (!Auth.IsSuperAdmin) return false;
+        try
+        {
+            var st = await Api.GetObjectAsync("/api/auth/special-code/status");
+            var required = st.TryGetProperty("required", out var r) && r.ValueKind == System.Text.Json.JsonValueKind.True;
+            var has = st.TryGetProperty("hasCode", out var h) && h.ValueKind == System.Text.Json.JsonValueKind.True;
+            return required && !has;
+        }
+        catch { return false; }
+    }
+
+    private async Task DoSetSpecialCode()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_code1) || _code1.Trim().Length < 6) { _error = "Özel kod en az 6 karakter olmalı."; return; }
+        if (_code1 != _code2) { _error = "Özel kodlar eşleşmiyor."; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/auth/special-code", new { code = _code1.Trim() });
+            if (err is not null) { _error = "Özel kod kaydedilemedi: " + err; return; }
+            _code1 = ""; _code2 = "";
+            Nav.NavigateTo("/", forceLoad: true);
+        }
+        catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
     // ── ADIM 2: (süper admin) firma seç → o firma bağlamında yeni token + şubeler ──
     private async Task DoStep2()
     {
@@ -321,6 +378,8 @@
             else await LocalStorage.DeleteAsync("dw_remember_user");
             await LocalStorage.SetAsync("dw_auth", $"{Auth.Token}|{Auth.UserId}|{Auth.CompanyId}|{Auth.IsSuperAdmin}|{Auth.BranchId}|{Safe(Auth.CompanyName)}|{Safe(Auth.UserName)}");
             await LocalStorage.SetAsync("dw_ver", DepoWise.Web.AppVersion.Value);
+            // Süper adminin özel kodu yoksa ŞİMDİ oluşturulur (ADR-083). Diğer rollerde bu adım hiç çıkmaz.
+            if (await NeedsSpecialCodeAsync()) { _code1 = ""; _code2 = ""; _step = 5; return; }
             Nav.NavigateTo("/", forceLoad: true);
         }
         catch (Exception ex) { _error = "Bağlantı hatası: " + ex.Message; }
