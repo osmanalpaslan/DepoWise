@@ -144,6 +144,23 @@ VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$dt,$note,$op,$opb,$now,$now
         return id;
     }
 
+    /// <summary>Bu operation_id daha önce işlendi mi? (İÇE AKTARIM için salt-okunur kontrol.)
+    /// Excel içe aktarımı satır başına DETERMİNİSTİK bir operation_id üretir; aynı dosya ikinci kez
+    /// aktarılırsa servis zaten idempotent davranır (yeni kayıt oluşmaz) — bu metot, içe aktarım
+    /// ekranının "eklendi" yerine "zaten vardı, atlandı" diyebilmesi için o durumu ÖNCEDEN görür.</summary>
+    public bool OperationApplied(SessionContext s, string operationId, bool depotEntry)
+    {
+        if (string.IsNullOrWhiteSpace(operationId)) return false;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = depotEntry
+            ? "SELECT COUNT(*) FROM fuel_depot_entries WHERE operation_id=$op AND company_id=$c;"
+            : "SELECT COUNT(*) FROM fuel_distributions WHERE operation_id=$op AND company_id=$c;";
+        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
     /// <summary>Depo bakiyesi = tüm girişler − tüm dağıtımlar (tüm zamanlar, is_deleted=0).</summary>
     public decimal GetDepotBalance(SessionContext s)
     {

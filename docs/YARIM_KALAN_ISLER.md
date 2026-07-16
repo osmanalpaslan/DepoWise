@@ -10,6 +10,27 @@
 
 ---
 
+## ✅ Yakıt içe aktarımı + import kusurları (2026-07-16) — TAMAMLANDI
+
+Test **377/377**. Kullanıcı: "babam Excel'de yakıt tutuyor, içeri almam lazım ama alanlar eksik;
+bütün içe/dışa aktarma sürecini kontrol et, veriler sıkıntı olmadan lazım."
+
+- **⚠️ BULUNAN KUSUR (10 kat sessiz bozulma):** malzeme import'u `Money.Parse` kullanıyordu → Türk Excel'inin
+  `"12,5"` değeri **125** oluyordu (virgül binlik ayırıcı sayılıyordu). Fiyat ve min-stok 10 kat şişiyordu,
+  hata da vermiyordu. **Düzeltildi + 6 regresyon testi.** (`Money.Parse` değiştirilmedi — DB okuması için doğru.)
+- **⚠️ İkinci kusur:** Excel başlıkları harf-duyarlıydı → elde yazılmış "litre" başlığı "Litre" ile eşleşmiyor,
+  satır "zorunlu alan boş" diye sessizce reddediliyordu. Artık **harf duyarsız**.
+- **Yeni: Yakıt Dağıtım + Yakıt Depo Girişi** içe/dışa aktarımı. Yalnız **Araç + Litre zorunlu**; eksik alanlar
+  makul varsayılana düşer. Araç **iç kod veya plaka** ile eşlenir. Depo yetersizse **önceden** uyarılır.
+  **Aynı dosya iki kez aktarılırsa tekrarlanmaz.**
+
+### Kalan (kullanıcı bildirecek)
+- Yakıt dışında başka bir Excel türü çıkarsa kullanıcı haber verecek ("farklı bir şey çıkarsa bilgi veririm").
+- **Araç import'u şubeyi ATAMIYOR** (canlı ekranda şube zorunlu, import'ta boş kalıyor) — kullanıcı isterse eklenir.
+- İmport/Export ekranı **yalnız masaüstünde** var; web'de yok — kullanıcı isterse eklenir.
+
+---
+
 ## ✅ Firma "yerel sıfırlama" isteği (2026-07-16, ADR-084) — TAMAMLANDI
 
 Test **354/354**. Şema **Migration 045**. Kalıcı Silme'den (ADR-083) FARKI: **YIKICI DEĞİL**.

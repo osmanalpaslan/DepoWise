@@ -21,8 +21,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public ObservableCollection<string> ExportItems { get; } = new()
-        { "Malzemeler", "Araçlar", "Personel", "Muayene / Sigorta", "Bakım", "Talepler" };
-    public ObservableCollection<string> ImportItems { get; } = new() { "Malzemeler", "Araçlar", "Bakım", "Muayene / Sigorta" };
+        { "Malzemeler", "Araçlar", "Personel", "Muayene / Sigorta", "Bakım", "Talepler", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
+    public ObservableCollection<string> ImportItems { get; } = new()
+        { "Malzemeler", "Araçlar", "Bakım", "Muayene / Sigorta", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
 
     [ObservableProperty] private string _selectedExport = "Malzemeler";
     [ObservableProperty] private string _selectedImport = "Malzemeler";
@@ -80,20 +81,36 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 "Araçlar" => DesktopServices.VehicleImport.DryRun(_session, rows),
                 "Bakım" => DesktopServices.MaintenanceImport.DryRun(_session, rows),
                 "Muayene / Sigorta" => DesktopServices.InspectionImport.DryRun(_session, rows),
+                "Yakıt Dağıtım" => DesktopServices.FuelImport.DryRun(_session, rows),
+                "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.DryRun(_session, rows),
                 _ => DesktopServices.MaterialImport.DryRun(_session, rows),
             };
+            // Ön kontrol hatalarını ONAY penceresinde göster: kullanıcı "depo yetersiz" / "araç bulunamadı"
+            // gibi engelleri aktarımdan ÖNCE görsün (aksi halde satırlar tek tek patlar).
+            var dryDetail = dry.Errors.Count > 0
+                ? "\n\nÖn kontrol uyarıları:\n" + string.Join("\n", dry.Errors.Take(8).Select(e => e.RowNumber > 0 ? $"• Satır {e.RowNumber}: {e.Message}" : $"• {e.Message}"))
+                  + (dry.Errors.Count > 8 ? $"\n… ve {dry.Errors.Count - 8} uyarı daha" : "")
+                : "";
             if (!await ConfirmService.AskAsync(
-                    $"{dry.Total} satır okundu, {dry.Valid} geçerli, {dry.Failed} hatalı.\nİçe aktarılsın mı?", "İçe Aktar"))
+                    $"{dry.Total} satır okundu, {dry.Valid} geçerli, {dry.Failed} hatalı.{dryDetail}\n\nİçe aktarılsın mı? (hatalı satırlar atlanır)",
+                    "İçe Aktar"))
                 return;
             var res = SelectedImport switch
             {
                 "Araçlar" => DesktopServices.VehicleImport.Commit(_session, rows),
                 "Bakım" => DesktopServices.MaintenanceImport.Commit(_session, rows),
                 "Muayene / Sigorta" => DesktopServices.InspectionImport.Commit(_session, rows),
+                "Yakıt Dağıtım" => DesktopServices.FuelImport.Commit(_session, rows),
+                "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.Commit(_session, rows),
                 _ => DesktopServices.MaterialImport.Commit(_session, rows),
             };
-            ImportResult = $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, güncellenen {res.Updated}, hatalı {res.Failed}."
-                + (res.Errors.Count > 0 ? "\nHatalar:\n" + string.Join("\n", res.Errors.Select(e => $"Satır {e.RowNumber}: {e.Message}")) : "");
+            // Yakıtta "Updated" = zaten vardı, atlandı (aynı dosya tekrar aktarıldı) — kullanıcıya böyle yaz.
+            var isFuel = SelectedImport is "Yakıt Dağıtım" or "Yakıt Depo Girişi";
+            ImportResult = isFuel
+                ? $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, zaten vardı (atlandı) {res.Updated}, hatalı {res.Failed}."
+                : $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, güncellenen {res.Updated}, hatalı {res.Failed}.";
+            if (res.Errors.Count > 0)
+                ImportResult += "\nHatalar:\n" + string.Join("\n", res.Errors.Select(e => e.RowNumber > 0 ? $"Satır {e.RowNumber}: {e.Message}" : e.Message));
             Status = "İçe aktarım tamamlandı.";
         }
         catch (Exception ex) { ImportResult = "İçe aktarılamadı: " + ex.Message; }
@@ -104,6 +121,8 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         "Araçlar" => DesktopServices.VehicleImport.SampleHeaders(),
         "Bakım" => DesktopServices.MaintenanceImport.SampleHeaders(),
         "Muayene / Sigorta" => DesktopServices.InspectionImport.SampleHeaders(),
+        "Yakıt Dağıtım" => DesktopServices.FuelImport.SampleHeaders(),
+        "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.SampleHeaders(),
         _ => DesktopServices.MaterialImport.SampleHeaders(),
     };
 
@@ -131,6 +150,22 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 foreach (var m in DesktopServices.Maintenance.ListMaintenances(_session))
                     rows.Add(new object?[] { m.VehicleCode, m.DefinitionName, m.SubDisplay, m.PerformedDisplay, m.NextDueDisplay, m.StatusText });
                 return new TableModel("Bakım", new[] { "Araç", "Bakım", "Alt Bakım", "Yapılma", "Sonraki", "Durum" }, rows);
+
+            // Yakıt dışa aktarımı, İÇE AKTARIM ŞABLONUYLA AYNI sütunlarda: dışa aktar → Excel'de düzelt →
+            // geri içe aktar akışı çalışsın (sütun adları birebir eşleşmezse import satırı okuyamaz).
+            case "Yakıt Dağıtım":
+                foreach (var f in DesktopServices.Fuel.ListDistributions(_session, 5000))
+                    rows.Add(new object?[] { f.VehicleCode,
+                        DateTimeOffset.FromUnixTimeMilliseconds(f.DistributionDate).LocalDateTime.ToString("dd.MM.yyyy"),
+                        f.Liters, f.CurrentMeter, f.UnitPrice, null, null });
+                return new TableModel("Yakıt Dağıtım", DesktopServices.FuelImport.SampleHeaders().ToArray(), rows);
+
+            case "Yakıt Depo Girişi":
+                foreach (var d in DesktopServices.Fuel.ListDepotEntries(_session, 5000))
+                    rows.Add(new object?[] {
+                        DateTimeOffset.FromUnixTimeMilliseconds(d.EntryDate).LocalDateTime.ToString("dd.MM.yyyy"),
+                        d.Liters, d.UnitPrice, null, d.InvoiceNo, null });
+                return new TableModel("Yakıt Depo Girişi", DesktopServices.FuelDepotImport.SampleHeaders().ToArray(), rows);
 
             case "Talepler":
                 foreach (var r in DesktopServices.Requests.List(_session))

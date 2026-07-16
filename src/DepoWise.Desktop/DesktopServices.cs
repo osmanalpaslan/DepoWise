@@ -67,6 +67,10 @@ public static class DesktopServices
     public static VehicleImportService VehicleImport { get; private set; } = null!;
     public static InspectionImportService InspectionImport { get; private set; } = null!;
     public static MaintenanceImportService MaintenanceImport { get; private set; } = null!;
+    /// <summary>Yakıt DAĞITIM içe aktarımı (araca yakıt verme) — Excel'deki geçmiş kayıtlar.</summary>
+    public static FuelImportService FuelImport { get; private set; } = null!;
+    /// <summary>Yakıt DEPO GİRİŞİ içe aktarımı (satın alma) — dağıtımların kaynağı; depo yetersizse dağıtım reddedilir.</summary>
+    public static FuelDepotImportService FuelDepotImport { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
     public static FileService Files { get; private set; } = null!;
@@ -153,6 +157,9 @@ public static class DesktopServices
         MaintenanceImport = new MaintenanceImportService(Maintenance, MaintenanceDefs, Vehicles);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
+        // Yakıt import'ları Lookups'a bağlı (personel/tedarikçi ada göre eşlenir) → Lookups'tan SONRA kurulur.
+        FuelImport = new FuelImportService(Fuel, Vehicles, Lookups);
+        FuelDepotImport = new FuelDepotImportService(Fuel, Lookups);
         Storage = new LocalFileStorageProvider();
         Files = new FileService(Factory, Storage, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);

@@ -68,8 +68,8 @@ public sealed class MaterialImportService
                     Code: code,
                     Name: Get(row, ColName)!,
                     Type: Get(row, ColType),
-                    MinStock: Money.Parse(Get(row, ColMinStock)),
-                    UnitPrice: Money.Parse(Get(row, ColPrice)),
+                    MinStock: ParseDecimal(Get(row, ColMinStock)) ?? 0m,
+                    UnitPrice: ParseDecimal(Get(row, ColPrice)) ?? 0m,
                     Currency: string.IsNullOrWhiteSpace(Get(row, ColCurrency)) ? "TRY" : Get(row, ColCurrency)!.Trim()));
                 added++;
             }
@@ -86,15 +86,29 @@ public sealed class MaterialImportService
     {
         if (string.IsNullOrWhiteSpace(Get(row, ColCode))) { error = "Kod zorunlu."; return false; }
         if (string.IsNullOrWhiteSpace(Get(row, ColName))) { error = "Ad zorunlu."; return false; }
-        var price = Get(row, ColPrice);
-        if (!string.IsNullOrWhiteSpace(price) && !decimal.TryParse(price, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out _))
-        { error = "Birim Fiyat sayısal olmalı."; return false; }
+        foreach (var col in new[] { ColPrice, ColMinStock })
+        {
+            var raw = Get(row, col);
+            if (!string.IsNullOrWhiteSpace(raw) && ParseDecimal(raw) is null)
+            { error = $"{col} sayısal olmalı: {raw}"; return false; }
+        }
         var cur = Get(row, ColCurrency);
         if (!string.IsNullOrWhiteSpace(cur) && !Money.IsSupported(cur!.Trim()))
         { error = $"Desteklenmeyen para birimi: {cur}"; return false; }
         error = null;
         return true;
     }
+
+    /// <summary>
+    /// Excel'den gelen ondalık sayı. Türk Excel'i virgül yazar ("12,5") — nokta da kabul edilir.
+    ///
+    /// ⚠️ Money.Parse KULLANILMAZ: o, InvariantCulture + NumberStyles.Number ile çalışır ve virgülü BİNLİK
+    /// AYIRICI sayar → "12,5" SESSİZCE 125 olur (10 kat hata). Money.Parse veritabanından okuma içindir
+    /// (orada değerler daima nokta ile saklanır); kullanıcı Excel'i için uygun DEĞİLDİR.
+    /// </summary>
+    private static decimal? ParseDecimal(string? s)
+        => decimal.TryParse(s?.Replace(',', '.').Trim(), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : (decimal?)null;
 
     private static string? Get(ImportRow row, string col)
         => row.Values.TryGetValue(col, out var v) ? v : null;

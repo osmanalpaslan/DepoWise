@@ -28,7 +28,9 @@ public sealed class ExcelExportService
         var result = new List<ImportRow>();
         for (int i = 1; i < rows.Count; i++)
         {
-            var dict = new Dictionary<string, string?>();
+            // Başlıklar BÜYÜK/KÜÇÜK HARF DUYARSIZ eşlenir: elde tutulan Excel'de "litre"/"LİTRE" yazılmış
+            // olabilir; şablondaki "Litre" ile eşleşmezse satır sessizce "zorunlu alan boş" diye reddedilirdi.
+            var dict = new Dictionary<string, string?>(System.StringComparer.OrdinalIgnoreCase);
             for (int c = 0; c < headers.Count; c++)
             {
                 if (string.IsNullOrEmpty(headers[c])) continue;

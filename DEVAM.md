@@ -27,13 +27,28 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **354/354 yeşil** (`dotnet test`) |
+| **Testler** | **377/377 yeşil** (`dotnet test`) |
 | **Şema** | Migration **045** (firma yerel sıfırlama isteği — ADR-084) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.59 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### ⚠️ Yakıt içe aktarımı + İMPORT'TA 10 KAT BOZULMA KUSURU DÜZELTİLDİ (2026-07-16)
+**Bulunan KUSUR (kanıtlandı):** Malzeme içe aktarımı `Money.Parse` kullanıyordu; o InvariantCulture ile
+çalışır ve **virgülü BİNLİK AYIRICI** sayar → Türk Excel'inin `"12,5"` değeri **sessizce 125** oluyordu
+(fiyat/min-stok 10 kat şişiyordu, hata da vermiyordu). Düzeltildi: import kendi `ParseDecimal`'ını kullanıyor
+(virgül→nokta). `Money.Parse` DEĞİŞTİRİLMEDİ — o veritabanı okuması için doğru (orada hep nokta saklanır).
+**İkinci düzeltme:** Excel başlıkları artık büyük/küçük harf duyarsız ("litre" = "Litre") — elde tutulan
+dosyalarda başlık farkı satırı sessizce reddediyordu.
+
+**Yeni: Yakıt içe/dışa aktarımı** (İmport/Export ekranı, masaüstü). İki tür: **Yakıt Dağıtım** (araca yakıt
+verme) + **Yakıt Depo Girişi** (satın alma). Gerçek dünya uyumu: yalnız **Araç + Litre zorunlu**; sayaç boş →
+aracın mevcut sayacı (sayaç bozulmaz), fiyat boş → güncel depo fiyatı, personel/tarih boş → geçilir.
+Araç **iç kod VEYA plaka** ile eşlenir (boşluk/harf duyarsız). Depo yetersizse **DryRun önceden uyarır**
+(kaç litre eksik olduğunu söyler). Satırlar **tarihe göre** işlenir (sayaç zinciri doğru kurulsun).
+**Aynı dosya iki kez aktarılırsa kayıt tekrarlanmaz** (deterministik operation_id). Test: 23 yeni.
 
 ### Firma "yerel sıfırlama" isteği (2026-07-16, ADR-084)
 Sevgi A.Ş. bilgileri/adı web'den güncellendi; 2 yerel makine daha önce bu firmayla giriş yapmıştı.
