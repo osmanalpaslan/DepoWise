@@ -49,5 +49,6 @@ public static class MigrationCatalog
         new Migration042_MustChangePassword(),
         new Migration043_TemplateCompatibleVehicles(),
         new Migration044_SpecialCodeAndPurge(),
+        new Migration045_CompanyLocalReset(),
     };
 }

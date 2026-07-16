@@ -1082,6 +1082,34 @@ app.MapPost("/api/admin/purge-company", (HttpContext c, PurgeCompanyDto d) =>
     return Results.Ok(new { ok = true, companyName = res.CompanyName, tablesTouched = res.TablesTouched, rowsDeleted = res.RowsDeleted, dirsDeleted });
 }).RequireAuthorization();
 
+// ══════════════════ FİRMA YEREL SIFIRLAMA (ADR-084) ══════════════════
+// Kalıcı Silme'den (ADR-083) FARKI: firma sunucuda durur, erişim engellenmez — yalnız o firmanın
+// makineleri bir sonraki (çevrimiçi) girişte yerel kopyalarını bir kez temizler ve sıfırdan yeniden doldurur.
+
+/// Süper admin bir firma için yerel sıfırlama isteği bırakır. Makine o an kapalı/çevrimdışı olsa da isteği
+/// sunucuda BEKLER; makine aktif olup çevrimiçi giriş yaptığında algılanır (bkz. /api/sync/local-reset-status).
+app.MapPost("/api/admin/company-local-reset", (HttpContext c, LocalResetDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    try
+    {
+        var res = svc.CompanyLocalReset.RequestReset(s, d.CompanyId ?? "");
+        return Results.Ok(new { ok = true, requestedAt = res.RequestedAt });
+    }
+    catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
+    catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+    catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
+
+/// Masaüstü eşitleme adımı: "firmam için bekleyen bir yerel sıfırlama isteği var mı?" Yalnız KENDİ firmasını
+/// sorar (companyId istekten değil oturumdan) — tenant sızıntısı olmaz.
+app.MapGet("/api/sync/local-reset-status", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var st = svc.CompanyLocalReset.GetStatus(s.CompanyId);
+    return Results.Ok(new { requestedAt = st?.RequestedAt });
+}).RequireAuthorization();
+
 app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1889,6 +1917,7 @@ record ReauthDto(string? Password);
 // ADR-083 — özel kod + firma kalıcı silme
 record SpecialCodeDto(string? Code, string? Password);
 record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode, string? ConfirmName);
+record LocalResetDto(string? CompanyId);   // ADR-084
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);

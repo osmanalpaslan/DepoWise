@@ -240,7 +240,11 @@ public static class CompanySyncService
         }
         catch { return; }
 
-        var rows = new List<(string Id, string Name)>();
+        // TÜM alanlar aynalanır (2026-07-16 düzeltmesi) — eskiden yalnız id+name aynalanıyordu; web'de firma
+        // adı DIŞINDA bir alan (vergi no, adres, kota…) değişince yerelde SONSUZA KADAR eski kalıyordu.
+        // Bu aynı zamanda ADR-084 "yerel sıfırlama"dan sonra firma satırının BOŞ (NULL/0) kalmamasını sağlar —
+        // sıfırlama sonrası bu metot firma satırını sıfırdan kurarken tüm alanları da doldurmalı.
+        var rows = new List<CompanyMirrorRow>();
         try
         {
             using var resp = await _http.SendAsync(Auth(new HttpRequestMessage(HttpMethod.Get, baseUrl + "/api/companies")));
@@ -249,8 +253,13 @@ public static class CompanySyncService
             if (doc.RootElement.ValueKind != JsonValueKind.Array) return;
             foreach (var el in doc.RootElement.EnumerateArray())
             {
-                var id = Str(el, "id"); var name = Str(el, "name");
-                if (!string.IsNullOrEmpty(id)) rows.Add((id, string.IsNullOrEmpty(name) ? id : name));
+                var id = Str(el, "id");
+                if (string.IsNullOrEmpty(id)) continue;
+                var name = Str(el, "name");
+                rows.Add(new CompanyMirrorRow(id, string.IsNullOrEmpty(name) ? id : name,
+                    NullStr(el, "taxNo"), NullStr(el, "taxOffice"), NullStr(el, "address"),
+                    NullStr(el, "phone"), NullStr(el, "email"), NullStr(el, "authorizedPerson"),
+                    Int(el, "maxUsers"), Int(el, "maxAdmins"), Int(el, "machineQuota")));
             }
         }
         catch { return; }
@@ -259,14 +268,25 @@ public static class CompanySyncService
         try
         {
             using var conn = DesktopServices.Factory.Create();
-            foreach (var (id, name) in rows)
+            foreach (var row in rows)
             {
                 using var c = conn.CreateCommand();
                 c.CommandText =
-                    "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($id,$n,$now,$now,1,0) " +
-                    "ON CONFLICT(id) DO UPDATE SET name=$n, is_deleted=0, updated_at=$now;";
-                c.Parameters.AddWithValue("$id", id);
-                c.Parameters.AddWithValue("$n", name);
+                    "INSERT INTO companies(id,name,tax_no,tax_office,address,phone,email,authorized_person,max_users,max_admins,machine_quota,created_at,updated_at,version,is_deleted) " +
+                    "VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$ma,$mq,$now,$now,1,0) " +
+                    "ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, " +
+                    "email=$em, authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, is_deleted=0, updated_at=$now;";
+                c.Parameters.AddWithValue("$id", row.Id);
+                c.Parameters.AddWithValue("$n", row.Name);
+                c.Parameters.AddWithValue("$tn", (object?)row.TaxNo ?? DBNull.Value);
+                c.Parameters.AddWithValue("$to", (object?)row.TaxOffice ?? DBNull.Value);
+                c.Parameters.AddWithValue("$ad", (object?)row.Address ?? DBNull.Value);
+                c.Parameters.AddWithValue("$ph", (object?)row.Phone ?? DBNull.Value);
+                c.Parameters.AddWithValue("$em", (object?)row.Email ?? DBNull.Value);
+                c.Parameters.AddWithValue("$ap", (object?)row.AuthorizedPerson ?? DBNull.Value);
+                c.Parameters.AddWithValue("$mu", row.MaxUsers);
+                c.Parameters.AddWithValue("$ma", row.MaxAdmins);
+                c.Parameters.AddWithValue("$mq", row.MachineQuota);
                 c.Parameters.AddWithValue("$now", now);
                 c.ExecuteNonQuery();
             }
@@ -290,7 +310,18 @@ public static class CompanySyncService
         catch { }
     }
 
+    private sealed record CompanyMirrorRow(string Id, string Name, string? TaxNo, string? TaxOffice, string? Address,
+        string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers, int MaxAdmins, int MachineQuota);
+
     private static string Str(JsonElement e, string key)
         => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
             ? v.GetString() ?? "" : "";
+    private static string? NullStr(JsonElement e, string key)
+    {
+        var s = Str(e, key);
+        return string.IsNullOrEmpty(s) ? null : s;
+    }
+    private static int Int(JsonElement e, string key)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
+            ? v.GetInt32() : 0;
 }

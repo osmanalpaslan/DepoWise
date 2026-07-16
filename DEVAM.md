@@ -27,13 +27,23 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **347/347 yeşil** (`dotnet test`) |
-| **Şema** | Migration **044** (özel kod + firma silme künyesi — ADR-083) |
+| **Testler** | **354/354 yeşil** (`dotnet test`) |
+| **Şema** | Migration **045** (firma yerel sıfırlama isteği — ADR-084) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.58 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### Firma "yerel sıfırlama" isteği (2026-07-16, ADR-084)
+Sevgi A.Ş. bilgileri/adı web'den güncellendi; 2 yerel makine daha önce bu firmayla giriş yapmıştı.
+**Teşhis:** firma ADI her çevrimiçi girişte zaten otomatik düzeliyordu; ama DİĞER alanlar (vergi/adres/
+kota) hiç aynalanmıyordu → bu oturumda düzeltildi (`CompanySyncService.MirrorLocalAsync` artık TÜM alanları
+aynalıyor). **Yeni özellik:** Firma Tanım listesinde "Yerel Sıfırlama İste" (turuncu ikon, süper-admin-only) —
+firma sunucuda durur/erişim engellenmez, yalnız o firmanın makineleri bir sonraki çevrimiçi girişte yerel
+kopyalarını BİR KEZ temizler ve sıfırdan yeniden doldurur. Makine o an kapalıysa istek sunucuda bekler,
+makine aktif olunca (bugün/yarın fark etmez) algılanır. ADR-083'ten (kalıcı silme) farkı: YIKICI değil,
+özel kod gerekmez, kendi firman için de kullanılabilir. Şema: Migration 045. Test: 7 yeni.
 
 ### Kullanıcı firması değiştirilemez — doğrulandı (2026-07-16)
 Kullanıcı sordu: "kullanıcı oluşmuş ise süper admin dahil hiç kimse firmasını değiştirememeli — yapı böyle mi?"

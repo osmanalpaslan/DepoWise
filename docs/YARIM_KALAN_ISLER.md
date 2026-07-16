@@ -10,6 +10,21 @@
 
 ---
 
+## ✅ Firma "yerel sıfırlama" isteği (2026-07-16, ADR-084) — TAMAMLANDI
+
+Test **354/354**. Şema **Migration 045**. Kalıcı Silme'den (ADR-083) FARKI: **YIKICI DEĞİL**.
+
+- **Firma Tanım** listesine "Yerel Sıfırlama İste" butonu (turuncu ikon, süper-admin-only): o firmanın
+  TÜM makineleri bir sonraki çevrimiçi girişte yerel kopyalarını **bir kez** temizler, sıfırdan yeniden
+  doldurur. **Firma sunucuda durur, erişim engellenmez** — özel kod gerekmez.
+- Makine o an kapalı/çevrimdışı olsa da istek sunucuda **bekler**; makine aktif olup çevrimiçi giriş
+  yaptığında algılanır (bekleme süresi sınırsız).
+- **Yan düzeltme (aynı kökten):** firma bilgisi güncellenince yalnız İSİM yerel makinelere yansıyordu;
+  diğer alanlar (vergi/adres/kota) hiç aynalanmıyordu → artık `CompanySyncService.MirrorLocalAsync` TÜM
+  alanları aynalıyor (bu düzeltme olmadan yeni özellik, sıfırlama sonrası bu alanları boş bırakırdı).
+
+---
+
 ## ✅ Kalıcı Silme ekranı + özel kod (2026-07-16, ADR-083) — TAMAMLANDI
 
 Test **341/341**. Şema **Migration 044**. ⚠️ **GERİ ALINAMAZ** — `CLAUDE.md` §4'ün bilinçli istisnası.

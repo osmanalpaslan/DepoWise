@@ -397,6 +397,11 @@ public sealed partial class LoginViewModel : ViewModelBase
         // silinmiş firmanın kayıtlarını sunucuya geri gönderip veriyi diriltir.
         if (await HandleCompanyPurgeAsync(_authedSession.CompanyId)) return false;
 
+        // ADR-084 — YEREL SIFIRLAMA ALGILAMA: purge kontrolünden hemen sonra, kuyruk/push'tan ÖNCE (aynı
+        // sebep: aksi halde temizlenmeden önceki eski veri sunucuya geri gönderilebilir). Bu, GİRİŞİ
+        // ENGELLEMEZ — yalnız bir kerelik yerel temizlik yapıp normal akışa (yeniden indirme) devam eder.
+        await HandleCompanyLocalResetAsync(_authedSession.CompanyId);
+
         // Şubeler sunucu-otoriteli → her girişte yerel kopyayı sunucuyla aynala (silinenler yerelde de düşer).
         await MirrorServerBranchesLocalAsync(_authedSession.CompanyId);
         // FİRMA: önce çevrimdışı kuyruk sunucuya işlenir, sonra sunucunun listesi yerele aynalanır.
@@ -466,6 +471,28 @@ public sealed partial class LoginViewModel : ViewModelBase
             "Firma Silindi", "Tamam", "");
         Error = null;
         return true;   // login ekranında kal
+    }
+
+    /// <summary>
+    /// ADR-084 — Sunucuda bu firma için bekleyen bir "yerel sıfırlama" isteği varsa VE bu makine onu daha
+    /// önce uygulamadıysa: yerel kayıtları bir kez temizler ve sunucudakiyle eşitler. GİRİŞİ ENGELLEMEZ —
+    /// wipe sonrası aşağıdaki normal senkron adımları (mirror/pull) sıfırdan yeniden doldurur.
+    ///
+    /// Çevrimdışıysa ya da hiç istek yoksa (null) HİÇBİR ŞEY yapılmaz (fail-safe, ADR-083 ile aynı ilke).
+    /// </summary>
+    private async System.Threading.Tasks.Task HandleCompanyLocalResetAsync(string companyId)
+    {
+        long? serverAt;
+        try { serverAt = await ServerAuthClient.GetLocalResetRequestedAtAsync(); }
+        catch { return; }
+        if (serverAt is null) return;                                  // istek yok / erişilemedi → dokunma
+
+        var localAt = LocalResetService.GetAppliedAt(companyId);
+        if (localAt is not null && localAt.Value >= serverAt.Value) return;   // bu istek zaten uygulanmış
+
+        try { LocalPurgeService.PurgeLocalCompany(companyId); }
+        catch { return; }                                              // temizlenemedi → işaretleme, sonraki girişte tekrar denenir
+        LocalResetService.MarkApplied(companyId, serverAt.Value, _authedSession?.UserId ?? "system");
     }
 
     // ── SÜPER ADMIN Adım 2 kurulumu + giriş ──

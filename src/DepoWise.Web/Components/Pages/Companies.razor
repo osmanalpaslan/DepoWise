@@ -79,6 +79,9 @@
                     }
                     @if (Auth.IsSuperAdmin)
                     {
+                        <MudTooltip Text="Bu firmanın makineleri bir sonraki girişte YEREL kopyalarını bir kez temizler (sunucudaki veri etkilenmez).">
+                            <MudIconButton Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.SyncProblem" OnClick="@(() => RequestLocalReset(context))" />
+                        </MudTooltip>
                         <MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="@(() => Delete(context))" />
                     }
                 </MudTd>
@@ -157,6 +160,22 @@
         _email = c.Email ?? ""; _taxOffice = ""; _address = ""; _maxUsers = c.MaxUsers;
         _maxAdmins = c.MaxAdmins; _machineQuota = c.MachineQuota;
         _msg = null;
+    }
+
+    /// <summary>ADR-084 — kalıcı silme DEĞİL: firma sunucuda durur, yalnız o firmanın makineleri bir
+    /// sonraki (çevrimiçi) girişte YEREL kopyalarını bir kez temizler ve sıfırdan yeniden doldurur.
+    /// Makine o an kapalıysa istek sunucuda bekler; makine aktif olunca algılanır.</summary>
+    private async Task RequestLocalReset(CompanyDto c)
+    {
+        if (!await Dialog.Confirm(
+                $"'{c.Name}' firmasının TÜM makineleri için bir kerelik yerel veri sıfırlama isteği bırakılsın mı?\n\n" +
+                $"Sunucudaki veri ETKİLENMEZ. Bu firmanın kullanıcıları bir sonraki (internetli) girişinde, " +
+                $"eşitleme sırasında o makinedeki kayıtlar temizlenir ve sunucudan sıfırdan yeniden indirilir. " +
+                $"Makine şu an kapalıysa istek beklemede kalır; makine açılıp giriş yapıldığında uygulanır.",
+                "Evet, İsteği Bırak")) return;
+        var err = await Api.PostAsync("/api/admin/company-local-reset", new { companyId = c.Id });
+        _ok = err is null;
+        _msg = err ?? $"'{c.Name}' için yerel sıfırlama isteği bırakıldı. Makineler bir sonraki girişte uygulayacak.";
     }
 
     private async Task Delete(CompanyDto c)

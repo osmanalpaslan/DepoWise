@@ -185,6 +185,30 @@ public static class ServerAuthClient
         catch { return null; }
     }
 
+    /// <summary>
+    /// ADR-084 — Bu firma için sunucuda BEKLEYEN bir "yerel sıfırlama" isteği var mı, varsa ne zaman istendi?
+    /// Dönen: istek zamanı (Unix ms) ya da hiç istek yoksa/erişilemezse null.
+    ///
+    /// Kalıcı silmeden (ADR-083, IsCompanyPurgedAsync) FARKI: bu YIKICI/erişim-engelleyici değildir — yalnız
+    /// "en son ne zaman istendi" bilgisini döner; çağıran bunu kendi yerel "en son uyguladım" zamanıyla
+    /// kıyaslayıp bir kerelik mi uygulayacağına karar verir (LocalResetService).
+    /// </summary>
+    public static async Task<long?> GetLocalResetRequestedAtAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Token) || string.IsNullOrWhiteSpace(BaseUrl)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, BaseUrl!.TrimEnd('/') + "/api/sync/local-reset-status");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.TryGetProperty("requestedAt", out var v) && v.ValueKind == JsonValueKind.Number
+                ? v.GetInt64() : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Sunucudan güncel kullanıcı imzasını çeker (Token ile). Erişilemezse null.</summary>
     public static async Task<string?> FetchAuthSigAsync()
     {

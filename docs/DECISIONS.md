@@ -12,6 +12,46 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-084 — Firma "yerel sıfırlama" isteği (16.07.2026, TAMAM — API+web+masaüstü)
+
+- **Bağlam:** Kullanıcı bir firmanın (Sevgi A.Ş.) bilgilerini/adını web'den güncelledi; bu firmayla 2 yerel
+  makinede daha önce giriş yapılmıştı. "Bu bir soruna yol açar mı, ve bu firmanın TÜM yerel kayıtlarını
+  (o makineler o an kapalı olsa bile) bir sonraki girişte bir kerelik temizleyecek bir yapı istiyorum" dedi.
+- **Teşhis (rename'in etkisi):** Kod incelemesi iki ayrı davranış ortaya çıkardı:
+  1. Firma **adı** her çevrimiçi girişte otomatik düzeliyordu (`CompanySyncService.MirrorLocalAsync`,
+     `ON CONFLICT DO UPDATE SET name=...`) — sorun yoktu.
+  2. **Diğer alanlar** (vergi no/dairesi, adres, telefon, e-posta, yetkili, kotalar) hiç aynalanmıyordu —
+     yalnız `id` ve `name` okunup yazılıyordu. Web'de bunlar değişince yerel makinelerde **sonsuza kadar
+     eski** kalıyordu. Bu, gerçek (küçük ama gerçek) bir kusurdu; **aynı oturumda düzeltildi** (aşağıya bkz).
+- **Karar — iki parça:**
+  1. **`MirrorLocalAsync` tüm alanları aynalar** artık (tax_no/tax_office/address/phone/email/
+     authorized_person/max_users/max_admins/machine_quota) — yalnız isim değil. Bu düzeltme olmadan,
+     aşağıdaki yeni özellik firma satırını sıfırladıktan sonra bu alanları **NULL/0** bırakırdı (eskiden
+     "bayat" olan alanlar daha da kötüleşirdi) — bu yüzden ikisi birlikte yapıldı.
+  2. **Yeni "Yerel Sıfırlama" isteği** (`company_local_resets`, Migration **045**) — ADR-083'ten (kalıcı
+     silme) KASITLI olarak FARKLI bir mekanizma: firma **sunucuda durur**, erişim **engellenmez**; yalnız
+     o firmanın makineleri bir sonraki **çevrimiçi** girişte kendi yerel kopyalarını **bir kez** temizleyip
+     yeni-makine-ilk-girişiyle aynı yoldan sıfırdan yeniden doldurur.
+- **Aynı tablo, iki anlam (server ↔ masaüstü):** `company_local_resets` şeması sunucuda VE her masaüstünün
+  kendi yerel SQLite dosyasında **aynıdır** ama farklı yorumlanır: sunucuda "en son istenen zaman", her
+  makinede "BU makinenin en son UYGULADIĞI zaman". Karşılaştırma `sunucu > yerel` ise wipe uygulanır ve
+  yerel satır sunucunun zamanına eşitlenir — böylece istek **tam bir kez** uygulanır, tekrar tekrar değil.
+- **"Makine o an kapalı olabilir" şartı:** İstek EPHEMERAL bir sinyal değil, sunucuda KALICI bir satırdır
+  (silinene kadar durur). Makine hangi zaman çevrimiçi girişe geçerse (bugün, yarın, ay sonra) o zaman
+  algılanır ve uygulanır — bekleme süresi sınırsızdır.
+- **Sıra kritik (ADR-083 ile birebir aynı ilke):** kontrol, çevrimdışı kuyruk/push'tan ÖNCE çalışır — aksi
+  halde makine, henüz temizlenmemiş eski veriyi sunucuya geri gönderirdi.
+- **Silme mantığı ADR-083'teki `LocalPurgeService.PurgeLocalCompany` ile AYNIDIR** (kod tekrarı yok) — tek
+  fark, bu akışta **giriş engellenmez**; wipe sonrası normal senkron adımları (mirror/pull) devam eder.
+- **Kapsam dışı (ADR-083 ile aynı kullanıcı kararı):** masaüstünde yeni ekran yok; buton yalnız **web**
+  Firma Tanım listesinde ("Yerel Sıfırlama İste" ikonu, süper-admin-only). Özel kod GEREKMEZ (bu, ADR-083'ün
+  aksine YIKICI/erişim-engelleyici değildir — sunucu verisi hiç etkilenmez).
+- **Test:** `CompanyLocalResetTests` (7) — istek durumda görünüyor · tekrar istek zamanı güncelliyor ·
+  süper admin olmayan bırakamıyor · olmayan firma reddediliyor · kendi firman İÇİN de istek bırakılabiliyor
+  (ADR-083'ten farkı) · başka firmaya sızmıyor.
+
+---
+
 ### ADR-083 — Firma KALICI silme + "özel kod" (16.07.2026, TAMAM — API+web+masaüstü)
 
 > ⚠️ **Bu ADR, `CLAUDE.md` §4'ün "Operasyonel kaydı fiziksel silme; iptal/ters kayıt ve audit kullan"
