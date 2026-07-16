@@ -31,7 +31,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **045** (firma yerel sıfırlama isteği — ADR-084) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.58 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Masaüstü** | **1.0.59 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
 
