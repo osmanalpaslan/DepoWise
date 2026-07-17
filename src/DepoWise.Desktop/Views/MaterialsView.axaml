@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:local="using:DepoWise.Desktop"
              xmlns:m="using:DepoWise.Infrastructure.Materials"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -9,18 +10,34 @@
              x:Class="DepoWise.Desktop.Views.MaterialsView"
              x:DataType="vm:MaterialsViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
-        <!-- ===== Toolbar: başlık + arama + Ara + Yeni Malzeme ===== -->
+        <!-- ===== Toolbar: başlık + kolon ayarla + sayfa boyutu + Yeni Malzeme ===== -->
         <ctrl:Toolbar Grid.Row="0" Title="Malzemeler"
-                      SearchText="{Binding Search, Mode=TwoWay}"
-                      SearchWatermark="Kod / ad ara..."
                       PrimaryActionText="{Binding AddButtonText}"
                       PrimaryActionCommand="{Binding ToggleAddCommand}">
             <ctrl:Toolbar.FilterContent>
-                <Button Classes="Secondary" Content="Ara" Command="{Binding LoadCommand}"/>
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Classes="Secondary" Content="Kolonları Ayarla" Command="{Binding OpenColumnPickerCommand}"/>
+                    <SelectableTextBlock Text="Sayfa boyutu:" Classes="Caption" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
+                    <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
+                    <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
+                </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
+
+        <!-- ===== Kolon bazlı filtreler — her görünür kolon için "içerir" araması (kullanıcı isteği 2026-07-17) ===== -->
+        <ItemsControl Grid.Row="2" Margin="0,10,0,0" ItemsSource="{Binding FilterFields}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ColumnFilterItem">
+                    <TextBox Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" Width="140" Margin="0,0,8,8"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
         <!-- ===== Yeni Kayıt formu (gruplu) ===== -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
@@ -264,7 +281,7 @@
         </Border>
 
         <!-- ===== Liste + Detay ===== -->
-        <Grid Grid.Row="2" Margin="0,16,0,0" ColumnDefinitions="*,360">
+        <Grid Grid.Row="3" Margin="0,16,0,0" ColumnDefinitions="*,360">
           <Panel Grid.Column="0">
             <!-- Tablo (satır varsa) -->
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
@@ -280,15 +297,44 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c11"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c12"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c13"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
                             </Grid.ColumnDefinitions>
-                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90"/>
-                            <SelectableTextBlock Grid.Column="1" Text="AD" MinWidth="140"/>
-                            <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="90"/>
-                            <SelectableTextBlock Grid.Column="3" Text="BİRİM FİYAT" MinWidth="100"/>
-                            <SelectableTextBlock Grid.Column="4" Text="PARA" MinWidth="56"/>
-                            <SelectableTextBlock Grid.Column="5" Text="MİN STOK" MinWidth="84"/>
-                            <SelectableTextBlock Grid.Column="6" Text="STOK" MinWidth="72"/>
-                            <SelectableTextBlock Grid.Column="7" Text="DURUM" MinWidth="104"/>
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=code}"/>
+                            <SelectableTextBlock Grid.Column="1" Text="AD" MinWidth="140"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=name}"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="90"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=type}"/>
+                            <SelectableTextBlock Grid.Column="3" Text="KATEGORİ" MinWidth="100"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=category}"/>
+                            <SelectableTextBlock Grid.Column="4" Text="BİRİM" MinWidth="80"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unit}"/>
+                            <SelectableTextBlock Grid.Column="5" Text="MARKA" MinWidth="90"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=brand}"/>
+                            <SelectableTextBlock Grid.Column="6" Text="TEDARİKÇİ" MinWidth="100"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=supplier}"/>
+                            <SelectableTextBlock Grid.Column="7" Text="BİRİM FİYAT" MinWidth="100"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unitPrice}"/>
+                            <SelectableTextBlock Grid.Column="8" Text="PARA" MinWidth="56"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=currency}"/>
+                            <SelectableTextBlock Grid.Column="9" Text="MİN STOK" MinWidth="84"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=minStock}"/>
+                            <SelectableTextBlock Grid.Column="10" Text="STOK" MinWidth="72"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=stock}"/>
+                            <SelectableTextBlock Grid.Column="11" Text="DURUM" MinWidth="104"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=status}"/>
+                            <SelectableTextBlock Grid.Column="12" Text="AÇIKLAMA" MinWidth="140"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
+                            <SelectableTextBlock Grid.Column="13" Text="UYUMLU ARAÇLAR" MinWidth="140"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=compatibleVehicles}"/>
+                            <SelectableTextBlock Grid.Column="14" Text="MUADİL MALZEME" MinWidth="140"
+                                       IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=equivalents}"/>
                         </Grid>
                     </Border>
                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
@@ -304,20 +350,55 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c11"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c12"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c13"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
                                     </Grid.ColumnDefinitions>
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=code}"/>
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="140" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=name}"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding TypeDisplay}" MinWidth="90" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeDisplay}"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding UnitPrice}" MinWidth="100" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Currency}" MinWidth="56" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding MinStock}" MinWidth="84" VerticalAlignment="Center"/>
-                                    <SelectableTextBlock Grid.Column="6" Text="{Binding Stock}" MinWidth="72" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                    <ctrl:StatusBadge Grid.Column="7" MinWidth="104" VerticalAlignment="Center"
-                                                      Kind="{Binding StockKind}" Text="{Binding StockText}"/>
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=type}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Category}" MinWidth="100" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Category}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=category}"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Unit}" MinWidth="80" VerticalAlignment="Center"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unit}"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding Brand}" MinWidth="90" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Brand}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=brand}"/>
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding Supplier}" MinWidth="100" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Supplier}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=supplier}"/>
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding UnitPrice}" MinWidth="100" VerticalAlignment="Center"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unitPrice}"/>
+                                    <SelectableTextBlock Grid.Column="8" Text="{Binding Currency}" MinWidth="56" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=currency}"/>
+                                    <SelectableTextBlock Grid.Column="9" Text="{Binding MinStock}" MinWidth="84" VerticalAlignment="Center"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=minStock}"/>
+                                    <SelectableTextBlock Grid.Column="10" Text="{Binding Stock}" MinWidth="72" VerticalAlignment="Center" FontWeight="SemiBold"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=stock}"/>
+                                    <ctrl:StatusBadge Grid.Column="11" MinWidth="104" VerticalAlignment="Center"
+                                                      Kind="{Binding StockKind}" Text="{Binding StockDisplay}"
+                                                      IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=status}"/>
+                                    <SelectableTextBlock Grid.Column="12" Text="{Binding Description}" MinWidth="140" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Description}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
+                                    <SelectableTextBlock Grid.Column="13" Text="{Binding CompatibleVehicles}" MinWidth="140" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CompatibleVehicles}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=compatibleVehicles}"/>
+                                    <SelectableTextBlock Grid.Column="14" Text="{Binding Equivalents}" MinWidth="140" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Equivalents}"
+                                               IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=equivalents}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -434,8 +515,29 @@
           </Border>
         </Grid>
 
-        <!-- Durum satırı -->
-        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0"
-                   Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <!-- Durum satırı + numaralı sayfalama (kullanıcı isteği 2026-07-17: "1,2,3,4... şeklinde sayfa yapısı") -->
+        <Grid Grid.Row="4" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
+            <SelectableTextBlock Grid.Column="0" Text="{Binding Status}"
+                       Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
+                <Button Classes="Secondary" Content="‹" Padding="10,4"
+                        Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
+                <ItemsControl ItemsSource="{Binding PageNumbers}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}" Padding="10,4"
+                                    Classes="Secondary"
+                                    Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).GoToPageCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="Secondary" Content="›" Padding="10,4"
+                        Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

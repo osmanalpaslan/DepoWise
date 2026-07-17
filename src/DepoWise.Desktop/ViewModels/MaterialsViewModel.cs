@@ -9,20 +9,111 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Materials;
 
 namespace DepoWise.Desktop.ViewModels;
 
-/// <summary>Malzemeler ekranı — liste + arama + yeni kayıt. MaterialService üzerine (SQLite).</summary>
+/// <summary>Malzemeler ekranı — liste + kolon bazlı filtre + sayfalama + yeni kayıt. MaterialService üzerine (SQLite).</summary>
 public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
     public ObservableCollection<MaterialRow> Items { get; } = new();
 
-    [ObservableProperty] private string _search = "";
     [ObservableProperty] private string? _status;
+
+    // ── Malzeme Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17) ──
+    public IReadOnlyList<int> PageSizes { get; } = new[] { 25, 50, 100, 200 };
+    [ObservableProperty] private List<string> _visibleColumns = MaterialListColumns.DefaultVisible.ToList();
+    public ObservableCollection<ColumnFilterItem> FilterFields { get; } = new();
+    public ObservableCollection<int> PageNumbers { get; } = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoPrev))]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _page = 1;
+    [ObservableProperty] private int _pageSize = 50;
+    [ObservableProperty] private int _totalCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _totalPages = 1;
+    private bool _suppressPageSizeReload;
+
+    public bool CanGoPrev => Page > 1;
+    public bool CanGoNext => Page < TotalPages;
+
+    partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
+
+    partial void OnPageSizeChanged(int value)
+    {
+        if (_suppressPageSizeReload) return;
+        Page = 1; Load();
+    }
+
+    private void RebuildFilterFields()
+    {
+        var old = FilterFields.ToDictionary(f => f.Key, f => f.Value);
+        FilterFields.Clear();
+        foreach (var key in VisibleColumns)
+        {
+            var label = MaterialListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+            FilterFields.Add(new ColumnFilterItem(key, label) { Value = old.TryGetValue(key, out var v) ? v : "" });
+        }
+    }
+
+    private void RebuildPageNumbers()
+    {
+        PageNumbers.Clear();
+        var start = Math.Max(1, Page - 3);
+        var end = Math.Min(TotalPages, Page + 3);
+        for (var p = start; p <= end; p++) PageNumbers.Add(p);
+    }
+
+    private MaterialGridFilter BuildFilter()
+    {
+        string? V(string key)
+        {
+            var f = FilterFields.FirstOrDefault(x => x.Key == key);
+            return string.IsNullOrWhiteSpace(f?.Value) ? null : f!.Value.Trim();
+        }
+        return new MaterialGridFilter(
+            V(MaterialListColumns.Code), V(MaterialListColumns.Name), V(MaterialListColumns.Type),
+            V(MaterialListColumns.Category), V(MaterialListColumns.Unit), V(MaterialListColumns.Brand),
+            V(MaterialListColumns.Supplier), V(MaterialListColumns.UnitPrice), V(MaterialListColumns.Currency),
+            V(MaterialListColumns.MinStock), V(MaterialListColumns.Stock), V(MaterialListColumns.Status),
+            V(MaterialListColumns.Description), V(MaterialListColumns.CompatibleVehicles), V(MaterialListColumns.Equivalents));
+    }
+
+    [RelayCommand]
+    private void ApplyFilters() { Page = 1; Load(); }
+
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        foreach (var f in FilterFields) f.Value = "";
+        Page = 1; Load();
+    }
+
+    [RelayCommand]
+    private void GoToPage(int page) { Page = page; Load(); }
+
+    [RelayCommand]
+    private void PrevPage() { if (CanGoPrev) { Page--; Load(); } }
+
+    [RelayCommand]
+    private void NextPage() { if (CanGoNext) { Page++; Load(); } }
+
+    [RelayCommand]
+    private async Task OpenColumnPicker()
+    {
+        var available = MaterialListColumns.All.Select(c => (c.Key, c.Label)).ToList();
+        var chosen = await ColumnPickerService.PickAsync(available, VisibleColumns);
+        if (chosen is null) return;
+        VisibleColumns = chosen;
+        DesktopServices.ListPrefs.SaveColumns(_session, "materials", chosen);
+        Load();
+    }
 
     // Liste durumları (Faz 7a — boş/hata; yükleme senkron olduğundan kalıcı değil)
     [ObservableProperty]
@@ -151,6 +242,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
     public MaterialsViewModel(SessionContext session, bool openAdd = false)
     {
         _session = session;
+        var saved = DesktopServices.ListPrefs.GetColumns(session, "materials");
+        VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : MaterialListColumns.DefaultVisible.ToList();
         Load();
         if (openAdd && CanWrite) { ShowAdd = true; LoadLookups(); RefreshEquivalentResults(); }
     }
@@ -162,14 +255,17 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
         {
             LoadError = null;
             Items.Clear();
-            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 200 },
-                string.IsNullOrWhiteSpace(Search) ? null : Search.Trim());
-            foreach (var m in page.Items)
-            {
-                var stock = DesktopServices.OpeningStock.GetBalance(_session, m.Id);
-                Items.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, stock));
-            }
-            Status = $"{Items.Count} kayıt";
+            var grid = DesktopServices.Materials.SearchGrid(_session, BuildFilter(), Page, PageSize);
+            foreach (var m in grid.Items)
+                Items.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, m.Stock,
+                    m.Category ?? "", m.Unit ?? "", m.Brand ?? "", m.Supplier ?? "", m.Status,
+                    m.Description ?? "", m.CompatibleVehicles ?? "", m.Equivalents ?? ""));
+            TotalCount = grid.TotalCount; TotalPages = grid.TotalPages;
+            Page = grid.Page;
+            _suppressPageSizeReload = true;
+            try { PageSize = grid.PageSize; } finally { _suppressPageSizeReload = false; }
+            RebuildPageNumbers();
+            Status = $"{TotalCount} kayıt — sayfa {Page} / {TotalPages}";
         }
         catch (Exception ex)
         {
@@ -622,11 +718,21 @@ public sealed partial class VehiclePick : ObservableObject
     public VehiclePick(string id, string code, string plate) { Id = id; Code = code; Plate = plate; }
 }
 
-public sealed record MaterialRow(string Id, string Code, string Name, string? Type, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock)
+/// <summary>Malzeme Listesi satırı. Son 8 alan ADR 2026-07-17 (kolon bazlı liste) ile eklendi — varsayılan
+/// değerleri sayesinde ESKİ 8-parametreli çağrılar (Muadil Malzeme arama/seçim listeleri) DEĞİŞMEDEN çalışır.</summary>
+public sealed record MaterialRow(string Id, string Code, string Name, string? Type, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock,
+    string Category = "", string Unit = "", string Brand = "", string Supplier = "", string StatusText = "",
+    string Description = "", string CompatibleVehicles = "", string Equivalents = "")
 {
     // Sunum türevleri (mevcut veriden hesap; iş mantığı değişmez)
     public bool IsLowStock => Stock <= MinStock;
-    public string StockText => IsLowStock ? "Düşük" : "Yeterli";
-    public BadgeKind StockKind => IsLowStock ? BadgeKind.Warning : BadgeKind.Success;
+    public string StockDisplay => string.IsNullOrEmpty(StatusText) ? (IsLowStock ? "Düşük" : "Yeterli") : StatusText;
+    public BadgeKind StockKind => StatusText switch
+    {
+        "Stok Yok" => BadgeKind.Danger,
+        "Düşük Stok" => BadgeKind.Warning,
+        "Yeterli" => BadgeKind.Success,
+        _ => IsLowStock ? BadgeKind.Warning : BadgeKind.Success,
+    };
     public string TypeDisplay => string.IsNullOrWhiteSpace(Type) ? "—" : Type!;
 }

@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DepoWise.Desktop.ViewModels"
+        x:Class="DepoWise.Desktop.Views.ColumnPickerWindow"
+        Width="360" SizeToContent="Height" MaxHeight="600" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Title="DepoWise" Icon="/Assets/app-logo.ico"
+        Background="{DynamicResource SurfaceBrush}">
+    <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
+        <StackPanel Margin="24" Spacing="12">
+            <SelectableTextBlock x:Name="TitleText" Text="Kolonları Ayarla" Classes="PageTitle"/>
+            <SelectableTextBlock Text="Bu listede gösterilecek kolonları seçin. Bu seçim yalnız sizin için geçerlidir."
+                                  Classes="Body" TextWrapping="Wrap"/>
+            <ScrollViewer MaxHeight="380">
+                <ItemsControl x:Name="Items">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ColumnPickItem">
+                            <CheckBox IsChecked="{Binding Checked}" Content="{Binding Label}" Margin="0,4"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                <Button x:Name="CancelBtn" Classes="Secondary" Content="Vazgeç" IsCancel="True"/>
+                <Button x:Name="OkBtn" Classes="Primary" Content="Kaydet" IsDefault="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

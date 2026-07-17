@@ -24,6 +24,21 @@ public sealed record VehicleListRow(
     public override string ToString() => Display;
 }
 
+/// <summary>Araç listesi (kolon-bazlı filtre + sayfalama) satırı — <see cref="DepoWise.Application.Ui.VehicleListColumns"/>'taki
+/// HER kolonun görüntü değerini taşır; "Bakım/Muayene" uyarısı BURADA yoktur (ekran kendi hesaplar).</summary>
+public sealed record VehicleGridRow(
+    string Id, string InternalCode, string? Plate, int? ProductionYear, decimal Meter, string MeterUnit,
+    string Status, string StatusLabel, string? StatusNote, string? VehicleType, string? Category, string? Brand,
+    string? Model, string? Branch, string? Driver, string? ChassisNo, string? EngineNo);
+
+/// <summary>Her alan için kullanıcının o kolona yazdığı filtre metni. Sıra
+/// <see cref="DepoWise.Application.Ui.VehicleListColumns.All"/> ile AYNIDIR.</summary>
+public sealed record VehicleGridFilter(
+    string? InternalCode = null, string? Plate = null, string? ProductionYear = null, string? Meter = null,
+    string? Status = null, string? StatusNote = null, string? VehicleType = null, string? Category = null,
+    string? Brand = null, string? Model = null, string? Branch = null, string? Driver = null,
+    string? ChassisNo = null, string? EngineNo = null);
+
 public sealed record VehicleDetail(
     string Id, string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string MeterUnit,
     string Status, string? StatusNote, string? ChassisNo, string? EngineNo,
@@ -192,6 +207,85 @@ ORDER BY internal_code LIMIT $lim;";
                 r.GetString(3), Money.Parse(r.GetString(4)), r.GetString(5),
                 r.IsDBNull(6) ? (int?)null : r.GetInt32(6)));
         return list;
+    }
+
+    private const string GridInnerSql = @"
+SELECT v.id AS id, v.internal_code AS internal_code, v.plate AS plate, v.production_year AS production_year,
+       v.current_meter AS meter_raw, v.meter_unit AS meter_unit,
+       printf('%.2f', CAST(v.current_meter AS REAL)) || ' ' || v.meter_unit AS meter_text,
+       v.status AS status,
+       CASE v.status WHEN 'active' THEN 'Aktif' WHEN 'passive' THEN 'Pasif' WHEN 'maintenance' THEN 'Bakımda'
+            WHEN 'faulty' THEN 'Arızalı' ELSE v.status END AS status_label,
+       COALESCE(v.status_note,'') AS status_note,
+       COALESCE(vt.name,'') AS vehicle_type, COALESCE(vc.name,'') AS category, COALESCE(b.name,'') AS brand,
+       COALESCE(vm.name,'') AS model, COALESCE(br.name,'') AS branch, COALESCE(p.full_name,'') AS driver,
+       COALESCE(v.chassis_no,'') AS chassis_no, COALESCE(v.engine_no,'') AS engine_no
+FROM vehicles v
+LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+LEFT JOIN vehicle_categories vc ON vc.id = v.category_id
+LEFT JOIN brands b ON b.id = v.brand_id
+LEFT JOIN vehicle_models vm ON vm.id = v.vehicle_model_id
+LEFT JOIN branches br ON br.id = v.branch_id
+LEFT JOIN personnel p ON p.id = v.driver_personnel_id
+WHERE v.company_id = $c AND v.is_deleted = 0";
+
+    /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17) — bkz.
+    /// <see cref="Materials.MaterialService.SearchGrid"/> (aynı desen, <c>GridQuery</c> paylaşılır).
+    /// "Durum" filtresi Türkçe ETİKETE göre arar (status_label, ör. "Aktif") — ekran zaten yalnız etiketi
+    /// gösterir, kullanıcı ham koda ("active") hiç erişmez.</summary>
+    public GridResult<VehicleGridRow> SearchGrid(SessionContext s, VehicleGridFilter filter, int page, int pageSize)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        var cols = new[]
+        {
+            new GridQuery.ColumnFilter("t.internal_code", filter.InternalCode),
+            new GridQuery.ColumnFilter("t.plate", filter.Plate),
+            new GridQuery.ColumnFilter("t.production_year", filter.ProductionYear),
+            new GridQuery.ColumnFilter("t.meter_text", filter.Meter),
+            new GridQuery.ColumnFilter("t.status_label", filter.Status),
+            new GridQuery.ColumnFilter("t.status_note", filter.StatusNote),
+            new GridQuery.ColumnFilter("t.vehicle_type", filter.VehicleType),
+            new GridQuery.ColumnFilter("t.category", filter.Category),
+            new GridQuery.ColumnFilter("t.brand", filter.Brand),
+            new GridQuery.ColumnFilter("t.model", filter.Model),
+            new GridQuery.ColumnFilter("t.branch", filter.Branch),
+            new GridQuery.ColumnFilter("t.driver", filter.Driver),
+            new GridQuery.ColumnFilter("t.chassis_no", filter.ChassisNo),
+            new GridQuery.ColumnFilter("t.engine_no", filter.EngineNo),
+        };
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.internal_code");
+
+        using var conn = _factory.Create();
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
+            cnt.Parameters.AddWithValue("$c", s.CompanyId);
+            GridQuery.AddParams(cnt, ps);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        var items = new List<VehicleGridRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT $lim OFFSET $off;";
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            GridQuery.AddParams(cmd, ps);
+            cmd.Parameters.AddWithValue("$lim", pageSize);
+            cmd.Parameters.AddWithValue("$off", (page - 1) * pageSize);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                items.Add(new VehicleGridRow(
+                    r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+                    r.IsDBNull(3) ? (int?)null : r.GetInt32(3), Money.Parse(r.GetString(4)), r.GetString(5),
+                    r.GetString(7), r.GetString(8), r.GetString(9),
+                    r.GetString(10), r.GetString(11), r.GetString(12), r.GetString(13), r.GetString(14),
+                    r.GetString(15), r.GetString(16), r.GetString(17)));
+        }
+        return new GridResult<VehicleGridRow>(items, total, page, pageSize);
     }
 
     /// <summary>Tek araç detayı (salt okuma) — düzenleme formu için.</summary>

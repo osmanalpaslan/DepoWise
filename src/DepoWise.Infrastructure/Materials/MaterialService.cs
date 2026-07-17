@@ -1,6 +1,7 @@
 using System.Globalization;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Database;
 using Microsoft.Data.Sqlite;
 
@@ -19,6 +20,21 @@ public sealed record MaterialRecord(
 public sealed record MaterialStock(string MaterialId, string Code, string Name, decimal Quantity);
 
 public sealed record MaterialRefRow(string Id, string Code, string Name);
+
+/// <summary>Malzeme listesi (kolon-bazlı filtre + sayfalama) satırı — <see cref="MaterialListColumns"/>'taki
+/// HER kolonun görüntü değerini taşır; ekran hangi kolonları göstereceğine kendi tercihine göre karar verir.</summary>
+public sealed record MaterialGridRow(
+    string Id, string Code, string Name, string? Type, string? Category, string? Unit, string? Brand,
+    string? Supplier, decimal UnitPrice, string Currency, decimal MinStock, decimal Stock, string Status,
+    string? Description, string? CompatibleVehicles, string? Equivalents);
+
+/// <summary>Her alan için kullanıcının o kolona yazdığı filtre metni (boş/null = filtre yok). Sıra
+/// <see cref="MaterialListColumns.All"/> ile AYNIDIR (birden çok filtre aktifken deterministik öncelik).</summary>
+public sealed record MaterialGridFilter(
+    string? Code = null, string? Name = null, string? Type = null, string? Category = null, string? Unit = null,
+    string? Brand = null, string? Supplier = null, string? UnitPrice = null, string? Currency = null,
+    string? MinStock = null, string? Stock = null, string? Status = null, string? Description = null,
+    string? CompatibleVehicles = null, string? Equivalents = null);
 
 public sealed record MaterialDetail(
     string Id, string Code, string Name, string? Type,
@@ -386,6 +402,89 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
             next = new Cursor(last.CreatedAt, last.Id).Encode();
         }
         return PagedResult<MaterialRecord>.Of(items, next);
+    }
+
+    private const string GridInnerSql = @"
+SELECT m.id AS id, m.code AS code, m.name AS name, COALESCE(m.type,'') AS type,
+       COALESCE(mc.name,'') AS category, COALESCE(u.name,'') AS unit, COALESCE(b.name,'') AS brand,
+       COALESCE(sup.name,'') AS supplier,
+       m.unit_price AS unit_price_raw, printf('%.2f', CAST(m.unit_price AS REAL)) AS unit_price_text,
+       m.currency_code AS currency,
+       m.min_stock AS min_stock_raw, printf('%.2f', CAST(m.min_stock AS REAL)) AS min_stock_text,
+       COALESCE(sb.quantity,'0') AS stock_raw, printf('%.2f', CAST(COALESCE(sb.quantity,'0') AS REAL)) AS stock_text,
+       CASE WHEN CAST(COALESCE(sb.quantity,'0') AS REAL) <= 0 THEN 'Stok Yok'
+            WHEN CAST(COALESCE(sb.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) THEN 'Düşük Stok'
+            ELSE 'Yeterli' END AS status,
+       COALESCE(m.description,'') AS description,
+       COALESCE((SELECT GROUP_CONCAT(v.internal_code, ', ') FROM material_compatible_vehicles mcv
+                 JOIN vehicles v ON v.id = mcv.vehicle_id WHERE mcv.material_id = m.id), '') AS compatible_vehicles,
+       COALESCE((SELECT GROUP_CONCAT(m2.code, ', ') FROM material_equivalents me
+                 JOIN materials m2 ON m2.id = me.equivalent_material_id WHERE me.material_id = m.id), '') AS equivalents
+FROM materials m
+LEFT JOIN material_categories mc ON mc.id = m.category_id
+LEFT JOIN units u ON u.id = m.unit_id
+LEFT JOIN brands b ON b.id = m.brand_id
+LEFT JOIN suppliers sup ON sup.id = m.supplier_id
+LEFT JOIN stock_balances sb ON sb.material_id = m.id
+WHERE m.company_id = $c AND m.is_deleted = 0";
+
+    /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Her filtre alanı
+    /// "içerir" araması yapar; birden çok filtre aktifken sıralama, doldurulan alanların
+    /// <see cref="MaterialListColumns.All"/>'daki SIRASINA göre "başlangıca göre" önceliklidir (GridQuery).</summary>
+    public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        var cols = new[]
+        {
+            new GridQuery.ColumnFilter("t.code", filter.Code),
+            new GridQuery.ColumnFilter("t.name", filter.Name),
+            new GridQuery.ColumnFilter("t.type", filter.Type),
+            new GridQuery.ColumnFilter("t.category", filter.Category),
+            new GridQuery.ColumnFilter("t.unit", filter.Unit),
+            new GridQuery.ColumnFilter("t.brand", filter.Brand),
+            new GridQuery.ColumnFilter("t.supplier", filter.Supplier),
+            new GridQuery.ColumnFilter("t.unit_price_text", filter.UnitPrice),
+            new GridQuery.ColumnFilter("t.currency", filter.Currency),
+            new GridQuery.ColumnFilter("t.min_stock_text", filter.MinStock),
+            new GridQuery.ColumnFilter("t.stock_text", filter.Stock),
+            new GridQuery.ColumnFilter("t.status", filter.Status),
+            new GridQuery.ColumnFilter("t.description", filter.Description),
+            new GridQuery.ColumnFilter("t.compatible_vehicles", filter.CompatibleVehicles),
+            new GridQuery.ColumnFilter("t.equivalents", filter.Equivalents),
+        };
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code");
+
+        using var conn = _factory.Create();
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
+            cnt.Parameters.AddWithValue("$c", s.CompanyId);
+            GridQuery.AddParams(cnt, ps);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        var items = new List<MaterialGridRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT $lim OFFSET $off;";
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            GridQuery.AddParams(cmd, ps);
+            cmd.Parameters.AddWithValue("$lim", pageSize);
+            cmd.Parameters.AddWithValue("$off", (page - 1) * pageSize);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                items.Add(new MaterialGridRow(
+                    r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3),
+                    r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
+                    Money.Parse(r.GetString(8)), r.GetString(10),
+                    Money.Parse(r.GetString(11)), Money.Parse(r.GetString(13)),
+                    r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
+        }
+        return new GridResult<MaterialGridRow>(items, total, page, pageSize);
     }
 
     private static bool CodeExists(SqliteConnection conn, SqliteTransaction? tx, string companyId, string code, string? excludeId)

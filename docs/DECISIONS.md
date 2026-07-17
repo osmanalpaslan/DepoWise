@@ -12,6 +12,53 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-087 — Malzeme/Araç Listesi: kolon bazlı filtre + sayfalama + kişisel kolon seçimi (17.07.2026, TAMAM — infra+API+web+masaüstü)
+
+- **Bağlam:** Kullanıcı, malzeme dosyasını (2507 satır) düzeltip içeri aldıktan sonra fark etti: "2600 üstünde
+  kayıt olduğu için geliştirme gerekli." İstek üç parça: (1) sütun bazlı filtreler ("içerir" + "başlangıca
+  göre" arama), (2) sayfa boyutu seçimi + numaralı (1,2,3…) sayfalama, (3) — soru sorulup netleştirilince —
+  hangi kolonların gösterileceğini sağ tık → "Kolonları Ayarla" ile seçebilme, **kişiye özel** (kullanıcı: "bu
+  ayar işlemleri her kullanıcıya özel olsun, farklı kullanıcıda görünmesin").
+- **Gizli kusur ortaya çıktı:** Malzeme/Araç LİSTE EKRANLARI da (import/export'tan bağımsız olarak)
+  `MaterialService.List`/`VehicleService.List`'in **200 satır varsayılanına** dayanıyordu — 2600+ kayıtlı bir
+  firmada liste ekranı sessizce yalnız ilk 200'ü gösteriyordu. Yeni `SearchGrid` uçları bunu ATLAR (gerçek
+  `COUNT(*)` + `LIMIT/OFFSET`); eski `List(search)` uçları DOKUNULMADAN kaldı (Stok/Talep/Bakım gibi ekranlardaki
+  hızlı-arama seçiciler onu kullanır).
+- **Kolon kataloğu — TEK KAYNAK:** `DepoWise.Application/Ui/ListColumns.cs` (`MaterialListColumns`,
+  `VehicleListColumns` — anahtar+etiket+varsayılan-görünür listesi). Web'in Application'a referansı olmadığından
+  aynı liste `DepoWise.Web/Services/ListColumns.cs`'te AYNADIR (VehicleStatus ile aynı ikiz-dosya deseni).
+  Kapsam = yeni kayıt formundaki HER alan, fotoğraf HARİÇ (kullanıcı isteği); "Açılış Stok" da BİLİNÇLİ OLARAK
+  yok (kartın kalıcı alanı değil, yalnız kayıt anındaki bir hareket) — "Şablon" alanı da yok (form doldurma
+  kolaylığı, kalıcı alan değil — malzeme içe aktarımındaki "Şablon" istisnasıyla AYNI gerekçe).
+- **Sorgu motoru — `GridQuery` (Infrastructure/Database, paylaşılan):** her filtre alanı "içerir" (`LIKE
+  '%terim%'`) arar; birden çok filtre aktifken "başlangıca göre" önceliği DETERMİNİSTİK sırayla uygulanır
+  (kataloğun sabit sırasına göre, hangi kutunun önce doldurulduğuna bakılmaksızın). Hesaplanan/join'lenmiş
+  kolonlar (stok bakiyesi, durum etiketi, uyumlu araç listesi gibi) SQL WHERE'de doğrudan kullanılamadığından
+  (`SELECT * FROM (iç sorgu) t WHERE ...`) derived-table sarma deseni kullanılır — ham VE hesaplanan HER kolon
+  aynı filtre/sıralama mantığından geçer. `MaterialService.SearchGrid` / `VehicleService.SearchGrid` bu deseni
+  kullanır; `GridResult<T>` (Items+TotalCount+Page+PageSize+TotalPages) numaralı sayfalamayı besler.
+- **Kolon tercihi — KİŞİSEL (Migration 047, `user_list_preferences`):** anahtar `(user_id, list_key)` — FİRMA
+  değil, doğrudan kullanıcı (aynı firmadaki iki kullanıcı bile birbirinin seçimini görmez). Web: sunucu tarafında
+  (`GET/POST /api/me/list-columns/{listKey}`, oturumdan user_id zorlanır). Masaüstü: KENDİ yerel SQLite'ında
+  (aynı migration, ayrı anlam — dual-schema deseni ama bu kez "sunucu/yerel" değil "web/masaüstü" ayrımı; iki
+  taraf SENKRONLANMAZ, kasıtlı — bir kullanıcının web'deki kolon seçimi masaüstünü etkilemez, ekranlar farklı
+  kolon setleri sunabilir).
+- **UI:** Web (MudBlazor) — her görünür kolon için `MudTextField` filtre kutusu + `MudPagination` (native
+  numaralı sayfalama) + sağ-tık (`@oncontextmenu`) açılan `ColumnPickerDialog`. Masaüstü (Avalonia) — MudTable
+  yok; kolon görünürlüğü SABİT XAML kolonları + yeni `Conv.ColumnVisible` converter (Auto+SharedSizeGroup kolon,
+  görünmeyince 0'a çöker) ile çözüldü; sayfalama Prev/Next + numaralı buton `ItemsControl`; kolon seçici
+  `ColumnPickerWindow` (ConfirmWindow ile AYNI modal desen). `MaterialRow`/`VehicleRow` eski 8-parametreli
+  çağrılarla (Muadil Malzeme seçici) GERİYE UYUMLU — yeni alanlar varsayılan değerli, sonuna eklendi.
+- **Test:** `MaterialGridTests` (12) + `VehicleGridTests` (7) + `UserListPreferenceTests` (5) — içerir arama,
+  başlangıca göre öncelik, büyük/küçük harf duyarsız, birden çok filtre birleşimi, join'li/hesaplanan kolon
+  filtresi, sayfalama (toplam/sayfa sayısı/tekrarsız/sınır kırpma), tenant izolasyonu, kişisel tercih izolasyonu.
+  497/497.
+- **⚠️ Masaüstü UI görsel olarak doğrulanamadı** (bu ortamda Avalonia masaüstü uygulamasını çalıştırıp
+  etkileşimli test edecek bir araç yok) — yalnız temiz derleme + backend testleriyle güvence alındı. Web tarafı
+  gerçek tarayıcıda uçtan uca doğrulandı (filtre/sayfalama/kolon seçimi/kalıcılık).
+
+---
+
 ### ADR-086 — Açılış stoğu NEGATİF olabilir (17.07.2026, TAMAM — infra+API+web+masaüstü)
 
 > ⚠️ Bu, `CLAUDE.md` §4 "negatif stok" değişmezinin BİLİNÇLİ ve SINIRLI bir yorumudur. Kullanıcının açık

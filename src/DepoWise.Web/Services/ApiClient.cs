@@ -310,6 +310,40 @@ public sealed class ApiClient
         return await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
     }
 
+    /// <summary>Kolon bazlı filtre + numaralı sayfalama sonucu (Malzeme/Araç Listesi — kullanıcı isteği
+    /// 2026-07-17). Hata olursa boş sayfa döner (ekran "kayıt yok" gösterir, çökmez).</summary>
+    public sealed record GridPage(System.Text.Json.JsonElement[] Items, int TotalCount, int Page, int PageSize, int TotalPages);
+    public async Task<GridPage> GetGridAsync(string path)
+    {
+        try
+        {
+            var obj = await GetObjectAsync(path);
+            var items = obj.TryGetProperty("items", out var it) && it.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? it.EnumerateArray().ToArray() : Array.Empty<System.Text.Json.JsonElement>();
+            int I(string k) => obj.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetInt32() : 0;
+            return new GridPage(items, I("totalCount"), I("page") is 0 ? 1 : I("page"), I("pageSize") is 0 ? 50 : I("pageSize"), I("totalPages") is 0 ? 1 : I("totalPages"));
+        }
+        catch { return new GridPage(Array.Empty<System.Text.Json.JsonElement>(), 0, 1, 50, 1); }
+    }
+
+    /// <summary>Bu kullanıcının bir liste ekranı için kaydettiği kolon seçimi — hiç kaydetmediyse null
+    /// (çağıran kendi varsayılan kolon listesine düşer).</summary>
+    public async Task<List<string>?> GetListColumnsAsync(string listKey)
+    {
+        try
+        {
+            var obj = await GetObjectAsync($"/api/me/list-columns/{listKey}");
+            if (obj.TryGetProperty("columns", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Array)
+                return c.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x != "").ToList();
+            return null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Bu kullanıcının kolon seçimini kaydeder — KİŞİSELDİR (başka kullanıcıda görünmez).</summary>
+    public Task<string?> SaveListColumnsAsync(string listKey, List<string> columns) =>
+        PostAsync($"/api/me/list-columns/{listKey}", new { columns });
+
     public async Task<List<CompanyDto>> GetCompaniesAsync()
     {
         var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies"));

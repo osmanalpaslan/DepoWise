@@ -1,0 +1,44 @@
+@* Kolon ayarla — liste ekranında hangi alanların gösterileceğini seçme (kullanıcı isteği 2026-07-17).
+   Kişiseldir: her kullanıcı kendi seçimini görür, kaydedilince API'ye (kullanıcı bazlı) yazılır. *@
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            Bu listede gösterilecek kolonları seçin. Bu seçim yalnız SİZİN için geçerlidir.
+        </MudText>
+        @foreach (var col in Available)
+        {
+            <MudCheckBox T="bool" Value="@_checked.Contains(col.Key)" ValueChanged="@((bool v) => Toggle(col.Key, v))"
+                         Label="@col.Label" Dense="true" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Vazgeç</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Kaydet</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public List<ListColumn> Available { get; set; } = new();
+    [Parameter] public List<string> Selected { get; set; } = new();
+
+    private HashSet<string> _checked = new();
+
+    protected override void OnParametersSet() => _checked = new HashSet<string>(Selected);
+
+    private void Toggle(string key, bool value)
+    {
+        if (value) _checked.Add(key); else _checked.Remove(key);
+    }
+
+    private void Save()
+    {
+        // En az bir kolon kalmalı (tamamen boş tablo görünmez uğraşmaya değmez) — hiçbiri seçili değilse
+        // ilk kolonu (genelde "Kod"/"İç Kod") otomatik işaretli tut.
+        var result = Available.Where(c => _checked.Contains(c.Key)).Select(c => c.Key).ToList();
+        if (result.Count == 0 && Available.Count > 0) result.Add(Available[0].Key);
+        Dialog.Close(DialogResult.Ok(result));
+    }
+
+    private void Cancel() => Dialog.Cancel();
+}

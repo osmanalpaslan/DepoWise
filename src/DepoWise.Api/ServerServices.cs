@@ -68,6 +68,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
     public DepoWise.Infrastructure.Files.BackupService DbBackup { get; }
     public DepoWise.Infrastructure.Settings.SettingsService Settings { get; }
+    /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (kullanıcı bazlı, firma bağımsız).</summary>
+    public DepoWise.Infrastructure.Settings.UserListPreferenceService ListPrefs { get; }
 
     public ServerServices(string dataDir)
     {
@@ -121,6 +123,7 @@ public sealed class ServerServices
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection);
         DbBackup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock, Path.Combine(dataDir, "dbbackups"));
         Settings = new DepoWise.Infrastructure.Settings.SettingsService(Factory, clock);
+        ListPrefs = new DepoWise.Infrastructure.Settings.UserListPreferenceService(Factory, clock);
 
         EnsureSeedAdmins();
     }

@@ -525,6 +525,20 @@ app.MapPost("/api/me/theme", (HttpContext ctx, UserThemeDto d) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// Liste ekranı kolon tercihi — KİŞİSEL (kullanıcı isteği 2026-07-17): her kullanıcı yalnız KENDİ tercihini
+// görür/kaydeder (user_id oturumdan gelir, istekten ASLA). columns=null → çağıran ekranın kendi varsayılanı.
+app.MapGet("/api/me/list-columns/{listKey}", (HttpContext ctx, string listKey) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { columns = svc.ListPrefs.GetColumns(s, listKey) });
+}).RequireAuthorization();
+app.MapPost("/api/me/list-columns/{listKey}", (HttpContext ctx, string listKey, ListColumnsDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.ListPrefs.SaveColumns(s, listKey, d.Columns ?? new List<string>());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 app.MapGet("/api/me/menu", (HttpContext ctx) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
@@ -704,6 +718,24 @@ app.MapGet("/api/materials", (HttpContext c, string? search) =>
     }).ToList();
     return Results.Ok(rows);
 }).RequireAuthorization();
+// Malzeme LİSTE ekranı: kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Eski
+// "/api/materials" (search) YUKARIDA — başka ekranlardaki (Stok, Talep, Bakım…) hızlı-arama seçicileri onu
+// kullanır, DOKUNULMADI. Bu uç yalnız Malzeme Listesi ekranı içindir.
+app.MapGet("/api/materials/grid", (HttpContext c,
+    string? code, string? name, string? type, string? category, string? unit, string? brand, string? supplier,
+    string? unitPrice, string? currency, string? minStock, string? stock, string? status, string? description,
+    string? compatibleVehicles, string? equivalents, int page, int pageSize) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
+        code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
+        description, compatibleVehicles, equivalents);
+    var res = svc.Materials.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
 app.MapGet("/api/materials/{id}", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Materials.GetDetail(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =>
 {
@@ -775,6 +807,23 @@ app.MapPost("/api/templates/{kind}/{id}/photos", async (HttpContext ctx, string 
 app.MapDelete("/api/templates/{kind}/{id}/photos/{fileId}", (HttpContext c, string kind, string id, string fileId) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Files.DeletePhoto(s, fileId)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles", (HttpContext c, string? search) => S(c) is { } s ? Results.Ok(svc.Vehicles.List(s, search)) : Results.Unauthorized()).RequireAuthorization();
+// Araç LİSTE ekranı: kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Eski
+// "/api/vehicles" (search) YUKARIDA — başka ekranlardaki hızlı-arama seçicileri onu kullanır, DOKUNULMADI.
+app.MapGet("/api/vehicles/grid", (HttpContext c,
+    string? internalCode, string? plate, string? productionYear, string? meter, string? status, string? statusNote,
+    string? vehicleType, string? category, string? brand, string? model, string? branch, string? driver,
+    string? chassisNo, string? engineNo, int page, int pageSize) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var filter = new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(
+        internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
+        branch, driver, chassisNo, engineNo);
+    var res = svc.Vehicles.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
 // Araç seçici (uyumlu araçlar vb. çoklu seçim için): id + görünen ad (iç kod - plaka).
 app.MapGet("/api/vehicles/options", (HttpContext c) =>
 {
@@ -1958,6 +2007,7 @@ record SpecialCodeDto(string? Code, string? Password);
 record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode, string? ConfirmName);
 record LocalResetDto(string? CompanyId);   // ADR-084
 record MachineResetDto(string? MachineName);   // ADR-085
+record ListColumnsDto(List<string>? Columns);   // ADR-087 (liste kolon tercihi, kişisel)
 record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);

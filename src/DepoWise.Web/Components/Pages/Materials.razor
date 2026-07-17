@@ -123,33 +123,52 @@
 <MudGrid Spacing="2">
     <MudItem xs="12" md="8">
         <MudPaper Class="pa-4" Elevation="2">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudText Typo="Typo.h6">Malzeme Listesi</MudText><MudSpacer />
-                <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" Immediate="false" OnKeyUp="OnSearchKey" />
-                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Ara</MudButton>
-            </MudStack>
+            <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
+                    <MudText Typo="Typo.h6">Malzeme Listesi</MudText>
+                    <MudTooltip Text="Kolonları ayarla (bu alanda sağ tık da açar) — yalnız sizin için geçerlidir">
+                        <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+                    </MudTooltip>
+                    <MudSpacer />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayfa boyutu</MudText>
+                    <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="max-width:90px">
+                        @foreach (var sz in PageSizes) { <MudSelectItem T="int" Value="@sz">@sz</MudSelectItem> }
+                    </MudSelect>
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
+                </MudStack>
+            </div>
+
+            @* Kolon bazlı filtreler — her görünür kolon için ayrı kutu; "içerir" arar (kullanıcı isteği 2026-07-17). *@
+            <MudGrid Spacing="1" Class="mb-2">
+                @foreach (var key in _visibleColumns)
+                {
+                    <MudItem xs="6" sm="4" md="3" lg="2">
+                        <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
+                                      Label="@Label(key)" Placeholder="içerir…" Immediate="false" OnKeyUp="OnFilterKey"
+                                      Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
+                    </MudItem>
+                }
+            </MudGrid>
+
             @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-            else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Arama kriterine uygun malzeme bulunamadı.</MudText> }
+            else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun malzeme bulunamadı.</MudText> }
             else
             {
-                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh"
+                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh"
                           OnRowClick="@(e => OpenDetail(Str(e.Item, "id")))" T="JsonElement">
                     <HeaderContent>
-                        <MudTh>KOD</MudTh><MudTh>AD</MudTh><MudTh>TÜR</MudTh><MudTh>BİRİM FİYAT</MudTh>
-                        <MudTh>PARA</MudTh><MudTh>MİN STOK</MudTh><MudTh>STOK</MudTh><MudTh>DURUM</MudTh>
+                        @foreach (var key in _visibleColumns) { <MudTh>@Label(key).ToUpperInvariant()</MudTh> }
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd>@Str(context, "code")</MudTd>
-                        <MudTd>@Str(context, "name")</MudTd>
-                        <MudTd>@Str(context, "type")</MudTd>
-                        <MudTd>@Str(context, "unitPrice")</MudTd>
-                        <MudTd>@Str(context, "currency")</MudTd>
-                        <MudTd>@Str(context, "minStock")</MudTd>
-                        <MudTd>@Str(context, "stock")</MudTd>
-                        <MudTd>@Str(context, "statusText")</MudTd>
+                        @foreach (var key in _visibleColumns) { <MudTd>@Str(context, key)</MudTd> }
                     </RowTemplate>
                 </MudTable>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">@_rows.Length kayıt</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mt-2" Wrap="Wrap.Wrap">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
+                    <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
+                                   BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
+                </MudStack>
             }
         </MudPaper>
     </MudItem>
@@ -240,8 +259,34 @@
     private List<ApiClient.Opt> _cats = new(), _subCats = new(), _units = new(), _brands = new(), _sups = new(), _vehicles = new();
     private JsonElement[]? _rows;
     private JsonElement? _detail;
-    private string _search = "";
     private string? _msg; private bool _ok; private bool _busy; private bool _err; private int _v;
+
+    // ── Malzeme Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17) ──
+    private static readonly int[] PageSizes = { 25, 50, 100, 200 };
+    private List<string> _visibleColumns = MaterialListColumns.DefaultVisible.ToList();
+    private readonly Dictionary<string, string> _filters = new();
+    private int _page = 1, _pageSize = 50, _totalCount, _totalPages = 1;
+
+    private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
+    private void SetFilter(string key, string v) => _filters[key] = v ?? "";
+    private static string Label(string key) => MaterialListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+
+    private async Task ApplyFilters() { _page = 1; await Load(); }
+    private async Task ClearFilters() { _filters.Clear(); _page = 1; await Load(); }
+    private async Task OnFilterKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ApplyFilters(); }
+    private async Task OnPageChanged(int p) { _page = p; await Load(); }
+    private async Task OnPageSizeChanged(int sz) { _pageSize = sz; _page = 1; await Load(); }
+
+    private async Task OpenColumnPicker()
+    {
+        var parameters = new DialogParameters { ["Available"] = MaterialListColumns.All.ToList(), ["Selected"] = _visibleColumns };
+        var dlg = await Dialog.ShowAsync<ColumnPickerDialog>("Kolonları Ayarla", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dlg.Result;
+        if (result is null || result.Canceled || result.Data is not List<string> chosen) return;
+        _visibleColumns = chosen;
+        await Api.SaveListColumnsAsync("materials", _visibleColumns);
+        await Load();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,7 +305,12 @@
                 try { _detail = await Api.GetObjectAsync($"/api/materials/{eid}"); await BeginEdit(); } catch { }
             }
         }
-        if (!_isNew) await Load();
+        if (!_isNew)
+        {
+            var saved = await Api.GetListColumnsAsync("materials");
+            if (saved is { Count: > 0 }) _visibleColumns = saved;
+            await Load();
+        }
     }
 
     private string? _lastCat;
@@ -280,11 +330,12 @@
     private async Task Load()
     {
         _rows = null;
-        try { _rows = await Api.GetArrayAsync("/api/materials" + (string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search)}")); }
-        catch { _rows = Array.Empty<JsonElement>(); }
+        var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
+        foreach (var (k, v) in _filters)
+            if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{k}={Uri.EscapeDataString(v.Trim())}");
+        var grid = await Api.GetGridAsync("/api/materials/grid?" + string.Join("&", qs));
+        _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
     }
-
-    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
         => await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");

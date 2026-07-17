@@ -19,6 +19,9 @@ TestResults/
 *.db-shm
 artifacts/
 
+# ASP.NET Data Protection keys (local dev server run) — machine-specific, never committed
+src/DepoWise.Web/dpkeys/
+
 # IDE/OS
 .vs/
 .idea/

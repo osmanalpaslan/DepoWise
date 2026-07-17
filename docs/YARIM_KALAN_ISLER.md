@@ -10,6 +10,22 @@
 
 ---
 
+## ⏳ Malzeme/Araç Listesi — kolon filtre + sayfalama + kişisel kolon seçimi (2026-07-17, ADR-087) — KOD+TEST TAMAM, DEPLOY BEKLİYOR
+
+Test **497/497** (24 yeni). Kullanıcı 2600+ satır içeri aldıktan sonra fark etti: liste ekranları da 200
+satır sınırına dayanıyordu. İstek: sütun bazlı filtre (içerir + başlangıca göre) + sayfa boyutu + numaralı
+sayfalama + sağ tık "Kolon Ayarla" (kişiye özel, farklı kullanıcıda görünmez).
+
+- Yeni `SearchGrid` uçları (gerçek `COUNT`+`LIMIT/OFFSET`) — eski hızlı-arama uçları dokunulmadı.
+- Kolon kataloğu = form alanları (fotoğraf hariç); kolon tercihi KİŞİSEL (Migration 047).
+- Web + masaüstü ikisinde de filtre kutuları + sayfalama + kolon seçici.
+- Detay: `docs/DECISIONS.md` ADR-087.
+- **⚠️ Masaüstü UI görsel doğrulanamadı** (Avalonia'yı bu ortamda çalıştırıp tıklama testi yapacak araç yok)
+  — temiz derleme + backend testleriyle güvence alındı. Web tarayıcıda uçtan uca doğrulandı.
+- **Kalan:** API+Web deploy, masaüstü yeni sürüm yayını (1.0.65).
+
+---
+
 ## ✅ Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086) — TAMAMLANDI (canlıda)
 
 Test **473/473** (6 yeni). API+Web deploy edildi, masaüstü **1.0.64** yayınlandı. Babanın dosyasında 63

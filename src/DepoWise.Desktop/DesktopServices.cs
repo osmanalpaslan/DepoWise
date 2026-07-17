@@ -74,6 +74,8 @@ public static class DesktopServices
     /// <summary>Personel içe aktarımı — "Saha Personeli" + MEVCUT hesabı bağlama ("Kullanıcı Adı").</summary>
     public static PersonnelImportService PersonnelImport { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
+    /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (bu makinede giriş yapan kullanıcıya özel).</summary>
+    public static DepoWise.Infrastructure.Settings.UserListPreferenceService ListPrefs { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
     public static FileService Files { get; private set; } = null!;
     public static IFileStorageProvider Storage { get; private set; } = null!;
@@ -154,6 +156,7 @@ public static class DesktopServices
         Backup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock);
         BackupUpload = new DepoWise.Infrastructure.Files.BackupUploadService();
         Settings = new SettingsService(Factory, clock);
+        ListPrefs = new DepoWise.Infrastructure.Settings.UserListPreferenceService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
 
         // ── İÇE AKTARIM servisleri — HEPSİ Lookups'a bağlıdır (tanım adları isimle çözülür, yoksa

@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
@@ -32,8 +33,98 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         new(DepoWise.Application.Ui.VehicleStatus.All.Select(x => new StatusPick(x.Code, x.Label)));
     public ObservableCollection<string> MeterUnits { get; } = new() { "km", "hour" };
 
-    [ObservableProperty] private string _search = "";
     [ObservableProperty] private string? _status;
+
+    // ── Araç Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17) ──
+    public IReadOnlyList<int> PageSizes { get; } = new[] { 25, 50, 100, 200 };
+    [ObservableProperty] private List<string> _visibleColumns = VehicleListColumns.DefaultVisible.ToList();
+    public ObservableCollection<ColumnFilterItem> FilterFields { get; } = new();
+    public ObservableCollection<int> PageNumbers { get; } = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoPrev))]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _page = 1;
+    [ObservableProperty] private int _pageSize = 50;
+    [ObservableProperty] private int _totalCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _totalPages = 1;
+    private bool _suppressPageSizeReload;
+
+    public bool CanGoPrev => Page > 1;
+    public bool CanGoNext => Page < TotalPages;
+
+    partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
+
+    partial void OnPageSizeChanged(int value)
+    {
+        if (_suppressPageSizeReload) return;
+        Page = 1; Load();
+    }
+
+    private void RebuildFilterFields()
+    {
+        var old = FilterFields.ToDictionary(f => f.Key, f => f.Value);
+        FilterFields.Clear();
+        foreach (var key in VisibleColumns)
+        {
+            var label = VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+            FilterFields.Add(new ColumnFilterItem(key, label) { Value = old.TryGetValue(key, out var v) ? v : "" });
+        }
+    }
+
+    private void RebuildPageNumbers()
+    {
+        PageNumbers.Clear();
+        var start = Math.Max(1, Page - 3);
+        var end = Math.Min(TotalPages, Page + 3);
+        for (var p = start; p <= end; p++) PageNumbers.Add(p);
+    }
+
+    private VehicleGridFilter BuildFilter()
+    {
+        string? V(string key)
+        {
+            var f = FilterFields.FirstOrDefault(x => x.Key == key);
+            return string.IsNullOrWhiteSpace(f?.Value) ? null : f!.Value.Trim();
+        }
+        return new VehicleGridFilter(
+            V(VehicleListColumns.InternalCode), V(VehicleListColumns.Plate), V(VehicleListColumns.ProductionYear),
+            V(VehicleListColumns.Meter), V(VehicleListColumns.Status), V(VehicleListColumns.StatusNote),
+            V(VehicleListColumns.VehicleType), V(VehicleListColumns.Category), V(VehicleListColumns.Brand),
+            V(VehicleListColumns.Model), V(VehicleListColumns.Branch), V(VehicleListColumns.Driver),
+            V(VehicleListColumns.ChassisNo), V(VehicleListColumns.EngineNo));
+    }
+
+    [RelayCommand]
+    private void ApplyFilters() { Page = 1; Load(); }
+
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        foreach (var f in FilterFields) f.Value = "";
+        Page = 1; Load();
+    }
+
+    [RelayCommand]
+    private void GoToPage(int page) { Page = page; Load(); }
+
+    [RelayCommand]
+    private void PrevPage() { if (CanGoPrev) { Page--; Load(); } }
+
+    [RelayCommand]
+    private void NextPage() { if (CanGoNext) { Page++; Load(); } }
+
+    [RelayCommand]
+    private async Task OpenColumnPicker()
+    {
+        var available = VehicleListColumns.All.Select(c => (c.Key, c.Label)).ToList();
+        var chosen = await ColumnPickerService.PickAsync(available, VisibleColumns);
+        if (chosen is null) return;
+        VisibleColumns = chosen;
+        DesktopServices.ListPrefs.SaveColumns(_session, "vehicles", chosen);
+        Load();
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -142,6 +233,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
     public VehiclesViewModel(SessionContext session)
     {
         _session = session;
+        var saved = DesktopServices.ListPrefs.GetColumns(session, "vehicles");
+        VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : VehicleListColumns.DefaultVisible.ToList();
         Load();
     }
 
@@ -167,14 +260,22 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
             var maint = SafeMaint();
             var insp = SafeInsp();
 
-            foreach (var v in DesktopServices.Vehicles.List(_session, string.IsNullOrWhiteSpace(Search) ? null : Search.Trim()))
+            var grid = DesktopServices.Vehicles.SearchGrid(_session, BuildFilter(), Page, PageSize);
+            foreach (var v in grid.Items)
             {
                 var (kind, text) = CombineAlert(
                     maint.TryGetValue(v.Id, out var ml) ? ml : (AlertLevel?)null,
                     insp.TryGetValue(v.Id, out var il) ? il : (DateAlertLevel?)null);
-                Items.Add(new VehicleRow(v.Id, v.InternalCode, v.Plate, v.Status, v.CurrentMeter, v.MeterUnit, v.ProductionYear, kind, text));
+                Items.Add(new VehicleRow(v.Id, v.InternalCode, v.Plate, v.Status, v.Meter, v.MeterUnit, v.ProductionYear, kind, text,
+                    v.StatusNote ?? "", v.VehicleType ?? "", v.Category ?? "", v.Brand ?? "", v.Model ?? "",
+                    v.Branch ?? "", v.Driver ?? "", v.ChassisNo ?? "", v.EngineNo ?? ""));
             }
-            Status = $"{Items.Count} araç";
+            TotalCount = grid.TotalCount; TotalPages = grid.TotalPages;
+            Page = grid.Page;
+            _suppressPageSizeReload = true;
+            try { PageSize = grid.PageSize; } finally { _suppressPageSizeReload = false; }
+            RebuildPageNumbers();
+            Status = $"{TotalCount} araç — sayfa {Page} / {TotalPages}";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(IsEmpty));
@@ -537,7 +638,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
 }
 
 public sealed record VehicleRow(string Id, string Code, string? Plate, string Status, decimal Meter, string MeterUnit,
-    int? Year, BadgeKind AlertKind, string AlertText)
+    int? Year, BadgeKind AlertKind, string AlertText,
+    string StatusNote = "", string VehicleType = "", string Category = "", string Brand = "", string Model = "",
+    string Branch = "", string Driver = "", string ChassisNo = "", string EngineNo = "")
 {
     public string PlateDisplay => string.IsNullOrWhiteSpace(Plate) ? "—" : Plate!;
     public string MeterDisplay => $"{Meter:0.##} {MeterUnit}";

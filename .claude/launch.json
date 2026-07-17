@@ -14,6 +14,26 @@
         "--Api:BaseUrl=https://depowise-erp.fly.dev"
       ],
       "port": 5282
+    },
+    {
+      "name": "api-local",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/DepoWise.Api", "--urls", "http://localhost:5224"],
+      "port": 5224
+    },
+    {
+      "name": "web-local",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/DepoWise.Web",
+        "--urls",
+        "http://localhost:5283",
+        "--",
+        "--Api:BaseUrl=http://localhost:5224"
+      ],
+      "port": 5283
     }
   ]
 }
