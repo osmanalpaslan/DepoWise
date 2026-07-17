@@ -392,6 +392,11 @@ public sealed partial class LoginViewModel : ViewModelBase
             if (!proceed) return false;
         }
 
+        // ADR-085 — MAKİNE TANIMI SIFIRLAMA ALGILAMA: her şeyden ÖNCE (firma bağımsız — makine adı firmalar
+        // arası bir anahtardır). Bu makine sıfırlandıysa hangi firmaya ait olduğu artık belirsizdir; bu
+        // firmanın verisiyle DEVAM ETMEK YANLIŞ olur. Girişi iptal eder ve login ekranına döner.
+        if (await HandleMachineResetAsync()) return false;
+
         // ADR-083 — KALICI SİLME ALGILAMA: her şeyden ÖNCE. Firma sunucuda kalıcı silindiyse bu makinenin
         // yerel verisi temizlenir ve login'e dönülür. Kuyruk/push'tan ÖNCE olmalı; aksi halde makine
         // silinmiş firmanın kayıtlarını sunucuya geri gönderip veriyi diriltir.
@@ -431,6 +436,41 @@ public sealed partial class LoginViewModel : ViewModelBase
         if (RememberMe) RememberMeService.Save(_authedSession);
         else RememberMeService.Clear();
         OnLoggedIn?.Invoke(_authedSession);
+        return true;
+    }
+
+    /// <summary>
+    /// ADR-085 — Bu MAKİNE için sunucuda bekleyen bir "tanım sıfırlama" isteği varsa VE bu makine onu daha
+    /// önce uygulamadıysa: yerel makine-firma/şube önbelleğini temizler ve GİRİŞİ İPTAL EDER (login ekranına
+    /// döner). ADR-084'ten (firma yerel sıfırlama) FARKI budur: o girişe İZİN VERİP devam eder, bu DURDURUR
+    /// — çünkü sıfırlama sonrası makinenin hangi firmaya ait olduğu belirsizdir; bir sonraki giriş yapan
+    /// kullanıcı makineyi kendi firması/şubesiyle yeniden tanımlar.
+    ///
+    /// Çevrimdışıysa ya da hiç istek yoksa (null) HİÇBİR ŞEY yapılmaz (fail-safe, ADR-083/084 ile aynı ilke).
+    /// </summary>
+    private async System.Threading.Tasks.Task<bool> HandleMachineResetAsync()
+    {
+        var machineName = Environment.MachineName;
+        long? serverAt;
+        try { serverAt = await ServerAuthClient.GetMachineResetRequestedAtAsync(machineName); }
+        catch { return false; }
+        if (serverAt is null) return false;                                    // istek yok / erişilemedi → dokunma
+
+        var localAt = MachineResetLocalService.GetAppliedAt(machineName);
+        if (localAt is not null && localAt.Value >= serverAt.Value) return false;   // bu istek zaten uygulanmış
+
+        DesktopServices.MachineCompanyId = null; DesktopServices.MachineCompanyName = null;
+        DesktopServices.MachineBranchId = null; DesktopServices.MachineBranchName = null;
+        MachineGate.ClearCache();
+        MachineResetLocalService.MarkApplied(machineName, serverAt.Value, _authedSession?.UserId ?? "system");
+
+        PlayWarningSound();
+        await ConfirmService.AskAsync(
+            "Bu makinenin firma/şube tanımı süper admin tarafından sıfırlanmıştır.\n\n" +
+            "Güvenlik için oturum kapatıldı — lütfen yeniden giriş yapın. İlk giriş yapan kullanıcı bu makineyi " +
+            "kendi firması/şubesiyle yeniden tanımlayacaktır.",
+            "Makine Tanımı Sıfırlandı", "Tamam", "");
+        Back();
         return true;
     }
 

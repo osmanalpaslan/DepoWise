@@ -6,7 +6,23 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-16**
+> Son güncelleme: **2026-07-17**
+
+---
+
+## ⏳ Makine "tanım sıfırlama" (2026-07-17) — KOD+TEST TAMAM, DEPLOY BEKLİYOR
+
+Test **467/467** (8 yeni, `MachineResetTests`). Kullanıcı: babasının makinesi test firmasıyla giriş
+yapmıştı, asıl firmayla giremedi sandı → "makine tanımını sıfırlayan buton + login sonrası otomatik
+algılama" istedi.
+
+- **Makine Yönetimi'nde (süper admin) "Tanımı Sıfırla" butonu:** makineyi TÜM firmalardan koparır
+  (iş verisi ETKİLENMEZ, özel kod GEREKMEZ). Şema: Migration 046 (`machine_resets`).
+- **Masaüstü algılama:** girişten sonra eşitleme adımında (purge/yerel-sıfırlamadan ÖNCE) künyeyi görür →
+  yerel makine-firma/şube önbelleğini temizler → **girişi iptal eder, login ekranına döner**.
+- Sonraki giriş yapan kullanıcı makineyi kendi firması/şubesiyle yeniden tanımlar (mevcut "ilk kurulum" akışı).
+- Detay: `docs/DECISIONS.md` ADR-085.
+- **Kalan:** API+Web deploy, masaüstü yeni sürüm yayını (1.0.63), canlıda gerçek doğrulama.
 
 ---
 

@@ -24,6 +24,8 @@ public sealed class ServerServices
     /// <summary>Firma "yerel sıfırlama" isteği (ADR-084) — kalıcı silme DEĞİL, makinelerin yerel kopyasını
     /// bir kez temizletir (firma sunucuda durur, erişim engellenmez).</summary>
     public DepoWise.Infrastructure.Organization.CompanyLocalResetService CompanyLocalReset { get; }
+    /// <summary>Makine "tanım sıfırlama" isteği (ADR-085) — makineyi TÜM firmalardan koparır (veriye dokunmaz).</summary>
+    public DepoWise.Infrastructure.Sync.MachineResetService MachineReset { get; }
     /// <summary>"Özel kod" — Kalıcı Silme ekranının kilidi (yalnız süper admin).</summary>
     public SpecialCodeService SpecialCode { get; }
     public DepoWise.Infrastructure.Organization.CompanyGrantService CompanyGrants { get; }
@@ -79,6 +81,7 @@ public sealed class ServerServices
         Companies = new DepoWise.Infrastructure.Organization.CompanyService(Factory, clock);
         CompanyPurge = new DepoWise.Infrastructure.Organization.CompanyPurgeService(Factory, clock);
         CompanyLocalReset = new DepoWise.Infrastructure.Organization.CompanyLocalResetService(Factory, clock);
+        MachineReset = new DepoWise.Infrastructure.Sync.MachineResetService(Factory, clock);
         SpecialCode = new SpecialCodeService(Factory, clock);
         CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
         RoleGrants = new DepoWise.Infrastructure.Organization.RoleGrantService(Factory, clock);

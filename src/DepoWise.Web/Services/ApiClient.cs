@@ -343,6 +343,10 @@ public sealed class ApiClient
     /// <summary>Süper admin makinenin firmasını değiştirir (şube ataması otomatik kalkar).</summary>
     public Task<string?> AssignMachineCompanyAsync(string id, string companyId) =>
         PostAsync($"/api/machines/{id}/company", new { companyId });
+    /// <summary>ADR-085 — makinenin TÜM firmalardaki tanımını sıfırlar (veriye dokunmaz); masaüstü bir sonraki
+    /// girişte yerel makine önbelleğini temizler ve login ekranına döner.</summary>
+    public Task<string?> RequestMachineResetAsync(string machineName) =>
+        PostAsync("/api/admin/machine-reset", new { machineName });
     /// <summary>Bir firmanın şubelerini seçenek olarak döndürür (makineye şube atama için).</summary>
     public async Task<List<Opt>> GetBranchOptionsAsync(string companyId)
     {

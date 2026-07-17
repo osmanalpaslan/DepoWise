@@ -209,6 +209,28 @@ public static class ServerAuthClient
         catch { return null; }
     }
 
+    /// <summary>
+    /// ADR-085 — Bu MAKİNE için sunucuda BEKLEYEN bir "tanım sıfırlama" isteği var mı, varsa ne zaman istendi?
+    /// Dönen: istek zamanı (Unix ms) ya da hiç istek yoksa/erişilemezse null. Firma bağımsız — makine adı
+    /// firmalar arası bir anahtardır (bkz. MachineResetService).
+    /// </summary>
+    public static async Task<long?> GetMachineResetRequestedAtAsync(string machineName)
+    {
+        if (string.IsNullOrWhiteSpace(Token) || string.IsNullOrWhiteSpace(BaseUrl)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get,
+                BaseUrl!.TrimEnd('/') + "/api/sync/machine-reset-status?machineName=" + Uri.EscapeDataString(machineName));
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.TryGetProperty("requestedAt", out var v) && v.ValueKind == JsonValueKind.Number
+                ? v.GetInt64() : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Sunucudan güncel kullanıcı imzasını çeker (Token ile). Erişilemezse null.</summary>
     public static async Task<string?> FetchAuthSigAsync()
     {

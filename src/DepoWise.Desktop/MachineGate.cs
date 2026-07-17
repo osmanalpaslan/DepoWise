@@ -87,6 +87,14 @@ public static class MachineGate
         return (At(0), At(1), At(2), At(3));
     }
 
+    /// <summary>ADR-085 — makine tanımı sıfırlandığında yerel önbellek dosyalarını (durum + firma/şube) siler.
+    /// Sunucudaki DesktopServices.MachineCompanyId/MachineBranchId alanları çağıran tarafça ayrıca null'lanır.</summary>
+    public static void ClearCache()
+    {
+        try { File.Delete(StatusFile); } catch { }
+        try { File.Delete(BranchFile); } catch { }
+    }
+
     private static void TryWrite(string path, string value)
     {
         try { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, value); } catch { }

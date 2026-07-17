@@ -93,6 +93,12 @@
                     @if (context.CanActivate && context.Status == "pending") { <MudButton Size="Size.Small" Color="Color.Primary" OnClick="() => Approve(context.Id)">Onayla</MudButton> }
                     @if (context.Status == "revoked") { <MudButton Size="Size.Small" Color="Color.Success" OnClick="() => Reactivate(context.Id)">Yeniden Aktifleştir</MudButton> }
                     @if (context.IsActive) { <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => Revoke(context.Id)">Pasife Al</MudButton> }
+                    @if (Auth.IsSuperAdmin)
+                    {
+                        <MudTooltip Text="Bu makineyi TÜM firmalardan koparır (veri silinmez) — bir sonraki girişte makine yeniden tanımlanır">
+                            <MudButton Size="Size.Small" Color="Color.Warning" OnClick="() => ResetMachine(context)">Tanımı Sıfırla</MudButton>
+                        </MudTooltip>
+                    }
                     <MudTooltip Text="Sil"><MudIconButton Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" OnClick="() => Delete(context)" /></MudTooltip>
                 </MudTd>
             </RowTemplate>
@@ -212,5 +218,20 @@
     {
         if (!await Dialog.Confirm($"'{m.Name}' makine kaydı kalıcı olarak silinsin mi?", "Evet, Sil", danger: true)) return;
         try { await Api.DeleteMachineAsync(m.Id); await Query(); } catch (Exception ex) { _error = ex.Message; }
+    }
+
+    // ADR-085 — makine adı firmalar arası bir anahtardır: bu makinenin TÜM firmalardaki kaydı silinir
+    // (veri etkilenmez); masaüstü bir sonraki girişte bunu görüp kendi yerel makine önbelleğini temizler
+    // ve login ekranına döner — sonraki giriş yapan kullanıcı makineyi yeniden tanımlar.
+    private async Task ResetMachine(MachineDto m)
+    {
+        _msg = _error = null;
+        if (!await Dialog.Confirm(
+            $"'{m.Name}' makinesinin tanımı SIFIRLANSIN mı?\n\nBu makine tüm firmalardan koparılır (iş verisi etkilenmez). " +
+            "Makine bir sonraki girişte firma/şube seçimini yeniden yapacaktır.",
+            "Evet, Sıfırla", danger: true)) return;
+        var err = await Api.RequestMachineResetAsync(m.Name);
+        if (err is null) { _msg = $"'{m.Name}' makinesinin tanımı sıfırlandı — bir sonraki girişte yeniden tanımlanacak."; await Query(); }
+        else _error = err;
     }
 }

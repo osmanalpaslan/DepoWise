@@ -1110,6 +1110,34 @@ app.MapGet("/api/sync/local-reset-status", (HttpContext c) =>
     return Results.Ok(new { requestedAt = st?.RequestedAt });
 }).RequireAuthorization();
 
+// ══════════════════ MAKİNE TANIMI SIFIRLAMA (ADR-085) ══════════════════
+// Bir fiziksel makineyi TÜM firmalardan koparır (o makinenin sync_devices satırları silinir) + künye
+// bırakır. İş verisine dokunmaz. Masaüstü bir sonraki (çevrimiçi) girişte künyeyi görüp yerel makine
+// önbelleğini (firma/şube) temizler ve login ekranına döner — bir sonraki giriş makineyi yeniden tanımlar.
+
+/// Süper admin bir makine adı için tanım sıfırlama isteği bırakır. Makine adı firmalar arası bir anahtardır
+/// (bkz. Migration046) — bu yüzden yalnız süper admin (MachineResetService.RequestReset zaten bunu zorlar).
+app.MapPost("/api/admin/machine-reset", (HttpContext c, MachineResetDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    try
+    {
+        var res = svc.MachineReset.RequestReset(s, d.MachineName ?? "");
+        return Results.Ok(new { ok = true, requestedAt = res.RequestedAt });
+    }
+    catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
+    catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
+
+/// Masaüstü eşitleme adımı: "bu makine için bekleyen bir tanım sıfırlama isteği var mı?" Firma bağımsız —
+/// makine adı sorguya parametre olarak verilir (künye firmalar arası tutulur).
+app.MapGet("/api/sync/machine-reset-status", (HttpContext c, string? machineName) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var st = svc.MachineReset.GetStatus(machineName ?? "");
+    return Results.Ok(new { requestedAt = st?.RequestedAt });
+}).RequireAuthorization();
+
 app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1929,6 +1957,7 @@ record ReauthDto(string? Password);
 record SpecialCodeDto(string? Code, string? Password);
 record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode, string? ConfirmName);
 record LocalResetDto(string? CompanyId);   // ADR-084
+record MachineResetDto(string? MachineName);   // ADR-085
 record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);

@@ -12,6 +12,44 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-085 — Makine "tanım sıfırlama" (17.07.2026, TAMAM — API+web+masaüstü)
+
+- **Bağlam:** Kullanıcının babası bir makinede (DESKTOP-SIKIB3U, süper admin makinesi) önce bir "test
+  firması" ile giriş yapmıştı; sonra aynı makinede **asıl firma** ile giriş yapamadığını düşündü. Kullanıcı
+  istek: "makine yönetimi ekranına makine tanımı sıfırlama butonu oluştursak ve loginden sonra gelen ekranda
+  eşitleme yaptıktan sonra kendini login ekranına yönlendirse. sonra ilk girilen kullanıcı ile firma makine
+  tanımı tanımlansın."
+- **Teşhis:** `sync_devices` zaten `(company_id, device_name)` çiftiyle anahtarlanır — aynı fiziksel makine
+  birden çok firmada bağımsız satıra sahip olabilir; bu yüzden farklı firmayla giriş kendiliğinden ayrı bir
+  satır açar. Asıl ihtiyaç, kullanıcının tarif ettiği **elle "tanımı temizle" düğmesi** — makineyi TÜM
+  firmalardan tamamen koparıp "ilk kurulum" durumuna döndürmek (örn. bir makineyi bir müşteriden alıp
+  başkasına devretmek, ya da kota/karışıklık şüphesinde temiz başlangıç). ADR-084 (firma yerel sıfırlama)
+  ile KARIŞTIRILMAMALI: o firma verisini sıfırlar, bu makinenin firma/şube AİDİYETİNİ sıfırlar.
+- **Karar:** `machine_resets` (Migration **046**), `company_local_resets`(ADR-084) ile AYNI iki-anlamlı
+  desen ama **makine adıyla** anahtarlanır (firma ile DEĞİL) — çünkü sıfırlama isteği fiziksel makineye
+  aittir, hangi firmayla giriş yapılırsa yapılsın algılanmalıdır:
+  1. Süper admin Makine Yönetimi'nde bir satırın **"Tanımı Sıfırla"** butonuna basar → o makine adına ait
+     **TÜM firmalardaki** `sync_devices` satırları silinir (`MachineResetService.RequestReset`) + künye yazılır.
+  2. Masaüstü, girişten sonra eşitleme adımında (`LoginViewModel.FinalizeLoginAsync`, purge/yerel-sıfırlama
+     kontrollerinden ÖNCE) künyeyi görür → `DesktopServices.MachineCompanyId/BranchId` + `MachineGate`
+     önbellek dosyalarını (`machine_status.txt`/`machine_branch.txt`) temizler → **girişi iptal eder ve
+     login ekranına döner** (`Back()`).
+  3. Sonraki girişte makine "ilk kurulum" durumundadır (`MachineBranchId` boş) → giriş yapan **ilk
+     kullanıcı** (süper admin değilse) mevcut "İlk Kurulum" onay akışıyla makineyi kendi firması/şubesiyle
+     yeniden tanımlar; süper admin için de "makine firması" kısayolu (UseMachineCompany) temiz başlar.
+- **ADR-084'ten kasıtlı FARKI — GİRİŞİ DURDURUR:** yerel sıfırlama girişe izin verip devam eder (veri
+  sıfırdan yeniden dolar); makine sıfırlaması **durdurur** — çünkü sıfırlama sonrası makinenin hangi
+  firmaya ait olduğu belirsizdir, o firmanın verisiyle devam etmek yanlış olur.
+- **YIKICI DEĞİL:** iş verisi (malzeme/araç/stok/personel…) hiç etkilenmez; yalnız "bu makine hangi
+  firmaya ait" bilgisi silinir. ADR-083'teki (kalıcı firma silme) ile karıştırılmamalı; özel kod GEREKMEZ.
+- **Künye SİLİNMEZ:** çevrimdışı bir makine haftalar sonra açılsa bile isteği görüp bir kez uygular (ADR-083/
+  084 ile aynı fail-safe ilkesi — çevrimdışıyken hiçbir şey silinmez).
+- **Test:** `MachineResetTests` (8) — istek durumda görünüyor · tekrar istek zamanı güncelliyor · süper admin
+  olmayan bırakamıyor · boş makine adı reddediliyor · **TÜM firmalardaki kayıtlar silinir** · başka makine
+  etkilenmez · sıfırlama sonrası aynı makine adıyla farklı firmaya yeniden kayıt çalışıyor.
+
+---
+
 ### ADR-084 — Firma "yerel sıfırlama" isteği (16.07.2026, TAMAM — API+web+masaüstü)
 
 - **Bağlam:** Kullanıcı bir firmanın (Sevgi A.Ş.) bilgilerini/adını web'den güncelledi; bu firmayla 2 yerel
