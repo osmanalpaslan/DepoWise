@@ -29,11 +29,11 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 |---|---|
 | **Testler** | **497/497 yeşil** (`dotnet test`) |
 | **Şema** | Migration **047** (liste kolon tercihi — ADR-087) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — deploy edilecek (ADR-087 kodu hazır) |
-| **Web** | `depowise-web.fly.dev` — deploy edilecek (ADR-087 kodu hazır) |
-| **Masaüstü** | **1.0.64 yayında**; ADR-087 için yeni sürüm YAYINLANACAK |
-| **Git** | commit edilecek |
-| **Bekleyen iş** | ADR-087'yi commit+push+deploy et; baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
+| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
+| **Masaüstü** | **1.0.65 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Git** | temiz + `origin/master` ile senkron |
+| **Bekleyen iş** | Baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) — kod tarafı bitti |
 
 ### Malzeme/Araç Listesi — kolon bazlı filtre + sayfalama + kişisel kolon seçimi (2026-07-17, ADR-087)
 Kullanıcı 2600+ satırlık dosyayı içeri aldıktan sonra: "malzemeler ve araç listesinde filtre yapısı olması
@@ -52,7 +52,7 @@ ikisinde de: filtre kutuları, sayfa boyutu seçici + numaralı sayfalama, sağ-
 Detay: `docs/DECISIONS.md` ADR-087. Test: 24 yeni (497/497).
 **⚠️ Masaüstü UI görsel doğrulanamadı** (ortamda Avalonia çalıştırıp tıklama testi yapacak araç yok) —
 temiz derleme + backend testleriyle güvence alındı. Web gerçek tarayıcıda uçtan uca doğrulandı.
-**Henüz deploy edilmedi** — API/Web deploy + masaüstü yeni sürüm yayını sırada.
+**Canlıya alındı:** API+Web deploy, masaüstü **1.0.65** yayınlandı (sunucuda "en güncel" doğrulandı).
 
 ### Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086)
 Babanın malzeme dosyasında (2507 satır) 63 satırda **Açılış Stok negatif**; içe aktarım reddediyordu.
