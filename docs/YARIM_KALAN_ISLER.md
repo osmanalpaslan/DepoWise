@@ -10,9 +10,10 @@
 
 ---
 
-## ⏳ Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086) — KOD+TEST TAMAM, DEPLOY BEKLİYOR
+## ✅ Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086) — TAMAMLANDI (canlıda)
 
-Test **473/473** (6 yeni). Babanın dosyasında 63 satırda negatif Açılış Stok vardı; içe aktarım reddediyordu.
+Test **473/473** (6 yeni). API+Web deploy edildi, masaüstü **1.0.64** yayınlandı. Babanın dosyasında 63
+satırda negatif Açılış Stok vardı; içe aktarım reddediyordu.
 Kullanıcı: "eksi stok kontrolünü kaldıralım; devralan firmalar mevcut stoklarını girebilsin."
 
 - **Yalnız BAŞLANGIÇ stoğu** negatif olabilir (içe aktarım + web/masaüstü form + API). **Operasyonel çıkış

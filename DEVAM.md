@@ -29,11 +29,11 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 |---|---|
 | **Testler** | **473/473 yeşil** (`dotnet test`) |
 | **Şema** | Migration **046** (makine tanımı sıfırlama — ADR-085) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — deploy edilecek (ADR-086 kodu hazır) |
-| **Web** | `depowise-web.fly.dev` — deploy edilecek (ADR-086 kodu hazır) |
-| **Masaüstü** | **1.0.63 yayında**; ADR-086 için yeni sürüm YAYINLANACAK |
-| **Git** | commit edilecek |
-| **Bekleyen iş** | ADR-086'yı commit+push+deploy et |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
+| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
+| **Masaüstü** | **1.0.64 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Git** | temiz + `origin/master` ile senkron |
+| **Bekleyen iş** | Baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) — kod tarafı bitti |
 
 ### Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086)
 Babanın malzeme dosyasında (2507 satır) 63 satırda **Açılış Stok negatif**; içe aktarım reddediyordu.
@@ -44,7 +44,8 @@ Kullanıcı: "eksi stok kontrolünü kaldıralım; sistemi devralan firmalar mev
 **pozitif miktar + direction=−1** yazılır (senkron kalkanı + `RecomputeBalances` doğru kalsın); yalnız türetilmiş
 **bakiye** eksi olabilir. Detay: `docs/DECISIONS.md` ADR-086. Test: 6 yeni (473/473).
 **⚠️ Kalan (babanın dosyası):** her satırda para birimi "TL" yazılı — sistem TRY/USD/EUR bekler. Bu ayrı bir
-engel; Excel'de TL→TRY yapılmalı (istenirse TL→TRY otomatik eşlemesi eklenir). **Henüz deploy edilmedi.**
+engel; Excel'de TL→TRY yapılmalı (istenirse TL→TRY otomatik eşlemesi eklenir). **Canlıya alındı:** API+Web
+deploy, masaüstü **1.0.64** yayınlandı.
 
 ### Makine "tanım sıfırlama" (2026-07-17, ADR-085)
 Kullanıcı: babasının makinesi (DESKTOP-SIKIB3U, süper admin makinesi) önce test firmasıyla giriş yapmıştı,
