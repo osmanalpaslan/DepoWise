@@ -10,11 +10,11 @@
 
 ---
 
-## ⏳ Makine "tanım sıfırlama" (2026-07-17) — KOD+TEST TAMAM, DEPLOY BEKLİYOR
+## ✅ Makine "tanım sıfırlama" (2026-07-17) — TAMAMLANDI (canlıda, DESKTOP-SIKIB3U testi bekleniyor)
 
-Test **467/467** (8 yeni, `MachineResetTests`). Kullanıcı: babasının makinesi test firmasıyla giriş
-yapmıştı, asıl firmayla giremedi sandı → "makine tanımını sıfırlayan buton + login sonrası otomatik
-algılama" istedi.
+Test **467/467** (8 yeni, `MachineResetTests`). API+Web deploy edildi, masaüstü **1.0.63** yayınlandı.
+Kullanıcı: babasının makinesi test firmasıyla giriş yapmıştı, asıl firmayla giremedi sandı → "makine
+tanımını sıfırlayan buton + login sonrası otomatik algılama" istedi.
 
 - **Makine Yönetimi'nde (süper admin) "Tanımı Sıfırla" butonu:** makineyi TÜM firmalardan koparır
   (iş verisi ETKİLENMEZ, özel kod GEREKMEZ). Şema: Migration 046 (`machine_resets`).

@@ -29,11 +29,11 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 |---|---|
 | **Testler** | **467/467 yeşil** (`dotnet test`) |
 | **Şema** | Migration **046** (makine tanımı sıfırlama — ADR-085) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — deploy edilecek (kod hazır, henüz gönderilmedi) |
-| **Web** | `depowise-web.fly.dev` — deploy edilecek (kod hazır, henüz gönderilmedi) |
-| **Masaüstü** | **1.0.62 yayında**; makine sıfırlama için yeni sürüm YAYINLANMADI |
-| **Git** | commit edilecek (bu değişiklikler henüz push edilmedi) |
-| **Bekleyen iş** | Bu oturumun değişikliklerini commit+push+deploy et |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
+| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
+| **Masaüstü** | **1.0.63 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Git** | temiz + `origin/master` ile senkron |
+| **Bekleyen iş** | **YOK** — kullanıcı gerçek makinede (DESKTOP-SIKIB3U) test edecek |
 
 ### Makine "tanım sıfırlama" (2026-07-17, ADR-085)
 Kullanıcı: babasının makinesi (DESKTOP-SIKIB3U, süper admin makinesi) önce test firmasıyla giriş yapmıştı,
@@ -45,8 +45,8 @@ makine-firma/şube önbelleğini temizler → **girişi iptal eder, login ekran�
 kullanıcı makineyi kendi firması/şubesiyle yeniden tanımlar (mevcut "ilk kurulum" akışı). ADR-084'ten
 (firma yerel sıfırlama) FARKI: o girişe izin verip devam eder, bu **durdurur** (makinenin hangi firmaya
 ait olduğu artık belirsiz). Şema: Migration 046 (`machine_resets`, ADR-084 ile aynı iki-anlamlı desen ama
-FİRMA yerine MAKİNE ADIYLA anahtarlı). Test: 8 yeni (`MachineResetTests`). Detay: `docs/DECISIONS.md` ADR-085.
-**Henüz deploy edilmedi** — API/Web deploy + masaüstü yeni sürüm yayını sırada.
+FİRMA yerine MAKİNE ADIYLA anahtarlı). Test: 8 yeni (`MachineResetTests`). Detay: `docs/DECISIONS.md` ADR-085. **Canlıya alındı:** API+Web deploy edildi, masaüstü **1.0.63**
+yayınlandı (sunucuda "en güncel" doğrulandı). Gerçek makinede (DESKTOP-SIKIB3U) henüz test edilmedi.
 
 ### Personel içe aktarımı + "Saha Personeli" / "Kullanıcı Adı" sütunları (2026-07-16)
 Kullanıcı sordu: "toplu personel listesini içeri almak istiyorum; saha personeli veya kullanıcı ise
