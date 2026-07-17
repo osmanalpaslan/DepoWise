@@ -27,13 +27,36 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **425/425 yeşil** (`dotnet test`) |
+| **Testler** | **459/459 yeşil** (`dotnet test`) |
 | **Şema** | Migration **045** (firma yerel sıfırlama isteği — ADR-084) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.61 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### Personel içe aktarımı + "Saha Personeli" / "Kullanıcı Adı" sütunları (2026-07-16)
+Kullanıcı sordu: "toplu personel listesini içeri almak istiyorum; saha personeli veya kullanıcı ise
+sütunda nasıl belirtmem gerek?" → **Personel** içe/dışa aktarımı eklendi (7 sütun, formla birebir):
+`Ad Soyad* · Unvan · Telefon · Şube · Aktif · Saha Personeli · Kullanıcı Adı`
+
+**İki kavramın Excel karşılığı (BİRBİRİNİ DIŞLAR):**
+- **Saha Personeli = Evet** → kişi uygulamaya HİÇ girmez (şoför/operatör). "Kullanıcı bağlanmadı" uyarısı çıkmaz.
+- **Kullanıcı Adı** → kişi uygulamaya girer; **MEVCUT** hesap bağlanır. ⚠️ İçe aktarım **hesap AÇMAZ**
+  (hesap açmak şifre+rol+yetki ister → Kullanıcılar ekranından yapılır). Bir personele TEK hesap.
+- İkisi birden dolu → **çelişki, satır reddedilir** (ekranda da öyle: kutucuk işaretlenince kullanıcı bağı silinir).
+- Evet/Hayır yazımı esnek: Evet/E/Var/X/1/true — Hayır/H/Yok/0/false. Tanınmayan değer **reddedilir**
+  (sessizce "hayır" sayılmaz). Aktif boş = Evet, Saha Personeli boş = Hayır.
+
+**Mükerrer:** personelin benzersiz kodu YOK → anahtar **normalize ad** (boşluksuz+küçük harf, mevcut
+"mükerrer kişi" mantığıyla aynı). Aynı dosya iki kez → tekrarlanmaz. Bedeli: gerçekten aynı isimli iki
+farklı kişi varsa ikincisi atlanır (rapor edilir). Unvan/şube yoksa otomatik oluşur (unvan Türkçe duyarlı:
+"Şoför"="şoför" tek tanım).
+
+**🔴 BULUNAN KUSUR (yine 200 sınırı):** Personel ve Malzeme **DIŞA aktarımı** `PageRequest{Limit=5000}`
+kullanıyordu ama `MaxLimit=200` → **2600 personeli olan firma "dışa aktar" deyince sessizce yalnız 200
+satır alıyordu.** Düzeltildi: `AllPages` yardımcısı keyset imleciyle tüm sayfaları dolaşıyor.
+`PersonnelService.AllNameToId` (sayfalamasız) mükerrer kontrolü için eklendi. Test: 34 yeni (hacim 3000 dahil).
 
 ### ⚠️ İçe aktarma şablonları TAM ALAN + "Arızalı" durumu + 200 SATIR SINIRI KUSURU (2026-07-16)
 **🔴 BULUNAN KUSUR (3000 satırlık hacim testi ortaya çıkardı — kullanıcının dosyası ~2600):**

@@ -71,6 +71,8 @@ public static class DesktopServices
     public static FuelImportService FuelImport { get; private set; } = null!;
     /// <summary>Yakıt DEPO GİRİŞİ içe aktarımı (satın alma) — dağıtımların kaynağı; depo yetersizse dağıtım reddedilir.</summary>
     public static FuelDepotImportService FuelDepotImport { get; private set; } = null!;
+    /// <summary>Personel içe aktarımı — "Saha Personeli" + MEVCUT hesabı bağlama ("Kullanıcı Adı").</summary>
+    public static PersonnelImportService PersonnelImport { get; private set; } = null!;
     public static SettingsService Settings { get; private set; } = null!;
     public static LookupService Lookups { get; private set; } = null!;
     public static FileService Files { get; private set; } = null!;
@@ -162,6 +164,7 @@ public static class DesktopServices
         MaintenanceImport = new MaintenanceImportService(Maintenance, MaintenanceDefs, Vehicles, Lookups);
         FuelImport = new FuelImportService(Fuel, Vehicles, Lookups);
         FuelDepotImport = new FuelDepotImportService(Fuel, Lookups);
+        PersonnelImport = new PersonnelImportService(Personnel, PersonnelTitles, Users, Lookups);
         Storage = new LocalFileStorageProvider();
         Files = new FileService(Factory, Storage, clock);
         Dashboard = new DashboardService(Factory, Maintenance, Inspection);

@@ -61,6 +61,30 @@ public sealed class PersonnelService
         return list;
     }
 
+    /// <summary>
+    /// İÇE AKTARIM için firmanın TÜM personeli: normalize ad → id (SAYFALAMA YOK).
+    ///
+    /// ⚠️ NEDEN AYRI METOT: <see cref="List"/> PageRequest kullanır ve <c>PageRequest.MaxLimit = 200</c>
+    /// ile SINIRLIDIR → 200'den fazla personeli olan firmada mükerrer kontrolü 201. kişiden sonrasını
+    /// "yok" sanıp KOPYA oluştururdu. Satır başına <see cref="FindDuplicates"/> çağırmak da 2600 satırda
+    /// 2600 sorgu demekti. Ad normalizasyonu FindDuplicates ile AYNIDIR (tutarlı mükerrer tanımı).
+    /// </summary>
+    public Dictionary<string, string> AllNameToId(SessionContext session)
+    {
+        AccessControl.Require(session, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT full_name, id FROM personnel WHERE company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$c", session.CompanyId);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[NormalizeName(r.GetString(0))] = r.GetString(1);
+        return map;
+    }
+
+    /// <summary>İçe aktarımın mükerrer anahtarı — <see cref="AllNameToId"/> ile aynı normalizasyon.</summary>
+    public static string ImportKey(string? fullName) => NormalizeName(fullName);
+
     private static string NormalizeName(string? s) => (s ?? "").Trim().ToLowerInvariant().Replace(" ", "");
     private static string DigitsOnly(string? s) => new string((s ?? "").Where(char.IsDigit).ToArray());
 

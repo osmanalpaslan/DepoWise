@@ -10,6 +10,23 @@
 
 ---
 
+## ✅ Personel içe aktarımı (2026-07-16) — TAMAMLANDI
+
+Test **459/459** (34 yeni). Kullanıcı: "toplu personel listesini içeri almak istiyorum; saha personeli
+veya kullanıcı ise sütunda nasıl belirtmem gerek?"
+
+**Şablon (7 sütun, formla birebir):** Ad Soyad* · Unvan · Telefon · Şube · Aktif · Saha Personeli · Kullanıcı Adı
+
+- **Saha Personeli = Evet** → uygulamaya girmez. **Kullanıcı Adı** → MEVCUT hesabı bağlar.
+  **İkisi birbirini dışlar** (birlikte yazılırsa satır reddedilir).
+- ⚠️ **İçe aktarım hesap AÇMAZ** — hesap Kullanıcılar ekranından açılır, burada yalnız bağlanır.
+- Evet/Hayır esnek (Evet/E/Var/X/1/true · Hayır/H/Yok/0/false); tanınmayan değer reddedilir.
+- Mükerrer anahtarı: **normalize ad**. Aynı isimli iki farklı kişi varsa ikincisi atlanır (raporlanır).
+- **🔴 KUSUR:** Personel + Malzeme **DIŞA aktarımı** 200 satırla sınırlıydı (`MaxLimit=200`) → düzeltildi
+  (`AllPages` keyset imleci).
+
+---
+
 ## ✅ Şablonlar tam alan + "Arızalı" + 200 satır sınırı kusuru (2026-07-16) — TAMAMLANDI
 
 Test **425/425** (48 yeni). Kullanıcı: "şablonlarda formdaki her alan olmalı; tanım ekleme, import'ta

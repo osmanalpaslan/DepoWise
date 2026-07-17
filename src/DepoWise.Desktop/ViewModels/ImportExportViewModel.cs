@@ -24,7 +24,7 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     public ObservableCollection<string> ExportItems { get; } = new()
         { "Malzemeler", "Araçlar", "Personel", "Muayene / Sigorta", "Bakım", "Talepler", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
     public ObservableCollection<string> ImportItems { get; } = new()
-        { "Malzemeler", "Araçlar", "Bakım", "Muayene / Sigorta", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
+        { "Malzemeler", "Araçlar", "Personel", "Bakım", "Muayene / Sigorta", "Yakıt Dağıtım", "Yakıt Depo Girişi" };
 
     [ObservableProperty] private string _selectedExport = "Malzemeler";
     [ObservableProperty] private string _selectedImport = "Malzemeler";
@@ -81,6 +81,7 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             {
                 "Araçlar" => DesktopServices.VehicleImport.DryRun(_session, rows),
                 "Bakım" => DesktopServices.MaintenanceImport.DryRun(_session, rows),
+                "Personel" => DesktopServices.PersonnelImport.DryRun(_session, rows),
                 "Muayene / Sigorta" => DesktopServices.InspectionImport.DryRun(_session, rows),
                 "Yakıt Dağıtım" => DesktopServices.FuelImport.DryRun(_session, rows),
                 "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.DryRun(_session, rows),
@@ -107,6 +108,8 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                     (res, createdLookups) = DesktopServices.VehicleImport.CommitWithLookups(_session, rows); break;
                 case "Bakım":
                     (res, createdLookups) = DesktopServices.MaintenanceImport.CommitWithLookups(_session, rows); break;
+                case "Personel":
+                    (res, createdLookups) = DesktopServices.PersonnelImport.CommitWithLookups(_session, rows); break;
                 case "Muayene / Sigorta":
                     res = DesktopServices.InspectionImport.Commit(_session, rows); break;
                 case "Yakıt Dağıtım":
@@ -138,11 +141,33 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     {
         "Araçlar" => DesktopServices.VehicleImport.SampleHeaders(),
         "Bakım" => DesktopServices.MaintenanceImport.SampleHeaders(),
+        "Personel" => DesktopServices.PersonnelImport.SampleHeaders(),
         "Muayene / Sigorta" => DesktopServices.InspectionImport.SampleHeaders(),
         "Yakıt Dağıtım" => DesktopServices.FuelImport.SampleHeaders(),
         "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.SampleHeaders(),
         _ => DesktopServices.MaterialImport.SampleHeaders(),
     };
+
+    /// <summary>
+    /// Sayfalı bir listenin TÜM kayıtlarını dolaşır (keyset imleciyle).
+    ///
+    /// ⚠️ NEDEN GEREKLİ: <c>PageRequest.MaxLimit = 200</c>'dür → <c>new PageRequest { Limit = 5000 }</c>
+    /// yazmak İŞE YARAMAZ, yine 200 satır döner. Dışa aktarım eskiden böyleydi: 2600 personeli/malzemesi
+    /// olan firma "dışa aktar" deyince sessizce yalnız 200 satır alıyordu. Artık tüm sayfalar dolaşılır.
+    /// </summary>
+    private static IEnumerable<T> AllPages<T>(Func<string?, PagedResult<T>> fetch)
+    {
+        string? cursor = null;
+        var guard = 0;
+        do
+        {
+            var page = fetch(cursor);
+            foreach (var item in page.Items) yield return item;
+            cursor = page.NextCursor;
+            // Sonsuz döngü koruması (imleç ilerlemezse): 200 × 5000 = 1.000.000 kayıt tavanı.
+            if (++guard > 5000) yield break;
+        } while (cursor is not null);
+    }
 
     private TableModel BuildTable(string entity)
     {
@@ -169,9 +194,24 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 return new TableModel("Araçlar", DesktopServices.VehicleImport.SampleHeaders().ToArray(), rows);
 
             case "Personel":
-                foreach (var p in DesktopServices.Personnel.List(_session, new PageRequest { Limit = 5000 }).Items)
-                    rows.Add(new object?[] { p.FullName, p.Title, p.Phone, p.IsActive ? "Aktif" : "Pasif" });
-                return new TableModel("Personel", new[] { "Ad Soyad", "Unvan", "Telefon", "Durum" }, rows);
+            {
+                // Bağlı kullanıcı adı: personel id → kullanıcı adı (tek sorgu; satır başına sorgu YOK).
+                var accounts = DesktopServices.Users.AccountsByPersonnel(_session.CompanyId);
+                var branchNames = DesktopServices.Branches.List(_session).ToDictionary(b => b.Id, b => b.Name, StringComparer.Ordinal);
+                foreach (var p in AllPages(c => DesktopServices.Personnel.List(_session, new PageRequest { Limit = PageRequest.MaxLimit, Cursor = c })))
+                {
+                    accounts.TryGetValue(p.Id, out var acc);
+                    rows.Add(new object?[]
+                    {
+                        p.FullName, p.Title, p.Phone,
+                        p.BranchId is not null && branchNames.TryGetValue(p.BranchId, out var bn) ? bn : null,
+                        p.IsActive ? "Evet" : "Hayır",
+                        p.IsFieldStaff ? "Evet" : "Hayır",
+                        acc?.Username,
+                    });
+                }
+                return new TableModel("Personel", DesktopServices.PersonnelImport.SampleHeaders().ToArray(), rows);
+            }
 
             case "Muayene / Sigorta":
                 foreach (var i in DesktopServices.Inspection.List(_session))
@@ -206,7 +246,7 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                 return new TableModel("Talepler", new[] { "Belge No", "Tarih", "Durum", "Kalem" }, rows);
 
             default: // Malzemeler
-                foreach (var m in DesktopServices.Materials.List(_session, new PageRequest { Limit = 5000 }).Items)
+                foreach (var m in AllPages(c => DesktopServices.Materials.List(_session, new PageRequest { Limit = PageRequest.MaxLimit, Cursor = c })))
                     rows.Add(new object?[] { m.Code, m.Name, m.Type, m.MinStock, m.UnitPrice, m.Currency });
                 return new TableModel("Malzemeler", new[] { "Kod", "Ad", "Tür", "Min Stok", "Birim Fiyat", "Para Birimi" }, rows);
         }
