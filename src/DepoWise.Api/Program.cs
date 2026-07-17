@@ -843,7 +843,7 @@ app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
         d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, "TRY", Doc(d.Description)));
     if (d.VehicleIds is { Count: > 0 }) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
     if (d.EquivalentIds is not null) foreach (var eq in d.EquivalentIds) svc.Materials.AddEquivalent(s, id, eq);
-    if (d.OpeningStock > 0)
+    if (d.OpeningStock != 0)   // ADR-086: negatif açılış (devralınan eksik stok) de kaydedilir
         svc.OpeningStock.RecordOpening(s, id, d.OpeningStock, Guid.NewGuid().ToString("N"), d.UnitPrice > 0 ? d.UnitPrice : null);
     return Results.Ok(new { id });
 }).RequireAuthorization();

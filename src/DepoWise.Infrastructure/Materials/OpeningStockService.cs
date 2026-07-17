@@ -22,13 +22,21 @@ public sealed class OpeningStockService
         _clock = clock ?? new SystemClock();
     }
 
-    /// <summary>Açılış stoğu kaydı. operation_id daha önce işlendiyse no-op (idempotent).</summary>
+    /// <summary>Açılış stoğu kaydı. operation_id daha önce işlendiyse no-op (idempotent).
+    /// Miktar NEGATİF olabilir (ADR-086): firma sistemi devralırken mevcut/eksik stoğunu olduğu gibi girer.</summary>
     public void RecordOpening(SessionContext s, string materialId, decimal quantity, string operationId,
         decimal? unitPrice = null, string currency = "TRY", string? branchId = null, decimal? fxRate = null, string? note = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
-        if (quantity <= 0) throw new ArgumentException("Açılış miktarı pozitif olmalı.");
+        if (quantity == 0) throw new ArgumentException("Açılış miktarı sıfır olamaz.");
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
+
+        // ADR-086: açılış NEGATİF olabilir. Ledger sözleşmesi korunur → quantity DAİMA pozitif saklanır,
+        // işaret DIRECTION ile taşınır. Böylece (1) stock_movements'in negatif-değer senkron kalkanı geçilir,
+        // (2) RecomputeBalances (Σ yön×miktar) doğru kalır. Türetilmiş BAKİYE eksi olabilir; operasyonel
+        // ÇIKIŞ'ın negatif-bakiye engeli (StockService) AYNEN korunur — bu yalnız BAŞLANGIÇ değeridir.
+        var direction = quantity < 0 ? -1 : 1;
+        var absQty = Math.Abs(quantity);
 
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
@@ -43,12 +51,13 @@ public sealed class OpeningStockService
             cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, movement_type, direction,
     quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at)
-VALUES($id,$c,$m,$b,'opening',1,$q,$price,$cur,$fx,$op,$note,$now);";
+VALUES($id,$c,$m,$b,'opening',$dir,$q,$price,$cur,$fx,$op,$note,$now);";
             cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
             cmd.Parameters.AddWithValue("$m", materialId);
             cmd.Parameters.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$q", Money.Serialize(quantity));
+            cmd.Parameters.AddWithValue("$dir", direction);
+            cmd.Parameters.AddWithValue("$q", Money.Serialize(absQty));
             cmd.Parameters.AddWithValue("$price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
             cmd.Parameters.AddWithValue("$cur", currency);
             cmd.Parameters.AddWithValue("$fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));

@@ -84,10 +84,14 @@ public sealed class BusinessSyncService
     };
 
     /// <summary>Negatif olamayacak sayısal alanlar (tablo bazında). Bozuk/kötü niyetli snapshot bunları
-    /// eksi değerle gönderirse satır reddedilir (stok/tutar tutarlılığı).</summary>
+    /// eksi değerle gönderirse satır reddedilir (stok/tutar tutarlılığı).
+    ///
+    /// ⚠️ stock_balances BİLİNÇLİ olarak listede DEĞİL (ADR-086): açılış stoğu negatif olabildiğinden
+    /// türetilmiş BAKİYE de negatif olabilir. Ledger kalkanı hareket düzeyinde korunur — stock_movements.quantity
+    /// DAİMA pozitiftir (işaret 'direction' ile taşınır), o yüzden aşağıda kalmaya devam eder. Ayrıca sunucu
+    /// her push sonrası bakiyeyi hareketlerden yeniden hesaplar (RecomputeBalances) → otoriteli değer korunur.</summary>
     private static readonly IReadOnlyDictionary<string, string[]> NonNegativeFields = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
-        ["stock_balances"] = new[] { "quantity", "qty", "balance" },
         ["stock_movements"] = new[] { "quantity", "qty" },
         ["material_request_items"] = new[] { "quantity", "qty" },
         ["fuel_distributions"] = new[] { "liters", "unit_price", "amount", "total" },

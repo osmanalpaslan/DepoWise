@@ -135,9 +135,9 @@ public sealed class MaterialImportService
                 var eq = SplitList(Get(row, ColEquivalents));
                 if (eq.Length > 0) pendingEquivalents.Add((row.RowNumber, id, eq));
 
-                // Açılış stoğu > 0 → stok hareketi (web formuyla aynı davranış).
+                // Açılış stoğu 0 dışında ise stok hareketi (web formuyla aynı davranış). ADR-086: negatif de olur.
                 var opening = ParseDecimal(Get(row, ColOpening)) ?? 0m;
-                if (opening > 0 && _opening is not null)
+                if (opening != 0 && _opening is not null)
                 {
                     var price = ParseDecimal(Get(row, ColPrice));
                     _opening.RecordOpening(s, id, opening, Guid.NewGuid().ToString("N"), price > 0 ? price : null);
@@ -204,7 +204,9 @@ public sealed class MaterialImportService
             if (string.IsNullOrWhiteSpace(raw)) continue;
             var v = ParseDecimal(raw);
             if (v is null) { error = $"{col} sayısal olmalı: {raw}"; return false; }
-            if (v < 0) { error = $"{col} negatif olamaz: {raw}"; return false; }
+            // ADR-086: Açılış Stok NEGATİF olabilir (firma devralırken mevcut/eksik stoğunu girer).
+            // Fiyat ve Min Stok negatif OLAMAZ (anlamsız — eşik/tutar eksi olmaz).
+            if (col != ColOpening && v < 0) { error = $"{col} negatif olamaz: {raw}"; return false; }
         }
         var cur = Get(row, ColCurrency);
         if (!string.IsNullOrWhiteSpace(cur) && !Money.IsSupported(cur!.Trim()))

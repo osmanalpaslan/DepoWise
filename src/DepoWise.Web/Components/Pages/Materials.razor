@@ -89,7 +89,7 @@
             <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_min" Label="Min Stok" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
             @if (_editId is null)
             {
-                <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_opening" Label="Açılış Stok" HelperText=">0 ise stok hareketi." Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" Format="0.##" /></MudItem>
+                <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_opening" Label="Açılış Stok" HelperText="0 dışında ise stok hareketi (eksi olabilir)." Margin="Margin.Dense" Variant="Variant.Outlined" Format="0.##" /></MudItem>
             }
             <MudItem xs="12"><MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>

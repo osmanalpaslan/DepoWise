@@ -10,6 +10,21 @@
 
 ---
 
+## ⏳ Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086) — KOD+TEST TAMAM, DEPLOY BEKLİYOR
+
+Test **473/473** (6 yeni). Babanın dosyasında 63 satırda negatif Açılış Stok vardı; içe aktarım reddediyordu.
+Kullanıcı: "eksi stok kontrolünü kaldıralım; devralan firmalar mevcut stoklarını girebilsin."
+
+- **Yalnız BAŞLANGIÇ stoğu** negatif olabilir (içe aktarım + web/masaüstü form + API). **Operasyonel çıkış
+  negatif-bakiye engeli KORUNUR.** Fiyat/Min Stok yine negatif olamaz.
+- Ledger temiz: negatif açılış = `stock_movements` pozitif miktar + direction=−1; yalnız türetilmiş bakiye eksi.
+- Detay: `docs/DECISIONS.md` ADR-086.
+- **⚠️ Babanın dosyasında 2. engel (bu iş kapsamı DIŞINDA):** para birimi her satırda "TL" — sistem TRY/USD/EUR
+  bekler. Excel'de TL→TRY yapılmalı (ya da ayrı talep gelirse otomatik eşleme eklenir).
+- **Kalan:** API+Web deploy, masaüstü 1.0.64 yayını.
+
+---
+
 ## ✅ Makine "tanım sıfırlama" (2026-07-17) — TAMAMLANDI (canlıda, DESKTOP-SIKIB3U testi bekleniyor)
 
 Test **467/467** (8 yeni, `MachineResetTests`). API+Web deploy edildi, masaüstü **1.0.63** yayınlandı.

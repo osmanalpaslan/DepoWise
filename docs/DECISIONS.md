@@ -12,6 +12,39 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-086 — Açılış stoğu NEGATİF olabilir (17.07.2026, TAMAM — infra+API+web+masaüstü)
+
+> ⚠️ Bu, `CLAUDE.md` §4 "negatif stok" değişmezinin BİLİNÇLİ ve SINIRLI bir yorumudur. Kullanıcının açık
+> talebi (§1) bu satırın üstündedir; karar burada kayıt altına alınmıştır.
+
+- **Bağlam:** Kullanıcının babasının gerçek malzeme dosyasında (2507 satır) 63 satırda **Açılış Stok negatif**
+  (örn. −59, −1, −78). İçe aktarım bunları reddediyordu. Kullanıcı: "eksi stok kontrolünü kaldıralım.
+  sonradan projemizi satın alan firmalar mevcut stoklarını ekleyebilirler." — yani sistemi devralan bir firma
+  mevcut/eksik başlangıç stoğunu OLDUĞU GİBİ girebilmeli.
+- **KAPSAM — yalnız BAŞLANGIÇ değeri gevşetildi; operasyonel koruma AYNEN korunur:**
+  - **Gevşetilen:** açılış/ilk stok girişi (`OpeningStockService.RecordOpening`, malzeme içe aktarımı,
+    web + masaüstü malzeme formu, `POST /api/materials`). Artık negatif açılış kabul edilir; yalnız **sıfır**
+    reddedilir (anlamsız hareket).
+  - **KORUNAN (dokunulmadı):** operasyonel ÇIKIŞ'ın negatif-bakiye engeli (`StockService.ApplyDelta`,
+    `allowNegative:false`) — bir çıkış bakiyeyi eksiye DÜŞÜREMEZ. Bu §4'ün asıl koruduğu kuraldır.
+  - Fiyat ve Min Stok negatif OLAMAZ (eşik/tutar anlamsız) — yalnız STOK MİKTARI negatif olabilir.
+- **Ledger sözleşmesi korunur (kritik tasarım kararı):** negatif açılış, `stock_movements`'a **quantity DAİMA
+  pozitif + direction=−1** olarak yazılır (ör. −9 → dir=−1, qty=9). Neden: (1) senkron içerik doğrulaması
+  (`BusinessSyncService`) `stock_movements.quantity` negatifse satırı reddeder → hareket düzeyi kalkanı
+  KORUNUR; (2) `RecomputeBalances` = Σ(yön×miktar) doğru kalır (−1×9 = −9). Türetilmiş **bakiye**
+  (`stock_balances`) negatif olabilir → o alan senkron negatif-kalkanından ÇIKARILDI.
+- **Bozuk-veri koruması nasıl sürüyor:** bakiye türetilmiştir; sunucu her push sonrası
+  `RecomputeBalances` ile bakiyeyi hareketlerden yeniden hesaplar (otoriteli). Ham negatif `quantity` yalnız
+  bozuk/kötü niyetli snapshot'tan gelebilir ve hâlâ reddedilir (`Apply_NegatifHareketMiktari_Reddedilir`).
+- **Test:** `MaterialTests` (+3: negatif açılış yön/miktar & bakiye · sıfır reddedilir · RecomputeBalances
+  round-trip) · `ImportFullFieldsTests` (+2: negatif açılış kabul & bakiye · negatif fiyat reddedilir) ·
+  `BusinessSyncTests` (negatif BAKİYE artık uygulanır; negatif HAREKET miktarı hâlâ reddedilir). 473/473.
+- **NOT (kapsam dışı, kullanıcıya bildirildi):** babanın dosyasındaki 2. sorun — her satırda para birimi
+  "TL" yazılı (sistem TRY/USD/EUR bekler). Bu içe aktarım için hâlâ engel; kullanıcı Excel'de TL→TRY
+  yapmalı (veya ayrı bir talep gelirse TL→TRY otomatik eşlemesi eklenir).
+
+---
+
 ### ADR-085 — Makine "tanım sıfırlama" (17.07.2026, TAMAM — API+web+masaüstü)
 
 - **Bağlam:** Kullanıcının babası bir makinede (DESKTOP-SIKIB3U, süper admin makinesi) önce bir "test

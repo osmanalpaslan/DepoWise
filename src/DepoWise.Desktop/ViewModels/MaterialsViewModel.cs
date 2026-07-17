@@ -261,8 +261,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
                 UnitPrice: NewUnitPrice, MinStock: NewMinStock, Currency: "TRY",
                 Description: string.IsNullOrWhiteSpace(NewDescription) ? null : NewDescription.Trim()));
 
-            // Açılış stoğu > 0 ise stok hareketi (eski projeyle aynı davranış)
-            if (NewOpeningStock > 0)
+            // Açılış stoğu 0 dışında ise stok hareketi. ADR-086: negatif de olur (devralınan eksik stok).
+            if (NewOpeningStock != 0)
                 DesktopServices.OpeningStock.RecordOpening(_session, id, NewOpeningStock, Guid.NewGuid().ToString("N"));
 
             // Uyumlu araçlar (seçiliyse)

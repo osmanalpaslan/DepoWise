@@ -188,6 +188,48 @@ public class MaterialTests : IDisposable
         Assert.Throws<ForbiddenException>(() => _opening.RecordOpening(noPerm, m, 5m, "op-x"));
     }
 
+    // ---- ADR-086: NEGATİF açılış stoğu (firma devralırken mevcut/eksik stoğunu girer) ----
+    [Fact]
+    public void AcilisStogu_Negatif_YonEksi_MiktarPozitifSaklanir_BakiyeNegatif()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Filtre"));
+        _opening.RecordOpening(a, m, -9m, "op-neg");
+
+        // LEDGER SÖZLEŞMESİ: quantity DAİMA pozitif; işaret direction'da (senkron negatif-değer kalkanı geçilsin).
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT direction, quantity FROM stock_movements WHERE material_id=$m;";
+        cmd.Parameters.AddWithValue("$m", m);
+        using var r = cmd.ExecuteReader();
+        Assert.True(r.Read());
+        Assert.Equal(-1L, r.GetInt64(0));
+        Assert.Equal(9m, Money.Parse(r.GetString(1)));   // pozitif saklandı
+        Assert.Equal(-9m, _opening.GetBalance(a, m));     // türetilmiş bakiye negatif
+    }
+
+    [Fact]
+    public void AcilisStogu_Sifir_Reddedilir()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Filtre"));
+        Assert.Throws<ArgumentException>(() => _opening.RecordOpening(a, m, 0m, "op-zero"));
+    }
+
+    /// <summary>Çok makineli senkron tutarlılığı: RecomputeBalances (Σ yön×miktar) negatif açılışta da
+    /// bakiyeyi DOĞRU üretir — push sonrası sunucu-otoriteli yeniden hesap negatif değeri korur.</summary>
+    [Fact]
+    public void AcilisStogu_Negatif_RecomputeBalances_AyniNegatifDeger()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Filtre"));
+        _opening.RecordOpening(a, m, -9m, "op-neg");
+
+        new StockService(_factory, _clock).RecomputeBalances("A");   // hareketlerden yeniden hesapla
+
+        Assert.Equal(-9m, _opening.GetBalance(a, m));
+    }
+
     // ---- Tanımlar ----
     [Fact]
     public void Tanimlar_Ekle_VeTenantListe()

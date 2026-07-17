@@ -244,8 +244,8 @@
                         <NumericUpDown Classes="Field" Value="{Binding NewMinStock}" Minimum="0"
                                        FormatString="0.##" ShowButtonSpinner="False" TabIndex="3"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Açılış Stok" Width="150" HelpText="&gt;0 ise stok hareketi." IsVisible="{Binding !IsEditMode}">
-                        <NumericUpDown Classes="Field" Value="{Binding NewOpeningStock}" Minimum="0"
+                    <ctrl:FormField Label="Açılış Stok" Width="150" HelpText="0 dışında ise stok hareketi (eksi olabilir)." IsVisible="{Binding !IsEditMode}">
+                        <NumericUpDown Classes="Field" Value="{Binding NewOpeningStock}"
                                        FormatString="0.##" ShowButtonSpinner="False" TabIndex="4"/>
                     </ctrl:FormField>
                 </StackPanel>

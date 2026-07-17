@@ -383,6 +383,33 @@ public class ImportFullFieldsTests : IDisposable
         Assert.Equal(20m, new StockServiceProbe(_factory).Balance(mid));
     }
 
+    // ADR-086: negatif açılış stoğu (devralınan eksik stok) İÇE AKTARIMDA da kabul edilir.
+    [Fact]
+    public void Malzeme_NegatifAcilisStogu_KabulEdilir_BakiyeNegatif()
+    {
+        var dry = _mimp.DryRun(_admin, new[] { Row(2, ("Kod", "M-1"), ("Ad", "Filtre"), ("Açılış Stok", "-9")) });
+        Assert.Equal(1, dry.Valid);   // negatif açılış artık HATA değil
+        Assert.Equal(0, dry.Failed);
+
+        _mimp.Commit(_admin, new[] { Row(2, ("Kod", "M-1"), ("Ad", "Filtre"), ("Açılış Stok", "-9")) });
+        var mid = _materials.List(_admin, new PageRequest { Limit = 10 }).Items.Single().Id;
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
+        cmd.Parameters.AddWithValue("$m", mid);
+        Assert.Equal(-9m, Money.Parse(cmd.ExecuteScalar() as string));
+    }
+
+    // Fiyat/Min Stok negatif OLAMAZ (yalnız "stok" negatif olabilir — eşik/tutar değil).
+    [Fact]
+    public void Malzeme_NegatifBirimFiyat_SatirReddedilir()
+    {
+        var dry = _mimp.DryRun(_admin, new[] { Row(2, ("Kod", "M-1"), ("Ad", "Filtre"), ("Birim Fiyat", "-5")) });
+        Assert.Equal(0, dry.Valid);
+        Assert.Contains(dry.Errors, e => e.Message.Contains("negatif"));
+    }
+
     [Fact]
     public void Malzeme_AltKategori_KategoriYoksaOlusmaz()
     {

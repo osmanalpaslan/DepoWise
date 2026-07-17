@@ -331,14 +331,17 @@ public class BusinessSyncTests : IDisposable
         Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
     }
 
+    /// <summary>ADR-086: açılış stoğu negatif olabildiğinden türetilmiş BAKİYE de negatif olabilir →
+    /// stock_balances negatif değeri artık REDDEDİLMEZ (senkronda uygulanır). Ledger kalkanı hareket
+    /// düzeyinde korunur (bkz. Apply_NegatifHareketMiktari_Reddedilir).</summary>
     [Fact]
-    public void Apply_NegatifStokBakiyesi_Reddedilir()
+    public void Apply_NegatifStokBakiyesi_Uygulanir()
     {
         SeedCompany(_src, "ACME");
         SeedCompany(_dst, "ACME");
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme','0','0',1,100,1,0);");
-        // Bozuk snapshot: negatif bakiye
+        // Negatif açılış → negatif bakiye (devralınan eksik stok). Artık geçerli bir durumdur.
         Exec(_src, "INSERT INTO stock_balances(company_id,material_id,quantity,updated_at) VALUES('ACME','m1','-9',50);");
 
         var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
@@ -346,9 +349,30 @@ public class BusinessSyncTests : IDisposable
         var admin = Session("ACME", new[] { DepoWise.Application.Security.RoleKeys.CompanyAdmin });
         var res = new BusinessSyncService(_dst, _clock).Apply(admin, doc.RootElement);
 
-        // materials uygulandı, negatif bakiye reddedildi
         Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
-        Assert.Null(Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
+        Assert.Equal("-9", Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
+        Assert.DoesNotContain(res.Errors, e => e.Contains("negatif"));
+    }
+
+    /// <summary>Ledger kalkanı KORUNUR: stock_movements.quantity negatif snapshot'ı REDDEDİLİR — negatif açılış
+    /// dahi hareket düzeyinde DAİMA pozitif quantity + direction=-1 olarak saklanır (ADR-086), ham negatif miktar
+    /// yalnız bozuk/kötü niyetli snapshot'tan gelebilir.</summary>
+    [Fact]
+    public void Apply_NegatifHareketMiktari_Reddedilir()
+    {
+        SeedCompany(_src, "ACME");
+        SeedCompany(_dst, "ACME");
+        Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
+                   "VALUES('m1','ACME','K1','Malzeme','0','0',1,100,1,0);");
+        Exec(_src, "INSERT INTO stock_movements(id,company_id,material_id,movement_type,direction,quantity,operation_id,created_at) " +
+                   "VALUES('mv1','ACME','m1','opening',1,'-9','op-bad',50);");
+
+        var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
+        using var doc = JsonDocument.Parse(snap);
+        var admin = Session("ACME", new[] { DepoWise.Application.Security.RoleKeys.CompanyAdmin });
+        var res = new BusinessSyncService(_dst, _clock).Apply(admin, doc.RootElement);
+
+        Assert.Null(Scalar(_dst, "SELECT quantity FROM stock_movements WHERE id='mv1';"));
         Assert.Contains(res.Errors, e => e.Contains("negatif"));
     }
 

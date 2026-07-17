@@ -27,13 +27,24 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **467/467 yeşil** (`dotnet test`) |
+| **Testler** | **473/473 yeşil** (`dotnet test`) |
 | **Şema** | Migration **046** (makine tanımı sıfırlama — ADR-085) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
-| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.63 yayında** (sunucuda "en güncel" doğrulandı) |
-| **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **YOK** — kullanıcı gerçek makinede (DESKTOP-SIKIB3U) test edecek |
+| **API (sunucu)** | `depowise-erp.fly.dev` — deploy edilecek (ADR-086 kodu hazır) |
+| **Web** | `depowise-web.fly.dev` — deploy edilecek (ADR-086 kodu hazır) |
+| **Masaüstü** | **1.0.63 yayında**; ADR-086 için yeni sürüm YAYINLANACAK |
+| **Git** | commit edilecek |
+| **Bekleyen iş** | ADR-086'yı commit+push+deploy et |
+
+### Açılış stoğu NEGATİF olabilir (2026-07-17, ADR-086)
+Babanın malzeme dosyasında (2507 satır) 63 satırda **Açılış Stok negatif**; içe aktarım reddediyordu.
+Kullanıcı: "eksi stok kontrolünü kaldıralım; sistemi devralan firmalar mevcut stoklarını girebilsin."
+→ **Yalnız BAŞLANGIÇ stoğu** girişinde negatif serbest bırakıldı (içe aktarım + web/masaüstü malzeme formu
++ API). **Operasyonel ÇIKIŞ'ın negatif-bakiye engeli AYNEN korunur** (bir çıkış bakiyeyi eksiye düşüremez —
+§4'ün asıl kuralı). Fiyat/Min Stok yine negatif olamaz. Ledger temiz kalır: negatif açılış `stock_movements`'a
+**pozitif miktar + direction=−1** yazılır (senkron kalkanı + `RecomputeBalances` doğru kalsın); yalnız türetilmiş
+**bakiye** eksi olabilir. Detay: `docs/DECISIONS.md` ADR-086. Test: 6 yeni (473/473).
+**⚠️ Kalan (babanın dosyası):** her satırda para birimi "TL" yazılı — sistem TRY/USD/EUR bekler. Bu ayrı bir
+engel; Excel'de TL→TRY yapılmalı (istenirse TL→TRY otomatik eşlemesi eklenir). **Henüz deploy edilmedi.**
 
 ### Makine "tanım sıfırlama" (2026-07-17, ADR-085)
 Kullanıcı: babasının makinesi (DESKTOP-SIKIB3U, süper admin makinesi) önce test firmasıyla giriş yapmıştı,
