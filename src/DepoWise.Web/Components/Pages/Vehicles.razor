@@ -37,10 +37,13 @@
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Durum &amp; Sayaç</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="6" md="4">
+                @* Durum listesi ORTAK kaynaktan (VehicleStatus) — yeni durum eklenince burası kendiliğinden doğrudur. *@
                 <MudSelect T="string" @bind-Value="_status" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@("active")">Aktif</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("passive")">Pasif</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("maintenance")">Bakımda</MudSelectItem>
+                    @* Değişken adı "code" OLAMAZ: Razor onu @@code direktifi sanar. *@
+                    @foreach (var st in DepoWise.Web.Services.VehicleStatus.All)
+                    {
+                        <MudSelectItem T="string" Value="@st.Code">@st.Label</MudSelectItem>
+                    }
                 </MudSelect>
             </MudItem>
             <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_meter" Label="Sayaç" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -50,9 +53,10 @@
                     <MudSelectItem T="string" Value="@("hour")">hour</MudSelectItem>
                 </MudSelect>
             </MudItem>
-            @if (_status == "maintenance")
+            @* Durum açıklaması Bakımda VE Arızalı durumunda anlamlıdır (ortak kural: VehicleStatus.NeedsNote). *@
+            @if (DepoWise.Web.Services.VehicleStatus.NeedsNote(_status))
             {
-                <MudItem xs="12"><MudTextField @bind-Value="_statusNote" Label="Durum Açıklaması" HelperText="Yalnız 'Bakımda' durumunda saklanır." Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+                <MudItem xs="12"><MudTextField @bind-Value="_statusNote" Label="Durum Açıklaması" HelperText="Yalnız 'Bakımda' / 'Arızalı' durumunda saklanır." Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             }
         </MudGrid>
 
@@ -439,7 +443,7 @@
             {
                 internalCode = _code.Trim(), plate = Empty(_plate), productionYear = _year, currentMeter = _meter, meterUnit = _meterUnit,
                 branchId = _branch, driverPersonnelId = _driver, chassisNo = Empty(_chassis), engineNo = Empty(_engine),
-                status = _status, statusNote = _status == "maintenance" ? Empty(_statusNote) : null,
+                status = _status, statusNote = DepoWise.Web.Services.VehicleStatus.NeedsNote(_status) ? Empty(_statusNote) : null,
                 vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model,
                 templateId = _editId is null ? _template : null
             };
@@ -464,7 +468,8 @@
     }
 
     private string Alert(string vehicleId) => _alerts.TryGetValue(vehicleId, out var t) ? t : "—";
-    private static string StatusTr(string s) => s switch { "active" => "Aktif", "passive" => "Pasif", "maintenance" => "Bakımda", _ => s };
+    // Durum metni ORTAK kaynaktan (VehicleStatus) — elle tekrar YOK.
+    private static string StatusTr(string s) => DepoWise.Web.Services.VehicleStatus.Label(s);
     private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
     private static string GuessMime(string name)
     {

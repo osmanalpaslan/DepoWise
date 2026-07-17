@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
 
@@ -95,20 +96,37 @@ public sealed partial class ImportExportViewModel : ViewModelBase
                     $"{dry.Total} satır okundu, {dry.Valid} geçerli, {dry.Failed} hatalı.{dryDetail}\n\nİçe aktarılsın mı? (hatalı satırlar atlanır)",
                     "İçe Aktar"))
                 return;
-            var res = SelectedImport switch
+            // Tanım alanları isimle yazılır ve yoksa OTOMATİK oluşturulur (kullanıcı kuralı). Oluşan yeni
+            // tanımlar raporlanır: "CATERPILLAR" ve "caterpiller" (yazım hatası) iki AYRI marka olur —
+            // kullanıcı bu listeye bakıp hatayı görebilmeli.
+            IReadOnlyList<string> createdLookups = System.Array.Empty<string>();
+            ImportResult res;
+            switch (SelectedImport)
             {
-                "Araçlar" => DesktopServices.VehicleImport.Commit(_session, rows),
-                "Bakım" => DesktopServices.MaintenanceImport.Commit(_session, rows),
-                "Muayene / Sigorta" => DesktopServices.InspectionImport.Commit(_session, rows),
-                "Yakıt Dağıtım" => DesktopServices.FuelImport.Commit(_session, rows),
-                "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.Commit(_session, rows),
-                _ => DesktopServices.MaterialImport.Commit(_session, rows),
-            };
+                case "Araçlar":
+                    (res, createdLookups) = DesktopServices.VehicleImport.CommitWithLookups(_session, rows); break;
+                case "Bakım":
+                    (res, createdLookups) = DesktopServices.MaintenanceImport.CommitWithLookups(_session, rows); break;
+                case "Muayene / Sigorta":
+                    res = DesktopServices.InspectionImport.Commit(_session, rows); break;
+                case "Yakıt Dağıtım":
+                    res = DesktopServices.FuelImport.Commit(_session, rows); break;
+                case "Yakıt Depo Girişi":
+                    res = DesktopServices.FuelDepotImport.Commit(_session, rows); break;
+                default:
+                    (res, createdLookups) = DesktopServices.MaterialImport.CommitWithLookups(_session, rows); break;
+            }
             // Yakıtta "Updated" = zaten vardı, atlandı (aynı dosya tekrar aktarıldı) — kullanıcıya böyle yaz.
             var isFuel = SelectedImport is "Yakıt Dağıtım" or "Yakıt Depo Girişi";
             ImportResult = isFuel
                 ? $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, zaten vardı (atlandı) {res.Updated}, hatalı {res.Failed}."
                 : $"İçe aktarım: toplam {res.Total}, eklenen {res.Added}, güncellenen {res.Updated}, hatalı {res.Failed}.";
+            if (createdLookups.Count > 0)
+            {
+                ImportResult += $"\n\nOluşturulan yeni tanımlar ({createdLookups.Count}) — yazım hatası var mı diye kontrol edin:\n"
+                    + string.Join("\n", createdLookups.Take(30).Select(x => "• " + x))
+                    + (createdLookups.Count > 30 ? $"\n… ve {createdLookups.Count - 30} tanım daha (Tanımlar ekranından görün)" : "");
+            }
             if (res.Errors.Count > 0)
                 ImportResult += "\nHatalar:\n" + string.Join("\n", res.Errors.Select(e => e.RowNumber > 0 ? $"Satır {e.RowNumber}: {e.Message}" : e.Message));
             Status = "İçe aktarım tamamlandı.";
@@ -131,10 +149,24 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         var rows = new List<IReadOnlyList<object?>>();
         switch (entity)
         {
+            // Dışa aktarım sütunları İÇE AKTARIM ŞABLONUYLA BİREBİR aynı: dışa aktar → Excel'de düzelt →
+            // geri içe aktar döngüsü çalışsın (sütun adı tutmazsa import satırı okuyamaz).
             case "Araçlar":
                 foreach (var v in DesktopServices.Vehicles.List(_session))
-                    rows.Add(new object?[] { v.InternalCode, v.Plate, v.Status, v.CurrentMeter, v.MeterUnit, v.ProductionYear });
-                return new TableModel("Araçlar", new[] { "İç Kod", "Plaka", "Durum", "Sayaç", "Birim", "Yıl" }, rows);
+                {
+                    // Detay ayrı sorgu: liste satırında tanım ADLARI (marka/model/şube…) yok.
+                    VehicleDetail? d = null;
+                    try { d = DesktopServices.Vehicles.Get(_session, v.Id); } catch { }
+                    rows.Add(new object?[]
+                    {
+                        v.InternalCode, v.Plate, v.ProductionYear,
+                        DepoWise.Application.Ui.VehicleStatus.Label(v.Status), d?.StatusNote,
+                        v.CurrentMeter, v.MeterUnit,
+                        d?.VehicleTypeName, d?.CategoryName, d?.BrandName, d?.VehicleModelName,
+                        d?.BranchName, d?.DriverName, d?.ChassisNo, d?.EngineNo,
+                    });
+                }
+                return new TableModel("Araçlar", DesktopServices.VehicleImport.SampleHeaders().ToArray(), rows);
 
             case "Personel":
                 foreach (var p in DesktopServices.Personnel.List(_session, new PageRequest { Limit = 5000 }).Items)

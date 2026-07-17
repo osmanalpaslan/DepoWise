@@ -214,6 +214,23 @@
                                 <TextBox Classes="Field" Text="{Binding MntDescription}" AcceptsReturn="True" Height="48"/>
                             </ctrl:FormField>
 
+                            <!-- Araç durumu: bakım kaydı açarken aracı "Arızalı" vb. işaretle. Boş = dokunma. -->
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <ctrl:FormField Label="Araç Durumu (değiştir)" Width="180"
+                                                HelpText="Boş = aracın durumu değişmez.">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding VehicleStatusOptions}" SelectedItem="{Binding MntVehStatus}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StatusPick"><SelectableTextBlock Text="{Binding Label}"/></DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
+                                <ctrl:FormField Label="Araç Durum Açıklaması" Width="320" IsVisible="{Binding ShowVehStatusNote}"
+                                                HelpText="Arıza/bakım sebebi (araç kartına yazılır).">
+                                    <TextBox Classes="Field" Text="{Binding MntVehStatusNote}"/>
+                                </ctrl:FormField>
+                            </StackPanel>
+
                             <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
                                 <StackPanel Spacing="6">
                                     <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>

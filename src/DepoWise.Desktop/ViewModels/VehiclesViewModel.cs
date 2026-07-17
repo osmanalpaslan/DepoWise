@@ -26,7 +26,10 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
     private readonly SessionContext _session;
 
     public ObservableCollection<VehicleRow> Items { get; } = new();
-    public ObservableCollection<string> StatusOptions { get; } = new() { "active", "passive", "maintenance" };
+    /// <summary>Durum seçenekleri ORTAK listeden gelir (DepoWise.Application.Ui.VehicleStatus) — eskiden
+    /// burada ham kodlar ("active"/"passive") elle yazılıydı ve kutuda Türkçe değil KOD görünüyordu.</summary>
+    public ObservableCollection<StatusPick> StatusOptions { get; } =
+        new(DepoWise.Application.Ui.VehicleStatus.All.Select(x => new StatusPick(x.Code, x.Label)));
     public ObservableCollection<string> MeterUnits { get; } = new() { "km", "hour" };
 
     [ObservableProperty] private string _search = "";
@@ -52,14 +55,23 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
     [ObservableProperty] private int _newYear;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNewMaintenance))]
-    private string _newStatus = "active";
+    private StatusPick? _newStatusPick;
+
+    /// <summary>Seçili durumun KODU (servise bu gider). Seçim yoksa varsayılan "aktif".</summary>
+    private string NewStatus => NewStatusPick?.Code ?? DepoWise.Application.Ui.VehicleStatus.Active;
+
+    /// <summary>Koddan seçim nesnesini bulur (düzenlemeye girerken / formu temizlerken).</summary>
+    private StatusPick PickStatus(string? code)
+        => StatusOptions.FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase))
+           ?? StatusOptions.First();
     [ObservableProperty] private decimal _newMeter;
     [ObservableProperty] private string _newMeterUnit = "km";
     [ObservableProperty] private string _newChassisNo = "";
     [ObservableProperty] private string _newEngineNo = "";
     [ObservableProperty] private string _newStatusNote = "";
 
-    public bool IsNewMaintenance => NewStatus == "maintenance";
+    /// <summary>"Durum Açıklaması" alanı görünsün mü? Bakımda VE Arızalı durumlarında anlamlıdır.</summary>
+    public bool IsNewMaintenance => DepoWise.Application.Ui.VehicleStatus.NeedsNote(NewStatus);
 
     // ── Paylaşılan araç tanımları (LookupService) ──
     public ObservableCollection<LookupItem> VehicleTypes { get; } = new();
@@ -308,7 +320,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
     [RelayCommand]
     private void Clear()
     {
-        NewCode = ""; NewPlate = ""; NewYear = 0; NewStatus = "active"; NewMeter = 0; NewMeterUnit = "km";
+        NewCode = ""; NewPlate = ""; NewYear = 0; NewStatusPick = PickStatus(DepoWise.Application.Ui.VehicleStatus.Active); NewMeter = 0; NewMeterUnit = "km";
         NewChassisNo = ""; NewEngineNo = ""; NewStatusNote = "";
         SelVehicleType = null; SelCategory = null; SelBrand = null; SelModel = null; SelBranch = null; SelDriver = null;
         IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingBranch = IsAddingDriver = false;
@@ -434,7 +446,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         NewCode = d.InternalCode;
         NewPlate = d.Plate ?? "";
         NewYear = d.ProductionYear ?? 0;
-        NewStatus = d.Status;
+        NewStatusPick = PickStatus(d.Status);
         NewStatusNote = d.StatusNote ?? "";
         NewMeter = d.CurrentMeter; _loadedMeter = d.CurrentMeter;
         NewMeterUnit = d.MeterUnit;
@@ -531,18 +543,17 @@ public sealed record VehicleRow(string Id, string Code, string? Plate, string St
     public string MeterDisplay => $"{Meter:0.##} {MeterUnit}";
     public string YearDisplay => Year is > 0 ? Year!.Value.ToString() : "—";
 
-    public string StatusText => Status switch
-    {
-        "active" => "Aktif",
-        "passive" => "Pasif",
-        "maintenance" => "Bakımda",
-        _ => Status,
-    };
+    /// <summary>Durum metni ORTAK listeden (VehicleStatus) — yeni durum eklenince burası kendiliğinden doğrudur.</summary>
+    public string StatusText => DepoWise.Application.Ui.VehicleStatus.Label(Status);
     public BadgeKind StatusKind => Status switch
     {
         "active" => BadgeKind.Success,
         "maintenance" => BadgeKind.Warning,
+        "faulty" => BadgeKind.Danger,      // Arızalı: bakımdan daha acil → kırmızı
         "passive" => BadgeKind.Neutral,
         _ => BadgeKind.Neutral,
     };
 }
+
+/// <summary>Araç durumu seçim satırı — kutuda Türkçe ad görünür, servise KOD gider.</summary>
+public sealed record StatusPick(string Code, string Label);

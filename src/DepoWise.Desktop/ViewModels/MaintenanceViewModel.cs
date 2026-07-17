@@ -289,6 +289,18 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     [ObservableProperty] private decimal _mntHour;
     [ObservableProperty] private DateTimeOffset? _mntDate;
     [ObservableProperty] private string _mntDescription = "";
+
+    // ── Araç durumu (kullanıcı isteği 2026-07-16): bakım kaydı açarken aracı "Arızalı" vb. işaretle.
+    //    BOŞ bırakılırsa aracın durumuna DOKUNULMAZ.
+    public ObservableCollection<StatusPick> VehicleStatusOptions { get; } =
+        new(DepoWise.Application.Ui.VehicleStatus.All.Select(x => new StatusPick(x.Code, x.Label)));
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowVehStatusNote))]
+    private StatusPick? _mntVehStatus;
+    [ObservableProperty] private string _mntVehStatusNote = "";
+    /// <summary>Durum açıklaması yalnız Bakımda / Arızalı seçilince anlamlıdır.</summary>
+    public bool ShowVehStatusNote => MntVehStatus is not null
+        && DepoWise.Application.Ui.VehicleStatus.NeedsNote(MntVehStatus.Code);
     [ObservableProperty] private string _mntMaterialSearch = "";
     [ObservableProperty] private string _cancelReason = "";
     [ObservableProperty] private bool _isAddingMntSub;
@@ -403,6 +415,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     {
         MntVehicle = null; MntDef = null; MntSubDef = null; MntTechnician = null;
         MntKm = 0; MntHour = 0; MntDate = null; MntDescription = ""; MntMaterialSearch = "";
+        MntVehStatus = null; MntVehStatusNote = "";
         IsAddingMntSub = false; NewMntSubName = "";
         MntLines.Clear(); MntMaterialResults.Clear(); ShowMntAdd = false;
     }
@@ -442,8 +455,28 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 PerformedHour: MntHour > 0 ? MntHour : (decimal?)null,
                 PerformedDate: MntDate?.ToUnixTimeMilliseconds(),
                 Materials: materials), Guid.NewGuid().ToString("N"));
+
+            // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI oldu; durum güncellenemezse
+            // bakım GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
+            var vehStatus = MntVehStatus;
+            if (vehStatus is not null)
+            {
+                try
+                {
+                    DesktopServices.Vehicles.SetStatus(_session, MntVehicle.Id, vehStatus.Code,
+                        string.IsNullOrWhiteSpace(MntVehStatusNote) ? null : MntVehStatusNote.Trim());
+                }
+                catch (Exception vex)
+                {
+                    ClearMnt(); LoadMaint(); LoadAlerts();
+                    Status = $"Bakım kaydedildi ANCAK araç durumu güncellenemedi: {vex.Message} (Araçlar ekranından elle değiştirin.)";
+                    return;
+                }
+            }
             ClearMnt(); LoadMaint(); LoadAlerts();
-            Status = "Bakım kaydı eklendi.";
+            Status = vehStatus is null
+                ? "Bakım kaydı eklendi."
+                : $"Bakım kaydı eklendi; araç durumu '{vehStatus.Label}' olarak güncellendi.";
         }
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
     }

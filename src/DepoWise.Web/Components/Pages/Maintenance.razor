@@ -114,6 +114,27 @@
                     <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_mDate" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="12"><MudTextField @bind-Value="_mDesc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
+
+                    @* ARAÇ DURUMU (kullanıcı isteği 2026-07-16): bakım kaydı açarken aracı "Arızalı" vb.
+                       işaretleyebilmek için. BOŞ bırakılırsa aracın durumuna DOKUNULMAZ. *@
+                    <MudItem xs="6" md="4">
+                        <MudSelect T="string" @bind-Value="_mVehStatus" Label="Araç Durumu (değiştir)" Clearable="true"
+                                   Margin="Margin.Dense" Variant="Variant.Outlined"
+                                   HelperText="Boş = aracın durumu değişmez.">
+                            @foreach (var st in DepoWise.Web.Services.VehicleStatus.All)
+                            {
+                                <MudSelectItem T="string" Value="@st.Code">@st.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    @if (DepoWise.Web.Services.VehicleStatus.NeedsNote(_mVehStatus))
+                    {
+                        <MudItem xs="6" md="8">
+                            <MudTextField @bind-Value="_mVehStatusNote" Label="Araç Durum Açıklaması" Margin="Margin.Dense"
+                                          Variant="Variant.Outlined" UserAttributes="_noAuto"
+                                          HelperText="Arıza/bakım sebebi (araç kartına yazılır)." />
+                        </MudItem>
+                    }
                 </MudGrid>
 
                 <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">Malzemeler (stoktan düşülür)</MudText>
@@ -244,6 +265,8 @@
     private ApiClient.Opt? _mVehicle, _matSel;
     private string? _mDefId, _mSubId, _mTech;
     private decimal? _mKm, _mHour; private DateTime? _mDate; private string _mDesc = "";
+    // Bakım ekranından araç durumu değiştirme (boş = dokunma).
+    private string? _mVehStatus; private string _mVehStatusNote = "";
     private decimal _matQty;
     private readonly List<Line> _lines = new();
     private sealed record Line(string Id, string Name, decimal Qty);
@@ -376,7 +399,24 @@
                 performedDate = _mDate is null ? (long?)null : new DateTimeOffset(_mDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
                 materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
             });
-            _mOk = err is null; _mMsg = err ?? "Bakım kaydedildi.";
+            // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
+            // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
+            if (err is null && !string.IsNullOrEmpty(_mVehStatus))
+            {
+                var sErr = await Api.PostAsync($"/api/vehicles/{_mVehicle.Id}/status",
+                    new { status = _mVehStatus, statusNote = Empty(_mVehStatusNote) });
+                if (sErr is not null)
+                {
+                    _mOk = false;
+                    _mMsg = $"Bakım kaydedildi ANCAK araç durumu güncellenemedi: {sErr} (Araçlar ekranından elle değiştirin.)";
+                    ClearMnt(); await LoadMaint(); await LoadAlerts();
+                    return;
+                }
+            }
+            _mOk = err is null;
+            _mMsg = err ?? (string.IsNullOrEmpty(_mVehStatus)
+                ? "Bakım kaydedildi."
+                : $"Bakım kaydedildi; araç durumu '{DepoWise.Web.Services.VehicleStatus.Label(_mVehStatus)}' olarak güncellendi.");
             if (_mOk) { ClearMnt(); await LoadMaint(); await LoadAlerts(); }
         }
         catch (Exception ex) { _mOk = false; _mMsg = "Hata: " + ex.Message; }
@@ -406,7 +446,7 @@
         _selMaint = null; await LoadMaint();
     }
 
-    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); }
+    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; }
 
     // ── Uyarılar ──
     private async Task LoadAlerts() { _alerts = null; try { _alerts = await Api.GetArrayAsync("/api/maintenance/alerts"); } catch { _alerts = Array.Empty<JsonElement>(); } }

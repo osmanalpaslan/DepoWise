@@ -92,6 +92,27 @@ VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$e
         return id;
     }
 
+    /// <summary>
+    /// İÇE AKTARIM için firmanın TÜM malzeme kodları → id (SAYFALAMA YOK).
+    ///
+    /// ⚠️ NEDEN AYRI METOT: <see cref="List"/> PageRequest kullanır ve <c>PageRequest.MaxLimit = 200</c>
+    /// ile SINIRLIDIR — Limit=100000 verilse bile 200 satır döner. İçe aktarım mükerrer kontrolünü buna
+    /// dayandırmak, 200'den fazla malzemesi olan firmada 201. kayıttan sonrasını "yok" sanıp KOPYA
+    /// oluştururdu. Satır başına IsCodeUnique çağırmak da 2600 satırda 2600 sorgu demekti.
+    /// </summary>
+    public Dictionary<string, string> AllCodeToId(SessionContext s)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT code, id FROM materials WHERE company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetString(0).Trim().ToUpperInvariant()] = r.GetString(1);
+        return map;
+    }
+
     public bool IsCodeUnique(SessionContext s, string code, string? excludeId = null)
     {
         using var conn = _factory.Create();

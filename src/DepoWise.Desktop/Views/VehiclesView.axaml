@@ -61,7 +61,11 @@
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Durum" Width="160">
                         <ComboBox Classes="Field" ItemsSource="{Binding StatusOptions}"
-                                  SelectedItem="{Binding NewStatus}" TabIndex="3" HorizontalAlignment="Stretch"/>
+                                  SelectedItem="{Binding NewStatusPick}" TabIndex="3" HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:StatusPick"><SelectableTextBlock Text="{Binding Label}"/></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Sayaç" Width="160">
                         <NumericUpDown Classes="Field" Value="{Binding NewMeter}" Minimum="0"
@@ -73,9 +77,9 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <!-- Durum açıklaması (yalnız Bakımda) -->
+                <!-- Durum açıklaması (yalnız Bakımda / Arızalı) -->
                 <ctrl:FormField Label="Durum Açıklaması" IsVisible="{Binding IsNewMaintenance}"
-                                HelpText="Yalnız 'Bakımda' durumunda saklanır.">
+                                HelpText="Yalnız 'Bakımda' / 'Arızalı' durumunda saklanır.">
                     <TextBox Classes="Field" Text="{Binding NewStatusNote}" AcceptsReturn="True" Height="56"/>
                 </ctrl:FormField>
 

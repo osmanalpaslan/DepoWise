@@ -27,13 +27,35 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **377/377 yeşil** (`dotnet test`) |
+| **Testler** | **425/425 yeşil** (`dotnet test`) |
 | **Şema** | Migration **045** (firma yerel sıfırlama isteği — ADR-084) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.60 yayında** (sunucuda "en güncel" doğrulandı) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **YOK** — kullanıcı testi bekleniyor |
+
+### ⚠️ İçe aktarma şablonları TAM ALAN + "Arızalı" durumu + 200 SATIR SINIRI KUSURU (2026-07-16)
+**🔴 BULUNAN KUSUR (3000 satırlık hacim testi ortaya çıkardı — kullanıcının dosyası ~2600):**
+`VehicleService.List` varsayılanı **200**, `PageRequest.MaxLimit` de **200**. İçe aktarıcılar bunlara
+dayanıyordu → 200'den fazla aracı/malzemesi olan firmada: **bakım/muayene/yakıt aktarımı 201. araçtan
+sonrasını "Araç bulunamadı" diye REDDEDİYOR**, araç/malzeme aktarımı mükerrer kontrolünü kaçırıp
+**KOPYA oluşturuyordu**. Dün yayınlanan yakıt import'unda da vardı. Düzeltildi: import'lar
+`List(s, null, int.MaxValue)` + yeni `MaterialService.AllCodeToId` (sayfalamasız) kullanıyor. 3 regresyon testi.
+
+**Şablonlar artık YENİ KAYIT FORMUYLA BİREBİR** (fotoğraf hariç — kullanıcı kuralı):
+Araç 4→**15** sütun · Malzeme 6→**15** · Bakım +Alt Bakım/Teknisyen · Muayene +Erteleme Tarihi/Açıklama.
+Tanım alanları (marka/kategori/tip/model/şube/sürücü/birim/tedarikçi) **isimle yazılır, yoksa OTOMATİK
+oluşur** (`ImportLookupResolver` — **önbellekli**: 3000 satırda satır başına DB sorgusu YOK). Aktarım sonrası
+**"oluşturulan yeni tanımlar" raporu** verilir (yazım hatası "Caterpiller" ayrı marka olur → görülebilsin).
+Araç artık **iç kod VEYA plaka** ile eşlenir (bakım/muayene/yakıt/uyumlu araçlar dahil).
+
+**"Arızalı" durumu eklendi** (Aktif/Pasif/Bakımda/**Arızalı**) — ortak kaynak `VehicleStatus`
+(Application + Web aynası); eskiden liste 5 yerde elle tekrarlıydı. **Yan kusur düzeltildi:** servis durum
+notunu yalnız "maintenance"da saklıyordu → **Arızalı notu sessizce kayboluyordu**. Masaüstü durum kutusu
+artık Türkçe gösteriyor (eskiden ham "active"/"passive" yazıyordu).
+**Bakım ekranına "Araç Durumu"** eklendi (web+masaüstü): bakım kaydı açarken aracı Arızalı işaretleyebilirsin;
+boş bırakılırsa araç durumu değişmez. Yeni uç: `POST /api/vehicles/{id}/status` (PUT tüm alanları ezerdi).
 
 ### ⚠️ Yakıt içe aktarımı + İMPORT'TA 10 KAT BOZULMA KUSURU DÜZELTİLDİ (2026-07-16)
 **Bulunan KUSUR (kanıtlandı):** Malzeme içe aktarımı `Money.Parse` kullanıyordu; o InvariantCulture ile

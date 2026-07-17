@@ -91,8 +91,8 @@ VALUES($id,$c,$ic,$plate,$yr,$meter,$mu,$br,$drv,$ch,$en,$st,$note,$vt,$cat,$bra
             cmd.Parameters.AddWithValue("$ch", (object?)applied.ChassisNo ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$en", (object?)applied.EngineNo ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$st", applied.Status);
-            // Durum açıklaması yalnız 'maintenance' durumunda saklanır
-            cmd.Parameters.AddWithValue("$note", applied.Status == "maintenance" ? (object?)applied.StatusNote ?? DBNull.Value : DBNull.Value);
+            // Durum açıklaması yalnız "çalışmıyor" durumlarında saklanır (Bakımda + Arızalı — ortak kural).
+            cmd.Parameters.AddWithValue("$note", DepoWise.Application.Ui.VehicleStatus.NeedsNote(applied.Status) ? (object?)applied.StatusNote ?? DBNull.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("$vt", (object?)applied.VehicleTypeId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$cat", (object?)applied.CategoryId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$brand", (object?)applied.BrandId ?? DBNull.Value);
@@ -227,7 +227,7 @@ WHERE v.id=$id AND v.company_id=$c AND v.is_deleted=0;";
     }
 
     /// <summary>Araç alanlarını günceller (plaka/yıl/durum/durum notu). Sayaç burada DEĞİL (SetMeter ile, geriye gitmez).
-    /// Durum notu yalnız 'maintenance' durumunda saklanır (Create ile aynı kural).</summary>
+    /// Durum notu yalnız 'Bakımda' / 'Arızalı' durumunda saklanır (Create ile aynı kural).</summary>
     public void Update(SessionContext s, string vehicleId, UpdateVehicle dto)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
@@ -246,7 +246,7 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$p", (object?)dto.Plate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$y", (object?)dto.ProductionYear ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$st", dto.Status);
-            cmd.Parameters.AddWithValue("$note", dto.Status == "maintenance" ? (object?)dto.StatusNote ?? DBNull.Value : DBNull.Value);
+            cmd.Parameters.AddWithValue("$note", DepoWise.Application.Ui.VehicleStatus.NeedsNote(dto.Status) ? (object?)dto.StatusNote ?? DBNull.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("$ch", (object?)dto.ChassisNo ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$en", (object?)dto.EngineNo ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
@@ -255,6 +255,37 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$br", (object?)dto.BranchId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$drv", (object?)dto.DriverPersonnelId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", vehicleId);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    /// <summary>
+    /// YALNIZ durum + durum notunu günceller (bakım ekranı: "bu araç arızalı" işaretlemek için).
+    /// Update() ile karıştırılmamalı: Update TÜM alanları yazar → bakım ekranından çağrılsa marka/model/şube
+    /// gibi doldurulmamış alanları NULL'a çekerdi. Bu metot araç kartının geri kalanına DOKUNMAZ.
+    /// Not, yalnız "çalışmıyor" durumlarında (Bakımda/Arızalı) saklanır — diğer durumlarda temizlenir.
+    /// </summary>
+    public void SetStatus(SessionContext s, string vehicleId, string status, string? statusNote = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Durum zorunlu.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE vehicles SET status=$st, status_note=$note, version=version+1, updated_at=$now " +
+                "WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$st", status);
+            cmd.Parameters.AddWithValue("$note",
+                DepoWise.Application.Ui.VehicleStatus.NeedsNote(status) ? (object?)statusNote ?? DBNull.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", vehicleId);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);

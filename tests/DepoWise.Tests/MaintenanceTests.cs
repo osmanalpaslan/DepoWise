@@ -92,10 +92,12 @@ public class MaintenanceTests : IDisposable
     [Fact]
     public void Import_Arac_Muayene_Bakim_Excelden()
     {
+        var lookups = new LookupService(_factory, _clock);
+
         // Araç import
-        var vimp = new VehicleImportService(_vehicles);
+        var vimp = new VehicleImportService(_vehicles, lookups);
         var r1 = vimp.Commit(_admin, new[] { new ImportRow(2, new Dictionary<string, string?>
-            { ["İç Kod"] = "IM-1", ["Plaka"] = "34A", ["Yıl"] = "2020", ["Durum"] = "Aktif" }) });
+            { ["İç Kod"] = "IM-1", ["Plaka"] = "34A", ["Üretim Yılı"] = "2020", ["Durum"] = "Aktif" }) });
         Assert.Equal(1, r1.Added);
         Assert.Contains(_vehicles.List(_admin), v => v.InternalCode == "IM-1");
 
@@ -106,7 +108,7 @@ public class MaintenanceTests : IDisposable
         Assert.Equal(1, r2.Added);
 
         // Bakım import (tanım yoksa oluşturulur)
-        var mimp = new MaintenanceImportService(_maint, _defs, _vehicles);
+        var mimp = new MaintenanceImportService(_maint, _defs, _vehicles, lookups);
         var r3 = mimp.Commit(_admin, new[] { new ImportRow(2, new Dictionary<string, string?>
             { ["Araç"] = "IM-1", ["Bakım Tanımı"] = "Yağ Değişimi", ["Yapılma KM"] = "1000" }) });
         Assert.Equal(1, r3.Added);

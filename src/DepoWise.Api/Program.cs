@@ -1482,6 +1482,17 @@ app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
         Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId));
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+// Aracın YALNIZ durumunu değiştirir (bakım ekranından "arızalı" işaretlemek için).
+// PUT /api/vehicles/{id} KULLANILMAZ: o tüm alanları yazar → bakım ekranından çağrılsa araç kartının
+// doldurulmamış alanlarını (marka/model/şube…) NULL'a çekerdi.
+app.MapPost("/api/vehicles/{id}/status", (HttpContext c, string id, VehicleStatusDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var code = DepoWise.Application.Ui.VehicleStatus.Parse(d.Status);
+    if (code is null) return Results.Json(new { error = $"Geçersiz araç durumu: {d.Status}" }, statusCode: 400);
+    svc.Vehicles.SetStatus(s, id, code, Doc(d.StatusNote));
+    return Results.Ok(new { ok = true, status = code });
+}).RequireAuthorization();
 app.MapGet("/api/vehicles/models/{brandId}", (HttpContext c, string brandId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListVehicleModels(s, brandId)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/vehicles/models", (HttpContext c, VehicleModelDto d) =>
@@ -1918,6 +1929,7 @@ record ReauthDto(string? Password);
 record SpecialCodeDto(string? Code, string? Password);
 record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode, string? ConfirmName);
 record LocalResetDto(string? CompanyId);   // ADR-084
+record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);

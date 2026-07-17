@@ -32,7 +32,7 @@ public class ReportingTests : IDisposable
         _materials = new MaterialService(_factory, _clock);
         _opening = new OpeningStockService(_factory, _clock);
         _reports = new ReportService(_factory);
-        _import = new MaterialImportService(_materials);
+        _import = new MaterialImportService(_materials, new LookupService(_factory, _clock));
         var maint = new MaintenanceService(_factory, _clock);
         var insp = new InspectionService(_factory, _clock);
         _dashboard = new DashboardService(_factory, maint, insp);

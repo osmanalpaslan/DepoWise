@@ -160,7 +160,7 @@ public sealed class FuelImportService
     private Dictionary<string, VehicleListRow> VehicleMap(SessionContext s)
     {
         var map = new Dictionary<string, VehicleListRow>(StringComparer.OrdinalIgnoreCase);
-        foreach (var v in _vehicles.List(s))
+        foreach (var v in _vehicles.List(s, null, int.MaxValue))   // 200 varsayılan sınırı AŞILIR: 2600 satırlık dosyada 201. araçtan sonrası "bulunamadı" derdi
         {
             map[Key(v.InternalCode)] = v;
             if (!string.IsNullOrWhiteSpace(v.Plate)) map[Key(v.Plate!)] = v;   // iç kod çakışırsa iç kod kazanır değil — son yazan

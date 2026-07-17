@@ -35,7 +35,7 @@ public class MaterialImportDecimalTests : IDisposable
         _factory = new SqliteConnectionFactory(_dbPath);
         new MigrationRunner(_factory).Run();
         _materials = new MaterialService(_factory, _clock);
-        _import = new MaterialImportService(_materials);
+        _import = new MaterialImportService(_materials, new LookupService(_factory, _clock));
         var users = new UserService(_factory, _clock);
         var uid = users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         _admin = new SessionContext(uid, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);

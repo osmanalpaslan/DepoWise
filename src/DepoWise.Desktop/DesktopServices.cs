@@ -147,17 +147,19 @@ public static class DesktopServices
         Enrollment = new DepoWise.Infrastructure.Sync.EnrollmentService(Factory, clock);
         Reports = new ReportService(Factory);
         Excel = new ExcelExportService();
-        MaterialImport = new MaterialImportService(Materials);
         Trash = new DepoWise.Infrastructure.Files.TrashService(Factory, clock);
         Audit = new AuditLogService(Factory);
         Backup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock);
         BackupUpload = new DepoWise.Infrastructure.Files.BackupUploadService();
-        VehicleImport = new VehicleImportService(Vehicles);
-        InspectionImport = new InspectionImportService(Inspection, Vehicles);
-        MaintenanceImport = new MaintenanceImportService(Maintenance, MaintenanceDefs, Vehicles);
         Settings = new SettingsService(Factory, clock);
         Lookups = new LookupService(Factory, clock);
-        // Yakıt import'ları Lookups'a bağlı (personel/tedarikçi ada göre eşlenir) → Lookups'tan SONRA kurulur.
+
+        // ── İÇE AKTARIM servisleri — HEPSİ Lookups'a bağlıdır (tanım adları isimle çözülür, yoksa
+        //    otomatik oluşturulur) → Lookups kurulduktan SONRA gelmeleri ZORUNLUDUR.
+        MaterialImport = new MaterialImportService(Materials, Lookups, OpeningStock, Vehicles);
+        VehicleImport = new VehicleImportService(Vehicles, Lookups);
+        InspectionImport = new InspectionImportService(Inspection, Vehicles);
+        MaintenanceImport = new MaintenanceImportService(Maintenance, MaintenanceDefs, Vehicles, Lookups);
         FuelImport = new FuelImportService(Fuel, Vehicles, Lookups);
         FuelDepotImport = new FuelDepotImportService(Fuel, Lookups);
         Storage = new LocalFileStorageProvider();

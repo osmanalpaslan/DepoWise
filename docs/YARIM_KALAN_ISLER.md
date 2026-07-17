@@ -10,6 +10,28 @@
 
 ---
 
+## ✅ Şablonlar tam alan + "Arızalı" + 200 satır sınırı kusuru (2026-07-16) — TAMAMLANDI
+
+Test **425/425** (48 yeni). Kullanıcı: "şablonlarda formdaki her alan olmalı; tanım ekleme, import'ta
+otomatik oluşsun; babamın dosyası ~2600 satır, altında test yapma."
+
+- **🔴 KUSUR (hacim testi yakaladı):** `VehicleService.List` varsayılanı 200, `PageRequest.MaxLimit` 200.
+  →200'den fazla araç/malzemede **bakım/muayene/yakıt aktarımı 201+ araçları "bulunamadı" diye reddediyor**,
+  araç/malzeme **mükerrer kontrolünü kaçırıp kopya oluşturuyordu**. Dünkü yakıt import'unda da vardı.
+  Düzeltildi + 3 regresyon testi (250 kayıtla).
+- **Şablonlar = form** (fotoğraf hariç): Araç 4→15, Malzeme 6→15, Bakım +2, Muayene +2 sütun.
+- **Otomatik tanım oluşturma** (`ImportLookupResolver`, önbellekli) + **"oluşturulan tanımlar" raporu**.
+- **"Arızalı" durumu** + ortak `VehicleStatus` kaynağı. **Yan kusur:** Arızalı durum notu serviste
+  sessizce siliniyordu → düzeltildi. Masaüstü durum kutusu artık Türkçe.
+- **Bakım ekranında araç durumu** (web+masaüstü) + `POST /api/vehicles/{id}/status`.
+
+### Kullanıcı kararıyla ŞABLON DIŞI bırakılanlar
+- **Bakım şablonunda "Araç Durumu" YOK** — kullanıcı bunu yalnız bakım EKRANINA istedi (toplu durum
+  değişikliği Araç şablonunun "Durum" sütunuyla yapılır).
+- **Bakım şablonunda malzeme satırları YOK** — stoktan düşürür; Excel'den toplu stok hareketi istenmiyor.
+
+---
+
 ## ✅ Yakıt içe aktarımı + import kusurları (2026-07-16) — TAMAMLANDI
 
 Test **377/377**. Kullanıcı: "babam Excel'de yakıt tutuyor, içeri almam lazım ama alanlar eksik;
