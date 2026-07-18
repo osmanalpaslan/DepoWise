@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -29,8 +30,10 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     public bool CanDelete => AccessControl.Can(_session, "daily_activity", PermissionAction.Delete);
 
     public ObservableCollection<DailyActivityListRow> Items { get; } = new();
-    public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Hareket / Transfer", "Bakım" };
-    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım" };
+    public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Hareket / Transfer", "Bakım", "İlave Yağ/Filtre/Tamir" };
+    // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19): Bakım ile AYNI alanlar, Bakım Tanımı/Alt
+    // Bakım YOK (bkz. IsRealMaintenance/IsMaintenanceLike aşağıda).
+    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir" };
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
     public ObservableCollection<LookupItem> Personnel { get; } = new();
@@ -55,10 +58,15 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsTransfer))]
     [NotifyPropertyChangedFor(nameof(IsMaintenance))]
+    [NotifyPropertyChangedFor(nameof(IsRealMaintenance))]
     [NotifyPropertyChangedFor(nameof(IsMovement))]
     private string _formKind = "Hareket";
     public bool IsTransfer => FormKind == "Transfer";
-    public bool IsMaintenance => FormKind == "Bakım";
+    /// <summary>Bakım İLE AYNI alan setini gösterir (Teknisyen/KM/Saat/Malzeme) — Bakım + 3 yeni tür
+    /// (kullanıcı isteği 2026-07-19: "bakım ile aynı olacak sadece bakım tanımı ve alt bakım olmayacak").</summary>
+    public bool IsMaintenance => FormKind is "Bakım" or "İlave Yağ" or "İlave Filtre" or "Tamir";
+    /// <summary>YALNIZ gerçek "Bakım" — Bakım Tanımı/Alt Bakım seçicileri bu türde gösterilir, 3 yenisinde YOK.</summary>
+    public bool IsRealMaintenance => FormKind == "Bakım";
     public bool IsMovement => FormKind is "Hareket" or "Transfer";
 
     // Ortak
@@ -96,6 +104,10 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         _ => null
     };
 
+    /// <summary>"İlave Yağ/Filtre/Tamir" filtresi çoklu tür kapsadığından <see cref="FilterType"/> (tek
+    /// değer) yetersiz — liste tarafında bu özel durumu ayrıca eler.</summary>
+    private static readonly HashSet<string> ExtraTypes = new(StringComparer.Ordinal) { "extra_oil", "extra_filter", "repair" };
+
     partial void OnSelectedFilterChanged(string value) => Load();
     partial void OnFilterDateChanged(DateTimeOffset? value) => Load();
 
@@ -107,8 +119,12 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
             LoadError = null;
             Items.Clear();
             var day = FilterDate?.LocalDateTime.Date;
-            foreach (var a in DesktopServices.DailyActivity.List(_session, FilterType))
+            // "İlave Yağ/Filtre/Tamir" 3 türü birden kapsar → sunucu tarafı tek-değer filtresi (FilterType)
+            // kullanılmaz, tümü çekilip burada elenir (liste küçük; ADR-089 grid'i gelince madde 15'te düzelir).
+            var isExtraFilter = SelectedFilter == "İlave Yağ/Filtre/Tamir";
+            foreach (var a in DesktopServices.DailyActivity.List(_session, isExtraFilter ? null : FilterType))
             {
+                if (isExtraFilter && !ExtraTypes.Contains(a.ActivityType)) continue;
                 if (day is not null &&
                     DateTimeOffset.FromUnixTimeMilliseconds(a.ActivityDate).LocalDateTime.Date != day) continue;
                 Items.Add(a);
@@ -216,7 +232,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         if (!CanWrite) { FormError = "Yetki yok."; return; }
         if (FormVehicle is null) { FormError = "Araç seçin."; return; }
 
-        if (IsMaintenance)
+        if (IsRealMaintenance)
         {
             if (MDef is null) { FormError = "Bakım tanımı seçin."; return; }
             if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
@@ -234,6 +250,34 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
                     Materials: materials), Guid.NewGuid().ToString("N"));
                 ShowForm = false; Load();
                 Status = "Bakım kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
+            }
+            catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+            return;
+        }
+
+        // "İlave Yağ / İlave Filtre / Tamir" (kullanıcı isteği 2026-07-19): Bakım ile AYNI, tanım/alt-bakım YOK.
+        if (IsMaintenance)
+        {
+            if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
+            if (!await ConfirmService.AskAsync($"{FormKind} kaydı eklensin mi? (malzemeler stoktan düşülür)", "Yeni Kayıt")) return;
+            try
+            {
+                var extraType = FormKind switch
+                {
+                    "İlave Yağ" => ExtraActivityTypes.ExtraOil, "İlave Filtre" => ExtraActivityTypes.ExtraFilter,
+                    "Tamir" => ExtraActivityTypes.Repair, _ => throw new InvalidOperationException("Geçersiz kayıt tipi."),
+                };
+                var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
+                DesktopServices.DailyActivity.SaveExtraActivity(_session, extraType, new NewMaintenance(
+                    VehicleId: FormVehicle.Id, DefinitionId: "", SubDefinitionId: null,
+                    TechnicianId: MTechnician?.Id,
+                    Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
+                    PerformedKm: MKm > 0 ? MKm : (decimal?)null,
+                    PerformedHour: MHour > 0 ? MHour : (decimal?)null,
+                    PerformedDate: FormDate?.ToUnixTimeMilliseconds(),
+                    Materials: materials), Guid.NewGuid().ToString("N"));
+                ShowForm = false; Load();
+                Status = $"{FormKind} kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
             }
             catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
             return;

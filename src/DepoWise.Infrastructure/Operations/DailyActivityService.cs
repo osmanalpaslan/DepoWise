@@ -6,6 +6,26 @@ using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Infrastructure.Operations;
 
+/// <summary>"Kayıt Tipi" seçenekleri — bakımla AYNI mekanizma (ortak MaintenanceService), yalnız "Bakım
+/// Tanımı"/"Alt Bakım" alanları YOK (kullanıcı isteği 2026-07-19). Her tür, firma başına OTOMATİK oluşan
+/// (IntervalValue=0 — asla "bakım vadesi geldi" uyarısı üretmez) sabit bir maintenance_definitions satırına
+/// bağlanır; kullanıcı bunu hiç görmez/seçmez.</summary>
+public static class ExtraActivityTypes
+{
+    public const string ExtraOil = "extra_oil";
+    public const string ExtraFilter = "extra_filter";
+    public const string Repair = "repair";
+
+    public static readonly IReadOnlyDictionary<string, string> DefinitionNames = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [ExtraOil] = "İlave Yağ",
+        [ExtraFilter] = "İlave Filtre",
+        [Repair] = "Tamir",
+    };
+
+    public static bool IsValid(string? type) => type is not null && DefinitionNames.ContainsKey(type);
+}
+
 public sealed record NewMovementActivity(
     string MovementKind, string? VehicleId = null, string? FromLocationId = null, string? ToLocationId = null,
     string? OperatorId = null, int? DurationDays = null, string? Description = null, long? ActivityDate = null);
@@ -18,8 +38,14 @@ public sealed record DailyActivityListRow(string Id, string ActivityType, string
     int? DurationDays, string? Description, long ActivityDate, string? MaintenanceId)
 {
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(ActivityDate).LocalDateTime.ToString("dd.MM.yyyy");
-    public string TypeText => ActivityType == "maintenance" ? "Bakım"
-        : MovementKind == "transfer" ? "Transfer" : "Hareket";
+    public string TypeText => ActivityType switch
+    {
+        "maintenance" => "Bakım",
+        "extra_oil" => "İlave Yağ",
+        "extra_filter" => "İlave Filtre",
+        "repair" => "Tamir",
+        _ => MovementKind == "transfer" ? "Transfer" : "Hareket",
+    };
     public string VehicleText => string.IsNullOrEmpty(VehicleCode) ? "—"
         : string.IsNullOrEmpty(VehiclePlate) ? VehicleCode! : $"{VehicleCode} - {VehiclePlate}";
     public string RouteText => (FromLocation, ToLocation) switch
@@ -44,12 +70,18 @@ public sealed class DailyActivityService
     private const string Module = "daily_activity";
     private readonly IDbConnectionFactory _factory;
     private readonly MaintenanceService _maintenance;
+    private readonly MaintenanceDefinitionService? _definitions;
     private readonly IClock _clock;
 
-    public DailyActivityService(IDbConnectionFactory factory, MaintenanceService maintenance, IClock? clock = null)
+    /// <summary><paramref name="definitions"/> OPSİYONELDİR (geriye uyumlu — mevcut çağrı yerlerinin
+    /// pozisyonel <c>clock</c> argümanı bozulmasın diye SONA eklendi): yalnız yeni "İlave Yağ/İlave
+    /// Filtre/Tamir" türleri (<see cref="SaveExtraActivity"/>) için gerekir; verilmezse o metot çağrılamaz.</summary>
+    public DailyActivityService(IDbConnectionFactory factory, MaintenanceService maintenance,
+        IClock? clock = null, MaintenanceDefinitionService? definitions = null)
     {
         _factory = factory;
         _maintenance = maintenance;
+        _definitions = definitions;
         _clock = clock ?? new SystemClock();
     }
 
@@ -73,6 +105,52 @@ public sealed class DailyActivityService
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return id;
+    }
+
+    /// <summary>
+    /// "İlave Yağ / İlave Filtre / Tamir" (kullanıcı isteği 2026-07-19): "Bakım" ile TAM AYNI mekanizma
+    /// (ortak MaintenanceService — sayaç/malzeme stok düşümü dahil), yalnız "Bakım Tanımı"/"Alt Bakım"
+    /// kullanıcıya HİÇ sorulmaz — her tür firma başına otomatik oluşan sabit bir maintenance_definitions
+    /// satırına (IntervalValue=0 → asla vade uyarısı üretmez) bağlanır.
+    /// </summary>
+    public string SaveExtraActivity(SessionContext s, string extraType, NewMaintenance dto, string operationId)
+    {
+        if (!ExtraActivityTypes.IsValid(extraType)) throw new ArgumentException("Geçersiz kayıt tipi.");
+        if (_definitions is null) throw new InvalidOperationException("MaintenanceDefinitionService bağlı değil.");
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        var existing = FindActivity(operationId);
+        if (existing is not null) return existing;
+
+        var defId = EnsureExtraDefinition(s, extraType);
+        var withDef = dto with { DefinitionId = defId, SubDefinitionId = null, SubDefinitionNote = null };
+        var maintenanceId = _maintenance.Save(s, withDef, operationId + ":mnt");
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var id = Guid.NewGuid().ToString("N");
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        InsertActivity(conn, tx, id, s.CompanyId, extraType, null, dto.VehicleId, null, null, null, null,
+            dto.Description, maintenanceId, stockProcessed: true, dto.PerformedDate ?? now, operationId, now, s.OperatingBranchId);
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Create, s.UserId), _clock);
+        tx.Commit();
+        return id;
+    }
+
+    /// <summary>Bu firma için o türün SABİT tanımını bulur, yoksa oluşturur (idempotent, harf duyarsız).
+    /// Kullanıcı bu tanımı hiç görmez/seçmez — arayüzde "Bakım Tanımı" alanı bu türlerde gösterilmez.</summary>
+    private string EnsureExtraDefinition(SessionContext s, string extraType)
+    {
+        var name = ExtraActivityTypes.DefinitionNames[extraType];
+        using var conn = _factory.Create();
+        using (var find = conn.CreateCommand())
+        {
+            find.CommandText = "SELECT id FROM maintenance_definitions WHERE company_id=$c AND name=$n COLLATE NOCASE " +
+                                "AND parent_def_id IS NULL AND is_deleted=0 LIMIT 1;";
+            find.Parameters.AddWithValue("$c", s.CompanyId);
+            find.Parameters.AddWithValue("$n", name);
+            if (find.ExecuteScalar() is string existingId) return existingId;
+        }
+        return _definitions!.Create(s, new NewMaintenanceDefinition(name, 0m, "km"));
     }
 
     /// <summary>Hareket/transfer kaydı. Transfer → araç otomatik pasif (yalnız aktifse; ileri-yön).</summary>

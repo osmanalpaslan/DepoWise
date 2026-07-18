@@ -127,9 +127,11 @@ public static class DesktopServices
         Materials = new MaterialService(Factory, clock);
         OpeningStock = new OpeningStockService(Factory, clock);
         Stock = new StockService(Factory, clock);
-        DailyActivity = new DailyActivityService(Factory, Maintenance, clock);
         Maintenance = new MaintenanceService(Factory, clock);
         MaintenanceDefs = new MaintenanceDefinitionService(Factory, clock);
+        // ⚠️ SIRA ÖNEMLİ: DailyActivity, Maintenance/MaintenanceDefs'i constructor'da SAKLAR (readonly alan) —
+        // bu yüzden ikisi de ATANDIKTAN SONRA oluşturulmalı (eskiden Maintenance henüz null'ken geçiliyordu).
+        DailyActivity = new DailyActivityService(Factory, Maintenance, clock, MaintenanceDefs);
         Inspection = new InspectionService(Factory, clock);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);

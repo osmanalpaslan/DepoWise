@@ -16,6 +16,9 @@
                     <MudSelectItem T="string" Value="@("Hareket")">Hareket</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Transfer")">Transfer</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Bakım")">Bakım</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("İlave Yağ")">İlave Yağ</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("İlave Filtre")">İlave Filtre</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Tamir")">Tamir</MudSelectItem>
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="6">
@@ -38,8 +41,11 @@
         else
         {
             <MudGrid Spacing="2">
-                <MudItem xs="6" md="4"><LookupSelect Label="Bakım Tanımı *" @bind-Value="_mDefId" Items="_defOpts" /></MudItem>
-                <MudItem xs="6" md="4"><LookupSelect Label="Alt Bakım" @bind-Value="_mSubId" Items="_mSubOpts" CreatePath="/api/maintenance/definitions" CreateField="name" ExtraField="parentDefId" ExtraValue="@_mDefId" OnAdded="ReloadMSub" Disabled="@(string.IsNullOrEmpty(_mDefId))" /></MudItem>
+                @if (_kind == "Bakım")
+                {
+                    <MudItem xs="6" md="4"><LookupSelect Label="Bakım Tanımı *" @bind-Value="_mDefId" Items="_defOpts" /></MudItem>
+                    <MudItem xs="6" md="4"><LookupSelect Label="Alt Bakım" @bind-Value="_mSubId" Items="_mSubOpts" CreatePath="/api/maintenance/definitions" CreateField="name" ExtraField="parentDefId" ExtraValue="@_mDefId" OnAdded="ReloadMSub" Disabled="@(string.IsNullOrEmpty(_mDefId))" /></MudItem>
+                }
                 <MudItem xs="6" md="4"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_personnel" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -80,6 +86,7 @@
             <MudSelectItem T="string" Value="@("Tümü")">Tümü</MudSelectItem>
             <MudSelectItem T="string" Value="@("Hareket / Transfer")">Hareket / Transfer</MudSelectItem>
             <MudSelectItem T="string" Value="@("Bakım")">Bakım</MudSelectItem>
+            <MudSelectItem T="string" Value="@("İlave Yağ/Filtre/Tamir")">İlave Yağ/Filtre/Tamir</MudSelectItem>
         </MudSelect>
         <MudDatePicker @bind-Date="_filterDate" Placeholder="Gün filtresi" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:170px" Clearable="true" />
         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
@@ -151,6 +158,7 @@
         IEnumerable<JsonElement> q = _rows;
         if (_filter == "Hareket / Transfer") q = q.Where(r => Str(r, "activityType") == "movement");
         else if (_filter == "Bakım") q = q.Where(r => Str(r, "activityType") == "maintenance");
+        else if (_filter == "İlave Yağ/Filtre/Tamir") q = q.Where(r => Str(r, "activityType") is "extra_oil" or "extra_filter" or "repair");
         if (_filterDate is not null)
         {
             var day = _filterDate.Value.Date;
@@ -200,6 +208,16 @@
                     materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
                 });
             }
+            else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
+            {
+                if (!await Dialog.Confirm($"{_kind} kaydı oluşturulsun mu? (seçili malzemeler stoktan düşer)")) { _busy = false; return; }
+                err = await Api.PostAsync("/api/daily/extra", new
+                {
+                    type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
+                    description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
+                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
+                });
+            }
             else
             {
                 var isTransfer = _kind == "Transfer";
@@ -233,6 +251,13 @@
         _from = _to = _operator = null; _duration = null;
         _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _matSel = null; _matQty = 0; _lines.Clear();
     }
+
+    /// <summary>"Kayıt Tipi" görünen adı → sunucunun activity_type kodu (kullanıcı isteği 2026-07-19).</summary>
+    private static string ExtraTypeCode(string kind) => kind switch
+    {
+        "İlave Yağ" => "extra_oil", "İlave Filtre" => "extra_filter", "Tamir" => "repair",
+        _ => throw new ArgumentException("Geçersiz kayıt tipi."),
+    };
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Str(JsonElement row, string key)

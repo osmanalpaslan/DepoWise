@@ -1578,6 +1578,19 @@ app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
     return Results.Ok(new { id });
 }).RequireAuthorization();
+// "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19, ADR-091) — Bakım ile AYNI mekanizma, Bakım
+// Tanımı/Alt Bakım kullanıcıya sorulmaz (DailyActivityService otomatik sabit tanım kullanır).
+app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!DepoWise.Infrastructure.Operations.ExtraActivityTypes.IsValid(d.Type))
+        return Results.Json(new { error = "Geçersiz kayıt tipi." }, statusCode: 400);
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity)).ToList();
+    var id = svc.DailyActivity.SaveExtraActivity(s, d.Type, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
+        d.VehicleId, "", null, d.TechnicianId, Doc(d.Description), null,
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
 app.MapDelete("/api/daily/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.DailyActivity.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
@@ -2086,6 +2099,9 @@ record InspectionDto(string VehicleId, string DocType, long? LastDate, long? Nex
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate);
 record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note);
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
+// ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
+record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,
+    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId);
 record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);

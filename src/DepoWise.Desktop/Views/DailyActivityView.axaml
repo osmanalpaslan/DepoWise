@@ -71,29 +71,32 @@
                     <SelectableTextBlock Text="Transfer: araç otomatik PASİF duruma alınır." Classes="Helper" IsVisible="{Binding IsTransfer}"/>
                 </StackPanel>
 
-                <!-- ===== BAKIM ===== -->
+                <!-- ===== BAKIM (+ İlave Yağ/İlave Filtre/Tamir — kullanıcı isteği 2026-07-19: AYNI alanlar,
+                     yalnız Bakım Tanımı/Alt Bakım bu 3 yeni türde YOK) ===== -->
                 <StackPanel Spacing="14" IsVisible="{Binding IsMaintenance}">
                     <StackPanel Orientation="Horizontal" Spacing="14">
-                        <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </ctrl:FormField>
-                        <ctrl:FormField Label="Alt Bakım" Width="240">
-                            <StackPanel Spacing="6">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                    <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSub}">
-                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubName}" PlaceholderText="Yeni alt bakım adı"/>
-                                    <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCommand}"/>
-                                    <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCommand}"/>
-                                </Grid>
-                            </StackPanel>
-                        </ctrl:FormField>
+                        <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsRealMaintenance}">
+                            <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintDefs}" SelectedItem="{Binding MDef}">
+                                    <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Alt Bakım" Width="240">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MaintSubDefs}" SelectedItem="{Binding MSubDef}">
+                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddSubCommand}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSub}">
+                                        <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSubName}" PlaceholderText="Yeni alt bakım adı"/>
+                                        <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSubCommand}"/>
+                                        <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSubCommand}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </ctrl:FormField>
+                        </StackPanel>
                         <ctrl:FormField Label="Teknisyen" Width="200">
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}">
                                 <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>

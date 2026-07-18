@@ -106,12 +106,12 @@ public sealed class ServerServices
         Maintenance = new DepoWise.Infrastructure.Maintenance.MaintenanceService(Factory, clock);
         Inspection = new DepoWise.Infrastructure.Maintenance.InspectionService(Factory, clock);
         Fuel = new DepoWise.Infrastructure.Operations.FuelService(Factory, clock);
-        DailyActivity = new DepoWise.Infrastructure.Operations.DailyActivityService(Factory, Maintenance, clock);
+        MaintenanceDefinitions = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(Factory, clock);
+        DailyActivity = new DepoWise.Infrastructure.Operations.DailyActivityService(Factory, Maintenance, clock, MaintenanceDefinitions);
         Requests = new DepoWise.Infrastructure.Requests.RequestService(Factory, new DepoWise.Infrastructure.Materials.StockService(Factory, clock), clock);
         Branches = new DepoWise.Infrastructure.Organization.BranchService(Factory, clock);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
-        MaintenanceDefinitions = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(Factory, clock);
         Permissions = new DepoWise.Infrastructure.Security.PermissionService(Factory, clock);
         PermissionTemplates = new DepoWise.Infrastructure.Security.PermissionTemplateService(Factory, clock);
         AuditLog = new DepoWise.Infrastructure.Database.AuditLogService(Factory);
