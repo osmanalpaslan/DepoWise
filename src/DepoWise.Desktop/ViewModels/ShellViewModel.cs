@@ -780,9 +780,15 @@ public sealed partial class ShellViewModel : ViewModelBase
         if (CurrentPage is VehiclesViewModel vm) vm.SelectById(vehicleId);
     }
 
-    /// <summary>Çıkış Yap — oturumu kapatır, "Beni Hatırla"yı siler, giriş ekranına döner.</summary>
+    /// <summary>Çıkış Yap — ÖNCE bekleyen veriyi sunucuya gönder (kullanıcı isteği 2026-07-19: butona
+    /// basmadan da veri gitsin), sonra oturumu kapat. Push en fazla 10 sn bekletir (küçük değişiklikler
+    /// hızlıdır; çevrimdışıysa anında döner) — çıkışı kilitlemesin diye sınırlı.</summary>
     [RelayCommand]
-    private void Logout() => DepoWise.Desktop.App.Current?.Logout();
+    private async System.Threading.Tasks.Task Logout()
+    {
+        try { await System.Threading.Tasks.Task.WhenAny(BusinessSyncPushService.PushAsync(), System.Threading.Tasks.Task.Delay(10000)); } catch { }
+        DepoWise.Desktop.App.Current?.Logout();
+    }
 
     /// <summary>Çalışan derlemenin damgası (doğru build'i gözle doğrulamak için).</summary>
     private static string BuildInfo()

@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Avalonia.Controls;
 
 namespace DepoWise.Desktop.Views;
@@ -11,7 +12,9 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    /// <summary>Uygulama kapatılırken onay iste (kazara kapatmayı engeller).</summary>
+    /// <summary>Uygulama kapatılırken onay iste (kazara kapatmayı engeller) + kapanmadan ÖNCE bekleyen veriyi
+    /// sunucuya gönder (kullanıcı isteği 2026-07-19: "Eşitle"ye basmadan da veri gitsin). Push en fazla 10 sn
+    /// bekletir — küçük değişiklikler hızlıdır, çevrimdışıysa anında döner; kapanışı kilitlemez.</summary>
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
         if (_confirmedClose) { base.OnClosing(e); return; }
@@ -22,6 +25,8 @@ public partial class MainWindow : Window
         if (ok)
         {
             _confirmedClose = true;
+            // Bekleyen veriyi son bir kez sunucuya gönder (sınırlı bekleme ile).
+            try { await Task.WhenAny(BusinessSyncPushService.PushAsync(), Task.Delay(10000)); } catch { }
             Close();
         }
     }

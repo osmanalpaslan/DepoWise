@@ -34,8 +34,15 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
   `users` tablosuna DOKUNULMAZ (immutability korunur).
 - **Web:** Bu iki sorun web'de YOK — web zaten sunucu-tarafı (import ekranı yok; personel bağlama zaten API'den
   okur/yazar). Platform-öncelik kuralı gereği kontrol edildi, web'de değişiklik gerekmedi.
+- **OTOMATİK GÖNDERİM (kullanıcı sorusu 2026-07-19: "butona basmadan da gitsin"):** Yapı zaten otomatiktir —
+  push+pull şu anlarda KENDİLİĞİNDEN olur: (1) her GİRİŞTE, (2) uygulama açıkken her **~3 dakikada**, (3) içe
+  aktarım biter bitmez (yeni). "Eşitle" butonu yalnız ANINDA/elle tetikleme içindir, zorunlu değildir. **Kapatılan
+  boşluk:** veriyi girip 3 dk dolmadan uygulamayı KAPATIRSAN/ÇIKIŞ yaparsan o an gitmiyordu → artık **kapanışta ve
+  çıkışta** son bir push yapılır (en fazla 10 sn sınırlı bekleme; çevrimdışıysa anında geçer). Böylece hiçbir
+  senaryoda veri yerelde takılı kalmaz.
 - **⚠️ Mevcut takılı veri:** Bu düzeltme YENİ içe aktarımlar için. Makine A'da hâlihazırda takılı kalan veri için
-  kullanıcı: A'yı güncel sürüme al → üst bardan **"Eşitle"** → 2600+ kayıt o an sunucuya gider → sonra B girişte görür.
+  kullanıcı: A'yı güncel sürüme al → ONLINE olduğunda ~3 dk içinde (ya da hemen "Eşitle" ile) 2600+ kayıt sunucuya
+  gider → sonra B girişte/otomatik görür.
 - **Test:** Bu iş UI+HTTP akışı (birim test kapsamaz); derleme temiz, canlı tanı ile kök neden doğrulandı.
   Kullanıcı makine A→"Eşitle"→makine B ile uçtan uca doğrulamalı.
 
