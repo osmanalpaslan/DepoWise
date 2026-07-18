@@ -132,6 +132,22 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             }
             if (res.Errors.Count > 0)
                 ImportResult += "\nHatalar:\n" + string.Join("\n", res.Errors.Select(e => e.RowNumber > 0 ? $"Satır {e.RowNumber}: {e.Message}" : e.Message));
+
+            // İçe aktarılan veriyi HEMEN sunucuya gönder (kullanıcı bulgusu 2026-07-19: "içeri aldığım kayıtlar
+            // aynı şubede başka makinede eşitlenmedi"). KÖK NEDEN: içe aktarım yerele yazıyordu ama push yalnız
+            // periyodik (~3dk) / "Eşitle" / girişte oluyordu → kullanıcı makineyi kapatıp diğerine geçince veri
+            // sunucuya HİÇ ulaşmıyordu (canlı doğrulandı: sunucuda 0 malzeme). Artık içe aktarım biter bitmez
+            // push edilir ve sonuç KULLANICIYA gösterilir (sessiz başarısızlık olmaz).
+            if (res.Added > 0 || res.Updated > 0)
+            {
+                Status = "İçe aktarıldı — veriler sunucuya gönderiliyor…";
+                await BusinessSyncPushService.PushAsync();
+                ImportResult += BusinessSyncPushService.LastPushFailed
+                    ? "\n\n⚠️ Veriler sunucuya GÖNDERİLEMEDİ (çevrimdışı ya da zaman aşımı). İnternet bağlanınca " +
+                      "üst bardaki “Eşitle”ye basın — yoksa aynı firmadaki başka makine/kullanıcı bu kayıtları göremez."
+                    : "\n\n✔ Veriler sunucuya gönderildi. Aynı firmadaki başka makine/kullanıcı, girişte veya " +
+                      "“Eşitle” ile bu kayıtları görebilir.";
+            }
             Status = "İçe aktarım tamamlandı.";
         }
         catch (Exception ex) { ImportResult = "İçe aktarılamadı: " + ex.Message; }

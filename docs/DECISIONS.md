@@ -12,6 +12,35 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-097 — Eşitleme kök neden: içe aktarım push etmiyordu + kullanıcılar makineler arası görünmüyordu (19.07.2026, TAMAM — KRİTİK)
+
+- **Bağlam:** Kullanıcı: "Bir firmanın şubesine toplu kayıt içeri aldım; aynı şubeye farklı makine/kullanıcı ile
+  login oldum ama veriler eşitlenmedi." + "Personel'de kullanıcı bağlamak istedim, kullanıcı (Mustafa Alpaslan,
+  Oze/Karaman) listelenmedi."
+- **CANLI TANI (salt-okunur, superadmin):** OZE GRUP firmasında sunucuda **0 malzeme, 0 araç** ama 2 şube,
+  1 personel, 2 kullanıcı (mustafa.alpaslan dâhil) VAR. → İçe aktarılan iş verisi sunucuya HİÇ ulaşmamış;
+  Mustafa kullanıcısı sunucuda var ama masaüstünün yerel `users` tablosunda yok.
+- **KÖK NEDEN 1 (iş verisi):** İçe aktarım yalnız YERELE yazıyordu; push yalnız giriş / "Eşitle" / periyodik
+  (~3dk) tetikleniyordu. Kullanıcı içe aktarıp makineyi kapatınca/değiştirince veri sunucuya ulaşmıyordu.
+  **Düzeltme:** içe aktarım biter bitmez `BusinessSyncPushService.PushAsync()` çağrılır ve sonuç kullanıcıya
+  GÖSTERİLİR ("✔ gönderildi" / "⚠️ gönderilemedi — Eşitle'ye basın"). Sessiz başarısızlık yok.
+- **KÖK NEDEN 2 (kullanıcı görünürlüğü):** Kullanıcılar iş senkronunda YOK (yalnız giriş yapan kullanıcının
+  kendi kaydı yerele iner — §4 kullanıcı/firma değişmezliği bilinçli). Personel ekranı bağlanabilir kullanıcıları
+  YEREL `users`'tan okuyordu → başka makinede/web'de oluşturulmuş kullanıcı listelenmiyordu. Ayrıca bağ
+  (`users.personnel_id`) sunucu-otoriteli ve masaüstünden push EDİLMEZ. **Düzeltme:** (a) personel ekranı
+  çevrimiçiyken bağlanabilir kullanıcıları SUNUCUDAN çeker (`ServerUserClient.GetLinkableUsersAsync` →
+  /api/personnel/linkable-users; çevrimdışı → yerel liste); (b) bağlama işlemi çevrimiçiyken SUNUCUDA yapılır
+  (önce personel push edilir, sonra `ServerUserClient.LinkUserAsync` → bağ tüm makinelere ulaşır). Yerel
+  `users` tablosuna DOKUNULMAZ (immutability korunur).
+- **Web:** Bu iki sorun web'de YOK — web zaten sunucu-tarafı (import ekranı yok; personel bağlama zaten API'den
+  okur/yazar). Platform-öncelik kuralı gereği kontrol edildi, web'de değişiklik gerekmedi.
+- **⚠️ Mevcut takılı veri:** Bu düzeltme YENİ içe aktarımlar için. Makine A'da hâlihazırda takılı kalan veri için
+  kullanıcı: A'yı güncel sürüme al → üst bardan **"Eşitle"** → 2600+ kayıt o an sunucuya gider → sonra B girişte görür.
+- **Test:** Bu iş UI+HTTP akışı (birim test kapsamaz); derleme temiz, canlı tanı ile kök neden doğrulandı.
+  Kullanıcı makine A→"Eşitle"→makine B ile uçtan uca doğrulamalı.
+
+---
+
 ### ADR-096 — Çift-tık "hızlı düzenle" penceresi: Malzemeler + Araçlar (19.07.2026, TAMAM)
 
 - **Bağlam:** Kullanıcı: "Çift sol tık yaptığımda uygulama içi ayrı bir pencerede düzenleme/kaydetme/silme

@@ -187,7 +187,10 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         catch { }
     }
 
-    /// <summary>Bağlanabilir (henüz bağsız) kullanıcıları yükler — "mevcut kullanıcıyı bağla" listesi.</summary>
+    /// <summary>Bağlanabilir (henüz bağsız) kullanıcıları yükler — "mevcut kullanıcıyı bağla" listesi.
+    /// Önce YEREL (anında, çevrimdışı da çalışır), sonra ÇEVRİMİÇİYSE sunucudan tazeler: başka makinede/web'de
+    /// oluşturulmuş ama bu makinenin yerel users tablosunda olmayan kullanıcılar da görünsün (kullanıcı bulgusu
+    /// 2026-07-19: Mustafa Alpaslan sunucuda var ama yerelde yoktu → listelenmiyordu).</summary>
     private void LoadLinkableUsers()
     {
         try
@@ -198,6 +201,21 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         }
         catch { }
         OnPropertyChanged(nameof(HasLinkableUsers));
+        if (CanManageAccounts) _ = RefreshLinkableUsersFromServerAsync();
+    }
+
+    /// <summary>Çevrimiçiyse sunucudaki bağlanabilir kullanıcıları çekip listeyi tazeler (sunucu, kullanıcı
+    /// varlığında otoritedir). Çevrimdışı/başarısız → yerel liste korunur (dokunulmaz).</summary>
+    private async System.Threading.Tasks.Task RefreshLinkableUsersFromServerAsync()
+    {
+        var server = await ServerUserClient.GetLinkableUsersAsync();
+        if (server is null) return;
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            LinkableUsers.Clear();
+            foreach (var u in server) LinkableUsers.Add(u);
+            OnPropertyChanged(nameof(HasLinkableUsers));
+        });
     }
 
     /// <summary>"+" — yeni unvan tanımı ekler ve seçili yapar.</summary>
@@ -305,7 +323,22 @@ public sealed partial class PersonnelViewModel : ViewModelBase
             else personnelId = DesktopServices.Personnel.Create(_session, dto);
 
             if (wantLink)
-                DesktopServices.Users.LinkPersonnel(_session, FLinkUser!.Id, personnelId);
+            {
+                // Bağ (users.personnel_id) SUNUCU-OTORİTELİDİR ve users tablosu masaüstünden push EDİLMEZ →
+                // seçilen kullanıcı yalnız sunucuda/başka makinede olabilir (kullanıcı bulgusu 2026-07-19:
+                // Mustafa Alpaslan sunucuda var, yerelde yok). Bu yüzden: (1) personeli sunucuya gönder
+                // (yeni oluşturulduysa orada olsun), (2) bağı SUNUCUDA yap → tüm makinelere ulaşır.
+                await BusinessSyncPushService.PushAsync();
+                var linkErr = await ServerUserClient.LinkUserAsync(personnelId, FLinkUser!.Id);
+                if (linkErr is null)
+                    try { DesktopServices.Users.LinkPersonnel(_session, FLinkUser!.Id, personnelId); } catch { /* yerelde kullanıcı yoksa: sunucudaki bağ geçerli */ }
+                else
+                {
+                    // Çevrimdışı ya da sunucu reddetti → yerel dene (kullanıcı yereldeyse çalışır).
+                    try { DesktopServices.Users.LinkPersonnel(_session, FLinkUser!.Id, personnelId); }
+                    catch { FormError = "Personel kaydedildi ama kullanıcı bağlanamadı: " + linkErr; ShowAdd = false; EditId = null; Load(); return; }
+                }
+            }
             ShowAdd = false; EditId = null; Load();
             Status = editing ? "Personel güncellendi." : (wantLink ? "Personel eklendi + kullanıcı bağlandı." : "Personel eklendi.");
         }
