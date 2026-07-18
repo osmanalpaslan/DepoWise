@@ -55,5 +55,6 @@ public static class MigrationCatalog
         new Migration048_NormalizeMaterialType(),
         new Migration049_ListPreferenceExtras(),
         new Migration050_NormalizeLookupSpaces(),
+        new Migration051_LookupLocked(),
     };
 }

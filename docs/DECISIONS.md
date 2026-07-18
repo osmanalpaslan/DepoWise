@@ -12,6 +12,30 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-092 — Tanım Düzenle: "sabit tanım" (kilit) desteği (19.07.2026, TAMAM)
+
+- **Bağlam:** Kullanıcı: "Tanım düzenle alanında hem + butonu alanları hem de + butonu olmayan sabit
+  tanımlar alanları olmalı. sabit tanımları silme ve düzenleme işlemi yapamasınlar ama yeni tanım
+  ekleyebilsinler." — hangi tanımların "sabit" olacağı belgede yok (gerçek ürün belirsizliği); en güvenli
+  ve tersine çevrilebilir yorum uygulandı: KATEGORİ bazında değil, TEK TEK SATIR bazında kilit.
+- **Karar:** `LookupService`'in yönettiği 8 tanım tablosuna (`material_categories, brands, units, suppliers,
+  vehicle_types, vehicle_categories, vehicle_models, branches`) `is_locked` kolonu eklendi (Migration051,
+  varsayılan 0 — HİÇBİR mevcut satır otomatik kilitlenmedi). Yalnız **admin** (firma admin/süper admin,
+  `AccessControl.IsAdmin`) bir satırı kilitleyip açabilir (`LookupService.SetLocked`, `PUT
+  /api/lookups/{table}/{id}/lock`). Kilitli satır `Rename`/`Delete`'te reddedilir (`ArgumentException`,
+  servis seviyesinde — API/UI'dan bağımsız korunur). **"+" ile yeni tanım ekleme kilitten TAMAMEN bağımsız
+  her zaman açık** — kullanıcının "yeni tanım ekleyebilsinler" şartı budur.
+- **UI:** Web (`DefEditor.razor`) kilitli satırda kalem/sil ikonu yerine kilit ikonu gösterir; admin'e ayrıca
+  kilitle/kilit-aç ikon butonu görünür. Masaüstü (`SettingsView.axaml`/`LookupSectionViewModel`) aynı desen:
+  Kaydet/Sil butonları kilitliyken devre dışı, admin'e "Kilitle"/"Kilidi Aç" butonu.
+- **Kullanıcı onayı gerekli:** Bu tamamen GENERİK bir kilit ARACI — hangi tanımların fiilen kilitlenmesi
+  gerektiği kullanıcının/admin'in kendi kararı (örn. "Yedek Parça" kategorisi hep sabit kalsın gibi bir
+  isteği varsa admin ekrandan kilitler). Kod hiçbir tanımı kendiliğinden kilitlemedi.
+- **Test:** 5 yeni (`LookupDedupTests`) — kilitli rename/delete reddi · kilit açılınca serbest · kilitliyken
+  yeni tanım eklenebilir · admin olmayan kilit değiştiremez. 544/544.
+
+---
+
 ### ADR-091 — Günlük Faaliyet: "İlave Yağ/İlave Filtre/Tamir" + masaüstü Bakım null-referans kusuru (19.07.2026, TAMAM)
 
 - **Bağlan:** Kullanıcı: "Günlük Faaliyet kayıt tipine 3 yeni kayıt tipi eklenecek... Bakım ile aynı olacak

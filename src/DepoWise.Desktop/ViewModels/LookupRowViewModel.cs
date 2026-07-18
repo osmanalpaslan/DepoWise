@@ -13,6 +13,8 @@ public sealed partial class LookupRowViewModel : ObservableObject
     /// <summary>Yeniden adlandırma çakışırsa/başarısız olursa eski ada dönmek için.</summary>
     public string OriginalName { get; }
     [ObservableProperty] private string _name;
+    /// <summary>Sabit tanım — kilitliyken düzenlenemez/silinemez (kullanıcı isteği 2026-07-19).</summary>
+    [ObservableProperty] private bool _isLocked;
 
-    public LookupRowViewModel(string id, string name) { Id = id; OriginalName = name; _name = name; }
+    public LookupRowViewModel(string id, string name, bool isLocked = false) { Id = id; OriginalName = name; _name = name; _isLocked = isLocked; }
 }

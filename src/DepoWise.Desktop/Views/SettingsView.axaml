@@ -25,17 +25,31 @@
                                     <ItemsControl ItemsSource="{Binding Items}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:LookupRowViewModel">
-                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,2">
+                                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6" Margin="0,2">
                                                     <TextBox Grid.Column="0" Classes="Field" Text="{Binding Name}" MaxLength="50" VerticalAlignment="Center"
                                                              IsEnabled="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanEdit}"/>
                                                     <Button Grid.Column="1" Classes="Ghost" Content="Kaydet"
                                                             IsVisible="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanEdit}"
+                                                            IsEnabled="{Binding !IsLocked}"
                                                             Command="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).RenameCommand}"
                                                             CommandParameter="{Binding}"/>
                                                     <Button Grid.Column="2" Classes="Ghost" Content="Sil"
                                                             IsVisible="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanDelete}"
+                                                            IsEnabled="{Binding !IsLocked}"
                                                             Command="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).DeleteCommand}"
                                                             CommandParameter="{Binding}"/>
+                                                    <!-- Sabit tanım kilidi — yalnız admin (kullanıcı isteği 2026-07-19) -->
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
+                                                                IsVisible="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanToggleLock}">
+                                                        <Button Classes="Ghost" Content="Kilitle" ToolTip.Tip="Sabit yap: düzenlenemez/silinemez, yeni tanım eklemeyi etkilemez"
+                                                                IsVisible="{Binding !IsLocked}"
+                                                                Command="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).ToggleLockCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                        <Button Classes="Ghost" Content="Kilidi Aç" ToolTip.Tip="Sabitliği kaldır: yeniden düzenlenebilir/silinebilir olur"
+                                                                IsVisible="{Binding IsLocked}"
+                                                                Command="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).ToggleLockCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </StackPanel>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

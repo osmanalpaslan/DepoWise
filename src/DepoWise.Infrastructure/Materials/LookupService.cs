@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Infrastructure.Materials;
 
-public sealed record LookupItem(string Id, string Name);
+public sealed record LookupItem(string Id, string Name, bool IsLocked = false);
 
 /// <summary>
 /// Tanımlar CRUD (kategori/marka/birim/tedarikçi) — tenant + "definitions" permission.
@@ -104,11 +104,11 @@ public sealed class LookupService
         EnsureKnownTable(table);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"SELECT id, name FROM {table} WHERE company_id = $c AND is_deleted = 0 ORDER BY name;";
+        cmd.CommandText = $"SELECT id, name, is_locked FROM {table} WHERE company_id = $c AND is_deleted = 0 ORDER BY name;";
         cmd.Parameters.AddWithValue("$c", s.CompanyId);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1), r.GetInt64(2) != 0));
         return list;
     }
 
@@ -210,11 +210,12 @@ ORDER BY name;";
         return cmd.ExecuteScalar() as string;
     }
 
-    /// <summary>Tanımı yeniden adlandır (tenant + "definitions"/Edit).</summary>
+    /// <summary>Tanımı yeniden adlandır (tenant + "definitions"/Edit). Kilitli ("sabit") tanım düzenlenemez.</summary>
     public void Rename(SessionContext s, string table, string id, string newName)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         EnsureKnownTable(table);
+        RequireNotLocked(s, table, id, "Sabit tanım düzenlenemez.");
         newName = NormalizeSpaces(newName ?? "");
         if (string.IsNullOrEmpty(newName)) throw new ArgumentException("Ad boş olamaz.");
         if (newName.Length > MaxNameLength) throw new ArgumentException($"Tanım adı en fazla {MaxNameLength} karakter olabilir.");
@@ -236,11 +237,13 @@ ORDER BY name;";
         tx.Commit();
     }
 
-    /// <summary>Tanımı soft-delete et (tenant + "definitions"/Delete). Referanslar id ile korunur.</summary>
+    /// <summary>Tanımı soft-delete et (tenant + "definitions"/Delete). Referanslar id ile korunur.
+    /// Kilitli ("sabit") tanım silinemez.</summary>
     public void Delete(SessionContext s, string table, string id)
     {
         AccessControl.Require(s, Module, PermissionAction.Delete);
         EnsureKnownTable(table);
+        RequireNotLocked(s, table, id, "Sabit tanım silinemez.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
@@ -256,6 +259,41 @@ ORDER BY name;";
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Delete, s.UserId), _clock);
         tx.Commit();
+    }
+
+    /// <summary>Tanımı kilitle/kilit aç ("sabit tanım" — kullanıcı isteği 2026-07-19). Yalnız firma/süper
+    /// admin. Kilitli tanım yeniden adlandırılamaz/silinemez ama diğer YENİ tanımların eklenmesini etkilemez.</summary>
+    public void SetLocked(SessionContext s, string table, string id, bool locked)
+    {
+        if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Tanım kilidini yalnız yönetici değiştirebilir.");
+        EnsureKnownTable(table);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $"UPDATE {table} SET is_locked=$l, updated_at=$now, version=version+1 " +
+                              "WHERE id=$id AND company_id=$c AND is_deleted=0;";
+            cmd.Parameters.AddWithValue("$l", locked ? 1 : 0);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.ExecuteNonQuery();
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    private void RequireNotLocked(SessionContext s, string table, string id, string message)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT is_locked FROM {table} WHERE id=$id AND company_id=$c AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        var v = cmd.ExecuteScalar();
+        if (v is not null && System.Convert.ToInt64(v) != 0) throw new ArgumentException(message);
     }
 
     private static void EnsureKnownTable(string table)

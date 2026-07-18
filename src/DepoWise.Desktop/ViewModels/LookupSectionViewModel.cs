@@ -28,6 +28,8 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
     public bool CanWrite => AccessControl.Can(_s, "definitions", PermissionAction.Create);
     public bool CanDelete => AccessControl.Can(_s, "definitions", PermissionAction.Delete);
     public bool CanEdit => AccessControl.Can(_s, "definitions", PermissionAction.Edit);
+    /// <summary>Kilit aç/kapa (sabit tanım) yalnız admin (kullanıcı isteği 2026-07-19).</summary>
+    public bool CanToggleLock => AccessControl.IsAdmin(_s);
 
     public LookupSectionViewModel(SessionContext s, string title, string table,
         Func<SessionContext, IReadOnlyList<LookupItem>> load, Action<SessionContext, string> add)
@@ -39,7 +41,7 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
     private void Reload()
     {
         Items.Clear();
-        try { foreach (var i in _load(_s)) Items.Add(new LookupRowViewModel(i.Id, i.Name)); }
+        try { foreach (var i in _load(_s)) Items.Add(new LookupRowViewModel(i.Id, i.Name, i.IsLocked)); }
         catch (Exception ex) { Error = ex.Message; }
     }
 
@@ -71,5 +73,15 @@ public sealed partial class LookupSectionViewModel : ViewModelBase
         if (newName == item.OriginalName) return;   // değişmemiş → sessiz geç
         try { DesktopServices.Lookups.Rename(_s, _table, item.Id, newName); Reload(); }
         catch (Exception ex) { Error = ex.Message; item.Name = item.OriginalName; }
+    }
+
+    /// <summary>Kilit aç/kapa (sabit tanım — kullanıcı isteği 2026-07-19). Yalnız admin.</summary>
+    [RelayCommand]
+    private void ToggleLock(LookupRowViewModel? item)
+    {
+        if (item is null) return;
+        Error = null;
+        try { DesktopServices.Lookups.SetLocked(_s, _table, item.Id, !item.IsLocked); Reload(); }
+        catch (Exception ex) { Error = ex.Message; }
     }
 }

@@ -13,9 +13,22 @@
         @foreach (var it in _items)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
-                <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" />
-                <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
+                <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" Disabled="@it.IsLocked" />
+                @if (it.IsLocked)
+                {
+                    <MudTooltip Text="Sabit tanım — düzenlenemez/silinemez"><MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Class="mud-text-secondary" /></MudTooltip>
+                }
+                else
+                {
+                    <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
+                }
+                @if (Auth.IsAdmin)
+                {
+                    <MudTooltip Text="@(it.IsLocked ? "Kilidi aç: yeniden düzenlenebilir/silinebilir olur" : "Sabit yap: düzenlenemez/silinemez, yeni tanım eklemeyi etkilemez")">
+                        <MudIconButton Icon="@(it.IsLocked ? Icons.Material.Filled.LockOpen : Icons.Material.Filled.Lock)" Size="Size.Small" OnClick="@(() => ToggleLock(it))" />
+                    </MudTooltip>
+                }
             </MudStack>
         }
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-2">
@@ -31,7 +44,7 @@
     [Parameter, EditorRequired] public string FieldLabel { get; set; } = "";
     [Parameter, EditorRequired] public string Table { get; set; } = "";
 
-    private sealed class Item { public string Id = ""; public string Name = ""; }
+    private sealed class Item { public string Id = ""; public string Name = ""; public bool IsLocked; }
     private List<Item>? _items;
     private string _new = "";
     private string? _msg; private bool _ok;
@@ -44,7 +57,12 @@
         {
             var arr = await Api.GetArrayAsync($"/api/lookups/{Table}");
             _items = arr.Where(e => e.ValueKind == JsonValueKind.Object)
-                .Select(e => new Item { Id = e.GetProperty("id").GetString() ?? "", Name = e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "" }).ToList();
+                .Select(e => new Item
+                {
+                    Id = e.GetProperty("id").GetString() ?? "",
+                    Name = e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                    IsLocked = e.TryGetProperty("isLocked", out var l) && l.ValueKind == JsonValueKind.True,
+                }).ToList();
         }
         catch { _items = new(); }
     }
@@ -68,5 +86,11 @@
         if (string.IsNullOrWhiteSpace(it.Name)) { _msg = "Ad boş olamaz."; _ok = false; return; }
         var err = await Api.PutAsync($"/api/lookups/{Table}/{it.Id}", new { name = it.Name.Trim() });
         _ok = err is null; _msg = err ?? "Ad güncellendi (ID korundu)."; if (_ok) await Load();
+    }
+
+    private async Task ToggleLock(Item it)
+    {
+        var err = await Api.PutAsync($"/api/lookups/{Table}/{it.Id}/lock", new { locked = !it.IsLocked });
+        _ok = err is null; _msg = err ?? (it.IsLocked ? "Kilit açıldı." : "Sabit yapıldı."); if (_ok) await Load();
     }
 }

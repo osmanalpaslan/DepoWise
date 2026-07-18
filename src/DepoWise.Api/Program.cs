@@ -966,8 +966,17 @@ app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
 app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string id) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    svc.Lookups.Delete(s, table, id);
-    return Results.Ok(new { ok = true });
+    try { svc.Lookups.Delete(s, table, id); return Results.Ok(new { ok = true }); }
+    catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
+    catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+}).RequireAuthorization();
+// Tanımı kilitle/kilit aç ("sabit tanım" — kullanıcı isteği 2026-07-19). Yalnız admin.
+app.MapPut("/api/lookups/{table}/{id}/lock", (HttpContext c, string table, string id, LockDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    try { svc.Lookups.SetLocked(s, table, id, d.Locked); return Results.Ok(new { ok = true }); }
+    catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
+    catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
 // Alan adı değiştirme (ID korunur). Yetki: "definitions"/Edit (Ekle/Sil ile aynı model — kullanıcı isteği
 // 2026-07-18: "tanım düzenle ekranında düzenleme de olmalı"). Rename servisi Edit yetkisini zaten zorlar;
@@ -2050,6 +2059,7 @@ record PushDto(List<PushOp> Ops);
 record PushOp(string OperationId, string EntityType, string EntityId, string PayloadJson, long? BaseVersion);
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0, string? Id = null, int MaxAdmins = 0, int MachineQuota = 3);
 record NameDto(string Name);
+record LockDto(bool Locked);
 record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false);
 record TitleDto(string Name);
 record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);

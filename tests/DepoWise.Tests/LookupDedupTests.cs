@@ -136,6 +136,65 @@ public class LookupDedupTests : IDisposable
         Assert.Equal("Yağ Filtreleri", lk.ListCategories(s, null).First(x => x.Id == id).Name);
     }
 
+    // ── Sabit tanım / kilit (kullanıcı isteği 2026-07-19) ──
+    [Fact]
+    public void Kilitli_Rename_Reddedilir()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        lk.SetLocked(s, "units", id, true);
+        Assert.Throws<ArgumentException>(() => lk.Rename(s, "units", id, "Kilogram"));
+        Assert.True(lk.List(s, "units").First(x => x.Id == id).IsLocked);
+    }
+
+    [Fact]
+    public void Kilitli_Delete_Reddedilir()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        lk.SetLocked(s, "units", id, true);
+        Assert.Throws<ArgumentException>(() => lk.Delete(s, "units", id));
+        Assert.Contains(lk.List(s, "units"), x => x.Id == id);
+    }
+
+    [Fact]
+    public void KilitAcilinca_TekrarDuzenlenebilirSilinebilir()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        lk.SetLocked(s, "units", id, true);
+        lk.SetLocked(s, "units", id, false);
+        lk.Rename(s, "units", id, "Kilogram");   // kilit açıldı → serbest
+        Assert.Contains(lk.List(s, "units"), x => x.Name == "Kilogram");
+        lk.Delete(s, "units", id);
+        Assert.DoesNotContain(lk.List(s, "units"), x => x.Id == id);
+    }
+
+    [Fact]
+    public void Kilitliyken_YeniTanimEklemeEtkilenmez()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        lk.SetLocked(s, "units", id, true);
+        var id2 = lk.AddUnit(s, "Kutu");   // + ile yeni tanım — kilitten bağımsız her zaman serbest
+        Assert.NotNull(id2);
+        Assert.Equal(2, lk.List(s, "units").Count);
+    }
+
+    [Fact]
+    public void SuperAdminOlmayan_KilitDegistiremez()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        var normal = new SessionContext("u2", s.CompanyId, new[] { RoleKeys.Staff }, PermissionSet.Empty);
+        Assert.Throws<ForbiddenException>(() => lk.SetLocked(normal, "units", id, true));
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); System.IO.File.Delete(_dbPath); } catch { }

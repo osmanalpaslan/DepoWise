@@ -34,8 +34,10 @@ Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
 3. ⏳ Çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil (tek tık = mevcut detay paneli aynen kalır). **YAPILMADI**
    (kapsam büyük: "bütün kayıtlara" — hangi ekranlar öncelikli netleştirilmeli).
 4. ✅ Malzeme kategorilerinde (ve tüm tanımlarda) fazla boşluk normalize (Migration050).
-5. ⏳ Tanım Düzenle'de **kilitli/sabit tanımlar** (silinemez/düzenlenemez) + yeni tanım eklenebilir arada.
-   **YAPILMADI** (şema kararı gerekir: hangi tanımlar "sabit" işaretlenecek?).
+5. ✅ Tanım Düzenle'de **kilitli/sabit tanımlar** (ADR-092) — her tanım satırı admin tarafından tek tek
+   kilitlenebilir (silinemez/düzenlenemez), yeni tanım eklemek ("+") kilitten bağımsız her zaman açık.
+   Hiçbir mevcut tanım otomatik kilitlenmedi — **hangi tanımların kilitleneceği kullanıcının/admin'in kararı**
+   (ekrandan kilit ikonuyla yapılır).
 6. ⏳ Semi Modern arama kutusu → Fluent Classic ile aynı tasarım. **YAPILMADI.**
 7. ✅ Kural: yeni filtrelenebilir alan eklerken gerekli adımlar → `.claude/rules/list-screens.md`.
 8. ⏳ Günlük Faaliyet ekranına ADR-087/088/089 grid deseni (filtre+sayfalama+sıralama+Excel-grid).
