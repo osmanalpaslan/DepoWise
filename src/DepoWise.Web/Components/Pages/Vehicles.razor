@@ -5,6 +5,7 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
 
@@ -139,26 +140,48 @@
                 }
             </MudGrid>
 
+            @* Sayfa numaraları + kayıt bilgisi TABLONUN ÜSTÜNDE, SOLDA (kullanıcı isteği 2026-07-18). *@
+            @if (_rows is { Length: > 0 })
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+                    <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
+                                   BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
+                    <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarını) sizin için kaydeder">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
+                    </MudTooltip>
+                </MudStack>
+            }
+
             @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
             else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun araç bulunamadı.</MudText> }
             else
             {
-                <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="50vh"
-                          OnRowClick="@(e => OpenDetail(Str(e.Item, "id")))" T="JsonElement">
-                    <HeaderContent>
-                        @foreach (var key in _visibleColumns) { <MudTh>@Label(key).ToUpperInvariant()</MudTh> }
-                        <MudTh>BAKIM/MUAYENE</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        @foreach (var key in _visibleColumns) { <MudTd>@Dash(CellText(context, key))</MudTd> }
-                        <MudTd>@Alert(Str(context, "id"))</MudTd>
-                    </RowTemplate>
-                </MudTable>
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mt-2" Wrap="Wrap.Wrap">
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
-                    <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
-                                   BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
-                </MudStack>
+                <div style="overflow-x:auto;">
+                <table id="vehicles-grid" class="dw-grid">
+                    <thead><tr>
+                        @foreach (var key in _visibleColumns)
+                        {
+                            <th data-key="@key" style="@ThStyle(key)">
+                                <div class="dw-th" @onclick="@(() => ToggleSort(key))">
+                                    <span>@Label(key).ToUpperInvariant()</span>
+                                    <span class="dw-sort">@SortArrow(key)</span>
+                                </div>
+                            </th>
+                        }
+                        <th style="width:130px;"><div class="dw-th" style="cursor:default;"><span>BAKIM/MUAYENE</span></div></th>
+                    </tr></thead>
+                    <tbody>
+                        @foreach (var row in _rows)
+                        {
+                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" style="cursor:pointer;">
+                                @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
+                                <td>@Alert(Str(row, "id"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
             }
         </MudPaper>
     </MudItem>
@@ -269,16 +292,37 @@
     private JsonElement? _detail;
     private string? _msg; private bool _ok; private bool _busy; private bool _err;
 
-    // ── Araç Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17) ──
+    // ── Araç Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17/18) ──
     private static readonly int[] PageSizes = { 25, 50, 100, 200 };
     private List<string> _visibleColumns = VehicleListColumns.DefaultVisible.ToList();
     private readonly Dictionary<string, string> _filters = new();
-    private int _page = 1, _pageSize = 50, _totalCount, _totalPages = 1;
+    private int _page = 1, _pageSize = 25, _totalCount, _totalPages = 1;   // varsayılan 25 (kullanıcı isteği)
+    private string? _sortColumn; private bool _sortDesc;
+    private Dictionary<string, int> _widths = new();
 
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
     private void SetFilter(string key, string v) => _filters[key] = v ?? "";
     private static string Label(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
     private static bool IsNumeric(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
+
+    private string ThStyle(string key) => _widths.TryGetValue(key, out var w) && w > 0 ? $"width:{w}px;" : "width:140px;";
+    private string SortArrow(string key) => _sortColumn == key ? (_sortDesc ? "▼" : "▲") : "";
+    private async Task ToggleSort(string key)
+    {
+        if (_sortColumn != key) { _sortColumn = key; _sortDesc = false; }
+        else if (!_sortDesc) { _sortDesc = true; }
+        else { _sortColumn = null; _sortDesc = false; }
+        _page = 1; await Load();
+    }
+    private async Task SaveWidths()
+    {
+        try
+        {
+            var w = await JS.InvokeAsync<Dictionary<string, int>>("dwReadColWidths", "vehicles-grid");
+            if (w is { Count: > 0 }) { _widths = w; await Api.SaveWidthsAsync("vehicles", w); }
+        }
+        catch { }
+    }
 
     /// <summary>"Sayaç" iki alanı ("meter"+"meterUnit") birleştirir; "Durum" ham kod DEĞİL Türkçe etiketi
     /// (statusLabel) gösterir — ekran kullanıcıya hiçbir zaman ham kodu göstermez.</summary>
@@ -293,7 +337,7 @@
     private async Task ClearFilters() { _filters.Clear(); _page = 1; await Load(); }
     private async Task OnFilterKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ApplyFilters(); }
     private async Task OnPageChanged(int p) { _page = p; await Load(); }
-    private async Task OnPageSizeChanged(int sz) { _pageSize = sz; _page = 1; await Load(); }
+    private async Task OnPageSizeChanged(int sz) { _pageSize = sz; _page = 1; await Api.SavePageSizeAsync("vehicles", sz); await Load(); }
 
     private async Task OpenColumnPicker()
     {
@@ -326,6 +370,9 @@
         {
             var saved = await Api.GetListColumnsAsync("vehicles");
             if (saved is { Count: > 0 }) _visibleColumns = saved;
+            var (ps, widths) = await Api.GetListPrefsAsync("vehicles");
+            if (ps is > 0) _pageSize = ps.Value;
+            if (widths is { Count: > 0 }) _widths = widths;
             await Load();
         }
     }
@@ -383,6 +430,7 @@
     {
         _rows = null;
         var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
+        if (_sortColumn is not null) { qs.Add($"sort={_sortColumn}"); qs.Add($"desc={(_sortDesc ? "true" : "false")}"); }
         foreach (var (k, v) in _filters)
             if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{k}={Uri.EscapeDataString(v.Trim())}");
         var grid = await Api.GetGridAsync("/api/vehicles/grid?" + string.Join("&", qs));

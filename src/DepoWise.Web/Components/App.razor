@@ -73,6 +73,19 @@
         document.addEventListener('DOMContentLoaded', () => window.dwKillAutofill());
         window.addEventListener('load', () => window.dwKillAutofill());
 
+        // Excel-benzeri grid: kullanıcı başlıkları sürükleyip genişlettikten sonra her kolonun
+        // güncel piksel genişliğini (data-key → width) okur — "Genişlikleri kaydet" bunu sunucuya yollar.
+        window.dwReadColWidths = (tableId) => {
+            const t = document.getElementById(tableId);
+            if (!t) return {};
+            const out = {};
+            t.querySelectorAll('thead th[data-key]').forEach(th => {
+                const k = th.getAttribute('data-key');
+                if (k) out[k] = Math.round(th.getBoundingClientRect().width);
+            });
+            return out;
+        };
+
         window.dwDownload = (name, b64, mime) => {
             const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
             for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);

@@ -344,6 +344,30 @@ public sealed class ApiClient
     public Task<string?> SaveListColumnsAsync(string listKey, List<string> columns) =>
         PostAsync($"/api/me/list-columns/{listKey}", new { columns });
 
+    /// <summary>Kişisel sayfa boyutu + kolon genişlikleri (ADR-089). pageSize=null → ekran 25 kullanır.</summary>
+    public async Task<(int? PageSize, Dictionary<string, int>? Widths)> GetListPrefsAsync(string listKey)
+    {
+        try
+        {
+            var obj = await GetObjectAsync($"/api/me/list-prefs/{listKey}");
+            int? ps = obj.TryGetProperty("pageSize", out var p) && p.ValueKind == System.Text.Json.JsonValueKind.Number ? p.GetInt32() : null;
+            Dictionary<string, int>? w = null;
+            if (obj.TryGetProperty("widths", out var wj) && wj.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                w = new();
+                foreach (var kv in wj.EnumerateObject()) if (kv.Value.ValueKind == System.Text.Json.JsonValueKind.Number) w[kv.Name] = kv.Value.GetInt32();
+            }
+            return (ps, w);
+        }
+        catch { return (null, null); }
+    }
+
+    public Task<string?> SavePageSizeAsync(string listKey, int pageSize) =>
+        PostAsync($"/api/me/list-prefs/{listKey}/page-size", new { pageSize });
+
+    public Task<string?> SaveWidthsAsync(string listKey, Dictionary<string, int> widths) =>
+        PostAsync($"/api/me/list-prefs/{listKey}/widths", new { widths });
+
     public async Task<List<CompanyDto>> GetCompaniesAsync()
     {
         var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies"));

@@ -206,3 +206,20 @@ h1:focus {
     background: color-mix(in srgb, var(--mud-palette-primary) 20%, transparent) !important;
     box-shadow: inset 3px 0 0 0 var(--mud-palette-primary);
 }
+
+/* ── Excel-benzeri liste grid'i (ADR-089): sabit düzen + yatay kaydırma + sürüklenebilir kolon genişliği ── */
+.dw-grid { table-layout: fixed; border-collapse: collapse; width: max-content; min-width: 100%; }
+.dw-grid th, .dw-grid td {
+    border: 1px solid var(--mud-palette-lines-default);
+    padding: 4px 8px; font-size: 0.85rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0;
+}
+.dw-grid thead th {
+    background: var(--mud-palette-background-grey);
+    position: sticky; top: 0; z-index: 1;
+    resize: horizontal;               /* sürükleyerek genişlet (tarayıcı yerel, JS'siz) */
+    overflow: hidden; min-width: 60px;
+}
+.dw-th { display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; user-select: none; }
+.dw-sort { font-size: 0.75rem; opacity: 0.75; min-width: 10px; }
+.dw-grid tbody tr:hover { background: var(--mud-palette-action-default-hover); }
