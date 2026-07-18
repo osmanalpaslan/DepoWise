@@ -31,9 +31,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **051** (tanım kilidi/sabit tanım — ADR-092) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (ADR-095 atomik düzeltme dahil) |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.72 yayında** — Günlük Faaliyet'e filtre+sayfalama+sıralama+Excel grid deseni (ADR-094) |
+| **Masaüstü** | **1.0.73 yayında** — çift-tık hızlı düzenle penceresi (Malzemeler + Araçlar, ADR-096) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | 12 maddelik listenin SON büyük maddesi: çift-tık düzenle/kaydet/sil penceresi (Malzemeler+Araçlar'dan başla) |
+| **Bekleyen iş** | **12 maddelik liste TAMAM** — kalan yalnız kullanıcı doğrulaması (görsel/canlı test) |
+
+### Çift-tık "hızlı düzenle" penceresi (2026-07-19, ADR-096)
+Malzemeler + Araçlar'da kayda çift tıklayınca ayrı pencerede Düzelt/Kaydet/Sil (tek tık detay panelini korur).
+Web (MudDialog) + masaüstü (kod-arkası Window). Fotoğraf/muadil/uyumlu araç ve sayaç KORUNUR (hızlı pencere
+silmez). Web canlı; masaüstü 1.0.73'te canlı. **⚠️ Görsel/uçtan-uca test kullanıcıya** (bu ortamda Avalonia +
+web giriş formu test edilemedi). Detay: `docs/DECISIONS.md` ADR-096.
 
 ### Opus 4.8 gözden geçirmesi (2026-07-19, ADR-095)
 Kullanıcı isteğiyle bu oturumdaki tüm iş (ADR-090…094) Opus 4.8 ile satır satır denetlendi (tenant/izin/
@@ -71,9 +77,10 @@ Kullanıcı 12 madde verdi (Opus 4.8, "en son test edeceğim"). Durum:
   kutusu Fluent ile aynı** (ADR-093) + **Günlük Faaliyet'e filtre+sayfalama+sıralama+Excel grid deseni**
   (ADR-094, madde 8/9 tamam) — masaüstü 1.0.72'de canlı. ⚠️ Görsel doğrulama kullanıcıda (bu ortamda
   Avalonia/giriş gerektiren web ekranları test edilemedi).
-- ⏳ **Kalan (12 maddelik listede tek iş):** çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil — kapsam büyük
-  ("bütün kayıtlara"), hangi ekranlar öncelikli netleştirilmeli · farklı makine aynı şube senkron doğrulaması
-  (ADR-090 ile çözülmüş OLABİLİR, kullanıcı testi bekliyor — bu kullanıcı onayı, geliştirme değil).
+- ✅ **Çift-tık ayrı pencerede Düzelt/Kaydet/Sil** — Malzemeler + Araçlar (web+masaüstü, ADR-096, 1.0.73).
+- ⏳ **Kalan (yalnız kullanıcı doğrulaması, geliştirme değil):** farklı makine aynı şube senkron doğrulaması
+  (ADR-090 ile çözülmüş OLABİLİR, kullanıcı 1.0.69+ ile test etmeli) · ADR-096 çift-tık pencere görsel testi ·
+  ADR-092/093/094 masaüstü görsel testleri.
 Detay: `docs/YARIM_KALAN_ISLER.md`.
 
 ### 7 maddelik liste geliştirmeleri paketi (2026-07-18, ADR-089)

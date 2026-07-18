@@ -31,8 +31,10 @@ Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
 2. ✅ Günlük Faaliyet'e 3 yeni kayıt tipi: **İlave Yağ, İlave Filtre, Tamir** — Bakım ile aynı alanlar, yalnız
    bakım tanımı/alt bakım YOK. Web+masaüstü (ADR-091). Yan bulgu: masaüstü/sunucu servis başlatma sırası
    kusuru (Bakım kaydında null-referans riski) da düzeltildi. **Masaüstü 1.0.70'de canlı.**
-3. ⏳ Çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil (tek tık = mevcut detay paneli aynen kalır). **YAPILMADI**
-   (kapsam büyük: "bütün kayıtlara" — hangi ekranlar öncelikli netleştirilmeli).
+3. ✅ Çift-tık ile ayrı pencerede Düzelt/Kaydet/Sil (tek tık = mevcut detay paneli korunur) — **Malzemeler +
+   Araçlar** (web+masaüstü, ADR-096). Foto/muadil/uyumlu-araç ve sayaç korunur. Kullanıcı "bu ikisinden başla,
+   sonrasını kendin belirle" dedi → diğer ekranlar (Günlük Faaliyet/Personel/Stok…) istenirse aynı desenle
+   eklenir. **⚠️ Görsel test kullanıcıda** (Avalonia + web giriş bu ortamda çalıştırılamadı).
 4. ✅ Malzeme kategorilerinde (ve tüm tanımlarda) fazla boşluk normalize (Migration050).
 5. ✅ Tanım Düzenle'de **kilitli/sabit tanımlar** (ADR-092) — her tanım satırı admin tarafından tek tek
    kilitlenebilir (silinemez/düzenlenemez), yeni tanım eklemek ("+") kilitten bağımsız her zaman açık.

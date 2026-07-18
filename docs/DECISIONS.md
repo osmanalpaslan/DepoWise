@@ -12,6 +12,33 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-096 — Çift-tık "hızlı düzenle" penceresi: Malzemeler + Araçlar (19.07.2026, TAMAM)
+
+- **Bağlam:** Kullanıcı: "Çift sol tık yaptığımda uygulama içi ayrı bir pencerede düzenleme/kaydetme/silme
+  yapacağım bir pencere açılsın… düzelt, kaydet ve sil butonları olmalı; düzelt butonuna tıklanınca düzeltme
+  yapılabilmeli." Tek tık davranışı (detay paneli) KORUNUR. Kapsam: "Malzemeler ve Araçlar'dan başla."
+- **Karar:** Her iki ekranda kayda ÇİFT TIKLAYINCA ayrı bir pencere açılır; alanlar "Düzelt"e basılana kadar
+  SALT-OKUNUR (web: MudField; masaüstü: kontroller IsEnabled=false). "Düzelt" → düzenlenebilir; "Kaydet" →
+  günceller ve kapatır; "Sil" → siler ve kapatır. Kapanınca liste + açık detay paneli tazelenir.
+- **VERİ KORUMA (kritik tasarım):** Hızlı pencere yalnız çekirdek alanları düzenler. Malzemede fotoğraf/muadil/
+  uyumlu araçlar DEĞİŞMEZ — PUT'a `vehicleIds=null` gönderilir (sunucu mevcut listeyi korur), muadiller PUT'a
+  hiç dokunmaz. Araçta iç kod ve SAYAÇ değişmez (sayaç zaten `UpdateVehicle`'da yok — §4 sayaç geri gitme
+  koruması); fotoğraflar korunur. Böylece hızlı düzenleme yanlışlıkla ilişki/foto SİLMEZ.
+- **Web:** `MaterialEditDialog.razor` + `VehicleEditDialog.razor` (MudDialog), satırda `@ondblclick`. İzinler:
+  Düzelt yalnız `CanEdit`, Sil yalnız `CanDelete`. Araç markası değişince modeller kademeli yenilenir.
+- **Masaüstü:** `MaterialQuickEditWindow` + `VehicleQuickEditWindow` — **kod-arkası** Window (ColumnPickerWindow
+  ile aynı desen, DataContext bağlaması YOK → düşük runtime-binding riski). `QuickEditService` MainWindow
+  üzerinde modal açar. Satır `DoubleTapped` → `QuickEditSelectedCommand`. Silme: iç içe modal açmamak için
+  İKİ AŞAMALI (ilk tık uyarır, ikinci siler).
+- **⚠️ Doğrulama:** Web derleme temiz; masaüstü derleme temiz. Bu ortamda Avalonia çalıştırılamadığı ve web
+  giriş formu otomasyonu güvenlik politikasınca engellendiği için **görsel/uçtan-uca test kullanıcıya kalıyor**
+  (554/554 birim test yeşil — bu iş UI olduğundan birim testi kapsamaz). Kullanıcı canlıda: çift tık pencereyi
+  açıyor mu, Düzelt alanları açıyor mu, Kaydet/Sil çalışıyor mu — kontrol etmeli.
+- **Sonraki:** Diğer liste ekranlarına (Günlük Faaliyet, Personel, Stok vb.) aynı desen istenirse eklenecek
+  (kullanıcı "sonrasını kendin belirle" dedi — önce bu ikisi referans).
+
+---
+
 ### ADR-095 — Opus 4.8 gözden geçirme: ADR-090…094 denetimi + sabit-tanım yarış düzeltmesi (19.07.2026, TAMAM)
 
 - **Bağlam:** Kullanıcı: "buraya kadar farkında olmadan sonnet 5 ile yapmışız... opus 4.8 e aldım, proje
