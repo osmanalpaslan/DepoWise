@@ -12,6 +12,37 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-089 — Liste geliştirmeleri paketi: Tür eşleme, tanım düzenleme, 50-kar, sayfa boyutu, sıralama, Excel-grid (18.07.2026)
+
+Kullanıcının 7 maddelik toplu isteği (2600+ kayıtla çalışırken fark ettikleri). Durum: infra+API+web TAMAM
+ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görsel doğrulanamıyor → dikkatli, build-doğrulamalı).
+
+- **#7 "Tür" harf-duyarsız kanonik eşleme:** malzeme "Tür" bir tanım/lookup DEĞİL, serbest metindir → içe
+  aktarımda "YEDEK PARÇA" kanonik "Yedek Parça" ile eşleşmiyordu (diğer tanımlar `ImportLookupResolver`'da
+  zaten harf duyarsız). Çözüm: `MaterialType.Normalize` (Application/Ui) + `MaterialService.Create/Update`
+  yazarken normalize + **Migration048** mevcut yanlış-harfli veriyi bir kez düzeltir (C# ile — SQLite upper()
+  Türkçe'yi çeviremez). Bilinmeyen tür serbest kalır.
+- **#4 Tanım düzenleme:** `LookupService.Rename` vardı ama API'de YALNIZ süper admine kapalıydı; "definitions/
+  Edit" yetkisine açıldı (Ekle/Sil ile aynı model). Web DefEditor edit'i herkese gösterir (sunucu yetkiyi
+  zorlar); masaüstü Tanımlar ekranına satır-içi düzenleme (`LookupRowViewModel` + Rename) eklendi.
+- **#6 50 karakter sınırı:** yeni tanım + rename adında (LookupService + PersonnelTitle sunucu tarafı + UI MaxLength).
+- **#1 Sayfa boyutu:** varsayılan 50→**25**; kullanıcı değiştirirse KİŞİYE ÖZEL hatırlanır (Migration049
+  `page_size` sütunu + `/api/me/list-prefs`).
+- **#5 Başlıkla sıralama:** kolon başlığına tıkla → metin A→Z/Z→A, SAYISAL küçük→büyük/büyük→küçük (ham değeri
+  CAST). `GridQuery` + `SearchGrid`'e sort/desc; API grid uçlarına parametre. Türkçe sıralama için
+  `SqliteConnectionFactory`'ye **TRNOCASE** collation (SQLite NOCASE yalnız ASCII'ydi → "Çınar" "Zeytin"den
+  sonra geliyordu; artık Ç, C'den sonra).
+- **#3 Excel-benzeri grid + kolon genişliği:** web'de MudTable → sabit-düzen HTML tablo + yatay kaydırma
+  (pencere küçülünce taşma/kayma YOK) + CSS `resize` ile sürüklenebilir başlık + "Genişlikleri kaydet"
+  (JS `dwReadColWidths` → `/api/me/list-prefs/.../widths`, Migration049 `widths_json`, KİŞİYE ÖZEL — kullanıcı
+  onayı).
+- **Test:** MaterialTests(+4 Tür) · LookupDedupTests(+2 50-kar) · MaterialGridTests(+2 sıralama) ·
+  VehicleGridTests · UserListPreferenceTests(+3 sayfa/genişlik). 523/523.
+- **⚠️ Masaüstü UI (liste ekranlarında #1/#2/#5/#3) bu adımda YAPILMADI** — ayrı, build-doğrulamalı adımda;
+  bkz. `docs/YARIM_KALAN_ISLER.md`.
+
+---
+
 ### ADR-088 — Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (18.07.2026, TAMAM — infra+web+masaüstü)
 
 - **Bağlam:** ADR-087'nin filtre motoru (`GridQuery`) HER kolonda "içerir" (`LIKE '%terim%'`) arıyordu.

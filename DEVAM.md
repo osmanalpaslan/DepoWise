@@ -27,13 +27,23 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **509/509 yeşil** (`dotnet test`) |
-| **Şema** | Migration **047** (liste kolon tercihi — ADR-087) |
+| **Testler** | **523/523 yeşil** (`dotnet test`) |
+| **Şema** | Migration **049** (sayfa boyutu + kolon genişliği tercihi — ADR-089) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.66 yayında** (sunucuda "en güncel" doğrulandı) |
+| **Masaüstü** | **1.0.66 yayında**; ADR-089 için yeni sürüm YAYINLANACAK (UI'si sürüyor) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | Baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) — kod tarafı bitti |
+| **Bekleyen iş** | **ADR-089 masaüstü UI** (#1/#2/#5/#3 liste ekranları) + baba dosyasında TL→TRY |
+
+### 7 maddelik liste geliştirmeleri paketi (2026-07-18, ADR-089)
+Kullanıcı 2600+ kayıtla çalışırken 7 istek verdi. **Web + backend TAMAM ve canlıda; masaüstü UI sürüyor.**
+1. Sayfa boyutu varsayılan **25** (kişiye özel hatırlanır). 2. Sayfa numaraları + kayıt bilgisi tablonun
+**üstünde-solunda**. 3. **Excel-benzeri grid**: pencere küçülünce taşma/kayma yok (yatay kaydırma) +
+sürüklenebilir kolon genişliği (kişiye özel kalıcı). 4. **Tanım düzenleme** (rename artık definitions/Edit
+yetkisiyle, süper-admin kısıtı kalktı; masaüstünde satır-içi düzenleme). 5. **Başlığa tıklayınca sıralama**
+(metin A→Z/Z→A Türkçe; sayısal küçük→büyük). 6. Yeni tanım/rename **50 karakter** sınırı. 7. İçe aktarımda
+**"Tür" harf duyarsız kanonik eşleme** ("YEDEK PARÇA"→"Yedek Parça") + Migration048 mevcut veriyi düzeltir.
+Detay: `docs/DECISIONS.md` ADR-089. Test: 523/523. **Masaüstü liste UI'si (#1/#2/#5/#3) bir sonraki adımda.**
 
 ### Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (2026-07-18, ADR-088)
 Kullanıcı ADR-087'nin filtresini denerken: "stokta sadece 5 olanları listelemek istiyorum ama bütün içinde 5

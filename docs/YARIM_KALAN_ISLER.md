@@ -10,6 +10,25 @@
 
 ---
 
+## ⏳ 7 maddelik liste paketi (2026-07-18, ADR-089) — WEB+BACKEND CANLIDA, MASAÜSTÜ UI SÜRÜYOR
+
+Test **523/523**. Kullanıcının 7 isteği (2600+ kayıtla çalışırken):
+1. Sayfa boyutu varsayılan 25 (kişiye özel). 2. Sayfa no + kayıt bilgisi üstte-solda. 3. Excel-benzeri grid
+(taşma yok + sürüklenebilir kolon genişliği, kişiye özel). 4. Tanım düzenleme (rename yetkiye açıldı +
+masaüstü satır-içi). 5. Başlıkla sıralama (metin Türkçe A→Z/Z→A, sayısal küçük→büyük). 6. Yeni tanım 50 kar.
+7. İçe aktarımda "Tür" harf duyarsız kanonik eşleme + mevcut veriyi düzelt (Migration048).
+
+- **TAMAM + canlıda:** infra (Migration048/049, GridQuery sıralama, TRNOCASE Türkçe collation, MaterialType,
+  LookupService 50-kar/rename) + API + **web** (Materials/Vehicles: 25, sıralama, üstte-sol sayfalama,
+  Excel-grid) + tanım düzenleme (web+masaüstü Tanımlar ekranı).
+- **KALAN — masaüstü LİSTE ekranları UI (#1/#2/#5/#3):** MaterialsView/VehiclesView'da sayfa boyutu 25 +
+  kişisel hatırlama, sayfalama konumu, başlıkla sıralama, Excel-benzeri/ölçeklenebilir kolon. **Not:** bu
+  ortamda Avalonia görsel test edilemiyor → build-doğrulamalı yapılacak, kullanıcı görsel onaylayacak.
+- **KALAN (kullanıcı):** baba dosyasında para birimi "TL" → "TRY" (Excel'de düzelt).
+- Detay: `docs/DECISIONS.md` ADR-089.
+
+---
+
 ## ✅ Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (2026-07-18, ADR-088) — TAMAMLANDI (canlıda)
 
 Test **509/509** (11 yeni). API+Web deploy edildi, masaüstü **1.0.66** yayınlandı. Kullanıcı ADR-087'nin
