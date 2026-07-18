@@ -12,6 +12,33 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-098 — 8 maddelik masaüstü-öncelikli istek paketi (19.07.2026, 7/8 TAMAM canlı)
+
+Kullanıcı masaüstünde test edip 8 madde + platform-öncelik kuralı verdi (`.claude/rules/platform-priority.md`:
+masaüstü önce, web eksik bırakma). Durum (554/554 test, API+Web+masaüstü 1.0.77 canlı):
+- ✅ **Günlük Faaliyet — Arıza Açıklaması:** İlave Yağ/Filtre/Tamir'de "Açıklama" → "Arıza Açıklaması" (aynı
+  description alanı, şema değişmez). Web+masaüstü.
+- ✅ **Enter ile filtreleme:** masaüstü Malzeme/Araç/Günlük Faaliyet filtre kutularına Enter KeyBinding (web
+  zaten OnKeyUp ile yapıyordu).
+- ✅ **Fluent klasik menü rengi:** menü grup/ekran isimleri artık `Brand.OnSurface.Brush` (menü yüzeyi rengi)
+  kullanır → koyu menüde siyah/görünmez sorunu bitti, Semi ile aynı görünür. YALNIZ menü. (Fluent/Semi
+  masaüstü temaları — web MudBlazor teması etkilenmez.)
+- ✅ **Yakıt dağıtımı "Yakıtı Alan":** yeni `recipient_personnel_id` (Migration052) + "Yakıtı Veren"den ayrı
+  form alanı. Web+masaüstü.
+- ✅ **Talep formu PDF logosu büyütüldü** (110×48 → 170×72) + **Ekonomik PDF'e logo eklendi** (ortak servis →
+  web+masaüstü).
+- ✅ **Araç ekranı sayfalama:** sayfa numaraları/bilgisi tablonun ALTINDA, solda (web+masaüstü). ⚠️ Malzemeler
+  hâlâ ÜSTTE — kullanıcı yalnız aracı belirtti; istenirse Malzemeler de alta alınır (tutarlılık).
+- ⏳ **Giriş-Çıkış çoklu malzeme (depo çıkışı):** YAPILMADI — §4 stok değişmezlerine (negatif stok/idempotency)
+  dokunduğundan, aceleye getirmeden ayrı ve dikkatli yapılacak (çoklu satır UI + satır-başı doğrulama).
+
+**Web eşitleme sorunu (kullanıcı bildirimi):** Ayrı bir web hatası DEĞİL — web doğrudan sunucudan okur; canlı
+tekrar doğrulandı, OZE'de sunucuda hâlâ 0 malzeme (makine A henüz push etmemiş). Makine A 1.0.77 ile online
+olunca ADR-097 otomatik push'u veriyi gönderir → web + makine B görür. Web→masaüstü yönü: masaüstü pull'u
+(giriş + ~3dk) web değişikliklerini çeker.
+
+---
+
 ### ADR-097 — Eşitleme kök neden: içe aktarım push etmiyordu + kullanıcılar makineler arası görünmüyordu (19.07.2026, TAMAM — KRİTİK)
 
 - **Bağlam:** Kullanıcı: "Bir firmanın şubesine toplu kayıt içeri aldım; aynı şubeye farklı makine/kullanıcı ile
