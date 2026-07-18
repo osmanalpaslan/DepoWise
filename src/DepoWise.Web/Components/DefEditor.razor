@@ -13,20 +13,13 @@
         @foreach (var it in _items)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
-                @if (Auth.IsSuperAdmin)
-                {
-                    <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" />
-                    <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
-                }
-                else
-                {
-                    <MudText Typo="Typo.body2" Style="min-width:240px">@it.Name</MudText>
-                }
+                <MudTextField @bind-Value="it.Name" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" />
+                <MudTooltip Text="Adı değiştir (ID korunur)"><MudIconButton Icon="@Icons.Material.Filled.Save" Size="Size.Small" Color="Color.Primary" OnClick="@(() => Rename(it))" /></MudTooltip>
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => Delete(it.Id))" />
             </MudStack>
         }
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-2">
-            <MudTextField @bind-Value="_new" Placeholder="@($"Yeni {FieldLabel}")" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" />
+            <MudTextField @bind-Value="_new" Placeholder="@($"Yeni {FieldLabel}")" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:240px" MaxLength="50" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="Add">Ekle</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudText Typo="Typo.caption" Color="@(_ok ? Color.Success : Color.Error)">@_msg</MudText> }

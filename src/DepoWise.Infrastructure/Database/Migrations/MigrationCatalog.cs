@@ -52,5 +52,6 @@ public static class MigrationCatalog
         new Migration045_CompanyLocalReset(),
         new Migration046_MachineReset(),
         new Migration047_UserListPreferences(),
+        new Migration048_NormalizeMaterialType(),
     };
 }

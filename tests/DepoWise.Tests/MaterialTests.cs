@@ -188,6 +188,61 @@ public class MaterialTests : IDisposable
         Assert.Throws<ForbiddenException>(() => _opening.RecordOpening(noPerm, m, 5m, "op-x"));
     }
 
+    // ---- ADR-089: "Tür" harf duyarsız kanonik biçime çevrilir (içe aktarım "YEDEK PARÇA" bug'ı) ----
+    [Theory]
+    [InlineData("YEDEK PARÇA", "Yedek Parça")]
+    [InlineData("yedek parça", "Yedek Parça")]
+    [InlineData("SARF MALZEME", "Sarf Malzeme")]
+    [InlineData("lastik", "Lastik")]
+    public void Tur_HarfDuyarsizKanonikBicimeCevrilir(string input, string expected)
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Malzeme", Type: input));
+        Assert.Equal(expected, _materials.GetDetail(a, m).Type);
+    }
+
+    [Fact]
+    public void Tur_BilinmeyenOzelTur_OlduguGibiKalir()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Malzeme", Type: "Özel Kategori"));
+        Assert.Equal("Özel Kategori", _materials.GetDetail(a, m).Type);   // serbest metin — kısıtlanmaz
+    }
+
+    [Fact]
+    public void Tur_Duzenlemede_DeNormalizeEdilir()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Malzeme", Type: "Yedek Parça"));
+        _materials.Update(a, m, new UpdateMaterial("M-1", "Malzeme", Type: "HAMMADDE"));
+        Assert.Equal("Hammadde", _materials.GetDetail(a, m).Type);
+    }
+
+    /// <summary>Migration048: ZATEN kaydedilmiş yanlış-harfli tür değerlerini bir kez düzeltir (mevcut veri).</summary>
+    [Fact]
+    public void Migration048_MevcutYanlisHarfliTur_Duzeltir()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-1", "Malzeme", Type: "Yedek Parça"));
+        // Servis normalize ettiği için ham UPDATE ile "bozuk" eski durumu taklit et.
+        using (var conn = _factory.Create())
+        using (var raw = conn.CreateCommand())
+        {
+            raw.CommandText = "UPDATE materials SET type='YEDEK PARÇA' WHERE id=$id;";
+            raw.Parameters.AddWithValue("$id", m);
+            raw.ExecuteNonQuery();
+        }
+
+        using (var conn = _factory.Create())
+        using (var tx = conn.BeginTransaction())
+        {
+            new DepoWise.Infrastructure.Database.Migrations.Migration048_NormalizeMaterialType().Up(conn, tx);
+            tx.Commit();
+        }
+
+        Assert.Equal("Yedek Parça", _materials.GetDetail(a, m).Type);
+    }
+
     // ---- ADR-086: NEGATİF açılış stoğu (firma devralırken mevcut/eksik stoğunu girer) ----
     [Fact]
     public void AcilisStogu_Negatif_YonEksi_MiktarPozitifSaklanir_BakiyeNegatif()

@@ -46,6 +46,7 @@ public sealed class PersonnelTitleService
         AccessControl.Require(session, Module, PermissionAction.Create);
         var clean = (name ?? "").Trim();
         if (clean.Length == 0) throw new InvalidOperationException("Unvan adı boş olamaz.");
+        if (clean.Length > 50) throw new InvalidOperationException("Unvan adı en fazla 50 karakter olabilir.");
 
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();

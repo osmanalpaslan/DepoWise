@@ -24,10 +24,16 @@
                                 <StackPanel Spacing="10">
                                     <ItemsControl ItemsSource="{Binding Items}">
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="m:LookupItem">
-                                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"/>
-                                                    <Button Grid.Column="1" Classes="Ghost" Content="Sil"
+                                            <DataTemplate x:DataType="vm:LookupRowViewModel">
+                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,2">
+                                                    <TextBox Grid.Column="0" Classes="Field" Text="{Binding Name}" MaxLength="50" VerticalAlignment="Center"
+                                                             IsEnabled="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanEdit}"/>
+                                                    <Button Grid.Column="1" Classes="Ghost" Content="Kaydet"
+                                                            IsVisible="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanEdit}"
+                                                            Command="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).RenameCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                    <Button Grid.Column="2" Classes="Ghost" Content="Sil"
+                                                            IsVisible="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).CanDelete}"
                                                             Command="{Binding $parent[ItemsControl].((vm:LookupSectionViewModel)DataContext).DeleteCommand}"
                                                             CommandParameter="{Binding}"/>
                                                 </Grid>
@@ -36,7 +42,7 @@
                                     </ItemsControl>
                                     <SelectableTextBlock Text="Kayıt yok." Classes="Helper" IsVisible="{Binding !Items.Count}"/>
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanWrite}">
-                                        <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewName}" Watermark="Yeni tanım adı"/>
+                                        <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewName}" Watermark="Yeni tanım adı" MaxLength="50"/>
                                         <Button Grid.Column="1" Classes="Primary" Content="Ekle" Command="{Binding AddCommand}"/>
                                     </Grid>
                                     <SelectableTextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"

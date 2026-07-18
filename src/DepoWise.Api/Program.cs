@@ -919,13 +919,15 @@ app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string 
     svc.Lookups.Delete(s, table, id);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
-// Alan adı değiştirme (ID korunur) — YALNIZ süper admin
+// Alan adı değiştirme (ID korunur). Yetki: "definitions"/Edit (Ekle/Sil ile aynı model — kullanıcı isteği
+// 2026-07-18: "tanım düzenle ekranında düzenleme de olmalı"). Rename servisi Edit yetkisini zaten zorlar;
+// tenant güvenli (yalnız kendi firmasının satırı). Süper-admin kısıtı KALDIRILDI.
 app.MapPut("/api/lookups/{table}/{id}", (HttpContext c, string table, string id, NameDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (!s.IsSuperAdmin) return Results.Json(new { error = "Alan adı değişimi yalnız süper admin." }, statusCode: 403);
-    svc.Lookups.Rename(s, table, id, d.Name);
-    return Results.Ok(new { ok = true });
+    try { svc.Lookups.Rename(s, table, id, d.Name); return Results.Ok(new { ok = true }); }
+    catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
+    catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
 
 // Tanım (lookup) senkronu: masaüstü giriş sonrası TÜM firma tanımlarını çeker → yerele yazar.

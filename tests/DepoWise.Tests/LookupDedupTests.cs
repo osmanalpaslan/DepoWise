@@ -67,6 +67,29 @@ public class LookupDedupTests : IDisposable
         Assert.NotEqual(altA, altB);
     }
 
+    // ── 50 karakter sınırı (kullanıcı isteği 2026-07-18) ──
+    [Fact]
+    public void YeniTanim_50KarakterUstunde_Reddedilir()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var ok = new string('A', 50);
+        var tooLong = new string('A', 51);
+        Assert.NotNull(lk.AddUnit(s, ok));            // 50 tam sınır → geçer
+        Assert.Throws<ArgumentException>(() => lk.AddUnit(s, tooLong));
+    }
+
+    [Fact]
+    public void Rename_50KarakterUstunde_Reddedilir()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        Assert.Throws<ArgumentException>(() => lk.Rename(s, "units", id, new string('A', 51)));
+        lk.Rename(s, "units", id, "Kilogram");        // geçerli
+        Assert.Contains(lk.List(s, "units"), x => x.Name == "Kilogram");
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); System.IO.File.Delete(_dbPath); } catch { }

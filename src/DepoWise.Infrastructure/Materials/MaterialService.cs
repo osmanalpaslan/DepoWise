@@ -90,7 +90,7 @@ VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$e
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
             cmd.Parameters.AddWithValue("$code", dto.Code.Trim());
             cmd.Parameters.AddWithValue("$name", dto.Name);
-            cmd.Parameters.AddWithValue("$type", (object?)dto.Type ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);
@@ -324,7 +324,7 @@ UPDATE materials SET code=$code, name=$name, type=$type, category_id=$cat, unit_
 WHERE id=$id AND company_id=$c AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$code", dto.Code.Trim());
             cmd.Parameters.AddWithValue("$name", dto.Name);
-            cmd.Parameters.AddWithValue("$type", (object?)dto.Type ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);

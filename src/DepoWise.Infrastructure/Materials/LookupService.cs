@@ -14,6 +14,8 @@ public sealed record LookupItem(string Id, string Name);
 public sealed class LookupService
 {
     private const string Module = "definitions";
+    /// <summary>Yeni tanım / yeniden adlandırma ad üst sınırı (kullanıcı isteği 2026-07-18).</summary>
+    public const int MaxNameLength = 50;
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
 
@@ -152,6 +154,7 @@ ORDER BY name;";
         EnsureKnownTable(table);
         name = (name ?? "").Trim();
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Ad boş olamaz.");
+        if (name.Length > MaxNameLength) throw new ArgumentException($"Tanım adı en fazla {MaxNameLength} karakter olabilir.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
@@ -206,7 +209,9 @@ ORDER BY name;";
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         EnsureKnownTable(table);
-        if (string.IsNullOrWhiteSpace(newName)) throw new ArgumentException("Ad boş olamaz.");
+        newName = (newName ?? "").Trim();
+        if (string.IsNullOrEmpty(newName)) throw new ArgumentException("Ad boş olamaz.");
+        if (newName.Length > MaxNameLength) throw new ArgumentException($"Tanım adı en fazla {MaxNameLength} karakter olabilir.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
