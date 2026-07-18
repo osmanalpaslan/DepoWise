@@ -131,3 +131,47 @@ public static class VehicleListColumns
         return result.Count > 0 ? result : DefaultVisible;
     }
 }
+
+/// <summary>
+/// Günlük Faaliyet listesi — seçilebilir kolonlar (kullanıcı isteği 2026-07-19: Malzemeler/Araçlar'a
+/// yapılan filtre+sayfalama+sıralama+Excel-aktar geliştirmesinin AYNISI). "Tarih" bilinçli olarak filtre
+/// kutusu ALMAZ (yalnız başlığa tıklayarak sıralanır) — ham zaman damgası üzerinden kronolojik sıralanır.
+///
+/// NOT: Web projesi tek başınadır (Application'a referansı yok) → aynı liste
+/// <c>DepoWise.Web/Services/ListColumns.cs</c> içinde AYNADIR. İkisi birlikte güncellenmelidir.
+/// </summary>
+public static class DailyActivityListColumns
+{
+    public const string Date = "date";
+    public const string Type = "type";
+    public const string Vehicle = "vehicle";
+    public const string Route = "route";
+    public const string Operator = "operator";
+    public const string Duration = "duration";
+    public const string Description = "description";
+
+    public static readonly IReadOnlyList<ListColumn> All = new[]
+    {
+        new ListColumn(Date, "Tarih"),
+        new ListColumn(Type, "Kayıt Tipi"),
+        new ListColumn(Vehicle, "Araç"),
+        new ListColumn(Route, "Rota"),
+        new ListColumn(Operator, "Personel"),
+        new ListColumn(Duration, "Süre"),
+        new ListColumn(Description, "Açıklama"),
+    };
+
+    /// <summary>Eski sabit listeyle AYNI (davranış değişmesin).</summary>
+    public static readonly IReadOnlyList<string> DefaultVisible = new[]
+    {
+        Date, Type, Vehicle, Route, Operator, Duration, Description,
+    };
+
+    public static IReadOnlyList<string> Sanitize(IEnumerable<string>? keys)
+    {
+        if (keys is null) return DefaultVisible;
+        var wanted = new HashSet<string>(keys, StringComparer.Ordinal);
+        var result = All.Where(c => wanted.Contains(c.Key)).Select(c => c.Key).ToList();
+        return result.Count > 0 ? result : DefaultVisible;
+    }
+}

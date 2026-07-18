@@ -37,6 +37,34 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-094 — Günlük Faaliyet ekranına liste deseni: filtre+sayfalama+sıralama+Excel (19.07.2026, TAMAM)
+
+- **Bağlam:** Kullanıcı: "Günlük faaliyet ekranına da Detay filtreleme işlemi için araçlar ve malzemeler
+  ekranına yaptığımız geliştirmeyi yapacağız." (madde 15, ayrıca madde 16'nın bu ekrana yayılması).
+- **Karar:** Malzemeler/Araçlar'daki ADR-087/088/089 deseninin BİREBİR AYNISI: `DailyActivityListColumns`
+  (Application + Web ayna) · `DailyActivityService.SearchGrid/SearchGridAll/ToTableModel` · API `GET
+  /api/daily/grid` + `/api/daily/grid/export` · Web (`Daily.razor`) kolon filtreleri + üstte-sol sayfalama +
+  başlığa tıklayınca sıralama + "Excel'e Aktar" · Masaüstü (`DailyActivityViewModel`/`View`) aynı desen
+  (`IListGridViewModel`, `SortHeader`, kişiye özel kolon/genişlik/sayfa-boyutu).
+- **"Tarih" bilinçli olarak filtre kutusu YOK** — yalnız başlığa tıklayarak sıralanır (ham `activity_date`
+  üzerinden, `GridQuery.ColumnKind.Numeric` + `RawAlias`). Sebep: biçimlendirilmiş "gg.aa.yyyy" metninde
+  "içerir" araması hem yanıltıcı olur (örn. "07" günü de ayı da yakalar) hem de doğru kronolojik sıralama
+  için ayrıca ham sütun gerekirdi — bu tur kapsamı dışına alındı.
+- **Varsayılan sıra** (kullanıcı başlığa tıklamadıysa): en yeni faaliyet üstte — mevcut `List()` davranışıyla
+  AYNI. Malzemeler/Araçlar'daki "filtrelerin doldurulma sırası" önceliği bu ekranda UYGULANMAZ (kronolojik
+  günlük ekranı için tarih her zaman kazanır — bilinçli sapma, dokümante edildi).
+- Eski basit dropdown filtre (Tümü/Hareket-Transfer/Bakım/İlave...) + gün seçici KALDIRILDI; yerine "Kayıt
+  Tipi" kolonunun serbest metin filtresi geldi (daha esnek: "İlave" yazınca 3 türü birden yakalar, "Tamir"
+  yazınca yalnız onu).
+- **Test:** 9 yeni (`DailyActivityGridTests`) — tip/araç/rota/personel/açıklama filtresi · varsayılan tarih
+  sırası · başlığa tıklayınca araca göre sıralama · SearchGridAll tüm sayfaları dolaşır · Excel tablo modeli ·
+  tenant izolasyonu. 553/553.
+- **⚠️ Doğrulama sınırı:** Web tarayıcı otomasyonuyla giriş gerektirdiği için (kimlik girişi yasak) uçtan uca
+  test edilemedi; masaüstü Avalonia bu ortamda çalıştırılamıyor. Backend tam test edildi (553/553); UI
+  yalnız temiz derleme ile güvence alındı.
+
+---
+
 ### ADR-092 — Tanım Düzenle: "sabit tanım" (kilit) desteği (19.07.2026, TAMAM)
 
 - **Bağlam:** Kullanıcı: "Tanım düzenle alanında hem + butonu alanları hem de + butonu olmayan sabit

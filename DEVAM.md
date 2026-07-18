@@ -27,11 +27,11 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **544/544 yeşil** (`dotnet test`) |
+| **Testler** | **553/553 yeşil** (`dotnet test`) |
 | **Şema** | Migration **051** (tanım kilidi/sabit tanım — ADR-092) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.71 yayında** — sabit tanım kilidi + form kutuları odaksız görünür + Semi arama kutusu (ADR-092/093) |
+| **Masaüstü** | **1.0.72 yayında** — Günlük Faaliyet'e filtre+sayfalama+sıralama+Excel grid deseni (ADR-094) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | 12 maddelik yeni istek listesi sürüyor (bkz. aşağı + `docs/YARIM_KALAN_ISLER.md`) |
 
@@ -61,11 +61,12 @@ Kullanıcı 12 madde verdi (Opus 4.8, "en son test edeceğim"). Durum:
 - ✅ **Kural dosyası**: `.claude/rules/list-screens.md` (yeni filtrelenebilir alan + Excel export standardı).
 - ✅ **Günlük Faaliyet'e 3 yeni tip** (İlave Yağ/İlave Filtre/Tamir) — ADR-091, masaüstü 1.0.70'de canlı.
 - ✅ **Tanım Düzenle'de kilitli/sabit tanım** (ADR-092) + **form kutuları odaksız görünür + Semi arama
-  kutusu Fluent ile aynı** (ADR-093) — masaüstü 1.0.71'de canlı. ⚠️ Görsel doğrulama kullanıcıda (bu ortamda
+  kutusu Fluent ile aynı** (ADR-093) + **Günlük Faaliyet'e filtre+sayfalama+sıralama+Excel grid deseni**
+  (ADR-094, madde 8/9 tamam) — masaüstü 1.0.72'de canlı. ⚠️ Görsel doğrulama kullanıcıda (bu ortamda
   Avalonia/giriş gerektiren web ekranları test edilemedi).
-- ⏳ **Kalan (henüz yapılmadı):** çift-tık düzenle/kaydet/sil penceresi (tüm kayıt listeleri) · Günlük
-  Faaliyet'e ADR-087/088/089 grid deseni (+ Excel export) · farklı makine aynı şube senkron doğrulaması
-  (ADR-090 ile çözülmüş OLABİLİR, kullanıcı testi bekliyor).
+- ⏳ **Kalan (12 maddelik listede tek iş):** çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil — kapsam büyük
+  ("bütün kayıtlara"), hangi ekranlar öncelikli netleştirilmeli · farklı makine aynı şube senkron doğrulaması
+  (ADR-090 ile çözülmüş OLABİLİR, kullanıcı testi bekliyor — bu kullanıcı onayı, geliştirme değil).
 Detay: `docs/YARIM_KALAN_ISLER.md`.
 
 ### 7 maddelik liste geliştirmeleri paketi (2026-07-18, ADR-089)

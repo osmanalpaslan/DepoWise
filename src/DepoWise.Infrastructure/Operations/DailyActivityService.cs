@@ -1,5 +1,7 @@
+using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Maintenance;
 using Microsoft.Data.Sqlite;
@@ -59,6 +61,30 @@ public sealed record DailyActivityListRow(string Id, string ActivityType, string
     public string DurationText => DurationDays is null ? "—" : $"{DurationDays} gün";
     public string DescriptionText => string.IsNullOrWhiteSpace(Description) ? "—" : Description!;
 }
+
+/// <summary>Günlük Faaliyet listesi (kolon-bazlı filtre + sayfalama) satırı — <see cref="DailyActivityListColumns"/>'taki
+/// HER kolonun görüntü değerini taşır. "Tarih" ham zaman damgasından (<see cref="DateRaw"/>) yerel tarihe çevrilir.
+/// Hesaplanan *Text alanları <see cref="DailyActivityListRow"/> ile AYNI adlandırılır — masaüstü ekranı
+/// (DailyActivityView.axaml) satır şablonu hiç değişmeden bu tipe geçebilsin diye (kullanıcı isteği 2026-07-19).</summary>
+public sealed record DailyActivityGridRow(
+    string Id, long DateRaw, string Type, string Vehicle, string Route, string Operator, string Duration,
+    string Description, string? MaintenanceId)
+{
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(DateRaw).LocalDateTime.ToString("dd.MM.yyyy");
+    public string TypeText => Dash(Type);
+    public string VehicleText => Dash(Vehicle);
+    public string RouteText => Dash(Route);
+    public string OperatorText => Dash(Operator);
+    public string DurationText => Dash(Duration);
+    public string DescriptionText => Dash(Description);
+    private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
+}
+
+/// <summary>Her alan için kullanıcının o kolona yazdığı filtre metni. "Tarih" bilinçli olarak burada YOK
+/// (bkz. <see cref="DailyActivityListColumns"/> açıklaması — yalnız başlığa tıklayarak sıralanır).</summary>
+public sealed record DailyActivityGridFilter(
+    string? Type = null, string? Vehicle = null, string? Route = null, string? Operator = null,
+    string? Duration = null, string? Description = null);
 
 /// <summary>
 /// Günlük faaliyet — bakım tipi ORTAK MaintenanceService'i kullanır: TEK bakım kaydı + TEK stok düşümü;
@@ -236,6 +262,118 @@ ORDER BY da.activity_date DESC, da.created_at DESC LIMIT $lim;";
                 S(r, 3), S(r, 4), S(r, 5), S(r, 6), S(r, 7),
                 r.IsDBNull(8) ? (int?)null : r.GetInt32(8), S(r, 9), r.GetInt64(10), S(r, 11)));
         return list;
+    }
+
+    private const string GridInnerSql = @"
+SELECT da.id AS id,
+       da.activity_date AS date_raw,
+       CASE da.activity_type
+         WHEN 'maintenance' THEN 'Bakım'
+         WHEN 'extra_oil' THEN 'İlave Yağ'
+         WHEN 'extra_filter' THEN 'İlave Filtre'
+         WHEN 'repair' THEN 'Tamir'
+         ELSE CASE WHEN da.movement_kind='transfer' THEN 'Transfer' ELSE 'Hareket' END
+       END AS type_text,
+       CASE WHEN v.internal_code IS NULL THEN ''
+            WHEN v.plate IS NULL OR v.plate='' THEN v.internal_code
+            ELSE v.internal_code || ' - ' || v.plate END AS vehicle_text,
+       CASE WHEN fb.name IS NULL AND tb.name IS NULL THEN ''
+            WHEN tb.name IS NULL THEN fb.name
+            WHEN fb.name IS NULL THEN '→ ' || tb.name
+            ELSE fb.name || ' → ' || tb.name END AS route_text,
+       COALESCE(p.full_name, '') AS operator_text,
+       CASE WHEN da.duration_days IS NULL THEN '' ELSE CAST(da.duration_days AS TEXT) || ' gün' END AS duration_text,
+       COALESCE(da.description, '') AS description,
+       da.maintenance_id AS maintenance_id
+FROM daily_activities da
+LEFT JOIN vehicles v ON v.id = da.vehicle_id
+LEFT JOIN branches fb ON fb.id = da.from_location_id
+LEFT JOIN branches tb ON tb.id = da.to_location_id
+LEFT JOIN personnel p ON p.id = da.operator_id
+WHERE da.company_id = $c AND da.is_deleted = 0";
+
+    /// <summary>Kolon bazlı filtre + numaralı sayfalama + sıralama + Excel'e aktar (kullanıcı isteği
+    /// 2026-07-19: Malzemeler/Araçlar'a yapılan geliştirmenin AYNISI — ADR-087/088/089 deseni).
+    /// "Tarih" YALNIZ sıralanır (bkz. <see cref="DailyActivityGridFilter"/>), filtre kutusu yoktur.</summary>
+    public GridResult<DailyActivityGridRow> SearchGrid(SessionContext s, DailyActivityGridFilter filter, int page, int pageSize,
+        string? sortColumn = null, bool sortDesc = false)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
+
+        var byKey = new (string Key, GridQuery.ColumnFilter Col)[]
+        {
+            (DailyActivityListColumns.Date, new GridQuery.ColumnFilter("t.date_raw", null, GridQuery.ColumnKind.Numeric, "t.date_raw")),
+            (DailyActivityListColumns.Type, new GridQuery.ColumnFilter("t.type_text", filter.Type)),
+            (DailyActivityListColumns.Vehicle, new GridQuery.ColumnFilter("t.vehicle_text", filter.Vehicle)),
+            (DailyActivityListColumns.Route, new GridQuery.ColumnFilter("t.route_text", filter.Route)),
+            (DailyActivityListColumns.Operator, new GridQuery.ColumnFilter("t.operator_text", filter.Operator)),
+            (DailyActivityListColumns.Duration, new GridQuery.ColumnFilter("t.duration_text", filter.Duration)),
+            (DailyActivityListColumns.Description, new GridQuery.ColumnFilter("t.description", filter.Description)),
+        };
+        var cols = System.Array.ConvertAll(byKey, x => x.Col);
+        GridQuery.ColumnFilter? sort = null;
+        if (sortColumn is not null)
+            foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.id", sort, sortDesc);
+        // Varsayılan sıra (kullanıcı başlığa tıklamadıysa): en yeni faaliyet üstte — mevcut List() davranışıyla
+        // AYNI (bu ekran bir kronolojik günlük; Malzemeler/Araçlar'daki "filtrelerin doldurulma sırası"
+        // önceliği burada anlamsız — tarih her zaman kazanır).
+        if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
+
+        using var conn = _factory.Create();
+        int total;
+        using (var cnt = conn.CreateCommand())
+        {
+            cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
+            cnt.Parameters.AddWithValue("$c", s.CompanyId);
+            GridQuery.AddParams(cnt, ps);
+            total = Convert.ToInt32(cnt.ExecuteScalar());
+        }
+
+        var items = new List<DailyActivityGridRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT $lim OFFSET $off;";
+            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            GridQuery.AddParams(cmd, ps);
+            cmd.Parameters.AddWithValue("$lim", pageSize);
+            cmd.Parameters.AddWithValue("$off", (page - 1) * pageSize);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                items.Add(new DailyActivityGridRow(
+                    r.GetString(0), r.GetInt64(1), r.GetString(2), r.GetString(3),
+                    r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
+                    r.IsDBNull(8) ? null : r.GetString(8)));
+        }
+        return new GridResult<DailyActivityGridRow>(items, total, page, pageSize);
+    }
+
+    /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu için.</summary>
+    public IReadOnlyList<DailyActivityGridRow> SearchGridAll(SessionContext s, DailyActivityGridFilter filter, string? sortColumn = null, bool sortDesc = false)
+    {
+        var all = new List<DailyActivityGridRow>();
+        int page = 1;
+        while (true)
+        {
+            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc);
+            all.AddRange(res.Items);
+            if (page >= res.TotalPages || res.Items.Count == 0) break;
+            page++;
+        }
+        return all;
+    }
+
+    /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="DailyActivityListColumns.All"/> ile AYNIDIR.</summary>
+    public static Application.Reports.TableModel ToTableModel(IReadOnlyList<DailyActivityGridRow> rows)
+    {
+        var headers = DailyActivityListColumns.All.Select(c => c.Label).ToList();
+        var body = rows.Select(r => (IReadOnlyList<object?>)new object?[]
+        {
+            r.DateText, r.Type, r.Vehicle, r.Route, r.Operator, r.Duration, r.Description,
+        }).ToList();
+        return new Application.Reports.TableModel("Günlük Faaliyet", headers, body);
     }
 
     /// <summary>Günlük faaliyeti soft-delete eder. Bakım tipinde bağlı bakım kaydı Bakım ekranında kalır (orada iptal edilir).</summary>

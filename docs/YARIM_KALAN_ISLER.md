@@ -41,17 +41,18 @@ Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
 6. ✅ Semi Modern arama kutusu → Fluent Classic ile aynı tasarım (ADR-093) — köşe/geçiş normalizasyonu
    Search'e de eklendi. **⚠️ Kullanıcı kontrolü gerekli** (bu ortamda Avalonia görsel test edilemedi).
 7. ✅ Kural: yeni filtrelenebilir alan eklerken gerekli adımlar → `.claude/rules/list-screens.md`.
-8. ⏳ Günlük Faaliyet ekranına ADR-087/088/089 grid deseni (filtre+sayfalama+sıralama+Excel-grid).
-   **YAPILMADI** (3 yeni tip artık ekranda — grid deseni bir sonraki adım).
-9. ⏳ "Excel'e Aktar" butonu: Malzemeler+Araçlar'da TAMAM (web+masaüstü); Günlük Faaliyet'e madde 8 ile
-   birlikte eklenecek.
+8. ✅ Günlük Faaliyet ekranına ADR-087/088/089 grid deseni (filtre+sayfalama+sıralama) — ADR-094.
+9. ✅ "Excel'e Aktar" butonu: Malzemeler+Araçlar+Günlük Faaliyet'te TAMAM (web+masaüstü).
 10. **Muhtemelen ÇÖZÜLDÜ** farklı makine aynı şube senkron sorunu — madde 1 ile AYNI kök neden (push hiç
     ulaşmıyordu). Kullanıcı 1.0.69+ ile test edip doğrulamalı.
 11. ✅ Yeni form kutuları odaklanmadan da arka plandan görünür ayrılsın (ADR-093) — web+masaüstü.
     **⚠️ Kullanıcı kontrolü gerekli** (giriş gerektiren ekranlar bu ortamda test edilemedi).
 
-Detay ve mimari notlar (yapılanlar): `docs/DECISIONS.md` ADR-091 (madde 2) + ADR-090 (madde 1) + ADR-089
-(madde 4/7/9 altyapısı).
+Detay ve mimari notlar (yapılanlar): `docs/DECISIONS.md` ADR-094 (madde 8/9) + ADR-092 (madde 5) + ADR-093
+(madde 6/11) + ADR-091 (madde 2) + ADR-090 (madde 1) + ADR-089 (madde 4/7/9 altyapısı).
+
+**Bu 12 maddelik listede kalan tek iş:** madde 3 (çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil) — kapsam
+büyük ("bütün kayıtlara"), hangi ekranlar öncelikli netleştirilmeli.
 
 ---
 

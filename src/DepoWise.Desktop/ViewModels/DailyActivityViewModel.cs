@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Operations;
@@ -19,18 +21,19 @@ namespace DepoWise.Desktop.ViewModels;
 /// <summary>
 /// Günlük Faaliyet — bir günde yapılan TÜM işler tek ekranda. Tek "Yeni Kayıt Oluştur" + Kayıt Tipi
 /// (Hareket / Transfer / Bakım) forma göre alanları değiştirir. Transfer → araç otomatik pasife. Bakım →
-/// tek bakım kaydı + tek stok düşümü (Bakım Takibi'nde de görünür). Gün filtresi + günlük özet.
+/// tek bakım kaydı + tek stok düşümü (Bakım Takibi'nde de görünür). Liste kolon bazlı filtre + sayfalama +
+/// sıralama + Excel'e aktar kullanır (kullanıcı isteği 2026-07-19, ADR-087/088/089 deseninin AYNISI).
 /// </summary>
-public sealed partial class DailyActivityViewModel : ViewModelBase
+public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridViewModel
 {
+    ICommand IListGridViewModel.SortByCommand => SortByCommand;
     private readonly SessionContext _session;
     private bool _pickersLoaded;
 
     public bool CanWrite => AccessControl.Can(_session, "daily_activity", PermissionAction.Create);
     public bool CanDelete => AccessControl.Can(_session, "daily_activity", PermissionAction.Delete);
 
-    public ObservableCollection<DailyActivityListRow> Items { get; } = new();
-    public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Hareket / Transfer", "Bakım", "İlave Yağ/Filtre/Tamir" };
+    public ObservableCollection<DailyActivityGridRow> Items { get; } = new();
     // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19): Bakım ile AYNI alanlar, Bakım Tanımı/Alt
     // Bakım YOK (bkz. IsRealMaintenance/IsMaintenanceLike aşağıda).
     public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir" };
@@ -42,9 +45,155 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
     public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
 
-    [ObservableProperty] private string _selectedFilter = "Tümü";
-    [ObservableProperty] private DateTimeOffset? _filterDate;
     [ObservableProperty] private string? _status;
+
+    // ── Faaliyet Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-19, ADR-087/088/089
+    // deseninin AYNISI — bkz. VehiclesViewModel). "Tarih" filtre kutusu ALMAZ (yalnız sıralanır). ──
+    public IReadOnlyList<int> PageSizes { get; } = new[] { 25, 50, 100, 200 };
+    [ObservableProperty] private List<string> _visibleColumns = DailyActivityListColumns.DefaultVisible.ToList();
+    public ObservableCollection<ColumnFilterItem> FilterFields { get; } = new();
+    public ObservableCollection<int> PageNumbers { get; } = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoPrev))]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _page = 1;
+    [ObservableProperty] private int _pageSize = 25;
+    [ObservableProperty] private int _totalCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGoNext))]
+    private int _totalPages = 1;
+    private bool _suppressPageSizeReload;
+
+    public bool CanGoPrev => Page > 1;
+    public bool CanGoNext => Page < TotalPages;
+
+    private string? _sortColumn; private bool _sortDesc;
+    public (string? SortColumn, bool SortDesc) SortState => (_sortColumn, _sortDesc);
+
+    [RelayCommand]
+    private void SortBy(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        if (_sortColumn != key) { _sortColumn = key; _sortDesc = false; }
+        else if (!_sortDesc) { _sortDesc = true; }
+        else { _sortColumn = null; _sortDesc = false; }
+        OnPropertyChanged(nameof(SortState));
+        Page = 1; Load();
+    }
+
+    private static readonly Dictionary<string, double> DefaultColWidths = new()
+    {
+        [DailyActivityListColumns.Date] = 100, [DailyActivityListColumns.Type] = 100, [DailyActivityListColumns.Vehicle] = 150,
+        [DailyActivityListColumns.Route] = 170, [DailyActivityListColumns.Operator] = 130, [DailyActivityListColumns.Duration] = 80,
+        [DailyActivityListColumns.Description] = 160,
+    };
+
+    [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
+
+    public void PreviewColumnWidth(string key, double newWidth)
+    {
+        var w = Math.Max(40, Math.Min(600, newWidth));
+        ColWidths = new Dictionary<string, double>(ColWidths) { [key] = w };
+    }
+
+    public double GetColumnWidth(string key) => ColWidths.TryGetValue(key, out var w) ? w : 100;
+
+    public void CommitColumnWidth()
+    {
+        try { DesktopServices.ListPrefs.SaveWidths(_session, "daily_activity", ColWidths.ToDictionary(k => k.Key, v => (int)v.Value)); }
+        catch { }
+    }
+
+    partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
+
+    partial void OnPageSizeChanged(int value)
+    {
+        if (_suppressPageSizeReload) return;
+        try { DesktopServices.ListPrefs.SavePageSize(_session, "daily_activity", value); } catch { }
+        Page = 1; Load();
+    }
+
+    private void RebuildFilterFields()
+    {
+        var old = FilterFields.ToDictionary(f => f.Key, f => f.Value);
+        FilterFields.Clear();
+        foreach (var key in VisibleColumns.Where(k => k != DailyActivityListColumns.Date))
+        {
+            var col = DailyActivityListColumns.All.FirstOrDefault(c => c.Key == key);
+            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, false)
+            { Value = old.TryGetValue(key, out var v) ? v : "" });
+        }
+    }
+
+    private void RebuildPageNumbers()
+    {
+        PageNumbers.Clear();
+        var start = Math.Max(1, Page - 3);
+        var end = Math.Min(TotalPages, Page + 3);
+        for (var p = start; p <= end; p++) PageNumbers.Add(p);
+    }
+
+    [ObservableProperty] private bool _isExporting;
+
+    /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19) — bkz. VehiclesViewModel.ExportExcel (aynı desen).</summary>
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            var rows = DesktopServices.DailyActivity.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
+            var path = await FilePickerService.SaveExcelAsync("GunlukFaaliyet.xlsx");
+            if (path is null) return;
+            var bytes = DesktopServices.Excel.Export(DailyActivityService.ToTableModel(rows));
+            await System.IO.File.WriteAllBytesAsync(path, bytes);
+        }
+        catch (Exception ex) { Status = "Excel'e aktarılamadı: " + ex.Message; }
+        finally { IsExporting = false; }
+    }
+
+    private DailyActivityGridFilter BuildFilter()
+    {
+        string? V(string key)
+        {
+            var f = FilterFields.FirstOrDefault(x => x.Key == key);
+            return string.IsNullOrWhiteSpace(f?.Value) ? null : f!.Value.Trim();
+        }
+        return new DailyActivityGridFilter(
+            V(DailyActivityListColumns.Type), V(DailyActivityListColumns.Vehicle), V(DailyActivityListColumns.Route),
+            V(DailyActivityListColumns.Operator), V(DailyActivityListColumns.Duration), V(DailyActivityListColumns.Description));
+    }
+
+    [RelayCommand]
+    private void ApplyFilters() { Page = 1; Load(); }
+
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        foreach (var f in FilterFields) f.Value = "";
+        Page = 1; Load();
+    }
+
+    [RelayCommand]
+    private void GoToPage(int page) { Page = page; Load(); }
+
+    [RelayCommand]
+    private void PrevPage() { if (CanGoPrev) { Page--; Load(); } }
+
+    [RelayCommand]
+    private void NextPage() { if (CanGoNext) { Page++; Load(); } }
+
+    [RelayCommand]
+    private async Task OpenColumnPicker()
+    {
+        var available = DailyActivityListColumns.All.Select(c => (c.Key, c.Label)).ToList();
+        var chosen = await ColumnPickerService.PickAsync(available, VisibleColumns);
+        if (chosen is null) return;
+        VisibleColumns = chosen;
+        DesktopServices.ListPrefs.SaveColumns(_session, "daily_activity", chosen);
+        Load();
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
@@ -94,22 +243,20 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     public DailyActivityViewModel(SessionContext session)
     {
         _session = session;
+        var saved = DesktopServices.ListPrefs.GetColumns(session, "daily_activity");
+        VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : DailyActivityListColumns.DefaultVisible.ToList();
+        _suppressPageSizeReload = true;
+        try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "daily_activity") ?? 25; }
+        finally { _suppressPageSizeReload = false; }
+        var savedWidths = DesktopServices.ListPrefs.GetWidths(session, "daily_activity");
+        if (savedWidths is { Count: > 0 })
+        {
+            var merged = new Dictionary<string, double>(DefaultColWidths);
+            foreach (var (k, v) in savedWidths) merged[k] = v;
+            ColWidths = merged;
+        }
         Load();
     }
-
-    private string? FilterType => SelectedFilter switch
-    {
-        "Hareket / Transfer" => "movement",
-        "Bakım" => "maintenance",
-        _ => null
-    };
-
-    /// <summary>"İlave Yağ/Filtre/Tamir" filtresi çoklu tür kapsadığından <see cref="FilterType"/> (tek
-    /// değer) yetersiz — liste tarafında bu özel durumu ayrıca eler.</summary>
-    private static readonly HashSet<string> ExtraTypes = new(StringComparer.Ordinal) { "extra_oil", "extra_filter", "repair" };
-
-    partial void OnSelectedFilterChanged(string value) => Load();
-    partial void OnFilterDateChanged(DateTimeOffset? value) => Load();
 
     [RelayCommand]
     private void Load()
@@ -118,21 +265,14 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
         {
             LoadError = null;
             Items.Clear();
-            var day = FilterDate?.LocalDateTime.Date;
-            // "İlave Yağ/Filtre/Tamir" 3 türü birden kapsar → sunucu tarafı tek-değer filtresi (FilterType)
-            // kullanılmaz, tümü çekilip burada elenir (liste küçük; ADR-089 grid'i gelince madde 15'te düzelir).
-            var isExtraFilter = SelectedFilter == "İlave Yağ/Filtre/Tamir";
-            foreach (var a in DesktopServices.DailyActivity.List(_session, isExtraFilter ? null : FilterType))
-            {
-                if (isExtraFilter && !ExtraTypes.Contains(a.ActivityType)) continue;
-                if (day is not null &&
-                    DateTimeOffset.FromUnixTimeMilliseconds(a.ActivityDate).LocalDateTime.Date != day) continue;
-                Items.Add(a);
-            }
-            var bakim = Items.Count(x => x.ActivityType == "maintenance");
-            var hareket = Items.Count - bakim;
-            Status = $"{Items.Count} faaliyet — {bakim} bakım, {hareket} hareket/transfer"
-                     + (day is null ? "" : $" ({day:dd.MM.yyyy})");
+            var grid = DesktopServices.DailyActivity.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc);
+            foreach (var a in grid.Items) Items.Add(a);
+            TotalCount = grid.TotalCount; TotalPages = grid.TotalPages;
+            Page = grid.Page;
+            _suppressPageSizeReload = true;
+            try { PageSize = grid.PageSize; } finally { _suppressPageSizeReload = false; }
+            RebuildPageNumbers();
+            Status = $"{TotalCount} faaliyet — sayfa {Page} / {TotalPages}";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(HasRows));
@@ -304,7 +444,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task DeleteActivity(DailyActivityListRow? row)
+    private async Task DeleteActivity(DailyActivityGridRow? row)
     {
         if (row is null) return;
         if (!CanDelete) { Status = "Yetki yok."; return; }

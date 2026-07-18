@@ -892,6 +892,33 @@ app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc
 app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/fuel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
+// Günlük Faaliyet LİSTE ekranı: kolon bazlı filtre + sayfalama + sıralama (kullanıcı isteği 2026-07-19 —
+// Malzemeler/Araçlar'a yapılan geliştirmenin AYNISI, bkz. ADR-087/088/089). Eski "/api/daily" (yukarıda)
+// dokunulmadı. "Tarih" filtre almaz — yalnız sıralanır.
+app.MapGet("/api/daily/grid", (HttpContext c,
+    string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
+    int page, int pageSize, string? sort, bool? desc) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description);
+    var res = svc.DailyActivity.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+    return Results.Ok(new
+    {
+        items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
+    });
+}).RequireAuthorization();
+// Günlük Faaliyet Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19) — bkz. materials/grid/export (aynı desen).
+app.MapGet("/api/daily/grid/export", (HttpContext c,
+    string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
+    string? sort, bool? desc) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description);
+    var rows = svc.DailyActivity.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "GunlukFaaliyet.xlsx");
+}).RequireAuthorization();
 app.MapGet("/api/requests", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Requests.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
 // Araç markaları (brand_type=vehicle) — malzeme markalarından ayrı

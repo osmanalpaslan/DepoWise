@@ -102,3 +102,36 @@ public static class VehicleListColumns
         InternalCode, Plate, ProductionYear, Meter, Status,
     };
 }
+
+/// <summary>
+/// Günlük Faaliyet listesi — seçilebilir kolonlar (kullanıcı isteği 2026-07-19). "Tarih" bilinçli olarak
+/// filtre kutusu ALMAZ (yalnız başlığa tıklayarak sıralanır) — ham zaman damgası üzerinden kronolojik sıralanır.
+///
+/// NOT: Bu dosya, masaüstü/sunucu tarafındaki <c>DepoWise.Application/Ui/ListColumns.cs</c>'in AYNASIDIR.
+/// </summary>
+public static class DailyActivityListColumns
+{
+    public const string Date = "date";
+    public const string Type = "type";
+    public const string Vehicle = "vehicle";
+    public const string Route = "route";
+    public const string Operator = "operator";
+    public const string Duration = "duration";
+    public const string Description = "description";
+
+    public static readonly IReadOnlyList<ListColumn> All = new[]
+    {
+        new ListColumn(Date, "Tarih"),
+        new ListColumn(Type, "Kayıt Tipi"),
+        new ListColumn(Vehicle, "Araç"),
+        new ListColumn(Route, "Rota"),
+        new ListColumn(Operator, "Personel"),
+        new ListColumn(Duration, "Süre"),
+        new ListColumn(Description, "Açıklama"),
+    };
+
+    public static readonly IReadOnlyList<string> DefaultVisible = new[]
+    {
+        Date, Type, Vehicle, Route, Operator, Duration, Description,
+    };
+}

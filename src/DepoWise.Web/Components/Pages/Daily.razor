@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject IJSRuntime JS
 
 <MudText Typo="Typo.h5" GutterBottom="true">Günlük Faaliyet</MudText>
 
@@ -80,39 +81,82 @@
 }
 
 <MudPaper Class="pa-4" Elevation="2">
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-        <MudText Typo="Typo.h6">Faaliyetler</MudText><MudSpacer />
-        <MudSelect T="string" @bind-Value="_filter" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:180px" Dense="true">
-            <MudSelectItem T="string" Value="@("Tümü")">Tümü</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Hareket / Transfer")">Hareket / Transfer</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Bakım")">Bakım</MudSelectItem>
-            <MudSelectItem T="string" Value="@("İlave Yağ/Filtre/Tamir")">İlave Yağ/Filtre/Tamir</MudSelectItem>
-        </MudSelect>
-        <MudDatePicker @bind-Date="_filterDate" Placeholder="Gün filtresi" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:170px" Clearable="true" />
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
-    </MudStack>
+    <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.h6">Faaliyetler</MudText>
+            <MudTooltip Text="Kolonları ayarla (bu alanda sağ tık da açar) — yalnız sizin için geçerlidir">
+                <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+            </MudTooltip>
+            <MudSpacer />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayfa boyutu</MudText>
+            <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="max-width:90px">
+                @foreach (var sz in PageSizes) { <MudSelectItem T="int" Value="@sz">@sz</MudSelectItem> }
+            </MudSelect>
+            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
+            <MudTooltip Text="Aktif filtrelerle eşleşen TÜM faaliyetleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+                           Disabled="@_exporting" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+            </MudTooltip>
+        </MudStack>
+    </div>
+
+    @* Kolon bazlı filtreler — "Tarih" bilinçli olarak filtre kutusu almaz (yalnız başlığa tıklayarak sıralanır). *@
+    <MudGrid Spacing="1" Class="mb-2">
+        @foreach (var key in _visibleColumns.Where(k => k != DailyActivityListColumns.Date))
+        {
+            <MudItem xs="6" sm="4" md="3" lg="2">
+                <MudTooltip Text="İçerir araması">
+                    <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
+                                  Label="@Label(key)" Placeholder="içerir…"
+                                  Immediate="false" OnKeyUp="OnFilterKey"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
+                </MudTooltip>
+            </MudItem>
+        }
+    </MudGrid>
+
+    @if (_rows is { Length: > 0 })
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+            <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
+                           BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
+            <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarını) sizin için kaydeder">
+                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
+            </MudTooltip>
+        </MudStack>
+    }
+
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun faaliyet bulunamadı.</MudText> }
     else
     {
-        var filtered = Filtered();
-        @if (filtered.Count == 0) { <MudText Class="mud-text-secondary">Henüz günlük faaliyet kaydı yok.</MudText> }
-        else
-        {
-            <MudTable Items="filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh" T="JsonElement">
-                <HeaderContent><MudTh>TARİH</MudTh><MudTh>TİP</MudTh><MudTh>ARAÇ</MudTh><MudTh>GÜZERGAH</MudTh><MudTh>OPERATÖR</MudTh><MudTh>SÜRE</MudTh><MudTh>AÇIKLAMA</MudTh><MudTh></MudTh></HeaderContent>
-                <RowTemplate>
-                    @{ var id = Str(context, "id"); }
-                    <MudTd>@Str(context, "dateText")</MudTd>
-                    <MudTd>@Str(context, "typeText")</MudTd>
-                    <MudTd>@Str(context, "vehicleText")</MudTd>
-                    <MudTd>@Str(context, "routeText")</MudTd>
-                    <MudTd>@Str(context, "operatorText")</MudTd>
-                    <MudTd>@Str(context, "durationText")</MudTd>
-                    <MudTd>@Str(context, "descriptionText")</MudTd>
-                    <MudTd>@if (Auth.CanDelete("daily_activity")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(id))">Sil</MudButton> }</MudTd>
-                </RowTemplate>
-            </MudTable>
-        }
+        <div style="overflow-x:auto;">
+        <table id="daily-grid" class="dw-grid">
+            <thead><tr>
+                @foreach (var key in _visibleColumns)
+                {
+                    <th data-key="@key" style="@ThStyle(key)">
+                        <div class="dw-th" @onclick="@(() => ToggleSort(key))">
+                            <span>@Label(key).ToUpperInvariant()</span>
+                            <span class="dw-sort">@SortArrow(key)</span>
+                        </div>
+                    </th>
+                }
+                <th style="width:70px;"><div class="dw-th" style="cursor:default;"></div></th>
+            </tr></thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
+                        <td>@if (Auth.CanDelete("daily_activity")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(Str(row, "id")))">Sil</MudButton> }</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
     }
 </MudPaper>
 
@@ -134,10 +178,102 @@
     private sealed record Line(string Id, string Name, decimal Qty);
 
     private List<ApiClient.Opt> _branches = new(), _personnel = new(), _defOpts = new(), _mSubOpts = new();
-    private JsonElement[]? _rows;
-    private string _filter = "Tümü";
-    private DateTime? _filterDate;
     private string? _msg; private bool _ok; private bool _busy;
+
+    // ── Faaliyet Listesi — kolon bazlı filtre + sayfalama + sıralama (kullanıcı isteği 2026-07-19,
+    // ADR-087/088/089 deseninin AYNISI — bkz. Materials.razor/Vehicles.razor). ──
+    private static readonly int[] PageSizes = { 25, 50, 100, 200 };
+    private List<string> _visibleColumns = DailyActivityListColumns.DefaultVisible.ToList();
+    private readonly Dictionary<string, string> _filters = new();
+    private JsonElement[]? _rows;
+    private int _page = 1, _pageSize = 25, _totalCount, _totalPages = 1;
+    private string? _sortColumn; private bool _sortDesc;
+    private Dictionary<string, int> _widths = new();
+    private bool _exporting;
+
+    private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
+    private void SetFilter(string key, string v) => _filters[key] = v ?? "";
+    private static string Label(string key) => DailyActivityListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+    private static string CellText(JsonElement row, string key) => Str(row, key switch
+    {
+        DailyActivityListColumns.Date => "dateText",
+        DailyActivityListColumns.Type => "type",
+        DailyActivityListColumns.Vehicle => "vehicle",
+        DailyActivityListColumns.Route => "route",
+        DailyActivityListColumns.Operator => "operator",
+        DailyActivityListColumns.Duration => "duration",
+        _ => "description",
+    });
+
+    private string ThStyle(string key) => _widths.TryGetValue(key, out var w) && w > 0 ? $"width:{w}px;" : "width:140px;";
+    private string SortArrow(string key) => _sortColumn == key ? (_sortDesc ? "▼" : "▲") : "";
+    private async Task ToggleSort(string key)
+    {
+        if (_sortColumn != key) { _sortColumn = key; _sortDesc = false; }
+        else if (!_sortDesc) { _sortDesc = true; }
+        else { _sortColumn = null; _sortDesc = false; }
+        _page = 1; await Load();
+    }
+    private async Task SaveWidths()
+    {
+        try
+        {
+            var w = await JS.InvokeAsync<Dictionary<string, int>>("dwReadColWidths", "daily-grid");
+            if (w is { Count: > 0 }) { _widths = w; await Api.SaveWidthsAsync("daily_activity", w); }
+        }
+        catch { }
+    }
+    private async Task ApplyFilters() { _page = 1; await Load(); }
+    private async Task ClearFilters() { _filters.Clear(); _page = 1; await Load(); }
+    private async Task OnFilterKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ApplyFilters(); }
+    private async Task OnPageChanged(int p) { _page = p; await Load(); }
+    private async Task OnPageSizeChanged(int sz) { _pageSize = sz; _page = 1; await Api.SavePageSizeAsync("daily_activity", sz); await Load(); }
+
+    private async Task OpenColumnPicker()
+    {
+        var parameters = new DialogParameters { ["Available"] = DailyActivityListColumns.All.ToList(), ["Selected"] = _visibleColumns };
+        var dlg = await Dialog.ShowAsync<ColumnPickerDialog>("Kolonları Ayarla", parameters, new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dlg.Result;
+        if (result is null || result.Canceled || result.Data is not List<string> chosen) return;
+        _visibleColumns = chosen;
+        await Api.SaveListColumnsAsync("daily_activity", _visibleColumns);
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
+        qs.AddRange(BuildFilterSortQs());
+        var grid = await Api.GetGridAsync("/api/daily/grid?" + string.Join("&", qs));
+        _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
+    }
+
+    /// <summary>Sıralama + kolon filtreleri — sayfalamasız (Load VE ExportExcel PAYLAŞIR).</summary>
+    private List<string> BuildFilterSortQs()
+    {
+        var qs = new List<string>();
+        if (_sortColumn is not null) { qs.Add($"sort={_sortColumn}"); qs.Add($"desc={(_sortDesc ? "true" : "false")}"); }
+        foreach (var (k, v) in _filters)
+            if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{(k == DailyActivityListColumns.Operator ? "operatorText" : k)}={Uri.EscapeDataString(v.Trim())}");
+        return qs;
+    }
+
+    /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları indirir.</summary>
+    private async Task ExportExcel()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var qs = string.Join("&", BuildFilterSortQs());
+            var (bytes, fileName) = await Api.GetFileAsync("/api/daily/grid/export" + (qs.Length > 0 ? "?" + qs : ""), "GunlukFaaliyet.xlsx");
+            if (bytes is not null)
+                await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        finally { _exporting = false; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -147,25 +283,12 @@
             _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
             _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
         }
-        await LoadList();
-    }
-
-    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/daily"); } catch { _rows = Array.Empty<JsonElement>(); } }
-
-    private List<JsonElement> Filtered()
-    {
-        if (_rows is null) return new();
-        IEnumerable<JsonElement> q = _rows;
-        if (_filter == "Hareket / Transfer") q = q.Where(r => Str(r, "activityType") == "movement");
-        else if (_filter == "Bakım") q = q.Where(r => Str(r, "activityType") == "maintenance");
-        else if (_filter == "İlave Yağ/Filtre/Tamir") q = q.Where(r => Str(r, "activityType") is "extra_oil" or "extra_filter" or "repair");
-        if (_filterDate is not null)
-        {
-            var day = _filterDate.Value.Date;
-            q = q.Where(r => r.TryGetProperty("activityDate", out var v) && v.ValueKind == JsonValueKind.Number
-                && DateTimeOffset.FromUnixTimeMilliseconds(v.GetInt64()).LocalDateTime.Date == day);
-        }
-        return q.ToList();
+        var saved = await Api.GetListColumnsAsync("daily_activity");
+        if (saved is { Count: > 0 }) _visibleColumns = saved;
+        var (ps, widths) = await Api.GetListPrefsAsync("daily_activity");
+        if (ps is > 0) _pageSize = ps.Value;
+        if (widths is { Count: > 0 }) _widths = widths;
+        await Load();
     }
 
     private string? _lastMDef;
@@ -230,7 +353,7 @@
                 });
             }
             _ok = err is null; _msg = err ?? "Kaydedildi.";
-            if (_ok) { Clear(); await LoadList(); }
+            if (_ok) { Clear(); await Load(); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
@@ -242,7 +365,7 @@
         if (!await Dialog.Confirm("Bu faaliyet silinsin mi?", "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/daily/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
-        await LoadList();
+        await Load();
     }
 
     private void Clear()
@@ -260,6 +383,7 @@
     };
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
