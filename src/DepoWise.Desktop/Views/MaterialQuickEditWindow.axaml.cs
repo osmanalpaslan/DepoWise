@@ -99,7 +99,7 @@ public partial class MaterialQuickEditWindow : Window
             hintText.IsVisible = true;
         };
 
-        saveBtn.Click += (_, _) =>
+        saveBtn.Click += async (_, _) =>
         {
             statusText.IsVisible = false;
             var codeVal = (code.Text ?? "").Trim();
@@ -108,6 +108,8 @@ public partial class MaterialQuickEditWindow : Window
             { statusText.Text = "Kod ve ad zorunlu."; statusText.IsVisible = true; return; }
             if (unitBox.SelectedItem is not Opt unitOpt)
             { statusText.Text = "Birim seçin."; statusText.IsVisible = true; return; }
+            // Onay penceresi (kullanıcı isteği 2026-07-19) — bu pencerenin ÜZERİNDE (owner=this).
+            if (!await ConfirmService.AskAsync(this, "Malzeme bilgileri güncellensin mi?", "Kaydet")) return;
             try
             {
                 DesktopServices.Materials.Update(session, materialId, new UpdateMaterial(
@@ -126,18 +128,13 @@ public partial class MaterialQuickEditWindow : Window
             catch (Exception ex) { statusText.Text = "Güncellenemedi: " + ex.Message; statusText.IsVisible = true; }
         };
 
-        // İki aşamalı silme (iç içe modal açmadan onay): ilk tık uyarır, ikinci tık siler.
-        var deleteArmed = false;
-        deleteBtn.Click += (_, _) =>
+        deleteBtn.Click += async (_, _) =>
         {
-            if (!deleteArmed)
-            {
-                deleteArmed = true;
-                deleteBtn.Content = "Emin misiniz? Tekrar Sil";
-                return;
-            }
+            statusText.IsVisible = false;
+            if (!await ConfirmService.AskAsync(this, $"'{d.Name}' malzemesi silinsin mi? Kayıt çöp kutusuna alınır.",
+                    "Malzeme Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
             try { DesktopServices.Materials.Delete(session, materialId); Close("deleted"); }
-            catch (Exception ex) { statusText.Text = "Silinemedi: " + ex.Message; statusText.IsVisible = true; deleteArmed = false; deleteBtn.Content = "Sil"; }
+            catch (Exception ex) { statusText.Text = "Silinemedi: " + ex.Message; statusText.IsVisible = true; }
         };
 
         cancelBtn.Click += (_, _) => Close(null);

@@ -126,12 +126,14 @@ public partial class VehicleQuickEditWindow : Window
             hintText.IsVisible = true;
         };
 
-        saveBtn.Click += (_, _) =>
+        saveBtn.Click += async (_, _) =>
         {
             statusText.IsVisible = false;
             if (branchBox.SelectedItem is not Opt branchOpt)
             { statusText.Text = "Şantiye / şube seçimi zorunludur."; statusText.IsVisible = true; return; }
             var statusCode = (statusBox.SelectedItem as Opt)?.Id ?? "active";
+            // Onay penceresi (kullanıcı isteği 2026-07-19) — bu pencerenin ÜZERİNDE (owner=this).
+            if (!await ConfirmService.AskAsync(this, "Araç bilgileri güncellensin mi?", "Kaydet")) return;
             try
             {
                 DesktopServices.Vehicles.Update(session, vehicleId, new UpdateVehicle(
@@ -152,17 +154,13 @@ public partial class VehicleQuickEditWindow : Window
             catch (Exception ex) { statusText.Text = "Güncellenemedi: " + ex.Message; statusText.IsVisible = true; }
         };
 
-        var deleteArmed = false;
-        deleteBtn.Click += (_, _) =>
+        deleteBtn.Click += async (_, _) =>
         {
-            if (!deleteArmed)
-            {
-                deleteArmed = true;
-                deleteBtn.Content = "Emin misiniz? Tekrar Sil";
-                return;
-            }
+            statusText.IsVisible = false;
+            if (!await ConfirmService.AskAsync(this, $"'{d.InternalCode}' aracı silinsin mi? Kayıt çöp kutusuna alınır.",
+                    "Araç Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
             try { DesktopServices.Vehicles.Delete(session, vehicleId); Close("deleted"); }
-            catch (Exception ex) { statusText.Text = "Silinemedi: " + ex.Message; statusText.IsVisible = true; deleteArmed = false; deleteBtn.Content = "Sil"; }
+            catch (Exception ex) { statusText.Text = "Silinemedi: " + ex.Message; statusText.IsVisible = true; }
         };
 
         cancelBtn.Click += (_, _) => Close(null);
