@@ -54,6 +54,10 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
         // R12 — Türkçe duyarsız arama: SQLite'ın 2 argümanlı like()'ını Türkçe kültürle override et.
         // Böylece TÜM sorgulardaki `col LIKE @term` otomatik İ/ı/ş/ç/ğ/ü/ö duyarsız çalışır (ekstra kod gerekmez).
         conn.CreateFunction<string?, string?, long>("like", (pattern, value) => SqlLikeTr(pattern, value) ? 1L : 0L);
+
+        // Türkçe sıralama (kullanıcı isteği 2026-07-18, madde 5): SQLite'ın NOCASE'i yalnız ASCII'dir → "Çınar"
+        // "Zeytin"den SONRA gelirdi. TRNOCASE, Türkçe kültürle harf-duyarsız karşılaştırır → Ç, C'den hemen sonra.
+        conn.CreateCollation("TRNOCASE", (x, y) => string.Compare(x, y, Tr, CompareOptions.IgnoreCase));
         return conn;
     }
 

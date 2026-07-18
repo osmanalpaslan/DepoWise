@@ -2,6 +2,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using Microsoft.Data.Sqlite;
+using VL = DepoWise.Application.Ui.VehicleListColumns;
 
 namespace DepoWise.Infrastructure.Vehicles;
 
@@ -233,30 +234,35 @@ WHERE v.company_id = $c AND v.is_deleted = 0";
     /// <see cref="Materials.MaterialService.SearchGrid"/> (aynı desen, <c>GridQuery</c> paylaşılır).
     /// "Durum" filtresi Türkçe ETİKETE göre arar (status_label, ör. "Aktif") — ekran zaten yalnız etiketi
     /// gösterir, kullanıcı ham koda ("active") hiç erişmez.</summary>
-    public GridResult<VehicleGridRow> SearchGrid(SessionContext s, VehicleGridFilter filter, int page, int pageSize)
+    public GridResult<VehicleGridRow> SearchGrid(SessionContext s, VehicleGridFilter filter, int page, int pageSize,
+        string? sortColumn = null, bool sortDesc = false)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
 
-        var cols = new[]
+        var byKey = new (string Key, GridQuery.ColumnFilter Col)[]
         {
-            new GridQuery.ColumnFilter("t.internal_code", filter.InternalCode),
-            new GridQuery.ColumnFilter("t.plate", filter.Plate),
-            new GridQuery.ColumnFilter("t.production_year", filter.ProductionYear, GridQuery.ColumnKind.Numeric),
-            new GridQuery.ColumnFilter("t.meter_text", filter.Meter, GridQuery.ColumnKind.Numeric, "t.meter_raw"),
-            new GridQuery.ColumnFilter("t.status_label", filter.Status),
-            new GridQuery.ColumnFilter("t.status_note", filter.StatusNote),
-            new GridQuery.ColumnFilter("t.vehicle_type", filter.VehicleType),
-            new GridQuery.ColumnFilter("t.category", filter.Category),
-            new GridQuery.ColumnFilter("t.brand", filter.Brand),
-            new GridQuery.ColumnFilter("t.model", filter.Model),
-            new GridQuery.ColumnFilter("t.branch", filter.Branch),
-            new GridQuery.ColumnFilter("t.driver", filter.Driver),
-            new GridQuery.ColumnFilter("t.chassis_no", filter.ChassisNo),
-            new GridQuery.ColumnFilter("t.engine_no", filter.EngineNo),
+            (VL.InternalCode, new GridQuery.ColumnFilter("t.internal_code", filter.InternalCode)),
+            (VL.Plate, new GridQuery.ColumnFilter("t.plate", filter.Plate)),
+            (VL.ProductionYear, new GridQuery.ColumnFilter("t.production_year", filter.ProductionYear, GridQuery.ColumnKind.Numeric)),
+            (VL.Meter, new GridQuery.ColumnFilter("t.meter_text", filter.Meter, GridQuery.ColumnKind.Numeric, "t.meter_raw")),
+            (VL.Status, new GridQuery.ColumnFilter("t.status_label", filter.Status)),
+            (VL.StatusNote, new GridQuery.ColumnFilter("t.status_note", filter.StatusNote)),
+            (VL.VehicleType, new GridQuery.ColumnFilter("t.vehicle_type", filter.VehicleType)),
+            (VL.Category, new GridQuery.ColumnFilter("t.category", filter.Category)),
+            (VL.Brand, new GridQuery.ColumnFilter("t.brand", filter.Brand)),
+            (VL.Model, new GridQuery.ColumnFilter("t.model", filter.Model)),
+            (VL.Branch, new GridQuery.ColumnFilter("t.branch", filter.Branch)),
+            (VL.Driver, new GridQuery.ColumnFilter("t.driver", filter.Driver)),
+            (VL.ChassisNo, new GridQuery.ColumnFilter("t.chassis_no", filter.ChassisNo)),
+            (VL.EngineNo, new GridQuery.ColumnFilter("t.engine_no", filter.EngineNo)),
         };
-        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.internal_code");
+        var cols = System.Array.ConvertAll(byKey, x => x.Col);
+        GridQuery.ColumnFilter? sort = null;
+        if (sortColumn is not null)
+            foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.internal_code", sort, sortDesc);
 
         using var conn = _factory.Create();
         int total;

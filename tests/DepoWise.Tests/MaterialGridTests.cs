@@ -1,6 +1,7 @@
 using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Materials;
@@ -246,6 +247,39 @@ public class MaterialGridTests : IDisposable
         var res = _materials.SearchGrid(a, new MaterialGridFilter(Stock: "5."), 1, 50);
 
         Assert.Equal(1, res.TotalCount);
+    }
+
+    // ── Sıralama (kullanıcı isteği 2026-07-18: başlığa tıklayınca A→Z/Z→A, sayısalda küçük→büyük) ──
+
+    [Fact]
+    public void Siralama_Metin_AZ_VeZA()
+    {
+        var a = Admin("A");
+        _materials.Create(a, new NewMaterial("M-1", "Çınar"));
+        _materials.Create(a, new NewMaterial("M-2", "Armut"));
+        _materials.Create(a, new NewMaterial("M-3", "Zeytin"));
+
+        var asc = _materials.SearchGrid(a, new MaterialGridFilter(), 1, 50, sortColumn: MaterialListColumns.Name, sortDesc: false);
+        Assert.Equal(new[] { "Armut", "Çınar", "Zeytin" }, asc.Items.Select(i => i.Name));
+
+        var desc = _materials.SearchGrid(a, new MaterialGridFilter(), 1, 50, sortColumn: MaterialListColumns.Name, sortDesc: true);
+        Assert.Equal(new[] { "Zeytin", "Çınar", "Armut" }, desc.Items.Select(i => i.Name));
+    }
+
+    [Fact]
+    public void Siralama_Sayisal_KucuktenBuyuge_MetinDegilSayiOlarak()
+    {
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Az", MinStock: 9m));
+        var m2 = _materials.Create(a, new NewMaterial("M-2", "Orta", MinStock: 10m));
+        var m3 = _materials.Create(a, new NewMaterial("M-3", "Çok", MinStock: 100m));
+
+        var asc = _materials.SearchGrid(a, new MaterialGridFilter(), 1, 50, sortColumn: MaterialListColumns.MinStock, sortDesc: false);
+        // Sayısal sıralama: 9 < 10 < 100 (metin sıralaması olsaydı "10","100","9" olurdu).
+        Assert.Equal(new[] { "M-1", "M-2", "M-3" }, asc.Items.Select(i => i.Code));
+
+        var desc = _materials.SearchGrid(a, new MaterialGridFilter(), 1, 50, sortColumn: MaterialListColumns.MinStock, sortDesc: true);
+        Assert.Equal(new[] { "M-3", "M-2", "M-1" }, desc.Items.Select(i => i.Code));
     }
 
     // ── Sayfalama ──

@@ -30,8 +30,14 @@ public sealed class UserListPreferenceService
         cmd.Parameters.AddWithValue("$u", s.UserId);
         cmd.Parameters.AddWithValue("$k", listKey);
         var json = cmd.ExecuteScalar() as string;
-        if (json is null) return null;
-        try { return JsonSerializer.Deserialize<string[]>(json); }
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var arr = JsonSerializer.Deserialize<string[]>(json);
+            // BOŞ dizi "ayar yok" sayılır (varsayılana düş) — kullanıcı yalnız sayfa boyutu/genişlik kaydettiyse
+            // columns_json '[]' olarak açılmış olabilir; bu, "hiç kolon" demek DEĞİLDİR.
+            return arr is { Length: > 0 } ? arr : null;
+        }
         catch { return null; }   // bozuk kayıt → varsayılana düş (kullanıcıyı kilitlemez)
     }
 
@@ -47,6 +53,59 @@ ON CONFLICT(user_id, list_key) DO UPDATE SET columns_json=$j, updated_at=$now;";
         cmd.Parameters.AddWithValue("$u", s.UserId);
         cmd.Parameters.AddWithValue("$k", listKey);
         cmd.Parameters.AddWithValue("$j", json);
+        cmd.Parameters.AddWithValue("$now", now);
+        cmd.ExecuteNonQuery();
+    }
+
+    // ── Sayfa boyutu (kullanıcı isteği 2026-07-18: değiştirilmemişse null → ekran 25 kullanır) ──
+    public int? GetPageSize(SessionContext s, string listKey)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT page_size FROM user_list_preferences WHERE user_id=$u AND list_key=$k;";
+        cmd.Parameters.AddWithValue("$u", s.UserId);
+        cmd.Parameters.AddWithValue("$k", listKey);
+        var v = cmd.ExecuteScalar();
+        return v is null or System.DBNull ? null : System.Convert.ToInt32(v);
+    }
+
+    public void SavePageSize(SessionContext s, string listKey, int pageSize)
+        => UpsertField(s, listKey, "page_size", pageSize);
+
+    // ── Kolon genişlikleri (kişiye özel; kolon anahtarı → piksel). Yoksa null → otomatik genişlik. ──
+    public IReadOnlyDictionary<string, int>? GetWidths(SessionContext s, string listKey)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT widths_json FROM user_list_preferences WHERE user_id=$u AND list_key=$k;";
+        cmd.Parameters.AddWithValue("$u", s.UserId);
+        cmd.Parameters.AddWithValue("$k", listKey);
+        var json = cmd.ExecuteScalar() as string;
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var map = JsonSerializer.Deserialize<Dictionary<string, int>>(json);
+            return map is { Count: > 0 } ? map : null;
+        }
+        catch { return null; }
+    }
+
+    public void SaveWidths(SessionContext s, string listKey, IReadOnlyDictionary<string, int> widths)
+        => UpsertField(s, listKey, "widths_json", JsonSerializer.Serialize(widths));
+
+    /// <summary>Tek alanı upsert eder; ilk kez ekleniyorsa columns_json '[]' (yani "ayar yok") ile açılır,
+    /// böylece bu alan kolon seçimini EZMEZ (GetColumns boş diziyi null sayar).</summary>
+    private void UpsertField(SessionContext s, string listKey, string field, object value)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+INSERT INTO user_list_preferences(user_id, list_key, columns_json, {field}, updated_at) VALUES($u,$k,'[]',$v,$now)
+ON CONFLICT(user_id, list_key) DO UPDATE SET {field}=$v, updated_at=$now;";
+        cmd.Parameters.AddWithValue("$u", s.UserId);
+        cmd.Parameters.AddWithValue("$k", listKey);
+        cmd.Parameters.AddWithValue("$v", value);
         cmd.Parameters.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }

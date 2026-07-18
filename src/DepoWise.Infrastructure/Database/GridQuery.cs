@@ -48,9 +48,14 @@ public static class GridQuery
     private static double ParseNum(string s) => double.Parse(s.Replace(',', '.').Trim(), NumberStyles.Any, CultureInfo.InvariantCulture);
 
     /// <summary>WHERE + ORDER BY parçalarını üretir; parametreleri (ad, değer) listesi olarak döner —
-    /// çağıran bunları hem COUNT hem SAYFA komutuna aynı şekilde ekler.</summary>
+    /// çağıran bunları hem COUNT hem SAYFA komutuna aynı şekilde ekler.
+    ///
+    /// <paramref name="sort"/> verilirse (kullanıcı bir kolon başlığına tıkladı, madde 5) sıralama O kolona
+    /// göredir: metin kolonu A→Z / Z→A, SAYISAL kolon küçük→büyük / büyük→küçük (ham değeri CAST ederek).
+    /// Bu durumda filtrelerin "başlangıca göre" öncelik sıralaması UYGULANMAZ — kullanıcının açık seçimi kazanır.
+    /// Sona daima <paramref name="tieBreakerAlias"/> eklenir (kararlı/benzersiz sıralama).</summary>
     public static (string WhereSql, string OrderBySql, List<(string Name, object Value)> Params) Build(
-        IReadOnlyList<ColumnFilter> filters, string tieBreakerAlias)
+        IReadOnlyList<ColumnFilter> filters, string tieBreakerAlias, ColumnFilter? sort = null, bool sortDesc = false)
     {
         var whereParts = new List<string>();
         var orderParts = new List<string>();
@@ -105,6 +110,16 @@ public static class GridQuery
             i++;
         }
         var whereSql = whereParts.Count == 0 ? "" : "WHERE " + string.Join(" AND ", whereParts) + " ";
+
+        // Açık sıralama (başlığa tıklama) filtrelerin "başlangıca göre" önceliğini EZER.
+        if (sort is { } srt)
+        {
+            orderParts.Clear();
+            var dir = sortDesc ? "DESC" : "ASC";
+            orderParts.Add(srt.Kind == ColumnKind.Numeric
+                ? $"CAST({srt.RawAlias ?? srt.Alias} AS REAL) {dir}"
+                : $"{srt.Alias} COLLATE TRNOCASE {dir}");   // Türkçe harf-duyarsız (Ç, C'den sonra)
+        }
         orderParts.Add(tieBreakerAlias);
         var orderSql = "ORDER BY " + string.Join(", ", orderParts) + " ";
         return (whereSql, orderSql, ps);

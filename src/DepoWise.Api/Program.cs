@@ -538,6 +538,25 @@ app.MapPost("/api/me/list-columns/{listKey}", (HttpContext ctx, string listKey, 
     svc.ListPrefs.SaveColumns(s, listKey, d.Columns ?? new List<string>());
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
+// Liste ekranı sayfa boyutu + kolon genişlikleri — KİŞİSEL (kullanıcı isteği 2026-07-18). pageSize=null →
+// ekran 25 kullanır; widths=null → otomatik genişlik. user_id oturumdan gelir.
+app.MapGet("/api/me/list-prefs/{listKey}", (HttpContext ctx, string listKey) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { pageSize = svc.ListPrefs.GetPageSize(s, listKey), widths = svc.ListPrefs.GetWidths(s, listKey) });
+}).RequireAuthorization();
+app.MapPost("/api/me/list-prefs/{listKey}/page-size", (HttpContext ctx, string listKey, PageSizeDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.ListPrefs.SavePageSize(s, listKey, d.PageSize);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapPost("/api/me/list-prefs/{listKey}/widths", (HttpContext ctx, string listKey, WidthsDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    svc.ListPrefs.SaveWidths(s, listKey, d.Widths ?? new Dictionary<string, int>());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 
 app.MapGet("/api/me/menu", (HttpContext ctx) =>
 {
@@ -724,13 +743,14 @@ app.MapGet("/api/materials", (HttpContext c, string? search) =>
 app.MapGet("/api/materials/grid", (HttpContext c,
     string? code, string? name, string? type, string? category, string? unit, string? brand, string? supplier,
     string? unitPrice, string? currency, string? minStock, string? stock, string? status, string? description,
-    string? compatibleVehicles, string? equivalents, int page, int pageSize) =>
+    string? compatibleVehicles, string? equivalents, int page, int pageSize, string? sort, bool? desc) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
         description, compatibleVehicles, equivalents);
-    var res = svc.Materials.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize);
+    var res = svc.Materials.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
@@ -812,13 +832,14 @@ app.MapGet("/api/vehicles", (HttpContext c, string? search) => S(c) is { } s ? R
 app.MapGet("/api/vehicles/grid", (HttpContext c,
     string? internalCode, string? plate, string? productionYear, string? meter, string? status, string? statusNote,
     string? vehicleType, string? category, string? brand, string? model, string? branch, string? driver,
-    string? chassisNo, string? engineNo, int page, int pageSize) =>
+    string? chassisNo, string? engineNo, int page, int pageSize, string? sort, bool? desc) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var filter = new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(
         internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
         branch, driver, chassisNo, engineNo);
-    var res = svc.Vehicles.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 50 : pageSize);
+    var res = svc.Vehicles.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
@@ -2010,6 +2031,8 @@ record PurgeCompanyDto(string? CompanyId, string? Password, string? SpecialCode,
 record LocalResetDto(string? CompanyId);   // ADR-084
 record MachineResetDto(string? MachineName);   // ADR-085
 record ListColumnsDto(List<string>? Columns);   // ADR-087 (liste kolon tercihi, kişisel)
+record PageSizeDto(int PageSize);                // ADR-089 (kişisel sayfa boyutu)
+record WidthsDto(Dictionary<string, int>? Widths); // ADR-089 (kişisel kolon genişlikleri)
 record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);

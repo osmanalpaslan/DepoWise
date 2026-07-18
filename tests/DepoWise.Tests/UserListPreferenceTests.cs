@@ -89,6 +89,44 @@ public class UserListPreferenceTests : IDisposable
         Assert.Equal(new[] { "internalCode", "plate" }, _prefs.GetColumns(u, "vehicles"));
     }
 
+    // ── Sayfa boyutu + kolon genişlikleri (kullanıcı isteği 2026-07-18, ADR-089) ──
+    [Fact]
+    public void SayfaBoyutu_Kaydedilmediyse_NullDoner_KaydedilinceHatirlanir()
+    {
+        var u = User("A", "u1");
+        Assert.Null(_prefs.GetPageSize(u, "materials"));   // → ekran 25 kullanır
+        _prefs.SavePageSize(u, "materials", 100);
+        Assert.Equal(100, _prefs.GetPageSize(u, "materials"));
+    }
+
+    /// <summary>Sayfa boyutu kaydı KOLON seçimini EZMEZ (columns_json '[]' = "ayar yok" → null).</summary>
+    [Fact]
+    public void SayfaBoyutu_KolonSecimiEzmez()
+    {
+        var u = User("A", "u1");
+        _prefs.SavePageSize(u, "materials", 50);
+        Assert.Null(_prefs.GetColumns(u, "materials"));   // hâlâ varsayılan (boş → null)
+
+        _prefs.SaveColumns(u, "materials", new[] { "code", "stock" });
+        _prefs.SavePageSize(u, "materials", 200);          // kolonları bozmamalı
+        Assert.Equal(new[] { "code", "stock" }, _prefs.GetColumns(u, "materials"));
+        Assert.Equal(200, _prefs.GetPageSize(u, "materials"));
+    }
+
+    [Fact]
+    public void KolonGenislikleri_KaydedilipGeriDoner_KisiyeOzel()
+    {
+        var u1 = User("A", "u1");
+        var u2 = User("A", "u2");
+        _prefs.SaveWidths(u1, "materials", new Dictionary<string, int> { ["code"] = 120, ["name"] = 260 });
+
+        var w = _prefs.GetWidths(u1, "materials");
+        Assert.NotNull(w);
+        Assert.Equal(120, w!["code"]);
+        Assert.Equal(260, w["name"]);
+        Assert.Null(_prefs.GetWidths(u2, "materials"));   // başka kullanıcı etkilenmez
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }

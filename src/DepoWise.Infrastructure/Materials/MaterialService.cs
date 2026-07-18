@@ -431,31 +431,37 @@ WHERE m.company_id = $c AND m.is_deleted = 0";
     /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Her filtre alanı
     /// "içerir" araması yapar; birden çok filtre aktifken sıralama, doldurulan alanların
     /// <see cref="MaterialListColumns.All"/>'daki SIRASINA göre "başlangıca göre" önceliklidir (GridQuery).</summary>
-    public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize)
+    public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize,
+        string? sortColumn = null, bool sortDesc = false)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? 1 : (pageSize > 500 ? 500 : pageSize);
 
-        var cols = new[]
+        // Kolon anahtarı → (alias/tür/ham). Hem filtre hem sıralama BUNDAN çözülür (madde 5 sıralama).
+        var byKey = new (string Key, GridQuery.ColumnFilter Col)[]
         {
-            new GridQuery.ColumnFilter("t.code", filter.Code),
-            new GridQuery.ColumnFilter("t.name", filter.Name),
-            new GridQuery.ColumnFilter("t.type", filter.Type),
-            new GridQuery.ColumnFilter("t.category", filter.Category),
-            new GridQuery.ColumnFilter("t.unit", filter.Unit),
-            new GridQuery.ColumnFilter("t.brand", filter.Brand),
-            new GridQuery.ColumnFilter("t.supplier", filter.Supplier),
-            new GridQuery.ColumnFilter("t.unit_price_text", filter.UnitPrice, GridQuery.ColumnKind.Numeric, "t.unit_price_raw"),
-            new GridQuery.ColumnFilter("t.currency", filter.Currency),
-            new GridQuery.ColumnFilter("t.min_stock_text", filter.MinStock, GridQuery.ColumnKind.Numeric, "t.min_stock_raw"),
-            new GridQuery.ColumnFilter("t.stock_text", filter.Stock, GridQuery.ColumnKind.Numeric, "t.stock_raw"),
-            new GridQuery.ColumnFilter("t.status", filter.Status),
-            new GridQuery.ColumnFilter("t.description", filter.Description),
-            new GridQuery.ColumnFilter("t.compatible_vehicles", filter.CompatibleVehicles),
-            new GridQuery.ColumnFilter("t.equivalents", filter.Equivalents),
+            (MaterialListColumns.Code, new GridQuery.ColumnFilter("t.code", filter.Code)),
+            (MaterialListColumns.Name, new GridQuery.ColumnFilter("t.name", filter.Name)),
+            (MaterialListColumns.Type, new GridQuery.ColumnFilter("t.type", filter.Type)),
+            (MaterialListColumns.Category, new GridQuery.ColumnFilter("t.category", filter.Category)),
+            (MaterialListColumns.Unit, new GridQuery.ColumnFilter("t.unit", filter.Unit)),
+            (MaterialListColumns.Brand, new GridQuery.ColumnFilter("t.brand", filter.Brand)),
+            (MaterialListColumns.Supplier, new GridQuery.ColumnFilter("t.supplier", filter.Supplier)),
+            (MaterialListColumns.UnitPrice, new GridQuery.ColumnFilter("t.unit_price_text", filter.UnitPrice, GridQuery.ColumnKind.Numeric, "t.unit_price_raw")),
+            (MaterialListColumns.Currency, new GridQuery.ColumnFilter("t.currency", filter.Currency)),
+            (MaterialListColumns.MinStock, new GridQuery.ColumnFilter("t.min_stock_text", filter.MinStock, GridQuery.ColumnKind.Numeric, "t.min_stock_raw")),
+            (MaterialListColumns.Stock, new GridQuery.ColumnFilter("t.stock_text", filter.Stock, GridQuery.ColumnKind.Numeric, "t.stock_raw")),
+            (MaterialListColumns.Status, new GridQuery.ColumnFilter("t.status", filter.Status)),
+            (MaterialListColumns.Description, new GridQuery.ColumnFilter("t.description", filter.Description)),
+            (MaterialListColumns.CompatibleVehicles, new GridQuery.ColumnFilter("t.compatible_vehicles", filter.CompatibleVehicles)),
+            (MaterialListColumns.Equivalents, new GridQuery.ColumnFilter("t.equivalents", filter.Equivalents)),
         };
-        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code");
+        var cols = System.Array.ConvertAll(byKey, x => x.Col);
+        GridQuery.ColumnFilter? sort = null;
+        if (sortColumn is not null)
+            foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code", sort, sortDesc);
 
         using var conn = _factory.Create();
         int total;
