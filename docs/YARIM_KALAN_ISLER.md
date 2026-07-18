@@ -21,9 +21,13 @@ masaüstü satır-içi). 5. Başlıkla sıralama (metin Türkçe A→Z/Z→A, sa
 - **TAMAM + canlıda:** infra (Migration048/049, GridQuery sıralama, TRNOCASE Türkçe collation, MaterialType,
   LookupService 50-kar/rename) + API + **web** (Materials/Vehicles: 25, sıralama, üstte-sol sayfalama,
   Excel-grid) + tanım düzenleme (web+masaüstü Tanımlar ekranı).
-- **KALAN — masaüstü LİSTE ekranları UI (#1/#2/#5/#3):** MaterialsView/VehiclesView'da sayfa boyutu 25 +
-  kişisel hatırlama, sayfalama konumu, başlıkla sıralama, Excel-benzeri/ölçeklenebilir kolon. **Not:** bu
-  ortamda Avalonia görsel test edilemiyor → build-doğrulamalı yapılacak, kullanıcı görsel onaylayacak.
+- **Masaüstü 1.0.67'de canlı:** #1 (sayfa boyutu 25 + kişisel hatırlama), #4 (Tanımlar ekranı satır-içi
+  düzenleme), #6 (50 kar), #7 (Tür kanonik + Migration048).
+- **KALAN — masaüstü LİSTE ekranları UI (#2/#5/#3):** MaterialsView/VehiclesView'da sayfalama konumunu
+  üste-sola taşı, başlığa tıklayınca sırala (backend `SearchGrid` hazır — yalnız XAML başlıklarını komut+ok
+  ile bağla), Excel-benzeri yatay kaydırma + ölçeklenebilir kolon. **Not:** bu ortamda Avalonia görsel test
+  edilemiyor → build-doğrulamalı yapılacak, kullanıcı görsel onaylayacak. Grid hand-built (SharedSizeGroup +
+  `Conv.ColumnVisible`) olduğundan dikkatli gidilmeli (babanın çalışan ekranı).
 - **KALAN (kullanıcı):** baba dosyasında para birimi "TL" → "TRY" (Excel'de düzelt).
 - Detay: `docs/DECISIONS.md` ADR-089.
 

@@ -44,7 +44,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
     [NotifyPropertyChangedFor(nameof(CanGoPrev))]
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
     private int _page = 1;
-    [ObservableProperty] private int _pageSize = 50;
+    [ObservableProperty] private int _pageSize = 25;   // varsayılan 25 (kullanıcı isteği 2026-07-18)
     [ObservableProperty] private int _totalCount;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoNext))]
@@ -59,6 +59,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
     partial void OnPageSizeChanged(int value)
     {
         if (_suppressPageSizeReload) return;
+        try { DesktopServices.ListPrefs.SavePageSize(_session, "vehicles", value); } catch { }   // kişiye özel hatırla
         Page = 1; Load();
     }
 
@@ -236,6 +237,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         _session = session;
         var saved = DesktopServices.ListPrefs.GetColumns(session, "vehicles");
         VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : VehicleListColumns.DefaultVisible.ToList();
+        _suppressPageSizeReload = true;
+        try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "vehicles") ?? 25; }
+        finally { _suppressPageSizeReload = false; }
         Load();
     }
 
