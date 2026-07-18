@@ -28,8 +28,9 @@ malzeme/0 araç. Kök neden: (1) senkron ağır iş arayüz iş parçacığında
 Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
 
 1. ✅ Senkron donma/başarısız push (yukarıda, ADR-090).
-2. ⏳ Günlük Faaliyet'e 3 yeni kayıt tipi: **İlave Yağ, İlave Filtre, Tamir** — Bakım ile aynı alanlar, yalnız
-   bakım tanımı/alt bakım YOK. Web+masaüstü. **YAPILMADI.**
+2. ✅ Günlük Faaliyet'e 3 yeni kayıt tipi: **İlave Yağ, İlave Filtre, Tamir** — Bakım ile aynı alanlar, yalnız
+   bakım tanımı/alt bakım YOK. Web+masaüstü (ADR-091). Yan bulgu: masaüstü/sunucu servis başlatma sırası
+   kusuru (Bakım kaydında null-referans riski) da düzeltildi. **Masaüstü 1.0.70'de canlı.**
 3. ⏳ Çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil (tek tık = mevcut detay paneli aynen kalır). **YAPILMADI**
    (kapsam büyük: "bütün kayıtlara" — hangi ekranlar öncelikli netleştirilmeli).
 4. ✅ Malzeme kategorilerinde (ve tüm tanımlarda) fazla boşluk normalize (Migration050).
@@ -38,14 +39,15 @@ Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
 6. ⏳ Semi Modern arama kutusu → Fluent Classic ile aynı tasarım. **YAPILMADI.**
 7. ✅ Kural: yeni filtrelenebilir alan eklerken gerekli adımlar → `.claude/rules/list-screens.md`.
 8. ⏳ Günlük Faaliyet ekranına ADR-087/088/089 grid deseni (filtre+sayfalama+sıralama+Excel-grid).
-   **YAPILMADI** (madde 2'deki 3 yeni tip ile birlikte yapılacak — aynı ekran).
-9. ✅ "Excel'e Aktar" butonu: Malzemeler+Araçlar (web+masaüstü), aktif filtreyle TÜM sonuç. Kural olarak
-   madde 7'deki dosyaya eklendi; Günlük Faaliyet'e madde 8 ile birlikte gelecek.
+   **YAPILMADI** (3 yeni tip artık ekranda — grid deseni bir sonraki adım).
+9. ⏳ "Excel'e Aktar" butonu: Malzemeler+Araçlar'da TAMAM (web+masaüstü); Günlük Faaliyet'e madde 8 ile
+   birlikte eklenecek.
 10. **Muhtemelen ÇÖZÜLDÜ** farklı makine aynı şube senkron sorunu — madde 1 ile AYNI kök neden (push hiç
-    ulaşmıyordu). Kullanıcı 1.0.69 ile test edip doğrulamalı.
+    ulaşmıyordu). Kullanıcı 1.0.69+ ile test edip doğrulamalı.
 11. ⏳ Yeni form kutuları odaklanmadan da arka plandan görünür ayrılsın (modern tasarım). **YAPILMADI.**
 
-Detay ve mimari notlar (yapılanlar): `docs/DECISIONS.md` ADR-090 (madde 1) + ADR-089 (madde 4/7/9 altyapısı).
+Detay ve mimari notlar (yapılanlar): `docs/DECISIONS.md` ADR-091 (madde 2) + ADR-090 (madde 1) + ADR-089
+(madde 4/7/9 altyapısı).
 
 ---
 

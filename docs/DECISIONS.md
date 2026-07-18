@@ -12,6 +12,29 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-091 — Günlük Faaliyet: "İlave Yağ/İlave Filtre/Tamir" + masaüstü Bakım null-referans kusuru (19.07.2026, TAMAM)
+
+- **Bağlan:** Kullanıcı: "Günlük Faaliyet kayıt tipine 3 yeni kayıt tipi eklenecek... Bakım ile aynı olacak
+  sadece bakım tanımı ve alt bakım olmayacak. diğer bütün alanlar olması gerekir."
+- **Karar:** 3 yeni tür (`extra_oil`/`extra_filter`/`repair`) ortak `MaintenanceService`'i kullanır (sayaç +
+  malzeme stok düşümü dahil — Bakım ile TAM AYNI mekanizma); her tür firma başına OTOMATİK oluşan sabit bir
+  `maintenance_definitions` satırına (IntervalValue=0 → asla vade uyarısı üretmez) bağlanır — kullanıcı bunu
+  hiç görmez/seçmez. Web (`Daily.razor`) + masaüstü (`DailyActivityViewModel`) ikisinde de "Kayıt Tipi"
+  listesine eklendi; form alanları Bakım ile PAYLAŞILIR (Teknisyen/KM/Saat/Malzeme), yalnız Bakım
+  Tanımı/Alt Bakım bu 3 türde gizlenir.
+- **Yan bulgu (gerçek, önceden fark edilmemiş kusur):** `DesktopServices.Initialize()`, `DailyActivityService`'i
+  `Maintenance`/`MaintenanceDefs` ATANMADAN ÖNCE oluşturuyordu — `readonly` alan kalıcı olarak `null` kalıyordu.
+  Masaüstünün Günlük Faaliyet ekranından "Bakım" kaydı kaydedilirken bu YOLDA hiç kullanılmamış olmalı
+  (aksi halde NullReferenceException verirdi) — muhtemelen kullanıcılar Bakım'ı hep ayrı Bakım ekranından
+  giriyordu. Sıra düzeltildi. **Sunucu tarafında (`ServerServices`) AYNI kusur `MaintenanceDefinitions` için
+  vardı** (o da `DailyActivity`'den SONRA oluşturuluyordu) — o da düzeltildi.
+- **Test:** `DailyActivityExtraTests` (9) — 3 tür de kayıt oluşturur · malzeme stoktan düşer (Bakım ile aynı) ·
+  aynı tür ikinci kayıt AYNI sabit tanımı kullanır (ikinci tanım oluşmaz) · operation_id idempotent · geçersiz
+  tür reddedilir · 3 tür 3 ayrı tanım · periyot=0 asla Kritik/Gecikti seviyesi üretmez. 539/539.
+- **Masaüstü 1.0.70'de canlı.**
+
+---
+
 ### ADR-090 — Senkron donma + sessiz başarısız push kök neden düzeltmesi (19.07.2026, TAMAM — KRİTİK)
 
 - **Bağlam:** Kullanıcı iki ayrı şikayet bildirdi: (1) "dün babamın kayıtlarını içeri almıştım, araçlar ve
