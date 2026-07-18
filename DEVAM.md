@@ -27,13 +27,20 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **553/553 yeşil** (`dotnet test`) |
+| **Testler** | **554/554 yeşil** (`dotnet test`) |
 | **Şema** | Migration **051** (tanım kilidi/sabit tanım — ADR-092) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (ADR-095 atomik düzeltme dahil) |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.72 yayında** — Günlük Faaliyet'e filtre+sayfalama+sıralama+Excel grid deseni (ADR-094) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | 12 maddelik yeni istek listesi sürüyor (bkz. aşağı + `docs/YARIM_KALAN_ISLER.md`) |
+| **Bekleyen iş** | 12 maddelik listenin SON büyük maddesi: çift-tık düzenle/kaydet/sil penceresi (Malzemeler+Araçlar'dan başla) |
+
+### Opus 4.8 gözden geçirmesi (2026-07-19, ADR-095)
+Kullanıcı isteğiyle bu oturumdaki tüm iş (ADR-090…094) Opus 4.8 ile satır satır denetlendi (tenant/izin/
+senkron/idempotency/web-masaüstü ayna). **Tek gerçek bulgu:** `EnsureExtraDefinition` atomik değildi →
+eşzamanlı sunucu isteğinde çift gizli sabit tanım riski (masaüstü tek-kullanıcı, etkilenmez). Tek
+`INSERT…SELECT WHERE NOT EXISTS` ile yarışsız yapıldı; API redeploy edildi (554/554). Diğer her şey TEMİZ.
+Detay: `docs/DECISIONS.md` ADR-095.
 
 ### Günlük Faaliyet: "İlave Yağ / İlave Filtre / Tamir" (2026-07-19, ADR-091)
 Bakım ile AYNI mekanizma (sayaç + malzeme stok düşümü dahil), yalnız Bakım Tanımı/Alt Bakım kullanıcıya
