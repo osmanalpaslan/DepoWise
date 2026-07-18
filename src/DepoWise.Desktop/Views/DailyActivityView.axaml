@@ -164,7 +164,7 @@
                     </ctrl:FormField>
                 </StackPanel>
 
-                <ctrl:FormField Label="Açıklama">
+                <ctrl:FormField Label="{Binding DescriptionLabel}">
                     <TextBox Classes="Field" Text="{Binding FormDescription}" AcceptsReturn="True" Height="44"/>
                 </ctrl:FormField>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"

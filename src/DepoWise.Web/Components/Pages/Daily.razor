@@ -70,7 +70,9 @@
             }
         }
 
-        <MudGrid Spacing="2" Class="mt-1"><MudItem xs="12"><MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem></MudGrid>
+        @* İlave Yağ/Filtre/Tamir arıza-onarım türleridir → "Açıklama" bu türlerde "Arıza Açıklaması" olarak
+           gösterilir (kullanıcı isteği 2026-07-19). Aynı alana (description) yazılır; şema değişmez. *@
+        <MudGrid Spacing="2" Class="mt-1"><MudItem xs="12"><MudTextField @bind-Value="_desc" Label="@DescLabel" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem></MudGrid>
 
         <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
@@ -167,6 +169,7 @@
     private ApiClient.Opt? _vehicle;
     private DateTime? _date;
     private string _desc = "";
+    private string DescLabel => _kind is "İlave Yağ" or "İlave Filtre" or "Tamir" ? "Arıza Açıklaması" : "Açıklama";
     // movement
     private string? _from, _to, _operator;
     private int? _duration;

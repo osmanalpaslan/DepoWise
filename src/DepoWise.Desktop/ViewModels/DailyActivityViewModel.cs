@@ -209,8 +209,12 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     [NotifyPropertyChangedFor(nameof(IsMaintenance))]
     [NotifyPropertyChangedFor(nameof(IsRealMaintenance))]
     [NotifyPropertyChangedFor(nameof(IsMovement))]
+    [NotifyPropertyChangedFor(nameof(DescriptionLabel))]
     private string _formKind = "Hareket";
     public bool IsTransfer => FormKind == "Transfer";
+    /// <summary>Açıklama alanı etiketi: arıza-onarım türlerinde (İlave Yağ/Filtre/Tamir) "Arıza Açıklaması",
+    /// diğerlerinde "Açıklama" (kullanıcı isteği 2026-07-19). Aynı alana (description) yazılır; şema değişmez.</summary>
+    public string DescriptionLabel => FormKind is "İlave Yağ" or "İlave Filtre" or "Tamir" ? "Arıza Açıklaması" : "Açıklama";
     /// <summary>Bakım İLE AYNI alan setini gösterir (Teknisyen/KM/Saat/Malzeme) — Bakım + 3 yeni tür
     /// (kullanıcı isteği 2026-07-19: "bakım ile aynı olacak sadece bakım tanımı ve alt bakım olmayacak").</summary>
     public bool IsMaintenance => FormKind is "Bakım" or "İlave Yağ" or "İlave Filtre" or "Tamir";
