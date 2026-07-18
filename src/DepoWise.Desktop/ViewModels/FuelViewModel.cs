@@ -108,6 +108,8 @@ public sealed partial class FuelViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(DistTotalText))]
     private decimal _distUnitPrice;
     [ObservableProperty] private LookupItem? _distPersonnel;
+    /// <summary>"Yakıtı Alan" (kullanıcı isteği 2026-07-19) — Yakıtı Veren'den ayrı, opsiyonel.</summary>
+    [ObservableProperty] private LookupItem? _distRecipient;
 
     public string DistTotalText => $"{DistLiters * DistUnitPrice:0.##} ₺";
 
@@ -128,7 +130,7 @@ public sealed partial class FuelViewModel : ViewModelBase
     [RelayCommand]
     private void ClearDist()
     {
-        DistVehicle = null; DistPrevMeter = 0; DistMeter = 0; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null;
+        DistVehicle = null; DistPrevMeter = 0; DistMeter = 0; DistLiters = 0; DistUnitPrice = 0; DistPersonnel = null; DistRecipient = null;
         ShowDist = false;
     }
 
@@ -148,7 +150,7 @@ public sealed partial class FuelViewModel : ViewModelBase
             DesktopServices.Fuel.Distribute(_session, new NewDistribution(
                 VehicleId: DistVehicle.Id, Liters: DistLiters, CurrentMeter: DistMeter,
                 UnitPrice: DistUnitPrice > 0 ? DistUnitPrice : (decimal?)null,
-                PersonnelId: DistPersonnel?.Id), Guid.NewGuid().ToString("N"));
+                PersonnelId: DistPersonnel?.Id, RecipientPersonnelId: DistRecipient?.Id), Guid.NewGuid().ToString("N"));
             ClearDist(); Load();
             Status = "Dağıtım kaydedildi.";
         }

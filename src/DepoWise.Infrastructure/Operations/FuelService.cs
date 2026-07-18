@@ -10,7 +10,8 @@ public sealed record NewDepotEntry(decimal Liters, decimal UnitPrice, string Cur
 
 public sealed record NewDistribution(string VehicleId, decimal Liters, decimal CurrentMeter,
     decimal? UnitPrice = null, string Currency = "TRY", string? PersonnelId = null,
-    long? DistributionDate = null, string? Note = null, decimal? FxRate = null);
+    long? DistributionDate = null, string? Note = null, decimal? FxRate = null,
+    string? RecipientPersonnelId = null);   // "Yakıtı Alan" (kullanıcı isteği 2026-07-19) — PersonnelId="Yakıtı Veren"den ayrı
 
 public sealed record FuelDistributionRow(string Id, string VehicleId, string? VehicleCode,
     decimal PrevMeter, decimal CurrentMeter, decimal Liters, decimal UnitPrice, string Currency, long DistributionDate);
@@ -104,8 +105,8 @@ VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$opb,$now,$now,1,0);";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO fuel_distributions(id, company_id, vehicle_id, prev_meter, current_meter, liters, unit_price,
-    currency_code, fx_rate, personnel_id, distribution_date, note, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$dt,$note,$op,$opb,$now,$now,1,0);";
+    currency_code, fx_rate, personnel_id, recipient_personnel_id, distribution_date, note, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
+VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$rec,$dt,$note,$op,$opb,$now,$now,1,0);";
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
             cmd.Parameters.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
@@ -117,6 +118,7 @@ VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$dt,$note,$op,$opb,$now,$now
             cmd.Parameters.AddWithValue("$ccur", dto.Currency);
             cmd.Parameters.AddWithValue("$fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
             cmd.Parameters.AddWithValue("$pers", (object?)dto.PersonnelId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$rec", (object?)dto.RecipientPersonnelId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$dt", dto.DistributionDate ?? now);
             cmd.Parameters.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$op", operationId);

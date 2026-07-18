@@ -64,6 +64,12 @@
                                         <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                     </ComboBox>
                                 </ctrl:FormField>
+                                <ctrl:FormField Label="Yakıtı Alan" Width="180">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistRecipient}">
+                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                 <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDistCommand}"/>

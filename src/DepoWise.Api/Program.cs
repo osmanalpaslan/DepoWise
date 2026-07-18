@@ -1594,7 +1594,8 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur."); // madde 8
     return Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
-        d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note)), Guid.NewGuid().ToString("N")) });
+        d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
+        RecipientPersonnelId: Doc(d.RecipientPersonnelId)), Guid.NewGuid().ToString("N")) });
 }).RequireAuthorization();
 app.MapPost("/api/fuel/depot", (HttpContext c, DepotEntryDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(
@@ -2134,7 +2135,7 @@ record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefiniti
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate);
-record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note);
+record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null);
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
 // ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,

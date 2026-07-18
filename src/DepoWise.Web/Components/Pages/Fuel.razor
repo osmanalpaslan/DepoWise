@@ -31,6 +31,7 @@
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (₺/L)" HelperText="Varsayılan: güncel fiyat." Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudTextField Value="@((_liters * _price).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Veren *" @bind-Value="_person" Items="_personnel" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Alan" @bind-Value="_recipient" Items="_personnel" /></MudItem>
                 </MudGrid>
                 <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text" OnClick="ClearDist">İptal</MudButton>
@@ -120,6 +121,7 @@
     private ApiClient.Opt? _vehicle;
     private decimal _prevMeter, _meter, _liters, _price;
     private string? _person;
+    private string? _recipient;   // "Yakıtı Alan" (kullanıcı isteği 2026-07-19)
 
     private decimal _dLiters, _dPrice;
     private string? _dSupplier, _dInvoice;
@@ -187,7 +189,8 @@
             var err = await Api.PostAsync("/api/fuel/distribute", new
             {
                 vehicleId = _vehicle.Id, liters = _liters, currentMeter = _meter,
-                unitPrice = _price > 0 ? (decimal?)_price : null, personnelId = _person
+                unitPrice = _price > 0 ? (decimal?)_price : null, personnelId = _person,
+                recipientPersonnelId = string.IsNullOrEmpty(_recipient) ? null : _recipient
             });
             _ok = err is null; _msg = err ?? "Dağıtım kaydedildi.";
             if (_ok) { ClearDist(); await LoadDist(); await LoadSummary(); }
@@ -213,7 +216,7 @@
         finally { _busy = false; }
     }
 
-    private void ClearDist() { _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; }
+    private void ClearDist() { _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; _recipient = null; }
     private void ClearDepot() { _dLiters = 0; _dPrice = _currentPrice; _dSupplier = _dInvoice = null; }
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
