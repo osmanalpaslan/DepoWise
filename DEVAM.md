@@ -31,7 +31,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **051** (tanım kilidi/sabit tanım — ADR-092) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (ADR-095 atomik düzeltme dahil) |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.73 yayında** — çift-tık hızlı düzenle penceresi (Malzemeler + Araçlar, ADR-096) |
+| **Masaüstü** | **1.0.74 yayında** — çift-tık hızlı düzenle penceresi + Kaydet/Sil onay penceresi (ADR-096) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **12 maddelik liste TAMAM** — kalan yalnız kullanıcı doğrulaması (görsel/canlı test) |
 
