@@ -12,6 +12,43 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-090 — Senkron donma + sessiz başarısız push kök neden düzeltmesi (19.07.2026, TAMAM — KRİTİK)
+
+- **Bağlam:** Kullanıcı iki ayrı şikayet bildirdi: (1) "dün babamın kayıtlarını içeri almıştım, araçlar ve
+  malzemeler web ile eşitlenmemiş... aynı kullanıcı ve aynı şube ile web'e login oldum ama veriler gelmedi."
+  (2) "menüler arasında masaüstü uygulama geçiş yaparken takılabiliyor veya çok kısa donabiliyor... sunucu
+  kaynaklı olduğunu sanıyorum."
+- **Teşhis (canlı sunucu doğrulandı):** Süper admin API token ile babanın firmasına (OZE GRUP İNŞAAT) geçilip
+  `/api/materials/grid` ve `/api/vehicles/grid` sorgulandı → **`totalCount: 0`** — içe alınan veri sunucuya
+  HİÇ ULAŞMAMIŞ. Kod incelemesi iki birleşik kök neden ortaya çıkardı:
+  1. `BusinessSyncPushService.PushAsync`/`PullService.PullAsync` SENKRON ağır işi (`BuildSnapshot` — binlerce
+     satırı okuyan ADO.NET döngüsü; `ApplyPull` — JSON parse + upsert döngüsü) `Task.Run` OLMADAN çalıştırıyordu.
+     `ShellViewModel`'in periyodik zamanlayıcısı (`_connTimer.Tick`, 30sn'de bir; push/pull'u 180sn'de bir
+     tetikler) ve "Eşitle" butonu bu ağır işi ARAYÜZ İŞ PARÇACIĞININ DEVAMI olarak çalıştırıyordu → 2600+
+     kayıtlı firmada bu senkron iş **arayüzü donduruyordu** ("sunucu kaynaklı" sanılan şey aslında istemci
+     tarafı iş parçacığı bloklanmasıydı — sunucu yanıt süresi de payda ama asıl sebep bu değildi).
+  2. `HttpClient.Timeout = 30sn` — büyüyen snapshot (malzeme+araç+stok hareketleri) bu süreyi aşınca push/pull
+     `TaskCanceledException` fırlatıyordu; `catch {}` bunu SESSİZCE yutuyordu → kullanıcı hiçbir hata görmüyordu,
+     veri sonsuza kadar sunucuya ulaşmıyordu (her periyodik denemede AYNI zaman aşımı tekrarlanıyordu).
+- **Karar:**
+  1. `BuildSnapshot`/`ApplyPull`'ın senkron kısmı `Task.Run` ile arka plana alındı — kim çağırırsa çağırsın
+     (zamanlayıcı, Eşitle butonu, girişteki fire-and-forget) arayüz artık bloklanmaz.
+  2. HttpClient timeout 30sn → **120sn** (push VE pull).
+  3. `BusinessSyncPushService.LastPushFailed` eklendi; "Eşitle" butonunun sonuç mesajı artık push başarısızsa
+     bunu AYRI/doğru bir mesajla gösterir ("Eşitleme tamamlandı" yanıltıcı görünmesin).
+- **Bu, ADR-089'daki senkron/donma bulgusuyla AYNI kök nedendir** — birden fazla makinenin aynı şube verisini
+  görememesi de (kullanıcının 3. şikayeti) muhtemelen AYNI push-zaman-aşımı sorunundan kaynaklanıyordu: makine
+  A'nın verisi sunucuya hiç ulaşmadığından makine B'nin pull'u doğal olarak boş dönüyordu.
+- **YIKICI DEĞİL, veri kaybı YOK:** yerel (masaüstü) veri hep durdu; yalnız sunucuya ULAŞMIYORDU. Düzeltme
+  sonrası kullanıcının babasının makinesi güncellensin + "Eşitle"ye basılsın (ya da normal login/periyodik
+  döngü) → geçmişte içeri alınan veri artık push edilir.
+- **Test:** Bu spesifik ağ/UI-thread davranışı masaüstü entegrasyon testiyle DOĞRULANAMAZ (gerçek HTTP + gerçek
+  Avalonia Dispatcher gerektirir); güvence kod incelemesi + canlı sunucu doğrulaması (önce/sonra `totalCount`)
+  ile sağlandı. 530/530 (ilgisiz testler regresyon göstermedi).
+- **Masaüstü 1.0.69'da canlı.**
+
+---
+
 ### ADR-089 — Liste geliştirmeleri paketi: Tür eşleme, tanım düzenleme, 50-kar, sayfa boyutu, sıralama, Excel-grid (18.07.2026)
 
 Kullanıcının 7 maddelik toplu isteği (2600+ kayıtla çalışırken fark ettikleri). Durum: infra+API+web TAMAM

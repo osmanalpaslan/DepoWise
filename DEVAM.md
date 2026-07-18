@@ -21,19 +21,43 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-18)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-19)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **523/523 yeşil** (`dotnet test`) |
-| **Şema** | Migration **049** (sayfa boyutu + kolon genişliği tercihi — ADR-089) |
+| **Testler** | **530/530 yeşil** (`dotnet test`) |
+| **Şema** | Migration **050** (tanım adlarında fazla boşluk normalize — ADR-090) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.68 yayında** (liste UI: sayfalama üstte-sola, başlıkla sıralama, Excel-benzeri grid) |
+| **Masaüstü** | **1.0.69 yayında** — **KRİTİK senkron/donma düzeltmesi** |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | Baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) — kod tarafı bitti |
+| **Bekleyen iş** | 12 maddelik yeni istek listesi sürüyor (bkz. aşağı + `docs/YARIM_KALAN_ISLER.md`) |
+
+### 🔴 KRİTİK: Senkron donma + sessiz başarısız push düzeltildi (2026-07-19, ADR-090)
+Baba dosyasını içeri aldıktan sonra veri web'e ULAŞMAMIŞTI. Canlı sunucu doğrulandı: **OZE GRUP firmasında
+0 malzeme, 0 araç** — push hiç başarılı olmamış. Kök neden: (1) senkron ağır işi (BuildSnapshot/ApplyPull)
+Task.Run OLMADAN arayüz iş parçacığında çalışıyordu → "menüler arası donma" şikayetinin asıl sebebi budur
+("sunucu kaynaklı" değil, istemci iş parçacığı bloklanması); (2) 30sn HttpClient zaman aşımı büyüyen veride
+(2600+ kayıt) aşılıyor, `catch{}` bunu sessizce yutuyordu → veri SONSUZA KADAR sunucuya ulaşmıyordu, hata da
+görünmüyordu. Düzeltme: ağır iş `Task.Run`'a alındı (arayüz artık donmaz) + zaman aşımı 120sn'e çıkarıldı +
+"Eşitle" butonu artık başarısızlığı doğru gösteriyor. **Masaüstü 1.0.69'da canlı. Baba makinesini güncelleyip
+"Eşitle"ye basması (veya normal girişi) gerekiyor** — geçmiş içe aktarılan veri o an push edilecek. Detay:
+`docs/DECISIONS.md` ADR-090.
+
+### 12 maddelik yeni istek listesi (2026-07-19) — sürüyor
+Kullanıcı 12 madde verdi (Opus 4.8, "en son test edeceğim"). Durum:
+- ✅ **Senkron donma/başarısız push** (yukarıda, ADR-090, KRİTİK+canlı).
+- ✅ **Tanım adlarında fazla boşluk** normalize (Migration050 + Insert/Rename + import eşleştirme).
+- ✅ **"Excel'e Aktar" butonu** Malzemeler+Araçlar'da (web+masaüstü) — aktif filtreyle TÜM sonuçları indirir.
+- ✅ **Kural dosyası**: `.claude/rules/list-screens.md` (yeni filtrelenebilir alan + Excel export standardı).
+- ⏳ **Kalan (henüz yapılmadı):** Günlük Faaliyet'e 3 yeni tip (İlave Yağ/İlave Filtre/Tamir) · çift-tık
+  düzenle/kaydet/sil penceresi (tüm kayıt listeleri) · Tanım Düzenle'de kilitli/sabit tanımlar · Semi Modern
+  arama kutusu Fluent Classic ile aynı olsun · Günlük Faaliyet'e ADR-087/088/089 grid deseni · farklı makine
+  aynı şube senkron doğrulaması (ADR-090 ile çözülmüş OLABİLİR, kullanıcı testi bekliyor) · form kutularının
+  odaklanmadan da görünür olması.
+Detay: `docs/YARIM_KALAN_ISLER.md`.
 
 ### 7 maddelik liste geliştirmeleri paketi (2026-07-18, ADR-089)
 Kullanıcı 2600+ kayıtla çalışırken 7 istek verdi. **Web + backend TAMAM ve canlıda; masaüstü UI sürüyor.**

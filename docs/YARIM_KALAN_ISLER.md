@@ -6,7 +6,46 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-18**
+> Son güncelleme: **2026-07-19**
+
+---
+
+## 🔴 KRİTİK: Senkron donma + sessiz başarısız push (2026-07-19, ADR-090) — TAMAMLANDI (canlıda)
+
+Test 530/530. Baba dosyası içeri alındıktan sonra web'e ulaşmamıştı. Canlı sunucu doğrulandı: firmada 0
+malzeme/0 araç. Kök neden: (1) senkron ağır iş arayüz iş parçacığında çalışıyordu → "donma" şikayeti;
+(2) 30sn zaman aşımı büyüyen veride aşılıyor, sessizce yutuluyordu → veri sonsuza kadar ulaşmıyordu.
+
+- Düzeltme: Task.Run + 120sn zaman aşımı + "Eşitle" butonunda görünür hata. Masaüstü **1.0.69**.
+- **Kullanıcı aksiyonu gerekli:** baba makinesini 1.0.69'a güncelleyip "Eşitle"ye bassın (ya da normal giriş) —
+  geçmiş içe aktarılan veri o an push edilecek.
+- Detay: `docs/DECISIONS.md` ADR-090.
+
+---
+
+## ⏳ 12 maddelik yeni istek listesi (2026-07-19) — SÜRÜYOR
+
+Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
+
+1. ✅ Senkron donma/başarısız push (yukarıda, ADR-090).
+2. ⏳ Günlük Faaliyet'e 3 yeni kayıt tipi: **İlave Yağ, İlave Filtre, Tamir** — Bakım ile aynı alanlar, yalnız
+   bakım tanımı/alt bakım YOK. Web+masaüstü. **YAPILMADI.**
+3. ⏳ Çift-tık ile ayrı pencerede Düzenle/Kaydet/Sil (tek tık = mevcut detay paneli aynen kalır). **YAPILMADI**
+   (kapsam büyük: "bütün kayıtlara" — hangi ekranlar öncelikli netleştirilmeli).
+4. ✅ Malzeme kategorilerinde (ve tüm tanımlarda) fazla boşluk normalize (Migration050).
+5. ⏳ Tanım Düzenle'de **kilitli/sabit tanımlar** (silinemez/düzenlenemez) + yeni tanım eklenebilir arada.
+   **YAPILMADI** (şema kararı gerekir: hangi tanımlar "sabit" işaretlenecek?).
+6. ⏳ Semi Modern arama kutusu → Fluent Classic ile aynı tasarım. **YAPILMADI.**
+7. ✅ Kural: yeni filtrelenebilir alan eklerken gerekli adımlar → `.claude/rules/list-screens.md`.
+8. ⏳ Günlük Faaliyet ekranına ADR-087/088/089 grid deseni (filtre+sayfalama+sıralama+Excel-grid).
+   **YAPILMADI** (madde 2'deki 3 yeni tip ile birlikte yapılacak — aynı ekran).
+9. ✅ "Excel'e Aktar" butonu: Malzemeler+Araçlar (web+masaüstü), aktif filtreyle TÜM sonuç. Kural olarak
+   madde 7'deki dosyaya eklendi; Günlük Faaliyet'e madde 8 ile birlikte gelecek.
+10. **Muhtemelen ÇÖZÜLDÜ** farklı makine aynı şube senkron sorunu — madde 1 ile AYNI kök neden (push hiç
+    ulaşmıyordu). Kullanıcı 1.0.69 ile test edip doğrulamalı.
+11. ⏳ Yeni form kutuları odaklanmadan da arka plandan görünür ayrılsın (modern tasarım). **YAPILMADI.**
+
+Detay ve mimari notlar (yapılanlar): `docs/DECISIONS.md` ADR-090 (madde 1) + ADR-089 (madde 4/7/9 altyapısı).
 
 ---
 
