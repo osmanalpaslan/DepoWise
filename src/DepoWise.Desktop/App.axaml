@@ -108,7 +108,8 @@
             <Setter Property="Padding" Value="12,10"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <!-- Menü yüzeyi rengi (Fluent'te siyah metin koyu menüde görünmüyordu — kullanıcı isteği 2026-07-19) -->
+            <Setter Property="Foreground" Value="{DynamicResource Brand.OnSurface.Brush}"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -143,7 +144,8 @@
             <Setter Property="Opacity" Value="0.82"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <!-- Menü ekran isimleri de menü yüzeyi rengini kullanır (Fluent'te siyah/görünmez sorunu — 2026-07-19) -->
+            <Setter Property="Foreground" Value="{DynamicResource Brand.OnSurface.Brush}"/>
         </Style>
         <Style Selector="Button.NavLink /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -159,7 +161,7 @@
         <Style Selector="Button.NavLink.active">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Brand.OnSurface.Brush}"/>
         </Style>
         <Style Selector="Button.NavLink.active /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>

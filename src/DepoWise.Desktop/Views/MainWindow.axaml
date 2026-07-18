@@ -109,8 +109,12 @@
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
                                             <Grid ColumnDefinitions="*,Auto">
+                                                <!-- Menü metni DAİMA menü yüzeyi rengini (Brand.OnSurface) kullanır;
+                                                     aksi halde Fluent'te temanın varsayılan SİYAH metni koyu menüde
+                                                     görünmüyordu (kullanıcı isteği 2026-07-19). Semi ile aynı görünür. -->
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
-                                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                                           FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"
+                                                           Foreground="{DynamicResource Brand.OnSurface.Brush}"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
