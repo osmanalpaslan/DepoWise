@@ -192,9 +192,10 @@
                         }
                     </tr></thead>
                     <tbody>
+                        @* Tek tık = sağdaki detay paneli (mevcut davranış korunur). Çift tık = ayrı düzenle/kaydet/sil penceresi. *@
                         @foreach (var row in _rows)
                         {
-                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" style="cursor:pointer;">
+                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
                                 @foreach (var key in _visibleColumns) { <td title="@Str(row, key)">@Str(row, key)</td> }
                             </tr>
                         }
@@ -465,6 +466,21 @@
         try { _detail = await Api.GetObjectAsync($"/api/materials/{id}"); }
         catch { _detail = null; }
         await LoadDetailPhotos(id);
+    }
+
+    /// <summary>Çift tık: ayrı pencerede Düzelt/Kaydet/Sil (kullanıcı isteği 2026-07-19). Kaydedilir/silinirse
+    /// liste yenilenir; açık detay paneli de tazelenir.</summary>
+    private async Task OpenQuickEdit(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var pars = new DialogParameters { ["Id"] = id };
+        var dlg = await Dialog.ShowAsync<MaterialEditDialog>("Malzeme", pars,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled) return;
+        await Load();
+        if (res.Data as string == "deleted") _detail = null;
+        else if (_detail is not null && Str(_detail.Value, "id") == id) await OpenDetail(id);
     }
 
     private async Task LoadDetailPhotos(string id)

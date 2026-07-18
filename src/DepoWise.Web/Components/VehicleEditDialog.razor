@@ -1,0 +1,232 @@
+@* Çift-tık ile açılan araç "hızlı düzenle" penceresi (kullanıcı isteği 2026-07-19): Düzelt / Kaydet / Sil.
+   Tek tık listede DETAY panelini açar (korunur); bu pencere yalnız çift tıkla gelir. "Düzelt"e basılana kadar
+   alanlar SALT-OKUNUR. NOT: iç kod ve sayaç bu pencerede DEĞİŞTİRİLEMEZ (sayaç zaten PUT ile güncellenmez —
+   geri gitme koruması); fotoğraflar tam "Düzenle" ekranından yönetilir. *@
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Class="mr-2" />
+            @(_edit ? "Araç Düzenle" : "Araç") — @_code
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_notFound) { <MudAlert Severity="Severity.Error" Dense="true">Kayıt bulunamadı.</MudAlert> }
+        else
+        {
+            <MudGrid Spacing="2" Style="min-width:min(560px,80vw)">
+                <MudItem xs="6"><MudField Label="İç Kod" Variant="Variant.Text">@_code</MudField></MudItem>
+                <MudItem xs="6">
+                    @if (_edit) { <MudTextField @bind-Value="_plate" Label="Plaka" Placeholder="34 ABC 123" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Plaka" Variant="Variant.Text">@Dash(_plate)</MudField> }
+                </MudItem>
+
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_status" Label="Durum" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                            @foreach (var st in DepoWise.Web.Services.VehicleStatus.All) { <MudSelectItem T="string" Value="@st.Code">@st.Label</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Durum" Variant="Variant.Text">@DepoWise.Web.Services.VehicleStatus.Label(_status)</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit) { <MudNumericField T="int?" @bind-Value="_year" Label="Üretim Yılı" Min="@DepoWise.Web.Services.FieldChecks.MinVehicleYear" Max="@DepoWise.Web.Services.FieldChecks.MaxVehicleYear" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Üretim Yılı" Variant="Variant.Text">@Dash(_year?.ToString() ?? "")</MudField> }
+                </MudItem>
+
+                @if (DepoWise.Web.Services.VehicleStatus.NeedsNote(_status))
+                {
+                    <MudItem xs="12">
+                        @if (_edit) { <MudTextField @bind-Value="_statusNote" Label="Durum Açıklaması" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                        else { <MudField Label="Durum Açıklaması" Variant="Variant.Text">@Dash(_statusNote)</MudField> }
+                    </MudItem>
+                }
+
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_type" Label="Makine Tipi" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _types) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Makine Tipi" Variant="Variant.Text">@Dash(LookupName(_types, _type))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _cats) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Kategori" Variant="Variant.Text">@Dash(LookupName(_cats, _cat))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" Value="_brand" ValueChanged="OnBrandChanged" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _brands) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Marka" Variant="Variant.Text">@Dash(LookupName(_brands, _brand))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_model" Label="Model" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true" Disabled="@string.IsNullOrEmpty(_brand)">
+                            @foreach (var o in _models) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Model" Variant="Variant.Text">@Dash(LookupName(_models, _model))</MudField> }
+                </MudItem>
+
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_branch" Label="Şantiye / Şube *" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                            @foreach (var o in _branches) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Şantiye / Şube" Variant="Variant.Text">@Dash(LookupName(_branches, _branch))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_driver" Label="Sürücü" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _drivers) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Sürücü" Variant="Variant.Text">@Dash(LookupName(_drivers, _driver))</MudField> }
+                </MudItem>
+
+                <MudItem xs="6">
+                    @if (_edit) { <MudTextField @bind-Value="_chassis" Label="Şasi No" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Şasi No" Variant="Variant.Text">@Dash(_chassis)</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit) { <MudTextField @bind-Value="_engine" Label="Motor No" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Motor No" Variant="Variant.Text">@Dash(_engine)</MudField> }
+                </MudItem>
+                <MudItem xs="6"><MudField Label="Sayaç" Variant="Variant.Text">@_meter @_meterUnit</MudField></MudItem>
+            </MudGrid>
+            @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">İç kod ve sayaç bu pencerede değişmez; fotoğraflar için liste ekranındaki “Düzenle”yi kullanın.</MudText> }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Kapat</MudButton>
+        @if (!_loading && !_notFound)
+        {
+            @if (Auth.CanDelete("vehicles"))
+            {
+                <MudButton Color="Color.Error" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete" Disabled="_busy" OnClick="DeleteRecord">Sil</MudButton>
+            }
+            @if (!_edit && Auth.CanEdit("vehicles"))
+            {
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => _edit = true)">Düzelt</MudButton>
+            }
+            @if (_edit)
+            {
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Disabled="_busy" OnClick="SaveRecord">Kaydet</MudButton>
+            }
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Id { get; set; } = "";
+
+    private bool _loading = true, _notFound, _edit, _busy, _ok;
+    private string? _msg;
+    private string _code = "", _plate = "", _status = "active", _statusNote = "", _chassis = "", _engine = "", _meterUnit = "km";
+    private string? _type, _cat, _brand, _model, _branch, _driver;
+    private int? _year;
+    private decimal _meter;
+    private List<ApiClient.Opt> _types = new(), _cats = new(), _brands = new(), _models = new(), _branches = new(), _drivers = new();
+
+    private async Task OnBrandChanged(string? v)
+    {
+        _brand = v; _model = null;
+        _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");
+            _cats = await Api.OptionsAsync("/api/lookups/vehicle_categories", "id", "name");
+            _brands = await Api.OptionsAsync("/api/lookups/vehicle_brands", "id", "name");
+            _branches = await Api.OptionsAsync("/api/branches", "id", "name");
+            _drivers = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+            var d = await Api.GetObjectAsync($"/api/vehicles/{Id}");
+            _code = Str(d, "internalCode"); _plate = Str(d, "plate");
+            _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
+            _statusNote = Str(d, "statusNote"); _chassis = Str(d, "chassisNo"); _engine = Str(d, "engineNo");
+            _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");
+            _year = d.TryGetProperty("productionYear", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : null;
+            _type = NullId(d, "vehicleTypeId"); _cat = NullId(d, "categoryId"); _brand = NullId(d, "brandId");
+            _model = NullId(d, "vehicleModelId"); _branch = NullId(d, "branchId"); _driver = NullId(d, "driverPersonnelId");
+            _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
+        }
+        catch { _notFound = true; }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveRecord()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_code)) { _msg = "İç kod zorunlu."; _ok = false; return; }
+        if (string.IsNullOrWhiteSpace(_branch)) { _msg = "Şantiye / şube seçimi zorunludur."; _ok = false; return; }
+        if (!await Dialog.Confirm("Araç güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            var body = new
+            {
+                internalCode = _code.Trim(), plate = Empty(_plate), productionYear = _year,
+                currentMeter = _meter, meterUnit = _meterUnit,   // PUT bunları yok sayar (sayaç geri gitme koruması) — uyumluluk için gönderilir
+                branchId = _branch, driverPersonnelId = _driver, chassisNo = Empty(_chassis), engineNo = Empty(_engine),
+                status = _status, statusNote = DepoWise.Web.Services.VehicleStatus.NeedsNote(_status) ? Empty(_statusNote) : null,
+                vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model, templateId = (string?)null
+            };
+            var err = await Api.PutAsync($"/api/vehicles/{Id}", body);
+            if (err is null) MudDialog.Close(DialogResult.Ok("saved"));
+            else { _msg = err; _ok = false; }
+        }
+        catch (Exception ex) { _msg = "Hata: " + ex.Message; _ok = false; }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteRecord()
+    {
+        if (!await Dialog.Confirm("Bu araç silinsin mi?", "Evet, Sil", danger: true)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.DeleteAsync($"/api/vehicles/{Id}");
+            if (err is null) MudDialog.Close(DialogResult.Ok("deleted"));
+            else { _msg = err; _ok = false; }
+        }
+        finally { _busy = false; }
+    }
+
+    private void Close() => MudDialog.Cancel();
+
+    private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
+    private static string LookupName(List<ApiClient.Opt> opts, string? id)
+        => string.IsNullOrEmpty(id) ? "" : (opts.FirstOrDefault(o => o.Id == id)?.Name ?? "");
+    private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+}

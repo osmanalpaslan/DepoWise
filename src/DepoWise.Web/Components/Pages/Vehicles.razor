@@ -176,9 +176,10 @@
                         <th style="width:130px;"><div class="dw-th" style="cursor:default;"><span>BAKIM/MUAYENE</span></div></th>
                     </tr></thead>
                     <tbody>
+                        @* Tek tık = sağdaki detay paneli (mevcut davranış korunur). Çift tık = ayrı düzenle/kaydet/sil penceresi. *@
                         @foreach (var row in _rows)
                         {
-                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" style="cursor:pointer;">
+                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
                                 @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
                                 <td>@Alert(Str(row, "id"))</td>
                             </tr>
@@ -493,6 +494,21 @@
 
     private JsonElement[] _dMaterials = System.Array.Empty<JsonElement>(), _dMaint = System.Array.Empty<JsonElement>(), _dMoves = System.Array.Empty<JsonElement>();
     private List<JsonElement> _dInspections = new();
+
+    /// <summary>Çift tık: ayrı pencerede Düzelt/Kaydet/Sil (kullanıcı isteği 2026-07-19). Kaydedilir/silinirse
+    /// liste yenilenir; açık detay paneli de tazelenir.</summary>
+    private async Task OpenQuickEdit(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var pars = new DialogParameters { ["Id"] = id };
+        var dlg = await Dialog.ShowAsync<VehicleEditDialog>("Araç", pars,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled) return;
+        await Load();
+        if (res.Data as string == "deleted") _detail = null;
+        else if (_detail is not null && Str(_detail.Value, "id") == id) await OpenDetail(id);
+    }
 
     private async Task OpenDetail(string id)
     {

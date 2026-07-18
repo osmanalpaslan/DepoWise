@@ -1,0 +1,199 @@
+@* Çift-tık ile açılan "hızlı düzenle" penceresi (kullanıcı isteği 2026-07-19): kayda ÇİFT TIKLAYINCA
+   ayrı bir pencerede Düzelt / Kaydet / Sil. Tek tık listede DETAY panelini açar (o davranış korunur);
+   bu pencere yalnız çift tıkla gelir. "Düzelt"e basılana kadar alanlar SALT-OKUNUR; basınca düzenlenebilir.
+   NOT: Fotoğraf, muadil ve uyumlu araçlar bu hızlı pencerede DEĞİŞTİRİLMEZ (korunur) — onlar tam "Düzenle"
+   ekranından yönetilir; kaydederken uyumlu araç listesi null gönderilir (sunucu mevcut listeyi korur). *@
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Class="mr-2" />
+            @(_edit ? "Malzeme Düzenle" : "Malzeme")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_loading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_notFound) { <MudAlert Severity="Severity.Error" Dense="true">Kayıt bulunamadı.</MudAlert> }
+        else
+        {
+            <MudGrid Spacing="2" Style="min-width:min(560px,80vw)">
+                <MudItem xs="6">
+                    @if (_edit) { <MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Kod" Variant="Variant.Text">@_code</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit) { <MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Ad" Variant="Variant.Text">@_name</MudField> }
+                </MudItem>
+
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                            @foreach (var t in _types) { <MudSelectItem T="string" Value="@t">@t</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Tür" Variant="Variant.Text">@_type</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _cats) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Kategori" Variant="Variant.Text">@Dash(LookupName(_cats, _cat))</MudField> }
+                </MudItem>
+
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_unit" Label="Birim *" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                            @foreach (var o in _units) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Birim" Variant="Variant.Text">@Dash(LookupName(_units, _unit))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _brands) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Marka" Variant="Variant.Text">@Dash(LookupName(_brands, _brand))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                            @foreach (var o in _sups) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else { <MudField Label="Tedarikçi" Variant="Variant.Text">@Dash(LookupName(_sups, _sup))</MudField> }
+                </MudItem>
+
+                <MudItem xs="6">
+                    @if (_edit) { <MudNumericField T="decimal" @bind-Value="_min" Label="Min Stok" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Min Stok" Variant="Variant.Text">@_min.ToString("0.##")</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit) { <MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (TRY)" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Birim Fiyat (TRY)" Variant="Variant.Text">@_price.ToString("0.##")</MudField> }
+                </MudItem>
+                <MudItem xs="6"><MudField Label="Mevcut Stok" Variant="Variant.Text">@_stock</MudField></MudItem>
+
+                <MudItem xs="12">
+                    @if (_edit) { <MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
+                    else { <MudField Label="Açıklama" Variant="Variant.Text">@(string.IsNullOrEmpty(_desc) ? "—" : _desc)</MudField> }
+                </MudItem>
+            </MudGrid>
+            @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — tam düzenleme için liste ekranındaki “Düzenle”yi kullanın.</MudText> }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Kapat</MudButton>
+        @if (!_loading && !_notFound)
+        {
+            @if (Auth.CanDelete("materials"))
+            {
+                <MudButton Color="Color.Error" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Delete" Disabled="_busy" OnClick="DeleteRecord">Sil</MudButton>
+            }
+            @if (!_edit && Auth.CanEdit("materials"))
+            {
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => _edit = true)">Düzelt</MudButton>
+            }
+            @if (_edit)
+            {
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Disabled="_busy" OnClick="SaveRecord">Kaydet</MudButton>
+            }
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Id { get; set; } = "";
+
+    private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
+    private bool _loading = true, _notFound, _edit, _busy, _ok;
+    private string? _msg;
+    private string _code = "", _name = "", _type = "Yedek Parça", _desc = "", _stock = "";
+    private string? _cat, _unit, _brand, _sup;
+    private decimal _min, _price;
+    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+            _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
+            _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
+            _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
+            var d = await Api.GetObjectAsync($"/api/materials/{Id}");
+            _code = Str(d, "code"); _name = Str(d, "name");
+            _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
+            _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
+            _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
+            _stock = Str(d, "stock");
+        }
+        catch { _notFound = true; }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveRecord()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
+        if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
+        if (!await Dialog.Confirm("Malzeme güncellensin mi?")) return;
+        _busy = true;
+        try
+        {
+            // vehicleIds = null → sunucu uyumlu araç listesini KORUR (bkz. PUT /api/materials/{id}).
+            var body = new
+            {
+                code = _code.Trim(), name = _name.Trim(), type = string.IsNullOrWhiteSpace(_type) ? null : _type,
+                categoryId = _cat, unitId = _unit, brandId = _brand, supplierId = _sup,
+                minStock = _min, unitPrice = _price, description = string.IsNullOrEmpty(_desc) ? null : _desc,
+                vehicleIds = (List<string>?)null
+            };
+            var err = await Api.PutAsync($"/api/materials/{Id}", body);
+            if (err is null) MudDialog.Close(DialogResult.Ok("saved"));
+            else { _msg = err; _ok = false; }
+        }
+        catch (Exception ex) { _msg = "Hata: " + ex.Message; _ok = false; }
+        finally { _busy = false; }
+    }
+
+    private async Task DeleteRecord()
+    {
+        if (!await Dialog.Confirm("Bu malzeme silinsin mi?", "Evet, Sil", danger: true)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.DeleteAsync($"/api/materials/{Id}");
+            if (err is null) MudDialog.Close(DialogResult.Ok("deleted"));
+            else { _msg = err; _ok = false; }
+        }
+        finally { _busy = false; }
+    }
+
+    private void Close() => MudDialog.Cancel();
+
+    private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
+    private static string LookupName(List<ApiClient.Opt> opts, string? id)
+        => string.IsNullOrEmpty(id) ? "" : (opts.FirstOrDefault(o => o.Id == id)?.Name ?? "");
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+}
