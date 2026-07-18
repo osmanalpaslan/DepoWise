@@ -76,8 +76,11 @@
     </Style>
 
     <!-- ============ TextBox / SearchBox ============ -->
+    <!-- Odaklanmadan da görünür olsun (kullanıcı isteği 2026-07-19: "tıklamadığımda arka plan ile aynı
+         renkte olduğu için karıştırabiliyorum") — zemin artık panelden ayırt edilsin diye SurfaceElevatedBrush
+         (Search kutusuyla aynı desen), kenarlık aynı kalır. -->
     <Style Selector="TextBox.Field">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -122,7 +125,7 @@
 
     <!-- ============ ComboBox / NumericUpDown / DatePicker — ortak yüzey ============ -->
     <Style Selector="ComboBox.Field">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -136,7 +139,7 @@
     </Style>
 
     <Style Selector="NumericUpDown.Field">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -146,7 +149,7 @@
     </Style>
 
     <Style Selector="DatePicker.Field">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -314,6 +317,21 @@
     <Style Selector="TextBox.Field">
         <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <!-- Arama kutusu: Semi (Modern) ve Fluent (Klasik) temalarında AYNI görünsün (kullanıcı isteği
+         2026-07-19) — temel TextBox.Search stili paylaşılır ama yumuşak geçiş/köşe daha önce yalnız
+         Field'a uygulanıyordu; Search'e de aynı normalizasyon eklendi (tema-bağımsız tutarlılık). -->
+    <Style Selector="TextBox.Search /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TextBox.Search:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="ComboBox.Field">
         <Setter Property="CornerRadius" Value="10"/>

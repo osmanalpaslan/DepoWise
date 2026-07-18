@@ -148,7 +148,13 @@ h1:focus {
 }
 
 /* ---- Form alanları (outlined input / select / date) ---- */
-.mud-input.mud-input-outlined .mud-input-outlined-border { border-radius: 12px; transition: border-color .16s ease, box-shadow .16s ease; }
+/* Odaklanmadan da görünür olsun (kullanıcı isteği 2026-07-19: "tıklamadığımda arka plan ile aynı renkte
+   olduğu için karıştırabiliyorum") — varsayılan kenarlık artık her iki temada da belirgin. */
+.mud-input.mud-input-outlined .mud-input-outlined-border {
+    border-radius: 12px;
+    transition: border-color .16s ease, box-shadow .16s ease;
+    border-color: color-mix(in srgb, var(--mud-palette-text-primary) 32%, transparent) !important;
+}
 .mud-input.mud-input-outlined:hover .mud-input-outlined-border {
     border-color: color-mix(in srgb, var(--mud-palette-primary) 42%, var(--mud-palette-lines-default));
 }

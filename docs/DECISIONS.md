@@ -12,6 +12,31 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-093 — Form kutuları odaklanmadan da görünür + Semi Modern arama kutusu (19.07.2026, TAMAM)
+
+- **Bağlam:** Kullanıcı: "Yeni formlarında bulunan kutuların üstüne tıklama yapılmadığında da görünür
+  şekilde olsun. tıklamadığımda arka plan ile aynı renkte olduğu için karıştırabiliyorum." + "Semi modernde
+  bulunan arama kutusu tasarımını Fluent klasikteki arama kutusu tasarımı ile aynı yap."
+- **Kök neden (masaüstü):** `TextBox.Field`/`ComboBox.Field`/`NumericUpDown.Field`/`DatePicker.Field`
+  zemini `SurfaceBrush` idi — bu ekranlardaki KART/PANEL zemini de (`Border.Panel`) AYNI `SurfaceBrush`;
+  alan kenarlığı (`BorderSubtleBrush`) açık temada çok soluk → beyaz kutu beyaz panelde neredeyse kayboluyordu.
+  **Düzeltme:** zemin `SurfaceElevatedBrush`'a alındı (arama kutusunun zaten kullandığı desenle aynı) —
+  panelden ayırt edilir hâle geldi, hem açık hem koyu temada.
+- **Kök neden (web):** MudBlazor `.mud-input-outlined-border` yalnız `:hover`/`.mud-focused` durumunda
+  belirgin kenarlık alıyordu; **varsayılan (odaksız) durumda** kenarlık MudBlazor'un soluk öntanımlı çizgi
+  rengine düşüyordu. **Düzeltme:** `app.css`'te varsayılan duruma `border-color: color-mix(... text-primary
+  32% ...)` eklendi — tema-bağımsız (CSS değişkeni otomatik light/dark'a göre çözülür).
+- **Arama kutusu (Semi/Fluent parity):** `TextBox.Search` temel stili iki temada da PAYLAŞILIYORDU ama
+  "modernizasyon katmanı" (yumuşak köşe geçişi) yalnız `TextBox.Field`'a uygulanmıştı, Search'e değil —
+  bu eksiklik giderildi (aynı geçiş/köşe normalizasyonu Search'e de eklendi, tema-bağımsız).
+- **⚠️ Doğrulama sınırı:** Bu ortamda Avalonia çalıştırılamıyor (masaüstü UI görsel test edilemedi, yalnız
+  temiz derleme ile güvence alındı) ve web "yeni kayıt" formları girişe ihtiyaç duyduğu için tarayıcı
+  otomasyonuyla (kimlik girişi güvenlik politikasınca yasak) doğrulanamadı. Kullanıcı canlıda kontrol etmeli;
+  Semi Modern'in arama kutusunda HALA fark varsa (Semi.Avalonia'nın kendi TextBox şablonu Fluent'ten temel
+  şablon parçaları bakımından farklı olabilir) ekran görüntüsüyle bildirilirse tam eşleşme için ek dokunuş yapılır.
+
+---
+
 ### ADR-092 — Tanım Düzenle: "sabit tanım" (kilit) desteği (19.07.2026, TAMAM)
 
 - **Bağlam:** Kullanıcı: "Tanım düzenle alanında hem + butonu alanları hem de + butonu olmayan sabit

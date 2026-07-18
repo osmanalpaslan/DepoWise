@@ -38,7 +38,8 @@ Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
    kilitlenebilir (silinemez/düzenlenemez), yeni tanım eklemek ("+") kilitten bağımsız her zaman açık.
    Hiçbir mevcut tanım otomatik kilitlenmedi — **hangi tanımların kilitleneceği kullanıcının/admin'in kararı**
    (ekrandan kilit ikonuyla yapılır).
-6. ⏳ Semi Modern arama kutusu → Fluent Classic ile aynı tasarım. **YAPILMADI.**
+6. ✅ Semi Modern arama kutusu → Fluent Classic ile aynı tasarım (ADR-093) — köşe/geçiş normalizasyonu
+   Search'e de eklendi. **⚠️ Kullanıcı kontrolü gerekli** (bu ortamda Avalonia görsel test edilemedi).
 7. ✅ Kural: yeni filtrelenebilir alan eklerken gerekli adımlar → `.claude/rules/list-screens.md`.
 8. ⏳ Günlük Faaliyet ekranına ADR-087/088/089 grid deseni (filtre+sayfalama+sıralama+Excel-grid).
    **YAPILMADI** (3 yeni tip artık ekranda — grid deseni bir sonraki adım).
@@ -46,7 +47,8 @@ Kullanıcı: "sıradaki maddeleri yap en son test edeceğim." Opus 4.8. Durum:
    birlikte eklenecek.
 10. **Muhtemelen ÇÖZÜLDÜ** farklı makine aynı şube senkron sorunu — madde 1 ile AYNI kök neden (push hiç
     ulaşmıyordu). Kullanıcı 1.0.69+ ile test edip doğrulamalı.
-11. ⏳ Yeni form kutuları odaklanmadan da arka plandan görünür ayrılsın (modern tasarım). **YAPILMADI.**
+11. ✅ Yeni form kutuları odaklanmadan da arka plandan görünür ayrılsın (ADR-093) — web+masaüstü.
+    **⚠️ Kullanıcı kontrolü gerekli** (giriş gerektiren ekranlar bu ortamda test edilemedi).
 
 Detay ve mimari notlar (yapılanlar): `docs/DECISIONS.md` ADR-091 (madde 2) + ADR-090 (madde 1) + ADR-089
 (madde 4/7/9 altyapısı).
