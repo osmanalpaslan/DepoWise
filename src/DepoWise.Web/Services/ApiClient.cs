@@ -193,7 +193,7 @@ public sealed class ApiClient
         return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}";
     }
 
-    /// <summary>Korumalı bir uçtan dosya (bytes) + dosya adı çeker (PDF indirme için).</summary>
+    /// <summary>Korumalı bir uçtan dosya (bytes) + dosya adı çeker (PDF/Excel indirme için).</summary>
     public async Task<(byte[]? Bytes, string FileName)> GetFileAsync(string path, string fallbackName)
     {
         var r = await _http.SendAsync(Req(HttpMethod.Get, path));

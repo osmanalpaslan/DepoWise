@@ -119,6 +119,27 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         for (var p = start; p <= end; p++) PageNumbers.Add(p);
     }
 
+    [ObservableProperty] private bool _isExporting;
+
+    /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları
+    /// (sayfalama sınırı olmadan) indirir — o an ekrandaki sayfayı değil. Yerel (ağ gerekmez).</summary>
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            var rows = DesktopServices.Materials.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
+            var path = await FilePickerService.SaveExcelAsync("Malzemeler.xlsx");
+            if (path is null) return;
+            var bytes = DesktopServices.Excel.Export(MaterialService.ToTableModel(rows));
+            await File.WriteAllBytesAsync(path, bytes);
+        }
+        catch (Exception ex) { Status = "Excel'e aktarılamadı: " + ex.Message; }
+        finally { IsExporting = false; }
+    }
+
     private MaterialGridFilter BuildFilter()
     {
         string? V(string key)

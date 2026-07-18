@@ -126,6 +126,26 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         for (var p = start; p <= end; p++) PageNumbers.Add(p);
     }
 
+    [ObservableProperty] private bool _isExporting;
+
+    /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19) — bkz. MaterialsViewModel.ExportExcel (aynı desen).</summary>
+    [RelayCommand]
+    private async Task ExportExcel()
+    {
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            var rows = DesktopServices.Vehicles.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
+            var path = await FilePickerService.SaveExcelAsync("Araclar.xlsx");
+            if (path is null) return;
+            var bytes = DesktopServices.Excel.Export(VehicleService.ToTableModel(rows));
+            await System.IO.File.WriteAllBytesAsync(path, bytes);
+        }
+        catch (Exception ex) { Status = "Excel'e aktarılamadı: " + ex.Message; }
+        finally { IsExporting = false; }
+    }
+
     private VehicleGridFilter BuildFilter()
     {
         string? V(string key)

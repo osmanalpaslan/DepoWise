@@ -15,12 +15,17 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class BusinessSyncPullService
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // ⚠️ 30sn'den 120sn'e çıkarıldı — bkz. BusinessSyncPushService (aynı gerekçe: büyüyen firma verisi).
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(120) };
     // Senkron 2b sonrası: stock_balances artık SUNUCU-OTORİTELİ (push sonrası sunucu hareketlerden hesaplar) →
     // geri-çekmede uygulanır (LWW; sunucunun birleşik/doğru bakiyesi gelir). Hariç tablo kalmadı.
     private static readonly System.Collections.Generic.HashSet<string>? Exclude = null;
 
-    /// <summary>Sunucudan firmanın iş snapshot'ını çekip yerele uygular. Hata → sessiz (best-effort).</summary>
+    /// <summary>Sunucudan firmanın iş snapshot'ını çekip yerele uygular. Hata → sessiz (best-effort).
+    ///
+    /// ⚠️ PERFORMANS (bkz. BusinessSyncPushService.PushAsync üstteki not — aynı kök sebep): JSON ayrıştırma +
+    /// yerel upsert döngüsü (<c>ApplyPull</c>) SENKRON ve binlerce satırda yavaş olabilir; <see cref="Task.Run"/>
+    /// ile arka plana alındı ki periyodik zamanlayıcı/Eşitle butonu arayüzü dondurmasın.</summary>
     public static async Task PullAsync()
     {
         var url = ResolveServerUrl();
@@ -37,9 +42,13 @@ public static class BusinessSyncPullService
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized) { await ServerAuthClient.EnsureFreshTokenAsync(); return; }
             if (!resp.IsSuccessStatusCode) return;
             var json = await resp.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
             // Trusted sunucu verisi → yerele uygula (yazma-yetkisi filtresi yok); stock_balances hariç.
-            new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
+            // Ağır JSON parse + upsert döngüsü ARKA PLANDA (arayüzü bloklamasın).
+            await Task.Run(() =>
+            {
+                using var doc = JsonDocument.Parse(json);
+                new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
+            });
         }
         catch { /* sessiz — ağ dönünce sonraki tur tekrar dener */ }
     }

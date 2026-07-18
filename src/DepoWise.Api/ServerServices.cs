@@ -66,6 +66,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Requests.RequestPdfService RequestPdf { get; }
     public DepoWise.Infrastructure.Reporting.ReportService Reports { get; }
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
+    /// <summary>Filtrelenmiş liste sonuçlarını Excel'e aktarma (kullanıcı isteği 2026-07-19).</summary>
+    public DepoWise.Infrastructure.Reporting.ExcelExportService Excel { get; }
     public DepoWise.Infrastructure.Files.BackupService DbBackup { get; }
     public DepoWise.Infrastructure.Settings.SettingsService Settings { get; }
     /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (kullanıcı bazlı, firma bağımsız).</summary>
@@ -121,6 +123,7 @@ public sealed class ServerServices
         RequestPdf = new DepoWise.Infrastructure.Requests.RequestPdfService();
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection);
+        Excel = new DepoWise.Infrastructure.Reporting.ExcelExportService();
         DbBackup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock, Path.Combine(dataDir, "dbbackups"));
         Settings = new DepoWise.Infrastructure.Settings.SettingsService(Factory, clock);
         ListPrefs = new DepoWise.Infrastructure.Settings.UserListPreferenceService(Factory, clock);

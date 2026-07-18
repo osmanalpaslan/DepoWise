@@ -25,6 +25,8 @@
                     <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
                     <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
+                    <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
+                            ToolTip.Tip="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>

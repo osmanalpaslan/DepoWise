@@ -282,6 +282,39 @@ public class MaterialGridTests : IDisposable
         Assert.Equal(new[] { "M-3", "M-2", "M-1" }, desc.Items.Select(i => i.Code));
     }
 
+    // ── "Excel'e Aktar" (kullanıcı isteği 2026-07-19): filtrelenmiş TÜM sonuçlar, sayfalama sınırı YOK ──
+
+    [Fact]
+    public void SearchGridAll_SayfalamaSinirinAsar_TumFiltrelenmisSonuclariDoner()
+    {
+        var a = Admin("A");
+        for (int i = 0; i < 650; i++)   // 500'lük SearchGrid sayfa sınırını aşan hacim
+            _materials.Create(a, new NewMaterial($"FLT-{i:D3}", $"Filtre {i:D3}"));
+        _materials.Create(a, new NewMaterial("OTH-1", "Diğer"));   // filtreye uymayan
+
+        var all = _materials.SearchGridAll(a, new MaterialGridFilter(Code: "FLT"));
+
+        Assert.Equal(650, all.Count);
+        Assert.All(all, m => Assert.StartsWith("FLT", m.Code));
+    }
+
+    [Fact]
+    public void ToTableModel_KolonSirasiKatalogaGoreDogru()
+    {
+        var a = Admin("A");
+        _materials.Create(a, new NewMaterial("M-1", "Filtre", Type: "Yedek Parça", UnitPrice: 10m));
+        var rows = _materials.SearchGridAll(a, new MaterialGridFilter());
+
+        var table = MaterialService.ToTableModel(rows);
+
+        Assert.Equal(MaterialListColumns.All.Count, table.Headers.Count);
+        Assert.Equal("Kod", table.Headers[0]);
+        Assert.Equal("Ad", table.Headers[1]);
+        Assert.Single(table.Rows);
+        Assert.Equal("M-1", table.Rows[0][0]);
+        Assert.Equal("Filtre", table.Rows[0][1]);
+    }
+
     // ── Sayfalama ──
 
     [Fact]

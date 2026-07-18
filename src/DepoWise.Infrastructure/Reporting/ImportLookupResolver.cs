@@ -34,7 +34,9 @@ public sealed class ImportLookupResolver
     { _lookups = lookups; _s = s; }
 
     /// <summary>Eşleme anahtarı: boşluk kırpılır, büyük/küçük harf yok sayılır.</summary>
-    private static string Key(string name) => name.Trim().ToUpperInvariant();
+    // ADR-090: fazladan (2+) boşluk da normalize edilir (LookupService.Insert/Rename ile AYNI kural) —
+    // "Yağ  Filtresi" (çift boşluk) içe aktarımda "Yağ Filtresi" (tek boşluk) tanımıyla eşleşsin, ayrı tanım oluşmasın.
+    private static string Key(string name) => DepoWise.Infrastructure.Materials.LookupService.NormalizeSpaces(name).ToUpperInvariant();
 
     /// <summary>
     /// Ortak yol: önbellekten bul; yoksa <paramref name="create"/> ile OLUŞTUR ve önbelleğe ekle.

@@ -122,6 +122,10 @@
                     </MudSelect>
                     <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
+                    <MudTooltip Text="Aktif filtrelerle eşleşen TÜM araçları (yalnız bu sayfayı değil) Excel dosyası olarak indirir">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+                                   Disabled="@_exporting" OnClick="ExportExcel">Excel'e Aktar</MudButton>
+                    </MudTooltip>
                 </MudStack>
             </div>
 
@@ -430,9 +434,7 @@
     {
         _rows = null;
         var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
-        if (_sortColumn is not null) { qs.Add($"sort={_sortColumn}"); qs.Add($"desc={(_sortDesc ? "true" : "false")}"); }
-        foreach (var (k, v) in _filters)
-            if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{k}={Uri.EscapeDataString(v.Trim())}");
+        qs.AddRange(BuildFilterSortQs());
         var grid = await Api.GetGridAsync("/api/vehicles/grid?" + string.Join("&", qs));
         _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
         try
@@ -441,6 +443,33 @@
             foreach (var a in await Api.GetArrayAsync("/api/vehicles/alerts")) _alerts[Str(a, "vehicleId")] = Str(a, "text");
         }
         catch { }
+    }
+
+    /// <summary>Sıralama + kolon filtreleri — sayfalamasız (Load VE ExportExcel PAYLAŞIR).</summary>
+    private List<string> BuildFilterSortQs()
+    {
+        var qs = new List<string>();
+        if (_sortColumn is not null) { qs.Add($"sort={_sortColumn}"); qs.Add($"desc={(_sortDesc ? "true" : "false")}"); }
+        foreach (var (k, v) in _filters)
+            if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{k}={Uri.EscapeDataString(v.Trim())}");
+        return qs;
+    }
+
+    private bool _exporting;
+    /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları indirir.</summary>
+    private async Task ExportExcel()
+    {
+        if (_exporting) return;
+        _exporting = true;
+        try
+        {
+            var qs = string.Join("&", BuildFilterSortQs());
+            var (bytes, fileName) = await Api.GetFileAsync("/api/vehicles/grid/export" + (qs.Length > 0 ? "?" + qs : ""), "Araclar.xlsx");
+            if (bytes is not null)
+                await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        finally { _exporting = false; }
     }
 
     private async Task ReloadTypes(string _) => _types = await Api.OptionsAsync("/api/lookups/vehicle_types", "id", "name");

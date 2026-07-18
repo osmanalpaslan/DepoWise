@@ -149,6 +149,34 @@ public class VehicleGridTests : IDisposable
         Assert.Equal(new[] { "V-1", "V-2" }, res.Items.Select(i => i.InternalCode).OrderBy(x => x));
     }
 
+    // ── "Excel'e Aktar" (kullanıcı isteği 2026-07-19) ──
+    [Fact]
+    public void SearchGridAll_TumFiltrelenmisSonuclariDoner()
+    {
+        var a = Admin("A");
+        for (int i = 0; i < 600; i++) _vehicles.Create(a, new NewVehicle($"KM-{i:D3}"));
+        _vehicles.Create(a, new NewVehicle("OTH-1"));
+
+        var all = _vehicles.SearchGridAll(a, new VehicleGridFilter(InternalCode: "KM"));
+
+        Assert.Equal(600, all.Count);
+    }
+
+    [Fact]
+    public void ToTableModel_KolonSirasiKatalogaGoreDogru()
+    {
+        var a = Admin("A");
+        _vehicles.Create(a, new NewVehicle("KM-001", "34 AAA 11"));
+        var rows = _vehicles.SearchGridAll(a, new VehicleGridFilter());
+
+        var table = VehicleService.ToTableModel(rows);
+
+        Assert.Equal(DepoWise.Application.Ui.VehicleListColumns.All.Count, table.Headers.Count);
+        Assert.Equal("İç Kod", table.Headers[0]);
+        Assert.Single(table.Rows);
+        Assert.Equal("KM-001", table.Rows[0][0]);
+    }
+
     [Fact]
     public void Sayfalama_ToplamVeSayfaSayisiDogru()
     {

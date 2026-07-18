@@ -100,10 +100,14 @@ public sealed partial class ShellViewModel : ViewModelBase
             // Tanım çekme + iş verisini gönder (web görünürlüğü) + DİĞER makinelerin verisini geri çek (çok makineli görünürlük).
             await BusinessSyncPushService.PushAsync();
             await BusinessSyncPullService.PullAsync();
+            // Kullanıcı bulgusu 2026-07-19: push sessizce başarısız olabiliyordu (büyük veri → zaman aşımı) ve
+            // "eşitleme tamamlandı" yanıltıcı görünüyordu. LastPushFailed artık bunu da yansıtır.
+            var allOk = ok && !BusinessSyncPushService.LastPushFailed;
             await ConfirmService.AskAsync(
-                ok ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
+                allOk ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
+                BusinessSyncPushService.LastPushFailed ? "Veri gönderimi başarısız oldu (sunucuya ulaşılamadı ya da zaman aşımı). İnternet bağlantısını kontrol edip tekrar deneyin." :
                      "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
-                "Eşitle", "Tamam", "Tamam", danger: !ok);
+                "Eşitle", "Tamam", "Tamam", danger: !allOk);
         }
         finally { IsSyncing = false; SyncProgress = 0; }
     }

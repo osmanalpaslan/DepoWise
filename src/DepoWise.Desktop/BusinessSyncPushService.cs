@@ -16,10 +16,19 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class BusinessSyncPushService
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // ⚠️ 30sn'den 120sn'e çıkarıldı (kullanıcı bulgusu 2026-07-19): babanın ~2600 satırlık dosyası içeri
+    // alındıktan sonra snapshot büyüdü; eski 30sn sınırı büyük firmalarda push'u SESSİZCE zaman aşımına
+    // uğratıyordu (catch{} hatayı yutuyordu) → veri hiç sunucuya ulaşmıyordu (görünürde "eşitlenmiyor").
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(120) };
 
     /// <summary>Saklı JWT (ServerAuthClient.Token) ile firmanın iş snapshot'ını sunucuya gönderir. Hata → sessiz.
-    /// Giriş, "Eşitle" butonu ve periyodik döngü buradan çağırır (çevrimdışıysa token yoktur → atlar).</summary>
+    /// Giriş, "Eşitle" butonu ve periyodik döngü buradan çağırır (çevrimdışıysa token yoktur → atlar).
+    ///
+    /// ⚠️ PERFORMANS (kullanıcı bulgusu 2026-07-19 — "menüler arasında geçişte donma"): <c>BuildSnapshot</c>
+    /// SENKRON çalışır (binlerce satırı okuyan ADO.NET döngüsü). Periyodik zamanlayıcı (ShellViewModel
+    /// _connTimer.Tick) ve "Eşitle" butonu bu metodu ARAYÜZ İŞ PARÇACIĞININ devamı olarak çağırıyordu →
+    /// büyük firmada (binlerce kayıt) bu senkron iş arayüzü DONDURUYORDU. <see cref="Task.Run"/> ile arka
+    /// plana alındı — kim çağırırsa çağırsın arayüz artık bloklanmaz.</summary>
     public static async Task PushAsync()
     {
         var url = ResolveServerUrl();
@@ -32,8 +41,9 @@ public static class BusinessSyncPushService
         try
         {
             var baseUrl = url!.TrimEnd('/');
-            // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder
-            var snapshot = new BusinessSyncService(DesktopServices.Factory).BuildSnapshot(companyId!, Environment.MachineName);
+            // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder — ARKA PLANDA (arayüzü bloklamasın).
+            var machineName = Environment.MachineName;
+            var snapshot = await Task.Run(() => new BusinessSyncService(DesktopServices.Factory).BuildSnapshot(companyId!, machineName));
             using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
             {
                 Content = new StringContent(snapshot, Encoding.UTF8, "application/json"),
@@ -43,9 +53,14 @@ public static class BusinessSyncPushService
             // 401 → token beklenmedik şekilde geçersiz; bir kez yenilemeyi dene (yine olmazsa SessionExpired sinyali).
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 await ServerAuthClient.EnsureFreshTokenAsync();
+            LastPushFailed = !resp.IsSuccessStatusCode;
         }
-        catch { /* sessiz — sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
+        catch { LastPushFailed = true; /* sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
     }
+
+    /// <summary>Son push denemesi başarısız mı oldu (zaman aşımı/ağ/sunucu hatası) — üst bar/tanı için.
+    /// Kullanıcıya "eşitleniyor" sanılan sessiz başarısızlığı görünür kılmak amacıyla eklendi (2026-07-19).</summary>
+    public static bool LastPushFailed { get; private set; }
 
     /// <summary>Personelin görmediği açık çakışmaları çeker (şube kapsamında). Gösterildikten sonra
     /// <see cref="MarkSeenAsync"/> çağrılmalı. Çevrimdışıysa boş liste.</summary>

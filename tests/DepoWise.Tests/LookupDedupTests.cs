@@ -1,3 +1,4 @@
+using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -88,6 +89,51 @@ public class LookupDedupTests : IDisposable
         Assert.Throws<ArgumentException>(() => lk.Rename(s, "units", id, new string('A', 51)));
         lk.Rename(s, "units", id, "Kilogram");        // geçerli
         Assert.Contains(lk.List(s, "units"), x => x.Name == "Kilogram");
+    }
+
+    // ── Fazladan boşluk normalize (kullanıcı isteği 2026-07-19, ADR-090) ──
+    [Fact]
+    public void YeniTanim_ArdisikBosluklar_TekBoslugaIner()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddCategory(s, "Yağ   Filtreleri");   // 3 boşluk
+        Assert.Equal("Yağ Filtreleri", lk.ListCategories(s, null).First(x => x.Id == id).Name);
+    }
+
+    [Fact]
+    public void Rename_ArdisikBosluklar_TekBoslugaIner()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddUnit(s, "Adet");
+        lk.Rename(s, "units", id, "  Kilo   Gram  ");
+        Assert.Equal("Kilo Gram", lk.List(s, "units").First(x => x.Id == id).Name);
+    }
+
+    /// <summary>Migration050: geçmişte fazladan boşlukla girilmiş tanımları bir kez düzeltir.</summary>
+    [Fact]
+    public void Migration050_MevcutFazlaBosluklu_Duzeltir()
+    {
+        var lk = new LookupService(_factory, _clock);
+        var s = Su();
+        var id = lk.AddCategory(s, "Filtreler");
+        using (var conn = _factory.Create())
+        using (var raw = conn.CreateCommand())
+        {
+            raw.CommandText = "UPDATE material_categories SET name='Yağ    Filtreleri' WHERE id=$id;";
+            raw.Parameters.AddWithValue("$id", id);
+            raw.ExecuteNonQuery();
+        }
+
+        using (var conn = _factory.Create())
+        using (var tx = conn.BeginTransaction())
+        {
+            new DepoWise.Infrastructure.Database.Migrations.Migration050_NormalizeLookupSpaces().Up(conn, tx);
+            tx.Commit();
+        }
+
+        Assert.Equal("Yağ Filtreleri", lk.ListCategories(s, null).First(x => x.Id == id).Name);
     }
 
     public void Dispose()

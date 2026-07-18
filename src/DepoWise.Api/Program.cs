@@ -756,6 +756,21 @@ app.MapGet("/api/materials/grid", (HttpContext c,
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
     });
 }).RequireAuthorization();
+// Malzeme Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF FİLTRELERLE eşleşen TÜM sonuçları
+// (sayfalama sınırı olmadan) .xlsx olarak indirir. Aynı filtre/sıralama parametrelerini kullanır.
+app.MapGet("/api/materials/grid/export", (HttpContext c,
+    string? code, string? name, string? type, string? category, string? unit, string? brand, string? supplier,
+    string? unitPrice, string? currency, string? minStock, string? stock, string? status, string? description,
+    string? compatibleVehicles, string? equivalents, string? sort, bool? desc) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
+        code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
+        description, compatibleVehicles, equivalents);
+    var rows = svc.Materials.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Materials.MaterialService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Malzemeler.xlsx");
+}).RequireAuthorization();
 app.MapGet("/api/materials/{id}", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Materials.GetDetail(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =>
 {
@@ -844,6 +859,20 @@ app.MapGet("/api/vehicles/grid", (HttpContext c,
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
     });
+}).RequireAuthorization();
+// Araç Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19) — bkz. materials/grid/export (aynı desen).
+app.MapGet("/api/vehicles/grid/export", (HttpContext c,
+    string? internalCode, string? plate, string? productionYear, string? meter, string? status, string? statusNote,
+    string? vehicleType, string? category, string? brand, string? model, string? branch, string? driver,
+    string? chassisNo, string? engineNo, string? sort, bool? desc) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var filter = new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(
+        internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
+        branch, driver, chassisNo, engineNo);
+    var rows = svc.Vehicles.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+    var bytes = svc.Excel.Export(DepoWise.Infrastructure.Vehicles.VehicleService.ToTableModel(rows));
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Araclar.xlsx");
 }).RequireAuthorization();
 // Araç seçici (uyumlu araçlar vb. çoklu seçim için): id + görünen ad (iç kod - plaka).
 app.MapGet("/api/vehicles/options", (HttpContext c) =>

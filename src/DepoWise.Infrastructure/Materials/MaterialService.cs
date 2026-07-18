@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Application.Ui;
@@ -491,6 +492,38 @@ WHERE m.company_id = $c AND m.is_deleted = 0";
                     r.GetString(15), r.GetString(16), r.GetString(17), r.GetString(18)));
         }
         return new GridResult<MaterialGridRow>(items, total, page, pageSize);
+    }
+
+    /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu
+    /// için (kullanıcı isteği 2026-07-19: sayfadaki değil, filtrelenmiş TÜM sonuç kümesi indirilmeli).
+    /// SearchGrid'i 500'lük sayfalarla iç döngüde gezer (o metodun 500 sınırı BOZULMAZ).</summary>
+    public IReadOnlyList<MaterialGridRow> SearchGridAll(SessionContext s, MaterialGridFilter filter, string? sortColumn = null, bool sortDesc = false)
+    {
+        var all = new List<MaterialGridRow>();
+        int page = 1;
+        while (true)
+        {
+            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc);
+            all.AddRange(res.Items);
+            if (page >= res.TotalPages || res.Items.Count == 0) break;
+            page++;
+        }
+        return all;
+    }
+
+    /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="MaterialListColumns.All"/>
+    /// ile AYNIDIR. Görünür kolon seçimi (kişiye özel) buraya YANSITILMAZ — dışa aktarım DAİMA tam alan seti
+    /// verir (kullanıcının o an ekranda gizlediği bir kolon export'ta eksik kalmasın).</summary>
+    public static Application.Reports.TableModel ToTableModel(IReadOnlyList<MaterialGridRow> rows)
+    {
+        var headers = MaterialListColumns.All.Select(c => c.Label).ToList();
+        var body = rows.Select(r => (IReadOnlyList<object?>)new object?[]
+        {
+            r.Code, r.Name, r.Type, r.Category, r.Unit, r.Brand, r.Supplier,
+            r.UnitPrice, r.Currency, r.MinStock, r.Stock, r.Status, r.Description,
+            r.CompatibleVehicles, r.Equivalents,
+        }).ToList();
+        return new Application.Reports.TableModel("Malzemeler", headers, body);
     }
 
     private static bool CodeExists(SqliteConnection conn, SqliteTransaction? tx, string companyId, string code, string? excludeId)

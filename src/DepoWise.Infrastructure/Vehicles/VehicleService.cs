@@ -1,3 +1,4 @@
+using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -292,6 +293,35 @@ WHERE v.company_id = $c AND v.is_deleted = 0";
                     r.GetString(15), r.GetString(16), r.GetString(17)));
         }
         return new GridResult<VehicleGridRow>(items, total, page, pageSize);
+    }
+
+    /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu
+    /// için (bkz. MaterialService.SearchGridAll — aynı desen). SearchGrid'i 500'lük sayfalarla gezer.</summary>
+    public IReadOnlyList<VehicleGridRow> SearchGridAll(SessionContext s, VehicleGridFilter filter, string? sortColumn = null, bool sortDesc = false)
+    {
+        var all = new System.Collections.Generic.List<VehicleGridRow>();
+        int page = 1;
+        while (true)
+        {
+            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc);
+            all.AddRange(res.Items);
+            if (page >= res.TotalPages || res.Items.Count == 0) break;
+            page++;
+        }
+        return all;
+    }
+
+    /// <summary>Grid satırlarını Excel tablosuna çevirir — kolon sırası <see cref="VL"/>.All ile AYNIDIR
+    /// (bkz. MaterialService.ToTableModel — aynı desen). Sayaç "değer birim" olarak tek metne birleşir.</summary>
+    public static Application.Reports.TableModel ToTableModel(System.Collections.Generic.IReadOnlyList<VehicleGridRow> rows)
+    {
+        var headers = VL.All.Select(c => c.Label).ToList();
+        var body = rows.Select(r => (System.Collections.Generic.IReadOnlyList<object?>)new object?[]
+        {
+            r.InternalCode, r.Plate, r.ProductionYear, $"{r.Meter} {r.MeterUnit}".Trim(), r.StatusLabel, r.StatusNote,
+            r.VehicleType, r.Category, r.Brand, r.Model, r.Branch, r.Driver, r.ChassisNo, r.EngineNo,
+        }).ToList();
+        return new Application.Reports.TableModel("Araçlar", headers, body);
     }
 
     /// <summary>Tek araç detayı (salt okuma) — düzenleme formu için.</summary>

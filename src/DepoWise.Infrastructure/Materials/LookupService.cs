@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -148,11 +149,16 @@ ORDER BY name;";
         return list;
     }
 
+    /// <summary>Baş/son boşluk kırpılır + İÇERDEKİ ardışık 2+ boşluk TEK boşluğa indirilir (kullanıcı isteği
+    /// 2026-07-19: "2 adet boşluktan fazla olan boşlukları 1 adet boşluk varmış gibi güncelle" — kopyala-yapıştır
+    /// kaynaklı fazladan boşluk satırları gereksiz uzatıyordu). Sekme/satır sonu da boşluk sayılır.</summary>
+    internal static string NormalizeSpaces(string s) => Regex.Replace(s.Trim(), @"\s+", " ");
+
     private string Insert(SessionContext s, string table, string name, params (string Col, object Val)[] extra)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         EnsureKnownTable(table);
-        name = (name ?? "").Trim();
+        name = NormalizeSpaces(name ?? "");
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Ad boş olamaz.");
         if (name.Length > MaxNameLength) throw new ArgumentException($"Tanım adı en fazla {MaxNameLength} karakter olabilir.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -209,7 +215,7 @@ ORDER BY name;";
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         EnsureKnownTable(table);
-        newName = (newName ?? "").Trim();
+        newName = NormalizeSpaces(newName ?? "");
         if (string.IsNullOrEmpty(newName)) throw new ArgumentException("Ad boş olamaz.");
         if (newName.Length > MaxNameLength) throw new ArgumentException($"Tanım adı en fazla {MaxNameLength} karakter olabilir.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
