@@ -58,7 +58,8 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
   yazınca yalnız onu).
 - **Test:** 9 yeni (`DailyActivityGridTests`) — tip/araç/rota/personel/açıklama filtresi · varsayılan tarih
   sırası · başlığa tıklayınca araca göre sıralama · SearchGridAll tüm sayfaları dolaşır · Excel tablo modeli ·
-  tenant izolasyonu. 553/553.
+  tenant izolasyonu. 553/553. **Canlıya alındı:** API+Web deploy, masaüstü **1.0.72** yayınlandı (sunucuda
+  "en güncel" doğrulandı).
 - **⚠️ Doğrulama sınırı:** Web tarayıcı otomasyonuyla giriş gerektirdiği için (kimlik girişi yasak) uçtan uca
   test edilemedi; masaüstü Avalonia bu ortamda çalıştırılamıyor. Backend tam test edildi (553/553); UI
   yalnız temiz derleme ile güvence alındı.
