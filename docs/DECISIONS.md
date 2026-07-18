@@ -12,6 +12,36 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-095 — Opus 4.8 gözden geçirme: ADR-090…094 denetimi + sabit-tanım yarış düzeltmesi (19.07.2026, TAMAM)
+
+- **Bağlam:** Kullanıcı: "buraya kadar farkında olmadan sonnet 5 ile yapmışız... opus 4.8 e aldım, proje
+  bittikten sonra analiz et ve düzeltilmesi gereken şeyler var ise düzelt." → bu oturumdaki tüm iş (ADR-090…094)
+  Opus 4.8 ile satır satır yeniden denetlendi (tenant/permission/senkron/idempotency/web-masaüstü ayna).
+- **Denetim sonucu (TEMİZ bulunanlar):**
+  - **ADR-090 (senkron):** `Task.Run` + 120sn zaman aşımı + görünür hata doğru; devam UI thread'inde çözülür,
+    `LastPushFailed` yarışsız. Sorun yok.
+  - **ADR-091 servis başlatma sırası:** `DesktopServices` ve `ServerServices` ikisinde de Maintenance/
+    MaintenanceDefs → DailyActivity sırası doğru düzeltilmiş. Sorun yok.
+  - **ADR-092 kilit + Migration051:** `is_locked` iş-senkronundaki 8 lookup tablosuna eklendi; `BusinessSync.
+    UpsertRow` JSON∩yerel-kolon KESİŞİMİ aldığından ESKİ istemci yeni kolonu sessizce yok sayar, YENİ istemci
+    varsayılan 0 alır — çift yönlü senkron güvenli. Kilit LWW ile makineler arası doğru yayılır. Tenant/izin
+    doğru (SetLocked yalnız admin; RequireNotLocked firma-kapsamlı). Sorun yok.
+  - **ADR-094 Günlük Faaliyet grid:** SearchGrid SQL parametreli/injection-güvenli, tarih sıralaması
+    (`date_raw`), operatör param eşlemesi (`operator`→`operatorText`), web/masaüstü kolon aynası tutarlı;
+    kaldırılan eski filtre state'ine sarkan referans YOK. Sorun yok. (Küçük kozmetik: "Süre" kolonu metinsel
+    sıralanır — sayısal değil; nadir kullanıldığından reader-index riskini almamak için DEĞİŞTİRİLMEDİ.)
+- **DÜZELTİLEN (1 gerçek, düşük öncelikli bulgu):** `EnsureExtraDefinition` (ADR-091) "önce SELECT, yoksa
+  Create" ADIMLARI ATOMİK DEĞİLDİ ve `MaintenanceDefinitionService.Create` tekilleştirmez → AYNI firmada AYNI
+  türün İLK kaydını iki kullanıcı SUNUCUDA eşzamanlı girerse İKİ görünmez sabit tanım oluşabilirdi (masaüstü
+  tek-kullanıcı → etkilenmez; stok/ledger bozulmaz — yalnız çift gizli tanım). **Çözüm:** tek
+  `INSERT ... SELECT ... WHERE NOT EXISTS` (SQLite yazarları seri hale getirir → yarışsız). İzin zaten
+  `_maintenance.Save` (maintenance/Create) ile korunduğundan bypass güvenli. Test: 1 yeni (539→554 arası,
+  `SaveExtraActivity_AyniAdliTanimVarsa_YenidenKullanir_CiftOlusmaz`). 554/554.
+- **Yayın:** API redeploy (sunucu yarışı bu düzeltmeden faydalanır). Masaüstü YENİDEN YAYINLANMADI — yarıştan
+  etkilenmiyor (tek-kullanıcı); düzeltme bir sonraki masaüstü işiyle (çift-tık pencere) birlikte paketlenecek.
+
+---
+
 ### ADR-093 — Form kutuları odaklanmadan da görünür + Semi Modern arama kutusu (19.07.2026, TAMAM)
 
 - **Bağlam:** Kullanıcı: "Yeni formlarında bulunan kutuların üstüne tıklama yapılmadığında da görünür

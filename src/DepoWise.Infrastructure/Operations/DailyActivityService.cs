@@ -163,20 +163,51 @@ public sealed class DailyActivityService
     }
 
     /// <summary>Bu firma için o türün SABİT tanımını bulur, yoksa oluşturur (idempotent, harf duyarsız).
-    /// Kullanıcı bu tanımı hiç görmez/seçmez — arayüzde "Bakım Tanımı" alanı bu türlerde gösterilmez.</summary>
+    /// Kullanıcı bu tanımı hiç görmez/seçmez — arayüzde "Bakım Tanımı" alanı bu türlerde gösterilmez.
+    ///
+    /// ⚠️ ATOMİK yoksa-oluştur (Opus incelemesi 2026-07-19): eskiden "önce SELECT, yoksa Create" ayrı adımdı;
+    /// AYNI firmada AYNI türün İLK kaydını iki kullanıcı sunucuda eşzamanlı girerse ikisi de "yok" görüp İKİ
+    /// sabit tanım oluşturabiliyordu (masaüstü tek-kullanıcı olduğundan etkilenmez; sunucu çok-istekli).
+    /// Çözüm: TEK <c>INSERT ... SELECT ... WHERE NOT EXISTS</c> ifadesi — SQLite yazarları seri hale getirir
+    /// (busy_timeout), ikinci istek NOT EXISTS'i yeniden değerlendirip 0 satır ekler. Yetki: bu metot yalnız
+    /// <see cref="SaveExtraActivity"/>'den çağrılır; orada daily/Create + <c>_maintenance.Save</c> maintenance/Create
+    /// zaten zorlanır — bu yüzden burada ayrı bir izin kontrolü gerekmez (ledger/stok yolu Save'de korunur).</summary>
     private string EnsureExtraDefinition(SessionContext s, string extraType)
     {
         var name = ExtraActivityTypes.DefinitionNames[extraType];
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var newId = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var ins = conn.CreateCommand())
+        {
+            ins.Transaction = tx;
+            // interval_value '0' + interval_unit 'km' → AlertRules.Progress(interval<=0)=0 → asla vade uyarısı.
+            ins.CommandText = @"
+INSERT INTO maintenance_definitions(id, company_id, parent_def_id, name, interval_value, interval_unit,
+    description, created_at, updated_at, version, is_deleted)
+SELECT $id, $c, NULL, $n, '0', 'km', NULL, $now, $now, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
+    WHERE company_id=$c AND name=$n COLLATE NOCASE AND parent_def_id IS NULL AND is_deleted=0);";
+            ins.Parameters.AddWithValue("$id", newId);
+            ins.Parameters.AddWithValue("$c", s.CompanyId);
+            ins.Parameters.AddWithValue("$n", name);
+            ins.Parameters.AddWithValue("$now", now);
+            if (ins.ExecuteNonQuery() > 0)
+                AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "maintenance_definition", newId, AuditActions.Create, s.UserId), _clock);
+        }
+        string? id;
         using (var find = conn.CreateCommand())
         {
+            find.Transaction = tx;
             find.CommandText = "SELECT id FROM maintenance_definitions WHERE company_id=$c AND name=$n COLLATE NOCASE " +
-                                "AND parent_def_id IS NULL AND is_deleted=0 LIMIT 1;";
+                                "AND parent_def_id IS NULL AND is_deleted=0 ORDER BY created_at LIMIT 1;";
             find.Parameters.AddWithValue("$c", s.CompanyId);
             find.Parameters.AddWithValue("$n", name);
-            if (find.ExecuteScalar() is string existingId) return existingId;
+            id = find.ExecuteScalar() as string;
         }
-        return _definitions!.Create(s, new NewMaintenanceDefinition(name, 0m, "km"));
+        tx.Commit();
+        return id ?? newId;
     }
 
     /// <summary>Hareket/transfer kaydı. Transfer → araç otomatik pasif (yalnız aktifse; ileri-yön).</summary>

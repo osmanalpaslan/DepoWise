@@ -119,6 +119,23 @@ public class DailyActivityExtraTests : IDisposable
             _daily.SaveExtraActivity(_admin, "not_a_real_type", new NewMaintenance(VehicleId: v, DefinitionId: ""), "op-x"));
     }
 
+    /// <summary>Atomik yoksa-oluştur (Opus incelemesi 2026-07-19): o türün adıyla ZATEN bir bakım tanımı
+    /// varsa (ör. kullanıcı elle "İlave Yağ" bakım tanımı açmışsa), SaveExtraActivity onu YENİDEN KULLANIR —
+    /// ikinci bir tanım OLUŞTURMAZ (WHERE NOT EXISTS eşleşir → 0 satır ekler → mevcut id döner).</summary>
+    [Fact]
+    public void SaveExtraActivity_AyniAdliTanimVarsa_YenidenKullanir_CiftOlusmaz()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KM-1", CurrentMeter: 100m));
+        var preId = _defs.Create(_admin, new NewMaintenanceDefinition("İlave Yağ", 5000m, "km"));   // elle açılmış
+
+        _daily.SaveExtraActivity(_admin, ExtraActivityTypes.ExtraOil,
+            new NewMaintenance(VehicleId: v, DefinitionId: "", PerformedKm: 105m), "op-1");
+
+        var oil = _defs.List(_admin).Where(d => d.Name == "İlave Yağ").ToList();
+        Assert.Single(oil);                    // ikinci "İlave Yağ" tanımı OLUŞMADI
+        Assert.Equal(preId, oil[0].Id);        // mevcut (elle açılan) tanım yeniden kullanıldı
+    }
+
     /// <summary>3 farklı tür 3 AYRI sabit tanım kullanır — birbirine karışmaz.</summary>
     [Fact]
     public void SaveExtraActivity_UcTurAyriTanimlar()
