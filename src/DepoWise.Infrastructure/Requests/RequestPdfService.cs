@@ -44,8 +44,9 @@ public sealed class RequestPdfService : IRequestPdfService
             // Başlık bandı (lacivert): logo + başlık + belge no/tarih
             root.Item().Background(Navy).Padding(12).Row(row =>
             {
+                // Logo daha büyük (kullanıcı isteği 2026-07-19): 110×48 → 170×72.
                 if (!string.IsNullOrWhiteSpace(m.LogoPath) && System.IO.File.Exists(m.LogoPath))
-                    row.ConstantItem(110).Height(48).AlignMiddle().Image(m.LogoPath).FitHeight();
+                    row.ConstantItem(170).Height(72).AlignMiddle().Image(m.LogoPath).FitHeight();
 
                 row.RelativeItem().AlignMiddle().PaddingLeft(14)
                    .Text("MALZEME TALEP FORMU").FontColor(Colors.White).FontSize(16).Bold();
@@ -144,7 +145,11 @@ public sealed class RequestPdfService : IRequestPdfService
         {
             root.Item().Row(row =>
             {
-                row.RelativeItem().Column(c =>
+                // Ekonomik PDF'e de logo (kullanıcı isteği 2026-07-19) — sade düzende de firma logosu görünsün.
+                if (!string.IsNullOrWhiteSpace(m.LogoPath) && System.IO.File.Exists(m.LogoPath))
+                    row.ConstantItem(130).Height(60).AlignMiddle().PaddingRight(12).Image(m.LogoPath).FitHeight();
+
+                row.RelativeItem().AlignMiddle().Column(c =>
                 {
                     c.Item().Text("MALZEME TALEP FORMU").FontSize(19).Bold();
                     c.Item().Text(t => { t.Span("Şantiye: "); t.Span(m.BranchName ?? "-").Bold(); });
