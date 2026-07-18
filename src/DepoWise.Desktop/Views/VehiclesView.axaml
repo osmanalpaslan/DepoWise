@@ -337,7 +337,9 @@
                             <SelectableTextBlock Grid.Column="14" Text="BAKIM/MUAYENE" MinWidth="120"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                    <!-- Tek tık = detay paneli (SelectedItem). Çift tık = ayrı Düzelt/Kaydet/Sil penceresi. -->
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                             DoubleTapped="OnRowDoubleTapped">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:VehicleRow">
                                 <Grid>

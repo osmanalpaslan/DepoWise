@@ -580,6 +580,20 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }
 
+    /// <summary>Çift tık: ayrı pencerede Düzelt/Kaydet/Sil (kullanıcı isteği 2026-07-19). Tek tık mevcut detay
+    /// panelini açar (korunur). Kaydedilir/silinirse liste yenilenir.</summary>
+    [RelayCommand]
+    private async Task QuickEditSelected()
+    {
+        if (Selected is null) return;
+        var res = await QuickEditService.ShowVehicleAsync(_session, Selected.Id);
+        if (res is "saved" or "deleted")
+        {
+            if (res == "deleted") Selected = null;
+            Load();
+        }
+    }
+
     // ── Araç detay sekmeleri (webteki gibi): Uyumlu Malzemeler / Muayene-Sigorta / Bakım / Hareketler ──
     public ObservableCollection<MaterialStock> VehicleMaterials { get; } = new();
     public ObservableCollection<InspectionRow> VehicleInspections { get; } = new();

@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DepoWise.Desktop.Views.MaterialQuickEditWindow"
+        Width="560" SizeToContent="Height" MaxHeight="720" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Title="DepoWise — Malzeme" Icon="/Assets/app-logo.ico"
+        Background="{DynamicResource SurfaceBrush}">
+    <!-- Çift-tık ile açılan hızlı düzenle penceresi (kullanıcı isteği 2026-07-19). "Düzelt"e basılana kadar
+         alanlar KİLİTLİ (IsEnabled=false); basınca düzenlenir. Kod-arkası (DataContext bağlaması YOK) —
+         ColumnPickerWindow ile aynı düşük-riskli desen. -->
+    <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
+        <StackPanel Margin="22" Spacing="10">
+            <SelectableTextBlock x:Name="TitleText" Text="Malzeme" Classes="PageTitle"/>
+
+            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" >
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Kod" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <TextBox   Grid.Row="0" Grid.Column="1" x:Name="CodeBox" Classes="Field" Margin="0,4,14,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="Ad" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <TextBox   Grid.Row="0" Grid.Column="3" x:Name="NameBox" Classes="Field" Margin="0,4,0,4"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Tür" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <ComboBox  Grid.Row="1" Grid.Column="1" x:Name="TypeBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="Kategori" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <ComboBox  Grid.Row="1" Grid.Column="3" x:Name="CatBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,0,4"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Birim" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <ComboBox  Grid.Row="2" Grid.Column="1" x:Name="UnitBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="Marka" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <ComboBox  Grid.Row="2" Grid.Column="3" x:Name="BrandBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,0,4"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Tedarikçi" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <ComboBox  Grid.Row="3" Grid.Column="1" x:Name="SupBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="Mevcut Stok" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <SelectableTextBlock Grid.Row="3" Grid.Column="3" x:Name="StockText" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,6,0,6"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Min Stok" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="MinBox" Classes="Field" Minimum="0" FormatString="0.##" Margin="0,4,14,4"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="Birim Fiyat" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
+                <NumericUpDown Grid.Row="4" Grid.Column="3" x:Name="PriceBox" Classes="Field" Minimum="0" FormatString="0.##" Margin="0,4,0,4"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Açıklama" Classes="Body" VerticalAlignment="Top" Margin="0,8,10,6"/>
+                <TextBox   Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" x:Name="DescBox" Classes="Field" AcceptsReturn="True" MinHeight="56" TextWrapping="Wrap" Margin="0,4,0,4"/>
+            </Grid>
+
+            <SelectableTextBlock x:Name="StatusText" Classes="Body" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" IsVisible="False"/>
+            <SelectableTextBlock x:Name="HintText" Classes="Helper" TextWrapping="Wrap" IsVisible="False"
+                Text="Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — tam düzenleme için liste ekranındaki “Düzenle”yi kullanın."/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                <Button x:Name="CancelBtn" Classes="Secondary" Content="Kapat" IsCancel="True"/>
+                <Button x:Name="DeleteBtn" Classes="Danger" Content="Sil"/>
+                <Button x:Name="EditBtn" Classes="Secondary" Content="Düzelt"/>
+                <Button x:Name="SaveBtn" Classes="Primary" Content="Kaydet" IsVisible="False"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

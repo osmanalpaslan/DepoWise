@@ -368,7 +368,9 @@
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=equivalents}"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                    <!-- Tek tık = detay paneli (SelectedItem). Çift tık = ayrı Düzelt/Kaydet/Sil penceresi. -->
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                             DoubleTapped="OnRowDoubleTapped">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:MaterialRow">
                                 <Grid>
