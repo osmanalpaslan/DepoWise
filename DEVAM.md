@@ -31,7 +31,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **051** (tanım kilidi/sabit tanım — ADR-092) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 (ADR-095 atomik düzeltme dahil) |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.75 yayında** — 🔴 eşitleme kök neden düzeltmesi (içe aktarım hemen push + kullanıcı görünürlüğü, ADR-097) |
+| **Masaüstü** | **1.0.76 yayında** — 🔴 eşitleme tam otomatik (içe aktarım/kapanış/çıkışta push + kullanıcı görünürlüğü, ADR-097) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **12 maddelik liste TAMAM** — kalan yalnız kullanıcı doğrulaması (görsel/canlı test) |
 
