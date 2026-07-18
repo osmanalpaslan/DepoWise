@@ -6,7 +6,26 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-17**
+> Son güncelleme: **2026-07-18**
+
+---
+
+## ⏳ Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (2026-07-18, ADR-088) — KOD+TEST TAMAM, DEPLOY BEKLİYOR
+
+Test **509/509** (11 yeni). Kullanıcı ADR-087'nin filtresini denerken fark etti: "stokta sadece 5 olanları
+listelemek istiyorum ama bütün içinde 5 olan malzemeler listeleniyor."
+
+- Malzemede Birim Fiyat/Min Stok/Stok, Araçta Üretim Yılı/Sayaç artık **sayısal** filtre: `5` TAM eşleşir
+  (içermez), `>5`/`<5`/`>=5`/`<=5` karşılaştırma, `5-10` aralık (negatif sınır destekli).
+- Tanınmayan söz dizimi eski "içerir" davranışına düşer — filtre kutusu asla sessizce boş kalmaz.
+- Metin kolonları (Kod/Ad/Marka…) DEĞİŞMEDİ. UI'da söz dizimi ipucu eklendi.
+- Detay: `docs/DECISIONS.md` ADR-088.
+- **Kalan:** API+Web deploy, masaüstü yeni sürüm yayını, tarayıcıda görsel doğrulama (bu oturumda giriş formu
+  otomasyonu güvenlik kısıtı nedeniyle yapılamadı — bkz. not).
+- **Not:** Bu iş için tarayıcı üzerinden canlı doğrulama YAPILAMADI — kimlik bilgilerini otomatik forma
+  girmek güvenlik politikası tarafından engellendi (parola girişi otomasyonu yasak). Doğrulama tamamen
+  **509/509 birim testiyle** yapıldı (SearchGrid'e karşı gerçek SQL sorguları). Kullanıcı canlıda kendi
+  girişiyle görsel kontrol etmek isterse önerilir.
 
 ---
 

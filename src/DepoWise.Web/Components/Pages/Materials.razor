@@ -144,9 +144,12 @@
                 @foreach (var key in _visibleColumns)
                 {
                     <MudItem xs="6" sm="4" md="3" lg="2">
-                        <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
-                                      Label="@Label(key)" Placeholder="içerir…" Immediate="false" OnKeyUp="OnFilterKey"
-                                      Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
+                        <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
+                            <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
+                                          Label="@Label(key)" Placeholder="@(IsNumeric(key) ? "5, >5, 5-10…" : "içerir…")"
+                                          Immediate="false" OnKeyUp="OnFilterKey"
+                                          Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
+                        </MudTooltip>
                     </MudItem>
                 }
             </MudGrid>
@@ -270,6 +273,7 @@
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
     private void SetFilter(string key, string v) => _filters[key] = v ?? "";
     private static string Label(string key) => MaterialListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+    private static bool IsNumeric(string key) => MaterialListColumns.All.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
 
     private async Task ApplyFilters() { _page = 1; await Load(); }
     private async Task ClearFilters() { _filters.Clear(); _page = 1; await Load(); }

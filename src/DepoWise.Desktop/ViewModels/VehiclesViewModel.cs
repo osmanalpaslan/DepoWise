@@ -68,8 +68,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         FilterFields.Clear();
         foreach (var key in VisibleColumns)
         {
-            var label = VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
-            FilterFields.Add(new ColumnFilterItem(key, label) { Value = old.TryGetValue(key, out var v) ? v : "" });
+            var col = VehicleListColumns.All.FirstOrDefault(c => c.Key == key);
+            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false)
+            { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
     }
 

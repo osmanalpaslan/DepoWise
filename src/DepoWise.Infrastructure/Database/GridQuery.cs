@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 
 namespace DepoWise.Infrastructure.Database;
@@ -22,11 +24,28 @@ public sealed record GridResult<T>(IReadOnlyList<T> Items, int TotalCount, int P
 /// durum metni, uyumlu araç listesi gibi) SQL WHERE'de SELECT takma adıyla doğrudan kullanılamaz (standart
 /// SQL değerlendirme sırası) — sarma sorgusu, ham VE hesaplanan her kolonu AYNI filtre/sıralama mantığıyla
 /// ele almayı sağlar.
+///
+/// SAYISAL kolonlar (kullanıcı isteği 2026-07-18: "stokta sadece 5 olanları listelemek istiyorum ama
+/// bütün içinde 5 olan malzemeler listeleniyor"): "içerir" araması "5" için 15/25/50/0.5'i de yakalıyordu.
+/// <see cref="ColumnKind.Numeric"/> işaretli kolonlar önce tam-sayı/karşılaştırma/aralık söz dizimi
+/// dener (bkz. <see cref="TryParseNumeric"/>); tanınmazsa (kullanıcı sayısal olmayan bir şey yazdıysa)
+/// eski "içerir" davranışına DÜŞER — filtre kutusu asla sessizce hiçbir şey yapmaz.
 /// </summary>
 public static class GridQuery
 {
-    /// <summary>Bir kolon için (SQL takma adı, kullanıcının yazdığı filtre metni ya da null/boş).</summary>
-    public readonly record struct ColumnFilter(string Alias, string? Value);
+    public enum ColumnKind { Text, Numeric }
+
+    /// <summary>Bir kolon için: SQL takma adı (metin/"içerir" araması ve tanınmayan sayısal girişte kullanılır),
+    /// kullanıcının yazdığı filtre metni, kolon türü, ve SAYISAL kolonlarda karşılaştırma için ham (CAST edilebilir)
+    /// takma ad (verilmezse Alias kullanılır).</summary>
+    public readonly record struct ColumnFilter(string Alias, string? Value, ColumnKind Kind = ColumnKind.Text, string? RawAlias = null);
+
+    // "5" (tam sayı) · ">5" / "<5" / ">=5" / "<=5" (karşılaştırma) · "5-10" (aralık, negatif sınır destekli: "-9--5").
+    private static readonly Regex CompareRe = new(@"^(>=|<=|>|<)\s*(-?\d+(?:[.,]\d+)?)$", RegexOptions.Compiled);
+    private static readonly Regex RangeRe = new(@"^(-?\d+(?:[.,]\d+)?)\s*-\s*(-?\d+(?:[.,]\d+)?)$", RegexOptions.Compiled);
+    private static readonly Regex ExactRe = new(@"^-?\d+(?:[.,]\d+)?$", RegexOptions.Compiled);
+
+    private static double ParseNum(string s) => double.Parse(s.Replace(',', '.').Trim(), NumberStyles.Any, CultureInfo.InvariantCulture);
 
     /// <summary>WHERE + ORDER BY parçalarını üretir; parametreleri (ad, değer) listesi olarak döner —
     /// çağıran bunları hem COUNT hem SAYFA komutuna aynı şekilde ekler.</summary>
@@ -41,6 +60,42 @@ public static class GridQuery
         {
             if (string.IsNullOrWhiteSpace(f.Value)) continue;
             var term = f.Value.Trim();
+
+            if (f.Kind == ColumnKind.Numeric)
+            {
+                var rawAlias = f.RawAlias ?? f.Alias;
+                var mCompare = CompareRe.Match(term);
+                if (mCompare.Success)
+                {
+                    var p = $"$gf{i}n";
+                    whereParts.Add($"CAST({rawAlias} AS REAL) {mCompare.Groups[1].Value} {p}");
+                    ps.Add((p, ParseNum(mCompare.Groups[2].Value)));
+                    i++;
+                    continue;   // karşılaştırmada "başlangıca göre" öncelik anlamsız → sıralamaya katkı yok
+                }
+                var mRange = RangeRe.Match(term);
+                if (mRange.Success)
+                {
+                    var lo = ParseNum(mRange.Groups[1].Value);
+                    var hi = ParseNum(mRange.Groups[2].Value);
+                    if (lo > hi) (lo, hi) = (hi, lo);
+                    var pLo = $"$gf{i}lo"; var pHi = $"$gf{i}hi";
+                    whereParts.Add($"CAST({rawAlias} AS REAL) BETWEEN {pLo} AND {pHi}");
+                    ps.Add((pLo, lo)); ps.Add((pHi, hi));
+                    i++;
+                    continue;
+                }
+                if (ExactRe.IsMatch(term))
+                {
+                    var p = $"$gf{i}n";
+                    whereParts.Add($"CAST({rawAlias} AS REAL) = {p}");
+                    ps.Add((p, ParseNum(term)));
+                    i++;
+                    continue;
+                }
+                // Tanınmayan sayısal söz dizimi → eski "içerir" davranışına düş (biçimlendirilmiş metin kolonunda).
+            }
+
             var pContains = $"$gf{i}c";
             var pStarts = $"$gf{i}s";
             whereParts.Add($"{f.Alias} LIKE {pContains}");

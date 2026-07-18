@@ -12,6 +12,31 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-088 — Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (18.07.2026, TAMAM — infra+web+masaüstü)
+
+- **Bağlam:** ADR-087'nin filtre motoru (`GridQuery`) HER kolonda "içerir" (`LIKE '%terim%'`) arıyordu.
+  Kullanıcı: "stokta sadece 5 olanları listelemek istiyorum ama bütün içinde 5 olan malzemeler listeleniyor" —
+  "5" yazınca 15/25/50/0.5 de eşleşiyordu (sayısal kolonda "içerir" anlamsız/yanıltıcı).
+- **Karar:** `ListColumn`'a `IsNumeric` bayrağı eklendi; Malzemede **Birim Fiyat/Min Stok/Stok**, Araçta
+  **Üretim Yılı/Sayaç** artık sayısal işaretli. `GridQuery.Build`, `ColumnKind.Numeric` işaretli bir kolon
+  için filtre metnini SIRAYLA dener: (1) karşılaştırma `>5`/`<5`/`>=5`/`<=5`, (2) aralık `5-10` (iki uca dahil;
+  negatif sınır destekli: `-9--5`), (3) tam sayı `5` (artık 15/25/50'yi YAKALAMAZ). Hiçbiri uymazsa (kullanıcı
+  sayısal olmayan bir şey yazdıysa) eski "içerir" davranışına DÜŞER — filtre kutusu asla sessizce hiçbir şey
+  yapmaz, davranış her zaman öngörülebilir.
+- **Ham kolon karşılaştırması:** sayısal kolonlarda biçimlendirilmiş metin (`stock_text`="5.00") değil, HAM
+  decimal-string alan (`stock_raw`) `CAST(... AS REAL)` ile karşılaştırılır — ondalık/virgül/negatif doğru
+  çalışsın diye. Fiyat/Min Stok negatif olamaz ama **Stok** olabilir (bkz. ADR-086) — negatif tam sayı/aralık
+  sınırı bu yüzden desteklenir.
+- **Kapsam dışı bırakılmadı, GENİŞLETİLMEDİ:** metin kolonları (Kod/Ad/Marka/Kategori…) davranışı AYNI kaldı
+  ("içerir" + "başlangıca göre" öncelik) — bu ADR yalnız sayısal kolonları etkiler.
+- **UI:** Web + Masaüstü filtre kutularına ipucu/araç-ipucu eklendi ("Tam sayı: 5 · Karşılaştırma: >5 <5
+  >=5 <=5 · Aralık: 5-10") — kullanıcı söz dizimini ezberlemek zorunda kalmasın.
+- **Test:** `MaterialGridTests` (+8) + `VehicleGridTests` (+3) — tam sayı artık içermez, negatif açılış stoğu
+  tam eşleşir, karşılaştırma operatörleri (`Theory`), aralık iki uca dahil, ondalık virgül, tanınmayan söz
+  dizimi "içerir"e düşer. 509/509.
+
+---
+
 ### ADR-087 — Malzeme/Araç Listesi: kolon bazlı filtre + sayfalama + kişisel kolon seçimi (17.07.2026, TAMAM — infra+API+web+masaüstü)
 
 - **Bağlam:** Kullanıcı, malzeme dosyasını (2507 satır) düzeltip içeri aldıktan sonra fark etti: "2600 üstünde

@@ -29,14 +29,16 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <!-- ===== Kolon bazlı filtreler — her görünür kolon için "içerir" araması (kullanıcı isteği 2026-07-17) ===== -->
+        <!-- ===== Kolon bazlı filtreler — metin kolonlarında "içerir", sayısal kolonlarda tam/karşılaştırma/aralık
+             söz dizimi (kullanıcı isteği 2026-07-17 + 2026-07-18) ===== -->
         <ItemsControl Grid.Row="1" Margin="0,10,0,0" ItemsSource="{Binding FilterFields}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ColumnFilterItem">
-                    <TextBox Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" Width="140" Margin="0,0,8,8"/>
+                    <TextBox Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" Width="140" Margin="0,0,8,8"
+                             ToolTip.Tip="{Binding Hint}"/>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

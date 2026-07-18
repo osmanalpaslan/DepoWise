@@ -1,3 +1,4 @@
+using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -145,6 +146,106 @@ public class MaterialGridTests : IDisposable
         Assert.Equal(1, res.TotalCount);
         Assert.Equal("M-1", res.Items[0].Code);
         Assert.Equal("AR-1", res.Items[0].CompatibleVehicles);
+    }
+
+    // ── Sayısal filtre (kullanıcı isteği 2026-07-18): "stokta sadece 5 olanları listelemek istiyorum
+    // ama bütün içinde 5 olan malzemeler listeleniyor" — Stok/Min Stok/Birim Fiyat artık SAYISAL. ──
+
+    [Fact]
+    public void SayisalFiltre_TamSayi_IcerenlerDegilSadeceEsitOlanlarGelir()
+    {
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Beş Stoklu"));
+        var m2 = _materials.Create(a, new NewMaterial("M-2", "Onbeş Stoklu"));
+        var m3 = _materials.Create(a, new NewMaterial("M-3", "Elli Stoklu"));
+        _opening.RecordOpening(a, m1, 5m, "op-1");
+        _opening.RecordOpening(a, m2, 15m, "op-2");
+        _opening.RecordOpening(a, m3, 50m, "op-3");
+
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(Stock: "5"), 1, 50);
+
+        Assert.Equal(1, res.TotalCount);   // eskiden "içerir" mantığıyla 15 ve 50 de gelirdi
+        Assert.Equal("M-1", res.Items[0].Code);
+    }
+
+    [Fact]
+    public void SayisalFiltre_NegatifTamSayi_AcilisNegatifStokEslesir()
+    {
+        // ADR-086: açılış stoğu negatif olabilir (devralınan eksik stok).
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Eksi Stoklu"));
+        _materials.Create(a, new NewMaterial("M-2", "Sıfır Stoklu"));
+        _opening.RecordOpening(a, m1, -9m, "op-neg");
+
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(Stock: "-9"), 1, 50);
+
+        Assert.Equal(1, res.TotalCount);
+        Assert.Equal("M-1", res.Items[0].Code);
+    }
+
+    [Theory]
+    [InlineData(">10", new[] { "M-2", "M-3" })]
+    [InlineData("<10", new[] { "M-1" })]
+    [InlineData(">=15", new[] { "M-2", "M-3" })]
+    [InlineData("<=15", new[] { "M-1", "M-2" })]
+    public void SayisalFiltre_Karsilastirma(string term, string[] expectedCodes)
+    {
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Az"));
+        var m2 = _materials.Create(a, new NewMaterial("M-2", "Orta"));
+        var m3 = _materials.Create(a, new NewMaterial("M-3", "Çok"));
+        _opening.RecordOpening(a, m1, 5m, "op-1");
+        _opening.RecordOpening(a, m2, 15m, "op-2");
+        _opening.RecordOpening(a, m3, 50m, "op-3");
+
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(Stock: term), 1, 50);
+
+        Assert.Equal(expectedCodes.OrderBy(x => x), res.Items.Select(i => i.Code).OrderBy(x => x));
+    }
+
+    [Fact]
+    public void SayisalFiltre_Aralik_IkiUcaDahil()
+    {
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Az"));
+        var m2 = _materials.Create(a, new NewMaterial("M-2", "Orta"));
+        var m3 = _materials.Create(a, new NewMaterial("M-3", "Çok"));
+        _opening.RecordOpening(a, m1, 5m, "op-1");
+        _opening.RecordOpening(a, m2, 15m, "op-2");
+        _opening.RecordOpening(a, m3, 50m, "op-3");
+
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(Stock: "5-15"), 1, 50);
+
+        Assert.Equal(2, res.TotalCount);
+        Assert.Equal(new[] { "M-1", "M-2" }, res.Items.Select(i => i.Code).OrderBy(x => x));
+    }
+
+    [Fact]
+    public void SayisalFiltre_OndalikVirgul_NoktaGibiCalisir()
+    {
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Ondalık", UnitPrice: 12.5m));
+        _materials.Create(a, new NewMaterial("M-2", "Diğer", UnitPrice: 20m));
+
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(UnitPrice: "12,5"), 1, 50);
+
+        Assert.Equal(1, res.TotalCount);
+        Assert.Equal("M-1", res.Items[0].Code);
+    }
+
+    /// <summary>Sayısal söz dizimiyle eşleşmeyen bir şey yazılırsa (örn. yanlışlıkla harf) filtre kutusu
+    /// SESSİZCE hiçbir şey yapmaz DEĞİL — eski "içerir" davranışına düşer (biçimlendirilmiş metne göre).</summary>
+    [Fact]
+    public void SayisalFiltre_TaninmayanSozDizimi_IcerirAramasinaDuser()
+    {
+        var a = Admin("A");
+        var m1 = _materials.Create(a, new NewMaterial("M-1", "Test"));
+        _opening.RecordOpening(a, m1, 5m, "op-1");   // stok_text = "5.00"
+
+        // "5." tanınan üç sayısal söz dizimine de (tam/karşılaştırma/aralık) uymaz → "5.00" metninde "içerir" araması.
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(Stock: "5."), 1, 50);
+
+        Assert.Equal(1, res.TotalCount);
     }
 
     // ── Sayfalama ──

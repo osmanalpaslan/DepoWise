@@ -21,19 +21,28 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-17)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-18)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **497/497 yeşil** (`dotnet test`) |
+| **Testler** | **509/509 yeşil** (`dotnet test`) |
 | **Şema** | Migration **047** (liste kolon tercihi — ADR-087) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
-| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.65 yayında** (sunucuda "en güncel" doğrulandı) |
-| **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | Baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) — kod tarafı bitti |
+| **API (sunucu)** | `depowise-erp.fly.dev` — deploy edilecek (ADR-088 kodu hazır) |
+| **Web** | `depowise-web.fly.dev` — deploy edilecek (ADR-088 kodu hazır) |
+| **Masaüstü** | **1.0.65 yayında**; ADR-088 için yeni sürüm YAYINLANACAK |
+| **Git** | commit edilecek |
+| **Bekleyen iş** | ADR-088'i commit+push+deploy et; baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) |
+
+### Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (2026-07-18, ADR-088)
+Kullanıcı ADR-087'nin filtresini denerken: "stokta sadece 5 olanları listelemek istiyorum ama bütün içinde 5
+olan malzemeler listeleniyor" — sayısal kolonda "içerir" araması 15/25/50'yi de yakalıyordu. **Çözüm:**
+Malzemede Birim Fiyat/Min Stok/Stok, Araçta Üretim Yılı/Sayaç artık **sayısal** filtre — `5` artık TAM eşleşir
+(içermez), `>5`/`<5`/`>=5`/`<=5` karşılaştırma, `5-10` aralık (negatif sınır destekli, bkz. ADR-086 negatif
+stok). Tanınmayan söz dizimi eski "içerir" davranışına düşer (filtre kutusu asla sessizce boş kalmaz). Metin
+kolonları (Kod/Ad/Marka…) DEĞİŞMEDİ. UI'da ipucu eklendi. Detay: `docs/DECISIONS.md` ADR-088. Test: 11 yeni
+(509/509). **Henüz deploy edilmedi.**
 
 ### Malzeme/Araç Listesi — kolon bazlı filtre + sayfalama + kişisel kolon seçimi (2026-07-17, ADR-087)
 Kullanıcı 2600+ satırlık dosyayı içeri aldıktan sonra: "malzemeler ve araç listesinde filtre yapısı olması

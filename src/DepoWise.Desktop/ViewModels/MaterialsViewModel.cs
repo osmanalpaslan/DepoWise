@@ -57,8 +57,9 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
         FilterFields.Clear();
         foreach (var key in VisibleColumns)
         {
-            var label = MaterialListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
-            FilterFields.Add(new ColumnFilterItem(key, label) { Value = old.TryGetValue(key, out var v) ? v : "" });
+            var col = MaterialListColumns.All.FirstOrDefault(c => c.Key == key);
+            FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, col?.IsNumeric ?? false)
+            { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
     }
 

@@ -1,3 +1,4 @@
+using System.Linq;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -105,6 +106,47 @@ public class VehicleGridTests : IDisposable
 
         Assert.Equal(1, res.TotalCount);
         Assert.Equal("KM-001", res.Items[0].InternalCode);
+    }
+
+    // ── Sayısal filtre (kullanıcı isteği 2026-07-18): Üretim Yılı/Sayaç artık SAYISAL — "içerir" değil ──
+
+    [Fact]
+    public void SayisalFiltre_UretimYili_TamEslesirIcermez()
+    {
+        var a = Admin("A");
+        _vehicles.Create(a, new NewVehicle("V-1", ProductionYear: 2015));
+        _vehicles.Create(a, new NewVehicle("V-2", ProductionYear: 2016));   // "15" içerir mi? hayır, ama eski davranışta risk vardı
+
+        var res = _vehicles.SearchGrid(a, new VehicleGridFilter(ProductionYear: "2015"), 1, 50);
+
+        Assert.Equal(1, res.TotalCount);
+        Assert.Equal("V-1", res.Items[0].InternalCode);
+    }
+
+    [Fact]
+    public void SayisalFiltre_Sayac_KarsilastirmaCalisir()
+    {
+        var a = Admin("A");
+        _vehicles.Create(a, new NewVehicle("V-1", CurrentMeter: 5m));
+        _vehicles.Create(a, new NewVehicle("V-2", CurrentMeter: 15m));
+        _vehicles.Create(a, new NewVehicle("V-3", CurrentMeter: 50m));
+
+        var res = _vehicles.SearchGrid(a, new VehicleGridFilter(Meter: ">10"), 1, 50);
+
+        Assert.Equal(new[] { "V-2", "V-3" }, res.Items.Select(i => i.InternalCode).OrderBy(x => x));
+    }
+
+    [Fact]
+    public void SayisalFiltre_Sayac_Aralik()
+    {
+        var a = Admin("A");
+        _vehicles.Create(a, new NewVehicle("V-1", CurrentMeter: 5m));
+        _vehicles.Create(a, new NewVehicle("V-2", CurrentMeter: 15m));
+        _vehicles.Create(a, new NewVehicle("V-3", CurrentMeter: 50m));
+
+        var res = _vehicles.SearchGrid(a, new VehicleGridFilter(Meter: "5-15"), 1, 50);
+
+        Assert.Equal(new[] { "V-1", "V-2" }, res.Items.Select(i => i.InternalCode).OrderBy(x => x));
     }
 
     [Fact]

@@ -1,7 +1,9 @@
 namespace DepoWise.Web.Services;
 
-/// <summary>Bir liste ekranındaki seçilebilir bir kolon: anahtar (filtre/tercih parametresi) + görünen ad.</summary>
-public sealed record ListColumn(string Key, string Label);
+/// <summary>Bir liste ekranındaki seçilebilir bir kolon: anahtar (filtre/tercih parametresi) + görünen ad.
+/// IsNumeric=true ise filtre kutusu tam-sayı/karşılaştırma/aralık söz dizimi kabul eder (kullanıcı isteği
+/// 2026-07-18: "stokta sadece 5 olanları listelemek istiyorum" — "içerir" araması 15/25/50'yi de yakalıyordu).</summary>
+public sealed record ListColumn(string Key, string Label, bool IsNumeric = false);
 
 /// <summary>
 /// Malzemeler listesi — seçilebilir kolonlar (kullanıcı isteği 2026-07-17). "Açılış Stok" BİLİNÇLİ OLARAK
@@ -37,10 +39,10 @@ public static class MaterialListColumns
         new ListColumn(Unit, "Birim"),
         new ListColumn(Brand, "Marka"),
         new ListColumn(Supplier, "Tedarikçi"),
-        new ListColumn(UnitPrice, "Birim Fiyat"),
+        new ListColumn(UnitPrice, "Birim Fiyat", IsNumeric: true),
         new ListColumn(Currency, "Para Birimi"),
-        new ListColumn(MinStock, "Min Stok"),
-        new ListColumn(Stock, "Stok"),
+        new ListColumn(MinStock, "Min Stok", IsNumeric: true),
+        new ListColumn(Stock, "Stok", IsNumeric: true),
         new ListColumn(Status, "Durum"),
         new ListColumn(Description, "Açıklama"),
         new ListColumn(CompatibleVehicles, "Uyumlu Araçlar"),
@@ -81,8 +83,8 @@ public static class VehicleListColumns
     {
         new ListColumn(InternalCode, "İç Kod"),
         new ListColumn(Plate, "Plaka"),
-        new ListColumn(ProductionYear, "Üretim Yılı"),
-        new ListColumn(Meter, "Sayaç"),
+        new ListColumn(ProductionYear, "Üretim Yılı", IsNumeric: true),
+        new ListColumn(Meter, "Sayaç", IsNumeric: true),
         new ListColumn(Status, "Durum"),
         new ListColumn(StatusNote, "Durum Notu"),
         new ListColumn(VehicleType, "Araç Tipi"),

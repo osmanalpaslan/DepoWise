@@ -243,8 +243,8 @@ WHERE v.company_id = $c AND v.is_deleted = 0";
         {
             new GridQuery.ColumnFilter("t.internal_code", filter.InternalCode),
             new GridQuery.ColumnFilter("t.plate", filter.Plate),
-            new GridQuery.ColumnFilter("t.production_year", filter.ProductionYear),
-            new GridQuery.ColumnFilter("t.meter_text", filter.Meter),
+            new GridQuery.ColumnFilter("t.production_year", filter.ProductionYear, GridQuery.ColumnKind.Numeric),
+            new GridQuery.ColumnFilter("t.meter_text", filter.Meter, GridQuery.ColumnKind.Numeric, "t.meter_raw"),
             new GridQuery.ColumnFilter("t.status_label", filter.Status),
             new GridQuery.ColumnFilter("t.status_note", filter.StatusNote),
             new GridQuery.ColumnFilter("t.vehicle_type", filter.VehicleType),
