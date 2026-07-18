@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,8 +23,9 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed record MovementDisplay(string DateText, string Kind, string Description);
 
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
-public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
+public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel
 {
+    ICommand IListGridViewModel.SortByCommand => SortByCommand;
     private readonly SessionContext _session;
 
     public ObservableCollection<VehicleRow> Items { get; } = new();
@@ -53,6 +55,47 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
 
     public bool CanGoPrev => Page > 1;
     public bool CanGoNext => Page < TotalPages;
+
+    // ── Başlığa tıklayınca sıralama (kullanıcı isteği 2026-07-18, madde 5) ──
+    private string? _sortColumn; private bool _sortDesc;
+    public (string? SortColumn, bool SortDesc) SortState => (_sortColumn, _sortDesc);
+
+    [RelayCommand]
+    private void SortBy(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        if (_sortColumn != key) { _sortColumn = key; _sortDesc = false; }
+        else if (!_sortDesc) { _sortDesc = true; }
+        else { _sortColumn = null; _sortDesc = false; }
+        OnPropertyChanged(nameof(SortState));
+        Page = 1; Load();
+    }
+
+    // ── Kolon genişlikleri — kişiye özel, manuel ayarlanabilir (kullanıcı isteği 2026-07-18, madde 3) ──
+    private static readonly Dictionary<string, double> DefaultColWidths = new()
+    {
+        [VehicleListColumns.InternalCode] = 100, [VehicleListColumns.Plate] = 100, [VehicleListColumns.ProductionYear] = 90,
+        [VehicleListColumns.Meter] = 100, [VehicleListColumns.Status] = 100, [VehicleListColumns.StatusNote] = 140,
+        [VehicleListColumns.VehicleType] = 110, [VehicleListColumns.Category] = 110, [VehicleListColumns.Brand] = 100,
+        [VehicleListColumns.Model] = 110, [VehicleListColumns.Branch] = 130, [VehicleListColumns.Driver] = 130,
+        [VehicleListColumns.ChassisNo] = 130, [VehicleListColumns.EngineNo] = 130,
+    };
+
+    [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
+
+    public void PreviewColumnWidth(string key, double newWidth)
+    {
+        var w = Math.Max(40, Math.Min(600, newWidth));
+        ColWidths = new Dictionary<string, double>(ColWidths) { [key] = w };
+    }
+
+    public double GetColumnWidth(string key) => ColWidths.TryGetValue(key, out var w) ? w : 100;
+
+    public void CommitColumnWidth()
+    {
+        try { DesktopServices.ListPrefs.SaveWidths(_session, "vehicles", ColWidths.ToDictionary(k => k.Key, v => (int)v.Value)); }
+        catch { }
+    }
 
     partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
 
@@ -240,6 +283,13 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "vehicles") ?? 25; }
         finally { _suppressPageSizeReload = false; }
+        var savedWidths = DesktopServices.ListPrefs.GetWidths(session, "vehicles");
+        if (savedWidths is { Count: > 0 })
+        {
+            var merged = new Dictionary<string, double>(DefaultColWidths);
+            foreach (var (k, v) in savedWidths) merged[k] = v;
+            ColWidths = merged;
+        }
         Load();
     }
 
@@ -265,7 +315,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget
             var maint = SafeMaint();
             var insp = SafeInsp();
 
-            var grid = DesktopServices.Vehicles.SearchGrid(_session, BuildFilter(), Page, PageSize);
+            var grid = DesktopServices.Vehicles.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc);
             foreach (var v in grid.Items)
             {
                 var (kind, text) = CombineAlert(

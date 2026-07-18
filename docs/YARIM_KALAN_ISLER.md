@@ -10,7 +10,7 @@
 
 ---
 
-## ⏳ 7 maddelik liste paketi (2026-07-18, ADR-089) — WEB+BACKEND CANLIDA, MASAÜSTÜ UI SÜRÜYOR
+## ✅ 7 maddelik liste paketi (2026-07-18, ADR-089) — TAMAMLANDI (canlıda, masaüstü görsel doğrulama bekliyor)
 
 Test **523/523**. Kullanıcının 7 isteği (2600+ kayıtla çalışırken):
 1. Sayfa boyutu varsayılan 25 (kişiye özel). 2. Sayfa no + kayıt bilgisi üstte-solda. 3. Excel-benzeri grid
@@ -21,13 +21,15 @@ masaüstü satır-içi). 5. Başlıkla sıralama (metin Türkçe A→Z/Z→A, sa
 - **TAMAM + canlıda:** infra (Migration048/049, GridQuery sıralama, TRNOCASE Türkçe collation, MaterialType,
   LookupService 50-kar/rename) + API + **web** (Materials/Vehicles: 25, sıralama, üstte-sol sayfalama,
   Excel-grid) + tanım düzenleme (web+masaüstü Tanımlar ekranı).
-- **Masaüstü 1.0.67'de canlı:** #1 (sayfa boyutu 25 + kişisel hatırlama), #4 (Tanımlar ekranı satır-içi
-  düzenleme), #6 (50 kar), #7 (Tür kanonik + Migration048).
-- **KALAN — masaüstü LİSTE ekranları UI (#2/#5/#3):** MaterialsView/VehiclesView'da sayfalama konumunu
-  üste-sola taşı, başlığa tıklayınca sırala (backend `SearchGrid` hazır — yalnız XAML başlıklarını komut+ok
-  ile bağla), Excel-benzeri yatay kaydırma + ölçeklenebilir kolon. **Not:** bu ortamda Avalonia görsel test
-  edilemiyor → build-doğrulamalı yapılacak, kullanıcı görsel onaylayacak. Grid hand-built (SharedSizeGroup +
-  `Conv.ColumnVisible`) olduğundan dikkatli gidilmeli (babanın çalışan ekranı).
+- **Masaüstü — TÜMÜ 1.0.68'de canlı:** #1 (sayfa boyutu 25 + kişisel hatırlama), #4 (Tanımlar ekranı satır-içi
+  düzenleme), #6 (50 kar), #7 (Tür kanonik + Migration048), #2 (sayfalama üstte-sola), #5 (başlığa tıklayınca
+  sırala — yeni `SortHeader` + `IListGridViewModel` arayüzü), #3 (Excel-benzeri yatay kaydırma + sürüklenebilir
+  kolon genişliği, kişiye özel kalıcı).
+- **⚠️ KRİTİK — kullanıcı doğrulaması gerekli:** bu ortamda Avalonia'yı çalıştırıp tıklama/sürükleme testi
+  yapacak araç yok; yalnız **temiz derleme** ile güvence alındı (görsel test YAPILAMADI). Kullanıcı 1.0.68'i
+  açıp Malzemeler/Araçlar listesinde: (1) sayfalama tablonun üstünde-solunda mı, (2) başlığa tıklayınca sıralanıyor
+  mu (3. tıkta kapanıyor mu), (3) pencereyi küçültünce kolonlar taşmadan kayıyor mu, (4) başlığın sağ kenarından
+  sürükleyip kolon genişletebiliyor mu — kontrol etmeli. Sorun çıkarsa bildirsin, hemen düzeltilir.
 - **KALAN (kullanıcı):** baba dosyasında para birimi "TL" → "TRY" (Excel'de düzelt).
 - Detay: `docs/DECISIONS.md` ADR-089.
 

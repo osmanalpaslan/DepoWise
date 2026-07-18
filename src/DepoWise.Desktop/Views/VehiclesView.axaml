@@ -12,7 +12,7 @@
              x:Class="DepoWise.Desktop.Views.VehiclesView"
              x:DataType="vm:VehiclesViewModel">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Background="{DynamicResource AppBackgroundBrush}" Margin="24">
 
         <!-- ===== Toolbar: başlık + kolon ayarla + sayfa boyutu + Yeni Araç ===== -->
         <ctrl:Toolbar Grid.Row="0" Title="Araçlar"
@@ -252,11 +252,39 @@
             </ScrollViewer>
         </Border>
 
+        <!-- Numaralı sayfalama + kayıt bilgisi — EN SOLDA, tablonun ÜSTÜNDE (kullanıcı isteği 2026-07-18). -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
+                <Button Classes="Secondary" Content="‹" Padding="10,4"
+                        Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
+                <ItemsControl ItemsSource="{Binding PageNumbers}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding}" Padding="10,4"
+                                    Classes="Secondary"
+                                    Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).GoToPageCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="Secondary" Content="›" Padding="10,4"
+                        Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}"/>
+            </StackPanel>
+            <SelectableTextBlock Text="{Binding Status}"
+                       Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+        </StackPanel>
+
         <!-- Liste + Detay -->
         <Grid Grid.Row="3" Margin="0,16,0,0" ColumnDefinitions="*,360">
           <Panel Grid.Column="0">
+            <!-- Excel-benzeri: pencere küçülünce taşma/kayma OLMAZ; sığmazsa yatay kaydırma çıkar
+                 (kullanıcı isteği 2026-07-18, madde 3). -->
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
-                <DockPanel>
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <DockPanel HorizontalAlignment="Left">
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -276,33 +304,33 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
                             </Grid.ColumnDefinitions>
-                            <SelectableTextBlock Grid.Column="0" Text="İÇ KOD" MinWidth="100"
+                            <local:SortHeader Grid.Column="0" Text="İÇ KOD" ColumnKey="internalCode" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=internalCode}"/>
-                            <SelectableTextBlock Grid.Column="1" Text="PLAKA" MinWidth="120"
+                            <local:SortHeader Grid.Column="1" Text="PLAKA" ColumnKey="plate" MinWidth="120"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=plate}"/>
-                            <SelectableTextBlock Grid.Column="2" Text="YIL" MinWidth="60"
+                            <local:SortHeader Grid.Column="2" Text="YIL" ColumnKey="productionYear" MinWidth="60"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=productionYear}"/>
-                            <SelectableTextBlock Grid.Column="3" Text="SAYAÇ" MinWidth="110"
+                            <local:SortHeader Grid.Column="3" Text="SAYAÇ" ColumnKey="meter" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=meter}"/>
-                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="100"
+                            <local:SortHeader Grid.Column="4" Text="DURUM" ColumnKey="status" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=status}"/>
-                            <SelectableTextBlock Grid.Column="5" Text="DURUM NOTU" MinWidth="120"
+                            <local:SortHeader Grid.Column="5" Text="DURUM NOTU" ColumnKey="statusNote" MinWidth="120"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=statusNote}"/>
-                            <SelectableTextBlock Grid.Column="6" Text="ARAÇ TİPİ" MinWidth="100"
+                            <local:SortHeader Grid.Column="6" Text="ARAÇ TİPİ" ColumnKey="vehicleType" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=vehicleType}"/>
-                            <SelectableTextBlock Grid.Column="7" Text="KATEGORİ" MinWidth="100"
+                            <local:SortHeader Grid.Column="7" Text="KATEGORİ" ColumnKey="category" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=category}"/>
-                            <SelectableTextBlock Grid.Column="8" Text="MARKA" MinWidth="90"
+                            <local:SortHeader Grid.Column="8" Text="MARKA" ColumnKey="brand" MinWidth="90"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=brand}"/>
-                            <SelectableTextBlock Grid.Column="9" Text="MODEL" MinWidth="100"
+                            <local:SortHeader Grid.Column="9" Text="MODEL" ColumnKey="model" MinWidth="100"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=model}"/>
-                            <SelectableTextBlock Grid.Column="10" Text="ŞUBE/ŞANTİYE" MinWidth="120"
+                            <local:SortHeader Grid.Column="10" Text="ŞUBE/ŞANTİYE" ColumnKey="branch" MinWidth="120"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=branch}"/>
-                            <SelectableTextBlock Grid.Column="11" Text="SÜRÜCÜ" MinWidth="110"
+                            <local:SortHeader Grid.Column="11" Text="SÜRÜCÜ" ColumnKey="driver" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=driver}"/>
-                            <SelectableTextBlock Grid.Column="12" Text="ŞASE NO" MinWidth="110"
+                            <local:SortHeader Grid.Column="12" Text="ŞASE NO" ColumnKey="chassisNo" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=chassisNo}"/>
-                            <SelectableTextBlock Grid.Column="13" Text="MOTOR NO" MinWidth="110"
+                            <local:SortHeader Grid.Column="13" Text="MOTOR NO" ColumnKey="engineNo" MinWidth="110"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=engineNo}"/>
                             <SelectableTextBlock Grid.Column="14" Text="BAKIM/MUAYENE" MinWidth="120"/>
                         </Grid>
@@ -369,6 +397,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </DockPanel>
+              </ScrollViewer>
             </Border>
 
             <ctrl:StatePanel Mode="Error" Title="Liste yüklenemedi" Message="{Binding LoadError}"
@@ -544,29 +573,5 @@
           </Border>
         </Grid>
 
-        <!-- Durum satırı + numaralı sayfalama (kullanıcı isteği 2026-07-17: "1,2,3,4... şeklinde sayfa yapısı") -->
-        <Grid Grid.Row="4" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
-            <SelectableTextBlock Grid.Column="0" Text="{Binding Status}"
-                       Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRows}">
-                <Button Classes="Secondary" Content="‹" Padding="10,4"
-                        Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanGoPrev}"/>
-                <ItemsControl ItemsSource="{Binding PageNumbers}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4"/></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Button Content="{Binding}" Padding="10,4"
-                                    Classes="Secondary"
-                                    Command="{Binding $parent[ItemsControl].((vm:VehiclesViewModel)DataContext).GoToPageCommand}"
-                                    CommandParameter="{Binding}"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <Button Classes="Secondary" Content="›" Padding="10,4"
-                        Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}"/>
-            </StackPanel>
-        </Grid>
     </Grid>
 </UserControl>

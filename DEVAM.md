@@ -31,9 +31,9 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **049** (sayfa boyutu + kolon genişliği tercihi — ADR-089) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.67 yayında** (Tür düzeltme + tanım düzenleme + sayfa boyutu 25) |
+| **Masaüstü** | **1.0.68 yayında** (liste UI: sayfalama üstte-sola, başlıkla sıralama, Excel-benzeri grid) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **ADR-089 masaüstü liste UI** (#2 sayfalama konumu / #5 sıralama / #3 Excel-grid) + baba dosyasında TL→TRY |
+| **Bekleyen iş** | Baba dosyasında TL→TRY (kullanıcı Excel'de düzeltecek) — kod tarafı bitti |
 
 ### 7 maddelik liste geliştirmeleri paketi (2026-07-18, ADR-089)
 Kullanıcı 2600+ kayıtla çalışırken 7 istek verdi. **Web + backend TAMAM ve canlıda; masaüstü UI sürüyor.**
@@ -43,9 +43,11 @@ sürüklenebilir kolon genişliği (kişiye özel kalıcı). 4. **Tanım düzenl
 yetkisiyle, süper-admin kısıtı kalktı; masaüstünde satır-içi düzenleme). 5. **Başlığa tıklayınca sıralama**
 (metin A→Z/Z→A Türkçe; sayısal küçük→büyük). 6. Yeni tanım/rename **50 karakter** sınırı. 7. İçe aktarımda
 **"Tür" harf duyarsız kanonik eşleme** ("YEDEK PARÇA"→"Yedek Parça") + Migration048 mevcut veriyi düzeltir.
-Detay: `docs/DECISIONS.md` ADR-089. Test: 523/523. **Masaüstü:** #1 (sayfa boyutu 25+hatırlama), #4 (tanım
-düzenleme), #6 (50 kar), #7 (Tür) 1.0.67'de canlı. **Masaüstü liste UI #2/#5/#3 (sayfalama konumu, sıralama,
-Excel-grid) sürüyor** — Avalonia bu ortamda görsel test edilemediğinden dikkatli/build-doğrulamalı yapılacak.
+Detay: `docs/DECISIONS.md` ADR-089. Test: 523/523. **Masaüstü — TÜMÜ 1.0.68'de canlı:** #1 (sayfa boyutu 25+
+hatırlama), #4 (tanım düzenleme), #6 (50 kar), #7 (Tür), #2 (sayfalama üstte-sola taşındı), #5 (başlığa
+tıklayınca sırala — yeni `SortHeader` + `IListGridViewModel`), #3 (Excel-benzeri: yatay kaydırma + sürüklenebilir
+kolon genişliği, kişiye özel kalıcı). **⚠️ Görsel doğrulama yapılamadı** (Avalonia bu ortamda çalıştırılamıyor) —
+yalnız temiz derleme ile güvence alındı; kullanıcının canlı ortamda gözden geçirmesi gerekiyor.
 
 ### Sayısal kolon filtresi: tam-sayı/karşılaştırma/aralık (2026-07-18, ADR-088)
 Kullanıcı ADR-087'nin filtresini denerken: "stokta sadece 5 olanları listelemek istiyorum ama bütün içinde 5

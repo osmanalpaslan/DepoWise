@@ -38,8 +38,20 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   onayı).
 - **Test:** MaterialTests(+4 Tür) · LookupDedupTests(+2 50-kar) · MaterialGridTests(+2 sıralama) ·
   VehicleGridTests · UserListPreferenceTests(+3 sayfa/genişlik). 523/523.
-- **⚠️ Masaüstü UI (liste ekranlarında #1/#2/#5/#3) bu adımda YAPILMADI** — ayrı, build-doğrulamalı adımda;
-  bkz. `docs/YARIM_KALAN_ISLER.md`.
+- **Masaüstü UI (#2/#5/#3) — build-doğrulamalı, ayrı adımda TAMAMLANDI:**
+  - **#2** sayfalama (numaralı sayfa + kayıt bilgisi) tablonun üstüne, en sola taşındı (eski alt-sağ konum kaldırıldı).
+  - **#5** başlığa tıklayınca sıralama: `SortHeader` (Grid alt sınıfı, YENİ ControlTheme GEREKMEZ — Button'ın
+    zaten var olan "Ghost" stiliyle çalışır, kasıtlı düşük-risk tasarım) + `IListGridViewModel` arayüzü
+    (MaterialsViewModel/VehiclesViewModel ortak sözleşmesi: SortState, SortByCommand, ColWidths metotları) —
+    3. tıkta sıralama kapanır (doğal sıra).
+  - **#3** Excel-benzeri: tablo `ScrollViewer` (yatay kaydırma, `HorizontalAlignment="Left"` ile doğal genişlik
+    ölçülür → pencere küçülünce artık TAŞMA/KAYMA olmaz) içine alındı; başlık hücrelerine 6px sürükleme
+    tutamağı eklendi (`SortHeader`'ın kendi `Border` grip'i) — genişlik `UserListPreferenceService` (ADR-089
+    üstteki bölüm) ile KİŞİYE ÖZEL kalıcı. SharedSizeGroup mekanizması BOZULMADI (header/satır senkronu hâlâ
+    ondan); sürükleme yalnız o ölçümün ALT SINIRINI (MinWidth) büyütür — küçültme, satırın kendi doğal içerik
+    genişliğinin altına inemez (WPF/Avalonia SharedSizeGroup'un bilinen bir sınırlaması; kabul edilen ödün).
+  - **⚠️ Görsel doğrulama YAPILAMADI** (bu ortamda Avalonia'yı çalıştırıp tıklama/sürükleme testi yapacak
+    araç yok) — yalnız temiz derleme ile güvence alındı. Kullanıcının canlı ortamda görsel onayı gerekir.
 
 ---
 

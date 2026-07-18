@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,8 +17,9 @@ using DepoWise.Infrastructure.Materials;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>Malzemeler ekranı — liste + kolon bazlı filtre + sayfalama + yeni kayıt. MaterialService üzerine (SQLite).</summary>
-public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
+public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel
 {
+    ICommand IListGridViewModel.SortByCommand => SortByCommand;
     private readonly SessionContext _session;
 
     public ObservableCollection<MaterialRow> Items { get; } = new();
@@ -42,6 +44,51 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
 
     public bool CanGoPrev => Page > 1;
     public bool CanGoNext => Page < TotalPages;
+
+    // ── Başlığa tıklayınca sıralama (kullanıcı isteği 2026-07-18, madde 5) ──
+    private string? _sortColumn; private bool _sortDesc;
+    /// <summary>(SortColumn, SortDesc) — başlık okunun XAML converter'ı buna bağlanır; sıralama değişince
+    /// bildirilir ve tüm başlıklardaki ok yeniden hesaplanır.</summary>
+    public (string? SortColumn, bool SortDesc) SortState => (_sortColumn, _sortDesc);
+
+    [RelayCommand]
+    private void SortBy(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        if (_sortColumn != key) { _sortColumn = key; _sortDesc = false; }
+        else if (!_sortDesc) { _sortDesc = true; }
+        else { _sortColumn = null; _sortDesc = false; }   // 3. tık: sıralama kapanır (doğal sıra)
+        OnPropertyChanged(nameof(SortState));
+        Page = 1; Load();
+    }
+
+    // ── Kolon genişlikleri — kişiye özel, manuel ayarlanabilir (kullanıcı isteği 2026-07-18, madde 3) ──
+    private static readonly Dictionary<string, double> DefaultColWidths = new()
+    {
+        [MaterialListColumns.Code] = 90, [MaterialListColumns.Name] = 160, [MaterialListColumns.Type] = 90,
+        [MaterialListColumns.Category] = 110, [MaterialListColumns.Unit] = 80, [MaterialListColumns.Brand] = 100,
+        [MaterialListColumns.Supplier] = 110, [MaterialListColumns.UnitPrice] = 100, [MaterialListColumns.Currency] = 64,
+        [MaterialListColumns.MinStock] = 90, [MaterialListColumns.Stock] = 80, [MaterialListColumns.Status] = 110,
+        [MaterialListColumns.Description] = 160, [MaterialListColumns.CompatibleVehicles] = 160, [MaterialListColumns.Equivalents] = 160,
+    };
+
+    [ObservableProperty] private Dictionary<string, double> _colWidths = new(DefaultColWidths);
+
+    /// <summary>Sürükleme sırasında ANLIK genişlik (her piksel hareketinde çağrılır — henüz KAYDETMEZ).</summary>
+    public void PreviewColumnWidth(string key, double newWidth)
+    {
+        var w = Math.Max(40, Math.Min(600, newWidth));
+        ColWidths = new Dictionary<string, double>(ColWidths) { [key] = w };   // yeni referans → converter'lar yeniden çalışır
+    }
+
+    public double GetColumnWidth(string key) => ColWidths.TryGetValue(key, out var w) ? w : 100;
+
+    /// <summary>Sürükleme bittiğinde (parmak/mouse kalkınca) ÇAĞRILIR — bu ANDA kişiye özel kalıcı hâle gelir.</summary>
+    public void CommitColumnWidth()
+    {
+        try { DesktopServices.ListPrefs.SaveWidths(_session, "materials", ColWidths.ToDictionary(k => k.Key, v => (int)v.Value)); }
+        catch { }
+    }
 
     partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
 
@@ -249,6 +296,13 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "materials") ?? 25; }   // değiştirmediyse 25
         finally { _suppressPageSizeReload = false; }
+        var savedWidths = DesktopServices.ListPrefs.GetWidths(session, "materials");
+        if (savedWidths is { Count: > 0 })
+        {
+            var merged = new Dictionary<string, double>(DefaultColWidths);
+            foreach (var (k, v) in savedWidths) merged[k] = v;
+            ColWidths = merged;
+        }
         Load();
         if (openAdd && CanWrite) { ShowAdd = true; LoadLookups(); RefreshEquivalentResults(); }
     }
@@ -260,7 +314,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget
         {
             LoadError = null;
             Items.Clear();
-            var grid = DesktopServices.Materials.SearchGrid(_session, BuildFilter(), Page, PageSize);
+            var grid = DesktopServices.Materials.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc);
             foreach (var m in grid.Items)
                 Items.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, m.Stock,
                     m.Category ?? "", m.Unit ?? "", m.Brand ?? "", m.Supplier ?? "", m.Status,

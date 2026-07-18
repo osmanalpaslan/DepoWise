@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
@@ -25,6 +26,43 @@ public static class Conv
             if (value is not IEnumerable cols || parameter is not string key) return false;
             foreach (var c in cols) if (c is string s && s == key) return true;
             return false;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>Malzeme/Araç Listesi kolon genişliği (kullanıcı isteği 2026-07-18: "kolon genişliklerini manuel
+    /// ayarlanabilmeli"). value = VM'in ColWidths sözlüğü, ConverterParameter = kolon anahtarı → o kolonun
+    /// piksel genişliği (double). Başlık hücresinin MinWidth'ine bağlanır: SharedSizeGroup zaten header+satır
+    /// genişliğini senkron tutuyordu (bkz. Conv.ColumnVisible yorumu); burada yalnız o ölçümün ALT SINIRINI
+    /// kullanıcı sürükleyerek büyütebiliyor — mevcut senkron mekanizması BOZULMAZ.</summary>
+    public static readonly IValueConverter ColWidth = new ColWidthConverter();
+
+    private sealed class ColWidthConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is IReadOnlyDictionary<string, double> map && parameter is string key && map.TryGetValue(key, out var w))
+                return w;
+            return 100d;   // ilk açılış / bilinmeyen kolon → makul varsayılan
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>Başlığa tıklayınca sıralama oku (kullanıcı isteği 2026-07-18): value = VM'in SortState'i
+    /// (SortColumn, SortDesc), ConverterParameter = bu başlığın kolon anahtarı → "▲"/"▼"/"".</summary>
+    public static readonly IValueConverter SortArrow = new SortArrowConverter();
+
+    private sealed class SortArrowConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is ValueTuple<string?, bool> t && parameter is string key && t.Item1 == key)
+                return t.Item2 ? " ▼" : " ▲";
+            return "";
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
