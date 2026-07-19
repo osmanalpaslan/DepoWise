@@ -363,10 +363,12 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
 
 // İş verisi GERİ-ÇEKME (server → masaüstü): firmanın iş tablolarını snapshot olarak döndürür → masaüstü
 // diğer makinelerin verisini görür (çok makineli görünürlük). Oturumdaki firma zorlanır (tenant güvenli).
-app.MapGet("/api/sync/business-pull", (HttpContext c) =>
+app.MapGet("/api/sync/business-pull", (HttpContext c, long? since) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var snapshot = svc.BusinessSync.BuildSnapshot(s.CompanyId, "server");
+    // DELTA: since>0 ise yalnız updated_at>since satırlar döner (rutin eşitleme küçük olsun — 2508 kayıtta
+    // tam snapshot zaman aşımına uğruyordu). since yok/0 → tam snapshot (ilk kurulum / manuel tam eşitleme).
+    var snapshot = svc.BusinessSync.BuildSnapshot(s.CompanyId, "server", since ?? 0);
     return Results.Content(snapshot, "application/json");
 }).RequireAuthorization();
 

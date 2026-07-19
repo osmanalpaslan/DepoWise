@@ -15,8 +15,8 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class BusinessSyncPullService
 {
-    // ⚠️ 30sn'den 120sn'e çıkarıldı — bkz. BusinessSyncPushService (aynı gerekçe: büyüyen firma verisi).
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(120) };
+    // ⚠️ 300sn — bkz. BusinessSyncPushService (delta ile rutin çekme küçük; ilk/tam çekme büyük olabilir).
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(300) };
     // Senkron 2b sonrası: stock_balances artık SUNUCU-OTORİTELİ (push sonrası sunucu hareketlerden hesaplar) →
     // geri-çekmede uygulanır (LWW; sunucunun birleşik/doğru bakiyesi gelir). Hariç tablo kalmadı.
     private static readonly System.Collections.Generic.HashSet<string>? Exclude = null;
@@ -26,21 +26,25 @@ public static class BusinessSyncPullService
     /// ⚠️ PERFORMANS (bkz. BusinessSyncPushService.PushAsync üstteki not — aynı kök sebep): JSON ayrıştırma +
     /// yerel upsert döngüsü (<c>ApplyPull</c>) SENKRON ve binlerce satırda yavaş olabilir; <see cref="Task.Run"/>
     /// ile arka plana alındı ki periyodik zamanlayıcı/Eşitle butonu arayüzü dondurmasın.</summary>
-    public static async Task PullAsync()
+    /// <param name="sinceVersion">DELTA: >0 ise sunucudan yalnız updated_at&gt;sinceVersion satırlar çekilir
+    /// (rutin çekme küçük/hızlı). 0 ise TAM snapshot (ilk giriş / manuel tam eşitleme).</param>
+    /// <returns>true = başarıyla çekilip uygulandı (kabuk pull imlecini o zaman ilerletir); false = ulaşılamadı/hata.</returns>
+    public static async Task<bool> PullAsync(long sinceVersion = 0)
     {
         var url = ResolveServerUrl();
         var companyId = DesktopServices.Session?.CompanyId;
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return false;
         await ServerAuthClient.EnsureFreshTokenAsync();
         var token = ServerAuthClient.Token;
-        if (string.IsNullOrWhiteSpace(token)) return;
+        if (string.IsNullOrWhiteSpace(token)) return false;
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/business-pull");
+            var pullUrl = url!.TrimEnd('/') + "/api/sync/business-pull" + (sinceVersion > 0 ? "?since=" + sinceVersion : "");
+            using var req = new HttpRequestMessage(HttpMethod.Get, pullUrl);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var resp = await _http.SendAsync(req);
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized) { await ServerAuthClient.EnsureFreshTokenAsync(); return; }
-            if (!resp.IsSuccessStatusCode) return;
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized) { await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
+            if (!resp.IsSuccessStatusCode) return false;
             var json = await resp.Content.ReadAsStringAsync();
             // Trusted sunucu verisi → yerele uygula (yazma-yetkisi filtresi yok); stock_balances hariç.
             // Ağır JSON parse + upsert döngüsü ARKA PLANDA (arayüzü bloklamasın).
@@ -49,8 +53,9 @@ public static class BusinessSyncPullService
                 using var doc = JsonDocument.Parse(json);
                 new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
             });
+            return true;
         }
-        catch { /* sessiz — ağ dönünce sonraki tur tekrar dener */ }
+        catch { return false; /* sessiz — ağ dönünce sonraki tur tekrar dener */ }
     }
 
     /// <summary>Sunucudaki firmanın iş verisi SÜRÜMÜ (en büyük updated_at) — ucuz tek sayı. Tam snapshot

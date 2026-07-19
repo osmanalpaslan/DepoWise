@@ -62,6 +62,34 @@ public class BusinessSyncTests : IDisposable
     }
 
     [Fact]
+    public void Delta_Snapshot_YalnizDegisenleri_Icerir_CompanyVersion_MaxDoner()
+    {
+        // DELTA (kullanıcı bulgusu 2026-07-19: 2508 kayıtta tam snapshot zaman aşımına uğruyordu).
+        SeedCompany(_src, "ACME");
+        InsertPersonnel(_src, "P1", "ACME", "Ali", updatedAt: 1000);
+        InsertPersonnel(_src, "P2", "ACME", "Veli", updatedAt: 2000);
+        InsertPersonnel(_src, "P3", "ACME", "Can", updatedAt: 3000);
+
+        var svc = new BusinessSyncService(_src, _clock);
+        // CompanyVersion = en büyük updated_at
+        Assert.Equal(3000, svc.CompanyVersion("ACME"));
+
+        // sinceVersion=1500 → yalnız P2(2000) ve P3(3000) gelir; P1(1000) GELMEZ.
+        using var delta = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: 1500));
+        var personnel = delta.RootElement.GetProperty("tables").GetProperty("personnel");
+        var ids = new System.Collections.Generic.HashSet<string>();
+        foreach (var row in personnel.EnumerateArray()) ids.Add(row.GetProperty("id").GetString()!);
+        Assert.Equal(2, ids.Count);
+        Assert.Contains("P2", ids);
+        Assert.Contains("P3", ids);
+        Assert.DoesNotContain("P1", ids);
+
+        // sinceVersion=0 → TAM (üçü de)
+        using var full = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: 0));
+        Assert.Equal(3, full.RootElement.GetProperty("tables").GetProperty("personnel").GetArrayLength());
+    }
+
+    [Fact]
     public void Webte_Silinen_Kayit_Yerelde_De_Silinir_SUNUCU_OTORITER()
     {
         // WEB TAM OTORİTER: sunucuda (web) silinen kayıt, makinenin yerel DB'sinde de silinmeli —

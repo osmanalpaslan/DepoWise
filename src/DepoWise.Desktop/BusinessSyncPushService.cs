@@ -16,10 +16,10 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class BusinessSyncPushService
 {
-    // ⚠️ 30sn'den 120sn'e çıkarıldı (kullanıcı bulgusu 2026-07-19): babanın ~2600 satırlık dosyası içeri
-    // alındıktan sonra snapshot büyüdü; eski 30sn sınırı büyük firmalarda push'u SESSİZCE zaman aşımına
-    // uğratıyordu (catch{} hatayı yutuyordu) → veri hiç sunucuya ulaşmıyordu (görünürde "eşitlenmiyor").
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(120) };
+    // ⚠️ 300sn: rutin push artık DELTA (yalnız değişenler, aşağıya bak) → küçük ve hızlı; ama ilk kurulum/
+    // manuel TAM eşitleme büyük firmada (2508+ kayıt) uzun sürebilir → geniş zaman aşımı (kullanıcı bulgusu
+    // 2026-07-19: DESKTOP-SIKIB3U'da tam snapshot 120sn'yi aşıp zaman aşımına uğruyordu).
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(300) };
 
     /// <summary>Saklı JWT (ServerAuthClient.Token) ile firmanın iş snapshot'ını sunucuya gönderir. Hata → sessiz.
     /// Giriş, "Eşitle" butonu ve periyodik döngü buradan çağırır (çevrimdışıysa token yoktur → atlar).
@@ -29,7 +29,11 @@ public static class BusinessSyncPushService
     /// _connTimer.Tick) ve "Eşitle" butonu bu metodu ARAYÜZ İŞ PARÇACIĞININ devamı olarak çağırıyordu →
     /// büyük firmada (binlerce kayıt) bu senkron iş arayüzü DONDURUYORDU. <see cref="Task.Run"/> ile arka
     /// plana alındı — kim çağırırsa çağırsın arayüz artık bloklanmaz.</summary>
-    public static async Task PushAsync()
+    /// <param name="sinceVersion">DELTA sınırı: >0 ise yalnız updated_at&gt;sinceVersion satırlar gönderilir
+    /// (rutin eşitleme küçük/hızlı). 0 ise TAM snapshot (ilk kurulum / manuel "Eşitle" — büyük olabilir,
+    /// geniş zaman aşımı var). Kullanıcı bulgusu 2026-07-19: server'da zaten olan 2508 kaydı her seferinde
+    /// yeniden göndermek zaman aşımına yol açıyordu; artık server sürümünden yenisi gönderilir.</param>
+    public static async Task PushAsync(long sinceVersion = 0)
     {
         var url = ResolveServerUrl();
         var companyId = DesktopServices.Session?.CompanyId;
@@ -43,7 +47,7 @@ public static class BusinessSyncPushService
             var baseUrl = url!.TrimEnd('/');
             // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder — ARKA PLANDA (arayüzü bloklamasın).
             var machineName = Environment.MachineName;
-            var snapshot = await Task.Run(() => new BusinessSyncService(DesktopServices.Factory).BuildSnapshot(companyId!, machineName));
+            var snapshot = await Task.Run(() => new BusinessSyncService(DesktopServices.Factory).BuildSnapshot(companyId!, machineName, sinceVersion));
             using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
             {
                 Content = new StringContent(snapshot, Encoding.UTF8, "application/json"),

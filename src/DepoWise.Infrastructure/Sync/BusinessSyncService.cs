@@ -99,22 +99,31 @@ public sealed class BusinessSyncService
         ["materials"] = new[] { "unit_price" },
     };
 
-    /// <summary>Yerel DB'den firmanın iş tablolarını JSON snapshot olarak üretir (masaüstü push için).
-    /// machineId: bu cihazın adı (çakışma baseline'ı için sunucuda kullanılır).</summary>
-    public string BuildSnapshot(string companyId, string? machineId = null)
+    /// <summary>Yerel DB'den firmanın iş tablolarını JSON snapshot olarak üretir (masaüstü push / sunucu pull).
+    /// machineId: bu cihazın adı (çakışma baseline'ı için sunucuda kullanılır).
+    ///
+    /// DELTA (kullanıcı bulgusu 2026-07-19: 2508 malzemeli firmada tam snapshot 120sn'yi aşıp zaman aşımına
+    /// uğruyordu): <paramref name="sinceVersion"/> > 0 ise YALNIZ updated_at &gt; sinceVersion satırlar alınır
+    /// (değişenler). 0 ise tam snapshot (ilk kurulum / manuel tam eşitleme). updated_at kolonu olmayan tabloda
+    /// (yoksa) filtre uygulanmaz — tümü alınır. Böylece rutin eşitleme küçük ve hızlıdır.</summary>
+    public string BuildSnapshot(string companyId, string? machineId = null, long sinceVersion = 0)
     {
         using var conn = _factory.Create();
         var tables = new Dictionary<string, List<Dictionary<string, object?>>>();
         foreach (var table in Tables)
         {
             if (!TableExists(conn, table)) continue;
+            var cols = ColumnNames(conn, table);
+            var hasCompany = cols.Contains("company_id");
+            var hasUpdated = cols.Contains("updated_at");
             var rows = new List<Dictionary<string, object?>>();
             using var cmd = conn.CreateCommand();
-            var hasCompany = ColumnNames(conn, table).Contains("company_id");
-            cmd.CommandText = hasCompany
-                ? $"SELECT * FROM {table} WHERE company_id=$c;"
-                : $"SELECT * FROM {table};";
+            var where = new List<string>();
+            if (hasCompany) where.Add("company_id=$c");
+            if (sinceVersion > 0 && hasUpdated) where.Add("updated_at > $since");
+            cmd.CommandText = $"SELECT * FROM {table}" + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "") + ";";
             if (hasCompany) cmd.Parameters.AddWithValue("$c", companyId);
+            if (sinceVersion > 0 && hasUpdated) cmd.Parameters.AddWithValue("$since", sinceVersion);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {

@@ -112,35 +112,50 @@ public sealed partial class ShellViewModel : ViewModelBase
         finally { IsSyncing = false; SyncProgress = 0; }
     }
 
-    // İş verisi eşitleme — DUYARLI (kullanıcı isteği 2026-07-19: 3 dk yerine anlık): her tick'te ÜCUZ
-    // sürüm kontrolü (max updated_at); yalnız DEĞİŞİNCE tam snapshot aktarılır (bant israfı olmaz). Pull
-    // sunucu sürümünü değiştirdiğinde açık ekran kendini yeniler (kullanıcı gidip dönmek zorunda kalmasın).
-    private long _lastLocalVersionPushed = -1;
+    // İş verisi eşitleme — DUYARLI + DELTA (kullanıcı bulgusu 2026-07-19: 2508 kayıtlı firmada tam snapshot
+    // 120sn'yi aşıp zaman aşımına uğruyordu). Her tick (~15 sn): ÜCUZ sürüm kontrolü (max updated_at).
+    //   PUSH: yerel sürüm > SUNUCU sürümü ise → YALNIZ sunucudan yeni satırları gönder (delta; server'da olanı
+    //         tekrar göndermez → hızlı, zaman aşımı yok).
+    //   PULL: sunucu sürümü > en son çektiğimiz ise → sunucudan YALNIZ yeni satırları çek (delta) + açık ekranı yenile.
+    // Pull imleci KALICIDIR (SettingsService) → uygulama yeniden açılınca her şeyi baştan çekmez.
     private long _lastServerVersionPulled = -1;
     private bool _businessSyncBusy;
+    private bool _syncCursorLoaded;
+
+    private void EnsureSyncCursorLoaded()
+    {
+        if (_syncCursorLoaded) return;
+        _syncCursorLoaded = true;
+        try { if (long.TryParse(DesktopServices.Settings.Get(_session.CompanyId, "sync_pull_cursor"), out var v)) _lastServerVersionPulled = v; }
+        catch { }
+    }
+
     private async System.Threading.Tasks.Task MaybePushBusinessAsync()
     {
         if (_businessSyncBusy) return;                 // önceki tur bitmeden yenisini başlatma
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(companyId)) return;
+        EnsureSyncCursorLoaded();
         _businessSyncBusy = true;
         try
         {
-            // PUSH: yerel veri değiştiyse gönder (ücuz max(updated_at)).
+            var serverV = await BusinessSyncPullService.GetServerVersionAsync();
+            if (serverV is not { } sv) return;         // çevrimdışı → sessiz
             var localV = await System.Threading.Tasks.Task.Run(() =>
                 new DepoWise.Infrastructure.Sync.BusinessSyncService(DesktopServices.Factory).CompanyVersion(companyId!));
-            if (localV > _lastLocalVersionPushed)
+            // PUSH DELTA: yerelde sunucudan YENİ satır varsa yalnız onları gönder.
+            if (localV > sv)
+                await BusinessSyncPushService.PushAsync(sinceVersion: sv);
+            // PULL DELTA: sunucuda en son uyguladığımızdan yeni varsa çek + açık ekranı yenile.
+            if (sv > _lastServerVersionPulled)
             {
-                await BusinessSyncPushService.PushAsync();
-                if (!BusinessSyncPushService.LastPushFailed) _lastLocalVersionPushed = localV;
-            }
-            // PULL: sunucu sürümü değiştiyse çek + açık ekranı yenile.
-            var serverV = await BusinessSyncPullService.GetServerVersionAsync();
-            if (serverV is { } sv && sv > _lastServerVersionPulled)
-            {
-                await BusinessSyncPullService.PullAsync();
-                _lastServerVersionPulled = sv;
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
+                var ok = await BusinessSyncPullService.PullAsync(sinceVersion: _lastServerVersionPulled > 0 ? _lastServerVersionPulled : 0);
+                if (ok)
+                {
+                    _lastServerVersionPulled = sv;
+                    try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", sv.ToString(), _session.UserId); } catch { }
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
+                }
             }
             await WarnConflictsAsync();
         }

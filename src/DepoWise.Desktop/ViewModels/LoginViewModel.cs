@@ -429,8 +429,11 @@ public sealed partial class LoginViewModel : ViewModelBase
         {
             await CompanySyncService.TryFlushAsync();   // arada biriken firma işlemi kalmasın
             await LookupSyncService.PullAsync(u, p);    // 2) tanımlar
-            await BusinessSyncPushService.PushAsync();  // 3) iş verisi: önce gönder
-            await BusinessSyncPullService.PullAsync();  //    sonra diğer makinelerinkini çek
+            // 3) iş verisi — DELTA push: sunucuda olanı tekrar gönderme (2508 kayıtlı firmada tam push zaman
+            //    aşımına uğruyordu, kullanıcı bulgusu 2026-07-19). Yalnız sunucu sürümünden yeni satırlar gider.
+            var sv0 = await BusinessSyncPullService.GetServerVersionAsync() ?? 0;
+            await BusinessSyncPushService.PushAsync(sinceVersion: sv0);
+            await BusinessSyncPullService.PullAsync();  //    ilk giriş: diğer makinelerin verisini çek (tam)
         });
         RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
         if (RememberMe) RememberMeService.Save(_authedSession);
