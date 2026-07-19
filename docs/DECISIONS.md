@@ -12,6 +12,25 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-099 — Duyarlı eşitleme: ucuz sürüm kontrolü + açık ekran otomatik yenileme (19.07.2026, TAMAM)
+
+- **Bağlam:** Kullanıcı: "otomatik eşitleme 3 dakikada bir değil anlık, herhangi bir kayıt değiştiğinde
+  yapılmalı; kayıtlar hem web hem uygulamada anlık görünmeli." + canlı tanı: OZE'de sunucuda 2508 malzeme VAR
+  (push çalışmış) ama diğer makinede görünmüyordu → açık ekran pull sonrası kendini yenilemiyordu + 3 dk gecikme.
+- **Karar (delta'sız duyarlılık):** Delta senkron (yalnız değişen satır) büyük iş, ayrı yapılacak (kullanıcı
+  onayı: önce anlık). Bu adımda **ucuz sürüm kontrolü**: `BusinessSyncService.CompanyVersion` = firmanın tüm iş
+  tablolarındaki max(updated_at) (tek sayı). Masaüstü artık her **15 sn** (eski 180 sn yerine): (1) yerel sürüm
+  arttıysa push, (2) sunucu sürümü (`GET /api/sync/business-version`) arttıysa pull. Sürüm değişmediyse tam
+  snapshot AKTARILMAZ → sık yoklama ucuz, bant israfı yok. Pull veri getirince **açık liste ekranı kendini
+  yeniler** (`IRefreshable` — Malzemeler/Araçlar/Günlük Faaliyet/Stok) → kullanıcı gidip dönmek zorunda kalmaz.
+- **Web:** Web zaten her yüklemede sunucudan CANLI okur (bayatlamaz); masaüstü push edince (artık ~15 sn'de)
+  web bir sonraki gezinme/yenilemede görür. Web'de otomatik canlı-güncelleme (polling/SignalR) sonraki adım.
+- **Kalan (bu maddeden):** Gerçek DELTA (yalnız değişen kayıt aktarımı) + web canlı-güncelleme. Şu anki tam-
+  snapshot yaklaşımı KORUNDU ama yalnız değişince tetikleniyor.
+- Test: 34 senkron testi yeşil (554/554 genel). **Masaüstü 1.0.78.**
+
+---
+
 ### ADR-098 — 8 maddelik masaüstü-öncelikli istek paketi (19.07.2026, 7/8 TAMAM canlı)
 
 Kullanıcı masaüstünde test edip 8 madde + platform-öncelik kuralı verdi (`.claude/rules/platform-priority.md`:
