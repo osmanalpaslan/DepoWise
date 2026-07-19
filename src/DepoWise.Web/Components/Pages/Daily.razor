@@ -118,18 +118,6 @@
         }
     </MudGrid>
 
-    @if (_rows is { Length: > 0 })
-    {
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
-            <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
-                           BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
-            <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarını) sizin için kaydeder">
-                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
-            </MudTooltip>
-        </MudStack>
-    }
-
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun faaliyet bulunamadı.</MudText> }
     else
@@ -159,6 +147,16 @@
             </tbody>
         </table>
         </div>
+
+        @* Sayfalama TABLONUN ALTINDA, SOLDA (kullanıcı isteği 2026-07-19: tüm tablolu ekranlar). *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2" Wrap="Wrap.Wrap" Justify="Justify.FlexStart">
+            <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
+                           BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
+            <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarını) sizin için kaydeder">
+                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
+            </MudTooltip>
+        </MudStack>
     }
 </MudPaper>
 
