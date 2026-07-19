@@ -64,6 +64,41 @@ public static class LocalPurgeService
         return rows;
     }
 
+    /// <summary>YALNIZ iş verisi tablolarını (BusinessSyncService.Tables — malzeme/araç/stok/bakım/yakıt/…)
+    /// bu firma için HARD siler; firma/kullanıcı/şube/tanım-dışı sistem verisi KORUNUR (oturum bozulmaz).
+    /// Kullanım (kullanıcı isteği 2026-07-19): "yerelimi temizle, sunucudan tam çek" — sıfır PC simülasyonu.
+    /// HARD delete olduğu için silme olarak YAYILMAZ (is_deleted=1 üretmez); sonrasında TAM pull ile geri gelir.</summary>
+    public static int PurgeBusinessData(string companyId)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return 0;
+        using var conn = DesktopServices.Factory.Create();
+        using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
+        int rows = 0;
+        try
+        {
+            using var tx = conn.BeginTransaction();
+            foreach (var t in DepoWise.Infrastructure.Sync.BusinessSyncService.Tables)
+            {
+                if (!TableExistsIn(conn, t) || !HasColumn(conn, t, "company_id")) continue;
+                rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=$c;", companyId);
+            }
+            tx.Commit();
+        }
+        finally
+        {
+            using var on = conn.CreateCommand(); on.CommandText = "PRAGMA foreign_keys=ON;"; on.ExecuteNonQuery();
+        }
+        return rows;
+    }
+
+    private static bool TableExistsIn(SqliteConnection conn, string table)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
+        cmd.Parameters.AddWithValue("$n", table);
+        return cmd.ExecuteScalar() is not null;
+    }
+
     private static bool HasColumn(SqliteConnection conn, string table, string column)
     {
         using var cmd = conn.CreateCommand();

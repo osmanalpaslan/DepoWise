@@ -188,6 +188,10 @@
                         <Button Classes="Primary" Content="Eşitle" Command="{Binding SyncCommand}"
                                 IsEnabled="{Binding !IsSyncing}"
                                 ToolTip.Tip="Sunucudaki tanımları bu makineye çeker"/>
+                        <!-- Yalnız süper admin: yerel iş verisini temizleyip sunucudan tam çeker (sıfır PC gibi) -->
+                        <Button Classes="Secondary" Content="Yereli Sıfırla" Command="{Binding ResetLocalAndResyncCommand}"
+                                IsEnabled="{Binding !IsSyncing}" IsVisible="{Binding IsSuperAdmin}"
+                                ToolTip.Tip="Bu makinedeki yerel malzeme/araç/stok verisini siler ve sunucudan yeniden çeker (sunucudaki veri etkilenmez)"/>
                     </StackPanel>
                     <!-- Kullanıcı -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

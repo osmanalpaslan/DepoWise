@@ -112,6 +112,37 @@ public sealed partial class ShellViewModel : ViewModelBase
         finally { IsSyncing = false; SyncProgress = 0; }
     }
 
+    /// <summary>"Yereli Sıfırla ve Yeniden Çek" (kullanıcı isteği 2026-07-19: "yerelimi temizle, sunucudan tam
+    /// çek — sıfır PC gibi"). Yalnız YEREL iş verisini (malzeme/araç/stok…) HARD siler (yayılmaz; firma/kullanıcı
+    /// korunur), sonra sunucudan TAM çeker. Sunucudaki veri ETKİLENMEZ.</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ResetLocalAndResync()
+    {
+        if (IsSyncing) return;
+        var companyId = _session.CompanyId;
+        if (!await ConfirmService.AskAsync(
+            "Bu makinedeki YEREL malzeme/araç/stok/bakım/yakıt verileri temizlenip SUNUCUDAN yeniden çekilecek " +
+            "(sıfır bir PC'den giriyormuş gibi). Sunucudaki ve diğer makinelerdeki veri ETKİLENMEZ.\n\nDevam edilsin mi?",
+            "Yerel Veriyi Sıfırla ve Yeniden Çek", "Evet, Yenile", "Vazgeç", danger: true)) return;
+        EnsureSyncCursorLoaded();
+        IsSyncing = true; SyncProgress = 0;
+        try
+        {
+            var cid = companyId;
+            await System.Threading.Tasks.Task.Run(() => DepoWise.Desktop.LocalPurgeService.PurgeBusinessData(cid));   // 1) yerel iş verisi HARD sil
+            var ok = await BusinessSyncPullService.PullAsync(0);                                                       // 2) sunucudan TAM çek
+            var sv = await BusinessSyncPullService.GetServerVersionAsync();                                            // 3) imleci güncelle
+            if (sv is { } v) { _lastServerVersionPulled = v; try { DesktopServices.Settings.Set(cid, "sync_pull_cursor", v.ToString(), _session.UserId); } catch { } }
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
+            await ConfirmService.AskAsync(
+                ok ? "Yerel veri temizlendi ve sunucudan yeniden çekildi." :
+                     "Yerel veri temizlendi ama sunucudan çekilemedi (çevrimdışı olabilirsiniz). İnternet gelince üst bardaki “Eşitle”ye basın.",
+                "Yerel Sıfırlama", "Tamam", "Tamam", danger: !ok);
+        }
+        catch (Exception ex) { await ConfirmService.AskAsync("Hata: " + ex.Message, "Yerel Sıfırlama", "Tamam", "Tamam", danger: true); }
+        finally { IsSyncing = false; SyncProgress = 0; }
+    }
+
     // İş verisi eşitleme — DUYARLI + DELTA (kullanıcı bulgusu 2026-07-19: 2508 kayıtlı firmada tam snapshot
     // 120sn'yi aşıp zaman aşımına uğruyordu). Her tick (~15 sn): ÜCUZ sürüm kontrolü (max updated_at).
     //   PUSH: yerel sürüm > SUNUCU sürümü ise → YALNIZ sunucudan yeni satırları gönder (delta; server'da olanı
