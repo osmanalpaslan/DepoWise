@@ -53,7 +53,11 @@
     else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Bu seçimde makine yok.</MudText> }
     else
     {
-        <MudTable Items="_machines" Dense="true" Hover="true" Striped="true">
+        @* Makine adı arama kutusu (kullanıcı isteği 2026-07-19) *@
+        <MudTextField @bind-Value="_search" Immediate="true" Placeholder="Makine adı ara…" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" Margin="Margin.Dense" Variant="Variant.Outlined"
+                      Clearable="true" Class="mb-2" Style="max-width:320px" />
+        <MudTable Items="_machines" Filter="new Func<MachineDto,bool>(FilterMachine)" Dense="true" Hover="true" Striped="true">
             <HeaderContent>
                 <MudTh>Bağlantı</MudTh>
                 @if (Auth.IsSuperAdmin) { <MudTh>Firma (değiştir)</MudTh> }
@@ -108,6 +112,8 @@
 
 @code {
     private List<MachineDto>? _machines;   // null = henüz sorgulanmadı
+    private string _search = "";
+    private bool FilterMachine(MachineDto m) => string.IsNullOrWhiteSpace(_search) || (m.Name ?? "").Contains(_search.Trim(), StringComparison.OrdinalIgnoreCase);
     private bool _loading;
     private string _mode = "byBranch";
     private List<ApiClient.Opt> _companies = new();
