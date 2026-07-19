@@ -31,9 +31,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.83 yayında** — "Yereli Sıfırla" butonu (yerel temizle+sunucudan tam çek) + DELTA eşitleme |
+| **Masaüstü** | **1.0.84 yayında** — girişte TAM push (uzlaştırma) + sunucu apply tek-transaction (araçlar eksik gelme düzeltmesi) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | 8 maddeden **1 kaldı:** Giriş-Çıkış "depo çıkışı"nda çoklu malzeme (§4 stok, ayrı/dikkatli yapılacak) |
+| **Bekleyen iş** | Giriş-Çıkış çoklu malzeme (§4) · Düzenleme kilidi · Yedek ekranları (sayfalama/Excel/silme) |
+
+### 🔧 Eşitleme kök düzeltme (2026-07-19) — "araçlar sunucuya ulaşmıyordu"
+**Belirti:** Büyük firmada (2508 malzeme) push zaman aşımına uğruyor; araçlar sunucuya HİÇ ulaşmıyordu
+(canlı kontrol: sunucuda 2508 malzeme, 0 araç). **Kök neden:** Sunucuda `ApplyCore` upsert döngüsü
+transaction'sızdı → her satır ayrı commit (fsync) → 2508+ kayıt dakikalarca sürüyor → 120s'de yarıda kesiliyor
+(malzemeler yazıldı, araçlar yazılamadı). Delta-push da araçları atlıyordu (updated_at ≤ sunucu sürümü).
+**Düzeltme:** (1) `ApplyCore` tek `BEGIN/COMMIT` içinde → 1 commit, hızlı, atomik (yarıda kalma imkânsız).
+(2) Girişte TAM push geri geldi (uzlaştırma: sunucuda eksik satır varsa tamamlar; artık hızlı olduğu için
+zaman aşımı yok). Rutin push (ShellViewModel timer) DELTA kalır. **Kullanıcı adımı:** DESKTOP-SIKIB3U'da
+üst bardaki **"Eşitle"**ye bas → araçlar sunucuya gider → web + baba makinesi çeker.
 
 ### 8 maddelik masaüstü-öncelikli paket (2026-07-19, ADR-098) — 7/8 canlı
 Arıza Açıklaması · Enter ile filtre · Fluent menü rengi · Yakıtı Alan (Migration052) · PDF logolar (talep formu

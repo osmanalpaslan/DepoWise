@@ -293,6 +293,14 @@ public sealed class BusinessSyncService
 
         using var conn = _factory.Create();
 
+        // ⚠️ PERFORMANS (kullanıcı bulgusu 2026-07-19: 2508 kayıtlı push SUNUCUDA zaman aşımına uğruyordu;
+        // araçlar hiç ulaşmıyordu): tüm upsert'ler TEK transaction'da → 2508+ ayrı commit yerine 1 commit
+        // (SQLite'ta her commit fsync → binlerce satır dakikalarca sürüyordu). Ham BEGIN/COMMIT — tek bağlantı,
+        // alt komutlar (UpsertRow/DetectConflict) bu transaction içinde çalışır. Hata olursa ROLLBACK.
+        using (var begin = conn.CreateCommand()) { begin.CommandText = "BEGIN;"; begin.ExecuteNonQuery(); }
+        try
+        {
+
         // Cihaz baseline'ı: bu cihazın son iş-verisi push zamanı (çakışma penceresi). machineId payload'da.
         var machineId = payload.TryGetProperty("machineId", out var mEl) && mEl.ValueKind == JsonValueKind.String
             ? mEl.GetString() : null;
@@ -347,6 +355,14 @@ public sealed class BusinessSyncService
 
         // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı)
         if (deviceId is not null) SetLastPush(conn, deviceId, now);
+
+        using (var commit = conn.CreateCommand()) { commit.CommandText = "COMMIT;"; commit.ExecuteNonQuery(); }
+        }
+        catch
+        {
+            try { using var rb = conn.CreateCommand(); rb.CommandText = "ROLLBACK;"; rb.ExecuteNonQuery(); } catch { }
+            throw;
+        }
 
         return new ApplyResult(upserted, skipped, errors);
     }
