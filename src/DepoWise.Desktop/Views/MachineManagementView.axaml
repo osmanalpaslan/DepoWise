@@ -28,7 +28,12 @@
             </StackPanel>
         </Border>
 
-        <Panel Grid.Row="2" Margin="0,16,0,0">
+        <DockPanel Grid.Row="2" Margin="0,16,0,0">
+            <!-- Makine adı arama kutusu (kullanıcı isteği 2026-07-19) -->
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                <TextBox Classes="Field" Width="300" Text="{Binding Search}" PlaceholderText="Makine adı ara…"/>
+            </StackPanel>
+            <Panel>
             <Border Classes="Table" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
@@ -74,7 +79,8 @@
             <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
                              ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
             <ctrl:StatePanel Mode="Empty" Title="Makine yok" Message="Henüz kayıtlı makine yok (kurulum/enrollment sonrası listelenir)." IsVisible="{Binding IsEmpty}"/>
-        </Panel>
+            </Panel>
+        </DockPanel>
 
         <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
     </Grid>

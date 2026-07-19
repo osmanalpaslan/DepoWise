@@ -254,8 +254,13 @@ public sealed partial class ShellViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(url)) return;
         try
         {
-            var companyId = DesktopServices.Session?.CompanyId ?? DesktopServices.DefaultCompanyId;
-            // Makine şubesi login şubesinden yazılmaz (admin atar) — göndermiyoruz.
+            // ÇİFT KAYIT DÜZELTMESİ (kullanıcı bulgusu 2026-07-19): makine, oturum firmasına DEĞİL kendi BAĞLI
+            // firmasına (MachineCompanyId) kaydedilir. Süper admin farklı bir firmaya (ör. ev firması) geçince
+            // heartbeat makineyi İKİNCİ bir firmaya kaydediyordu → "aynı makine birden çok görünüyor". Makine
+            // bir firmaya bağlıysa (bilinen), heartbeat DAİMA o firmaya gider; yalnız ilk kurulumda (henüz
+            // bağlı değilken) oturum firması kullanılır.
+            var companyId = DesktopServices.MachineCompanyId ?? DesktopServices.Session?.CompanyId ?? DesktopServices.DefaultCompanyId;
+            // Makine şubesi login şubesinden yazılmaz (admin atar / ilk kurulumda SelfAssignMachineBranch yapar) — göndermiyoruz.
             var json = System.Text.Json.JsonSerializer.Serialize(new { companyId, machineName = Environment.MachineName });
             using var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
             using var resp = await _pingHttp.PostAsync(url!.TrimEnd('/') + "/api/machines/register", content);

@@ -18,6 +18,11 @@ public sealed partial class MachineManagementViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public ObservableCollection<DeviceRow> Devices { get; } = new();
+    private readonly System.Collections.Generic.List<DeviceRow> _all = new();
+
+    /// <summary>Makine adı arama kutusu (kullanıcı isteği 2026-07-19). İçerir araması, harf duyarsız.</summary>
+    [ObservableProperty] private string _search = "";
+    partial void OnSearchChanged(string value) => ApplyFilter();
 
     [ObservableProperty] private string? _status;
     [ObservableProperty] private string? _loadError;
@@ -52,15 +57,25 @@ public sealed partial class MachineManagementViewModel : ViewModelBase
         try
         {
             LoadError = null;
-            Devices.Clear();
-            foreach (var d in DesktopServices.Enrollment.ListDevices(_session)) Devices.Add(d);
+            _all.Clear();
+            foreach (var d in DesktopServices.Enrollment.ListDevices(_session)) _all.Add(d);
             ActiveCount = DesktopServices.Enrollment.ActiveDeviceCount(_session);
-            Status = $"{Devices.Count} makine";
+            ApplyFilter();
+            Status = $"{_all.Count} makine";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
+        OnPropertyChanged(nameof(HasError));
+    }
+
+    private void ApplyFilter()
+    {
+        Devices.Clear();
+        var t = Search?.Trim();
+        foreach (var d in _all)
+            if (string.IsNullOrEmpty(t) || (d.Name?.Contains(t, StringComparison.OrdinalIgnoreCase) ?? false))
+                Devices.Add(d);
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(IsEmpty));
-        OnPropertyChanged(nameof(HasError));
     }
 
     [RelayCommand]
