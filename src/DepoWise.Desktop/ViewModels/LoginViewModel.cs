@@ -429,11 +429,11 @@ public sealed partial class LoginViewModel : ViewModelBase
         {
             await CompanySyncService.TryFlushAsync();   // arada biriken firma işlemi kalmasın
             await LookupSyncService.PullAsync(u, p);    // 2) tanımlar
-            // 3) iş verisi — girişte TAM push (uzlaştırma): sunucuda EKSİK satır varsa (ör. eski yarım push'tan
-            //    araçlar ulaşmamışsa) tamamlansın. Sunucu apply artık TEK transaction (hızlı) → 2508+ kayıt
-            //    zaman aşımına uğramaz (kullanıcı bulgusu 2026-07-19). Rutin push (ShellViewModel) delta kalır.
-            await BusinessSyncPushService.PushAsync();  // TAM (since=0)
-            await BusinessSyncPullService.PullAsync();  // sonra diğer makinelerin verisini çek (tam)
+            // 3) iş verisi — girişte GÖNDERİLMEMİŞ yerel değişiklikleri gönder (Z4 watermark). Bu makinenin
+            //    kendi watermark'ından yeni satırlar gider; sunucuda eksik olanlar tamamlanır. İlk kurulumda
+            //    watermark=0 → tam gönderim (tek sefer). Sunucu apply TEK transaction (hızlı) → zaman aşımı yok.
+            await BusinessSyncPushService.PushAsync();
+            await BusinessSyncPullService.PullAsync();  // sonra diğer makinelerin verisini çek
         });
         RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
         if (RememberMe) RememberMeService.Save(_authedSession);

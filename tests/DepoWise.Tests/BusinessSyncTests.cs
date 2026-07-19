@@ -89,6 +89,49 @@ public class BusinessSyncTests : IDisposable
         Assert.Equal(3, full.RootElement.GetProperty("tables").GetProperty("personnel").GetArrayLength());
     }
 
+    private static System.Collections.Generic.HashSet<string> Ids(JsonDocument doc, string table)
+    {
+        var set = new System.Collections.Generic.HashSet<string>();
+        foreach (var row in doc.RootElement.GetProperty("tables").GetProperty(table).EnumerateArray())
+            set.Add(row.GetProperty("id").GetString()!);
+        return set;
+    }
+
+    [Fact]
+    public void Z4_Push_SunucuGlobalMax_Yerine_Watermark_Kullaninca_KayitAtlanmaz()
+    {
+        // ⚠️ Z4 KÖK NEDEN (kanıtlı 94-araç / personel bug'ı): eski push "since = SUNUCU global max(updated_at)"
+        // kullanıyordu. Başka bir kaydın (toplu import / başka makine / başka tablo) YÜKSEK zaman damgası, bu
+        // makinenin KENDİ yeni kaydını "gönderilmiş gibi" ATLATIYORDU. Yeni push, bu makinenin KENDİ
+        // watermark'ını kullanır → atlama imkânsız. (Mekanizma tablo-bağımsız: BuildSnapshot her tabloya AYNI
+        // "updated_at > since" filtresini uygular; personel temsilîdir — malzeme/araç/bakım/yakıt/talep aynıdır.)
+        SeedCompany(_src, "ACME");
+        InsertPersonnel(_src, "P_NEW", "ACME", "Yeni-henuz-gonderilmemis", updatedAt: 1000);
+        InsertPersonnel(_src, "P_HIGH", "ACME", "Global-max-yukselten", updatedAt: 5000);
+
+        var svc = new BusinessSyncService(_src, _clock);
+        long serverGlobalMax = svc.CompanyVersion("ACME"); // = 5000 (başka kayıt yüzünden yüksek)
+        Assert.Equal(5000, serverGlobalMax);
+
+        // (A) ESKİ MANTIK: since = sunucu global max (5000) → P_NEW(1000 ≤ 5000) ATLANIR = BUG.
+        using (var eski = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: serverGlobalMax)))
+            Assert.DoesNotContain("P_NEW", Ids(eski, "personnel"));
+
+        // (B) YENİ MANTIK: since = bu makinenin watermark'ı (henüz push yok → 0) → P_NEW GÖNDERİLİR = DÜZELTME.
+        using (var yeni = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: 0)))
+            Assert.Contains("P_NEW", Ids(yeni, "personnel"));
+
+        // (C) "Her şeyi tekrar gönderme" YASAĞI korunur: watermark P_NEW'i kapsayınca (1000), sonraki push
+        //     yalnız GERÇEKTEN yeni kaydı (P_NEXT) taşır; P_NEW tekrar gönderilmez.
+        InsertPersonnel(_src, "P_NEXT", "ACME", "Sonraki", updatedAt: 6000);
+        using (var delta = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: 1000)))
+        {
+            var ids = Ids(delta, "personnel");
+            Assert.Contains("P_NEXT", ids);
+            Assert.DoesNotContain("P_NEW", ids);
+        }
+    }
+
     [Fact]
     public void Webte_Silinen_Kayit_Yerelde_De_Silinir_SUNUCU_OTORITER()
     {

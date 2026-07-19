@@ -29,11 +29,7 @@ public static class BusinessSyncPushService
     /// _connTimer.Tick) ve "Eşitle" butonu bu metodu ARAYÜZ İŞ PARÇACIĞININ devamı olarak çağırıyordu →
     /// büyük firmada (binlerce kayıt) bu senkron iş arayüzü DONDURUYORDU. <see cref="Task.Run"/> ile arka
     /// plana alındı — kim çağırırsa çağırsın arayüz artık bloklanmaz.</summary>
-    /// <param name="sinceVersion">DELTA sınırı: >0 ise yalnız updated_at&gt;sinceVersion satırlar gönderilir
-    /// (rutin eşitleme küçük/hızlı). 0 ise TAM snapshot (ilk kurulum / manuel "Eşitle" — büyük olabilir,
-    /// geniş zaman aşımı var). Kullanıcı bulgusu 2026-07-19: server'da zaten olan 2508 kaydı her seferinde
-    /// yeniden göndermek zaman aşımına yol açıyordu; artık server sürümünden yenisi gönderilir.</param>
-    public static async Task PushAsync(long sinceVersion = 0)
+    public static async Task PushAsync()
     {
         var url = ResolveServerUrl();
         var companyId = DesktopServices.Session?.CompanyId;
@@ -42,13 +38,24 @@ public static class BusinessSyncPushService
         await ServerAuthClient.EnsureFreshTokenAsync();
         var token = ServerAuthClient.Token;
         if (string.IsNullOrWhiteSpace(token)) return;
-        SyncLog.Write("PUSH başladı", $"since={sinceVersion}");
         try
         {
             var baseUrl = url!.TrimEnd('/');
-            // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder — ARKA PLANDA (arayüzü bloklamasın).
             var machineName = Environment.MachineName;
-            var snapshot = await Task.Run(() => new BusinessSyncService(DesktopServices.Factory).BuildSnapshot(companyId!, machineName, sinceVersion));
+            var svc = new BusinessSyncService(DesktopServices.Factory);
+            // ⚠️ Z4 (2026-07-19) KÖK NEDEN DÜZELTMESİ: eskiden "since = SUNUCU global max(updated_at)" kullanılıyordu.
+            // Başka bir tablonun/makinenin daha YÜKSEK zaman damgası, bu makinenin KENDİ kayıtlarını "gönderilmiş
+            // gibi" ATLATIYORDU (kanıtlı 94-araç ve personel bug'ı: yerelde vardı, sunucuya hiç ulaşmadı).
+            // ARTIK: her makine KENDİ "son gönderilen watermark"ını (yerelde kalıcı) tutar; yalnız
+            // updated_at > watermark olan — yani GERÇEKTEN GÖNDERİLMEMİŞ — satırlar gönderilir. Sunucu global
+            // max'ına HİÇ bakılmaz → başka bir kaydın zaman damgası yüzünden atlama İMKÂNSIZDIR.
+            // (since=0 yalnız ilk kurulumda; sürekli full push YOK, her şeyi tekrar gönderme YOK.)
+            long pushWm = LoadPushWatermark(companyId!);
+            long localV = await Task.Run(() => svc.CompanyVersion(companyId!));
+            if (localV <= pushWm) return; // gönderilecek YENİ yerel değişiklik yok → boş push atma (bant israfı yok)
+            SyncLog.Write("PUSH başladı", $"since(watermark)={pushWm} localV={localV}");
+            // Yerel snapshot üret (paylaşılan Infrastructure servisi) + gönder — ARKA PLANDA (arayüzü bloklamasın).
+            var snapshot = await Task.Run(() => svc.BuildSnapshot(companyId!, machineName, pushWm));
             using var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/sync/business-push")
             {
                 Content = new StringContent(snapshot, Encoding.UTF8, "application/json"),
@@ -67,6 +74,10 @@ public static class BusinessSyncPushService
                 var r = ParseResult(bodyText);
                 LastPushResult = r;
                 LastPushFailed = false;
+                // ⬅ Z4: watermark'ı YALNIZ başarılı push'ta ilerlet. Başarısızlıkta (ağ/timeout) ilerletmezsek
+                // aynı satırlar bir sonraki turda TEKRAR gönderilir (unutulmaz). localV, snapshot'tan hemen önce
+                // ölçüldüğü için gönderilen en yüksek updated_at'i temsil eder.
+                SavePushWatermark(companyId!, localV);
                 SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
                 if (r.HasProblem) // sunucu bazı satırları uygulamadı (yetki/doğrulama/hata) → GÖRÜNÜR kıl
                     SyncLog.Write("PUSH atlanan/hatalı", $"skipped={r.Skipped}; " +
@@ -91,6 +102,22 @@ public static class BusinessSyncPushService
 
     /// <summary>Son BAŞARILI push'un sunucu sonucu (upserted/skipped/errors). Ağ hatasında değişmez (bkz. LastPushFailed).</summary>
     public static PushResult? LastPushResult { get; private set; }
+
+    // ── Z4: bu makinenin "son gönderilen watermark"ı (firma bazında, KALICI — SettingsService). Kök neden
+    // düzeltmesinin çekirdeği: push kararı sunucu global max'ına DEĞİL, bu makinenin kendi ilerleyişine bağlıdır. ──
+    private const string PushWatermarkKey = "sync_push_watermark";
+
+    private static long LoadPushWatermark(string companyId)
+    {
+        try { return long.TryParse(DesktopServices.Settings.Get(companyId, PushWatermarkKey), out var v) ? v : 0L; }
+        catch { return 0L; }
+    }
+
+    private static void SavePushWatermark(string companyId, long value)
+    {
+        try { DesktopServices.Settings.Set(companyId, PushWatermarkKey, value.ToString(), DesktopServices.Session?.UserId ?? ""); }
+        catch { /* kalıcılık best-effort; başarısızsa bir sonraki turda tekrar yazılır */ }
+    }
 
     /// <summary>Sunucu push yanıt gövdesini (JSON) PushResult'a çevirir. Saf/yan-etkisiz → birim testi kolay.</summary>
     public static PushResult ParseResult(string json)

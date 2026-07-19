@@ -203,15 +203,12 @@ public sealed partial class ShellViewModel : ViewModelBase
         {
             var serverV = await BusinessSyncPullService.GetServerVersionAsync();
             if (serverV is not { } sv) return;         // çevrimdışı → sessiz
-            var localV = await System.Threading.Tasks.Task.Run(() =>
-                new DepoWise.Infrastructure.Sync.BusinessSyncService(DesktopServices.Factory).CompanyVersion(companyId!));
-            // PUSH DELTA: yerelde sunucudan YENİ satır varsa yalnız onları gönder.
-            if (localV > sv)
-            {
-                await BusinessSyncPushService.PushAsync(sinceVersion: sv);
-                // Z2: arka plan push'ta sunucu kayıt atladıysa rozeti güncelle (UI thread).
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RefreshSyncWarning);
-            }
+            // PUSH: bu makinenin GÖNDERİLMEMİŞ yerel değişikliklerini gönder. Gönderilecekler PushAsync içinde,
+            // bu makinenin KENDİ "son gönderilen watermark"ına göre belirlenir (sunucu global max'ına BAKILMAZ —
+            // Z4 kök neden: başka tablo/makinenin zaman damgası artık bu makinenin kaydını atlatamaz).
+            await BusinessSyncPushService.PushAsync();
+            // Z2: push sonucunda sunucu kayıt atladıysa uyarı rozetini güncelle (UI thread).
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RefreshSyncWarning);
             // PULL DELTA: sunucuda en son uyguladığımızdan yeni varsa çek + açık ekranı yenile.
             if (sv > _lastServerVersionPulled)
             {
