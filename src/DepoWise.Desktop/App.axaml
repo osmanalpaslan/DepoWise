@@ -108,8 +108,9 @@
             <Setter Property="Padding" Value="12,10"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <!-- Menü yüzeyi rengi (Fluent'te siyah metin koyu menüde görünmüyordu — kullanıcı isteği 2026-07-19) -->
-            <Setter Property="Foreground" Value="{DynamicResource Brand.OnSurface.Brush}"/>
+            <!-- Menü yazısı VARYANT-DUYARLI (açık modda koyu, koyu modda açık) — kenar menü zemini de varyantla
+                 değişiyor (açık modda beyaz). Sabit renk açık modda görünmez oluyordu (kullanıcı bulgusu 2026-07-19). -->
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -144,8 +145,8 @@
             <Setter Property="Opacity" Value="0.82"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="FontSize" Value="13"/>
-            <!-- Menü ekran isimleri de menü yüzeyi rengini kullanır (Fluent'te siyah/görünmez sorunu — 2026-07-19) -->
-            <Setter Property="Foreground" Value="{DynamicResource Brand.OnSurface.Brush}"/>
+            <!-- Ekran isimleri: varyant-duyarlı ikincil metin (açık modda okunur koyu, koyu modda açık). -->
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
         <Style Selector="Button.NavLink /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -161,7 +162,7 @@
         <Style Selector="Button.NavLink.active">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource Brand.OnSurface.Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
         <Style Selector="Button.NavLink.active /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>

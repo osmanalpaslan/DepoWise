@@ -70,7 +70,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <Image Source="/Assets/app-icon-256.png" Width="48" Height="48" VerticalAlignment="Center"/>
                         <SelectableTextBlock Text="DepoWise" Classes="SectionTitle" VerticalAlignment="Center"
-                                             Foreground="{DynamicResource Brand.OnSurface.Brush}"/>
+                                             Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
                 </Border>
                 <!-- Kullanıcı -->
@@ -109,12 +109,12 @@
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch">
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <!-- Menü metni DAİMA menü yüzeyi rengini (Brand.OnSurface) kullanır;
-                                                     aksi halde Fluent'te temanın varsayılan SİYAH metni koyu menüde
-                                                     görünmüyordu (kullanıcı isteği 2026-07-19). Semi ile aynı görünür. -->
+                                                <!-- Menü metni VARYANT-DUYARLI (TextPrimaryBrush): açık modda koyu,
+                                                     koyu modda açık. Kenar menü zemini de varyantla değişir (açık
+                                                     modda beyaz), sabit renk açık modda görünmez oluyordu (2026-07-19). -->
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
                                                            FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"
-                                                           Foreground="{DynamicResource Brand.OnSurface.Brush}"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
                                                            Opacity="0.6" VerticalAlignment="Center"/>
