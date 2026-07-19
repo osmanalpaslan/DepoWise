@@ -23,9 +23,11 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed record MovementDisplay(string DateText, string Kind, string Description);
 
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
-public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel
+public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
 {
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
+    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
+    public void RefreshData() => Load();
     private readonly SessionContext _session;
 
     public ObservableCollection<VehicleRow> Items { get; } = new();

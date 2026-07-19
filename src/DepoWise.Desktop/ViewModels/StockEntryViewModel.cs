@@ -19,8 +19,10 @@ namespace DepoWise.Desktop.ViewModels;
 /// • Depo Çıkışı: mevcut malzeme + stok AZALIR (negatif engeli).
 /// StockService doc'lu hareket (operation_id idempotency). Altta son hareketler + iptal (ters kayıt).
 /// </summary>
-public sealed partial class StockEntryViewModel : ViewModelBase
+public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
 {
+    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
+    public void RefreshData() => Load();
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);

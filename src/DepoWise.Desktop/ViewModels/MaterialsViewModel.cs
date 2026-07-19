@@ -17,9 +17,11 @@ using DepoWise.Infrastructure.Materials;
 namespace DepoWise.Desktop.ViewModels;
 
 /// <summary>Malzemeler ekranı — liste + kolon bazlı filtre + sayfalama + yeni kayıt. MaterialService üzerine (SQLite).</summary>
-public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel
+public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
 {
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
+    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
+    public void RefreshData() => Load();
     private readonly SessionContext _session;
 
     public ObservableCollection<MaterialRow> Items { get; } = new();

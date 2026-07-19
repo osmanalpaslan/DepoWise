@@ -128,6 +128,31 @@ public sealed class BusinessSyncService
         return JsonSerializer.Serialize(new { companyId, machineId, tables });
     }
 
+    /// <summary>Firmanın iş verisinin "sürümü": tüm iş tablolarındaki EN BÜYÜK updated_at. Ucuz tek sayı —
+    /// istemci, tam snapshot çekmeden önce sunucu sürümü değişti mi diye bakar (sık yoklama + yalnız değişince
+    /// aktarım). Kullanıcı isteği 2026-07-19: eşitleme 3 dk yerine anlık, ama sabit tam-snapshot bant israfı
+    /// olmasın. (Gerçek delta senkron ayrı iş; bu, ucuz değişiklik-tespitiyle "duyarlı" davranış verir.)</summary>
+    public long CompanyVersion(string companyId)
+    {
+        using var conn = _factory.Create();
+        long max = 0;
+        foreach (var table in Tables)
+        {
+            if (!TableExists(conn, table)) continue;
+            var cols = ColumnNames(conn, table);
+            if (!cols.Contains("updated_at")) continue;
+            using var cmd = conn.CreateCommand();
+            var hasCompany = cols.Contains("company_id");
+            cmd.CommandText = hasCompany
+                ? $"SELECT MAX(updated_at) FROM {table} WHERE company_id=$c;"
+                : $"SELECT MAX(updated_at) FROM {table};";
+            if (hasCompany) cmd.Parameters.AddWithValue("$c", companyId);
+            var v = cmd.ExecuteScalar();
+            if (v is not null and not DBNull) { var l = Convert.ToInt64(v); if (l > max) max = l; }
+        }
+        return max;
+    }
+
     public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors);
 
     public sealed record ConflictRow(string Id, string EntityType, string EntityId, string Winner,

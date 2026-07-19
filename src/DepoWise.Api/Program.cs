@@ -370,6 +370,11 @@ app.MapGet("/api/sync/business-pull", (HttpContext c) =>
     return Results.Content(snapshot, "application/json");
 }).RequireAuthorization();
 
+// İş verisi SÜRÜMÜ (ucuz): firmanın tüm iş tablolarındaki en büyük updated_at. Masaüstü sık yoklar; sürüm
+// değişmediyse tam snapshot ÇEKMEZ (kullanıcı isteği 2026-07-19: anlık ama bant israfsız).
+app.MapGet("/api/sync/business-version", (HttpContext c) =>
+    S(c) is { } s ? Results.Ok(new { version = svc.BusinessSync.CompanyVersion(s.CompanyId) }) : Results.Unauthorized()).RequireAuthorization();
+
 // Çakışmalar — admin (tümü) / personel (görmediği, şube kapsamında)
 app.MapGet("/api/sync/conflicts", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(svc.BusinessSync.ListConflicts(s.CompanyId)) : Results.Unauthorized()).RequireAuthorization();

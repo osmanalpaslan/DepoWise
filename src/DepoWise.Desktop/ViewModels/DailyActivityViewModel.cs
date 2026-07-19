@@ -24,9 +24,11 @@ namespace DepoWise.Desktop.ViewModels;
 /// tek bakım kaydı + tek stok düşümü (Bakım Takibi'nde de görünür). Liste kolon bazlı filtre + sayfalama +
 /// sıralama + Excel'e aktar kullanır (kullanıcı isteği 2026-07-19, ADR-087/088/089 deseninin AYNISI).
 /// </summary>
-public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridViewModel
+public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridViewModel, IRefreshable
 {
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
+    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
+    public void RefreshData() => Load();
     private readonly SessionContext _session;
     private bool _pickersLoaded;
 

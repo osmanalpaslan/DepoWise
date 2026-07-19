@@ -112,15 +112,40 @@ public sealed partial class ShellViewModel : ViewModelBase
         finally { IsSyncing = false; SyncProgress = 0; }
     }
 
-    // İş verisi push throttle: 30 sn tick'te değil, ~3 dk'da bir tam snapshot gönder (bant tasarrufu).
-    private DateTime _lastBusinessPush = DateTime.MinValue;
+    // İş verisi eşitleme — DUYARLI (kullanıcı isteği 2026-07-19: 3 dk yerine anlık): her tick'te ÜCUZ
+    // sürüm kontrolü (max updated_at); yalnız DEĞİŞİNCE tam snapshot aktarılır (bant israfı olmaz). Pull
+    // sunucu sürümünü değiştirdiğinde açık ekran kendini yeniler (kullanıcı gidip dönmek zorunda kalmasın).
+    private long _lastLocalVersionPushed = -1;
+    private long _lastServerVersionPulled = -1;
+    private bool _businessSyncBusy;
     private async System.Threading.Tasks.Task MaybePushBusinessAsync()
     {
-        if ((DateTime.UtcNow - _lastBusinessPush).TotalSeconds < 180) return;
-        _lastBusinessPush = DateTime.UtcNow;
-        await BusinessSyncPushService.PushAsync();
-        await BusinessSyncPullService.PullAsync(); // diğer makinelerin verisini geri çek (çok makineli görünürlük)
-        await WarnConflictsAsync();
+        if (_businessSyncBusy) return;                 // önceki tur bitmeden yenisini başlatma
+        var companyId = DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(companyId)) return;
+        _businessSyncBusy = true;
+        try
+        {
+            // PUSH: yerel veri değiştiyse gönder (ücuz max(updated_at)).
+            var localV = await System.Threading.Tasks.Task.Run(() =>
+                new DepoWise.Infrastructure.Sync.BusinessSyncService(DesktopServices.Factory).CompanyVersion(companyId!));
+            if (localV > _lastLocalVersionPushed)
+            {
+                await BusinessSyncPushService.PushAsync();
+                if (!BusinessSyncPushService.LastPushFailed) _lastLocalVersionPushed = localV;
+            }
+            // PULL: sunucu sürümü değiştiyse çek + açık ekranı yenile.
+            var serverV = await BusinessSyncPullService.GetServerVersionAsync();
+            if (serverV is { } sv && sv > _lastServerVersionPulled)
+            {
+                await BusinessSyncPullService.PullAsync();
+                _lastServerVersionPulled = sv;
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
+            }
+            await WarnConflictsAsync();
+        }
+        catch { }
+        finally { _businessSyncBusy = false; }
     }
 
     // Push sonrası: admin ile çakışılan kayıtlar varsa personeli bilgilendir (bir kez), sonra 'görüldü' işaretle.
@@ -144,7 +169,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     private void StartConnectionMonitor()
     {
         _ = PingAsync();
-        _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        // 15 sn: eşitleme artık her tick'te ÜCUZ sürüm kontrolü yapıp yalnız değişince aktarıyor (duyarlı).
+        _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); await CheckUserChangedAsync(); await MaybePushBusinessAsync(); await MaybeDailyBackupAsync(); }; // ping + heartbeat + yetki + iş verisi push + günlük yedek
         _connTimer.Start();
     }

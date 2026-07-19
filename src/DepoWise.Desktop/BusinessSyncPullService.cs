@@ -53,6 +53,28 @@ public static class BusinessSyncPullService
         catch { /* sessiz — ağ dönünce sonraki tur tekrar dener */ }
     }
 
+    /// <summary>Sunucudaki firmanın iş verisi SÜRÜMÜ (en büyük updated_at) — ucuz tek sayı. Tam snapshot
+    /// çekmeden "değişti mi?" için (kullanıcı isteği 2026-07-19: anlık ama bant israfsız). null = ulaşılamadı.</summary>
+    public static async Task<long?> GetServerVersionAsync()
+    {
+        var url = ResolveServerUrl();
+        var companyId = DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return null;
+        await ServerAuthClient.EnsureFreshTokenAsync();
+        var token = ServerAuthClient.Token;
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/business-version");
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            using var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            return doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : (long?)null;
+        }
+        catch { return null; }
+    }
+
     private static string? ResolveServerUrl()
     {
         try
