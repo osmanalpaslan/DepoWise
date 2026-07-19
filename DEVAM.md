@@ -42,8 +42,15 @@ transaction'sızdı → her satır ayrı commit (fsync) → 2508+ kayıt dakikal
 (malzemeler yazıldı, araçlar yazılamadı). Delta-push da araçları atlıyordu (updated_at ≤ sunucu sürümü).
 **Düzeltme:** (1) `ApplyCore` tek `BEGIN/COMMIT` içinde → 1 commit, hızlı, atomik (yarıda kalma imkânsız).
 (2) Girişte TAM push geri geldi (uzlaştırma: sunucuda eksik satır varsa tamamlar; artık hızlı olduğu için
-zaman aşımı yok). Rutin push (ShellViewModel timer) DELTA kalır. **Kullanıcı adımı:** DESKTOP-SIKIB3U'da
-üst bardaki **"Eşitle"**ye bas → araçlar sunucuya gider → web + baba makinesi çeker.
+zaman aşımı yok). Rutin push (ShellViewModel timer) DELTA kalır.
+
+**✅ DOĞRULANDI + ÇÖZÜLDÜ (2026-07-19):** Kök neden canlı kanıtlandı — SIKIB3U yerelinde **94 araç VARDI**
+(veri kaybı YOK), sunucuda 0. Düzeltilmiş sunucuya araçlar tek tek gönderildiğinde `upserted:94, skipped:0,
+errors:[]` → sunucu tarafı kusursuz; sorun eski transaction'sız apply'ın büyük push'u (2508 malzeme+94 araç)
+120s'de yarıda kesmesiydi (malzemeler FK sırasında önce → yazıldı; araçlar sıraya gelmeden koptu). 94 araç
+sunucuya yüklendi (canlı doğrulama: /api/vehicles = 94 görünür). **Kullanıcının sorusu (süper admin çok-firma
+yereli tetikler mi?): HAYIR** — push `company_id`'ye göre süzülüyor, çapraz-firma sızıntısı yok. **Baba makinesi
+(8KN8USG) + web:** ~15 sn'de otomatik çeker (veya "Eşitle"/yenile). Her iki makineyi 1.0.84'e güncelle → tekrarı önlenir.
 
 ### 8 maddelik masaüstü-öncelikli paket (2026-07-19, ADR-098) — 7/8 canlı
 Arıza Açıklaması · Enter ile filtre · Fluent menü rengi · Yakıtı Alan (Migration052) · PDF logolar (talep formu
