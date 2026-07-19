@@ -31,7 +31,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.79 yayında** — makine çift kayıt önleme + makine adı arama + duyarlı eşitleme (ADR-099/100) |
+| **Masaüstü** | **1.0.80 yayında** — tüm butonlarda beyaz yazı + makine dedup/arama + duyarlı eşitleme (ADR-099/100) |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | 8 maddeden **1 kaldı:** Giriş-Çıkış "depo çıkışı"nda çoklu malzeme (§4 stok, ayrı/dikkatli yapılacak) |
 
