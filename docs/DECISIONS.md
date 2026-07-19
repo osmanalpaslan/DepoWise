@@ -12,6 +12,26 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-101 — Delta eşitleme: yalnız değişen kayıtlar (zaman aşımı çözümü) (19.07.2026, TAMAM — KRİTİK)
+
+- **Bağlam:** Kullanıcı: "DESKTOP-SIKIB3U makinede eşitleme zaman aşımına uğruyor." Tanı: firmada 2508 malzeme
+  var; her push/pull TAM snapshot gönderiyordu (server'da zaten olsa bile) → 120sn'yi aşıyordu. Uygulama her
+  açılışta da her şeyi baştan gönderiyordu.
+- **Karar (ADR-099'un tamamlayıcısı):** `BuildSnapshot(companyId, machineId, sinceVersion)` — sinceVersion>0 ise
+  yalnız `updated_at > sinceVersion` satırlar. Masaüstü her tick (~15 sn): sunucu sürümünü (`business-version`)
+  ve yerel sürümü (`CompanyVersion`) alır; **PUSH DELTA** = yerel > sunucu ise yalnız yeni satırları gönderir
+  (server'da olanı tekrar göndermez); **PULL DELTA** = `business-pull?since=X` ile yalnız yeni satırları çeker.
+  Pull imleci KALICI (`SettingsService: sync_pull_cursor`) → yeniden açılışta her şeyi baştan çekmez. Zaman
+  aşımı 120→**300sn** (ilk/tam eşitleme büyük olabilir). Giriş de delta push kullanır; **manuel "Eşitle" TAM**
+  (uzlaştırma) kalır.
+- **Soft-delete deltada:** silme `is_deleted=1 + updated_at=now` → delta'ya girer, silme yayılır.
+- **Bilinen sınır:** iki makine eşzamanlı yazarken, sunucu sürümünden ESKİ ama henüz push edilmemiş bir satır
+  delta'da atlanabilir (nadir); manuel "Eşitle" (tam) bunu uzlaştırır. Gerçek per-cihaz push-cursor sunucu
+  tarafı ileride eklenebilir.
+- Test: `Delta_Snapshot_YalnizDegisenleri_Icerir_CompanyVersion_MaxDoner` + 34 senkron testi (35/35). **1.0.82.**
+
+---
+
 ### ADR-099 — Duyarlı eşitleme: ucuz sürüm kontrolü + açık ekran otomatik yenileme (19.07.2026, TAMAM)
 
 - **Bağlam:** Kullanıcı: "otomatik eşitleme 3 dakikada bir değil anlık, herhangi bir kayıt değiştiğinde
