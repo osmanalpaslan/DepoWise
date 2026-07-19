@@ -27,13 +27,25 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **554/554 yeşil** (`dotnet test`) |
+| **Testler** | **555/555 yeşil** (`dotnet test`) |
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.84 yayında** — girişte TAM push (uzlaştırma) + sunucu apply tek-transaction (araçlar eksik gelme düzeltmesi) |
+| **Masaüstü** | **1.0.84 yayında** (Z2 kodda, yayın bekliyor) |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | Giriş-Çıkış çoklu malzeme (§4) · Düzenleme kilidi · Yedek ekranları (sayfalama/Excel/silme) |
+| **Bekleyen iş** | **Senkron güvenilirlik planı (Z1–Z5, donduruldu):** Z2 kodda✓ → sıradaki Z4 (delta kök neden). Sonra: Giriş-Çıkış çoklu malzeme · Düzenleme kilidi · Yedek ekranları |
+
+### 🛡️ Senkron güvenilirlik planı — GPT ile mutabık, mimari DONDURULDU (2026-07-19)
+Kök sorun: aynı firma+şubede iki masaüstü birbirini "zaman zaman" göremiyor. Kök neden (kanıtlandı):
+delta watermark = tüm tabloların TEK global `max(updated_at)` + `updated_at` her makinenin KENDİ saatiyle →
+gönderici ve alıcı atlaması. Çekirdek adımlar: **Z1** tek sync motoru+mutex · **Z2** push sonucunu oku
+(sessiz başarısızlık bitsin) · **Z3** reset=sunucudan tam yenile (hard-delete yok) · **Z4** delta kök neden
+(gerçekten gönderilmemiş/eksik kayıtları taşı; full-push/since=0 YASAK) · **Z5** basit sync durumu.
+- **Z2 TAMAM (kodda, 2026-07-19):** push yanıtı (`upserted/skipped/errors`) artık okunuyor; `sync.log`;
+  üst barda uyarı rozeti + manuel "Eşitle" diyaloğunda atlanan kayıt detayı. Canlı kanıt: HTTP 200 ama
+  `{skipped:1, errors:[...]}` dönen "sessiz başarısızlık" senaryosu artık GÖRÜNÜR.
+  Not: ParseResult birim testi, test projesine Avalonia bağımlılığı sokup gizli bir flaky testi (PersonnelImport)
+  tetiklediği için geri alındı; onun yerine canlı sözleşme testi + build ile doğrulandı.
 
 ### 🔧 Eşitleme kök düzeltme (2026-07-19) — "araçlar sunucuya ulaşmıyordu"
 **Belirti:** Büyük firmada (2508 malzeme) push zaman aşımına uğruyor; araçlar sunucuya HİÇ ulaşmıyordu

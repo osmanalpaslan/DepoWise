@@ -42,6 +42,7 @@ public static class BusinessSyncPushService
         await ServerAuthClient.EnsureFreshTokenAsync();
         var token = ServerAuthClient.Token;
         if (string.IsNullOrWhiteSpace(token)) return;
+        SyncLog.Write("PUSH başladı", $"since={sinceVersion}");
         try
         {
             var baseUrl = url!.TrimEnd('/');
@@ -57,10 +58,63 @@ public static class BusinessSyncPushService
             // 401 → token beklenmedik şekilde geçersiz; bir kez yenilemeyi dene (yine olmazsa SessionExpired sinyali).
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 await ServerAuthClient.EnsureFreshTokenAsync();
-            LastPushFailed = !resp.IsSuccessStatusCode;
+
+            // Z2 (2026-07-19): sunucu yanıtını OKU — "eşitlendi" sanılan sessiz atlamayı bitir.
+            // Sunucu {upserted, skipped, errors} döndürür; eskiden yalnız HTTP durumuna bakılıp gövde atılıyordu.
+            var bodyText = await resp.Content.ReadAsStringAsync();
+            if (resp.IsSuccessStatusCode)
+            {
+                var r = ParseResult(bodyText);
+                LastPushResult = r;
+                LastPushFailed = false;
+                SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
+                if (r.HasProblem) // sunucu bazı satırları uygulamadı (yetki/doğrulama/hata) → GÖRÜNÜR kıl
+                    SyncLog.Write("PUSH atlanan/hatalı", $"skipped={r.Skipped}; " +
+                        (r.Errors.Count > 0 ? "errors: " + string.Join(" | ", r.Errors) : "errors: (liste boş)"));
+            }
+            else
+            {
+                LastPushFailed = true;
+                SyncLog.Write("PUSH reddedildi", $"HTTP {(int)resp.StatusCode} {resp.StatusCode}; gövde: {Truncate(bodyText, 500)}");
+            }
         }
-        catch { LastPushFailed = true; /* sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
+        catch (Exception ex) { LastPushFailed = true; SyncLog.Write("PUSH hata", ex.Message); /* sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
     }
+
+    /// <summary>Sunucunun push yanıtı: kaç satır uygulandı / atlandı + hata mesajları (max 20). Z2 (2026-07-19):
+    /// istemci eskiden bu yanıtı okumuyordu → atlanan kayıtlar sessizce kayboluyordu. Artık üst bar + log gösterir.</summary>
+    public sealed record PushResult(int Upserted, int Skipped, System.Collections.Generic.IReadOnlyList<string> Errors)
+    {
+        /// <summary>Sunucu en az bir satırı uygulamadı mı (atlandı ya da hata) — kullanıcıya uyarı çıkar.</summary>
+        public bool HasProblem => Skipped > 0 || Errors.Count > 0;
+    }
+
+    /// <summary>Son BAŞARILI push'un sunucu sonucu (upserted/skipped/errors). Ağ hatasında değişmez (bkz. LastPushFailed).</summary>
+    public static PushResult? LastPushResult { get; private set; }
+
+    /// <summary>Sunucu push yanıt gövdesini (JSON) PushResult'a çevirir. Saf/yan-etkisiz → birim testi kolay.</summary>
+    public static PushResult ParseResult(string json)
+    {
+        int upserted = 0, skipped = 0;
+        var errors = new System.Collections.Generic.List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("upserted", out var u) && u.ValueKind == JsonValueKind.Number) upserted = u.GetInt32();
+                if (root.TryGetProperty("skipped", out var s) && s.ValueKind == JsonValueKind.Number) skipped = s.GetInt32();
+                if (root.TryGetProperty("errors", out var e) && e.ValueKind == JsonValueKind.Array)
+                    foreach (var it in e.EnumerateArray())
+                        if (it.ValueKind == JsonValueKind.String) errors.Add(it.GetString() ?? "");
+            }
+        }
+        catch { /* bozuk/boş gövde → sıfır sonuç */ }
+        return new PushResult(upserted, skipped, errors);
+    }
+
+    private static string Truncate(string s, int max) => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "…";
 
     /// <summary>Son push denemesi başarısız mı oldu (zaman aşımı/ağ/sunucu hatası) — üst bar/tanı için.
     /// Kullanıcıya "eşitleniyor" sanılan sessiz başarısızlığı görünür kılmak amacıyla eklendi (2026-07-19).</summary>

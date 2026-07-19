@@ -88,6 +88,34 @@ public sealed partial class ShellViewModel : ViewModelBase
     [ObservableProperty] private bool _isSyncing;
     [ObservableProperty] private int _syncProgress;
 
+    // Z2 (2026-07-19): son push'ta sunucunun ATLADIĞI/HATA verdiği kayıt varsa üst barda uyarı rozeti göster
+    // (sessiz başarısızlığı görünür kıl). Boşsa rozet gizli.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSyncWarning))]
+    private string _syncWarning = "";
+    public bool HasSyncWarning => !string.IsNullOrEmpty(SyncWarning);
+
+    /// <summary>Son push sonucuna bakıp uyarı rozetini günceller (arka plan + manuel eşitleme sonrası çağrılır).</summary>
+    private void RefreshSyncWarning()
+    {
+        var r = BusinessSyncPushService.LastPushResult;
+        SyncWarning = (r is not null && r.HasProblem)
+            ? $"⚠ {r.Skipped} kayıt sunucuya gönderilemedi"
+            : "";
+    }
+
+    /// <summary>Push sonucunu kullanıcıya gösterilecek okunur metne çevirir (manuel Eşitle diyaloğu için).</summary>
+    private static string PushResultDetail()
+    {
+        var r = BusinessSyncPushService.LastPushResult;
+        if (r is null || !r.HasProblem) return "";
+        var detail = r.Errors.Count > 0
+            ? "\n\nAyrıntı:\n• " + string.Join("\n• ", System.Linq.Enumerable.Take(r.Errors, 10))
+            : "";
+        return $"\n\n⚠ {r.Skipped} kayıt sunucu tarafından uygulanmadı (yetki/doğrulama). " +
+               $"Ayrıntılı kayıt: sync.log dosyası.{detail}";
+    }
+
     [RelayCommand]
     private async System.Threading.Tasks.Task Sync()
     {
@@ -102,10 +130,13 @@ public sealed partial class ShellViewModel : ViewModelBase
             await BusinessSyncPullService.PullAsync();
             // Kullanıcı bulgusu 2026-07-19: push sessizce başarısız olabiliyordu (büyük veri → zaman aşımı) ve
             // "eşitleme tamamlandı" yanıltıcı görünüyordu. LastPushFailed artık bunu da yansıtır.
-            var allOk = ok && !BusinessSyncPushService.LastPushFailed;
+            RefreshSyncWarning(); // Z2: sunucunun atladığı kayıt varsa rozeti güncelle
+            var hasSkips = BusinessSyncPushService.LastPushResult?.HasProblem == true;
+            var allOk = ok && !BusinessSyncPushService.LastPushFailed && !hasSkips;
             await ConfirmService.AskAsync(
-                allOk ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
+                (ok && !BusinessSyncPushService.LastPushFailed && !hasSkips) ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
                 BusinessSyncPushService.LastPushFailed ? "Veri gönderimi başarısız oldu (sunucuya ulaşılamadı ya da zaman aşımı). İnternet bağlantısını kontrol edip tekrar deneyin." :
+                hasSkips ? "Eşitleme yapıldı ama BAZI KAYITLAR sunucuya uygulanamadı." + PushResultDetail() :
                      "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
                 "Eşitle", "Tamam", "Tamam", danger: !allOk);
         }
@@ -176,7 +207,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new DepoWise.Infrastructure.Sync.BusinessSyncService(DesktopServices.Factory).CompanyVersion(companyId!));
             // PUSH DELTA: yerelde sunucudan YENİ satır varsa yalnız onları gönder.
             if (localV > sv)
+            {
                 await BusinessSyncPushService.PushAsync(sinceVersion: sv);
+                // Z2: arka plan push'ta sunucu kayıt atladıysa rozeti güncelle (UI thread).
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RefreshSyncWarning);
+            }
             // PULL DELTA: sunucuda en son uyguladığımızdan yeni varsa çek + açık ekranı yenile.
             if (sv > _lastServerVersionPulled)
             {
