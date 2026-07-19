@@ -165,6 +165,20 @@ h1:focus {
 }
 /* butonlar biraz yuvarlak + yumuşak geçiş */
 .mud-button-root { border-radius: 10px; transition: filter .15s ease, transform .05s ease, background-color .15s ease; }
+
+/* Kullanıcı isteği 2026-07-19: PROJEDEKİ TÜM butonlarda yazı BEYAZ. Dolu (filled) butonlar zaten beyaz;
+   Text/Outlined butonlara (İptal/Temizle/Yenile…) okunur koyu nötr zemin + beyaz yazı verilir ki açık temada
+   da görünsün. İkon butonları (yazı yok) ve sayfalama öğeleri hariç. */
+.mud-button-root:not(.mud-icon-button):not(.mud-pagination-item) { color: #fff !important; }
+.mud-button-root.mud-button-text:not(.mud-icon-button):not(.mud-pagination-item),
+.mud-button-root.mud-button-outlined:not(.mud-icon-button):not(.mud-pagination-item) {
+    background-color: #475569 !important; border-color: #475569 !important;
+}
+.mud-button-root.mud-button-text:not(.mud-icon-button):not(.mud-pagination-item):hover,
+.mud-button-root.mud-button-outlined:not(.mud-icon-button):not(.mud-pagination-item):hover {
+    background-color: #556072 !important;
+}
+.mud-button-root:not(.mud-icon-button):not(.mud-pagination-item) .mud-button-label { color: #fff !important; }
 .mud-button-root:hover { filter: brightness(1.06); }
 .mud-button-root:active { transform: translateY(1px); }
 

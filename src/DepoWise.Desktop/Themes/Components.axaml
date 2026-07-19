@@ -7,33 +7,35 @@
     -->
 
     <!-- ============ Butonlar (Primary zaten Controls.axaml'de) ============ -->
-    <!-- Secondary: nötr yüzey + kenar -->
+    <!-- Secondary: kullanıcı isteği 2026-07-19 "bütün butonlarda yazı BEYAZ" → çerçeveli buton yerine koyu
+         nötr zemin (#475569) + beyaz yazı ki açık temada da okunur olsun. -->
     <Style Selector="Button.Secondary">
-        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Background" Value="#475569"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="14,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <Style Selector="Button.Secondary /template/ ContentPresenter"><Setter Property="Foreground" Value="#FFFFFF"/></Style>
     <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+        <Setter Property="Background" Value="#556072"/>
     </Style>
 
-    <!-- Ghost: zeminsiz, ikincil metin -->
+    <!-- Ghost: aynı gerekçe — beyaz yazı okunsun diye koyu nötr zemin (Secondary'den biraz daha açık). -->
     <Style Selector="Button.Ghost">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Background" Value="#5B6473"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <Style Selector="Button.Ghost /template/ ContentPresenter"><Setter Property="Foreground" Value="#FFFFFF"/></Style>
     <Style Selector="Button.Ghost:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+        <Setter Property="Background" Value="#6B7483"/>
     </Style>
 
     <!-- Danger: yıkıcı eylem -->
