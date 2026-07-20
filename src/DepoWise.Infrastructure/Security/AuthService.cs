@@ -127,6 +127,21 @@ public sealed class AuthService
         return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
     }
 
+    /// <summary>Parolayı YALNIZ userId ile doğrular (firma filtresi YOK). userId zaten benzersiz (PK) —
+    /// kullanıcıyı tek başına tanımlar. Süper admin başka bir firma bağlamındayken ("Firma Seç" → başka firma)
+    /// bile KENDİ parolasını doğrulayabilsin diye: kullanıcı kaydı EV firmasındadır, oturumun seçili firmasında
+    /// değil; firma-filtreli sürüm bu durumda "Parola hatalı" veriyordu (kullanıcı bulgusu 2026-07-20).</summary>
+    public bool VerifyUserPassword(string userId, string password)
+    {
+        if (string.IsNullOrEmpty(password)) return false;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT password_hash FROM users WHERE id=$u AND is_active=1 AND is_deleted=0;";
+        cmd.Parameters.AddWithValue("$u", userId);
+        var hash = cmd.ExecuteScalar() as string;
+        return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
+    }
+
     /// <summary>
     /// Parola olmadan oturum kurar (yalnız "Beni Hatırla" token doğrulaması SONRASI ya da JWT'den oturum
     /// yeniden kurulurken çağrılır). Kullanıcı aktif değilse/yoksa null döner. Roller + yetkiler yüklenir.

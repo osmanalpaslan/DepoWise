@@ -1236,7 +1236,9 @@ app.MapPost("/api/admin/reset-company-business", (HttpContext c, PurgeCompanyDto
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
-    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+    // Parola: yalnız userId ile doğrula (firma-filtresiz) — süper admin başka firma bağlamındayken bile KENDİ
+    // parolasını doğrulayabilsin (kullanıcı bulgusu 2026-07-20: oturum OZE iken "Parola hatalı" veriyordu).
+    if (!svc.Auth.VerifyUserPassword(s.UserId, d.Password ?? ""))
         return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
     if (!svc.SpecialCode.Verify(s, d.SpecialCode ?? ""))
         return Results.Json(new { error = "Özel kod hatalı." }, statusCode: 403);
@@ -1244,9 +1246,9 @@ app.MapPost("/api/admin/reset-company-business", (HttpContext c, PurgeCompanyDto
     var companyId = d.CompanyId ?? "";
     var name = svc.CompanyPurge.FindName(companyId);
     if (name is null) return Results.Json(new { error = "Firma bulunamadı." }, statusCode: 404);
-    // Yanlış firmayı sıfırlamaya karşı SON kilit: firma adını birebir yazmalı.
-    if (!string.Equals((d.ConfirmName ?? "").Trim(), name, StringComparison.Ordinal))
-        return Results.Json(new { error = $"Doğrulama başarısız: firma adını birebir yazın ({name})." }, statusCode: 400);
+    // Yanlış firmayı sıfırlamaya karşı SON kilit: firma adını yazmalı (büyük/küçük harf duyarsız + boşluk kırpılır).
+    if (!string.Equals((d.ConfirmName ?? "").Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase))
+        return Results.Json(new { error = $"Doğrulama başarısız: firma adını yazın ({name})." }, statusCode: 400);
 
     DepoWise.Infrastructure.Organization.PurgeResult res;
     try { res = svc.CompanyPurge.ResetBusinessData(s, companyId); }

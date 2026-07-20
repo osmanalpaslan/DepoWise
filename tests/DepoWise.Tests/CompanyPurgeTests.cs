@@ -259,6 +259,20 @@ public class CompanyPurgeTests : IDisposable
         Assert.NotNull(_purge.FindName("C"));
     }
 
+    [Fact]
+    public void VerifyUserPassword_UserIdIle_FirmaBagimsiz_Dogrular()
+    {
+        // Süper admin (root) A firmasında. İş Verisi Sıfırla ekranı OZE/başka firma bağlamında çalışırken
+        // parolayı firma-filtreli doğrulamak "Parola hatalı" veriyordu (kullanıcı bulgusu 2026-07-20).
+        var (su, _, _) = Seed();
+
+        // ESKİ (firma-filtreli): süper adminin firması A; başka firmaya karşı doğrulama BAŞARISIZ (bug).
+        Assert.False(_auth.VerifyUserPassword("B", su.UserId, "root123"));
+        // YENİ (userId-only): firma bağlamı ne olursa olsun kendi parolası DOĞRULANIR.
+        Assert.True(_auth.VerifyUserPassword(su.UserId, "root123"));
+        Assert.False(_auth.VerifyUserPassword(su.UserId, "yanlis"));   // yanlış parola yine reddedilir
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); System.IO.File.Delete(_dbPath); } catch { }
