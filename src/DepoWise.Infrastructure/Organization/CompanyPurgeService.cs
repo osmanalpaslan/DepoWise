@@ -116,6 +116,54 @@ public sealed class CompanyPurgeService
         return new PurgeResult(companyId, name, touched, rows);
     }
 
+    /// <summary>İŞ VERİSİ SIFIRLAMA (kullanıcı talebi 2026-07-19): firma + şubeler + KULLANICILAR KORUNUR;
+    /// yalnız o firmanın İŞ verisi (malzeme/araç/stok/bakım/yakıt/talep + ilgili tanımlar =
+    /// <see cref="DepoWise.Infrastructure.Sync.BusinessSyncService.Tables"/>) fiziksel silinir. Kalıcı Silme'den
+    /// (ADR-083) FARKI: firma kabuğu (companies/branches/users/roles) DOKUNULMAZ → kullanıcı giriş yapmaya
+    /// devam eder, temiz bir iş verisiyle sıfırdan başlar.
+    ///
+    /// ⚠️ Geri alınamaz. Çağıran uç (endpoint) parola + özel kod + firma-adı teyidini ZORUNLU kılar.
+    /// Makine koordinasyonu: bu tek başına yeterli DEĞİL — endpoint ayrıca CompanyLocalReset.RequestReset
+    /// çağırır ki firmanın makineleri bir sonraki girişte yerel iş verisini temizleyip boş sunucudan çeksin
+    /// (aksi halde çevrimiçi bir makine yerel kopyasını geri push edip veriyi diriltir).</summary>
+    public PurgeResult ResetBusinessData(SessionContext actor, string companyId)
+    {
+        if (!actor.IsSuperAdmin) throw new ForbiddenException("İş verisi sıfırlama yalnız süper admin.");
+        if (string.IsNullOrWhiteSpace(companyId)) throw new ArgumentException("Firma seçilmedi.");
+        var name = FindName(companyId) ?? throw new InvalidOperationException("Firma bulunamadı.");
+
+        using var conn = _factory.Create();
+        using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
+        int rows = 0, touched = 0;
+        try
+        {
+            using var tx = conn.BeginTransaction();
+            // YALNIZ iş verisi tabloları — firma/şube/kullanıcı/rol/yetki KORUNUR.
+            foreach (var t in DepoWise.Infrastructure.Sync.BusinessSyncService.Tables)
+            {
+                if (!TableExists(conn, t) || !HasColumn(conn, t, "company_id")) continue;
+                var n = Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=$c;", ("$c", companyId));
+                if (n > 0) touched++;
+                rows += n;
+            }
+            AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "company_business_reset", companyId, AuditActions.Delete, actor.UserId), _clock);
+            tx.Commit();
+        }
+        finally
+        {
+            using var on = conn.CreateCommand(); on.CommandText = "PRAGMA foreign_keys=ON;"; on.ExecuteNonQuery();
+        }
+        return new PurgeResult(companyId, name, touched, rows);
+    }
+
+    private static bool TableExists(SqliteConnection conn, string table)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
+        cmd.Parameters.AddWithValue("$n", table);
+        return cmd.ExecuteScalar() is not null;
+    }
+
     /// <summary>Bu firma kalıcı silindi mi? (masaüstü eşitleme adımı sorar)</summary>
     public CompanyPurgeRow? GetPurge(string companyId)
     {

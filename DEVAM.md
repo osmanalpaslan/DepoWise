@@ -27,7 +27,8 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **556/556 yeşil** (`dotnet test`) |
+| **Testler** | **559/559 yeşil** (`dotnet test`) |
+| **Yeni özellik** | **"Firma İş Verisini Sıfırla"** (süper admin, web) — firma/şube/kullanıcı KALIR, yalnız iş verisi silinir; parola+özel kod+firma adı teyidi; makineler yerel sıfırlamayla boş sunucudan çeker |
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |

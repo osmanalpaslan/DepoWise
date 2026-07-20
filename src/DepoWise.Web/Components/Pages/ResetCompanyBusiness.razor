@@ -1,0 +1,158 @@
+@page "/reset-company-business"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   FİRMA İŞ VERİSİNİ SIFIRLA (kullanıcı talebi 2026-07-19) — GERİ ALINAMAZ.
+   Kalıcı Silme'den (ADR-083) FARKI: firma + şubeler + KULLANICILAR KORUNUR; yalnız İŞ verisi
+   (malzeme/araç/stok/bakım/yakıt/talep + tanımlar) silinir. Temiz iş verisiyle sıfırdan başlanır.
+   Kilit: süper admin + özel kod + şifre + firma adını birebir yazma.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Firma İş Verisini Sıfırla</MudText>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız Süper Admin içindir.</MudAlert>
+}
+else if (!_unlocked)
+{
+    <MudPaper Class="pa-4" Elevation="2" Style="max-width:480px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" />
+            <MudText Typo="Typo.h6">Özel Kod</MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Bu ekran firmanın iş verisini <b>geri alınamaz</b> şekilde sıfırlar. Açmak için ilk girişinizde
+            belirlediğiniz <b>özel kodu</b> girin.
+        </MudText>
+        <MudTextField @bind-Value="_code" Label="Özel Kod" InputType="InputType.Password" Margin="Margin.Dense"
+                      Variant="Variant.Outlined" UserAttributes="_newPw" OnKeyUp="OnKeyUnlock" />
+        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" OnClick="Unlock" Disabled="_busy" FullWidth="true">
+            @(_busy ? "Kontrol ediliyor…" : "KİLİDİ AÇ")
+        </MudButton>
+        @if (_lockMsg is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_lockMsg</MudAlert> }
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4" Icon="@Icons.Material.Filled.Warning">
+        <b>DİKKAT — bu işlem geri alınamaz.</b> Seçilen firmanın <b>iş verisi</b> (malzemeler, araçlar,
+        stok hareketleri, bakım, yakıt, talepler ve ilgili tanımlar + iş fotoğrafları) sunucudan <b>kalıcı</b>
+        silinir. <b>Firma, şubeler ve kullanıcılar KORUNUR</b> — giriş yapmaya devam edersiniz, iş verisi boşalır.
+        Firmanın makinelerindeki yerel iş verisi, o makine bir sonraki girişinde silinip boş sunucudan çekilir.
+    </MudAlert>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:620px;">
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <MudSelect T="string" Value="_companyId" ValueChanged="OnCompanyPicked" Label="İş verisi sıfırlanacak Firma *"
+                           Margin="Margin.Dense" Variant="Variant.Outlined"
+                           HelperText="Kendi firmanız da listede — firma/kullanıcı korunduğu için güvenlidir.">
+                    @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+
+            @if (!string.IsNullOrEmpty(_companyId))
+            {
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_confirmName" Label="@($"Onay: firma adını birebir yazın — {SelectedName}")"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto"
+                                  Error="@(_confirmName.Length > 0 && _confirmName != SelectedName)"
+                                  ErrorText="Firma adı birebir eşleşmiyor." />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_password" Label="Şifreniz *" InputType="InputType.Password"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_code" Label="Özel Kod *" InputType="InputType.Password"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_newPw" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Text" OnClick="ClearForm" Disabled="_busy">Temizle</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.CleaningServices"
+                       OnClick="Reset" Disabled="@(_busy || !CanSubmit)">
+                @(_busy ? "SIFIRLANIYOR…" : "İŞ VERİSİNİ KALICI SIFIRLA")
+            </MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+}
+
+@code {
+    private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
+    private static readonly Dictionary<string, object?> _newPw = new() { ["autocomplete"] = "new-password" };
+
+    private bool _unlocked;
+    private string _code = "", _password = "", _confirmName = "";
+    private string? _companyId;
+    private List<ApiClient.Opt> _companies = new();
+    private string? _lockMsg, _msg; private bool _ok; private bool _busy;
+
+    private string SelectedName => _companies.FirstOrDefault(c => c.Id == _companyId)?.Name ?? "";
+
+    private bool CanSubmit => !string.IsNullOrEmpty(_companyId)
+        && _confirmName == SelectedName && SelectedName.Length > 0
+        && _password.Length > 0 && _code.Length > 0;
+
+    private async Task OnKeyUnlock(KeyboardEventArgs e) { if (e.Key == "Enter") await Unlock(); }
+
+    private async Task Unlock()
+    {
+        _lockMsg = null;
+        if (string.IsNullOrWhiteSpace(_code)) { _lockMsg = "Özel kodu girin."; return; }
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/auth/special-code/verify", new { code = _code });
+            if (err is not null) { _lockMsg = "Özel kod hatalı."; return; }
+            _unlocked = true;
+            await LoadCompanies();
+        }
+        catch (Exception ex) { _lockMsg = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    // İş verisi sıfırlamada KENDİ firman da listede (firma/kullanıcı korunuyor → kilitlenme riski yok).
+    private async Task LoadCompanies()
+    {
+        try { _companies = await Api.OptionsAsync("/api/companies/options", "id", "name"); }
+        catch { _companies = new(); }
+    }
+
+    private void OnCompanyPicked(string? id) { _companyId = id; _confirmName = ""; _msg = null; }
+
+    private void ClearForm() { _companyId = null; _confirmName = ""; _password = ""; _msg = null; }
+
+    private async Task Reset()
+    {
+        _msg = null;
+        if (!CanSubmit) return;
+        var name = SelectedName;
+        if (!await Dialog.Confirm(
+                $"'{name}' firmasının TÜM iş verisi (malzeme, araç, stok, bakım, yakıt, talep + tanımlar) " +
+                $"kalıcı olarak silinecek.\n\nFirma, şubeler ve kullanıcılar KORUNUR. Bu işlem GERİ ALINAMAZ. " +
+                $"Firmanın makineleri bir sonraki girişte yerel iş verilerini silip boş sunucudan çekecek.\n\n" +
+                $"Devam edilsin mi?", "EVET, SIFIRLA", "Vazgeç", danger: true)) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/admin/reset-company-business", new
+            {
+                companyId = _companyId, password = _password, specialCode = _code, confirmName = _confirmName,
+            });
+            _ok = err is null;
+            _msg = err ?? $"'{name}' firmasının iş verisi kalıcı olarak sıfırlandı. Firma/şube/kullanıcılar korundu. " +
+                          $"Bu firmanın makineleri, bir sonraki girişte yerel iş verilerini silip yeniden çekecek.";
+            if (_ok) ClearForm();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+}

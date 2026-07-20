@@ -1226,6 +1226,48 @@ app.MapPost("/api/admin/purge-company", (HttpContext c, PurgeCompanyDto d) =>
     return Results.Ok(new { ok = true, companyName = res.CompanyName, tablesTouched = res.TablesTouched, rowsDeleted = res.RowsDeleted, dirsDeleted });
 }).RequireAuthorization();
 
+// ══════════════════ FİRMA İŞ VERİSİNİ SIFIRLAMA (kullanıcı talebi 2026-07-19) ══════════════════
+// Kalıcı Silme'den (ADR-083) FARKI: firma + şubeler + KULLANICILAR KORUNUR. Yalnız o firmanın iş verisi
+// (malzeme/araç/stok/bakım/yakıt/talep + tanımlar) silinir → temiz iş verisiyle sıfırdan başlanır.
+// Aynı güvenlik: süper admin + parola + özel kod + firma adını birebir yazma. Ardından firmanın makineleri
+// için YEREL SIFIRLAMA (ADR-084) tetiklenir → makineler bir sonraki girişte yerel iş verisini temizleyip
+// boş sunucudan çeker (aksi halde çevrimiçi makine yerel kopyasını geri push edip veriyi diriltir).
+app.MapPost("/api/admin/reset-company-business", (HttpContext c, PurgeCompanyDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
+    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+        return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
+    if (!svc.SpecialCode.Verify(s, d.SpecialCode ?? ""))
+        return Results.Json(new { error = "Özel kod hatalı." }, statusCode: 403);
+
+    var companyId = d.CompanyId ?? "";
+    var name = svc.CompanyPurge.FindName(companyId);
+    if (name is null) return Results.Json(new { error = "Firma bulunamadı." }, statusCode: 404);
+    // Yanlış firmayı sıfırlamaya karşı SON kilit: firma adını birebir yazmalı.
+    if (!string.Equals((d.ConfirmName ?? "").Trim(), name, StringComparison.Ordinal))
+        return Results.Json(new { error = $"Doğrulama başarısız: firma adını birebir yazın ({name})." }, statusCode: 400);
+
+    DepoWise.Infrastructure.Organization.PurgeResult res;
+    try { res = svc.CompanyPurge.ResetBusinessData(s, companyId); }
+    catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
+
+    // İŞ verisi fotoğrafları da temizlenir (materyal/araç foto = files/{companyId}); makine yedekleri KALIR.
+    int dirsDeleted = 0;
+    try
+    {
+        var dir = System.IO.Path.Combine(dataDir, "files", companyId);
+        if (System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
+    }
+    catch { /* dosya silinemese de DB sıfırlaması geçerli */ }
+
+    // Makineler boş sunucudan yeniden dolsun (yerel iş verisini bir kez temizle + tekrar çek).
+    long resetAt = 0;
+    try { resetAt = svc.CompanyLocalReset.RequestReset(s, companyId).RequestedAt; } catch { }
+
+    return Results.Ok(new { ok = true, companyName = res.CompanyName, tablesTouched = res.TablesTouched, rowsDeleted = res.RowsDeleted, dirsDeleted, machineResetRequestedAt = resetAt });
+}).RequireAuthorization();
+
 // ══════════════════ FİRMA YEREL SIFIRLAMA (ADR-084) ══════════════════
 // Kalıcı Silme'den (ADR-083) FARKI: firma sunucuda durur, erişim engellenmez — yalnız o firmanın
 // makineleri bir sonraki (çevrimiçi) girişte yerel kopyalarını bir kez temizler ve sıfırdan yeniden doldurur.

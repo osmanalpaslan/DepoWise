@@ -192,6 +192,73 @@ public class CompanyPurgeTests : IDisposable
         Assert.False(_code.Verify(admin, "gizli-kod-1"));
     }
 
+    // ── İŞ VERİSİ SIFIRLAMA (kullanıcı talebi 2026-07-19): firma+şube+kullanıcı KORUNUR, yalnız iş verisi silinir ──
+    private int Count(string table, string companyId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=$c;";
+        cmd.Parameters.AddWithValue("$c", companyId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    private void InsertPersonnel(string companyId, string id)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO personnel(id,company_id,full_name,is_active,created_at,updated_at,version,is_deleted) " +
+                          "VALUES($i,$c,$n,1,1,1,1,0);";
+        cmd.Parameters.AddWithValue("$i", id);
+        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.Parameters.AddWithValue("$n", "Personel " + id);
+        cmd.ExecuteNonQuery();
+    }
+
+    [Fact]
+    public void ResetBusinessData_IsVerisiniSiler_FirmaSubeKullaniciKORUR()
+    {
+        var (su, _, _) = Seed();
+        InsertPersonnel("B", "P1");
+        InsertPersonnel("B", "P2");
+        Assert.Equal(2, Count("personnel", "B"));
+
+        var res = _purge.ResetBusinessData(su, "B");
+
+        // İş verisi GİTTİ …
+        Assert.Equal(0, Count("personnel", "B"));
+        Assert.True(res.RowsDeleted >= 2);
+        // … ama firma + şube + KULLANICI korundu (kullanıcının açık şartı).
+        Assert.NotNull(_purge.FindName("B"));
+        Assert.Single(_branches.List(su, "B"));
+        Assert.NotNull(_auth.Login("B", "bkul", "p12345").Session);   // kullanıcı HÂLÂ girebiliyor
+    }
+
+    [Fact]
+    public void ResetBusinessData_SuperAdminOlmayan_Yapamaz()
+    {
+        var (su, bBranch, _) = Seed();
+        _users.CreateUser(su, new NewUser("badm", "p12345", null, new[] { RoleKeys.CompanyAdmin },
+            CompanyId: "B", BranchId: bBranch));
+        var admin = _auth.Login("B", "badm", "p12345").Session!;
+        Assert.Throws<ForbiddenException>(() => _purge.ResetBusinessData(admin, "B"));
+        Assert.NotNull(_auth.Login("B", "bkul", "p12345").Session);   // veri de dokunulmadı
+    }
+
+    [Fact]
+    public void ResetBusinessData_BaskaFirmayaDOKUNMAZ()
+    {
+        var (su, _, _) = Seed();
+        _companies.Create(su, new NewCompany("C Firma"), explicitId: "C");
+        InsertPersonnel("B", "P1");
+        InsertPersonnel("C", "PC");
+
+        _purge.ResetBusinessData(su, "B");
+
+        Assert.Equal(0, Count("personnel", "B"));
+        Assert.Equal(1, Count("personnel", "C"));   // C firması iş verisi DOKUNULMADI
+        Assert.NotNull(_purge.FindName("C"));
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); System.IO.File.Delete(_dbPath); } catch { }
