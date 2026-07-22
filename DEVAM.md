@@ -34,7 +34,39 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.85 (Z2+Z4)** — sessiz başarısızlık görünür + delta kök neden düzeltildi |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **Senkron güvenilirlik planı (Z1–Z5, donduruldu):** Z2 kodda✓ → sıradaki Z4 (delta kök neden). Sonra: Giriş-Çıkış çoklu malzeme · Düzenleme kilidi · Yedek ekranları |
+| **Bekleyen iş** | **Sıradaki: Z1 (tek mutex) → Z3 (retry) → Z5 (durum paneli).** Z2+Z4 canlı✓ |
+
+## 🔄 FORMAT SONRASI — BURADAN DEVAM ET (2026-07-22)
+
+**PC formatlandı.** Kurulum: Git · **.NET 8 SDK** · flyctl · (VS Code/Claude Code) →
+`git clone https://github.com/osmanalpaslan/DepoWise` → `flyctl auth login` → bana "devam" de.
+
+### Sunucu durumu (ÖNEMLİ)
+- Sunucu **fabrika ayarına sıfırlandı** (boş DB, eski veri yok). Firma/malzeme/araç **sıfırdan** kurulacak.
+- **Süper admin giriş: `superadmin` / `DepoWise-2026`** → ilk girişte **şifreyi değiştir**.
+- Fly secret'ları ayarlı: `DEPOWISE_SEED_ADMIN_PASSWORD` / `DEPOWISE_SEED_SUPERADMIN_PASSWORD` = `DepoWise-2026`
+  (boş DB'de seed bu şifreyi kullanır; yoksa RASTGELE şifre üretip loga yazar — eski kafa karışıklığının sebebi buydu).
+
+### Eşitlemede yapılanlar (canlı, masaüstü 1.0.85)
+- **Z2** — push yanıtı (`upserted/skipped/errors`) okunuyor; `sync.log` + üst barda uyarı rozeti.
+- **Z4** — delta kök neden: push artık **sunucu global max** yerine **makinenin kendi kalıcı watermark**'ını kullanır
+  (`sync_push_watermark`) → başka kaydın zaman damgası yüzünden atlama imkânsız.
+- **"Firma İş Verisini Sıfırla"** ekranı (web, süper admin): firma/şube/kullanıcı KALIR, yalnız iş verisi silinir.
+
+### Sıradaki 3 faz (hepsi MASAÜSTÜ tarafı)
+1. **Z1** — tek sync motoru + **tek mutex** (şu an reset `IsSyncing`, tick `_businessSyncBusy` → AYRI; yarış var).
+2. **Z3** — **retry kuyruğu**: atlanan/başarısız kayıtlar kalıcı işaretlenip onaya kadar tekrar denensin
+   (şu an watermark başarılı push'ta ilerlediği için atlananlar bir daha gönderilmiyor — bilinen açık).
+3. **Z5** — basit senkron durum paneli (son push/pull, bekleyen, başarısız, son hata).
+
+### Bilinen açıklar / kurallar
+- ⚠️ **Aynı veriyi İKİ makinede import etme!** Her import farklı ID üretir → makineler birbirine oturmaz
+  (araç/tanım FK'leri kırılır). **Tek makinede import et, diğeri eşitlemeyle çeksin.**
+- Ertelenen: `server_seq` (saat-bağımsız pull sırası), ledger `op_id` idempotency, yakıt/bakımın LWW'den çıkarılması,
+  snapshot sayfalama, **makine bazlı güncelleme yetkisi** (istendi, başlanmadı — `/api/releases/latest` makineyi
+  tanımıyor, küçük bir masaüstü değişikliği gerekir).
+- Araç import başlıkları birebir olmalı: **`İç Kod`**, **`Durum`**, **`Şantiye / Şube`** (boşluklu).
+- Windows **Smart App Control** kapatıldı (açıkken git push + Avalonia derlemesi engelleniyordu).
 
 ### 🛡️ Senkron güvenilirlik planı — GPT ile mutabık, mimari DONDURULDU (2026-07-19)
 Kök sorun: aynı firma+şubede iki masaüstü birbirini "zaman zaman" göremiyor. Kök neden (kanıtlandı):
