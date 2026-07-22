@@ -98,9 +98,16 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// <summary>Son push sonucuna bakıp uyarı rozetini günceller (arka plan + manuel eşitleme sonrası çağrılır).</summary>
     private void RefreshSyncWarning()
     {
+        // Z3: önce KALICI durum. "Poison" (ısrarla gönderilemeyen) varsa rozet, sorun çözülene kadar KALIR —
+        // eskiden rozet yalnız SON push'u yansıttığı için sorun sürerken bile kayboluyordu (kullanıcı bulgusu).
+        if (BusinessSyncPushService.Poison() is { } p && p.Count > 0)
+        {
+            SyncWarning = $"⚠ {p.Count} kayıt gönderilemiyor";
+            return;
+        }
         var r = BusinessSyncPushService.LastPushResult;
         SyncWarning = (r is not null && r.HasProblem)
-            ? $"⚠ {r.Skipped} kayıt sunucuya gönderilemedi"
+            ? $"⟳ {r.Skipped} kayıt yeniden denenecek ({BusinessSyncPushService.RetryAttempts()}/5)"
             : "";
     }
 

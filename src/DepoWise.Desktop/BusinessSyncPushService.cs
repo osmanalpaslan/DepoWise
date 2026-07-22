@@ -74,14 +74,39 @@ public static class BusinessSyncPushService
                 var r = ParseResult(bodyText);
                 LastPushResult = r;
                 LastPushFailed = false;
-                // ⬅ Z4: watermark'ı YALNIZ başarılı push'ta ilerlet. Başarısızlıkta (ağ/timeout) ilerletmezsek
-                // aynı satırlar bir sonraki turda TEKRAR gönderilir (unutulmaz). localV, snapshot'tan hemen önce
-                // ölçüldüğü için gönderilen en yüksek updated_at'i temsil eder.
-                SavePushWatermark(companyId!, localV);
-                SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
-                if (r.HasProblem) // sunucu bazı satırları uygulamadı (yetki/doğrulama/hata) → GÖRÜNÜR kıl
-                    SyncLog.Write("PUSH atlanan/hatalı", $"skipped={r.Skipped}; " +
-                        (r.Errors.Count > 0 ? "errors: " + string.Join(" | ", r.Errors) : "errors: (liste boş)"));
+
+                // ── Z3 (2026-07-22) RETRY: sunucu HTTP-başarılı dönse bile bazı satırları UYGULAMAMIŞ olabilir
+                // (skipped/errors). Eskiden watermark yine de ilerliyordu → o kayıtlar bir daha GÖNDERİLMİYORDU
+                // ("11 kayıt gönderilemedi" şikâyeti). Artık: sorun varsa watermark İLERLEMEZ → aynı satırlar
+                // sonraki turda otomatik yeniden denenir. Sonsuz döngü olmasın diye N denemeden sonra "poison":
+                // watermark ilerletilir (kuyruk kilitlenmez) ve KALICI uyarı bırakılır (kullanıcı görür).
+                if (!r.HasProblem)
+                {
+                    SavePushWatermark(companyId!, localV);
+                    SetInt(companyId!, StuckKey, 0);
+                    SetText(companyId!, PoisonKey, "");            // sorun çözüldü → kalıcı uyarıyı temizle
+                    SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
+                }
+                else
+                {
+                    var tries = GetInt(companyId!, StuckKey) + 1;
+                    var errText = r.Errors.Count > 0 ? string.Join(" | ", r.Errors) : "(liste boş)";
+                    SyncLog.Write("PUSH atlanan/hatalı", $"skipped={r.Skipped} deneme={tries}/{MaxRetries}; errors: {errText}");
+                    if (tries >= MaxRetries)
+                    {
+                        // Poison: aynı kayıtlar ısrarla reddediliyor (kalıcı sebep). Kuyruğu kilitleme —
+                        // watermark'ı ilerlet ki DİĞER kayıtlar gönderilebilsin; sorunu kalıcı uyarıya taşı.
+                        SavePushWatermark(companyId!, localV);
+                        SetInt(companyId!, StuckKey, 0);
+                        SetText(companyId!, PoisonKey, $"{r.Skipped}|{errText}");
+                        SyncLog.Write("PUSH poison", $"{r.Skipped} kayıt {tries} denemede gönderilemedi → otomatik deneme durduruldu. {errText}");
+                    }
+                    else
+                    {
+                        // watermark İLERLETİLMEZ → sonraki turda aynı satırlar tekrar denenir
+                        SetInt(companyId!, StuckKey, tries);
+                    }
+                }
             }
             else
             {
@@ -117,6 +142,47 @@ public static class BusinessSyncPushService
     {
         try { DesktopServices.Settings.Set(companyId, PushWatermarkKey, value.ToString(), DesktopServices.Session?.UserId ?? ""); }
         catch { /* kalıcılık best-effort; başarısızsa bir sonraki turda tekrar yazılır */ }
+    }
+
+    // ── Z3: retry sayacı + "poison" (ısrarla gönderilemeyen) durumu — KALICI (uygulama kapansa da kaybolmaz) ──
+    private const string StuckKey = "sync_push_stuck";
+    private const string PoisonKey = "sync_push_poison";
+    /// <summary>Bu kadar denemeden sonra otomatik tekrar durur, kalıcı uyarıya dönüşür (kuyruk kilitlenmesin).</summary>
+    private const int MaxRetries = 5;
+
+    private static int GetInt(string companyId, string key)
+    {
+        try { return int.TryParse(DesktopServices.Settings.Get(companyId, key), out var v) ? v : 0; }
+        catch { return 0; }
+    }
+
+    private static void SetInt(string companyId, string key, int value) => SetText(companyId, key, value.ToString());
+
+    private static void SetText(string companyId, string key, string value)
+    {
+        try { DesktopServices.Settings.Set(companyId, key, value, DesktopServices.Session?.UserId ?? ""); }
+        catch { }
+    }
+
+    /// <summary>Kalıcı "gönderilemiyor" uyarısı: (adet, sebep). Yoksa null. Üst bar/panel bunu gösterir —
+    /// Z2 rozeti yalnız SON push'u yansıttığı için sorun sürerken bile kaybolabiliyordu (kullanıcı bulgusu).</summary>
+    public static (int Count, string Reason)? Poison(string? companyId = null)
+    {
+        var cid = companyId ?? DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(cid)) return null;
+        string raw;
+        try { raw = DesktopServices.Settings.Get(cid!, PoisonKey) ?? ""; } catch { return null; }
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var i = raw.IndexOf('|');
+        var cnt = int.TryParse(i > 0 ? raw.Substring(0, i) : raw, out var n) ? n : 0;
+        return (cnt, i > 0 ? raw.Substring(i + 1) : "");
+    }
+
+    /// <summary>Bekleyen (yeniden denenecek) kayıt var mı — kaçıncı denemede olduğumuz.</summary>
+    public static int RetryAttempts(string? companyId = null)
+    {
+        var cid = companyId ?? DesktopServices.Session?.CompanyId;
+        return string.IsNullOrWhiteSpace(cid) ? 0 : GetInt(cid!, StuckKey);
     }
 
     /// <summary>Sunucu push yanıt gövdesini (JSON) PushResult'a çevirir. Saf/yan-etkisiz → birim testi kolay.</summary>
