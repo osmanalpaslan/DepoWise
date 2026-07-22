@@ -286,6 +286,41 @@ public class VehicleTests : IDisposable
         Assert.Throws<ForbiddenException>(() => _vehicles.GetMeter(adminB, v));
     }
 
+    // ---- DÜZENLEME KİLİDİ (2026-07-22) ----
+
+    [Fact]
+    public void DuzenlemeKilidi_EskiSurumle_Kaydetmek_UzerineYazmaz()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KILIT-1", Plate: "06 AA 1"));
+        var acilistakiSurum = _vehicles.Get(_admin, v).Version; // Kullanıcı-1 formu açtı
+
+        // Kullanıcı-2 (ya da eşitlemeyle gelen başka makine) arada kaydı değiştirdi.
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "06 BB 2", ProductionYear: null, Status: "active", StatusNote: null),
+            expectedVersion: acilistakiSurum);
+
+        // Kullanıcı-1 hâlâ ESKİ sürümü tutuyor → engellenmeli.
+        var ex = Assert.Throws<ConcurrencyException>(() =>
+            _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "06 CC 3", ProductionYear: null, Status: "active", StatusNote: null),
+                expectedVersion: acilistakiSurum));
+        Assert.True(ex.ActualVersion > ex.ExpectedVersion);
+
+        // Kullanıcı-2'nin verisi korundu.
+        Assert.Equal("06 BB 2", _vehicles.Get(_admin, v).Plate);
+    }
+
+    [Fact]
+    public void DuzenlemeKilidi_GuncelSurumle_Calisir_SurumsuzCagriBozulmaz()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("KILIT-2"));
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "34 XX 1", ProductionYear: null, Status: "active", StatusNote: null),
+            expectedVersion: _vehicles.Get(_admin, v).Version);
+        Assert.Equal("34 XX 1", _vehicles.Get(_admin, v).Plate);
+
+        // Sürüm verilmezse eski davranış korunur (geriye uyumluluk).
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "34 YY 2", ProductionYear: null, Status: "active", StatusNote: null));
+        Assert.Equal("34 YY 2", _vehicles.Get(_admin, v).Plate);
+    }
+
     public void Dispose()
     {
         foreach (var ext in new[] { "", "-wal", "-shm" })

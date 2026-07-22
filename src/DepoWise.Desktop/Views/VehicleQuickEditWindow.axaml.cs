@@ -148,8 +148,19 @@ public partial class VehicleQuickEditWindow : Window
                     BrandId: (brandBox.SelectedItem as Opt)?.Id,
                     VehicleModelId: (modelBox.SelectedItem as Opt)?.Id,
                     BranchId: branchOpt.Id,
-                    DriverPersonnelId: (driverBox.SelectedItem as Opt)?.Id));
+                    DriverPersonnelId: (driverBox.SelectedItem as Opt)?.Id),
+                    // DÜZENLEME KİLİDİ: pencere açıldığındaki sürüm — kayıt arada değiştiyse üzerine yazma.
+                    expectedVersion: d.Version);
                 Close("saved");
+            }
+            catch (DepoWise.Application.Security.ConcurrencyException ex)
+            {
+                statusText.Text = ex.Message; statusText.IsVisible = true;
+                if (await ConfirmService.AskAsync(this,
+                        ex.Message + "\n\nPencereyi kapatıp kaydı güncel hâliyle yeniden açmak ister misiniz? " +
+                        "(\"Formda kal\" derseniz yazdıklarınız durur.)",
+                        "Kayıt değişti", okText: "Kapat ve yenile", cancelText: "Formda kal"))
+                    Close("stale");
             }
             catch (Exception ex) { statusText.Text = "Güncellenemedi: " + ex.Message; statusText.IsVisible = true; }
         };

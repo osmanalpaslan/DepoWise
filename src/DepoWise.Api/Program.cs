@@ -684,6 +684,7 @@ app.MapGet("/api/personnel", (HttpContext c) =>
         {
             p.Id, p.CompanyId, p.BranchId, p.FullName, p.Title, p.Phone, p.IsActive, p.CreatedAt,
             isFieldStaff = p.IsFieldStaff,   // Fikir B: "Saha personeli" kutucuğu
+            version = p.Version,             // DÜZENLEME KİLİDİ: düzenlemede geri gönderilir
             hasAccount = a is not null, userId = a?.UserId, username = a?.Username,
             accountActive = a?.IsActive ?? false, accountAdmin = a?.IsAdmin ?? false,
         };
@@ -959,7 +960,7 @@ app.MapPost("/api/branches", (HttpContext c, BranchDto d) => S(c) is { } s ? Res
 app.MapGet("/api/branches/{id}/users", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Branches.GetUsers(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/personnel", (HttpContext c, PersonnelDto d) => S(c) is { } s ? Results.Ok(new { id = svc.Personnel.Create(s, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/personnel/{id}", (HttpContext c, string id, PersonnelDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff))) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Personnel.Update(s, id, new DepoWise.Infrastructure.Org.NewPersonnel(d.FullName, d.Title, d.Phone, d.BranchId, d.IsActive, d.IsFieldStaff), expectedVersion: d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users", (HttpContext c, NewUserDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1712,7 +1713,8 @@ app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
     RequireVehicleFields(d.BranchId, d.ProductionYear); // madde 8+1
     svc.Vehicles.Update(s, id, new DepoWise.Infrastructure.Vehicles.UpdateVehicle(
         Doc(d.Plate), d.ProductionYear, string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
-        Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId));
+        Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId),
+        expectedVersion: d.Version); // düzenleme kilidi
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 // Aracın YALNIZ durumunu değiştirir (bakım ekranından "arızalı" işaretlemek için).
@@ -2142,7 +2144,8 @@ record PushOp(string OperationId, string EntityType, string EntityId, string Pay
 record NewCompanyDto(string Name, string? TaxNo, string? TaxOffice, string? Address, string? Phone, string? Email, string? AuthorizedPerson, int MaxUsers = 0, string? Id = null, int MaxAdmins = 0, int MachineQuota = 3);
 record NameDto(string Name);
 record LockDto(bool Locked);
-record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false);
+// Version: DÜZENLEME KİLİDİ — null = kontrol yok (geriye uyumlu).
+record PersonnelDto(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true, bool IsFieldStaff = false, long? Version = null);
 record TitleDto(string Name);
 record AccountDto(string Username, string Password, string? RoleKey, string? BranchId);
 record LinkUserDto(string? UserId);
@@ -2196,7 +2199,8 @@ record MovementDto(string MovementKind, string? VehicleId, string? FromLocationI
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
-    string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId);
+    string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
+    long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
 record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);
 record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately);
 record RolesDto(List<string>? Roles);

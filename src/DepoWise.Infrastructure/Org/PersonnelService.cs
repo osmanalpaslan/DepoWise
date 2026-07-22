@@ -8,7 +8,8 @@ namespace DepoWise.Infrastructure.Org;
 public sealed record PersonnelRecord(
     string Id, string CompanyId, string? BranchId, string FullName,
     string? Title, string? Phone, bool IsActive, long CreatedAt,
-    bool IsFieldStaff = false);   // Fikir B: "Saha personeli" — işaretliyse kullanıcı-bağlı uyarısı çıkmaz
+    bool IsFieldStaff = false,    // Fikir B: "Saha personeli" — işaretliyse kullanıcı-bağlı uyarısı çıkmaz
+    long Version = 0);            // DÜZENLEME KİLİDİ: formun açıldığı andaki sürüm (bkz. EditLockGuard)
 
 public sealed record NewPersonnel(string FullName, string? Title, string? Phone, string? BranchId, bool IsActive = true,
     bool IsFieldStaff = false);
@@ -43,7 +44,7 @@ public sealed class PersonnelService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff FROM personnel " +
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
             "WHERE company_id=$c AND is_deleted=0 AND ($x IS NULL OR id<>$x) AND (" +
             "  ($n <> '' AND REPLACE(LOWER(full_name),' ','')=$n) OR " +
             "  ($d <> '' AND phone IS NOT NULL AND REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'(',''),')','')=$d)" +
@@ -57,7 +58,7 @@ public sealed class PersonnelService
         while (r.Read())
             list.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
                 r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-                r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1));
+                r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1, r.GetInt64(9)));
         return list;
     }
 
@@ -111,7 +112,9 @@ public sealed class PersonnelService
         return id;
     }
 
-    public void Update(SessionContext session, string id, NewPersonnel dto)
+    /// <param name="expectedVersion">DÜZENLEME KİLİDİ: formun açıldığı andaki <c>version</c>. Verilirse ve kayıt
+    /// o andan beri değiştiyse <see cref="ConcurrencyException"/> atılır. null = kontrol yok (geriye uyumlu).</param>
+    public void Update(SessionContext session, string id, NewPersonnel dto, long? expectedVersion = null)
     {
         AccessControl.Require(session, Module, PermissionAction.Edit);
         _scope.EnsureBranchAllowed(session, dto.BranchId);
@@ -127,7 +130,8 @@ public sealed class PersonnelService
             cmd.Transaction = tx;
             cmd.CommandText =
                 "UPDATE personnel SET branch_id=$b, full_name=$n, title=$t, phone=$p, is_active=$a, is_field_staff=$fs, " +
-                "version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
+                "version=version+1, updated_at=$now WHERE id=$id AND company_id=$c" + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
             cmd.Parameters.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$n", dto.FullName);
             cmd.Parameters.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
@@ -137,7 +141,10 @@ public sealed class PersonnelService
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", session.CompanyId);
-            cmd.ExecuteNonQuery();
+            // 0 satır + sürüm verilmişse → kayıt biz düzenlerken değişmiş (düzenleme kilidi).
+            // Sürüm verilmemişse ThrowIfStale sessizce döner → eski davranış aynen korunur.
+            if (cmd.ExecuteNonQuery() == 0)
+                EditLockGuard.ThrowIfStale(conn, tx, "personnel", id, session.CompanyId, expectedVersion);
         }
         AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId, "personnel", id, AuditActions.Update, session.UserId), _clock);
         tx.Commit();
@@ -158,7 +165,7 @@ public sealed class PersonnelService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff FROM personnel " +
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
             "WHERE company_id = $c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT $limit;";
@@ -180,7 +187,7 @@ public sealed class PersonnelService
                 if (!isAdmin && branchId is not null && !allowedBranches.Contains(branchId)) continue;
                 items.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), branchId,
                     r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-                    r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1));
+                    r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1, r.GetInt64(9)));
             }
         }
 
@@ -229,7 +236,7 @@ public sealed class PersonnelService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff FROM personnel " +
+            "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
             "WHERE id = $id AND company_id = $c;";
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$c", session.CompanyId);
@@ -237,7 +244,7 @@ public sealed class PersonnelService
         if (!r.Read()) return null;
         return new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
             r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
-            r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1);
+            r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1, r.GetInt64(9));
     }
 
     private static void Bind(SqliteCommand cmd, string id, string companyId, NewPersonnel dto, long now)

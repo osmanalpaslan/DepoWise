@@ -468,6 +468,32 @@ public class OrgPersonnelTests : IDisposable
         return new SessionContext(uid, admin.CompanyId, new[] { RoleKeys.Staff }, new PermissionSet(perms));
     }
 
+    // ---- DÜZENLEME KİLİDİ (2026-07-22) ----
+
+    [Fact]
+    public void DuzenlemeKilidi_EskiSurumle_Kaydetmek_UzerineYazmaz()
+    {
+        var su = SuperAdmin();
+        var pers = new PersonnelService(_factory, _scope, _clock);
+        var id = pers.Create(su, new NewPersonnel("Ali Veli", "İşçi", "0555", null, true));
+        var acilistakiSurum = pers.Get(su, id)!.Version; // Kullanıcı-1 formu açtı
+
+        // Kullanıcı-2 arada kaydı değiştirdi.
+        pers.Update(su, id, new NewPersonnel("Kullanici2 Yazdi", "İşçi", "0555", null, true),
+            expectedVersion: acilistakiSurum);
+
+        // Kullanıcı-1 hâlâ ESKİ sürümü tutuyor → engellenmeli.
+        Assert.Throws<ConcurrencyException>(() =>
+            pers.Update(su, id, new NewPersonnel("Kullanici1 EZDI", "İşçi", "0555", null, true),
+                expectedVersion: acilistakiSurum));
+
+        Assert.Equal("Kullanici2 Yazdi", pers.Get(su, id)!.FullName);
+
+        // Sürüm verilmezse eski davranış korunur (geriye uyumluluk).
+        pers.Update(su, id, new NewPersonnel("Surumsuz Yazdi", "İşçi", "0555", null, true));
+        Assert.Equal("Surumsuz Yazdi", pers.Get(su, id)!.FullName);
+    }
+
     public void Dispose()
     {
         foreach (var ext in new[] { "", "-wal", "-shm" })

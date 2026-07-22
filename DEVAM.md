@@ -27,7 +27,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **563/563 yeşil** (`dotnet test`) + canlı eşitleme QA **7/7** |
+| **Testler** | **569/569 yeşil** (`dotnet test`) + canlı eşitleme QA **7/7** |
 | **Yeni özellik** | **"Firma İş Verisini Sıfırla"** (süper admin, web) — firma/şube/kullanıcı KALIR, yalnız iş verisi silinir; parola+özel kod+firma adı teyidi; makineler yerel sıfırlamayla boş sunucudan çeker |
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
@@ -80,9 +80,10 @@ ama kontrol edilmiyordu). Artık kaydederken kayıt arada değiştiyse **üzerin
 **"Kaydı yenile"** / **"Formda kal"** (yazdıkların kaybolmaz).
 - Gerçek kilit DEĞİL, sürüm karşılaştırması — çünkü sunucu kilidi **çevrimdışı çalışmaz** ve program
   çökerse kayıt kilitli kalırdı. Sürüm kontrolü çevrimdışı dahil her zaman çalışır.
-- Malzeme: masaüstü ana ekran + çift-tık pencere + web + API (409). **Kalan ekranlar:** Araçlar, Personel,
-  Günlük Faaliyet, Yakıt, Bakım.
-- Canlı kanıt: eski sürümle kaydetme 409 döndü, ilk verinin ezilmediği doğrulandı (test kaydı silindi).
+- **Kapsanan ekranlar: Malzemeler · Araçlar · Personel · Bakım Tanımları** (masaüstü + web + API).
+- **Kapsam dışı (kasıtlı):** Günlük Faaliyet, Yakıt, Bakım *kayıtları* zaten düzenlenemiyor (ekle-only
+  defter kayıtları: oluşturulur, iptal/silinir; alanları hiç güncellenmez) → üzerine yazılacak şey yok.
+- Canlı kanıt: her üçü için eski sürümle kaydetme **409**, ilk verinin ezilmediği doğrulandı (test kayıtları silindi).
 
 ### Bilinen açıklar / kurallar
 - ⚠️ **Aynı veriyi İKİ makinede import etme!** Her import farklı ID üretir → makineler birbirine oturmaz

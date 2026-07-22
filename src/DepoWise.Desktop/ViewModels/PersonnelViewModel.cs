@@ -86,6 +86,9 @@ public sealed partial class PersonnelViewModel : ViewModelBase
 
     [ObservableProperty] private bool _showAdd;
     [ObservableProperty] private string? _editId;
+    /// <summary>DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm; kaydederken geri gönderilir.
+    /// null = yeni kayıt ya da sürüm bilinmiyor → kontrol yapılmaz.</summary>
+    private long? _editVersion;
     [ObservableProperty] private string _fFullName = "";
     [ObservableProperty] private string? _fTitle;        // unvan: sabit tanım listesinden seçilir
     [ObservableProperty] private string _fPhone = "";
@@ -242,7 +245,8 @@ public sealed partial class PersonnelViewModel : ViewModelBase
     private void NewPersonnel()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
-        EditId = null; FFullName = ""; FTitle = null; FPhone = ""; FBranch = null; FActive = true;
+        EditId = null; _editVersion = null; // düzenleme kilidi: yeni kayıtta sürüm yok
+        FFullName = ""; FTitle = null; FPhone = ""; FBranch = null; FActive = true;
         FFieldStaff = false; FormError = null;
         ResetAccountFields();
         ShowAdd = true; OnPropertyChanged(nameof(FormTitle));
@@ -262,7 +266,8 @@ public sealed partial class PersonnelViewModel : ViewModelBase
     {
         if (Selected is null) { Status = "Personel seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
-        EditId = Selected.Id; FFullName = Selected.FullName; FTitle = Selected.Title;
+        EditId = Selected.Id; _editVersion = Selected.Record.Version; // düzenleme kilidi
+        FFullName = Selected.FullName; FTitle = Selected.Title;
         FPhone = Selected.Phone ?? ""; FBranch = Branches.FirstOrDefault(b => b.Id == Selected.BranchId);
         FActive = Selected.IsActive; FFieldStaff = Selected.IsFieldStaff; FormError = null;
         ResetAccountFields();
@@ -319,7 +324,9 @@ public sealed partial class PersonnelViewModel : ViewModelBase
         try
         {
             string personnelId;
-            if (editing) { DesktopServices.Personnel.Update(_session, EditId!, dto); personnelId = EditId!; }
+            // DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm (Selected.Record.Version) geri gönderilir;
+            // kayıt arada başkası tarafından değiştiyse sessizce ezilmez.
+            if (editing) { DesktopServices.Personnel.Update(_session, EditId!, dto, _editVersion); personnelId = EditId!; }
             else personnelId = DesktopServices.Personnel.Create(_session, dto);
 
             if (wantLink)
@@ -341,6 +348,18 @@ public sealed partial class PersonnelViewModel : ViewModelBase
             }
             ShowAdd = false; EditId = null; Load();
             Status = editing ? "Personel güncellendi." : (wantLink ? "Personel eklendi + kullanıcı bağlandı." : "Personel eklendi.");
+        }
+        catch (DepoWise.Application.Security.ConcurrencyException ex)
+        {
+            // Kayıt biz düzenlerken değişti. Yazdıklarını KAYBETME: karar kullanıcının.
+            FormError = ex.Message;
+            if (await ConfirmService.AskAsync(
+                    ex.Message + "\n\nKaydın güncel hâlini yüklemek ister misiniz? " +
+                    "(\"Formda kal\" derseniz yazdıklarınız durur, kopyalayıp tekrar uygulayabilirsiniz.)",
+                    "Kayıt değişti", okText: "Kaydı yenile", cancelText: "Formda kal"))
+            {
+                ShowAdd = false; EditId = null; _editVersion = null; Load();
+            }
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }

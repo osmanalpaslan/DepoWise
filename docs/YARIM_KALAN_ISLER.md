@@ -10,7 +10,20 @@
 
 ---
 
-## 🟡 Düzenleme kilidi (2026-07-22) — MALZEME TAMAM (API+web canlıda), diğer ekranlar sırada
+## ✅ Düzenleme kilidi (2026-07-22) — TAMAMLANDI (API+web canlıda; masaüstü paket bekliyor)
+
+**Kapsanan ekranlar:** Malzemeler · Araçlar · Personel · Bakım Tanımları (hepsi masaüstü + web + API).
+
+**KAPSAM DIŞI (kasıtlı):** Günlük Faaliyet, Yakıt ve Bakım *kayıtları* düzenlenemiyor — bunlar §4 gereği
+ekle-only defter kayıtları (oluşturulur, iptal/silinir; alanları hiç `UPDATE` edilmez). Üzerine yazılacak
+bir şey olmadığı için kilit uygulanamaz; yoktan "düzenleme" yolu açmak §4'ü ihlal ederdi.
+
+**Canlı kanıt:** Malzeme/Araç/Personel için güncel sürümle PUT **200**, eski sürümle PUT **409**,
+ilk verinin ezilmediği doğrulandı (geçici test kayıtlarıyla, sonra silindi).
+
+---
+
+## (eski kayıt) Düzenleme kilidi — Malzeme aşaması
 
 **Sorun:** `version` yazılıyordu ama hiç kontrol edilmiyordu → iki kişi (ya da iki makine) aynı kaydı
 düzenlerse ikincisi birincisini **sessizce eziyordu**.

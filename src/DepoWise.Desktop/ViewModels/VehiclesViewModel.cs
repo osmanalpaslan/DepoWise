@@ -449,7 +449,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                     EngineNo: string.IsNullOrWhiteSpace(NewEngineNo) ? null : NewEngineNo.Trim(),
                     VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
                     BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
-                    BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id));
+                    BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id),
+                    // DÜZENLEME KİLİDİ: formu açtığımız andaki sürüm — kayıt arada değiştiyse sessizce ezme.
+                    expectedVersion: Detail?.Version);
 
                 SaveStagedPhotos(EditId!);
 
@@ -459,6 +461,18 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                     catch (MeterBackwardException) { Status = "Araç güncellendi (sayaç geriye alınamaz, değişmedi)."; Clear(); Load(); return; }
                 }
                 Clear(); Load(); Status = "Araç güncellendi.";
+            }
+            catch (DepoWise.Application.Security.ConcurrencyException ex)
+            {
+                // Kayıt biz düzenlerken değişti. Yazdıklarını KAYBETME: karar kullanıcının.
+                Status = ex.Message;
+                if (await ConfirmService.AskAsync(
+                        ex.Message + "\n\nKaydın güncel hâlini yüklemek ister misiniz? " +
+                        "(\"Formda kal\" derseniz yazdıklarınız durur, kopyalayıp tekrar uygulayabilirsiniz.)",
+                        "Kayıt değişti", okText: "Kaydı yenile", cancelText: "Formda kal"))
+                {
+                    Clear(); Load();
+                }
             }
             catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
             return;
@@ -589,7 +603,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     {
         if (Selected is null) return;
         var res = await QuickEditService.ShowVehicleAsync(_session, Selected.Id);
-        if (res is "saved" or "deleted")
+        // "stale" = düzenleme kilidi: kayıt biz açıkken değişti, kullanıcı "kapat ve yenile" dedi.
+        if (res is "saved" or "deleted" or "stale")
         {
             if (res == "deleted") Selected = null;
             Load();

@@ -45,7 +45,9 @@ public sealed record VehicleDetail(
     string Id, string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string MeterUnit,
     string Status, string? StatusNote, string? ChassisNo, string? EngineNo,
     string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? BranchId, string? DriverPersonnelId,
-    string? VehicleTypeName, string? CategoryName, string? BrandName, string? VehicleModelName, string? BranchName, string? DriverName)
+    string? VehicleTypeName, string? CategoryName, string? BrandName, string? VehicleModelName, string? BranchName, string? DriverName,
+    // DÜZENLEME KİLİDİ: formun açıldığı andaki sürüm (bkz. EditLockGuard).
+    long Version = 0)
 {
     public string MeterDisplay => $"{CurrentMeter:0.##} {MeterUnit}";
 }
@@ -334,7 +336,7 @@ WHERE v.company_id = $c AND v.is_deleted = 0";
 SELECT v.id, v.internal_code, v.plate, v.production_year, v.current_meter, v.meter_unit, v.status, v.status_note,
        v.chassis_no, v.engine_no,
        v.vehicle_type_id, v.category_id, v.brand_id, v.vehicle_model_id, v.branch_id, v.driver_personnel_id,
-       vt.name, vc.name, b.name, vm.name, br.name, p.full_name
+       vt.name, vc.name, b.name, vm.name, br.name, p.full_name, v.version
 FROM vehicles v
 LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 LEFT JOIN vehicle_categories vc ON vc.id = v.category_id
@@ -353,12 +355,14 @@ WHERE v.id=$id AND v.company_id=$c AND v.is_deleted=0;";
             r.IsDBNull(3) ? (int?)null : r.GetInt32(3), Money.Parse(r.GetString(4)), r.GetString(5),
             r.GetString(6), S(7), S(8), S(9),
             S(10), S(11), S(12), S(13), S(14), S(15),
-            S(16), S(17), S(18), S(19), S(20), S(21));
+            S(16), S(17), S(18), S(19), S(20), S(21), r.GetInt64(22));
     }
 
     /// <summary>Araç alanlarını günceller (plaka/yıl/durum/durum notu). Sayaç burada DEĞİL (SetMeter ile, geriye gitmez).
     /// Durum notu yalnız 'Bakımda' / 'Arızalı' durumunda saklanır (Create ile aynı kural).</summary>
-    public void Update(SessionContext s, string vehicleId, UpdateVehicle dto)
+    /// <param name="expectedVersion">DÜZENLEME KİLİDİ: formun açıldığı andaki <c>version</c>. Verilirse ve kayıt
+    /// o andan beri değiştiyse <see cref="ConcurrencyException"/> atılır. null = kontrol yok (geriye uyumlu).</param>
+    public void Update(SessionContext s, string vehicleId, UpdateVehicle dto, long? expectedVersion = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -372,7 +376,8 @@ UPDATE vehicles SET plate=$p, production_year=$y, status=$st, status_note=$note,
     chassis_no=$ch, engine_no=$en, vehicle_type_id=$vt, category_id=$cat,
     brand_id=$brand, vehicle_model_id=$vm, branch_id=$br, driver_personnel_id=$drv,
     version=version+1, updated_at=$now
-WHERE id=$id AND company_id=$c AND is_deleted=0;";
+WHERE id=$id AND company_id=$c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
             cmd.Parameters.AddWithValue("$p", (object?)dto.Plate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$y", (object?)dto.ProductionYear ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$st", dto.Status);
@@ -388,7 +393,11 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", vehicleId);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "vehicles", vehicleId, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+            }
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Update, s.UserId), _clock);
         tx.Commit();

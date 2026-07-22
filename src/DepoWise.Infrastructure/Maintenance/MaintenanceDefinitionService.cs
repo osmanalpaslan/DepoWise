@@ -93,7 +93,9 @@ ORDER BY name;";
         return list;
     }
 
-    public void Update(SessionContext s, string id, NewMaintenanceDefinition dto)
+    /// <param name="expectedVersion">DÜZENLEME KİLİDİ: formun açıldığı andaki <c>version</c>. Verilirse ve kayıt
+    /// o andan beri değiştiyse <see cref="ConcurrencyException"/> atılır. null = kontrol yok (geriye uyumlu).</param>
+    public void Update(SessionContext s, string id, NewMaintenanceDefinition dto, long? expectedVersion = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (dto.IntervalValue < 0) throw new ArgumentException("Periyot negatif olamaz.");
@@ -106,7 +108,9 @@ ORDER BY name;";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$iu, description=$d,
-    version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
+    version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0"
+                + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
             cmd.Parameters.AddWithValue("$n", dto.Name);
             cmd.Parameters.AddWithValue("$iv", Money.Serialize(dto.IntervalValue));
             cmd.Parameters.AddWithValue("$iu", dto.IntervalUnit);
@@ -114,7 +118,11 @@ UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$i
             cmd.Parameters.AddWithValue("$now", now);
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Tanım bulunamadı veya başka firmaya ait.");
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "maintenance_definitions", id, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Tanım bulunamadı veya başka firmaya ait.");
+            }
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "maintenance_definition", id, AuditActions.Update, s.UserId), _clock);
         tx.Commit();

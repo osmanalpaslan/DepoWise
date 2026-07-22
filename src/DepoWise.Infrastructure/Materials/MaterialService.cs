@@ -330,8 +330,8 @@ WHERE mcv.material_id=$m AND v.company_id=$c AND v.is_deleted=0 ORDER BY v.inter
 UPDATE materials SET code=$code, name=$name, type=$type, category_id=$cat, unit_id=$unit,
     brand_id=$brand, supplier_id=$sup, min_stock=$min, unit_price=$price, description=$desc,
     version=version+1, updated_at=$now
-WHERE id=$id AND company_id=$c AND is_deleted=0" + (expectedVersion.HasValue ? " AND version=$ev" : "") + ";";
-            if (expectedVersion.HasValue) cmd.Parameters.AddWithValue("$ev", expectedVersion.Value);
+WHERE id=$id AND company_id=$c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
             cmd.Parameters.AddWithValue("$code", dto.Code.Trim());
             cmd.Parameters.AddWithValue("$name", dto.Name);
             cmd.Parameters.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
@@ -348,18 +348,7 @@ WHERE id=$id AND company_id=$c AND is_deleted=0" + (expectedVersion.HasValue ? "
             if (cmd.ExecuteNonQuery() == 0)
             {
                 // 0 satır: ya kayıt yok/başka firmaya ait, YA DA sürüm tutmadı (düzenleme kilidi).
-                // İkisini ayırt et ki kullanıcı doğru mesajı görsün.
-                if (expectedVersion.HasValue)
-                {
-                    using var vc = conn.CreateCommand();
-                    vc.Transaction = tx;
-                    vc.CommandText = "SELECT version FROM materials WHERE id=$id AND company_id=$c AND is_deleted=0;";
-                    vc.Parameters.AddWithValue("$id", materialId);
-                    vc.Parameters.AddWithValue("$c", s.CompanyId);
-                    var cur = vc.ExecuteScalar();
-                    if (cur is not null and not DBNull)
-                        throw new ConcurrencyException(expectedVersion.Value, Convert.ToInt64(cur));
-                }
+                EditLockGuard.ThrowIfStale(conn, tx, "materials", materialId, s.CompanyId, expectedVersion);
                 throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
             }
         }

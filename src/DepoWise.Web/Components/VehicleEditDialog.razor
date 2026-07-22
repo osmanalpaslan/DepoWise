@@ -145,6 +145,7 @@
     private bool _loading = true, _notFound, _edit, _busy, _ok;
     private string? _msg;
     private string _code = "", _plate = "", _status = "active", _statusNote = "", _chassis = "", _engine = "", _meterUnit = "km";
+    private long _version; // düzenleme kilidi (bkz. SaveRecord)
     private string? _type, _cat, _brand, _model, _branch, _driver;
     private int? _year;
     private decimal _meter;
@@ -173,6 +174,7 @@
             _year = d.TryGetProperty("productionYear", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : null;
             _type = NullId(d, "vehicleTypeId"); _cat = NullId(d, "categoryId"); _brand = NullId(d, "brandId");
             _model = NullId(d, "vehicleModelId"); _branch = NullId(d, "branchId"); _driver = NullId(d, "driverPersonnelId");
+            _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
             _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
         }
         catch { _notFound = true; }
@@ -194,7 +196,9 @@
                 currentMeter = _meter, meterUnit = _meterUnit,   // PUT bunları yok sayar (sayaç geri gitme koruması) — uyumluluk için gönderilir
                 branchId = _branch, driverPersonnelId = _driver, chassisNo = Empty(_chassis), engineNo = Empty(_engine),
                 status = _status, statusNote = DepoWise.Web.Services.VehicleStatus.NeedsNote(_status) ? Empty(_statusNote) : null,
-                vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model, templateId = (string?)null
+                vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model, templateId = (string?)null,
+                // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
+                version = _version > 0 ? (long?)_version : null
             };
             var err = await Api.PutAsync($"/api/vehicles/{Id}", body);
             if (err is null) MudDialog.Close(DialogResult.Ok("saved"));
@@ -229,4 +233,7 @@
     private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
     private static decimal Dec(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+    /// <summary>DÜZENLEME KİLİDİ: kaydın sürümü. 0/eksik → kontrol yapılmaz (geriye uyumlu).</summary>
+    private static long Long(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
 }

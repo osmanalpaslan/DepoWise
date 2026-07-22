@@ -159,6 +159,7 @@
 @code {
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private string? _editId;
+    private long _editVersion; // DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm
     private string _name = "", _phone = "";
     private string? _title;                 // unvan: sabit tanım listesinden seçilir
     private string? _branch;
@@ -255,7 +256,9 @@
     private async Task BeginEdit(JsonElement r)
     {
         if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
-        _editId = Str(r, "id"); _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
+        _editId = Str(r, "id");
+        _editVersion = r.TryGetProperty("version", out var pv) && pv.ValueKind == JsonValueKind.Number ? pv.GetInt64() : 0; // düzenleme kilidi
+        _name = Str(r, "fullName"); _title = NullS(r, "title"); _phone = Str(r, "phone");
         _branch = NullS(r, "branchId"); _active = Bool(r, "isActive"); _fieldStaff = Bool(r, "isFieldStaff"); _msg = null;
         _hasAccount = Bool(r, "hasAccount"); _accountAdmin = Bool(r, "accountAdmin"); _accountUsername = Str(r, "username");
         _grantAccess = false; _linkUserId = null;
@@ -300,7 +303,9 @@
         _busy = true;
         try
         {
-            var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active, isFieldStaff = _fieldStaff };
+            // version: DÜZENLEME KİLİDİ — düzenlemede geri gönderilir; kayıt arada değiştiyse sunucu 409 döner.
+            var body = new { fullName = _name.Trim(), title = Empty(_title), phone = Empty(_phone), branchId = _branch, isActive = _active, isFieldStaff = _fieldStaff,
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null };
             string? id = _editId;
             if (_editId is null)
             {
@@ -348,7 +353,7 @@
 
     private void Clear()
     {
-        _editId = null; _name = _phone = ""; _title = null; _branch = null; _active = true; _fieldStaff = false;
+        _editId = null; _editVersion = 0; _name = _phone = ""; _title = null; _branch = null; _active = true; _fieldStaff = false;
         _grantAccess = false; _linkUserId = null;
         _hasAccount = false; _accountAdmin = false; _accountUsername = ""; _dups = new(); _dupAck = false;
         CancelAddTitle();

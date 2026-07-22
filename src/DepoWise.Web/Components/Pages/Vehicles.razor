@@ -276,6 +276,7 @@
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
     private string? _editId;
+    private long _editVersion; // DÜZENLEME KİLİDİ: düzenlemeye başlarken okunan sürüm
     private string _code = "", _plate = "", _status = "active", _meterUnit = "km", _statusNote = "", _chassis = "", _engine = "";
     private string? _type, _cat, _brand, _model, _branch, _driver, _template;
     private int? _year;
@@ -556,6 +557,7 @@
         if (_detail is null) return;
         var d = _detail.Value;
         _editId = Str(d, "id");
+        _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi
         _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
         _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");
         _year = d.TryGetProperty("productionYear", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : null;
@@ -605,7 +607,9 @@
                 branchId = _branch, driverPersonnelId = _driver, chassisNo = Empty(_chassis), engineNo = Empty(_engine),
                 status = _status, statusNote = DepoWise.Web.Services.VehicleStatus.NeedsNote(_status) ? Empty(_statusNote) : null,
                 vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model,
-                templateId = _editId is null ? _template : null
+                templateId = _editId is null ? _template : null,
+                // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null
             };
             string? err; string? savedId;
             if (_editId is null) (err, savedId) = await Api.CreateAsync("/api/vehicles", body);
@@ -621,7 +625,7 @@
 
     private void Clear()
     {
-        _err = false; _editId = null; _template = null; _lastTemplate = null;
+        _err = false; _editId = null; _editVersion = 0; _template = null; _lastTemplate = null;
         _code = _plate = ""; _status = "active"; _meterUnit = "km"; _statusNote = _chassis = _engine = "";
         _type = _cat = _brand = _model = _branch = _driver = null; _year = null; _meter = 0;
         _staged.Clear();
