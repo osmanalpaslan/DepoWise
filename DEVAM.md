@@ -11,6 +11,12 @@
 
 ---
 
+> 🗂️ **Çok görevli takip:** Aynı anda birden fazla iş yürütülüyor (PostgreSQL geçişi + babanın
+> uygulamasına geliştirmeler). "Nerede kaldık / şu işe dön" için tek yer: **[docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md)**.
+> 🔒 **Altın kural:** Babanın canlı gerçek verisine dokunulmaz — geçiş kopyayla, ayrı DB'de yapılır.
+
+---
+
 ## 1. Bu proje nedir? (tek paragraf)
 
 **DepoWise** — çok firmalı (multi-tenant) depo/stok/araç/bakım/yakıt yönetim sistemi.
