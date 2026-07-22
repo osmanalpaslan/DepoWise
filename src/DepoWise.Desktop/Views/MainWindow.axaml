@@ -175,12 +175,11 @@
                                 <SelectableTextBlock Text="{Binding ConnectionText}" Classes="Helper" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
-                        <!-- Z2 (2026-07-19): son push'ta sunucunun uygulamadığı kayıt varsa uyarı rozeti (sessiz başarısızlığı görünür kıl) -->
-                        <Border Background="#B91C1C" CornerRadius="12" Padding="10,4" VerticalAlignment="Center"
-                                IsVisible="{Binding HasSyncWarning}"
-                                ToolTip.Tip="Bazı kayıtlar sunucuya uygulanamadı. Ayrıntı için 'Eşitle'ye basın veya sync.log dosyasına bakın.">
-                            <SelectableTextBlock Text="{Binding SyncWarning}" Foreground="White" VerticalAlignment="Center"/>
-                        </Border>
+                        <!-- Z5: senkron durum rozeti — DAİMA görünür, tıklanınca durum paneli açılır.
+                             Sorun yoksa "✓ Senkron"; sorun varsa "gönderilemiyor / yeniden denenecek" yazar (Z3). -->
+                        <Button Classes="Secondary" Command="{Binding ShowSyncStatusCommand}"
+                                Content="{Binding SyncStatusChip}" VerticalAlignment="Center"
+                                ToolTip.Tip="Senkron durumu: son gönderim/çekme zamanı, bekleyen ve gönderilemeyen kayıtlar"/>
                         <Button Classes="Secondary" Content="🟢 Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
                                 IsVisible="{Binding IsSuperAdmin}"
                                 ToolTip.Tip="Yalnız ekran adı + alan adları (kolay tarif için)"/>

@@ -92,8 +92,11 @@ public sealed partial class ShellViewModel : ViewModelBase
     // (sessiz başarısızlığı görünür kıl). Boşsa rozet gizli.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSyncWarning))]
+    [NotifyPropertyChangedFor(nameof(SyncStatusChip))]
     private string _syncWarning = "";
     public bool HasSyncWarning => !string.IsNullOrEmpty(SyncWarning);
+    /// <summary>Z5 — üst bardaki tıklanabilir senkron rozeti. Sorun yoksa "✓ Senkron".</summary>
+    public string SyncStatusChip => string.IsNullOrEmpty(SyncWarning) ? "✓ Senkron" : SyncWarning;
 
     /// <summary>Son push sonucuna bakıp uyarı rozetini günceller (arka plan + manuel eşitleme sonrası çağrılır).</summary>
     private void RefreshSyncWarning()
@@ -109,6 +112,41 @@ public sealed partial class ShellViewModel : ViewModelBase
         SyncWarning = (r is not null && r.HasProblem)
             ? $"⟳ {r.Skipped} kayıt yeniden denenecek ({BusinessSyncPushService.RetryAttempts()}/5)"
             : "";
+    }
+
+    /// <summary>Z5 — SENKRON DURUMU paneli: "her şey gönderildi mi?" sorusunun tek yerden cevabı.
+    /// Üst bardaki rozete tıklayınca açılır.</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ShowSyncStatus()
+    {
+        var cid = _session.CompanyId;
+        string When(string key)
+        {
+            try
+            {
+                var raw = DesktopServices.Settings.Get(cid, key);
+                if (long.TryParse(raw, out var ms))
+                    return DateTimeOffset.FromUnixTimeMilliseconds(ms).ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+            }
+            catch { }
+            return "—";
+        }
+
+        var poison = BusinessSyncPushService.Poison();
+        var tries = BusinessSyncPushService.RetryAttempts();
+        var durum = poison is { } p && p.Count > 0
+            ? $"⚠ {p.Count} kayıt GÖNDERİLEMİYOR (otomatik deneme durduruldu)\nSebep: {p.Reason}"
+            : tries > 0
+                ? $"⟳ Bazı kayıtlar sunucuya uygulanamadı — otomatik yeniden deneniyor ({tries}/5)"
+                : "✓ Bekleyen sorun yok — her şey gönderildi";
+
+        await ConfirmService.AskAsync(
+            $"{durum}\n\n" +
+            $"Son başarılı gönderim (push): {When("sync_last_push_ok")}\n" +
+            $"Son başarılı çekme (pull):    {When("sync_last_pull_ok")}\n" +
+            $"Sunucu bağlantısı: {ConnectionText}\n\n" +
+            $"Ayrıntılı kayıt: {(SyncLog.FilePath ?? "sync.log")}",
+            "Senkron Durumu", "Tamam", "Tamam", danger: poison is { Count: > 0 });
     }
 
     /// <summary>Push sonucunu kullanıcıya gösterilecek okunur metne çevirir (manuel Eşitle diyaloğu için).</summary>

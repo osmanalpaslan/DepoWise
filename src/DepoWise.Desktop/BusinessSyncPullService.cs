@@ -53,6 +53,8 @@ public static class BusinessSyncPullService
                 using var doc = JsonDocument.Parse(json);
                 new BusinessSyncService(DesktopServices.Factory).ApplyPull(companyId!, doc.RootElement, Exclude);
             });
+            // Z5: son BAŞARILI çekme zamanı (senkron durum paneli gösterir).
+            try { DesktopServices.Settings.Set(companyId!, "sync_last_pull_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString(), DesktopServices.Session?.UserId ?? ""); } catch { }
             return true;
         }
         catch { return false; /* sessiz — ağ dönünce sonraki tur tekrar dener */ }

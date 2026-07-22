@@ -85,6 +85,7 @@ public static class BusinessSyncPushService
                     SavePushWatermark(companyId!, localV);
                     SetInt(companyId!, StuckKey, 0);
                     SetText(companyId!, PoisonKey, "");            // sorun çözüldü → kalıcı uyarıyı temizle
+                    SetText(companyId!, "sync_last_push_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString()); // Z5
                     SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
                 }
                 else

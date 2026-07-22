@@ -1,4 +1,4 @@
-# DEVAM — Nerede Kaldım? (Sıfır PC İçin Giriş Dosyası)
+﻿# DEVAM — Nerede Kaldım? (Sıfır PC İçin Giriş Dosyası)
 
 > **Bu dosya, hangi bilgisayarda olursam olayım açtığımda ilk okuduğum yerdir.**
 > Amaç: format atsam, PC değiştirsem, aylar sonra dönsem bile "ne yaptık, sırada ne var"
@@ -32,9 +32,9 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.85 (Z2+Z4)** — sessiz başarısızlık görünür + delta kök neden düzeltildi |
+| **Masaüstü** | **1.0.86 (Z1+Z3+Z5)** — tek sync kapısı · retry+poison · senkron durum paneli |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **Sıradaki: Z1 (tek mutex) → Z3 (retry) → Z5 (durum paneli).** Z2+Z4 canlı✓ |
+| **Bekleyen iş** | **Senkron çekirdeği (Z1–Z5) TAMAM ✓.** Sıradaki: makine bazlı güncelleme yetkisi · Giriş-Çıkış çoklu malzeme · Düzenleme kilidi · Yedek ekranları |
 
 ## 🔄 FORMAT SONRASI — BURADAN DEVAM ET (2026-07-22)
 
@@ -53,11 +53,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
   (`sync_push_watermark`) → başka kaydın zaman damgası yüzünden atlama imkânsız.
 - **"Firma İş Verisini Sıfırla"** ekranı (web, süper admin): firma/şube/kullanıcı KALIR, yalnız iş verisi silinir.
 
-### Sıradaki 3 faz (hepsi MASAÜSTÜ tarafı)
-1. **Z1** — tek sync motoru + **tek mutex** (şu an reset `IsSyncing`, tick `_businessSyncBusy` → AYRI; yarış var).
-2. **Z3** — **retry kuyruğu**: atlanan/başarısız kayıtlar kalıcı işaretlenip onaya kadar tekrar denensin
-   (şu an watermark başarılı push'ta ilerlediği için atlananlar bir daha gönderilmiyor — bilinen açık).
-3. **Z5** — basit senkron durum paneli (son push/pull, bekleyen, başarısız, son hata).
+### Senkron çekirdeği TAMAMLANDI (2026-07-22, masaüstü **1.0.86**)
+1. **Z1 ✓** — `SyncGate` (tek SemaphoreSlim): 6 giriş noktası (giriş senkronu, tick, manuel Eşitle,
+   Yereli Sıfırla, çıkış push'u, kapanış push'u) tek kapıdan. Reset↔tick yarışı bitti.
+   Çıkış/kapanışta push atlanır ama **çıkış/kapanış daima yapılır**.
+2. **Z3 ✓** — retry: sunucu bazı satırları uygulamazsa **watermark İLERLEMEZ** → sonraki turda otomatik
+   yeniden denenir. 5 denemeden sonra **poison**: watermark ilerler (kuyruk kilitlenmez) + **kalıcı uyarı**.
+   Sayaç/poison `SettingsService`'te kalıcı. Rozet artık sorun sürerken **kaybolmuyor**.
+3. **Z5 ✓** — üst barda **daima görünür tıklanabilir rozet** ("✓ Senkron" / uyarı) → **Senkron Durumu** paneli:
+   son başarılı push/pull zamanı, bekleyen/yeniden deneme, gönderilemeyen adet + sebep, `sync.log` yolu.
 
 ### Bilinen açıklar / kurallar
 - ⚠️ **Aynı veriyi İKİ makinede import etme!** Her import farklı ID üretir → makineler birbirine oturmaz
