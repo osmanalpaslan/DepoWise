@@ -134,3 +134,28 @@ public sealed class ForbiddenException : Exception
 {
     public ForbiddenException(string message) : base(message) { }
 }
+
+/// <summary>
+/// DÜZENLEME KİLİDİ (2026-07-22): kayıt, kullanıcı formu açtıktan SONRA başkası (başka kullanıcı ya da
+/// eşitlemeyle gelen başka makine) tarafından değiştirilmiş. Kaydetme sessizce ÜZERİNE YAZMAZ; kullanıcıya
+/// sorulur. API katmanında 409 Conflict'e çevrilir.
+///
+/// Neden gerçek "kilit" değil: DepoWise çevrimdışı çalışabilmeli. Sunucu tabanlı kilit çevrimdışı makinede
+/// işlemez ve program çökerse kayıt kilitli kalır. Sürüm karşılaştırması ise çevrimdışı dahil her zaman
+/// çalışır ve asıl zararı (sessiz üzerine yazma) önler.
+/// </summary>
+public sealed class ConcurrencyException : Exception
+{
+    /// <summary>Kullanıcının formu açtığı andaki sürüm.</summary>
+    public long ExpectedVersion { get; }
+    /// <summary>Kayıttaki güncel sürüm.</summary>
+    public long ActualVersion { get; }
+
+    public ConcurrencyException(long expectedVersion, long actualVersion)
+        : base("Bu kayıt siz düzenlemeye başladıktan sonra bir başkası tarafından değiştirildi. " +
+               "Değişikliklerinizi kaybetmemek için kaydı yeniden açıp tekrar deneyin.")
+    {
+        ExpectedVersion = expectedVersion;
+        ActualVersion = actualVersion;
+    }
+}

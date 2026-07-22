@@ -350,6 +350,60 @@ public class MaterialTests : IDisposable
         Assert.Throws<ForbiddenException>(() => _materials.GetDetail(a, m));
     }
 
+    // ---- DÜZENLEME KİLİDİ (2026-07-22): sessiz üzerine yazma engellenir ----
+
+    private long Version(string materialId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT version FROM materials WHERE id=$i;";
+        cmd.Parameters.AddWithValue("$i", materialId);
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    [Fact]
+    public void DuzenlemeKilidi_EskiSurumle_Kaydetmek_UzerineYazmaz()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-100", "Filtre"));
+        var acilistakiSurum = Version(m); // Kullanıcı-1 formu açtı
+
+        // Kullanıcı-2 (ya da eşitlemeyle gelen başka makine) arada kaydı değiştirdi.
+        _materials.Update(a, m, new UpdateMaterial("M-100", "Kullanici2 Adi"), expectedVersion: acilistakiSurum);
+
+        // Kullanıcı-1 hâlâ ESKİ sürümü tutuyor → kaydetmesi ENGELLENMELİ.
+        var ex = Assert.Throws<ConcurrencyException>(() =>
+            _materials.Update(a, m, new UpdateMaterial("M-100", "Kullanici1 Adi"), expectedVersion: acilistakiSurum));
+        Assert.Equal(acilistakiSurum, ex.ExpectedVersion);
+        Assert.True(ex.ActualVersion > ex.ExpectedVersion);
+
+        // Kullanıcı-2'nin verisi KORUNDU (sessizce ezilmedi).
+        Assert.Equal("Kullanici2 Adi", _materials.GetDetail(a, m).Name);
+    }
+
+    [Fact]
+    public void DuzenlemeKilidi_GuncelSurumle_Kaydetmek_Calisir()
+    {
+        var a = Admin("A");
+        var m = _materials.Create(a, new NewMaterial("M-101", "Filtre"));
+
+        _materials.Update(a, m, new UpdateMaterial("M-101", "Yeni Ad"), expectedVersion: Version(m));
+        Assert.Equal("Yeni Ad", _materials.GetDetail(a, m).Name);
+
+        // Sürüm verilmezse eski davranış korunur (geriye uyumluluk — çalışan çağrılar bozulmaz).
+        _materials.Update(a, m, new UpdateMaterial("M-101", "Surumsuz Ad"));
+        Assert.Equal("Surumsuz Ad", _materials.GetDetail(a, m).Name);
+    }
+
+    [Fact]
+    public void DuzenlemeKilidi_OlmayanKayit_Surumle_YineForbidden()
+    {
+        var a = Admin("A");
+        // Kayıt yok → sürüm hatası değil, yetki/bulunamadı hatası dönmeli (mesajlar karışmasın).
+        Assert.Throws<ForbiddenException>(() =>
+            _materials.Update(a, "yok-boyle-id", new UpdateMaterial("M-999", "Yok"), expectedVersion: 1));
+    }
+
     public void Dispose()
     {
         foreach (var ext in new[] { "", "-wal", "-shm" })
