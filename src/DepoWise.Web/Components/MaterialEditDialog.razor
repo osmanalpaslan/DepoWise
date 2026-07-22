@@ -124,6 +124,7 @@
     private bool _loading = true, _notFound, _edit, _busy, _ok;
     private string? _msg;
     private string _code = "", _name = "", _type = "Yedek Parça", _desc = "", _stock = "";
+    private long _version; // düzenleme kilidi (bkz. SaveRecord)
     private string? _cat, _unit, _brand, _sup;
     private decimal _min, _price;
     private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
@@ -142,6 +143,7 @@
             _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
             _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
             _stock = Str(d, "stock");
+            _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
         }
         catch { _notFound = true; }
         finally { _loading = false; }
@@ -162,7 +164,9 @@
                 code = _code.Trim(), name = _name.Trim(), type = string.IsNullOrWhiteSpace(_type) ? null : _type,
                 categoryId = _cat, unitId = _unit, brandId = _brand, supplierId = _sup,
                 minStock = _min, unitPrice = _price, description = string.IsNullOrEmpty(_desc) ? null : _desc,
-                vehicleIds = (List<string>?)null
+                vehicleIds = (List<string>?)null,
+                // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
+                version = _version > 0 ? (long?)_version : null
             };
             var err = await Api.PutAsync($"/api/materials/{Id}", body);
             if (err is null) MudDialog.Close(DialogResult.Ok("saved"));
@@ -196,4 +200,7 @@
     private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
     private static decimal Dec(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+    /// <summary>DÜZENLEME KİLİDİ: kaydın sürümü. 0/eksik → kontrol yapılmaz (geriye uyumlu).</summary>
+    private static long Long(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
 }

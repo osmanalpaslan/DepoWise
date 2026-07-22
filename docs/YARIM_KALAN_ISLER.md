@@ -10,6 +10,25 @@
 
 ---
 
+## 🟡 Düzenleme kilidi (2026-07-22) — MALZEME TAMAM (API+web canlıda), diğer ekranlar sırada
+
+**Sorun:** `version` yazılıyordu ama hiç kontrol edilmiyordu → iki kişi (ya da iki makine) aynı kaydı
+düzenlerse ikincisi birincisini **sessizce eziyordu**.
+
+**Karar:** gerçek "kilit" değil, **sürüm karşılaştırması**. Sunucu tabanlı kilit çevrimdışı makinede
+işlemez ve program çökerse kayıt kilitli kalır; DepoWise çevrimdışı çalışabilmeli. Sürüm kontrolü
+çevrimdışı dahil her zaman çalışır ve asıl zararı (sessiz üzerine yazma) önler.
+
+- Malzeme: masaüstü ana ekran + çift-tık hızlı düzenle + web dialog + API (409 Conflict). ✓
+- Kullanıcıya sorulur: **"Kaydı yenile"** / **"Formda kal"** — yazdıkları kaybolmaz.
+- Sürüm gönderilmezse eski davranış sürer (geriye uyumlu; çalışan çağrılar bozulmadı).
+- Canlı kanıt: eski sürümle kaydetme **409**, ilk verinin **ezilmediği** doğrulandı.
+
+**Kalan:** Araçlar · Personel · Günlük Faaliyet · Yakıt · Bakım ekranlarına aynı desen (her biri:
+detay kaydına `version`, formda tutma, `expectedVersion` ile kaydetme, 409/uyarı).
+
+---
+
 ## ✅ Eşitleme çekirdeği Z1–Z5 + QA (2026-07-22) — TAMAMLANDI (API canlıda)
 
 - **Z1** tek eşitleme kapısı (`SyncGate`) — 6 giriş noktası artık aynı anda çalışamaz.

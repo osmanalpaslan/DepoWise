@@ -85,6 +85,8 @@ app.Use(async (ctx, next) =>
 {
     try { await next(); }
     catch (ForbiddenException ex) { await Write(ctx, 403, ex.Message); }
+    // DÜZENLEME KİLİDİ: kayıt, kullanıcı formu açtıktan sonra değişti → 409 (üzerine yazılmadı).
+    catch (ConcurrencyException ex) { await Write(ctx, 409, ex.Message); }
     catch (ArgumentException ex) { await Write(ctx, 400, ex.Message); }
     catch (InvalidOperationException ex) { await Write(ctx, 400, ex.Message); }
     catch (Exception ex)
@@ -783,7 +785,8 @@ app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.Materials.Update(s, id, new DepoWise.Infrastructure.Materials.UpdateMaterial(
-        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, Doc(d.Description)));
+        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, Doc(d.Description)),
+        expectedVersion: d.Version); // düzenleme kilidi
     if (d.VehicleIds is not null) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -2149,7 +2152,8 @@ record QuotaDto(int Quota);
 record VerifyBranchDto(string? CompanyId, string BranchId, string? BranchPassword);
 record ConflictSeenDto(string? BranchId);
 record UserThemeDto(string? Mode, string? Color, string? Style);
-record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds);
+// Version: DÜZENLEME KİLİDİ — formun açıldığı andaki sürüm. Gönderilmezse (null) kontrol yapılmaz (geriye uyumlu).
+record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds, long? Version = null);
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);

@@ -74,6 +74,16 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 - **Testler 563/563**, canlı QA **7/7**. API canlıya alındı. Rapor: `docs/tests/Esitleme_Test_Report.md`.
 - Canlı QA'yi istediğin an tekrar koşabilirsin: `node tools/qa/live-sync-check.mjs`
 
+### Düzenleme kilidi — Malzeme TAMAM (2026-07-22, API+web canlıda)
+Aynı kaydı iki kişi/iki makine düzenlerse ikincisi birincisini **sessizce eziyordu** (`version` yazılıyor
+ama kontrol edilmiyordu). Artık kaydederken kayıt arada değiştiyse **üzerine yazmaz**, sorar:
+**"Kaydı yenile"** / **"Formda kal"** (yazdıkların kaybolmaz).
+- Gerçek kilit DEĞİL, sürüm karşılaştırması — çünkü sunucu kilidi **çevrimdışı çalışmaz** ve program
+  çökerse kayıt kilitli kalırdı. Sürüm kontrolü çevrimdışı dahil her zaman çalışır.
+- Malzeme: masaüstü ana ekran + çift-tık pencere + web + API (409). **Kalan ekranlar:** Araçlar, Personel,
+  Günlük Faaliyet, Yakıt, Bakım.
+- Canlı kanıt: eski sürümle kaydetme 409 döndü, ilk verinin ezilmediği doğrulandı (test kaydı silindi).
+
 ### Bilinen açıklar / kurallar
 - ⚠️ **Aynı veriyi İKİ makinede import etme!** Her import farklı ID üretir → makineler birbirine oturmaz
   (araç/tanım FK'leri kırılır). **Tek makinede import et, diğeri eşitlemeyle çeksin.**

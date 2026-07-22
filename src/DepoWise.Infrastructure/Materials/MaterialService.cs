@@ -42,7 +42,10 @@ public sealed record MaterialDetail(
     string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     string? CategoryName, string? UnitName, string? BrandName, string? SupplierName,
     decimal MinStock, decimal UnitPrice, string Currency, string? Description, decimal Stock,
-    IReadOnlyList<MaterialRefRow> Equivalents, IReadOnlyList<MaterialRefRow> CompatibleVehicles);
+    IReadOnlyList<MaterialRefRow> Equivalents, IReadOnlyList<MaterialRefRow> CompatibleVehicles,
+    // DÜZENLEME KİLİDİ: formun açıldığı andaki sürüm. Kaydederken geri gönderilir; kayıt arada
+    // değiştiyse sessizce ezilmez (bkz. MaterialService.Update / ConcurrencyException).
+    long Version = 0);
 
 public sealed record UpdateMaterial(
     string Code, string Name, string? Type = null,
@@ -238,12 +241,13 @@ WHERE mcv.vehicle_id = $v;";
 
         string? code, name, type, catId, unitId, brandId, supId, catName, unitName, brandName, supName, desc, cur;
         decimal minStock, unitPrice, stock;
+        long version;
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = @"
 SELECT m.code, m.name, m.type, m.category_id, m.unit_id, m.brand_id, m.supplier_id,
        mc.name, u.name, b.name, sup.name,
-       m.min_stock, m.unit_price, m.currency_code, m.description, COALESCE(sb.quantity,'0')
+       m.min_stock, m.unit_price, m.currency_code, m.description, COALESCE(sb.quantity,'0'), m.version
 FROM materials m
 LEFT JOIN material_categories mc ON mc.id = m.category_id
 LEFT JOIN units u   ON u.id = m.unit_id
@@ -270,6 +274,7 @@ WHERE m.id=$id AND m.company_id=$c AND m.is_deleted=0;";
             cur = r.GetString(13);
             desc = r.IsDBNull(14) ? null : r.GetString(14);
             stock = Money.Parse(r.GetString(15));
+            version = r.GetInt64(16); // düzenleme kilidi
         }
 
         // Muadiller (grup ids → kod/ad)
@@ -300,7 +305,7 @@ WHERE mcv.material_id=$m AND v.company_id=$c AND v.is_deleted=0 ORDER BY v.inter
 
         return new MaterialDetail(materialId, code!, name!, type, catId, unitId, brandId, supId,
             catName, unitName, brandName, supName,
-            minStock, unitPrice, cur!, desc, stock, equivalents, vehicles);
+            minStock, unitPrice, cur!, desc, stock, equivalents, vehicles, version);
     }
 
     /// <summary>Malzeme alanlarını günceller (kod benzersiz; FK alanları). Stok bu serviste değişmez.</summary>

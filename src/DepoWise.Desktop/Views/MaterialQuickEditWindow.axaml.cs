@@ -121,9 +121,20 @@ public partial class MaterialQuickEditWindow : Window
                     SupplierId: (supBox.SelectedItem as Opt)?.Id,
                     MinStock: (decimal)(minBox.Value ?? 0),
                     UnitPrice: (decimal)(priceBox.Value ?? 0),
-                    Description: string.IsNullOrWhiteSpace(descBox.Text) ? null : descBox.Text!.Trim()));
+                    Description: string.IsNullOrWhiteSpace(descBox.Text) ? null : descBox.Text!.Trim()),
+                    // DÜZENLEME KİLİDİ: pencere açıldığındaki sürüm — kayıt arada değiştiyse üzerine yazma.
+                    expectedVersion: d.Version);
                 // Uyumlu araçlar / muadiller / fotoğraflar DEĞİŞTİRİLMEZ (korunur).
                 Close("saved");
+            }
+            catch (DepoWise.Application.Security.ConcurrencyException ex)
+            {
+                statusText.Text = ex.Message; statusText.IsVisible = true;
+                if (await ConfirmService.AskAsync(this,
+                        ex.Message + "\n\nPencereyi kapatıp kaydı güncel hâliyle yeniden açmak ister misiniz? " +
+                        "(\"Formda kal\" derseniz yazdıklarınız durur.)",
+                        "Kayıt değişti", okText: "Kapat ve yenile", cancelText: "Formda kal"))
+                    Close("stale");
             }
             catch (Exception ex) { statusText.Text = "Güncellenemedi: " + ex.Message; statusText.IsVisible = true; }
         };

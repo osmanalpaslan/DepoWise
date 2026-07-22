@@ -409,7 +409,10 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
                     Code: NewCode.Trim(), Name: NewName.Trim(), Type: typeVal,
                     CategoryId: categoryId, UnitId: SelectedUnit!.Id,
                     BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
-                    MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal));
+                    MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal),
+                    // DÜZENLEME KİLİDİ: formu açtığımız andaki sürüm. Kayıt arada başkası (ya da eşitlemeyle
+                    // gelen başka makine) tarafından değiştiyse sessizce ezmek yerine ConcurrencyException.
+                    expectedVersion: Detail?.Version);
 
                 // Uyumlu araçlar (tam değiştir)
                 DesktopServices.Materials.SetCompatibleVehicles(_session, EditId!,
@@ -424,6 +427,18 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
 
                 SaveStagedPhotos(EditId!);
                 Clear(); Load(); Status = "Malzeme güncellendi.";
+            }
+            catch (DepoWise.Application.Security.ConcurrencyException ex)
+            {
+                // Kayıt biz düzenlerken değişti. Yazdıklarını KAYBETME: karar kullanıcının.
+                Status = ex.Message;
+                if (await ConfirmService.AskAsync(
+                        ex.Message + "\n\nKaydın güncel hâlini yüklemek ister misiniz? " +
+                        "(\"Formda kal\" derseniz yazdıklarınız durur, kopyalayıp tekrar uygulayabilirsiniz.)",
+                        "Kayıt değişti", okText: "Kaydı yenile", cancelText: "Formda kal"))
+                {
+                    Clear(); Load();
+                }
             }
             catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
             return;
@@ -595,7 +610,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     {
         if (Selected is null) return;
         var res = await QuickEditService.ShowMaterialAsync(_session, Selected.Id);
-        if (res is "saved" or "deleted")
+        // "stale" = düzenleme kilidi: kayıt biz açıkken değişti, kullanıcı "kapat ve yenile" dedi → listeyi tazele.
+        if (res is "saved" or "deleted" or "stale")
         {
             if (res == "deleted") Selected = null;
             Load();
