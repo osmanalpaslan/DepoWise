@@ -32,7 +32,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.86 (Z1+Z3+Z5)** — tek sync kapısı · retry+poison · senkron durum paneli |
+| **Masaüstü** | **1.0.87 YAYINDA** — eşitleme defter düzeltmesi + düzenleme kilidi + Z1/Z3/Z5 |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **Senkron çekirdeği (Z1–Z5) ✓ · Düzenleme kilidi ✓.** ⚠️ **Masaüstü 1.0.87 paketlenip yayınlanmalı** (API+web canlı, masaüstü geride). Sıradaki: Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
 
@@ -84,6 +84,19 @@ ama kontrol edilmiyordu). Artık kaydederken kayıt arada değiştiyse **üzerin
 - **Kapsam dışı (kasıtlı):** Günlük Faaliyet, Yakıt, Bakım *kayıtları* zaten düzenlenemiyor (ekle-only
   defter kayıtları: oluşturulur, iptal/silinir; alanları hiç güncellenmez) → üzerine yazılacak şey yok.
 - Canlı kanıt: her üçü için eski sürümle kaydetme **409**, ilk verinin ezilmediği doğrulandı (test kayıtları silindi).
+
+### Çok makineli simülasyon + ölçek testi (2026-07-22) — masaüstü **1.0.87 YAYINDA**
+10 sanal makine/kullanıcı, 3 şube, bütün ekranlarda eş zamanlı gerçekçi kullanım (yerel sunucu, boş DB).
+Rapor: `docs/tests/Cok_Makineli_Simulasyon_Raporu.md` · Araç: `tools/qa/multi-machine-sim.mjs`
+- **Düzenleme kilidi kanıtlandı:** 10 makine aynı sürümü aynı anda yazdı → **tam 1 kazanan, 9 × 409**.
+- Mükerrer kod, negatif stok, tenant sızıntısı: hepsi doğru engellendi. Son koşu: **545 istek, 0 mantık hatası**.
+- **Bulunan hata (düzeltildi):** stokta olmayan miktarı çıkarınca **500 "beklenmeyen hata"** dönüyordu.
+  Kural doğruydu ama `NegativeStockException`/`MeterBackwardException` tanınmıyordu → artık **400 + gerçek mesaj**.
+- **Açık bulgu (senin kararın):** giriş sınırı **IP başına 30/5dk**. Tek ofis internetinin arkasındaki 30+
+  kişi vardiya başında birlikte girerse tıkanır. 500 kullanıcı hedefinde mutlaka değişmeli.
+- **Ölçek:** okuma ~6.000 istek/sn (200 eşzamanlıda p95 51 ms), yazma ~**500/sn**'de düzleşiyor (SQLite tek
+  yazıcı). 500 kullanıcı ≈ 50–100 istek/sn → **ham hız sorun değil**; duvar SQLite tek-yazıcı + tek makine
+  + snapshot sayfalamasının olmaması. Ölçümler geliştirme PC'sinde/küçük veriyle alındı.
 
 ### Bilinen açıklar / kurallar
 - ⚠️ **Aynı veriyi İKİ makinede import etme!** Her import farklı ID üretir → makineler birbirine oturmaz

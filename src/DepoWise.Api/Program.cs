@@ -87,6 +87,11 @@ app.Use(async (ctx, next) =>
     catch (ForbiddenException ex) { await Write(ctx, 403, ex.Message); }
     // DÜZENLEME KİLİDİ: kayıt, kullanıcı formu açtıktan sonra değişti → 409 (üzerine yazılmadı).
     catch (ConcurrencyException ex) { await Write(ctx, 409, ex.Message); }
+    // İŞ KURALI istisnaları (QA bulgusu 2026-07-22, çok-makineli simülasyon): bunlar tanınmadığı için
+    // 500 "Sunucuda beklenmeyen bir hata oluştu" dönüyordu. Kural DOĞRU çalışıyordu (negatif stok/sayaç
+    // geri alma engelleniyordu) ama kullanıcı sebebi göremiyordu. Mesajları iş metnidir, güvenle gösterilir.
+    catch (DepoWise.Infrastructure.Materials.NegativeStockException ex) { await Write(ctx, 400, ex.Message); }
+    catch (DepoWise.Application.Common.MeterBackwardException ex) { await Write(ctx, 400, ex.Message); }
     catch (ArgumentException ex) { await Write(ctx, 400, ex.Message); }
     catch (InvalidOperationException ex) { await Write(ctx, 400, ex.Message); }
     catch (Exception ex)
