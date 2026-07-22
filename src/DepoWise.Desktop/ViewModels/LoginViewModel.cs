@@ -427,6 +427,10 @@ public sealed partial class LoginViewModel : ViewModelBase
         var u = Username.Trim(); var p = Password;
         _ = System.Threading.Tasks.Task.Run(async () =>
         {
+            // Z1: tek eşitleme kapısı — giriş senkronu, kabuğun periyodik tick'iyle çakışmasın.
+            if (!await SyncGate.EnterAsync()) return;
+            try
+            {
             await CompanySyncService.TryFlushAsync();   // arada biriken firma işlemi kalmasın
             await LookupSyncService.PullAsync(u, p);    // 2) tanımlar
             // 3) iş verisi — girişte GÖNDERİLMEMİŞ yerel değişiklikleri gönder (Z4 watermark). Bu makinenin
@@ -434,6 +438,8 @@ public sealed partial class LoginViewModel : ViewModelBase
             //    watermark=0 → tam gönderim (tek sefer). Sunucu apply TEK transaction (hızlı) → zaman aşımı yok.
             await BusinessSyncPushService.PushAsync();
             await BusinessSyncPullService.PullAsync();  // sonra diğer makinelerin verisini çek
+            }
+            finally { SyncGate.Exit(); }
         });
         RememberMeService.SaveLastUsername(Username.Trim());           // çıkış sonrası prefill
         if (RememberMe) RememberMeService.Save(_authedSession);

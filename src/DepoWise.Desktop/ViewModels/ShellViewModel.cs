@@ -120,6 +120,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     private async System.Threading.Tasks.Task Sync()
     {
         if (IsSyncing) return;
+        // Z1: tek eşitleme kapısı — arka plan tick / reset ile aynı anda çalışmaz.
+        if (!await SyncGate.EnterAsync()) return;
         IsSyncing = true; SyncProgress = 0;
         try
         {
@@ -140,7 +142,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                      "Eşitleme yapılamadı. İnternet bağlantısını kontrol edin (çevrimdışı olabilirsiniz).",
                 "Eşitle", "Tamam", "Tamam", danger: !allOk);
         }
-        finally { IsSyncing = false; SyncProgress = 0; }
+        finally { IsSyncing = false; SyncProgress = 0; SyncGate.Exit(); }
     }
 
     /// <summary>"Yereli Sıfırla ve Yeniden Çek" (kullanıcı isteği 2026-07-19: "yerelimi temizle, sunucudan tam
@@ -156,6 +158,8 @@ public sealed partial class ShellViewModel : ViewModelBase
             "(sıfır bir PC'den giriyormuş gibi). Sunucudaki ve diğer makinelerdeki veri ETKİLENMEZ.\n\nDevam edilsin mi?",
             "Yerel Veriyi Sıfırla ve Yeniden Çek", "Evet, Yenile", "Vazgeç", danger: true)) return;
         EnsureSyncCursorLoaded();
+        // Z1: tek eşitleme kapısı — reset (purge + tam çekme) sürerken arka plan tick AYNI DB'ye giremez.
+        if (!await SyncGate.EnterAsync()) return;
         IsSyncing = true; SyncProgress = 0;
         try
         {
@@ -171,7 +175,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 "Yerel Sıfırlama", "Tamam", "Tamam", danger: !ok);
         }
         catch (Exception ex) { await ConfirmService.AskAsync("Hata: " + ex.Message, "Yerel Sıfırlama", "Tamam", "Tamam", danger: true); }
-        finally { IsSyncing = false; SyncProgress = 0; }
+        finally { IsSyncing = false; SyncProgress = 0; SyncGate.Exit(); }
     }
 
     // İş verisi eşitleme — DUYARLI + DELTA (kullanıcı bulgusu 2026-07-19: 2508 kayıtlı firmada tam snapshot
@@ -181,7 +185,6 @@ public sealed partial class ShellViewModel : ViewModelBase
     //   PULL: sunucu sürümü > en son çektiğimiz ise → sunucudan YALNIZ yeni satırları çek (delta) + açık ekranı yenile.
     // Pull imleci KALICIDIR (SettingsService) → uygulama yeniden açılınca her şeyi baştan çekmez.
     private long _lastServerVersionPulled = -1;
-    private bool _businessSyncBusy;
     private bool _syncCursorLoaded;
 
     private void EnsureSyncCursorLoaded()
@@ -194,11 +197,12 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     private async System.Threading.Tasks.Task MaybePushBusinessAsync()
     {
-        if (_businessSyncBusy) return;                 // önceki tur bitmeden yenisini başlatma
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(companyId)) return;
         EnsureSyncCursorLoaded();
-        _businessSyncBusy = true;
+        // Z1: ORTAK kapı. Manuel Eşitle / Yereli Sıfırla / giriş senkronu çalışıyorsa bu tur ATLANIR
+        // (eskiden ayrı bayrak kullanıldığı için reset ile tick aynı anda çalışabiliyordu → yarış).
+        if (!SyncGate.TryEnter()) return;
         try
         {
             var serverV = await BusinessSyncPullService.GetServerVersionAsync();
@@ -223,7 +227,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             await WarnConflictsAsync();
         }
         catch { }
-        finally { _businessSyncBusy = false; }
+        finally { SyncGate.Exit(); }
     }
 
     // Push sonrası: admin ile çakışılan kayıtlar varsa personeli bilgilendir (bir kez), sonra 'görüldü' işaretle.
@@ -895,7 +899,12 @@ public sealed partial class ShellViewModel : ViewModelBase
     [RelayCommand]
     private async System.Threading.Tasks.Task Logout()
     {
-        try { await System.Threading.Tasks.Task.WhenAny(BusinessSyncPushService.PushAsync(), System.Threading.Tasks.Task.Delay(10000)); } catch { }
+        // Z1: başka bir eşitleme sürüyorsa push'u ATLA (o zaten gönderiyor). ÇIKIŞ her hâlükârda yapılır.
+        if (SyncGate.TryEnter())
+        {
+            try { await System.Threading.Tasks.Task.WhenAny(BusinessSyncPushService.PushAsync(), System.Threading.Tasks.Task.Delay(10000)); } catch { }
+            finally { SyncGate.Exit(); }
+        }
         DepoWise.Desktop.App.Current?.Logout();
     }
 
