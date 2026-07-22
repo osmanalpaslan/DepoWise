@@ -115,15 +115,15 @@ public sealed class BusinessSyncService
             if (!TableExists(conn, table)) continue;
             var cols = ColumnNames(conn, table);
             var hasCompany = cols.Contains("company_id");
-            var hasUpdated = cols.Contains("updated_at");
+            var stamp = StampColumn(cols);
             var rows = new List<Dictionary<string, object?>>();
             using var cmd = conn.CreateCommand();
             var where = new List<string>();
             if (hasCompany) where.Add("company_id=$c");
-            if (sinceVersion > 0 && hasUpdated) where.Add("updated_at > $since");
+            if (sinceVersion > 0 && stamp is not null) where.Add($"{stamp} > $since");
             cmd.CommandText = $"SELECT * FROM {table}" + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "") + ";";
             if (hasCompany) cmd.Parameters.AddWithValue("$c", companyId);
-            if (sinceVersion > 0 && hasUpdated) cmd.Parameters.AddWithValue("$since", sinceVersion);
+            if (sinceVersion > 0 && stamp is not null) cmd.Parameters.AddWithValue("$since", sinceVersion);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -149,18 +149,34 @@ public sealed class BusinessSyncService
         {
             if (!TableExists(conn, table)) continue;
             var cols = ColumnNames(conn, table);
-            if (!cols.Contains("updated_at")) continue;
+            var stamp = StampColumn(cols);
+            if (stamp is null) continue;
             using var cmd = conn.CreateCommand();
             var hasCompany = cols.Contains("company_id");
             cmd.CommandText = hasCompany
-                ? $"SELECT MAX(updated_at) FROM {table} WHERE company_id=$c;"
-                : $"SELECT MAX(updated_at) FROM {table};";
+                ? $"SELECT MAX({stamp}) FROM {table} WHERE company_id=$c;"
+                : $"SELECT MAX({stamp}) FROM {table};";
             if (hasCompany) cmd.Parameters.AddWithValue("$c", companyId);
             var v = cmd.ExecuteScalar();
             if (v is not null and not DBNull) { var l = Convert.ToInt64(v); if (l > max) max = l; }
         }
         return max;
     }
+
+    /// <summary>
+    /// Bir tablonun DEĞİŞİM DAMGASI sütunu: normalde <c>updated_at</c>; yoksa <c>created_at</c>.
+    ///
+    /// ⚠️ QA bulgusu (2026-07-22): <c>stock_movements</c> (stok hareket defteri — değiştirilemez/append-only
+    /// olduğu için bilinçli olarak <c>updated_at</c> taşımaz) damgasız sayılıyordu. İki sonucu vardı:
+    /// (1) BuildSnapshot'ta delta filtresi HİÇ uygulanmıyor → her eşitlemede TÜM defter aktarılıyordu
+    ///     (defter hiç silinmediği için sürekli büyür → zaman aşımı riski),
+    /// (2) CompanyVersion o tabloyu atlıyor → YENİ BİR STOK HAREKETİ firma sürümünü yükseltmiyor →
+    ///     karşı makine "değişiklik yok" sanıp çekmiyordu (doğruluk hatası).
+    /// created_at'e düşmek her ikisini de çözer: defter satırı hiç güncellenmediği için created_at
+    /// tam olarak "bu satır ne zaman değişti" demektir.
+    /// </summary>
+    private static string? StampColumn(ICollection<string> cols)
+        => cols.Contains("updated_at") ? "updated_at" : (cols.Contains("created_at") ? "created_at" : null);
 
     public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors);
 

@@ -76,15 +76,21 @@
 - SQLite mutlak `%LOCALAPPDATA%\DepoWise\Data` yolunda; Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000 — bu kural COMODO'dan bağımsız, her zaman geçerli.
 
 ## 7. Test ve bitirme — Ekran QA Motoru V2 (kullanıcı kuralı, 2026-07-12)
-> ⏸️ **DURAKLATILDI (2026-07-15, kullanıcı isteği — token tasarrufu).** §7'nin ZORUNLU QA süreci
-> (persona testleri, 7.13 Coverage Matrix, 7.14 Test Raporu, her ekrana otomatik uygulama) şu an **askıda**.
-> Yerine geçen sadeleştirilmiş kural: **her değişiklikte `dotnet build` + ilgili filtreli unit test** çalışır;
-> güvenlik-kritik yollar (tenant/permission/rollback/idempotency) için test yine yazılır. Ayrıntılı test
-> raporu/coverage matrisi **yalnızca kullanıcı açıkça isterse** üretilir. Kullanıcı "§7'yi aç/geri getir"
-> derse aşağıdaki tam süreç yeniden yürürlüğe girer.
+> ▶️ **YENİDEN AKTİF (2026-07-22, kullanıcı isteği).** §7'nin ZORUNLU QA süreci (persona testleri,
+> 7.13 Coverage Matrix, 7.14 Test Raporu) tekrar yürürlüktedir. 2026-07-15'teki duraklatma bitti.
 >
 > Bu projede yalnızca geliştiren değil; aynı zamanda **Senior QA / Test Automation / Manual Tester /
-> UX Tester / Security Tester / Performance Tester** gibi davranılır (askıya alındı; bkz. üst not).
+> UX Tester / Security Tester / Performance Tester** gibi davranılır.
+>
+> **7.0 Token disiplini (aktifken de geçerli — kullanıcı kuralı 2026-07-21).** QA israfa dönüşmesin:
+> - Kapsam **yalnız değiştirilen ekran** (7.1). Çalışan başka yere dokunma.
+> - Coverage Matrix ve rapor **kısa tablo** olur; yanıta tam rapor yapıştırılmaz — dosyaya yazılır,
+>   yanıtta yalnız *"X geçti / Y bulgu"* özeti verilir.
+> - Aynı senaryo iki kez koşturulmaz; log dosyaya, yanıta yalnız ilgili hata satırı.
+>
+> **7.0.1 Test hesabı.** Canlı/uçtan-uca QA'de **yalnız** `.env.test.local` içindeki test kullanıcısı
+> (`DEPOWISE_TEST_USER`) kullanılır. Gerçek yönetici hesapları (superadmin, mustafa.alpaslan) testte
+> kullanılmaz. Parola hiçbir dosyada git'e girmez (`.env.*` ignore'da).
 
 ### 7.1 Kapsam — EN KRİTİK KURAL
 - Her geliştirme tamamlandıktan sonra **SADECE değiştirilen ekran** test edilir (örn. Personel değiştiyse

@@ -133,9 +133,28 @@ public static class BusinessSyncPushService
     // düzeltmesinin çekirdeği: push kararı sunucu global max'ına DEĞİL, bu makinenin kendi ilerleyişine bağlıdır. ──
     private const string PushWatermarkKey = "sync_push_watermark";
 
+    // Damga sütunu (updated_at yoksa created_at) düzeltmesi — bkz. BusinessSyncService.StampColumn.
+    // Düzeltmeden ÖNCE yazılmış watermark tehlikelidir: stock_movements o zamana kadar HİÇ filtrelenmiyordu
+    // (her turda tamamı gönderiliyordu), şimdi filtreleniyor → watermark'ın altında kalmış, gönderilmemiş bir
+    // defter satırı kalıcı olarak atlanabilir. Bu yüzden sürüm başına TEK KEZ watermark 0'a çekilir (bir tam
+    // gönderim; zaten eski davranışın maliyeti buydu), sonra normal delta akışına dönülür.
+    private const string WatermarkEpochKey = "sync_push_watermark_epoch";
+    private const string WatermarkEpoch = "2"; // 2026-07-22
+
     private static long LoadPushWatermark(string companyId)
     {
-        try { return long.TryParse(DesktopServices.Settings.Get(companyId, PushWatermarkKey), out var v) ? v : 0L; }
+        try
+        {
+            if (DesktopServices.Settings.Get(companyId, WatermarkEpochKey) != WatermarkEpoch)
+            {
+                var uid = DesktopServices.Session?.UserId ?? "";
+                DesktopServices.Settings.Set(companyId, WatermarkEpochKey, WatermarkEpoch, uid);
+                DesktopServices.Settings.Set(companyId, PushWatermarkKey, "0", uid);
+                SyncLog.Write("PUSH watermark sifirlandi (damga sutunu duzeltmesi, tek seferlik tam gonderim)");
+                return 0L;
+            }
+            return long.TryParse(DesktopServices.Settings.Get(companyId, PushWatermarkKey), out var v) ? v : 0L;
+        }
         catch { return 0L; }
     }
 

@@ -21,13 +21,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-19)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-22)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **559/559 yeşil** (`dotnet test`) |
+| **Testler** | **563/563 yeşil** (`dotnet test`) + canlı eşitleme QA **7/7** |
 | **Yeni özellik** | **"Firma İş Verisini Sıfırla"** (süper admin, web) — firma/şube/kullanıcı KALIR, yalnız iş verisi silinir; parola+özel kod+firma adı teyidi; makineler yerel sıfırlamayla boş sunucudan çeker |
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
@@ -62,6 +62,17 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
    Sayaç/poison `SettingsService`'te kalıcı. Rozet artık sorun sürerken **kaybolmuyor**.
 3. **Z5 ✓** — üst barda **daima görünür tıklanabilir rozet** ("✓ Senkron" / uyarı) → **Senkron Durumu** paneli:
    son başarılı push/pull zamanı, bekleyen/yeniden deneme, gönderilemeyen adet + sebep, `sync.log` yolu.
+
+### QA yeniden aktif + eşitlemede gerçek hata bulundu (2026-07-22)
+- **CLAUDE.md §7 (Ekran QA Motoru) yeniden yürürlükte** (senin isteğin). Yeni §7.0: QA israfa dönüşmesin —
+  yalnız değiştirilen ekran, rapor dosyaya, yanıta kısa özet. Yeni §7.0.1: canlı testlerde **yalnız**
+  `.env.test.local` içindeki test hesabı kullanılır (gerçek yönetici hesapları test edilmez).
+- **Bulunan hata (düzeltildi):** stok hareket defteri `updated_at` taşımadığı için delta filtresine hiç
+  girmiyordu → (a) her eşitlemede TÜM defter aktarılıyordu, (b) yeni hareket firma sürümünü yükseltmediği
+  için **karşı makine çekmiyordu**. Damga artık `updated_at` yoksa `created_at`. Canlı: delta 663 → **0 satır**.
+  Makine başına tek seferlik tam gönderim (`WatermarkEpoch`) ile eski watermark tuzağı da kapatıldı.
+- **Testler 563/563**, canlı QA **7/7**. API canlıya alındı. Rapor: `docs/tests/Esitleme_Test_Report.md`.
+- Canlı QA'yi istediğin an tekrar koşabilirsin: `node tools/qa/live-sync-check.mjs`
 
 ### Bilinen açıklar / kurallar
 - ⚠️ **Aynı veriyi İKİ makinede import etme!** Her import farklı ID üretir → makineler birbirine oturmaz

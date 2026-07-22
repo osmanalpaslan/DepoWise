@@ -447,6 +447,124 @@ public class BusinessSyncTests : IDisposable
         Assert.Contains(res.Errors, e => e.Contains("negatif"));
     }
 
+    // ---- QA (§7) 2026-07-22: eşitleme çekirdeği regresyon testleri ----
+
+    /// <summary>
+    /// REGRESYON — canlı hata (2026-07-19): 2508 kayıtlı push sunucuda zaman aşımına uğruyor,
+    /// ÖNDEKİ tablolar (malzeme) uygulanıp ARKADAKİ tablolar (araçlar) hiç ulaşmıyordu; kök sebep
+    /// ApplyCore'un transaction'sız olması → satır başına ayrı commit (fsync) → dakikalarca sürüyordu.
+    /// Bu test hem "arkadaki tablo da uygulanır" hem de "toplu commit hâlâ yerinde" (süre) güvencesini verir:
+    /// transaction kaldırılırsa aynı yük dakikalara çıkar ve eşik aşılır.
+    /// </summary>
+    [Fact]
+    public void Apply_BuyukCokTabloluBatch_ArkadakiTablolarDaUygulanir_VeTekTransactionKalir()
+    {
+        const int N = 600; // 1200 satır: personel (ön tablo) + araç (arka tablo)
+        SeedCompany(_src, "ACME");
+        SeedCompany(_dst, "ACME");
+
+        using (var conn = _src.Create())
+        {
+            using var tx = conn.BeginTransaction();
+            for (int i = 0; i < N; i++)
+            {
+                using var c1 = conn.CreateCommand();
+                c1.CommandText = "INSERT INTO personnel(id,company_id,full_name,is_active,created_at,updated_at,version,is_deleted) " +
+                                 "VALUES($i,'ACME',$n,1,1,1000,1,0);";
+                c1.Parameters.AddWithValue("$i", "P" + i);
+                c1.Parameters.AddWithValue("$n", "Personel " + i);
+                c1.ExecuteNonQuery();
+
+                using var c2 = conn.CreateCommand();
+                c2.CommandText = "INSERT INTO vehicles(id,company_id,internal_code,plate,current_meter,meter_unit,status," +
+                                 "created_at,updated_at,version,is_deleted) VALUES($i,'ACME',$k,$p,'0','km','active',1,1000,1,0);";
+                c2.Parameters.AddWithValue("$i", "V" + i);
+                c2.Parameters.AddWithValue("$k", "KOD" + i);
+                c2.Parameters.AddWithValue("$p", "06 FF " + i);
+                c2.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+
+        var json = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
+        using var doc = JsonDocument.Parse(json);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var res = new BusinessSyncService(_dst, _clock).Apply("ACME", doc.RootElement);
+        sw.Stop();
+
+        // ARKADAKİ tablo (araçlar) da tamamen uygulanmalı — canlıda kaybolan buydu.
+        Assert.Equal(N.ToString(), Scalar(_dst, "SELECT COUNT(*) FROM vehicles WHERE company_id='ACME';"));
+        Assert.Equal(N.ToString(), Scalar(_dst, "SELECT COUNT(*) FROM personnel WHERE company_id='ACME';"));
+        Assert.Equal("06 FF 0", Scalar(_dst, "SELECT plate FROM vehicles WHERE id='V0';"));
+        Assert.Empty(res.Errors);
+
+        // Toplu commit koruması: transaction kaldırılırsa 1200 fsync ile bu eşik kesin aşılır.
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20),
+            $"1200 satırlık apply {sw.Elapsed.TotalSeconds:F1}s sürdü — tek transaction kaldırılmış olabilir.");
+    }
+
+    /// <summary>
+    /// GÜVENLİK (§7.12 tenant sızıntısı): bir firmanın snapshot'ı BAŞKA firmanın tek bir satırını bile
+    /// içermemeli. Sızarsa o veri karşı tarafta uygulanır → firmalar arası veri sızıntısı.
+    /// </summary>
+    [Fact]
+    public void Snapshot_BaskaFirmaninVerisini_Sizdirmaz()
+    {
+        SeedCompany(_src, "ACME");
+        SeedCompany(_src, "RAKIP");
+        InsertPersonnel(_src, "P-ACME", "ACME", "Bizim Ali", updatedAt: 1000);
+        InsertPersonnel(_src, "P-RAKIP", "RAKIP", "Rakip Veli", updatedAt: 1000);
+
+        using var doc = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME"));
+
+        // Hiçbir tabloda RAKIP'e ait company_id bulunmamalı.
+        foreach (var table in doc.RootElement.GetProperty("tables").EnumerateObject())
+            foreach (var row in table.Value.EnumerateArray())
+                if (row.TryGetProperty("company_id", out var cid) && cid.ValueKind == JsonValueKind.String)
+                    Assert.Equal("ACME", cid.GetString());
+
+        var personnel = doc.RootElement.GetProperty("tables").GetProperty("personnel");
+        Assert.Equal(1, personnel.GetArrayLength());
+        Assert.Equal("P-ACME", personnel[0].GetProperty("id").GetString());
+    }
+
+    /// <summary>
+    /// REGRESYON — QA bulgusu (2026-07-22, canlı sunucuda tespit): stock_movements (append-only defter)
+    /// updated_at taşımadığı için (a) delta filtresine HİÇ girmiyor, her eşitlemede tüm defter aktarılıyordu,
+    /// (b) CompanyVersion onu atladığı için yeni hareket firma sürümünü yükseltmiyor, karşı makine çekmiyordu.
+    /// Damga sütunu created_at'e düşünce ikisi de düzelir.
+    /// </summary>
+    [Fact]
+    public void Defter_UpdatedAtsiz_Tablo_DeltayaGirer_VeSurumuYukseltir()
+    {
+        SeedCompany(_src, "ACME");
+        Exec(_src, "INSERT INTO materials(id,company_id,code,name,created_at,updated_at,version,is_deleted) " +
+                   "VALUES('M1','ACME','K1','Cimento',1,1000,1,0);");
+        // Eski hareket (created_at=1000) ve YENİ hareket (created_at=5000)
+        void Movement(string id, long createdAt) => Exec(_src,
+            "INSERT INTO stock_movements(id,company_id,material_id,movement_type,direction,quantity,currency_code," +
+            "operation_id,created_at) VALUES($i,'ACME','M1','in',1,'5','TRY',$o,$t);",
+            ("$i", id), ("$o", "op-" + id), ("$t", createdAt));
+        Movement("MV-ESKI", 1000);
+        Movement("MV-YENI", 5000);
+
+        var svc = new BusinessSyncService(_src, _clock);
+
+        // (b) Yeni hareket firma SÜRÜMÜNÜ yükseltmeli — yoksa karşı makine "değişiklik yok" sanar.
+        Assert.Equal(5000, svc.CompanyVersion("ACME"));
+
+        // (a) since=2000 → yalnız YENİ hareket gelmeli; tüm defter değil.
+        using var delta = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: 2000));
+        var mv = delta.RootElement.GetProperty("tables").GetProperty("stock_movements");
+        Assert.Equal(1, mv.GetArrayLength());
+        Assert.Equal("MV-YENI", mv[0].GetProperty("id").GetString());
+
+        // Tam çekmede ikisi de durur (veri kaybı yok).
+        using var full = JsonDocument.Parse(svc.BuildSnapshot("ACME", null, sinceVersion: 0));
+        Assert.Equal(2, full.RootElement.GetProperty("tables").GetProperty("stock_movements").GetArrayLength());
+    }
+
     public void Dispose()
     {
         try { SqliteConnection.ClearAllPools(); File.Delete(_srcPath); File.Delete(_dstPath); } catch { }

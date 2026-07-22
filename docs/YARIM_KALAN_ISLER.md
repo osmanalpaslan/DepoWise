@@ -6,7 +6,27 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-19**
+> Son güncelleme: **2026-07-22**
+
+---
+
+## ✅ Eşitleme çekirdeği Z1–Z5 + QA (2026-07-22) — TAMAMLANDI (API canlıda)
+
+- **Z1** tek eşitleme kapısı (`SyncGate`) — 6 giriş noktası artık aynı anda çalışamaz.
+- **Z3** atlanan kayıtlar otomatik yeniden denenir; 5 denemede çözülmezse "poison" + kalıcı uyarı
+  (rozet artık kaybolmuyor).
+- **Z5** üst barda daima görünür, tıklanabilir senkron rozeti + durum paneli.
+- **§7 QA motoru yeniden aktif** (kullanıcı isteği) — bkz. CLAUDE.md §7 ve yeni §7.0 token disiplini.
+- **QA'de gerçek hata bulundu ve düzeltildi (B-1):** stok hareket defteri (`stock_movements`)
+  `updated_at` taşımadığı için delta filtresine hiç girmiyordu → her eşitlemede tüm defter aktarılıyor,
+  ayrıca yeni hareket firma sürümünü yükseltmediği için **karşı makine çekmiyordu**. Canlı ölçüm:
+  delta **663 → 0 satır**. Detay: `docs/tests/Esitleme_Test_Report.md`.
+- Testler: **563/563**. Canlı QA: **7/7** (`node tools/qa/live-sync-check.mjs`).
+
+**Kalan (ertelendi, kritik değil):** `server_seq` (saatten bağımsız sıra), ledger `op_id` idempotency,
+yakıt/bakımda LWW kaldırılması, snapshot sayfalama.
+**Kullanıcı aksiyonu:** masaüstü **1.0.86** paketi hazır ama yüklenemedi — süper admin parolası
+değiştiği için yayınlamayı kullanıcı çalıştırmalı (bkz. DEVAM.md).
 
 ---
 
