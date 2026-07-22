@@ -34,7 +34,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.86 (Z1+Z3+Z5)** — tek sync kapısı · retry+poison · senkron durum paneli |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **Senkron çekirdeği (Z1–Z5) TAMAM ✓.** Sıradaki: makine bazlı güncelleme yetkisi · Giriş-Çıkış çoklu malzeme · Düzenleme kilidi · Yedek ekranları |
+| **Bekleyen iş** | **Senkron çekirdeği (Z1–Z5) ✓ · Düzenleme kilidi ✓.** ⚠️ **Masaüstü 1.0.87 paketlenip yayınlanmalı** (API+web canlı, masaüstü geride). Sıradaki: Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
 
 ## 🔄 FORMAT SONRASI — BURADAN DEVAM ET (2026-07-22)
 
@@ -74,7 +74,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 - **Testler 563/563**, canlı QA **7/7**. API canlıya alındı. Rapor: `docs/tests/Esitleme_Test_Report.md`.
 - Canlı QA'yi istediğin an tekrar koşabilirsin: `node tools/qa/live-sync-check.mjs`
 
-### Düzenleme kilidi — Malzeme TAMAM (2026-07-22, API+web canlıda)
+### Düzenleme kilidi — TAMAM (2026-07-22, API+web canlıda; masaüstü paket bekliyor)
 Aynı kaydı iki kişi/iki makine düzenlerse ikincisi birincisini **sessizce eziyordu** (`version` yazılıyor
 ama kontrol edilmiyordu). Artık kaydederken kayıt arada değiştiyse **üzerine yazmaz**, sorar:
 **"Kaydı yenile"** / **"Formda kal"** (yazdıkların kaybolmaz).
