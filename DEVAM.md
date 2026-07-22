@@ -34,7 +34,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
 | **Masaüstü** | **1.0.87 YAYINDA** — eşitleme defter düzeltmesi + düzenleme kilidi + Z1/Z3/Z5 |
 | **Git** | temiz + `origin/master` ile senkron |
-| **Bekleyen iş** | **Senkron çekirdeği (Z1–Z5) ✓ · Düzenleme kilidi ✓.** ⚠️ **Masaüstü 1.0.87 paketlenip yayınlanmalı** (API+web canlı, masaüstü geride). Sıradaki: Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
+| **Bekleyen iş** | **Senkron çekirdeği ✓ · Düzenleme kilidi ✓ · 1.0.87 yayında ✓.** Sıradaki: giriş hız sınırı kararı (ortak ofis IP) · Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
 
 ## 🔄 FORMAT SONRASI — BURADAN DEVAM ET (2026-07-22)
 
