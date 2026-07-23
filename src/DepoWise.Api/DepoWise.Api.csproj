@@ -7,6 +7,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <!-- PostgreSQL geçişi (Faz 3): sunucu PG'ye bağlanabilsin. Npgsql yalnız SUNUCUDA; masaüstü SQLite kalır. -->
+    <PackageReference Include="Npgsql" Version="8.0.5" />
   </ItemGroup>
 
   <PropertyGroup>

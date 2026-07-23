@@ -76,7 +76,14 @@ public sealed class ServerServices
     public ServerServices(string dataDir)
     {
         Directory.CreateDirectory(dataDir);
-        Factory = new SqliteConnectionFactory(Path.Combine(dataDir, "depowise-server.db"));
+
+        // PostgreSQL geçişi (Faz 3): DEPOWISE_PG_URL tanımlıysa sunucu PostgreSQL kullanır; TANIMSIZSA
+        // eskisi gibi SQLite → babanın canlı sunucusu birebir aynı çalışır (varsayılan değişmedi).
+        // Geçiş ancak açıkça bu değişken verilerek (ayrı/kopya DB'ye) etkinleşir — canlı veriye dokunmaz.
+        var pgUrl = Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");
+        Factory = string.IsNullOrWhiteSpace(pgUrl)
+            ? new SqliteConnectionFactory(Path.Combine(dataDir, "depowise-server.db"))
+            : new PostgresConnectionFactory(pgUrl);
         new MigrationRunner(Factory).Run();
 
         var clock = new SystemClock();

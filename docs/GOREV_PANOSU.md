@@ -33,7 +33,8 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟢 DEVAM — Faz 2 Adım 5 tamam (Türkçe arama PG'de). Sıra: Adım 6 (canlı sunucu bağlama).
+- **Durum:** 🟢 DEVAM — Adım 5 (Türkçe arama) + Adım 6 kod altyapısı (PG factory + env seçimi + health) tamam.
+  Sıra: canlı geçiş bloklarını kapatıp (yönetici uçları, savepoint) kullanıcı onayıyla prova.
 - **Nerede kaldık:** Kullanıcı A'ya başlamak istedi. İki karar eklendi: (1) PostgreSQL web'i baştan
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
@@ -105,9 +106,15 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      `GROUP_CONCAT`→`string_agg`; SQLite'ta aynen döner). SQLite yolu HİÇ değişmedi → **574 test yeşil**
      (569 SQLite + 5 PG; yeni `PostgresTurkishSearchTests` İ-katlaması + grid + TRNOCASE + NOCASE'i Neon'da
      kanıtlar). PRAGMA'lar SQLite'a özel bırakıldı (`DatabaseHealth` sunucuda Adım 6'da uyarlanacak).
-  6. **Uçtan uca (canlı):** gerçek sunucuyu (API) Neon'a bağla (PostgresConnectionFactory), Fly'da Neon'la
-     aynı bölgede çalıştır, gerçek verinin KOPYASIYLA prova. `DatabaseHealth` (PRAGMA journal_mode/foreign_keys
-     → SQLite'a özel) PG için uyarlanacak.
+  6. 🟡 **KOD KISMI TAMAM (2026-07-23) — Sunucuyu PG'ye bağlama altyapısı:** Üretim `PostgresConnectionFactory`
+     (DepoWise.Api; Npgsql YALNIZ sunucuda, masaüstü SQLite kalır) + `ServerServices` artık `DEPOWISE_PG_URL`
+     env değişkeniyle factory seçiyor — **değişken YOKSA eskisi gibi SQLite** (babanın canlı sunucusu birebir
+     aynı). `DatabaseHealth` lehçe-duyarlı yapıldı (PG'de PRAGMA yok → FK=true, journal="postgres", gerçek
+     write/read; `_health_check` tablosundan taşan/PK-null sorunları giderildi). **575 test yeşil** (yeni
+     `PostgresServerHealthTests` gerçek factory + health'i Neon'da kanıtlar). ⚠️ **Canlı geçiş için KALAN
+     bloklar (aşağıda):** Program.cs yönetici uçları (purge/reset `PRAGMA foreign_keys`, sağlık `PRAGMA
+     page_count/page_size`) hâlâ SQLite'a özel → PG-varsayılan sunucuda bunlar uyarlanmadan çalışmaz.
+     Gerçek deploy + verinin KOPYASIYLA prova, kullanıcı onayıyla yapılacak (üretim/altın kural).
 
 - **⚠️ Bilinen takip işleri (sağlamlık):**
   1. **ApplyCore satır-hatası deseni:** SQLite'ta hatalı satır atlanıp devam edilir; PostgreSQL'de bir hata
@@ -118,9 +125,10 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      + `SqlDialect.LikeTr`/`PortableSql`). `PostgresTurkishSearchTests` Neon'da kanıtlar.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Adım 6 — canlı sunucuyu Neon'a bağlama (Faz 3 server wiring): `PostgresConnectionFactory`,
-  `DatabaseHealth` PG uyarlaması, Fly'da Neon bölgesinde çalıştırma, gerçek verinin KOPYASIYLA prova. Kalan
-  sağlamlık takip işi (ApplyCore savepoint deseni) yukarıda listelendi.
+- **Sıradaki adım:** Adım 6'nın KALANI — canlı geçiş öncesi (a) Program.cs yönetici uçlarını (purge/reset/
+  sağlık) PG-uyumlu yap (`PRAGMA foreign_keys`/`page_count` → PG karşılığı), (b) ApplyCore savepoint deseni,
+  (c) kullanıcı onayıyla Fly'da Neon bölgesinde çalıştırıp gerçek verinin KOPYASIYLA prova. Kod altyapısı hazır
+  (`PostgresConnectionFactory` + env seçimi + lehçe-duyarlı health).
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

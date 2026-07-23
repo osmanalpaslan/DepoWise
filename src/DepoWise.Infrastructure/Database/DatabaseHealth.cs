@@ -21,10 +21,16 @@ public sealed class DatabaseHealth : IDatabaseHealth
         {
             using var conn = _factory.Create();
 
-            string journal = ScalarText(conn, "PRAGMA journal_mode;");
-            bool fk = ScalarLong(conn, "PRAGMA foreign_keys;") == 1;
+            // Lehçe-duyarlı: journal_mode/foreign_keys PRAGMA'ları SQLite'a özeldir. PostgreSQL'de
+            // WAL zaten varsayılan (kalıcılık motor düzeyinde) ve FK'ler her zaman zorunludur (kapatılamaz)
+            // → sunucuda bunları "n/a (postgres)" + true olarak raporla, PRAGMA çalıştırma.
+            bool sqlite = SqlDialect.IsSqlite(conn);
+            string journal = sqlite ? ScalarText(conn, "PRAGMA journal_mode;") : "postgres";
+            bool fk = sqlite ? (ScalarLong(conn, "PRAGMA foreign_keys;") == 1) : true;
 
-            Execute(conn, "CREATE TABLE IF NOT EXISTS _health_check(id INTEGER PRIMARY KEY, ts INTEGER NOT NULL);");
+            // ts: Unix-ms (~1.7e12) → PostgreSQL 32-bit INTEGER'ı taşar, BIGINT şart (SQLite'ta da 64-bit).
+            // id kolonu KALDIRILDI: SQLite'ta AUTOINCREMENT'e, PG'de PK-NULL sorununa yol açıyordu; MAX(ts) yeter.
+            Execute(conn, "CREATE TABLE IF NOT EXISTS _health_check(ts BIGINT NOT NULL);");
             long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             using (var ins = conn.CreateCommand())
             {
