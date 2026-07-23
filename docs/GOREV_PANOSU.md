@@ -38,8 +38,12 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
   tutarlılık hem PostgreSQL tip-hazırlığı. Başlangıç yöntemi: **önce tüm ekran haritası** (kullanıcı seçti).
-- **Sıradaki adım:** Faz 0 → Adım 0.1: tüm ekranların listesi + masaüstü/web farkı olan yerlerin kaba
-  haritası (tek tarama). Sonra birlikte önceliklendir → ekran ekran parite düzeltmesi.
+- **Nerede kaldık (güncel):** Adım 0.1 tamamlandı — kaba ekran haritası çıkarıldı:
+  `docs/EKRAN_PARITE_HARITASI.md`. 29 ekran her iki tarafta da var (öncelik etiketli), 5 yalnız web'de
+  (çoğu sunucu/süper admin işlemi), 4 yalnız masaüstünde. Yetkiler ekranında yapısal fark var (masaüstü
+  tek sekmeli ekran, web 3 ayrı sayfa) — davranış eşitliği denetlenecek.
+- **Sıradaki adım:** Kullanıcı önceliklendirme onaylarsa **Araçlar** ve **Malzemeler**'den (🔴 yüksek
+  öncelikli, "en kritik ekranım") başla — alan+mantık düzeyinde denetim (Adım 0.2).
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
