@@ -38,14 +38,15 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
   tutarlılık hem PostgreSQL tip-hazırlığı. Başlangıç yöntemi: **önce tüm ekran haritası** (kullanıcı seçti).
-- **Nerede kaldık (güncel):** Adım 0.1 (harita) ✅ · **Araçlar** ✅ (1 bulgu düzeltildi: hızlı düzenle
-  plaka uyarısı) · **Malzemeler** ✅ (`docs/tests/Malzemeler_Parite_Denetimi.md` — **tam parite, bulgu yok**,
-  4 giriş noktası tutarlı). Sütun listesinin web'de elle senkron tutulması = bakım riski, PostgreSQL Faz 3'te
-  kökten çözülecek (web'i ortak katmana bağla).
-- **Sıradaki adım:** 🔴 yüksek öncelikli kalanlar — **Personel · Stok Giriş/Çıkış · Günlük Faaliyet · Yakıt · Bakım**.
-  Kullanıcı sırayı seçecek (öneri: Personel).
-- **⚠️ Paket notu:** Şu ana kadar masaüstünü etkileyen tek değişiklik = Araçlar plaka uyarısı (küçük).
-  Yüksek öncelikli ekranlar bitince **tek pakette (1.0.88)** yayınlanacak — ekran başına ayrı paket yok.
+- **Nerede kaldık (güncel):** Kullanıcı sırayı Claude'a bıraktı ("istediğin gibi yap"). Tamamlanan:
+  **Araçlar** ✅ (1 bulgu düzeltildi: hızlı düzenle plaka uyarısı, masaüstü etkilendi) ·
+  **Malzemeler** ✅ (tam parite, bulgu yok) · **Personel** ✅ (tam parite, bulgu yok) ·
+  **Stok Giriş/Çıkış** ✅ (2 bulgu düzeltildi: onay penceresi sırası + onay metninde yön eksikliği,
+  **yalnız web** etkilendi, masaüstü kod değişmedi). Raporlar `docs/tests/*_Parite_Denetimi.md`.
+  Sütun listesinin web'de elle senkron tutulması (bakım riski) = PostgreSQL Faz 3'te kökten çözülecek.
+- **Sıradaki adım:** Kalan 🔴 yüksek öncelikli: **Günlük Faaliyet · Yakıt · Bakım**. Sıra Claude'da.
+- **⚠️ Paket notu:** Masaüstünü etkileyen tek değişiklik hâlâ Araçlar plaka uyarısı. Kalan yüksek öncelikli
+  ekranlar bitince **tek pakette (1.0.88)** yayınlanacak — ekran başına ayrı paket yok.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

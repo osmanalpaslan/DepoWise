@@ -240,15 +240,39 @@
         if (string.IsNullOrWhiteSpace(_personnel)) { _msg = "Personel (işlemi yapan) zorunludur."; _ok = false; return; } // madde 8
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_qty)
             && !await Dialog.Confirm($"Miktar çok büyük görünüyor ({_qty:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
-        if (!await Dialog.Confirm($"{_kind} işlemi kaydedilsin mi?")) return;
+
+        // MASAÜSTÜYLE PARİTE (StockEntryViewModel.Save): alan doğrulaması ÖNCE, onay penceresi SONRA — kullanıcı
+        // eksik alanla "kaydedilsin mi?" sorusuna tıklayıp ardından hata görmesin. Onay metni de masaüstüyle
+        // AYNI ve yön belirtir (stok ARTAR/AZALIR) — genel "işlem kaydedilsin mi?" yerine.
+        if (_kind == "Yeni Kayıt")
+        {
+            if (string.IsNullOrWhiteSpace(_code)) { _msg = "Kod zorunlu."; _ok = false; return; }
+            if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad zorunlu."; _ok = false; return; }
+            if (string.IsNullOrWhiteSpace(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
+            if (_qty < 0) { _msg = "Eklenecek stok negatif olamaz."; _ok = false; return; }
+            if (!await Dialog.Confirm("Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)", "Evet, Kaydet")) return;
+        }
+        else if (_kind == "Depo Çıkışı")
+        {
+            if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
+            if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+            if (!await Dialog.Confirm("Depo çıkışı kaydedilsin mi? (stok AZALIR)", "Evet, Kaydet")) return;
+        }
+        else // Transfer
+        {
+            if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
+            if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+            if (string.IsNullOrWhiteSpace(_fromBranch) || string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Kaynak ve hedef şube seçin."; _ok = false; return; }
+            if (_fromBranch == _toBranch) { _msg = "Kaynak ve hedef şube aynı olamaz."; _ok = false; return; }
+            if (!await Dialog.Confirm("Şubeler arası transfer kaydedilsin mi?", "Evet, Kaydet")) return;
+        }
+
         _busy = true;
         try
         {
             string? err;
             if (_kind == "Yeni Kayıt")
             {
-                if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
-                if (string.IsNullOrWhiteSpace(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
                 err = await Api.PostAsync("/api/stock/receive", new
                 {
                     code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_cat),
@@ -260,24 +284,18 @@
             }
             else if (_kind == "Depo Çıkışı")
             {
-                if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
-                if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
                 err = await Api.PostAsync("/api/stock/issue", new
                 {
-                    materialId = _material.Id, quantity = _qty, branchId = Empty(_branch), personnelId = Empty(_personnel),
+                    materialId = _material!.Id, quantity = _qty, branchId = Empty(_branch), personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
             }
             else // Transfer
             {
-                if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
-                if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
-                if (string.IsNullOrWhiteSpace(_fromBranch) || string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Kaynak ve hedef şube seçin."; _ok = false; return; }
-                if (_fromBranch == _toBranch) { _msg = "Kaynak ve hedef şube aynı olamaz."; _ok = false; return; }
                 err = await Api.PostAsync("/api/stock/transfer", new
                 {
-                    materialId = _material.Id, quantity = _qty, fromBranchId = _fromBranch, toBranchId = _toBranch,
+                    materialId = _material!.Id, quantity = _qty, fromBranchId = _fromBranch, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
                     invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
