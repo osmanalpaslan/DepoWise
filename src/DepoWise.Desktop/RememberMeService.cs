@@ -58,19 +58,19 @@ public static class RememberMeService
             {
                 using var del = conn.CreateCommand();
                 del.CommandText = "DELETE FROM remember_tokens WHERE user_id=$u;";
-                del.Parameters.AddWithValue("$u", session.UserId);
+                del.AddWithValue("$u", session.UserId);
                 del.ExecuteNonQuery();
 
                 using var ins = conn.CreateCommand();
                 ins.CommandText =
                     "INSERT INTO remember_tokens(id, user_id, company_id, token_hash, expires_at, created_at) " +
                     "VALUES($id,$u,$c,$h,$e,$n);";
-                ins.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                ins.Parameters.AddWithValue("$u", session.UserId);
-                ins.Parameters.AddWithValue("$c", session.CompanyId);
-                ins.Parameters.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
-                ins.Parameters.AddWithValue("$e", expires);
-                ins.Parameters.AddWithValue("$n", now.ToUnixTimeMilliseconds());
+                ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+                ins.AddWithValue("$u", session.UserId);
+                ins.AddWithValue("$c", session.CompanyId);
+                ins.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
+                ins.AddWithValue("$e", expires);
+                ins.AddWithValue("$n", now.ToUnixTimeMilliseconds());
                 ins.ExecuteNonQuery();
             }
 
@@ -101,10 +101,10 @@ public static class RememberMeService
                 cmd.CommandText =
                     "SELECT COUNT(*) FROM remember_tokens WHERE user_id=$u AND company_id=$c " +
                     "AND token_hash=$h AND expires_at >= $now;";
-                cmd.Parameters.AddWithValue("$u", userId);
-                cmd.Parameters.AddWithValue("$c", companyId);
-                cmd.Parameters.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
-                cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                cmd.AddWithValue("$u", userId);
+                cmd.AddWithValue("$c", companyId);
+                cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
+                cmd.AddWithValue("$now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 valid = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
             }
             if (!valid) { Clear(); return null; }

@@ -1,7 +1,7 @@
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Reporting;
 
@@ -29,7 +29,7 @@ SELECT m.code, m.name, COALESCE(b.quantity,'0') AS qty, m.min_stock
 FROM materials m LEFT JOIN stock_balances b ON b.material_id=m.id
 WHERE m.company_id=$c AND m.is_deleted=0
 ORDER BY m.code;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -56,7 +56,7 @@ FROM fuel_distributions fd JOIN vehicles v ON v.id=fd.vehicle_id
 WHERE fd.company_id=$c AND fd.is_deleted=0
 " + DateFilter(req, "fd.distribution_date") + @"
 GROUP BY fd.vehicle_id ORDER BY v.internal_code;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         int totIslem = 0; double totKm = 0, totLitre = 0, totTutar = 0;
@@ -96,7 +96,7 @@ FROM vehicles v
 LEFT JOIN fuel_distributions fd ON fd.vehicle_id=v.id AND fd.is_deleted=0" + DateFilter(req, "fd.distribution_date") + @"
 WHERE v.company_id=$c AND v.is_deleted=0
 GROUP BY v.id ORDER BY v.internal_code;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         double tKm = 0, tLitre = 0, tFuel = 0, tMat = 0;
@@ -133,7 +133,7 @@ LEFT JOIN personnel p ON p.id = vm.technician_id
 WHERE vm.company_id=$c AND vm.is_deleted=0 AND vm.is_cancelled=0
 " + DateFilter(req, "vm.performed_date") + @"
 ORDER BY vm.performed_date DESC;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -157,7 +157,7 @@ FROM fuel_depot_entries
 WHERE company_id=$c AND is_deleted=0
 " + DateFilter(req, "entry_date") + @"
 ORDER BY entry_date DESC;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -185,7 +185,7 @@ JOIN materials m ON m.id = scl.material_id
 WHERE d.company_id=$c AND d.is_deleted=0 AND d.doc_type='count'
 " + DateFilter(req, "d.doc_date") + @"
 ORDER BY d.doc_date DESC, m.code;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -214,7 +214,7 @@ FROM material_requests mr
 WHERE mr.company_id=$c AND mr.is_deleted=0
 " + DateFilter(req, "mr.request_date") + @"
 ORDER BY mr.request_date DESC;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -239,9 +239,9 @@ ORDER BY mr.request_date DESC;";
         return sb;
     }
 
-    private static void BindDates(SqliteCommand cmd, ReportRequest req)
+    private static void BindDates(DbCommand cmd, ReportRequest req)
     {
-        if (req.FromDate is not null) cmd.Parameters.AddWithValue("$from", req.FromDate.Value);
-        if (req.ToDate is not null) cmd.Parameters.AddWithValue("$to", req.ToDate.Value);
+        if (req.FromDate is not null) cmd.AddWithValue("$from", req.FromDate.Value);
+        if (req.ToDate is not null) cmd.AddWithValue("$to", req.ToDate.Value);
     }
 }

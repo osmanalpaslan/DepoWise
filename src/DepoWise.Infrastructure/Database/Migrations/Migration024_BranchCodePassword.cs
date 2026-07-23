@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -11,7 +11,7 @@ public sealed class Migration024_BranchCodePassword : IMigration
     public int Version => 24;
     public string Name => "branch_code_password";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

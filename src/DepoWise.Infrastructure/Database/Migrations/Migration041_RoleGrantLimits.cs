@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -13,7 +13,7 @@ public sealed class Migration041_RoleGrantLimits : IMigration
     public int Version => 41;
     public string Name => "role_grant_limits";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         Exec(conn, tx, @"
 CREATE TABLE IF NOT EXISTS role_grant_limits (
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS role_grant_limits (
         Exec(conn, tx, "CREATE INDEX IF NOT EXISTS ix_role_grant_limits_role ON role_grant_limits(role_key);");
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

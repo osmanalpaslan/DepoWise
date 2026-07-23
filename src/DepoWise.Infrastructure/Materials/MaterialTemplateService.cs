@@ -2,7 +2,7 @@ using System.Globalization;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Materials;
 
@@ -59,23 +59,23 @@ public sealed class MaterialTemplateService
 INSERT INTO material_templates(id, company_id, name, code, type, category_id, unit_id, brand_id, supplier_id,
     min_stock, unit_price, currency, description, compatible_vehicle_ids, created_by, is_global, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$n,$code,$t,$cat,$u,$br,$sup,$min,$up,$cur,$desc,$cv,$by,$g,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
-            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$t", (object?)Norm(dto.Type) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$u", (object?)dto.UnitId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$min", D(dto.MinStock));
-            cmd.Parameters.AddWithValue("$up", D(dto.UnitPrice));
-            cmd.Parameters.AddWithValue("$cur", dto.Currency);
-            cmd.Parameters.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$by", s.UserId);
-            cmd.Parameters.AddWithValue("$g", isGlobal ? 1 : 0);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", dto.Name.Trim());
+            cmd.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+            cmd.AddWithValue("$t", (object?)Norm(dto.Type) ?? DBNull.Value);
+            cmd.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.AddWithValue("$u", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.AddWithValue("$min", D(dto.MinStock));
+            cmd.AddWithValue("$up", D(dto.UnitPrice));
+            cmd.AddWithValue("$cur", dto.Currency);
+            cmd.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
+            cmd.AddWithValue("$cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
+            cmd.AddWithValue("$by", s.UserId);
+            cmd.AddWithValue("$g", isGlobal ? 1 : 0);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", id, AuditActions.Create, s.UserId), _clock);
@@ -97,12 +97,12 @@ WHERE t.company_id=$c AND t.is_deleted=0
   AND (t.is_global=1 OR t.created_by=$me)
   AND ($s IS NULL OR t.name LIKE $like OR COALESCE(t.code,'') LIKE $like)
 ORDER BY t.is_global DESC, t.name LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$me", s.UserId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$me", s.UserId);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
-        cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
-        cmd.Parameters.AddWithValue("$lim", limit);
+        cmd.AddWithValue("$s", (object?)term ?? DBNull.Value);
+        cmd.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
+        cmd.AddWithValue("$lim", limit);
         var list = new List<MaterialTemplateRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -122,9 +122,9 @@ ORDER BY t.is_global DESC, t.name LIMIT $lim;";
 SELECT id, name, code, type, category_id, unit_id, brand_id, supplier_id, min_stock, unit_price, currency, description, compatible_vehicle_ids
 FROM material_templates
 WHERE id=$id AND company_id=$c AND is_deleted=0 AND (is_global=1 OR created_by=$me);";
-        cmd.Parameters.AddWithValue("$id", templateId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$me", s.UserId);
+        cmd.AddWithValue("$id", templateId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$me", s.UserId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return null;
         string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
@@ -147,21 +147,21 @@ UPDATE material_templates SET name=$n, code=$code, type=$t, category_id=$cat, un
     supplier_id=$sup, min_stock=$min, unit_price=$up, currency=$cur, description=$desc, compatible_vehicle_ids=$cv,
     version=version+1, updated_at=$now
 WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
-            cmd.Parameters.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$t", (object?)Norm(dto.Type) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$u", (object?)dto.UnitId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$min", D(dto.MinStock));
-            cmd.Parameters.AddWithValue("$up", D(dto.UnitPrice));
-            cmd.Parameters.AddWithValue("$cur", dto.Currency);
-            cmd.Parameters.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", templateId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", dto.Name.Trim());
+            cmd.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
+            cmd.AddWithValue("$t", (object?)Norm(dto.Type) ?? DBNull.Value);
+            cmd.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.AddWithValue("$u", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.AddWithValue("$min", D(dto.MinStock));
+            cmd.AddWithValue("$up", D(dto.UnitPrice));
+            cmd.AddWithValue("$cur", dto.Currency);
+            cmd.AddWithValue("$desc", (object?)Norm(dto.Description) ?? DBNull.Value);
+            cmd.AddWithValue("$cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", templateId);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", templateId, AuditActions.Update, s.UserId), _clock);
@@ -179,9 +179,9 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE material_templates SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", templateId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", templateId);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", templateId, AuditActions.Delete, s.UserId), _clock);
@@ -189,13 +189,13 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
     }
 
     /// <summary>Düzenleme/silme: global şablonu yalnız admin; kişisel şablonu yalnız sahibi (veya admin) yönetir.</summary>
-    private static void EnsureManageable(SqliteConnection conn, SqliteTransaction tx, SessionContext s, string templateId)
+    private static void EnsureManageable(DbConnection conn, DbTransaction tx, SessionContext s, string templateId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT created_by, is_global FROM material_templates WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", templateId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$id", templateId);
+        cmd.AddWithValue("$c", s.CompanyId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
         var createdBy = r.IsDBNull(0) ? null : r.GetString(0);

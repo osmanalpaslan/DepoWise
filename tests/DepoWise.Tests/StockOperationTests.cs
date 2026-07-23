@@ -48,7 +48,7 @@ public class StockOperationTests : IDisposable
         // Bakiyeyi KASTEN boz (kötü/eski istemci snapshot'ı gibi) → recompute düzeltmeli
         using (var conn = _factory.Create())
         using (var cmd = conn.CreateCommand())
-        { cmd.CommandText = "UPDATE stock_balances SET quantity='999' WHERE material_id=$m;"; cmd.Parameters.AddWithValue("$m", m); cmd.ExecuteNonQuery(); }
+        { cmd.CommandText = "UPDATE stock_balances SET quantity='999' WHERE material_id=$m;"; cmd.AddWithValue("$m", m); cmd.ExecuteNonQuery(); }
 
         _stock.RecomputeBalances("A"); // hareket defterinden yeniden hesapla (sunucu-otoriteli)
         Assert.Equal(12m, _stock.GetBalance(m)); // 10+5-3 = 12 (999 düzeltildi)
@@ -94,7 +94,7 @@ public class StockOperationTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
     }
 
@@ -110,7 +110,7 @@ public class StockOperationTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE document_id=$d AND movement_type='transfer';";
-        cmd.Parameters.AddWithValue("$d", res.DocumentId);
+        cmd.AddWithValue("$d", res.DocumentId);
         Assert.Equal(2L, Convert.ToInt64(cmd.ExecuteScalar())); // çıkış + giriş
     }
 
@@ -135,7 +135,7 @@ public class StockOperationTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT diff_qty, reason FROM stock_count_lines WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(-3m, Money.Parse(r.GetString(0)));
@@ -163,13 +163,13 @@ public class StockOperationTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT status FROM stock_documents WHERE id=$d;";
-        cmd.Parameters.AddWithValue("$d", doc.DocumentId);
+        cmd.AddWithValue("$d", doc.DocumentId);
         Assert.Equal("cancelled", cmd.ExecuteScalar());
 
         // Orijinal hareket fiziksel silinmedi (is_reversed=1) + ters hareket eklendi
         using var cmd2 = conn.CreateCommand();
         cmd2.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE document_id=$d;";
-        cmd2.Parameters.AddWithValue("$d", doc.DocumentId);
+        cmd2.AddWithValue("$d", doc.DocumentId);
         Assert.Equal(2L, Convert.ToInt64(cmd2.ExecuteScalar())); // orijinal + ters
     }
 

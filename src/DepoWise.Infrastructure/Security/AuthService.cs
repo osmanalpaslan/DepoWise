@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Security;
 
@@ -84,11 +84,11 @@ public sealed class AuthService
     }
 
     /// <summary>Kullanıcı ilk giriş(ler)inde şifre belirlemek zorunda mı (Migration042).</summary>
-    private static bool MustChangePassword(SqliteConnection conn, string userId)
+    private static bool MustChangePassword(DbConnection conn, string userId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COALESCE(must_change_password,0) FROM users WHERE id=$u;";
-        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.AddWithValue("$u", userId);
         return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) == 1;
     }
 
@@ -102,7 +102,7 @@ public sealed class AuthService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT company_id, password_hash FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$u", username);
+            cmd.AddWithValue("$u", username);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 if (PasswordHasher.Verify(password, r.GetString(1)))
@@ -121,8 +121,8 @@ public sealed class AuthService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT password_hash FROM users WHERE id=$u AND company_id=$c AND is_active=1 AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$u", userId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$u", userId);
+        cmd.AddWithValue("$c", companyId);
         var hash = cmd.ExecuteScalar() as string;
         return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
     }
@@ -137,7 +137,7 @@ public sealed class AuthService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT password_hash FROM users WHERE id=$u AND is_active=1 AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.AddWithValue("$u", userId);
         var hash = cmd.ExecuteScalar() as string;
         return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
     }
@@ -160,7 +160,7 @@ public sealed class AuthService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT company_id FROM users WHERE id=$id AND is_active=1 AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$id", userId);
+            cmd.AddWithValue("$id", userId);
             homeCompany = cmd.ExecuteScalar() as string;
         }
         if (homeCompany is null) return null; // kullanıcı yok/pasif/silinmiş
@@ -192,29 +192,29 @@ public sealed class AuthService
     }
 
     /// <summary>Verilen firma id'si var (ve silinmemiş) mi?</summary>
-    private static bool CompanyExists(SqliteConnection conn, string companyId)
+    private static bool CompanyExists(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     /// <summary>Firma KAYDI hiç var mı (silinmiş olsa bile)? "Silinmiş firma" ile "hiç olmamış firma" ayrımı için.</summary>
-    private static bool CompanyRowExists(SqliteConnection conn, string companyId)
+    private static bool CompanyRowExists(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     /// <summary>users.can_view_all_branches bayrağını okur (yoksa false).</summary>
-    private static bool LoadViewAllBranches(SqliteConnection conn, string userId)
+    private static bool LoadViewAllBranches(DbConnection conn, string userId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COALESCE(can_view_all_branches,0) FROM users WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", userId);
+        cmd.AddWithValue("$id", userId);
         var v = cmd.ExecuteScalar();
         return v is not null && Convert.ToInt64(v) == 1;
     }
@@ -232,9 +232,9 @@ public sealed class AuthService
         else
         {
             find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
-            find.Parameters.AddWithValue("$c", companyId);
+            find.AddWithValue("$c", companyId);
         }
-        find.Parameters.AddWithValue("$u", username);
+        find.AddWithValue("$u", username);
         string? userId = null, coId = null, fullName = null, hash = null, branchId = null;
         bool mustChange = false;
         using (var r = find.ExecuteReader())
@@ -257,7 +257,7 @@ public sealed class AuthService
         using (var cn = conn.CreateCommand())
         {
             cn.CommandText = "SELECT name FROM companies WHERE id=$c;";
-            cn.Parameters.AddWithValue("$c", coId);
+            cn.AddWithValue("$c", coId);
             coName = cn.ExecuteScalar() as string ?? coId;
         }
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
@@ -277,9 +277,9 @@ public sealed class AuthService
         {
             c.Transaction = tx;
             c.CommandText = "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES($id,$n,$now,$now,1,0);";
-            c.Parameters.AddWithValue("$id", b.CompanyId);
-            c.Parameters.AddWithValue("$n", b.CompanyName);
-            c.Parameters.AddWithValue("$now", now);
+            c.AddWithValue("$id", b.CompanyId);
+            c.AddWithValue("$n", b.CompanyName);
+            c.AddWithValue("$now", now);
             c.ExecuteNonQuery();
         }
         // 2) Kullanıcı (upsert, id korunur)
@@ -290,20 +290,20 @@ public sealed class AuthService
                 "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, branch_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
                 "VALUES($id,$c,$un,$h,$f,$va,$bid,1,$mcp,$now,$now,1,0) " +
                 "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, branch_id=$bid, is_active=1, is_deleted=0, must_change_password=$mcp, updated_at=$now;";
-            u.Parameters.AddWithValue("$id", b.UserId);
-            u.Parameters.AddWithValue("$c", b.CompanyId);
-            u.Parameters.AddWithValue("$un", b.Username);
-            u.Parameters.AddWithValue("$h", b.PasswordHash);
-            u.Parameters.AddWithValue("$f", (object?)b.FullName ?? DBNull.Value);
-            u.Parameters.AddWithValue("$va", b.CanViewAllBranches ? 1 : 0);
-            u.Parameters.AddWithValue("$bid", (object?)b.BranchId ?? DBNull.Value);
-            u.Parameters.AddWithValue("$mcp", b.MustChangePassword ? 1 : 0);
-            u.Parameters.AddWithValue("$now", now);
+            u.AddWithValue("$id", b.UserId);
+            u.AddWithValue("$c", b.CompanyId);
+            u.AddWithValue("$un", b.Username);
+            u.AddWithValue("$h", b.PasswordHash);
+            u.AddWithValue("$f", (object?)b.FullName ?? DBNull.Value);
+            u.AddWithValue("$va", b.CanViewAllBranches ? 1 : 0);
+            u.AddWithValue("$bid", (object?)b.BranchId ?? DBNull.Value);
+            u.AddWithValue("$mcp", b.MustChangePassword ? 1 : 0);
+            u.AddWithValue("$now", now);
             u.ExecuteNonQuery();
         }
         // 3) Roller (tam değiştir)
         using (var d = conn.CreateCommand())
-        { d.Transaction = tx; d.CommandText = "DELETE FROM user_roles WHERE user_id=$u;"; d.Parameters.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_roles WHERE user_id=$u;"; d.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
         foreach (var rk in b.RoleKeys.Distinct())
         {
             string? roleId;
@@ -311,20 +311,20 @@ public sealed class AuthService
             {
                 rq.Transaction = tx;
                 rq.CommandText = "SELECT id FROM roles WHERE role_key=$k AND is_deleted=0 ORDER BY (company_id IS NULL) DESC LIMIT 1;";
-                rq.Parameters.AddWithValue("$k", rk);
+                rq.AddWithValue("$k", rk);
                 roleId = rq.ExecuteScalar() as string;
             }
             if (roleId is null) continue;
             using var ir = conn.CreateCommand();
             ir.Transaction = tx;
             ir.CommandText = "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);";
-            ir.Parameters.AddWithValue("$u", b.UserId);
-            ir.Parameters.AddWithValue("$r", roleId);
+            ir.AddWithValue("$u", b.UserId);
+            ir.AddWithValue("$r", roleId);
             ir.ExecuteNonQuery();
         }
         // 4) Yetkiler (tam değiştir)
         using (var d = conn.CreateCommand())
-        { d.Transaction = tx; d.CommandText = "DELETE FROM user_permissions WHERE user_id=$u;"; d.Parameters.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_permissions WHERE user_id=$u;"; d.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
         foreach (var p in b.Permissions)
         {
             using var ip = conn.CreateCommand();
@@ -332,44 +332,44 @@ public sealed class AuthService
             ip.CommandText =
                 "INSERT INTO user_permissions(id, company_id, user_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version) " +
                 "VALUES($id,$c,$u,$m,$v,$cr,$e,$d,$now,$now,1);";
-            ip.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ip.Parameters.AddWithValue("$c", b.CompanyId);
-            ip.Parameters.AddWithValue("$u", b.UserId);
-            ip.Parameters.AddWithValue("$m", p.ModuleKey);
-            ip.Parameters.AddWithValue("$v", p.CanView ? 1 : 0);
-            ip.Parameters.AddWithValue("$cr", p.CanCreate ? 1 : 0);
-            ip.Parameters.AddWithValue("$e", p.CanEdit ? 1 : 0);
-            ip.Parameters.AddWithValue("$d", p.CanDelete ? 1 : 0);
-            ip.Parameters.AddWithValue("$now", now);
+            ip.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ip.AddWithValue("$c", b.CompanyId);
+            ip.AddWithValue("$u", b.UserId);
+            ip.AddWithValue("$m", p.ModuleKey);
+            ip.AddWithValue("$v", p.CanView ? 1 : 0);
+            ip.AddWithValue("$cr", p.CanCreate ? 1 : 0);
+            ip.AddWithValue("$e", p.CanEdit ? 1 : 0);
+            ip.AddWithValue("$d", p.CanDelete ? 1 : 0);
+            ip.AddWithValue("$now", now);
             ip.ExecuteNonQuery();
         }
         // 5) Özel buton izinleri (tam değiştir)
         using (var d = conn.CreateCommand())
-        { d.Transaction = tx; d.CommandText = "DELETE FROM user_button_permissions WHERE user_id=$u;"; d.Parameters.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_button_permissions WHERE user_id=$u;"; d.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
         foreach (var bk in b.Buttons.Distinct())
         {
             using var ib = conn.CreateCommand();
             ib.Transaction = tx;
             ib.CommandText =
                 "INSERT INTO user_button_permissions(id, company_id, user_id, button_key, created_at) VALUES($id,$c,$u,$b,$now);";
-            ib.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ib.Parameters.AddWithValue("$c", b.CompanyId);
-            ib.Parameters.AddWithValue("$u", b.UserId);
-            ib.Parameters.AddWithValue("$b", bk);
-            ib.Parameters.AddWithValue("$now", now);
+            ib.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ib.AddWithValue("$c", b.CompanyId);
+            ib.AddWithValue("$u", b.UserId);
+            ib.AddWithValue("$b", bk);
+            ib.AddWithValue("$now", now);
             ib.ExecuteNonQuery();
         }
         tx.Commit();
     }
 
-    private (int count, long? lastFailMs) ConsecutiveFailures(SqliteConnection conn, string companyId, string username)
+    private (int count, long? lastFailMs) ConsecutiveFailures(DbConnection conn, string companyId, string username)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT success, attempted_at FROM login_attempts " +
             "WHERE company_id = $c AND username = $u ORDER BY attempted_at DESC;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$u", username);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$u", username);
         using var r = cmd.ExecuteReader();
         int count = 0; long? lastFail = null;
         while (r.Read())
@@ -381,54 +381,54 @@ public sealed class AuthService
         return (count, lastFail);
     }
 
-    private void RecordAttempt(SqliteConnection conn, string companyId, string username, bool success)
+    private void RecordAttempt(DbConnection conn, string companyId, string username, bool success)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO login_attempts(id, company_id, username, success, attempted_at) " +
             "VALUES($id, $c, $u, $s, $t);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$u", username);
-        cmd.Parameters.AddWithValue("$s", success ? 1 : 0);
-        cmd.Parameters.AddWithValue("$t", _clock.UtcNow.ToUnixTimeMilliseconds());
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$u", username);
+        cmd.AddWithValue("$s", success ? 1 : 0);
+        cmd.AddWithValue("$t", _clock.UtcNow.ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
 
     private readonly record struct UserRow(string Id, string PasswordHash);
 
-    private static UserRow? FindUser(SqliteConnection conn, string companyId, string username)
+    private static UserRow? FindUser(DbConnection conn, string companyId, string username)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, password_hash FROM users " +
             "WHERE company_id = $c AND username = $u AND is_active = 1 AND is_deleted = 0;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$u", username);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$u", username);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new UserRow(r.GetString(0), r.GetString(1)) : null;
     }
 
-    private static List<string> LoadRoleKeys(SqliteConnection conn, string userId)
+    private static List<string> LoadRoleKeys(DbConnection conn, string userId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
             "WHERE ur.user_id = $u AND r.is_deleted = 0;";
-        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.AddWithValue("$u", userId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));
         return list;
     }
 
-    private static PermissionSet LoadPermissions(SqliteConnection conn, string userId)
+    private static PermissionSet LoadPermissions(DbConnection conn, string userId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT module_key, can_view, can_create, can_edit, can_delete " +
             "FROM user_permissions WHERE user_id = $u;";
-        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.AddWithValue("$u", userId);
         var mods = new List<ModulePermission>();
         using (var r = cmd.ExecuteReader())
             while (r.Read())
@@ -439,24 +439,24 @@ public sealed class AuthService
         using (var bc = conn.CreateCommand())
         {
             bc.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id = $u;";
-            bc.Parameters.AddWithValue("$u", userId);
+            bc.AddWithValue("$u", userId);
             using var br = bc.ExecuteReader();
             while (br.Read()) buttons.Add(br.GetString(0));
         }
         return new PermissionSet(mods, buttons);
     }
 
-    private void CreateSession(SqliteConnection conn, string userId, string companyId, DateTimeOffset now)
+    private void CreateSession(DbConnection conn, string userId, string companyId, DateTimeOffset now)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO sessions(id, user_id, company_id, created_at, expires_at, revoked_at) " +
             "VALUES($id, $u, $c, $now, $exp, NULL);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$u", userId);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$now", now.ToUnixTimeMilliseconds());
-        cmd.Parameters.AddWithValue("$exp", now.AddHours(12).ToUnixTimeMilliseconds());
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$u", userId);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$now", now.ToUnixTimeMilliseconds());
+        cmd.AddWithValue("$exp", now.AddHours(12).ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
 }

@@ -57,7 +57,7 @@ public sealed class MachineResetService
         {
             del.Transaction = tx;
             del.CommandText = "DELETE FROM sync_devices WHERE device_name=$n;";
-            del.Parameters.AddWithValue("$n", name);
+            del.AddWithValue("$n", name);
             del.ExecuteNonQuery();
         }
 
@@ -68,9 +68,9 @@ public sealed class MachineResetService
             cmd.CommandText =
                 "INSERT INTO machine_resets(machine_name, requested_at, requested_by) VALUES($n,$at,$by) " +
                 "ON CONFLICT(machine_name) DO UPDATE SET requested_at=$at, requested_by=$by;";
-            cmd.Parameters.AddWithValue("$n", name);
-            cmd.Parameters.AddWithValue("$at", now);
-            cmd.Parameters.AddWithValue("$by", actor.UserId);
+            cmd.AddWithValue("$n", name);
+            cmd.AddWithValue("$at", now);
+            cmd.AddWithValue("$by", actor.UserId);
             cmd.ExecuteNonQuery();
         }
 
@@ -87,7 +87,7 @@ public sealed class MachineResetService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT machine_name, requested_at, requested_by FROM machine_resets WHERE machine_name=$n;";
-        cmd.Parameters.AddWithValue("$n", name);
+        cmd.AddWithValue("$n", name);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new MachineResetStatus(r.GetString(0), r.GetInt64(1), r.GetString(2)) : null;
     }

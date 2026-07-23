@@ -79,7 +79,7 @@ public class OrgPersonnelTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT is_active, is_deleted FROM users WHERE id=$u;";
-        cmd.Parameters.AddWithValue("$u", uid);
+        cmd.AddWithValue("$u", uid);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(0L, r.GetInt64(0)); // is_active=0 → PASİF
@@ -97,7 +97,7 @@ public class OrgPersonnelTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT is_active, is_deleted FROM users WHERE id=$u;";
-        cmd.Parameters.AddWithValue("$u", su.UserId);
+        cmd.AddWithValue("$u", su.UserId);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(1L, r.GetInt64(0)); // is_active=1 → süper admin AKTİF kalmalı (kilitlenmez)
@@ -338,7 +338,7 @@ public class OrgPersonnelTests : IDisposable
         }
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT is_active FROM users WHERE id=$u;";
-        cmd.Parameters.AddWithValue("$u", uid);
+        cmd.AddWithValue("$u", uid);
         Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar())); // kullanıcı tekrar aktif
         // Admin olmayan reactivate yasak
         Assert.Throws<ForbiddenException>(() => svc.Reactivate(Admin("A"), "REACT"));

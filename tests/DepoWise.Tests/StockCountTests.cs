@@ -66,7 +66,7 @@ public class StockCountTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT diff_qty FROM stock_count_lines WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         Assert.Equal(0m, Money.Parse((string)cmd.ExecuteScalar()!));                             // count satırı yazıldı (fark 0)
     }
 

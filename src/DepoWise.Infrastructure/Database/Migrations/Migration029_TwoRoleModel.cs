@@ -1,5 +1,5 @@
 using DepoWise.Application.Security;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -17,7 +17,7 @@ public sealed class Migration029_TwoRoleModel : IMigration
     public int Version => 29;
     public string Name => "two_role_model";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -59,11 +59,11 @@ FROM user_roles ur
 WHERE ur.role_id IN ({inClause})
   AND NOT EXISTS (SELECT 1 FROM user_roles a JOIN roles r ON r.id=a.role_id
                   WHERE a.user_id=ur.user_id AND r.role_key IN ($adm,$sa,$stf));";
-                cmd.Parameters.AddWithValue("$staff", staffId);
-                cmd.Parameters.AddWithValue("$adm", RoleKeys.CompanyAdmin);
-                cmd.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
-                cmd.Parameters.AddWithValue("$stf", RoleKeys.Staff);
-                for (int i = 0; i < legacyIds.Count; i++) cmd.Parameters.AddWithValue("$l" + i, legacyIds[i]);
+                cmd.AddWithValue("$staff", staffId);
+                cmd.AddWithValue("$adm", RoleKeys.CompanyAdmin);
+                cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
+                cmd.AddWithValue("$stf", RoleKeys.Staff);
+                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("$l" + i, legacyIds[i]);
                 cmd.ExecuteNonQuery();
             }
 
@@ -72,7 +72,7 @@ WHERE ur.role_id IN ({inClause})
             {
                 cmd.Transaction = tx;
                 cmd.CommandText = $"DELETE FROM user_roles WHERE role_id IN ({inClause});";
-                for (int i = 0; i < legacyIds.Count; i++) cmd.Parameters.AddWithValue("$l" + i, legacyIds[i]);
+                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("$l" + i, legacyIds[i]);
                 cmd.ExecuteNonQuery();
             }
 
@@ -81,28 +81,28 @@ WHERE ur.role_id IN ({inClause})
             {
                 cmd.Transaction = tx;
                 cmd.CommandText = $"UPDATE roles SET is_deleted=1, updated_at=$now WHERE id IN ({inClause});";
-                cmd.Parameters.AddWithValue("$now", now);
-                for (int i = 0; i < legacyIds.Count; i++) cmd.Parameters.AddWithValue("$l" + i, legacyIds[i]);
+                cmd.AddWithValue("$now", now);
+                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("$l" + i, legacyIds[i]);
                 cmd.ExecuteNonQuery();
             }
         }
     }
 
-    private static string? ScalarOrNull(SqliteConnection conn, SqliteTransaction tx, string sql, params (string, object)[] ps)
+    private static string? ScalarOrNull(DbConnection conn, DbTransaction tx, string sql, params (string, object)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         return cmd.ExecuteScalar() as string;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql, params (string, object)[] ps)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql, params (string, object)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         cmd.ExecuteNonQuery();
     }
 }

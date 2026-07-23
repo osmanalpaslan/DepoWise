@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Organization;
 
@@ -91,10 +91,10 @@ public sealed class RoleGrantService
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
                 ins.CommandText = "INSERT OR IGNORE INTO role_grant_limits(id, role_key, module_key, created_at) VALUES($id,$r,$m,$now);";
-                ins.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                ins.Parameters.AddWithValue("$r", roleKey);
-                ins.Parameters.AddWithValue("$m", moduleKey);
-                ins.Parameters.AddWithValue("$now", now);
+                ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+                ins.AddWithValue("$r", roleKey);
+                ins.AddWithValue("$m", moduleKey);
+                ins.AddWithValue("$now", now);
                 ins.ExecuteNonQuery();
             }
         }
@@ -110,7 +110,7 @@ public sealed class RoleGrantService
     }
 
     /// <summary>Rol anahtarlarına göre KAPALI modüller (herhangi bir rolde kapalıysa kapalı — deny-by-default).</summary>
-    public static IReadOnlySet<string> BlockedForRoles(SqliteConnection conn, SqliteTransaction? tx, IEnumerable<string> roleKeys)
+    public static IReadOnlySet<string> BlockedForRoles(DbConnection conn, DbTransaction? tx, IEnumerable<string> roleKeys)
     {
         var roles = roleKeys.ToList();
         var result = new HashSet<string>(StringComparer.Ordinal);
@@ -121,7 +121,7 @@ public sealed class RoleGrantService
         cmd.Transaction = tx;
         var names = roles.Select((_, i) => "$r" + i).ToList();
         cmd.CommandText = $"SELECT module_key FROM role_grant_limits WHERE role_key IN ({string.Join(",", names)});";
-        for (var i = 0; i < roles.Count; i++) cmd.Parameters.AddWithValue(names[i], roles[i]);
+        for (var i = 0; i < roles.Count; i++) cmd.AddWithValue(names[i], roles[i]);
         using var r = cmd.ExecuteReader();
         while (r.Read()) result.Add(r.GetString(0));
         return result;
@@ -129,14 +129,14 @@ public sealed class RoleGrantService
 
     /// <summary>Kullanıcının rollerini okuyup kapalı modülleri döndürür (yapısal kilitler hariç — onlar
     /// AccessControl'de zaten uygulanır).</summary>
-    public static IReadOnlySet<string> BlockedForUser(SqliteConnection conn, SqliteTransaction? tx, string userId)
+    public static IReadOnlySet<string> BlockedForUser(DbConnection conn, DbTransaction? tx, string userId)
     {
         var roles = new List<string>();
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
             cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.is_deleted=0;";
-            cmd.Parameters.AddWithValue("$u", userId);
+            cmd.AddWithValue("$u", userId);
             using var rd = cmd.ExecuteReader();
             while (rd.Read()) roles.Add(rd.GetString(0));
         }

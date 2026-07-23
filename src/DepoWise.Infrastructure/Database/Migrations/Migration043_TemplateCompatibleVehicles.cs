@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,13 +12,13 @@ public sealed class Migration043_TemplateCompatibleVehicles : IMigration
     public int Version => 43;
     public string Name => "template_compatible_vehicles";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         if (!ColumnExists(conn, tx, "material_templates", "compatible_vehicle_ids"))
             Exec(conn, tx, "ALTER TABLE material_templates ADD COLUMN compatible_vehicle_ids TEXT;");
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -29,7 +29,7 @@ public sealed class Migration043_TemplateCompatibleVehicles : IMigration
         return false;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

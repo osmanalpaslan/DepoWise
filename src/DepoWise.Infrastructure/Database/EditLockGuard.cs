@@ -1,5 +1,5 @@
 using DepoWise.Application.Security;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database;
 
@@ -32,9 +32,9 @@ internal static class EditLockGuard
     public static string Clause(long? expectedVersion) => expectedVersion.HasValue ? " AND version=$ev" : "";
 
     /// <summary>Sürüm parametresini bağlar (sürüm verilmediyse hiçbir şey yapmaz).</summary>
-    public static void Bind(SqliteCommand cmd, long? expectedVersion)
+    public static void Bind(DbCommand cmd, long? expectedVersion)
     {
-        if (expectedVersion.HasValue) cmd.Parameters.AddWithValue("$ev", expectedVersion.Value);
+        if (expectedVersion.HasValue) cmd.AddWithValue("$ev", expectedVersion.Value);
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ internal static class EditLockGuard
     /// <see cref="ConcurrencyException"/>. Kayıt yoksa hiçbir şey yapmaz; çağıran kendi
     /// "bulunamadı/başka firmaya ait" hatasını atar (iki durum karışmasın diye ayrı tutulur).
     /// </summary>
-    public static void ThrowIfStale(SqliteConnection conn, SqliteTransaction? tx, string table,
+    public static void ThrowIfStale(DbConnection conn, DbTransaction? tx, string table,
         string id, string companyId, long? expectedVersion)
     {
         if (!expectedVersion.HasValue) return;
@@ -50,8 +50,8 @@ internal static class EditLockGuard
         cmd.Transaction = tx;
         // table sabit kod içinden gelir (kullanıcı girdisi DEĞİL); id/company parametreli.
         cmd.CommandText = $"SELECT version FROM {table} WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", companyId);
         var cur = cmd.ExecuteScalar();
         if (cur is not null and not System.DBNull)
             throw new ConcurrencyException(expectedVersion.Value, System.Convert.ToInt64(cur));

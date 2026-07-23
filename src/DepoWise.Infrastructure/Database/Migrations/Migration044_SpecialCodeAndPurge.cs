@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -21,7 +21,7 @@ public sealed class Migration044_SpecialCodeAndPurge : IMigration
     public int Version => 44;
     public string Name => "special_code_and_company_purge";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         if (!ColumnExists(conn, tx, "users", "special_code_hash"))
             Exec(conn, tx, "ALTER TABLE users ADD COLUMN special_code_hash TEXT;");
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS company_purges(
         Exec(conn, tx, "CREATE INDEX IF NOT EXISTS ix_company_purges_at ON company_purges(purged_at);");
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS company_purges(
         return false;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Materials;
 
@@ -51,8 +51,8 @@ public sealed class LookupService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, name FROM vehicle_models WHERE company_id=$c AND is_deleted=0 AND brand_id=$b ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$b", brandId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$b", brandId);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
@@ -66,7 +66,7 @@ public sealed class LookupService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, full_name FROM personnel WHERE company_id=$c AND is_deleted=0 AND is_active=1 ORDER BY full_name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$c", s.CompanyId);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
@@ -86,11 +86,11 @@ public sealed class LookupService
             cmd.CommandText =
                 "INSERT INTO personnel(id, company_id, full_name, title, is_active, created_at, updated_at, version, is_deleted) " +
                 "VALUES($id,$c,$n,$t,1,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$n", fullName);
-            cmd.Parameters.AddWithValue("$t", (object?)title ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", fullName);
+            cmd.AddWithValue("$t", (object?)title ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "personnel", id, AuditActions.Create, s.UserId), _clock);
@@ -105,7 +105,7 @@ public sealed class LookupService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT id, name, is_locked FROM {table} WHERE company_id = $c AND is_deleted = 0 ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$c", s.CompanyId);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1), r.GetInt64(2) != 0));
@@ -123,8 +123,8 @@ SELECT id, name FROM material_categories
 WHERE company_id=$c AND is_deleted=0
   AND (($p IS NULL AND parent_id IS NULL) OR parent_id=$p)
 ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$p", (object?)parentId ?? DBNull.Value);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$p", (object?)parentId ?? DBNull.Value);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
@@ -141,8 +141,8 @@ ORDER BY name;";
 SELECT id, name FROM brands
 WHERE company_id=$c AND is_deleted=0 AND (brand_type=$t OR brand_type IS NULL)
 ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$t", brandType);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$t", brandType);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
@@ -180,11 +180,11 @@ ORDER BY name;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = $"INSERT INTO {table}({cols}) VALUES({vals});";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$n", name);
-            cmd.Parameters.AddWithValue("$now", now);
-            foreach (var (col, val) in extra) cmd.Parameters.AddWithValue($"${col}", val);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", name);
+            cmd.AddWithValue("$now", now);
+            foreach (var (col, val) in extra) cmd.AddWithValue($"${col}", val);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Create, s.UserId), _clock);
@@ -194,7 +194,7 @@ ORDER BY name;";
 
     /// <summary>Aynı ad (harf duyarsız) + aynı ayırt edici sütunlarla AKTİF kayıt varsa id'sini döndürür.
     /// Tekilleştirme (dedup) — aynı isimli birden çok tanım oluşmasını engeller.</summary>
-    private static string? FindByName(SqliteConnection conn, SqliteTransaction tx, string table, string companyId,
+    private static string? FindByName(DbConnection conn, DbTransaction tx, string table, string companyId,
         string name, (string Col, object Val)[] extra)
     {
         using var cmd = conn.CreateCommand();
@@ -204,9 +204,9 @@ ORDER BY name;";
             sql += (val is System.DBNull) ? $" AND {col} IS NULL" : $" AND {col}=${col}";
         sql += " LIMIT 1;";
         cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$n", name);
-        foreach (var (col, val) in extra) if (val is not System.DBNull) cmd.Parameters.AddWithValue($"${col}", val);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$n", name);
+        foreach (var (col, val) in extra) if (val is not System.DBNull) cmd.AddWithValue($"${col}", val);
         return cmd.ExecuteScalar() as string;
     }
 
@@ -227,10 +227,10 @@ ORDER BY name;";
             cmd.Transaction = tx;
             cmd.CommandText = $"UPDATE {table} SET name=$n, updated_at=$now, version=version+1 " +
                               "WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$n", newName.Trim());
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", newName.Trim());
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Update, s.UserId), _clock);
@@ -252,9 +252,9 @@ ORDER BY name;";
             cmd.Transaction = tx;
             cmd.CommandText = $"UPDATE {table} SET is_deleted=1, updated_at=$now, version=version+1 " +
                               "WHERE id=$id AND company_id=$c;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Delete, s.UserId), _clock);
@@ -275,10 +275,10 @@ ORDER BY name;";
             cmd.Transaction = tx;
             cmd.CommandText = $"UPDATE {table} SET is_locked=$l, updated_at=$now, version=version+1 " +
                               "WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$l", locked ? 1 : 0);
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$l", locked ? 1 : 0);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Update, s.UserId), _clock);
@@ -290,8 +290,8 @@ ORDER BY name;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT is_locked FROM {table} WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", s.CompanyId);
         var v = cmd.ExecuteScalar();
         if (v is not null && System.Convert.ToInt64(v) != 0) throw new ArgumentException(message);
     }

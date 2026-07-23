@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -21,7 +21,7 @@ public sealed class Migration046_MachineReset : IMigration
     public int Version => 46;
     public string Name => "machine_reset";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         Exec(conn, tx, @"
 CREATE TABLE IF NOT EXISTS machine_resets(
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS machine_resets(
         Exec(conn, tx, "CREATE INDEX IF NOT EXISTS ix_machine_resets_at ON machine_resets(requested_at);");
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

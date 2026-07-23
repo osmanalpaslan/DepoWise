@@ -24,8 +24,8 @@ public sealed class ScopeResolver
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT branch_id FROM user_scopes WHERE user_id = $u AND company_id = $c;";
-            cmd.Parameters.AddWithValue("$u", session.UserId);
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$u", session.UserId);
+            cmd.AddWithValue("$c", session.CompanyId);
             using var r = cmd.ExecuteReader();
             while (r.Read()) explicitScopes.Add(r.GetString(0));
         }
@@ -40,7 +40,7 @@ public sealed class ScopeResolver
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT id FROM branches WHERE company_id = $c AND is_deleted = 0;";
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$c", session.CompanyId);
             using var r = cmd.ExecuteReader();
             while (r.Read()) all.Add(r.GetString(0));
         }

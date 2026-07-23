@@ -2,7 +2,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Application.Sync;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Sync;
 
@@ -35,7 +35,7 @@ public sealed class SyncServer
         var outcomes = new List<SyncOpOutcome>();
         foreach (var op in ops)
         {
-            using var tx = conn.BeginTransaction(deferred: false);
+            using var tx = conn.BeginImmediate();
             if (InboxHas(conn, tx, op.OperationId))
             {
                 outcomes.Add(new SyncOpOutcome(op.OperationId, SyncOpResult.AlreadyApplied));
@@ -83,9 +83,9 @@ public sealed class SyncServer
         cmd.CommandText =
             "SELECT seq, entity_type, entity_id, payload_json, valid FROM server_changes " +
             "WHERE company_id=$c AND seq > $after ORDER BY seq LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$after", afterSeq);
-        cmd.Parameters.AddWithValue("$lim", limit < 1 ? 1 : limit);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$after", afterSeq);
+        cmd.AddWithValue("$lim", limit < 1 ? 1 : limit);
 
         var items = new List<ServerChange>();
         using var r = cmd.ExecuteReader();
@@ -101,11 +101,11 @@ public sealed class SyncServer
     }
 
     // ---- yardımcılar ----
-    private static (string DeviceId, string CompanyId) AuthDevice(SqliteConnection conn, string token)
+    private static (string DeviceId, string CompanyId) AuthDevice(DbConnection conn, string token)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, company_id, status FROM sync_devices WHERE token_hash=$h;";
-        cmd.Parameters.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
+        cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
         using var r = cmd.ExecuteReader();
         if (!r.Read()) throw new ForbiddenException("Geçersiz cihaz token'ı.");
         var status = r.GetString(2);
@@ -113,77 +113,77 @@ public sealed class SyncServer
         return (r.GetString(0), r.GetString(1));
     }
 
-    private static void Touch(SqliteConnection conn, string deviceId, long now)
+    private static void Touch(DbConnection conn, string deviceId, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE sync_devices SET last_seen_at=$now WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$now", now);
-        cmd.Parameters.AddWithValue("$id", deviceId);
+        cmd.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", deviceId);
         cmd.ExecuteNonQuery();
     }
 
-    private static bool InboxHas(SqliteConnection conn, SqliteTransaction tx, string operationId)
+    private static bool InboxHas(DbConnection conn, DbTransaction tx, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM sync_inbox WHERE operation_id=$op;";
-        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static void InsertInbox(SqliteConnection conn, SqliteTransaction tx, string companyId, SyncOperation op, string result, long now)
+    private static void InsertInbox(DbConnection conn, DbTransaction tx, string companyId, SyncOperation op, string result, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO sync_inbox(id, company_id, operation_id, entity_type, entity_id, payload_json, result, applied_at) " +
             "VALUES($id,$c,$op,$et,$eid,$pl,$res,$now);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$op", op.OperationId);
-        cmd.Parameters.AddWithValue("$et", op.EntityType);
-        cmd.Parameters.AddWithValue("$eid", op.EntityId);
-        cmd.Parameters.AddWithValue("$pl", op.PayloadJson);
-        cmd.Parameters.AddWithValue("$res", result);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$op", op.OperationId);
+        cmd.AddWithValue("$et", op.EntityType);
+        cmd.AddWithValue("$eid", op.EntityId);
+        cmd.AddWithValue("$pl", op.PayloadJson);
+        cmd.AddWithValue("$res", result);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void AppendServerChange(SqliteConnection conn, SqliteTransaction tx, string companyId, SyncOperation op, long now)
+    private static void AppendServerChange(DbConnection conn, DbTransaction tx, string companyId, SyncOperation op, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO server_changes(company_id, operation_id, entity_type, entity_id, payload_json, valid, created_at) " +
             "VALUES($c,$op,$et,$eid,$pl,1,$now);";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$op", op.OperationId);
-        cmd.Parameters.AddWithValue("$et", op.EntityType);
-        cmd.Parameters.AddWithValue("$eid", op.EntityId);
-        cmd.Parameters.AddWithValue("$pl", op.PayloadJson);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$op", op.OperationId);
+        cmd.AddWithValue("$et", op.EntityType);
+        cmd.AddWithValue("$eid", op.EntityId);
+        cmd.AddWithValue("$pl", op.PayloadJson);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void InsertConflict(SqliteConnection conn, SqliteTransaction tx, string companyId, SyncOperation op, string reason, long now)
+    private static void InsertConflict(DbConnection conn, DbTransaction tx, string companyId, SyncOperation op, string reason, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO sync_conflicts(id, company_id, operation_id, entity_type, entity_id, incoming_payload, reason, status, created_at) " +
             "VALUES($id,$c,$op,$et,$eid,$pl,$reason,'open',$now);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$op", op.OperationId);
-        cmd.Parameters.AddWithValue("$et", op.EntityType);
-        cmd.Parameters.AddWithValue("$eid", op.EntityId);
-        cmd.Parameters.AddWithValue("$pl", op.PayloadJson);
-        cmd.Parameters.AddWithValue("$reason", reason);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$op", op.OperationId);
+        cmd.AddWithValue("$et", op.EntityType);
+        cmd.AddWithValue("$eid", op.EntityId);
+        cmd.AddWithValue("$pl", op.PayloadJson);
+        cmd.AddWithValue("$reason", reason);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static long? CurrentVersion(SqliteConnection conn, SqliteTransaction tx, string entityType, string entityId)
+    private static long? CurrentVersion(DbConnection conn, DbTransaction tx, string entityType, string entityId)
     {
         // Düşük-riskli kart tabloları için version okunur (yoksa null → yeni kayıt)
         var table = entityType switch { "material" => "materials", "vehicle" => "vehicles", "branch" => "branches", _ => null };
@@ -191,7 +191,7 @@ public sealed class SyncServer
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = $"SELECT version FROM {table} WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", entityId);
+        cmd.AddWithValue("$id", entityId);
         var v = cmd.ExecuteScalar();
         return v is null || v is DBNull ? null : Convert.ToInt64(v);
     }

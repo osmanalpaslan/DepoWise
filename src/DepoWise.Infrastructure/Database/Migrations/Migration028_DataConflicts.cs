@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -13,7 +13,7 @@ public sealed class Migration028_DataConflicts : IMigration
     public int Version => 28;
     public string Name => "data_conflicts";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         using (var cmd = conn.CreateCommand())
         {

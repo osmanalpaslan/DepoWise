@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -11,7 +11,7 @@ public sealed class Migration026_UserViewAllBranches : IMigration
     public int Version => 26;
     public string Name => "user_view_all_branches";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

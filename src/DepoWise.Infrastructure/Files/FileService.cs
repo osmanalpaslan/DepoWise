@@ -3,7 +3,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Files;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Files;
 
@@ -61,16 +61,16 @@ public sealed class FileService
 INSERT INTO file_records(id, company_id, entity_type, entity_id, kind, storage_provider, storage_key,
     mime, size_bytes, sha256, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$et,$eid,'photo',$prov,$key,$mime,$size,$sha,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$et", entityType);
-            cmd.Parameters.AddWithValue("$eid", entityId);
-            cmd.Parameters.AddWithValue("$prov", _storage.ProviderName);
-            cmd.Parameters.AddWithValue("$key", storageKey);
-            cmd.Parameters.AddWithValue("$mime", optMime);
-            cmd.Parameters.AddWithValue("$size", optBytes.Length);
-            cmd.Parameters.AddWithValue("$sha", sha);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$et", entityType);
+            cmd.AddWithValue("$eid", entityId);
+            cmd.AddWithValue("$prov", _storage.ProviderName);
+            cmd.AddWithValue("$key", storageKey);
+            cmd.AddWithValue("$mime", optMime);
+            cmd.AddWithValue("$size", optBytes.Length);
+            cmd.AddWithValue("$sha", sha);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "file_record", id, AuditActions.Create, s.UserId,
@@ -87,9 +87,9 @@ VALUES($id,$c,$et,$eid,'photo',$prov,$key,$mime,$size,$sha,$now,$now,1,0);";
         cmd.CommandText =
             "SELECT id, entity_type, entity_id, storage_key, mime, size_bytes FROM file_records " +
             "WHERE company_id=$c AND entity_type=$et AND entity_id=$eid AND is_deleted=0 ORDER BY created_at;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$et", entityType);
-        cmd.Parameters.AddWithValue("$eid", entityId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$et", entityType);
+        cmd.AddWithValue("$eid", entityId);
         var list = new List<FileRecordDto>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -105,7 +105,7 @@ VALUES($id,$c,$et,$eid,'photo',$prov,$key,$mime,$size,$sha,$now,$now,1,0);";
         using (var read = conn.CreateCommand())
         {
             read.CommandText = "SELECT entity_type, company_id FROM file_records WHERE id=$id;";
-            read.Parameters.AddWithValue("$id", fileId);
+            read.AddWithValue("$id", fileId);
             using var r = read.ExecuteReader();
             if (!r.Read()) throw new ForbiddenException("Dosya bulunamadı.");
             entityType = r.GetString(0); companyId = r.GetString(1);
@@ -118,8 +118,8 @@ VALUES($id,$c,$et,$eid,'photo',$prov,$key,$mime,$size,$sha,$now,$now,1,0);";
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE file_records SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id;";
-            cmd.Parameters.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
-            cmd.Parameters.AddWithValue("$id", fileId);
+            cmd.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
+            cmd.AddWithValue("$id", fileId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "file_record", fileId, AuditActions.Delete, s.UserId), _clock);

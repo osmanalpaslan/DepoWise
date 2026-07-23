@@ -33,7 +33,7 @@ public sealed class PersonnelTitleService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, name FROM personnel_titles WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", session.CompanyId);
+        cmd.AddWithValue("$c", session.CompanyId);
         var list = new List<PersonnelTitle>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new PersonnelTitle(r.GetString(0), r.GetString(1)));
@@ -57,7 +57,7 @@ public sealed class PersonnelTitleService
         {
             q.Transaction = tx;
             q.CommandText = "SELECT id, name FROM personnel_titles WHERE company_id=$c AND is_deleted=0;";
-            q.Parameters.AddWithValue("$c", session.CompanyId);
+            q.AddWithValue("$c", session.CompanyId);
             using var r = q.ExecuteReader();
             while (r.Read())
                 if (Tr.Compare(r.GetString(1), clean, System.Globalization.CompareOptions.IgnoreCase) == 0)
@@ -72,10 +72,10 @@ public sealed class PersonnelTitleService
             cmd.CommandText =
                 "INSERT INTO personnel_titles(id, company_id, name, created_at, updated_at, version, is_deleted) " +
                 "VALUES($id,$c,$n,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
-            cmd.Parameters.AddWithValue("$n", clean);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$n", clean);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId, "personnel_title", id, AuditActions.Create, session.UserId), _clock);
@@ -95,9 +95,9 @@ public sealed class PersonnelTitleService
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE personnel_titles SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$now", now);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected > 0)

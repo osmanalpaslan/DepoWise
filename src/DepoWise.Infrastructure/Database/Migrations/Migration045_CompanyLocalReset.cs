@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -23,7 +23,7 @@ public sealed class Migration045_CompanyLocalReset : IMigration
     public int Version => 45;
     public string Name => "company_local_reset";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         Exec(conn, tx, @"
 CREATE TABLE IF NOT EXISTS company_local_resets(
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS company_local_resets(
 );");
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

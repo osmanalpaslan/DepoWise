@@ -30,8 +30,8 @@ SELECT a.created_at, COALESCE(NULLIF(u.full_name,''), u.username, a.user_id, '')
 FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
 WHERE a.company_id = $c
 ORDER BY a.created_at DESC LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$lim", limit);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$lim", limit);
         var list = new List<AuditLogRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

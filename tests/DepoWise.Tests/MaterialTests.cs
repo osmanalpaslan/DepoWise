@@ -153,7 +153,7 @@ public class MaterialTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT movement_type, direction, quantity FROM stock_movements WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal("opening", r.GetString(0));
@@ -175,7 +175,7 @@ public class MaterialTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
     }
 
@@ -229,7 +229,7 @@ public class MaterialTests : IDisposable
         using (var raw = conn.CreateCommand())
         {
             raw.CommandText = "UPDATE materials SET type='YEDEK PARÇA' WHERE id=$id;";
-            raw.Parameters.AddWithValue("$id", m);
+            raw.AddWithValue("$id", m);
             raw.ExecuteNonQuery();
         }
 
@@ -255,7 +255,7 @@ public class MaterialTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT direction, quantity FROM stock_movements WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(-1L, r.GetInt64(0));
@@ -357,7 +357,7 @@ public class MaterialTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT version FROM materials WHERE id=$i;";
-        cmd.Parameters.AddWithValue("$i", materialId);
+        cmd.AddWithValue("$i", materialId);
         return Convert.ToInt64(cmd.ExecuteScalar());
     }
 

@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Organization;
 
@@ -76,7 +76,7 @@ public sealed class CompanyGrantService
         {
             del.Transaction = tx;
             del.CommandText = "DELETE FROM company_grant_limits WHERE company_id=$c;";
-            del.Parameters.AddWithValue("$c", companyId);
+            del.AddWithValue("$c", companyId);
             del.ExecuteNonQuery();
         }
         foreach (var (key, level) in clean)
@@ -84,11 +84,11 @@ public sealed class CompanyGrantService
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT INTO company_grant_limits(id, company_id, module_key, level, created_at) VALUES($id,$c,$k,$lvl,$now);";
-            ins.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ins.Parameters.AddWithValue("$c", companyId);
-            ins.Parameters.AddWithValue("$k", key);
-            ins.Parameters.AddWithValue("$lvl", level);
-            ins.Parameters.AddWithValue("$now", now);
+            ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            ins.AddWithValue("$c", companyId);
+            ins.AddWithValue("$k", key);
+            ins.AddWithValue("$lvl", level);
+            ins.AddWithValue("$now", now);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
@@ -100,31 +100,31 @@ public sealed class CompanyGrantService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT module_key, level FROM company_grant_limits WHERE company_id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         using var r = cmd.ExecuteReader();
         while (r.Read()) d[r.GetString(0)] = r.GetString(1);
         return d;
     }
 
     /// <summary>PermissionService için: modül bu firmada kısıtlı mı (admin VEYA superadmin düzeyi = satır var)?</summary>
-    public static bool IsCompanyRestricted(SqliteConnection conn, SqliteTransaction tx, string companyId, string moduleKey)
+    public static bool IsCompanyRestricted(DbConnection conn, DbTransaction tx, string companyId, string moduleKey)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$k;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$k", moduleKey);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$k", moduleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     /// <summary>PermissionService için: modül bu firmada "Süper Admin" düzeyinde mi (yalnız kısıtlı süper admine verilir)?</summary>
-    public static bool IsCompanySuperRestricted(SqliteConnection conn, SqliteTransaction tx, string companyId, string moduleKey)
+    public static bool IsCompanySuperRestricted(DbConnection conn, DbTransaction tx, string companyId, string moduleKey)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$k AND level='superadmin';";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$k", moduleKey);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$k", moduleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 }

@@ -1,3 +1,4 @@
+using DepoWise.Infrastructure.Database;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using DepoWise.Api;
@@ -151,7 +152,7 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
         using (var c = conn.CreateCommand())
         {
             c.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE last_seen_at IS NOT NULL AND last_seen_at > $t;";
-            c.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 5 * 60 * 1000);
+            c.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 5 * 60 * 1000);
             machinesOnline = Convert.ToInt64(c.ExecuteScalar());
         }
     }
@@ -484,7 +485,7 @@ app.MapGet("/api/me/authsig", (HttpContext ctx) =>
     using (var c = conn.CreateCommand())
     {
         c.CommandText = "SELECT password_hash, is_active FROM users WHERE id=$u;";
-        c.Parameters.AddWithValue("$u", s.UserId);
+        c.AddWithValue("$u", s.UserId);
         using var r = c.ExecuteReader();
         if (r.Read()) { ph = r.GetString(0); active = r.GetInt32(1); }
     }
@@ -492,14 +493,14 @@ app.MapGet("/api/me/authsig", (HttpContext ctx) =>
     using (var c = conn.CreateCommand())
     {
         c.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u ORDER BY r.role_key;";
-        c.Parameters.AddWithValue("$u", s.UserId);
+        c.AddWithValue("$u", s.UserId);
         using var r = c.ExecuteReader(); while (r.Read()) roles.Add(r.GetString(0));
     }
     var perms = new List<string>();
     using (var c = conn.CreateCommand())
     {
         c.CommandText = "SELECT module_key,can_view,can_create,can_edit,can_delete FROM user_permissions WHERE user_id=$u ORDER BY module_key;";
-        c.Parameters.AddWithValue("$u", s.UserId);
+        c.AddWithValue("$u", s.UserId);
         using var r = c.ExecuteReader();
         while (r.Read()) perms.Add($"{r.GetString(0)}:{r.GetInt64(1)}{r.GetInt64(2)}{r.GetInt64(3)}{r.GetInt64(4)}");
     }
@@ -507,7 +508,7 @@ app.MapGet("/api/me/authsig", (HttpContext ctx) =>
     using (var c = conn.CreateCommand())
     {
         c.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=$u ORDER BY button_key;";
-        c.Parameters.AddWithValue("$u", s.UserId);
+        c.AddWithValue("$u", s.UserId);
         using var r = c.ExecuteReader(); while (r.Read()) buttons.Add(r.GetString(0));
     }
     var raw = $"{ph}|{active}|{string.Join(",", roles)}|{string.Join(",", perms)}|{string.Join(",", buttons)}";
@@ -898,7 +899,7 @@ app.MapGet("/api/vehicles/options", (HttpContext c) =>
     using var conn = svc.Factory.Create();
     using var cmd = conn.CreateCommand();
     cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=$c AND is_deleted=0 ORDER BY internal_code;";
-    cmd.Parameters.AddWithValue("$c", s.CompanyId);
+    cmd.AddWithValue("$c", s.CompanyId);
     using var r = cmd.ExecuteReader();
     while (r.Read()) { var p = r.GetString(2); opts.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
     return Results.Ok(opts);
@@ -1044,7 +1045,7 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
         var list = new List<Dictionary<string, object?>>();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("$c", company);
+        cmd.AddWithValue("$c", company);
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
@@ -1368,8 +1369,8 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
         };
         using var del = conn.CreateCommand();
         del.Transaction = tx; del.CommandText = sql;
-        if (sql.Contains("$me")) del.Parameters.AddWithValue("$me", s.UserId);
-        if (sql.Contains("$co")) del.Parameters.AddWithValue("$co", s.CompanyId);
+        if (sql.Contains("$me")) del.AddWithValue("$me", s.UserId);
+        if (sql.Contains("$co")) del.AddWithValue("$co", s.CompanyId);
         del.ExecuteNonQuery();
     }
     tx.Commit();
@@ -1545,14 +1546,14 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
     using (var cmd = conn.CreateCommand())
     {
         cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", cid);
+        cmd.AddWithValue("$c", cid);
         using var r = cmd.ExecuteReader();
         while (r.Read()) branches.Add(new { id = r.GetString(0), name = r.GetString(1) });
     }
     using (var cmd = conn.CreateCommand())
     {
         cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=$c AND is_deleted=0 ORDER BY internal_code;";
-        cmd.Parameters.AddWithValue("$c", cid);
+        cmd.AddWithValue("$c", cid);
         using var r = cmd.ExecuteReader();
         while (r.Read()) { var p = r.GetString(2); vehicles.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
     }

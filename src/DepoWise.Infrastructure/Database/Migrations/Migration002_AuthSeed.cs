@@ -1,5 +1,5 @@
 using DepoWise.Application.Security;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,7 +12,7 @@ public sealed class Migration002_AuthSeed : IMigration
     public int Version => 2;
     public string Name => "auth_seed";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         Exec(conn, tx, @"
 CREATE TABLE login_attempts (
@@ -44,16 +44,16 @@ CREATE INDEX ix_sessions_user ON sessions(user_id);
             cmd.CommandText = @"
 INSERT INTO roles(id, company_id, role_key, name, is_system, created_at, updated_at, version, is_deleted)
 VALUES($id, NULL, $key, $name, $sys, $now, $now, 1, 0);";
-            cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            cmd.Parameters.AddWithValue("$key", key);
-            cmd.Parameters.AddWithValue("$name", name);
-            cmd.Parameters.AddWithValue("$sys", isSystem ? 1 : 0);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            cmd.AddWithValue("$key", key);
+            cmd.AddWithValue("$name", name);
+            cmd.AddWithValue("$sys", isSystem ? 1 : 0);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

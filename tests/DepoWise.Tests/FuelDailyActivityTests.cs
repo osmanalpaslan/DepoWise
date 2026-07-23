@@ -103,7 +103,7 @@ public class FuelDailyActivityTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT unit_price FROM fuel_distributions WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", dist);
+        cmd.AddWithValue("$id", dist);
         Assert.Equal(40m, Money.Parse(cmd.ExecuteScalar() as string)); // eski dağıtım hâlâ 40
     }
 
@@ -147,7 +147,7 @@ public class FuelDailyActivityTests : IDisposable
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT stock_processed FROM daily_activities WHERE id=$id;";
-            cmd.Parameters.AddWithValue("$id", activityId);
+            cmd.AddWithValue("$id", activityId);
             Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
         }
     }
@@ -175,7 +175,7 @@ public class FuelDailyActivityTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT status FROM vehicles WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", v);
+        cmd.AddWithValue("$id", v);
         Assert.Equal("passive", cmd.ExecuteScalar());
     }
 
@@ -215,7 +215,7 @@ public class FuelDailyActivityTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT status FROM vehicles WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", v);
+        cmd.AddWithValue("$id", v);
         Assert.Equal("active", cmd.ExecuteScalar());
     }
 

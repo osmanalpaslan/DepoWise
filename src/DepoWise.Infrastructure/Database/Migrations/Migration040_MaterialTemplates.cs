@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -14,7 +14,7 @@ public sealed class Migration040_MaterialTemplates : IMigration
     public int Version => 40;
     public string Name => "material_templates";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         // 1) material_templates tablosu
         if (!TableExists(conn, tx, "material_templates"))
@@ -49,16 +49,16 @@ CREATE INDEX ix_material_templates_company ON material_templates(company_id, is_
             Exec(conn, tx, "ALTER TABLE vehicle_templates ADD COLUMN is_global INTEGER NOT NULL DEFAULT 1;");
     }
 
-    private static bool TableExists(SqliteConnection conn, SqliteTransaction tx, string table)
+    private static bool TableExists(DbConnection conn, DbTransaction tx, string table)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$n;";
-        cmd.Parameters.AddWithValue("$n", table);
+        cmd.AddWithValue("$n", table);
         return System.Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -69,7 +69,7 @@ CREATE INDEX ix_material_templates_company ON material_templates(company_id, is_
         return false;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

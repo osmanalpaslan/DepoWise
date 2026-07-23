@@ -3,7 +3,7 @@ using DepoWise.Application.Maintenance;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Materials;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Maintenance;
 
@@ -60,7 +60,7 @@ public sealed class MaintenanceService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false); // negatif stok / sayaç için serialize
+        using var tx = conn.BeginImmediate(); // negatif stok / sayaç için serialize
 
         var existing = FindByOperation(conn, tx, operationId);
         if (existing is not null) { tx.Commit(); return existing; } // idempotent
@@ -113,7 +113,7 @@ public sealed class MaintenanceService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false);
+        using var tx = conn.BeginImmediate();
 
         var status = LoadMaintenanceStatus(conn, tx, s.CompanyId, maintenanceId)
             ?? throw new ForbiddenException("Bakım kaydı bulunamadı veya başka firmaya ait.");
@@ -131,8 +131,8 @@ public sealed class MaintenanceService
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE vehicle_maintenances SET is_cancelled=1, version=version+1, updated_at=$now WHERE id=$id;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", maintenanceId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", maintenanceId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", maintenanceId, AuditActions.Reverse, s.UserId,
@@ -155,7 +155,7 @@ JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
 JOIN vehicles v ON v.id = vm.vehicle_id
 WHERE vm.company_id = $c AND vm.is_cancelled = 0 AND vm.is_deleted = 0
 GROUP BY vm.vehicle_id, vm.maintenance_def_id;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$c", s.CompanyId);
 
         var list = new List<MaintenanceAlert>();
         using var r = cmd.ExecuteReader();
@@ -204,11 +204,11 @@ LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
 WHERE vm.company_id=$c AND vm.is_deleted=0
   AND ($vid IS NULL OR vm.vehicle_id=$vid)
 ORDER BY vm.created_at DESC LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$vid", (object?)vehicleId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$lim", limit);
-        decimal? D(SqliteDataReader r, int i) => r.IsDBNull(i) ? (decimal?)null : Money.Parse(r.GetString(i));
-        long? L(SqliteDataReader r, int i) => r.IsDBNull(i) ? (long?)null : r.GetInt64(i);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$vid", (object?)vehicleId ?? DBNull.Value);
+        cmd.AddWithValue("$lim", limit);
+        decimal? D(DbDataReader r, int i) => r.IsDBNull(i) ? (decimal?)null : Money.Parse(r.GetString(i));
+        long? L(DbDataReader r, int i) => r.IsDBNull(i) ? (long?)null : r.GetInt64(i);
         var list = new List<MaintenanceRow>();
         using var rr = cmd.ExecuteReader();
         while (rr.Read())
@@ -228,7 +228,7 @@ ORDER BY vm.created_at DESC LIMIT $lim;";
 SELECT m.code, m.name, mm.quantity FROM maintenance_materials mm
 JOIN materials m ON m.id = mm.material_id
 WHERE mm.maintenance_id=$mt ORDER BY m.code;";
-        cmd.Parameters.AddWithValue("$mt", maintenanceId);
+        cmd.AddWithValue("$mt", maintenanceId);
         var list = new List<MaintenanceMaterialRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new MaintenanceMaterialRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2))));
@@ -238,18 +238,18 @@ WHERE mm.maintenance_id=$mt ORDER BY m.code;";
     // ================= çekirdek =================
     private sealed record DefRow(decimal IntervalValue, string IntervalUnit);
 
-    private static DefRow? LoadDefinition(SqliteConnection conn, SqliteTransaction tx, string companyId, string defId)
+    private static DefRow? LoadDefinition(DbConnection conn, DbTransaction tx, string companyId, string defId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT interval_value, interval_unit FROM maintenance_definitions WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", defId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", defId);
+        cmd.AddWithValue("$c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new DefRow(Money.Parse(r.GetString(0)), r.GetString(1)) : null;
     }
 
-    private static void InsertMaintenance(SqliteConnection conn, SqliteTransaction tx, string companyId, string id,
+    private static void InsertMaintenance(DbConnection conn, DbTransaction tx, string companyId, string id,
         NewMaintenance dto, decimal? nextKm, decimal? nextHour, long? nextDate, string operationId, long now, string? opBranchId)
     {
         using var cmd = conn.CreateCommand();
@@ -259,27 +259,27 @@ INSERT INTO vehicle_maintenances(id, company_id, vehicle_id, maintenance_def_id,
     description, sub_definition_note, performed_km, performed_hour, performed_date,
     next_due_km, next_due_hour, next_due_date, operation_id, op_branch_id, is_cancelled, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$v,$d,$sd,$tech,$desc,$sdn,$pk,$ph,$pd,$nk,$nh,$nd,$op,$opb,0,$now,$now,1,0);";
-        cmd.Parameters.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$v", dto.VehicleId);
-        cmd.Parameters.AddWithValue("$d", dto.DefinitionId);
-        cmd.Parameters.AddWithValue("$sd", (object?)dto.SubDefinitionId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$tech", (object?)dto.TechnicianId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$sdn", dto.SubDefinitionId is null ? DBNull.Value : (object?)dto.SubDefinitionNote ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$pk", dto.PerformedKm is null ? DBNull.Value : Money.Serialize(dto.PerformedKm.Value));
-        cmd.Parameters.AddWithValue("$ph", dto.PerformedHour is null ? DBNull.Value : Money.Serialize(dto.PerformedHour.Value));
-        cmd.Parameters.AddWithValue("$pd", (object?)dto.PerformedDate ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$nk", nextKm is null ? DBNull.Value : Money.Serialize(nextKm.Value));
-        cmd.Parameters.AddWithValue("$nh", nextHour is null ? DBNull.Value : Money.Serialize(nextHour.Value));
-        cmd.Parameters.AddWithValue("$nd", (object?)nextDate ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$op", operationId);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$v", dto.VehicleId);
+        cmd.AddWithValue("$d", dto.DefinitionId);
+        cmd.AddWithValue("$sd", (object?)dto.SubDefinitionId ?? DBNull.Value);
+        cmd.AddWithValue("$tech", (object?)dto.TechnicianId ?? DBNull.Value);
+        cmd.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
+        cmd.AddWithValue("$sdn", dto.SubDefinitionId is null ? DBNull.Value : (object?)dto.SubDefinitionNote ?? DBNull.Value);
+        cmd.AddWithValue("$pk", dto.PerformedKm is null ? DBNull.Value : Money.Serialize(dto.PerformedKm.Value));
+        cmd.AddWithValue("$ph", dto.PerformedHour is null ? DBNull.Value : Money.Serialize(dto.PerformedHour.Value));
+        cmd.AddWithValue("$pd", (object?)dto.PerformedDate ?? DBNull.Value);
+        cmd.AddWithValue("$nk", nextKm is null ? DBNull.Value : Money.Serialize(nextKm.Value));
+        cmd.AddWithValue("$nh", nextHour is null ? DBNull.Value : Money.Serialize(nextHour.Value));
+        cmd.AddWithValue("$nd", (object?)nextDate ?? DBNull.Value);
+        cmd.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void ApplyDelta(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId,
+    private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         decimal signedQty, long now, bool allowNegative = false)
     {
         decimal current;
@@ -287,7 +287,7 @@ VALUES($id,$c,$v,$d,$sd,$tech,$desc,$sdn,$pk,$ph,$pd,$nk,$nh,$nd,$op,$opb,0,$now
         {
             read.Transaction = tx;
             read.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
-            read.Parameters.AddWithValue("$m", materialId);
+            read.AddWithValue("$m", materialId);
             current = Money.Parse(read.ExecuteScalar() as string);
         }
         var updated = current + signedQty;
@@ -298,14 +298,14 @@ VALUES($id,$c,$v,$d,$sd,$tech,$desc,$sdn,$pk,$ph,$pd,$nk,$nh,$nd,$op,$opb,0,$now
         cmd.CommandText = @"
 INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now)
 ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$q", Money.Serialize(updated));
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$q", Money.Serialize(updated));
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void InsertUsageMovement(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId,
+    private static void InsertUsageMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         string maintenanceId, decimal qty, decimal? price, string operationId, long now, bool reverse = false)
     {
         using var cmd = conn.CreateCommand();
@@ -314,35 +314,35 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, movement_type, direction, quantity,
     unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id)
 VALUES($id,$c,$m,NULL,$type,$dir,$q,$price,'TRY',NULL,$op,$note,$now,NULL,0,NULL);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$type", reverse ? "usage_reverse" : "usage");
-        cmd.Parameters.AddWithValue("$dir", reverse ? 1 : -1);
-        cmd.Parameters.AddWithValue("$q", Money.Serialize(qty));
-        cmd.Parameters.AddWithValue("$price", price is null ? DBNull.Value : Money.Serialize(price.Value));
-        cmd.Parameters.AddWithValue("$op", operationId);
-        cmd.Parameters.AddWithValue("$note", maintenanceId);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$type", reverse ? "usage_reverse" : "usage");
+        cmd.AddWithValue("$dir", reverse ? 1 : -1);
+        cmd.AddWithValue("$q", Money.Serialize(qty));
+        cmd.AddWithValue("$price", price is null ? DBNull.Value : Money.Serialize(price.Value));
+        cmd.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$note", maintenanceId);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void InsertMaintenanceMaterial(SqliteConnection conn, SqliteTransaction tx, string maintenanceId,
+    private static void InsertMaintenanceMaterial(DbConnection conn, DbTransaction tx, string maintenanceId,
         string materialId, decimal qty, decimal? price)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO maintenance_materials(id, maintenance_id, material_id, quantity, unit_price) VALUES($id,$mt,$m,$q,$p);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$mt", maintenanceId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$q", Money.Serialize(qty));
-        cmd.Parameters.AddWithValue("$p", price is null ? DBNull.Value : Money.Serialize(price.Value));
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$mt", maintenanceId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$q", Money.Serialize(qty));
+        cmd.AddWithValue("$p", price is null ? DBNull.Value : Money.Serialize(price.Value));
         cmd.ExecuteNonQuery();
     }
 
-    private void AdvanceMeterInTx(SqliteConnection conn, SqliteTransaction tx, string companyId, string vehicleId,
+    private void AdvanceMeterInTx(DbConnection conn, DbTransaction tx, string companyId, string vehicleId,
         string unit, decimal? performedKm, decimal? performedHour, long now)
     {
         var incoming = unit == "hour" ? performedHour : performedKm;
@@ -352,8 +352,8 @@ VALUES($id,$c,$m,NULL,$type,$dir,$q,$price,'TRY',NULL,$op,$note,$now,NULL,0,NULL
         {
             read.Transaction = tx;
             read.CommandText = "SELECT current_meter FROM vehicles WHERE id=$id AND company_id=$c;";
-            read.Parameters.AddWithValue("$id", vehicleId);
-            read.Parameters.AddWithValue("$c", companyId);
+            read.AddWithValue("$id", vehicleId);
+            read.AddWithValue("$c", companyId);
             current = Money.Parse(read.ExecuteScalar() as string);
         }
         if (!MeterRule.ShouldAdvance(current, incoming.Value)) return;
@@ -361,9 +361,9 @@ VALUES($id,$c,$m,NULL,$type,$dir,$q,$price,'TRY',NULL,$op,$note,$now,NULL,0,NULL
         {
             upd.Transaction = tx;
             upd.CommandText = "UPDATE vehicles SET current_meter=$m, version=version+1, updated_at=$now WHERE id=$id;";
-            upd.Parameters.AddWithValue("$m", Money.Serialize(incoming.Value));
-            upd.Parameters.AddWithValue("$now", now);
-            upd.Parameters.AddWithValue("$id", vehicleId);
+            upd.AddWithValue("$m", Money.Serialize(incoming.Value));
+            upd.AddWithValue("$now", now);
+            upd.AddWithValue("$id", vehicleId);
             upd.ExecuteNonQuery();
         }
         using var log = conn.CreateCommand();
@@ -371,75 +371,75 @@ VALUES($id,$c,$m,NULL,$type,$dir,$q,$price,'TRY',NULL,$op,$note,$now,NULL,0,NULL
         log.CommandText =
             "INSERT INTO vehicle_meter_logs(id, company_id, vehicle_id, old_value, new_value, source, created_at) " +
             "VALUES($id,$c,$v,$o,$n,'maintenance',$now);";
-        log.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        log.Parameters.AddWithValue("$c", companyId);
-        log.Parameters.AddWithValue("$v", vehicleId);
-        log.Parameters.AddWithValue("$o", Money.Serialize(current));
-        log.Parameters.AddWithValue("$n", Money.Serialize(incoming.Value));
-        log.Parameters.AddWithValue("$now", now);
+        log.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        log.AddWithValue("$c", companyId);
+        log.AddWithValue("$v", vehicleId);
+        log.AddWithValue("$o", Money.Serialize(current));
+        log.AddWithValue("$n", Money.Serialize(incoming.Value));
+        log.AddWithValue("$now", now);
         log.ExecuteNonQuery();
     }
 
-    private static decimal ReadMaterialPrice(SqliteConnection conn, SqliteTransaction tx, string materialId)
+    private static decimal ReadMaterialPrice(DbConnection conn, DbTransaction tx, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT unit_price FROM materials WHERE id=$m;";
-        cmd.Parameters.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$m", materialId);
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
-    private static string? FindByOperation(SqliteConnection conn, SqliteTransaction tx, string operationId)
+    private static string? FindByOperation(DbConnection conn, DbTransaction tx, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT id FROM vehicle_maintenances WHERE operation_id=$op;";
-        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$op", operationId);
         return cmd.ExecuteScalar() as string;
     }
 
-    private static bool? LoadMaintenanceStatus(SqliteConnection conn, SqliteTransaction tx, string companyId, string id)
+    private static bool? LoadMaintenanceStatus(DbConnection conn, DbTransaction tx, string companyId, string id)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT is_cancelled FROM vehicle_maintenances WHERE id=$id AND company_id=$c;";
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", companyId);
         var v = cmd.ExecuteScalar();
         return v is null ? null : Convert.ToInt64(v) == 1;
     }
 
     private static IEnumerable<(string MaterialId, decimal Qty, decimal? Price)> LoadMaintenanceMaterials(
-        SqliteConnection conn, SqliteTransaction tx, string maintenanceId)
+        DbConnection conn, DbTransaction tx, string maintenanceId)
     {
         var list = new List<(string, decimal, decimal?)>();
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT material_id, quantity, unit_price FROM maintenance_materials WHERE maintenance_id=$mt;";
-        cmd.Parameters.AddWithValue("$mt", maintenanceId);
+        cmd.AddWithValue("$mt", maintenanceId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add((r.GetString(0), Money.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Money.Parse(r.GetString(2))));
         return list;
     }
 
-    private static void EnsureVehicleOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string vehicleId)
+    private static void EnsureVehicleOwned(DbConnection conn, DbTransaction tx, string companyId, string vehicleId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", vehicleId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", vehicleId);
+        cmd.AddWithValue("$c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
     }
 
-    private static void EnsureMaterialOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId)
+    private static void EnsureMaterialOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", materialId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", materialId);
+        cmd.AddWithValue("$c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
     }
 }

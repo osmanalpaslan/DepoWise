@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Materials;
 
@@ -134,7 +134,7 @@ public sealed class StockService
 
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false);
+        using var tx = conn.BeginImmediate();
 
         var doc = LoadDocument(conn, tx, s.CompanyId, documentId)
             ?? throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
@@ -176,9 +176,9 @@ LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 WHERE sm.company_id = $c
 ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$lim", limit);
-        string? S(SqliteDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$lim", limit);
+        string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
         var list = new List<StockMovementRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -194,7 +194,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
 
     private StockDocResult RunDocument(SessionContext s, string docType, string operationId,
         string? toBranch, string? fromBranch, string? primaryBranch, string? personnelId, string? vehicleId,
-        string? note, long? docDate, Action<SqliteConnection, SqliteTransaction, string> body, string? groupId = null,
+        string? note, long? docDate, Action<DbConnection, DbTransaction, string> body, string? groupId = null,
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
@@ -202,7 +202,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
         var date = docDate ?? now;
 
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false); // IMMEDIATE → eş zamanlı çıkış serialize
+        using var tx = conn.BeginImmediate(); // IMMEDIATE → eş zamanlı çıkış serialize
 
         // Idempotency: bu operationId daha önce işlendiyse mevcut belgeyi döndür (çift yazma yok)
         var existing = FindDocumentByOperation(conn, tx, operationId);
@@ -221,7 +221,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
         return new StockDocResult(docId, docNo);
     }
 
-    private void ApplyLine(SqliteConnection conn, SqliteTransaction tx, SessionContext s, string docId,
+    private void ApplyLine(DbConnection conn, DbTransaction tx, SessionContext s, string docId,
         StockLine line, int direction, string operationId, string movementType, string? branchId, string? branchFromId, string? groupId = null)
     {
         if (line.Quantity <= 0) throw new ArgumentException("Miktar pozitif olmalı.");
@@ -232,7 +232,7 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
     }
 
     /// <summary>Bakiyeye işaretli miktarı uygular; düşüşte negatif olursa fail-closed.</summary>
-    private static void ApplyDelta(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId,
+    private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         decimal signedQty, long now, bool allowNegative)
     {
         var current = ReadBalance(conn, tx, materialId);
@@ -244,19 +244,19 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
         cmd.CommandText = @"
 INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now)
 ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$q", Money.Serialize(updated));
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$q", Money.Serialize(updated));
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static decimal ReadBalance(SqliteConnection conn, SqliteTransaction? tx, string materialId)
+    private static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$m", materialId);
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
@@ -269,14 +269,14 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
     public void RecomputeBalances(string companyId)
     {
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false);
+        using var tx = conn.BeginImmediate();
 
         var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
         using (var read = conn.CreateCommand())
         {
             read.Transaction = tx;
             read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=$c;";
-            read.Parameters.AddWithValue("$c", companyId);
+            read.AddWithValue("$c", companyId);
             using var r = read.ExecuteReader();
             while (r.Read())
             {
@@ -295,16 +295,16 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
             up.Transaction = tx;
             up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now) " +
                 "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-            up.Parameters.AddWithValue("$c", companyId);
-            up.Parameters.AddWithValue("$m", mat);
-            up.Parameters.AddWithValue("$q", Money.Serialize(total));
-            up.Parameters.AddWithValue("$now", now);
+            up.AddWithValue("$c", companyId);
+            up.AddWithValue("$m", mat);
+            up.AddWithValue("$q", Money.Serialize(total));
+            up.AddWithValue("$now", now);
             up.ExecuteNonQuery();
         }
         tx.Commit();
     }
 
-    private static string InsertMovement(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId,
+    private static string InsertMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         string documentId, string movementType, int direction, decimal quantity, decimal? unitPrice, string? currency,
         decimal? fxRate, string operationId, string? note, long now, string? branchId, string? branchFromId, string? groupId, string? reversesId,
         string? opBranchId = null)
@@ -316,28 +316,28 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, branch_from_id, movement_type, direction,
     quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id, op_branch_id)
 VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev,$opb);";
-        cmd.Parameters.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$bf", (object?)branchFromId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$type", movementType);
-        cmd.Parameters.AddWithValue("$dir", direction);
-        cmd.Parameters.AddWithValue("$q", Money.Serialize(quantity));
-        cmd.Parameters.AddWithValue("$price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
-        cmd.Parameters.AddWithValue("$cur", (object?)currency ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));
-        cmd.Parameters.AddWithValue("$op", operationId);
-        cmd.Parameters.AddWithValue("$note", (object?)note ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$now", now);
-        cmd.Parameters.AddWithValue("$doc", documentId);
-        cmd.Parameters.AddWithValue("$rev", (object?)reversesId ?? DBNull.Value);
+        cmd.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
+        cmd.AddWithValue("$bf", (object?)branchFromId ?? DBNull.Value);
+        cmd.AddWithValue("$type", movementType);
+        cmd.AddWithValue("$dir", direction);
+        cmd.AddWithValue("$q", Money.Serialize(quantity));
+        cmd.AddWithValue("$price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
+        cmd.AddWithValue("$cur", (object?)currency ?? DBNull.Value);
+        cmd.AddWithValue("$fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));
+        cmd.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$note", (object?)note ?? DBNull.Value);
+        cmd.AddWithValue("$now", now);
+        cmd.AddWithValue("$doc", documentId);
+        cmd.AddWithValue("$rev", (object?)reversesId ?? DBNull.Value);
         cmd.ExecuteNonQuery();
         return id;
     }
 
-    private static void InsertDocument(SqliteConnection conn, SqliteTransaction tx, string id, string companyId,
+    private static void InsertDocument(DbConnection conn, DbTransaction tx, string id, string companyId,
         string docType, string docNo, long docDate, string? fromBranch, string? toBranch, string? personnelId,
         string? vehicleId, string? note, string? groupId, long now,
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
@@ -348,25 +348,25 @@ VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev
 INSERT INTO stock_documents(id, company_id, doc_type, doc_no, doc_date, from_branch_id, to_branch_id,
     personnel_id, vehicle_id, note, status, group_id, invoice_no, order_slip_no, credit_slip_no, created_at, version, is_deleted)
 VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$inv,$ord,$crd,$now,1,0);";
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$type", docType);
-        cmd.Parameters.AddWithValue("$no", docNo);
-        cmd.Parameters.AddWithValue("$date", docDate);
-        cmd.Parameters.AddWithValue("$from", (object?)fromBranch ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$to", (object?)toBranch ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$pers", (object?)personnelId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$veh", (object?)vehicleId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$note", (object?)note ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$grp", (object?)groupId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$inv", (object?)invoiceNo ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$ord", (object?)orderSlipNo ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$crd", (object?)creditSlipNo ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$type", docType);
+        cmd.AddWithValue("$no", docNo);
+        cmd.AddWithValue("$date", docDate);
+        cmd.AddWithValue("$from", (object?)fromBranch ?? DBNull.Value);
+        cmd.AddWithValue("$to", (object?)toBranch ?? DBNull.Value);
+        cmd.AddWithValue("$pers", (object?)personnelId ?? DBNull.Value);
+        cmd.AddWithValue("$veh", (object?)vehicleId ?? DBNull.Value);
+        cmd.AddWithValue("$note", (object?)note ?? DBNull.Value);
+        cmd.AddWithValue("$grp", (object?)groupId ?? DBNull.Value);
+        cmd.AddWithValue("$inv", (object?)invoiceNo ?? DBNull.Value);
+        cmd.AddWithValue("$ord", (object?)orderSlipNo ?? DBNull.Value);
+        cmd.AddWithValue("$crd", (object?)creditSlipNo ?? DBNull.Value);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void InsertCountLine(SqliteConnection conn, SqliteTransaction tx, string docId, string materialId,
+    private static void InsertCountLine(DbConnection conn, DbTransaction tx, string docId, string materialId,
         decimal system, decimal counted, decimal diff, string reason)
     {
         using var cmd = conn.CreateCommand();
@@ -374,17 +374,17 @@ VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$inv,$ord
         cmd.CommandText = @"
 INSERT INTO stock_count_lines(id, document_id, material_id, system_qty, counted_qty, diff_qty, reason)
 VALUES($id,$doc,$m,$s,$c,$d,$r);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$doc", docId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$s", Money.Serialize(system));
-        cmd.Parameters.AddWithValue("$c", Money.Serialize(counted));
-        cmd.Parameters.AddWithValue("$d", Money.Serialize(diff));
-        cmd.Parameters.AddWithValue("$r", reason);
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$doc", docId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$s", Money.Serialize(system));
+        cmd.AddWithValue("$c", Money.Serialize(counted));
+        cmd.AddWithValue("$d", Money.Serialize(diff));
+        cmd.AddWithValue("$r", reason);
         cmd.ExecuteNonQuery();
     }
 
-    private static string NextDocNo(SqliteConnection conn, SqliteTransaction tx, string companyId, string docType, long docDateMs)
+    private static string NextDocNo(DbConnection conn, DbTransaction tx, string companyId, string docType, long docDateMs)
     {
         var year = DateTimeOffset.FromUnixTimeMilliseconds(docDateMs).Year;
         var prefix = docType switch { "in" => "GIR", "out" => "CIK", "transfer" => "TRF", "count" => "SAY", _ => "DOC" };
@@ -394,22 +394,22 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
         cmd.CommandText =
             "SELECT COALESCE(MAX(CAST(substr(doc_no, length($p)+1) AS INTEGER)),0) FROM stock_documents " +
             "WHERE company_id=$c AND doc_type=$t AND doc_no LIKE $like;";
-        cmd.Parameters.AddWithValue("$p", $"{prefix}-{year}-");
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$t", docType);
-        cmd.Parameters.AddWithValue("$like", like);
+        cmd.AddWithValue("$p", $"{prefix}-{year}-");
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$t", docType);
+        cmd.AddWithValue("$like", like);
         var next = Convert.ToInt64(cmd.ExecuteScalar()) + 1;
         return $"{prefix}-{year}-{next:0000}";
     }
 
-    private static StockDocResult? FindDocumentByOperation(SqliteConnection conn, SqliteTransaction tx, string baseOperationId)
+    private static StockDocResult? FindDocumentByOperation(DbConnection conn, DbTransaction tx, string baseOperationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT d.id, d.doc_no FROM stock_movements mv JOIN stock_documents d ON d.id = mv.document_id " +
             "WHERE mv.operation_id LIKE $op LIMIT 1;";
-        cmd.Parameters.AddWithValue("$op", baseOperationId + ":%");
+        cmd.AddWithValue("$op", baseOperationId + ":%");
         using var r = cmd.ExecuteReader();
         return r.Read() ? new StockDocResult(r.GetString(0), r.GetString(1)) : null;
     }
@@ -417,7 +417,7 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
     private sealed record MovementRow(string Id, string MaterialId, int Direction, decimal Quantity,
         string OperationId, string? BranchId, string? BranchFromId, string? GroupId);
 
-    private static IReadOnlyList<MovementRow> ActiveMovements(SqliteConnection conn, SqliteTransaction tx, string documentId)
+    private static IReadOnlyList<MovementRow> ActiveMovements(DbConnection conn, DbTransaction tx, string documentId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -425,7 +425,7 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
             "SELECT id, material_id, direction, quantity, operation_id, branch_id, branch_from_id, " +
             "(SELECT group_id FROM stock_documents d WHERE d.id=$doc) FROM stock_movements " +
             "WHERE document_id=$doc AND is_reversed=0;";
-        cmd.Parameters.AddWithValue("$doc", documentId);
+        cmd.AddWithValue("$doc", documentId);
         var list = new List<MovementRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -437,43 +437,43 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
 
     private sealed record DocRow(string Id, string Status);
 
-    private static DocRow? LoadDocument(SqliteConnection conn, SqliteTransaction tx, string companyId, string documentId)
+    private static DocRow? LoadDocument(DbConnection conn, DbTransaction tx, string companyId, string documentId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT id, status FROM stock_documents WHERE id=$id AND company_id=$c;";
-        cmd.Parameters.AddWithValue("$id", documentId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", documentId);
+        cmd.AddWithValue("$c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new DocRow(r.GetString(0), r.GetString(1)) : null;
     }
 
-    private static void MarkReversed(SqliteConnection conn, SqliteTransaction tx, string movementId)
+    private static void MarkReversed(DbConnection conn, DbTransaction tx, string movementId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "UPDATE stock_movements SET is_reversed=1 WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", movementId);
+        cmd.AddWithValue("$id", movementId);
         cmd.ExecuteNonQuery();
     }
 
-    private static void SetDocumentStatus(SqliteConnection conn, SqliteTransaction tx, string documentId, string status, long now)
+    private static void SetDocumentStatus(DbConnection conn, DbTransaction tx, string documentId, string status, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "UPDATE stock_documents SET status=$s, version=version+1 WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$s", status);
-        cmd.Parameters.AddWithValue("$id", documentId);
+        cmd.AddWithValue("$s", status);
+        cmd.AddWithValue("$id", documentId);
         cmd.ExecuteNonQuery();
     }
 
-    private static void EnsureMaterialOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId)
+    private static void EnsureMaterialOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", materialId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", materialId);
+        cmd.AddWithValue("$c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
     }

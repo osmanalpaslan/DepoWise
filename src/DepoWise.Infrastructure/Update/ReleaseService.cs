@@ -2,7 +2,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Application.Update;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Update;
 
@@ -41,15 +41,15 @@ public sealed class ReleaseService
             cmd.CommandText = @"
 INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, published_at, created_at, is_deleted)
 VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$url,$now,$now,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$v", dto.Version);
-            cmd.Parameters.AddWithValue("$cs", dto.ChecksumSha256.ToUpperInvariant());
-            cmd.Parameters.AddWithValue("$sz", dto.SizeBytes);
-            cmd.Parameters.AddWithValue("$min", dto.MinSupportedVersion);
-            cmd.Parameters.AddWithValue("$notes", (object?)dto.ReleaseNotes ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$signed", dto.Signed ? 1 : 0);
-            cmd.Parameters.AddWithValue("$url", (object?)dto.DownloadUrl ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$v", dto.Version);
+            cmd.AddWithValue("$cs", dto.ChecksumSha256.ToUpperInvariant());
+            cmd.AddWithValue("$sz", dto.SizeBytes);
+            cmd.AddWithValue("$min", dto.MinSupportedVersion);
+            cmd.AddWithValue("$notes", (object?)dto.ReleaseNotes ?? DBNull.Value);
+            cmd.AddWithValue("$signed", dto.Signed ? 1 : 0);
+            cmd.AddWithValue("$url", (object?)dto.DownloadUrl ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry("__global__", "app_release", id, AuditActions.Create, s.UserId,

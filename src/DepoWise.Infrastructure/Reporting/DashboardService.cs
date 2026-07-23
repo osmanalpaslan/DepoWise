@@ -3,7 +3,7 @@ using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Application.Maintenance;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Reporting;
 
@@ -89,12 +89,12 @@ public sealed class DashboardService
         return new DashboardSummary(vehicles, materials, lowStock, pending, personnel, alerts);
     }
 
-    private static Dictionary<string, string> LoadAlertReads(SqliteConnection conn, string userId)
+    private static Dictionary<string, string> LoadAlertReads(DbConnection conn, string userId)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT alert_key, signature FROM alert_reads WHERE user_id=$u;";
-        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.AddWithValue("$u", userId);
         using var r = cmd.ExecuteReader();
         while (r.Read()) map[r.GetString(0)] = r.GetString(1);
         return map;
@@ -111,24 +111,24 @@ public sealed class DashboardService
 INSERT INTO alert_reads(id, company_id, user_id, alert_key, signature, created_at)
 VALUES($id,$c,$u,$k,$sig,$now)
 ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=$sig, created_at=$now;";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$u", s.UserId);
-        cmd.Parameters.AddWithValue("$k", alertKey);
-        cmd.Parameters.AddWithValue("$sig", signature ?? "");
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$u", s.UserId);
+        cmd.AddWithValue("$k", alertKey);
+        cmd.AddWithValue("$sig", signature ?? "");
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static int Count(SqliteConnection conn, string table, string companyId)
+    private static int Count(DbConnection conn, string table, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    private static IReadOnlyList<(string Id, string Name)> LowStockList(SqliteConnection conn, string companyId)
+    private static IReadOnlyList<(string Id, string Name)> LowStockList(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -137,7 +137,7 @@ LEFT JOIN stock_balances b ON b.material_id = m.id
 WHERE m.company_id=$c AND m.is_deleted=0
   AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0
 ORDER BY m.name LIMIT 20;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         var list = new List<(string, string)>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add((r.GetString(0), r.GetString(1)));
@@ -145,20 +145,20 @@ ORDER BY m.name LIMIT 20;";
     }
 
     /// <summary>(toplam alınan, kalan) — kalan = alınan − dağıtılan.</summary>
-    private static (double Received, double Remaining) FuelStatus(SqliteConnection conn, string companyId)
+    private static (double Received, double Remaining) FuelStatus(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0),0),
        COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_distributions WHERE company_id=$c AND is_deleted=0),0);";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return (0, 0);
         var received = r.GetDouble(0);
         return (received, received - r.GetDouble(1));
     }
 
-    private static int LowStockCount(SqliteConnection conn, string companyId)
+    private static int LowStockCount(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -166,15 +166,15 @@ SELECT COUNT(*) FROM materials m
 LEFT JOIN stock_balances b ON b.material_id = m.id
 WHERE m.company_id=$c AND m.is_deleted=0
 AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    private static int PendingRequests(SqliteConnection conn, string companyId)
+    private static int PendingRequests(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM material_requests WHERE company_id=$c AND status='pending' AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 }

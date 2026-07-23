@@ -1,5 +1,5 @@
 using DepoWise.Application.Security;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -14,22 +14,22 @@ public sealed class Migration036_RestrictedSuperAdmin : IMigration
     public int Version => 36;
     public string Name => "restricted_super_admin_role";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         using var check = conn.CreateCommand();
         check.Transaction = tx;
         check.CommandText = "SELECT id FROM roles WHERE role_key=$k AND is_deleted=0;";
-        check.Parameters.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
+        check.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
         if (check.ExecuteScalar() is not null) return;
 
         using var ins = conn.CreateCommand();
         ins.Transaction = tx;
         ins.CommandText = @"INSERT INTO roles(id, company_id, role_key, name, is_system, created_at, updated_at, version, is_deleted)
 VALUES($id, NULL, $k, 'Kısıtlı Süper Admin', 1, $now, $now, 1, 0);";
-        ins.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        ins.Parameters.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
-        ins.Parameters.AddWithValue("$now", now);
+        ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        ins.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
+        ins.AddWithValue("$now", now);
         ins.ExecuteNonQuery();
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
+using DepoWise.Infrastructure.Database;
 
 namespace DepoWise.Desktop;
 
@@ -91,15 +92,15 @@ public static class LocalPurgeService
         return rows;
     }
 
-    private static bool TableExistsIn(SqliteConnection conn, string table)
+    private static bool TableExistsIn(DbConnection conn, string table)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
-        cmd.Parameters.AddWithValue("$n", table);
+        cmd.AddWithValue("$n", table);
         return cmd.ExecuteScalar() is not null;
     }
 
-    private static bool HasColumn(SqliteConnection conn, string table, string column)
+    private static bool HasColumn(DbConnection conn, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"PRAGMA table_info(\"{table}\");";
@@ -109,12 +110,12 @@ public static class LocalPurgeService
         return false;
     }
 
-    private static int Exec(SqliteConnection conn, SqliteTransaction tx, string sql, string companyId)
+    private static int Exec(DbConnection conn, DbTransaction tx, string sql, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return cmd.ExecuteNonQuery();
     }
 }

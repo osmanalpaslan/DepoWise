@@ -144,7 +144,7 @@ public sealed class ServerServices
 
         using var cmd2 = conn.CreateCommand();
         cmd2.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$k;";
-        cmd2.Parameters.AddWithValue("$k", RoleKeys.SuperAdmin);
+        cmd2.AddWithValue("$k", RoleKeys.SuperAdmin);
         if (Convert.ToInt64(cmd2.ExecuteScalar()) == 0)
         {
             var pw = SeedPassword("DEPOWISE_SEED_SUPERADMIN_PASSWORD", "superadmin");
@@ -158,7 +158,7 @@ public sealed class ServerServices
         heal.CommandText =
             "UPDATE users SET is_active=1 WHERE is_deleted=0 AND is_active=0 " +
             "AND id IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$k);";
-        heal.Parameters.AddWithValue("$k", RoleKeys.SuperAdmin);
+        heal.AddWithValue("$k", RoleKeys.SuperAdmin);
         var healed = heal.ExecuteNonQuery();
         if (healed > 0) Console.WriteLine($"[DepoWise] Self-heal: {healed} pasif süper admin yeniden aktifleştirildi.");
     }

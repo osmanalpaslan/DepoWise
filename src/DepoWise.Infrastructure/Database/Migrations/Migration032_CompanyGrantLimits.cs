@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -13,7 +13,7 @@ public sealed class Migration032_CompanyGrantLimits : IMigration
     public int Version => 32;
     public string Name => "company_grant_limits";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

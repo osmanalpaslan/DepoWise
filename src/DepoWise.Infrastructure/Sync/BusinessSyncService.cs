@@ -2,7 +2,7 @@ using System.Text.Json;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Sync;
 
@@ -122,8 +122,8 @@ public sealed class BusinessSyncService
             if (hasCompany) where.Add("company_id=$c");
             if (sinceVersion > 0 && stamp is not null) where.Add($"{stamp} > $since");
             cmd.CommandText = $"SELECT * FROM {table}" + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "") + ";";
-            if (hasCompany) cmd.Parameters.AddWithValue("$c", companyId);
-            if (sinceVersion > 0 && stamp is not null) cmd.Parameters.AddWithValue("$since", sinceVersion);
+            if (hasCompany) cmd.AddWithValue("$c", companyId);
+            if (sinceVersion > 0 && stamp is not null) cmd.AddWithValue("$since", sinceVersion);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -156,7 +156,7 @@ public sealed class BusinessSyncService
             cmd.CommandText = hasCompany
                 ? $"SELECT MAX({stamp}) FROM {table} WHERE company_id=$c;"
                 : $"SELECT MAX({stamp}) FROM {table};";
-            if (hasCompany) cmd.Parameters.AddWithValue("$c", companyId);
+            if (hasCompany) cmd.AddWithValue("$c", companyId);
             var v = cmd.ExecuteScalar();
             if (v is not null and not DBNull) { var l = Convert.ToInt64(v); if (l > max) max = l; }
         }
@@ -200,7 +200,7 @@ public sealed class BusinessSyncService
             "SELECT id, entity_type, entity_id, winner, admin_name, server_updated_at, device_updated_at, personnel_seen, created_at " +
             "FROM data_conflicts WHERE company_id=$c " + (onlyOpen ? "AND status='open' " : "") +
             "ORDER BY created_at DESC LIMIT 200;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         var list = new List<ConflictRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -219,8 +219,8 @@ public sealed class BusinessSyncService
             "FROM data_conflicts WHERE company_id=$c AND status='open' AND personnel_seen=0 " +
             (branchId is null ? "" : "AND (branch_id=$b OR branch_id IS NULL) ") +
             "ORDER BY created_at DESC LIMIT 100;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        if (branchId is not null) cmd.Parameters.AddWithValue("$b", branchId);
+        cmd.AddWithValue("$c", companyId);
+        if (branchId is not null) cmd.AddWithValue("$b", branchId);
         var list = new List<ConflictRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -237,9 +237,9 @@ public sealed class BusinessSyncService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE data_conflicts SET personnel_seen=1, updated_at=$n WHERE company_id=$c AND status='open' AND personnel_seen=0 " +
             (branchId is null ? "" : "AND (branch_id=$b OR branch_id IS NULL)") + ";";
-        cmd.Parameters.AddWithValue("$n", now);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        if (branchId is not null) cmd.Parameters.AddWithValue("$b", branchId);
+        cmd.AddWithValue("$n", now);
+        cmd.AddWithValue("$c", companyId);
+        if (branchId is not null) cmd.AddWithValue("$b", branchId);
         return cmd.ExecuteNonQuery();
     }
 
@@ -250,9 +250,9 @@ public sealed class BusinessSyncService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE data_conflicts SET status='resolved', updated_at=$n WHERE company_id=$c AND id=$id;";
-        cmd.Parameters.AddWithValue("$n", now);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$id", conflictId);
+        cmd.AddWithValue("$n", now);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", conflictId);
         cmd.ExecuteNonQuery();
     }
 
@@ -383,30 +383,30 @@ public sealed class BusinessSyncService
         return new ApplyResult(upserted, skipped, errors);
     }
 
-    private static (string? DeviceId, string? BranchId, long LastPush) ResolveDevice(SqliteConnection conn, string companyId, string? machineId)
+    private static (string? DeviceId, string? BranchId, long LastPush) ResolveDevice(DbConnection conn, string companyId, string? machineId)
     {
         if (string.IsNullOrWhiteSpace(machineId)) return (null, null, 0);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, branch_id, COALESCE(last_business_push_at,0) FROM sync_devices WHERE company_id=$c AND device_name=$n LIMIT 1;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$n", machineId);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$n", machineId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return (null, null, 0);
         return (r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1), r.GetInt64(2));
     }
 
-    private static void SetLastPush(SqliteConnection conn, string deviceId, long now)
+    private static void SetLastPush(DbConnection conn, string deviceId, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE sync_devices SET last_business_push_at=$n WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$n", now);
-        cmd.Parameters.AddWithValue("$id", deviceId);
+        cmd.AddWithValue("$n", now);
+        cmd.AddWithValue("$id", deviceId);
         cmd.ExecuteNonQuery();
     }
 
     /// <summary>Sunucudaki kayıt VE gelen kayıt SON push'tan sonra değişmiş + içerik farklıysa → çakışma.
     /// LWW kazananı (device/admin) ve admin kimliği (audit_logs'tan) ile data_conflicts'e yazılır (open, tek kayıt).</summary>
-    private void DetectConflict(SqliteConnection conn, string table, string companyId, string? deviceBranchId,
+    private void DetectConflict(DbConnection conn, string table, string companyId, string? deviceBranchId,
         long lastPush, JsonElement row, long now)
     {
         if (!row.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String) return;
@@ -418,7 +418,7 @@ public sealed class BusinessSyncService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = $"SELECT updated_at FROM {table} WHERE id=$id;";
-            cmd.Parameters.AddWithValue("$id", id);
+            cmd.AddWithValue("$id", id);
             var v = cmd.ExecuteScalar();
             if (v is null || v is DBNull) return; // sunucuda yok → yeni kayıt, çakışma değil
             serverUpdated = Convert.ToInt64(v);
@@ -442,29 +442,29 @@ ON CONFLICT(company_id, entity_id) WHERE status='open' DO UPDATE SET
     winner=excluded.winner, admin_user_id=excluded.admin_user_id, admin_name=excluded.admin_name,
     server_updated_at=excluded.server_updated_at, device_updated_at=excluded.device_updated_at,
     personnel_seen=0, updated_at=excluded.updated_at;";
-        up.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        up.Parameters.AddWithValue("$c", companyId);
-        up.Parameters.AddWithValue("$b", (object?)deviceBranchId ?? DBNull.Value);
-        up.Parameters.AddWithValue("$et", table);
-        up.Parameters.AddWithValue("$eid", id);
-        up.Parameters.AddWithValue("$w", winner);
-        up.Parameters.AddWithValue("$au", (object?)adminUserId ?? DBNull.Value);
-        up.Parameters.AddWithValue("$an", (object?)adminName ?? DBNull.Value);
-        up.Parameters.AddWithValue("$su", serverUpdated);
-        up.Parameters.AddWithValue("$du", incomingUpdated);
-        up.Parameters.AddWithValue("$now", now);
+        up.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        up.AddWithValue("$c", companyId);
+        up.AddWithValue("$b", (object?)deviceBranchId ?? DBNull.Value);
+        up.AddWithValue("$et", table);
+        up.AddWithValue("$eid", id);
+        up.AddWithValue("$w", winner);
+        up.AddWithValue("$au", (object?)adminUserId ?? DBNull.Value);
+        up.AddWithValue("$an", (object?)adminName ?? DBNull.Value);
+        up.AddWithValue("$su", serverUpdated);
+        up.AddWithValue("$du", incomingUpdated);
+        up.AddWithValue("$now", now);
         up.ExecuteNonQuery();
     }
 
-    private static (string? UserId, string? Name) LastServerEditor(SqliteConnection conn, string companyId, string entityId)
+    private static (string? UserId, string? Name) LastServerEditor(DbConnection conn, string companyId, string entityId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT a.user_id, u.full_name, u.username FROM audit_logs a
 LEFT JOIN users u ON u.id = a.user_id
 WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$e", entityId);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$e", entityId);
         using var r = cmd.ExecuteReader();
         if (!r.Read() || r.IsDBNull(0)) return (null, null);
         var uid = r.GetString(0);
@@ -482,7 +482,7 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
         return 0;
     }
 
-    private bool UpsertRow(SqliteConnection conn, string table, HashSet<string> tableCols, List<string> pk, bool hasCompany,
+    private bool UpsertRow(DbConnection conn, string table, HashSet<string> tableCols, List<string> pk, bool hasCompany,
         bool hasUpdated, string companyId, JsonElement row, long now,
         bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
     {
@@ -527,12 +527,12 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
             ? $"INSERT INTO {table} ({insertCols}) VALUES ({insertVals}) ON CONFLICT({conflictTarget}) DO NOTHING;"
             : $"INSERT INTO {table} ({insertCols}) VALUES ({insertVals}) ON CONFLICT({conflictTarget}) DO UPDATE SET {updateSet}{whereLww};";
         foreach (var kv in values)
-            cmd.Parameters.AddWithValue("$" + kv.Key, kv.Value ?? DBNull.Value);
+            cmd.AddWithValue("$" + kv.Key, kv.Value ?? DBNull.Value);
         cmd.ExecuteNonQuery();
         return true;
     }
 
-    private static List<string> PrimaryKey(SqliteConnection conn, string table)
+    private static List<string> PrimaryKey(DbConnection conn, string table)
     {
         var pk = new List<(int Order, string Name)>();
         using var cmd = conn.CreateCommand();
@@ -580,15 +580,15 @@ WHERE a.company_id=$c AND a.entity_id=$e ORDER BY a.created_at DESC LIMIT 1;";
         _ => v.ToString(),
     };
 
-    private static bool TableExists(SqliteConnection conn, string table)
+    private static bool TableExists(DbConnection conn, string table)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
-        cmd.Parameters.AddWithValue("$n", table);
+        cmd.AddWithValue("$n", table);
         return cmd.ExecuteScalar() is not null;
     }
 
-    private static HashSet<string> ColumnNames(SqliteConnection conn, string table)
+    private static HashSet<string> ColumnNames(DbConnection conn, string table)
     {
         var set = new HashSet<string>(StringComparer.Ordinal);
         using var cmd = conn.CreateCommand();

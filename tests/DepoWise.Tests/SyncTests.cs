@@ -199,9 +199,9 @@ public class SyncTests : IDisposable
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         cmd.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($i,$n,$t,$t,1,0) " +
                           "ON CONFLICT(id) DO UPDATE SET name=$n, is_deleted=0, updated_at=$t;";
-        cmd.Parameters.AddWithValue("$i", id);
-        cmd.Parameters.AddWithValue("$n", name);
-        cmd.Parameters.AddWithValue("$t", now);
+        cmd.AddWithValue("$i", id);
+        cmd.AddWithValue("$n", name);
+        cmd.AddWithValue("$t", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -213,7 +213,7 @@ public class SyncTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        foreach (var (k, v) in ps) cmd.Parameters.AddWithValue(k, v);
+        foreach (var (k, v) in ps) cmd.AddWithValue(k, v);
         cmd.ExecuteNonQuery();
     }
 
@@ -382,8 +382,8 @@ public class SyncTests : IDisposable
         cmd.CommandText =
             "INSERT INTO server_changes(company_id, operation_id, entity_type, entity_id, payload_json, valid, created_at) " +
             "VALUES($c,'broken','material','mx','{}',0,$now);";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
 

@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Theming;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Settings;
 
@@ -47,11 +47,11 @@ INSERT INTO app_settings(id, company_id, setting_key, setting_value, updated_at)
 VALUES($id, $c, $k, $v, $now)
 ON CONFLICT(IFNULL(company_id,''), setting_key)
 DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at;";
-            cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            cmd.Parameters.AddWithValue("$c", (object?)companyId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$k", key);
-            cmd.Parameters.AddWithValue("$v", (object?)value ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            cmd.AddWithValue("$c", (object?)companyId ?? DBNull.Value);
+            cmd.AddWithValue("$k", key);
+            cmd.AddWithValue("$v", (object?)value ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
 
@@ -94,32 +94,32 @@ DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.upda
             Get(companyId, SettingKeys.BrandCopyright) ?? d.Copyright);
     }
 
-    private static string? ReadOne(SqliteConnection conn, string companyId, string key)
+    private static string? ReadOne(DbConnection conn, string companyId, string key)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id = $c AND setting_key = $k;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$k", key);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$k", key);
         return cmd.ExecuteScalar() as string;
     }
 
-    private static string? ReadGlobal(SqliteConnection conn, string key)
+    private static string? ReadGlobal(DbConnection conn, string key)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key = $k;";
-        cmd.Parameters.AddWithValue("$k", key);
+        cmd.AddWithValue("$k", key);
         return cmd.ExecuteScalar() as string;
     }
 
-    private static string? ReadRaw(SqliteConnection conn, SqliteTransaction tx, string? companyId, string key)
+    private static string? ReadRaw(DbConnection conn, DbTransaction tx, string? companyId, string key)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = companyId is null
             ? "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key = $k;"
             : "SELECT setting_value FROM app_settings WHERE company_id = $c AND setting_key = $k;";
-        cmd.Parameters.AddWithValue("$k", key);
-        if (companyId is not null) cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$k", key);
+        if (companyId is not null) cmd.AddWithValue("$c", companyId);
         return cmd.ExecuteScalar() as string;
     }
 }

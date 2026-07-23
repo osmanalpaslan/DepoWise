@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Operations;
 
@@ -48,7 +48,7 @@ public sealed class FuelService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false);
+        using var tx = conn.BeginImmediate();
         if (OperationExists(conn, tx, "fuel_depot_entries", operationId)) { tx.Commit(); return ""; }
 
         var id = Guid.NewGuid().ToString("N");
@@ -59,19 +59,19 @@ public sealed class FuelService
 INSERT INTO fuel_depot_entries(id, company_id, supplier_id, liters, unit_price, currency_code, fx_rate,
     invoice_no, note, entry_date, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$opb,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$lt", Money.Serialize(dto.Liters));
-            cmd.Parameters.AddWithValue("$pr", Money.Serialize(dto.UnitPrice));
-            cmd.Parameters.AddWithValue("$cur", dto.Currency);
-            cmd.Parameters.AddWithValue("$fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
-            cmd.Parameters.AddWithValue("$inv", (object?)dto.InvoiceNo ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$dt", dto.EntryDate ?? now);
-            cmd.Parameters.AddWithValue("$op", operationId);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
+            cmd.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.AddWithValue("$lt", Money.Serialize(dto.Liters));
+            cmd.AddWithValue("$pr", Money.Serialize(dto.UnitPrice));
+            cmd.AddWithValue("$cur", dto.Currency);
+            cmd.AddWithValue("$fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
+            cmd.AddWithValue("$inv", (object?)dto.InvoiceNo ?? DBNull.Value);
+            cmd.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
+            cmd.AddWithValue("$dt", dto.EntryDate ?? now);
+            cmd.AddWithValue("$op", operationId);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "fuel_depot_entry", id, AuditActions.Create, s.UserId), _clock);
@@ -86,7 +86,7 @@ VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$opb,$now,$now,1,0);";
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
-        using var tx = conn.BeginTransaction(deferred: false);
+        using var tx = conn.BeginImmediate();
         var existing = FindDistribution(conn, tx, operationId);
         if (existing is not null) { tx.Commit(); return existing; }
 
@@ -107,22 +107,22 @@ VALUES($id,$c,$sup,$lt,$pr,$cur,$fx,$inv,$note,$dt,$op,$opb,$now,$now,1,0);";
 INSERT INTO fuel_distributions(id, company_id, vehicle_id, prev_meter, current_meter, liters, unit_price,
     currency_code, fx_rate, personnel_id, recipient_personnel_id, distribution_date, note, operation_id, op_branch_id, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$rec,$dt,$note,$op,$opb,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$v", dto.VehicleId);
-            cmd.Parameters.AddWithValue("$prev", Money.Serialize(prev));
-            cmd.Parameters.AddWithValue("$cur", Money.Serialize(dto.CurrentMeter));
-            cmd.Parameters.AddWithValue("$lt", Money.Serialize(dto.Liters));
-            cmd.Parameters.AddWithValue("$pr", Money.Serialize(price));
-            cmd.Parameters.AddWithValue("$ccur", dto.Currency);
-            cmd.Parameters.AddWithValue("$fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
-            cmd.Parameters.AddWithValue("$pers", (object?)dto.PersonnelId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$rec", (object?)dto.RecipientPersonnelId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$dt", dto.DistributionDate ?? now);
-            cmd.Parameters.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$op", operationId);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$opb", (object?)s.OperatingBranchId ?? DBNull.Value);
+            cmd.AddWithValue("$v", dto.VehicleId);
+            cmd.AddWithValue("$prev", Money.Serialize(prev));
+            cmd.AddWithValue("$cur", Money.Serialize(dto.CurrentMeter));
+            cmd.AddWithValue("$lt", Money.Serialize(dto.Liters));
+            cmd.AddWithValue("$pr", Money.Serialize(price));
+            cmd.AddWithValue("$ccur", dto.Currency);
+            cmd.AddWithValue("$fx", dto.FxRate is null ? DBNull.Value : Money.Serialize(dto.FxRate.Value));
+            cmd.AddWithValue("$pers", (object?)dto.PersonnelId ?? DBNull.Value);
+            cmd.AddWithValue("$rec", (object?)dto.RecipientPersonnelId ?? DBNull.Value);
+            cmd.AddWithValue("$dt", dto.DistributionDate ?? now);
+            cmd.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
+            cmd.AddWithValue("$op", operationId);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
 
@@ -133,9 +133,9 @@ VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$rec,$dt,$note,$op,$opb,$now
             {
                 upd.Transaction = tx;
                 upd.CommandText = "UPDATE vehicles SET current_meter=$m, version=version+1, updated_at=$now WHERE id=$id;";
-                upd.Parameters.AddWithValue("$m", Money.Serialize(dto.CurrentMeter));
-                upd.Parameters.AddWithValue("$now", now);
-                upd.Parameters.AddWithValue("$id", dto.VehicleId);
+                upd.AddWithValue("$m", Money.Serialize(dto.CurrentMeter));
+                upd.AddWithValue("$now", now);
+                upd.AddWithValue("$id", dto.VehicleId);
                 upd.ExecuteNonQuery();
             }
             WriteMeterLog(conn, tx, s.CompanyId, dto.VehicleId, prev, dto.CurrentMeter, now);
@@ -158,8 +158,8 @@ VALUES($id,$c,$v,$prev,$cur,$lt,$pr,$ccur,$fx,$pers,$rec,$dt,$note,$op,$opb,$now
         cmd.CommandText = depotEntry
             ? "SELECT COUNT(*) FROM fuel_depot_entries WHERE operation_id=$op AND company_id=$c;"
             : "SELECT COUNT(*) FROM fuel_distributions WHERE operation_id=$op AND company_id=$c;";
-        cmd.Parameters.AddWithValue("$op", operationId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$c", s.CompanyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -190,8 +190,8 @@ FROM fuel_distributions fd
 LEFT JOIN vehicles v ON v.id = fd.vehicle_id
 WHERE fd.company_id=$c AND fd.is_deleted=0
 ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$lim", limit);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$lim", limit);
         var list = new List<FuelDistributionRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -212,8 +212,8 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT $lim;";
 SELECT id, liters, unit_price, currency_code, entry_date, invoice_no
 FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0
 ORDER BY entry_date DESC, created_at DESC LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$lim", limit);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$lim", limit);
         var list = new List<FuelDepotRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -224,43 +224,43 @@ ORDER BY entry_date DESC, created_at DESC LIMIT $lim;";
     }
 
     // ---- yardımcılar ----
-    private static decimal DepotBalance(SqliteConnection conn, SqliteTransaction? tx, string companyId)
+    private static decimal DepotBalance(DbConnection conn, DbTransaction? tx, string companyId)
     {
         decimal Sum(string table, string col)
         {
             using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = $"SELECT COALESCE(SUM(CAST({col} AS REAL)),0) FROM {table} WHERE company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$c", companyId);
+            cmd.AddWithValue("$c", companyId);
             return Convert.ToDecimal(cmd.ExecuteScalar());
         }
         return Sum("fuel_depot_entries", "liters") - Sum("fuel_distributions", "liters");
     }
 
-    private static decimal CurrentFuelPrice(SqliteConnection conn, SqliteTransaction? tx, string companyId)
+    private static decimal CurrentFuelPrice(DbConnection conn, DbTransaction? tx, string companyId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT unit_price FROM fuel_depot_entries WHERE company_id=$c AND is_deleted=0 " +
             "ORDER BY entry_date DESC, created_at DESC LIMIT 1;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
-    private static decimal ReadMeter(SqliteConnection conn, SqliteTransaction tx, string companyId, string vehicleId)
+    private static decimal ReadMeter(DbConnection conn, DbTransaction tx, string companyId, string vehicleId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT current_meter FROM vehicles WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", vehicleId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", vehicleId);
+        cmd.AddWithValue("$c", companyId);
         var v = cmd.ExecuteScalar();
         if (v is null) throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
         return Money.Parse(v as string);
     }
 
-    private static void WriteMeterLog(SqliteConnection conn, SqliteTransaction tx, string companyId, string vehicleId,
+    private static void WriteMeterLog(DbConnection conn, DbTransaction tx, string companyId, string vehicleId,
         decimal oldVal, decimal newVal, long now)
     {
         using var cmd = conn.CreateCommand();
@@ -268,30 +268,30 @@ ORDER BY entry_date DESC, created_at DESC LIMIT $lim;";
         cmd.CommandText =
             "INSERT INTO vehicle_meter_logs(id, company_id, vehicle_id, old_value, new_value, source, created_at) " +
             "VALUES($id,$c,$v,$o,$n,'fuel_distribution',$now);";
-        cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$v", vehicleId);
-        cmd.Parameters.AddWithValue("$o", Money.Serialize(oldVal));
-        cmd.Parameters.AddWithValue("$n", Money.Serialize(newVal));
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$v", vehicleId);
+        cmd.AddWithValue("$o", Money.Serialize(oldVal));
+        cmd.AddWithValue("$n", Money.Serialize(newVal));
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static bool OperationExists(SqliteConnection conn, SqliteTransaction tx, string table, string operationId)
+    private static bool OperationExists(DbConnection conn, DbTransaction tx, string table, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE operation_id=$op;";
-        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static string? FindDistribution(SqliteConnection conn, SqliteTransaction tx, string operationId)
+    private static string? FindDistribution(DbConnection conn, DbTransaction tx, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT id FROM fuel_distributions WHERE operation_id=$op;";
-        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$op", operationId);
         return cmd.ExecuteScalar() as string;
     }
 }

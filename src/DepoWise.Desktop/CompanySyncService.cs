@@ -1,3 +1,4 @@
+using DepoWise.Infrastructure.Database;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -209,8 +210,8 @@ public static class CompanySyncService
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "UPDATE sync_outbox SET status=$s WHERE id=$id;";
-            cmd.Parameters.AddWithValue("$s", status);
-            cmd.Parameters.AddWithValue("$id", id);
+            cmd.AddWithValue("$s", status);
+            cmd.AddWithValue("$id", id);
             cmd.ExecuteNonQuery();
         }
         catch { }
@@ -276,18 +277,18 @@ public static class CompanySyncService
                     "VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$ma,$mq,$now,$now,1,0) " +
                     "ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, " +
                     "email=$em, authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, is_deleted=0, updated_at=$now;";
-                c.Parameters.AddWithValue("$id", row.Id);
-                c.Parameters.AddWithValue("$n", row.Name);
-                c.Parameters.AddWithValue("$tn", (object?)row.TaxNo ?? DBNull.Value);
-                c.Parameters.AddWithValue("$to", (object?)row.TaxOffice ?? DBNull.Value);
-                c.Parameters.AddWithValue("$ad", (object?)row.Address ?? DBNull.Value);
-                c.Parameters.AddWithValue("$ph", (object?)row.Phone ?? DBNull.Value);
-                c.Parameters.AddWithValue("$em", (object?)row.Email ?? DBNull.Value);
-                c.Parameters.AddWithValue("$ap", (object?)row.AuthorizedPerson ?? DBNull.Value);
-                c.Parameters.AddWithValue("$mu", row.MaxUsers);
-                c.Parameters.AddWithValue("$ma", row.MaxAdmins);
-                c.Parameters.AddWithValue("$mq", row.MachineQuota);
-                c.Parameters.AddWithValue("$now", now);
+                c.AddWithValue("$id", row.Id);
+                c.AddWithValue("$n", row.Name);
+                c.AddWithValue("$tn", (object?)row.TaxNo ?? DBNull.Value);
+                c.AddWithValue("$to", (object?)row.TaxOffice ?? DBNull.Value);
+                c.AddWithValue("$ad", (object?)row.Address ?? DBNull.Value);
+                c.AddWithValue("$ph", (object?)row.Phone ?? DBNull.Value);
+                c.AddWithValue("$em", (object?)row.Email ?? DBNull.Value);
+                c.AddWithValue("$ap", (object?)row.AuthorizedPerson ?? DBNull.Value);
+                c.AddWithValue("$mu", row.MaxUsers);
+                c.AddWithValue("$ma", row.MaxAdmins);
+                c.AddWithValue("$mq", row.MachineQuota);
+                c.AddWithValue("$now", now);
                 c.ExecuteNonQuery();
             }
 
@@ -298,12 +299,12 @@ public static class CompanySyncService
                 {
                     var p = "$k" + i;
                     names.Add(p);
-                    del.Parameters.AddWithValue(p, rows[i].Id);
+                    del.AddWithValue(p, rows[i].Id);
                 }
                 del.CommandText =
                     "UPDATE companies SET is_deleted=1, updated_at=$now WHERE is_deleted=0" +
                     (names.Count > 0 ? " AND id NOT IN (" + string.Join(",", names) + ")" : "") + ";";
-                del.Parameters.AddWithValue("$now", now);
+                del.AddWithValue("$now", now);
                 del.ExecuteNonQuery();
             }
         }

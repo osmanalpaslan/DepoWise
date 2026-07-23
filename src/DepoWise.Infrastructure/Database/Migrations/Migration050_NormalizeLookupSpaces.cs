@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -22,7 +22,7 @@ public sealed class Migration050_NormalizeLookupSpaces : IMigration
         "vehicle_types", "vehicle_categories", "vehicle_models", "branches",
     };
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         foreach (var table in Tables)
         {
@@ -48,19 +48,19 @@ public sealed class Migration050_NormalizeLookupSpaces : IMigration
                 using var up = conn.CreateCommand();
                 up.Transaction = tx;
                 up.CommandText = $"UPDATE {table} SET name=$n WHERE id=$id;";
-                up.Parameters.AddWithValue("$n", fixedName);
-                up.Parameters.AddWithValue("$id", id);
+                up.AddWithValue("$n", fixedName);
+                up.AddWithValue("$id", id);
                 up.ExecuteNonQuery();
             }
         }
     }
 
-    private static bool TableExists(SqliteConnection conn, SqliteTransaction tx, string table)
+    private static bool TableExists(DbConnection conn, DbTransaction tx, string table)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$t;";
-        cmd.Parameters.AddWithValue("$t", table);
+        cmd.AddWithValue("$t", table);
         return System.Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 }

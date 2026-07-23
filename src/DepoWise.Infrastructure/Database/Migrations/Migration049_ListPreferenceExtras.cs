@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -16,20 +16,20 @@ public sealed class Migration049_ListPreferenceExtras : IMigration
     public int Version => 49;
     public string Name => "list_preference_extras";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         AddColumnIfMissing(conn, tx, "user_list_preferences", "page_size", "INTEGER");
         AddColumnIfMissing(conn, tx, "user_list_preferences", "widths_json", "TEXT");
     }
 
-    private static void AddColumnIfMissing(SqliteConnection conn, SqliteTransaction tx, string table, string col, string type)
+    private static void AddColumnIfMissing(DbConnection conn, DbTransaction tx, string table, string col, string type)
     {
         bool exists = false;
         using (var check = conn.CreateCommand())
         {
             check.Transaction = tx;
             check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name=$n;";
-            check.Parameters.AddWithValue("$n", col);
+            check.AddWithValue("$n", col);
             exists = System.Convert.ToInt64(check.ExecuteScalar()) > 0;
         }
         if (exists) return;

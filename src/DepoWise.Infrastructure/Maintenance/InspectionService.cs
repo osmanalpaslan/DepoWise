@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Maintenance;
 
@@ -53,16 +53,16 @@ public sealed class InspectionService
 INSERT INTO vehicle_inspections(id, company_id, vehicle_id, doc_type, last_date, next_date, result, place, note,
     created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$v,$dt,$ld,$nd,$res,$pl,$note,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$v", dto.VehicleId);
-            cmd.Parameters.AddWithValue("$dt", dto.DocType);
-            cmd.Parameters.AddWithValue("$ld", (object?)dto.LastDate ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$nd", (object?)dto.NextDate ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$res", (object?)dto.Result ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$pl", (object?)dto.Place ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$v", dto.VehicleId);
+            cmd.AddWithValue("$dt", dto.DocType);
+            cmd.AddWithValue("$ld", (object?)dto.LastDate ?? DBNull.Value);
+            cmd.AddWithValue("$nd", (object?)dto.NextDate ?? DBNull.Value);
+            cmd.AddWithValue("$res", (object?)dto.Result ?? DBNull.Value);
+            cmd.AddWithValue("$pl", (object?)dto.Place ?? DBNull.Value);
+            cmd.AddWithValue("$note", (object?)dto.Note ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_inspection", id, AuditActions.Create, s.UserId), _clock);
@@ -83,7 +83,7 @@ SELECT v.internal_code, COALESCE(v.plate,''), vi.doc_type, vi.last_date, vi.next
 FROM vehicle_inspections vi JOIN vehicles v ON v.id = vi.vehicle_id
 WHERE vi.company_id=$c AND vi.is_deleted=0
 ORDER BY (vi.next_date IS NULL), vi.next_date;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$c", s.CompanyId);
         var list = new List<InspectionRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -111,7 +111,7 @@ SELECT vehicle_id, doc_type, next_date FROM vehicle_inspections vi
 WHERE company_id=$c AND is_deleted=0 AND next_date IS NOT NULL
 AND created_at = (SELECT MAX(created_at) FROM vehicle_inspections x
                   WHERE x.vehicle_id=vi.vehicle_id AND x.doc_type=vi.doc_type AND x.is_deleted=0);";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$c", s.CompanyId);
         var list = new List<InspectionAlert>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

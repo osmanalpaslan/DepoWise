@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Organization;
 
@@ -51,7 +51,7 @@ public sealed class CompanyPurgeService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT name FROM companies WHERE id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return cmd.ExecuteScalar() as string;
     }
 
@@ -156,11 +156,11 @@ public sealed class CompanyPurgeService
         return new PurgeResult(companyId, name, touched, rows);
     }
 
-    private static bool TableExists(SqliteConnection conn, string table)
+    private static bool TableExists(DbConnection conn, string table)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
-        cmd.Parameters.AddWithValue("$n", table);
+        cmd.AddWithValue("$n", table);
         return cmd.ExecuteScalar() is not null;
     }
 
@@ -170,7 +170,7 @@ public sealed class CompanyPurgeService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT company_id, company_name, purged_at, purged_by FROM company_purges WHERE company_id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new CompanyPurgeRow(r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetString(3)) : null;
     }
@@ -188,7 +188,7 @@ public sealed class CompanyPurgeService
         return list;
     }
 
-    private static List<string> ListTables(SqliteConnection conn)
+    private static List<string> ListTables(DbConnection conn)
     {
         var tables = new List<string>();
         using var cmd = conn.CreateCommand();
@@ -198,7 +198,7 @@ public sealed class CompanyPurgeService
         return tables;
     }
 
-    private static bool HasColumn(SqliteConnection conn, string table, string column)
+    private static bool HasColumn(DbConnection conn, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"PRAGMA table_info(\"{table}\");";
@@ -208,12 +208,12 @@ public sealed class CompanyPurgeService
         return false;
     }
 
-    private static int Exec(SqliteConnection conn, SqliteTransaction tx, string sql, params (string Name, object Value)[] ps)
+    private static int Exec(DbConnection conn, DbTransaction tx, string sql, params (string Name, object Value)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         return cmd.ExecuteNonQuery();
     }
 }

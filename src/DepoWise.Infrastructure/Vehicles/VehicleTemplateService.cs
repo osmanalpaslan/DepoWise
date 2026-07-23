@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Vehicles;
 
@@ -58,19 +58,19 @@ public sealed class VehicleTemplateService
 INSERT INTO vehicle_templates(id, company_id, name, internal_code, vehicle_type_id, category_id, brand_id,
     vehicle_model_id, production_year, default_meter_unit, created_by, is_global, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$by,$g,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$by", s.UserId);
-            cmd.Parameters.AddWithValue("$g", AccessControl.IsAdmin(s) ? 1 : 0); // admin şablonu herkese; diğeri kişisel
-            cmd.Parameters.AddWithValue("$n", dto.Name);
-            cmd.Parameters.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$yr", (object?)dto.ProductionYear ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$mu", dto.DefaultMeterUnit);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$by", s.UserId);
+            cmd.AddWithValue("$g", AccessControl.IsAdmin(s) ? 1 : 0); // admin şablonu herkese; diğeri kişisel
+            cmd.AddWithValue("$n", dto.Name);
+            cmd.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
+            cmd.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
+            cmd.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
+            cmd.AddWithValue("$yr", (object?)dto.ProductionYear ?? DBNull.Value);
+            cmd.AddWithValue("$mu", dto.DefaultMeterUnit);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         if (materialIds is not null) ReplaceMaterials(conn, tx, id, materialIds);
@@ -95,7 +95,7 @@ VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$by,$g,$now,$now,1,0);";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT material_id FROM vehicle_template_materials WHERE template_id=$t;";
-        cmd.Parameters.AddWithValue("$t", templateId);
+        cmd.AddWithValue("$t", templateId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));
@@ -108,8 +108,8 @@ VALUES($id,$c,$n,$ic,$vt,$cat,$br,$vm,$yr,$mu,$by,$g,$now,$now,1,0);";
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"SELECT id, name, internal_code, vehicle_type_id, category_id, brand_id, vehicle_model_id,
     production_year, default_meter_unit FROM vehicle_templates WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$id", templateId);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$id", templateId);
+        cmd.AddWithValue("$c", s.CompanyId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return null;
         return new VehicleTemplateRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
@@ -136,13 +136,13 @@ WHERE t.company_id=$c AND t.is_deleted=0
   AND (t.is_global=1 OR t.created_by=$me)
   AND ($s IS NULL OR t.name LIKE $like OR COALESCE(t.internal_code,'') LIKE $like)
 ORDER BY t.name LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$me", s.UserId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$me", s.UserId);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
-        cmd.Parameters.AddWithValue("$s", (object?)term ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
-        cmd.Parameters.AddWithValue("$lim", limit);
-        string? S(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        cmd.AddWithValue("$s", (object?)term ?? DBNull.Value);
+        cmd.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
+        cmd.AddWithValue("$lim", limit);
+        string? S(DbDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
         var list = new List<VehicleTemplateRow>();
         using var rr = cmd.ExecuteReader();
         while (rr.Read())
@@ -167,17 +167,17 @@ UPDATE vehicle_templates SET name=$n, internal_code=$ic, vehicle_type_id=$vt, ca
     brand_id=$br, vehicle_model_id=$vm, production_year=$yr, default_meter_unit=$mu,
     version=version+1, updated_at=$now
 WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$n", dto.Name);
-            cmd.Parameters.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$yr", (object?)dto.ProductionYear ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$mu", dto.DefaultMeterUnit);
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", templateId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", dto.Name);
+            cmd.AddWithValue("$ic", (object?)dto.InternalCode ?? DBNull.Value);
+            cmd.AddWithValue("$vt", (object?)dto.VehicleTypeId ?? DBNull.Value);
+            cmd.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.AddWithValue("$br", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.AddWithValue("$vm", (object?)dto.VehicleModelId ?? DBNull.Value);
+            cmd.AddWithValue("$yr", (object?)dto.ProductionYear ?? DBNull.Value);
+            cmd.AddWithValue("$mu", dto.DefaultMeterUnit);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", templateId);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_template", templateId, AuditActions.Update, s.UserId), _clock);
@@ -194,8 +194,8 @@ WHERE id=$id AND company_id=$c AND is_deleted=0;";
 SELECT m.id, m.code, m.name FROM vehicle_template_materials tm
 JOIN materials m ON m.id = tm.material_id AND m.company_id=$c AND m.is_deleted=0
 WHERE tm.template_id=$t ORDER BY m.code;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$t", templateId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$t", templateId);
         var list = new List<TemplateMaterialRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new TemplateMaterialRow(r.GetString(0), r.GetString(1), r.GetString(2)));
@@ -213,9 +213,9 @@ WHERE tm.template_id=$t ORDER BY m.code;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE vehicle_templates SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", templateId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", templateId);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_template", templateId, AuditActions.Delete, s.UserId), _clock);
@@ -234,8 +234,8 @@ WHERE tm.template_id=$t ORDER BY m.code;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT internal_code FROM vehicles WHERE company_id=$c AND internal_code LIKE $like;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$like", prefix + "%");
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$like", prefix + "%");
         using (var r = cmd.ExecuteReader())
         {
             while (r.Read())
@@ -250,13 +250,13 @@ WHERE tm.template_id=$t ORDER BY m.code;";
         return prefix + next.ToString().PadLeft(width, '0');
     }
 
-    private static void ReplaceMaterials(SqliteConnection conn, SqliteTransaction tx, string templateId, IEnumerable<string> materialIds)
+    private static void ReplaceMaterials(DbConnection conn, DbTransaction tx, string templateId, IEnumerable<string> materialIds)
     {
         using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
             del.CommandText = "DELETE FROM vehicle_template_materials WHERE template_id=$t;";
-            del.Parameters.AddWithValue("$t", templateId);
+            del.AddWithValue("$t", templateId);
             del.ExecuteNonQuery();
         }
         foreach (var mid in materialIds.Distinct())
@@ -264,19 +264,19 @@ WHERE tm.template_id=$t ORDER BY m.code;";
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT OR IGNORE INTO vehicle_template_materials(template_id, material_id) VALUES($t,$m);";
-            ins.Parameters.AddWithValue("$t", templateId);
-            ins.Parameters.AddWithValue("$m", mid);
+            ins.AddWithValue("$t", templateId);
+            ins.AddWithValue("$m", mid);
             ins.ExecuteNonQuery();
         }
     }
 
-    private static void EnsureOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string templateId)
+    private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string templateId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM vehicle_templates WHERE id=$id AND company_id=$c;";
-        cmd.Parameters.AddWithValue("$id", templateId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", templateId);
+        cmd.AddWithValue("$c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
     }

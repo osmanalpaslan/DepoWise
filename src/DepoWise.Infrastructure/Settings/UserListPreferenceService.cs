@@ -27,8 +27,8 @@ public sealed class UserListPreferenceService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT columns_json FROM user_list_preferences WHERE user_id=$u AND list_key=$k;";
-        cmd.Parameters.AddWithValue("$u", s.UserId);
-        cmd.Parameters.AddWithValue("$k", listKey);
+        cmd.AddWithValue("$u", s.UserId);
+        cmd.AddWithValue("$k", listKey);
         var json = cmd.ExecuteScalar() as string;
         if (string.IsNullOrWhiteSpace(json)) return null;
         try
@@ -50,10 +50,10 @@ public sealed class UserListPreferenceService
         cmd.CommandText = @"
 INSERT INTO user_list_preferences(user_id, list_key, columns_json, updated_at) VALUES($u,$k,$j,$now)
 ON CONFLICT(user_id, list_key) DO UPDATE SET columns_json=$j, updated_at=$now;";
-        cmd.Parameters.AddWithValue("$u", s.UserId);
-        cmd.Parameters.AddWithValue("$k", listKey);
-        cmd.Parameters.AddWithValue("$j", json);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$u", s.UserId);
+        cmd.AddWithValue("$k", listKey);
+        cmd.AddWithValue("$j", json);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -63,8 +63,8 @@ ON CONFLICT(user_id, list_key) DO UPDATE SET columns_json=$j, updated_at=$now;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT page_size FROM user_list_preferences WHERE user_id=$u AND list_key=$k;";
-        cmd.Parameters.AddWithValue("$u", s.UserId);
-        cmd.Parameters.AddWithValue("$k", listKey);
+        cmd.AddWithValue("$u", s.UserId);
+        cmd.AddWithValue("$k", listKey);
         var v = cmd.ExecuteScalar();
         return v is null or System.DBNull ? null : System.Convert.ToInt32(v);
     }
@@ -78,8 +78,8 @@ ON CONFLICT(user_id, list_key) DO UPDATE SET columns_json=$j, updated_at=$now;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT widths_json FROM user_list_preferences WHERE user_id=$u AND list_key=$k;";
-        cmd.Parameters.AddWithValue("$u", s.UserId);
-        cmd.Parameters.AddWithValue("$k", listKey);
+        cmd.AddWithValue("$u", s.UserId);
+        cmd.AddWithValue("$k", listKey);
         var json = cmd.ExecuteScalar() as string;
         if (string.IsNullOrWhiteSpace(json)) return null;
         try
@@ -103,10 +103,10 @@ ON CONFLICT(user_id, list_key) DO UPDATE SET columns_json=$j, updated_at=$now;";
         cmd.CommandText = $@"
 INSERT INTO user_list_preferences(user_id, list_key, columns_json, {field}, updated_at) VALUES($u,$k,'[]',$v,$now)
 ON CONFLICT(user_id, list_key) DO UPDATE SET {field}=$v, updated_at=$now;";
-        cmd.Parameters.AddWithValue("$u", s.UserId);
-        cmd.Parameters.AddWithValue("$k", listKey);
-        cmd.Parameters.AddWithValue("$v", value);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$u", s.UserId);
+        cmd.AddWithValue("$k", listKey);
+        cmd.AddWithValue("$v", value);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 }

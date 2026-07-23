@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -14,7 +14,7 @@ public sealed class Migration037_GrantLevel : IMigration
     public int Version => 37;
     public string Name => "company_grant_level";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         // 1) level kolonu (var olan satırlar = 'admin')
         if (!ColumnExists(conn, tx, "company_grant_limits", "level"))
@@ -32,14 +32,14 @@ public sealed class Migration037_GrantLevel : IMigration
 INSERT OR IGNORE INTO company_grant_limits(id, company_id, module_key, level, created_at)
 SELECT lower(hex(randomblob(16))), c.id, $k, 'admin', CAST(strftime('%s','now') AS INTEGER)*1000
 FROM companies c WHERE c.is_deleted=0;";
-                ins.Parameters.AddWithValue("$k", key);
+                ins.AddWithValue("$k", key);
                 ins.ExecuteNonQuery();
             }
             Exec(conn, tx, "DELETE FROM app_settings WHERE company_id IS NULL AND setting_key='global_grant_limits';");
         }
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -50,7 +50,7 @@ FROM companies c WHERE c.is_deleted=0;";
         return false;
     }
 
-    private static string? Scalar(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static string? Scalar(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -58,7 +58,7 @@ FROM companies c WHERE c.is_deleted=0;";
         return cmd.ExecuteScalar() as string;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

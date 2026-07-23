@@ -1,3 +1,4 @@
+using DepoWise.Infrastructure.Database;
 using System;
 using System.IO;
 using System.Net.Http;
@@ -102,7 +103,7 @@ public static class LookupSyncService
         catch { return false; }
     }
 
-    private static void Upsert(Microsoft.Data.Sqlite.SqliteConnection conn, Microsoft.Data.Sqlite.SqliteTransaction tx,
+    private static void Upsert(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
         string table, JsonElement root, string jsonKey, string companyId, long now, params (string Col, string JKey)[] extra)
     {
         if (!root.TryGetProperty(jsonKey, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
@@ -130,10 +131,10 @@ public static class LookupSyncService
                     var setExtra = "";
                     for (int i = 0; i < extraCols.Length; i++) setExtra += $", {extraCols[i].Col}=$e{i}";
                     upd.CommandText = $"UPDATE {table} SET name=$n, is_deleted=0, updated_at=$now{setExtra} WHERE id=$id;";
-                    upd.Parameters.AddWithValue("$n", name);
-                    upd.Parameters.AddWithValue("$now", now);
-                    upd.Parameters.AddWithValue("$id", id);
-                    for (int i = 0; i < extraCols.Length; i++) upd.Parameters.AddWithValue($"$e{i}", extraVals[i]!);
+                    upd.AddWithValue("$n", name);
+                    upd.AddWithValue("$now", now);
+                    upd.AddWithValue("$id", id);
+                    for (int i = 0; i < extraCols.Length; i++) upd.AddWithValue($"$e{i}", extraVals[i]!);
                     if (upd.ExecuteNonQuery() > 0) continue; // güncellendi
                 }
 
@@ -145,11 +146,11 @@ public static class LookupSyncService
                     for (int i = 0; i < extraCols.Length; i++) { cols += $", {extraCols[i].Col}"; vals += $",$e{i}"; }
                     cols += ", created_at, updated_at, version, is_deleted"; vals += ",$now,$now,1,0";
                     ins.CommandText = $"INSERT INTO {table}({cols}) VALUES({vals});";
-                    ins.Parameters.AddWithValue("$id", id);
-                    ins.Parameters.AddWithValue("$c", companyId);
-                    ins.Parameters.AddWithValue("$n", name);
-                    ins.Parameters.AddWithValue("$now", now);
-                    for (int i = 0; i < extraCols.Length; i++) ins.Parameters.AddWithValue($"$e{i}", extraVals[i]!);
+                    ins.AddWithValue("$id", id);
+                    ins.AddWithValue("$c", companyId);
+                    ins.AddWithValue("$n", name);
+                    ins.AddWithValue("$now", now);
+                    for (int i = 0; i < extraCols.Length; i++) ins.AddWithValue($"$e{i}", extraVals[i]!);
                     try { ins.ExecuteNonQuery(); } catch { /* ad çakışması → atla */ }
                 }
             }

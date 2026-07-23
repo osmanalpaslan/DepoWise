@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,7 +12,7 @@ public sealed class Migration052_FuelRecipient : IMigration
     public int Version => 52;
     public string Name => "fuel_recipient";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

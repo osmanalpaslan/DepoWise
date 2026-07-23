@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -14,7 +14,7 @@ public sealed class Migration035_SplitRequestApproval : IMigration
     public int Version => 35;
     public string Name => "split_request_approval";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         // 1) btn-approve sahiplerine request_approval (view+edit) modül izni ver (yoksa)
         using (var cmd = conn.CreateCommand())

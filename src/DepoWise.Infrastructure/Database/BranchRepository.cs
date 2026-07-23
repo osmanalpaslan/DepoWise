@@ -1,5 +1,5 @@
 using DepoWise.Application.Common;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database;
 
@@ -33,11 +33,11 @@ public sealed class BranchRepository
             cmd.CommandText = @"
 INSERT INTO branches(id, company_id, parent_id, name, kind, created_at, updated_at, version, is_deleted)
 VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$companyId", tenant.CompanyId);
-            cmd.Parameters.AddWithValue("$name", name);
-            cmd.Parameters.AddWithValue("$kind", kind);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$companyId", tenant.CompanyId);
+            cmd.AddWithValue("$name", name);
+            cmd.AddWithValue("$kind", kind);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(tenant.CompanyId, "branch", id, AuditActions.Create, userId), _clock);
@@ -59,9 +59,9 @@ VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
             cmd.CommandText =
                 "UPDATE branches SET is_deleted = 1, version = version + 1, updated_at = $now " +
                 "WHERE id = $id AND " + TenantSql.ScopePredicate();
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$companyId", tenant.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$companyId", tenant.CompanyId);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected > 0)
@@ -82,12 +82,12 @@ VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
             "WHERE " + TenantSql.ScopePredicate() +
             (hasCursor ? " AND " + TenantSql.KeysetAfterPredicate : "") +
             " " + TenantSql.KeysetOrderBy + " LIMIT $limit;";
-        cmd.Parameters.AddWithValue("$companyId", tenant.CompanyId);
-        cmd.Parameters.AddWithValue("$limit", limit + 1); // +1 → daha fazla var mı
+        cmd.AddWithValue("$companyId", tenant.CompanyId);
+        cmd.AddWithValue("$limit", limit + 1); // +1 → daha fazla var mı
         if (hasCursor)
         {
-            cmd.Parameters.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
-            cmd.Parameters.AddWithValue("$cursorId", cursor.Id);
+            cmd.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
+            cmd.AddWithValue("$cursorId", cursor.Id);
         }
 
         var items = new List<BranchRecord>();
@@ -115,9 +115,9 @@ VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
         cmd.CommandText =
             "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) " +
             "VALUES($id, $name, $now, $now, 1, 0);";
-        cmd.Parameters.AddWithValue("$id", companyId);
-        cmd.Parameters.AddWithValue("$name", name);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", companyId);
+        cmd.AddWithValue("$name", name);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 }

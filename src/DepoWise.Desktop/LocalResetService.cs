@@ -1,5 +1,6 @@
 using System;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
+using DepoWise.Infrastructure.Database;
 
 namespace DepoWise.Desktop;
 
@@ -25,7 +26,7 @@ public static class LocalResetService
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT requested_at FROM company_local_resets WHERE company_id=$c;";
-            cmd.Parameters.AddWithValue("$c", companyId);
+            cmd.AddWithValue("$c", companyId);
             var v = cmd.ExecuteScalar();
             return v is null or System.DBNull ? null : Convert.ToInt64(v);
         }
@@ -41,9 +42,9 @@ public static class LocalResetService
         cmd.CommandText =
             "INSERT INTO company_local_resets(company_id, requested_at, requested_by) VALUES($c,$at,$by) " +
             "ON CONFLICT(company_id) DO UPDATE SET requested_at=$at, requested_by=$by;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$at", requestedAt);
-        cmd.Parameters.AddWithValue("$by", appliedBy);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$at", requestedAt);
+        cmd.AddWithValue("$by", appliedBy);
         cmd.ExecuteNonQuery();
     }
 }

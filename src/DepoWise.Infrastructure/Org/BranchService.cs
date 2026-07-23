@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Org;
 
@@ -40,12 +40,12 @@ public sealed class BranchService
             cmd.CommandText =
                 "INSERT INTO branches(id, company_id, parent_id, name, kind, created_at, updated_at, version, is_deleted) " +
                 "VALUES($id,$c,$p,$n,$k,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
-            cmd.Parameters.AddWithValue("$p", (object?)parentId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$n", name);
-            cmd.Parameters.AddWithValue("$k", kind);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$p", (object?)parentId ?? DBNull.Value);
+            cmd.AddWithValue("$n", name);
+            cmd.AddWithValue("$k", kind);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(session.CompanyId, "branch", id, AuditActions.Create, session.UserId), _clock);
@@ -65,7 +65,7 @@ public sealed class BranchService
         cmd.CommandText =
             "SELECT id, company_id, name, kind, parent_id, created_at FROM branches " +
             "WHERE company_id = $c AND is_deleted = 0;";
-        cmd.Parameters.AddWithValue("$c", session.CompanyId);
+        cmd.AddWithValue("$c", session.CompanyId);
         var list = new List<BranchInfo>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -97,10 +97,10 @@ public sealed class BranchService
             cmd.CommandText =
                 "UPDATE branches SET is_deleted = $d, version = version + 1, updated_at = $now " +
                 "WHERE id = $id AND company_id = $c;";
-            cmd.Parameters.AddWithValue("$d", deleted ? 1 : 0);
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$d", deleted ? 1 : 0);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", session.CompanyId);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected > 0)
@@ -117,9 +117,9 @@ public sealed class BranchService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT OR IGNORE INTO user_scopes(user_id, company_id, branch_id) VALUES($u,$c,$b);";
-        cmd.Parameters.AddWithValue("$u", userId);
-        cmd.Parameters.AddWithValue("$c", admin.CompanyId);
-        cmd.Parameters.AddWithValue("$b", branchId);
+        cmd.AddWithValue("$u", userId);
+        cmd.AddWithValue("$c", admin.CompanyId);
+        cmd.AddWithValue("$b", branchId);
         cmd.ExecuteNonQuery();
     }
 }

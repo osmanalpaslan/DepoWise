@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -13,7 +13,7 @@ public sealed class Migration001_CoreSchema : IMigration
     public int Version => 1;
     public string Name => "core_schema";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         Exec(conn, tx, @"
 CREATE TABLE companies (
@@ -167,7 +167,7 @@ CREATE UNIQUE INDEX ux_inbox_operation ON sync_inbox(operation_id);
 ");
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

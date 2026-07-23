@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Files;
 
@@ -42,7 +42,7 @@ public sealed class TrashService
         {
             using var cmd = conn.CreateCommand();
             cmd.CommandText = $"SELECT id, {label}, updated_at FROM {table} WHERE company_id=$c AND is_deleted=1;";
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$c", s.CompanyId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new TrashItem(table, r.GetString(0), r.IsDBNull(1) ? "" : r.GetString(1), r.GetInt64(2)));
@@ -62,9 +62,9 @@ public sealed class TrashService
         {
             cmd.Transaction = tx;
             cmd.CommandText = $"UPDATE {table} SET is_deleted=0, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected == 0) throw new ForbiddenException("Kayıt bulunamadı veya başka firmaya ait.");

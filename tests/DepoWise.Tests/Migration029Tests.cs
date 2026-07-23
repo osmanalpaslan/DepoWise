@@ -1,3 +1,4 @@
+using System.Data.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
@@ -42,7 +43,7 @@ VALUES($u,$c,'depocu','x','Depo',1,$n,$n,1,0);", ("$u", userId), ("$c", companyI
 
         using (var tx = conn.BeginTransaction())
         {
-            new Migration029_TwoRoleModel().Up((SqliteConnection)conn, (SqliteTransaction)tx);
+            new Migration029_TwoRoleModel().Up((DbConnection)conn, (DbTransaction)tx);
             tx.Commit();
         }
 
@@ -56,20 +57,20 @@ VALUES($u,$c,'depocu','x','Depo',1,$n,$n,1,0);", ("$u", userId), ("$c", companyI
         Assert.Equal("1", del[0]);
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql, params (string, object)[] ps)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql, params (string, object)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         cmd.ExecuteNonQuery();
     }
 
-    private static List<string> Query(SqliteConnection conn, string sql, params (string, object)[] ps)
+    private static List<string> Query(DbConnection conn, string sql, params (string, object)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(Convert.ToString(r.GetValue(0), System.Globalization.CultureInfo.InvariantCulture) ?? "");

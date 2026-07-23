@@ -4,7 +4,7 @@ using DepoWise.Application.Security;
 using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Maintenance;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Operations;
 
@@ -189,10 +189,10 @@ INSERT INTO maintenance_definitions(id, company_id, parent_def_id, name, interva
 SELECT $id, $c, NULL, $n, '0', 'km', NULL, $now, $now, 1, 0
 WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
     WHERE company_id=$c AND name=$n COLLATE NOCASE AND parent_def_id IS NULL AND is_deleted=0);";
-            ins.Parameters.AddWithValue("$id", newId);
-            ins.Parameters.AddWithValue("$c", s.CompanyId);
-            ins.Parameters.AddWithValue("$n", name);
-            ins.Parameters.AddWithValue("$now", now);
+            ins.AddWithValue("$id", newId);
+            ins.AddWithValue("$c", s.CompanyId);
+            ins.AddWithValue("$n", name);
+            ins.AddWithValue("$now", now);
             if (ins.ExecuteNonQuery() > 0)
                 AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "maintenance_definition", newId, AuditActions.Create, s.UserId), _clock);
         }
@@ -202,8 +202,8 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
             find.Transaction = tx;
             find.CommandText = "SELECT id FROM maintenance_definitions WHERE company_id=$c AND name=$n COLLATE NOCASE " +
                                 "AND parent_def_id IS NULL AND is_deleted=0 ORDER BY created_at LIMIT 1;";
-            find.Parameters.AddWithValue("$c", s.CompanyId);
-            find.Parameters.AddWithValue("$n", name);
+            find.AddWithValue("$c", s.CompanyId);
+            find.AddWithValue("$n", name);
             id = find.ExecuteScalar() as string;
         }
         tx.Commit();
@@ -233,9 +233,9 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
             cmd.CommandText =
                 "UPDATE vehicles SET status='passive', version=version+1, updated_at=$now " +
                 "WHERE id=$v AND company_id=$c AND status<>'passive';";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$v", dto.VehicleId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$v", dto.VehicleId);
+            cmd.AddWithValue("$c", s.CompanyId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Create, s.UserId), _clock);
@@ -253,9 +253,9 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
             "FROM daily_activities WHERE company_id=$c AND vehicle_id=$v AND is_deleted=0 " +
             (activityType is null ? "" : "AND activity_type=$t ") +
             "ORDER BY activity_date DESC;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$v", vehicleId);
-        if (activityType is not null) cmd.Parameters.AddWithValue("$t", activityType);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$v", vehicleId);
+        if (activityType is not null) cmd.AddWithValue("$t", activityType);
         var list = new List<DailyActivityRecord>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -282,10 +282,10 @@ LEFT JOIN personnel p ON p.id = da.operator_id
 WHERE da.company_id = $c AND da.is_deleted = 0
   AND ($t IS NULL OR da.activity_type = $t)
 ORDER BY da.activity_date DESC, da.created_at DESC LIMIT $lim;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$t", (object?)activityType ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$lim", limit);
-        string? S(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$t", (object?)activityType ?? DBNull.Value);
+        cmd.AddWithValue("$lim", limit);
+        string? S(DbDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
         var list = new List<DailyActivityListRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -358,7 +358,7 @@ WHERE da.company_id = $c AND da.is_deleted = 0";
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
-            cnt.Parameters.AddWithValue("$c", s.CompanyId);
+            cnt.AddWithValue("$c", s.CompanyId);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -367,10 +367,10 @@ WHERE da.company_id = $c AND da.is_deleted = 0";
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT $lim OFFSET $off;";
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);
-            cmd.Parameters.AddWithValue("$lim", pageSize);
-            cmd.Parameters.AddWithValue("$off", (page - 1) * pageSize);
+            cmd.AddWithValue("$lim", pageSize);
+            cmd.AddWithValue("$off", (page - 1) * pageSize);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new DailyActivityGridRow(
@@ -415,9 +415,9 @@ WHERE da.company_id = $c AND da.is_deleted = 0";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE daily_activities SET is_deleted=1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$now", now);
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$now", now);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", s.CompanyId);
         if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Faaliyet bulunamadı veya başka firmaya ait.");
     }
 
@@ -426,11 +426,11 @@ WHERE da.company_id = $c AND da.is_deleted = 0";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id FROM daily_activities WHERE operation_id=$op;";
-        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$op", operationId);
         return cmd.ExecuteScalar() as string;
     }
 
-    private static void InsertActivity(SqliteConnection conn, SqliteTransaction tx, string id, string companyId,
+    private static void InsertActivity(DbConnection conn, DbTransaction tx, string id, string companyId,
         string activityType, string? movementKind, string? vehicleId, string? fromLoc, string? toLoc, string? operatorId,
         int? durationDays, string? description, string? maintenanceId, bool stockProcessed, long activityDate,
         string operationId, long now, string? opBranchId)
@@ -442,22 +442,22 @@ INSERT INTO daily_activities(id, company_id, activity_type, movement_kind, vehic
     operator_id, duration_days, description, maintenance_id, source_module, stock_processed, activity_date, operation_id,
     op_branch_id, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$at,$mk,$v,$from,$to,$op2,$dur,$desc,$mid,'daily_activity',$sp,$ad,$op,$opb,$now,$now,1,0);";
-        cmd.Parameters.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$at", activityType);
-        cmd.Parameters.AddWithValue("$mk", (object?)movementKind ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$v", (object?)vehicleId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$from", (object?)fromLoc ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$to", (object?)toLoc ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$op2", (object?)operatorId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$dur", (object?)durationDays ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$desc", (object?)description ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$mid", (object?)maintenanceId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$sp", stockProcessed ? 1 : 0);
-        cmd.Parameters.AddWithValue("$ad", activityDate);
-        cmd.Parameters.AddWithValue("$op", operationId);
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
+        cmd.AddWithValue("$id", id);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$at", activityType);
+        cmd.AddWithValue("$mk", (object?)movementKind ?? DBNull.Value);
+        cmd.AddWithValue("$v", (object?)vehicleId ?? DBNull.Value);
+        cmd.AddWithValue("$from", (object?)fromLoc ?? DBNull.Value);
+        cmd.AddWithValue("$to", (object?)toLoc ?? DBNull.Value);
+        cmd.AddWithValue("$op2", (object?)operatorId ?? DBNull.Value);
+        cmd.AddWithValue("$dur", (object?)durationDays ?? DBNull.Value);
+        cmd.AddWithValue("$desc", (object?)description ?? DBNull.Value);
+        cmd.AddWithValue("$mid", (object?)maintenanceId ?? DBNull.Value);
+        cmd.AddWithValue("$sp", stockProcessed ? 1 : 0);
+        cmd.AddWithValue("$ad", activityDate);
+        cmd.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 }

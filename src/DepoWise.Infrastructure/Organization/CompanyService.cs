@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Organization;
 
@@ -44,7 +44,7 @@ public sealed class CompanyService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT name FROM companies WHERE id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return cmd.ExecuteScalar() as string ?? "";
     }
 
@@ -60,7 +60,7 @@ public sealed class CompanyService
         else
         {
             cmd.CommandText = "SELECT id, name FROM companies WHERE id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$c", s.CompanyId);
         }
         var list = new List<(string, string)>();
         using var r = cmd.ExecuteReader();
@@ -112,8 +112,8 @@ VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$ma,$mq,$now,$now,1,0)
 ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
     authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, is_deleted=0, version=companies.version+1, updated_at=$now;";
             Bind(cmd, dto);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Create, s.UserId), _clock);
@@ -135,8 +135,8 @@ ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, 
 UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
     authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=0;";
             Bind(cmd, dto);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$now", now);
             // İDEMPOTENT: silinmiş firmada 0 satır dönebilir; kayıt hiç yoksa gerçek hata.
             if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
                 throw new ForbiddenException("Firma bulunamadı.");
@@ -147,12 +147,12 @@ UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph
 
     /// <summary>Firma kaydı (silinmiş olsa bile) var mı? İdempotent kuyruk tekrarlarında "zaten uygulanmış"
     /// ile "gerçekten yok" ayrımı için.</summary>
-    private static bool CompanyRowExists(SqliteConnection conn, SqliteTransaction tx, string id)
+    private static bool CompanyRowExists(DbConnection conn, DbTransaction tx, string id)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", id);
+        cmd.AddWithValue("$id", id);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -191,8 +191,8 @@ ORDER BY c.name;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE companies SET is_deleted=0, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=1;";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$now", now);
             // İDEMPOTENT: 0 satır = firma zaten aktif (kuyruk tekrar denemesi) → hata verme. Hiç yoksa hata.
             if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
                 throw new ForbiddenException("Firma bulunamadı.");
@@ -203,8 +203,8 @@ ORDER BY c.name;";
             u.Transaction = tx;
             // Firma silinince pasife alınan (is_active=0, is_deleted=0) kullanıcıları tekrar aktifleştir.
             u.CommandText = "UPDATE users SET is_active=1, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=0;";
-            u.Parameters.AddWithValue("$id", id);
-            u.Parameters.AddWithValue("$now", now);
+            u.AddWithValue("$id", id);
+            u.AddWithValue("$now", now);
             reactivatedUsers = u.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Update, s.UserId), _clock);
@@ -230,17 +230,17 @@ ORDER BY c.name;";
             deact.CommandText =
                 "UPDATE users SET is_active=0, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=1 " +
                 "AND id NOT IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$sa);";
-            deact.Parameters.AddWithValue("$id", id);
-            deact.Parameters.AddWithValue("$now", now);
-            deact.Parameters.AddWithValue("$sa", RoleKeys.SuperAdmin);
+            deact.AddWithValue("$id", id);
+            deact.AddWithValue("$now", now);
+            deact.AddWithValue("$sa", RoleKeys.SuperAdmin);
             deact.ExecuteNonQuery();
         }
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE companies SET is_deleted=1, updated_at=$now WHERE id=$id AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$now", now);
             // İDEMPOTENT: 0 satır = firma zaten silinmiş (kuyruk tekrar denemesi) → hata verme.
             // Yalnız firma HİÇ YOKSA hata (gerçek hatalı istek).
             if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
@@ -250,20 +250,20 @@ ORDER BY c.name;";
         tx.Commit();
     }
 
-    private static void Bind(SqliteCommand cmd, NewCompany dto)
+    private static void Bind(DbCommand cmd, NewCompany dto)
     {
-        cmd.Parameters.AddWithValue("$n", dto.Name.Trim());
-        cmd.Parameters.AddWithValue("$tn", (object?)Norm(dto.TaxNo) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$to", (object?)Norm(dto.TaxOffice) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$ad", (object?)Norm(dto.Address) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$ph", (object?)Norm(dto.Phone) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$em", (object?)Norm(dto.Email) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$ap", (object?)Norm(dto.AuthorizedPerson) ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("$mu", dto.MaxUsers < 0 ? 0 : dto.MaxUsers);
-        cmd.Parameters.AddWithValue("$ma", dto.MaxAdmins < 0 ? 0 : dto.MaxAdmins);
-        cmd.Parameters.AddWithValue("$mq", dto.MachineQuota < 0 ? 0 : dto.MachineQuota);
+        cmd.AddWithValue("$n", dto.Name.Trim());
+        cmd.AddWithValue("$tn", (object?)Norm(dto.TaxNo) ?? DBNull.Value);
+        cmd.AddWithValue("$to", (object?)Norm(dto.TaxOffice) ?? DBNull.Value);
+        cmd.AddWithValue("$ad", (object?)Norm(dto.Address) ?? DBNull.Value);
+        cmd.AddWithValue("$ph", (object?)Norm(dto.Phone) ?? DBNull.Value);
+        cmd.AddWithValue("$em", (object?)Norm(dto.Email) ?? DBNull.Value);
+        cmd.AddWithValue("$ap", (object?)Norm(dto.AuthorizedPerson) ?? DBNull.Value);
+        cmd.AddWithValue("$mu", dto.MaxUsers < 0 ? 0 : dto.MaxUsers);
+        cmd.AddWithValue("$ma", dto.MaxAdmins < 0 ? 0 : dto.MaxAdmins);
+        cmd.AddWithValue("$mq", dto.MachineQuota < 0 ? 0 : dto.MachineQuota);
     }
 
     private static string? Norm(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
-    private static string? S(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
+    private static string? S(DbDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
 }

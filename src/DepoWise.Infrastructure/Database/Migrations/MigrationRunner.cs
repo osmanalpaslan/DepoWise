@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -37,9 +37,9 @@ public sealed class MigrationRunner
                 cmd.Transaction = tx;
                 cmd.CommandText =
                     "INSERT INTO schema_migrations(version, name, applied_at) VALUES($v, $n, $t);";
-                cmd.Parameters.AddWithValue("$v", m.Version);
-                cmd.Parameters.AddWithValue("$n", m.Name);
-                cmd.Parameters.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                cmd.AddWithValue("$v", m.Version);
+                cmd.AddWithValue("$n", m.Name);
+                cmd.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 cmd.ExecuteNonQuery();
             }
             tx.Commit();
@@ -57,7 +57,7 @@ public sealed class MigrationRunner
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    private static void EnsureHistoryTable(SqliteConnection conn)
+    private static void EnsureHistoryTable(DbConnection conn)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
@@ -66,7 +66,7 @@ public sealed class MigrationRunner
         cmd.ExecuteNonQuery();
     }
 
-    private static HashSet<int> AppliedVersions(SqliteConnection conn)
+    private static HashSet<int> AppliedVersions(DbConnection conn)
     {
         var set = new HashSet<int>();
         using var cmd = conn.CreateCommand();

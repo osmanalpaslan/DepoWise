@@ -152,7 +152,7 @@ public class MaintenanceTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT quantity, unit_price FROM maintenance_materials WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", m);
+        cmd.AddWithValue("$m", m);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(2m, Money.Parse(r.GetString(0)));

@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -13,13 +13,13 @@ public sealed class Migration030_SplitPermScreens : IMigration
     public int Version => 30;
     public string Name => "split_perm_screens";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         CopyPerm(conn, tx, "vehicles", "vehicle_templates");
         CopyPerm(conn, tx, "users", "quota_monitor");
     }
 
-    private static void CopyPerm(SqliteConnection conn, SqliteTransaction tx, string from, string to)
+    private static void CopyPerm(DbConnection conn, DbTransaction tx, string from, string to)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -29,8 +29,8 @@ SELECT lower(hex(randomblob(16))), company_id, user_id, $to, can_view, can_creat
 FROM user_permissions p
 WHERE p.module_key = $from
   AND NOT EXISTS (SELECT 1 FROM user_permissions q WHERE q.user_id = p.user_id AND q.module_key = $to);";
-        cmd.Parameters.AddWithValue("$from", from);
-        cmd.Parameters.AddWithValue("$to", to);
+        cmd.AddWithValue("$from", from);
+        cmd.AddWithValue("$to", to);
         cmd.ExecuteNonQuery();
     }
 }

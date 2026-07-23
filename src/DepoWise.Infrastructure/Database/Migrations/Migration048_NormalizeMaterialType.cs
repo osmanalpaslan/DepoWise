@@ -1,5 +1,5 @@
 using System;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -23,7 +23,7 @@ public sealed class Migration048_NormalizeMaterialType : IMigration
 
     private static readonly string[] Canonical = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         // 1) Mevcut farklı tür değerlerini oku.
         var distinct = new System.Collections.Generic.List<string>();
@@ -47,8 +47,8 @@ public sealed class Migration048_NormalizeMaterialType : IMigration
                     using var up = conn.CreateCommand();
                     up.Transaction = tx;
                     up.CommandText = "UPDATE materials SET type=$canon WHERE type=$cur;";
-                    up.Parameters.AddWithValue("$canon", canon);
-                    up.Parameters.AddWithValue("$cur", current);
+                    up.AddWithValue("$canon", canon);
+                    up.AddWithValue("$cur", current);
                     up.ExecuteNonQuery();
                     break;
                 }

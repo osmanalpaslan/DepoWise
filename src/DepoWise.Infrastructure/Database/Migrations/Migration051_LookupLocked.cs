@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -21,7 +21,7 @@ public sealed class Migration051_LookupLocked : IMigration
         "vehicle_types", "vehicle_categories", "vehicle_models", "branches",
     };
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         foreach (var table in Tables)
         {

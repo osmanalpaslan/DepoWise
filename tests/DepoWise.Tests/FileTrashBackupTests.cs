@@ -176,7 +176,7 @@ public class FileTrashBackupTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE materials SET is_deleted=1 WHERE id=$id;";
-        cmd.Parameters.AddWithValue("$id", id);
+        cmd.AddWithValue("$id", id);
         cmd.ExecuteNonQuery();
     }
 

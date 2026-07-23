@@ -47,8 +47,8 @@ public class AlertReadTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT signature FROM alert_reads WHERE user_id=$u AND alert_key=$k;";
-        cmd.Parameters.AddWithValue("$u", userId);
-        cmd.Parameters.AddWithValue("$k", key);
+        cmd.AddWithValue("$u", userId);
+        cmd.AddWithValue("$k", key);
         return cmd.ExecuteScalar() as string ?? "";
     }
 
@@ -57,8 +57,8 @@ public class AlertReadTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM alert_reads WHERE user_id=$u AND alert_key=$k;";
-        cmd.Parameters.AddWithValue("$u", userId);
-        cmd.Parameters.AddWithValue("$k", key);
+        cmd.AddWithValue("$u", userId);
+        cmd.AddWithValue("$k", key);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 

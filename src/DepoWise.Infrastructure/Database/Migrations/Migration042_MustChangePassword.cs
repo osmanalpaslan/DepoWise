@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,13 +12,13 @@ public sealed class Migration042_MustChangePassword : IMigration
     public int Version => 42;
     public string Name => "must_change_password";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         if (!ColumnExists(conn, tx, "users", "must_change_password"))
             Exec(conn, tx, "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;");
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -29,7 +29,7 @@ public sealed class Migration042_MustChangePassword : IMigration
         return false;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

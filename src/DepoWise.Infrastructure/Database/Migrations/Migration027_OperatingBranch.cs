@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,7 +12,7 @@ public sealed class Migration027_OperatingBranch : IMigration
     public int Version => 27;
     public string Name => "operating_branch";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         foreach (var table in new[] { "vehicle_maintenances", "fuel_depot_entries", "fuel_distributions", "daily_activities", "stock_movements" })
         {

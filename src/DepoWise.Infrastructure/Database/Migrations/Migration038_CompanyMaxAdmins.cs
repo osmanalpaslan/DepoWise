@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,7 +12,7 @@ public sealed class Migration038_CompanyMaxAdmins : IMigration
     public int Version => 38;
     public string Name => "company_max_admins";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         if (ColumnExists(conn, tx, "companies", "max_admins")) return;
         using var cmd = conn.CreateCommand();
@@ -21,7 +21,7 @@ public sealed class Migration038_CompanyMaxAdmins : IMigration
         cmd.ExecuteNonQuery();
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

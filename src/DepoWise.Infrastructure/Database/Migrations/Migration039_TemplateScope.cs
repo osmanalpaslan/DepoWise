@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -12,7 +12,7 @@ public sealed class Migration039_TemplateScope : IMigration
     public int Version => 39;
     public string Name => "template_scope_all";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         if (ColumnExists(conn, tx, "permission_templates", "scope_all")) return;
         using var cmd = conn.CreateCommand();
@@ -21,7 +21,7 @@ public sealed class Migration039_TemplateScope : IMigration
         cmd.ExecuteNonQuery();
     }
 
-    private static bool ColumnExists(SqliteConnection conn, SqliteTransaction tx, string table, string column)
+    private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database;
 
@@ -125,8 +125,8 @@ public static class GridQuery
         return (whereSql, orderSql, ps);
     }
 
-    public static void AddParams(SqliteCommand cmd, List<(string Name, object Value)> ps)
+    public static void AddParams(DbCommand cmd, List<(string Name, object Value)> ps)
     {
-        foreach (var (name, value) in ps) cmd.Parameters.AddWithValue(name, value);
+        foreach (var (name, value) in ps) cmd.AddWithValue(name, value);
     }
 }

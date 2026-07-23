@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Maintenance;
 
@@ -47,14 +47,14 @@ public sealed class MaintenanceDefinitionService
 INSERT INTO maintenance_definitions(id, company_id, parent_def_id, name, interval_value, interval_unit,
     description, created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$p,$n,$iv,$iu,$d,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$p", (object?)dto.ParentDefId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$n", dto.Name);
-            cmd.Parameters.AddWithValue("$iv", Money.Serialize(dto.IntervalValue));
-            cmd.Parameters.AddWithValue("$iu", dto.IntervalUnit);
-            cmd.Parameters.AddWithValue("$d", (object?)dto.Description ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$p", (object?)dto.ParentDefId ?? DBNull.Value);
+            cmd.AddWithValue("$n", dto.Name);
+            cmd.AddWithValue("$iv", Money.Serialize(dto.IntervalValue));
+            cmd.AddWithValue("$iu", dto.IntervalUnit);
+            cmd.AddWithValue("$d", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         foreach (var vid in vehicleIds?.Distinct() ?? Enumerable.Empty<string>())
@@ -62,8 +62,8 @@ VALUES($id,$c,$p,$n,$iv,$iu,$d,$now,$now,1,0);";
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT OR IGNORE INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES($d,$v);";
-            ins.Parameters.AddWithValue("$d", id);
-            ins.Parameters.AddWithValue("$v", vid);
+            ins.AddWithValue("$d", id);
+            ins.AddWithValue("$v", vid);
             ins.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "maintenance_definition", id, AuditActions.Create, s.UserId), _clock);
@@ -83,8 +83,8 @@ FROM maintenance_definitions
 WHERE company_id=$c AND is_deleted=0
   AND (($p IS NULL AND parent_def_id IS NULL) OR parent_def_id=$p)
 ORDER BY name;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$p", (object?)parentDefId ?? DBNull.Value);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$p", (object?)parentDefId ?? DBNull.Value);
         var list = new List<MaintenanceDefinitionRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -111,13 +111,13 @@ UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$i
     version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0"
                 + EditLockGuard.Clause(expectedVersion) + ";";
             EditLockGuard.Bind(cmd, expectedVersion);
-            cmd.Parameters.AddWithValue("$n", dto.Name);
-            cmd.Parameters.AddWithValue("$iv", Money.Serialize(dto.IntervalValue));
-            cmd.Parameters.AddWithValue("$iu", dto.IntervalUnit);
-            cmd.Parameters.AddWithValue("$d", (object?)dto.Description ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$n", dto.Name);
+            cmd.AddWithValue("$iv", Money.Serialize(dto.IntervalValue));
+            cmd.AddWithValue("$iu", dto.IntervalUnit);
+            cmd.AddWithValue("$d", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0)
             {
                 EditLockGuard.ThrowIfStale(conn, tx, "maintenance_definitions", id, s.CompanyId, expectedVersion);
@@ -138,9 +138,9 @@ UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$i
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE maintenance_definitions SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Tanım bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "maintenance_definition", id, AuditActions.Delete, s.UserId), _clock);
@@ -154,7 +154,7 @@ UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$i
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT vehicle_id FROM maintenance_definition_vehicles WHERE definition_id=$d;";
-        cmd.Parameters.AddWithValue("$d", defId);
+        cmd.AddWithValue("$d", defId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));
@@ -171,7 +171,7 @@ UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$i
         {
             del.Transaction = tx;
             del.CommandText = "DELETE FROM maintenance_definition_vehicles WHERE definition_id=$d;";
-            del.Parameters.AddWithValue("$d", defId);
+            del.AddWithValue("$d", defId);
             del.ExecuteNonQuery();
         }
         foreach (var vid in vehicleIds.Distinct())
@@ -179,8 +179,8 @@ UPDATE maintenance_definitions SET name=$n, interval_value=$iv, interval_unit=$i
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT OR IGNORE INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES($d,$v);";
-            ins.Parameters.AddWithValue("$d", defId);
-            ins.Parameters.AddWithValue("$v", vid);
+            ins.AddWithValue("$d", defId);
+            ins.AddWithValue("$v", vid);
             ins.ExecuteNonQuery();
         }
         tx.Commit();

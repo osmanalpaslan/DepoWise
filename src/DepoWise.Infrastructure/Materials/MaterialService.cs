@@ -4,7 +4,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Materials;
 
@@ -90,21 +90,21 @@ INSERT INTO materials(id, company_id, code, name, type, category_id, unit_id, br
     min_stock, unit_price, currency_code, description, external_equivalent_note,
     created_at, updated_at, version, is_deleted)
 VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$eqnote,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$code", dto.Code.Trim());
-            cmd.Parameters.AddWithValue("$name", dto.Name);
-            cmd.Parameters.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$min", Money.Serialize(dto.MinStock));
-            cmd.Parameters.AddWithValue("$price", Money.Serialize(dto.UnitPrice));
-            cmd.Parameters.AddWithValue("$cur", dto.Currency);
-            cmd.Parameters.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$eqnote", (object?)dto.ExternalEquivalentNote ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$code", dto.Code.Trim());
+            cmd.AddWithValue("$name", dto.Name);
+            cmd.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
+            cmd.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.AddWithValue("$min", Money.Serialize(dto.MinStock));
+            cmd.AddWithValue("$price", Money.Serialize(dto.UnitPrice));
+            cmd.AddWithValue("$cur", dto.Currency);
+            cmd.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("$eqnote", (object?)dto.ExternalEquivalentNote ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material", id, AuditActions.Create, s.UserId), _clock);
@@ -126,7 +126,7 @@ VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$e
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT code, id FROM materials WHERE company_id=$c AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$c", s.CompanyId);
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         using var r = cmd.ExecuteReader();
         while (r.Read()) map[r.GetString(0).Trim().ToUpperInvariant()] = r.GetString(1);
@@ -163,8 +163,8 @@ VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$e
         cmd.CommandText =
             "DELETE FROM material_equivalents WHERE (material_id=$a AND equivalent_material_id=$b) " +
             "OR (material_id=$b AND equivalent_material_id=$a);";
-        cmd.Parameters.AddWithValue("$a", materialId);
-        cmd.Parameters.AddWithValue("$b", equivalentId);
+        cmd.AddWithValue("$a", materialId);
+        cmd.AddWithValue("$b", equivalentId);
         cmd.ExecuteNonQuery();
     }
 
@@ -197,7 +197,7 @@ VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$e
         {
             del.Transaction = tx;
             del.CommandText = "DELETE FROM material_compatible_vehicles WHERE material_id=$m;";
-            del.Parameters.AddWithValue("$m", materialId);
+            del.AddWithValue("$m", materialId);
             del.ExecuteNonQuery();
         }
         foreach (var v in vehicleIds.Distinct())
@@ -205,8 +205,8 @@ VALUES($id,$c,$code,$name,$type,$cat,$unit,$brand,$sup,$min,$price,$cur,$desc,$e
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT OR IGNORE INTO material_compatible_vehicles(material_id, vehicle_id) VALUES($m,$v);";
-            ins.Parameters.AddWithValue("$m", materialId);
-            ins.Parameters.AddWithValue("$v", v);
+            ins.AddWithValue("$m", materialId);
+            ins.AddWithValue("$v", v);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
@@ -224,8 +224,8 @@ FROM material_compatible_vehicles mcv
 JOIN materials m ON m.id = mcv.material_id AND m.company_id = $c AND m.is_deleted = 0
 LEFT JOIN stock_balances b ON b.material_id = m.id
 WHERE mcv.vehicle_id = $v;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$v", vehicleId);
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$v", vehicleId);
         var list = new List<MaterialStock>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -255,8 +255,8 @@ LEFT JOIN brands b  ON b.id = m.brand_id
 LEFT JOIN suppliers sup ON sup.id = m.supplier_id
 LEFT JOIN stock_balances sb ON sb.material_id = m.id
 WHERE m.id=$id AND m.company_id=$c AND m.is_deleted=0;";
-            cmd.Parameters.AddWithValue("$id", materialId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$id", materialId);
+            cmd.AddWithValue("$c", s.CompanyId);
             using var r = cmd.ExecuteReader();
             if (!r.Read()) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
             code = r.GetString(0); name = r.GetString(1);
@@ -284,7 +284,7 @@ WHERE m.id=$id AND m.company_id=$c AND m.is_deleted=0;";
         {
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT id, code, name FROM materials WHERE id=$id AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$id", eid);
+            cmd.AddWithValue("$id", eid);
             using var r = cmd.ExecuteReader();
             if (r.Read()) equivalents.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
         }
@@ -297,8 +297,8 @@ WHERE m.id=$id AND m.company_id=$c AND m.is_deleted=0;";
 SELECT v.id, v.internal_code, COALESCE(v.plate,'')
 FROM material_compatible_vehicles mcv JOIN vehicles v ON v.id = mcv.vehicle_id
 WHERE mcv.material_id=$m AND v.company_id=$c AND v.is_deleted=0 ORDER BY v.internal_code;";
-            cmd.Parameters.AddWithValue("$m", materialId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$m", materialId);
+            cmd.AddWithValue("$c", s.CompanyId);
             using var r = cmd.ExecuteReader();
             while (r.Read()) vehicles.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
         }
@@ -332,19 +332,19 @@ UPDATE materials SET code=$code, name=$name, type=$type, category_id=$cat, unit_
     version=version+1, updated_at=$now
 WHERE id=$id AND company_id=$c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
             EditLockGuard.Bind(cmd, expectedVersion);
-            cmd.Parameters.AddWithValue("$code", dto.Code.Trim());
-            cmd.Parameters.AddWithValue("$name", dto.Name);
-            cmd.Parameters.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$min", Money.Serialize(dto.MinStock));
-            cmd.Parameters.AddWithValue("$price", Money.Serialize(dto.UnitPrice));
-            cmd.Parameters.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", materialId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$code", dto.Code.Trim());
+            cmd.AddWithValue("$name", dto.Name);
+            cmd.AddWithValue("$type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
+            cmd.AddWithValue("$cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.AddWithValue("$unit", (object?)dto.UnitId ?? DBNull.Value);
+            cmd.AddWithValue("$brand", (object?)dto.BrandId ?? DBNull.Value);
+            cmd.AddWithValue("$sup", (object?)dto.SupplierId ?? DBNull.Value);
+            cmd.AddWithValue("$min", Money.Serialize(dto.MinStock));
+            cmd.AddWithValue("$price", Money.Serialize(dto.UnitPrice));
+            cmd.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", materialId);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0)
             {
                 // 0 satır: ya kayıt yok/başka firmaya ait, YA DA sürüm tutmadı (düzenleme kilidi).
@@ -367,9 +367,9 @@ WHERE id=$id AND company_id=$c AND is_deleted=0" + EditLockGuard.Clause(expected
         {
             cmd.Transaction = tx;
             cmd.CommandText = "UPDATE materials SET is_deleted=1, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c AND is_deleted=0;";
-            cmd.Parameters.AddWithValue("$now", now);
-            cmd.Parameters.AddWithValue("$id", materialId);
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", materialId);
+            cmd.AddWithValue("$c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material", materialId, AuditActions.Delete, s.UserId), _clock);
@@ -392,13 +392,13 @@ WHERE id=$id AND company_id=$c AND is_deleted=0" + EditLockGuard.Clause(expected
             (hasSearch ? "AND (code LIKE $q OR name LIKE $q) " : "") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT $limit;";
-        cmd.Parameters.AddWithValue("$c", s.CompanyId);
-        cmd.Parameters.AddWithValue("$limit", limit + 1);
-        if (hasSearch) cmd.Parameters.AddWithValue("$q", "%" + search!.Trim() + "%");
+        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("$limit", limit + 1);
+        if (hasSearch) cmd.AddWithValue("$q", "%" + search!.Trim() + "%");
         if (hasCursor)
         {
-            cmd.Parameters.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
-            cmd.Parameters.AddWithValue("$cursorId", cursor.Id);
+            cmd.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
+            cmd.AddWithValue("$cursorId", cursor.Id);
         }
 
         var items = new List<MaterialRecord>();
@@ -483,7 +483,7 @@ WHERE m.company_id = $c AND m.is_deleted = 0";
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
-            cnt.Parameters.AddWithValue("$c", s.CompanyId);
+            cnt.AddWithValue("$c", s.CompanyId);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -492,10 +492,10 @@ WHERE m.company_id = $c AND m.is_deleted = 0";
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT $lim OFFSET $off;";
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);
-            cmd.Parameters.AddWithValue("$lim", pageSize);
-            cmd.Parameters.AddWithValue("$off", (page - 1) * pageSize);
+            cmd.AddWithValue("$lim", pageSize);
+            cmd.AddWithValue("$off", (page - 1) * pageSize);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new MaterialGridRow(
@@ -540,44 +540,44 @@ WHERE m.company_id = $c AND m.is_deleted = 0";
         return new Application.Reports.TableModel("Malzemeler", headers, body);
     }
 
-    private static bool CodeExists(SqliteConnection conn, SqliteTransaction? tx, string companyId, string code, string? excludeId)
+    private static bool CodeExists(DbConnection conn, DbTransaction? tx, string companyId, string code, string? excludeId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE company_id=$c AND code=$code" +
                           (excludeId is null ? ";" : " AND id<>$ex;");
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$code", code.Trim());
-        if (excludeId is not null) cmd.Parameters.AddWithValue("$ex", excludeId);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$code", code.Trim());
+        if (excludeId is not null) cmd.AddWithValue("$ex", excludeId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static void EnsureOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId)
+    private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c;";
-        cmd.Parameters.AddWithValue("$id", materialId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", materialId);
+        cmd.AddWithValue("$c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
     }
 
-    private static void InsertPair(SqliteConnection conn, SqliteTransaction tx, string a, string b)
+    private static void InsertPair(DbConnection conn, DbTransaction tx, string a, string b)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "INSERT OR IGNORE INTO material_equivalents(material_id, equivalent_material_id) VALUES($a,$b);";
-        cmd.Parameters.AddWithValue("$a", a);
-        cmd.Parameters.AddWithValue("$b", b);
+        cmd.AddWithValue("$a", a);
+        cmd.AddWithValue("$b", b);
         cmd.ExecuteNonQuery();
     }
 
-    private static List<string> DirectEquivalents(SqliteConnection conn, string materialId)
+    private static List<string> DirectEquivalents(DbConnection conn, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT equivalent_material_id FROM material_equivalents WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$m", materialId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));

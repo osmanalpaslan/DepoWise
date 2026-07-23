@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Org;
 
@@ -36,9 +36,9 @@ public sealed class CompanyService
             cmd.CommandText =
                 "INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted) " +
                 "VALUES($id,$n,$now,$now,1,0);";
-            cmd.Parameters.AddWithValue("$id", id);
-            cmd.Parameters.AddWithValue("$n", name);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", id);
+            cmd.AddWithValue("$n", name);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Create, session.UserId), _clock);
@@ -58,7 +58,7 @@ public sealed class CompanyService
         else
         {
             cmd.CommandText = "SELECT id, name, created_at FROM companies WHERE id = $c AND is_deleted = 0;";
-            cmd.Parameters.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("$c", session.CompanyId);
         }
         var list = new List<CompanyRecord>();
         using var r = cmd.ExecuteReader();

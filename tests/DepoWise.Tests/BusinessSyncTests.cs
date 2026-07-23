@@ -38,7 +38,7 @@ public class BusinessSyncTests : IDisposable
         using var conn = f.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        foreach (var (k, v) in ps) cmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
+        foreach (var (k, v) in ps) cmd.AddWithValue(k, v ?? DBNull.Value);
         cmd.ExecuteNonQuery();
     }
 
@@ -56,7 +56,7 @@ public class BusinessSyncTests : IDisposable
         using var conn = f.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        foreach (var (k, v) in ps) cmd.Parameters.AddWithValue(k, v ?? DBNull.Value);
+        foreach (var (k, v) in ps) cmd.AddWithValue(k, v ?? DBNull.Value);
         var v2 = cmd.ExecuteScalar();
         return v2 is null || v2 is DBNull ? null : Convert.ToString(v2, System.Globalization.CultureInfo.InvariantCulture);
     }
@@ -471,16 +471,16 @@ public class BusinessSyncTests : IDisposable
                 using var c1 = conn.CreateCommand();
                 c1.CommandText = "INSERT INTO personnel(id,company_id,full_name,is_active,created_at,updated_at,version,is_deleted) " +
                                  "VALUES($i,'ACME',$n,1,1,1000,1,0);";
-                c1.Parameters.AddWithValue("$i", "P" + i);
-                c1.Parameters.AddWithValue("$n", "Personel " + i);
+                c1.AddWithValue("$i", "P" + i);
+                c1.AddWithValue("$n", "Personel " + i);
                 c1.ExecuteNonQuery();
 
                 using var c2 = conn.CreateCommand();
                 c2.CommandText = "INSERT INTO vehicles(id,company_id,internal_code,plate,current_meter,meter_unit,status," +
                                  "created_at,updated_at,version,is_deleted) VALUES($i,'ACME',$k,$p,'0','km','active',1,1000,1,0);";
-                c2.Parameters.AddWithValue("$i", "V" + i);
-                c2.Parameters.AddWithValue("$k", "KOD" + i);
-                c2.Parameters.AddWithValue("$p", "06 FF " + i);
+                c2.AddWithValue("$i", "V" + i);
+                c2.AddWithValue("$k", "KOD" + i);
+                c2.AddWithValue("$p", "06 FF " + i);
                 c2.ExecuteNonQuery();
             }
             tx.Commit();

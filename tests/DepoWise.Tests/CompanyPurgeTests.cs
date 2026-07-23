@@ -198,7 +198,7 @@ public class CompanyPurgeTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=$c;";
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$c", companyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
@@ -208,9 +208,9 @@ public class CompanyPurgeTests : IDisposable
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "INSERT INTO personnel(id,company_id,full_name,is_active,created_at,updated_at,version,is_deleted) " +
                           "VALUES($i,$c,$n,1,1,1,1,0);";
-        cmd.Parameters.AddWithValue("$i", id);
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$n", "Personel " + id);
+        cmd.AddWithValue("$i", id);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$n", "Personel " + id);
         cmd.ExecuteNonQuery();
     }
 

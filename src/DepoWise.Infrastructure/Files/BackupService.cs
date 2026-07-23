@@ -40,7 +40,7 @@ public sealed class BackupService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "VACUUM INTO $p;";
-            cmd.Parameters.AddWithValue("$p", path);
+            cmd.AddWithValue("$p", path);
             cmd.ExecuteNonQuery();
         }
         PurgeOld();

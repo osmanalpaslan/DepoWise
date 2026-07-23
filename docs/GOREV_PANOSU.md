@@ -71,7 +71,11 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   - **İyi haber:** çoğu MEKANİK ve GÜVENLİ — her adımda 569 test masaüstünün (SQLite) çalıştığını kanıtlar,
     baban hiç etkilenmez. ID'ler zaten TEXT/GUID (PostgreSQL'e uygun), AUTOINCREMENT neredeyse yok (1).
 - **Önerilen plan (adım adım, her biri test edilir, küçük commit'ler):**
-  1. **Temel:** kod `SqliteConnection` yerine `DbConnection` (her veritabanı) desin → 569 test yeşil kalmalı.
+  1. ✅ **TAMAM (2026-07-23) — Temel:** kod `SqliteConnection` yerine `DbConnection` (her veritabanı) diyor.
+     Yardımcılar: `DbCommandExtensions` (`AddWithValue` taban `DbCommand`'de + `BeginImmediate` — SQLite'ta
+     `deferred:false` korunur). Factory `DbConnection` döndürüyor (SQLite içeride). ~130 dosya çevrildi
+     (Infrastructure + Desktop + API + testler). BackupService/factory SQLite'a özel bırakıldı.
+     **569 test yeşil + 4 proje 0 hata → masaüstü (SQLite) hiç bozulmadı.**
   2. **Parametreler:** `$` → `@` (dikkatli, C# `$"..."` interpolasyonuna dokunmadan) → 569 yeşil.
   3. **Lehçe SQL:** `INSERT OR IGNORE` → `ON CONFLICT`, tarih fonksiyonları → 569 yeşil.
   4. **Migration'lar:** 52 şema PostgreSQL'de de çalışsın (tipler) → Neon'da test.
@@ -79,7 +83,8 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   6. **Uçtan uca:** sunucuyu Neon'a bağlayıp doğrula.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Kullanıcı onayıyla Adım 1'den (güvenli temel) başla.
+- **Sıradaki adım:** Adım 2 — parametre önekleri `$` → `@` (Npgsql `$` kabul etmez). ~1216 çağrı;
+  C# string interpolasyonuna (`$"..."`) dokunmadan, dikkatli. Her adımda 569 yeşil kalmalı.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

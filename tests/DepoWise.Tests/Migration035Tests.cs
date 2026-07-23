@@ -1,3 +1,4 @@
+using System.Data.Common;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using Microsoft.Data.Sqlite;
@@ -39,7 +40,7 @@ public class Migration035Tests : IDisposable
         for (int i = 0; i < 2; i++)
             using (var tx = conn.BeginTransaction())
             {
-                new Migration035_SplitRequestApproval().Up((SqliteConnection)conn, (SqliteTransaction)tx);
+                new Migration035_SplitRequestApproval().Up((DbConnection)conn, (DbTransaction)tx);
                 tx.Commit();
             }
 
@@ -53,20 +54,20 @@ public class Migration035Tests : IDisposable
         Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM user_button_permissions WHERE button_key='btn-approve';"));
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql, params (string, object)[] ps)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql, params (string, object)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         cmd.ExecuteNonQuery();
     }
 
-    private static string Scalar(SqliteConnection conn, string sql, params (string, object)[] ps)
+    private static string Scalar(DbConnection conn, string sql, params (string, object)[] ps)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        foreach (var (n, v) in ps) cmd.Parameters.AddWithValue(n, v);
+        foreach (var (n, v) in ps) cmd.AddWithValue(n, v);
         return Convert.ToString(cmd.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) ?? "";
     }
 

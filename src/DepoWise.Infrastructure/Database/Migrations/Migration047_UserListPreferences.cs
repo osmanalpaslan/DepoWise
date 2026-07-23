@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database.Migrations;
 
@@ -15,7 +15,7 @@ public sealed class Migration047_UserListPreferences : IMigration
     public int Version => 47;
     public string Name => "user_list_preferences";
 
-    public void Up(SqliteConnection conn, SqliteTransaction tx)
+    public void Up(DbConnection conn, DbTransaction tx)
     {
         Exec(conn, tx, @"
 CREATE TABLE IF NOT EXISTS user_list_preferences(
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS user_list_preferences(
 );");
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

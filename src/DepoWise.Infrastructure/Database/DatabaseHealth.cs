@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using DepoWise.Application.Common;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Database;
 
@@ -29,7 +29,7 @@ public sealed class DatabaseHealth : IDatabaseHealth
             using (var ins = conn.CreateCommand())
             {
                 ins.CommandText = "INSERT INTO _health_check(ts) VALUES($ts);";
-                ins.Parameters.AddWithValue("$ts", ts);
+                ins.AddWithValue("$ts", ts);
                 ins.ExecuteNonQuery();
             }
             long readBack = ScalarLong(conn, "SELECT MAX(ts) FROM _health_check;");
@@ -51,15 +51,15 @@ public sealed class DatabaseHealth : IDatabaseHealth
         }
     }
 
-    private static void Execute(SqliteConnection c, string sql)
+    private static void Execute(DbConnection c, string sql)
     {
         using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery();
     }
-    private static string ScalarText(SqliteConnection c, string sql)
+    private static string ScalarText(DbConnection c, string sql)
     {
         using var cmd = c.CreateCommand(); cmd.CommandText = sql; return cmd.ExecuteScalar()?.ToString() ?? "";
     }
-    private static long ScalarLong(SqliteConnection c, string sql)
+    private static long ScalarLong(DbConnection c, string sql)
     {
         using var cmd = c.CreateCommand(); cmd.CommandText = sql;
         var v = cmd.ExecuteScalar();

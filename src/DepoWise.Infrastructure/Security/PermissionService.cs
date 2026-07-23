@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Security;
 
@@ -34,7 +34,7 @@ public sealed class PermissionService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT module_key, can_view, can_create, can_edit, can_delete FROM user_permissions WHERE user_id=$u;";
-            cmd.Parameters.AddWithValue("$u", userId);
+            cmd.AddWithValue("$u", userId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 mods.Add(new ModulePermission(r.GetString(0), r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1));
@@ -44,7 +44,7 @@ public sealed class PermissionService
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=$u;";
-            cmd.Parameters.AddWithValue("$u", userId);
+            cmd.AddWithValue("$u", userId);
             using var r = cmd.ExecuteReader();
             while (r.Read()) buttons.Add(r.GetString(0));
         }
@@ -119,8 +119,8 @@ public sealed class PermissionService
         // (Firmaya ilk açılan sınırlı admin, kendi yetkisi dışındaki alanları başkasına atayamaz.)
         var (clampMods, clampBtns) = GrantableLimit(conn, tx, actor);
 
-        Exec(conn, tx, "DELETE FROM user_permissions WHERE user_id=$u;", c => c.Parameters.AddWithValue("$u", userId));
-        Exec(conn, tx, "DELETE FROM user_button_permissions WHERE user_id=$u;", c => c.Parameters.AddWithValue("$u", userId));
+        Exec(conn, tx, "DELETE FROM user_permissions WHERE user_id=$u;", c => c.AddWithValue("$u", userId));
+        Exec(conn, tx, "DELETE FROM user_button_permissions WHERE user_id=$u;", c => c.AddWithValue("$u", userId));
 
         foreach (var mIn in modules)
         {
@@ -132,15 +132,15 @@ public sealed class PermissionService
                 "VALUES($id,$c,$u,$m,$v,$cr,$e,$d,$now,$now,1);",
                 c =>
                 {
-                    c.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                    c.Parameters.AddWithValue("$c", companyId);
-                    c.Parameters.AddWithValue("$u", userId);
-                    c.Parameters.AddWithValue("$m", m.ModuleKey);
-                    c.Parameters.AddWithValue("$v", m.CanView ? 1 : 0);
-                    c.Parameters.AddWithValue("$cr", m.CanCreate ? 1 : 0);
-                    c.Parameters.AddWithValue("$e", m.CanEdit ? 1 : 0);
-                    c.Parameters.AddWithValue("$d", m.CanDelete ? 1 : 0);
-                    c.Parameters.AddWithValue("$now", now);
+                    c.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+                    c.AddWithValue("$c", companyId);
+                    c.AddWithValue("$u", userId);
+                    c.AddWithValue("$m", m.ModuleKey);
+                    c.AddWithValue("$v", m.CanView ? 1 : 0);
+                    c.AddWithValue("$cr", m.CanCreate ? 1 : 0);
+                    c.AddWithValue("$e", m.CanEdit ? 1 : 0);
+                    c.AddWithValue("$d", m.CanDelete ? 1 : 0);
+                    c.AddWithValue("$now", now);
                 });
         }
         foreach (var b in buttons.Distinct())
@@ -150,11 +150,11 @@ public sealed class PermissionService
                 "INSERT INTO user_button_permissions(id, company_id, user_id, button_key, created_at) VALUES($id,$c,$u,$b,$now);",
                 c =>
                 {
-                    c.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                    c.Parameters.AddWithValue("$c", companyId);
-                    c.Parameters.AddWithValue("$u", userId);
-                    c.Parameters.AddWithValue("$b", b);
-                    c.Parameters.AddWithValue("$now", now);
+                    c.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+                    c.AddWithValue("$c", companyId);
+                    c.AddWithValue("$u", userId);
+                    c.AddWithValue("$b", b);
+                    c.AddWithValue("$now", now);
                 });
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
@@ -164,7 +164,7 @@ public sealed class PermissionService
     /// <summary>Aktörün başkasına VEREBİLECEĞİ üst sınır. null = sınırsız (Süper Admin, ya da hiç açık izni olmayan
     /// firma admini — geriye dönük uyum). Aksi halde aktörün KENDİ user_permissions/butonları sınır olur.</summary>
     private static (Dictionary<string, ModulePermission>? Mods, HashSet<string>? Btns) GrantableLimit(
-        SqliteConnection conn, SqliteTransaction tx, SessionContext actor)
+        DbConnection conn, DbTransaction tx, SessionContext actor)
     {
         if (actor.IsSuperAdmin) return (null, null); // sınırsız
 
@@ -173,7 +173,7 @@ public sealed class PermissionService
         {
             cmd.Transaction = tx;
             cmd.CommandText = "SELECT module_key, can_view, can_create, can_edit, can_delete FROM user_permissions WHERE user_id=$u;";
-            cmd.Parameters.AddWithValue("$u", actor.UserId);
+            cmd.AddWithValue("$u", actor.UserId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 mods[r.GetString(0)] = new ModulePermission(r.GetString(0),
@@ -184,7 +184,7 @@ public sealed class PermissionService
         {
             cmd.Transaction = tx;
             cmd.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=$u;";
-            cmd.Parameters.AddWithValue("$u", actor.UserId);
+            cmd.AddWithValue("$u", actor.UserId);
             using var r = cmd.ExecuteReader();
             while (r.Read()) btns.Add(r.GetString(0));
         }
@@ -206,7 +206,7 @@ public sealed class PermissionService
     }
 
     /// <summary>#8 — Admin, başka admin/süperadminin yetkilerini düzenleyemez (kendisi + Personel'ler hariç).</summary>
-    private static void EnsureManageableTarget(SqliteConnection conn, SqliteTransaction tx, SessionContext actor, string userId)
+    private static void EnsureManageableTarget(DbConnection conn, DbTransaction tx, SessionContext actor, string userId)
     {
         if (actor.IsSuperAdmin) return;
         if (string.Equals(userId, actor.UserId, StringComparison.Ordinal)) return;
@@ -221,28 +221,28 @@ public sealed class PermissionService
     private static string ModuleLabel(string moduleKey)
         => AppModules.All.FirstOrDefault(m => m.Key == moduleKey).Label ?? moduleKey;
 
-    private static bool HasRole(SqliteConnection conn, SqliteTransaction tx, string userId, string roleKey)
+    private static bool HasRole(DbConnection conn, DbTransaction tx, string userId, string roleKey)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.role_key=$k;";
-        cmd.Parameters.AddWithValue("$u", userId);
-        cmd.Parameters.AddWithValue("$k", roleKey);
+        cmd.AddWithValue("$u", userId);
+        cmd.AddWithValue("$k", roleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static string EnsureUserOwned(SqliteConnection conn, SqliteTransaction? tx, SessionContext actor, string userId)
+    private static string EnsureUserOwned(DbConnection conn, DbTransaction? tx, SessionContext actor, string userId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
-        cmd.Parameters.AddWithValue("$u", userId);
+        cmd.AddWithValue("$u", userId);
         var cid = cmd.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
         if (!actor.IsSuperAdmin && cid != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
         return cid;
     }
 
-    private static void Exec(SqliteConnection conn, SqliteTransaction tx, string sql, Action<SqliteCommand> bind)
+    private static void Exec(DbConnection conn, DbTransaction tx, string sql, Action<DbCommand> bind)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

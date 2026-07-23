@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -7,8 +8,9 @@ namespace DepoWise.Infrastructure.Database;
 
 public interface IDbConnectionFactory
 {
-    /// <summary>Açık ve PRAGMA'ları ayarlanmış bir bağlantı döndürür.</summary>
-    SqliteConnection Create();
+    /// <summary>Açık ve (sağlayıcıya göre) ayarlanmış bir bağlantı döndürür. PostgreSQL geçişi Faz 2:
+    /// dönüş tipi artık taban <c>DbConnection</c> — SQLite (masaüstü) ve Npgsql (sunucu) ortak tabanı.</summary>
+    DbConnection Create();
     string DatabasePath { get; }
 }
 
@@ -28,7 +30,9 @@ public sealed class SqliteConnectionFactory : IDbConnectionFactory
     public static SqliteConnectionFactory ForEnvironment(string environment)
         => new(AppPaths.DatabasePath(environment));
 
-    public SqliteConnection Create()
+    // Dönüş tipi taban DbConnection (arayüz gereği); içeride SQLite kurulur (PRAGMA/Türkçe fonksiyon+collation
+    // SQLite'a özeldir, burada kalır). Çağıranlar taban tipi görür → PostgreSQL sağlayıcısı da takılabilir.
+    public DbConnection Create()
     {
         var connStr = new SqliteConnectionStringBuilder
         {

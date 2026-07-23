@@ -1,7 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Materials;
 
@@ -52,18 +52,18 @@ public sealed class OpeningStockService
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, movement_type, direction,
     quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at)
 VALUES($id,$c,$m,$b,'opening',$dir,$q,$price,$cur,$fx,$op,$note,$now);";
-            cmd.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            cmd.Parameters.AddWithValue("$c", s.CompanyId);
-            cmd.Parameters.AddWithValue("$m", materialId);
-            cmd.Parameters.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$dir", direction);
-            cmd.Parameters.AddWithValue("$q", Money.Serialize(absQty));
-            cmd.Parameters.AddWithValue("$price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
-            cmd.Parameters.AddWithValue("$cur", currency);
-            cmd.Parameters.AddWithValue("$fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));
-            cmd.Parameters.AddWithValue("$op", operationId);
-            cmd.Parameters.AddWithValue("$note", (object?)note ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$now", now);
+            cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.AddWithValue("$m", materialId);
+            cmd.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
+            cmd.AddWithValue("$dir", direction);
+            cmd.AddWithValue("$q", Money.Serialize(absQty));
+            cmd.AddWithValue("$price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
+            cmd.AddWithValue("$cur", currency);
+            cmd.AddWithValue("$fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));
+            cmd.AddWithValue("$op", operationId);
+            cmd.AddWithValue("$note", (object?)note ?? DBNull.Value);
+            cmd.AddWithValue("$now", now);
             cmd.ExecuteNonQuery();
         }
 
@@ -78,27 +78,27 @@ VALUES($id,$c,$m,$b,'opening',$dir,$q,$price,$cur,$fx,$op,$note,$now);";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
-        cmd.Parameters.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$m", materialId);
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
-    private static bool OperationApplied(SqliteConnection conn, SqliteTransaction tx, string operationId)
+    private static bool OperationApplied(DbConnection conn, DbTransaction tx, string operationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM stock_movements WHERE operation_id=$op;";
-        cmd.Parameters.AddWithValue("$op", operationId);
+        cmd.AddWithValue("$op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static void UpsertBalance(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId, decimal delta, long now)
+    private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId, decimal delta, long now)
     {
         decimal current;
         using (var read = conn.CreateCommand())
         {
             read.Transaction = tx;
             read.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
-            read.Parameters.AddWithValue("$m", materialId);
+            read.AddWithValue("$m", materialId);
             current = Money.Parse(read.ExecuteScalar() as string);
         }
         var updated = current + delta;
@@ -107,20 +107,20 @@ VALUES($id,$c,$m,$b,'opening',$dir,$q,$price,$cur,$fx,$op,$note,$now);";
         cmd.CommandText = @"
 INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now)
 ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.Parameters.AddWithValue("$c", companyId);
-        cmd.Parameters.AddWithValue("$m", materialId);
-        cmd.Parameters.AddWithValue("$q", Money.Serialize(updated));
-        cmd.Parameters.AddWithValue("$now", now);
+        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$m", materialId);
+        cmd.AddWithValue("$q", Money.Serialize(updated));
+        cmd.AddWithValue("$now", now);
         cmd.ExecuteNonQuery();
     }
 
-    private static void EnsureOwned(SqliteConnection conn, SqliteTransaction tx, string companyId, string materialId)
+    private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c;";
-        cmd.Parameters.AddWithValue("$id", materialId);
-        cmd.Parameters.AddWithValue("$c", companyId);
+        cmd.AddWithValue("$id", materialId);
+        cmd.AddWithValue("$c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
     }
