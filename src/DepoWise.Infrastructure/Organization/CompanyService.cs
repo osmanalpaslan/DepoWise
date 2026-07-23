@@ -43,8 +43,8 @@ public sealed class CompanyService
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT name FROM companies WHERE id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT name FROM companies WHERE id=@c;";
+        cmd.AddWithValue("@c", companyId);
         return cmd.ExecuteScalar() as string ?? "";
     }
 
@@ -59,8 +59,8 @@ public sealed class CompanyService
             cmd.CommandText = "SELECT id, name FROM companies WHERE is_deleted=0 ORDER BY name;";
         else
         {
-            cmd.CommandText = "SELECT id, name FROM companies WHERE id=$c AND is_deleted=0;";
-            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.CommandText = "SELECT id, name FROM companies WHERE id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@c", s.CompanyId);
         }
         var list = new List<(string, string)>();
         using var r = cmd.ExecuteReader();
@@ -108,12 +108,12 @@ ORDER BY c.name;";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO companies(id, name, tax_no, tax_office, address, phone, email, authorized_person, max_users, max_admins, machine_quota, created_at, updated_at, version, is_deleted)
-VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$ma,$mq,$now,$now,1,0)
-ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
-    authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, is_deleted=0, version=companies.version+1, updated_at=$now;";
+VALUES(@id,@n,@tn,@to,@ad,@ph,@em,@ap,@mu,@ma,@mq,@now,@now,1,0)
+ON CONFLICT(id) DO UPDATE SET name=@n, tax_no=@tn, tax_office=@to, address=@ad, phone=@ph, email=@em,
+    authorized_person=@ap, max_users=@mu, max_admins=@ma, machine_quota=@mq, is_deleted=0, version=companies.version+1, updated_at=@now;";
             Bind(cmd, dto);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Create, s.UserId), _clock);
@@ -132,11 +132,11 @@ ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, 
         {
             cmd.Transaction = tx;
             cmd.CommandText = @"
-UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, email=$em,
-    authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=0;";
+UPDATE companies SET name=@n, tax_no=@tn, tax_office=@to, address=@ad, phone=@ph, email=@em,
+    authorized_person=@ap, max_users=@mu, max_admins=@ma, machine_quota=@mq, version=version+1, updated_at=@now WHERE id=@id AND is_deleted=0;";
             Bind(cmd, dto);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@now", now);
             // İDEMPOTENT: silinmiş firmada 0 satır dönebilir; kayıt hiç yoksa gerçek hata.
             if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
                 throw new ForbiddenException("Firma bulunamadı.");
@@ -151,8 +151,8 @@ UPDATE companies SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$id;";
-        cmd.AddWithValue("$id", id);
+        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=@id;";
+        cmd.AddWithValue("@id", id);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -190,9 +190,9 @@ ORDER BY c.name;";
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE companies SET is_deleted=0, version=version+1, updated_at=$now WHERE id=$id AND is_deleted=1;";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$now", now);
+            cmd.CommandText = "UPDATE companies SET is_deleted=0, version=version+1, updated_at=@now WHERE id=@id AND is_deleted=1;";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@now", now);
             // İDEMPOTENT: 0 satır = firma zaten aktif (kuyruk tekrar denemesi) → hata verme. Hiç yoksa hata.
             if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
                 throw new ForbiddenException("Firma bulunamadı.");
@@ -202,9 +202,9 @@ ORDER BY c.name;";
         {
             u.Transaction = tx;
             // Firma silinince pasife alınan (is_active=0, is_deleted=0) kullanıcıları tekrar aktifleştir.
-            u.CommandText = "UPDATE users SET is_active=1, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=0;";
-            u.AddWithValue("$id", id);
-            u.AddWithValue("$now", now);
+            u.CommandText = "UPDATE users SET is_active=1, updated_at=@now WHERE company_id=@id AND is_deleted=0 AND is_active=0;";
+            u.AddWithValue("@id", id);
+            u.AddWithValue("@now", now);
             reactivatedUsers = u.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Update, s.UserId), _clock);
@@ -228,19 +228,19 @@ ORDER BY c.name;";
         {
             deact.Transaction = tx;
             deact.CommandText =
-                "UPDATE users SET is_active=0, updated_at=$now WHERE company_id=$id AND is_deleted=0 AND is_active=1 " +
-                "AND id NOT IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=$sa);";
-            deact.AddWithValue("$id", id);
-            deact.AddWithValue("$now", now);
-            deact.AddWithValue("$sa", RoleKeys.SuperAdmin);
+                "UPDATE users SET is_active=0, updated_at=@now WHERE company_id=@id AND is_deleted=0 AND is_active=1 " +
+                "AND id NOT IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE r.role_key=@sa);";
+            deact.AddWithValue("@id", id);
+            deact.AddWithValue("@now", now);
+            deact.AddWithValue("@sa", RoleKeys.SuperAdmin);
             deact.ExecuteNonQuery();
         }
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE companies SET is_deleted=1, updated_at=$now WHERE id=$id AND is_deleted=0;";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$now", now);
+            cmd.CommandText = "UPDATE companies SET is_deleted=1, updated_at=@now WHERE id=@id AND is_deleted=0;";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@now", now);
             // İDEMPOTENT: 0 satır = firma zaten silinmiş (kuyruk tekrar denemesi) → hata verme.
             // Yalnız firma HİÇ YOKSA hata (gerçek hatalı istek).
             if (cmd.ExecuteNonQuery() == 0 && !CompanyRowExists(conn, tx, id))
@@ -252,16 +252,16 @@ ORDER BY c.name;";
 
     private static void Bind(DbCommand cmd, NewCompany dto)
     {
-        cmd.AddWithValue("$n", dto.Name.Trim());
-        cmd.AddWithValue("$tn", (object?)Norm(dto.TaxNo) ?? DBNull.Value);
-        cmd.AddWithValue("$to", (object?)Norm(dto.TaxOffice) ?? DBNull.Value);
-        cmd.AddWithValue("$ad", (object?)Norm(dto.Address) ?? DBNull.Value);
-        cmd.AddWithValue("$ph", (object?)Norm(dto.Phone) ?? DBNull.Value);
-        cmd.AddWithValue("$em", (object?)Norm(dto.Email) ?? DBNull.Value);
-        cmd.AddWithValue("$ap", (object?)Norm(dto.AuthorizedPerson) ?? DBNull.Value);
-        cmd.AddWithValue("$mu", dto.MaxUsers < 0 ? 0 : dto.MaxUsers);
-        cmd.AddWithValue("$ma", dto.MaxAdmins < 0 ? 0 : dto.MaxAdmins);
-        cmd.AddWithValue("$mq", dto.MachineQuota < 0 ? 0 : dto.MachineQuota);
+        cmd.AddWithValue("@n", dto.Name.Trim());
+        cmd.AddWithValue("@tn", (object?)Norm(dto.TaxNo) ?? DBNull.Value);
+        cmd.AddWithValue("@to", (object?)Norm(dto.TaxOffice) ?? DBNull.Value);
+        cmd.AddWithValue("@ad", (object?)Norm(dto.Address) ?? DBNull.Value);
+        cmd.AddWithValue("@ph", (object?)Norm(dto.Phone) ?? DBNull.Value);
+        cmd.AddWithValue("@em", (object?)Norm(dto.Email) ?? DBNull.Value);
+        cmd.AddWithValue("@ap", (object?)Norm(dto.AuthorizedPerson) ?? DBNull.Value);
+        cmd.AddWithValue("@mu", dto.MaxUsers < 0 ? 0 : dto.MaxUsers);
+        cmd.AddWithValue("@ma", dto.MaxAdmins < 0 ? 0 : dto.MaxAdmins);
+        cmd.AddWithValue("@mq", dto.MachineQuota < 0 ? 0 : dto.MachineQuota);
     }
 
     private static string? Norm(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();

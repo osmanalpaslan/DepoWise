@@ -19,17 +19,17 @@ public sealed class Migration036_RestrictedSuperAdmin : IMigration
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         using var check = conn.CreateCommand();
         check.Transaction = tx;
-        check.CommandText = "SELECT id FROM roles WHERE role_key=$k AND is_deleted=0;";
-        check.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
+        check.CommandText = "SELECT id FROM roles WHERE role_key=@k AND is_deleted=0;";
+        check.AddWithValue("@k", RoleKeys.RestrictedSuperAdmin);
         if (check.ExecuteScalar() is not null) return;
 
         using var ins = conn.CreateCommand();
         ins.Transaction = tx;
         ins.CommandText = @"INSERT INTO roles(id, company_id, role_key, name, is_system, created_at, updated_at, version, is_deleted)
-VALUES($id, NULL, $k, 'Kısıtlı Süper Admin', 1, $now, $now, 1, 0);";
-        ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        ins.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
-        ins.AddWithValue("$now", now);
+VALUES(@id, NULL, @k, 'Kısıtlı Süper Admin', 1, @now, @now, 1, 0);";
+        ins.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        ins.AddWithValue("@k", RoleKeys.RestrictedSuperAdmin);
+        ins.AddWithValue("@now", now);
         ins.ExecuteNonQuery();
     }
 }

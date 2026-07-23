@@ -653,11 +653,11 @@ public sealed partial class LoginViewModel : ViewModelBase
             using var conn = DesktopServices.Factory.Create();
             using (var c = conn.CreateCommand())
             {
-                c.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($id,$n,$now,$now,1,0) " +
-                                "ON CONFLICT(id) DO UPDATE SET name=$n, is_deleted=0, updated_at=$now;";
-                c.AddWithValue("$id", companyId);
-                c.AddWithValue("$n", companyName);
-                c.AddWithValue("$now", now);
+                c.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@id,@n,@now,@now,1,0) " +
+                                "ON CONFLICT(id) DO UPDATE SET name=@n, is_deleted=0, updated_at=@now;";
+                c.AddWithValue("@id", companyId);
+                c.AddWithValue("@n", companyName);
+                c.AddWithValue("@now", now);
                 c.ExecuteNonQuery();
             }
         }
@@ -687,13 +687,13 @@ public sealed partial class LoginViewModel : ViewModelBase
                 serverIds.Add(b.Id);
                 using var c = conn.CreateCommand();
                 c.CommandText = "INSERT INTO branches(id,company_id,name,kind,code,created_at,updated_at,version,is_deleted) " +
-                                "VALUES($id,$c,$n,'branch',$code,$now,$now,1,0) " +
-                                "ON CONFLICT(id) DO UPDATE SET company_id=$c, name=$n, code=$code, is_deleted=0, updated_at=$now;";
-                c.AddWithValue("$id", b.Id);
-                c.AddWithValue("$c", companyId);
-                c.AddWithValue("$n", b.Name);
-                c.AddWithValue("$code", (object?)b.Code ?? System.DBNull.Value);
-                c.AddWithValue("$now", now);
+                                "VALUES(@id,@c,@n,'branch',@code,@now,@now,1,0) " +
+                                "ON CONFLICT(id) DO UPDATE SET company_id=@c, name=@n, code=@code, is_deleted=0, updated_at=@now;";
+                c.AddWithValue("@id", b.Id);
+                c.AddWithValue("@c", companyId);
+                c.AddWithValue("@n", b.Name);
+                c.AddWithValue("@code", (object?)b.Code ?? System.DBNull.Value);
+                c.AddWithValue("@now", now);
                 c.ExecuteNonQuery();
             }
 
@@ -705,15 +705,15 @@ public sealed partial class LoginViewModel : ViewModelBase
                 var names = new System.Collections.Generic.List<string>();
                 for (int i = 0; i < serverIds.Count; i++)
                 {
-                    var p = "$k" + i;
+                    var p = "@k" + i;
                     names.Add(p);
                     del.AddWithValue(p, serverIds[i]);
                 }
                 del.CommandText =
-                    "UPDATE branches SET is_deleted=1, updated_at=$now WHERE company_id=$c AND is_deleted=0" +
+                    "UPDATE branches SET is_deleted=1, updated_at=@now WHERE company_id=@c AND is_deleted=0" +
                     (names.Count > 0 ? " AND id NOT IN (" + string.Join(",", names) + ")" : "") + ";";
-                del.AddWithValue("$c", companyId);
-                del.AddWithValue("$now", now);
+                del.AddWithValue("@c", companyId);
+                del.AddWithValue("@now", now);
                 del.ExecuteNonQuery();
             }
         }
@@ -739,8 +739,8 @@ public sealed partial class LoginViewModel : ViewModelBase
         {
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, name, code FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
-            cmd.AddWithValue("$c", companyId);
+            cmd.CommandText = "SELECT id, name, code FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
+            cmd.AddWithValue("@c", companyId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 Branches.Add(new ServerAuthClient.LoginBranch(r.GetString(0), r.GetString(1),
@@ -755,8 +755,8 @@ public sealed partial class LoginViewModel : ViewModelBase
         {
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT name FROM companies WHERE id=$c;";
-            cmd.AddWithValue("$c", companyId);
+            cmd.CommandText = "SELECT name FROM companies WHERE id=@c;";
+            cmd.AddWithValue("@c", companyId);
             return cmd.ExecuteScalar() as string ?? "";
         }
         catch { return ""; }

@@ -15,7 +15,7 @@ namespace DepoWise.Infrastructure.Database;
 ///
 /// Kullanım (üç adım, her serviste aynı):
 /// <code>
-/// cmd.CommandText = @"UPDATE tablo SET ... WHERE id=$id AND company_id=$c AND is_deleted=0"
+/// cmd.CommandText = @"UPDATE tablo SET ... WHERE id=@id AND company_id=@c AND is_deleted=0"
 ///                   + EditLockGuard.Clause(expectedVersion) + ";";
 /// EditLockGuard.Bind(cmd, expectedVersion);
 /// if (cmd.ExecuteNonQuery() == 0)
@@ -29,12 +29,12 @@ namespace DepoWise.Infrastructure.Database;
 internal static class EditLockGuard
 {
     /// <summary>UPDATE'in WHERE'ine eklenecek sürüm koşulu (sürüm verilmediyse boş).</summary>
-    public static string Clause(long? expectedVersion) => expectedVersion.HasValue ? " AND version=$ev" : "";
+    public static string Clause(long? expectedVersion) => expectedVersion.HasValue ? " AND version=@ev" : "";
 
     /// <summary>Sürüm parametresini bağlar (sürüm verilmediyse hiçbir şey yapmaz).</summary>
     public static void Bind(DbCommand cmd, long? expectedVersion)
     {
-        if (expectedVersion.HasValue) cmd.AddWithValue("$ev", expectedVersion.Value);
+        if (expectedVersion.HasValue) cmd.AddWithValue("@ev", expectedVersion.Value);
     }
 
     /// <summary>
@@ -49,9 +49,9 @@ internal static class EditLockGuard
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         // table sabit kod içinden gelir (kullanıcı girdisi DEĞİL); id/company parametreli.
-        cmd.CommandText = $"SELECT version FROM {table} WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = $"SELECT version FROM {table} WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
         var cur = cmd.ExecuteScalar();
         if (cur is not null and not System.DBNull)
             throw new ConcurrencyException(expectedVersion.Value, System.Convert.ToInt64(cur));

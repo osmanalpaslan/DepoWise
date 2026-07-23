@@ -45,16 +45,16 @@ public static class LocalPurgeService
             using var tx = conn.BeginTransaction();
 
             // user_roles'ta company_id YOK → firmanın kullanıcıları üzerinden; users'tan ÖNCE.
-            rows += Exec(conn, tx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE company_id=$c);", companyId);
+            rows += Exec(conn, tx, "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE company_id=@c);", companyId);
 
             foreach (var t in tables)
             {
                 if (Protected.Contains(t)) continue;
                 if (string.Equals(t, "companies", StringComparison.OrdinalIgnoreCase)) continue; // en sonda
                 if (!HasColumn(conn, t, "company_id")) continue;
-                rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=$c;", companyId);
+                rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", companyId);
             }
-            rows += Exec(conn, tx, "DELETE FROM companies WHERE id=$c;", companyId);
+            rows += Exec(conn, tx, "DELETE FROM companies WHERE id=@c;", companyId);
 
             tx.Commit();
         }
@@ -81,7 +81,7 @@ public static class LocalPurgeService
             foreach (var t in DepoWise.Infrastructure.Sync.BusinessSyncService.Tables)
             {
                 if (!TableExistsIn(conn, t) || !HasColumn(conn, t, "company_id")) continue;
-                rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=$c;", companyId);
+                rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", companyId);
             }
             tx.Commit();
         }
@@ -95,8 +95,8 @@ public static class LocalPurgeService
     private static bool TableExistsIn(DbConnection conn, string table)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
-        cmd.AddWithValue("$n", table);
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@n LIMIT 1;";
+        cmd.AddWithValue("@n", table);
         return cmd.ExecuteScalar() is not null;
     }
 
@@ -115,7 +115,7 @@ public static class LocalPurgeService
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         return cmd.ExecuteNonQuery();
     }
 }

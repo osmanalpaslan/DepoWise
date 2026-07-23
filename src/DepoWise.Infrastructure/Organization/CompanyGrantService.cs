@@ -75,20 +75,20 @@ public sealed class CompanyGrantService
         using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
-            del.CommandText = "DELETE FROM company_grant_limits WHERE company_id=$c;";
-            del.AddWithValue("$c", companyId);
+            del.CommandText = "DELETE FROM company_grant_limits WHERE company_id=@c;";
+            del.AddWithValue("@c", companyId);
             del.ExecuteNonQuery();
         }
         foreach (var (key, level) in clean)
         {
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = "INSERT INTO company_grant_limits(id, company_id, module_key, level, created_at) VALUES($id,$c,$k,$lvl,$now);";
-            ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ins.AddWithValue("$c", companyId);
-            ins.AddWithValue("$k", key);
-            ins.AddWithValue("$lvl", level);
-            ins.AddWithValue("$now", now);
+            ins.CommandText = "INSERT INTO company_grant_limits(id, company_id, module_key, level, created_at) VALUES(@id,@c,@k,@lvl,@now);";
+            ins.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ins.AddWithValue("@c", companyId);
+            ins.AddWithValue("@k", key);
+            ins.AddWithValue("@lvl", level);
+            ins.AddWithValue("@now", now);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
@@ -99,8 +99,8 @@ public sealed class CompanyGrantService
         var d = new Dictionary<string, string>(StringComparer.Ordinal);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT module_key, level FROM company_grant_limits WHERE company_id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT module_key, level FROM company_grant_limits WHERE company_id=@c;";
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         while (r.Read()) d[r.GetString(0)] = r.GetString(1);
         return d;
@@ -111,9 +111,9 @@ public sealed class CompanyGrantService
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$k;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$k", moduleKey);
+        cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=@c AND module_key=@k;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@k", moduleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -122,9 +122,9 @@ public sealed class CompanyGrantService
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$k AND level='superadmin';";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$k", moduleKey);
+        cmd.CommandText = "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=@c AND module_key=@k AND level='superadmin';";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@k", moduleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 }

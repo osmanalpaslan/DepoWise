@@ -46,9 +46,9 @@ public sealed class Migration048_NormalizeMaterialType : IMigration
                 {
                     using var up = conn.CreateCommand();
                     up.Transaction = tx;
-                    up.CommandText = "UPDATE materials SET type=$canon WHERE type=$cur;";
-                    up.AddWithValue("$canon", canon);
-                    up.AddWithValue("$cur", current);
+                    up.CommandText = "UPDATE materials SET type=@canon WHERE type=@cur;";
+                    up.AddWithValue("@canon", canon);
+                    up.AddWithValue("@cur", current);
                     up.ExecuteNonQuery();
                     break;
                 }

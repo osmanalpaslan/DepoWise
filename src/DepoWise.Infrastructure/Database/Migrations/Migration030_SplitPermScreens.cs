@@ -25,12 +25,12 @@ public sealed class Migration030_SplitPermScreens : IMigration
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO user_permissions(id, company_id, user_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version)
-SELECT lower(hex(randomblob(16))), company_id, user_id, $to, can_view, can_create, can_edit, can_delete, created_at, updated_at, 1
+SELECT lower(hex(randomblob(16))), company_id, user_id, @to, can_view, can_create, can_edit, can_delete, created_at, updated_at, 1
 FROM user_permissions p
-WHERE p.module_key = $from
-  AND NOT EXISTS (SELECT 1 FROM user_permissions q WHERE q.user_id = p.user_id AND q.module_key = $to);";
-        cmd.AddWithValue("$from", from);
-        cmd.AddWithValue("$to", to);
+WHERE p.module_key = @from
+  AND NOT EXISTS (SELECT 1 FROM user_permissions q WHERE q.user_id = p.user_id AND q.module_key = @to);";
+        cmd.AddWithValue("@from", from);
+        cmd.AddWithValue("@to", to);
         cmd.ExecuteNonQuery();
     }
 }

@@ -28,10 +28,10 @@ public sealed class AuditLogService
         cmd.CommandText = @"
 SELECT a.created_at, COALESCE(NULLIF(u.full_name,''), u.username, a.user_id, ''), a.entity_type, a.entity_id, a.action
 FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
-WHERE a.company_id = $c
-ORDER BY a.created_at DESC LIMIT $lim;";
-        cmd.AddWithValue("$c", s.CompanyId);
-        cmd.AddWithValue("$lim", limit);
+WHERE a.company_id = @c
+ORDER BY a.created_at DESC LIMIT @lim;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@lim", limit);
         var list = new List<AuditLogRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

@@ -49,8 +49,8 @@ public class UserCompanyImmutableTests : IDisposable
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT company_id FROM users WHERE id=$u;";
-        cmd.AddWithValue("$u", userId);
+        cmd.CommandText = "SELECT company_id FROM users WHERE id=@u;";
+        cmd.AddWithValue("@u", userId);
         return (string)cmd.ExecuteScalar()!;
     }
 

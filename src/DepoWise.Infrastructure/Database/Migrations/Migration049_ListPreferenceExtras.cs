@@ -28,8 +28,8 @@ public sealed class Migration049_ListPreferenceExtras : IMigration
         using (var check = conn.CreateCommand())
         {
             check.Transaction = tx;
-            check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name=$n;";
-            check.AddWithValue("$n", col);
+            check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name=@n;";
+            check.AddWithValue("@n", col);
             exists = System.Convert.ToInt64(check.ExecuteScalar()) > 0;
         }
         if (exists) return;

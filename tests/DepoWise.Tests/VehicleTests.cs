@@ -237,8 +237,8 @@ public class VehicleTests : IDisposable
         using (var conn = _factory.Create())
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT brand_id, production_year, meter_unit FROM vehicles WHERE id=$id;";
-            cmd.AddWithValue("$id", vid);
+            cmd.CommandText = "SELECT brand_id, production_year, meter_unit FROM vehicles WHERE id=@id;";
+            cmd.AddWithValue("@id", vid);
             using var r = cmd.ExecuteReader();
             Assert.True(r.Read());
             Assert.Equal(brand, r.GetString(0));
@@ -263,8 +263,8 @@ public class VehicleTests : IDisposable
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT brand_id FROM vehicles WHERE id=$id;";
-        cmd.AddWithValue("$id", vid);
+        cmd.CommandText = "SELECT brand_id FROM vehicles WHERE id=@id;";
+        cmd.AddWithValue("@id", vid);
         Assert.Equal(b2, cmd.ExecuteScalar()); // şablon b1'i ezmedi
     }
 

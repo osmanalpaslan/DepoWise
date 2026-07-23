@@ -45,14 +45,14 @@ public sealed class PersonnelService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
-            "WHERE company_id=$c AND is_deleted=0 AND ($x IS NULL OR id<>$x) AND (" +
-            "  ($n <> '' AND REPLACE(LOWER(full_name),' ','')=$n) OR " +
-            "  ($d <> '' AND phone IS NOT NULL AND REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'(',''),')','')=$d)" +
+            "WHERE company_id=@c AND is_deleted=0 AND (@x IS NULL OR id<>@x) AND (" +
+            "  (@n <> '' AND REPLACE(LOWER(full_name),' ','')=@n) OR " +
+            "  (@d <> '' AND phone IS NOT NULL AND REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'(',''),')','')=@d)" +
             ");";
-        cmd.AddWithValue("$c", session.CompanyId);
-        cmd.AddWithValue("$x", (object?)excludeId ?? DBNull.Value);
-        cmd.AddWithValue("$n", name);
-        cmd.AddWithValue("$d", digits);
+        cmd.AddWithValue("@c", session.CompanyId);
+        cmd.AddWithValue("@x", (object?)excludeId ?? DBNull.Value);
+        cmd.AddWithValue("@n", name);
+        cmd.AddWithValue("@d", digits);
         var list = new List<PersonnelRecord>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -75,8 +75,8 @@ public sealed class PersonnelService
         AccessControl.Require(session, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT full_name, id FROM personnel WHERE company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$c", session.CompanyId);
+        cmd.CommandText = "SELECT full_name, id FROM personnel WHERE company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@c", session.CompanyId);
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         using var r = cmd.ExecuteReader();
         while (r.Read()) map[NormalizeName(r.GetString(0))] = r.GetString(1);
@@ -103,7 +103,7 @@ public sealed class PersonnelService
             cmd.Transaction = tx;
             cmd.CommandText =
                 "INSERT INTO personnel(id, company_id, branch_id, full_name, title, phone, is_active, is_field_staff, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$b,$n,$t,$p,$a,$fs,$now,$now,1,0);";
+                "VALUES(@id,@c,@b,@n,@t,@p,@a,@fs,@now,@now,1,0);";
             Bind(cmd, id, session.CompanyId, dto, now);
             cmd.ExecuteNonQuery();
         }
@@ -129,18 +129,18 @@ public sealed class PersonnelService
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "UPDATE personnel SET branch_id=$b, full_name=$n, title=$t, phone=$p, is_active=$a, is_field_staff=$fs, " +
-                "version=version+1, updated_at=$now WHERE id=$id AND company_id=$c" + EditLockGuard.Clause(expectedVersion) + ";";
+                "UPDATE personnel SET branch_id=@b, full_name=@n, title=@t, phone=@p, is_active=@a, is_field_staff=@fs, " +
+                "version=version+1, updated_at=@now WHERE id=@id AND company_id=@c" + EditLockGuard.Clause(expectedVersion) + ";";
             EditLockGuard.Bind(cmd, expectedVersion);
-            cmd.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
-            cmd.AddWithValue("$n", dto.FullName);
-            cmd.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
-            cmd.AddWithValue("$p", (object?)dto.Phone ?? DBNull.Value);
-            cmd.AddWithValue("$a", dto.IsActive ? 1 : 0);
-            cmd.AddWithValue("$fs", dto.IsFieldStaff ? 1 : 0);
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", session.CompanyId);
+            cmd.AddWithValue("@b", (object?)dto.BranchId ?? DBNull.Value);
+            cmd.AddWithValue("@n", dto.FullName);
+            cmd.AddWithValue("@t", (object?)dto.Title ?? DBNull.Value);
+            cmd.AddWithValue("@p", (object?)dto.Phone ?? DBNull.Value);
+            cmd.AddWithValue("@a", dto.IsActive ? 1 : 0);
+            cmd.AddWithValue("@fs", dto.IsFieldStaff ? 1 : 0);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", session.CompanyId);
             // 0 satır + sürüm verilmişse → kayıt biz düzenlerken değişmiş (düzenleme kilidi).
             // Sürüm verilmemişse ThrowIfStale sessizce döner → eski davranış aynen korunur.
             if (cmd.ExecuteNonQuery() == 0)
@@ -166,15 +166,15 @@ public sealed class PersonnelService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
-            "WHERE company_id = $c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
+            "WHERE company_id = @c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
-            TenantSql.KeysetOrderBy + " LIMIT $limit;";
-        cmd.AddWithValue("$c", session.CompanyId);
-        cmd.AddWithValue("$limit", limit + 1);
+            TenantSql.KeysetOrderBy + " LIMIT @limit;";
+        cmd.AddWithValue("@c", session.CompanyId);
+        cmd.AddWithValue("@limit", limit + 1);
         if (hasCursor)
         {
-            cmd.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
-            cmd.AddWithValue("$cursorId", cursor.Id);
+            cmd.AddWithValue("@cursorCreatedAt", cursor.CreatedAt);
+            cmd.AddWithValue("@cursorId", cursor.Id);
         }
 
         var items = new List<PersonnelRecord>();
@@ -212,11 +212,11 @@ public sealed class PersonnelService
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "UPDATE personnel SET is_deleted=$d, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
-            cmd.AddWithValue("$d", deleted ? 1 : 0);
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", session.CompanyId);
+                "UPDATE personnel SET is_deleted=@d, version=version+1, updated_at=@now WHERE id=@id AND company_id=@c;";
+            cmd.AddWithValue("@d", deleted ? 1 : 0);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", session.CompanyId);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected > 0)
@@ -237,9 +237,9 @@ public sealed class PersonnelService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
-            "WHERE id = $id AND company_id = $c;";
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", session.CompanyId);
+            "WHERE id = @id AND company_id = @c;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", session.CompanyId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return null;
         return new PersonnelRecord(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
@@ -249,14 +249,14 @@ public sealed class PersonnelService
 
     private static void Bind(DbCommand cmd, string id, string companyId, NewPersonnel dto, long now)
     {
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
-        cmd.AddWithValue("$n", dto.FullName);
-        cmd.AddWithValue("$t", (object?)dto.Title ?? DBNull.Value);
-        cmd.AddWithValue("$p", (object?)dto.Phone ?? DBNull.Value);
-        cmd.AddWithValue("$a", dto.IsActive ? 1 : 0);
-        cmd.AddWithValue("$fs", dto.IsFieldStaff ? 1 : 0);
-        cmd.AddWithValue("$now", now);
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@b", (object?)dto.BranchId ?? DBNull.Value);
+        cmd.AddWithValue("@n", dto.FullName);
+        cmd.AddWithValue("@t", (object?)dto.Title ?? DBNull.Value);
+        cmd.AddWithValue("@p", (object?)dto.Phone ?? DBNull.Value);
+        cmd.AddWithValue("@a", dto.IsActive ? 1 : 0);
+        cmd.AddWithValue("@fs", dto.IsFieldStaff ? 1 : 0);
+        cmd.AddWithValue("@now", now);
     }
 }

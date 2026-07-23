@@ -29,10 +29,10 @@ public class Migration035Tests : IDisposable
         var userId = Guid.NewGuid().ToString("N");
         using (var tx = conn.BeginTransaction())
         {
-            Exec(conn, tx, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($c,'F',$n,$n,1,0);", ("$c", companyId), ("$n", now));
-            Exec(conn, tx, "INSERT INTO users(id,company_id,username,password_hash,is_active,created_at,updated_at,version,is_deleted) VALUES($u,$c,'p','x',1,$n,$n,1,0);", ("$u", userId), ("$c", companyId), ("$n", now));
+            Exec(conn, tx, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@c,'F',@n,@n,1,0);", ("@c", companyId), ("@n", now));
+            Exec(conn, tx, "INSERT INTO users(id,company_id,username,password_hash,is_active,created_at,updated_at,version,is_deleted) VALUES(@u,@c,'p','x',1,@n,@n,1,0);", ("@u", userId), ("@c", companyId), ("@n", now));
             // Eski onay yetkisi: btn-approve özel butonu
-            Exec(conn, tx, "INSERT INTO user_button_permissions(id,company_id,user_id,button_key,created_at) VALUES($i,$c,$u,'btn-approve',$n);", ("$i", Guid.NewGuid().ToString("N")), ("$c", companyId), ("$u", userId), ("$n", now));
+            Exec(conn, tx, "INSERT INTO user_button_permissions(id,company_id,user_id,button_key,created_at) VALUES(@i,@c,@u,'btn-approve',@n);", ("@i", Guid.NewGuid().ToString("N")), ("@c", companyId), ("@u", userId), ("@n", now));
             tx.Commit();
         }
 
@@ -45,11 +45,11 @@ public class Migration035Tests : IDisposable
             }
 
         // request_approval modülü view+edit olarak verildi
-        Assert.Equal("1", Scalar(conn, "SELECT can_view FROM user_permissions WHERE user_id=$u AND module_key='request_approval';", ("$u", userId)));
-        Assert.Equal("1", Scalar(conn, "SELECT can_edit FROM user_permissions WHERE user_id=$u AND module_key='request_approval';", ("$u", userId)));
-        Assert.Equal("0", Scalar(conn, "SELECT can_create FROM user_permissions WHERE user_id=$u AND module_key='request_approval';", ("$u", userId)));
+        Assert.Equal("1", Scalar(conn, "SELECT can_view FROM user_permissions WHERE user_id=@u AND module_key='request_approval';", ("@u", userId)));
+        Assert.Equal("1", Scalar(conn, "SELECT can_edit FROM user_permissions WHERE user_id=@u AND module_key='request_approval';", ("@u", userId)));
+        Assert.Equal("0", Scalar(conn, "SELECT can_create FROM user_permissions WHERE user_id=@u AND module_key='request_approval';", ("@u", userId)));
         // Tek satır (idempotent)
-        Assert.Equal("1", Scalar(conn, "SELECT COUNT(*) FROM user_permissions WHERE user_id=$u AND module_key='request_approval';", ("$u", userId)));
+        Assert.Equal("1", Scalar(conn, "SELECT COUNT(*) FROM user_permissions WHERE user_id=@u AND module_key='request_approval';", ("@u", userId)));
         // Eski buton izni temizlendi
         Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM user_button_permissions WHERE button_key='btn-approve';"));
     }

@@ -43,13 +43,13 @@ public class BusinessSyncTests : IDisposable
     }
 
     private static void SeedCompany(SqliteConnectionFactory f, string id)
-        => Exec(f, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($i,$n,1,1,1,0);",
-            ("$i", id), ("$n", id));
+        => Exec(f, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@i,@n,1,1,1,0);",
+            ("@i", id), ("@n", id));
 
     private static void InsertPersonnel(SqliteConnectionFactory f, string id, string company, string name, long updatedAt)
         => Exec(f, "INSERT INTO personnel(id,company_id,full_name,is_active,created_at,updated_at,version,is_deleted) " +
-                   "VALUES($i,$c,$n,1,1,$u,1,0);",
-            ("$i", id), ("$c", company), ("$n", name), ("$u", updatedAt));
+                   "VALUES(@i,@c,@n,1,1,@u,1,0);",
+            ("@i", id), ("@c", company), ("@n", name), ("@u", updatedAt));
 
     private static string? Scalar(SqliteConnectionFactory f, string sql, params (string, object?)[] ps)
     {
@@ -470,17 +470,17 @@ public class BusinessSyncTests : IDisposable
             {
                 using var c1 = conn.CreateCommand();
                 c1.CommandText = "INSERT INTO personnel(id,company_id,full_name,is_active,created_at,updated_at,version,is_deleted) " +
-                                 "VALUES($i,'ACME',$n,1,1,1000,1,0);";
-                c1.AddWithValue("$i", "P" + i);
-                c1.AddWithValue("$n", "Personel " + i);
+                                 "VALUES(@i,'ACME',@n,1,1,1000,1,0);";
+                c1.AddWithValue("@i", "P" + i);
+                c1.AddWithValue("@n", "Personel " + i);
                 c1.ExecuteNonQuery();
 
                 using var c2 = conn.CreateCommand();
                 c2.CommandText = "INSERT INTO vehicles(id,company_id,internal_code,plate,current_meter,meter_unit,status," +
-                                 "created_at,updated_at,version,is_deleted) VALUES($i,'ACME',$k,$p,'0','km','active',1,1000,1,0);";
-                c2.AddWithValue("$i", "V" + i);
-                c2.AddWithValue("$k", "KOD" + i);
-                c2.AddWithValue("$p", "06 FF " + i);
+                                 "created_at,updated_at,version,is_deleted) VALUES(@i,'ACME',@k,@p,'0','km','active',1,1000,1,0);";
+                c2.AddWithValue("@i", "V" + i);
+                c2.AddWithValue("@k", "KOD" + i);
+                c2.AddWithValue("@p", "06 FF " + i);
                 c2.ExecuteNonQuery();
             }
             tx.Commit();
@@ -544,8 +544,8 @@ public class BusinessSyncTests : IDisposable
         // Eski hareket (created_at=1000) ve YENİ hareket (created_at=5000)
         void Movement(string id, long createdAt) => Exec(_src,
             "INSERT INTO stock_movements(id,company_id,material_id,movement_type,direction,quantity,currency_code," +
-            "operation_id,created_at) VALUES($i,'ACME','M1','in',1,'5','TRY',$o,$t);",
-            ("$i", id), ("$o", "op-" + id), ("$t", createdAt));
+            "operation_id,created_at) VALUES(@i,'ACME','M1','in',1,'5','TRY',@o,@t);",
+            ("@i", id), ("@o", "op-" + id), ("@t", createdAt));
         Movement("MV-ESKI", 1000);
         Movement("MV-YENI", 5000);
 

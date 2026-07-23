@@ -121,8 +121,8 @@ public class LookupDedupTests : IDisposable
         using (var conn = _factory.Create())
         using (var raw = conn.CreateCommand())
         {
-            raw.CommandText = "UPDATE material_categories SET name='Yağ    Filtreleri' WHERE id=$id;";
-            raw.AddWithValue("$id", id);
+            raw.CommandText = "UPDATE material_categories SET name='Yağ    Filtreleri' WHERE id=@id;";
+            raw.AddWithValue("@id", id);
             raw.ExecuteNonQuery();
         }
 

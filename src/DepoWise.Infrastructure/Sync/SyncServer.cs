@@ -82,10 +82,10 @@ public sealed class SyncServer
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT seq, entity_type, entity_id, payload_json, valid FROM server_changes " +
-            "WHERE company_id=$c AND seq > $after ORDER BY seq LIMIT $lim;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$after", afterSeq);
-        cmd.AddWithValue("$lim", limit < 1 ? 1 : limit);
+            "WHERE company_id=@c AND seq > @after ORDER BY seq LIMIT @lim;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@after", afterSeq);
+        cmd.AddWithValue("@lim", limit < 1 ? 1 : limit);
 
         var items = new List<ServerChange>();
         using var r = cmd.ExecuteReader();
@@ -104,8 +104,8 @@ public sealed class SyncServer
     private static (string DeviceId, string CompanyId) AuthDevice(DbConnection conn, string token)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, company_id, status FROM sync_devices WHERE token_hash=$h;";
-        cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
+        cmd.CommandText = "SELECT id, company_id, status FROM sync_devices WHERE token_hash=@h;";
+        cmd.AddWithValue("@h", SyncCrypto.Sha256Hex(token));
         using var r = cmd.ExecuteReader();
         if (!r.Read()) throw new ForbiddenException("Geçersiz cihaz token'ı.");
         var status = r.GetString(2);
@@ -116,9 +116,9 @@ public sealed class SyncServer
     private static void Touch(DbConnection conn, string deviceId, long now)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE sync_devices SET last_seen_at=$now WHERE id=$id;";
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$id", deviceId);
+        cmd.CommandText = "UPDATE sync_devices SET last_seen_at=@now WHERE id=@id;";
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@id", deviceId);
         cmd.ExecuteNonQuery();
     }
 
@@ -126,8 +126,8 @@ public sealed class SyncServer
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM sync_inbox WHERE operation_id=$op;";
-        cmd.AddWithValue("$op", operationId);
+        cmd.CommandText = "SELECT COUNT(*) FROM sync_inbox WHERE operation_id=@op;";
+        cmd.AddWithValue("@op", operationId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -137,15 +137,15 @@ public sealed class SyncServer
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO sync_inbox(id, company_id, operation_id, entity_type, entity_id, payload_json, result, applied_at) " +
-            "VALUES($id,$c,$op,$et,$eid,$pl,$res,$now);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$op", op.OperationId);
-        cmd.AddWithValue("$et", op.EntityType);
-        cmd.AddWithValue("$eid", op.EntityId);
-        cmd.AddWithValue("$pl", op.PayloadJson);
-        cmd.AddWithValue("$res", result);
-        cmd.AddWithValue("$now", now);
+            "VALUES(@id,@c,@op,@et,@eid,@pl,@res,@now);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@op", op.OperationId);
+        cmd.AddWithValue("@et", op.EntityType);
+        cmd.AddWithValue("@eid", op.EntityId);
+        cmd.AddWithValue("@pl", op.PayloadJson);
+        cmd.AddWithValue("@res", result);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -155,13 +155,13 @@ public sealed class SyncServer
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO server_changes(company_id, operation_id, entity_type, entity_id, payload_json, valid, created_at) " +
-            "VALUES($c,$op,$et,$eid,$pl,1,$now);";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$op", op.OperationId);
-        cmd.AddWithValue("$et", op.EntityType);
-        cmd.AddWithValue("$eid", op.EntityId);
-        cmd.AddWithValue("$pl", op.PayloadJson);
-        cmd.AddWithValue("$now", now);
+            "VALUES(@c,@op,@et,@eid,@pl,1,@now);";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@op", op.OperationId);
+        cmd.AddWithValue("@et", op.EntityType);
+        cmd.AddWithValue("@eid", op.EntityId);
+        cmd.AddWithValue("@pl", op.PayloadJson);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -171,15 +171,15 @@ public sealed class SyncServer
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO sync_conflicts(id, company_id, operation_id, entity_type, entity_id, incoming_payload, reason, status, created_at) " +
-            "VALUES($id,$c,$op,$et,$eid,$pl,$reason,'open',$now);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$op", op.OperationId);
-        cmd.AddWithValue("$et", op.EntityType);
-        cmd.AddWithValue("$eid", op.EntityId);
-        cmd.AddWithValue("$pl", op.PayloadJson);
-        cmd.AddWithValue("$reason", reason);
-        cmd.AddWithValue("$now", now);
+            "VALUES(@id,@c,@op,@et,@eid,@pl,@reason,'open',@now);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@op", op.OperationId);
+        cmd.AddWithValue("@et", op.EntityType);
+        cmd.AddWithValue("@eid", op.EntityId);
+        cmd.AddWithValue("@pl", op.PayloadJson);
+        cmd.AddWithValue("@reason", reason);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -190,8 +190,8 @@ public sealed class SyncServer
         if (table is null) return null;
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = $"SELECT version FROM {table} WHERE id=$id;";
-        cmd.AddWithValue("$id", entityId);
+        cmd.CommandText = $"SELECT version FROM {table} WHERE id=@id;";
+        cmd.AddWithValue("@id", entityId);
         var v = cmd.ExecuteScalar();
         return v is null || v is DBNull ? null : Convert.ToInt64(v);
     }

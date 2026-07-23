@@ -32,12 +32,12 @@ public sealed class BranchRepository
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO branches(id, company_id, parent_id, name, kind, created_at, updated_at, version, is_deleted)
-VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$companyId", tenant.CompanyId);
-            cmd.AddWithValue("$name", name);
-            cmd.AddWithValue("$kind", kind);
-            cmd.AddWithValue("$now", now);
+VALUES(@id, @companyId, NULL, @name, @kind, @now, @now, 1, 0);";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@companyId", tenant.CompanyId);
+            cmd.AddWithValue("@name", name);
+            cmd.AddWithValue("@kind", kind);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(tenant.CompanyId, "branch", id, AuditActions.Create, userId), _clock);
@@ -57,11 +57,11 @@ VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
             cmd.Transaction = tx;
             // Tenant'a kapalı: yalnız kendi firmasının kaydını siler.
             cmd.CommandText =
-                "UPDATE branches SET is_deleted = 1, version = version + 1, updated_at = $now " +
-                "WHERE id = $id AND " + TenantSql.ScopePredicate();
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$companyId", tenant.CompanyId);
+                "UPDATE branches SET is_deleted = 1, version = version + 1, updated_at = @now " +
+                "WHERE id = @id AND " + TenantSql.ScopePredicate();
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@companyId", tenant.CompanyId);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected > 0)
@@ -81,13 +81,13 @@ VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
             "SELECT id, company_id, name, kind, created_at FROM branches " +
             "WHERE " + TenantSql.ScopePredicate() +
             (hasCursor ? " AND " + TenantSql.KeysetAfterPredicate : "") +
-            " " + TenantSql.KeysetOrderBy + " LIMIT $limit;";
-        cmd.AddWithValue("$companyId", tenant.CompanyId);
-        cmd.AddWithValue("$limit", limit + 1); // +1 → daha fazla var mı
+            " " + TenantSql.KeysetOrderBy + " LIMIT @limit;";
+        cmd.AddWithValue("@companyId", tenant.CompanyId);
+        cmd.AddWithValue("@limit", limit + 1); // +1 → daha fazla var mı
         if (hasCursor)
         {
-            cmd.AddWithValue("$cursorCreatedAt", cursor.CreatedAt);
-            cmd.AddWithValue("$cursorId", cursor.Id);
+            cmd.AddWithValue("@cursorCreatedAt", cursor.CreatedAt);
+            cmd.AddWithValue("@cursorId", cursor.Id);
         }
 
         var items = new List<BranchRecord>();
@@ -114,10 +114,10 @@ VALUES($id, $companyId, NULL, $name, $kind, $now, $now, 1, 0);";
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id, $name, $now, $now, 1, 0);";
-        cmd.AddWithValue("$id", companyId);
-        cmd.AddWithValue("$name", name);
-        cmd.AddWithValue("$now", now);
+            "VALUES(@id, @name, @now, @now, 1, 0);";
+        cmd.AddWithValue("@id", companyId);
+        cmd.AddWithValue("@name", name);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 }

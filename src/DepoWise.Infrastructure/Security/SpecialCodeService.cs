@@ -32,8 +32,8 @@ public sealed class SpecialCodeService
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT special_code_hash FROM users WHERE id=$u AND is_deleted=0;";
-        cmd.AddWithValue("$u", userId);
+        cmd.CommandText = "SELECT special_code_hash FROM users WHERE id=@u AND is_deleted=0;";
+        cmd.AddWithValue("@u", userId);
         return !string.IsNullOrEmpty(cmd.ExecuteScalar() as string);
     }
 
@@ -51,10 +51,10 @@ public sealed class SpecialCodeService
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE users SET special_code_hash=$h, updated_at=$now WHERE id=$u AND is_deleted=0;";
-            cmd.AddWithValue("$h", PasswordHasher.Hash(code.Trim()));
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$u", actor.UserId);
+            cmd.CommandText = "UPDATE users SET special_code_hash=@h, updated_at=@now WHERE id=@u AND is_deleted=0;";
+            cmd.AddWithValue("@h", PasswordHasher.Hash(code.Trim()));
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@u", actor.UserId);
             cmd.ExecuteNonQuery();
         }
         // Audit: özel kodun DEĞERİ değil, değiştirildiği gerçeği kaydedilir.
@@ -68,8 +68,8 @@ public sealed class SpecialCodeService
         if (!actor.IsSuperAdmin || string.IsNullOrWhiteSpace(code)) return false;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT special_code_hash FROM users WHERE id=$u AND is_active=1 AND is_deleted=0;";
-        cmd.AddWithValue("$u", actor.UserId);
+        cmd.CommandText = "SELECT special_code_hash FROM users WHERE id=@u AND is_active=1 AND is_deleted=0;";
+        cmd.AddWithValue("@u", actor.UserId);
         var hash = cmd.ExecuteScalar() as string;
         return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(code.Trim(), hash);
     }

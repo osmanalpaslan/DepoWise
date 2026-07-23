@@ -102,8 +102,8 @@ public class FuelDailyActivityTests : IDisposable
         Assert.Equal(55m, _fuel.GetCurrentFuelPrice(_admin));
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT unit_price FROM fuel_distributions WHERE id=$id;";
-        cmd.AddWithValue("$id", dist);
+        cmd.CommandText = "SELECT unit_price FROM fuel_distributions WHERE id=@id;";
+        cmd.AddWithValue("@id", dist);
         Assert.Equal(40m, Money.Parse(cmd.ExecuteScalar() as string)); // eski dağıtım hâlâ 40
     }
 
@@ -146,8 +146,8 @@ public class FuelDailyActivityTests : IDisposable
         Assert.NotNull(act.MaintenanceId);
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT stock_processed FROM daily_activities WHERE id=$id;";
-            cmd.AddWithValue("$id", activityId);
+            cmd.CommandText = "SELECT stock_processed FROM daily_activities WHERE id=@id;";
+            cmd.AddWithValue("@id", activityId);
             Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
         }
     }
@@ -174,8 +174,8 @@ public class FuelDailyActivityTests : IDisposable
         _daily.SaveMovement(_admin, new NewMovementActivity("transfer", VehicleId: v, FromLocationId: "b1", ToLocationId: "b2"), "op-trf");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT status FROM vehicles WHERE id=$id;";
-        cmd.AddWithValue("$id", v);
+        cmd.CommandText = "SELECT status FROM vehicles WHERE id=@id;";
+        cmd.AddWithValue("@id", v);
         Assert.Equal("passive", cmd.ExecuteScalar());
     }
 
@@ -214,8 +214,8 @@ public class FuelDailyActivityTests : IDisposable
         _daily.SaveMovement(_admin, new NewMovementActivity("movement", VehicleId: v), "op-mov");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT status FROM vehicles WHERE id=$id;";
-        cmd.AddWithValue("$id", v);
+        cmd.CommandText = "SELECT status FROM vehicles WHERE id=@id;";
+        cmd.AddWithValue("@id", v);
         Assert.Equal("active", cmd.ExecuteScalar());
     }
 

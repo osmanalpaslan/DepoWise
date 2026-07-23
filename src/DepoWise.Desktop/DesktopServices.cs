@@ -109,8 +109,8 @@ public static class DesktopServices
         {
             using var conn = Factory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT u.branch_id, b.name FROM users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=$id;";
-            cmd.AddWithValue("$id", userId);
+            cmd.CommandText = "SELECT u.branch_id, b.name FROM users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=@id;";
+            cmd.AddWithValue("@id", userId);
             using var r = cmd.ExecuteReader();
             if (!r.Read()) return (null, null);
             return (r.IsDBNull(0) ? null : r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1));
@@ -186,8 +186,8 @@ public static class DesktopServices
     {
         using var conn = Factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COALESCE(NULLIF(full_name,''), username) FROM users WHERE id=$id;";
-        cmd.AddWithValue("$id", userId);
+        cmd.CommandText = "SELECT COALESCE(NULLIF(full_name,''), username) FROM users WHERE id=@id;";
+        cmd.AddWithValue("@id", userId);
         return cmd.ExecuteScalar() as string ?? "Kullanıcı";
     }
 

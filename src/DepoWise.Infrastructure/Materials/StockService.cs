@@ -174,10 +174,10 @@ FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
-WHERE sm.company_id = $c
-ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
-        cmd.AddWithValue("$c", s.CompanyId);
-        cmd.AddWithValue("$lim", limit);
+WHERE sm.company_id = @c
+ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT @lim;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@lim", limit);
         string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
         var list = new List<StockMovementRow>();
         using var r = cmd.ExecuteReader();
@@ -242,12 +242,12 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT $lim;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
-INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now)
+INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now)
 ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$m", materialId);
-        cmd.AddWithValue("$q", Money.Serialize(updated));
-        cmd.AddWithValue("$now", now);
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@m", materialId);
+        cmd.AddWithValue("@q", Money.Serialize(updated));
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -255,8 +255,8 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
-        cmd.AddWithValue("$m", materialId);
+        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
+        cmd.AddWithValue("@m", materialId);
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
@@ -275,8 +275,8 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
         using (var read = conn.CreateCommand())
         {
             read.Transaction = tx;
-            read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=$c;";
-            read.AddWithValue("$c", companyId);
+            read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
+            read.AddWithValue("@c", companyId);
             using var r = read.ExecuteReader();
             while (r.Read())
             {
@@ -293,12 +293,12 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
         {
             using var up = conn.CreateCommand();
             up.Transaction = tx;
-            up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES($c,$m,$q,$now) " +
+            up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now) " +
                 "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-            up.AddWithValue("$c", companyId);
-            up.AddWithValue("$m", mat);
-            up.AddWithValue("$q", Money.Serialize(total));
-            up.AddWithValue("$now", now);
+            up.AddWithValue("@c", companyId);
+            up.AddWithValue("@m", mat);
+            up.AddWithValue("@q", Money.Serialize(total));
+            up.AddWithValue("@now", now);
             up.ExecuteNonQuery();
         }
         tx.Commit();
@@ -315,24 +315,24 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
         cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, branch_from_id, movement_type, direction,
     quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id, op_branch_id)
-VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev,$opb);";
-        cmd.AddWithValue("$opb", (object?)opBranchId ?? DBNull.Value);
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$m", materialId);
-        cmd.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
-        cmd.AddWithValue("$bf", (object?)branchFromId ?? DBNull.Value);
-        cmd.AddWithValue("$type", movementType);
-        cmd.AddWithValue("$dir", direction);
-        cmd.AddWithValue("$q", Money.Serialize(quantity));
-        cmd.AddWithValue("$price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
-        cmd.AddWithValue("$cur", (object?)currency ?? DBNull.Value);
-        cmd.AddWithValue("$fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));
-        cmd.AddWithValue("$op", operationId);
-        cmd.AddWithValue("$note", (object?)note ?? DBNull.Value);
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$doc", documentId);
-        cmd.AddWithValue("$rev", (object?)reversesId ?? DBNull.Value);
+VALUES(@id,@c,@m,@b,@bf,@type,@dir,@q,@price,@cur,@fx,@op,@note,@now,@doc,0,@rev,@opb);";
+        cmd.AddWithValue("@opb", (object?)opBranchId ?? DBNull.Value);
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@m", materialId);
+        cmd.AddWithValue("@b", (object?)branchId ?? DBNull.Value);
+        cmd.AddWithValue("@bf", (object?)branchFromId ?? DBNull.Value);
+        cmd.AddWithValue("@type", movementType);
+        cmd.AddWithValue("@dir", direction);
+        cmd.AddWithValue("@q", Money.Serialize(quantity));
+        cmd.AddWithValue("@price", unitPrice is null ? DBNull.Value : Money.Serialize(unitPrice.Value));
+        cmd.AddWithValue("@cur", (object?)currency ?? DBNull.Value);
+        cmd.AddWithValue("@fx", fxRate is null ? DBNull.Value : Money.Serialize(fxRate.Value));
+        cmd.AddWithValue("@op", operationId);
+        cmd.AddWithValue("@note", (object?)note ?? DBNull.Value);
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@doc", documentId);
+        cmd.AddWithValue("@rev", (object?)reversesId ?? DBNull.Value);
         cmd.ExecuteNonQuery();
         return id;
     }
@@ -347,22 +347,22 @@ VALUES($id,$c,$m,$b,$bf,$type,$dir,$q,$price,$cur,$fx,$op,$note,$now,$doc,0,$rev
         cmd.CommandText = @"
 INSERT INTO stock_documents(id, company_id, doc_type, doc_no, doc_date, from_branch_id, to_branch_id,
     personnel_id, vehicle_id, note, status, group_id, invoice_no, order_slip_no, credit_slip_no, created_at, version, is_deleted)
-VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$inv,$ord,$crd,$now,1,0);";
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$type", docType);
-        cmd.AddWithValue("$no", docNo);
-        cmd.AddWithValue("$date", docDate);
-        cmd.AddWithValue("$from", (object?)fromBranch ?? DBNull.Value);
-        cmd.AddWithValue("$to", (object?)toBranch ?? DBNull.Value);
-        cmd.AddWithValue("$pers", (object?)personnelId ?? DBNull.Value);
-        cmd.AddWithValue("$veh", (object?)vehicleId ?? DBNull.Value);
-        cmd.AddWithValue("$note", (object?)note ?? DBNull.Value);
-        cmd.AddWithValue("$grp", (object?)groupId ?? DBNull.Value);
-        cmd.AddWithValue("$inv", (object?)invoiceNo ?? DBNull.Value);
-        cmd.AddWithValue("$ord", (object?)orderSlipNo ?? DBNull.Value);
-        cmd.AddWithValue("$crd", (object?)creditSlipNo ?? DBNull.Value);
-        cmd.AddWithValue("$now", now);
+VALUES(@id,@c,@type,@no,@date,@from,@to,@pers,@veh,@note,'active',@grp,@inv,@ord,@crd,@now,1,0);";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@type", docType);
+        cmd.AddWithValue("@no", docNo);
+        cmd.AddWithValue("@date", docDate);
+        cmd.AddWithValue("@from", (object?)fromBranch ?? DBNull.Value);
+        cmd.AddWithValue("@to", (object?)toBranch ?? DBNull.Value);
+        cmd.AddWithValue("@pers", (object?)personnelId ?? DBNull.Value);
+        cmd.AddWithValue("@veh", (object?)vehicleId ?? DBNull.Value);
+        cmd.AddWithValue("@note", (object?)note ?? DBNull.Value);
+        cmd.AddWithValue("@grp", (object?)groupId ?? DBNull.Value);
+        cmd.AddWithValue("@inv", (object?)invoiceNo ?? DBNull.Value);
+        cmd.AddWithValue("@ord", (object?)orderSlipNo ?? DBNull.Value);
+        cmd.AddWithValue("@crd", (object?)creditSlipNo ?? DBNull.Value);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -373,14 +373,14 @@ VALUES($id,$c,$type,$no,$date,$from,$to,$pers,$veh,$note,'active',$grp,$inv,$ord
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_count_lines(id, document_id, material_id, system_qty, counted_qty, diff_qty, reason)
-VALUES($id,$doc,$m,$s,$c,$d,$r);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$doc", docId);
-        cmd.AddWithValue("$m", materialId);
-        cmd.AddWithValue("$s", Money.Serialize(system));
-        cmd.AddWithValue("$c", Money.Serialize(counted));
-        cmd.AddWithValue("$d", Money.Serialize(diff));
-        cmd.AddWithValue("$r", reason);
+VALUES(@id,@doc,@m,@s,@c,@d,@r);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@doc", docId);
+        cmd.AddWithValue("@m", materialId);
+        cmd.AddWithValue("@s", Money.Serialize(system));
+        cmd.AddWithValue("@c", Money.Serialize(counted));
+        cmd.AddWithValue("@d", Money.Serialize(diff));
+        cmd.AddWithValue("@r", reason);
         cmd.ExecuteNonQuery();
     }
 
@@ -392,12 +392,12 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "SELECT COALESCE(MAX(CAST(substr(doc_no, length($p)+1) AS INTEGER)),0) FROM stock_documents " +
-            "WHERE company_id=$c AND doc_type=$t AND doc_no LIKE $like;";
-        cmd.AddWithValue("$p", $"{prefix}-{year}-");
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$t", docType);
-        cmd.AddWithValue("$like", like);
+            "SELECT COALESCE(MAX(CAST(substr(doc_no, length(@p)+1) AS INTEGER)),0) FROM stock_documents " +
+            "WHERE company_id=@c AND doc_type=@t AND doc_no LIKE @like;";
+        cmd.AddWithValue("@p", $"{prefix}-{year}-");
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@t", docType);
+        cmd.AddWithValue("@like", like);
         var next = Convert.ToInt64(cmd.ExecuteScalar()) + 1;
         return $"{prefix}-{year}-{next:0000}";
     }
@@ -408,8 +408,8 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
         cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT d.id, d.doc_no FROM stock_movements mv JOIN stock_documents d ON d.id = mv.document_id " +
-            "WHERE mv.operation_id LIKE $op LIMIT 1;";
-        cmd.AddWithValue("$op", baseOperationId + ":%");
+            "WHERE mv.operation_id LIKE @op LIMIT 1;";
+        cmd.AddWithValue("@op", baseOperationId + ":%");
         using var r = cmd.ExecuteReader();
         return r.Read() ? new StockDocResult(r.GetString(0), r.GetString(1)) : null;
     }
@@ -423,9 +423,9 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
         cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT id, material_id, direction, quantity, operation_id, branch_id, branch_from_id, " +
-            "(SELECT group_id FROM stock_documents d WHERE d.id=$doc) FROM stock_movements " +
-            "WHERE document_id=$doc AND is_reversed=0;";
-        cmd.AddWithValue("$doc", documentId);
+            "(SELECT group_id FROM stock_documents d WHERE d.id=@doc) FROM stock_movements " +
+            "WHERE document_id=@doc AND is_reversed=0;";
+        cmd.AddWithValue("@doc", documentId);
         var list = new List<MovementRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -441,9 +441,9 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT id, status FROM stock_documents WHERE id=$id AND company_id=$c;";
-        cmd.AddWithValue("$id", documentId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT id, status FROM stock_documents WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", documentId);
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new DocRow(r.GetString(0), r.GetString(1)) : null;
     }
@@ -452,8 +452,8 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "UPDATE stock_movements SET is_reversed=1 WHERE id=$id;";
-        cmd.AddWithValue("$id", movementId);
+        cmd.CommandText = "UPDATE stock_movements SET is_reversed=1 WHERE id=@id;";
+        cmd.AddWithValue("@id", movementId);
         cmd.ExecuteNonQuery();
     }
 
@@ -461,9 +461,9 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "UPDATE stock_documents SET status=$s, version=version+1 WHERE id=$id;";
-        cmd.AddWithValue("$s", status);
-        cmd.AddWithValue("$id", documentId);
+        cmd.CommandText = "UPDATE stock_documents SET status=@s, version=version+1 WHERE id=@id;";
+        cmd.AddWithValue("@s", status);
+        cmd.AddWithValue("@id", documentId);
         cmd.ExecuteNonQuery();
     }
 
@@ -471,9 +471,9 @@ VALUES($id,$doc,$m,$s,$c,$d,$r);";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$id", materialId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", materialId);
+        cmd.AddWithValue("@c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
     }

@@ -25,8 +25,8 @@ public static class LocalResetService
         {
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT requested_at FROM company_local_resets WHERE company_id=$c;";
-            cmd.AddWithValue("$c", companyId);
+            cmd.CommandText = "SELECT requested_at FROM company_local_resets WHERE company_id=@c;";
+            cmd.AddWithValue("@c", companyId);
             var v = cmd.ExecuteScalar();
             return v is null or System.DBNull ? null : Convert.ToInt64(v);
         }
@@ -40,11 +40,11 @@ public static class LocalResetService
         using var conn = DesktopServices.Factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT INTO company_local_resets(company_id, requested_at, requested_by) VALUES($c,$at,$by) " +
-            "ON CONFLICT(company_id) DO UPDATE SET requested_at=$at, requested_by=$by;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$at", requestedAt);
-        cmd.AddWithValue("$by", appliedBy);
+            "INSERT INTO company_local_resets(company_id, requested_at, requested_by) VALUES(@c,@at,@by) " +
+            "ON CONFLICT(company_id) DO UPDATE SET requested_at=@at, requested_by=@by;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@at", requestedAt);
+        cmd.AddWithValue("@by", appliedBy);
         cmd.ExecuteNonQuery();
     }
 }

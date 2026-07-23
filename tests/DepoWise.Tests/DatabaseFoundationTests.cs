@@ -84,8 +84,8 @@ public class DatabaseFoundationTests : IDisposable
         // Ama satır fiziksel olarak durur (is_deleted=1)
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT is_deleted FROM branches WHERE id = $id;";
-        cmd.AddWithValue("$id", id);
+        cmd.CommandText = "SELECT is_deleted FROM branches WHERE id = @id;";
+        cmd.AddWithValue("@id", id);
         Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
     }
 
@@ -116,8 +116,8 @@ public class DatabaseFoundationTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "SELECT action FROM audit_logs WHERE entity_type='branch' AND entity_id=$id ORDER BY created_at;";
-        cmd.AddWithValue("$id", id);
+            "SELECT action FROM audit_logs WHERE entity_type='branch' AND entity_id=@id ORDER BY created_at;";
+        cmd.AddWithValue("@id", id);
         var actions = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) actions.Add(r.GetString(0));
@@ -168,8 +168,8 @@ public class DatabaseFoundationTests : IDisposable
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT created_at, updated_at, version FROM branches WHERE id=$id;";
-        cmd.AddWithValue("$id", id);
+        cmd.CommandText = "SELECT created_at, updated_at, version FROM branches WHERE id=@id;";
+        cmd.AddWithValue("@id", id);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(_clock.UtcNow.ToUnixTimeMilliseconds(), r.GetInt64(0));

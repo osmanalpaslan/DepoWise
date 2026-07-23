@@ -36,10 +36,10 @@ public sealed class MigrationRunner
             {
                 cmd.Transaction = tx;
                 cmd.CommandText =
-                    "INSERT INTO schema_migrations(version, name, applied_at) VALUES($v, $n, $t);";
-                cmd.AddWithValue("$v", m.Version);
-                cmd.AddWithValue("$n", m.Name);
-                cmd.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                    "INSERT INTO schema_migrations(version, name, applied_at) VALUES(@v, @n, @t);";
+                cmd.AddWithValue("@v", m.Version);
+                cmd.AddWithValue("@n", m.Name);
+                cmd.AddWithValue("@t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 cmd.ExecuteNonQuery();
             }
             tx.Commit();

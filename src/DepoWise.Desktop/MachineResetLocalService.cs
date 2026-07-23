@@ -21,8 +21,8 @@ public static class MachineResetLocalService
         {
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT requested_at FROM machine_resets WHERE machine_name=$n;";
-            cmd.AddWithValue("$n", machineName);
+            cmd.CommandText = "SELECT requested_at FROM machine_resets WHERE machine_name=@n;";
+            cmd.AddWithValue("@n", machineName);
             var v = cmd.ExecuteScalar();
             return v is null or DBNull ? null : Convert.ToInt64(v);
         }
@@ -36,11 +36,11 @@ public static class MachineResetLocalService
         using var conn = DesktopServices.Factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT INTO machine_resets(machine_name, requested_at, requested_by) VALUES($n,$at,$by) " +
-            "ON CONFLICT(machine_name) DO UPDATE SET requested_at=$at, requested_by=$by;";
-        cmd.AddWithValue("$n", machineName);
-        cmd.AddWithValue("$at", requestedAt);
-        cmd.AddWithValue("$by", appliedBy);
+            "INSERT INTO machine_resets(machine_name, requested_at, requested_by) VALUES(@n,@at,@by) " +
+            "ON CONFLICT(machine_name) DO UPDATE SET requested_at=@at, requested_by=@by;";
+        cmd.AddWithValue("@n", machineName);
+        cmd.AddWithValue("@at", requestedAt);
+        cmd.AddWithValue("@by", appliedBy);
         cmd.ExecuteNonQuery();
     }
 }

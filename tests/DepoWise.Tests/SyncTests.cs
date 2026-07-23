@@ -197,16 +197,16 @@ public class SyncTests : IDisposable
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-        cmd.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($i,$n,$t,$t,1,0) " +
-                          "ON CONFLICT(id) DO UPDATE SET name=$n, is_deleted=0, updated_at=$t;";
-        cmd.AddWithValue("$i", id);
-        cmd.AddWithValue("$n", name);
-        cmd.AddWithValue("$t", now);
+        cmd.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@i,@n,@t,@t,1,0) " +
+                          "ON CONFLICT(id) DO UPDATE SET name=@n, is_deleted=0, updated_at=@t;";
+        cmd.AddWithValue("@i", id);
+        cmd.AddWithValue("@n", name);
+        cmd.AddWithValue("@t", now);
         cmd.ExecuteNonQuery();
     }
 
-    private void SetCompanyDeleted(string id) => ExecNonQuery("UPDATE companies SET is_deleted=1 WHERE id=$i;", ("$i", id));
-    private void SetBranchDeleted(string id) => ExecNonQuery("UPDATE branches SET is_deleted=1 WHERE id=$i;", ("$i", id));
+    private void SetCompanyDeleted(string id) => ExecNonQuery("UPDATE companies SET is_deleted=1 WHERE id=@i;", ("@i", id));
+    private void SetBranchDeleted(string id) => ExecNonQuery("UPDATE branches SET is_deleted=1 WHERE id=@i;", ("@i", id));
 
     private void ExecNonQuery(string sql, params (string, object)[] ps)
     {
@@ -381,9 +381,9 @@ public class SyncTests : IDisposable
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO server_changes(company_id, operation_id, entity_type, entity_id, payload_json, valid, created_at) " +
-            "VALUES($c,'broken','material','mx','{}',0,$now);";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
+            "VALUES(@c,'broken','material','mx','{}',0,@now);";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@now", _clock.UtcNow.ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
 

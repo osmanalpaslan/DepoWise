@@ -70,18 +70,18 @@ public sealed class RequestService
             cmd.CommandText = @"
 INSERT INTO material_requests(id, company_id, doc_no, request_date, branch_id, requester_id, warehouse_id,
     approver_id, description, status, created_at, updated_at, version, is_deleted)
-VALUES($id,$c,$no,$dt,$br,$req,$wh,$ap,$desc,$st,$now,$now,1,0);";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", s.CompanyId);
-            cmd.AddWithValue("$no", docNo);
-            cmd.AddWithValue("$dt", dto.RequestDate ?? now);
-            cmd.AddWithValue("$br", (object?)dto.BranchId ?? DBNull.Value);
-            cmd.AddWithValue("$req", (object?)dto.RequesterId ?? DBNull.Value);
-            cmd.AddWithValue("$wh", (object?)dto.WarehouseId ?? DBNull.Value);
-            cmd.AddWithValue("$ap", (object?)dto.ApproverId ?? DBNull.Value);
-            cmd.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
-            cmd.AddWithValue("$st", RequestStatusMachine.ToDb(status));
-            cmd.AddWithValue("$now", now);
+VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@now,@now,1,0);";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@no", docNo);
+            cmd.AddWithValue("@dt", dto.RequestDate ?? now);
+            cmd.AddWithValue("@br", (object?)dto.BranchId ?? DBNull.Value);
+            cmd.AddWithValue("@req", (object?)dto.RequesterId ?? DBNull.Value);
+            cmd.AddWithValue("@wh", (object?)dto.WarehouseId ?? DBNull.Value);
+            cmd.AddWithValue("@ap", (object?)dto.ApproverId ?? DBNull.Value);
+            cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("@st", RequestStatusMachine.ToDb(status));
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
         foreach (var item in dto.Items)
@@ -89,13 +89,13 @@ VALUES($id,$c,$no,$dt,$br,$req,$wh,$ap,$desc,$st,$now,$now,1,0);";
             EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
             using var ic = conn.CreateCommand();
             ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES($id,$r,$m,$q,$v,$n);";
-            ic.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ic.AddWithValue("$r", id);
-            ic.AddWithValue("$m", item.MaterialId);
-            ic.AddWithValue("$q", Money.Serialize(item.Quantity));
-            ic.AddWithValue("$v", (object?)item.VehicleId ?? DBNull.Value);
-            ic.AddWithValue("$n", (object?)item.Note ?? DBNull.Value);
+            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@r,@m,@q,@v,@n);";
+            ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ic.AddWithValue("@r", id);
+            ic.AddWithValue("@m", item.MaterialId);
+            ic.AddWithValue("@q", Money.Serialize(item.Quantity));
+            ic.AddWithValue("@v", (object?)item.VehicleId ?? DBNull.Value);
+            ic.AddWithValue("@n", (object?)item.Note ?? DBNull.Value);
             ic.ExecuteNonQuery();
         }
         WriteHistory(conn, tx, id, null, status, s.UserId, null, now);
@@ -122,23 +122,23 @@ VALUES($id,$c,$no,$dt,$br,$req,$wh,$ap,$desc,$st,$now,$now,1,0);";
         {
             cmd.Transaction = tx;
             cmd.CommandText = @"
-UPDATE material_requests SET branch_id=$br, requester_id=$req, warehouse_id=$wh, approver_id=$ap,
-    description=$desc, request_date=$dt, version=version+1, updated_at=$now WHERE id=$id;";
-            cmd.AddWithValue("$br", (object?)dto.BranchId ?? DBNull.Value);
-            cmd.AddWithValue("$req", (object?)dto.RequesterId ?? DBNull.Value);
-            cmd.AddWithValue("$wh", (object?)dto.WarehouseId ?? DBNull.Value);
-            cmd.AddWithValue("$ap", (object?)dto.ApproverId ?? DBNull.Value);
-            cmd.AddWithValue("$desc", (object?)dto.Description ?? DBNull.Value);
-            cmd.AddWithValue("$dt", dto.RequestDate ?? now);
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", requestId);
+UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh, approver_id=@ap,
+    description=@desc, request_date=@dt, version=version+1, updated_at=@now WHERE id=@id;";
+            cmd.AddWithValue("@br", (object?)dto.BranchId ?? DBNull.Value);
+            cmd.AddWithValue("@req", (object?)dto.RequesterId ?? DBNull.Value);
+            cmd.AddWithValue("@wh", (object?)dto.WarehouseId ?? DBNull.Value);
+            cmd.AddWithValue("@ap", (object?)dto.ApproverId ?? DBNull.Value);
+            cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("@dt", dto.RequestDate ?? now);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", requestId);
             cmd.ExecuteNonQuery();
         }
         using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
-            del.CommandText = "DELETE FROM material_request_items WHERE request_id=$r;";
-            del.AddWithValue("$r", requestId);
+            del.CommandText = "DELETE FROM material_request_items WHERE request_id=@r;";
+            del.AddWithValue("@r", requestId);
             del.ExecuteNonQuery();
         }
         foreach (var item in dto.Items)
@@ -146,13 +146,13 @@ UPDATE material_requests SET branch_id=$br, requester_id=$req, warehouse_id=$wh,
             EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
             using var ic = conn.CreateCommand();
             ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES($id,$r,$m,$q,$v,$n);";
-            ic.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ic.AddWithValue("$r", requestId);
-            ic.AddWithValue("$m", item.MaterialId);
-            ic.AddWithValue("$q", Money.Serialize(item.Quantity));
-            ic.AddWithValue("$v", (object?)item.VehicleId ?? DBNull.Value);
-            ic.AddWithValue("$n", (object?)item.Note ?? DBNull.Value);
+            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@r,@m,@q,@v,@n);";
+            ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ic.AddWithValue("@r", requestId);
+            ic.AddWithValue("@m", item.MaterialId);
+            ic.AddWithValue("@q", Money.Serialize(item.Quantity));
+            ic.AddWithValue("@v", (object?)item.VehicleId ?? DBNull.Value);
+            ic.AddWithValue("@n", (object?)item.Note ?? DBNull.Value);
             ic.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", requestId, AuditActions.Update, s.UserId), _clock);
@@ -168,8 +168,8 @@ UPDATE material_requests SET branch_id=$br, requester_id=$req, warehouse_id=$wh,
         string? br, rq, wh, ap, desc; long date; string status;
         using (var hc = conn.CreateCommand())
         {
-            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id FROM material_requests WHERE id=$id;";
-            hc.AddWithValue("$id", requestId);
+            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id FROM material_requests WHERE id=@id;";
+            hc.AddWithValue("@id", requestId);
             using var hr = hc.ExecuteReader();
             if (!hr.Read()) throw new ForbiddenException("Talep bulunamadı.");
             if (hr.GetString(7) != s.CompanyId) throw new ForbiddenException("Talep başka firmaya ait.");
@@ -190,8 +190,8 @@ SELECT i.material_id, m.code, m.name, i.quantity, i.vehicle_id, v.internal_code,
 FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
 LEFT JOIN vehicles v ON v.id = i.vehicle_id
-WHERE i.request_id=$r ORDER BY m.code;";
-            ic.AddWithValue("$r", requestId);
+WHERE i.request_id=@r ORDER BY m.code;";
+            ic.AddWithValue("@r", requestId);
             using var ir = ic.ExecuteReader();
             while (ir.Read())
                 items.Add(new RequestEditItem(ir.GetString(0), ir.GetString(1), ir.GetString(2), Money.Parse(ir.GetString(3)),
@@ -240,8 +240,8 @@ WHERE i.request_id=$r ORDER BY m.code;";
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT from_status, to_status, reason FROM request_status_history WHERE request_id=$r ORDER BY created_at;";
-        cmd.AddWithValue("$r", requestId);
+        cmd.CommandText = "SELECT from_status, to_status, reason FROM request_status_history WHERE request_id=@r ORDER BY created_at;";
+        cmd.AddWithValue("@r", requestId);
         var list = new List<(RequestStatus?, RequestStatus, string?)>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -260,16 +260,16 @@ WHERE i.request_id=$r ORDER BY m.code;";
 SELECT mr.id, mr.doc_no, mr.status, mr.request_date, mr.description,
        (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
 FROM material_requests mr
-WHERE mr.company_id=$c AND mr.is_deleted=0
-  AND ($st IS NULL OR mr.status=$st)
-  AND ($s IS NULL OR mr.doc_no LIKE $like OR COALESCE(mr.description,'') LIKE $like)
-ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT $lim;";
-        cmd.AddWithValue("$c", s.CompanyId);
-        cmd.AddWithValue("$st", status is null ? DBNull.Value : RequestStatusMachine.ToDb(status.Value));
+WHERE mr.company_id=@c AND mr.is_deleted=0
+  AND (@st IS NULL OR mr.status=@st)
+  AND (@s IS NULL OR mr.doc_no LIKE @like OR COALESCE(mr.description,'') LIKE @like)
+ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@st", status is null ? DBNull.Value : RequestStatusMachine.ToDb(status.Value));
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
-        cmd.AddWithValue("$s", (object?)term ?? DBNull.Value);
-        cmd.AddWithValue("$like", term is null ? "%" : "%" + term + "%");
-        cmd.AddWithValue("$lim", limit);
+        cmd.AddWithValue("@s", (object?)term ?? DBNull.Value);
+        cmd.AddWithValue("@like", term is null ? "%" : "%" + term + "%");
+        cmd.AddWithValue("@lim", limit);
         var list = new List<RequestListRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -287,8 +287,8 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT $lim;";
         cmd.CommandText = @"
 SELECT m.code, m.name, i.quantity, i.note
 FROM material_request_items i JOIN materials m ON m.id = i.material_id
-WHERE i.request_id=$r ORDER BY m.code;";
-        cmd.AddWithValue("$r", requestId);
+WHERE i.request_id=@r ORDER BY m.code;";
+        cmd.AddWithValue("@r", requestId);
         var list = new List<RequestItemRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -314,8 +314,8 @@ LEFT JOIN branches b ON b.id = mr.branch_id
 LEFT JOIN personnel pr ON pr.id = mr.requester_id
 LEFT JOIN personnel pw ON pw.id = mr.warehouse_id
 LEFT JOIN personnel pa ON pa.id = mr.approver_id
-WHERE mr.id=$id;";
-            hc.AddWithValue("$id", requestId);
+WHERE mr.id=@id;";
+            hc.AddWithValue("@id", requestId);
             using var hr = hc.ExecuteReader();
             if (!hr.Read()) throw new ForbiddenException("Talep bulunamadı.");
             if (hr.GetString(8) != s.CompanyId) throw new ForbiddenException("Talep başka firmaya ait.");
@@ -336,8 +336,8 @@ FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN vehicles v ON v.id = i.vehicle_id
-WHERE i.request_id=$r ORDER BY m.code;";
-            ic.AddWithValue("$r", requestId);
+WHERE i.request_id=@r ORDER BY m.code;";
+            ic.AddWithValue("@r", requestId);
             using var ir = ic.ExecuteReader();
             while (ir.Read())
             {
@@ -367,12 +367,12 @@ WHERE i.request_id=$r ORDER BY m.code;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = setApproval
-                ? "UPDATE material_requests SET status=$st, approved_by=$by, approved_at=$now, version=version+1, updated_at=$now WHERE id=$id;"
-                : "UPDATE material_requests SET status=$st, version=version+1, updated_at=$now WHERE id=$id;";
-            cmd.AddWithValue("$st", RequestStatusMachine.ToDb(to));
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", requestId);
-            if (setApproval) cmd.AddWithValue("$by", s.UserId);
+                ? "UPDATE material_requests SET status=@st, approved_by=@by, approved_at=@now, version=version+1, updated_at=@now WHERE id=@id;"
+                : "UPDATE material_requests SET status=@st, version=version+1, updated_at=@now WHERE id=@id;";
+            cmd.AddWithValue("@st", RequestStatusMachine.ToDb(to));
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", requestId);
+            if (setApproval) cmd.AddWithValue("@by", s.UserId);
             cmd.ExecuteNonQuery();
         }
         WriteHistory(conn, tx, requestId, from, to, s.UserId, reason, now);
@@ -391,8 +391,8 @@ WHERE i.request_id=$r ORDER BY m.code;";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT status, company_id FROM material_requests WHERE id=$id;";
-        cmd.AddWithValue("$id", requestId);
+        cmd.CommandText = "SELECT status, company_id FROM material_requests WHERE id=@id;";
+        cmd.AddWithValue("@id", requestId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) throw new ForbiddenException("Talep bulunamadı.");
         var cid = r.GetString(1);
@@ -404,8 +404,8 @@ WHERE i.request_id=$r ORDER BY m.code;";
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT material_id, quantity FROM material_request_items WHERE request_id=$r;";
-        cmd.AddWithValue("$r", requestId);
+        cmd.CommandText = "SELECT material_id, quantity FROM material_request_items WHERE request_id=@r;";
+        cmd.AddWithValue("@r", requestId);
         var list = new List<StockLine>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new StockLine(r.GetString(0), Money.Parse(r.GetString(1))));
@@ -419,14 +419,14 @@ WHERE i.request_id=$r ORDER BY m.code;";
         cmd.Transaction = tx;
         cmd.CommandText =
             "INSERT INTO request_status_history(id, request_id, from_status, to_status, by_user, reason, created_at) " +
-            "VALUES($id,$r,$from,$to,$by,$reason,$now);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$r", requestId);
-        cmd.AddWithValue("$from", from is null ? DBNull.Value : RequestStatusMachine.ToDb(from.Value));
-        cmd.AddWithValue("$to", RequestStatusMachine.ToDb(to));
-        cmd.AddWithValue("$by", (object?)byUser ?? DBNull.Value);
-        cmd.AddWithValue("$reason", (object?)reason ?? DBNull.Value);
-        cmd.AddWithValue("$now", now);
+            "VALUES(@id,@r,@from,@to,@by,@reason,@now);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@r", requestId);
+        cmd.AddWithValue("@from", from is null ? DBNull.Value : RequestStatusMachine.ToDb(from.Value));
+        cmd.AddWithValue("@to", RequestStatusMachine.ToDb(to));
+        cmd.AddWithValue("@by", (object?)byUser ?? DBNull.Value);
+        cmd.AddWithValue("@reason", (object?)reason ?? DBNull.Value);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
     }
 
@@ -436,11 +436,11 @@ WHERE i.request_id=$r ORDER BY m.code;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "SELECT COALESCE(MAX(CAST(substr(doc_no, length($p)+1) AS INTEGER)),0) FROM material_requests " +
-            "WHERE company_id=$c AND doc_no LIKE $like;";
-        cmd.AddWithValue("$p", $"TLP-{year}-");
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$like", $"TLP-{year}-%");
+            "SELECT COALESCE(MAX(CAST(substr(doc_no, length(@p)+1) AS INTEGER)),0) FROM material_requests " +
+            "WHERE company_id=@c AND doc_no LIKE @like;";
+        cmd.AddWithValue("@p", $"TLP-{year}-");
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@like", $"TLP-{year}-%");
         var next = Convert.ToInt64(cmd.ExecuteScalar()) + 1;
         return $"TLP-{year}-{next:0000}";
     }
@@ -449,9 +449,9 @@ WHERE i.request_id=$r ORDER BY m.code;";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$id", materialId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", materialId);
+        cmd.AddWithValue("@c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
     }
 }

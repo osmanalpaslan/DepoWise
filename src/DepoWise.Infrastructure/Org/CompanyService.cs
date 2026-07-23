@@ -35,10 +35,10 @@ public sealed class CompanyService
             cmd.Transaction = tx;
             cmd.CommandText =
                 "INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$n,$now,$now,1,0);";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$n", name);
-            cmd.AddWithValue("$now", now);
+                "VALUES(@id,@n,@now,@now,1,0);";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@n", name);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(id, "company", id, AuditActions.Create, session.UserId), _clock);
@@ -57,8 +57,8 @@ public sealed class CompanyService
         }
         else
         {
-            cmd.CommandText = "SELECT id, name, created_at FROM companies WHERE id = $c AND is_deleted = 0;";
-            cmd.AddWithValue("$c", session.CompanyId);
+            cmd.CommandText = "SELECT id, name, created_at FROM companies WHERE id = @c AND is_deleted = 0;";
+            cmd.AddWithValue("@c", session.CompanyId);
         }
         var list = new List<CompanyRecord>();
         using var r = cmd.ExecuteReader();

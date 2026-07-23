@@ -39,8 +39,8 @@ public sealed class BackupService
         using (var conn = _factory.Create())
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "VACUUM INTO $p;";
-            cmd.AddWithValue("$p", path);
+            cmd.CommandText = "VACUUM INTO @p;";
+            cmd.AddWithValue("@p", path);
             cmd.ExecuteNonQuery();
         }
         PurgeOld();

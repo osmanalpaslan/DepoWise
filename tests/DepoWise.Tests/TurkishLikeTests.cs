@@ -27,10 +27,10 @@ public class TurkishLikeTests : IDisposable
     {
         using var conn = _factory.Create();
         using (var c = conn.CreateCommand()) { c.CommandText = "CREATE TABLE t(name TEXT);"; c.ExecuteNonQuery(); }
-        using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO t(name) VALUES($v);"; c.AddWithValue("$v", value); c.ExecuteNonQuery(); }
+        using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO t(name) VALUES(@v);"; c.AddWithValue("@v", value); c.ExecuteNonQuery(); }
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM t WHERE name LIKE $p;";
-        cmd.AddWithValue("$p", pattern);
+        cmd.CommandText = "SELECT COUNT(*) FROM t WHERE name LIKE @p;";
+        cmd.AddWithValue("@p", pattern);
         Assert.Equal(expected, Convert.ToInt64(cmd.ExecuteScalar()) > 0);
     }
 

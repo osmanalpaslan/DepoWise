@@ -129,12 +129,12 @@ public static class LookupSyncService
                 {
                     upd.Transaction = tx;
                     var setExtra = "";
-                    for (int i = 0; i < extraCols.Length; i++) setExtra += $", {extraCols[i].Col}=$e{i}";
-                    upd.CommandText = $"UPDATE {table} SET name=$n, is_deleted=0, updated_at=$now{setExtra} WHERE id=$id;";
-                    upd.AddWithValue("$n", name);
-                    upd.AddWithValue("$now", now);
-                    upd.AddWithValue("$id", id);
-                    for (int i = 0; i < extraCols.Length; i++) upd.AddWithValue($"$e{i}", extraVals[i]!);
+                    for (int i = 0; i < extraCols.Length; i++) setExtra += $", {extraCols[i].Col}=@e{i}";
+                    upd.CommandText = $"UPDATE {table} SET name=@n, is_deleted=0, updated_at=@now{setExtra} WHERE id=@id;";
+                    upd.AddWithValue("@n", name);
+                    upd.AddWithValue("@now", now);
+                    upd.AddWithValue("@id", id);
+                    for (int i = 0; i < extraCols.Length; i++) upd.AddWithValue($"@e{i}", extraVals[i]!);
                     if (upd.ExecuteNonQuery() > 0) continue; // güncellendi
                 }
 
@@ -142,15 +142,15 @@ public static class LookupSyncService
                 using (var ins = conn.CreateCommand())
                 {
                     ins.Transaction = tx;
-                    var cols = "id, company_id, name"; var vals = "$id,$c,$n";
-                    for (int i = 0; i < extraCols.Length; i++) { cols += $", {extraCols[i].Col}"; vals += $",$e{i}"; }
-                    cols += ", created_at, updated_at, version, is_deleted"; vals += ",$now,$now,1,0";
+                    var cols = "id, company_id, name"; var vals = "@id,@c,@n";
+                    for (int i = 0; i < extraCols.Length; i++) { cols += $", {extraCols[i].Col}"; vals += $",@e{i}"; }
+                    cols += ", created_at, updated_at, version, is_deleted"; vals += ",@now,@now,1,0";
                     ins.CommandText = $"INSERT INTO {table}({cols}) VALUES({vals});";
-                    ins.AddWithValue("$id", id);
-                    ins.AddWithValue("$c", companyId);
-                    ins.AddWithValue("$n", name);
-                    ins.AddWithValue("$now", now);
-                    for (int i = 0; i < extraCols.Length; i++) ins.AddWithValue($"$e{i}", extraVals[i]!);
+                    ins.AddWithValue("@id", id);
+                    ins.AddWithValue("@c", companyId);
+                    ins.AddWithValue("@n", name);
+                    ins.AddWithValue("@now", now);
+                    for (int i = 0; i < extraCols.Length; i++) ins.AddWithValue($"@e{i}", extraVals[i]!);
                     try { ins.ExecuteNonQuery(); } catch { /* ad çakışması → atla */ }
                 }
             }

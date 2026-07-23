@@ -28,8 +28,8 @@ public sealed class DatabaseHealth : IDatabaseHealth
             long ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             using (var ins = conn.CreateCommand())
             {
-                ins.CommandText = "INSERT INTO _health_check(ts) VALUES($ts);";
-                ins.AddWithValue("$ts", ts);
+                ins.CommandText = "INSERT INTO _health_check(ts) VALUES(@ts);";
+                ins.AddWithValue("@ts", ts);
                 ins.ExecuteNonQuery();
             }
             long readBack = ScalarLong(conn, "SELECT MAX(ts) FROM _health_check;");

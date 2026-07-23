@@ -27,9 +27,9 @@ public sealed class ReportService
         cmd.CommandText = @"
 SELECT m.code, m.name, COALESCE(b.quantity,'0') AS qty, m.min_stock
 FROM materials m LEFT JOIN stock_balances b ON b.material_id=m.id
-WHERE m.company_id=$c AND m.is_deleted=0
+WHERE m.company_id=@c AND m.is_deleted=0
 ORDER BY m.code;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -53,10 +53,10 @@ SELECT v.internal_code, COUNT(fd.id),
        COALESCE(SUM(CAST(fd.liters AS REAL)),0),
        COALESCE(SUM(CAST(fd.liters AS REAL)*CAST(fd.unit_price AS REAL)),0)
 FROM fuel_distributions fd JOIN vehicles v ON v.id=fd.vehicle_id
-WHERE fd.company_id=$c AND fd.is_deleted=0
+WHERE fd.company_id=@c AND fd.is_deleted=0
 " + DateFilter(req, "fd.distribution_date") + @"
 GROUP BY fd.vehicle_id ORDER BY v.internal_code;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         int totIslem = 0; double totKm = 0, totLitre = 0, totTutar = 0;
@@ -94,9 +94,9 @@ SELECT v.internal_code, COALESCE(v.plate,''),
    WHERE vm.vehicle_id=v.id AND vm.is_deleted=0 AND vm.is_cancelled=0" + DateFilter(req, "vm.performed_date") + @") AS matcost
 FROM vehicles v
 LEFT JOIN fuel_distributions fd ON fd.vehicle_id=v.id AND fd.is_deleted=0" + DateFilter(req, "fd.distribution_date") + @"
-WHERE v.company_id=$c AND v.is_deleted=0
+WHERE v.company_id=@c AND v.is_deleted=0
 GROUP BY v.id ORDER BY v.internal_code;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         double tKm = 0, tLitre = 0, tFuel = 0, tMat = 0;
@@ -130,10 +130,10 @@ FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
 LEFT JOIN personnel p ON p.id = vm.technician_id
-WHERE vm.company_id=$c AND vm.is_deleted=0 AND vm.is_cancelled=0
+WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0
 " + DateFilter(req, "vm.performed_date") + @"
 ORDER BY vm.performed_date DESC;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -154,10 +154,10 @@ ORDER BY vm.performed_date DESC;";
 SELECT entry_date, CAST(liters AS REAL), CAST(unit_price AS REAL),
        CAST(liters AS REAL)*CAST(unit_price AS REAL), COALESCE(invoice_no,'')
 FROM fuel_depot_entries
-WHERE company_id=$c AND is_deleted=0
+WHERE company_id=@c AND is_deleted=0
 " + DateFilter(req, "entry_date") + @"
 ORDER BY entry_date DESC;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -182,10 +182,10 @@ SELECT d.doc_date, m.code, m.name,
 FROM stock_count_lines scl
 JOIN stock_documents d ON d.id = scl.document_id
 JOIN materials m ON m.id = scl.material_id
-WHERE d.company_id=$c AND d.is_deleted=0 AND d.doc_type='count'
+WHERE d.company_id=@c AND d.is_deleted=0 AND d.doc_type='count'
 " + DateFilter(req, "d.doc_date") + @"
 ORDER BY d.doc_date DESC, m.code;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -211,10 +211,10 @@ ORDER BY d.doc_date DESC, m.code;";
 SELECT mr.doc_no, mr.request_date, mr.status,
        (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
 FROM material_requests mr
-WHERE mr.company_id=$c AND mr.is_deleted=0
+WHERE mr.company_id=@c AND mr.is_deleted=0
 " + DateFilter(req, "mr.request_date") + @"
 ORDER BY mr.request_date DESC;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
@@ -234,14 +234,14 @@ ORDER BY mr.request_date DESC;";
     private static string DateFilter(ReportRequest req, string col)
     {
         var sb = "";
-        if (req.FromDate is not null) sb += $" AND {col} >= $from";
-        if (req.ToDate is not null) sb += $" AND {col} <= $to";
+        if (req.FromDate is not null) sb += $" AND {col} >= @from";
+        if (req.ToDate is not null) sb += $" AND {col} <= @to";
         return sb;
     }
 
     private static void BindDates(DbCommand cmd, ReportRequest req)
     {
-        if (req.FromDate is not null) cmd.AddWithValue("$from", req.FromDate.Value);
-        if (req.ToDate is not null) cmd.AddWithValue("$to", req.ToDate.Value);
+        if (req.FromDate is not null) cmd.AddWithValue("@from", req.FromDate.Value);
+        if (req.ToDate is not null) cmd.AddWithValue("@to", req.ToDate.Value);
     }
 }

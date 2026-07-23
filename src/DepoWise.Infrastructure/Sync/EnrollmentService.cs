@@ -41,12 +41,12 @@ public sealed class EnrollmentService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO enrollment_keys(id, company_id, key_hash, expires_at, used_at, created_at) " +
-            "VALUES($id,$c,$h,$exp,NULL,$now);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$c", s.CompanyId);
-        cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(key));
-        cmd.AddWithValue("$exp", now.Add(KeyTtl).ToUnixTimeMilliseconds());
-        cmd.AddWithValue("$now", now.ToUnixTimeMilliseconds());
+            "VALUES(@id,@c,@h,@exp,NULL,@now);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@h", SyncCrypto.Sha256Hex(key));
+        cmd.AddWithValue("@exp", now.Add(KeyTtl).ToUnixTimeMilliseconds());
+        cmd.AddWithValue("@now", now.ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
         return key;
     }
@@ -66,10 +66,10 @@ public sealed class EnrollmentService
         {
             find.Transaction = tx;
             find.CommandText =
-                "SELECT id FROM enrollment_keys WHERE company_id=$c AND key_hash=$h AND used_at IS NULL AND expires_at >= $now;";
-            find.AddWithValue("$c", companyId);
-            find.AddWithValue("$h", hash);
-            find.AddWithValue("$now", nowMs);
+                "SELECT id FROM enrollment_keys WHERE company_id=@c AND key_hash=@h AND used_at IS NULL AND expires_at >= @now;";
+            find.AddWithValue("@c", companyId);
+            find.AddWithValue("@h", hash);
+            find.AddWithValue("@now", nowMs);
             keyId = find.ExecuteScalar() as string
                 ?? throw new ForbiddenException("Geçersiz, süresi dolmuş veya kullanılmış enrollment anahtarı.");
         }
@@ -77,9 +77,9 @@ public sealed class EnrollmentService
         using (var use = conn.CreateCommand())
         {
             use.Transaction = tx;
-            use.CommandText = "UPDATE enrollment_keys SET used_at=$now WHERE id=$id AND used_at IS NULL;";
-            use.AddWithValue("$now", nowMs);
-            use.AddWithValue("$id", keyId);
+            use.CommandText = "UPDATE enrollment_keys SET used_at=@now WHERE id=@id AND used_at IS NULL;";
+            use.AddWithValue("@now", nowMs);
+            use.AddWithValue("@id", keyId);
             if (use.ExecuteNonQuery() == 0) throw new ForbiddenException("Anahtar zaten kullanılmış.");
         }
 
@@ -89,11 +89,11 @@ public sealed class EnrollmentService
             ins.Transaction = tx;
             ins.CommandText =
                 "INSERT INTO sync_devices(id, company_id, device_name, status, created_at, updated_at, version) " +
-                "VALUES($id,$c,$n,'pending',$now,$now,1);";
-            ins.AddWithValue("$id", deviceId);
-            ins.AddWithValue("$c", companyId);
-            ins.AddWithValue("$n", deviceName);
-            ins.AddWithValue("$now", nowMs);
+                "VALUES(@id,@c,@n,'pending',@now,@now,1);";
+            ins.AddWithValue("@id", deviceId);
+            ins.AddWithValue("@c", companyId);
+            ins.AddWithValue("@n", deviceName);
+            ins.AddWithValue("@now", nowMs);
             ins.ExecuteNonQuery();
         }
         tx.Commit();
@@ -128,9 +128,9 @@ public sealed class EnrollmentService
         using (var find = conn.CreateCommand())
         {
             find.Transaction = tx;
-            find.CommandText = "SELECT id, status FROM sync_devices WHERE company_id=$c AND device_name=$n ORDER BY created_at LIMIT 1;";
-            find.AddWithValue("$c", companyId);
-            find.AddWithValue("$n", deviceName);
+            find.CommandText = "SELECT id, status FROM sync_devices WHERE company_id=@c AND device_name=@n ORDER BY created_at LIMIT 1;";
+            find.AddWithValue("@c", companyId);
+            find.AddWithValue("@n", deviceName);
             using var r = find.ExecuteReader();
             if (r.Read()) { existingId = r.GetString(0); existingStatus = r.GetString(1); }
         }
@@ -139,10 +139,10 @@ public sealed class EnrollmentService
         {
             using var cnt = conn.CreateCommand();
             cnt.Transaction = tx;
-            cnt.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE company_id=$c AND status='active'" +
-                              (excludeId is null ? ";" : " AND id<>$x;");
-            cnt.AddWithValue("$c", companyId);
-            if (excludeId is not null) cnt.AddWithValue("$x", excludeId);
+            cnt.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE company_id=@c AND status='active'" +
+                              (excludeId is null ? ";" : " AND id<>@x;");
+            cnt.AddWithValue("@c", companyId);
+            if (excludeId is not null) cnt.AddWithValue("@x", excludeId);
             return Convert.ToInt32(cnt.ExecuteScalar());
         }
 
@@ -155,15 +155,15 @@ public sealed class EnrollmentService
             // Şube (branch_id) BURADA GÜNCELLENMEZ — admin ataması otoriterdir (AssignBranch).
             using var upd = conn.CreateCommand();
             upd.Transaction = tx;
-            upd.CommandText = "UPDATE sync_devices SET last_seen_at=$now, updated_at=$now, status=$s, " +
-                "ip_address=COALESCE($ip, ip_address), ip_v4=COALESCE($ip4, ip_v4), ip_v6=COALESCE($ip6, ip_v6) " +
-                "WHERE id=$id;";
-            upd.AddWithValue("$now", now);
-            upd.AddWithValue("$s", newStatus);
-            upd.AddWithValue("$ip", (object?)ip ?? System.DBNull.Value);
-            upd.AddWithValue("$ip4", (object?)ip4 ?? System.DBNull.Value);
-            upd.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
-            upd.AddWithValue("$id", existingId);
+            upd.CommandText = "UPDATE sync_devices SET last_seen_at=@now, updated_at=@now, status=@s, " +
+                "ip_address=COALESCE(@ip, ip_address), ip_v4=COALESCE(@ip4, ip_v4), ip_v6=COALESCE(@ip6, ip_v6) " +
+                "WHERE id=@id;";
+            upd.AddWithValue("@now", now);
+            upd.AddWithValue("@s", newStatus);
+            upd.AddWithValue("@ip", (object?)ip ?? System.DBNull.Value);
+            upd.AddWithValue("@ip4", (object?)ip4 ?? System.DBNull.Value);
+            upd.AddWithValue("@ip6", (object?)ip6 ?? System.DBNull.Value);
+            upd.AddWithValue("@id", existingId);
             upd.ExecuteNonQuery();
             var (exBid, exBname, exCid, exCname) = ReadDeviceInfo(conn, tx, existingId);
             tx.Commit();
@@ -177,16 +177,16 @@ public sealed class EnrollmentService
             ins.Transaction = tx;
             ins.CommandText =
                 "INSERT INTO sync_devices(id, company_id, device_name, status, ip_address, ip_v4, ip_v6, branch_id, last_seen_at, created_at, updated_at, version) " +
-                "VALUES($id,$c,$n,$s,$ip,$ip4,$ip6,$bid,$now,$now,$now,1);";
-            ins.AddWithValue("$id", deviceId);
-            ins.AddWithValue("$c", companyId);
-            ins.AddWithValue("$n", deviceName);
-            ins.AddWithValue("$s", status);
-            ins.AddWithValue("$ip", (object?)ip ?? System.DBNull.Value);
-            ins.AddWithValue("$ip4", (object?)ip4 ?? System.DBNull.Value);
-            ins.AddWithValue("$ip6", (object?)ip6 ?? System.DBNull.Value);
-            ins.AddWithValue("$bid", System.DBNull.Value); // yeni makine: şube YOK, admin atar
-            ins.AddWithValue("$now", now);
+                "VALUES(@id,@c,@n,@s,@ip,@ip4,@ip6,@bid,@now,@now,@now,1);";
+            ins.AddWithValue("@id", deviceId);
+            ins.AddWithValue("@c", companyId);
+            ins.AddWithValue("@n", deviceName);
+            ins.AddWithValue("@s", status);
+            ins.AddWithValue("@ip", (object?)ip ?? System.DBNull.Value);
+            ins.AddWithValue("@ip4", (object?)ip4 ?? System.DBNull.Value);
+            ins.AddWithValue("@ip6", (object?)ip6 ?? System.DBNull.Value);
+            ins.AddWithValue("@bid", System.DBNull.Value); // yeni makine: şube YOK, admin atar
+            ins.AddWithValue("@now", now);
             ins.ExecuteNonQuery();
         }
         var (_, _, nCid, nCname) = ReadDeviceInfo(conn, tx, deviceId);
@@ -205,8 +205,8 @@ public sealed class EnrollmentService
         cmd.CommandText = "SELECT br.id, br.name, co.id, co.name " +
                           "FROM sync_devices d " +
                           "LEFT JOIN branches br ON br.id=d.branch_id AND br.is_deleted=0 " +
-                          "LEFT JOIN companies co ON co.id=d.company_id AND co.is_deleted=0 WHERE d.id=$id;";
-        cmd.AddWithValue("$id", deviceId);
+                          "LEFT JOIN companies co ON co.id=d.company_id AND co.is_deleted=0 WHERE d.id=@id;";
+        cmd.AddWithValue("@id", deviceId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return (null, null, null, null);
         return (
@@ -229,8 +229,8 @@ public sealed class EnrollmentService
         using (var find = conn.CreateCommand())
         {
             find.Transaction = tx;
-            find.CommandText = "SELECT company_id FROM sync_devices WHERE id=$id;";
-            find.AddWithValue("$id", deviceId);
+            find.CommandText = "SELECT company_id FROM sync_devices WHERE id=@id;";
+            find.AddWithValue("@id", deviceId);
             machineCompany = find.ExecuteScalar() as string;
         }
         if (machineCompany is null) throw new ForbiddenException("Makine bulunamadı.");
@@ -242,18 +242,18 @@ public sealed class EnrollmentService
         {
             using var bc = conn.CreateCommand();
             bc.Transaction = tx;
-            bc.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$b AND company_id=$c AND is_deleted=0;";
-            bc.AddWithValue("$b", branchId);
-            bc.AddWithValue("$c", machineCompany);
+            bc.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@b AND company_id=@c AND is_deleted=0;";
+            bc.AddWithValue("@b", branchId);
+            bc.AddWithValue("@c", machineCompany);
             if (Convert.ToInt64(bc.ExecuteScalar()) == 0) throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
         }
 
         using var upd = conn.CreateCommand();
         upd.Transaction = tx;
-        upd.CommandText = "UPDATE sync_devices SET branch_id=$b, updated_at=$now WHERE id=$id;";
-        upd.AddWithValue("$b", (object?)(string.IsNullOrWhiteSpace(branchId) ? null : branchId) ?? System.DBNull.Value);
-        upd.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
-        upd.AddWithValue("$id", deviceId);
+        upd.CommandText = "UPDATE sync_devices SET branch_id=@b, updated_at=@now WHERE id=@id;";
+        upd.AddWithValue("@b", (object?)(string.IsNullOrWhiteSpace(branchId) ? null : branchId) ?? System.DBNull.Value);
+        upd.AddWithValue("@now", _clock.UtcNow.ToUnixTimeMilliseconds());
+        upd.AddWithValue("@id", deviceId);
         upd.ExecuteNonQuery();
         tx.Commit();
     }
@@ -272,8 +272,8 @@ public sealed class EnrollmentService
         using (var cc = conn.CreateCommand())
         {
             cc.Transaction = tx;
-            cc.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
-            cc.AddWithValue("$c", companyId);
+            cc.CommandText = "SELECT COUNT(*) FROM companies WHERE id=@c AND is_deleted=0;";
+            cc.AddWithValue("@c", companyId);
             if (Convert.ToInt64(cc.ExecuteScalar()) == 0) throw new ForbiddenException("Firma bulunamadı.");
         }
 
@@ -281,18 +281,18 @@ public sealed class EnrollmentService
         using (var fc = conn.CreateCommand())
         {
             fc.Transaction = tx;
-            fc.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE id=$id;";
-            fc.AddWithValue("$id", deviceId);
+            fc.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE id=@id;";
+            fc.AddWithValue("@id", deviceId);
             if (Convert.ToInt64(fc.ExecuteScalar()) == 0) throw new ForbiddenException("Makine bulunamadı.");
         }
 
         // Firma değişir + şube ataması kaldırılır (şube eski firmaya ait; yeni firmada geçersiz).
         using var upd = conn.CreateCommand();
         upd.Transaction = tx;
-        upd.CommandText = "UPDATE sync_devices SET company_id=$c, branch_id=NULL, updated_at=$now WHERE id=$id;";
-        upd.AddWithValue("$c", companyId);
-        upd.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
-        upd.AddWithValue("$id", deviceId);
+        upd.CommandText = "UPDATE sync_devices SET company_id=@c, branch_id=NULL, updated_at=@now WHERE id=@id;";
+        upd.AddWithValue("@c", companyId);
+        upd.AddWithValue("@now", _clock.UtcNow.ToUnixTimeMilliseconds());
+        upd.AddWithValue("@id", deviceId);
         upd.ExecuteNonQuery();
         tx.Commit();
     }
@@ -311,9 +311,9 @@ public sealed class EnrollmentService
         using (var find = conn.CreateCommand())
         {
             find.Transaction = tx;
-            find.CommandText = "SELECT id, branch_id FROM sync_devices WHERE company_id=$c AND device_name=$n ORDER BY created_at LIMIT 1;";
-            find.AddWithValue("$c", s.CompanyId);
-            find.AddWithValue("$n", machineName);
+            find.CommandText = "SELECT id, branch_id FROM sync_devices WHERE company_id=@c AND device_name=@n ORDER BY created_at LIMIT 1;";
+            find.AddWithValue("@c", s.CompanyId);
+            find.AddWithValue("@n", machineName);
             using var r = find.ExecuteReader();
             if (r.Read()) { deviceId = r.GetString(0); currentBranch = r.IsDBNull(1) ? null : r.GetString(1); }
         }
@@ -324,19 +324,19 @@ public sealed class EnrollmentService
         using (var bc = conn.CreateCommand())
         {
             bc.Transaction = tx;
-            bc.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$b AND company_id=$c AND is_deleted=0;";
-            bc.AddWithValue("$b", branchId);
-            bc.AddWithValue("$c", s.CompanyId);
+            bc.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@b AND company_id=@c AND is_deleted=0;";
+            bc.AddWithValue("@b", branchId);
+            bc.AddWithValue("@c", s.CompanyId);
             if (Convert.ToInt64(bc.ExecuteScalar()) == 0) throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
         }
 
         using (var upd = conn.CreateCommand())
         {
             upd.Transaction = tx;
-            upd.CommandText = "UPDATE sync_devices SET branch_id=$b, updated_at=$now WHERE id=$id AND branch_id IS NULL;";
-            upd.AddWithValue("$b", branchId);
-            upd.AddWithValue("$now", _clock.UtcNow.ToUnixTimeMilliseconds());
-            upd.AddWithValue("$id", deviceId);
+            upd.CommandText = "UPDATE sync_devices SET branch_id=@b, updated_at=@now WHERE id=@id AND branch_id IS NULL;";
+            upd.AddWithValue("@b", branchId);
+            upd.AddWithValue("@now", _clock.UtcNow.ToUnixTimeMilliseconds());
+            upd.AddWithValue("@id", deviceId);
             var n = upd.ExecuteNonQuery();
             tx.Commit();
             return n > 0;
@@ -347,8 +347,8 @@ public sealed class EnrollmentService
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT machine_quota FROM companies WHERE id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT machine_quota FROM companies WHERE id=@c;";
+        cmd.AddWithValue("@c", companyId);
         var v = cmd.ExecuteScalar();
         return v is null || v is DBNull ? 3 : Convert.ToInt32(v);
     }
@@ -360,9 +360,9 @@ public sealed class EnrollmentService
         if (quota < 1) quota = 1;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE companies SET machine_quota=$q WHERE id=$c;";
-        cmd.AddWithValue("$q", quota);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "UPDATE companies SET machine_quota=@q WHERE id=@c;";
+        cmd.AddWithValue("@q", quota);
+        cmd.AddWithValue("@c", companyId);
         cmd.ExecuteNonQuery();
     }
 
@@ -375,12 +375,12 @@ public sealed class EnrollmentService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE sync_devices SET status='active', token_hash=$h, updated_at=$now " +
-            "WHERE id=$id AND status='pending'" + (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
-        cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$id", deviceId);
-        if (!s.IsSuperAdmin) cmd.AddWithValue("$c", s.CompanyId);
+            "UPDATE sync_devices SET status='active', token_hash=@h, updated_at=@now " +
+            "WHERE id=@id AND status='pending'" + (s.IsSuperAdmin ? ";" : " AND company_id=@c;");
+        cmd.AddWithValue("@h", SyncCrypto.Sha256Hex(token));
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@id", deviceId);
+        if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Onaylanacak bekleyen cihaz bulunamadı.");
         return new DeviceToken(deviceId, token);
     }
@@ -394,11 +394,11 @@ public sealed class EnrollmentService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE sync_devices SET token_hash=$h, updated_at=$now WHERE id=$id AND company_id=$c AND status='active';";
-        cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$id", deviceId);
-        cmd.AddWithValue("$c", s.CompanyId);
+            "UPDATE sync_devices SET token_hash=@h, updated_at=@now WHERE id=@id AND company_id=@c AND status='active';";
+        cmd.AddWithValue("@h", SyncCrypto.Sha256Hex(token));
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@id", deviceId);
+        cmd.AddWithValue("@c", s.CompanyId);
         if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Aktif cihaz bulunamadı.");
         return new DeviceToken(deviceId, token);
     }
@@ -410,11 +410,11 @@ public sealed class EnrollmentService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE sync_devices SET status='revoked', revoked_at=$now, updated_at=$now WHERE id=$id" +
-            (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$id", deviceId);
-        if (!s.IsSuperAdmin) cmd.AddWithValue("$c", s.CompanyId);
+            "UPDATE sync_devices SET status='revoked', revoked_at=@now, updated_at=@now WHERE id=@id" +
+            (s.IsSuperAdmin ? ";" : " AND company_id=@c;");
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@id", deviceId);
+        if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         cmd.ExecuteNonQuery();
     }
 
@@ -424,9 +424,9 @@ public sealed class EnrollmentService
         if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Cihaz silme yalnız admin.");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM sync_devices WHERE id=$id" + (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
-        cmd.AddWithValue("$id", deviceId);
-        if (!s.IsSuperAdmin) cmd.AddWithValue("$c", s.CompanyId);
+        cmd.CommandText = "DELETE FROM sync_devices WHERE id=@id" + (s.IsSuperAdmin ? ";" : " AND company_id=@c;");
+        cmd.AddWithValue("@id", deviceId);
+        if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         cmd.ExecuteNonQuery();
     }
 
@@ -438,11 +438,11 @@ public sealed class EnrollmentService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "UPDATE sync_devices SET status='active', revoked_at=NULL, updated_at=$now WHERE id=$id AND status<>'active'" +
-            (s.IsSuperAdmin ? ";" : " AND company_id=$c;");
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$id", deviceId);
-        if (!s.IsSuperAdmin) cmd.AddWithValue("$c", s.CompanyId);
+            "UPDATE sync_devices SET status='active', revoked_at=NULL, updated_at=@now WHERE id=@id AND status<>'active'" +
+            (s.IsSuperAdmin ? ";" : " AND company_id=@c;");
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@id", deviceId);
+        if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         cmd.ExecuteNonQuery();
     }
 
@@ -463,11 +463,11 @@ public sealed class EnrollmentService
 
         var conds = new List<string>();
         // Tenant sınırı: süper admin değilse daima kendi firması. Kayıtsız modda süper admin firma-bağımsız.
-        if (!s.IsSuperAdmin) { conds.Add("d.company_id=$c"); cmd.AddWithValue("$c", s.CompanyId); }
-        else if (!unassignedOnly && !string.IsNullOrWhiteSpace(companyFilter)) { conds.Add("d.company_id=$c"); cmd.AddWithValue("$c", companyFilter!); }
+        if (!s.IsSuperAdmin) { conds.Add("d.company_id=@c"); cmd.AddWithValue("@c", s.CompanyId); }
+        else if (!unassignedOnly && !string.IsNullOrWhiteSpace(companyFilter)) { conds.Add("d.company_id=@c"); cmd.AddWithValue("@c", companyFilter!); }
 
         if (unassignedOnly) conds.Add("d.branch_id IS NULL"); // "kayıtsız" = şube atanmamış
-        else if (!string.IsNullOrWhiteSpace(branchFilter)) { conds.Add("d.branch_id=$b"); cmd.AddWithValue("$b", branchFilter!); }
+        else if (!string.IsNullOrWhiteSpace(branchFilter)) { conds.Add("d.branch_id=@b"); cmd.AddWithValue("@b", branchFilter!); }
 
         if (conds.Count > 0) sb += "WHERE " + string.Join(" AND ", conds) + " ";
         sb += "ORDER BY d.created_at DESC;";
@@ -486,8 +486,8 @@ public sealed class EnrollmentService
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE company_id=$c AND status='active';";
-        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE company_id=@c AND status='active';";
+        cmd.AddWithValue("@c", s.CompanyId);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 }

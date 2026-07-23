@@ -41,8 +41,8 @@ public sealed class TrashService
         foreach (var (table, label) in Tables)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = $"SELECT id, {label}, updated_at FROM {table} WHERE company_id=$c AND is_deleted=1;";
-            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.CommandText = $"SELECT id, {label}, updated_at FROM {table} WHERE company_id=@c AND is_deleted=1;";
+            cmd.AddWithValue("@c", s.CompanyId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 items.Add(new TrashItem(table, r.GetString(0), r.IsDBNull(1) ? "" : r.GetString(1), r.GetInt64(2)));
@@ -61,10 +61,10 @@ public sealed class TrashService
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = $"UPDATE {table} SET is_deleted=0, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.CommandText = $"UPDATE {table} SET is_deleted=0, version=version+1, updated_at=@now WHERE id=@id AND company_id=@c;";
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
             affected = cmd.ExecuteNonQuery();
         }
         if (affected == 0) throw new ForbiddenException("Kayıt bulunamadı veya başka firmaya ait.");

@@ -44,14 +44,14 @@ public sealed class SettingsService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO app_settings(id, company_id, setting_key, setting_value, updated_at)
-VALUES($id, $c, $k, $v, $now)
+VALUES(@id, @c, @k, @v, @now)
 ON CONFLICT(IFNULL(company_id,''), setting_key)
 DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at;";
-            cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            cmd.AddWithValue("$c", (object?)companyId ?? DBNull.Value);
-            cmd.AddWithValue("$k", key);
-            cmd.AddWithValue("$v", (object?)value ?? DBNull.Value);
-            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            cmd.AddWithValue("@c", (object?)companyId ?? DBNull.Value);
+            cmd.AddWithValue("@k", key);
+            cmd.AddWithValue("@v", (object?)value ?? DBNull.Value);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
 
@@ -97,17 +97,17 @@ DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.upda
     private static string? ReadOne(DbConnection conn, string companyId, string key)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id = $c AND setting_key = $k;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$k", key);
+        cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id = @c AND setting_key = @k;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@k", key);
         return cmd.ExecuteScalar() as string;
     }
 
     private static string? ReadGlobal(DbConnection conn, string key)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key = $k;";
-        cmd.AddWithValue("$k", key);
+        cmd.CommandText = "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key = @k;";
+        cmd.AddWithValue("@k", key);
         return cmd.ExecuteScalar() as string;
     }
 
@@ -116,10 +116,10 @@ DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.upda
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = companyId is null
-            ? "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key = $k;"
-            : "SELECT setting_value FROM app_settings WHERE company_id = $c AND setting_key = $k;";
-        cmd.AddWithValue("$k", key);
-        if (companyId is not null) cmd.AddWithValue("$c", companyId);
+            ? "SELECT setting_value FROM app_settings WHERE company_id IS NULL AND setting_key = @k;"
+            : "SELECT setting_value FROM app_settings WHERE company_id = @c AND setting_key = @k;";
+        cmd.AddWithValue("@k", key);
+        if (companyId is not null) cmd.AddWithValue("@c", companyId);
         return cmd.ExecuteScalar() as string;
     }
 }

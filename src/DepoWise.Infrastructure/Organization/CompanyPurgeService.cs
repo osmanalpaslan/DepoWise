@@ -50,8 +50,8 @@ public sealed class CompanyPurgeService
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT name FROM companies WHERE id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT name FROM companies WHERE id=@c;";
+        cmd.AddWithValue("@c", companyId);
         return cmd.ExecuteScalar() as string;
     }
 
@@ -80,8 +80,8 @@ public sealed class CompanyPurgeService
 
             // 1) user_roles'ta company_id YOK → firmanın kullanıcıları ÜZERİNDEN silinir. Users'tan ÖNCE olmalı.
             rows += Exec(conn, tx,
-                "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE company_id=$c);",
-                ("$c", companyId));
+                "DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE company_id=@c);",
+                ("@c", companyId));
 
             // 2) company_id sütunu OLAN her tablodan bu firmanın satırlarını sil.
             //    roles'ta company_id NULL = sistem rolü → filtre onları korur (tüm firmalar kullanır).
@@ -90,19 +90,19 @@ public sealed class CompanyPurgeService
                 if (Protected.Contains(t)) continue;
                 if (string.Equals(t, "companies", StringComparison.OrdinalIgnoreCase)) continue; // en sonda
                 if (!HasColumn(conn, t, "company_id")) continue;
-                var n = Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=$c;", ("$c", companyId));
+                var n = Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", ("@c", companyId));
                 if (n > 0) touched++;
                 rows += n;
             }
 
             // 3) Firmanın kendisi.
-            rows += Exec(conn, tx, "DELETE FROM companies WHERE id=$c;", ("$c", companyId));
+            rows += Exec(conn, tx, "DELETE FROM companies WHERE id=@c;", ("@c", companyId));
             touched++;
 
             // 4) KÜNYE — aynı transaction. Bu satır olmadan çevrimdışı makine silmeyi asla öğrenemez.
             Exec(conn, tx,
-                "INSERT OR REPLACE INTO company_purges(company_id, company_name, purged_at, purged_by) VALUES($c,$n,$at,$by);",
-                ("$c", companyId), ("$n", name), ("$at", now), ("$by", actor.UserId));
+                "INSERT OR REPLACE INTO company_purges(company_id, company_name, purged_at, purged_by) VALUES(@c,@n,@at,@by);",
+                ("@c", companyId), ("@n", name), ("@at", now), ("@by", actor.UserId));
 
             // 5) Audit: aktörün KENDİ firmasında iz kalır (silinen firmada iz bırakmanın anlamı yok — o satırlar gitti).
             AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "company_purge", companyId, AuditActions.Delete, actor.UserId), _clock);
@@ -142,7 +142,7 @@ public sealed class CompanyPurgeService
             foreach (var t in DepoWise.Infrastructure.Sync.BusinessSyncService.Tables)
             {
                 if (!TableExists(conn, t) || !HasColumn(conn, t, "company_id")) continue;
-                var n = Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=$c;", ("$c", companyId));
+                var n = Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", ("@c", companyId));
                 if (n > 0) touched++;
                 rows += n;
             }
@@ -159,8 +159,8 @@ public sealed class CompanyPurgeService
     private static bool TableExists(DbConnection conn, string table)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$n LIMIT 1;";
-        cmd.AddWithValue("$n", table);
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@n LIMIT 1;";
+        cmd.AddWithValue("@n", table);
         return cmd.ExecuteScalar() is not null;
     }
 
@@ -169,8 +169,8 @@ public sealed class CompanyPurgeService
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT company_id, company_name, purged_at, purged_by FROM company_purges WHERE company_id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT company_id, company_name, purged_at, purged_by FROM company_purges WHERE company_id=@c;";
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new CompanyPurgeRow(r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetString(3)) : null;
     }

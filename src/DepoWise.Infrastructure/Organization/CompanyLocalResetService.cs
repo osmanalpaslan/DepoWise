@@ -35,8 +35,8 @@ public sealed class CompanyLocalResetService
         using var conn = _factory.Create();
         using (var chk = conn.CreateCommand())
         {
-            chk.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
-            chk.AddWithValue("$c", companyId);
+            chk.CommandText = "SELECT COUNT(*) FROM companies WHERE id=@c AND is_deleted=0;";
+            chk.AddWithValue("@c", companyId);
             if (Convert.ToInt64(chk.ExecuteScalar()) == 0) throw new InvalidOperationException("Firma bulunamadı.");
         }
 
@@ -46,11 +46,11 @@ public sealed class CompanyLocalResetService
         {
             cmd.Transaction = tx;
             cmd.CommandText =
-                "INSERT INTO company_local_resets(company_id, requested_at, requested_by) VALUES($c,$at,$by) " +
-                "ON CONFLICT(company_id) DO UPDATE SET requested_at=$at, requested_by=$by;";
-            cmd.AddWithValue("$c", companyId);
-            cmd.AddWithValue("$at", now);
-            cmd.AddWithValue("$by", actor.UserId);
+                "INSERT INTO company_local_resets(company_id, requested_at, requested_by) VALUES(@c,@at,@by) " +
+                "ON CONFLICT(company_id) DO UPDATE SET requested_at=@at, requested_by=@by;";
+            cmd.AddWithValue("@c", companyId);
+            cmd.AddWithValue("@at", now);
+            cmd.AddWithValue("@by", actor.UserId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "company_local_reset", companyId, AuditActions.Update, actor.UserId), _clock);
@@ -64,8 +64,8 @@ public sealed class CompanyLocalResetService
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT company_id, requested_at, requested_by FROM company_local_resets WHERE company_id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT company_id, requested_at, requested_by FROM company_local_resets WHERE company_id=@c;";
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new LocalResetStatus(r.GetString(0), r.GetInt64(1), r.GetString(2)) : null;
     }

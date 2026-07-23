@@ -73,9 +73,9 @@ public sealed class SyncValidator
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"SELECT 1 FROM {table} WHERE id=$id AND company_id=$c AND is_deleted=0 LIMIT 1;";
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = $"SELECT 1 FROM {table} WHERE id=@id AND company_id=@c AND is_deleted=0 LIMIT 1;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
         return cmd.ExecuteScalar() is not null;
     }
 }

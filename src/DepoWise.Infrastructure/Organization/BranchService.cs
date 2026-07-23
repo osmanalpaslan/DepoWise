@@ -54,9 +54,9 @@ SELECT b.id, b.name, b.kind, b.parent_id, p.name,
        b.code, b.password_hash
 FROM branches b
 LEFT JOIN branches p ON p.id = b.parent_id
-WHERE b.company_id = $c AND b.is_deleted = 0
+WHERE b.company_id = @c AND b.is_deleted = 0
 ORDER BY b.name;";
-        cmd.AddWithValue("$c", cid);
+        cmd.AddWithValue("@c", cid);
         // #5: Şube kodu + şifresi yalnız Admin / Süper Admin'e görünür; Personel'de maskelenir.
         bool admin = AccessControl.IsAdmin(s);
         var list = new List<BranchRow>();
@@ -88,16 +88,16 @@ ORDER BY b.name;";
             cmd.Transaction = tx;
             cmd.CommandText =
                 "INSERT INTO branches(id, company_id, parent_id, name, kind, code, password_hash, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$p,$n,$k,$code,$pw,$now,$now,1,0);";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", cid);
-            cmd.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
-            cmd.AddWithValue("$n", dto.Name.Trim());
-            cmd.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
-            cmd.AddWithValue("$code", admin ? ((object?)Norm(dto.Code) ?? DBNull.Value) : DBNull.Value);
-            cmd.AddWithValue("$pw", admin && !string.IsNullOrWhiteSpace(dto.Password)
+                "VALUES(@id,@c,@p,@n,@k,@code,@pw,@now,@now,1,0);";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", cid);
+            cmd.AddWithValue("@p", (object?)dto.ParentId ?? DBNull.Value);
+            cmd.AddWithValue("@n", dto.Name.Trim());
+            cmd.AddWithValue("@k", dto.Kind == "site" ? "site" : "branch");
+            cmd.AddWithValue("@code", admin ? ((object?)Norm(dto.Code) ?? DBNull.Value) : DBNull.Value);
+            cmd.AddWithValue("@pw", admin && !string.IsNullOrWhiteSpace(dto.Password)
                 ? DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password) : (object)DBNull.Value);
-            cmd.AddWithValue("$now", now);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(cid, "branch", id, AuditActions.Create, s.UserId), _clock);
@@ -122,21 +122,21 @@ ORDER BY b.name;";
             cmd.Transaction = tx;
             // Admin: kod yazılır, şifre boşsa mevcut korunur (COALESCE). Admin DEĞİL: kod/şifre sütunlarına HİÇ dokunulmaz.
             cmd.CommandText = admin
-                ? "UPDATE branches SET name=$n, kind=$k, parent_id=$p, code=$code, " +
-                  "password_hash=COALESCE($pw, password_hash), version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;"
-                : "UPDATE branches SET name=$n, kind=$k, parent_id=$p, version=version+1, updated_at=$now WHERE id=$id AND company_id=$c;";
-            cmd.AddWithValue("$n", dto.Name.Trim());
-            cmd.AddWithValue("$k", dto.Kind == "site" ? "site" : "branch");
-            cmd.AddWithValue("$p", (object?)dto.ParentId ?? DBNull.Value);
+                ? "UPDATE branches SET name=@n, kind=@k, parent_id=@p, code=@code, " +
+                  "password_hash=COALESCE(@pw, password_hash), version=version+1, updated_at=@now WHERE id=@id AND company_id=@c;"
+                : "UPDATE branches SET name=@n, kind=@k, parent_id=@p, version=version+1, updated_at=@now WHERE id=@id AND company_id=@c;";
+            cmd.AddWithValue("@n", dto.Name.Trim());
+            cmd.AddWithValue("@k", dto.Kind == "site" ? "site" : "branch");
+            cmd.AddWithValue("@p", (object?)dto.ParentId ?? DBNull.Value);
             if (admin)
             {
-                cmd.AddWithValue("$code", (object?)Norm(dto.Code) ?? DBNull.Value);
-                cmd.AddWithValue("$pw", string.IsNullOrWhiteSpace(dto.Password)
+                cmd.AddWithValue("@code", (object?)Norm(dto.Code) ?? DBNull.Value);
+                cmd.AddWithValue("@pw", string.IsNullOrWhiteSpace(dto.Password)
                     ? DBNull.Value : DepoWise.Infrastructure.Security.PasswordHasher.Hash(dto.Password));
             }
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", cid);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", cid);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(cid, "branch", id, AuditActions.Update, s.UserId), _clock);
@@ -155,11 +155,11 @@ ORDER BY b.name;";
             cmd.Transaction = tx;
             // Soft delete + atanmış kullanıcıların şubesini boşalt (dangling kalmasın)
             cmd.CommandText = @"
-UPDATE branches SET is_deleted=1, updated_at=$now WHERE id=$id AND company_id=$c;
-UPDATE users SET branch_id=NULL, updated_at=$now WHERE branch_id=$id AND company_id=$c;";
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$c", s.CompanyId);
+UPDATE branches SET is_deleted=1, updated_at=@now WHERE id=@id AND company_id=@c;
+UPDATE users SET branch_id=NULL, updated_at=@now WHERE branch_id=@id AND company_id=@c;";
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "branch", id, AuditActions.Delete, s.UserId), _clock);
@@ -176,15 +176,15 @@ UPDATE users SET branch_id=NULL, updated_at=$now WHERE branch_id=$id AND company
 SELECT u.id, u.username, u.full_name,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id)
 FROM users u
-WHERE u.branch_id = $b AND u.company_id = $c AND u.is_deleted = 0
-  AND ($all = 1 OR NOT EXISTS (
+WHERE u.branch_id = @b AND u.company_id = @c AND u.is_deleted = 0
+  AND (@all = 1 OR NOT EXISTS (
         SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = u.id AND r.role_key = $sa))
+        WHERE ur.user_id = u.id AND r.role_key = @sa))
 ORDER BY u.username;";
-        cmd.AddWithValue("$b", branchId);
-        cmd.AddWithValue("$c", s.CompanyId);
-        cmd.AddWithValue("$all", s.IsSuperAdmin ? 1 : 0);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        cmd.AddWithValue("@b", branchId);
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@all", s.IsSuperAdmin ? 1 : 0);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
         var list = new List<BranchUserRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -207,21 +207,21 @@ ORDER BY u.username;";
             using var chk = conn.CreateCommand();
             chk.Transaction = tx;
             chk.CommandText = "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id " +
-                "WHERE ur.user_id=$u AND r.role_key IN ($sa,$ca);";
-            chk.AddWithValue("$u", userId);
-            chk.AddWithValue("$sa", RoleKeys.SuperAdmin);
-            chk.AddWithValue("$ca", RoleKeys.CompanyAdmin);
+                "WHERE ur.user_id=@u AND r.role_key IN (@sa,@ca);";
+            chk.AddWithValue("@u", userId);
+            chk.AddWithValue("@sa", RoleKeys.SuperAdmin);
+            chk.AddWithValue("@ca", RoleKeys.CompanyAdmin);
             if (Convert.ToInt64(chk.ExecuteScalar()) > 0)
                 throw new ForbiddenException("Başka bir admin kullanıcıyı yalnız süper admin düzenleyebilir.");
         }
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE users SET branch_id=$b, updated_at=$now WHERE id=$u AND company_id=$c AND is_deleted=0;";
-            cmd.AddWithValue("$b", (object?)branchId ?? DBNull.Value);
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$u", userId);
-            cmd.AddWithValue("$c", s.CompanyId);
+            cmd.CommandText = "UPDATE users SET branch_id=@b, updated_at=@now WHERE id=@u AND company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@b", (object?)branchId ?? DBNull.Value);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@u", userId);
+            cmd.AddWithValue("@c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Kullanıcı bulunamadı veya başka firmaya ait.");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "user", userId, AuditActions.Update, s.UserId), _clock);
@@ -236,9 +236,9 @@ ORDER BY u.username;";
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT password_hash FROM branches WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$id", branchId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT password_hash FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", branchId);
+        cmd.AddWithValue("@c", companyId);
         var hash = cmd.ExecuteScalar() as string;
         if (string.IsNullOrEmpty(hash)) return true; // şifre tanımlı değil → serbest
         return !string.IsNullOrEmpty(password) && DepoWise.Infrastructure.Security.PasswordHasher.Verify(password, hash);
@@ -250,8 +250,8 @@ ORDER BY u.username;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, name, kind, code, (password_hash IS NOT NULL AND password_hash<>'') " +
-            "FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
-        cmd.AddWithValue("$c", companyId);
+            "FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
+        cmd.AddWithValue("@c", companyId);
         var list = new List<BranchRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -264,9 +264,9 @@ ORDER BY u.username;";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$id AND company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$id", branchId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", branchId);
+        cmd.AddWithValue("@c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
     }
 }

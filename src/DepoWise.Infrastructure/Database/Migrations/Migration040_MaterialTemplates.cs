@@ -53,8 +53,8 @@ CREATE INDEX ix_material_templates_company ON material_templates(company_id, is_
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$n;";
-        cmd.AddWithValue("$n", table);
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@n;";
+        cmd.AddWithValue("@n", table);
         return System.Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 

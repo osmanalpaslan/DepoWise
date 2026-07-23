@@ -72,7 +72,7 @@ public static class GridQuery
                 var mCompare = CompareRe.Match(term);
                 if (mCompare.Success)
                 {
-                    var p = $"$gf{i}n";
+                    var p = $"@gf{i}n";
                     whereParts.Add($"CAST({rawAlias} AS REAL) {mCompare.Groups[1].Value} {p}");
                     ps.Add((p, ParseNum(mCompare.Groups[2].Value)));
                     i++;
@@ -84,7 +84,7 @@ public static class GridQuery
                     var lo = ParseNum(mRange.Groups[1].Value);
                     var hi = ParseNum(mRange.Groups[2].Value);
                     if (lo > hi) (lo, hi) = (hi, lo);
-                    var pLo = $"$gf{i}lo"; var pHi = $"$gf{i}hi";
+                    var pLo = $"@gf{i}lo"; var pHi = $"@gf{i}hi";
                     whereParts.Add($"CAST({rawAlias} AS REAL) BETWEEN {pLo} AND {pHi}");
                     ps.Add((pLo, lo)); ps.Add((pHi, hi));
                     i++;
@@ -92,7 +92,7 @@ public static class GridQuery
                 }
                 if (ExactRe.IsMatch(term))
                 {
-                    var p = $"$gf{i}n";
+                    var p = $"@gf{i}n";
                     whereParts.Add($"CAST({rawAlias} AS REAL) = {p}");
                     ps.Add((p, ParseNum(term)));
                     i++;
@@ -101,8 +101,8 @@ public static class GridQuery
                 // Tanınmayan sayısal söz dizimi → eski "içerir" davranışına düş (biçimlendirilmiş metin kolonunda).
             }
 
-            var pContains = $"$gf{i}c";
-            var pStarts = $"$gf{i}s";
+            var pContains = $"@gf{i}c";
+            var pStarts = $"@gf{i}s";
             whereParts.Add($"{f.Alias} LIKE {pContains}");
             orderParts.Add($"CASE WHEN {f.Alias} LIKE {pStarts} THEN 0 ELSE 1 END");
             ps.Add((pContains, "%" + term + "%"));

@@ -29,11 +29,11 @@ public class Migration037Tests : IDisposable
         var cB = Guid.NewGuid().ToString("N");
         using (var tx = conn.BeginTransaction())
         {
-            Exec(conn, tx, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($c,'A',$n,$n,1,0);", ("$c", cA), ("$n", now));
-            Exec(conn, tx, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($c,'B',$n,$n,1,0);", ("$c", cB), ("$n", now));
+            Exec(conn, tx, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@c,'A',@n,@n,1,0);", ("@c", cA), ("@n", now));
+            Exec(conn, tx, "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@c,'B',@n,@n,1,0);", ("@c", cB), ("@n", now));
             // Eski dinamik global kilit: fuel + reports
-            Exec(conn, tx, "INSERT INTO app_settings(id,company_id,setting_key,setting_value,updated_at) VALUES($i,NULL,'global_grant_limits','fuel,reports',$n);",
-                ("$i", Guid.NewGuid().ToString("N")), ("$n", now));
+            Exec(conn, tx, "INSERT INTO app_settings(id,company_id,setting_key,setting_value,updated_at) VALUES(@i,NULL,'global_grant_limits','fuel,reports',@n);",
+                ("@i", Guid.NewGuid().ToString("N")), ("@n", now));
             tx.Commit();
         }
 
@@ -49,8 +49,8 @@ public class Migration037Tests : IDisposable
         foreach (var c in new[] { cA, cB })
             foreach (var m in new[] { "fuel", "reports" })
             {
-                Assert.Equal("admin", Scalar(conn, "SELECT level FROM company_grant_limits WHERE company_id=$c AND module_key=$m;", ("$c", c), ("$m", m)));
-                Assert.Equal("1", Scalar(conn, "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=$c AND module_key=$m;", ("$c", c), ("$m", m)));
+                Assert.Equal("admin", Scalar(conn, "SELECT level FROM company_grant_limits WHERE company_id=@c AND module_key=@m;", ("@c", c), ("@m", m)));
+                Assert.Equal("1", Scalar(conn, "SELECT COUNT(*) FROM company_grant_limits WHERE company_id=@c AND module_key=@m;", ("@c", c), ("@m", m)));
             }
         // Global ayar silindi
         Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM app_settings WHERE company_id IS NULL AND setting_key='global_grant_limits';"));

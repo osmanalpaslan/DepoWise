@@ -151,8 +151,8 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
         using (var c = conn.CreateCommand()) { c.CommandText = "SELECT COUNT(*) FROM users WHERE is_deleted=0;"; users = Convert.ToInt64(c.ExecuteScalar()); }
         using (var c = conn.CreateCommand())
         {
-            c.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE last_seen_at IS NOT NULL AND last_seen_at > $t;";
-            c.AddWithValue("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 5 * 60 * 1000);
+            c.CommandText = "SELECT COUNT(*) FROM sync_devices WHERE last_seen_at IS NOT NULL AND last_seen_at > @t;";
+            c.AddWithValue("@t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 5 * 60 * 1000);
             machinesOnline = Convert.ToInt64(c.ExecuteScalar());
         }
     }
@@ -484,31 +484,31 @@ app.MapGet("/api/me/authsig", (HttpContext ctx) =>
     string ph = ""; int active = 1;
     using (var c = conn.CreateCommand())
     {
-        c.CommandText = "SELECT password_hash, is_active FROM users WHERE id=$u;";
-        c.AddWithValue("$u", s.UserId);
+        c.CommandText = "SELECT password_hash, is_active FROM users WHERE id=@u;";
+        c.AddWithValue("@u", s.UserId);
         using var r = c.ExecuteReader();
         if (r.Read()) { ph = r.GetString(0); active = r.GetInt32(1); }
     }
     var roles = new List<string>();
     using (var c = conn.CreateCommand())
     {
-        c.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u ORDER BY r.role_key;";
-        c.AddWithValue("$u", s.UserId);
+        c.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u ORDER BY r.role_key;";
+        c.AddWithValue("@u", s.UserId);
         using var r = c.ExecuteReader(); while (r.Read()) roles.Add(r.GetString(0));
     }
     var perms = new List<string>();
     using (var c = conn.CreateCommand())
     {
-        c.CommandText = "SELECT module_key,can_view,can_create,can_edit,can_delete FROM user_permissions WHERE user_id=$u ORDER BY module_key;";
-        c.AddWithValue("$u", s.UserId);
+        c.CommandText = "SELECT module_key,can_view,can_create,can_edit,can_delete FROM user_permissions WHERE user_id=@u ORDER BY module_key;";
+        c.AddWithValue("@u", s.UserId);
         using var r = c.ExecuteReader();
         while (r.Read()) perms.Add($"{r.GetString(0)}:{r.GetInt64(1)}{r.GetInt64(2)}{r.GetInt64(3)}{r.GetInt64(4)}");
     }
     var buttons = new List<string>();
     using (var c = conn.CreateCommand())
     {
-        c.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=$u ORDER BY button_key;";
-        c.AddWithValue("$u", s.UserId);
+        c.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=@u ORDER BY button_key;";
+        c.AddWithValue("@u", s.UserId);
         using var r = c.ExecuteReader(); while (r.Read()) buttons.Add(r.GetString(0));
     }
     var raw = $"{ph}|{active}|{string.Join(",", roles)}|{string.Join(",", perms)}|{string.Join(",", buttons)}";
@@ -898,8 +898,8 @@ app.MapGet("/api/vehicles/options", (HttpContext c) =>
     var opts = new List<object>();
     using var conn = svc.Factory.Create();
     using var cmd = conn.CreateCommand();
-    cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=$c AND is_deleted=0 ORDER BY internal_code;";
-    cmd.AddWithValue("$c", s.CompanyId);
+    cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=@c AND is_deleted=0 ORDER BY internal_code;";
+    cmd.AddWithValue("@c", s.CompanyId);
     using var r = cmd.ExecuteReader();
     while (r.Read()) { var p = r.GetString(2); opts.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
     return Results.Ok(opts);
@@ -1045,7 +1045,7 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
         var list = new List<Dictionary<string, object?>>();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
-        cmd.AddWithValue("$c", company);
+        cmd.AddWithValue("@c", company);
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
@@ -1058,14 +1058,14 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
     return Results.Ok(new
     {
         companyId = company,
-        units = Rows("SELECT id,name FROM units WHERE company_id=$c AND is_deleted=0;"),
-        suppliers = Rows("SELECT id,name FROM suppliers WHERE company_id=$c AND is_deleted=0;"),
-        vehicleTypes = Rows("SELECT id,name FROM vehicle_types WHERE company_id=$c AND is_deleted=0;"),
-        vehicleCategories = Rows("SELECT id,name FROM vehicle_categories WHERE company_id=$c AND is_deleted=0;"),
-        materialCategories = Rows("SELECT id,name,parent_id FROM material_categories WHERE company_id=$c AND is_deleted=0;"),
-        brands = Rows("SELECT id,name,brand_type FROM brands WHERE company_id=$c AND is_deleted=0;"),
-        vehicleModels = Rows("SELECT id,name,brand_id FROM vehicle_models WHERE company_id=$c AND is_deleted=0;"),
-        branches = Rows("SELECT id,name,kind,parent_id FROM branches WHERE company_id=$c AND is_deleted=0;"),
+        units = Rows("SELECT id,name FROM units WHERE company_id=@c AND is_deleted=0;"),
+        suppliers = Rows("SELECT id,name FROM suppliers WHERE company_id=@c AND is_deleted=0;"),
+        vehicleTypes = Rows("SELECT id,name FROM vehicle_types WHERE company_id=@c AND is_deleted=0;"),
+        vehicleCategories = Rows("SELECT id,name FROM vehicle_categories WHERE company_id=@c AND is_deleted=0;"),
+        materialCategories = Rows("SELECT id,name,parent_id FROM material_categories WHERE company_id=@c AND is_deleted=0;"),
+        brands = Rows("SELECT id,name,brand_type FROM brands WHERE company_id=@c AND is_deleted=0;"),
+        vehicleModels = Rows("SELECT id,name,brand_id FROM vehicle_models WHERE company_id=@c AND is_deleted=0;"),
+        branches = Rows("SELECT id,name,kind,parent_id FROM branches WHERE company_id=@c AND is_deleted=0;"),
     });
 }).RequireAuthorization();
 
@@ -1360,17 +1360,17 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
         if (keepWhole.Contains(t)) continue;
         string sql = t.ToLowerInvariant() switch
         {
-            "users" => "DELETE FROM users WHERE id <> $me;",
-            "companies" => "DELETE FROM companies WHERE id <> $co;",
-            "user_roles" => "DELETE FROM user_roles WHERE user_id <> $me;",
-            "user_permissions" => "DELETE FROM user_permissions WHERE user_id <> $me;",
-            "user_button_permissions" => "DELETE FROM user_button_permissions WHERE user_id <> $me;",
+            "users" => "DELETE FROM users WHERE id <> @me;",
+            "companies" => "DELETE FROM companies WHERE id <> @co;",
+            "user_roles" => "DELETE FROM user_roles WHERE user_id <> @me;",
+            "user_permissions" => "DELETE FROM user_permissions WHERE user_id <> @me;",
+            "user_button_permissions" => "DELETE FROM user_button_permissions WHERE user_id <> @me;",
             _ => $"DELETE FROM \"{t}\";",
         };
         using var del = conn.CreateCommand();
         del.Transaction = tx; del.CommandText = sql;
-        if (sql.Contains("$me")) del.AddWithValue("$me", s.UserId);
-        if (sql.Contains("$co")) del.AddWithValue("$co", s.CompanyId);
+        if (sql.Contains("@me")) del.AddWithValue("@me", s.UserId);
+        if (sql.Contains("@co")) del.AddWithValue("@co", s.CompanyId);
         del.ExecuteNonQuery();
     }
     tx.Commit();
@@ -1545,15 +1545,15 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
     using var conn = svc.Factory.Create();
     using (var cmd = conn.CreateCommand())
     {
-        cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=$c AND is_deleted=0 ORDER BY name;";
-        cmd.AddWithValue("$c", cid);
+        cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
+        cmd.AddWithValue("@c", cid);
         using var r = cmd.ExecuteReader();
         while (r.Read()) branches.Add(new { id = r.GetString(0), name = r.GetString(1) });
     }
     using (var cmd = conn.CreateCommand())
     {
-        cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=$c AND is_deleted=0 ORDER BY internal_code;";
-        cmd.AddWithValue("$c", cid);
+        cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=@c AND is_deleted=0 ORDER BY internal_code;";
+        cmd.AddWithValue("@c", cid);
         using var r = cmd.ExecuteReader();
         while (r.Read()) { var p = r.GetString(2); vehicles.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
     }

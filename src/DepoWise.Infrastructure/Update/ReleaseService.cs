@@ -40,16 +40,16 @@ public sealed class ReleaseService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO app_releases(id, version, checksum_sha256, size_bytes, min_supported_version, release_notes, signed, download_url, published_at, created_at, is_deleted)
-VALUES($id,$v,$cs,$sz,$min,$notes,$signed,$url,$now,$now,0);";
-            cmd.AddWithValue("$id", id);
-            cmd.AddWithValue("$v", dto.Version);
-            cmd.AddWithValue("$cs", dto.ChecksumSha256.ToUpperInvariant());
-            cmd.AddWithValue("$sz", dto.SizeBytes);
-            cmd.AddWithValue("$min", dto.MinSupportedVersion);
-            cmd.AddWithValue("$notes", (object?)dto.ReleaseNotes ?? DBNull.Value);
-            cmd.AddWithValue("$signed", dto.Signed ? 1 : 0);
-            cmd.AddWithValue("$url", (object?)dto.DownloadUrl ?? DBNull.Value);
-            cmd.AddWithValue("$now", now);
+VALUES(@id,@v,@cs,@sz,@min,@notes,@signed,@url,@now,@now,0);";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@v", dto.Version);
+            cmd.AddWithValue("@cs", dto.ChecksumSha256.ToUpperInvariant());
+            cmd.AddWithValue("@sz", dto.SizeBytes);
+            cmd.AddWithValue("@min", dto.MinSupportedVersion);
+            cmd.AddWithValue("@notes", (object?)dto.ReleaseNotes ?? DBNull.Value);
+            cmd.AddWithValue("@signed", dto.Signed ? 1 : 0);
+            cmd.AddWithValue("@url", (object?)dto.DownloadUrl ?? DBNull.Value);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry("__global__", "app_release", id, AuditActions.Create, s.UserId,

@@ -42,8 +42,8 @@ public class RestrictedSuperAdminTests : IDisposable
         Assert.Contains(RoleKeys.Seed, r => r.Key == RoleKeys.RestrictedSuperAdmin && r.Name == "Kısıtlı Süper Admin");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM roles WHERE role_key=$k AND is_deleted=0 AND company_id IS NULL;";
-        cmd.AddWithValue("$k", RoleKeys.RestrictedSuperAdmin);
+        cmd.CommandText = "SELECT COUNT(*) FROM roles WHERE role_key=@k AND is_deleted=0 AND company_id IS NULL;";
+        cmd.AddWithValue("@k", RoleKeys.RestrictedSuperAdmin);
         Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
     }
 

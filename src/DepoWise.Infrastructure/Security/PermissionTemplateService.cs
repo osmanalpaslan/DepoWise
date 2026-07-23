@@ -57,15 +57,15 @@ public sealed class PermissionTemplateService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO permission_templates(id, company_id, name, permissions_json, buttons_json, role_key, scope_all, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$n,$p,$b,$role,$sa,$now,$now,1,0);";
-        cmd.AddWithValue("$id", id);
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$n", name.Trim());
-        cmd.AddWithValue("$p", permJson);
-        cmd.AddWithValue("$b", btnJson);
-        cmd.AddWithValue("$role", (object?)roleKey ?? DBNull.Value);
-        cmd.AddWithValue("$sa", scopeAll ? 1 : 0);
-        cmd.AddWithValue("$now", now);
+            "VALUES(@id,@c,@n,@p,@b,@role,@sa,@now,@now,1,0);";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@n", name.Trim());
+        cmd.AddWithValue("@p", permJson);
+        cmd.AddWithValue("@b", btnJson);
+        cmd.AddWithValue("@role", (object?)roleKey ?? DBNull.Value);
+        cmd.AddWithValue("@sa", scopeAll ? 1 : 0);
+        cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
         return id;
     }
@@ -98,9 +98,9 @@ WHERE t.is_deleted=0 ORDER BY t.scope_all DESC, c.name, t.name;";
         cmd.CommandText = @"
 SELECT t.id, t.name, t.company_id, NULL, t.scope_all
 FROM permission_templates t
-WHERE t.is_deleted=0 AND (t.scope_all=1 OR t.company_id=$c)
+WHERE t.is_deleted=0 AND (t.scope_all=1 OR t.company_id=@c)
 ORDER BY t.scope_all DESC, t.name;";
-        cmd.AddWithValue("$c", s.CompanyId);
+        cmd.AddWithValue("@c", s.CompanyId);
         var list = new List<PermissionTemplateRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -114,8 +114,8 @@ ORDER BY t.scope_all DESC, t.name;";
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT permissions_json, buttons_json, role_key, company_id, scope_all FROM permission_templates WHERE id=$id AND is_deleted=0;";
-        cmd.AddWithValue("$id", templateId);
+        cmd.CommandText = "SELECT permissions_json, buttons_json, role_key, company_id, scope_all FROM permission_templates WHERE id=@id AND is_deleted=0;";
+        cmd.AddWithValue("@id", templateId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return new PermissionTemplateData(Array.Empty<ModulePermission>(), Array.Empty<string>(), null);
 
@@ -143,9 +143,9 @@ ORDER BY t.scope_all DESC, t.name;";
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE permission_templates SET is_deleted=1, updated_at=$now WHERE id=$id;";
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$id", templateId);
+        cmd.CommandText = "UPDATE permission_templates SET is_deleted=1, updated_at=@now WHERE id=@id;";
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@id", templateId);
         cmd.ExecuteNonQuery();
     }
 }

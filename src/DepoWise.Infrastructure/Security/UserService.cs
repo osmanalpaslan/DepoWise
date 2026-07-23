@@ -81,21 +81,21 @@ SELECT u.id, u.username, u.full_name, u.is_active,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id),
   u.branch_id, b.name, COALESCE(u.can_view_all_branches,0),
   (SELECT COUNT(*) FROM user_roles ur2 JOIN roles r2 ON r2.id = ur2.role_id
-     WHERE ur2.user_id = u.id AND r2.role_key IN ($ca,$sa)),
+     WHERE ur2.user_id = u.id AND r2.role_key IN (@ca,@sa)),
   u.personnel_id, p.full_name          -- Fikir B: bağlı personel (varsa)
 FROM users u
 LEFT JOIN branches b ON b.id = u.branch_id
 LEFT JOIN personnel p ON p.id = u.personnel_id AND p.is_deleted = 0
-WHERE u.is_deleted = 0 AND ($all = 1 OR u.company_id = $c)
+WHERE u.is_deleted = 0 AND (@all = 1 OR u.company_id = @c)
   -- Süper Admin kullanıcı kayıtları yalnız Süper Admin'e görünür (diğer roller göremez)
-  AND ($all = 1 OR NOT EXISTS (
+  AND (@all = 1 OR NOT EXISTS (
         SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = u.id AND r.role_key = $sa))
+        WHERE ur.user_id = u.id AND r.role_key = @sa))
 ORDER BY u.username;";
-        cmd.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
-        cmd.AddWithValue("$c", actor.CompanyId);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
-        cmd.AddWithValue("$ca", RoleKeys.CompanyAdmin);
+        cmd.AddWithValue("@all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.AddWithValue("@c", actor.CompanyId);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
+        cmd.AddWithValue("@ca", RoleKeys.CompanyAdmin);
         var list = new List<UserRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -122,7 +122,7 @@ ORDER BY u.username;";
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         var companyId = AffectUser(conn, tx, actor, userId,
-            "UPDATE users SET is_deleted=1, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);", now);
+            "UPDATE users SET is_deleted=1, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);", now);
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Delete, actor.UserId), _clock);
         tx.Commit();
     }
@@ -140,8 +140,8 @@ ORDER BY u.username;";
         // yeniden belirlemek zorunda (must_change_password=1). Kendi şifresini değiştiriyorsa zorunluluk aranmaz.
         bool self = string.Equals(userId, actor.UserId, StringComparison.Ordinal);
         var companyId = AffectUser(conn, tx, actor, userId,
-            "UPDATE users SET password_hash=$h, must_change_password=$mcp, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);",
-            now, cmd => { cmd.AddWithValue("$h", PasswordHasher.Hash(newPassword)); cmd.AddWithValue("$mcp", self ? 0 : 1); });
+            "UPDATE users SET password_hash=@h, must_change_password=@mcp, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);",
+            now, cmd => { cmd.AddWithValue("@h", PasswordHasher.Hash(newPassword)); cmd.AddWithValue("@mcp", self ? 0 : 1); });
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
     }
@@ -158,10 +158,10 @@ ORDER BY u.username;";
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE users SET password_hash=$h, must_change_password=0, updated_at=$now WHERE id=$u AND is_deleted=0;";
-            cmd.AddWithValue("$h", PasswordHasher.Hash(newPassword));
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$u", actor.UserId);
+            cmd.CommandText = "UPDATE users SET password_hash=@h, must_change_password=0, updated_at=@now WHERE id=@u AND is_deleted=0;";
+            cmd.AddWithValue("@h", PasswordHasher.Hash(newPassword));
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@u", actor.UserId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "user", actor.UserId, AuditActions.Update, actor.UserId), _clock);
@@ -179,8 +179,8 @@ ORDER BY u.username;";
         if (IsSuperAdminUser(conn, tx, userId) && !actor.IsSuperAdmin)
             throw new ForbiddenException("Süper admin kullanıcının durumunu yalnız süper admin değiştirebilir.");
         var companyId = AffectUser(conn, tx, actor, userId,
-            "UPDATE users SET is_active=$a, updated_at=$now WHERE id=$u AND is_deleted=0 AND ($all=1 OR company_id=$c);",
-            now, cmd => cmd.AddWithValue("$a", active ? 1 : 0));
+            "UPDATE users SET is_active=@a, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);",
+            now, cmd => cmd.AddWithValue("@a", active ? 1 : 0));
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
     }
@@ -206,9 +206,9 @@ ORDER BY u.username;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.role_key=$k;";
-        cmd.AddWithValue("$u", userId);
-        cmd.AddWithValue("$k", roleKey);
+            "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u AND r.role_key=@k;";
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@k", roleKey);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -217,9 +217,9 @@ ORDER BY u.username;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.role_key=$sa;";
-        cmd.AddWithValue("$u", userId);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
+            "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u AND r.role_key=@sa;";
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -230,8 +230,8 @@ ORDER BY u.username;";
         using (var q = conn.CreateCommand())
         {
             q.Transaction = tx;
-            q.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
-            q.AddWithValue("$u", userId);
+            q.CommandText = "SELECT company_id FROM users WHERE id=@u AND is_deleted=0;";
+            q.AddWithValue("@u", userId);
             companyId = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
         }
         if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
@@ -239,10 +239,10 @@ ORDER BY u.username;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;
-        cmd.AddWithValue("$u", userId);
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
-        cmd.AddWithValue("$c", actor.CompanyId);
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.AddWithValue("@c", actor.CompanyId);
         extra?.Invoke(cmd);
         if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("İşlem uygulanamadı.");
         return companyId;
@@ -253,8 +253,8 @@ ORDER BY u.username;";
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u;";
-        cmd.AddWithValue("$u", userId);
+        cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u;";
+        cmd.AddWithValue("@u", userId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));
@@ -276,8 +276,8 @@ ORDER BY u.username;";
         using (var q = conn.CreateCommand())
         {
             q.Transaction = tx;
-            q.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
-            q.AddWithValue("$u", userId);
+            q.CommandText = "SELECT company_id FROM users WHERE id=@u AND is_deleted=0;";
+            q.AddWithValue("@u", userId);
             companyId = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
         }
         if (!actor.IsSuperAdmin && companyId != actor.CompanyId) throw new ForbiddenException("Kullanıcı başka firmaya ait.");
@@ -293,13 +293,13 @@ ORDER BY u.username;";
                 throw new InvalidOperationException($"Admin kotası dolu (maks {maxAdmins}). Admin rolü atanamaz.");
         }
 
-        Insert(conn, tx, "DELETE FROM user_roles WHERE user_id=$u;", cmd => cmd.AddWithValue("$u", userId));
+        Insert(conn, tx, "DELETE FROM user_roles WHERE user_id=@u;", cmd => cmd.AddWithValue("@u", userId));
         foreach (var roleKey in roleKeys.Distinct())
         {
             var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
                 ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
-            Insert(conn, tx, "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);",
-                cmd => { cmd.AddWithValue("$u", userId); cmd.AddWithValue("$r", roleId); });
+            Insert(conn, tx, "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);",
+                cmd => { cmd.AddWithValue("@u", userId); cmd.AddWithValue("@r", roleId); });
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
@@ -347,18 +347,18 @@ ORDER BY u.username;";
         Insert(conn, tx,
             // Güvenlik: yeni kullanıcı ilk giriş(ler)inde kendi şifresini belirlemek zorunda (must_change_password=1).
             "INSERT INTO users(id, company_id, username, password_hash, full_name, branch_id, can_view_all_branches, personnel_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$u,$h,$f,$b,$va,$pid,1,1,$now,$now,1,0);",
+            "VALUES(@id,@c,@u,@h,@f,@b,@va,@pid,1,1,@now,@now,1,0);",
             cmd =>
             {
-                cmd.AddWithValue("$id", userId);
-                cmd.AddWithValue("$c", companyId);
-                cmd.AddWithValue("$u", dto.Username);
-                cmd.AddWithValue("$h", PasswordHasher.Hash(dto.Password));
-                cmd.AddWithValue("$f", (object?)dto.FullName ?? DBNull.Value);
-                cmd.AddWithValue("$b", (object?)dto.BranchId ?? DBNull.Value);
-                cmd.AddWithValue("$va", viewAll);
-                cmd.AddWithValue("$pid", (object?)personnelId ?? DBNull.Value);
-                cmd.AddWithValue("$now", now);
+                cmd.AddWithValue("@id", userId);
+                cmd.AddWithValue("@c", companyId);
+                cmd.AddWithValue("@u", dto.Username);
+                cmd.AddWithValue("@h", PasswordHasher.Hash(dto.Password));
+                cmd.AddWithValue("@f", (object?)dto.FullName ?? DBNull.Value);
+                cmd.AddWithValue("@b", (object?)dto.BranchId ?? DBNull.Value);
+                cmd.AddWithValue("@va", viewAll);
+                cmd.AddWithValue("@pid", (object?)personnelId ?? DBNull.Value);
+                cmd.AddWithValue("@now", now);
             });
 
         foreach (var roleKey in dto.RoleKeys.Distinct())
@@ -366,26 +366,26 @@ ORDER BY u.username;";
             var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
                 ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
             Insert(conn, tx,
-                "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);",
-                cmd => { cmd.AddWithValue("$u", userId); cmd.AddWithValue("$r", roleId); });
+                "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);",
+                cmd => { cmd.AddWithValue("@u", userId); cmd.AddWithValue("@r", roleId); });
         }
 
         foreach (var p in dto.Permissions ?? Array.Empty<ModulePermission>())
         {
             Insert(conn, tx,
                 "INSERT INTO user_permissions(id, company_id, user_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version) " +
-                "VALUES($id,$c,$u,$m,$v,$cr,$e,$d,$now,$now,1);",
+                "VALUES(@id,@c,@u,@m,@v,@cr,@e,@d,@now,@now,1);",
                 cmd =>
                 {
-                    cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                    cmd.AddWithValue("$c", companyId);
-                    cmd.AddWithValue("$u", userId);
-                    cmd.AddWithValue("$m", p.ModuleKey);
-                    cmd.AddWithValue("$v", p.CanView ? 1 : 0);
-                    cmd.AddWithValue("$cr", p.CanCreate ? 1 : 0);
-                    cmd.AddWithValue("$e", p.CanEdit ? 1 : 0);
-                    cmd.AddWithValue("$d", p.CanDelete ? 1 : 0);
-                    cmd.AddWithValue("$now", now);
+                    cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+                    cmd.AddWithValue("@c", companyId);
+                    cmd.AddWithValue("@u", userId);
+                    cmd.AddWithValue("@m", p.ModuleKey);
+                    cmd.AddWithValue("@v", p.CanView ? 1 : 0);
+                    cmd.AddWithValue("@cr", p.CanCreate ? 1 : 0);
+                    cmd.AddWithValue("@e", p.CanEdit ? 1 : 0);
+                    cmd.AddWithValue("@d", p.CanDelete ? 1 : 0);
+                    cmd.AddWithValue("@now", now);
                 });
         }
 
@@ -401,17 +401,17 @@ ORDER BY u.username;";
         using (var p = conn.CreateCommand())
         {
             p.Transaction = tx;
-            p.CommandText = "SELECT COUNT(*) FROM personnel WHERE id=$p AND company_id=$c AND is_deleted=0;";
-            p.AddWithValue("$p", personnelId);
-            p.AddWithValue("$c", companyId);
+            p.CommandText = "SELECT COUNT(*) FROM personnel WHERE id=@p AND company_id=@c AND is_deleted=0;";
+            p.AddWithValue("@p", personnelId);
+            p.AddWithValue("@c", companyId);
             if (Convert.ToInt64(p.ExecuteScalar()) == 0)
                 throw new InvalidOperationException("Bağlanacak personel bulunamadı (firma dışı veya silinmiş).");
         }
         using var q = conn.CreateCommand();
         q.Transaction = tx;
-        q.CommandText = "SELECT COUNT(*) FROM users WHERE personnel_id=$p AND is_deleted=0 AND ($x IS NULL OR id<>$x);";
-        q.AddWithValue("$p", personnelId);
-        q.AddWithValue("$x", (object?)excludeUserId ?? DBNull.Value);
+        q.CommandText = "SELECT COUNT(*) FROM users WHERE personnel_id=@p AND is_deleted=0 AND (@x IS NULL OR id<>@x);";
+        q.AddWithValue("@p", personnelId);
+        q.AddWithValue("@x", (object?)excludeUserId ?? DBNull.Value);
         if (Convert.ToInt64(q.ExecuteScalar()) > 0)
             throw new InvalidOperationException("Bu personele zaten bir kullanıcı hesabı bağlı. Bir personele yalnız bir hesap bağlanabilir.");
     }
@@ -429,13 +429,13 @@ SELECT u.id, u.username, u.full_name, u.is_active, b.name
 FROM users u
 LEFT JOIN branches b ON b.id = u.branch_id AND b.is_deleted=0
 WHERE u.is_deleted=0 AND u.personnel_id IS NULL
-  AND ($all=1 OR u.company_id=$c)
+  AND (@all=1 OR u.company_id=@c)
   AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-                  WHERE ur.user_id=u.id AND r.role_key=$sa)
+                  WHERE ur.user_id=u.id AND r.role_key=@sa)
 ORDER BY u.full_name, u.username;";
-        cmd.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
-        cmd.AddWithValue("$c", actor.CompanyId);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
+        cmd.AddWithValue("@all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.AddWithValue("@c", actor.CompanyId);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
         var list = new List<LinkableUser>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -456,8 +456,8 @@ ORDER BY u.full_name, u.username;";
         using (var q = conn.CreateCommand())
         {
             q.Transaction = tx;
-            q.CommandText = "SELECT company_id FROM users WHERE id=$u AND is_deleted=0;";
-            q.AddWithValue("$u", userId);
+            q.CommandText = "SELECT company_id FROM users WHERE id=@u AND is_deleted=0;";
+            q.AddWithValue("@u", userId);
             companyId = q.ExecuteScalar() as string ?? throw new InvalidOperationException("Kullanıcı bulunamadı.");
         }
         if (!actor.IsSuperAdmin && !string.Equals(companyId, actor.CompanyId, StringComparison.Ordinal))
@@ -467,10 +467,10 @@ ORDER BY u.full_name, u.username;";
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE users SET personnel_id=$p, updated_at=$now WHERE id=$u AND is_deleted=0;";
-            cmd.AddWithValue("$p", (object?)pid ?? DBNull.Value);
-            cmd.AddWithValue("$now", now);
-            cmd.AddWithValue("$u", userId);
+            cmd.CommandText = "UPDATE users SET personnel_id=@p, updated_at=@now WHERE id=@u AND is_deleted=0;";
+            cmd.AddWithValue("@p", (object?)pid ?? DBNull.Value);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@u", userId);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
@@ -485,12 +485,12 @@ ORDER BY u.full_name, u.username;";
         cmd.CommandText = @"
 SELECT u.personnel_id, u.id, u.username, u.is_active,
   (SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-     WHERE ur.user_id=u.id AND r.role_key IN ($ca,$sa))
+     WHERE ur.user_id=u.id AND r.role_key IN (@ca,@sa))
 FROM users u
-WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$ca", RoleKeys.CompanyAdmin);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
+WHERE u.is_deleted=0 AND u.company_id=@c AND u.personnel_id IS NOT NULL;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@ca", RoleKeys.CompanyAdmin);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
         var map = new Dictionary<string, PersonnelAccount>(StringComparer.Ordinal);
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -503,8 +503,8 @@ WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COALESCE(max_users,0), COALESCE(max_admins,0) FROM companies WHERE id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COALESCE(max_users,0), COALESCE(max_admins,0) FROM companies WHERE id=@c;";
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         return r.Read() ? (r.GetInt32(0), r.GetInt32(1)) : (0, 0);
     }
@@ -515,13 +515,13 @@ WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "SELECT COUNT(*) FROM users u WHERE u.company_id=$c AND u.is_deleted=0 " +
+            "SELECT COUNT(*) FROM users u WHERE u.company_id=@c AND u.is_deleted=0 " +
             "AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id " +
-            "                WHERE ur.user_id=u.id AND r.role_key IN ($rk,$sa,$rsa));";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$rk", RoleKeys.CompanyAdmin);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
-        cmd.AddWithValue("$rsa", RoleKeys.RestrictedSuperAdmin);
+            "                WHERE ur.user_id=u.id AND r.role_key IN (@rk,@sa,@rsa));";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@rk", RoleKeys.CompanyAdmin);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
+        cmd.AddWithValue("@rsa", RoleKeys.RestrictedSuperAdmin);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
@@ -536,19 +536,19 @@ WHERE u.is_deleted=0 AND u.company_id=$c AND u.personnel_id IS NOT NULL;";
 SELECT c.id, c.name, COALESCE(c.max_users,0), COALESCE(c.max_admins,0),
   (SELECT COUNT(DISTINCT u.id) FROM users u
      JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
-     WHERE u.company_id=c.id AND u.is_deleted=0 AND r.role_key=$rk),
+     WHERE u.company_id=c.id AND u.is_deleted=0 AND r.role_key=@rk),
   (SELECT COUNT(*) FROM users u WHERE u.company_id=c.id AND u.is_deleted=0
      AND NOT EXISTS (SELECT 1 FROM user_roles ur2 JOIN roles r2 ON r2.id=ur2.role_id
-                     WHERE ur2.user_id=u.id AND r2.role_key IN ($rk,$sa,$rsa))),
+                     WHERE ur2.user_id=u.id AND r2.role_key IN (@rk,@sa,@rsa))),
   (SELECT COUNT(*) FROM users u WHERE u.company_id=c.id AND u.is_deleted=0 AND u.is_active=1)
 FROM companies c
-WHERE c.is_deleted=0 AND ($all=1 OR c.id=$c)
+WHERE c.is_deleted=0 AND (@all=1 OR c.id=@c)
 ORDER BY c.name;";
-        cmd.AddWithValue("$rk", RoleKeys.CompanyAdmin);
-        cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
-        cmd.AddWithValue("$rsa", RoleKeys.RestrictedSuperAdmin);
-        cmd.AddWithValue("$all", actor.IsSuperAdmin ? 1 : 0);
-        cmd.AddWithValue("$c", actor.CompanyId);
+        cmd.AddWithValue("@rk", RoleKeys.CompanyAdmin);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
+        cmd.AddWithValue("@rsa", RoleKeys.RestrictedSuperAdmin);
+        cmd.AddWithValue("@all", actor.IsSuperAdmin ? 1 : 0);
+        cmd.AddWithValue("@c", actor.CompanyId);
         var list = new List<QuotaMonitorRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -582,8 +582,8 @@ ORDER BY c.name;";
     private static bool CompanyHasBranch(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@c", companyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -591,9 +591,9 @@ ORDER BY c.name;";
     private static void EnsureBranchInCompany(DbConnection conn, string companyId, string branchId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=$b AND company_id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$b", branchId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@b AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@b", branchId);
+        cmd.AddWithValue("@c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new InvalidOperationException("Seçilen şube geçersiz veya bu firmaya ait değil.");
     }
@@ -605,9 +605,9 @@ ORDER BY c.name;";
         cmd.CommandText =
             "SELECT COUNT(DISTINCT u.id) FROM users u " +
             "JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.id = ur.role_id " +
-            "WHERE u.company_id=$c AND u.is_deleted=0 AND r.role_key=$rk;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$rk", RoleKeys.CompanyAdmin);
+            "WHERE u.company_id=@c AND u.is_deleted=0 AND r.role_key=@rk;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@rk", RoleKeys.CompanyAdmin);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
@@ -617,9 +617,9 @@ ORDER BY c.name;";
         cmd.Transaction = tx;
         cmd.CommandText =
             "SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
-            "WHERE ur.user_id=$u AND r.role_key=$rk;";
-        cmd.AddWithValue("$u", userId);
-        cmd.AddWithValue("$rk", RoleKeys.CompanyAdmin);
+            "WHERE ur.user_id=@u AND r.role_key=@rk;";
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@rk", RoleKeys.CompanyAdmin);
         return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
     }
 
@@ -631,10 +631,10 @@ ORDER BY c.name;";
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE users SET can_view_all_branches=$v, updated_at=$now WHERE id=$u AND is_deleted=0;";
-        cmd.AddWithValue("$v", value ? 1 : 0);
-        cmd.AddWithValue("$now", now);
-        cmd.AddWithValue("$u", userId);
+        cmd.CommandText = "UPDATE users SET can_view_all_branches=@v, updated_at=@now WHERE id=@u AND is_deleted=0;";
+        cmd.AddWithValue("@v", value ? 1 : 0);
+        cmd.AddWithValue("@now", now);
+        cmd.AddWithValue("@u", userId);
         cmd.ExecuteNonQuery();
     }
 
@@ -649,27 +649,27 @@ ORDER BY c.name;";
 
         // Firma kaydı yoksa oluştur
         Insert(conn, tx,
-            "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES($id,$n,$now,$now,1,0);",
-            cmd => { cmd.AddWithValue("$id", companyId); cmd.AddWithValue("$n", companyId); cmd.AddWithValue("$now", now); });
+            "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES(@id,@n,@now,@now,1,0);",
+            cmd => { cmd.AddWithValue("@id", companyId); cmd.AddWithValue("@n", companyId); cmd.AddWithValue("@now", now); });
 
         Insert(conn, tx,
             "INSERT INTO users(id, company_id, username, password_hash, full_name, is_active, created_at, updated_at, version, is_deleted) " +
-            "VALUES($id,$c,$u,$h,$f,1,$now,$now,1,0);",
+            "VALUES(@id,@c,@u,@h,@f,1,@now,@now,1,0);",
             cmd =>
             {
-                cmd.AddWithValue("$id", userId);
-                cmd.AddWithValue("$c", companyId);
-                cmd.AddWithValue("$u", username);
-                cmd.AddWithValue("$h", PasswordHasher.Hash(password));
-                cmd.AddWithValue("$f", DBNull.Value);
-                cmd.AddWithValue("$now", now);
+                cmd.AddWithValue("@id", userId);
+                cmd.AddWithValue("@c", companyId);
+                cmd.AddWithValue("@u", username);
+                cmd.AddWithValue("@h", PasswordHasher.Hash(password));
+                cmd.AddWithValue("@f", DBNull.Value);
+                cmd.AddWithValue("@now", now);
             });
 
         var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
             ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
         Insert(conn, tx,
-            "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);",
-            cmd => { cmd.AddWithValue("$u", userId); cmd.AddWithValue("$r", roleId); });
+            "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);",
+            cmd => { cmd.AddWithValue("@u", userId); cmd.AddWithValue("@r", roleId); });
 
         tx.Commit();
         return userId;
@@ -681,10 +681,10 @@ ORDER BY c.name;";
         cmd.Transaction = tx;
         // Önce firmaya özel, yoksa sistem rolü (company_id IS NULL)
         cmd.CommandText =
-            "SELECT id FROM roles WHERE role_key = $k AND (company_id = $c OR company_id IS NULL) AND is_deleted = 0 " +
+            "SELECT id FROM roles WHERE role_key = @k AND (company_id = @c OR company_id IS NULL) AND is_deleted = 0 " +
             "ORDER BY company_id IS NULL LIMIT 1;";
-        cmd.AddWithValue("$k", roleKey);
-        cmd.AddWithValue("$c", companyId);
+        cmd.AddWithValue("@k", roleKey);
+        cmd.AddWithValue("@c", companyId);
         return cmd.ExecuteScalar() as string;
     }
 

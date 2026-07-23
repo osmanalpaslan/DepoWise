@@ -34,8 +34,8 @@ public class UserBranchRequirementTests : IDisposable
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT OR IGNORE INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($c,$c,0,0,1,0);";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "INSERT OR IGNORE INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@c,@c,0,0,1,0);";
+        cmd.AddWithValue("@c", companyId);
         cmd.ExecuteNonQuery();
     }
 
@@ -45,8 +45,8 @@ public class UserBranchRequirementTests : IDisposable
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO branches(id,company_id,name,kind,created_at,updated_at,version,is_deleted) VALUES($i,$c,'Merkez','branch',0,0,1,0);";
-        cmd.AddWithValue("$i", id); cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "INSERT INTO branches(id,company_id,name,kind,created_at,updated_at,version,is_deleted) VALUES(@i,@c,'Merkez','branch',0,0,1,0);";
+        cmd.AddWithValue("@i", id); cmd.AddWithValue("@c", companyId);
         cmd.ExecuteNonQuery();
         return id;
     }

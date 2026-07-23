@@ -151,8 +151,8 @@ public class MaintenanceTests : IDisposable
         // Fiyat snapshot maintenance_materials'ta
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT quantity, unit_price FROM maintenance_materials WHERE material_id=$m;";
-        cmd.AddWithValue("$m", m);
+        cmd.CommandText = "SELECT quantity, unit_price FROM maintenance_materials WHERE material_id=@m;";
+        cmd.AddWithValue("@m", m);
         using var r = cmd.ExecuteReader();
         Assert.True(r.Read());
         Assert.Equal(2m, Money.Parse(r.GetString(0)));

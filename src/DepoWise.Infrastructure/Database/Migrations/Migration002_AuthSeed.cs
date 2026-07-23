@@ -43,12 +43,12 @@ CREATE INDEX ix_sessions_user ON sessions(user_id);
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO roles(id, company_id, role_key, name, is_system, created_at, updated_at, version, is_deleted)
-VALUES($id, NULL, $key, $name, $sys, $now, $now, 1, 0);";
-            cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            cmd.AddWithValue("$key", key);
-            cmd.AddWithValue("$name", name);
-            cmd.AddWithValue("$sys", isSystem ? 1 : 0);
-            cmd.AddWithValue("$now", now);
+VALUES(@id, NULL, @key, @name, @sys, @now, @now, 1, 0);";
+            cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            cmd.AddWithValue("@key", key);
+            cmd.AddWithValue("@name", name);
+            cmd.AddWithValue("@sys", isSystem ? 1 : 0);
+            cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
     }

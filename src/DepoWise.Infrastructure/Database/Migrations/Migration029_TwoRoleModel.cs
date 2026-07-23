@@ -22,30 +22,30 @@ public sealed class Migration029_TwoRoleModel : IMigration
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // 1) Personel (role-staff) sistem rolü — yoksa ekle.
-        var staffId = ScalarOrNull(conn, tx, "SELECT id FROM roles WHERE role_key=$k AND is_deleted=0;", ("$k", RoleKeys.Staff));
+        var staffId = ScalarOrNull(conn, tx, "SELECT id FROM roles WHERE role_key=@k AND is_deleted=0;", ("@k", RoleKeys.Staff));
         if (staffId is null)
         {
             staffId = Guid.NewGuid().ToString("N");
             Exec(conn, tx, @"INSERT INTO roles(id, company_id, role_key, name, is_system, created_at, updated_at, version, is_deleted)
-VALUES($id, NULL, $k, 'Personel', 1, $now, $now, 1, 0);",
-                ("$id", staffId), ("$k", RoleKeys.Staff), ("$now", now));
+VALUES(@id, NULL, @k, 'Personel', 1, @now, @now, 1, 0);",
+                ("@id", staffId), ("@k", RoleKeys.Staff), ("@now", now));
         }
 
         // 2) Firma Admini görünen adını "Admin" yap.
-        Exec(conn, tx, "UPDATE roles SET name='Admin', updated_at=$now WHERE role_key=$k;",
-            ("$k", RoleKeys.CompanyAdmin), ("$now", now));
+        Exec(conn, tx, "UPDATE roles SET name='Admin', updated_at=@now WHERE role_key=@k;",
+            ("@k", RoleKeys.CompanyAdmin), ("@now", now));
 
         // 3) Legacy rol id'leri.
         var legacyIds = new List<string>();
         foreach (var key in RoleKeys.Legacy)
         {
-            var id = ScalarOrNull(conn, tx, "SELECT id FROM roles WHERE role_key=$k;", ("$k", key));
+            var id = ScalarOrNull(conn, tx, "SELECT id FROM roles WHERE role_key=@k;", ("@k", key));
             if (id is not null) legacyIds.Add(id);
         }
 
         if (legacyIds.Count > 0)
         {
-            var inClause = string.Join(",", legacyIds.Select((_, i) => "$l" + i));
+            var inClause = string.Join(",", legacyIds.Select((_, i) => "@l" + i));
 
             // 3a) Legacy rolü olan kullanıcılar: Admin değilse Personel rolü ver (yoksa).
             //     Admin'i olanlar Admin kalır (Personel eklenmez).
@@ -54,16 +54,16 @@ VALUES($id, NULL, $k, 'Personel', 1, $now, $now, 1, 0);",
                 cmd.Transaction = tx;
                 cmd.CommandText = $@"
 INSERT INTO user_roles(user_id, role_id)
-SELECT DISTINCT ur.user_id, $staff
+SELECT DISTINCT ur.user_id, @staff
 FROM user_roles ur
 WHERE ur.role_id IN ({inClause})
   AND NOT EXISTS (SELECT 1 FROM user_roles a JOIN roles r ON r.id=a.role_id
-                  WHERE a.user_id=ur.user_id AND r.role_key IN ($adm,$sa,$stf));";
-                cmd.AddWithValue("$staff", staffId);
-                cmd.AddWithValue("$adm", RoleKeys.CompanyAdmin);
-                cmd.AddWithValue("$sa", RoleKeys.SuperAdmin);
-                cmd.AddWithValue("$stf", RoleKeys.Staff);
-                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("$l" + i, legacyIds[i]);
+                  WHERE a.user_id=ur.user_id AND r.role_key IN (@adm,@sa,@stf));";
+                cmd.AddWithValue("@staff", staffId);
+                cmd.AddWithValue("@adm", RoleKeys.CompanyAdmin);
+                cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
+                cmd.AddWithValue("@stf", RoleKeys.Staff);
+                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("@l" + i, legacyIds[i]);
                 cmd.ExecuteNonQuery();
             }
 
@@ -72,7 +72,7 @@ WHERE ur.role_id IN ({inClause})
             {
                 cmd.Transaction = tx;
                 cmd.CommandText = $"DELETE FROM user_roles WHERE role_id IN ({inClause});";
-                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("$l" + i, legacyIds[i]);
+                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("@l" + i, legacyIds[i]);
                 cmd.ExecuteNonQuery();
             }
 
@@ -80,9 +80,9 @@ WHERE ur.role_id IN ({inClause})
             using (var cmd = conn.CreateCommand())
             {
                 cmd.Transaction = tx;
-                cmd.CommandText = $"UPDATE roles SET is_deleted=1, updated_at=$now WHERE id IN ({inClause});";
-                cmd.AddWithValue("$now", now);
-                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("$l" + i, legacyIds[i]);
+                cmd.CommandText = $"UPDATE roles SET is_deleted=1, updated_at=@now WHERE id IN ({inClause});";
+                cmd.AddWithValue("@now", now);
+                for (int i = 0; i < legacyIds.Count; i++) cmd.AddWithValue("@l" + i, legacyIds[i]);
                 cmd.ExecuteNonQuery();
             }
         }

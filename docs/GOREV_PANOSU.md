@@ -76,15 +76,21 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      `deferred:false` korunur). Factory `DbConnection` döndürüyor (SQLite içeride). ~130 dosya çevrildi
      (Infrastructure + Desktop + API + testler). BackupService/factory SQLite'a özel bırakıldı.
      **569 test yeşil + 4 proje 0 hata → masaüstü (SQLite) hiç bozulmadı.**
-  2. **Parametreler:** `$` → `@` (dikkatli, C# `$"..."` interpolasyonuna dokunmadan) → 569 yeşil.
+  2. ✅ **TAMAM (2026-07-23) — Parametreler:** SQL parametre önekleri `$` → `@` (Npgsql `$` kabul etmez;
+     SQLite ikisini de kabul eder). 95 dosya, regex `\$([A-Za-z_]\w*)` → `@\1` (C# `$"..."` interpolasyonu
+     `$"` olduğu için TAKILMAZ). Dışlanan 2 dosya: UpdateInstaller (PowerShell betiği üretir), Postgres
+     bağlantı testi. **Yakalanan yanlış-pozitif:** PasswordHasher'ın hash biçimi `pbkdf2$sha256$...` idi;
+     `$sha256` yanlışlıkla `@sha256`'ya döndü → parola doğrulama bozuldu → 89 test çöktü → geri düzeltildi.
+     (Sentinel sanılan `@all`/`@me`/`@co` aslında gerçek SQL param'mış — gerçek sentinel `"__all__"`, dokunulmadı.)
+     **569 test yeşil + 4 proje 0 hata.**
   3. **Lehçe SQL:** `INSERT OR IGNORE` → `ON CONFLICT`, tarih fonksiyonları → 569 yeşil.
   4. **Migration'lar:** 52 şema PostgreSQL'de de çalışsın (tipler) → Neon'da test.
   5. **Çalışma-anı:** Türkçe arama/sıralama PostgreSQL karşılığı; PRAGMA'ları SQLite'a özel bırak.
   6. **Uçtan uca:** sunucuyu Neon'a bağlayıp doğrula.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Adım 2 — parametre önekleri `$` → `@` (Npgsql `$` kabul etmez). ~1216 çağrı;
-  C# string interpolasyonuna (`$"..."`) dokunmadan, dikkatli. Her adımda 569 yeşil kalmalı.
+- **Sıradaki adım:** Adım 3 — lehçe farkları: `INSERT OR IGNORE/REPLACE` (19) → `ON CONFLICT`,
+  `strftime/datetime` (7) → PostgreSQL karşılığı. SQLite'ta da çalışmalı → 569 yeşil kalmalı.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

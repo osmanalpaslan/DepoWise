@@ -396,8 +396,8 @@ public class ImportFullFieldsTests : IDisposable
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=$m;";
-        cmd.AddWithValue("$m", mid);
+        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
+        cmd.AddWithValue("@m", mid);
         Assert.Equal(-9m, Money.Parse(cmd.ExecuteScalar() as string));
     }
 
@@ -680,8 +680,8 @@ internal sealed class StockServiceProbe
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         // stock_movements'ta is_deleted YOKTUR (hareket defteri silinmez; iptal ters kayıtla yapılır).
-        cmd.CommandText = "SELECT COALESCE(SUM(CAST(quantity AS REAL)),0) FROM stock_movements WHERE material_id=$m;";
-        cmd.AddWithValue("$m", materialId);
+        cmd.CommandText = "SELECT COALESCE(SUM(CAST(quantity AS REAL)),0) FROM stock_movements WHERE material_id=@m;";
+        cmd.AddWithValue("@m", materialId);
         return Convert.ToDecimal(cmd.ExecuteScalar());
     }
 
@@ -690,8 +690,8 @@ internal sealed class StockServiceProbe
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT vehicle_id FROM material_compatible_vehicles WHERE material_id=$m;";
-        cmd.AddWithValue("$m", materialId);
+        cmd.CommandText = "SELECT vehicle_id FROM material_compatible_vehicles WHERE material_id=@m;";
+        cmd.AddWithValue("@m", materialId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));

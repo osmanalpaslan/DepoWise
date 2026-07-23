@@ -90,11 +90,11 @@ public sealed class RoleGrantService
                 if (IsHardBlocked(moduleKey, roleKey)) continue; // zaten yapısal kilitli — satır tutmaya gerek yok
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
-                ins.CommandText = "INSERT OR IGNORE INTO role_grant_limits(id, role_key, module_key, created_at) VALUES($id,$r,$m,$now);";
-                ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                ins.AddWithValue("$r", roleKey);
-                ins.AddWithValue("$m", moduleKey);
-                ins.AddWithValue("$now", now);
+                ins.CommandText = "INSERT OR IGNORE INTO role_grant_limits(id, role_key, module_key, created_at) VALUES(@id,@r,@m,@now);";
+                ins.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+                ins.AddWithValue("@r", roleKey);
+                ins.AddWithValue("@m", moduleKey);
+                ins.AddWithValue("@now", now);
                 ins.ExecuteNonQuery();
             }
         }
@@ -119,7 +119,7 @@ public sealed class RoleGrantService
 
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        var names = roles.Select((_, i) => "$r" + i).ToList();
+        var names = roles.Select((_, i) => "@r" + i).ToList();
         cmd.CommandText = $"SELECT module_key FROM role_grant_limits WHERE role_key IN ({string.Join(",", names)});";
         for (var i = 0; i < roles.Count; i++) cmd.AddWithValue(names[i], roles[i]);
         using var r = cmd.ExecuteReader();
@@ -135,8 +135,8 @@ public sealed class RoleGrantService
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u AND r.is_deleted=0;";
-            cmd.AddWithValue("$u", userId);
+            cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u AND r.is_deleted=0;";
+            cmd.AddWithValue("@u", userId);
             using var rd = cmd.ExecuteReader();
             while (rd.Read()) roles.Add(rd.GetString(0));
         }

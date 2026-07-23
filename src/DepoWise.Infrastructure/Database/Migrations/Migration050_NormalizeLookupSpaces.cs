@@ -47,9 +47,9 @@ public sealed class Migration050_NormalizeLookupSpaces : IMigration
             {
                 using var up = conn.CreateCommand();
                 up.Transaction = tx;
-                up.CommandText = $"UPDATE {table} SET name=$n WHERE id=$id;";
-                up.AddWithValue("$n", fixedName);
-                up.AddWithValue("$id", id);
+                up.CommandText = $"UPDATE {table} SET name=@n WHERE id=@id;";
+                up.AddWithValue("@n", fixedName);
+                up.AddWithValue("@id", id);
                 up.ExecuteNonQuery();
             }
         }
@@ -59,8 +59,8 @@ public sealed class Migration050_NormalizeLookupSpaces : IMigration
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$t;";
-        cmd.AddWithValue("$t", table);
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@t;";
+        cmd.AddWithValue("@t", table);
         return System.Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 }

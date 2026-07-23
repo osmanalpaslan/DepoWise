@@ -209,9 +209,9 @@ public static class CompanySyncService
         {
             using var conn = DesktopServices.Factory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE sync_outbox SET status=$s WHERE id=$id;";
-            cmd.AddWithValue("$s", status);
-            cmd.AddWithValue("$id", id);
+            cmd.CommandText = "UPDATE sync_outbox SET status=@s WHERE id=@id;";
+            cmd.AddWithValue("@s", status);
+            cmd.AddWithValue("@id", id);
             cmd.ExecuteNonQuery();
         }
         catch { }
@@ -274,21 +274,21 @@ public static class CompanySyncService
                 using var c = conn.CreateCommand();
                 c.CommandText =
                     "INSERT INTO companies(id,name,tax_no,tax_office,address,phone,email,authorized_person,max_users,max_admins,machine_quota,created_at,updated_at,version,is_deleted) " +
-                    "VALUES($id,$n,$tn,$to,$ad,$ph,$em,$ap,$mu,$ma,$mq,$now,$now,1,0) " +
-                    "ON CONFLICT(id) DO UPDATE SET name=$n, tax_no=$tn, tax_office=$to, address=$ad, phone=$ph, " +
-                    "email=$em, authorized_person=$ap, max_users=$mu, max_admins=$ma, machine_quota=$mq, is_deleted=0, updated_at=$now;";
-                c.AddWithValue("$id", row.Id);
-                c.AddWithValue("$n", row.Name);
-                c.AddWithValue("$tn", (object?)row.TaxNo ?? DBNull.Value);
-                c.AddWithValue("$to", (object?)row.TaxOffice ?? DBNull.Value);
-                c.AddWithValue("$ad", (object?)row.Address ?? DBNull.Value);
-                c.AddWithValue("$ph", (object?)row.Phone ?? DBNull.Value);
-                c.AddWithValue("$em", (object?)row.Email ?? DBNull.Value);
-                c.AddWithValue("$ap", (object?)row.AuthorizedPerson ?? DBNull.Value);
-                c.AddWithValue("$mu", row.MaxUsers);
-                c.AddWithValue("$ma", row.MaxAdmins);
-                c.AddWithValue("$mq", row.MachineQuota);
-                c.AddWithValue("$now", now);
+                    "VALUES(@id,@n,@tn,@to,@ad,@ph,@em,@ap,@mu,@ma,@mq,@now,@now,1,0) " +
+                    "ON CONFLICT(id) DO UPDATE SET name=@n, tax_no=@tn, tax_office=@to, address=@ad, phone=@ph, " +
+                    "email=@em, authorized_person=@ap, max_users=@mu, max_admins=@ma, machine_quota=@mq, is_deleted=0, updated_at=@now;";
+                c.AddWithValue("@id", row.Id);
+                c.AddWithValue("@n", row.Name);
+                c.AddWithValue("@tn", (object?)row.TaxNo ?? DBNull.Value);
+                c.AddWithValue("@to", (object?)row.TaxOffice ?? DBNull.Value);
+                c.AddWithValue("@ad", (object?)row.Address ?? DBNull.Value);
+                c.AddWithValue("@ph", (object?)row.Phone ?? DBNull.Value);
+                c.AddWithValue("@em", (object?)row.Email ?? DBNull.Value);
+                c.AddWithValue("@ap", (object?)row.AuthorizedPerson ?? DBNull.Value);
+                c.AddWithValue("@mu", row.MaxUsers);
+                c.AddWithValue("@ma", row.MaxAdmins);
+                c.AddWithValue("@mq", row.MachineQuota);
+                c.AddWithValue("@now", now);
                 c.ExecuteNonQuery();
             }
 
@@ -297,14 +297,14 @@ public static class CompanySyncService
                 var names = new List<string>();
                 for (int i = 0; i < rows.Count; i++)
                 {
-                    var p = "$k" + i;
+                    var p = "@k" + i;
                     names.Add(p);
                     del.AddWithValue(p, rows[i].Id);
                 }
                 del.CommandText =
-                    "UPDATE companies SET is_deleted=1, updated_at=$now WHERE is_deleted=0" +
+                    "UPDATE companies SET is_deleted=1, updated_at=@now WHERE is_deleted=0" +
                     (names.Count > 0 ? " AND id NOT IN (" + string.Join(",", names) + ")" : "") + ";";
-                del.AddWithValue("$now", now);
+                del.AddWithValue("@now", now);
                 del.ExecuteNonQuery();
             }
         }

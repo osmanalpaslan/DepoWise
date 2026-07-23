@@ -205,8 +205,8 @@ public class AuthPermissionTests : IDisposable
 
             using var conn = localFactory.Create();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT branch_id FROM users WHERE id=$id;";
-            cmd.AddWithValue("$id", bundle.UserId);
+            cmd.CommandText = "SELECT branch_id FROM users WHERE id=@id;";
+            cmd.AddWithValue("@id", bundle.UserId);
             Assert.Equal(branchId, cmd.ExecuteScalar() as string);
         }
         finally { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(localPath); } catch { } }

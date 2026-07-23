@@ -32,12 +32,12 @@ public class Migration029Tests : IDisposable
         var companyId = Guid.NewGuid().ToString("N");
         using (var tx = conn.BeginTransaction())
         {
-            Exec(conn, tx, @"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES($c,'Firma',$n,$n,1,0);", ("$c", companyId), ("$n", now));
+            Exec(conn, tx, @"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES(@c,'Firma',@n,@n,1,0);", ("@c", companyId), ("@n", now));
             Exec(conn, tx, @"INSERT INTO roles(id,company_id,role_key,name,is_system,created_at,updated_at,version,is_deleted)
-VALUES($id,NULL,$k,'Depo Kullanıcısı',1,$n,$n,1,0);", ("$id", legacyRoleId), ("$k", RoleKeys.Warehouse), ("$n", now));
+VALUES(@id,NULL,@k,'Depo Kullanıcısı',1,@n,@n,1,0);", ("@id", legacyRoleId), ("@k", RoleKeys.Warehouse), ("@n", now));
             Exec(conn, tx, @"INSERT INTO users(id,company_id,username,password_hash,full_name,is_active,created_at,updated_at,version,is_deleted)
-VALUES($u,$c,'depocu','x','Depo',1,$n,$n,1,0);", ("$u", userId), ("$c", companyId), ("$n", now));
-            Exec(conn, tx, "INSERT INTO user_roles(user_id,role_id) VALUES($u,$r);", ("$u", userId), ("$r", legacyRoleId));
+VALUES(@u,@c,'depocu','x','Depo',1,@n,@n,1,0);", ("@u", userId), ("@c", companyId), ("@n", now));
+            Exec(conn, tx, "INSERT INTO user_roles(user_id,role_id) VALUES(@u,@r);", ("@u", userId), ("@r", legacyRoleId));
             tx.Commit();
         }
 
@@ -48,12 +48,12 @@ VALUES($u,$c,'depocu','x','Depo',1,$n,$n,1,0);", ("$u", userId), ("$c", companyI
         }
 
         // Kullanıcı artık Personel (role-staff) rolünde, legacy rol kaydı yok.
-        var roleKeys = Query(conn, @"SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$u;", ("$u", userId));
+        var roleKeys = Query(conn, @"SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u;", ("@u", userId));
         Assert.Single(roleKeys);
         Assert.Equal(RoleKeys.Staff, roleKeys[0]);
 
         // Legacy rol soft-delete edildi.
-        var del = Query(conn, "SELECT is_deleted FROM roles WHERE id=$id;", ("$id", legacyRoleId));
+        var del = Query(conn, "SELECT is_deleted FROM roles WHERE id=@id;", ("@id", legacyRoleId));
         Assert.Equal("1", del[0]);
     }
 

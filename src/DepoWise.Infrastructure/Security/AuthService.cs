@@ -87,8 +87,8 @@ public sealed class AuthService
     private static bool MustChangePassword(DbConnection conn, string userId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COALESCE(must_change_password,0) FROM users WHERE id=$u;";
-        cmd.AddWithValue("$u", userId);
+        cmd.CommandText = "SELECT COALESCE(must_change_password,0) FROM users WHERE id=@u;";
+        cmd.AddWithValue("@u", userId);
         return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) == 1;
     }
 
@@ -101,8 +101,8 @@ public sealed class AuthService
         var candidates = new List<string>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT company_id, password_hash FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
-            cmd.AddWithValue("$u", username);
+            cmd.CommandText = "SELECT company_id, password_hash FROM users WHERE username=@u AND is_active=1 AND is_deleted=0;";
+            cmd.AddWithValue("@u", username);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 if (PasswordHasher.Verify(password, r.GetString(1)))
@@ -120,9 +120,9 @@ public sealed class AuthService
         if (string.IsNullOrEmpty(password)) return false;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT password_hash FROM users WHERE id=$u AND company_id=$c AND is_active=1 AND is_deleted=0;";
-        cmd.AddWithValue("$u", userId);
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT password_hash FROM users WHERE id=@u AND company_id=@c AND is_active=1 AND is_deleted=0;";
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@c", companyId);
         var hash = cmd.ExecuteScalar() as string;
         return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
     }
@@ -136,8 +136,8 @@ public sealed class AuthService
         if (string.IsNullOrEmpty(password)) return false;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT password_hash FROM users WHERE id=$u AND is_active=1 AND is_deleted=0;";
-        cmd.AddWithValue("$u", userId);
+        cmd.CommandText = "SELECT password_hash FROM users WHERE id=@u AND is_active=1 AND is_deleted=0;";
+        cmd.AddWithValue("@u", userId);
         var hash = cmd.ExecuteScalar() as string;
         return !string.IsNullOrEmpty(hash) && PasswordHasher.Verify(password, hash);
     }
@@ -159,8 +159,8 @@ public sealed class AuthService
         string? homeCompany;
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT company_id FROM users WHERE id=$id AND is_active=1 AND is_deleted=0;";
-            cmd.AddWithValue("$id", userId);
+            cmd.CommandText = "SELECT company_id FROM users WHERE id=@id AND is_active=1 AND is_deleted=0;";
+            cmd.AddWithValue("@id", userId);
             homeCompany = cmd.ExecuteScalar() as string;
         }
         if (homeCompany is null) return null; // kullanıcı yok/pasif/silinmiş
@@ -195,8 +195,8 @@ public sealed class AuthService
     private static bool CompanyExists(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c AND is_deleted=0;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@c", companyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -204,8 +204,8 @@ public sealed class AuthService
     private static bool CompanyRowExists(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=$c;";
-        cmd.AddWithValue("$c", companyId);
+        cmd.CommandText = "SELECT COUNT(*) FROM companies WHERE id=@c;";
+        cmd.AddWithValue("@c", companyId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
@@ -213,8 +213,8 @@ public sealed class AuthService
     private static bool LoadViewAllBranches(DbConnection conn, string userId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COALESCE(can_view_all_branches,0) FROM users WHERE id=$id;";
-        cmd.AddWithValue("$id", userId);
+        cmd.CommandText = "SELECT COALESCE(can_view_all_branches,0) FROM users WHERE id=@id;";
+        cmd.AddWithValue("@id", userId);
         var v = cmd.ExecuteScalar();
         return v is not null && Convert.ToInt64(v) == 1;
     }
@@ -228,13 +228,13 @@ public sealed class AuthService
         // Kullanıcıyı bul; companyId boşsa TÜM firmalar taranır (kullanıcı adı birden çok firmada olabilir).
         using var find = conn.CreateCommand();
         if (string.IsNullOrWhiteSpace(companyId))
-            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE username=$u AND is_active=1 AND is_deleted=0;";
+            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE username=@u AND is_active=1 AND is_deleted=0;";
         else
         {
-            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE company_id=$c AND username=$u AND is_active=1 AND is_deleted=0;";
-            find.AddWithValue("$c", companyId);
+            find.CommandText = "SELECT id, company_id, password_hash, full_name, branch_id, COALESCE(must_change_password,0) FROM users WHERE company_id=@c AND username=@u AND is_active=1 AND is_deleted=0;";
+            find.AddWithValue("@c", companyId);
         }
-        find.AddWithValue("$u", username);
+        find.AddWithValue("@u", username);
         string? userId = null, coId = null, fullName = null, hash = null, branchId = null;
         bool mustChange = false;
         using (var r = find.ExecuteReader())
@@ -256,8 +256,8 @@ public sealed class AuthService
         string coName = coId;
         using (var cn = conn.CreateCommand())
         {
-            cn.CommandText = "SELECT name FROM companies WHERE id=$c;";
-            cn.AddWithValue("$c", coId);
+            cn.CommandText = "SELECT name FROM companies WHERE id=@c;";
+            cn.AddWithValue("@c", coId);
             coName = cn.ExecuteScalar() as string ?? coId;
         }
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
@@ -276,10 +276,10 @@ public sealed class AuthService
         using (var c = conn.CreateCommand())
         {
             c.Transaction = tx;
-            c.CommandText = "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES($id,$n,$now,$now,1,0);";
-            c.AddWithValue("$id", b.CompanyId);
-            c.AddWithValue("$n", b.CompanyName);
-            c.AddWithValue("$now", now);
+            c.CommandText = "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES(@id,@n,@now,@now,1,0);";
+            c.AddWithValue("@id", b.CompanyId);
+            c.AddWithValue("@n", b.CompanyName);
+            c.AddWithValue("@now", now);
             c.ExecuteNonQuery();
         }
         // 2) Kullanıcı (upsert, id korunur)
@@ -288,75 +288,75 @@ public sealed class AuthService
             u.Transaction = tx;
             u.CommandText =
                 "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, branch_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
-                "VALUES($id,$c,$un,$h,$f,$va,$bid,1,$mcp,$now,$now,1,0) " +
-                "ON CONFLICT(id) DO UPDATE SET company_id=$c, username=$un, password_hash=$h, full_name=$f, can_view_all_branches=$va, branch_id=$bid, is_active=1, is_deleted=0, must_change_password=$mcp, updated_at=$now;";
-            u.AddWithValue("$id", b.UserId);
-            u.AddWithValue("$c", b.CompanyId);
-            u.AddWithValue("$un", b.Username);
-            u.AddWithValue("$h", b.PasswordHash);
-            u.AddWithValue("$f", (object?)b.FullName ?? DBNull.Value);
-            u.AddWithValue("$va", b.CanViewAllBranches ? 1 : 0);
-            u.AddWithValue("$bid", (object?)b.BranchId ?? DBNull.Value);
-            u.AddWithValue("$mcp", b.MustChangePassword ? 1 : 0);
-            u.AddWithValue("$now", now);
+                "VALUES(@id,@c,@un,@h,@f,@va,@bid,1,@mcp,@now,@now,1,0) " +
+                "ON CONFLICT(id) DO UPDATE SET company_id=@c, username=@un, password_hash=@h, full_name=@f, can_view_all_branches=@va, branch_id=@bid, is_active=1, is_deleted=0, must_change_password=@mcp, updated_at=@now;";
+            u.AddWithValue("@id", b.UserId);
+            u.AddWithValue("@c", b.CompanyId);
+            u.AddWithValue("@un", b.Username);
+            u.AddWithValue("@h", b.PasswordHash);
+            u.AddWithValue("@f", (object?)b.FullName ?? DBNull.Value);
+            u.AddWithValue("@va", b.CanViewAllBranches ? 1 : 0);
+            u.AddWithValue("@bid", (object?)b.BranchId ?? DBNull.Value);
+            u.AddWithValue("@mcp", b.MustChangePassword ? 1 : 0);
+            u.AddWithValue("@now", now);
             u.ExecuteNonQuery();
         }
         // 3) Roller (tam değiştir)
         using (var d = conn.CreateCommand())
-        { d.Transaction = tx; d.CommandText = "DELETE FROM user_roles WHERE user_id=$u;"; d.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_roles WHERE user_id=@u;"; d.AddWithValue("@u", b.UserId); d.ExecuteNonQuery(); }
         foreach (var rk in b.RoleKeys.Distinct())
         {
             string? roleId;
             using (var rq = conn.CreateCommand())
             {
                 rq.Transaction = tx;
-                rq.CommandText = "SELECT id FROM roles WHERE role_key=$k AND is_deleted=0 ORDER BY (company_id IS NULL) DESC LIMIT 1;";
-                rq.AddWithValue("$k", rk);
+                rq.CommandText = "SELECT id FROM roles WHERE role_key=@k AND is_deleted=0 ORDER BY (company_id IS NULL) DESC LIMIT 1;";
+                rq.AddWithValue("@k", rk);
                 roleId = rq.ExecuteScalar() as string;
             }
             if (roleId is null) continue;
             using var ir = conn.CreateCommand();
             ir.Transaction = tx;
-            ir.CommandText = "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES($u,$r);";
-            ir.AddWithValue("$u", b.UserId);
-            ir.AddWithValue("$r", roleId);
+            ir.CommandText = "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);";
+            ir.AddWithValue("@u", b.UserId);
+            ir.AddWithValue("@r", roleId);
             ir.ExecuteNonQuery();
         }
         // 4) Yetkiler (tam değiştir)
         using (var d = conn.CreateCommand())
-        { d.Transaction = tx; d.CommandText = "DELETE FROM user_permissions WHERE user_id=$u;"; d.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_permissions WHERE user_id=@u;"; d.AddWithValue("@u", b.UserId); d.ExecuteNonQuery(); }
         foreach (var p in b.Permissions)
         {
             using var ip = conn.CreateCommand();
             ip.Transaction = tx;
             ip.CommandText =
                 "INSERT INTO user_permissions(id, company_id, user_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version) " +
-                "VALUES($id,$c,$u,$m,$v,$cr,$e,$d,$now,$now,1);";
-            ip.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ip.AddWithValue("$c", b.CompanyId);
-            ip.AddWithValue("$u", b.UserId);
-            ip.AddWithValue("$m", p.ModuleKey);
-            ip.AddWithValue("$v", p.CanView ? 1 : 0);
-            ip.AddWithValue("$cr", p.CanCreate ? 1 : 0);
-            ip.AddWithValue("$e", p.CanEdit ? 1 : 0);
-            ip.AddWithValue("$d", p.CanDelete ? 1 : 0);
-            ip.AddWithValue("$now", now);
+                "VALUES(@id,@c,@u,@m,@v,@cr,@e,@d,@now,@now,1);";
+            ip.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ip.AddWithValue("@c", b.CompanyId);
+            ip.AddWithValue("@u", b.UserId);
+            ip.AddWithValue("@m", p.ModuleKey);
+            ip.AddWithValue("@v", p.CanView ? 1 : 0);
+            ip.AddWithValue("@cr", p.CanCreate ? 1 : 0);
+            ip.AddWithValue("@e", p.CanEdit ? 1 : 0);
+            ip.AddWithValue("@d", p.CanDelete ? 1 : 0);
+            ip.AddWithValue("@now", now);
             ip.ExecuteNonQuery();
         }
         // 5) Özel buton izinleri (tam değiştir)
         using (var d = conn.CreateCommand())
-        { d.Transaction = tx; d.CommandText = "DELETE FROM user_button_permissions WHERE user_id=$u;"; d.AddWithValue("$u", b.UserId); d.ExecuteNonQuery(); }
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_button_permissions WHERE user_id=@u;"; d.AddWithValue("@u", b.UserId); d.ExecuteNonQuery(); }
         foreach (var bk in b.Buttons.Distinct())
         {
             using var ib = conn.CreateCommand();
             ib.Transaction = tx;
             ib.CommandText =
-                "INSERT INTO user_button_permissions(id, company_id, user_id, button_key, created_at) VALUES($id,$c,$u,$b,$now);";
-            ib.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-            ib.AddWithValue("$c", b.CompanyId);
-            ib.AddWithValue("$u", b.UserId);
-            ib.AddWithValue("$b", bk);
-            ib.AddWithValue("$now", now);
+                "INSERT INTO user_button_permissions(id, company_id, user_id, button_key, created_at) VALUES(@id,@c,@u,@b,@now);";
+            ib.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ib.AddWithValue("@c", b.CompanyId);
+            ib.AddWithValue("@u", b.UserId);
+            ib.AddWithValue("@b", bk);
+            ib.AddWithValue("@now", now);
             ib.ExecuteNonQuery();
         }
         tx.Commit();
@@ -367,9 +367,9 @@ public sealed class AuthService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT success, attempted_at FROM login_attempts " +
-            "WHERE company_id = $c AND username = $u ORDER BY attempted_at DESC;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$u", username);
+            "WHERE company_id = @c AND username = @u ORDER BY attempted_at DESC;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@u", username);
         using var r = cmd.ExecuteReader();
         int count = 0; long? lastFail = null;
         while (r.Read())
@@ -386,12 +386,12 @@ public sealed class AuthService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO login_attempts(id, company_id, username, success, attempted_at) " +
-            "VALUES($id, $c, $u, $s, $t);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$u", username);
-        cmd.AddWithValue("$s", success ? 1 : 0);
-        cmd.AddWithValue("$t", _clock.UtcNow.ToUnixTimeMilliseconds());
+            "VALUES(@id, @c, @u, @s, @t);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@u", username);
+        cmd.AddWithValue("@s", success ? 1 : 0);
+        cmd.AddWithValue("@t", _clock.UtcNow.ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
 
@@ -402,9 +402,9 @@ public sealed class AuthService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, password_hash FROM users " +
-            "WHERE company_id = $c AND username = $u AND is_active = 1 AND is_deleted = 0;";
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$u", username);
+            "WHERE company_id = @c AND username = @u AND is_active = 1 AND is_deleted = 0;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@u", username);
         using var r = cmd.ExecuteReader();
         return r.Read() ? new UserRow(r.GetString(0), r.GetString(1)) : null;
     }
@@ -414,8 +414,8 @@ public sealed class AuthService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id = ur.role_id " +
-            "WHERE ur.user_id = $u AND r.is_deleted = 0;";
-        cmd.AddWithValue("$u", userId);
+            "WHERE ur.user_id = @u AND r.is_deleted = 0;";
+        cmd.AddWithValue("@u", userId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(r.GetString(0));
@@ -427,8 +427,8 @@ public sealed class AuthService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT module_key, can_view, can_create, can_edit, can_delete " +
-            "FROM user_permissions WHERE user_id = $u;";
-        cmd.AddWithValue("$u", userId);
+            "FROM user_permissions WHERE user_id = @u;";
+        cmd.AddWithValue("@u", userId);
         var mods = new List<ModulePermission>();
         using (var r = cmd.ExecuteReader())
             while (r.Read())
@@ -438,8 +438,8 @@ public sealed class AuthService
         var buttons = new List<string>();
         using (var bc = conn.CreateCommand())
         {
-            bc.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id = $u;";
-            bc.AddWithValue("$u", userId);
+            bc.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id = @u;";
+            bc.AddWithValue("@u", userId);
             using var br = bc.ExecuteReader();
             while (br.Read()) buttons.Add(br.GetString(0));
         }
@@ -451,12 +451,12 @@ public sealed class AuthService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "INSERT INTO sessions(id, user_id, company_id, created_at, expires_at, revoked_at) " +
-            "VALUES($id, $u, $c, $now, $exp, NULL);";
-        cmd.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        cmd.AddWithValue("$u", userId);
-        cmd.AddWithValue("$c", companyId);
-        cmd.AddWithValue("$now", now.ToUnixTimeMilliseconds());
-        cmd.AddWithValue("$exp", now.AddHours(12).ToUnixTimeMilliseconds());
+            "VALUES(@id, @u, @c, @now, @exp, NULL);";
+        cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@u", userId);
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@now", now.ToUnixTimeMilliseconds());
+        cmd.AddWithValue("@exp", now.AddHours(12).ToUnixTimeMilliseconds());
         cmd.ExecuteNonQuery();
     }
 }

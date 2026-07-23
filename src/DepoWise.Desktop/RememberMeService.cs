@@ -57,20 +57,20 @@ public static class RememberMeService
             using (var conn = DesktopServices.Factory.Create())
             {
                 using var del = conn.CreateCommand();
-                del.CommandText = "DELETE FROM remember_tokens WHERE user_id=$u;";
-                del.AddWithValue("$u", session.UserId);
+                del.CommandText = "DELETE FROM remember_tokens WHERE user_id=@u;";
+                del.AddWithValue("@u", session.UserId);
                 del.ExecuteNonQuery();
 
                 using var ins = conn.CreateCommand();
                 ins.CommandText =
                     "INSERT INTO remember_tokens(id, user_id, company_id, token_hash, expires_at, created_at) " +
-                    "VALUES($id,$u,$c,$h,$e,$n);";
-                ins.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-                ins.AddWithValue("$u", session.UserId);
-                ins.AddWithValue("$c", session.CompanyId);
-                ins.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
-                ins.AddWithValue("$e", expires);
-                ins.AddWithValue("$n", now.ToUnixTimeMilliseconds());
+                    "VALUES(@id,@u,@c,@h,@e,@n);";
+                ins.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+                ins.AddWithValue("@u", session.UserId);
+                ins.AddWithValue("@c", session.CompanyId);
+                ins.AddWithValue("@h", SyncCrypto.Sha256Hex(token));
+                ins.AddWithValue("@e", expires);
+                ins.AddWithValue("@n", now.ToUnixTimeMilliseconds());
                 ins.ExecuteNonQuery();
             }
 
@@ -99,12 +99,12 @@ public static class RememberMeService
             using (var cmd = conn.CreateCommand())
             {
                 cmd.CommandText =
-                    "SELECT COUNT(*) FROM remember_tokens WHERE user_id=$u AND company_id=$c " +
-                    "AND token_hash=$h AND expires_at >= $now;";
-                cmd.AddWithValue("$u", userId);
-                cmd.AddWithValue("$c", companyId);
-                cmd.AddWithValue("$h", SyncCrypto.Sha256Hex(token));
-                cmd.AddWithValue("$now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                    "SELECT COUNT(*) FROM remember_tokens WHERE user_id=@u AND company_id=@c " +
+                    "AND token_hash=@h AND expires_at >= @now;";
+                cmd.AddWithValue("@u", userId);
+                cmd.AddWithValue("@c", companyId);
+                cmd.AddWithValue("@h", SyncCrypto.Sha256Hex(token));
+                cmd.AddWithValue("@now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
                 valid = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
             }
             if (!valid) { Clear(); return null; }

@@ -30,9 +30,9 @@ public sealed class Migration037_GrantLevel : IMigration
                 ins.Transaction = tx;
                 ins.CommandText = @"
 INSERT OR IGNORE INTO company_grant_limits(id, company_id, module_key, level, created_at)
-SELECT lower(hex(randomblob(16))), c.id, $k, 'admin', CAST(strftime('%s','now') AS INTEGER)*1000
+SELECT lower(hex(randomblob(16))), c.id, @k, 'admin', CAST(strftime('%s','now') AS INTEGER)*1000
 FROM companies c WHERE c.is_deleted=0;";
-                ins.AddWithValue("$k", key);
+                ins.AddWithValue("@k", key);
                 ins.ExecuteNonQuery();
             }
             Exec(conn, tx, "DELETE FROM app_settings WHERE company_id IS NULL AND setting_key='global_grant_limits';");
