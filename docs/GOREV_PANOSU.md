@@ -33,14 +33,18 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟡 PLANLANDI — henüz başlanmadı (mimari kararı verildi 2026-07-23).
-- **Nerede kaldık:** Karar aşaması bitti: masaüstü SQLite kalacak, sunucu+web PostgreSQL'e taşınacak,
-  ücretsiz servis (Neon/Supabase) ile, kademeli, gerçek veriye dokunmadan.
-- **Sıradaki adım:** Kullanıcı "başla" derse → Faz 1'den başla (aşağıdaki yol haritası).
+- **Durum:** 🟢 BAŞLADI — Faz 0 (ekran denetimi + parite). Mimari kararı 2026-07-23.
+- **Nerede kaldık:** Kullanıcı A'ya başlamak istedi. İki karar eklendi: (1) PostgreSQL web'i baştan
+  YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
+  toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
+  tutarlılık hem PostgreSQL tip-hazırlığı. Başlangıç yöntemi: **önce tüm ekran haritası** (kullanıcı seçti).
+- **Sıradaki adım:** Faz 0 → Adım 0.1: tüm ekranların listesi + masaüstü/web farkı olan yerlerin kaba
+  haritası (tek tarama). Sonra birlikte önceliklendir → ekran ekran parite düzeltmesi.
 
-**Yol haritası (5 faz):**
+**Yol haritası:**
 | Faz | Ne yapılır | Durum |
 |---|---|---|
+| **0** | **Ekran denetimi + parite** — her ekran: masaüstü=web=veritabanı aynı (alan+mantık). PostgreSQL'e model hazırlığı da bu. Ekran ekran, kısa rapor + küçük commit | 🟢 başladı (haritalama) |
 | 1 | Ücretsiz PostgreSQL kur (Neon/Supabase), bağlantıyı doğrula | ⬜ |
 | 2 | 52 şema adımını (migration) PostgreSQL diline çevir | ⬜ |
 | 3 | Sunucu veri katmanını (okuma/yazma) PostgreSQL'e uyarla | ⬜ |
@@ -49,7 +53,8 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
 
 **Bilinen risk / not:** En çetin parça Faz 4 (eşitleme). SQLite gevşek, PostgreSQL katı tiplidir
 (para yazı, tarih sayı, evet/hayır 0-1 olarak saklanıyor → her biri gözden geçirilecek). Ücretsiz
-servis uzak olduğu için ağ gecikmesi olabilir; toplu sorgu gerekebilir.
+servis uzak olduğu için ağ gecikmesi olabilir; toplu sorgu gerekebilir. **Faz 0 parite işi migrasyondan
+bağımsız çalışır, babanın verisine dokunmaz** (normal uygulama geliştirmesi).
 
 ---
 
@@ -62,6 +67,15 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
   defter düzeltmesi; masaüstü **1.0.87 yayında**.
 - **Sıradaki adım (kullanıcı seçecek):** Giriş hız sınırı kararı · Giriş-Çıkış çoklu malzeme ·
   makine bazlı güncelleme yetkisi · Yedek ekranları. Yeni istek geldikçe buraya eklenir.
+
+---
+
+### Görev C — Web görünüm/tasarım iyileştirmeleri (ertelendi)
+**Amaç:** Kullanıcı mevcut web tasarımını sevmiyor. Bu **görünüm** işidir (veritabanından bağımsız).
+- **Durum:** ⏸️ ERTELENDİ — istekler toplanacak.
+- **Nerede kaldık:** Karar: PostgreSQL bunu gerektirmiyor; ayrı iş. Parite için bir ekrana dokununca
+  küçük görünüm iyileştirmeleri o an yapılabilir; büyük yeniden tasarım ayrıca planlanır.
+- **Sıradaki adım:** Kullanıcı beğenmediği noktaları söyledikçe buraya not düş.
 
 ---
 
