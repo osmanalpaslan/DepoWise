@@ -207,6 +207,13 @@
                         }
                         @if (!Bool(sm, "isCancelled"))
                         {
+                            @* Masaüstüyle parite (MaintenanceViewModel.CancelReason): iptal gerekçesi ZORUNLU
+                               ve gerçek denetim kaydına (audit) girer — önceden burada sabit "Kayıt silme"
+                               metni gönderiliyordu, kullanıcının yazdığı gerekçe hiç alınmıyordu. *@
+                            @if (Auth.CanDelete("maintenance"))
+                            {
+                                <MudTextField @bind-Value="_cancelReason" Label="İptal Gerekçesi" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-2" />
+                            }
                             <MudStack Row="true" Class="mt-2" Spacing="2">
                                 @if (Auth.CanEdit("maintenance")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="EditMaint">Düzelt</MudButton> }
                                 @if (Auth.CanDelete("maintenance")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="CancelMaint">Sil</MudButton> }
@@ -378,7 +385,7 @@
 
     private async Task OpenMaint(JsonElement row)
     {
-        _selMaint = row; var id = Str(row, "id");
+        _selMaint = row; _cancelReason = ""; var id = Str(row, "id");
         try { _maintMaterials = await Api.GetArrayAsync($"/api/maintenance/{id}/materials"); } catch { _maintMaterials = Array.Empty<JsonElement>(); }
     }
 
@@ -388,7 +395,8 @@
         if (!await Dialog.RequireBranchAsync(Auth, "Bakım Takibi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_mVehicle is null) { _mMsg = "Araç seçin."; _mOk = false; return; }
         if (string.IsNullOrEmpty(_mDefId)) { _mMsg = "Bakım tanımı seçin."; _mOk = false; return; }
-        if (!await Dialog.Confirm("Bakım kaydı oluşturulsun mu? (seçili malzemeler stoktan düşer)")) return;
+        // Masaüstüyle (MaintenanceViewModel.SaveMnt) birebir aynı metin — parite.
+        if (!await Dialog.Confirm("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)")) return;
         _busy = true;
         try
         {
@@ -426,10 +434,12 @@
     private async Task CancelMaint()
     {
         if (_selMaint is null) return;
+        // Masaüstüyle parite: iptal gerekçesi zorunlu (audit kaydına gerçek sebep girer).
+        if (string.IsNullOrWhiteSpace(_cancelReason)) { _mMsg = "İptal gerekçesi zorunlu."; _mOk = false; return; }
         var id = Str(_selMaint.Value, "id");
         if (!await Dialog.Confirm("Bu bakım kaydı silinsin mi? (kullanılan malzeme stoğu geri alınır)", "Evet, Sil", danger: true)) return;
-        await Api.PostAsync("/api/maintenance/cancel", new { id, reason = "Kayıt silme" });
-        _selMaint = null; await LoadMaint();
+        await Api.PostAsync("/api/maintenance/cancel", new { id, reason = _cancelReason.Trim() });
+        _cancelReason = ""; _selMaint = null; await LoadMaint();
     }
 
     // Düzelt: eski kaydı sil (stok geri al) + araç/tanımı forma taşı → düzeltilmiş kayıt gir

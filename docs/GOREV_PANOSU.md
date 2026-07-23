@@ -38,16 +38,19 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
   tutarlılık hem PostgreSQL tip-hazırlığı. Başlangıç yöntemi: **önce tüm ekran haritası** (kullanıcı seçti).
-- **Nerede kaldık (güncel):** Kullanıcı sırayı Claude'a bıraktı ("istediğin gibi yap"). Tamamlanan:
-  **Araçlar** ✅ (1 bulgu düzeltildi: hızlı düzenle plaka uyarısı, masaüstü etkilendi) ·
-  **Malzemeler** ✅ (tam parite, bulgu yok) · **Personel** ✅ (tam parite, bulgu yok) ·
-  **Stok Giriş/Çıkış** ✅ (2 bulgu, yalnız web) · **Günlük Faaliyet** ✅ (2 bulgu, yalnız web) ·
-  **Yakıt** ✅ (3 bulgu: 2 mesaj farkı + para ile ilgili onayda tutar eksikliği, yalnız web).
-  Raporlar `docs/tests/*_Parite_Denetimi.md`.
-  Sütun listesinin web'de elle senkron tutulması (bakım riski) = PostgreSQL Faz 3'te kökten çözülecek.
-- **Sıradaki adım:** Kalan 🔴 yüksek öncelikli: **Bakım** (son ekran). Sıra Claude'da.
-- **⚠️ Paket notu:** Masaüstünü etkileyen tek değişiklik hâlâ Araçlar plaka uyarısı. Kalan yüksek öncelikli
-  ekranlar bitince **tek pakette (1.0.88)** yayınlanacak — ekran başına ayrı paket yok.
+- **✅ FAZ 0 TAMAMLANDI (2026-07-23) — 7 yüksek öncelikli ekran denetlendi:**
+  **Araçlar** (1 bulgu, masaüstü de etkilendi) · **Malzemeler** (tam parite, bulgu yok) ·
+  **Personel** (tam parite, bulgu yok) · **Stok Giriş/Çıkış** (2 bulgu) · **Günlük Faaliyet** (2 bulgu) ·
+  **Yakıt** (3 bulgu) · **Bakım Takibi** (2 bulgu — en önemlisi: iptal gerekçesi web'de hiç alınmıyordu,
+  audit kaydı sabit metinle doluyordu → düzeltildi). Toplam 11 gerçek bulgu, hepsi düzeltildi; 10'u
+  yalnız web'i etkiledi. Raporlar `docs/tests/*_Parite_Denetimi.md` (7 dosya).
+  Sütun listesinin web'de elle senkron tutulması (ortak bakım riski) = PostgreSQL Faz 3'te web ortak
+  katmana bağlanınca kökten çözülecek.
+- **Sıradaki adım:** (a) Masaüstü **1.0.88** paketlensin mi (Araçlar plaka uyarısı için) — kullanıcı
+  karar verecek, yoksa bekletilebilir çünkü web tarafı zaten canlıya alınabilir durumda. (b) Faz 0
+  sonrası **Faz 1** (ücretsiz PostgreSQL kurulumu) başlatılabilir — kullanıcı onayı gerekiyor.
+- **⚠️ Deploy notu:** Web'deki tüm düzeltmeler (Stok/Günlük Faaliyet/Yakıt/Bakım) henüz **canlıya
+  alınmadı** — yalnız git'e commit edildi. Deploy için kullanıcı onayı gerekir (flyctl deploy).
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
