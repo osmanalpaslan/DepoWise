@@ -83,14 +83,20 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      `$sha256` yanlışlıkla `@sha256`'ya döndü → parola doğrulama bozuldu → 89 test çöktü → geri düzeltildi.
      (Sentinel sanılan `@all`/`@me`/`@co` aslında gerçek SQL param'mış — gerçek sentinel `"__all__"`, dokunulmadı.)
      **569 test yeşil + 4 proje 0 hata.**
-  3. **Lehçe SQL:** `INSERT OR IGNORE` → `ON CONFLICT`, tarih fonksiyonları → 569 yeşil.
+  3. ✅ **TAMAM (2026-07-23) — Lehçe SQL:** SQLite'a özel yapılar iki veritabanında da çalışır hale geldi:
+     `IFNULL`→`COALESCE` (5, ikisi de destekler) · `INSERT OR IGNORE`→`ON CONFLICT DO NOTHING` (18) ·
+     `INSERT OR REPLACE`→`ON CONFLICT(pk) DO UPDATE` (1, company_purges). Ortak karşılığı olmayanlar için
+     yeni `SqlDialect` yardımcısı (bağlantıya göre): `NowMs` (strftime↔extract epoch), `NewHexId`
+     (randomblob/hex↔gen_random_uuid), `AutoIncPk` (AUTOINCREMENT↔IDENTITY) — migration 011/030/034/035/037'de.
+     **569 test yeşil (SQLite tarafı) + 4 proje 0 hata.** ⚠️ PostgreSQL tarafı Adım 4'te Neon'da doğrulanacak.
   4. **Migration'lar:** 52 şema PostgreSQL'de de çalışsın (tipler) → Neon'da test.
   5. **Çalışma-anı:** Türkçe arama/sıralama PostgreSQL karşılığı; PRAGMA'ları SQLite'a özel bırak.
   6. **Uçtan uca:** sunucuyu Neon'a bağlayıp doğrula.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Adım 3 — lehçe farkları: `INSERT OR IGNORE/REPLACE` (19) → `ON CONFLICT`,
-  `strftime/datetime` (7) → PostgreSQL karşılığı. SQLite'ta da çalışmalı → 569 yeşil kalmalı.
+- **Sıradaki adım:** Adım 4 — 52 migration'ı BOŞ bir Neon PostgreSQL veritabanında çalıştırıp şemanın
+  kurulduğunu doğrula (tip farkları burada çıkar: SQLite gevşek tip, PostgreSQL katı). Bu, Adım 1-3'ün
+  PostgreSQL tarafındaki ilk gerçek sınavı. `DEPOWISE_PG_URL` hazır (.env.test.local).
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

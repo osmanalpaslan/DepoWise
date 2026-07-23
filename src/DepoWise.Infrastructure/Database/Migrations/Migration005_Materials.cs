@@ -27,7 +27,7 @@ CREATE TABLE material_categories (
     version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (parent_id) REFERENCES material_categories(id)
 );
-CREATE UNIQUE INDEX ux_mat_categories ON material_categories(company_id, IFNULL(parent_id,''), name);
+CREATE UNIQUE INDEX ux_mat_categories ON material_categories(company_id, COALESCE(parent_id,''), name);
 
 CREATE TABLE brands (
     id TEXT PRIMARY KEY,

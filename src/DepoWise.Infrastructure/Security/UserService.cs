@@ -298,7 +298,7 @@ ORDER BY u.username;";
         {
             var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
                 ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
-            Insert(conn, tx, "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);",
+            Insert(conn, tx, "INSERT INTO user_roles(user_id, role_id) VALUES(@u,@r) ON CONFLICT DO NOTHING;",
                 cmd => { cmd.AddWithValue("@u", userId); cmd.AddWithValue("@r", roleId); });
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
@@ -366,7 +366,7 @@ ORDER BY u.username;";
             var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
                 ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
             Insert(conn, tx,
-                "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);",
+                "INSERT INTO user_roles(user_id, role_id) VALUES(@u,@r) ON CONFLICT DO NOTHING;",
                 cmd => { cmd.AddWithValue("@u", userId); cmd.AddWithValue("@r", roleId); });
         }
 
@@ -649,7 +649,7 @@ ORDER BY c.name;";
 
         // Firma kaydı yoksa oluştur
         Insert(conn, tx,
-            "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES(@id,@n,@now,@now,1,0);",
+            "INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES(@id,@n,@now,@now,1,0) ON CONFLICT DO NOTHING;",
             cmd => { cmd.AddWithValue("@id", companyId); cmd.AddWithValue("@n", companyId); cmd.AddWithValue("@now", now); });
 
         Insert(conn, tx,
@@ -668,7 +668,7 @@ ORDER BY c.name;";
         var roleId = ResolveRoleId(conn, tx, companyId, roleKey)
             ?? throw new InvalidOperationException($"Rol bulunamadı: {roleKey}");
         Insert(conn, tx,
-            "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);",
+            "INSERT INTO user_roles(user_id, role_id) VALUES(@u,@r) ON CONFLICT DO NOTHING;",
             cmd => { cmd.AddWithValue("@u", userId); cmd.AddWithValue("@r", roleId); });
 
         tx.Commit();

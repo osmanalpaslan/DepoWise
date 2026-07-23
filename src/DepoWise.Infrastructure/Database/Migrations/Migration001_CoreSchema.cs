@@ -51,7 +51,7 @@ CREATE TABLE roles (
     version INTEGER NOT NULL DEFAULT 1,
     is_deleted INTEGER NOT NULL DEFAULT 0
 );
-CREATE UNIQUE INDEX ux_roles_key ON roles(IFNULL(company_id,''), role_key);
+CREATE UNIQUE INDEX ux_roles_key ON roles(COALESCE(company_id,''), role_key);
 
 CREATE TABLE users (
     id TEXT PRIMARY KEY,

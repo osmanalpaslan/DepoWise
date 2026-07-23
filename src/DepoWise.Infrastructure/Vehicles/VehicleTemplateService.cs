@@ -263,7 +263,7 @@ WHERE tm.template_id=@t ORDER BY m.code;";
         {
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = "INSERT OR IGNORE INTO vehicle_template_materials(template_id, material_id) VALUES(@t,@m);";
+            ins.CommandText = "INSERT INTO vehicle_template_materials(template_id, material_id) VALUES(@t,@m) ON CONFLICT DO NOTHING;";
             ins.AddWithValue("@t", templateId);
             ins.AddWithValue("@m", mid);
             ins.ExecuteNonQuery();

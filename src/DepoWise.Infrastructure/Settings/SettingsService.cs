@@ -45,7 +45,7 @@ public sealed class SettingsService
             cmd.CommandText = @"
 INSERT INTO app_settings(id, company_id, setting_key, setting_value, updated_at)
 VALUES(@id, @c, @k, @v, @now)
-ON CONFLICT(IFNULL(company_id,''), setting_key)
+ON CONFLICT(COALESCE(company_id,''), setting_key)
 DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at;";
             cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
             cmd.AddWithValue("@c", (object?)companyId ?? DBNull.Value);

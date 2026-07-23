@@ -483,8 +483,8 @@ FROM vehicle_templates WHERE id=@id AND company_id=@c AND is_deleted=0;";
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "INSERT OR IGNORE INTO material_compatible_vehicles(material_id, vehicle_id) " +
-            "SELECT material_id, @v FROM vehicle_template_materials WHERE template_id=@t;";
+            "INSERT INTO material_compatible_vehicles(material_id, vehicle_id) " +
+            "SELECT material_id, @v FROM vehicle_template_materials WHERE template_id=@t ON CONFLICT DO NOTHING;";
         cmd.AddWithValue("@v", vehicleId);
         cmd.AddWithValue("@t", templateId);
         cmd.ExecuteNonQuery();

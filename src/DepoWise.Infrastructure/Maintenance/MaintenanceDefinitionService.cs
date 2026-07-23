@@ -61,7 +61,7 @@ VALUES(@id,@c,@p,@n,@iv,@iu,@d,@now,@now,1,0);";
         {
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = "INSERT OR IGNORE INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES(@d,@v);";
+            ins.CommandText = "INSERT INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES(@d,@v) ON CONFLICT DO NOTHING;";
             ins.AddWithValue("@d", id);
             ins.AddWithValue("@v", vid);
             ins.ExecuteNonQuery();
@@ -178,7 +178,7 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
         {
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = "INSERT OR IGNORE INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES(@d,@v);";
+            ins.CommandText = "INSERT INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES(@d,@v) ON CONFLICT DO NOTHING;";
             ins.AddWithValue("@d", defId);
             ins.AddWithValue("@v", vid);
             ins.ExecuteNonQuery();

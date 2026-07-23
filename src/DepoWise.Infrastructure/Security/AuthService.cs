@@ -276,7 +276,7 @@ public sealed class AuthService
         using (var c = conn.CreateCommand())
         {
             c.Transaction = tx;
-            c.CommandText = "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES(@id,@n,@now,@now,1,0);";
+            c.CommandText = "INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted) VALUES(@id,@n,@now,@now,1,0) ON CONFLICT DO NOTHING;";
             c.AddWithValue("@id", b.CompanyId);
             c.AddWithValue("@n", b.CompanyName);
             c.AddWithValue("@now", now);
@@ -317,7 +317,7 @@ public sealed class AuthService
             if (roleId is null) continue;
             using var ir = conn.CreateCommand();
             ir.Transaction = tx;
-            ir.CommandText = "INSERT OR IGNORE INTO user_roles(user_id, role_id) VALUES(@u,@r);";
+            ir.CommandText = "INSERT INTO user_roles(user_id, role_id) VALUES(@u,@r) ON CONFLICT DO NOTHING;";
             ir.AddWithValue("@u", b.UserId);
             ir.AddWithValue("@r", roleId);
             ir.ExecuteNonQuery();

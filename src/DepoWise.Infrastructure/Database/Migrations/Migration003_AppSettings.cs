@@ -23,7 +23,7 @@ CREATE TABLE app_settings (
     setting_value TEXT NULL,
     updated_at INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX ux_app_settings ON app_settings(IFNULL(company_id,''), setting_key);";
+CREATE UNIQUE INDEX ux_app_settings ON app_settings(COALESCE(company_id,''), setting_key);";
         cmd.ExecuteNonQuery();
     }
 }

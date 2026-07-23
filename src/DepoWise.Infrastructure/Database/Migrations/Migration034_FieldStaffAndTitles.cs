@@ -39,13 +39,13 @@ CREATE INDEX ix_personnel_titles_company ON personnel_titles(company_id);";
         // Mevcut serbest-metin unvanları tanım listesine taşı (veri kaybı olmasın, liste dolu başlasın).
         using var seed = conn.CreateCommand();
         seed.Transaction = tx;
-        seed.CommandText = @"
-INSERT OR IGNORE INTO personnel_titles(id, company_id, name, created_at, updated_at, version, is_deleted)
-SELECT lower(hex(randomblob(16))), company_id, TRIM(title),
-       strftime('%s','now')*1000, strftime('%s','now')*1000, 1, 0
+        seed.CommandText = $@"
+INSERT INTO personnel_titles(id, company_id, name, created_at, updated_at, version, is_deleted)
+SELECT {SqlDialect.NewHexId(conn)}, company_id, TRIM(title),
+       {SqlDialect.NowMs(conn)}, {SqlDialect.NowMs(conn)}, 1, 0
 FROM personnel
 WHERE is_deleted=0 AND title IS NOT NULL AND TRIM(title) <> ''
-GROUP BY company_id, TRIM(title);";
+GROUP BY company_id, TRIM(title) ON CONFLICT DO NOTHING;";
         seed.ExecuteNonQuery();
     }
 }

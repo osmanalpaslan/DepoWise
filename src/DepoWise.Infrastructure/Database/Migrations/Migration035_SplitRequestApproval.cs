@@ -20,10 +20,10 @@ public sealed class Migration035_SplitRequestApproval : IMigration
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = @"
+            cmd.CommandText = $@"
 INSERT INTO user_permissions(id, company_id, user_id, module_key, can_view, can_create, can_edit, can_delete, created_at, updated_at, version)
-SELECT lower(hex(randomblob(16))), b.company_id, b.user_id, 'request_approval', 1, 0, 1, 0,
-       CAST(strftime('%s','now') AS INTEGER)*1000, CAST(strftime('%s','now') AS INTEGER)*1000, 1
+SELECT {SqlDialect.NewHexId(conn)}, b.company_id, b.user_id, 'request_approval', 1, 0, 1, 0,
+       {SqlDialect.NowMs(conn)}, {SqlDialect.NowMs(conn)}, 1
 FROM user_button_permissions b
 WHERE b.button_key = 'btn-approve'
   AND NOT EXISTS (SELECT 1 FROM user_permissions q WHERE q.user_id = b.user_id AND q.module_key = 'request_approval');";

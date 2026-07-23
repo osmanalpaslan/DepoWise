@@ -113,8 +113,8 @@ VALUES(@id, @companyId, NULL, @name, @kind, @now, @now, 1, 0);";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT OR IGNORE INTO companies(id, name, created_at, updated_at, version, is_deleted) " +
-            "VALUES(@id, @name, @now, @now, 1, 0);";
+            "INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted) " +
+            "VALUES(@id, @name, @now, @now, 1, 0) ON CONFLICT DO NOTHING;";
         cmd.AddWithValue("@id", companyId);
         cmd.AddWithValue("@name", name);
         cmd.AddWithValue("@now", now);

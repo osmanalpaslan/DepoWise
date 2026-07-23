@@ -116,7 +116,7 @@ public sealed class BranchService
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
-            "INSERT OR IGNORE INTO user_scopes(user_id, company_id, branch_id) VALUES(@u,@c,@b);";
+            "INSERT INTO user_scopes(user_id, company_id, branch_id) VALUES(@u,@c,@b) ON CONFLICT DO NOTHING;";
         cmd.AddWithValue("@u", userId);
         cmd.AddWithValue("@c", admin.CompanyId);
         cmd.AddWithValue("@b", branchId);

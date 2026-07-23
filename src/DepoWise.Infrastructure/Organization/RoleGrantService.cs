@@ -90,7 +90,7 @@ public sealed class RoleGrantService
                 if (IsHardBlocked(moduleKey, roleKey)) continue; // zaten yapısal kilitli — satır tutmaya gerek yok
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
-                ins.CommandText = "INSERT OR IGNORE INTO role_grant_limits(id, role_key, module_key, created_at) VALUES(@id,@r,@m,@now);";
+                ins.CommandText = "INSERT INTO role_grant_limits(id, role_key, module_key, created_at) VALUES(@id,@r,@m,@now) ON CONFLICT DO NOTHING;";
                 ins.AddWithValue("@id", Guid.NewGuid().ToString("N"));
                 ins.AddWithValue("@r", roleKey);
                 ins.AddWithValue("@m", moduleKey);

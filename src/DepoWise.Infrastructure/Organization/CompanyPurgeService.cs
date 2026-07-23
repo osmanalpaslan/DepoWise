@@ -101,7 +101,8 @@ public sealed class CompanyPurgeService
 
             // 4) KÜNYE — aynı transaction. Bu satır olmadan çevrimdışı makine silmeyi asla öğrenemez.
             Exec(conn, tx,
-                "INSERT OR REPLACE INTO company_purges(company_id, company_name, purged_at, purged_by) VALUES(@c,@n,@at,@by);",
+                "INSERT INTO company_purges(company_id, company_name, purged_at, purged_by) VALUES(@c,@n,@at,@by) " +
+                "ON CONFLICT(company_id) DO UPDATE SET company_name=@n, purged_at=@at, purged_by=@by;",
                 ("@c", companyId), ("@n", name), ("@at", now), ("@by", actor.UserId));
 
             // 5) Audit: aktörün KENDİ firmasında iz kalır (silinen firmada iz bırakmanın anlamı yok — o satırlar gitti).

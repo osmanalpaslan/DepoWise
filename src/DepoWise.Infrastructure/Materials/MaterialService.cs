@@ -204,7 +204,7 @@ VALUES(@id,@c,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@desc,@e
         {
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = "INSERT OR IGNORE INTO material_compatible_vehicles(material_id, vehicle_id) VALUES(@m,@v);";
+            ins.CommandText = "INSERT INTO material_compatible_vehicles(material_id, vehicle_id) VALUES(@m,@v) ON CONFLICT DO NOTHING;";
             ins.AddWithValue("@m", materialId);
             ins.AddWithValue("@v", v);
             ins.ExecuteNonQuery();
@@ -567,7 +567,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "INSERT OR IGNORE INTO material_equivalents(material_id, equivalent_material_id) VALUES(@a,@b);";
+        cmd.CommandText = "INSERT INTO material_equivalents(material_id, equivalent_material_id) VALUES(@a,@b) ON CONFLICT DO NOTHING;";
         cmd.AddWithValue("@a", a);
         cmd.AddWithValue("@b", b);
         cmd.ExecuteNonQuery();

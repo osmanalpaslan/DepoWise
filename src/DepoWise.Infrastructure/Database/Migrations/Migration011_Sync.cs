@@ -55,6 +55,8 @@ CREATE TABLE sync_conflicts (
     created_at INTEGER NOT NULL
 );
 CREATE INDEX ix_sync_conflicts ON sync_conflicts(company_id, status);";
+        // AUTOINCREMENT SQLite'a özel; PostgreSQL'de IDENTITY. Büyük şema metnini bozmadan tek yeri değiştir.
+        cmd.CommandText = cmd.CommandText.Replace("seq INTEGER PRIMARY KEY AUTOINCREMENT", "seq " + SqlDialect.AutoIncPk(conn));
         cmd.ExecuteNonQuery();
     }
 }

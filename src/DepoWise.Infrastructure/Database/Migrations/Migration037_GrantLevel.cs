@@ -28,10 +28,10 @@ public sealed class Migration037_GrantLevel : IMigration
             {
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
-                ins.CommandText = @"
-INSERT OR IGNORE INTO company_grant_limits(id, company_id, module_key, level, created_at)
-SELECT lower(hex(randomblob(16))), c.id, @k, 'admin', CAST(strftime('%s','now') AS INTEGER)*1000
-FROM companies c WHERE c.is_deleted=0;";
+                ins.CommandText = $@"
+INSERT INTO company_grant_limits(id, company_id, module_key, level, created_at)
+SELECT {SqlDialect.NewHexId(conn)}, c.id, @k, 'admin', {SqlDialect.NowMs(conn)}
+FROM companies c WHERE c.is_deleted=0 ON CONFLICT DO NOTHING;";
                 ins.AddWithValue("@k", key);
                 ins.ExecuteNonQuery();
             }

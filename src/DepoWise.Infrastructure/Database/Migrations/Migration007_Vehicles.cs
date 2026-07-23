@@ -36,7 +36,7 @@ CREATE TABLE vehicle_models (
     version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (brand_id) REFERENCES brands(id)
 );
-CREATE UNIQUE INDEX ux_vehicle_models ON vehicle_models(company_id, IFNULL(brand_id,''), name);
+CREATE UNIQUE INDEX ux_vehicle_models ON vehicle_models(company_id, COALESCE(brand_id,''), name);
 
 CREATE TABLE vehicle_templates (
     id TEXT PRIMARY KEY,
