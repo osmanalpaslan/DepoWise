@@ -141,7 +141,7 @@
                 {
                     <tr>
                         @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
-                        <td>@if (Auth.CanDelete("daily_activity")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(Str(row, "id")))">Sil</MudButton> }</td>
+                        <td>@if (Auth.CanDelete("daily_activity")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(row))">Sil</MudButton> }</td>
                     </tr>
                 }
             </tbody>
@@ -324,7 +324,8 @@
             if (_kind == "Bakım")
             {
                 if (string.IsNullOrEmpty(_mDefId)) { _msg = "Bakım tanımı seçin."; _ok = false; _busy = false; return; }
-                if (!await Dialog.Confirm("Bakım kaydı oluşturulsun mu? (seçili malzemeler stoktan düşer)")) { _busy = false; return; }
+                // Masaüstüyle (DailyActivityViewModel) birebir aynı metin — parite.
+                if (!await Dialog.Confirm("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)")) { _busy = false; return; }
                 err = await Api.PostAsync("/api/daily/maintenance", new
                 {
                     vehicleId = _vehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
@@ -334,7 +335,8 @@
             }
             else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
             {
-                if (!await Dialog.Confirm($"{_kind} kaydı oluşturulsun mu? (seçili malzemeler stoktan düşer)")) { _busy = false; return; }
+                // Masaüstüyle birebir aynı metin — parite.
+                if (!await Dialog.Confirm($"{_kind} kaydı eklensin mi? (malzemeler stoktan düşülür)")) { _busy = false; return; }
                 err = await Api.PostAsync("/api/daily/extra", new
                 {
                     type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
@@ -360,10 +362,17 @@
         finally { _busy = false; }
     }
 
-    private async Task Delete(string id)
+    private async Task Delete(JsonElement row)
     {
+        var id = Str(row, "id");
         if (string.IsNullOrEmpty(id)) return;
-        if (!await Dialog.Confirm("Bu faaliyet silinsin mi?", "Evet, Sil", danger: true)) return;
+        // Masaüstüyle parite (DeleteActivity): kayıt türü + bağlı bakım kaydı uyarısı — kullanıcı bakım
+        // kaydının Bakım ekranında KALDIĞINI bilsin (yalnız günlük faaliyet satırı silinir).
+        var typeText = Str(row, "type");
+        var maintenanceId = NullS(row, "maintenanceId");
+        var msg = $"{(string.IsNullOrEmpty(typeText) ? "Faaliyet" : typeText)} kaydı silinsin mi?" +
+            (maintenanceId is not null ? "\n(Bağlı bakım kaydı Bakım ekranında kalır.)" : "");
+        if (!await Dialog.Confirm(msg, "Evet, Sil", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/daily/{id}");
         _msg = err ?? "Silindi."; _ok = err is null;
         await Load();
@@ -388,4 +397,5 @@
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
 }
