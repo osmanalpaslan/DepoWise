@@ -60,9 +60,26 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   - 🔒 Neon deneme veritabanı BOŞ; babanın canlı verisiyle ilgisi yok (altın kural korunuyor).
   - Not: ücretsiz plan (0,5 GB, 100 saat/ay, 100 proje) geliştirme için fazlasıyla yeter. En düşük ücretli
     "Launch": sabit ücret yok, kullandıkça öde (depolama ~0,35 $/GB-ay, işlem ~0,106 $/saat).
-- **Sıradaki adım (Faz 2):** 52 şema adımını (SQLite migration'ları) PostgreSQL diline çevirmek. Kullanıcı
-  onayıyla başlanacak. **Not:** Bu iş bir sonraki büyük adım; masaüstü SQLite migration'ları OLDUĞU GİBİ kalır
-  (masaüstü SQLite'ta kalıyor) — yalnız SUNUCU tarafı için PostgreSQL uyarlaması gerekir.
+- **FAZ 2 — GERÇEK KAPSAM KEŞFEDİLDİ (2026-07-23):** İş, "52 migration çevir"den ÇOK daha büyük.
+  Kod tip düzeyinde SQLite'a kilitli:
+  - **84 dosya** doğrudan `SqliteConnection` tipini kullanıyor (`DbConnection` taban tipine geçmeli — ikisini
+    de Npgsql + SQLite destekler).
+  - **1216 parametre** `$` önekiyle (`AddWithValue("$x", ...)`); Npgsql `$` kabul etmez, `@` ister.
+  - SQLite'a özel SQL: `INSERT OR IGNORE/REPLACE` (19), `strftime/datetime` (7) → PostgreSQL karşılığı.
+  - SQLite'a özel çalışma-anı: `CreateFunction` (Türkçe arama), `CreateCollation` (Türkçe sıralama),
+    PRAGMA'lar (32) → PostgreSQL'de ILIKE/ICU collation ile çözülecek, PRAGMA yok.
+  - **İyi haber:** çoğu MEKANİK ve GÜVENLİ — her adımda 569 test masaüstünün (SQLite) çalıştığını kanıtlar,
+    baban hiç etkilenmez. ID'ler zaten TEXT/GUID (PostgreSQL'e uygun), AUTOINCREMENT neredeyse yok (1).
+- **Önerilen plan (adım adım, her biri test edilir, küçük commit'ler):**
+  1. **Temel:** kod `SqliteConnection` yerine `DbConnection` (her veritabanı) desin → 569 test yeşil kalmalı.
+  2. **Parametreler:** `$` → `@` (dikkatli, C# `$"..."` interpolasyonuna dokunmadan) → 569 yeşil.
+  3. **Lehçe SQL:** `INSERT OR IGNORE` → `ON CONFLICT`, tarih fonksiyonları → 569 yeşil.
+  4. **Migration'lar:** 52 şema PostgreSQL'de de çalışsın (tipler) → Neon'da test.
+  5. **Çalışma-anı:** Türkçe arama/sıralama PostgreSQL karşılığı; PRAGMA'ları SQLite'a özel bırak.
+  6. **Uçtan uca:** sunucuyu Neon'a bağlayıp doğrula.
+- **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
+  geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
+- **Sıradaki adım:** Kullanıcı onayıyla Adım 1'den (güvenli temel) başla.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
