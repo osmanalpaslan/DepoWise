@@ -132,6 +132,11 @@ public partial class VehicleQuickEditWindow : Window
             if (branchBox.SelectedItem is not Opt branchOpt)
             { statusText.Text = "Şantiye / şube seçimi zorunludur."; statusText.IsVisible = true; return; }
             var statusCode = (statusBox.SelectedItem as Opt)?.Id ?? "active";
+            // Yumuşak uyarı — ANA FORMLA PARİTE (VehiclesViewModel): plaka standart Türk biçimine uymuyorsa
+            // sor (iş makinesi/plakasız araç için kullanıcı geçebilir). Sayaç uyarısı burada YOK çünkü sayaç
+            // bu pencerede salt-okunur (değiştirilemez).
+            if (!DepoWise.Application.Ui.FieldChecks.PlateLooksTurkish(plate.Text)
+                && !await ConfirmService.AskAsync(this, "Plaka standart Türk plaka biçimine (34 ABC 123) uymuyor. İş makinesi/plakasız araç ise geçebilirsiniz.\n\nYine de kaydedilsin mi?", "Plaka Uyarısı", "Evet, Kaydet")) return;
             // Onay penceresi (kullanıcı isteği 2026-07-19) — bu pencerenin ÜZERİNDE (owner=this).
             if (!await ConfirmService.AskAsync(this, "Araç bilgileri güncellensin mi?", "Kaydet")) return;
             try
