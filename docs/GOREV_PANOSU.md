@@ -38,13 +38,14 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
   tutarlılık hem PostgreSQL tip-hazırlığı. Başlangıç yöntemi: **önce tüm ekran haritası** (kullanıcı seçti).
-- **Nerede kaldık (güncel):** Adım 0.1 (harita) ✅ + **Araçlar denetimi ✅** (`docs/tests/Araclar_Parite_Denetimi.md`).
-  Araçlarda 1 gerçek bulgu düzeltildi: hızlı düzenle penceresi plaka uyarısını atlıyordu → eklendi
-  (ana formla parite). 1 yanlış alarm (sütun `Sanitize` ölü kod). Sütun listesinin web'de elle senkron
-  tutulması = bakım riski, PostgreSQL Faz 3'te kökten çözülecek (web'i ortak katmana bağla).
-- **Sıradaki adım:** **Malzemeler** ekranı — aynı denetim (alan+doğrulama masaüstü↔web).
-- **⚠️ Paket notu:** Araçlar düzeltmesi masaüstünü etkiledi (yeni plaka uyarısı). Küçük; Malzemeler de
-  bitince **tek pakette (1.0.88)** yayınlanacak — her ekran için ayrı paket çıkarmıyoruz.
+- **Nerede kaldık (güncel):** Adım 0.1 (harita) ✅ · **Araçlar** ✅ (1 bulgu düzeltildi: hızlı düzenle
+  plaka uyarısı) · **Malzemeler** ✅ (`docs/tests/Malzemeler_Parite_Denetimi.md` — **tam parite, bulgu yok**,
+  4 giriş noktası tutarlı). Sütun listesinin web'de elle senkron tutulması = bakım riski, PostgreSQL Faz 3'te
+  kökten çözülecek (web'i ortak katmana bağla).
+- **Sıradaki adım:** 🔴 yüksek öncelikli kalanlar — **Personel · Stok Giriş/Çıkış · Günlük Faaliyet · Yakıt · Bakım**.
+  Kullanıcı sırayı seçecek (öneri: Personel).
+- **⚠️ Paket notu:** Şu ana kadar masaüstünü etkileyen tek değişiklik = Araçlar plaka uyarısı (küçük).
+  Yüksek öncelikli ekranlar bitince **tek pakette (1.0.88)** yayınlanacak — ekran başına ayrı paket yok.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
