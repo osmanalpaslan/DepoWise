@@ -51,22 +51,24 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   hazır ve test edilmiş durumda; kullanıcı ne zaman isterse deploy/paketleme tek komutla yapılabilir.
 - **⚠️ Deploy notu:** Web'deki tüm düzeltmeler (Stok/Günlük Faaliyet/Yakıt/Bakım) henüz **canlıya
   alınmadı** — yalnız git'e commit edildi, kullanıcı deploy istediğinde yapılacak.
-- **FAZ 1 BAŞLADI (2026-07-23):** Ortam kontrolü yapıldı — makinede Docker/yerel PostgreSQL YOK, ama
-  **winget mevcut** (PostgreSQL 17/18 kurulabilir). Güvenli hazırlık tamamlandı:
-  - Npgsql (.NET PostgreSQL sürücüsü) test projesine eklendi.
-  - `PostgresConnectionTests.cs` yazıldı: `DEPOWISE_PG_URL` ortam değişkeninden bağlantı okur, sunucu
-    yoksa **sessizce atlanır** (git'e parola yazılmaz, mevcut testleri bozmaz). Şu an 569 geçti + 2 atlandı.
-  - **Bekleyen tek şey: bir PostgreSQL sunucusu.** İki yol var, kullanıcı seçecek:
-    (a) **Yerel kurulum** (Claude winget ile kurar — Windows izin penceresi çıkabilir; ücretsiz, çevrimdışı,
-    güvenli, geliştirme için ideal) · (b) **Bulut hesabı** (Neon/Supabase — hesabı KULLANICI açar, Claude
-    hesap oluşturamaz; yalnız canlıya çıkarken gerekir).
-- **Sıradaki adım:** Kullanıcı PostgreSQL sunucusu için (a) yerel kurulum mu (b) bulut hesabı mı seçecek.
+- **✅ FAZ 1 TAMAMLANDI (2026-07-23):** Kullanıcı bulut (Neon) seçti, GitHub ile giriş yaptı, API anahtarı verdi.
+  - `neonctl` kuruldu; API anahtarı `.env.test.local`'e (git-ignored) yazıldı.
+  - **Yeni proje:** `depowise-dev` (id `nameless-shape-66675056`), **PostgreSQL 17**, **Frankfurt** (aws-eu-central-1),
+    org `alpdepo`. Eski proje (`alpdepo`/autumn-morning-75319830) **silinmedi, dokunulmadı** (yan yana durabilir).
+  - Bağlantı adresi `.env.test.local` → `DEPOWISE_PG_URL` (Npgsql biçimi, git'e girmez).
+  - **Bağlantı DOĞRULANDI:** `PostgresConnectionTests` 2/2 geçti (`SELECT version()` → PostgreSQL 17, `SELECT 1+1`).
+  - 🔒 Neon deneme veritabanı BOŞ; babanın canlı verisiyle ilgisi yok (altın kural korunuyor).
+  - Not: ücretsiz plan (0,5 GB, 100 saat/ay, 100 proje) geliştirme için fazlasıyla yeter. En düşük ücretli
+    "Launch": sabit ücret yok, kullandıkça öde (depolama ~0,35 $/GB-ay, işlem ~0,106 $/saat).
+- **Sıradaki adım (Faz 2):** 52 şema adımını (SQLite migration'ları) PostgreSQL diline çevirmek. Kullanıcı
+  onayıyla başlanacak. **Not:** Bu iş bir sonraki büyük adım; masaüstü SQLite migration'ları OLDUĞU GİBİ kalır
+  (masaüstü SQLite'ta kalıyor) — yalnız SUNUCU tarafı için PostgreSQL uyarlaması gerekir.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
 |---|---|---|
 | **0** | **Ekran denetimi + parite** — her ekran: masaüstü=web=veritabanı aynı (alan+mantık). PostgreSQL'e model hazırlığı da bu. Ekran ekran, kısa rapor + küçük commit | 🟢 başladı (haritalama) |
-| 1 | Ücretsiz PostgreSQL kur, bağlantıyı doğrula | 🟢 sürüyor — sürücü (Npgsql) + bağlantı doğrulama testi hazır; PostgreSQL sunucusu bekleniyor |
+| 1 | Ücretsiz PostgreSQL kur, bağlantıyı doğrula | ✅ **TAMAM** — Neon (bulut, ücretsiz, Frankfurt, PG17) projesi `depowise-dev` kuruldu; Npgsql ile bağlantı 2 testle doğrulandı |
 | 2 | 52 şema adımını (migration) PostgreSQL diline çevir | ⬜ |
 | 3 | Sunucu veri katmanını (okuma/yazma) PostgreSQL'e uyarla | ⬜ |
 | 4 | **En zor parça:** eşitleme kodunu iki veritabanına birden (masaüstü SQLite ↔ sunucu PostgreSQL) çalışır hâle getir | ⬜ |
