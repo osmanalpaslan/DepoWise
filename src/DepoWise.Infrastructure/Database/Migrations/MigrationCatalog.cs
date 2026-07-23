@@ -57,5 +57,6 @@ public static class MigrationCatalog
         new Migration050_NormalizeLookupSpaces(),
         new Migration051_LookupLocked(),
         new Migration052_FuelRecipient(),
+        new Migration053_PostgresTurkishCollations(),
     };
 }

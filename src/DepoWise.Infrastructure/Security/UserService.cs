@@ -76,7 +76,7 @@ public sealed class UserService
         AccessControl.Require(actor, "users", PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        cmd.CommandText = SqlDialect.PortableSql(conn, @"
 SELECT u.id, u.username, u.full_name, u.is_active,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id),
   u.branch_id, b.name, COALESCE(u.can_view_all_branches,0),
@@ -91,7 +91,7 @@ WHERE u.is_deleted = 0 AND (@all = 1 OR u.company_id = @c)
   AND (@all = 1 OR NOT EXISTS (
         SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
         WHERE ur.user_id = u.id AND r.role_key = @sa))
-ORDER BY u.username;";
+ORDER BY u.username;");
         cmd.AddWithValue("@all", actor.IsSuperAdmin ? 1 : 0);
         cmd.AddWithValue("@c", actor.CompanyId);
         cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);

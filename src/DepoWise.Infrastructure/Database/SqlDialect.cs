@@ -36,4 +36,35 @@ internal static class SqlDialect
         => IsSqlite(conn)
             ? "INTEGER PRIMARY KEY AUTOINCREMENT"
             : "BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY";
+
+    /// <summary>Türkçe-duyarsız "içerir/başlar" araması için LIKE ifadesi (İ↔i, I↔ı; ç/ş/ğ/ü/ö duyarsız).
+    /// SQLite: like() fonksiyonu bağlantı kurulurken Türkçe kültürle EZİLDİ (<see cref="SqliteConnectionFactory"/>)
+    /// → düz <c>col LIKE param</c> zaten Türkçe-duyarsız. PostgreSQL: LIKE bir OPERATÖR (fonksiyon değil), ezilemez
+    /// → her iki tarafı Türkçe collation (dw_tr, Migration053'te kurulur) ile küçük harfe indirip eşleştir.
+    /// Yalnız kullanıcı-arama LIKE'larında kullanılır; kod-üretim/yapısal (ASCII) LIKE'lar düz kalır.</summary>
+    public static string LikeTr(bool sqlite, string colExpr, string paramExpr)
+        => sqlite
+            ? $"{colExpr} LIKE {paramExpr}"
+            : $"lower({colExpr} COLLATE dw_tr) LIKE lower({paramExpr} COLLATE dw_tr)";
+
+    /// <inheritdoc cref="LikeTr(bool,string,string)"/>
+    public static string LikeTr(DbConnection conn, string colExpr, string paramExpr)
+        => LikeTr(IsSqlite(conn), colExpr, paramExpr);
+
+    /// <summary>SQLite'a özel (PostgreSQL'de karşılığı olmayan) fonksiyonları bağlantının lehçesine çevirir.
+    /// SQLite'ta metni AYNEN döndürür → mevcut davranış BİREBİR korunur (569 test etkilenmez); yalnız PostgreSQL'de:
+    ///   • <c>printf('%.2f', CAST(&lt;expr&gt; AS REAL))</c> → <c>to_char(CAST(&lt;expr&gt; AS double precision), 'FM…0.00')</c>
+    ///     (sayıyı 2 ondalıklı metne çevirir — liste/grid'de sayısal kolonun "içerir" araması için).
+    ///   • <c>GROUP_CONCAT(&lt;expr&gt;, '&lt;ayraç&gt;')</c> → <c>string_agg(&lt;expr&gt;, '&lt;ayraç&gt;')</c> (aynı imza).
+    /// Liste/grid sorgularının komut metnini bununla sarmalayın (SQLite'ta güvenli no-op).</summary>
+    public static string PortableSql(DbConnection conn, string sql)
+    {
+        if (IsSqlite(conn)) return sql;
+        sql = System.Text.RegularExpressions.Regex.Replace(
+            sql,
+            @"printf\('%\.2f',\s*CAST\((.*?) AS REAL\)\)",
+            "to_char(CAST($1 AS double precision), 'FM999999999990.00')");
+        sql = sql.Replace("GROUP_CONCAT(", "string_agg(");
+        return sql;
+    }
 }

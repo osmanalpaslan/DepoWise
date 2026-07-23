@@ -389,7 +389,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
         cmd.CommandText =
             "SELECT id, company_id, code, name, type, min_stock, unit_price, currency_code, created_at FROM materials " +
             "WHERE company_id = @c AND is_deleted = 0 " +
-            (hasSearch ? "AND (code LIKE @q OR name LIKE @q) " : "") +
+            (hasSearch ? $"AND ({SqlDialect.LikeTr(conn, "code", "@q")} OR {SqlDialect.LikeTr(conn, "name", "@q")}) " : "") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT @limit;";
         cmd.AddWithValue("@c", s.CompanyId);
@@ -476,13 +476,14 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         GridQuery.ColumnFilter? sort = null;
         if (sortColumn is not null)
             foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
-        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code", sort, sortDesc);
-
         using var conn = _factory.Create();
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code", sort, sortDesc, SqlDialect.IsSqlite(conn));
+        var inner = SqlDialect.PortableSql(conn, GridInnerSql);   // PG: printf→to_char, GROUP_CONCAT→string_agg
+
         int total;
         using (var cnt = conn.CreateCommand())
         {
-            cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
+            cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
@@ -491,7 +492,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         var items = new List<MaterialGridRow>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);

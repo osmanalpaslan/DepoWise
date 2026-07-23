@@ -55,7 +55,8 @@ public static class GridQuery
     /// Bu durumda filtrelerin "başlangıca göre" öncelik sıralaması UYGULANMAZ — kullanıcının açık seçimi kazanır.
     /// Sona daima <paramref name="tieBreakerAlias"/> eklenir (kararlı/benzersiz sıralama).</summary>
     public static (string WhereSql, string OrderBySql, List<(string Name, object Value)> Params) Build(
-        IReadOnlyList<ColumnFilter> filters, string tieBreakerAlias, ColumnFilter? sort = null, bool sortDesc = false)
+        IReadOnlyList<ColumnFilter> filters, string tieBreakerAlias, ColumnFilter? sort = null, bool sortDesc = false,
+        bool sqlite = true)
     {
         var whereParts = new List<string>();
         var orderParts = new List<string>();
@@ -103,8 +104,10 @@ public static class GridQuery
 
             var pContains = $"@gf{i}c";
             var pStarts = $"@gf{i}s";
-            whereParts.Add($"{f.Alias} LIKE {pContains}");
-            orderParts.Add($"CASE WHEN {f.Alias} LIKE {pStarts} THEN 0 ELSE 1 END");
+            // Türkçe-duyarsız "içerir"/"başlar" — SQLite'ta düz LIKE (like() Türkçe ezildi),
+            // PostgreSQL'de lower(... COLLATE dw_tr) LIKE lower(...). Bkz. SqlDialect.LikeTr.
+            whereParts.Add(SqlDialect.LikeTr(sqlite, f.Alias, pContains));
+            orderParts.Add($"CASE WHEN {SqlDialect.LikeTr(sqlite, f.Alias, pStarts)} THEN 0 ELSE 1 END");
             ps.Add((pContains, "%" + term + "%"));
             ps.Add((pStarts, term + "%"));
             i++;

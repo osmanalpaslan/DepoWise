@@ -256,13 +256,13 @@ WHERE i.request_id=@r ORDER BY m.code;";
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        cmd.CommandText = $@"
 SELECT mr.id, mr.doc_no, mr.status, mr.request_date, mr.description,
        (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
 FROM material_requests mr
 WHERE mr.company_id=@c AND mr.is_deleted=0
   AND (@st IS NULL OR mr.status=@st)
-  AND (@s IS NULL OR mr.doc_no LIKE @like OR COALESCE(mr.description,'') LIKE @like)
+  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "mr.doc_no", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(mr.description,'')", "@like")})
 ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@st", status is null ? DBNull.Value : RequestStatusMachine.ToDb(status.Value));

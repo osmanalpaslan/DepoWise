@@ -192,11 +192,11 @@ VALUES(@id,@c,@ic,@plate,@yr,@meter,@mu,@br,@drv,@ch,@en,@st,@note,@vt,@cat,@bra
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        cmd.CommandText = $@"
 SELECT id, internal_code, plate, status, current_meter, meter_unit, production_year
 FROM vehicles
 WHERE company_id=@c AND is_deleted=0
-  AND (@s IS NULL OR internal_code LIKE @like OR COALESCE(plate,'') LIKE @like)
+  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "internal_code", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(plate,'')", "@like")})
 ORDER BY internal_code LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
@@ -265,13 +265,14 @@ WHERE v.company_id = @c AND v.is_deleted = 0";
         GridQuery.ColumnFilter? sort = null;
         if (sortColumn is not null)
             foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
-        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.internal_code", sort, sortDesc);
-
         using var conn = _factory.Create();
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.internal_code", sort, sortDesc, SqlDialect.IsSqlite(conn));
+        var inner = SqlDialect.PortableSql(conn, GridInnerSql);   // PG: printf→to_char, GROUP_CONCAT→string_agg
+
         int total;
         using (var cnt = conn.CreateCommand())
         {
-            cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
+            cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
@@ -280,7 +281,7 @@ WHERE v.company_id = @c AND v.is_deleted = 0";
         var items = new List<VehicleGridRow>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@c", s.CompanyId);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);

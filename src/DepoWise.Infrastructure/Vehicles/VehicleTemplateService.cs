@@ -124,7 +124,7 @@ VALUES(@id,@c,@n,@ic,@vt,@cat,@br,@vm,@yr,@mu,@by,@g,@now,@now,1,0);";
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        cmd.CommandText = $@"
 SELECT t.id, t.name, t.internal_code, vt.name, vc.name, b.name, vm.name, t.production_year,
        t.vehicle_type_id, t.category_id, t.brand_id, t.vehicle_model_id
 FROM vehicle_templates t
@@ -134,7 +134,7 @@ LEFT JOIN brands b ON b.id = t.brand_id
 LEFT JOIN vehicle_models vm ON vm.id = t.vehicle_model_id
 WHERE t.company_id=@c AND t.is_deleted=0
   AND (t.is_global=1 OR t.created_by=@me)
-  AND (@s IS NULL OR t.name LIKE @like OR COALESCE(t.internal_code,'') LIKE @like)
+  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "t.name", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(t.internal_code,'')", "@like")})
 ORDER BY t.name LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@me", s.UserId);

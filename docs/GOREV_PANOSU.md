@@ -33,7 +33,7 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟢 BAŞLADI — Faz 0 (ekran denetimi + parite). Mimari kararı 2026-07-23.
+- **Durum:** 🟢 DEVAM — Faz 2 Adım 5 tamam (Türkçe arama PG'de). Sıra: Adım 6 (canlı sunucu bağlama).
 - **Nerede kaldık:** Kullanıcı A'ya başlamak istedi. İki karar eklendi: (1) PostgreSQL web'i baştan
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
@@ -95,23 +95,32 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      INTEGER→BIGINT (zaman damgası taşması), PRAGMA/sqlite_master→information_schema (`DbIntrospect`),
      GROUP BY bare-kolon→pencere fonksiyonu/PK gruplama, dinamik `$`→`@` parametreler (UpsertRow/LookupService),
      savepoint-yerine-transaction-abort farkı tespit edildi. **573 test yeşil (569 SQLite + 4 PG).**
-  5. **Çalışma-anı:** Türkçe arama/sıralama PostgreSQL karşılığı (SQLite custom LIKE + TRNOCASE collation
-     PG'de yok → ILIKE / ICU). PRAGMA'lar SQLite'a özel bırakıldı (`DatabaseHealth` sunucuda uyarlanacak).
+  5. ✅ **TAMAM (2026-07-23) — Çalışma-anı Türkçe arama/sıralama:** SQLite'ta çalışma-anı kaydedilen Türkçe
+     `like()` + `TRNOCASE`'in PostgreSQL karşılığı kuruldu. **Migration053** PG'de 3 ICU collation açar:
+     `dw_tr` (Türkçe küçük-harf, İ→i/I→ı), `nocase` (harf-duyarsız eşitlik), `trnocase` (Türkçe sıralama:
+     Ç, C'den sonra). Böylece mevcut `COLLATE NOCASE`/`COLLATE TRNOCASE` SQL'leri PG'de **değişmeden** çalışır.
+     `LIKE` operatörü PG'de ezilemediğinden yeni `SqlDialect.LikeTr` (SQLite: düz LIKE / PG:
+     `lower(col COLLATE dw_tr) LIKE lower(param COLLATE dw_tr)`) — GridQuery + 5 arama sorgusunda. Ayrıca
+     grid iç sorgusundaki SQLite-özel fonksiyonlar için `SqlDialect.PortableSql` (PG: `printf`→`to_char`,
+     `GROUP_CONCAT`→`string_agg`; SQLite'ta aynen döner). SQLite yolu HİÇ değişmedi → **574 test yeşil**
+     (569 SQLite + 5 PG; yeni `PostgresTurkishSearchTests` İ-katlaması + grid + TRNOCASE + NOCASE'i Neon'da
+     kanıtlar). PRAGMA'lar SQLite'a özel bırakıldı (`DatabaseHealth` sunucuda Adım 6'da uyarlanacak).
   6. **Uçtan uca (canlı):** gerçek sunucuyu (API) Neon'a bağla (PostgresConnectionFactory), Fly'da Neon'la
-     aynı bölgede çalıştır, gerçek verinin KOPYASIYLA prova.
+     aynı bölgede çalıştır, gerçek verinin KOPYASIYLA prova. `DatabaseHealth` (PRAGMA journal_mode/foreign_keys
+     → SQLite'a özel) PG için uyarlanacak.
 
 - **⚠️ Bilinen takip işleri (sağlamlık):**
   1. **ApplyCore satır-hatası deseni:** SQLite'ta hatalı satır atlanıp devam edilir; PostgreSQL'de bir hata
      tüm transaction'ı poison eder (25P02). Geçerli veride sorun yok (e2e kanıtı) ama beklenmedik bir satır
      hatasında PG'de tüm push başarısız olur. Uzak PG'de satır-başı savepoint çok round-trip (yavaş) →
      doğru tasarım: geçerli-veride hızlı, hatada toplu-rollback+retry. Ayrı ele alınacak.
-  2. **Türkçe arama (Adım 5):** grid/lookup LIKE aramaları PG'de büyük/küçük harf duyarlı + Türkçe-duyarsız
-     değil. Adım 5'te çözülecek.
+  2. ✅ **ÇÖZÜLDÜ (Adım 5, 2026-07-23):** Türkçe arama/sıralama artık PG'de çalışıyor (Migration053 collation'lar
+     + `SqlDialect.LikeTr`/`PortableSql`). `PostgresTurkishSearchTests` Neon'da kanıtlar.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Adım 5 — Türkçe arama/sıralamayı PostgreSQL'de çöz (SQLite custom LIKE + TRNOCASE
-  PG'de yok). Ardından Adım 6 (canlı sunucuyu Neon'a bağlama, Faz 3 server wiring). Kalan sağlamlık
-  takip işleri (savepoint deseni) yukarıda listelendi.
+- **Sıradaki adım:** Adım 6 — canlı sunucuyu Neon'a bağlama (Faz 3 server wiring): `PostgresConnectionFactory`,
+  `DatabaseHealth` PG uyarlaması, Fly'da Neon bölgesinde çalıştırma, gerçek verinin KOPYASIYLA prova. Kalan
+  sağlamlık takip işi (ApplyCore savepoint deseni) yukarıda listelendi.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

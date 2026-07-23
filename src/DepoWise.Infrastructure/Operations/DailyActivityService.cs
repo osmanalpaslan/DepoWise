@@ -347,13 +347,13 @@ WHERE da.company_id = @c AND da.is_deleted = 0";
         GridQuery.ColumnFilter? sort = null;
         if (sortColumn is not null)
             foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
-        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.id", sort, sortDesc);
+        using var conn = _factory.Create();
+        var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.id", sort, sortDesc, SqlDialect.IsSqlite(conn));
         // Varsayılan sıra (kullanıcı başlığa tıklamadıysa): en yeni faaliyet üstte — mevcut List() davranışıyla
         // AYNI (bu ekran bir kronolojik günlük; Malzemeler/Araçlar'daki "filtrelerin doldurulma sırası"
         // önceliği burada anlamsız — tarih her zaman kazanır).
         if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
 
-        using var conn = _factory.Create();
         int total;
         using (var cnt = conn.CreateCommand())
         {

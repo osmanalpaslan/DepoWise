@@ -172,7 +172,7 @@ UPDATE users SET branch_id=NULL, updated_at=@now WHERE branch_id=@id AND company
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        cmd.CommandText = SqlDialect.PortableSql(conn, @"
 SELECT u.id, u.username, u.full_name,
   (SELECT GROUP_CONCAT(r.name, ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id)
 FROM users u
@@ -180,7 +180,7 @@ WHERE u.branch_id = @b AND u.company_id = @c AND u.is_deleted = 0
   AND (@all = 1 OR NOT EXISTS (
         SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
         WHERE ur.user_id = u.id AND r.role_key = @sa))
-ORDER BY u.username;";
+ORDER BY u.username;");
         cmd.AddWithValue("@b", branchId);
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@all", s.IsSuperAdmin ? 1 : 0);

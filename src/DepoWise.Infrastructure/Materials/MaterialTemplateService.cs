@@ -89,13 +89,13 @@ VALUES(@id,@c,@n,@code,@t,@cat,@u,@br,@sup,@min,@up,@cur,@desc,@cv,@by,@g,@now,@
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        cmd.CommandText = $@"
 SELECT t.id, t.name, t.code, u.name, t.is_global, t.created_by
 FROM material_templates t
 LEFT JOIN units u ON u.id = t.unit_id
 WHERE t.company_id=@c AND t.is_deleted=0
   AND (t.is_global=1 OR t.created_by=@me)
-  AND (@s IS NULL OR t.name LIKE @like OR COALESCE(t.code,'') LIKE @like)
+  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "t.name", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(t.code,'')", "@like")})
 ORDER BY t.is_global DESC, t.name LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@me", s.UserId);
