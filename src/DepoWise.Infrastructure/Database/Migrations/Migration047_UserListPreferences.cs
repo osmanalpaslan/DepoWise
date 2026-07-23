@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS user_list_preferences(
     user_id TEXT NOT NULL,
     list_key TEXT NOT NULL,
     columns_json TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
+    updated_at BIGINT NOT NULL,
     PRIMARY KEY (user_id, list_key)
 );");
     }

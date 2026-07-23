@@ -61,8 +61,10 @@ public sealed class MigrationRunner
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
+            // applied_at = Unix ms (~1.7 trilyon) → PostgreSQL'de 32-bit INTEGER'a SIĞMAZ, BIGINT gerekir.
+            // (SQLite'ta BIGINT = INTEGER affinity, davranış aynı.)
             "CREATE TABLE IF NOT EXISTS schema_migrations(" +
-            "version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at INTEGER NOT NULL);";
+            "version BIGINT PRIMARY KEY, name TEXT NOT NULL, applied_at BIGINT NOT NULL);";
         cmd.ExecuteNonQuery();
     }
 

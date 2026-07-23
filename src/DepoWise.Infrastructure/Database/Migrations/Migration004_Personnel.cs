@@ -23,11 +23,11 @@ CREATE TABLE personnel (
     full_name TEXT NOT NULL,
     title TEXT NULL,
     phone TEXT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1,
-    is_deleted INTEGER NOT NULL DEFAULT 0,
+    is_active BIGINT NOT NULL DEFAULT 1,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1,
+    is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (branch_id) REFERENCES branches(id)
 );

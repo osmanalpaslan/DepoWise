@@ -22,10 +22,10 @@ CREATE TABLE permission_templates (
     name TEXT NOT NULL,
     permissions_json TEXT NOT NULL DEFAULT '[]',
     buttons_json TEXT NOT NULL DEFAULT '[]',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1,
-    is_deleted INTEGER NOT NULL DEFAULT 0
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1,
+    is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_permission_templates_name ON permission_templates(company_id, name) WHERE is_deleted=0;";
         cmd.ExecuteNonQuery();

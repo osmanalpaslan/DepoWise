@@ -17,29 +17,29 @@ public sealed class Migration011_Sync : IMigration
         cmd.Transaction = tx;
         cmd.CommandText = @"
 ALTER TABLE sync_devices ADD COLUMN token_hash TEXT NULL;
-ALTER TABLE sync_devices ADD COLUMN revoked_at INTEGER NULL;
-ALTER TABLE sync_devices ADD COLUMN last_seen_at INTEGER NULL;
+ALTER TABLE sync_devices ADD COLUMN revoked_at BIGINT NULL;
+ALTER TABLE sync_devices ADD COLUMN last_seen_at BIGINT NULL;
 
 CREATE TABLE enrollment_keys (
     id TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
     key_hash TEXT NOT NULL,
-    expires_at INTEGER NOT NULL,
-    used_at INTEGER NULL,                       -- tek kullanımlık: kullanılınca dolu
-    created_at INTEGER NOT NULL
+    expires_at BIGINT NOT NULL,
+    used_at BIGINT NULL,                       -- tek kullanımlık: kullanılınca dolu
+    created_at BIGINT NOT NULL
 );
 CREATE INDEX ix_enrollment_keys ON enrollment_keys(company_id, expires_at);
 
 -- Sunucu otoriteli değişiklik feed'i (pull). Monoton seq cursor.
 CREATE TABLE server_changes (
-    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    seq BIGINT PRIMARY KEY AUTOINCREMENT,
     company_id TEXT NOT NULL,
     operation_id TEXT NOT NULL,
     entity_type TEXT NOT NULL,
     entity_id TEXT NOT NULL,
     payload_json TEXT NOT NULL,
-    valid INTEGER NOT NULL DEFAULT 1,           -- 0 = bozuk (pull sayfa rollback testi)
-    created_at INTEGER NOT NULL
+    valid BIGINT NOT NULL DEFAULT 1,           -- 0 = bozuk (pull sayfa rollback testi)
+    created_at BIGINT NOT NULL
 );
 CREATE INDEX ix_server_changes ON server_changes(company_id, seq);
 
@@ -52,11 +52,11 @@ CREATE TABLE sync_conflicts (
     incoming_payload TEXT NULL,
     reason TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'open',         -- open | resolved
-    created_at INTEGER NOT NULL
+    created_at BIGINT NOT NULL
 );
 CREATE INDEX ix_sync_conflicts ON sync_conflicts(company_id, status);";
         // AUTOINCREMENT SQLite'a özel; PostgreSQL'de IDENTITY. Büyük şema metnini bozmadan tek yeri değiştir.
-        cmd.CommandText = cmd.CommandText.Replace("seq INTEGER PRIMARY KEY AUTOINCREMENT", "seq " + SqlDialect.AutoIncPk(conn));
+        cmd.CommandText = cmd.CommandText.Replace("seq BIGINT PRIMARY KEY AUTOINCREMENT", "seq " + SqlDialect.AutoIncPk(conn));
         cmd.ExecuteNonQuery();
     }
 }

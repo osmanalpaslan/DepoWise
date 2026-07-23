@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS role_grant_limits (
     id          TEXT PRIMARY KEY,
     role_key    TEXT NOT NULL,
     module_key  TEXT NOT NULL,
-    created_at  INTEGER NOT NULL,
+    created_at  BIGINT NOT NULL,
     UNIQUE(role_key, module_key)
 );");
         Exec(conn, tx, "CREATE INDEX IF NOT EXISTS ix_role_grant_limits_role ON role_grant_limits(role_key);");

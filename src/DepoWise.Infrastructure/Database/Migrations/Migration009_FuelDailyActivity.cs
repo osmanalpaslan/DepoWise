@@ -26,10 +26,10 @@ CREATE TABLE fuel_depot_entries (
     fx_rate TEXT NULL,
     invoice_no TEXT NULL,
     note TEXT NULL,
-    entry_date INTEGER NOT NULL,
+    entry_date BIGINT NOT NULL,
     operation_id TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 CREATE UNIQUE INDEX ux_fuel_depot_op ON fuel_depot_entries(operation_id);
@@ -46,11 +46,11 @@ CREATE TABLE fuel_distributions (
     currency_code TEXT NOT NULL DEFAULT 'TRY',
     fx_rate TEXT NULL,
     personnel_id TEXT NULL,
-    distribution_date INTEGER NOT NULL,
+    distribution_date BIGINT NOT NULL,
     note TEXT NULL,
     operation_id TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
 );
 CREATE UNIQUE INDEX ux_fuel_dist_op ON fuel_distributions(operation_id);
@@ -66,15 +66,15 @@ CREATE TABLE daily_activities (
     from_location_id TEXT NULL,
     to_location_id TEXT NULL,
     operator_id TEXT NULL,
-    duration_days INTEGER NULL,
+    duration_days BIGINT NULL,
     description TEXT NULL,
     maintenance_id TEXT NULL,                 -- bakım tipinde: ortak bakım kaydına REFERANS
     source_module TEXT NOT NULL DEFAULT 'daily_activity',
-    stock_processed INTEGER NOT NULL DEFAULT 0,
-    activity_date INTEGER NOT NULL,
+    stock_processed BIGINT NOT NULL DEFAULT 0,
+    activity_date BIGINT NOT NULL,
     operation_id TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
     FOREIGN KEY (maintenance_id) REFERENCES vehicle_maintenances(id)
 );

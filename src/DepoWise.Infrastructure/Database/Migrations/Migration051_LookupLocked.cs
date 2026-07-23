@@ -27,7 +27,7 @@ public sealed class Migration051_LookupLocked : IMigration
         {
             using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0;";
+            cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN is_locked BIGINT NOT NULL DEFAULT 0;";
             cmd.ExecuteNonQuery();
         }
     }

@@ -18,7 +18,7 @@ public sealed class Migration028_DataConflicts : IMigration
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "ALTER TABLE sync_devices ADD COLUMN last_business_push_at INTEGER;";
+            cmd.CommandText = "ALTER TABLE sync_devices ADD COLUMN last_business_push_at BIGINT;";
             cmd.ExecuteNonQuery();
         }
         using (var cmd = conn.CreateCommand())
@@ -34,12 +34,12 @@ CREATE TABLE data_conflicts (
     winner TEXT NOT NULL,                 -- admin | device
     admin_user_id TEXT NULL,
     admin_name TEXT NULL,
-    server_updated_at INTEGER NOT NULL,
-    device_updated_at INTEGER NOT NULL,
-    personnel_seen INTEGER NOT NULL DEFAULT 0,
+    server_updated_at BIGINT NOT NULL,
+    device_updated_at BIGINT NOT NULL,
+    personnel_seen BIGINT NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'open',   -- open | resolved
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
 );
 CREATE INDEX ix_data_conflicts ON data_conflicts(company_id, status);
 CREATE UNIQUE INDEX ux_data_conflicts_entity ON data_conflicts(company_id, entity_id) WHERE status='open';";

@@ -30,22 +30,14 @@ public sealed class Migration044_SpecialCodeAndPurge : IMigration
 CREATE TABLE IF NOT EXISTS company_purges(
     company_id   TEXT PRIMARY KEY,
     company_name TEXT NOT NULL,
-    purged_at    INTEGER NOT NULL,
+    purged_at    BIGINT NOT NULL,
     purged_by    TEXT NOT NULL
 );");
         Exec(conn, tx, "CREATE INDEX IF NOT EXISTS ix_company_purges_at ON company_purges(purged_at);");
     }
 
     private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = $"PRAGMA table_info({table});";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return true;
-        return false;
-    }
+        => DbIntrospect.ColumnExists(conn, tx, table, column);
 
     private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {

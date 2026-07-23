@@ -16,7 +16,7 @@ public sealed class Migration021_MachineQuota : IMigration
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "ALTER TABLE companies ADD COLUMN machine_quota INTEGER NOT NULL DEFAULT 3;";
+        cmd.CommandText = "ALTER TABLE companies ADD COLUMN machine_quota BIGINT NOT NULL DEFAULT 3;";
         cmd.ExecuteNonQuery();
     }
 }

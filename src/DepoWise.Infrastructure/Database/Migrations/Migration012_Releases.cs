@@ -20,13 +20,13 @@ CREATE TABLE app_releases (
     id TEXT PRIMARY KEY,
     version TEXT NOT NULL,
     checksum_sha256 TEXT NOT NULL,
-    size_bytes INTEGER NOT NULL DEFAULT 0,
+    size_bytes BIGINT NOT NULL DEFAULT 0,
     min_supported_version TEXT NOT NULL DEFAULT '0.0.0',
     release_notes TEXT NULL,
-    signed INTEGER NOT NULL DEFAULT 0,
-    published_at INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    is_deleted INTEGER NOT NULL DEFAULT 0
+    signed BIGINT NOT NULL DEFAULT 0,
+    published_at BIGINT NOT NULL,
+    created_at BIGINT NOT NULL,
+    is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_app_releases_version ON app_releases(version);";
         cmd.ExecuteNonQuery();

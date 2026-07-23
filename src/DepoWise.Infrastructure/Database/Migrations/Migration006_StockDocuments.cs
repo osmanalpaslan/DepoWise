@@ -21,7 +21,7 @@ CREATE TABLE stock_documents (
     company_id TEXT NOT NULL,
     doc_type TEXT NOT NULL,                 -- in | out | transfer | count
     doc_no TEXT NOT NULL,
-    doc_date INTEGER NOT NULL,
+    doc_date BIGINT NOT NULL,
     from_branch_id TEXT NULL,
     to_branch_id TEXT NULL,
     personnel_id TEXT NULL,
@@ -29,9 +29,9 @@ CREATE TABLE stock_documents (
     note TEXT NULL,
     status TEXT NOT NULL DEFAULT 'active',  -- active | cancelled
     group_id TEXT NULL,                     -- transfer çiftini gruplar
-    created_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1,
-    is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1,
+    is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 CREATE UNIQUE INDEX ux_stock_documents_no ON stock_documents(company_id, doc_type, doc_no);
@@ -40,7 +40,7 @@ CREATE INDEX ix_stock_documents_company ON stock_documents(company_id, doc_type,
 -- stock_movements'a belge/grup/ters-kayıt bağlantısı
 ALTER TABLE stock_movements ADD COLUMN document_id TEXT NULL;
 ALTER TABLE stock_movements ADD COLUMN branch_from_id TEXT NULL;
-ALTER TABLE stock_movements ADD COLUMN is_reversed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE stock_movements ADD COLUMN is_reversed BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE stock_movements ADD COLUMN reverses_movement_id TEXT NULL;
 
 CREATE TABLE stock_count_lines (

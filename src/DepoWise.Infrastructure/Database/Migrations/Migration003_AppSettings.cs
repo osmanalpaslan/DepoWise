@@ -21,7 +21,7 @@ CREATE TABLE app_settings (
     company_id TEXT NULL,
     setting_key TEXT NOT NULL,
     setting_value TEXT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX ux_app_settings ON app_settings(COALESCE(company_id,''), setting_key);";
         cmd.ExecuteNonQuery();

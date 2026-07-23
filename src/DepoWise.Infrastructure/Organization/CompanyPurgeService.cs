@@ -157,13 +157,8 @@ public sealed class CompanyPurgeService
         return new PurgeResult(companyId, name, touched, rows);
     }
 
-    private static bool TableExists(DbConnection conn, string table)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@n LIMIT 1;";
-        cmd.AddWithValue("@n", table);
-        return cmd.ExecuteScalar() is not null;
-    }
+    // PostgreSQL geçişi: şema sorgulama lehçe-duyarlı ortak yardımcıya taşındı.
+    private static bool TableExists(DbConnection conn, string table) => DbIntrospect.TableExists(conn, null, table);
 
     /// <summary>Bu firma kalıcı silindi mi? (masaüstü eşitleme adımı sorar)</summary>
     public CompanyPurgeRow? GetPurge(string companyId)
@@ -189,25 +184,9 @@ public sealed class CompanyPurgeService
         return list;
     }
 
-    private static List<string> ListTables(DbConnection conn)
-    {
-        var tables = new List<string>();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
-        using var r = cmd.ExecuteReader();
-        while (r.Read()) tables.Add(r.GetString(0));
-        return tables;
-    }
+    private static List<string> ListTables(DbConnection conn) => DbIntrospect.ListTables(conn);
 
-    private static bool HasColumn(DbConnection conn, string table, string column)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"PRAGMA table_info(\"{table}\");";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return true;
-        return false;
-    }
+    private static bool HasColumn(DbConnection conn, string table, string column) => DbIntrospect.ColumnExists(conn, null, table, column);
 
     private static int Exec(DbConnection conn, DbTransaction tx, string sql, params (string Name, object Value)[] ps)
     {

@@ -28,7 +28,7 @@ public sealed class Migration045_CompanyLocalReset : IMigration
         Exec(conn, tx, @"
 CREATE TABLE IF NOT EXISTS company_local_resets(
     company_id   TEXT PRIMARY KEY,
-    requested_at INTEGER NOT NULL,
+    requested_at BIGINT NOT NULL,
     requested_by TEXT NOT NULL
 );");
     }

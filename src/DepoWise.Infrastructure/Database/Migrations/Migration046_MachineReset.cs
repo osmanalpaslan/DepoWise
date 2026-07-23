@@ -26,7 +26,7 @@ public sealed class Migration046_MachineReset : IMigration
         Exec(conn, tx, @"
 CREATE TABLE IF NOT EXISTS machine_resets(
     machine_name TEXT PRIMARY KEY,
-    requested_at INTEGER NOT NULL,
+    requested_at BIGINT NOT NULL,
     requested_by TEXT NOT NULL
 );");
         Exec(conn, tx, "CREATE INDEX IF NOT EXISTS ix_machine_resets_at ON machine_resets(requested_at);");

@@ -17,18 +17,10 @@ public sealed class Migration039_TemplateScope : IMigration
         if (ColumnExists(conn, tx, "permission_templates", "scope_all")) return;
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "ALTER TABLE permission_templates ADD COLUMN scope_all INTEGER NOT NULL DEFAULT 0;";
+        cmd.CommandText = "ALTER TABLE permission_templates ADD COLUMN scope_all BIGINT NOT NULL DEFAULT 0;";
         cmd.ExecuteNonQuery();
     }
 
     private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = $"PRAGMA table_info({table});";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return true;
-        return false;
-    }
+        => DbIntrospect.ColumnExists(conn, tx, table, column);
 }

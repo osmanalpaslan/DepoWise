@@ -56,11 +56,5 @@ public sealed class Migration050_NormalizeLookupSpaces : IMigration
     }
 
     private static bool TableExists(DbConnection conn, DbTransaction tx, string table)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@t;";
-        cmd.AddWithValue("@t", table);
-        return System.Convert.ToInt64(cmd.ExecuteScalar()) > 0;
-    }
+        => DbIntrospect.TableExists(conn, tx, table);
 }

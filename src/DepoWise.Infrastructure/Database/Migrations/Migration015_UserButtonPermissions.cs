@@ -21,7 +21,7 @@ CREATE TABLE user_button_permissions (
     company_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     button_key TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE UNIQUE INDEX ux_user_buttons ON user_button_permissions(user_id, button_key);";

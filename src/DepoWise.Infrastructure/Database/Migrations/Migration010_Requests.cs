@@ -20,7 +20,7 @@ CREATE TABLE material_requests (
     id TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
     doc_no TEXT NOT NULL,
-    request_date INTEGER NOT NULL,
+    request_date BIGINT NOT NULL,
     branch_id TEXT NULL,
     requester_id TEXT NULL,
     warehouse_id TEXT NULL,
@@ -28,9 +28,9 @@ CREATE TABLE material_requests (
     description TEXT NULL,
     status TEXT NOT NULL DEFAULT 'draft',     -- draft|pending|approved|rejected|cancelled
     approved_by TEXT NULL,
-    approved_at INTEGER NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    approved_at BIGINT NULL,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 CREATE UNIQUE INDEX ux_material_requests_no ON material_requests(company_id, doc_no);
@@ -55,7 +55,7 @@ CREATE TABLE request_status_history (
     to_status TEXT NOT NULL,
     by_user TEXT NULL,
     reason TEXT NULL,
-    created_at INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
     FOREIGN KEY (request_id) REFERENCES material_requests(id)
 );
 CREATE INDEX ix_request_status_history ON request_status_history(request_id, created_at);";

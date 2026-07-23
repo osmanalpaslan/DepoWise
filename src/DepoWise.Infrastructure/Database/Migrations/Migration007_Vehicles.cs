@@ -18,22 +18,22 @@ public sealed class Migration007_Vehicles : IMigration
         cmd.CommandText = @"
 CREATE TABLE vehicle_types (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, name TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_vehicle_types ON vehicle_types(company_id, name);
 
 CREATE TABLE vehicle_categories (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, name TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_vehicle_categories ON vehicle_categories(company_id, name);
 
 CREATE TABLE vehicle_models (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, brand_id TEXT NULL, name TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (brand_id) REFERENCES brands(id)
 );
 CREATE UNIQUE INDEX ux_vehicle_models ON vehicle_models(company_id, COALESCE(brand_id,''), name);
@@ -47,10 +47,10 @@ CREATE TABLE vehicle_templates (
     category_id TEXT NULL,
     brand_id TEXT NULL,
     vehicle_model_id TEXT NULL,
-    production_year INTEGER NULL,
+    production_year BIGINT NULL,
     default_meter_unit TEXT NOT NULL DEFAULT 'km',  -- km | hour
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 CREATE UNIQUE INDEX ux_vehicle_templates_name ON vehicle_templates(company_id, name);
@@ -68,7 +68,7 @@ CREATE TABLE vehicles (
     company_id TEXT NOT NULL,
     internal_code TEXT NOT NULL,
     plate TEXT NULL,
-    production_year INTEGER NULL,
+    production_year BIGINT NULL,
     current_meter TEXT NOT NULL DEFAULT '0',  -- decimal (invariant)
     meter_unit TEXT NOT NULL DEFAULT 'km',    -- km | hour
     branch_id TEXT NULL,
@@ -82,8 +82,8 @@ CREATE TABLE vehicles (
     brand_id TEXT NULL,
     vehicle_model_id TEXT NULL,
     template_id TEXT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (branch_id) REFERENCES branches(id),
     FOREIGN KEY (driver_personnel_id) REFERENCES personnel(id),
@@ -99,7 +99,7 @@ CREATE TABLE vehicle_meter_logs (
     old_value TEXT NOT NULL,
     new_value TEXT NOT NULL,
     source TEXT NOT NULL,                      -- vehicle_form | maintenance | fuel ...
-    created_at INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
 );
 CREATE INDEX ix_vehicle_meter_logs ON vehicle_meter_logs(vehicle_id, created_at);";

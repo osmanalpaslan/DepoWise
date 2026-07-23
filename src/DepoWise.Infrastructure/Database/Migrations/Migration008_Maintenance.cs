@@ -24,8 +24,8 @@ CREATE TABLE maintenance_definitions (
     interval_value TEXT NOT NULL DEFAULT '0',-- decimal
     interval_unit TEXT NOT NULL DEFAULT 'km',-- km | hour | day
     description TEXT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (parent_def_id) REFERENCES maintenance_definitions(id)
 );
 CREATE INDEX ix_maint_defs_company ON maintenance_definitions(company_id, is_deleted);
@@ -49,14 +49,14 @@ CREATE TABLE vehicle_maintenances (
     sub_definition_note TEXT NULL,
     performed_km TEXT NULL,
     performed_hour TEXT NULL,
-    performed_date INTEGER NULL,
+    performed_date BIGINT NULL,
     next_due_km TEXT NULL,
     next_due_hour TEXT NULL,
-    next_due_date INTEGER NULL,
+    next_due_date BIGINT NULL,
     operation_id TEXT NOT NULL,
-    is_cancelled INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    is_cancelled BIGINT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id),
     FOREIGN KEY (maintenance_def_id) REFERENCES maintenance_definitions(id)
 );
@@ -79,13 +79,13 @@ CREATE TABLE vehicle_inspections (
     company_id TEXT NOT NULL,
     vehicle_id TEXT NOT NULL,
     doc_type TEXT NOT NULL,                   -- inspection | insurance | kasko | calibration
-    last_date INTEGER NULL,
-    next_date INTEGER NULL,
+    last_date BIGINT NULL,
+    next_date BIGINT NULL,
     result TEXT NULL,
     place TEXT NULL,
     note TEXT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
 );
 CREATE INDEX ix_vehicle_inspections ON vehicle_inspections(vehicle_id, doc_type, is_deleted);";

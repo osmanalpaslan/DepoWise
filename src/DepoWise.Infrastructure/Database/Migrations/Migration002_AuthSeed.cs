@@ -19,8 +19,8 @@ CREATE TABLE login_attempts (
     id TEXT PRIMARY KEY,
     company_id TEXT NULL,
     username TEXT NOT NULL,
-    success INTEGER NOT NULL,
-    attempted_at INTEGER NOT NULL
+    success BIGINT NOT NULL,
+    attempted_at BIGINT NOT NULL
 );
 CREATE INDEX ix_login_attempts_user ON login_attempts(username, attempted_at);
 
@@ -28,9 +28,9 @@ CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     company_id TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL,
-    revoked_at INTEGER NULL,
+    created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    revoked_at BIGINT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX ix_sessions_user ON sessions(user_id);

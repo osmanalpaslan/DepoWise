@@ -15,19 +15,11 @@ public sealed class Migration042_MustChangePassword : IMigration
     public void Up(DbConnection conn, DbTransaction tx)
     {
         if (!ColumnExists(conn, tx, "users", "must_change_password"))
-            Exec(conn, tx, "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0;");
+            Exec(conn, tx, "ALTER TABLE users ADD COLUMN must_change_password BIGINT NOT NULL DEFAULT 0;");
     }
 
     private static bool ColumnExists(DbConnection conn, DbTransaction tx, string table, string column)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = $"PRAGMA table_info({table});";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return true;
-        return false;
-    }
+        => DbIntrospect.ColumnExists(conn, tx, table, column);
 
     private static void Exec(DbConnection conn, DbTransaction tx, string sql)
     {

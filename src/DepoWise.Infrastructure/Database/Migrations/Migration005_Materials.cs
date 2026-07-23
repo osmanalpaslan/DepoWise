@@ -23,8 +23,8 @@ CREATE TABLE material_categories (
     company_id TEXT NOT NULL,
     parent_id TEXT NULL,                 -- alt kategori
     name TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (parent_id) REFERENCES material_categories(id)
 );
 CREATE UNIQUE INDEX ux_mat_categories ON material_categories(company_id, COALESCE(parent_id,''), name);
@@ -34,8 +34,8 @@ CREATE TABLE brands (
     company_id TEXT NOT NULL,
     name TEXT NOT NULL,
     brand_type TEXT NOT NULL DEFAULT 'material',  -- material | vehicle
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_brands ON brands(company_id, brand_type, name);
 
@@ -43,8 +43,8 @@ CREATE TABLE units (
     id TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_units ON units(company_id, name);
 
@@ -53,8 +53,8 @@ CREATE TABLE suppliers (
     company_id TEXT NOT NULL,
     name TEXT NOT NULL,
     phone TEXT NULL, note TEXT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_suppliers ON suppliers(company_id, name);
 
@@ -74,8 +74,8 @@ CREATE TABLE materials (
     currency_code TEXT NOT NULL DEFAULT 'TRY',
     description TEXT NULL,
     external_equivalent_note TEXT NULL,
-    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-    version INTEGER NOT NULL DEFAULT 1, is_deleted INTEGER NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+    version BIGINT NOT NULL DEFAULT 1, is_deleted BIGINT NOT NULL DEFAULT 0,
     FOREIGN KEY (company_id) REFERENCES companies(id),
     FOREIGN KEY (category_id) REFERENCES material_categories(id),
     FOREIGN KEY (unit_id) REFERENCES units(id),
@@ -110,14 +110,14 @@ CREATE TABLE stock_movements (
     material_id TEXT NOT NULL,
     branch_id TEXT NULL,
     movement_type TEXT NOT NULL,              -- opening | in | out | transfer | adjustment
-    direction INTEGER NOT NULL,               -- +1 | -1
+    direction BIGINT NOT NULL,               -- +1 | -1
     quantity TEXT NOT NULL,                   -- decimal (invariant), pozitif
     unit_price TEXT NULL,                     -- işlem anı birim fiyat (snapshot)
     currency_code TEXT NULL,
     fx_rate TEXT NULL,                        -- işlem anı kur snapshot (baz para birimine)
     operation_id TEXT NOT NULL,               -- idempotency
     note TEXT NULL,
-    created_at INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
     FOREIGN KEY (material_id) REFERENCES materials(id)
 );
 CREATE UNIQUE INDEX ux_stock_movements_operation ON stock_movements(operation_id);
@@ -128,7 +128,7 @@ CREATE TABLE stock_balances (
     company_id TEXT NOT NULL,
     material_id TEXT NOT NULL,
     quantity TEXT NOT NULL DEFAULT '0',       -- decimal (invariant)
-    updated_at INTEGER NOT NULL,
+    updated_at BIGINT NOT NULL,
     PRIMARY KEY (material_id),
     FOREIGN KEY (material_id) REFERENCES materials(id)
 );
@@ -139,8 +139,8 @@ CREATE TABLE fx_rates (
     company_id TEXT NULL,                      -- NULL = global
     currency_code TEXT NOT NULL,              -- USD | EUR ... (baz: TRY)
     rate_to_base TEXT NOT NULL,               -- 1 birim yabancı = rate_to_base TRY
-    as_of INTEGER NOT NULL,
-    created_at INTEGER NOT NULL
+    as_of BIGINT NOT NULL,
+    created_at BIGINT NOT NULL
 );
 CREATE INDEX ix_fx_rates ON fx_rates(currency_code, as_of);";
         cmd.ExecuteNonQuery();

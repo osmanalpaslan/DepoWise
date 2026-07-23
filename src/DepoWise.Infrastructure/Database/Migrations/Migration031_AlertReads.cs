@@ -23,7 +23,7 @@ CREATE TABLE alert_reads (
     user_id TEXT NOT NULL,
     alert_key TEXT NOT NULL,
     signature TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX ux_alert_reads_user_key ON alert_reads(user_id, alert_key);";
         cmd.ExecuteNonQuery();

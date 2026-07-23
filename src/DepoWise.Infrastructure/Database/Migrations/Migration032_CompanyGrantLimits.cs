@@ -22,7 +22,7 @@ CREATE TABLE company_grant_limits (
     id TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
     module_key TEXT NOT NULL,
-    created_at INTEGER NOT NULL
+    created_at BIGINT NOT NULL
 );
 CREATE UNIQUE INDEX ux_company_grant_limits ON company_grant_limits(company_id, module_key);";
         cmd.ExecuteNonQuery();

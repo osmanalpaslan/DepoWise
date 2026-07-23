@@ -532,19 +532,8 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         return true;
     }
 
-    private static List<string> PrimaryKey(DbConnection conn, string table)
-    {
-        var pk = new List<(int Order, string Name)>();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"PRAGMA table_info({table});";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-        {
-            var pkIndex = r.GetInt32(5); // pk: 0 = değil, >0 = PK sırası
-            if (pkIndex > 0) pk.Add((pkIndex, r.GetString(1)));
-        }
-        return pk.OrderBy(p => p.Order).Select(p => p.Name).ToList();
-    }
+    // PostgreSQL geçişi: şema sorgulama lehçe-duyarlı ortak yardımcıya taşındı (SQLite PRAGMA ↔ PG information_schema).
+    private static List<string> PrimaryKey(DbConnection conn, string table) => DbIntrospect.PrimaryKey(conn, table);
 
     /// <summary>Satır içerik doğrulaması: tabloya göre negatif olamayacak sayısal alanlar eksi olamaz
     /// (bozuk/kötü niyetli snapshot stok/tutarı eksiye çekemez). Değer sayı VEYA sayısal string olabilir.
@@ -580,21 +569,7 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         _ => v.ToString(),
     };
 
-    private static bool TableExists(DbConnection conn, string table)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@n LIMIT 1;";
-        cmd.AddWithValue("@n", table);
-        return cmd.ExecuteScalar() is not null;
-    }
+    private static bool TableExists(DbConnection conn, string table) => DbIntrospect.TableExists(conn, null, table);
 
-    private static HashSet<string> ColumnNames(DbConnection conn, string table)
-    {
-        var set = new HashSet<string>(StringComparer.Ordinal);
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"PRAGMA table_info({table});";
-        using var r = cmd.ExecuteReader();
-        while (r.Read()) set.Add(r.GetString(1)); // name kolonu index 1
-        return set;
-    }
+    private static HashSet<string> ColumnNames(DbConnection conn, string table) => DbIntrospect.ColumnNames(conn, table);
 }

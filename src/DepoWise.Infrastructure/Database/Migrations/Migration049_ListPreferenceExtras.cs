@@ -24,15 +24,8 @@ public sealed class Migration049_ListPreferenceExtras : IMigration
 
     private static void AddColumnIfMissing(DbConnection conn, DbTransaction tx, string table, string col, string type)
     {
-        bool exists = false;
-        using (var check = conn.CreateCommand())
-        {
-            check.Transaction = tx;
-            check.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name=@n;";
-            check.AddWithValue("@n", col);
-            exists = System.Convert.ToInt64(check.ExecuteScalar()) > 0;
-        }
-        if (exists) return;
+        // PostgreSQL geçişi: kolon kontrolü lehçe-duyarlı ortak yardımcıda (SQLite pragma ↔ PG information_schema).
+        if (DbIntrospect.ColumnExists(conn, tx, table, col)) return;
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN {col} {type};";

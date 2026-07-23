@@ -17,7 +17,7 @@ public sealed class Migration022_MachineIpUserQuota : IMigration
         cmd.Transaction = tx;
         cmd.CommandText = @"
 ALTER TABLE sync_devices ADD COLUMN ip_address TEXT;
-ALTER TABLE companies ADD COLUMN max_users INTEGER NOT NULL DEFAULT 0;";
+ALTER TABLE companies ADD COLUMN max_users BIGINT NOT NULL DEFAULT 0;";
         cmd.ExecuteNonQuery();
     }
 }

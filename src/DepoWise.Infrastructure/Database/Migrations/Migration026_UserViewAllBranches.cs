@@ -15,7 +15,7 @@ public sealed class Migration026_UserViewAllBranches : IMigration
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "ALTER TABLE users ADD COLUMN can_view_all_branches INTEGER NOT NULL DEFAULT 0;";
+        cmd.CommandText = "ALTER TABLE users ADD COLUMN can_view_all_branches BIGINT NOT NULL DEFAULT 0;";
         cmd.ExecuteNonQuery();
     }
 }

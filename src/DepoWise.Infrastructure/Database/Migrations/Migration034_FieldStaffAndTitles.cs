@@ -20,16 +20,16 @@ public sealed class Migration034_FieldStaffAndTitles : IMigration
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
-ALTER TABLE personnel ADD COLUMN is_field_staff INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE personnel ADD COLUMN is_field_staff BIGINT NOT NULL DEFAULT 0;
 
 CREATE TABLE personnel_titles (
     id          TEXT    NOT NULL PRIMARY KEY,
     company_id  TEXT    NOT NULL,
     name        TEXT    NOT NULL,
-    created_at  INTEGER NOT NULL,
-    updated_at  INTEGER NOT NULL,
-    version     INTEGER NOT NULL DEFAULT 1,
-    is_deleted  INTEGER NOT NULL DEFAULT 0
+    created_at  BIGINT NOT NULL,
+    updated_at  BIGINT NOT NULL,
+    version     BIGINT NOT NULL DEFAULT 1,
+    is_deleted  BIGINT NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX ux_personnel_titles_name
     ON personnel_titles(company_id, name) WHERE is_deleted=0;
