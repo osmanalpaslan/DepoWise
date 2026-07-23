@@ -55,7 +55,7 @@ SELECT v.internal_code, COUNT(fd.id),
 FROM fuel_distributions fd JOIN vehicles v ON v.id=fd.vehicle_id
 WHERE fd.company_id=@c AND fd.is_deleted=0
 " + DateFilter(req, "fd.distribution_date") + @"
-GROUP BY fd.vehicle_id ORDER BY v.internal_code;";
+GROUP BY v.id ORDER BY v.internal_code;";  // PK'ye grupla: PostgreSQL bare-kolon (v.internal_code) için PK bağımlılığı ister (fd.vehicle_id=v.id, sonuç aynı)
         cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         var rows = new List<IReadOnlyList<object?>>();

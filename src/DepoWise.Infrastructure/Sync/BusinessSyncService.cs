@@ -499,7 +499,7 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
 
         var colList = values.Keys.ToList();
         var insertCols = string.Join(", ", colList);
-        var insertVals = string.Join(", ", colList.Select(c => "$" + c));
+        var insertVals = string.Join(", ", colList.Select(c => "@" + c));
         var conflictTarget = string.Join(", ", pk);
         var updateSet = string.Join(", ", colList.Where(c => !pk.Contains(c)).Select(c => $"{c}=excluded.{c}"));
 
@@ -527,7 +527,7 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
             ? $"INSERT INTO {table} ({insertCols}) VALUES ({insertVals}) ON CONFLICT({conflictTarget}) DO NOTHING;"
             : $"INSERT INTO {table} ({insertCols}) VALUES ({insertVals}) ON CONFLICT({conflictTarget}) DO UPDATE SET {updateSet}{whereLww};";
         foreach (var kv in values)
-            cmd.AddWithValue("$" + kv.Key, kv.Value ?? DBNull.Value);
+            cmd.AddWithValue("@" + kv.Key, kv.Value ?? DBNull.Value);
         cmd.ExecuteNonQuery();
         return true;
     }

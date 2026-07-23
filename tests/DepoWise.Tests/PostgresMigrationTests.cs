@@ -15,6 +15,7 @@ namespace DepoWise.Tests;
 /// public şemayı sıfırlar. Babanın canlı verisiyle ilgisi YOKTUR (altın kural).
 /// Ortam değişkeni yoksa SESSİZCE ATLANIR.
 /// </summary>
+[Collection("PostgresSchema")]  // migration + uçtan-uca testleri aynı Neon DB'sini sıfırlar → serileştir.
 public class PostgresMigrationTests
 {
     private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");

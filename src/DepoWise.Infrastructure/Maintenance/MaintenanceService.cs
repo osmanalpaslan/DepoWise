@@ -146,15 +146,24 @@ public sealed class MaintenanceService
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // Her (araç,tanım) için EN SON iptal edilmemiş bakım. Eski sorgu SQLite'a özel "MAX ile bare-kolon"
+        // davranışına dayanıyordu (GROUP BY'da olmayan kolonlar max satırdan gelir); PostgreSQL bunu reddeder
+        // (42803). Standart, her iki DB'de de çalışan pencere fonksiyonu (ROW_NUMBER) ile yeniden yazıldı.
+        // Kolon sırası AYNI (okuyucu değişmedi): 0..10 = vehicle_id..created_at.
         cmd.CommandText = @"
-SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit,
-       vm.performed_km, vm.performed_hour, vm.performed_date,
-       v.current_meter, v.meter_unit, MAX(vm.created_at)
-FROM vehicle_maintenances vm
-JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
-JOIN vehicles v ON v.id = vm.vehicle_id
-WHERE vm.company_id = @c AND vm.is_cancelled = 0 AND vm.is_deleted = 0
-GROUP BY vm.vehicle_id, vm.maintenance_def_id;";
+SELECT vehicle_id, maintenance_def_id, name, interval_value, interval_unit,
+       performed_km, performed_hour, performed_date, current_meter, meter_unit, created_at
+FROM (
+    SELECT vm.vehicle_id, vm.maintenance_def_id, d.name, d.interval_value, d.interval_unit,
+           vm.performed_km, vm.performed_hour, vm.performed_date,
+           v.current_meter, v.meter_unit, vm.created_at,
+           ROW_NUMBER() OVER (PARTITION BY vm.vehicle_id, vm.maintenance_def_id ORDER BY vm.created_at DESC) AS rn
+    FROM vehicle_maintenances vm
+    JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
+    JOIN vehicles v ON v.id = vm.vehicle_id
+    WHERE vm.company_id = @c AND vm.is_cancelled = 0 AND vm.is_deleted = 0
+) t
+WHERE rn = 1;";
         cmd.AddWithValue("@c", s.CompanyId);
 
         var list = new List<MaintenanceAlert>();

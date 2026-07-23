@@ -174,7 +174,7 @@ ORDER BY name;";
         var id = Guid.NewGuid().ToString("N");
         var cols = "id, company_id, name, created_at, updated_at, version, is_deleted";
         var vals = "@id, @c, @n, @now, @now, 1, 0";
-        foreach (var (col, _) in extra) { cols += $", {col}"; vals += $", ${col}"; }
+        foreach (var (col, _) in extra) { cols += $", {col}"; vals += $", @{col}"; }
 
         using (var cmd = conn.CreateCommand())
         {
@@ -184,7 +184,7 @@ ORDER BY name;";
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@n", name);
             cmd.AddWithValue("@now", now);
-            foreach (var (col, val) in extra) cmd.AddWithValue($"${col}", val);
+            foreach (var (col, val) in extra) cmd.AddWithValue($"@{col}", val);
             cmd.ExecuteNonQuery();
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, table, id, AuditActions.Create, s.UserId), _clock);
@@ -201,12 +201,12 @@ ORDER BY name;";
         cmd.Transaction = tx;
         var sql = $"SELECT id FROM {table} WHERE company_id=@c AND is_deleted=0 AND name=@n COLLATE NOCASE";
         foreach (var (col, val) in extra)
-            sql += (val is System.DBNull) ? $" AND {col} IS NULL" : $" AND {col}=${col}";
+            sql += (val is System.DBNull) ? $" AND {col} IS NULL" : $" AND {col}=@{col}";
         sql += " LIMIT 1;";
         cmd.CommandText = sql;
         cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@n", name);
-        foreach (var (col, val) in extra) if (val is not System.DBNull) cmd.AddWithValue($"${col}", val);
+        foreach (var (col, val) in extra) if (val is not System.DBNull) cmd.AddWithValue($"@{col}", val);
         return cmd.ExecuteScalar() as string;
     }
 
