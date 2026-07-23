@@ -14,6 +14,11 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <!-- PostgreSQL geçişi Faz 1 (2026-07-23): .NET PostgreSQL sürücüsü. Şimdilik yalnız bağlantı
+         doğrulama testi için; asıl veri katmanı Faz 3'te uyarlanacak. -->
+    <PackageReference Include="Npgsql" Version="8.0.5" />
+    <!-- PostgreSQL bağlantı testi, sunucu yoksa SESSİZCE ATLANSIN diye (Skip.If). -->
+    <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
   </ItemGroup>
 
   <ItemGroup>

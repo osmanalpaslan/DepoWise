@@ -51,14 +51,22 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   hazır ve test edilmiş durumda; kullanıcı ne zaman isterse deploy/paketleme tek komutla yapılabilir.
 - **⚠️ Deploy notu:** Web'deki tüm düzeltmeler (Stok/Günlük Faaliyet/Yakıt/Bakım) henüz **canlıya
   alınmadı** — yalnız git'e commit edildi, kullanıcı deploy istediğinde yapılacak.
-- **Sıradaki adım:** Kullanıcı yönlendirecek — Faz 1 (PostgreSQL kurulumu) mu, deploy/paket mi,
-  yoksa Görev B'ye (masaüstü diğer istekler) mi dönülecek?
+- **FAZ 1 BAŞLADI (2026-07-23):** Ortam kontrolü yapıldı — makinede Docker/yerel PostgreSQL YOK, ama
+  **winget mevcut** (PostgreSQL 17/18 kurulabilir). Güvenli hazırlık tamamlandı:
+  - Npgsql (.NET PostgreSQL sürücüsü) test projesine eklendi.
+  - `PostgresConnectionTests.cs` yazıldı: `DEPOWISE_PG_URL` ortam değişkeninden bağlantı okur, sunucu
+    yoksa **sessizce atlanır** (git'e parola yazılmaz, mevcut testleri bozmaz). Şu an 569 geçti + 2 atlandı.
+  - **Bekleyen tek şey: bir PostgreSQL sunucusu.** İki yol var, kullanıcı seçecek:
+    (a) **Yerel kurulum** (Claude winget ile kurar — Windows izin penceresi çıkabilir; ücretsiz, çevrimdışı,
+    güvenli, geliştirme için ideal) · (b) **Bulut hesabı** (Neon/Supabase — hesabı KULLANICI açar, Claude
+    hesap oluşturamaz; yalnız canlıya çıkarken gerekir).
+- **Sıradaki adım:** Kullanıcı PostgreSQL sunucusu için (a) yerel kurulum mu (b) bulut hesabı mı seçecek.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
 |---|---|---|
 | **0** | **Ekran denetimi + parite** — her ekran: masaüstü=web=veritabanı aynı (alan+mantık). PostgreSQL'e model hazırlığı da bu. Ekran ekran, kısa rapor + küçük commit | 🟢 başladı (haritalama) |
-| 1 | Ücretsiz PostgreSQL kur (Neon/Supabase), bağlantıyı doğrula | ⬜ |
+| 1 | Ücretsiz PostgreSQL kur, bağlantıyı doğrula | 🟢 sürüyor — sürücü (Npgsql) + bağlantı doğrulama testi hazır; PostgreSQL sunucusu bekleniyor |
 | 2 | 52 şema adımını (migration) PostgreSQL diline çevir | ⬜ |
 | 3 | Sunucu veri katmanını (okuma/yazma) PostgreSQL'e uyarla | ⬜ |
 | 4 | **En zor parça:** eşitleme kodunu iki veritabanına birden (masaüstü SQLite ↔ sunucu PostgreSQL) çalışır hâle getir | ⬜ |
