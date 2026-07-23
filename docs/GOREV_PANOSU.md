@@ -46,11 +46,13 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
   yalnız web'i etkiledi. Raporlar `docs/tests/*_Parite_Denetimi.md` (7 dosya).
   Sütun listesinin web'de elle senkron tutulması (ortak bakım riski) = PostgreSQL Faz 3'te web ortak
   katmana bağlanınca kökten çözülecek.
-- **Sıradaki adım:** (a) Masaüstü **1.0.88** paketlensin mi (Araçlar plaka uyarısı için) — kullanıcı
-  karar verecek, yoksa bekletilebilir çünkü web tarafı zaten canlıya alınabilir durumda. (b) Faz 0
-  sonrası **Faz 1** (ücretsiz PostgreSQL kurulumu) başlatılabilir — kullanıcı onayı gerekiyor.
+- **Kullanıcı kararı (2026-07-23):** Web deploy VE masaüstü 1.0.88 paketi **BEKLETİLİYOR** — ikisi de
+  bilinçli olarak ertelendi (masaüstü: sonraki değişikliklerle birlikte tek pakette çıkacak). Kod git'te
+  hazır ve test edilmiş durumda; kullanıcı ne zaman isterse deploy/paketleme tek komutla yapılabilir.
 - **⚠️ Deploy notu:** Web'deki tüm düzeltmeler (Stok/Günlük Faaliyet/Yakıt/Bakım) henüz **canlıya
-  alınmadı** — yalnız git'e commit edildi. Deploy için kullanıcı onayı gerekir (flyctl deploy).
+  alınmadı** — yalnız git'e commit edildi, kullanıcı deploy istediğinde yapılacak.
+- **Sıradaki adım:** Kullanıcı yönlendirecek — Faz 1 (PostgreSQL kurulumu) mu, deploy/paket mi,
+  yoksa Görev B'ye (masaüstü diğer istekler) mi dönülecek?
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
