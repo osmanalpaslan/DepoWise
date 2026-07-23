@@ -41,11 +41,11 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
 - **Nerede kaldık (güncel):** Kullanıcı sırayı Claude'a bıraktı ("istediğin gibi yap"). Tamamlanan:
   **Araçlar** ✅ (1 bulgu düzeltildi: hızlı düzenle plaka uyarısı, masaüstü etkilendi) ·
   **Malzemeler** ✅ (tam parite, bulgu yok) · **Personel** ✅ (tam parite, bulgu yok) ·
-  **Stok Giriş/Çıkış** ✅ (2 bulgu düzeltildi, yalnız web) · **Günlük Faaliyet** ✅ (2 bulgu düzeltildi:
-  onay metni kelime farkı + silme onayında kayıt türü/bakım bağlantısı uyarısı eksikti, **yalnız web**
-  etkilendi). Raporlar `docs/tests/*_Parite_Denetimi.md`.
+  **Stok Giriş/Çıkış** ✅ (2 bulgu, yalnız web) · **Günlük Faaliyet** ✅ (2 bulgu, yalnız web) ·
+  **Yakıt** ✅ (3 bulgu: 2 mesaj farkı + para ile ilgili onayda tutar eksikliği, yalnız web).
+  Raporlar `docs/tests/*_Parite_Denetimi.md`.
   Sütun listesinin web'de elle senkron tutulması (bakım riski) = PostgreSQL Faz 3'te kökten çözülecek.
-- **Sıradaki adım:** Kalan 🔴 yüksek öncelikli: **Yakıt · Bakım**. Sıra Claude'da.
+- **Sıradaki adım:** Kalan 🔴 yüksek öncelikli: **Bakım** (son ekran). Sıra Claude'da.
 - **⚠️ Paket notu:** Masaüstünü etkileyen tek değişiklik hâlâ Araçlar plaka uyarısı. Kalan yüksek öncelikli
   ekranlar bitince **tek pakette (1.0.88)** yayınlanacak — ekran başına ayrı paket yok.
 

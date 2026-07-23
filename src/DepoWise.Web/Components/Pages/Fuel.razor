@@ -178,11 +178,12 @@
         _msg = null;
         if (!await Dialog.RequireBranchAsync(Auth, "Yakıt")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
-        if (_liters <= 0) { _msg = "Litre girin."; _ok = false; return; }
+        if (_liters <= 0) { _msg = "Litre pozitif olmalı."; _ok = false; return; }
         if (string.IsNullOrWhiteSpace(_person)) { _msg = "Yakıtı veren personeli seçin."; _ok = false; return; } // madde 8
         if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_liters)
             && !await Dialog.Confirm($"Litre değeri çok büyük görünüyor ({_liters:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
-        if (!await Dialog.Confirm("Yakıt dağıtımı kaydedilsin mi?")) return;
+        // Masaüstüyle parite: onayda litre + TOPLAM TUTAR (₺) gösterilir — para ile ilgili son kontrol.
+        if (!await Dialog.Confirm($"{_liters:0.##} L yakıt dağıtımı kaydedilsin mi? (Toplam {(_liters * _price):0.##} ₺)")) return;
         _busy = true;
         try
         {
@@ -203,8 +204,9 @@
     {
         _dMsg = null;
         if (!await Dialog.RequireBranchAsync(Auth, "Yakıt Depo Girişi")) return;   // "Tüm Şubeler" modunda işlem yok
-        if (_dLiters <= 0 || _dPrice <= 0) { _dMsg = "Litre ve birim fiyat girin."; _dOk = false; return; }
-        if (!await Dialog.Confirm("Depo girişi kaydedilsin mi?")) return;
+        if (_dLiters <= 0 || _dPrice <= 0) { _dMsg = "Litre ve birim fiyat pozitif olmalı."; _dOk = false; return; }
+        // Masaüstüyle parite: onayda litre + TOPLAM TUTAR (₺) gösterilir — para ile ilgili son kontrol.
+        if (!await Dialog.Confirm($"{_dLiters:0.##} L depo girişi kaydedilsin mi? (Toplam {(_dLiters * _dPrice):0.##} ₺)")) return;
         _busy = true;
         try
         {
