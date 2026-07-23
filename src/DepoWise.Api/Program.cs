@@ -146,7 +146,20 @@ app.MapGet("/api/server/status", (HttpContext ctx) =>
     try
     {
         using var conn = svc.Factory.Create();
-        using (var c = conn.CreateCommand()) { c.CommandText = "PRAGMA page_count;"; var pc = Convert.ToInt64(c.ExecuteScalar()); c.CommandText = "PRAGMA page_size;"; var ps = Convert.ToInt64(c.ExecuteScalar()); dbBytes = pc * ps; }
+        using (var c = conn.CreateCommand())
+        {
+            if (conn is Npgsql.NpgsqlConnection)   // PG: PRAGMA yok → doğrudan veritabanı boyutu
+            {
+                c.CommandText = "SELECT pg_database_size(current_database());";
+                dbBytes = Convert.ToInt64(c.ExecuteScalar());
+            }
+            else                                    // SQLite: sayfa sayısı × sayfa boyutu
+            {
+                c.CommandText = "PRAGMA page_count;"; var pc = Convert.ToInt64(c.ExecuteScalar());
+                c.CommandText = "PRAGMA page_size;"; var ps = Convert.ToInt64(c.ExecuteScalar());
+                dbBytes = pc * ps;
+            }
+        }
         using (var c = conn.CreateCommand()) { c.CommandText = "SELECT COUNT(*) FROM companies WHERE is_deleted=0;"; companies = Convert.ToInt64(c.ExecuteScalar()); }
         using (var c = conn.CreateCommand()) { c.CommandText = "SELECT COUNT(*) FROM users WHERE is_deleted=0;"; users = Convert.ToInt64(c.ExecuteScalar()); }
         using (var c = conn.CreateCommand())
