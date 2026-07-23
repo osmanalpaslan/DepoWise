@@ -89,14 +89,29 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      yeni `SqlDialect` yardımcısı (bağlantıya göre): `NowMs` (strftime↔extract epoch), `NewHexId`
      (randomblob/hex↔gen_random_uuid), `AutoIncPk` (AUTOINCREMENT↔IDENTITY) — migration 011/030/034/035/037'de.
      **569 test yeşil (SQLite tarafı) + 4 proje 0 hata.** ⚠️ PostgreSQL tarafı Adım 4'te Neon'da doğrulanacak.
-  4. **Migration'lar:** 52 şema PostgreSQL'de de çalışsın (tipler) → Neon'da test.
-  5. **Çalışma-anı:** Türkçe arama/sıralama PostgreSQL karşılığı; PRAGMA'ları SQLite'a özel bırak.
-  6. **Uçtan uca:** sunucuyu Neon'a bağlayıp doğrula.
+  4. ✅ **TAMAM (2026-07-23) — Migration'lar + uçtan uca:** 52 migration Neon'da temiz kuruluyor
+     (`PostgresMigrationTests`) VE gerçek servis işlemleri PostgreSQL'de çalışıyor (`PostgresEndToEndTests`:
+     malzeme/stok/araç/bakım/talep/tenant/idempotency/negatif-stok/generic-upsert). Çözülen farklar:
+     INTEGER→BIGINT (zaman damgası taşması), PRAGMA/sqlite_master→information_schema (`DbIntrospect`),
+     GROUP BY bare-kolon→pencere fonksiyonu/PK gruplama, dinamik `$`→`@` parametreler (UpsertRow/LookupService),
+     savepoint-yerine-transaction-abort farkı tespit edildi. **573 test yeşil (569 SQLite + 4 PG).**
+  5. **Çalışma-anı:** Türkçe arama/sıralama PostgreSQL karşılığı (SQLite custom LIKE + TRNOCASE collation
+     PG'de yok → ILIKE / ICU). PRAGMA'lar SQLite'a özel bırakıldı (`DatabaseHealth` sunucuda uyarlanacak).
+  6. **Uçtan uca (canlı):** gerçek sunucuyu (API) Neon'a bağla (PostgresConnectionFactory), Fly'da Neon'la
+     aynı bölgede çalıştır, gerçek verinin KOPYASIYLA prova.
+
+- **⚠️ Bilinen takip işleri (sağlamlık):**
+  1. **ApplyCore satır-hatası deseni:** SQLite'ta hatalı satır atlanıp devam edilir; PostgreSQL'de bir hata
+     tüm transaction'ı poison eder (25P02). Geçerli veride sorun yok (e2e kanıtı) ama beklenmedik bir satır
+     hatasında PG'de tüm push başarısız olur. Uzak PG'de satır-başı savepoint çok round-trip (yavaş) →
+     doğru tasarım: geçerli-veride hızlı, hatada toplu-rollback+retry. Ayrı ele alınacak.
+  2. **Türkçe arama (Adım 5):** grid/lookup LIKE aramaları PG'de büyük/küçük harf duyarlı + Türkçe-duyarsız
+     değil. Adım 5'te çözülecek.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Adım 4 — 52 migration'ı BOŞ bir Neon PostgreSQL veritabanında çalıştırıp şemanın
-  kurulduğunu doğrula (tip farkları burada çıkar: SQLite gevşek tip, PostgreSQL katı). Bu, Adım 1-3'ün
-  PostgreSQL tarafındaki ilk gerçek sınavı. `DEPOWISE_PG_URL` hazır (.env.test.local).
+- **Sıradaki adım:** Adım 5 — Türkçe arama/sıralamayı PostgreSQL'de çöz (SQLite custom LIKE + TRNOCASE
+  PG'de yok). Ardından Adım 6 (canlı sunucuyu Neon'a bağlama, Faz 3 server wiring). Kalan sağlamlık
+  takip işleri (savepoint deseni) yukarıda listelendi.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
