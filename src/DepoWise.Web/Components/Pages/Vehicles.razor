@@ -20,10 +20,14 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ ARAÇ" : "ARAÇ DÜZENLE")</MudText>
 
-        @if (_editId is null)
+        @if (_templates.Count > 0)
         {
-            <MudSelect T="string" @bind-Value="_template" Label="Şablon (Araç Genel Tanım)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                       HelperText="Seçince Tip/Kategori/Marka/Model/Yıl ve iç kod otomatik dolar." >
+            @* Yeni kayıt: seçince alanlar dolar. Düzenleme: şablona BAĞLA/DEĞİŞTİR (alanları ezmez) —
+               "şablon-dışı" bir aracı sonradan şablona bağlayıp raporda "şablonlu"ya taşımak için. *@
+            <MudSelect T="string" @bind-Value="_template"
+                       Label="@(_editId is null ? "Şablon (Araç Genel Tanım)" : "Şablon (bağla / değiştir)")"
+                       Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                       HelperText="@(_editId is null ? "Seçince Tip/Kategori/Marka/Model/Yıl ve iç kod otomatik dolar." : "Bu aracı bir şablona bağlar (alanları değiştirmez). Boş bırakırsanız şablon-dışı olur.")" >
                 @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
             </MudSelect>
         }
@@ -364,6 +368,7 @@
     {
         var t = _templates.FirstOrDefault(x => x.Id == _template);
         if (t is null) return;
+        if (_editId is not null) return;   // DÜZENLEME: yalnız BAĞLA — mevcut alanları EZME (yeni kayıtta önden doldurur)
         _type = t.VehicleTypeId; _cat = t.CategoryId; _year = t.ProductionYear;
         _brand = t.BrandId; _lastBrand = t.BrandId;
         _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
@@ -505,6 +510,7 @@
         var d = _detail.Value;
         _editId = Str(d, "id");
         _editVersion = d.TryGetProperty("version", out var vv) && vv.ValueKind == JsonValueKind.Number ? vv.GetInt64() : 0; // düzenleme kilidi
+        _template = NullS(d, "templateId"); _lastTemplate = _template;   // mevcut şablon bağı (diff prefill tetiklemesin)
         _code = Str(d, "internalCode"); _plate = Str(d, "plate"); _status = string.IsNullOrEmpty(Str(d, "status")) ? "active" : Str(d, "status");
         _meterUnit = string.IsNullOrEmpty(Str(d, "meterUnit")) ? "km" : Str(d, "meterUnit"); _meter = Dec(d, "currentMeter");
         _year = d.TryGetProperty("productionYear", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : null;
@@ -554,7 +560,7 @@
                 branchId = _branch, driverPersonnelId = _driver, chassisNo = Empty(_chassis), engineNo = Empty(_engine),
                 status = _status, statusNote = DepoWise.Web.Services.VehicleStatus.NeedsNote(_status) ? Empty(_statusNote) : null,
                 vehicleTypeId = _type, categoryId = _cat, brandId = _brand, vehicleModelId = _model,
-                templateId = _editId is null ? _template : null,
+                templateId = _template,   // create'te bağlar; düzenlemede mevcut bağı korur/değiştirir
                 // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
                 version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null
             };

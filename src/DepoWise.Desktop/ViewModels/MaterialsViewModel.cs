@@ -240,6 +240,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     partial void OnSelectedMaterialTemplateChanged(DepoWise.Infrastructure.Materials.MaterialTemplateRow? value)
     {
         if (value is null) return;
+        if (IsEditMode) return;   // DÜZENLEME: yalnız BAĞLA (SelectedMaterialTemplate = bağ); alanları EZME
         try
         {
             var t = DesktopServices.MaterialTemplates.Get(_session, value.Id);
@@ -409,7 +410,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
                     Code: NewCode.Trim(), Name: NewName.Trim(), Type: typeVal,
                     CategoryId: categoryId, UnitId: SelectedUnit!.Id,
                     BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
-                    MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal),
+                    MinStock: NewMinStock, UnitPrice: NewUnitPrice, Description: descVal,
+                    TemplateId: SelectedMaterialTemplate?.Id),   // düzenlemede şablona bağla/koru (yüklenen mevcut bağ)
                     // DÜZENLEME KİLİDİ: formu açtığımız andaki sürüm. Kayıt arada başkası (ya da eşitlemeyle
                     // gelen başka makine) tarafından değiştiyse sessizce ezmek yerine ConcurrencyException.
                     expectedVersion: Detail?.Version);
@@ -640,6 +642,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         SelectedUnit = Units.FirstOrDefault(u => u.Id == d.UnitId);
         SelectedBrand = Brands.FirstOrDefault(b => b.Id == d.BrandId);
         SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == d.SupplierId);
+        // Mevcut şablon bağı (EditId set edildiği için changed-handler prefill YAPMAZ; yalnız bağ yüklenir).
+        SelectedMaterialTemplate = MaterialTemplates.FirstOrDefault(t => t.Id == d.TemplateId);
 
         // İlişkiler — mevcut seçimleri yükle (düzenlemede de değiştirilebilir)
         foreach (var p in VehiclePicks) p.IsSelected = d.CompatibleVehicles.Any(c => c.Id == p.Id);

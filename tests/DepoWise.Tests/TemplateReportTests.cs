@@ -50,7 +50,7 @@ public class TemplateReportTests : IDisposable
         // MALZEME — 1 şablon; 1 şablonlu + 1 şablonsuz
         var mt = matTpl.Create(a, new NewMaterialTemplate("Yağ Filtresi Şb", Code: "YF-T"));
         mats.Create(a, new NewMaterial("M-T", "Yağ Filtresi", TemplateId: mt));
-        mats.Create(a, new NewMaterial("M-N", "Serbest Malzeme"));   // şablonsuz → template_id NULL
+        var mnId = mats.Create(a, new NewMaterial("M-N", "Serbest Malzeme"));   // şablonsuz → template_id NULL
 
         var mByT = reports.MaterialsByTemplate(a, req);
         Assert.Equal(2, mByT.Rows.Count);                 // 1 şablon satırı + TOPLAM
@@ -60,6 +60,11 @@ public class TemplateReportTests : IDisposable
         var mNon = reports.MaterialsNonTemplate(a, req);
         Assert.Single(mNon.Rows);
         Assert.Equal("M-N", mNon.Rows[0][0]);
+
+        // DÜZENLEMEDE BAĞLAMA: şablon-dışı M-N'yi şablona bağla → şablonluya taşınmalı, şablon-dışından çıkmalı.
+        mats.Update(a, mnId, new UpdateMaterial("M-N", "Serbest Malzeme", TemplateId: mt));
+        Assert.Empty(reports.MaterialsNonTemplate(a, req).Rows);                  // artık şablon-dışı yok
+        Assert.Equal(2, Convert.ToInt32(reports.MaterialsByTemplate(a, req).Rows[0][2])); // şablonda artık 2 kayıt
 
         // ARAÇ — 1 şablon; 1 şablonlu + 1 şablonsuz
         var vt = vehTpl.Create(a, new NewVehicleTemplate("Ekskavatör Şb"));

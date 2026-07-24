@@ -47,7 +47,8 @@ public sealed record VehicleDetail(
     string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? BranchId, string? DriverPersonnelId,
     string? VehicleTypeName, string? CategoryName, string? BrandName, string? VehicleModelName, string? BranchName, string? DriverName,
     // DÜZENLEME KİLİDİ: formun açıldığı andaki sürüm (bkz. EditLockGuard).
-    long Version = 0)
+    long Version = 0,
+    string? TemplateId = null)   // bağlı olduğu araç şablonu (düzenlemede korunur/değiştirilebilir)
 {
     public string MeterDisplay => $"{CurrentMeter:0.##} {MeterUnit}";
 }
@@ -55,7 +56,7 @@ public sealed record VehicleDetail(
 public sealed record UpdateVehicle(string? Plate, int? ProductionYear, string Status, string? StatusNote,
     string? ChassisNo = null, string? EngineNo = null,
     string? VehicleTypeId = null, string? CategoryId = null, string? BrandId = null, string? VehicleModelId = null,
-    string? BranchId = null, string? DriverPersonnelId = null);
+    string? BranchId = null, string? DriverPersonnelId = null, string? TemplateId = null);
 
 /// <summary>
 /// Araç kartı — iç kod benzersiz; şablondan doldurma + şablon malzemelerini araca kopyalama (aynı transaction);
@@ -337,7 +338,7 @@ WHERE v.company_id = @c AND v.is_deleted = 0";
 SELECT v.id, v.internal_code, v.plate, v.production_year, v.current_meter, v.meter_unit, v.status, v.status_note,
        v.chassis_no, v.engine_no,
        v.vehicle_type_id, v.category_id, v.brand_id, v.vehicle_model_id, v.branch_id, v.driver_personnel_id,
-       vt.name, vc.name, b.name, vm.name, br.name, p.full_name, v.version
+       vt.name, vc.name, b.name, vm.name, br.name, p.full_name, v.version, v.template_id
 FROM vehicles v
 LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
 LEFT JOIN vehicle_categories vc ON vc.id = v.category_id
@@ -356,7 +357,7 @@ WHERE v.id=@id AND v.company_id=@c AND v.is_deleted=0;";
             r.IsDBNull(3) ? (int?)null : r.GetInt32(3), Money.Parse(r.GetString(4)), r.GetString(5),
             r.GetString(6), S(7), S(8), S(9),
             S(10), S(11), S(12), S(13), S(14), S(15),
-            S(16), S(17), S(18), S(19), S(20), S(21), r.GetInt64(22));
+            S(16), S(17), S(18), S(19), S(20), S(21), r.GetInt64(22), S(23));
     }
 
     /// <summary>Araç alanlarını günceller (plaka/yıl/durum/durum notu). Sayaç burada DEĞİL (SetMeter ile, geriye gitmez).
@@ -375,7 +376,7 @@ WHERE v.id=@id AND v.company_id=@c AND v.is_deleted=0;";
             cmd.CommandText = @"
 UPDATE vehicles SET plate=@p, production_year=@y, status=@st, status_note=@note,
     chassis_no=@ch, engine_no=@en, vehicle_type_id=@vt, category_id=@cat,
-    brand_id=@brand, vehicle_model_id=@vm, branch_id=@br, driver_personnel_id=@drv,
+    brand_id=@brand, vehicle_model_id=@vm, branch_id=@br, driver_personnel_id=@drv, template_id=@tpl,
     version=version+1, updated_at=@now
 WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
             EditLockGuard.Bind(cmd, expectedVersion);
@@ -391,6 +392,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
             cmd.AddWithValue("@vm", (object?)dto.VehicleModelId ?? DBNull.Value);
             cmd.AddWithValue("@br", (object?)dto.BranchId ?? DBNull.Value);
             cmd.AddWithValue("@drv", (object?)dto.DriverPersonnelId ?? DBNull.Value);
+            cmd.AddWithValue("@tpl", (object?)dto.TemplateId ?? DBNull.Value);   // düzenlemede şablona bağla/koru
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", vehicleId);
             cmd.AddWithValue("@c", s.CompanyId);

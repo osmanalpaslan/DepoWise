@@ -62,8 +62,10 @@
             <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
-                <ctrl:FormField Label="Şablon (Araç Genel Tanım)" IsVisible="{Binding !IsEditMode}"
-                                HelpText="Seçince Tip/Kategori/Marka/Model/Yıl ve iç kod otomatik dolar.">
+                <!-- Yeni kayıt: seçince alanlar dolar. Düzenleme: şablona BAĞLA/DEĞİŞTİR (alanları ezmez) —
+                     "şablon-dışı" bir aracı sonradan şablona bağlayıp raporda "şablonlu"ya taşımak için. -->
+                <ctrl:FormField Label="Şablon (Araç Genel Tanım)"
+                                HelpText="Yeni kayıtta alanları önden doldurur; düzenlemede bu aracı şablona bağlar (alanları değiştirmez).">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
                         <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:VehicleTemplateRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>

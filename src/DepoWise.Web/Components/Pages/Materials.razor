@@ -20,10 +20,14 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ MALZEME" : "MALZEME DÜZENLE")</MudText>
 
-        @if (_editId is null && _templates.Count > 0)
+        @if (_templates.Count > 0)
         {
-            <MudSelect T="string" Value="_templateId" ValueChanged="ApplyTemplate" Label="Şablon (örnek kayıt)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                       HelperText="Şablon seçerseniz alanlar önden dolar. Şablon seçmeden kaydederseniz uyarı çıkar (tek tip kayıt için).">
+            @* Yeni kayıt: şablon seçince alanlar önden dolar. Düzenleme: şablona BAĞLA/DEĞİŞTİR (alanları ezmez) —
+               böylece "şablon-dışı" bir kayıt sonradan şablona bağlanıp raporda "şablonlu"ya taşınabilir. *@
+            <MudSelect T="string" Value="_templateId" ValueChanged="ApplyTemplate"
+                       Label="@(_editId is null ? "Şablon (örnek kayıt)" : "Şablon (bağla / değiştir)")"
+                       Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                       HelperText="@(_editId is null ? "Şablon seçerseniz alanlar önden dolar." : "Bu kaydı bir malzeme şablonuna bağlar (alanları değiştirmez). Boş bırakırsanız şablon-dışı olur.")">
                 @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
             </MudSelect>
         }
@@ -477,6 +481,7 @@
         if (_detail is null) return;
         var d = _detail.Value;
         _editId = Str(d, "id");
+        _templateId = NullId(d, "templateId");   // mevcut şablon bağını yükle → normal düzenleme bağı korur, değiştirilebilir
         _code = Str(d, "code"); _name = Str(d, "name"); _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
         _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
         _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
@@ -502,6 +507,7 @@
     {
         _templateId = id;
         if (string.IsNullOrEmpty(id)) return;
+        if (_editId is not null) return;   // DÜZENLEME: yalnız BAĞLA — mevcut alanları EZME (yeni kayıtta önden doldurur)
         try
         {
             var t = await Api.GetObjectAsync($"/api/material-templates/{id}");

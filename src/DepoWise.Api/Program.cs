@@ -805,7 +805,8 @@ app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.Materials.Update(s, id, new DepoWise.Infrastructure.Materials.UpdateMaterial(
-        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, Doc(d.Description)),
+        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, Doc(d.Description),
+        TemplateId: d.TemplateId),
         expectedVersion: d.Version); // düzenleme kilidi
     if (d.VehicleIds is not null) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
     return Results.Ok(new { ok = true });
@@ -1769,7 +1770,8 @@ app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
     RequireVehicleFields(d.BranchId, d.ProductionYear); // madde 8+1
     svc.Vehicles.Update(s, id, new DepoWise.Infrastructure.Vehicles.UpdateVehicle(
         Doc(d.Plate), d.ProductionYear, string.IsNullOrWhiteSpace(d.Status) ? "active" : d.Status, Doc(d.StatusNote),
-        Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId),
+        Doc(d.ChassisNo), Doc(d.EngineNo), d.VehicleTypeId, d.CategoryId, d.BrandId, d.VehicleModelId, d.BranchId, d.DriverPersonnelId,
+        TemplateId: d.TemplateId),
         expectedVersion: d.Version); // düzenleme kilidi
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();

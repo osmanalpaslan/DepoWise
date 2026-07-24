@@ -265,6 +265,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     {
         if (value is null) { _templateId = null; return; }
         _templateId = value.Id;
+        if (IsEditMode) return;   // DÜZENLEME: yalnız BAĞLA (_templateId ayarlandı); alanları/kodu EZME
         SelVehicleType = VehicleTypes.FirstOrDefault(x => x.Id == value.VehicleTypeId);
         SelCategory = VehicleCategories.FirstOrDefault(x => x.Id == value.CategoryId);
         SelBrand = VehicleBrands.FirstOrDefault(x => x.Id == value.BrandId); // modelleri yükler
@@ -449,7 +450,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
                     EngineNo: string.IsNullOrWhiteSpace(NewEngineNo) ? null : NewEngineNo.Trim(),
                     VehicleTypeId: SelVehicleType?.Id, CategoryId: SelCategory?.Id,
                     BrandId: SelBrand?.Id, VehicleModelId: SelModel?.Id,
-                    BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id),
+                    BranchId: SelBranch?.Id, DriverPersonnelId: SelDriver?.Id,
+                    TemplateId: _templateId),   // düzenlemede şablona bağla/koru (yüklenen mevcut bağ)
                     // DÜZENLEME KİLİDİ: formu açtığımız andaki sürüm — kayıt arada değiştiyse sessizce ezme.
                     expectedVersion: Detail?.Version);
 
@@ -665,6 +667,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         SelDriver = Drivers.FirstOrDefault(x => x.Id == d.DriverPersonnelId);
         SelBrand = VehicleBrands.FirstOrDefault(x => x.Id == d.BrandId); // markaya bağlı modeller yüklenir
         SelModel = VehicleModels.FirstOrDefault(x => x.Id == d.VehicleModelId);
+        // Mevcut şablon bağı (EditId set edildiği için changed-handler prefill YAPMAZ; yalnız bağ yüklenir).
+        SelectedTemplate = Templates.FirstOrDefault(x => x.Id == d.TemplateId);
         TriedSave = false;
         ShowAdd = true;
     }

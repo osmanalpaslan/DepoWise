@@ -46,12 +46,13 @@ public sealed record MaterialDetail(
     IReadOnlyList<MaterialRefRow> Equivalents, IReadOnlyList<MaterialRefRow> CompatibleVehicles,
     // DÜZENLEME KİLİDİ: formun açıldığı andaki sürüm. Kaydederken geri gönderilir; kayıt arada
     // değiştiyse sessizce ezilmez (bkz. MaterialService.Update / ConcurrencyException).
-    long Version = 0);
+    long Version = 0,
+    string? TemplateId = null);   // bağlı olduğu malzeme şablonu (düzenlemede korunur/değiştirilebilir)
 
 public sealed record UpdateMaterial(
     string Code, string Name, string? Type = null,
     string? CategoryId = null, string? UnitId = null, string? BrandId = null, string? SupplierId = null,
-    decimal MinStock = 0m, decimal UnitPrice = 0m, string? Description = null);
+    decimal MinStock = 0m, decimal UnitPrice = 0m, string? Description = null, string? TemplateId = null);
 
 /// <summary>
 /// Malzeme kartı — kod benzersiz (tenant), muadil (çift yönlü, döngü güvenli), uyumlu araç (çoklu seçim).
@@ -248,12 +249,13 @@ WHERE mcv.vehicle_id = @v;";
         string? code, name, type, catId, unitId, brandId, supId, catName, unitName, brandName, supName, desc, cur;
         decimal minStock, unitPrice, stock;
         long version;
+        string? tplId;
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = @"
 SELECT m.code, m.name, m.type, m.category_id, m.unit_id, m.brand_id, m.supplier_id,
        mc.name, u.name, b.name, sup.name,
-       m.min_stock, m.unit_price, m.currency_code, m.description, COALESCE(sb.quantity,'0'), m.version
+       m.min_stock, m.unit_price, m.currency_code, m.description, COALESCE(sb.quantity,'0'), m.version, m.template_id
 FROM materials m
 LEFT JOIN material_categories mc ON mc.id = m.category_id
 LEFT JOIN units u   ON u.id = m.unit_id
@@ -281,6 +283,7 @@ WHERE m.id=@id AND m.company_id=@c AND m.is_deleted=0;";
             desc = r.IsDBNull(14) ? null : r.GetString(14);
             stock = Money.Parse(r.GetString(15));
             version = r.GetInt64(16); // düzenleme kilidi
+            tplId = r.IsDBNull(17) ? null : r.GetString(17);
         }
 
         // Muadiller (grup ids → kod/ad)
@@ -311,7 +314,7 @@ WHERE mcv.material_id=@m AND v.company_id=@c AND v.is_deleted=0 ORDER BY v.inter
 
         return new MaterialDetail(materialId, code!, name!, type, catId, unitId, brandId, supId,
             catName, unitName, brandName, supName,
-            minStock, unitPrice, cur!, desc, stock, equivalents, vehicles, version);
+            minStock, unitPrice, cur!, desc, stock, equivalents, vehicles, version, tplId);
     }
 
     /// <summary>Malzeme alanlarını günceller (kod benzersiz; FK alanları). Stok bu serviste değişmez.</summary>
@@ -336,7 +339,7 @@ WHERE mcv.material_id=@m AND v.company_id=@c AND v.is_deleted=0 ORDER BY v.inter
             cmd.Transaction = tx;
             cmd.CommandText = @"
 UPDATE materials SET code=@code, name=@name, type=@type, category_id=@cat, unit_id=@unit,
-    brand_id=@brand, supplier_id=@sup, min_stock=@min, unit_price=@price, description=@desc,
+    brand_id=@brand, supplier_id=@sup, min_stock=@min, unit_price=@price, description=@desc, template_id=@tpl,
     version=version+1, updated_at=@now
 WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
             EditLockGuard.Bind(cmd, expectedVersion);
@@ -350,6 +353,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
             cmd.AddWithValue("@min", Money.Serialize(dto.MinStock));
             cmd.AddWithValue("@price", Money.Serialize(dto.UnitPrice));
             cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.AddWithValue("@tpl", (object?)dto.TemplateId ?? DBNull.Value);   // düzenlemede şablona bağla/koru
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", materialId);
             cmd.AddWithValue("@c", s.CompanyId);

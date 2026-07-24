@@ -61,9 +61,10 @@
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
                 <!-- Şablon (örnek kayıt) — yalnız yeni kayıt; seçilmezse kayıtta uyarı -->
-                <ctrl:FormField Label="Şablon (örnek kayıt)" Width="360"
-                                IsVisible="{Binding !IsEditMode}"
-                                HelpText="Şablon seçerseniz alanlar önden dolar. Şablon seçmeden kaydederseniz uyarı çıkar.">
+                <!-- Yeni kayıt: şablon seçince alanlar önden dolar. Düzenleme: şablona BAĞLA/DEĞİŞTİR (alanları ezmez) —
+                     "şablon-dışı" bir kaydı sonradan şablona bağlayıp raporda "şablonlu"ya taşımak için. -->
+                <ctrl:FormField Label="Şablon" Width="360"
+                                HelpText="Yeni kayıtta alanları önden doldurur; düzenlemede bu kaydı şablona bağlar (alanları değiştirmez).">
                     <ComboBox Classes="Field" ItemsSource="{Binding MaterialTemplates}"
                               SelectedItem="{Binding SelectedMaterialTemplate}" HorizontalAlignment="Stretch"/>
                 </ctrl:FormField>
