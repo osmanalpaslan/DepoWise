@@ -33,10 +33,16 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟢 CANLI PROVA BAŞARILI — babanın gerçek verisinin KOPYASI (3,6 MB, 8781 satır) Neon
-  `depowise_prod` DB'sine yüklendi, API yerel olarak ona bağlanıp giriş + TÜM okuma uçları + eşitleme
-  snapshot'ı (1,9 MB) gerçek veriyle 200 döndü. Gerçek veride 2 PG hatası çıktı+düzeltildi (aşağıda).
-  **580 test yeşil.** Kalan: yalnız **üretim geçişi** (kullanıcı onayı bekliyor). Canlı SQLite'a dokunulmadı.
+- **Durum:** ✅✅ **CANLIYA ALINDI (2026-07-24) — SUNUCU + WEB ARTIK PostgreSQL'DE.** Kullanıcı onayıyla
+  üretim geçişi yapıldı: (1) güncel kod `depowise-erp`'e deploy (SQLite'ta doğrulandı), (2) canlının TAZE
+  kopyası → `depowise_prod` yeniden yüklendi (8781 satır), (3) Fly secret `DEPOWISE_PG_URL` ayarlandı → sunucu
+  **PG'ye geçti**, (4) doğrulandı: `/health` 200, giriş + TÜM okuma uçları + `server/status` (`dbSizeMb`
+  `pg_database_size`'tan 14,2 → PG kesin) 200; web (API'yi HTTP ile çağırır, kendi DB'si yok) → otomatik PG.
+  Masaüstü SQLite'ta kaldı (eşitleme API üzerinden PG'ye yazar). 🔒 **Eski SQLite `/data/depowise-server.db`
+  el değmeden duruyor (yedek)** → geri dönüş: `flyctl secrets unset DEPOWISE_PG_URL` + redeploy. **580 test yeşil.**
+- **⚠️ Geçiş sonrası izleme:** Baba normal kullanımda bir sorun bildirirse (yazma/eşitleme kenar durumu)
+  önce secret'ı kaldırıp SQLite'a dön (anında), sonra hatayı gerçek veriyle çöz. Eski SQLite verisi Jul 22'den
+  beri değişmemişti (kopya güncel).
 - **✅ CANLI PROVA — gerçek veriyle bulunan 2 geçiş hatası (2026-07-24, SQLite'ta gizliydi):**
   1. `BranchService.ListForLogin`: SELECT projeksiyonundaki boolean ifade (`... IS NOT NULL AND <>''`) PG'de
      gerçek boolean döner → `GetInt64` patlıyordu (login 500) → `CAST(... AS INTEGER)`.
@@ -145,25 +151,20 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      + `SqlDialect.LikeTr`/`PortableSql`). `PostgresTurkishSearchTests` Neon'da kanıtlar.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım — ÜRETİM GEÇİŞİ (kullanıcı onayı bekliyor):** Kod PG-hazır + gerçek veriyle prova edildi.
-  Geçiş sırası (hepsi geri döndürülebilir; canlı SQLite dosyası yedekte kalır):
-  1. Güncel kodu (PG desteği + düzeltmeler) `depowise-erp`'e deploy et — hâlâ SQLite'ta, değişiklikler lehçe-nötr
-     (SQLite'ta da çalışır, /health + testlerle doğrulanır).
-  2. Geçiş anında canlı SQLite'ın **TAZE kopyasını** al (Jul 22'den beri değişmiş olabilir) → `depowise_prod`'u
-     sıfırla+yeniden yükle (`tools/DepoWise.Migrate`).
-  3. Fly secret `DEPOWISE_PG_URL=<depowise_prod>` ayarla + redeploy → sunucu PG'ye geçer.
-  4. Doğrula (giriş + veriler); sorun olursa secret'ı kaldır+redeploy ile SQLite'a **geri dön** (dosya duruyor).
-  ⚠️ Bu adım babanın CANLI sunucusunu etkiler → kullanıcı "üretime geç" onayı gerekir.
+- **Sıradaki adım — ✅ GEÇİŞ TAMAMLANDI.** Sunucu + web PostgreSQL'de (Neon `depowise_prod`), masaüstü SQLite'ta.
+  Kalan takip işleri (aceleye gerek yok): (a) baba birkaç gün normal kullansın, sorun çıkarsa geri dönüş anında;
+  (b) sağlamsa Neon yedek/otomatik-yedekleme ayarını gözden geçir; (c) eski `depowise-erp` SQLite yedeği bir süre
+  daha volume'da kalsın, kanıtlandıktan sonra kullanıcı kararıyla temizlenir. **Görev A (PostgreSQL geçişi) bitti.**
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
 |---|---|---|
 | **0** | **Ekran denetimi + parite** — her ekran: masaüstü=web=veritabanı aynı (alan+mantık). PostgreSQL'e model hazırlığı da bu. Ekran ekran, kısa rapor + küçük commit | 🟢 başladı (haritalama) |
 | 1 | Ücretsiz PostgreSQL kur, bağlantıyı doğrula | ✅ **TAMAM** — Neon (bulut, ücretsiz, Frankfurt, PG17) projesi `depowise-dev` kuruldu; Npgsql ile bağlantı 2 testle doğrulandı |
-| 2 | 52 şema adımını (migration) PostgreSQL diline çevir | ⬜ |
-| 3 | Sunucu veri katmanını (okuma/yazma) PostgreSQL'e uyarla | ⬜ |
-| 4 | **En zor parça:** eşitleme kodunu iki veritabanına birden (masaüstü SQLite ↔ sunucu PostgreSQL) çalışır hâle getir | ⬜ |
-| 5 | Gerçek verinin KOPYASIYLA prova → sağlamsa yeni makineleri yönlendir; eski sunucu yedekte kalır | ⬜ |
+| 2 | 53 şema adımını (migration) PostgreSQL diline çevir | ✅ **TAMAM** — Neon'da temiz kuruluyor |
+| 3 | Sunucu veri katmanını (okuma/yazma) PostgreSQL'e uyarla | ✅ **TAMAM** — servisler+arama+health+silme+eşitleme PG'de |
+| 4 | Eşitleme kodunu iki veritabanına birden çalışır hâle getir | ✅ **TAMAM** — satır-hatası savepoint dayanıklılığı dahil |
+| 5 | Gerçek verinin KOPYASIYLA prova → CANLIYA AL | ✅ **TAMAM (2026-07-24)** — sunucu+web PG'de, eski SQLite yedekte |
 
 **Bilinen risk / not:** En çetin parça Faz 4 (eşitleme). SQLite gevşek, PostgreSQL katı tiplidir
 (para yazı, tarih sayı, evet/hayır 0-1 olarak saklanıyor → her biri gözden geçirilecek). Ücretsiz

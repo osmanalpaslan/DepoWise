@@ -33,8 +33,8 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 | Ne | Durum |
 |---|---|
-| **PostgreSQL geçişi** | 🟢 **Sunucu KODU uçtan uca PG-hazır** — bağlantı+env seçimi, 53 şema, tüm servisler, Türkçe arama/sıralama, sağlık, TÜM silme yolları, eşitleme satır-hatası dayanıklılığı. Kod tarafında açık iş YOK. Kalan: **kullanıcı onayıyla canlı geçiş** (babanın verisinin KOPYASIYLA prova). Detay: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md) Görev A. 🔒 Canlı veri hâlâ SQLite'ta, dokunulmadı. |
-| **Testler** | **579/579 yeşil** (569 SQLite + 10 gerçek Neon PG testi; `dotnet test`) + canlı eşitleme QA **7/7** |
+| **PostgreSQL geçişi** | ✅✅ **CANLIYA ALINDI (2026-07-24)** — **sunucu (`depowise-erp`) + web PostgreSQL'de** (Neon `depowise_prod`). Masaüstü SQLite'ta kaldı (eşitleme API üzerinden PG'ye yazar). Gerçek verinin KOPYASIYLA prova edildi, canlıya alındı; eski SQLite yedekte (`/data/depowise-server.db`, el değmedi). Geri dönüş: `flyctl secrets unset DEPOWISE_PG_URL`. Detay: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md) Görev A. |
+| **Testler** | **580/580 yeşil** (569 SQLite + 11 gerçek Neon PG testi; `dotnet test`) + canlı eşitleme QA **7/7** |
 | **Yeni özellik** | **"Firma İş Verisini Sıfırla"** (süper admin, web) — firma/şube/kullanıcı KALIR, yalnız iş verisi silinir; parola+özel kod+firma adı teyidi; makineler yerel sıfırlamayla boş sunucudan çeker |
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
