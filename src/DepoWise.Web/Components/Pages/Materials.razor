@@ -122,7 +122,7 @@
 @if (!_isNew)
 {
 <MudGrid Spacing="2">
-    <MudItem xs="12" md="8">
+    <MudItem xs="12">
         <MudPaper Class="pa-4" Elevation="2">
             <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
@@ -170,9 +170,14 @@
                     <thead><tr>
                         @foreach (var key in _visibleColumns)
                         {
-                            <th data-key="@key" style="@ThStyle(key)">
-                                <div class="dw-th" @onclick="@(() => ToggleSort(key))">
-                                    <span>@Label(key).ToUpperInvariant()</span>
+                            @* ⠿ tutamağı sürükle = kolonu taşı; başlık metnine tıkla = sırala; sağ kenar = genişlik (CSS). *@
+                            <th data-key="@key" style="@ThStyle(key)"
+                                @ondragover:preventDefault="true" @ondrop="@(() => OnDropColumn(key))">
+                                <div class="dw-th">
+                                    <span title="Sürükleyerek kolonu taşı" draggable="true"
+                                          @ondragstart="@(() => _dragKey = key)"
+                                          style="cursor:grab;opacity:.45;margin-right:4px;user-select:none;">⠿</span>
+                                    <span style="cursor:pointer;flex:1 1 auto;" @onclick="@(() => ToggleSort(key))">@Label(key).ToUpperInvariant()</span>
                                     <span class="dw-sort">@SortArrow(key)</span>
                                 </div>
                             </th>
@@ -182,7 +187,8 @@
                         @* Tek tık = sağdaki detay paneli (mevcut davranış korunur). Çift tık = ayrı düzenle/kaydet/sil penceresi. *@
                         @foreach (var row in _rows)
                         {
-                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
+                            @* Çift tık = ayrı Düzelt/Kaydet/Sil penceresi (yan detay paneli kaldırıldı — tablo tam genişlik). *@
+                            <tr @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
                                 @foreach (var key in _visibleColumns) { <td title="@Str(row, key)">@Str(row, key)</td> }
                             </tr>
                         }
@@ -203,59 +209,6 @@
         </MudPaper>
     </MudItem>
 
-    <MudItem xs="12" md="4">
-        <MudPaper Class="pa-4" Elevation="2" Style="min-height:200px;">
-            @if (_detail is null) { <MudText Class="mud-text-secondary">Detay için bir malzeme seçin.</MudText> }
-            else
-            {
-                var d = _detail.Value;
-                var did = Str(d, "id");
-                <MudText Typo="Typo.h6">@Str(d, "name")</MudText>
-                <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">@Str(d, "code")</MudText>
-                <MudSimpleTable Dense="true" Bordered="false" Style="background:transparent">
-                    <tbody>
-                        <tr><td>Tür</td><td>@Str(d, "type")</td></tr>
-                        <tr><td>Kategori</td><td>@Str(d, "categoryName")</td></tr>
-                        <tr><td>Birim</td><td>@Str(d, "unitName")</td></tr>
-                        <tr><td>Marka</td><td>@Str(d, "brandName")</td></tr>
-                        <tr><td>Tedarikçi</td><td>@Str(d, "supplierName")</td></tr>
-                        <tr><td>Min / Stok</td><td>@Str(d, "minStock") (min)</td></tr>
-                        <tr><td>Birim Fiyat</td><td>@Str(d, "unitPrice") @Str(d, "currency")</td></tr>
-                        <tr><td>Mevcut Stok</td><td><b>@Str(d, "stock")</b></td></tr>
-                    </tbody>
-                </MudSimpleTable>
-                @if (!string.IsNullOrEmpty(Str(d, "description")))
-                {
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Açıklama</MudText>
-                    <MudText Typo="Typo.body2">@Str(d, "description")</MudText>
-                }
-                <MudText Typo="Typo.subtitle2" Class="mt-2">MUADİLLER</MudText>
-                @foreach (var e in Arr(d, "equivalents")) { <MudText Typo="Typo.body2">• @Str(e, "name")</MudText> }
-                <MudText Typo="Typo.subtitle2" Class="mt-2">UYUMLU ARAÇLAR</MudText>
-                @foreach (var v in Arr(d, "compatibleVehicles")) { <MudText Typo="Typo.body2">• @Str(v, "code")</MudText> }
-
-                <MudText Typo="Typo.subtitle2" Class="mt-2">FOTOĞRAFLAR</MudText>
-                <MudStack Row="true" Wrap="Wrap.Wrap">
-                    @foreach (var ph in _detailPhotos)
-                    {
-                        <div style="position:relative;width:72px;height:72px;margin:0 8px 8px 0;">
-                            <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
-                            @if (Auth.CanEdit("materials"))
-                            {
-                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
-                                               Style="position:absolute;top:0;right:0;background:#99000000;" OnClick="@(() => DeletePhoto(ph.Id))" />
-                            }
-                        </div>
-                    }
-                </MudStack>
-
-                <MudStack Row="true" Class="mt-3" Spacing="2">
-                    @if (Auth.CanEdit("materials")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => EditNav(did))">Düzenle</MudButton> }
-                    @if (Auth.CanDelete("materials")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSelected">Sil</MudButton> }
-                </MudStack>
-            }
-        </MudPaper>
-    </MudItem>
 </MudGrid>
 }
 
@@ -340,6 +293,21 @@
         _visibleColumns = chosen;
         await Api.SaveListColumnsAsync("materials", _visibleColumns);
         await Load();
+    }
+
+    // Kolon sürükle-taşıma: başlık ⠿ tutamağı sürüklenip başka bir başlığa bırakılınca sıra değişir + kalıcı kaydolur.
+    // Veri yeniden çekilmez (yalnız kolon SIRASI değişir; tablo _visibleColumns'tan yeniden render edilir).
+    private string? _dragKey;
+    private async Task OnDropColumn(string targetKey)
+    {
+        var src = _dragKey; _dragKey = null;
+        if (string.IsNullOrEmpty(src) || src == targetKey) return;
+        var from = _visibleColumns.IndexOf(src);
+        if (from < 0) return;
+        _visibleColumns.RemoveAt(from);
+        var to = _visibleColumns.IndexOf(targetKey);
+        _visibleColumns.Insert(to < 0 ? _visibleColumns.Count : to, src);   // hedef kolonun ÖNÜNE bırak
+        await Api.SaveListColumnsAsync("materials", _visibleColumns);
     }
 
     protected override async Task OnInitializedAsync()

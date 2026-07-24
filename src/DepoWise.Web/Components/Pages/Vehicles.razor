@@ -107,7 +107,7 @@
 @if (!_isNew)
 {
 <MudGrid Spacing="2">
-    <MudItem xs="12" md="8">
+    <MudItem xs="12">
         <MudPaper Class="pa-4" Elevation="2">
             <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
@@ -153,9 +153,14 @@
                     <thead><tr>
                         @foreach (var key in _visibleColumns)
                         {
-                            <th data-key="@key" style="@ThStyle(key)">
-                                <div class="dw-th" @onclick="@(() => ToggleSort(key))">
-                                    <span>@Label(key).ToUpperInvariant()</span>
+                            @* ⠿ tutamağı sürükle = kolonu taşı; başlık metnine tıkla = sırala; sağ kenar = genişlik. *@
+                            <th data-key="@key" style="@ThStyle(key)"
+                                @ondragover:preventDefault="true" @ondrop="@(() => OnDropColumn(key))">
+                                <div class="dw-th">
+                                    <span title="Sürükleyerek kolonu taşı" draggable="true"
+                                          @ondragstart="@(() => _dragKey = key)"
+                                          style="cursor:grab;opacity:.45;margin-right:4px;user-select:none;">⠿</span>
+                                    <span style="cursor:pointer;flex:1 1 auto;" @onclick="@(() => ToggleSort(key))">@Label(key).ToUpperInvariant()</span>
                                     <span class="dw-sort">@SortArrow(key)</span>
                                 </div>
                             </th>
@@ -166,7 +171,8 @@
                         @* Tek tık = sağdaki detay paneli (mevcut davranış korunur). Çift tık = ayrı düzenle/kaydet/sil penceresi. *@
                         @foreach (var row in _rows)
                         {
-                            <tr @onclick="@(() => OpenDetail(Str(row, "id")))" @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
+                            @* Çift tık = ayrı Düzelt/Kaydet/Sil penceresi (yan detay paneli kaldırıldı — tablo tam genişlik). *@
+                            <tr @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
                                 @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
                                 <td>@Alert(Str(row, "id"))</td>
                             </tr>
@@ -188,79 +194,6 @@
         </MudPaper>
     </MudItem>
 
-    <MudItem xs="12" md="4">
-        <MudPaper Class="pa-4" Elevation="2" Style="min-height:200px;">
-            @if (_detail is null) { <MudText Class="mud-text-secondary">Detay/düzenleme için bir araç seçin.</MudText> }
-            else
-            {
-                var d = _detail.Value;
-                var did = Str(d, "id");
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                    <MudText Typo="Typo.h6">@Str(d, "internalCode")</MudText>
-                    <MudChip T="string" Size="Size.Small">@StatusTr(Str(d, "status"))</MudChip>
-                </MudStack>
-                <MudSimpleTable Dense="true" Bordered="false" Style="background:transparent">
-                    <tbody>
-                        <tr><td>Plaka</td><td>@Dash(Str(d, "plate"))</td></tr>
-                        <tr><td>Makine Tipi</td><td>@Str(d, "vehicleTypeName")</td></tr>
-                        <tr><td>Kategori</td><td>@Str(d, "categoryName")</td></tr>
-                        <tr><td>Marka</td><td>@Str(d, "brandName")</td></tr>
-                        <tr><td>Model</td><td>@Str(d, "vehicleModelName")</td></tr>
-                        <tr><td>Şantiye</td><td>@Str(d, "branchName")</td></tr>
-                        <tr><td>Sürücü</td><td>@Str(d, "driverName")</td></tr>
-                        <tr><td>Üretim Yılı</td><td>@Dash(Str(d, "productionYear"))</td></tr>
-                        <tr><td>Şasi No</td><td>@Dash(Str(d, "chassisNo"))</td></tr>
-                        <tr><td>Motor No</td><td>@Dash(Str(d, "engineNo"))</td></tr>
-                        <tr><td>Sayaç</td><td><b>@Str(d, "currentMeter") @Str(d, "meterUnit")</b></td></tr>
-                    </tbody>
-                </MudSimpleTable>
-                @if (!string.IsNullOrEmpty(Str(d, "statusNote")))
-                {
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Durum Açıklaması</MudText>
-                    <MudText Typo="Typo.body2">@Str(d, "statusNote")</MudText>
-                }
-                <MudText Typo="Typo.subtitle2" Class="mt-2">FOTOĞRAFLAR</MudText>
-                <MudStack Row="true" Wrap="Wrap.Wrap">
-                    @foreach (var ph in _detailPhotos)
-                    {
-                        <div style="position:relative;width:72px;height:72px;margin:0 8px 8px 0;">
-                            <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
-                            @* Foto silme YALNIZ düzenleme modunda (bu araç "Düzenle" ile açıkken). Salt görüntülemede silinemez. *@
-                            @if (Auth.CanEdit("vehicles") && _editId == did)
-                            {
-                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:0;right:0;background:#99000000;" OnClick="@(() => DeletePhoto(ph.Id))" />
-                            }
-                        </div>
-                    }
-                </MudStack>
-
-                <MudStack Row="true" Class="mt-3" Spacing="2">
-                    @if (Auth.CanEdit("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => EditNav(did))">Düzenle</MudButton> }
-                    @if (Auth.CanDelete("vehicles")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteSelected">Sil</MudButton> }
-                </MudStack>
-
-                @* Araç detay sekmeleri — ilgili ekranlardan canlı veri *@
-                <MudTabs Elevation="0" Rounded="true" Class="mt-3" TabPanelsClass="pa-2" MinimumTabWidth="60px">
-                    <MudTabPanel Text="Uyumlu Malzemeler">
-                        @if (_dMaterials.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
-                        else { @foreach (var m in _dMaterials) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(m, "code") · @Str(m, "name")</MudText><MudText Typo="Typo.body2">@Str(m, "quantity")</MudText></MudStack> } }
-                    </MudTabPanel>
-                    <MudTabPanel Text="Muayene / Sigorta">
-                        @if (_dInspections.Count == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
-                        else { @foreach (var i in _dInspections) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(i, "docTypeText") · @Str(i, "nextText")</MudText><MudText Typo="Typo.body2">@Str(i, "statusText")</MudText></MudStack> } }
-                    </MudTabPanel>
-                    <MudTabPanel Text="Bakım Takibi">
-                        @if (_dMaint.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
-                        else { @foreach (var b in _dMaint) { <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(b, "definitionName") · @Str(b, "performedDisplay")</MudText><MudText Typo="Typo.body2">@Str(b, "statusText")</MudText></MudStack> } }
-                    </MudTabPanel>
-                    <MudTabPanel Text="Araç Hareketleri">
-                        @if (_dMoves.Length == 0) { <MudText Typo="Typo.caption" Class="mud-text-secondary">Kayıt yok.</MudText> }
-                        else { @foreach (var mv in _dMoves) { <MudText Typo="Typo.body2">@Date(mv, "activityDate") · @Str(mv, "description")</MudText> } }
-                    </MudTabPanel>
-                </MudTabs>
-            }
-        </MudPaper>
-    </MudItem>
 </MudGrid>
 }
 
@@ -351,6 +284,20 @@
         _visibleColumns = chosen;
         await Api.SaveListColumnsAsync("vehicles", _visibleColumns);
         await Load();
+    }
+
+    // Kolon sürükle-taşıma: başlık ⠿ tutamağı sürüklenip başka bir başlığa bırakılınca sıra değişir + kalıcı kaydolur.
+    private string? _dragKey;
+    private async Task OnDropColumn(string targetKey)
+    {
+        var src = _dragKey; _dragKey = null;
+        if (string.IsNullOrEmpty(src) || src == targetKey) return;
+        var from = _visibleColumns.IndexOf(src);
+        if (from < 0) return;
+        _visibleColumns.RemoveAt(from);
+        var to = _visibleColumns.IndexOf(targetKey);
+        _visibleColumns.Insert(to < 0 ? _visibleColumns.Count : to, src);   // hedef kolonun ÖNÜNE bırak
+        await Api.SaveListColumnsAsync("vehicles", _visibleColumns);
     }
 
     protected override async Task OnInitializedAsync()
