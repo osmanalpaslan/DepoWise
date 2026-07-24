@@ -134,7 +134,7 @@ LEFT JOIN brands b ON b.id = t.brand_id
 LEFT JOIN vehicle_models vm ON vm.id = t.vehicle_model_id
 WHERE t.company_id=@c AND t.is_deleted=0
   AND (t.is_global=1 OR t.created_by=@me)
-  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "t.name", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(t.internal_code,'')", "@like")})
+  AND (CAST(@s AS TEXT) IS NULL OR {SqlDialect.LikeTr(conn, "t.name", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(t.internal_code,'')", "@like")})
 ORDER BY t.name LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@me", s.UserId);

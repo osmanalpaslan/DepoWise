@@ -409,7 +409,7 @@ ORDER BY u.username;");
         }
         using var q = conn.CreateCommand();
         q.Transaction = tx;
-        q.CommandText = "SELECT COUNT(*) FROM users WHERE personnel_id=@p AND is_deleted=0 AND (@x IS NULL OR id<>@x);";
+        q.CommandText = "SELECT COUNT(*) FROM users WHERE personnel_id=@p AND is_deleted=0 AND (CAST(@x AS TEXT) IS NULL OR id<>@x);";
         q.AddWithValue("@p", personnelId);
         q.AddWithValue("@x", (object?)excludeUserId ?? DBNull.Value);
         if (Convert.ToInt64(q.ExecuteScalar()) > 0)

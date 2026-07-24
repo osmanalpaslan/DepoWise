@@ -280,7 +280,7 @@ LEFT JOIN branches fb ON fb.id = da.from_location_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id
 LEFT JOIN personnel p ON p.id = da.operator_id
 WHERE da.company_id = @c AND da.is_deleted = 0
-  AND (@t IS NULL OR da.activity_type = @t)
+  AND (CAST(@t AS TEXT) IS NULL OR da.activity_type = @t)
 ORDER BY da.activity_date DESC, da.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@t", (object?)activityType ?? DBNull.Value);

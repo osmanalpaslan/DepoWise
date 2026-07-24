@@ -249,7 +249,9 @@ ORDER BY u.username;");
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, kind, code, (password_hash IS NOT NULL AND password_hash<>'') " +
+        // CAST(... AS INTEGER): boolean ifade PG'de gerçek boolean döner (GetInt64 patlar); CAST ile iki lehçede
+        // de 0/1 → GetInt64 çalışır. (SQLite'ta zaten 0/1'di; davranış değişmez.)
+        cmd.CommandText = "SELECT id, name, kind, code, CAST((password_hash IS NOT NULL AND password_hash<>'') AS INTEGER) " +
             "FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
         cmd.AddWithValue("@c", companyId);
         var list = new List<BranchRow>();

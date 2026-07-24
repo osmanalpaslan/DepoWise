@@ -196,7 +196,7 @@ VALUES(@id,@c,@ic,@plate,@yr,@meter,@mu,@br,@drv,@ch,@en,@st,@note,@vt,@cat,@bra
 SELECT id, internal_code, plate, status, current_meter, meter_unit, production_year
 FROM vehicles
 WHERE company_id=@c AND is_deleted=0
-  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "internal_code", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(plate,'')", "@like")})
+  AND (CAST(@s AS TEXT) IS NULL OR {SqlDialect.LikeTr(conn, "internal_code", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(plate,'')", "@like")})
 ORDER BY internal_code LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();

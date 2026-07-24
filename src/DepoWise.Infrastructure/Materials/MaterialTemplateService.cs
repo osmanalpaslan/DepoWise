@@ -95,7 +95,7 @@ FROM material_templates t
 LEFT JOIN units u ON u.id = t.unit_id
 WHERE t.company_id=@c AND t.is_deleted=0
   AND (t.is_global=1 OR t.created_by=@me)
-  AND (@s IS NULL OR {SqlDialect.LikeTr(conn, "t.name", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(t.code,'')", "@like")})
+  AND (CAST(@s AS TEXT) IS NULL OR {SqlDialect.LikeTr(conn, "t.name", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(t.code,'')", "@like")})
 ORDER BY t.is_global DESC, t.name LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@me", s.UserId);

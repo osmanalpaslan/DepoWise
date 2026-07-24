@@ -211,7 +211,7 @@ JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
 LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
 WHERE vm.company_id=@c AND vm.is_deleted=0
-  AND (@vid IS NULL OR vm.vehicle_id=@vid)
+  AND (CAST(@vid AS TEXT) IS NULL OR vm.vehicle_id=@vid)
 ORDER BY vm.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@vid", (object?)vehicleId ?? DBNull.Value);

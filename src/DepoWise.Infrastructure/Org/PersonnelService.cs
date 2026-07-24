@@ -45,7 +45,7 @@ public sealed class PersonnelService
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
-            "WHERE company_id=@c AND is_deleted=0 AND (@x IS NULL OR id<>@x) AND (" +
+            "WHERE company_id=@c AND is_deleted=0 AND (CAST(@x AS TEXT) IS NULL OR id<>@x) AND (" +
             "  (@n <> '' AND REPLACE(LOWER(full_name),' ','')=@n) OR " +
             "  (@d <> '' AND phone IS NOT NULL AND REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'(',''),')','')=@d)" +
             ");";

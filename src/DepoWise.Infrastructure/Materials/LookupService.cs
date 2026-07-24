@@ -121,7 +121,7 @@ public sealed class LookupService
         cmd.CommandText = @"
 SELECT id, name FROM material_categories
 WHERE company_id=@c AND is_deleted=0
-  AND ((@p IS NULL AND parent_id IS NULL) OR parent_id=@p)
+  AND ((CAST(@p AS TEXT) IS NULL AND parent_id IS NULL) OR parent_id=@p)
 ORDER BY name;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@p", (object?)parentId ?? DBNull.Value);

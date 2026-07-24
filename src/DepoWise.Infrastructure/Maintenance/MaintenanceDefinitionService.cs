@@ -81,7 +81,7 @@ VALUES(@id,@c,@p,@n,@iv,@iu,@d,@now,@now,1,0);";
 SELECT id, name, interval_value, interval_unit, description, parent_def_id
 FROM maintenance_definitions
 WHERE company_id=@c AND is_deleted=0
-  AND ((@p IS NULL AND parent_def_id IS NULL) OR parent_def_id=@p)
+  AND ((CAST(@p AS TEXT) IS NULL AND parent_def_id IS NULL) OR parent_def_id=@p)
 ORDER BY name;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@p", (object?)parentDefId ?? DBNull.Value);
