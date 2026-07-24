@@ -1115,9 +1115,25 @@ app.MapPost("/api/admin/reset-data", (HttpContext c) =>
     };
 
     using var conn = svc.Factory.Create();
+    var cleared = new List<string>();
+
+    if (conn is Npgsql.NpgsqlConnection)
+    {
+        // PostgreSQL: FK kapatılamaz (Neon owner yetkisi yok) → yalnız VAR OLAN tabloları FK-güvenli
+        // sırada (savepoint+retry) sil. Eksik tabloları önceden ele (SQLite'taki try/catch toleransının karşılığı).
+        var existing = new HashSet<string>(
+            DepoWise.Infrastructure.Database.DbIntrospect.ListTables(conn), StringComparer.OrdinalIgnoreCase);
+        using var ptx = conn.BeginTransaction();
+        var done = DepoWise.Infrastructure.Database.DialectPurge.RunFkSafe(
+            conn, ptx, clearTables.Where(existing.Contains).Select(t => $"DELETE FROM \"{t}\";"));
+        ptx.Commit();
+        foreach (var (sql, n) in done) cleared.Add($"{sql}:{n}");
+        return Results.Ok(new { ok = true, cleared });
+    }
+
+    // --- SQLite yolu: DEĞİŞMEDİ ---
     using (var pragma = conn.CreateCommand()) { pragma.CommandText = "PRAGMA foreign_keys=OFF;"; pragma.ExecuteNonQuery(); }
     using var tx = conn.BeginTransaction();
-    var cleared = new List<string>();
     foreach (var t in clearTables)
     {
         try
@@ -1359,19 +1375,14 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
     // Korunan tablolar: migration geçmişi, sqlite iç tabloları, sistem rolleri. Özel işlenenler: users/companies/user_roles.
     var keepWhole = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "schema_migrations", "sqlite_sequence", "roles" };
     using var conn = svc.Factory.Create();
-    var tables = new List<string>();
-    using (var q = conn.CreateCommand())
-    {
-        q.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
-        using var r = q.ExecuteReader();
-        while (r.Read()) tables.Add(r.GetString(0));
-    }
-    using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
-    using var tx = conn.BeginTransaction();
+    var tables = DepoWise.Infrastructure.Database.DbIntrospect.ListTables(conn);   // lehçe-duyarlı (SQLite/PG)
+
+    // Aktörün kendi kaydı KORUNUR (id<>@me / id<>@co); gerisi tamamen silinir.
+    var stmts = new List<string>();
     foreach (var t in tables)
     {
         if (keepWhole.Contains(t)) continue;
-        string sql = t.ToLowerInvariant() switch
+        stmts.Add(t.ToLowerInvariant() switch
         {
             "users" => "DELETE FROM users WHERE id <> @me;",
             "companies" => "DELETE FROM companies WHERE id <> @co;",
@@ -1379,15 +1390,36 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
             "user_permissions" => "DELETE FROM user_permissions WHERE user_id <> @me;",
             "user_button_permissions" => "DELETE FROM user_button_permissions WHERE user_id <> @me;",
             _ => $"DELETE FROM \"{t}\";",
-        };
-        using var del = conn.CreateCommand();
-        del.Transaction = tx; del.CommandText = sql;
-        if (sql.Contains("@me")) del.AddWithValue("@me", s.UserId);
-        if (sql.Contains("@co")) del.AddWithValue("@co", s.CompanyId);
-        del.ExecuteNonQuery();
+        });
     }
-    tx.Commit();
-    using (var on = conn.CreateCommand()) { on.CommandText = "PRAGMA foreign_keys=ON;"; on.ExecuteNonQuery(); }
+    void Bind(System.Data.Common.DbCommand cmd)
+    {
+        if (cmd.CommandText.Contains("@me")) cmd.AddWithValue("@me", s.UserId);
+        if (cmd.CommandText.Contains("@co")) cmd.AddWithValue("@co", s.CompanyId);
+    }
+
+    if (conn is Npgsql.NpgsqlConnection)
+    {
+        // PostgreSQL: FK kapatılamaz → FK-güvenli sırada (savepoint+retry) sil.
+        using var tx = conn.BeginTransaction();
+        DepoWise.Infrastructure.Database.DialectPurge.RunFkSafe(conn, tx, stmts, Bind);
+        tx.Commit();
+    }
+    else
+    {
+        // --- SQLite yolu: DEĞİŞMEDİ (FK kapat + sırayla sil) ---
+        using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
+        using var tx = conn.BeginTransaction();
+        foreach (var sql in stmts)
+        {
+            using var del = conn.CreateCommand();
+            del.Transaction = tx; del.CommandText = sql;
+            Bind(del);
+            del.ExecuteNonQuery();
+        }
+        tx.Commit();
+        using (var on = conn.CreateCommand()) { on.CommandText = "PRAGMA foreign_keys=ON;"; on.ExecuteNonQuery(); }
+    }
 
     // Diskteki fotoğraf ve makine yedeklerini de temizle (yer kaplamasın; ADR-070).
     int filesDeleted = 0;

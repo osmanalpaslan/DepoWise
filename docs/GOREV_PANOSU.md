@@ -33,8 +33,8 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟢 DEVAM — Adım 5 (Türkçe arama) + Adım 6 kod altyapısı (PG factory + env seçimi + health) tamam.
-  Sıra: canlı geçiş bloklarını kapatıp (yönetici uçları, savepoint) kullanıcı onayıyla prova.
+- **Durum:** 🟢 DEVAM — Sunucu kodu uçtan uca PG-hazır (bağlantı+env, şema, servisler, Türkçe arama, health,
+  TÜM silme yolları). Kalan tek kod işi: ApplyCore savepoint. Sonra kullanıcı onayıyla deploy + kopya-veri prova.
 - **Nerede kaldık:** Kullanıcı A'ya başlamak istedi. İki karar eklendi: (1) PostgreSQL web'i baştan
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
@@ -111,10 +111,19 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      env değişkeniyle factory seçiyor — **değişken YOKSA eskisi gibi SQLite** (babanın canlı sunucusu birebir
      aynı). `DatabaseHealth` lehçe-duyarlı yapıldı (PG'de PRAGMA yok → FK=true, journal="postgres", gerçek
      write/read; `_health_check` tablosundan taşan/PK-null sorunları giderildi). **575 test yeşil** (yeni
-     `PostgresServerHealthTests` gerçek factory + health'i Neon'da kanıtlar). ⚠️ **Canlı geçiş için KALAN
-     bloklar (aşağıda):** Program.cs yönetici uçları (purge/reset `PRAGMA foreign_keys`, sağlık `PRAGMA
-     page_count/page_size`) hâlâ SQLite'a özel → PG-varsayılan sunucuda bunlar uyarlanmadan çalışmaz.
-     Gerçek deploy + verinin KOPYASIYLA prova, kullanıcı onayıyla yapılacak (üretim/altın kural).
+     `PostgresServerHealthTests` gerçek factory + health'i Neon'da kanıtlar). Sağlık ucu DB boyutunu PG'de
+     `pg_database_size` ile ölçer.
+  7. ✅ **TAMAM (2026-07-24) — Sunucu SİLME yolları PG-güvenli:** Firma kalıcı silme (ADR-083) + iş-verisi
+     sıfırlama + 2 dev/admin sıfırlama ucu artık PostgreSQL'de FK-güvenli çalışıyor. **Kritik bulgu (gerçek
+     testle):** Neon'un tablo-sahibi rolü FK'yi KAPATAMAZ — ne `session_replication_role=replica` ne
+     `ALTER TABLE ... DISABLE TRIGGER ALL` (ikisi de 42501 izin reddi). Çözüm: yeni `DialectPurge` —
+     (1) hedefleri geçişli referans eden tüm tabloları **kapanış (closure)** ile toplar (company_id'siz junction
+     tabloları + ör. `vehicle_meter_logs` gibi bağımlıları da → yetim/FK-ihlali kalmaz),
+     (2) company_id varsa doğrudan, yoksa ebeveyne JOIN ile siler,
+     (3) **savepoint + retry-fixpoint** ile FK sırasını kendiliğinden çözer (FK kapatmadan). Ortak
+     `RunFkSafe` yardımcısı Program.cs'in iki sıfırlama ucunda (dev-reset, admin reset-test-data;
+     `sqlite_master`→`DbIntrospect.ListTables`, `PRAGMA`→retry). **SQLite yolları HİÇ değişmedi.**
+     **578 test yeşil** (yeni `PostgresPurgeTests`: kalıcı silme + iş sıfırlama + RunFkSafe Neon'da kanıtlar).
 
 - **⚠️ Bilinen takip işleri (sağlamlık):**
   1. **ApplyCore satır-hatası deseni:** SQLite'ta hatalı satır atlanıp devam edilir; PostgreSQL'de bir hata
@@ -125,10 +134,11 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      + `SqlDialect.LikeTr`/`PortableSql`). `PostgresTurkishSearchTests` Neon'da kanıtlar.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Adım 6'nın KALANI — canlı geçiş öncesi (a) Program.cs yönetici uçlarını (purge/reset/
-  sağlık) PG-uyumlu yap (`PRAGMA foreign_keys`/`page_count` → PG karşılığı), (b) ApplyCore savepoint deseni,
-  (c) kullanıcı onayıyla Fly'da Neon bölgesinde çalıştırıp gerçek verinin KOPYASIYLA prova. Kod altyapısı hazır
-  (`PostgresConnectionFactory` + env seçimi + lehçe-duyarlı health).
+- **Sıradaki adım:** Canlı geçiş öncesi son iki iş: (a) **ApplyCore savepoint deseni** (yukarıda takip işi #1 —
+  eşitlemede beklenmedik satır hatası PG'de tüm transaction'ı durdurmasın; DialectPurge'deki savepoint+retry
+  deseni burada da uygulanabilir), (b) **kullanıcı onayıyla** Fly'da Neon bölgesinde çalıştırıp gerçek verinin
+  KOPYASIYLA prova. Sunucu KODU artık uçtan uca PG-hazır: bağlantı+env seçimi, şema, servisler, Türkçe arama,
+  sağlık, TÜM silme yolları. Kalan tek kod işi ApplyCore; gerisi deploy/prova (üretim → senin onayın).
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |

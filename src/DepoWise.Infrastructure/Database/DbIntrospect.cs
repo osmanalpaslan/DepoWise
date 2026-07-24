@@ -10,7 +10,7 @@ namespace DepoWise.Infrastructure.Database;
 /// "kolon var mı?" kontrolleri) ve BusinessSyncService (generic snapshot/upsert için kolon/PK listesi) buraya bağlıdır.
 /// SQLite tarafında eski davranış BİREBİR korunur (569 test), PostgreSQL'de eşdeğeri çalışır.
 /// </summary>
-internal static class DbIntrospect
+public static class DbIntrospect
 {
     /// <summary>Tabloda bu kolon var mı? (migration idempotency)</summary>
     public static bool ColumnExists(DbConnection conn, DbTransaction? tx, string table, string column)

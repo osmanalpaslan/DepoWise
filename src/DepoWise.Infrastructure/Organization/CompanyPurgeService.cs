@@ -69,11 +69,30 @@ public sealed class CompanyPurgeService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
+        int rows, touched;
+
+        if (!SqlDialect.IsSqlite(conn))
+        {
+            // PostgreSQL: FK kapatılamaz (Neon owner yetkisi yok) → FK-güvenli, kataloğa dayalı silme.
+            using var tx = conn.BeginTransaction();
+            (rows, touched) = DialectPurge.DeleteCompanyData(
+                conn, tx, companyId, includeCompanyTable: _ => true, deleteCompaniesRow: true, Protected);
+            // KÜNYE — aynı transaction. Bu satır olmadan çevrimdışı makine silmeyi asla öğrenemez.
+            Exec(conn, tx,
+                "INSERT INTO company_purges(company_id, company_name, purged_at, purged_by) VALUES(@c,@n,@at,@by) " +
+                "ON CONFLICT(company_id) DO UPDATE SET company_name=@n, purged_at=@at, purged_by=@by;",
+                ("@c", companyId), ("@n", name), ("@at", now), ("@by", actor.UserId));
+            AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "company_purge", companyId, AuditActions.Delete, actor.UserId), _clock);
+            tx.Commit();
+            return new PurgeResult(companyId, name, touched, rows);
+        }
+
+        // --- SQLite (masaüstü/mevcut sunucu) yolu: DEĞİŞMEDİ (569 test kanıtı) ---
         var tables = ListTables(conn);
 
         // FK'ler kapalı: silme sırası önemsiz hale gelir (aksi halde ebeveyn/çocuk sırası tutturulamaz).
         using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
-        int rows = 0, touched = 0;
+        rows = 0; touched = 0;
         try
         {
             using var tx = conn.BeginTransaction();
@@ -134,8 +153,24 @@ public sealed class CompanyPurgeService
         var name = FindName(companyId) ?? throw new InvalidOperationException("Firma bulunamadı.");
 
         using var conn = _factory.Create();
+        int rows, touched;
+
+        if (!SqlDialect.IsSqlite(conn))
+        {
+            // PostgreSQL: FK-güvenli, kataloğa dayalı silme — YALNIZ iş verisi tabloları hedef; firma/şube/
+            // kullanıcı/rol KORUNUR. İş tablolarının company_id'siz çocukları (satır tabloları) da temizlenir.
+            var business = new HashSet<string>(DepoWise.Infrastructure.Sync.BusinessSyncService.Tables, StringComparer.OrdinalIgnoreCase);
+            using var tx = conn.BeginTransaction();
+            (rows, touched) = DialectPurge.DeleteCompanyData(
+                conn, tx, companyId, includeCompanyTable: business.Contains, deleteCompaniesRow: false, Protected);
+            AuditWriter.Write(conn, tx, new AuditEntry(actor.CompanyId, "company_business_reset", companyId, AuditActions.Delete, actor.UserId), _clock);
+            tx.Commit();
+            return new PurgeResult(companyId, name, touched, rows);
+        }
+
+        // --- SQLite yolu: DEĞİŞMEDİ ---
         using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
-        int rows = 0, touched = 0;
+        rows = 0; touched = 0;
         try
         {
             using var tx = conn.BeginTransaction();
