@@ -452,7 +452,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
                 CategoryId: categoryId, UnitId: SelectedUnit.Id,
                 BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
                 UnitPrice: NewUnitPrice, MinStock: NewMinStock, Currency: "TRY",
-                Description: string.IsNullOrWhiteSpace(NewDescription) ? null : NewDescription.Trim()));
+                Description: string.IsNullOrWhiteSpace(NewDescription) ? null : NewDescription.Trim(),
+                TemplateId: SelectedMaterialTemplate?.Id));   // seçilen şablon → şablonlu/şablon-dışı rapor ayrımı
 
             // Açılış stoğu 0 dışında ise stok hareketi. ADR-086: negatif de olur (devralınan eksik stok).
             if (NewOpeningStock != 0)

@@ -31,7 +31,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private const int MaxBars = 20; // büyük veri: nokta sayısını sınırla
 
     public ObservableCollection<string> ReportTypes { get; } = new()
-        { "Genel Rapor", "Stok Durumu", "Stok Sayım", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu" };
+        { "Genel Rapor", "Stok Durumu", "Stok Sayım", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu",
+          "Malzeme — Şablonlu", "Malzeme — Şablon Dışı", "Araç — Şablonlu", "Araç — Şablon Dışı" };
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
 
@@ -105,6 +106,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
                 "Bakım Raporu" => DesktopServices.Reports.Maintenance(_session, req),
                 "Depo Girişi" => DesktopServices.Reports.FuelDepot(_session, req),
                 "Talep Raporu" => DesktopServices.Reports.Requests(_session, req),
+                "Malzeme — Şablonlu" => DesktopServices.Reports.MaterialsByTemplate(_session, req),
+                "Malzeme — Şablon Dışı" => DesktopServices.Reports.MaterialsNonTemplate(_session, req),
+                "Araç — Şablonlu" => DesktopServices.Reports.VehiclesByTemplate(_session, req),
+                "Araç — Şablon Dışı" => DesktopServices.Reports.VehiclesNonTemplate(_session, req),
                 _ => DesktopServices.Reports.StockStatus(_session, req),
             };
 

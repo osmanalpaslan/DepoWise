@@ -535,7 +535,8 @@
                 categoryId = string.IsNullOrEmpty(_subCat) ? Empty(_cat) : _subCat,
                 unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                 minStock = _min, unitPrice = _price, description = Empty(_desc), openingStock = _opening,
-                vehicleIds = _vehicleSel.ToList(), equivalentIds = _equivalents.Select(e => e.Id).ToList()
+                vehicleIds = _vehicleSel.ToList(), equivalentIds = _equivalents.Select(e => e.Id).ToList(),
+                templateId = _templateId   // seçilen şablon → şablonlu/şablon-dışı rapor ayrımı (create'te bağlanır)
             };
             string? err; string? savedId;
             if (_editId is null)
