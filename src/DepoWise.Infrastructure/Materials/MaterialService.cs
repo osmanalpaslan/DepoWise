@@ -73,6 +73,10 @@ public sealed class MaterialService
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(dto.Code)) throw new ArgumentException("Kod zorunlu.");
         if (!Money.IsSupported(dto.Currency)) throw new ArgumentException($"Desteklenmeyen para birimi: {dto.Currency}");
+        // ADR-086: min stok / birim fiyat negatif OLAMAZ (yalnız AÇILIŞ stoğu negatif olabilir — o ayrı,
+        // RecordOpening'de). Arayüz de engeller; bu sunucu-tarafı kalkanı (savunma derinliği).
+        if (dto.MinStock < 0) throw new ArgumentException("Minimum stok negatif olamaz.");
+        if (dto.UnitPrice < 0) throw new ArgumentException("Birim fiyat negatif olamaz.");
 
         var id = Guid.NewGuid().ToString("N");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -316,6 +320,8 @@ WHERE mcv.material_id=@m AND v.company_id=@c AND v.is_deleted=0 ORDER BY v.inter
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (string.IsNullOrWhiteSpace(dto.Code)) throw new ArgumentException("Kod zorunlu.");
+        if (dto.MinStock < 0) throw new ArgumentException("Minimum stok negatif olamaz.");   // ADR-086 (bkz. Create)
+        if (dto.UnitPrice < 0) throw new ArgumentException("Birim fiyat negatif olamaz.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();

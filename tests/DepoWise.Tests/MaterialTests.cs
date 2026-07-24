@@ -73,6 +73,24 @@ public class MaterialTests : IDisposable
         Assert.Equal("USD", rec.Currency);
     }
 
+    // ---- ADR-086: min stok / birim fiyat NEGATİF olamaz (yalnız AÇILIŞ stoğu negatif olabilir) ----
+    [Fact]
+    public void NegatifFiyatVeMinStok_Reddedilir_AcilisStogu_Serbest()
+    {
+        var a = Admin("A");
+        // Create: negatif birim fiyat / min stok → ArgumentException (API'de 400)
+        Assert.Throws<ArgumentException>(() => _materials.Create(a, new NewMaterial("N-1", "Neg", UnitPrice: -5m)));
+        Assert.Throws<ArgumentException>(() => _materials.Create(a, new NewMaterial("N-2", "Neg", MinStock: -1m)));
+        // Geçerli (0 ve pozitif) → kabul
+        var id = _materials.Create(a, new NewMaterial("N-3", "OK", MinStock: 0m, UnitPrice: 10m));
+        Assert.False(string.IsNullOrEmpty(id));
+        // Update: negatif → red
+        Assert.Throws<ArgumentException>(() => _materials.Update(a, id, new UpdateMaterial("N-3", "OK", UnitPrice: -1m)));
+        Assert.Throws<ArgumentException>(() => _materials.Update(a, id, new UpdateMaterial("N-3", "OK", MinStock: -1m)));
+        // ADR-086 İSTİSNASI: AÇILIŞ stoğu NEGATİF olabilir (devralınan eksik stok) → hata FIRLATMAZ
+        _opening.RecordOpening(a, id, -50m, Guid.NewGuid().ToString("N"));
+    }
+
     // ---- Muadil (çift yönlü, döngü güvenli) ----
     [Fact]
     public void Muadil_CiftYonlu()
