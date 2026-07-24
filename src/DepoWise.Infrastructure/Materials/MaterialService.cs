@@ -12,7 +12,8 @@ public sealed record NewMaterial(
     string Code, string Name, string? Type = null,
     string? CategoryId = null, string? UnitId = null, string? BrandId = null, string? SupplierId = null,
     decimal MinStock = 0m, decimal UnitPrice = 0m, string Currency = "TRY",
-    string? Description = null, string? ExternalEquivalentNote = null);
+    string? Description = null, string? ExternalEquivalentNote = null,
+    string? TemplateId = null);   // yeni kayıt formunda seçilen malzeme şablonu (şablonlu/şablon-dışı rapor ayrımı)
 
 public sealed record MaterialRecord(
     string Id, string CompanyId, string Code, string Name, string? Type,
@@ -91,9 +92,9 @@ public sealed class MaterialService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO materials(id, company_id, code, name, type, category_id, unit_id, brand_id, supplier_id,
-    min_stock, unit_price, currency_code, description, external_equivalent_note,
+    min_stock, unit_price, currency_code, description, external_equivalent_note, template_id,
     created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@desc,@eqnote,@now,@now,1,0);";
+VALUES(@id,@c,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@desc,@eqnote,@tpl,@now,@now,1,0);";
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@code", dto.Code.Trim());
@@ -108,6 +109,7 @@ VALUES(@id,@c,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@desc,@e
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
             cmd.AddWithValue("@eqnote", (object?)dto.ExternalEquivalentNote ?? DBNull.Value);
+            cmd.AddWithValue("@tpl", (object?)dto.TemplateId ?? DBNull.Value);
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }

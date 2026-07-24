@@ -996,7 +996,8 @@ app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var id = svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
-        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, "TRY", Doc(d.Description)));
+        d.Code, d.Name, d.Type, d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, "TRY", Doc(d.Description),
+        TemplateId: d.TemplateId));
     if (d.VehicleIds is { Count: > 0 }) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
     if (d.EquivalentIds is not null) foreach (var eq in d.EquivalentIds) svc.Materials.AddEquivalent(s, id, eq);
     if (d.OpeningStock != 0)   // ADR-086: negatif açılış (devralınan eksik stok) de kaydedilir
@@ -1617,6 +1618,10 @@ app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) 
         "fuel-depot" => svc.Reports.FuelDepot(s, req),
         "stock-count" => svc.Reports.StockCount(s, req),
         "requests" => svc.Reports.Requests(s, req),
+        "materials-template" => svc.Reports.MaterialsByTemplate(s, req),
+        "materials-nontemplate" => svc.Reports.MaterialsNonTemplate(s, req),
+        "vehicles-template" => svc.Reports.VehiclesByTemplate(s, req),
+        "vehicles-nontemplate" => svc.Reports.VehiclesNonTemplate(s, req),
         _ => throw new ArgumentException("Bilinmeyen rapor tipi."),
     };
     return Results.Ok(new { title = tbl.Title, headers = tbl.Headers, rows = tbl.Rows });
@@ -2207,7 +2212,7 @@ record VerifyBranchDto(string? CompanyId, string BranchId, string? BranchPasswor
 record ConflictSeenDto(string? BranchId);
 record UserThemeDto(string? Mode, string? Color, string? Style);
 // Version: DÜZENLEME KİLİDİ — formun açıldığı andaki sürüm. Gönderilmezse (null) kontrol yapılmaz (geriye uyumlu).
-record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds, long? Version = null);
+record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds, long? Version = null, string? TemplateId = null);
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);

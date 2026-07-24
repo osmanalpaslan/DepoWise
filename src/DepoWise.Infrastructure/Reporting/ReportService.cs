@@ -37,6 +37,116 @@ ORDER BY m.code;";
         return new TableModel("Stok Durumu", new[] { "Kod", "Malzeme", "Stok", "Min Stok" }, rows);
     }
 
+    // ===== ŞABLONLU / ŞABLON-DIŞI YÖNETİCİ RAPORLARI (2026-07-24) =====
+    // Şablon SEÇİLEREK oluşturulan kayıtlar "şablonlu" (kanonik); şablonsuz oluşturulanlar "şablon-dışı"
+    // (serbest/hatalı — yönetici inceler, ilgili ekrandan düzeltir). Hepsi tenant-izole (yalnız kendi firması).
+
+    /// <summary>Malzeme — ŞABLONLU (genel): şablona göre gruplu; her şablon TEK satır + firma-geneli TOPLAM stok.</summary>
+    public TableModel MaterialsByTemplate(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT COALESCE(t.code,''), t.name, COUNT(m.id),
+       COALESCE(SUM(CAST(COALESCE(b.quantity,'0') AS REAL)),0)
+FROM material_templates t
+JOIN materials m ON m.template_id=t.id AND m.is_deleted=0
+LEFT JOIN stock_balances b ON b.material_id=m.id
+WHERE t.company_id=@c
+GROUP BY t.id ORDER BY t.name;";   // t.id = PK → t.code/t.name bare-kolonu PG'de de geçerli (fonksiyonel bağımlılık)
+        cmd.AddWithValue("@c", companyId);
+        var rows = new List<IReadOnlyList<object?>>();
+        int totCnt = 0; double totStock = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var cnt = r.GetInt32(2); var st = r.GetDouble(3);
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1), cnt, st });
+                totCnt += cnt; totStock += st;
+            }
+        if (rows.Count > 0) rows.Add(new object?[] { "TOPLAM", "", totCnt, totStock });
+        return new TableModel("Malzeme — Şablonlu (Genel)",
+            new[] { "Şablon Kodu", "Şablon", "Kayıt Sayısı", "Toplam Stok" }, rows);
+    }
+
+    /// <summary>Malzeme — ŞABLON-DIŞI: şablona bağlı OLMAYAN malzemeler (serbest/hatalı; yönetici düzeltir).</summary>
+    public TableModel MaterialsNonTemplate(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT m.code, m.name, COALESCE(mc.name,''), COALESCE(b.quantity,'0'), m.min_stock
+FROM materials m
+LEFT JOIN material_categories mc ON mc.id=m.category_id
+LEFT JOIN stock_balances b ON b.material_id=m.id
+WHERE m.company_id=@c AND m.is_deleted=0 AND m.template_id IS NULL
+ORDER BY m.code;";
+        cmd.AddWithValue("@c", companyId);
+        var rows = new List<IReadOnlyList<object?>>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4) });
+        return new TableModel("Malzeme — Şablon Dışı (İncele/Düzelt)",
+            new[] { "Kod", "Malzeme", "Kategori", "Stok", "Min Stok" }, rows);
+    }
+
+    /// <summary>Araç — ŞABLONLU (genel): şablona bağlı araçların şube bazlı listesi.</summary>
+    public TableModel VehiclesByTemplate(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT t.name, v.internal_code, COALESCE(v.plate,''), COALESCE(br.name,''), v.status
+FROM vehicles v
+JOIN vehicle_templates t ON t.id=v.template_id
+LEFT JOIN branches br ON br.id=v.branch_id
+WHERE v.company_id=@c AND v.is_deleted=0
+ORDER BY t.name, v.internal_code;";
+        cmd.AddWithValue("@c", companyId);
+        var rows = new List<IReadOnlyList<object?>>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), VehStatusTr(r.GetString(4)) });
+        return new TableModel("Araç — Şablonlu (Genel)",
+            new[] { "Şablon", "İç Kod", "Plaka", "Şube", "Durum" }, rows);
+    }
+
+    /// <summary>Araç — ŞABLON-DIŞI: şablona bağlı OLMAYAN araçlar (serbest/hatalı; yönetici düzeltir).</summary>
+    public TableModel VehiclesNonTemplate(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT v.internal_code, COALESCE(v.plate,''), COALESCE(br.name,''), v.status
+FROM vehicles v LEFT JOIN branches br ON br.id=v.branch_id
+WHERE v.company_id=@c AND v.is_deleted=0 AND v.template_id IS NULL
+ORDER BY v.internal_code;";
+        cmd.AddWithValue("@c", companyId);
+        var rows = new List<IReadOnlyList<object?>>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1), r.GetString(2), VehStatusTr(r.GetString(3)) });
+        return new TableModel("Araç — Şablon Dışı (İncele/Düzelt)",
+            new[] { "İç Kod", "Plaka", "Şube", "Durum" }, rows);
+    }
+
+    private static string VehStatusTr(string s) => s switch
+    {
+        "active" => "Aktif", "passive" => "Pasif", "maintenance" => "Bakımda", "faulty" => "Arızalı", _ => s
+    };
+
     public TableModel FuelConsumption(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
