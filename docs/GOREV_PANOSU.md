@@ -33,9 +33,17 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟢 SUNUCU KODU UÇTAN UCA PG-HAZIR (bağlantı+env, şema, servisler, Türkçe arama, health, tüm silme
-  yolları, eşitleme satır-hatası dayanıklılığı). Kod tarafında açık iş yok. Kalan: kullanıcı onayıyla canlı
-  geçiş (kopya-veri prova). 579 test yeşil.
+- **Durum:** 🟢 CANLI PROVA BAŞARILI — babanın gerçek verisinin KOPYASI (3,6 MB, 8781 satır) Neon
+  `depowise_prod` DB'sine yüklendi, API yerel olarak ona bağlanıp giriş + TÜM okuma uçları + eşitleme
+  snapshot'ı (1,9 MB) gerçek veriyle 200 döndü. Gerçek veride 2 PG hatası çıktı+düzeltildi (aşağıda).
+  **580 test yeşil.** Kalan: yalnız **üretim geçişi** (kullanıcı onayı bekliyor). Canlı SQLite'a dokunulmadı.
+- **✅ CANLI PROVA — gerçek veriyle bulunan 2 geçiş hatası (2026-07-24, SQLite'ta gizliydi):**
+  1. `BranchService.ListForLogin`: SELECT projeksiyonundaki boolean ifade (`... IS NOT NULL AND <>''`) PG'de
+     gerçek boolean döner → `GetInt64` patlıyordu (login 500) → `CAST(... AS INTEGER)`.
+  2. 11 liste sorgusunda `@x IS NULL` → PG DBNull parametrenin tipini çıkaramıyor (42P08) → `CAST(@x AS TEXT)`.
+  Araçlar: `SqliteToPgCopier` (kopya) + `tools/DepoWise.Migrate` (runner). Neon: proje `depowise-dev`, ayrı DB
+  `depowise_prod` (testler `neondb`'yi siler, prod'a dokunmaz). Canlı sunucu `depowise-erp` = **fra (Frankfurt)**,
+  Neon ile aynı bölge → düşük gecikme. Ücretsiz plan (0,5 GB) 3,6 MB için fazlasıyla yeterli.
 - **Nerede kaldık:** Kullanıcı A'ya başlamak istedi. İki karar eklendi: (1) PostgreSQL web'i baştan
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
@@ -137,11 +145,15 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      + `SqlDialect.LikeTr`/`PortableSql`). `PostgresTurkishSearchTests` Neon'da kanıtlar.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** ✅ Sunucu KODU artık UÇTAN UCA PG-HAZIR — bağlantı+env seçimi, 53 şema, tüm servisler,
-  Türkçe arama/sıralama, sağlık, TÜM silme yolları, eşitleme satır-hatası dayanıklılığı. **Kod tarafında
-  bilinen açık iş kalmadı.** Geriye YALNIZ **canlı geçiş** kaldı (kullanıcı onayı + üretim/altın kural):
-  Fly API'yi Neon bölgesinde (aws-eu-central-1) çalıştır, babanın verisinin **KOPYASIYLA** prova et, sağlamsa
-  yeni makineleri yönlendir; eski SQLite sunucusu yedekte kalır. Bu adımı kullanıcı hazır olduğunda başlatırız.
+- **Sıradaki adım — ÜRETİM GEÇİŞİ (kullanıcı onayı bekliyor):** Kod PG-hazır + gerçek veriyle prova edildi.
+  Geçiş sırası (hepsi geri döndürülebilir; canlı SQLite dosyası yedekte kalır):
+  1. Güncel kodu (PG desteği + düzeltmeler) `depowise-erp`'e deploy et — hâlâ SQLite'ta, değişiklikler lehçe-nötr
+     (SQLite'ta da çalışır, /health + testlerle doğrulanır).
+  2. Geçiş anında canlı SQLite'ın **TAZE kopyasını** al (Jul 22'den beri değişmiş olabilir) → `depowise_prod`'u
+     sıfırla+yeniden yükle (`tools/DepoWise.Migrate`).
+  3. Fly secret `DEPOWISE_PG_URL=<depowise_prod>` ayarla + redeploy → sunucu PG'ye geçer.
+  4. Doğrula (giriş + veriler); sorun olursa secret'ı kaldır+redeploy ile SQLite'a **geri dön** (dosya duruyor).
+  ⚠️ Bu adım babanın CANLI sunucusunu etkiler → kullanıcı "üretime geç" onayı gerekir.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
