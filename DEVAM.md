@@ -34,12 +34,12 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | Ne | Durum |
 |---|---|
 | **PostgreSQL geçişi** | ✅✅ **CANLIYA ALINDI (2026-07-24)** — **sunucu (`depowise-erp`) + web PostgreSQL'de** (Neon `depowise_prod`). Masaüstü SQLite'ta kaldı (eşitleme API üzerinden PG'ye yazar). Gerçek verinin KOPYASIYLA prova edildi, canlıya alındı; eski SQLite yedekte (`/data/depowise-server.db`, el değmedi). Geri dönüş: `flyctl secrets unset DEPOWISE_PG_URL`. Detay: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md) Görev A. |
-| **Testler** | **580/580 yeşil** (569 SQLite + 11 gerçek Neon PG testi; `dotnet test`) + canlı eşitleme QA **7/7** |
-| **Yeni özellik** | **"Firma İş Verisini Sıfırla"** (süper admin, web) — firma/şube/kullanıcı KALIR, yalnız iş verisi silinir; parola+özel kod+firma adı teyidi; makineler yerel sıfırlamayla boş sunucudan çeker |
-| **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
-| **Web** | `depowise-web.fly.dev` — **canlı**, login 200 |
-| **Masaüstü** | **1.0.87 YAYINDA** — eşitleme defter düzeltmesi + düzenleme kilidi + Z1/Z3/Z5 |
+| **Testler** | **582/582 yeşil** (571 SQLite + 11 gerçek Neon PG testi; `dotnet test`) + canlı eşitleme QA **7/7** |
+| **Yeni özellik** | **Yönetici raporları — Şablonlu / Şablon-dışı** (malzeme+araç): şablona bağlı kayıtlar (kanonik, firma-toplam stok) vs şablon-dışı (serbest/hatalı — düzeltilecekler). Şablon SEÇME serbest, OLUŞTURMA yetkiye bağlı. Malzemeye `template_id` (Migration054); düzenlemede şablona BAĞLA (şablon-dışı→şablonlu). Ayrıca web: kolon sürükle-taşıma + yan detay paneli kaldırıldı + yetki ekranı otomatik yükleme + malzeme negatif fiyat/min-stok kalkanı |
+| **Şema** | Migration **054** (materials.template_id — şablonlu/şablon-dışı rapor) |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı** (PostgreSQL), health 200 |
+| **Web** | `depowise-web.fly.dev` — **canlı** (raporlar + reorder + panel + yetki + negatif kalkan) |
+| **Masaüstü** | **1.0.88 YAYINDA** — Yönetici raporları (şablonlu/şablon-dışı) + şablona bağlama + negatif fiyat koruması. Güncelleme: makine yalnız EN SON tam paketi indirir/kurar (ara sürüm gerekmez). |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **Senkron çekirdeği ✓ · Düzenleme kilidi ✓ · 1.0.87 yayında ✓.** Sıradaki: giriş hız sınırı kararı (ortak ofis IP) · Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
 
