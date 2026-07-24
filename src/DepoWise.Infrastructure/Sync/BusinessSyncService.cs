@@ -308,6 +308,7 @@ public sealed class BusinessSyncService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
+        bool isPg = !SqlDialect.IsSqlite(conn);   // PG'de satır hatası TÜM transaction'ı abort eder → savepoint gerekir.
 
         // ⚠️ PERFORMANS (kullanıcı bulgusu 2026-07-19: 2508 kayıtlı push SUNUCUDA zaman aşımına uğruyordu;
         // araçlar hiç ulaşmıyordu): tüm upsert'ler TEK transaction'da → 2508+ ayrı commit yerine 1 commit
@@ -342,31 +343,9 @@ public sealed class BusinessSyncService
             bool hasUpdated = cols.Contains("updated_at");
             bool trackConflict = hasUpdated && ConflictTracked.Contains(table) && pk.Count == 1 && pk[0] == "id";
 
-            foreach (var rowEl in rowsEl.EnumerateArray())
-            {
-                if (rowEl.ValueKind != JsonValueKind.Object) { skipped++; continue; }
-                // İçerik doğrulaması: tenant uyuşmazlığı + negatif değer reddedilir.
-                var (okRow, reason) = ValidateRow(table, rowEl, companyId);
-                if (!okRow)
-                {
-                    skipped++;
-                    if (errors.Count < 20) errors.Add($"{table}: {reason}");
-                    continue;
-                }
-                try
-                {
-                    // Çakışma tespiti (upsert ÖNCESİ sunucu durumu okunur)
-                    if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
-                    if (UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now,
-                                  serverAuthoritativeDeletes, protectServerDeletes)) upserted++;
-                    else skipped++;
-                }
-                catch (Exception ex)
-                {
-                    skipped++;
-                    if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
-                }
-            }
+            var (tUp, tSk) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
+                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors);
+            upserted += tUp; skipped += tSk;
         }
 
         // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı)
@@ -381,6 +360,95 @@ public sealed class BusinessSyncService
         }
 
         return new ApplyResult(upserted, skipped, errors);
+    }
+
+    /// <summary>Bir tablonun satırlarını uygular. Döner: (upserted, skipped).
+    ///
+    /// <b>SQLite (masaüstü/mevcut sunucu):</b> DEĞİŞMEDİ — satır başı try/catch. SQLite hatalı bir statement'tan
+    /// sonra aynı transaction'da devam edebildiği için ekstra bir şey gerekmez.
+    ///
+    /// <b>PostgreSQL:</b> tek bir satır hatası TÜM transaction'ı abort eder (25P02) → sonraki her komut da
+    /// patlar. Bu yüzden iki kademeli:
+    ///   • HIZLI YOL — tüm tablo TEK savepoint içinde denenir (geçerli veride ekstra maliyet ~yok; normal durum).
+    ///   • KURTARMA — bir satır patlarsa tablo o savepoint'e geri alınır ve satırlar TEKRAR, her biri kendi
+    ///     savepoint'inde uygulanır → yalnız gerçekten hatalı satır(lar) atlanır, gerisi yazılır. Satır-başı
+    ///     savepoint maliyeti YALNIZ hata olan (nadir) tabloda ödenir.</summary>
+    private (int Up, int Sk) ApplyTableRows(DbConnection conn, bool isPg, string table, HashSet<string> cols,
+        List<string> pk, bool hasCompany, bool hasUpdated, bool trackConflict, string companyId,
+        JsonElement rowsEl, long now, string? deviceBranchId, long lastPush,
+        bool serverAuth, bool protectDeletes, List<string> errors)
+    {
+        int up = 0, sk = 0;
+
+        // Bir satırı uygular (validate → conflict → upsert). DB hatasında FIRLATIR (savepoint/try çağırana ait).
+        // Döner: null = geçersiz (atla), true = upserted, false = geçerli ama no-op (atla).
+        bool? ApplyOne(JsonElement rowEl, List<string> errSink)
+        {
+            if (rowEl.ValueKind != JsonValueKind.Object) return null;
+            var (okRow, reason) = ValidateRow(table, rowEl, companyId);
+            if (!okRow) { if (errSink.Count < 20) errSink.Add($"{table}: {reason}"); return null; }
+            if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
+            return UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now, serverAuth, protectDeletes);
+        }
+
+        if (!isPg)
+        {
+            // SQLite — mevcut davranış (satır başı try/catch, savepoint yok).
+            foreach (var rowEl in rowsEl.EnumerateArray())
+            {
+                try { var r = ApplyOne(rowEl, errors); if (r == true) up++; else sk++; }
+                catch (Exception ex) { sk++; if (errors.Count < 20) errors.Add($"{table}: {ex.Message}"); }
+            }
+            return (up, sk);
+        }
+
+        // PostgreSQL — HIZLI YOL: tüm tablo tek savepoint.
+        ExecRaw(conn, "SAVEPOINT dw_tbl;");
+        try
+        {
+            int fUp = 0, fSk = 0; var fErr = new List<string>();
+            foreach (var rowEl in rowsEl.EnumerateArray())
+            {
+                var r = ApplyOne(rowEl, fErr);   // hatalı satır → fırlatır → catch (kurtarma yoluna geç)
+                if (r == true) fUp++; else fSk++;
+            }
+            ExecRaw(conn, "RELEASE SAVEPOINT dw_tbl;");
+            foreach (var e in fErr) { if (errors.Count >= 20) break; errors.Add(e); }
+            return (fUp, fSk);
+        }
+        catch
+        {
+            ExecRaw(conn, "ROLLBACK TO SAVEPOINT dw_tbl;");   // tabloyu geri al → satır başı tekrar dene
+        }
+
+        // PostgreSQL — KURTARMA YOLU: satır başı savepoint (yalnız hatalı tabloda).
+        up = 0; sk = 0;
+        foreach (var rowEl in rowsEl.EnumerateArray())
+        {
+            ExecRaw(conn, "SAVEPOINT dw_row;");
+            try
+            {
+                var r = ApplyOne(rowEl, errors);
+                ExecRaw(conn, "RELEASE SAVEPOINT dw_row;");
+                if (r == true) up++; else sk++;
+            }
+            catch (Exception ex)
+            {
+                ExecRaw(conn, "ROLLBACK TO SAVEPOINT dw_row;");
+                ExecRaw(conn, "RELEASE SAVEPOINT dw_row;");
+                sk++;
+                if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
+            }
+        }
+        ExecRaw(conn, "RELEASE SAVEPOINT dw_tbl;");
+        return (up, sk);
+    }
+
+    private static void ExecRaw(DbConnection conn, string sql)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
     }
 
     private static (string? DeviceId, string? BranchId, long LastPush) ResolveDevice(DbConnection conn, string companyId, string? machineId)

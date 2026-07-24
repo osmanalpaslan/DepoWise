@@ -33,8 +33,9 @@ Bu geçiş boyunca **her işte** geçerli, istisnasız:
 sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQLite'ta KALIR** (çevrimdışı
 çalışması bundan geliyor). **Yeni repo AÇILMAZ** — mevcut projede, adım adım.
 
-- **Durum:** 🟢 DEVAM — Sunucu kodu uçtan uca PG-hazır (bağlantı+env, şema, servisler, Türkçe arama, health,
-  TÜM silme yolları). Kalan tek kod işi: ApplyCore savepoint. Sonra kullanıcı onayıyla deploy + kopya-veri prova.
+- **Durum:** 🟢 SUNUCU KODU UÇTAN UCA PG-HAZIR (bağlantı+env, şema, servisler, Türkçe arama, health, tüm silme
+  yolları, eşitleme satır-hatası dayanıklılığı). Kod tarafında açık iş yok. Kalan: kullanıcı onayıyla canlı
+  geçiş (kopya-veri prova). 579 test yeşil.
 - **Nerede kaldık:** Kullanıcı A'ya başlamak istedi. İki karar eklendi: (1) PostgreSQL web'i baştan
   YAZDIRMAZ (görünüm aynı kalır); web'i beğenmeme ayrı iş → **Görev C** (tasarım, ertelendi, istekler
   toplanacak). (2) Geçiş öncesi **her ekranın masaüstü↔web alan+mantık paritesi** sağlanacak — hem
@@ -126,19 +127,21 @@ sunucuya uygun, ücretsiz başlanabilen veritabanı) taşımak. **Masaüstü SQL
      **578 test yeşil** (yeni `PostgresPurgeTests`: kalıcı silme + iş sıfırlama + RunFkSafe Neon'da kanıtlar).
 
 - **⚠️ Bilinen takip işleri (sağlamlık):**
-  1. **ApplyCore satır-hatası deseni:** SQLite'ta hatalı satır atlanıp devam edilir; PostgreSQL'de bir hata
-     tüm transaction'ı poison eder (25P02). Geçerli veride sorun yok (e2e kanıtı) ama beklenmedik bir satır
-     hatasında PG'de tüm push başarısız olur. Uzak PG'de satır-başı savepoint çok round-trip (yavaş) →
-     doğru tasarım: geçerli-veride hızlı, hatada toplu-rollback+retry. Ayrı ele alınacak.
+  1. ✅ **ÇÖZÜLDÜ (2026-07-24) — ApplyCore satır-hatası deseni:** PG'de bir satır hatası tüm transaction'ı
+     abort ediyordu (25P02). Artık `ApplyTableRows` iki kademeli: HIZLI YOL — tüm tablo tek savepoint'te
+     (geçerli veride ekstra maliyet ~yok, normal durum); KURTARMA — bir satır patlarsa tablo geri alınıp
+     satırlar satır-başı savepoint ile TEKRAR uygulanır (yalnız hatalı satır atlanır). Satır-başı maliyet
+     YALNIZ hata olan nadir tabloda ödenir. SQLite yolu DEĞİŞMEDİ. `PostgresSyncRecoveryTests` Neon'da
+     kanıtlar (FK-ihlali satırı atlanır, geçerli yazılır, push bütün olarak batmaz). **579 test yeşil.**
   2. ✅ **ÇÖZÜLDÜ (Adım 5, 2026-07-23):** Türkçe arama/sıralama artık PG'de çalışıyor (Migration053 collation'lar
      + `SqlDialect.LikeTr`/`PortableSql`). `PostgresTurkishSearchTests` Neon'da kanıtlar.
 - **Dürüst not:** Bu, tüm geçişin EN BÜYÜK ve en hassas parçası — tek oturumluk iş değil. Ama her adım
   geri alınabilir + test edilir; istediğin an durulabilir. Masaüstü hiçbir adımda bozulmaz (SQLite'ta kalır).
-- **Sıradaki adım:** Canlı geçiş öncesi son iki iş: (a) **ApplyCore savepoint deseni** (yukarıda takip işi #1 —
-  eşitlemede beklenmedik satır hatası PG'de tüm transaction'ı durdurmasın; DialectPurge'deki savepoint+retry
-  deseni burada da uygulanabilir), (b) **kullanıcı onayıyla** Fly'da Neon bölgesinde çalıştırıp gerçek verinin
-  KOPYASIYLA prova. Sunucu KODU artık uçtan uca PG-hazır: bağlantı+env seçimi, şema, servisler, Türkçe arama,
-  sağlık, TÜM silme yolları. Kalan tek kod işi ApplyCore; gerisi deploy/prova (üretim → senin onayın).
+- **Sıradaki adım:** ✅ Sunucu KODU artık UÇTAN UCA PG-HAZIR — bağlantı+env seçimi, 53 şema, tüm servisler,
+  Türkçe arama/sıralama, sağlık, TÜM silme yolları, eşitleme satır-hatası dayanıklılığı. **Kod tarafında
+  bilinen açık iş kalmadı.** Geriye YALNIZ **canlı geçiş** kaldı (kullanıcı onayı + üretim/altın kural):
+  Fly API'yi Neon bölgesinde (aws-eu-central-1) çalıştır, babanın verisinin **KOPYASIYLA** prova et, sağlamsa
+  yeni makineleri yönlendir; eski SQLite sunucusu yedekte kalır. Bu adımı kullanıcı hazır olduğunda başlatırız.
 
 **Yol haritası:**
 | Faz | Ne yapılır | Durum |
