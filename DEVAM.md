@@ -27,13 +27,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-22)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-24)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
-| **Testler** | **569/569 yeşil** (`dotnet test`) + canlı eşitleme QA **7/7** |
+| **PostgreSQL geçişi** | 🟢 **Sunucu KODU uçtan uca PG-hazır** — bağlantı+env seçimi, 53 şema, tüm servisler, Türkçe arama/sıralama, sağlık, TÜM silme yolları, eşitleme satır-hatası dayanıklılığı. Kod tarafında açık iş YOK. Kalan: **kullanıcı onayıyla canlı geçiş** (babanın verisinin KOPYASIYLA prova). Detay: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md) Görev A. 🔒 Canlı veri hâlâ SQLite'ta, dokunulmadı. |
+| **Testler** | **579/579 yeşil** (569 SQLite + 10 gerçek Neon PG testi; `dotnet test`) + canlı eşitleme QA **7/7** |
 | **Yeni özellik** | **"Firma İş Verisini Sıfırla"** (süper admin, web) — firma/şube/kullanıcı KALIR, yalnız iş verisi silinir; parola+özel kod+firma adı teyidi; makineler yerel sıfırlamayla boş sunucudan çeker |
 | **Şema** | Migration **052** (yakıt "recipient_personnel_id" — Yakıtı Alan, ADR-098) |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı**, health 200 |
@@ -464,7 +465,15 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Şu an bekleyen iş YOK.** Büyük yetki/ekran promptu (Adım 1–7) kod + test (313/313) + **CANLIYA ALINDI**
+> **Aktif iş — PostgreSQL geçişi (Görev A):** Sunucu KODU artık uçtan uca PG-hazır ve 579 test yeşil.
+> **Kod tarafında açık iş kalmadı.** Sıradaki tek şey **canlı geçiş** ve bu **senin onayınla** başlar
+> (üretim + altın kural): Fly API'yi Neon bölgesinde çalıştır → babanın verisinin **KOPYASIYLA** prova →
+> sağlamsa yeni makineleri yönlendir; eski SQLite sunucusu yedekte kalır. Hazır olduğunda "canlı geçişe
+> başla" de. Ayrıntı ve nerede kaldık: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md).
+>
+> ---
+>
+> **(Geçmiş bağlam — masaüstü işleri)** Büyük yetki/ekran promptu (Adım 1–7) kod + test (313/313) + **CANLIYA ALINDI**
 > (2026-07-13): API + Web deploy (health/login 200), masaüstü **1.0.48** yayınlandı (sunucuda "en güncel").
 > Kullanıcı komutu olmadan yeni faza/işe kendiliğinden başlama (CLAUDE.md §1).
 >
