@@ -6,7 +6,26 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-22**
+> Son güncelleme: **2026-07-25**
+
+---
+
+## ✅ Durum Rapor + Rapor Excel Dışa Aktarma (2026-07-25) — CANLI + DOĞRULANDI (web+API); masaüstü paketi bekliyor
+
+**Ne yapıldı:** Yönetici raporları altına **Durum Rapor** (şube bazlı sayısal özet: Araç şablonlu/şablon-dışı;
+Personel/Bakım/Yakıt/Talep/Günlük toplamları; Malzeme firma-geneli tek satır — şubesi yok; tarih filtreli).
+Raporlar + Yönetici Raporları ekranlarına **Excel'e Aktar** — **iki ayrı özel yetki** (`btn-export-reports` /
+`btn-export-mgr-reports`), deny-by-default; yetki yoksa "yetkiniz yok" uyarısı (UI + API fail-closed).
+
+**Kapsam:** ReportService.StatusReport · API `/api/reports/{type}/export` + `status` tipi · web Reports.razor
+(sekme+buton) · masaüstü ReportsViewModel/ReportsView · AppModules (2 özel buton). PG-güvenlik: tüm rapor
+sayımları `CAST(... AS INTEGER)` (MaterialsByTemplate/Fuel/Requests COUNT dahil — PG'de int8→int4).
+
+**Kanıt:** 585 test (574 SQLite yeşil + 11 gerçek PG). PG uçtan-uca testi **gerçek Neon PG'de geçti**.
+Canlı prod (salt-okuma, veri değişmedi): Durum Rapor **200** (Firma Geneli 2459 malzeme + şube kırılımı),
+materials-template **200**, status/export **200** (geçerli xlsx). Commit `af11ba0`.
+
+**Kalan:** Masaüstü paket (Durum Rapor + Excel export kodda hazır, 1.0.88'de değil) → sıradaki sürümde yayınlanacak.
 
 ---
 
