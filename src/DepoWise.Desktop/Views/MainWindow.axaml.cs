@@ -19,6 +19,19 @@ public partial class MainWindow : Window
     {
         if (_confirmedClose) { base.OnClosing(e); return; }
         e.Cancel = true;
+
+        // Onaylanmamış (ertelenmiş) bir güncelleme varsa: kullanıcı kapatarak güncellemeyi ATLAYAMAZ.
+        // Kapatma yerine güncelleme ZORLA kurulur ve uygulama yeniden başlatılır (kullanıcı isteği 2026-07-25).
+        if (AutoUpdateService.HasPending)
+        {
+            await ConfirmService.AskAsync(
+                $"Bekleyen bir güncelleme var (sürüm {AutoUpdateService.PendingVersion}).\n\n" +
+                "Uygulama kapatılmadan güncelleme kurulacak ve yeniden başlatılacaktır.",
+                "Güncelleme Kuruluyor", "Tamam", "Tamam");
+            AutoUpdateService.InstallPendingNow();   // kapanır + yeniden başlar
+            return;
+        }
+
         var ok = await ConfirmService.AskAsync(
             "Uygulamayı kapatmak istediğinize emin misiniz?", "Uygulamadan Çık",
             "Evet, Kapat", "Vazgeç");

@@ -502,9 +502,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     private bool _updateBusy;                              // indir/kur kritik bölümü — tek akış
     private Views.ConfirmWindow? _availableWindow;         // açık "güncelleme mevcut" penceresi (varsa)
     private DepoWise.Application.Update.UpdatePackage? _latestForPrompt; // açık pencere için güncel hedef
-    private DateTime _updateSnoozeUntilUtc = DateTime.MinValue;
-    private byte[]? _pendingBytes; private string? _pendingVersion, _pendingChecksum; // indirilmiş, kurulum bekleyen paket
-    private const int SnoozeMinutes = 10;
+    // İndirilmiş/bekleyen paket + erteleme zamanı ORTAK yerde (AutoUpdateService): eşitleme ekranı, bu
+    // zamanlayıcı ve MainWindow kapatma-kilidi aynı durumu paylaşır (mükerrer indirme olmaz).
+    private const int SnoozeMinutes = AutoUpdateService.SnoozeMinutes;
 
     private void StartUpdateWatcher()
     {
@@ -543,7 +543,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 return;
             }
             // Erteleme süresi dolmadıysa sessiz geç.
-            if (DateTime.UtcNow < _updateSnoozeUntilUtc) return;
+            if (DateTime.UtcNow < AutoUpdateService.SnoozeUntilUtc) return;
             // İndir/kur akışı zaten sürüyorsa tekrar başlatma.
             if (_updateBusy) return;
             _updateBusy = true;
@@ -551,7 +551,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             try
             {
                 // Erteleme sonrası: paket zaten indirilmiş ve sürüm değişmemişse doğrudan yeniden-başlat onayına git.
-                bool havePending = _pendingBytes is not null && _pendingVersion == latest.Version;
+                bool havePending = AutoUpdateService.HasPending && AutoUpdateService.PendingVersion == latest.Version;
                 if (!havePending)
                 {
                     _latestForPrompt = latest;
@@ -560,27 +560,26 @@ public sealed partial class ShellViewModel : ViewModelBase
                     bool install;
                     try { var owner = MainWin(); install = owner is null ? false : await win.ShowDialog<bool>(owner); }
                     finally { _availableWindow = null; }
-                    if (!install) { _updateSnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes); return; }
+                    if (!install) { AutoUpdateService.Snooze(); return; }
 
                     // Kullanıcı beklerken yeni paket gelmiş olabilir → en güncel hedefi kullan.
                     latest = _latestForPrompt ?? latest;
                     SetConn("#3B82F6", "Güncelleme indiriliyor… %0");
-                    _pendingBytes = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
+                    var dl = await DesktopServices.UpdateDownload.DownloadAsync(latest.DownloadUrl!,
                         p => Avalonia.Threading.Dispatcher.UIThread.Post(() => SetConn("#3B82F6", $"Güncelleme indiriliyor… %{p}")));
-                    _pendingVersion = latest.Version; _pendingChecksum = latest.ChecksumSha256;
+                    AutoUpdateService.SetPending(dl, latest.Version, latest.ChecksumSha256);
                     SetConn("#3B82F6", "İndirildi — yeniden başlatma bekleniyor.");
                 }
 
                 // (C) Yeniden başlatma onayı: Ertele (10 dk) / Şimdi Yeniden Başlat.
                 var restart = await ConfirmService.AskAsync(
-                    $"Güncelleme indirildi (sürüm {_pendingVersion}). Kurulumun tamamlanması için uygulama yeniden başlatılmalı.\n\n" +
+                    $"Güncelleme indirildi (sürüm {AutoUpdateService.PendingVersion}). Kurulumun tamamlanması için uygulama yeniden başlatılmalı.\n\n" +
                     $"Şimdi yeniden başlatabilir veya erteleyebilirsiniz. Her erteleme {SnoozeMinutes} dakikadır; süre dolunca tekrar sorulur.",
                     "Güncelleme Hazır — Yeniden Başlat", "Şimdi Yeniden Başlat", $"{SnoozeMinutes} Dakika Ertele");
-                if (!restart) { _updateSnoozeUntilUtc = DateTime.UtcNow.AddMinutes(SnoozeMinutes); return; }
+                if (!restart) { AutoUpdateService.Snooze(); return; }
 
                 SetConn("#3B82F6", "Yeniden başlatılıyor…");
-                UpdateInstaller.InstallAndRestart(_pendingBytes!, _pendingVersion!, _pendingChecksum!);
-                Environment.Exit(0); // uygulamayı kapat → yardımcı kopyalar + yeniden açar
+                AutoUpdateService.InstallPendingNow(); // uygulamayı kapat → yardımcı kopyalar + yeniden açar
             }
             finally { _updateBusy = false; }
         }

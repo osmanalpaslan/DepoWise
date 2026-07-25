@@ -21,8 +21,13 @@ Staff hedefte mevcut davranış (yükleme backend testiyle kanıtlı). Web + mas
 (b) Şifre kullanıcı tanımından DEĞİŞTİRİLMEZ; yerine **Şifre Sıfırla** — geçici şifre = kullanıcı adı, kullanıcı
 ilk girişte kendi şifresini belirler (must_change). Web + masaüstü + API (`/api/users/{id}/reset-password`). 3 test.
 
-**İş 3 — Masaüstü otomatik güncelleme akışı:** SIRADA (login öncesi eşitleme ekranında otomatik kurulum + onay/erteleme
-penceresi + kapatma kilidi + yarım kalan kurulumu baştan sağlam kur). Masaüstü-only.
+**İş 3 — Masaüstü otomatik güncelleme akışı:** TAMAM (kodda). Otomatik AÇIKken login sonrası **eşitleme ekranında**
+(ana pencere açılmadan) en son paket SESSİZCE indirilir → **Kur / Ertele**. Kur→kurar+yeniden başlatır; Ertele→uygulama
+açılır, **10 dk** sonra tekrar sorulur (indirilen paket saklanır, tekrar inmez). Onay vermeden **kapatmaya çalışırsa
+zorla kur** (MainWindow kilidi). Yarım kalan kurulum: sürüm hâlâ eskiyse sonraki girişte akış yeniden indirir+kurar
+(InstallAndRestart staging'i sıfırdan açar + backup/rollback → baştan sağlam). Otomatik KAPALIYKEN eski davranış
+(Dashboard'da manuel buton). Ortak durum: yeni `AutoUpdateService` (eşitleme ekranı + ShellViewModel timer +
+kapatma-kilidi aynı paketi paylaşır). Masaüstü-only → **1.0.89 paketiyle yayınlanacak** (İş 1+2 masaüstü karşılıklarıyla birlikte).
 
 ---
 

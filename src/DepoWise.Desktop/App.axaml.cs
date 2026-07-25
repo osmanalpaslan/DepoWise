@@ -64,8 +64,36 @@ public partial class App : Avalonia.Application
         if (_desktop is null) return;
         var vm = new SyncViewModel(session);
         var sync = new SyncWindow { DataContext = vm };
-        vm.Done = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        vm.Done = () => Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
         {
+            // Otomatik güncelleme AÇIKSA: ana pencere AÇILMADAN önce, eşitleme ekranında en son paketi
+            // SESSİZCE indir → "Kur / Ertele" sor. Kur → kurar + yeniden başlatır (uygulama kapanır).
+            // Ertele → uygulama açılır; ShellViewModel 10 dk sonra tekrar sorar (paket saklanır, tekrar inmez).
+            if (AutoUpdateService.IsEnabled(session.CompanyId))
+            {
+                try
+                {
+                    var ready = await AutoUpdateService.CheckAndDownloadAsync(session.CompanyId,
+                        s => Avalonia.Threading.Dispatcher.UIThread.Post(() => vm.Status = s),
+                        p => Avalonia.Threading.Dispatcher.UIThread.Post(() => vm.SetDownloadProgress(p)));
+                    if (ready)
+                    {
+                        var install = await ConfirmService.AskAsync(
+                            $"Yeni sürüm {AutoUpdateService.PendingVersion} hazır.\n\n" +
+                            "Şimdi kurulsun mu? Uygulama yeniden başlatılır; veritabanınıza dokunulmaz.",
+                            "Güncelleme Hazır", "Kur ve Yeniden Başlat", "Ertele");
+                        if (install)
+                        {
+                            vm.Status = "Güncelleme kuruluyor, yeniden başlatılıyor…";
+                            AutoUpdateService.InstallPendingNow();   // uygulama kapanır + yeniden açılır
+                            return;
+                        }
+                        AutoUpdateService.Snooze();   // ertele: main açılır, 10 dk sonra tekrar sorulur
+                    }
+                }
+                catch { /* güncelleme akışı girişi asla engellemez */ }
+            }
+
             var main = new MainWindow { DataContext = new ShellViewModel(session) };
             _desktop.MainWindow = main;
             main.Show();

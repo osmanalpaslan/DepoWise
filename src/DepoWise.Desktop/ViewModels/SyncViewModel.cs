@@ -63,4 +63,7 @@ public sealed partial class SyncViewModel : ViewModelBase
         Progress = p;
         PercentText = $"{(int)Math.Round(p)}%";
     }
+
+    /// <summary>Otomatik güncelleme indirme yüzdesi (eşitleme ekranında; ana pencere açılmadan önce).</summary>
+    public void SetDownloadProgress(int p) => SetProgress(Math.Clamp(p, 0, 100));
 }
