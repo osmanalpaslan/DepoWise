@@ -116,8 +116,9 @@
         @if (Auth.CanEdit("users") && CanManageSelected)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mt-2" Wrap="Wrap.Wrap">
-                <MudTextField @bind-Value="_newPass" Label="Yeni şifre" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" UserAttributes="_newPw" />
-                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ChangePassword">Şifre Değiştir</MudButton>
+                <MudTooltip Text="Şifreyi kullanıcı adına sıfırlar. Kullanıcı ilk girişte kendi şifresini belirler.">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.LockReset" OnClick="ResetPassword">Şifre Sıfırla</MudButton>
+                </MudTooltip>
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ToggleActive">Aktif / Pasif</MudButton>
                 @if (Auth.CanDelete("users")) { <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error" OnClick="DeleteUser">Kullanıcıyı Sil</MudButton> }
             </MudStack>
@@ -172,7 +173,6 @@
     // selection
     private JsonElement? _selUser;
     private string? _assignBranch;
-    private string _newPass = "";
     private string? _editRole;
     private string? _selMsg; private bool _selOk;
 
@@ -290,7 +290,7 @@
 
     private async Task SelectUser(JsonElement u)
     {
-        _selUser = u; _selMsg = null; _newPass = ""; _assignBranch = NullS(u, "branchId");
+        _selUser = u; _selMsg = null; _assignBranch = NullS(u, "branchId");
         _selViewAll = u.TryGetProperty("canViewAllBranches", out var va) && va.ValueKind == JsonValueKind.True;
         _editRole = null;
         try { foreach (var k in await Api.GetArrayAsync($"/api/users/{Str(u, "id")}/roles")) { _editRole = k.GetString(); break; } } catch { }
@@ -314,12 +314,15 @@
         if (err is null) _selViewAll = on;
         await Load();
     }
-    private async Task ChangePassword()
+    private async Task ResetPassword()
     {
-        if (_selUser is null || string.IsNullOrWhiteSpace(_newPass)) { _selMsg = "Yeni şifre girin."; _selOk = false; return; }
-        if (!await Dialog.Confirm("Şifre değiştirilsin mi?")) return;
-        var err = await Api.PostAsync($"/api/users/{SelId}/password", new { password = _newPass });
-        _selOk = err is null; _selMsg = err ?? "Şifre değiştirildi."; _newPass = "";
+        if (_selUser is null) return;
+        var uname = Str(_selUser.Value, "username");
+        if (!await Dialog.Confirm($"'{uname}' kullanıcısının şifresi SIFIRLANSIN mı?\n\nGeçici şifre kullanıcı adı olacak; kullanıcı ilk girişte kendi şifresini belirleyecek.", "Evet, Sıfırla")) return;
+        var doc = await Api.PostJsonAsync($"/api/users/{SelId}/reset-password", new { });
+        if (doc is null) { _selOk = false; _selMsg = "Şifre sıfırlanamadı (yetki veya sunucu hatası)."; return; }
+        var temp = doc.Value.TryGetProperty("tempPassword", out var t) ? t.GetString() : uname;
+        _selOk = true; _selMsg = $"Şifre sıfırlandı. Geçici şifre: '{temp}'. Kullanıcı ilk girişte kendi şifresini belirleyecek.";
     }
     private async Task ToggleActive()
     {

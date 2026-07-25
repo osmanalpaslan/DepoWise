@@ -85,6 +85,12 @@ public static class AppModules
     public static bool IsPublic(string moduleKey)
         => moduleKey is Dashboard or About or Theme or "alerts";
 
+    /// <summary>Kullanıcı REHBERİ (2026-07-25): kullanıcı LİSTESİ tüm oturum sahiplerine görünür (menüde çıkar,
+    /// salt-okuma sınırlı liste). Oluşturma/düzenleme/şifre sıfırlama YİNE yalnız admindir (write yolları
+    /// IsAdmin ister; menüde create/edit/delete bayrakları admin dışına false gelir). Yetki AĞACINDA yönetimi
+    /// değişmez (users hâlâ admin-restricted).</summary>
+    public static bool IsUserDirectory(string moduleKey) => moduleKey == "users";
+
     /// <summary>
     /// Yalnız Süper Admin erişebilir; Firma Admini dahil hiç kimseye ATANAMAZ (admin bypass geçersiz).
     /// Firma Tanım platform sahibinindir; çok-firmalı dağıtımda firma admini başka firmayı yönetemez.

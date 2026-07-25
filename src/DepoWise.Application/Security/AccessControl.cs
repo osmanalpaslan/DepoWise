@@ -47,9 +47,10 @@ public static class AccessControl
         };
     }
 
-    /// <summary>Menüde görünürlük = okuma yetkisi.</summary>
+    /// <summary>Menüde görünürlük = okuma yetkisi. Kullanıcı REHBERİ istisnası: kullanıcı listesi tüm oturum
+    /// sahiplerine görünür (yönetim yine admin — menü create/edit/delete bayrakları admin dışına false gelir).</summary>
     public static bool CanSeeMenu(SessionContext s, string moduleKey)
-        => Can(s, moduleKey, PermissionAction.View);
+        => AppModules.IsUserDirectory(moduleKey) || Can(s, moduleKey, PermissionAction.View);
 
     /// <summary>Aktörün AÇIKÇA verilmiş herhangi bir izni (modül bayrağı veya buton) var mı?
     /// Yoksa firma admini "ilk admin" sayılır (geriye dönük uyum → sınırsız).</summary>

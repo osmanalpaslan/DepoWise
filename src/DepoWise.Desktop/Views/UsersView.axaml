@@ -109,9 +109,8 @@
                                          Classes="Body" Foreground="{DynamicResource WarningBrush}"/>
                 </Border>
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" IsVisible="{Binding CanManageSelected}">
-                    <SelectableTextBlock Text="Yeni şifre:" Classes="Helper" VerticalAlignment="Center"/>
-                    <TextBox Classes="Field" Width="200" Text="{Binding NewPasswordForSelected}" PasswordChar="●"/>
-                    <Button Classes="Secondary" Content="Şifre Değiştir" Command="{Binding ChangePasswordCommand}"/>
+                    <Button Classes="Secondary" Content="Şifre Sıfırla" Command="{Binding ResetPasswordCommand}"
+                            ToolTip.Tip="Şifreyi kullanıcı adına sıfırlar. Kullanıcı ilk girişte kendi şifresini belirler."/>
                     <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"/>
                     <Button Classes="Danger" Content="Kullanıcıyı Sil" Margin="20,0,0,0" Command="{Binding DeleteUserCommand}"/>
                 </StackPanel>

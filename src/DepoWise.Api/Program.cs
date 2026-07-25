@@ -1942,6 +1942,9 @@ app.MapPost("/api/users/{id}/active", (HttpContext c, string id, ActiveDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.SetActive(s, id, d.Active)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users/{id}/password", (HttpContext c, string id, PasswordDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.ChangePassword(s, id, d.Password)) }) : Results.Unauthorized()).RequireAuthorization();
+// Şifre SIFIRLAMA (2026-07-25): admin sıfırlar → geçici şifre = kullanıcı adı, kullanıcı ilk girişte kendi belirler.
+app.MapPost("/api/users/{id}/reset-password", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { tempPassword = svc.Users.ResetPassword(s, id) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/users/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Users.DeleteUser(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/users/{id}/branch", (HttpContext c, string id, IdDto d) =>

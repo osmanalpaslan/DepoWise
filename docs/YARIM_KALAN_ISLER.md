@@ -10,6 +10,22 @@
 
 ---
 
+## ✅ Yetki ekranı + Kullanıcı görünürlük/şifre sıfırlama (2026-07-25) — 3 işten 1-2 TAMAM (web+API canlı; masaüstü paketi bekliyor)
+
+**İş 1 — Yetki ekranı önceden-işaretli:** Admin/Süper Admin hedef seçilince matris artık TAM işaretli + salt-okunur
++ bilgi notu (admin granular yetki tutmaz, bypass ile hepsine erişir; önceden BOŞ açılıyordu → "yetkisi yok" izlenimi).
+Staff hedefte mevcut davranış (yükleme backend testiyle kanıtlı). Web + masaüstü. Commit `9c886f3`.
+
+**İş 2 — Kullanıcı görünürlük + şifre:** (a) Kullanıcı listesi TÜM oturum sahiplerine açık; Personel SINIRLI görür
+(rol gizli), düzenleme/şifre yalnız admin. Menüde "Kullanıcı Tanım" herkese görünür (Yetkiler/Şablonlar admin-gated).
+(b) Şifre kullanıcı tanımından DEĞİŞTİRİLMEZ; yerine **Şifre Sıfırla** — geçici şifre = kullanıcı adı, kullanıcı
+ilk girişte kendi şifresini belirler (must_change). Web + masaüstü + API (`/api/users/{id}/reset-password`). 3 test.
+
+**İş 3 — Masaüstü otomatik güncelleme akışı:** SIRADA (login öncesi eşitleme ekranında otomatik kurulum + onay/erteleme
+penceresi + kapatma kilidi + yarım kalan kurulumu baştan sağlam kur). Masaüstü-only.
+
+---
+
 ## ✅ Durum Rapor + Rapor Excel Dışa Aktarma (2026-07-25) — CANLI + DOĞRULANDI (web+API); masaüstü paketi bekliyor
 
 **Ne yapıldı:** Yönetici raporları altına **Durum Rapor** (şube bazlı sayısal özet: Araç şablonlu/şablon-dışı;

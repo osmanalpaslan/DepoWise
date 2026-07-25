@@ -73,7 +73,10 @@ public sealed class UserService
     /// <summary>Kullanıcı listesi (tenant: Süper Admin tümünü, diğerleri kendi firmasını görür).</summary>
     public IReadOnlyList<UserRow> ListUsers(SessionContext actor)
     {
-        AccessControl.Require(actor, "users", PermissionAction.View);
+        // Kullanıcı listesi TÜM oturum sahiplerine açıktır (aynı firma). Admin OLMAYAN aktör SINIRLI görür:
+        // rol alanı gizlenir (yalnız kullanıcı adı/ad-soyad/şube/durum). Düzenleme/şifre sıfırlama yalnız admin
+        // (ilgili servis metotları IsAdmin ister). Süper Admin kullanıcıları yine yalnız Süper Admin'e görünür.
+        bool full = AccessControl.IsAdmin(actor);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = SqlDialect.PortableSql(conn, @"
@@ -102,7 +105,7 @@ ORDER BY u.username;");
             list.Add(new UserRow(r.GetString(0), r.GetString(1),
                 r.IsDBNull(2) ? null : r.GetString(2),
                 r.GetInt64(3) == 1,
-                r.IsDBNull(4) ? "" : r.GetString(4),
+                full ? (r.IsDBNull(4) ? "" : r.GetString(4)) : "",   // admin olmayana rol gizli (sınırlı liste)
                 r.IsDBNull(5) ? null : r.GetString(5),
                 r.IsDBNull(6) ? null : r.GetString(6),
                 r.GetInt64(7) == 1,
@@ -144,6 +147,33 @@ ORDER BY u.username;");
             now, cmd => { cmd.AddWithValue("@h", PasswordHasher.Hash(newPassword)); cmd.AddWithValue("@mcp", self ? 0 : 1); });
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+    }
+
+    /// <summary>ŞİFRE SIFIRLAMA (2026-07-25): admin, kullanıcının şifresini KULLANICI ADINA sıfırlar +
+    /// must_change_password=1. Kullanıcı bir sonraki girişte kullanıcı adıyla girer ve ilk giriş gibi KENDİ
+    /// şifresini belirler. Admin belirli bir şifre YAZMAZ (şifre kullanıcı tanımından değiştirilmez).
+    /// Yalnız Admin / Süper Admin; admin başka admin/süper-admini sıfırlayamaz (EnsureManageableTarget).
+    /// Geçici şifreyi (=kullanıcı adı) döndürür (UI bilgilendirir).</summary>
+    public string ResetPassword(SessionContext actor, string userId)
+    {
+        if (!AccessControl.IsAdmin(actor)) throw new ForbiddenException("Şifre sıfırlama yalnız Admin / Süper Admin yetkisindedir.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        string username;
+        using (var q = conn.CreateCommand())
+        {
+            q.Transaction = tx;
+            q.CommandText = "SELECT username FROM users WHERE id=@u AND is_deleted=0;";
+            q.AddWithValue("@u", userId);
+            username = q.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
+        }
+        var companyId = AffectUser(conn, tx, actor, userId,
+            "UPDATE users SET password_hash=@h, must_change_password=1, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);",
+            now, cmd => cmd.AddWithValue("@h", PasswordHasher.Hash(username)));
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
+        tx.Commit();
+        return username;
     }
 
     /// <summary>İLK GİRİŞ şifre belirleme: kullanıcı KENDİ şifresini değiştirir + must_change_password sıfırlanır.

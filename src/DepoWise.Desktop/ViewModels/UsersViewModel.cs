@@ -32,8 +32,6 @@ public sealed partial class UsersViewModel : ViewModelBase
     /// <summary>Yeni kullanıcı formunda "Tüm Şubeler" yetkisi (yalnız Süper Admin).</summary>
     [ObservableProperty] private bool _newViewAllBranches;
 
-    [ObservableProperty] private string _newPasswordForSelected = "";
-
     public ObservableCollection<UserRow> Items { get; } = new();
     public ObservableCollection<RolePick> AssignableRoles { get; } = new();
     /// <summary>Seçili kullanıcıya şube atama listesi — DAİMA oturumun kendi firması.</summary>
@@ -302,21 +300,22 @@ public sealed partial class UsersViewModel : ViewModelBase
         catch (Exception ex) { Status = "İşlem başarısız: " + ex.Message; }
     }
 
+    /// <summary>Şifre SIFIRLA: admin belirli şifre YAZMAZ; şifre kullanıcı adına sıfırlanır + kullanıcı ilk
+    /// girişte kendi şifresini belirler (must_change). Şifre kullanıcı tanımından değiştirilmez.</summary>
     [RelayCommand]
-    private async Task ChangePassword()
+    private async Task ResetPassword()
     {
         if (Selected is null) { Status = "Kullanıcı seçin."; return; }
         if (!CanManageUsers) { Status = "Yetki yok."; return; }
-        if (string.IsNullOrWhiteSpace(NewPasswordForSelected) || NewPasswordForSelected.Length < 4)
-        { Status = "Şifre en az 4 karakter olmalı."; return; }
-        if (!await ConfirmService.AskAsync($"'{Selected.Username}' kullanıcısının şifresi değiştirilsin mi?", "Şifre Değiştir")) return;
+        if (!await ConfirmService.AskAsync(
+                $"'{Selected.Username}' kullanıcısının şifresi SIFIRLANSIN mı?\n\nGeçici şifre kullanıcı adı olacak; kullanıcı ilk girişte kendi şifresini belirleyecek.",
+                "Şifre Sıfırla", "Evet, Sıfırla", "Vazgeç")) return;
         try
         {
-            DesktopServices.Users.ChangePassword(_session, Selected.Id, NewPasswordForSelected);
-            NewPasswordForSelected = "";
-            Status = "Şifre değiştirildi.";
+            var temp = DesktopServices.Users.ResetPassword(_session, Selected.Id);
+            Status = $"Şifre sıfırlandı. Geçici şifre: '{temp}'. Kullanıcı ilk girişte kendi şifresini belirleyecek.";
         }
-        catch (Exception ex) { Status = "Değiştirilemedi: " + ex.Message; }
+        catch (Exception ex) { Status = "Sıfırlanamadı: " + ex.Message; }
     }
 
     /// <summary>Seçili kullanıcıyı aktif/pasif yapar. Süper admin kullanıcıyı yalnız süper admin değiştirebilir (servis guard).</summary>
