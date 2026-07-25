@@ -146,16 +146,21 @@ public sealed partial class BranchesViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(FormName)) { FormError = "Ad zorunlu."; return; }
         // Kendini üst şube seçmeyi engelle
         var parentId = FormParent?.Id == EditId ? null : FormParent?.Id;
-        var dto = new NewBranch(FormName.Trim(), KindCode(FormKind), parentId,
-            string.IsNullOrWhiteSpace(FormCode) ? null : FormCode.Trim(),
-            string.IsNullOrWhiteSpace(FormPassword) ? null : FormPassword);
+        var kind = KindCode(FormKind);
+        var code = string.IsNullOrWhiteSpace(FormCode) ? null : FormCode.Trim();
+        var pass = string.IsNullOrWhiteSpace(FormPassword) ? null : FormPassword;
         var editing = EditId is not null;
         if (!await ConfirmService.AskAsync(editing ? "Şube güncellensin mi?" : "Şube oluşturulsun mu?", "Kaydet")) return;
         try
         {
-            // Şube SEÇİLİ firmaya bağlı açılır (süper admin başka firmaya açabilir; diğerleri kendi firmasına kilitli).
-            if (editing) DesktopServices.Branches.Update(_session, EditId!, dto);
-            else DesktopServices.Branches.Create(_session, dto, TargetCompanyId);
+            // ŞUBELER SUNUCU-OTORİTELİ (2026-07-25): çevrimiçiyken SUNUCUYA yaz. Yalnız yerele yazarsak sonraki
+            // girişte aynalama (BranchMirror) sunucuda olmayan yerel şubeyi siler → kayıt kaybolur. Çevrimdışı → uyar.
+            var res = editing
+                ? await OrgServerClient.UpdateBranchAsync(EditId!, FormName.Trim(), kind, parentId, code, pass, TargetCompanyId)
+                : await OrgServerClient.CreateBranchAsync(FormName.Trim(), kind, parentId, code, pass, TargetCompanyId);
+            if (res.Offline) { FormError = "Şube işlemi çevrimiçi olmayı gerektirir (şubeler sunucuda tutulur). İnternet bağlantısıyla tekrar deneyin."; return; }
+            if (!res.Ok) { FormError = res.Error ?? "Sunucu işlemi başarısız."; return; }
+            await BranchMirror.RefreshAsync(TargetCompanyId);   // sunucu yazdı → yerel kopyayı anında aynala
             ShowAdd = false; EditId = null;
             Load();
             Status = editing ? "Şube güncellendi." : "Şube oluşturuldu.";
@@ -173,7 +178,11 @@ public sealed partial class BranchesViewModel : ViewModelBase
                 "Şube Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
         try
         {
-            DesktopServices.Branches.Delete(_session, Selected.Id);
+            // Sunucu-otoriteli: silme de sunucuda yapılmalı (yalnız yerelde silsek aynalama geri getirirdi).
+            var res = await OrgServerClient.DeleteBranchAsync(Selected.Id);
+            if (res.Offline) { Status = "Şube silme çevrimiçi olmayı gerektirir. İnternet bağlantısıyla tekrar deneyin."; return; }
+            if (!res.Ok) { Status = res.Error ?? "Silinemedi."; return; }
+            await BranchMirror.RefreshAsync(TargetCompanyId);
             Load();
             Status = "Şube silindi.";
         }

@@ -10,6 +10,21 @@
 
 ---
 
+## ✅ Çıkış hızı + Şube/Kullanıcı kayıt kaybı (2026-07-25) — DÜZELTİLDİ (masaüstü; paket bekliyor)
+
+**Sorun 1 — Çıkış çok yavaş:** Kapanışta bekleyen veriyi göndermek için 10 sn'ye kadar bekleniyordu →
+**2 sn**'ye indirildi (MainWindow.OnClosing). Gönderilemeyen veri sonraki girişte zaten push edilir (kayıp yok).
+
+**Sorun 2 — Şube/Kullanıcı re-login'de kayboluyordu (VERİ KAYBI):** Kök neden: şube+kullanıcı SUNUCU-OTORİTELİ
+(iş senkronuna dahil değil; kod/şifre/hash taşır) ve her girişte sunucudan aynalanıyor → masaüstünde YALNIZ
+yerele yazılan kayıt sonraki girişte siliniyordu. **Çözüm:** masaüstü ÇEVRİMİÇİYKEN şube/kullanıcı oluşturma/
+düzenleme/silmeyi doğrudan **SUNUCU API'sine** yapar (yeni `OrgServerClient`) → sunucu-otoriteli olur, aynalama
+(`BranchMirror`) korur; kullanıcı yerele sunucu id'siyle işlenir (`UserService.ImportServerUser`, çift kayıt yok).
+Çevrimdışıysa "bu işlem çevrimiçi gerektirir" uyarısı. 4 test (ImportServerUser). 589 test (578 SQLite yeşil).
+Not: CompaniesViewModel'deki firma-kurulum şubesi kapsam dışı (süper admin akışı).
+
+---
+
 ## ✅ Yetki ekranı + Kullanıcı görünürlük/şifre sıfırlama (2026-07-25) — 3 işten 1-2 TAMAM (web+API canlı; masaüstü paketi bekliyor)
 
 **İş 1 — Yetki ekranı önceden-işaretli:** Admin/Süper Admin hedef seçilince matris artık TAM işaretli + salt-okunur

@@ -82,5 +82,26 @@ public class UserResetVisibilityTests : IDisposable
         Assert.Contains(asAdmin, r => !string.IsNullOrEmpty(r.Roles));
     }
 
+    [Fact]
+    public void ImportServerUser_SunucuIdisiyle_Yerele_Isler_GirisCalisir()
+    {
+        var users = new UserService(_f, _clock);
+        var auth = new AuthService(_f, _clock);
+        var admin = Admin(users, "A");   // firma A + admin oluşur
+
+        // Masaüstü çevrimiçi create → sunucu id'siyle yerele işlenir (çift kayıt olmasın diye SUNUCU id'si).
+        users.ImportServerUser("srv-id-123", "A", "sube.kul", "parola12", "Şube Kul",
+            branchId: null, canViewAllBranches: false, mustChangePassword: true, new[] { RoleKeys.Staff });
+
+        // Yerelde sunucu id'siyle görünür (kaybolmaz)
+        var list = users.ListUsers(admin);
+        Assert.Contains(list, u => u.Id == "srv-id-123" && u.Username == "sube.kul");
+
+        // Yerel giriş plaintext ile çalışır + ilk girişte şifre belirleme zorunlu
+        var login = auth.Login("A", "sube.kul", "parola12");
+        Assert.True(login.Success);
+        Assert.True(login.MustChangePassword);
+    }
+
     public void Dispose() { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_db); } catch { } }
 }

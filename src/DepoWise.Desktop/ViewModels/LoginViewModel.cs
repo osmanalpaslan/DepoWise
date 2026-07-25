@@ -672,53 +672,9 @@ public sealed partial class LoginViewModel : ViewModelBase
     /// Aksi halde web'de silinen şube masaüstünde tüm şube alanlarında görünmeye devam ediyordu.
     /// Çevrimdışıysa hiçbir şey yapılmaz (yerelde olanla devam).
     /// </summary>
-    private static async System.Threading.Tasks.Task MirrorServerBranchesLocalAsync(string companyId)
-    {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        try
-        {
-            var online = await ServerAuthClient.GetLoginBranchesAsync(companyId);
-            if (online is null) return; // çevrimdışı → yerelde zaten olanla devam
-            using var conn = DesktopServices.Factory.Create();
-            var serverIds = new System.Collections.Generic.List<string>();
-            foreach (var b in online)
-            {
-                if (b.Id == BranchConstants.AllBranchesId) continue;
-                serverIds.Add(b.Id);
-                using var c = conn.CreateCommand();
-                c.CommandText = "INSERT INTO branches(id,company_id,name,kind,code,created_at,updated_at,version,is_deleted) " +
-                                "VALUES(@id,@c,@n,'branch',@code,@now,@now,1,0) " +
-                                "ON CONFLICT(id) DO UPDATE SET company_id=@c, name=@n, code=@code, is_deleted=0, updated_at=@now;";
-                c.AddWithValue("@id", b.Id);
-                c.AddWithValue("@c", companyId);
-                c.AddWithValue("@n", b.Name);
-                c.AddWithValue("@code", (object?)b.Code ?? System.DBNull.Value);
-                c.AddWithValue("@now", now);
-                c.ExecuteNonQuery();
-            }
-
-            // ŞUBELER SUNUCU-OTORİTELİ: sunucunun listesinde ARTIK OLMAYAN yerel şubeler SİLİNMİŞ demektir →
-            // yerelde de pasife al. Aksi halde web'de silinen şube masaüstünde tüm şube alanlarında görünmeye
-            // devam ediyordu (yalnız upsert yapılıyor, silme yansıtılmıyordu).
-            using (var del = conn.CreateCommand())
-            {
-                var names = new System.Collections.Generic.List<string>();
-                for (int i = 0; i < serverIds.Count; i++)
-                {
-                    var p = "@k" + i;
-                    names.Add(p);
-                    del.AddWithValue(p, serverIds[i]);
-                }
-                del.CommandText =
-                    "UPDATE branches SET is_deleted=1, updated_at=@now WHERE company_id=@c AND is_deleted=0" +
-                    (names.Count > 0 ? " AND id NOT IN (" + string.Join(",", names) + ")" : "") + ";";
-                del.AddWithValue("@c", companyId);
-                del.AddWithValue("@now", now);
-                del.ExecuteNonQuery();
-            }
-        }
-        catch { }
-    }
+    // Şube aynalama ORTAK yerde (BranchMirror): hem giriş hem masaüstü çevrimiçi şube işlemi sonrası kullanılır.
+    private static System.Threading.Tasks.Task MirrorServerBranchesLocalAsync(string companyId)
+        => BranchMirror.RefreshAsync(companyId);
 
     private async System.Threading.Tasks.Task LoadBranchesForUserAsync(string companyId, bool canViewAllBranches)
     {

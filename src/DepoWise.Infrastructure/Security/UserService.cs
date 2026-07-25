@@ -176,6 +176,57 @@ ORDER BY u.username;");
         return username;
     }
 
+    /// <summary>SUNUCUDA oluşturulan kullanıcıyı YEREL DB'ye SUNUCU id'siyle işler (masaüstü çevrimiçi create
+    /// sonrası yerel görünürlük + kalıcılık için — kullanıcı sunucu-otoriteli; yereldeki kopya sunucununkiyle
+    /// AYNI id'yi taşımalı ki çift kayıt olmasın). Upsert (id korunur) + roller (role_key ile). Şifre yerelde
+    /// hash'lenir (o kullanıcının ilk girişinde sunucu hash'iyle güncellenir). Yetki kontrolü YOK — sunucu
+    /// zaten doğruladı; bu yalnız yerel yansıtmadır.</summary>
+    public void ImportServerUser(string id, string companyId, string username, string plaintextPassword,
+        string? fullName, string? branchId, bool canViewAllBranches, bool mustChangePassword, IEnumerable<string> roleKeys)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        using (var u = conn.CreateCommand())
+        {
+            u.Transaction = tx;
+            u.CommandText =
+                "INSERT INTO users(id, company_id, username, password_hash, full_name, can_view_all_branches, branch_id, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
+                "VALUES(@id,@c,@un,@h,@f,@va,@bid,1,@mcp,@now,@now,1,0) " +
+                "ON CONFLICT(id) DO UPDATE SET company_id=@c, username=@un, password_hash=@h, full_name=@f, can_view_all_branches=@va, branch_id=@bid, is_active=1, is_deleted=0, must_change_password=@mcp, updated_at=@now;";
+            u.AddWithValue("@id", id);
+            u.AddWithValue("@c", companyId);
+            u.AddWithValue("@un", username);
+            u.AddWithValue("@h", PasswordHasher.Hash(plaintextPassword));
+            u.AddWithValue("@f", (object?)fullName ?? DBNull.Value);
+            u.AddWithValue("@va", canViewAllBranches ? 1 : 0);
+            u.AddWithValue("@bid", (object?)branchId ?? DBNull.Value);
+            u.AddWithValue("@mcp", mustChangePassword ? 1 : 0);
+            u.AddWithValue("@now", now);
+            u.ExecuteNonQuery();
+        }
+        using (var d = conn.CreateCommand())
+        { d.Transaction = tx; d.CommandText = "DELETE FROM user_roles WHERE user_id=@u;"; d.AddWithValue("@u", id); d.ExecuteNonQuery(); }
+        foreach (var rk in roleKeys.Distinct())
+        {
+            string? roleId;
+            using (var rq = conn.CreateCommand())
+            {
+                rq.Transaction = tx;
+                rq.CommandText = "SELECT id FROM roles WHERE role_key=@k AND is_deleted=0 ORDER BY (company_id IS NULL) DESC LIMIT 1;";
+                rq.AddWithValue("@k", rk);
+                roleId = rq.ExecuteScalar() as string;
+            }
+            if (roleId is null) continue;
+            using var ir = conn.CreateCommand();
+            ir.Transaction = tx;
+            ir.CommandText = "INSERT INTO user_roles(user_id, role_id) VALUES(@u,@r) ON CONFLICT DO NOTHING;";
+            ir.AddWithValue("@u", id); ir.AddWithValue("@r", roleId);
+            ir.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
     /// <summary>İLK GİRİŞ şifre belirleme: kullanıcı KENDİ şifresini değiştirir + must_change_password sıfırlanır.
     /// Oturum sahibinden başkasına dokunmaz (self-service). Min 4 karakter.</summary>
     public void ChangeOwnPassword(SessionContext actor, string newPassword)

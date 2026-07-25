@@ -38,11 +38,12 @@ public partial class MainWindow : Window
         if (ok)
         {
             _confirmedClose = true;
-            // Bekleyen veriyi son bir kez sunucuya gönder (sınırlı bekleme ile).
-            // Z1: başka bir eşitleme sürüyorsa push'u ATLA (o zaten gönderiyor); KAPANIŞ her hâlükârda olur.
+            // Bekleyen veriyi son bir kez sunucuya gönder (KISA bekleme — çıkış hızlı olmalı, kullanıcı isteği
+            // 2026-07-25). Ulaşamazsa hemen kapat: gönderilmemiş veri bir sonraki girişte zaten push edilir
+            // (watermark korunur, kayıp yok). Z1: başka eşitleme sürüyorsa push'u ATLA; kapanış her hâlükârda olur.
             if (SyncGate.TryEnter())
             {
-                try { await Task.WhenAny(BusinessSyncPushService.PushAsync(), Task.Delay(10000)); } catch { }
+                try { await Task.WhenAny(BusinessSyncPushService.PushAsync(), Task.Delay(2000)); } catch { }
                 finally { SyncGate.Exit(); }
             }
             Close();

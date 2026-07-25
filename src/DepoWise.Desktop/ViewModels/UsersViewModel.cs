@@ -253,20 +253,23 @@ public sealed partial class UsersViewModel : ViewModelBase
             return;
         try
         {
-            // Adım 6: operasyonel (personel) kullanıcıda şube/şantiye zorunlu (süper/kısıtlı-süper admin + admin muaf).
-            // Şube, HEDEF firmaya göre doğrulanır — süper admin başka firmaya kullanıcı açabilir.
+            // Adım 6: operasyonel (personel) kullanıcıda şube/şantiye zorunlu (hızlı ön-kontrol; sunucu da doğrular).
             DesktopServices.Users.ValidateBranchForNewUser(_session, TargetCompanyId, roles, FormBranch?.Id);
-            var newUserId = DesktopServices.Users.CreateUser(_session, new NewUser(
-                Username: NewUsername.Trim(),
-                Password: NewPassword,
-                FullName: string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim(),
-                RoleKeys: roles,
-                CompanyId: TargetCompanyId,
-                BranchId: FormBranch?.Id,
-                CanViewAllBranches: IsSuperAdmin && NewViewAllBranches,
-                PersonnelId: FormPersonnel?.Id));   // Fikir B: hesabı personele bağla
 
-            // Yetki şablonu seçildiyse yetkileri şablona göre yaz (yalnız Süper Admin)
+            // KULLANICILAR SUNUCU-OTORİTELİ (2026-07-25): çevrimiçiyken SUNUCUDA oluştur. Yalnız yerele yazarsak
+            // web/diğer makineler görmez ve tek-otorite bozulur (veri kaybı bulgusu). Çevrimdışı → uyar.
+            var fullName = string.IsNullOrWhiteSpace(NewFullName) ? null : NewFullName.Trim();
+            var res = await OrgServerClient.CreateUserAsync(NewUsername.Trim(), NewPassword, fullName, roles,
+                TargetCompanyId, FormBranch?.Id, IsSuperAdmin && NewViewAllBranches, FormPersonnel?.Id);
+            if (res.Offline) { FormError = "Kullanıcı oluşturma çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur). İnternet bağlantısıyla tekrar deneyin."; return; }
+            if (!res.Ok || res.Id is null) { FormError = res.Error ?? "Sunucu işlemi başarısız."; return; }
+            var newUserId = res.Id;
+
+            // Bu makinede anında görünsün + kalıcı olsun (sunucu id'siyle → çift kayıt olmaz).
+            DesktopServices.Users.ImportServerUser(newUserId, TargetCompanyId, NewUsername.Trim(), NewPassword,
+                fullName, FormBranch?.Id, IsSuperAdmin && NewViewAllBranches, mustChangePassword: true, roles);
+
+            // Yetki şablonu (yalnız süper admin) → yerele yaz (yetkiler senkronda değil; Yetkiler ekranından düzenlenir).
             if (tplData is not null)
                 DesktopServices.Permissions.SaveForUser(_session, newUserId, tplData.Modules, tplData.Buttons);
 
