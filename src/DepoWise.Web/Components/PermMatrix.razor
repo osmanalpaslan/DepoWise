@@ -13,7 +13,7 @@
                 @for (int i = 0; i < 4; i++)
                 {
                     var idx = i; var key = m.Id;
-                    <td><MudCheckBox T="bool" Dense="true" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
+                    <td><MudCheckBox T="bool" Dense="true" ReadOnly="ReadOnlyAllAccess" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
                 }
             </tr>
         }
@@ -26,7 +26,7 @@
                 <tr>
                     <td>@b.Name</td>
                     <td colspan="4">
-                        <MudCheckBox T="bool" Dense="true" Label="Yetki ver"
+                        <MudCheckBox T="bool" Dense="true" Label="Yetki ver" ReadOnly="ReadOnlyAllAccess"
                                      Value="@GetBtn(bkey)" ValueChanged="@(v => SetBtn(bkey, v))" />
                     </td>
                 </tr>
@@ -41,18 +41,21 @@
     [Parameter] public HashSet<string>? AdminOnly { get; set; }
     /// <summary>Özel işlem yetkileri (özel butonlar) — ağacın içinde tek-onaylı satır olarak gösterilir.</summary>
     [Parameter] public List<ApiClient.Opt>? Buttons { get; set; }
+    /// <summary>Hedef Admin/Süper Admin ise: tüm kutular TAM işaretli + salt-okunur (admin bypass ile
+    /// hepsine erişir; granular yetki tutmaz). Ekranı boş göstermek "yetkisi yok" izlenimi verirdi.</summary>
+    [Parameter] public bool ReadOnlyAllAccess { get; set; }
 
     private readonly Dictionary<string, bool[]> _state = new();
     private readonly HashSet<string> _btn = new();
 
-    private bool Get(string key, int idx) => _state.TryGetValue(key, out var a) && a[idx];
+    private bool Get(string key, int idx) => ReadOnlyAllAccess || (_state.TryGetValue(key, out var a) && a[idx]);
     private void Set(string key, int idx, bool v)
     {
         if (!_state.TryGetValue(key, out var a)) { a = new bool[4]; _state[key] = a; }
         a[idx] = v;
     }
 
-    private bool GetBtn(string key) => _btn.Contains(key);
+    private bool GetBtn(string key) => ReadOnlyAllAccess || _btn.Contains(key);
     private void SetBtn(string key, bool v) { if (v) _btn.Add(key); else _btn.Remove(key); }
 
     /// <summary>Kayıtlı yetkileri yükle: (moduleKey, view, create, edit, delete).</summary>

@@ -28,8 +28,21 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUser))]
+    [NotifyPropertyChangedFor(nameof(TreeEnabled))]
+    [NotifyPropertyChangedFor(nameof(CanSavePerms))]
     private UserRow? _selectedUser;
     public bool HasUser => SelectedUser != null;
+
+    /// <summary>Hedef kullanıcı Admin/Süper Admin mi — öyleyse ağaç TAM işaretli + SALT-OKUNUR gösterilir
+    /// (admin granular yetki tutmaz, hepsine bypass ile erişir). Kısıtlamak için önce rol Personel yapılır.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TreeEnabled))]
+    [NotifyPropertyChangedFor(nameof(CanSavePerms))]
+    private bool _isTargetAdmin;
+    /// <summary>Ağaç düzenlenebilir mi (admin hedefte salt-okunur).</summary>
+    public bool TreeEnabled => HasUser && !IsTargetAdmin;
+    /// <summary>Kaydet butonu görünür mü (admin hedefte kaydedilecek granular yetki yok).</summary>
+    public bool CanSavePerms => HasUser && !IsTargetAdmin;
 
     [ObservableProperty] private string? _status;
 
@@ -79,15 +92,27 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     partial void OnSelectedUserChanged(UserRow? value)
     {
-        if (value is null) { BuildTree(null); ResetTree(); return; }
+        if (value is null) { IsTargetAdmin = false; BuildTree(null); ResetTree(); return; }
         try
         {
             // Ağacı hedefin ROLÜNE göre yeniden kur: kapalı + verilemeyecek (süper-admin-only) ekranlar listelenmez.
             var blocked = DesktopServices.Permissions.BlockedModulesForUser(_session, value.Id);
             var targetRoles = DesktopServices.Users.GetRoleKeys(_session, value.Id);
             BuildTree(blocked, targetRoles);
-            ResetTree();
 
+            // Admin/Süper Admin hedef: granular yetki TUTMAZ (bypass ile hepsine erişir). Ekranı boş göstermek
+            // "hiç yetkisi yok" izlenimi verir → yanıltıcı. Bunun yerine TAM işaretli + SALT-OKUNUR gösterilir.
+            if (value.IsAdmin)
+            {
+                IsTargetAdmin = true;
+                foreach (var m in Modules) m.Set(true, true, true, true);
+                foreach (var b in Buttons) b.Granted = true;
+                Status = $"{value.Username} — Admin/Süper Admin: tüm ekranlara erişir. Kısıtlamak için önce rolünü Personel yapın.";
+                return;
+            }
+
+            IsTargetAdmin = false;
+            ResetTree();
             var data = DesktopServices.Permissions.GetForUser(_session, value.Id);
             foreach (var m in Modules)
             {
@@ -111,6 +136,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         if (SelectedUser is null) { Status = "Önce kullanıcı seçin."; return; }
         if (!CanManage) { Status = "Yetki yok."; return; }
+        if (IsTargetAdmin) { Status = "Bu kullanıcı Admin — granular yetki uygulanmaz. Kısıtlamak için önce rolünü Personel yapın."; return; }
 
         // #3: Kısıtlı modül seçili + hedef Admin değil + aktör süper admin değil → önce Admin'e yükselt (uyarı).
         var causeNodes = Modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)

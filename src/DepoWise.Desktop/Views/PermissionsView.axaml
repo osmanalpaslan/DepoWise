@@ -22,13 +22,18 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadUsersCommand}"/>
-                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding HasUser}"/>
+                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding CanSavePerms}"/>
             </StackPanel>
         </Border>
 
         <!-- Yetki ağacı (yalnız kullanıcı seçilince) -->
         <ScrollViewer Grid.Row="2" Margin="0,16,0,0" IsVisible="{Binding HasUser}">
             <StackPanel Spacing="16">
+                <!-- Admin/Süper Admin hedef: tam yetkili, salt-okunur bilgi -->
+                <Border Classes="Panel" IsVisible="{Binding IsTargetAdmin}">
+                    <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"
+                        Text="Bu kullanıcı Admin / Süper Admin — TÜM ekranlara erişir (aşağıdaki alanlar bu yüzden tam işaretli ve salt-okunurdur). Yetkilerini kısıtlamak için önce rolünü Personel yapın."/>
+                </Border>
                 <!-- Modüller -->
                 <Border Classes="Table">
                     <DockPanel>
@@ -41,7 +46,7 @@
                                 <SelectableTextBlock Grid.Column="4" Text="Sil" TextAlignment="Center"/>
                             </Grid>
                         </Border>
-                        <ItemsControl ItemsSource="{Binding Modules}">
+                        <ItemsControl ItemsSource="{Binding Modules}" IsEnabled="{Binding TreeEnabled}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ModulePermNode">
                                     <Grid ColumnDefinitions="*,90,90,90,90" Height="38">
@@ -60,7 +65,7 @@
                 <!-- Özel butonlar / "+" -->
                 <SelectableTextBlock Text="ÖZEL BUTON / &quot;+&quot; YETKİLERİ" Classes="SectionTitle"/>
                 <Border Classes="Table">
-                    <ItemsControl ItemsSource="{Binding Buttons}">
+                    <ItemsControl ItemsSource="{Binding Buttons}" IsEnabled="{Binding TreeEnabled}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ButtonPermNode">
                                 <CheckBox IsChecked="{Binding Granted}" Content="{Binding Label}" Margin="12,6"/>

@@ -18,8 +18,18 @@
 
     @if (!string.IsNullOrEmpty(_userId))
     {
-        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" />
-        <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
+        @if (_targetIsAdmin)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">
+                Bu kullanıcı <b>Admin / Süper Admin</b> — TÜM ekranlara erişir (alanlar bu yüzden tam işaretli ve salt-okunur).
+                Yetkilerini kısıtlamak için önce rolünü <b>Personel</b> yapın.
+            </MudAlert>
+        }
+        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" ReadOnlyAllAccess="_targetIsAdmin" />
+        @if (!_targetIsAdmin)
+        {
+            <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
+        }
     }
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
 </MudPaper>
@@ -30,6 +40,7 @@
     private readonly HashSet<string> _restricted = new();   // #3: alt role verilemeyen modüller
     private readonly HashSet<string> _adminUserIds = new();  // hedef Admin/Süper mi
     private string? _userId;
+    private bool _targetIsAdmin;   // hedef Admin/Süper Admin → matris tam işaretli + salt-okunur
 
     private PermMatrix? _matrix;
     private string? _msg; private bool _ok; private bool _busy;
@@ -75,6 +86,7 @@
     {
         _msg = null;
         if (string.IsNullOrEmpty(_userId)) return;
+        _targetIsAdmin = _adminUserIds.Contains(_userId);   // admin hedef → matris tam işaretli + salt-okunur
         try { await LoadModules(_userId); } catch (Exception ex) { _msg = "Ekran listesi yüklenemedi: " + ex.Message; _ok = false; return; }
         _loadPending = true;   // render sonrası mevcut yetkileri otomatik yükle (OnAfterRenderAsync)
     }
