@@ -32,7 +32,11 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
     public ObservableCollection<string> ReportTypes { get; } = new()
         { "Genel Rapor", "Stok Durumu", "Stok Sayım", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu",
-          "Malzeme — Şablonlu", "Malzeme — Şablon Dışı", "Araç — Şablonlu", "Araç — Şablon Dışı" };
+          "Malzeme — Şablonlu", "Malzeme — Şablon Dışı", "Araç — Şablonlu", "Araç — Şablon Dışı", "Durum Rapor" };
+
+    /// <summary>Yönetici raporu mu (Excel yetkisi buna göre: Yönetici Rapor vs Rapor özel butonu).</summary>
+    private static bool IsManagerReport(string report) => report is "Malzeme — Şablonlu" or "Malzeme — Şablon Dışı"
+        or "Araç — Şablonlu" or "Araç — Şablon Dışı" or "Durum Rapor";
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
 
@@ -93,25 +97,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         try
         {
             LoadError = null;
-            var req = new ReportRequest(
-                Executed: true,
-                FromDate: FromDate?.ToUnixTimeMilliseconds(),
-                ToDate: ToDate?.ToUnixTimeMilliseconds());
-
-            var table = SelectedReport switch
-            {
-                "Genel Rapor" => DesktopServices.Reports.General(_session, req),
-                "Stok Sayım" => DesktopServices.Reports.StockCount(_session, req),
-                "Yakıt Tüketim" => DesktopServices.Reports.FuelConsumption(_session, req),
-                "Bakım Raporu" => DesktopServices.Reports.Maintenance(_session, req),
-                "Depo Girişi" => DesktopServices.Reports.FuelDepot(_session, req),
-                "Talep Raporu" => DesktopServices.Reports.Requests(_session, req),
-                "Malzeme — Şablonlu" => DesktopServices.Reports.MaterialsByTemplate(_session, req),
-                "Malzeme — Şablon Dışı" => DesktopServices.Reports.MaterialsNonTemplate(_session, req),
-                "Araç — Şablonlu" => DesktopServices.Reports.VehiclesByTemplate(_session, req),
-                "Araç — Şablon Dışı" => DesktopServices.Reports.VehiclesNonTemplate(_session, req),
-                _ => DesktopServices.Reports.StockStatus(_session, req),
-            };
+            var table = BuildTable();
 
             Headers.Clear();
             foreach (var h in table.Headers) Headers.Add(h);
@@ -132,6 +118,58 @@ public sealed partial class ReportsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsPrompt));
         OnPropertyChanged(nameof(ShowChart));
     }
+
+    /// <summary>Seçili rapor tipini TableModel'e çevirir (ekran + Excel export ortak kullanır).</summary>
+    private TableModel BuildTable()
+    {
+        var req = new ReportRequest(
+            Executed: true,
+            FromDate: FromDate?.ToUnixTimeMilliseconds(),
+            ToDate: ToDate?.ToUnixTimeMilliseconds());
+        return SelectedReport switch
+        {
+            "Genel Rapor" => DesktopServices.Reports.General(_session, req),
+            "Stok Sayım" => DesktopServices.Reports.StockCount(_session, req),
+            "Yakıt Tüketim" => DesktopServices.Reports.FuelConsumption(_session, req),
+            "Bakım Raporu" => DesktopServices.Reports.Maintenance(_session, req),
+            "Depo Girişi" => DesktopServices.Reports.FuelDepot(_session, req),
+            "Talep Raporu" => DesktopServices.Reports.Requests(_session, req),
+            "Malzeme — Şablonlu" => DesktopServices.Reports.MaterialsByTemplate(_session, req),
+            "Malzeme — Şablon Dışı" => DesktopServices.Reports.MaterialsNonTemplate(_session, req),
+            "Araç — Şablonlu" => DesktopServices.Reports.VehiclesByTemplate(_session, req),
+            "Araç — Şablon Dışı" => DesktopServices.Reports.VehiclesNonTemplate(_session, req),
+            "Durum Rapor" => DesktopServices.Reports.StatusReport(_session, req),
+            _ => DesktopServices.Reports.StockStatus(_session, req),
+        };
+    }
+
+    /// <summary>Seçili raporu Excel'e aktarır. Yetki yoksa (deny-by-default özel buton) "yetkiniz yok"
+    /// uyarısı gösterir; API tarafı da fail-closed. Yönetici raporu ↔ Rapor için iki ayrı özel buton.</summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task ExportExcelAsync()
+    {
+        var button = IsManagerReport(SelectedReport)
+            ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports;
+        if (!AccessControl.CanUseButton(_session, button))
+        {
+            Status = "Excel dışa aktarma yetkiniz yok. Yetki için firma yöneticinize başvurun.";
+            return;
+        }
+        try
+        {
+            var table = BuildTable();
+            var bytes = DesktopServices.Excel.Export(table);
+            var path = await DepoWise.Desktop.FilePickerService.SaveExcelAsync(SafeFileName(table.Title) + ".xlsx");
+            if (string.IsNullOrEmpty(path)) return;   // kullanıcı iptal etti
+            await System.IO.File.WriteAllBytesAsync(path, bytes);
+            DepoWise.Desktop.FilePickerService.OpenFile(path);
+            Status = $"Excel'e aktarıldı: {table.Title}";
+        }
+        catch (Exception ex) { Status = "Excel dışa aktarma hatası: " + ex.Message; }
+    }
+
+    private static string SafeFileName(string title)
+        => System.Text.RegularExpressions.Regex.Replace(title ?? "Rapor", @"[^\p{L}\p{Nd}]+", "_").Trim('_');
 
     /// <summary>Grafiği çalıştırılan raporun gerçek satırlarından kurar (sahte seri yok).</summary>
     private void BuildChart(TableModel table)

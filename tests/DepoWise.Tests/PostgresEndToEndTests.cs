@@ -1,10 +1,13 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Maintenance;
+using DepoWise.Application.Reports;
 using DepoWise.Application.Requests;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Organization;
+using DepoWise.Infrastructure.Reporting;
 using DepoWise.Infrastructure.Requests;
 using DepoWise.Infrastructure.Security;
 using DepoWise.Infrastructure.Sync;
@@ -116,5 +119,26 @@ public class PostgresEndToEndTests
         var res = sync.ApplyPull("A", doc.RootElement, null);   // upsert (ON CONFLICT DO UPDATE) — PG'de sınar
         Assert.Empty(res.Errors);
         Assert.Equal(70m, stock.GetBalance(m));                 // upsert bakiyeyi bozmadı
+
+        // 9) YÖNETİCİ RAPORLARI PG'de (2026-07-25): COUNT/SUM → GetInt32 yolu PG'de int8/numeric döner;
+        //    tüm sayımlar CAST(... AS INTEGER) ile sarılı olmalı (aksi halde InvalidCastException / 500).
+        var reports = new ReportService(factory);
+        var branches = new BranchService(factory, clock);
+        var matTpl = new MaterialTemplateService(factory, clock);
+        var br = branches.Create(a, new NewBranch("PG-Şube"), companyId: "A");
+        var tpl = matTpl.Create(a, new NewMaterialTemplate("Filtre Şb", Code: "FS"));
+        materials.Create(a, new NewMaterial("M-TPL", "Şablonlu Filtre", TemplateId: tpl));
+        vehicles.Create(a, new NewVehicle("V-BR", BranchId: br));   // şubeli araç → Durum Rapor şube kırılımı
+        var rpReq = new ReportRequest(Executed: true);
+
+        var byTpl = reports.MaterialsByTemplate(a, rpReq);   // COUNT(m.id) CAST AS INTEGER → GetInt32 (int8→int4)
+        Assert.Equal(1, Convert.ToInt32(byTpl.Rows[0][2]));   // şablonda 1 malzeme
+
+        var statusRep = reports.StatusReport(a, rpReq);       // firma-geneli malzeme + şube araç sayımları (PG)
+        var matRow = statusRep.Rows.Single(r => (string)r[1]! == "Malzeme");
+        Assert.Equal("Firma Geneli", matRow[0]);
+        Assert.True(Convert.ToInt32(matRow[4]) >= 2);         // en az M-1 + M-TPL
+        var vehRow = statusRep.Rows.Single(r => (string)r[0]! == "PG-Şube" && (string)r[1]! == "Araç");
+        Assert.Equal(1, Convert.ToInt32(vehRow[4]));          // şubede 1 araç
     }
 }

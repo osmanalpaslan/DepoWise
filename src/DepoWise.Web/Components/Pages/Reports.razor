@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject IJSRuntime JS
 
 <MudText Typo="Typo.h5" GutterBottom="true">Raporlar</MudText>
 
@@ -32,7 +33,13 @@
                 </MudSelect>
             </MudItem>
         }
-        <MudItem xs="12" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="_busy">Sorgula</MudButton></MudItem>
+        <MudItem xs="6" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="_busy">Sorgula</MudButton></MudItem>
+        <MudItem xs="6" md="2">
+            <MudTooltip Text="Seçili rapor ve filtrelerle TÜM sonucu Excel'e aktarır (yetki gerekir).">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.FileDownload"
+                           OnClick="ExportExcel" Disabled="_exporting">Excel'e Aktar</MudButton>
+            </MudTooltip>
+        </MudItem>
     </MudGrid>
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
 </MudPaper>
@@ -48,6 +55,7 @@
     <MudTabPanel Text="Malzeme — Şablon Dışı" />
     <MudTabPanel Text="Araç — Şablonlu" />
     <MudTabPanel Text="Araç — Şablon Dışı" />
+    <MudTabPanel Text="Durum Rapor" />
 </MudTabs>
 
 <MudPaper Class="pa-4 mt-2" Elevation="2">
@@ -72,7 +80,7 @@
 @code {
     private int _tab;
     private string _type => _tab switch { 0 => "general", 1 => "stock", 2 => "maintenance", 3 => "fuel", 4 => "fuel-depot", 5 => "requests",
-        6 => "materials-template", 7 => "materials-nontemplate", 8 => "vehicles-template", 9 => "vehicles-nontemplate", _ => "general" };
+        6 => "materials-template", 7 => "materials-nontemplate", 8 => "vehicles-template", 9 => "vehicles-nontemplate", 10 => "status", _ => "general" };
 
     /// <summary>Sekme değişince önceki raporun verisini TEMİZLE — her rapor kendi "Sorgula"sını ister
     /// (alakasız veri başka sekmede görünmesin).</summary>
@@ -157,6 +165,31 @@
         }
         catch (Exception ex) { _error = "Hata: " + ex.Message; _headers = null; }
         finally { _busy = false; }
+    }
+
+    private bool _exporting;
+    /// <summary>Seçili rapor + filtrelerle TÜM sonucu Excel'e aktarır. Yetki yoksa API 403 döner → "yetkiniz yok"
+    /// uyarısı gösterilir (deny-by-default; iki ayrı özel buton: Rapor / Yönetici Rapor).</summary>
+    private async Task ExportExcel()
+    {
+        if (_exporting) return;
+        _exporting = true; _error = null;
+        try
+        {
+            var body = new
+            {
+                fromDate = Ms(_from), toDate = Ms(_to),
+                branchIds = _branchSel.ToList(), vehicleIds = _vehicleSel.ToList(),
+                companyId = Auth.IsSuperAdmin ? _companyId : null
+            };
+            var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_type}/export", body, "Rapor.xlsx");
+            if (status == 403) { _error = "Excel dışa aktarma yetkiniz yok. Yetki için firma yöneticinize başvurun."; return; }
+            if (bytes is null) { _error = "Excel dışa aktarma başarısız."; return; }
+            await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex) { _error = "Hata: " + ex.Message; }
+        finally { _exporting = false; }
     }
 
     private static string Cell(JsonElement v) => v.ValueKind switch

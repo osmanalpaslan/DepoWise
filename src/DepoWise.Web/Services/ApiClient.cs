@@ -203,6 +203,19 @@ public sealed class ApiClient
         return (await r.Content.ReadAsByteArrayAsync(), name);
     }
 
+    /// <summary>JSON gövdesi POST edip dönen dosyayı (bytes + ad) verir. HTTP durum kodunu da döner
+    /// (403 → "yetkiniz yok" ayrımı için). Rapor Excel dışa aktarma gibi POST-tabanlı indirmelerde kullanılır.</summary>
+    public async Task<(byte[]? Bytes, string FileName, int Status)> PostFileAsync(string path, object body, string fallbackName)
+    {
+        var req = Req(HttpMethod.Post, path);
+        req.Content = JsonContent.Create(body);
+        var r = await _http.SendAsync(req);
+        if (!r.IsSuccessStatusCode) return (null, fallbackName, (int)r.StatusCode);
+        var name = r.Content.Headers.ContentDisposition?.FileNameStar ?? r.Content.Headers.ContentDisposition?.FileName ?? fallbackName;
+        name = name?.Trim('"') ?? fallbackName;
+        return (await r.Content.ReadAsByteArrayAsync(), name, (int)r.StatusCode);
+    }
+
     /// <summary>Korumalı bir görsel ucundan bytes çekip data URL üretir (img src için — Bearer başlığı gerektiğinden).</summary>
     public async Task<string?> GetImageDataUrlAsync(string path)
     {

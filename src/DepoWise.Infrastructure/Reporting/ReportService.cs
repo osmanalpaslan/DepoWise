@@ -50,7 +50,7 @@ ORDER BY m.code;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT COALESCE(t.code,''), t.name, COUNT(m.id),
+SELECT COALESCE(t.code,''), t.name, CAST(COUNT(m.id) AS INTEGER),
        COALESCE(SUM(CAST(COALESCE(b.quantity,'0') AS REAL)),0)
 FROM material_templates t
 JOIN materials m ON m.template_id=t.id AND m.is_deleted=0
@@ -147,6 +147,112 @@ ORDER BY v.internal_code;";
         "active" => "Aktif", "passive" => "Pasif", "maintenance" => "Bakımda", "faulty" => "Arızalı", _ => s
     };
 
+    /// <summary>
+    /// Durum Rapor (2026-07-25) — YÖNETİCİ: şube bazlı SAYISAL özet. Şablon mantığı olan modüller (Malzeme/Araç)
+    /// şablonlu/şablon-dışı ayrımıyla; diğerleri yalnız toplam kayıt sayısıyla ("—" şablon sütunları). Malzeme
+    /// firma-genelidir (şube yok) → tek "Firma Geneli" satırı. Tarih filtresi kayıt/işlem tarihine göre daraltır.
+    /// Tenant-izole (yalnız kendi firması). Tüm sayımlar PG-güvenli: CAST(... AS INTEGER) → GetInt32.
+    /// </summary>
+    public TableModel StatusReport(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        var rows = new List<IReadOnlyList<object?>>();
+
+        // ── 1) Malzeme — FİRMA GENELİ (malzemede şube yok): şablonlu / şablon-dışı ──
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT CAST(COALESCE(SUM(CASE WHEN template_id IS NOT NULL THEN 1 ELSE 0 END),0) AS INTEGER),
+       CAST(COALESCE(SUM(CASE WHEN template_id IS NULL THEN 1 ELSE 0 END),0) AS INTEGER)
+FROM materials WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "created_at") + ";";
+            cmd.AddWithValue("@c", companyId);
+            BindDates(cmd, req);
+            using var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                int tpl = r.GetInt32(0), non = r.GetInt32(1);
+                rows.Add(new object?[] { "Firma Geneli", "Malzeme", tpl, non, tpl + non });
+            }
+        }
+
+        // ── Şube listesi (ada göre sıralı) — per-branch modüller bu sırada dökülür ──
+        var branchNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        var branchOrder = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) { var id = r.GetString(0); branchNames[id] = r.GetString(1); branchOrder.Add(id); }
+        }
+
+        // Şube bazlı sayımlar. Araç şablon-ayrımlı (branch_id); diğerleri toplam.
+        // Şube kaynağı: entity → branch_id; işlem (bakım/yakıt/günlük) → op_branch_id (işlenen şube, Migration027).
+        var vehTpl = CountTplByBranch(conn, companyId, req);
+        var personnel = CountByBranch(conn, "SELECT branch_id, CAST(COUNT(*) AS INTEGER) FROM personnel WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "created_at") + " GROUP BY branch_id;", companyId, req);
+        var maintenance = CountByBranch(conn, "SELECT op_branch_id, CAST(COUNT(*) AS INTEGER) FROM vehicle_maintenances WHERE company_id=@c AND is_deleted=0 AND is_cancelled=0" + DateFilter(req, "performed_date") + " GROUP BY op_branch_id;", companyId, req);
+        var fuel = CountByBranch(conn, "SELECT op_branch_id, CAST(COUNT(*) AS INTEGER) FROM fuel_distributions WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "distribution_date") + " GROUP BY op_branch_id;", companyId, req);
+        var requests = CountByBranch(conn, "SELECT branch_id, CAST(COUNT(*) AS INTEGER) FROM material_requests WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "request_date") + " GROUP BY branch_id;", companyId, req);
+        var daily = CountByBranch(conn, "SELECT op_branch_id, CAST(COUNT(*) AS INTEGER) FROM daily_activities WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "activity_date") + " GROUP BY op_branch_id;", companyId, req);
+
+        var branchKeys = new List<string>(branchOrder);
+        bool anyUnassigned = vehTpl.ContainsKey("") || personnel.ContainsKey("") || maintenance.ContainsKey("")
+            || fuel.ContainsKey("") || requests.ContainsKey("") || daily.ContainsKey("");
+        if (anyUnassigned) branchKeys.Add("");   // op_branch_id/branch_id NULL (eski kayıt) → "Şube atanmamış"
+
+        foreach (var key in branchKeys)
+        {
+            var name = key.Length == 0 ? "Şube atanmamış" : (branchNames.TryGetValue(key, out var n) ? n : key);
+            var vt = vehTpl.TryGetValue(key, out var v) ? v : (Tpl: 0, Non: 0);
+            rows.Add(new object?[] { name, "Araç", vt.Tpl, vt.Non, vt.Tpl + vt.Non });
+            rows.Add(new object?[] { name, "Personel", "—", "—", personnel.TryGetValue(key, out var p) ? p : 0 });
+            rows.Add(new object?[] { name, "Bakım", "—", "—", maintenance.TryGetValue(key, out var m) ? m : 0 });
+            rows.Add(new object?[] { name, "Yakıt Dağıtım", "—", "—", fuel.TryGetValue(key, out var f) ? f : 0 });
+            rows.Add(new object?[] { name, "Talep", "—", "—", requests.TryGetValue(key, out var rq) ? rq : 0 });
+            rows.Add(new object?[] { name, "Günlük Faaliyet", "—", "—", daily.TryGetValue(key, out var da) ? da : 0 });
+        }
+
+        return new TableModel("Durum Rapor",
+            new[] { "Kapsam", "Modül", "Şablonlu", "Şablon Dışı", "Toplam" }, rows);
+    }
+
+    /// <summary>Şube (branch_id/op_branch_id) → kayıt sayısı. NULL şube → "" (Şube atanmamış). PG-güvenli GetInt32.</summary>
+    private static Dictionary<string, int> CountByBranch(DbConnection conn, string sql, string companyId, ReportRequest req)
+    {
+        var d = new Dictionary<string, int>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.AddWithValue("@c", companyId);
+        BindDates(cmd, req);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            d[r.IsDBNull(0) ? "" : r.GetString(0)] = r.GetInt32(1);
+        return d;
+    }
+
+    /// <summary>Araç şube bazlı şablonlu/şablon-dışı sayımı (branch_id). NULL şube → "".</summary>
+    private static Dictionary<string, (int Tpl, int Non)> CountTplByBranch(DbConnection conn, string companyId, ReportRequest req)
+    {
+        var d = new Dictionary<string, (int, int)>(StringComparer.Ordinal);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT branch_id,
+       CAST(COALESCE(SUM(CASE WHEN template_id IS NOT NULL THEN 1 ELSE 0 END),0) AS INTEGER),
+       CAST(COALESCE(SUM(CASE WHEN template_id IS NULL THEN 1 ELSE 0 END),0) AS INTEGER)
+FROM vehicles WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "created_at") + @"
+GROUP BY branch_id;";
+        cmd.AddWithValue("@c", companyId);
+        BindDates(cmd, req);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            d[r.IsDBNull(0) ? "" : r.GetString(0)] = (r.GetInt32(1), r.GetInt32(2));
+        return d;
+    }
+
     public TableModel FuelConsumption(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -157,7 +263,7 @@ ORDER BY v.internal_code;";
         using var cmd = conn.CreateCommand();
         // KM = Σ(current-prev) [geçerli sayaç çiftlerinde]; Ort. Tüketim (L/km) = toplam litre / toplam km.
         cmd.CommandText = @"
-SELECT v.internal_code, COUNT(fd.id),
+SELECT v.internal_code, CAST(COUNT(fd.id) AS INTEGER),
        COALESCE(SUM(CASE WHEN fd.prev_meter IS NOT NULL AND fd.current_meter IS NOT NULL
               THEN CAST(fd.current_meter AS REAL)-CAST(fd.prev_meter AS REAL) ELSE 0 END),0),
        COALESCE(SUM(CAST(fd.liters AS REAL)),0),
@@ -319,7 +425,7 @@ ORDER BY d.doc_date DESC, m.code;";
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT mr.doc_no, mr.request_date, mr.status,
-       (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
+       (SELECT CAST(COUNT(*) AS INTEGER) FROM material_request_items i WHERE i.request_id = mr.id)
 FROM material_requests mr
 WHERE mr.company_id=@c AND mr.is_deleted=0
 " + DateFilter(req, "mr.request_date") + @"

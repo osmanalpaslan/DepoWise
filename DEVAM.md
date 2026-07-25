@@ -27,19 +27,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-24)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-25)
 
 ### 🟢 Tek bakışta güncel durum
 
 | Ne | Durum |
 |---|---|
 | **PostgreSQL geçişi** | ✅✅ **CANLIYA ALINDI (2026-07-24)** — **sunucu (`depowise-erp`) + web PostgreSQL'de** (Neon `depowise_prod`). Masaüstü SQLite'ta kaldı (eşitleme API üzerinden PG'ye yazar). Gerçek verinin KOPYASIYLA prova edildi, canlıya alındı; eski SQLite yedekte (`/data/depowise-server.db`, el değmedi). Geri dönüş: `flyctl secrets unset DEPOWISE_PG_URL`. Detay: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md) Görev A. |
-| **Testler** | **582/582 yeşil** (571 SQLite + 11 gerçek Neon PG testi; `dotnet test`) + canlı eşitleme QA **7/7** |
-| **Yeni özellik** | **Yönetici raporları — Şablonlu / Şablon-dışı** (malzeme+araç): şablona bağlı kayıtlar (kanonik, firma-toplam stok) vs şablon-dışı (serbest/hatalı — düzeltilecekler). Şablon SEÇME serbest, OLUŞTURMA yetkiye bağlı. Malzemeye `template_id` (Migration054); düzenlemede şablona BAĞLA (şablon-dışı→şablonlu). Ayrıca web: kolon sürükle-taşıma + yan detay paneli kaldırıldı + yetki ekranı otomatik yükleme + malzeme negatif fiyat/min-stok kalkanı |
-| **Şema** | Migration **054** (materials.template_id — şablonlu/şablon-dışı rapor) |
-| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı** (PostgreSQL), health 200 |
-| **Web** | `depowise-web.fly.dev` — **canlı** (raporlar + reorder + panel + yetki + negatif kalkan) |
-| **Masaüstü** | **1.0.88 YAYINDA** — Yönetici raporları (şablonlu/şablon-dışı) + şablona bağlama + negatif fiyat koruması. Güncelleme: makine yalnız EN SON tam paketi indirir/kurar (ara sürüm gerekmez). |
+| **Testler** | **585 test** (574 SQLite yeşil + 11 gerçek Neon PG; `dotnet test`) + canlı eşitleme QA **7/7** |
+| **Yeni özellik** | **Durum Rapor + Rapor Excel dışa aktarma (2026-07-25)**: Yönetici raporları altına **Durum Rapor** — şube bazlı SAYISAL özet (Araç şablonlu/şablon-dışı; Personel/Bakım/Yakıt/Talep/Günlük toplamları; Malzeme firma-geneli tek satır çünkü şubesi yok), tarih filtreli. Ayrıca Raporlar + Yönetici Raporları ekranlarına **Excel'e Aktar** butonu — **iki ayrı özel yetki** (Rapor / Yönetici Rapor); yetki yoksa "yetkiniz yok" uyarısı (deny-by-default, UI+API). PG-güvenlik: tüm rapor sayımları `CAST(... AS INTEGER)`. Önceki: Yönetici raporları şablonlu/şablon-dışı + şablona bağlama (Migration054). |
+| **Şema** | Migration **054** (materials.template_id). **Durum Rapor için yeni migration YOK** — mevcut kolonlar (branch_id, op_branch_id, template_id, created_at). |
+| **API (sunucu)** | `depowise-erp.fly.dev` — **canlı** (PostgreSQL), health 200 · yeni: `/api/reports/{type}/export` + `status` rapor tipi |
+| **Web** | `depowise-web.fly.dev` — **canlı** · yeni: Durum Rapor sekmesi + Excel'e Aktar (yetki kapılı) |
+| **Masaüstü** | **1.0.88 YAYINDA** (Durum Rapor + Excel export kodda; sıradaki pakette). Güncelleme: makine yalnız EN SON tam paketi indirir/kurar. |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **Senkron çekirdeği ✓ · Düzenleme kilidi ✓ · 1.0.87 yayında ✓.** Sıradaki: giriş hız sınırı kararı (ortak ofis IP) · Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
 

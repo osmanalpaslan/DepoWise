@@ -27,6 +27,8 @@
                     <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
                 </ctrl:FormField>
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
+                <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
+                        ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu Excel'e aktarır (yetki gerekir)."/>
             </StackPanel>
         </Border>
 

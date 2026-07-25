@@ -1606,26 +1606,46 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
     }
     return Results.Ok(new { branches, vehicles });
 }).RequireAuthorization();
+// Rapor tipi → TableModel (JSON ekranı + Excel export ortak kullanır).
+DepoWise.Application.Reports.TableModel BuildReport(DepoWise.Application.Security.SessionContext s, string type, DepoWise.Application.Reports.ReportRequest req) => type switch
+{
+    "stock" => svc.Reports.StockStatus(s, req),
+    "general" => svc.Reports.General(s, req),
+    "maintenance" => svc.Reports.Maintenance(s, req),
+    "fuel" => svc.Reports.FuelConsumption(s, req),
+    "fuel-depot" => svc.Reports.FuelDepot(s, req),
+    "stock-count" => svc.Reports.StockCount(s, req),
+    "requests" => svc.Reports.Requests(s, req),
+    "materials-template" => svc.Reports.MaterialsByTemplate(s, req),
+    "materials-nontemplate" => svc.Reports.MaterialsNonTemplate(s, req),
+    "vehicles-template" => svc.Reports.VehiclesByTemplate(s, req),
+    "vehicles-nontemplate" => svc.Reports.VehiclesNonTemplate(s, req),
+    "status" => svc.Reports.StatusReport(s, req),
+    _ => throw new ArgumentException("Bilinmeyen rapor tipi."),
+};
+// Yönetici raporu (firma geneli/şablon/durum) mu? Excel yetkisi buna göre ayrışır (iki ayrı özel buton).
+static bool IsManagerReport(string type) => type is "materials-template" or "materials-nontemplate"
+    or "vehicles-template" or "vehicles-nontemplate" or "status";
+
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId);
-    DepoWise.Application.Reports.TableModel tbl = type switch
-    {
-        "stock" => svc.Reports.StockStatus(s, req),
-        "general" => svc.Reports.General(s, req),
-        "maintenance" => svc.Reports.Maintenance(s, req),
-        "fuel" => svc.Reports.FuelConsumption(s, req),
-        "fuel-depot" => svc.Reports.FuelDepot(s, req),
-        "stock-count" => svc.Reports.StockCount(s, req),
-        "requests" => svc.Reports.Requests(s, req),
-        "materials-template" => svc.Reports.MaterialsByTemplate(s, req),
-        "materials-nontemplate" => svc.Reports.MaterialsNonTemplate(s, req),
-        "vehicles-template" => svc.Reports.VehiclesByTemplate(s, req),
-        "vehicles-nontemplate" => svc.Reports.VehiclesNonTemplate(s, req),
-        _ => throw new ArgumentException("Bilinmeyen rapor tipi."),
-    };
+    var tbl = BuildReport(s, type, req);
     return Results.Ok(new { title = tbl.Title, headers = tbl.Headers, rows = tbl.Rows });
+}).RequireAuthorization();
+
+// Rapor Excel dışa aktarma — özel buton yetkisi ZORUNLU (yoksa 403; UI "yetkiniz yok" gösterir).
+app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReqDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.RequireButton(s, IsManagerReport(type)
+        ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId);
+    var tbl = BuildReport(s, type, req);
+    var bytes = svc.Excel.Export(tbl);
+    var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fn);
 }).RequireAuthorization();
 
 // ── Bakım (Bakım Takibi) — masaüstüyle birebir ──

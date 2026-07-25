@@ -111,6 +111,8 @@ public static class SpecialButtons
     public const string ResetDatabase = "btn-reset-db";   // DB sıfırlama
     public const string ChangeCompanyLogo = "btn-logo";   // şirket logosu değiştir
     public const string AddLookup = "btn-add-lookup";     // "+" satır içi tanım ekleme (genel)
+    public const string ExportReports = "btn-export-reports";       // Raporlar ekranı (şube bazlı) Excel dışa aktarma
+    public const string ExportManagerReports = "btn-export-mgr-reports"; // Yönetici raporları (firma geneli/şablon/durum) Excel dışa aktarma
 
     /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
@@ -119,5 +121,7 @@ public static class SpecialButtons
         (ResetDatabase, "Veritabanı Sıfırlama"),
         (ChangeCompanyLogo, "Firma Logosu Değiştir"),
         (AddLookup, "\"+\" Satır İçi Ekleme"),
+        (ExportReports, "Rapor Excel Dışa Aktarma"),
+        (ExportManagerReports, "Yönetici Rapor Excel Dışa Aktarma"),
     };
 }
