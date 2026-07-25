@@ -27,7 +27,7 @@ açılır, **10 dk** sonra tekrar sorulur (indirilen paket saklanır, tekrar inm
 zorla kur** (MainWindow kilidi). Yarım kalan kurulum: sürüm hâlâ eskiyse sonraki girişte akış yeniden indirir+kurar
 (InstallAndRestart staging'i sıfırdan açar + backup/rollback → baştan sağlam). Otomatik KAPALIYKEN eski davranış
 (Dashboard'da manuel buton). Ortak durum: yeni `AutoUpdateService` (eşitleme ekranı + ShellViewModel timer +
-kapatma-kilidi aynı paketi paylaşır). Masaüstü-only → **1.0.89 paketiyle yayınlanacak** (İş 1+2 masaüstü karşılıklarıyla birlikte).
+kapatma-kilidi aynı paketi paylaşır). Masaüstü-only → **1.0.89 YAYINLANDI (2026-07-25)** (İş 1+2 masaüstü karşılıklarıyla birlikte; sunucu latest=1.0.89). Commit `5f8db8b`.
 
 ---
 

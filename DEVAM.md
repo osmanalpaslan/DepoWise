@@ -34,12 +34,13 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 | Ne | Durum |
 |---|---|
 | **PostgreSQL geçişi** | ✅✅ **CANLIYA ALINDI (2026-07-24)** — **sunucu (`depowise-erp`) + web PostgreSQL'de** (Neon `depowise_prod`). Masaüstü SQLite'ta kaldı (eşitleme API üzerinden PG'ye yazar). Gerçek verinin KOPYASIYLA prova edildi, canlıya alındı; eski SQLite yedekte (`/data/depowise-server.db`, el değmedi). Geri dönüş: `flyctl secrets unset DEPOWISE_PG_URL`. Detay: [docs/GOREV_PANOSU.md](docs/GOREV_PANOSU.md) Görev A. |
-| **Testler** | **585 test** (574 SQLite yeşil + 11 gerçek Neon PG; `dotnet test`) + canlı eşitleme QA **7/7** |
+| **Testler** | **588 test** (577 SQLite yeşil + 11 gerçek Neon PG; `dotnet test`) + canlı eşitleme QA **7/7** |
+| **Son 3 iş (2026-07-25)** | **1) Yetki ekranı:** admin/süper admin hedef → matris TAM işaretli + salt-okunur + bilgi (boş açılma sorunu bitti). **2) Kullanıcı:** liste herkese açık (Personel sınırlı, rol gizli), düzenleme admin; şifre tanımdan değişmez → **Şifre Sıfırla** (geçici=kullanıcı adı, ilk girişte kendi belirler). **3) Masaüstü oto-güncelleme:** oto açıkken eşitleme ekranında sessiz indir→Kur/Ertele (10 dk), onaysız kapatınca zorla kur, yarım kurulum self-heal (`AutoUpdateService`). Hepsi web+API canlı; masaüstü **1.0.89**'da. |
 | **Yeni özellik** | **Durum Rapor + Rapor Excel dışa aktarma (2026-07-25)**: Yönetici raporları altına **Durum Rapor** — şube bazlı SAYISAL özet (Araç şablonlu/şablon-dışı; Personel/Bakım/Yakıt/Talep/Günlük toplamları; Malzeme firma-geneli tek satır çünkü şubesi yok), tarih filtreli. Ayrıca Raporlar + Yönetici Raporları ekranlarına **Excel'e Aktar** butonu — **iki ayrı özel yetki** (Rapor / Yönetici Rapor); yetki yoksa "yetkiniz yok" uyarısı (deny-by-default, UI+API). PG-güvenlik: tüm rapor sayımları `CAST(... AS INTEGER)`. Önceki: Yönetici raporları şablonlu/şablon-dışı + şablona bağlama (Migration054). |
 | **Şema** | Migration **054** (materials.template_id). **Durum Rapor için yeni migration YOK** — mevcut kolonlar (branch_id, op_branch_id, template_id, created_at). |
 | **API (sunucu)** | `depowise-erp.fly.dev` — **canlı** (PostgreSQL), health 200 · yeni: `/api/reports/{type}/export` + `status` rapor tipi |
 | **Web** | `depowise-web.fly.dev` — **canlı** · yeni: Durum Rapor sekmesi + Excel'e Aktar (yetki kapılı) |
-| **Masaüstü** | **1.0.88 YAYINDA** (Durum Rapor + Excel export kodda; sıradaki pakette). Güncelleme: makine yalnız EN SON tam paketi indirir/kurar. |
+| **Masaüstü** | **1.0.89 YAYINDA** — Durum Rapor + Excel export + yetki ekranı düzeltmesi + kullanıcı görünürlük/Şifre Sıfırla + yeni otomatik güncelleme akışı. Güncelleme: makine yalnız EN SON tam paketi indirir/kurar. |
 | **Git** | temiz + `origin/master` ile senkron |
 | **Bekleyen iş** | **Senkron çekirdeği ✓ · Düzenleme kilidi ✓ · 1.0.87 yayında ✓.** Sıradaki: giriş hız sınırı kararı (ortak ofis IP) · Giriş-Çıkış çoklu malzeme · makine bazlı güncelleme yetkisi · Yedek ekranları |
 
