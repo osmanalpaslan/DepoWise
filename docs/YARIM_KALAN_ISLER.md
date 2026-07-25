@@ -22,6 +22,7 @@ düzenleme/silmeyi doğrudan **SUNUCU API'sine** yapar (yeni `OrgServerClient`) 
 (`BranchMirror`) korur; kullanıcı yerele sunucu id'siyle işlenir (`UserService.ImportServerUser`, çift kayıt yok).
 Çevrimdışıysa "bu işlem çevrimiçi gerektirir" uyarısı. 4 test (ImportServerUser). 589 test (578 SQLite yeşil).
 Not: CompaniesViewModel'deki firma-kurulum şubesi kapsam dışı (süper admin akışı).
+**Masaüstü 1.0.90 YAYINLANDI (2026-07-25)** — sunucu latest=1.0.90. Commit `a78046e`.
 
 ---
 
