@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -102,7 +103,9 @@ public sealed partial class UsersViewModel : ViewModelBase
     /// <summary>Seçili kullanıcının rolleri (mevcut rolü değiştirme — yalnız Admin / Süper Admin).</summary>
     public ObservableCollection<RolePick> EditRoles { get; } = new();
 
-    partial void OnSelectedChanged(UserRow? value)
+    partial void OnSelectedChanged(UserRow? value) => _ = OnSelectedChangedAsync(value);
+
+    private async Task OnSelectedChangedAsync(UserRow? value)
     {
         AssignBranch = value is null ? null : Branches.FirstOrDefault(b => b.Id == value.BranchId);
         EditRoles.Clear();
@@ -110,9 +113,14 @@ public sealed partial class UsersViewModel : ViewModelBase
         LoadAssignableRoles();
         try
         {
-            var current = DesktopServices.Users.GetRoleKeys(_session, value.Id).ToHashSet(StringComparer.Ordinal);
+            // Roller: çevrimiçiyken sunucudan (server kullanıcı yerelde olmayabilir), yoksa yerel best-effort.
+            List<string> cur;
+            try { cur = await OrgServerClient.GetUserRolesAsync(value.Id) ?? DesktopServices.Users.GetRoleKeys(_session, value.Id).ToList(); }
+            catch { cur = new(); }
+            var set = cur.ToHashSet(StringComparer.Ordinal);
+            EditRoles.Clear();
             foreach (var ar in AssignableRoles)
-                EditRoles.Add(new RolePick(ar.Key, ar.Name) { IsSelected = current.Contains(ar.Key) });
+                EditRoles.Add(new RolePick(ar.Key, ar.Name) { IsSelected = set.Contains(ar.Key) });
         }
         catch { }
     }
@@ -127,9 +135,12 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync($"'{Selected.Username}' rolleri güncellensin mi?\n\nRoller: {rolesText}", "Rolleri Değiştir")) return;
         try
         {
-            DesktopServices.Users.SetRoles(_session, Selected.Id, roles);
-            Load();
-            Status = "Roller güncellendi.";
+            // Kullanıcı SUNUCU-OTORİTELİ: rol değişikliği sunucuya yazılır → hedef kullanıcıya ulaşır. Çevrimdışı → uyar.
+            var r = await OrgServerClient.SetRolesAsync(Selected.Id, roles);
+            if (r.Offline) { Status = "Bu işlem çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (!r.Ok) { Status = r.Error ?? "Roller güncellenemedi."; return; }
+            await Load();
+            Status = "Roller güncellendi. (Kullanıcı yeniden giriş yapınca tam etkin olur.)";
         }
         catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
     }
@@ -168,20 +179,24 @@ public sealed partial class UsersViewModel : ViewModelBase
     public UsersViewModel(SessionContext session)
     {
         _session = session;
-        Load();
+        _ = Load();
     }
 
     [RelayCommand]
-    private void Load()
+    private async Task Load()
     {
         try
         {
             LoadError = null;
+            // Kullanıcılar SUNUCU-OTORİTELİ (2026-07-25): çevrimiçiyken SUNUCUDAN çek → başka makinede/web'de
+            // oluşturulan firma kullanıcıları (ör. baba) da görünür. Çevrimdışı → yerel (salt-okuma).
+            var server = await OrgServerClient.ListUsersAsync();
+            var rows = server ?? DesktopServices.Users.ListUsers(_session);
             Items.Clear();
-            foreach (var u in DesktopServices.Users.ListUsers(_session)) Items.Add(u);
+            foreach (var u in rows) Items.Add(u);
             Branches.Clear();
             try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
-            Status = $"{Items.Count} kullanıcı";
+            Status = server is null ? $"{Items.Count} kullanıcı (çevrimdışı — yerel)" : $"{Items.Count} kullanıcı";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
         OnPropertyChanged(nameof(IsEmpty));
@@ -275,7 +290,7 @@ public sealed partial class UsersViewModel : ViewModelBase
 
             ShowAdd = false;
             NewViewAllBranches = false;
-            Load();
+            await Load();
             Status = SelectedTemplate is not null
                 ? $"Kullanıcı oluşturuldu (yetkiler '{SelectedTemplate.Name}' şablonundan)."
                 : "Kullanıcı oluşturuldu.";
@@ -296,8 +311,10 @@ public sealed partial class UsersViewModel : ViewModelBase
             return;
         try
         {
-            DesktopServices.Users.SetViewAllBranches(_session, Selected.Id, target);
-            Load();
+            var r = await OrgServerClient.SetAllBranchesAsync(Selected.Id, target);
+            if (r.Offline) { Status = "Bu işlem çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (!r.Ok) { Status = r.Error ?? "İşlem başarısız."; return; }
+            await Load();
             Status = target ? "Tüm Şubeler yetkisi verildi." : "Tüm Şubeler yetkisi kaldırıldı.";
         }
         catch (Exception ex) { Status = "İşlem başarısız: " + ex.Message; }
@@ -315,8 +332,10 @@ public sealed partial class UsersViewModel : ViewModelBase
                 "Şifre Sıfırla", "Evet, Sıfırla", "Vazgeç")) return;
         try
         {
-            var temp = DesktopServices.Users.ResetPassword(_session, Selected.Id);
-            Status = $"Şifre sıfırlandı. Geçici şifre: '{temp}'. Kullanıcı ilk girişte kendi şifresini belirleyecek.";
+            var r = await OrgServerClient.ResetPasswordAsync(Selected.Id);
+            if (r.Offline) { Status = "Şifre sıfırlama çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (r.Error is not null) { Status = r.Error; return; }
+            Status = $"Şifre sıfırlandı. Geçici şifre: '{r.TempPassword ?? Selected.Username}'. Kullanıcı ilk girişte kendi şifresini belirleyecek.";
         }
         catch (Exception ex) { Status = "Sıfırlanamadı: " + ex.Message; }
     }
@@ -332,8 +351,10 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync($"'{Selected.Username}' kullanıcısı {verb} yapılsın mı?", "Kullanıcı Durumu")) return;
         try
         {
-            DesktopServices.Users.SetActive(_session, Selected.Id, makeActive);
-            Load();
+            var r = await OrgServerClient.SetActiveAsync(Selected.Id, makeActive);
+            if (r.Offline) { Status = "Bu işlem çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (!r.Ok) { Status = r.Error ?? "Değiştirilemedi."; return; }
+            await Load();
             Status = $"Kullanıcı {verb} yapıldı.";
         }
         catch (Exception ex) { Status = "Değiştirilemedi: " + ex.Message; }
@@ -347,8 +368,10 @@ public sealed partial class UsersViewModel : ViewModelBase
         if (!await ConfirmService.AskAsync($"'{Selected.Username}' kullanıcısı silinsin mi?", "Kullanıcı Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
         try
         {
-            DesktopServices.Users.DeleteUser(_session, Selected.Id);
-            Load();
+            var r = await OrgServerClient.DeleteUserAsync(Selected.Id);
+            if (r.Offline) { Status = "Silme çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (!r.Ok) { Status = r.Error ?? "Silinemedi."; return; }
+            await Load();
             Status = "Kullanıcı silindi.";
         }
         catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
@@ -356,14 +379,17 @@ public sealed partial class UsersViewModel : ViewModelBase
 
     /// <summary>Seçili kullanıcıya şube atar/değiştirir (boş = şubesiz).</summary>
     [RelayCommand]
-    private void AssignBranchToUser()
+    private async Task AssignBranchToUser()
     {
         if (Selected is null) { Status = "Kullanıcı seçin."; return; }
         if (!CanManage) { Status = "Yetki yok."; return; }
         try
         {
-            DesktopServices.Branches.AssignUser(_session, Selected.Id, AssignBranch?.Id);
-            Load();
+            // Kullanıcı-şube ataması sunucu-otoriteli → sunucuya yaz. Çevrimdışı → uyar.
+            var r = await OrgServerClient.AssignBranchAsync(Selected.Id, AssignBranch?.Id);
+            if (r.Offline) { Status = "Şube ataması çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+            if (!r.Ok) { Status = r.Error ?? "Atanamadı."; return; }
+            await Load();
             Status = AssignBranch is null ? "Kullanıcının şubesi kaldırıldı." : $"Şube atandı: {AssignBranch.Name}";
         }
         catch (Exception ex) { Status = "Atanamadı: " + ex.Message; }

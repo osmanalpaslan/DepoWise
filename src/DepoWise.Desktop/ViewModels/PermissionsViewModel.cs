@@ -50,7 +50,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         _session = session;
         BuildTree(null);
-        LoadUsers();
+        _ = LoadUsers();
     }
 
     /// <summary>Ağacı kurar. <paramref name="blocked"/> = Rol Yetki Kontrol ile hedefin ROLÜNE kapatılmış
@@ -79,29 +79,34 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void LoadUsers()
+    private async Task LoadUsers()
     {
         try
         {
+            // Kullanıcılar SUNUCU-OTORİTELİ (2026-07-25): çevrimiçiyken SUNUCUDAN çek → başka makinede/web'de
+            // oluşturulan firma kullanıcıları da görünür (yereldeki users tablosunda olmayabilirler). Çevrimdışı → yerel.
+            var server = await OrgServerClient.ListUsersAsync();
+            var rows = server ?? DesktopServices.Users.ListUsers(_session);
             Users.Clear();
-            foreach (var u in DesktopServices.Users.ListUsers(_session)) Users.Add(u);
-            Status = $"{Users.Count} kullanıcı";
+            foreach (var u in rows) Users.Add(u);
+            Status = server is null ? $"{Users.Count} kullanıcı (çevrimdışı — yerel)" : $"{Users.Count} kullanıcı";
         }
         catch (Exception ex) { Status = "Kullanıcılar yüklenemedi: " + ex.Message; }
     }
 
-    partial void OnSelectedUserChanged(UserRow? value)
+    partial void OnSelectedUserChanged(UserRow? value) => _ = LoadSelectedUserAsync(value);
+
+    private async Task LoadSelectedUserAsync(UserRow? value)
     {
         if (value is null) { IsTargetAdmin = false; BuildTree(null); ResetTree(); return; }
         try
         {
-            // Ağacı hedefin ROLÜNE göre yeniden kur: kapalı + verilemeyecek (süper-admin-only) ekranlar listelenmez.
-            var blocked = DesktopServices.Permissions.BlockedModulesForUser(_session, value.Id);
-            var targetRoles = DesktopServices.Users.GetRoleKeys(_session, value.Id);
-            BuildTree(blocked, targetRoles);
+            // Hedef roller + engelli modüller: çevrimiçiyken sunucudan (server kullanıcı yerelde olmayabilir), yoksa yerel.
+            var targetRoles = await OrgServerClient.GetUserRolesAsync(value.Id)
+                ?? SafeLocalRoles(value.Id);
+            BuildTree(SafeBlocked(value.Id), targetRoles);
 
-            // Admin/Süper Admin hedef: granular yetki TUTMAZ (bypass ile hepsine erişir). Ekranı boş göstermek
-            // "hiç yetkisi yok" izlenimi verir → yanıltıcı. Bunun yerine TAM işaretli + SALT-OKUNUR gösterilir.
+            // Admin/Süper Admin hedef: granular yetki TUTMAZ → TAM işaretli + SALT-OKUNUR (task 1).
             if (value.IsAdmin)
             {
                 IsTargetAdmin = true;
@@ -113,17 +118,27 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
             IsTargetAdmin = false;
             ResetTree();
-            var data = DesktopServices.Permissions.GetForUser(_session, value.Id);
+            // Yetkiler: çevrimiçiyken SUNUCUDAN (server kullanıcının yerel kaydı olmayabilir), yoksa yerel best-effort.
+            var server = await OrgServerClient.GetPermissionsAsync(value.Id);
+            var (mods, btns) = server is { } s ? (s.Modules, s.Buttons) : SafeLocalPerms(value.Id);
             foreach (var m in Modules)
             {
-                var p = data.Modules.FirstOrDefault(x => x.ModuleKey == m.Key);
+                var p = mods.FirstOrDefault(x => x.ModuleKey == m.Key);
                 m.Set(p?.CanView ?? false, p?.CanCreate ?? false, p?.CanEdit ?? false, p?.CanDelete ?? false);
             }
-            foreach (var b in Buttons) b.Granted = data.Buttons.Contains(b.Key);
+            foreach (var b in Buttons) b.Granted = btns.Contains(b.Key);
             Status = $"{value.Username} yetkileri yüklendi.";
         }
         catch (Exception ex) { Status = "Yetkiler yüklenemedi: " + ex.Message; }
     }
+
+    // Yerel best-effort (server-only kullanıcı yerel DB'de yoksa → boş/null; sunucu zaten otorite).
+    private System.Collections.Generic.List<string> SafeLocalRoles(string userId)
+    { try { return DesktopServices.Users.GetRoleKeys(_session, userId).ToList(); } catch { return new(); } }
+    private IReadOnlySet<string>? SafeBlocked(string userId)
+    { try { return DesktopServices.Permissions.BlockedModulesForUser(_session, userId); } catch { return null; } }
+    private (System.Collections.Generic.List<ModulePermission> Modules, System.Collections.Generic.List<string> Buttons) SafeLocalPerms(string userId)
+    { try { var d = DesktopServices.Permissions.GetForUser(_session, userId); return (d.Modules.ToList(), d.Buttons.ToList()); } catch { return (new(), new()); } }
 
     private void ResetTree()
     {
@@ -154,17 +169,22 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
         try
         {
+            // Yetkiler + rol SUNUCU-OTORİTELİ: çevrimiçiyken SUNUCUYA yaz → değişiklik hedef kullanıcıya (ör. baba)
+            // bir sonraki girişinde ulaşır. Yalnız yerele yazsaydık başka makinedeki kullanıcıya hiç gitmezdi.
             if (needUpgrade)
             {
-                // Admin'e yükselt → Admin zaten tüm ekranlara erişir; granular yetki kaydına gerek yok.
-                DesktopServices.Users.SetRoles(_session, SelectedUser.Id, new[] { RoleKeys.CompanyAdmin });
-                LoadUsers();
+                var r = await OrgServerClient.SetRolesAsync(SelectedUser.Id, new[] { RoleKeys.CompanyAdmin });
+                if (r.Offline) { Status = "Bu işlem çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+                if (!r.Ok) { Status = r.Error ?? "Rol değiştirilemedi."; return; }
+                await LoadUsers();
                 Status = "Kullanıcı Admin yapıldı — tüm ekranlara erişebilir. (Yeniden giriş yapınca tam etkin olur.)";
                 return;
             }
             var mods = Modules.Select(m => new ModulePermission(m.Key, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete)).ToList();
             var btns = Buttons.Where(b => b.Granted).Select(b => b.Key).ToList();
-            DesktopServices.Permissions.SaveForUser(_session, SelectedUser.Id, mods, btns);
+            var res = await OrgServerClient.SavePermissionsAsync(SelectedUser.Id, mods, btns);
+            if (res.Offline) { Status = "Yetki kaydı çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur). İnternet bağlantısıyla tekrar deneyin."; return; }
+            if (!res.Ok) { Status = res.Error ?? "Kaydedilemedi."; return; }
             Status = "Yetkiler kaydedildi. (Kullanıcı yeniden giriş yapınca tam etkin olur.)";
         }
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }

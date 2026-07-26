@@ -10,6 +10,20 @@
 
 ---
 
+## ✅ Masaüstü Kullanıcı/Yetki ekranları sunucu-tabanlı (2026-07-25) — DÜZELTİLDİ (paket bekliyor)
+
+**Sorun:** Masaüstü Kullanıcı Tanım + Yetkiler ekranları yalnız YEREL DB okuyordu; kullanıcılar sunucu-otoriteli
+ve masaüstüne çekilmiyordu → (1) başka yerde oluşturulan (babanın) kullanıcı masaüstünde görünmüyordu, (2) yetki
+güncellemesi yerelde kalıp hedefe ulaşmıyordu / görünmeyen kullanıcı seçilemiyordu.
+
+**Çözüm:** Her iki ekran ÇEVRİMİÇİYKEN **sunucu-tabanlı** (`OrgServerClient`): kullanıcı listesi + roller + yetkiler
+sunucudan çekilir; yetki kaydı / rol / şifre-sıfırla / aktif-pasif / sil / şube-atama / Tüm-Şubeler sunucuya yazılır
+(hedef kullanıcıya ulaşır). Çevrimdışı → yerel salt-okuma + "çevrimiçi gerektirir" uyarısı. Admin hedefte matris
+tam-işaretli+salt-okunur (task 1) korunur. Uç şekilleri canlı doğrulandı (`/api/users`, `/roles`, `/permissions`).
+589 test. **1.0.91 paketiyle yayınlanacak.**
+
+---
+
 ## ✅ Çıkış hızı + Şube/Kullanıcı kayıt kaybı (2026-07-25) — DÜZELTİLDİ (masaüstü; paket bekliyor)
 
 **Sorun 1 — Çıkış çok yavaş:** Kapanışta bekleyen veriyi göndermek için 10 sn'ye kadar bekleniyordu →
