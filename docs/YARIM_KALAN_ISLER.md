@@ -23,6 +23,7 @@ talep, stok hareketi** + **NORMAL raporlar** (Genel/Yakıt/Bakım/Depo/Talep). *
 (tüm şubeler). Malzeme firma-geneli (şube yok) → filtrelenmez. Servis katmanında → masaüstü (OperatingBranchId
 dolu) düzelir, web değişmez. 2 test (BranchScopeTests). 591 test (580 SQLite yeşil).
 Not: Personel listesi kendi mevcut şube-kapsamını kullanıyor (dokunulmadı); web şube bağlamı ileride.
+**Masaüstü 1.0.91 YAYINLANDI (2026-07-25)** — sunucu latest=1.0.91. Commit `b24efc3`.
 
 ---
 
