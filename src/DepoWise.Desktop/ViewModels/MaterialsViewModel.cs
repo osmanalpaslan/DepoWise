@@ -801,6 +801,17 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         if (r is not null) ShellViewModel.Current?.GoToVehicle(r.Id);
     }
 
+    /// <summary>Muadil malzeme satırına tıkla → o malzemeyi seçip detayını aç (kullanıcı isteği 2026-07-25).
+    /// Listede varsa o satır seçilir (vurgulanır); yoksa ref'ten geçici satır seçilir → OnSelectedChanged detayı
+    /// yine sunucudan/yerelden yükler (başka sayfada/şubede olsa bile detay görüntülenir).</summary>
+    [RelayCommand]
+    private void OpenMaterial(MaterialRefRow? r)
+    {
+        if (r is null) return;
+        Selected = Items.FirstOrDefault(x => x.Id == r.Id)
+            ?? new MaterialRow(r.Id, r.Code, r.Name, null, 0, "TRY", 0, 0);
+    }
+
     private void SaveStagedPhotos(string materialId)
     {
         foreach (var ph in Photos)

@@ -537,7 +537,12 @@
                 <ItemsControl ItemsSource="{Binding Equivalents}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="m:MaterialRefRow">
-                            <SelectableTextBlock Classes="Body" Margin="0,2" Text="{Binding Name, StringFormat='• {0}'}"/>
+                            <Button Classes="Ghost" Padding="4,2" Margin="0,1" HorizontalAlignment="Left"
+                                    HorizontalContentAlignment="Left" Cursor="Hand"
+                                    ToolTip.Tip="Malzeme detayını aç"
+                                    Content="{Binding Name, StringFormat='• {0}'}"
+                                    Command="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).OpenMaterialCommand}"
+                                    CommandParameter="{Binding}"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
