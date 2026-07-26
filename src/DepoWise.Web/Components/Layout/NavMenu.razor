@@ -49,6 +49,8 @@
         null or "" => true,
         "@admin" => Auth.IsAdmin,
         "@super" => Auth.IsSuperAdmin,
+        // Yalnız Süper Admin + Kısıtlı Süper Admin (kullanıcı isteği 2026-07-26: Yedek Yönetimi).
+        "@superr" => Auth.IsSuperAdmin || Auth.IsRestrictedSuperAdmin,
         _ => Auth.CanView(perm),
     };
 
@@ -112,7 +114,7 @@
         {
             new Link("Şube / Şantiye", "branches", "branches"),
             new Link("Sistem Logu", "audit", "audit"),
-            new Link("Yedek Yönetimi", "backup", "backup"),
+            new Link("Yedek Yönetimi", "@superr", "backup"),   // yalnız süper + kısıtlı süper admin (2026-07-26)
         }),
         new("Talepler", Icons.Material.Filled.Description, new[]
         {

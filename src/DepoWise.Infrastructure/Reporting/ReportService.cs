@@ -24,13 +24,14 @@ public sealed class ReportService
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // Malzeme FİRMA-GENELİ katalog (ortak liste) → stok durumu firma-geneli listelenir. Şube-bazlı stok
+        // ayrımı geldiğinde bu rapor şube stoğuna göre revize edilecek (kullanıcı kararı 2026-07-26).
         cmd.CommandText = @"
 SELECT m.code, m.name, COALESCE(b.quantity,'0') AS qty, m.min_stock
 FROM materials m LEFT JOIN stock_balances b ON b.material_id=m.id
-WHERE m.company_id=@c AND m.is_deleted=0" + BranchScope.Sql(s, "m.branch_id") + @"
+WHERE m.company_id=@c AND m.is_deleted=0
 ORDER BY m.code;";
         cmd.AddWithValue("@c", companyId);
-        BindBranch(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
         while (r.Read())

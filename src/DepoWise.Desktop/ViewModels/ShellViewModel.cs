@@ -633,7 +633,8 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Şube / Şantiye", "branches"),
                 new NavLinkVm("Sistem Logu", "audit"),
-                new NavLinkVm("Yedek Yönetimi", "backup"),
+                // "Yedek Yönetimi" masaüstünden kaldırıldı (2026-07-26): yedek yönetimi yalnız WEB'de ve
+                // yalnız süper admin + kısıtlı süper adminde. Arka plandaki otomatik günlük yedek yüklemesi sürer.
             }),
             new NavGroupVm("📄", "Talepler", "requests", new[]
             {

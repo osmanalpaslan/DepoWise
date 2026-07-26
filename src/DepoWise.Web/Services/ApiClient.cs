@@ -15,7 +15,7 @@ public sealed record ReleasePackageDto(string Version, string FileName, long Siz
 public sealed record CompanyDto(string Id, string Name, string? TaxNo, string? Phone, string? Email, string? AuthorizedPerson, int UserCount, int MaxUsers = 0, int MaxAdmins = 0, int MachineQuota = 3);
 public sealed record MenuModule(string Key, string Label, bool Create, bool Edit, bool Delete);
 public sealed record RoleDto(string Key, string Name);
-public sealed record MenuResponse(bool IsSuperAdmin, bool IsAdmin, List<MenuModule> Modules);
+public sealed record MenuResponse(bool IsSuperAdmin, bool IsAdmin, List<MenuModule> Modules, bool IsRestrictedSuperAdmin = false);
 
 /// <summary>
 /// DepoWise.Api HTTP istemcisi (web arayüzü → API). Web hiçbir iş kuralı TAŞIMAZ; her şey API'de.
@@ -39,7 +39,7 @@ public sealed class ApiClient
             var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/me/menu"));
             if (!resp.IsSuccessStatusCode) return;
             var data = await resp.Content.ReadFromJsonAsync<MenuResponse>();
-            if (data is not null) _auth.SetModules(data.Modules, data.IsAdmin);
+            if (data is not null) _auth.SetModules(data.Modules, data.IsAdmin, data.IsRestrictedSuperAdmin);
         }
         catch { }
     }

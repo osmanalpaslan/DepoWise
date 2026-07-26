@@ -27,12 +27,12 @@ public sealed class DashboardService
     public DashboardSummary GetSummary(SessionContext s)
     {
         using var conn = _factory.Create();
-        // ŞUBE KAPSAMI: malzeme (ve düşük stok) şube-bazlıdır → seçili şubeye göre say/listele; "Tüm Şubeler" → hepsi.
-        var branch = BranchScope.Active(s);
+        // Malzeme FİRMA-GENELİ katalog (ortak liste) → malzeme sayısı ve düşük stok firma-geneli
+        // (kullanıcı kararı 2026-07-26: "ortak liste + şube-bazlı stok"; stok ayrımı ayrıca planlanıyor).
         int vehicles = Count(conn, "vehicles", s.CompanyId);
-        int materials = Count(conn, "materials", s.CompanyId, branch);
+        int materials = Count(conn, "materials", s.CompanyId);
         int personnel = Count(conn, "personnel", s.CompanyId);
-        int lowStock = LowStockCount(conn, s.CompanyId, branch);
+        int lowStock = LowStockCount(conn, s.CompanyId);
         int pending = PendingRequests(conn, s.CompanyId);
 
         var alerts = new List<DashboardAlert>();
@@ -67,7 +67,7 @@ public sealed class DashboardService
         }
         // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır); şube-bazlı
         if (AccessControl.Can(s, "materials", PermissionAction.View))
-            foreach (var (id, name) in LowStockList(conn, s.CompanyId, branch))
+            foreach (var (id, name) in LowStockList(conn, s.CompanyId))
                 alerts.Add(new DashboardAlert(AlertKind.LowStock, name, "Düşük stok", "materials", true, id));
 
         // Yakıt — depo kalanı toplam alınanın %20'si ve altına düşünce (Özet'te kalanı gör)

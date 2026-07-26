@@ -4,6 +4,13 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 @inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@if (!(Auth.IsSuperAdmin || Auth.IsRestrictedSuperAdmin))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran yalnız Süper Admin ve Kısıtlı Süper Admin içindir.</MudAlert>
+    return;
+}
 
 <MudText Typo="Typo.h5" GutterBottom="true">Yedek Yönetimi</MudText>
 
