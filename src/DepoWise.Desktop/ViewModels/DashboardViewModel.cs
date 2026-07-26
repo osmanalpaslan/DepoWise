@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,8 +19,35 @@ public sealed partial class DashboardViewModel : ViewModelBase
 {
     public ObservableCollection<KpiCard> Cards { get; } = new();
     public ObservableCollection<DashboardAlert> Alerts { get; } = new();
+    private readonly List<DashboardAlert> _allAlerts = new();
 
     public bool HasAlerts => Alerts.Count > 0;
+
+    // Uyarı kategori sayıları (butonlarda gösterilir) — kullanıcı isteği 2026-07-25.
+    public int MalzemeCount => _allAlerts.Count(a => a.Kind == AlertKind.LowStock);
+    public int BakimCount => _allAlerts.Count(a => a.Kind == AlertKind.Maintenance);
+    public int MuayeneCount => _allAlerts.Count(a => a.Kind == AlertKind.Inspection);
+    public int YakitCount => _allAlerts.Count(a => a.Kind == AlertKind.Fuel);
+
+    /// <summary>Etkin uyarı filtresi: "material"|"maintenance"|"inspection"|"fuel"|null(=Tümü).</summary>
+    [ObservableProperty] private string? _alertFilter;
+    partial void OnAlertFilterChanged(string? value) => ApplyAlertFilter();
+
+    /// <summary>Kategori butonuna tıkla → yalnız o kategori (tekrar tıkla → Tümü).</summary>
+    [RelayCommand]
+    private void SelectAlertCategory(string? kind) => AlertFilter = (AlertFilter == kind) ? null : kind;
+
+    private void ApplyAlertFilter()
+    {
+        Alerts.Clear();
+        var kind = AlertFilter switch
+        {
+            "material" => AlertKind.LowStock, "maintenance" => AlertKind.Maintenance,
+            "inspection" => AlertKind.Inspection, "fuel" => AlertKind.Fuel, _ => (AlertKind?)null,
+        };
+        foreach (var a in _allAlerts) if (kind is null || a.Kind == kind) Alerts.Add(a);
+        OnPropertyChanged(nameof(HasAlerts));
+    }
 
     /// <summary>Yükleme/hata/boş durumları (minimum durum modeli; iş mantığı değiştirilmedi).</summary>
     public bool IsLoading { get; }
@@ -90,7 +119,8 @@ public sealed partial class DashboardViewModel : ViewModelBase
             Cards.Add(new KpiCard(s.LowStockCount.ToString(), "Düşük Stok", "warning", Primary: false, NavKey: "materials"));
             Cards.Add(new KpiCard(s.PendingRequestCount.ToString(), "Bekleyen Talep", "neutral", Primary: false, NavKey: "requests:approve"));
             Cards.Add(new KpiCard(s.PersonnelCount.ToString(), "Aktif Personel", "success", Primary: false, NavKey: null));
-            foreach (var a in s.Alerts) if (!a.Read) Alerts.Add(a); // #18: okunmuşları ana ekranda gösterme
+            foreach (var a in s.Alerts) if (!a.Read) _allAlerts.Add(a); // #18: okunmuşları ana ekranda gösterme
+            ApplyAlertFilter();
         }
         catch (Exception ex)
         {

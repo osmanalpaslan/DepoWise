@@ -104,6 +104,18 @@
             <StackPanel Spacing="12" IsVisible="{Binding IsLoaded}">
                 <SelectableTextBlock Text="KRİTİK UYARILAR" Classes="SectionTitle"/>
 
+                <!-- Kategori butonları (sayılı) — kullanıcı isteği 2026-07-25. Tıkla → o kategori; tekrar → Tümü. -->
+                <WrapPanel>
+                    <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectAlertCategoryCommand}" CommandParameter="material"
+                            Content="{Binding MalzemeCount, StringFormat='📦 Malzeme ({0})'}"/>
+                    <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectAlertCategoryCommand}" CommandParameter="maintenance"
+                            Content="{Binding BakimCount, StringFormat='🔧 Bakım ({0})'}"/>
+                    <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectAlertCategoryCommand}" CommandParameter="inspection"
+                            Content="{Binding MuayeneCount, StringFormat='🛡️ Sigorta-Muayene ({0})'}"/>
+                    <Button Classes="Secondary" Margin="0,0,8,8" Command="{Binding SelectAlertCategoryCommand}" CommandParameter="fuel"
+                            Content="{Binding YakitCount, StringFormat='⛽ Yakıt ({0})'}"/>
+                </WrapPanel>
+
                 <!-- Uyarı varsa: liste -->
                 <ItemsControl ItemsSource="{Binding Alerts}" IsVisible="{Binding HasAlerts}">
                     <ItemsControl.ItemTemplate>

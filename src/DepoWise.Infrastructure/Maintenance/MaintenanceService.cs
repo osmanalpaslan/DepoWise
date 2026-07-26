@@ -16,7 +16,8 @@ public sealed record NewMaintenance(
     IReadOnlyList<MaintenanceMaterialLine>? Materials = null);
 
 public sealed record MaintenanceAlert(
-    string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval);
+    string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval,
+    bool NeverPerformed = false);   // araca atanmış ama HİÇ yapılmamış bakım → "ilk bakım bekliyor" (2026-07-25)
 
 public sealed record MaintenanceRow(
     string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
@@ -192,6 +193,30 @@ WHERE rn = 1;";
             if (consumed < 0) consumed = 0;
             var progress = AlertRules.Progress(consumed, interval);
             list.Add(new MaintenanceAlert(vehicleId, defId, defName, AlertRules.Level(progress), progress, consumed, interval));
+        }
+
+        // HİÇ YAPILMAMIŞ atanmış bakımlar (2026-07-25 kullanıcı bulgusu: "bakım periyodu doldu ama uyarı çıkmadı"):
+        // bir bakım tanımı araca ATANMIŞ ama o araç için HİÇ (iptal edilmemiş) bakım kaydı YOKSA, ilk bakım
+        // bekliyor demektir → "İlk bakım yapılmadı" (Overdue). Baz metre/tarih tutulmadığından yüzde hesaplanmaz.
+        using (var cmd2 = conn.CreateCommand())
+        {
+            cmd2.CommandText = @"
+SELECT mdv.vehicle_id, d.id, d.name, d.interval_value
+FROM maintenance_definition_vehicles mdv
+JOIN maintenance_definitions d ON d.id = mdv.definition_id AND d.is_deleted = 0
+JOIN vehicles v ON v.id = mdv.vehicle_id AND v.is_deleted = 0 AND v.company_id = @c
+WHERE NOT EXISTS (
+    SELECT 1 FROM vehicle_maintenances vm
+    WHERE vm.vehicle_id = mdv.vehicle_id AND vm.maintenance_def_id = mdv.definition_id
+      AND vm.is_cancelled = 0 AND vm.is_deleted = 0);";
+            cmd2.AddWithValue("@c", s.CompanyId);
+            using var r2 = cmd2.ExecuteReader();
+            while (r2.Read())
+            {
+                var interval = Money.Parse(r2.GetString(3));
+                list.Add(new MaintenanceAlert(r2.GetString(0), r2.GetString(1), r2.GetString(2),
+                    AlertLevel.Overdue, 1.0, 0, interval, NeverPerformed: true));
+            }
         }
         return list;
     }

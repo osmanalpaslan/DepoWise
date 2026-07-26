@@ -27,7 +27,23 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-25)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
+
+### 🆕 4 maddelik istek TAMAM (2026-07-26, Opus 4.8) — masaüstü+web, henüz YAYINLANMADI
+Kullanıcının 4 isteği yapıldı (masaüstü kodda + web'de; paket/deploy bekliyor):
+1. **Malzemeler şube-bazlı** (Madde 1, commit f625f65): `materials.branch_id` (Migration055) + `BranchScope`
+   ile seçili şubeye filtre. Şubesiz eski kayıtlar HER şubede görünür (babanın canlı verisi gizlenmez).
+   Malzeme kodu benzersizliği firma-geneli kaldı (canlı veride riskli index değişimi yapılmadı).
+2. **Aranabilir alanlar** (Madde 2, commit 5449da2): masaüstü Kategori/Alt Kategori/Birim/Marka + tüm
+   personel/sürücü açılırları `AutoCompleteBox` (metinle ara). Web zaten aranabilir (`LookupSelect`).
+3. **Muadil malzeme köprüsü** (Madde 3, commit 769f211): malzeme detay panelinde muadiller tıklanınca
+   ilgili malzemenin detayını açar (masaüstü). Web'de malzeme detay paneli yok → yalnız masaüstü.
+4. **Uyarılar kategori butonları + bakım bug** (Madde 4, bu commit): Ana ekran + Uyarılar ekranında
+   Malzeme/Bakım/Sigorta-Muayene/Yakıt **sayılı butonlar** (tıkla→filtrele, tekrar tıkla→Tümü); masaüstü+web.
+   **Bug düzeltildi:** araca ATANIP hiç yapılmamış bakım tanımı uyarı vermiyordu → artık "İlk bakım yapılmadı"
+   (Overdue) uyarısı çıkar. **Test 582/593 yeşil** (+1 yeni bakım testi).
+> ⏳ Bekleyen: masaüstü paket yayını (biriken: rol düzeltme 1.0.92 + foto/detay + madde 1-4) + Migration055
+> için API deploy (canlı PG'de branch_id kolonu). Kullanıcı 1.0.92 için "henüz etme" demişti → toplu yayın kararı bekliyor.
 
 ### 🟢 Tek bakışta güncel durum
 

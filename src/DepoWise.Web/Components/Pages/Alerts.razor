@@ -29,8 +29,24 @@ else if (_alerts.Count == 0)
 }
 else
 {
+    @* Kategori butonları (sayılı) — kullanıcı isteği 2026-07-25. Tıkla → yalnız o kategori; tekrar tıkla → Tümü. *@
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <MudButton Variant="@(_filter == "LowStock" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Inventory2" OnClick="@(() => Toggle("LowStock"))">Malzeme (@CountOf("LowStock"))</MudButton>
+        <MudButton Variant="@(_filter == "Maintenance" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Build" OnClick="@(() => Toggle("Maintenance"))">Bakım (@CountOf("Maintenance"))</MudButton>
+        <MudButton Variant="@(_filter == "Inspection" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.VerifiedUser" OnClick="@(() => Toggle("Inspection"))">Sigorta-Muayene (@CountOf("Inspection"))</MudButton>
+        <MudButton Variant="@(_filter == "Fuel" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.LocalGasStation" OnClick="@(() => Toggle("Fuel"))">Yakıt (@CountOf("Fuel"))</MudButton>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Bu kategoride aktif uyarı yok.</MudText>
+    }
     <MudStack Spacing="2">
-        @foreach (var a in _alerts)
+        @foreach (var a in Filtered)
         {
             <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;cursor:pointer;border-left:5px solid {(a.IsCritical ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")};")"
                       @onclick="@(() => Open(a.NavigateKey))">
@@ -53,6 +69,14 @@ else
 @code {
     private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical);
     private List<Alert>? _alerts;
+    private string? _filter;   // null → Tümü; aksi halde Kind ("LowStock"/"Maintenance"/"Inspection"/"Fuel")
+
+    private List<Alert> Filtered =>
+        _filter is null ? (_alerts ?? new()) : (_alerts ?? new()).Where(a => a.Kind == _filter).ToList();
+
+    private int CountOf(string kind) => _alerts?.Count(a => a.Kind == kind) ?? 0;
+
+    private void Toggle(string kind) => _filter = _filter == kind ? null : kind;
 
     protected override async Task OnInitializedAsync() => await Load();
 

@@ -43,8 +43,9 @@ public sealed class DashboardService
             foreach (var a in _maintenance.GetAlerts(s))
             {
                 if (a.Level == AlertLevel.Normal) continue;
+                var detail = a.NeverPerformed ? "İlk bakım yapılmadı" : $"%{a.Progress * 100:0} ({a.Level})";
                 alerts.Add(new DashboardAlert(AlertKind.Maintenance, a.DefinitionName,
-                    $"%{a.Progress * 100:0} ({a.Level})", "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId));
+                    detail, "maintenance:records", a.Level is AlertLevel.Critical or AlertLevel.Overdue, a.VehicleId));
             }
         }
         // Muayene/sigorta

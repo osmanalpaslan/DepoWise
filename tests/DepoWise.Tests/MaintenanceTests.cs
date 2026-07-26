@@ -264,6 +264,25 @@ public class MaintenanceTests : IDisposable
     }
 
     [Fact]
+    public void Uyari_AtandiAmaHicYapilmadi_IlkBakimBekliyor()
+    {
+        // Bakım tanımı araca ATANIR ama HİÇ yapılmaz → "ilk bakım bekliyor" (Overdue) uyarısı çıkmalı
+        // (kullanıcı bulgusu 2026-07-25: "bakım periyodu doldu ama uyarı listelenmedi").
+        var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 1000m));
+        var def = _defs.Create(_admin, new NewMaintenanceDefinition("Yağ", 5000m, "km"), new[] { v });
+
+        var alert = _maint.GetAlerts(_admin).Single(a => a.DefinitionId == def);
+        Assert.True(alert.NeverPerformed);
+        Assert.Equal(AlertLevel.Overdue, alert.Level);
+
+        // İlk bakım yapılınca "hiç yapılmadı" düşer (artık normal takip): performed 1000 → tüketilen ~0 → Normal
+        _maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 1000m), "op-1");
+        var after = _maint.GetAlerts(_admin).Single(a => a.DefinitionId == def);
+        Assert.False(after.NeverPerformed);
+        Assert.Equal(AlertLevel.Normal, after.Level);
+    }
+
+    [Fact]
     public void Bakim_DenyByDefault()
     {
         var v = _vehicles.Create(_admin, new NewVehicle("V-1"));
