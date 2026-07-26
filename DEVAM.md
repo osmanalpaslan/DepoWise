@@ -44,8 +44,10 @@ Bu paket **birikeni** kapsar: rol atama güvenliği (eski 1.0.92 planı) + foto 
    Malzeme/Bakım/Sigorta-Muayene/Yakıt **sayılı butonlar** (tıkla→filtrele, tekrar tıkla→Tümü); masaüstü+web.
    **Bug düzeltildi:** araca ATANIP hiç yapılmamış bakım tanımı uyarı vermiyordu → artık "İlk bakım yapılmadı"
    (Overdue) uyarısı çıkar. **Test 582/593 yeşil** (+1 yeni bakım testi).
-> ✅ CANLIDA: API (Migration055 → canlı PG'de `materials.branch_id` var) + Web + masaüstü **1.0.92**.
-> Makineler bir sonraki girişte 1.0.92'yi indirir. Web (Alerts/Home kategori butonları) depowise-web'de yayında.
+> ✅ CANLIDA: API (Migration055 → canlı PG'de `materials.branch_id` var) + Web + masaüstü **1.0.93**.
+> Makineler bir sonraki girişte 1.0.93'ü indirir. Web (Alerts/Home kategori butonları) depowise-web'de yayında.
+> **1.0.93 (2026-07-26):** Uyarılar ana ekranda+Uyarılar ekranında ilk açılışta LİSTELENMEZ — yalnız kategori
+> butonları+sayıları görünür; liste ancak ilgili butona tıklanınca gelir (tekrar tıkla → gizle). Masaüstü+web.
 
 ### 🟢 Tek bakışta güncel durum
 
