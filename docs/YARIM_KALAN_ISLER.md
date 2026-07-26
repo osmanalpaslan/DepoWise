@@ -10,6 +10,28 @@
 
 ---
 
+## ✅ Fotoğraf biçim uyarısı + detay paneli oto-kapanma (2026-07-25) — DÜZELTİLDİ (masaüstü paket + web canlı)
+
+**1 — Fotoğraf biçim uyarısı:** Sunucu yalnız **JPEG/PNG** kabul ediyordu (magic-byte doğrulaması) ama dosya
+seçici webp/bmp'ye de izin veriyordu → kullanıcı bunları seçince kaydederken şifreli/sessiz hata alıyordu.
+**Masaüstü:** `PhotoPickHelper` — seçilen dosyalar EKLENİRKEN doğrulanır; desteklenmeyen biçimde dosya adı +
+nedeniyle uyarı penceresi ("Desteklenen biçimler: JPEG (.jpg, .jpeg), PNG (.png)"), yalnız geçerli dosyalar
+forma eklenir. Dosya seçici filtresi de gerçek desteklenen biçimlere daraltıldı. **Web** (aynı sorun, platform
+önceliği kuralı gereği kontrol edildi ve düzeltildi): `InputFile accept` daraltıldı + `OnFiles` uzantı bazlı
+ön-kontrol yapıp reddedilenler için `MudAlert` uyarısı gösterir (Materials.razor + Vehicles.razor).
+
+**2 — Detay paneli oto-kapanma (yalnız masaüstü):** Periyodik eşitleme yenilemesi (~15sn, `RefreshData→Load`)
+listeyi `Items.Clear()` ile sıfırdan kuruyordu → seçili kayıt kayboluyordu → detay paneli kapanıyordu. Artık
+`Load()` seçili kaydın kimliğini saklayıp yeniden kurulan listede tekrar seçiyor → panel açık kalır (yalnız
+kayıt gerçekten kalktıysa/silindiyse kapanır). Materials + Vehicles ViewModel. Web'de eşdeğer sorun YOK (web'de
+periyodik oto-yenileme mimarisi yok, detay ayrı modal).
+
+**Doğrulama:** Backend değişmedi (591 test yeşil, regresyon yok). UI değişiklikleri (masaüstü Avalonia + web
+InputFile akışı) bu ortamda tıklanarak test edilemedi — masaüstü test edilemez, web'de login formuna şifre
+girme yasak. **Kullanıcı canlıda doğrulamalı.** Masaüstü paket bekliyor (rol-seçici düzeltmesiyle birlikte gidecek).
+
+---
+
 ## ✅ Şube-bazlı veri filtreleme + şifre/görünürlük (2026-07-25) — DÜZELTİLDİ (1.0.91 paketiyle gidecek)
 
 **1 & 2 (şifre sıfırlama + kullanıcı görünürlük):** Zaten 1.0.91 kodunda (sunucu-tabanlı Kullanıcı/Yetki ekranları,

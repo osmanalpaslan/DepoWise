@@ -20,11 +20,13 @@ public static class FilePickerService
         {
             Title = "Fotoğraf Seç",
             AllowMultiple = allowMultiple,
+            // Yalnız gerçekten desteklenen biçimler (FileValidation.DetectImage: JPEG/PNG). Daha geniş bir
+            // filtre kullanıcıyı yanıltırdı — webp/bmp seçilse de kaydetme aşamasında reddedilirdi.
             FileTypeFilter = new[]
             {
-                new FilePickerFileType("Görseller")
+                new FilePickerFileType("Görseller (JPEG, PNG)")
                 {
-                    Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp" }
+                    Patterns = new[] { "*.jpg", "*.jpeg", "*.png" }
                 }
             }
         });

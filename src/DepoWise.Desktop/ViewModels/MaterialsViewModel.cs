@@ -334,6 +334,10 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [RelayCommand]
     private void Load()
     {
+        // Periyodik eşitleme yenilemesinde (RefreshData) detay paneli KAPANMAMALI (kullanıcı isteği 2026-07-25):
+        // Items.Clear() seçili satırı sıfırlar → OnSelectedChanged(null) paneli kapatırdı. Seçili kaydın kimliğini
+        // saklayıp yeniden kurulan listede TEKRAR seçerek panel açık kalır (yalnız kayıt gerçekten kalktıysa kapanır).
+        var selectedId = Selected?.Id;
         try
         {
             LoadError = null;
@@ -355,6 +359,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             LoadError = ex.Message;
             Status = "Hata: " + ex.Message;
         }
+        if (selectedId is not null)
+            Selected = Items.FirstOrDefault(x => x.Id == selectedId);   // bulunamazsa (silindi) panel doğal olarak kapanır
         NotifyListState();
     }
 
@@ -764,7 +770,11 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [RelayCommand]
     private async Task AddPhotos()
     {
-        foreach (var p in await FilePickerService.PickImagesAsync()) Photos.Add(new PhotoStage(p));
+        var picked = await FilePickerService.PickImagesAsync();
+        // Desteklenmeyen biçim (webp/bmp/… — yalnız JPEG/PNG kabul edilir) seçilirse uyarı gösterir,
+        // yalnız geçerli dosyaları forma ekler (kullanıcı isteği 2026-07-25).
+        var valid = await PhotoPickHelper.ValidateAndWarnAsync(picked);
+        foreach (var p in valid) Photos.Add(new PhotoStage(p));
     }
 
     [RelayCommand]

@@ -100,7 +100,8 @@
         </MudGrid>
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Fotoğraflar</MudText>
-        <InputFile OnChange="OnFiles" multiple accept="image/*" />
+        <InputFile OnChange="OnFiles" multiple accept=".jpg,.jpeg,.png" />
+        @if (_uploadWarning is not null) { <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_uploadWarning</MudAlert> }
         @if (_staged.Count > 0)
         {
             <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-2">
@@ -240,6 +241,12 @@
     private readonly List<ApiClient.Opt> _equivalents = new();
     private readonly List<Staged> _staged = new();
     private readonly List<PhotoRef> _detailPhotos = new();
+    private string? _uploadWarning;
+    // Sunucu yalnız JPEG/PNG kabul eder (magic-byte doğrulaması, DepoWise.Application.Files.FileValidation).
+    // Web ayrı proje (API'ye HTTP ile konuşur, o sınıfı paylaşamaz) — burada aynı kural uzantı bazlı tekrarlanır;
+    // otorite sunucuda kalır, bu yalnız kullanıcıya ANINDA geri bildirim içindir (kullanıcı isteği 2026-07-25).
+    private static readonly HashSet<string> AllowedPhotoExt = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
+    private const string SupportedPhotoFormatsText = "JPEG (.jpg, .jpeg), PNG (.png)";
     private sealed record Staged(string Name, byte[] Bytes, string Mime, string Preview);
     private sealed record PhotoRef(string Id, string Url);
 
@@ -418,8 +425,11 @@
 
     private async Task OnFiles(InputFileChangeEventArgs e)
     {
+        _uploadWarning = null;
+        var rejected = new List<string>();
         foreach (var f in e.GetMultipleFiles(10))
         {
+            if (!AllowedPhotoExt.Contains(Path.GetExtension(f.Name))) { rejected.Add(f.Name); continue; }
             using var ms = new MemoryStream();
             await f.OpenReadStream(8 * 1024 * 1024).CopyToAsync(ms);
             var bytes = ms.ToArray();
@@ -427,6 +437,8 @@
             if (string.IsNullOrEmpty(mime) || mime == "application/octet-stream") mime = GuessMime(f.Name);
             _staged.Add(new Staged(f.Name, bytes, mime, $"data:{mime};base64,{Convert.ToBase64String(bytes)}"));
         }
+        if (rejected.Count > 0)
+            _uploadWarning = $"Desteklenmeyen biçim, eklenmedi: {string.Join(", ", rejected)}. Desteklenen biçimler: {SupportedPhotoFormatsText}.";
     }
 
     private async Task OpenDetail(string id)
