@@ -29,6 +29,16 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
 
+### 🔁 Malzeme modeli DEĞİŞTİ + Yedek yetkisi (2026-07-26, masaüstü **1.0.94** CANLI)
+- **Malzeme = ortak firma-geneli katalog** (kullanıcı kararı): madde 1'in şube-liste filtresi **geri alındı**;
+  malzeme tüm şubelerde aynı görünür. **Ayrım STOK'a taşınacak** → **şube-bazlı stok** ayrı, büyük, canlı-defter
+  işi olarak **PLANLANDI, henüz yapılmadı** (bkz. aşağıdaki "Sıradaki tek iş" ve karar notu). `materials.branch_id`
+  kolonu duruyor (zararsız köken etiketi).
+- **Yedek Yönetimi** masaüstünden kaldırıldı (web-only); web'de yalnız **süper + kısıtlı süper admin** görür
+  (API `/me/menu` → `isRestrictedSuperAdmin`; NavMenu `@superr`; Backup.razor deny-by-default). Geri yükleme
+  süreci korumalı süper-admin ekranı olarak sonra tasarlanacak (canlıyı doğrudan ezmeyen, doğrulama-kopyalı).
+- API+Web deploy, masaüstü 1.0.94 yayında. Test 582/593.
+
 ### 🆕 4 maddelik istek TAMAM + CANLIYA ALINDI (2026-07-26, Opus 4.8) — masaüstü **1.0.92 YAYINDA** + API/Web deploy
 Kullanıcının 4 isteği yapıldı ve **yayınlandı**: **API deploy** (Migration055 canlı PG'de, health 200) +
 **Web deploy** (depowise-web, 200) + **masaüstü 1.0.92** (sunucuda "en güncel = 1.0.92", checksum `1a04091f…`, 85.2 MB).
