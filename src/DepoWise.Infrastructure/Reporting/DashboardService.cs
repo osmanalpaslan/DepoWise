@@ -27,10 +27,12 @@ public sealed class DashboardService
     public DashboardSummary GetSummary(SessionContext s)
     {
         using var conn = _factory.Create();
+        // ŞUBE KAPSAMI: malzeme (ve düşük stok) şube-bazlıdır → seçili şubeye göre say/listele; "Tüm Şubeler" → hepsi.
+        var branch = BranchScope.Active(s);
         int vehicles = Count(conn, "vehicles", s.CompanyId);
-        int materials = Count(conn, "materials", s.CompanyId);
+        int materials = Count(conn, "materials", s.CompanyId, branch);
         int personnel = Count(conn, "personnel", s.CompanyId);
-        int lowStock = LowStockCount(conn, s.CompanyId);
+        int lowStock = LowStockCount(conn, s.CompanyId, branch);
         int pending = PendingRequests(conn, s.CompanyId);
 
         var alerts = new List<DashboardAlert>();
@@ -62,9 +64,9 @@ public sealed class DashboardService
                     levelText, "inspection", a.Level == DateAlertLevel.Expired, a.VehicleId));
             }
         }
-        // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır)
+        // Düşük stok — malzeme bazlı (tıklayınca ilgili malzemenin detayı açılır); şube-bazlı
         if (AccessControl.Can(s, "materials", PermissionAction.View))
-            foreach (var (id, name) in LowStockList(conn, s.CompanyId))
+            foreach (var (id, name) in LowStockList(conn, s.CompanyId, branch))
                 alerts.Add(new DashboardAlert(AlertKind.LowStock, name, "Düşük stok", "materials", true, id));
 
         // Yakıt — depo kalanı toplam alınanın %20'si ve altına düşünce (Özet'te kalanı gör)
@@ -120,24 +122,32 @@ ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=@sig, created_at=@now;";
         cmd.ExecuteNonQuery();
     }
 
-    private static int Count(DbConnection conn, string table, string companyId)
+    // branch != null → yalnız o şubenin (+ şubesiz) kayıtları (materials için branch_id kolonu).
+    private static string BranchAnd(string? branch, string col = "branch_id")
+        => branch is null ? "" : $" AND ({col} = @opb OR {col} IS NULL)";
+    private static void BindBranch(DbCommand cmd, string? branch)
+    { if (branch is not null) cmd.AddWithValue("@opb", branch); }
+
+    private static int Count(DbConnection conn, string table, string companyId, string? branch = null)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=@c AND is_deleted=0;";
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE company_id=@c AND is_deleted=0{BranchAnd(branch)};";
         cmd.AddWithValue("@c", companyId);
+        BindBranch(cmd, branch);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    private static IReadOnlyList<(string Id, string Name)> LowStockList(DbConnection conn, string companyId)
+    private static IReadOnlyList<(string Id, string Name)> LowStockList(DbConnection conn, string companyId, string? branch = null)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT m.id, m.name FROM materials m
 LEFT JOIN stock_balances b ON b.material_id = m.id
-WHERE m.company_id=@c AND m.is_deleted=0
+WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
   AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0
 ORDER BY m.name LIMIT 20;";
         cmd.AddWithValue("@c", companyId);
+        BindBranch(cmd, branch);
         var list = new List<(string, string)>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add((r.GetString(0), r.GetString(1)));
@@ -158,15 +168,16 @@ SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE 
         return (received, received - r.GetDouble(1));
     }
 
-    private static int LowStockCount(DbConnection conn, string companyId)
+    private static int LowStockCount(DbConnection conn, string companyId, string? branch = null)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT COUNT(*) FROM materials m
 LEFT JOIN stock_balances b ON b.material_id = m.id
-WHERE m.company_id=@c AND m.is_deleted=0
+WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
 AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0;";
         cmd.AddWithValue("@c", companyId);
+        BindBranch(cmd, branch);
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 

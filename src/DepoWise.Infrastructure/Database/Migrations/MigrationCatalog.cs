@@ -59,5 +59,6 @@ public static class MigrationCatalog
         new Migration052_FuelRecipient(),
         new Migration053_PostgresTurkishCollations(),
         new Migration054_MaterialTemplateLink(),
+        new Migration055_MaterialBranch(),
     };
 }

@@ -3,6 +3,7 @@ using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
+using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Reporting;
 using DepoWise.Infrastructure.Security;
@@ -83,6 +84,35 @@ public class BranchScopeTests : IDisposable
         var s2 = new SessionContext(all.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty) { OperatingBranchId = "baska-sube" };
         var mgr = new ReportService(_f).VehiclesByTemplate(s2, new ReportRequest(Executed: true));
         Assert.Single(mgr.Rows);   // V-B1 yönetici raporunda görünür (şube filtresi yok)
+    }
+
+    [Fact]
+    public void MalzemeListesi_SecilenSubeye_Filtrelenir_SubesizGorunur()
+    {
+        var all = Admin("A");   // OperatingBranchId null → Tüm Şubeler
+        var branches = new BranchService(_f, _clock);
+        var b1 = branches.Create(all, new NewBranch("Şube 1"), companyId: "A");
+        var b2 = branches.Create(all, new NewBranch("Şube 2"), companyId: "A");
+        var mats = new MaterialService(_f, _clock);
+
+        // Şubesiz (Tüm Şubeler oturumu) → babanın eski verisi gibi, her şubede görünmeli
+        mats.Create(all, new NewMaterial("M-YOK", "Şubesiz Malzeme"));
+
+        // Şube 1 oturumuyla oluştur → yalnız Şube 1'de görünmeli
+        var s1 = new SessionContext(all.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty) { OperatingBranchId = b1 };
+        mats.Create(s1, new NewMaterial("M-B1", "Şube1 Malzeme"));
+
+        // Şube 2 oturumu: kendi malzemesi + şubesiz olan (2); Şube1'in malzemesini GÖRMEZ
+        var s2 = new SessionContext(all.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty) { OperatingBranchId = b2 };
+        mats.Create(s2, new NewMaterial("M-B2", "Şube2 Malzeme"));
+        var r2 = mats.SearchGrid(s2, new MaterialGridFilter(), 1, 100).Items;
+        Assert.Equal(2, r2.Count);
+        Assert.Contains(r2, x => x.Code == "M-B2");
+        Assert.Contains(r2, x => x.Code == "M-YOK");   // şubesiz gizlenmez
+        Assert.DoesNotContain(r2, x => x.Code == "M-B1");
+
+        // Tüm Şubeler → hepsi (3)
+        Assert.Equal(3, mats.SearchGrid(all, new MaterialGridFilter(), 1, 100).Items.Count);
     }
 
     public void Dispose() { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_db); } catch { } }

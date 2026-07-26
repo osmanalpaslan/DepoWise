@@ -92,12 +92,14 @@ public sealed class MaterialService
         {
             cmd.Transaction = tx;
             cmd.CommandText = @"
-INSERT INTO materials(id, company_id, code, name, type, category_id, unit_id, brand_id, supplier_id,
+INSERT INTO materials(id, company_id, branch_id, code, name, type, category_id, unit_id, brand_id, supplier_id,
     min_stock, unit_price, currency_code, description, external_equivalent_note, template_id,
     created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@desc,@eqnote,@tpl,@now,@now,1,0);";
+VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@desc,@eqnote,@tpl,@now,@now,1,0);";
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", s.CompanyId);
+            // ŞUBE-BAZLI: oturumun çalışma şubesi (Tüm Şubeler → NULL, her şubede görünür).
+            cmd.AddWithValue("@br", (object?)DepoWise.Application.Security.BranchScope.Active(s) ?? DBNull.Value);
             cmd.AddWithValue("@code", dto.Code.Trim());
             cmd.AddWithValue("@name", dto.Name);
             cmd.AddWithValue("@type", (object?)DepoWise.Application.Ui.MaterialType.Normalize(dto.Type) ?? DBNull.Value);
@@ -401,10 +403,12 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
         cmd.CommandText =
             "SELECT id, company_id, code, name, type, min_stock, unit_price, currency_code, created_at FROM materials " +
             "WHERE company_id = @c AND is_deleted = 0 " +
+            DepoWise.Application.Security.BranchScope.Sql(s, "branch_id") + " " +   // ŞUBE KAPSAMI (Tüm Şubeler → filtre yok)
             (hasSearch ? $"AND ({SqlDialect.LikeTr(conn, "code", "@q")} OR {SqlDialect.LikeTr(conn, "name", "@q")}) " : "") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT @limit;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@limit", limit + 1);
         if (hasSearch) cmd.AddWithValue("@q", "%" + search!.Trim() + "%");
         if (hasCursor)
@@ -490,13 +494,15 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
             foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
         using var conn = _factory.Create();
         var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.code", sort, sortDesc, SqlDialect.IsSqlite(conn));
-        var inner = SqlDialect.PortableSql(conn, GridInnerSql);   // PG: printf→to_char, GROUP_CONCAT→string_agg
+        // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubenin (+ şubesiz eski) malzemeleri; "Tüm Şubeler" → hepsi.
+        var inner = SqlDialect.PortableSql(conn, GridInnerSql) + DepoWise.Application.Security.BranchScope.Sql(s, "m.branch_id");
 
         int total;
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
+            if (DepoWise.Application.Security.BranchScope.Active(s) is { } b0) cnt.AddWithValue("@opb", b0);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -506,6 +512,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         {
             cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@c", s.CompanyId);
+            if (DepoWise.Application.Security.BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);
