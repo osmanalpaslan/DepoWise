@@ -92,10 +92,12 @@
                 <ctrl:FormField Label="Kategori">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Kategori ara..."
+                                      ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
                         </Grid>
@@ -110,10 +112,12 @@
                 <ctrl:FormField Label="Alt Kategori">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Alt kategori ara..."
+                                      ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
                         </Grid>
@@ -129,10 +133,12 @@
                                 HasError="{Binding HasUnitError}" ErrorText="{Binding UnitError}">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Birim ara..."
+                                      ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
                         </Grid>
@@ -147,10 +153,12 @@
                 <ctrl:FormField Label="Marka">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Marka ara..."
+                                      ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>

@@ -43,7 +43,7 @@ public partial class VehicleQuickEditWindow : Window
         var brandBox = this.FindControl<ComboBox>("BrandBox")!;
         var modelBox = this.FindControl<ComboBox>("ModelBox")!;
         var branchBox = this.FindControl<ComboBox>("BranchBox")!;
-        var driverBox = this.FindControl<ComboBox>("DriverBox")!;
+        var driverBox = this.FindControl<AutoCompleteBox>("DriverBox")!;
         var chassisBox = this.FindControl<TextBox>("ChassisBox")!;
         var engineBox = this.FindControl<TextBox>("EngineBox")!;
         var codeText = this.FindControl<SelectableTextBlock>("CodeText")!;

@@ -52,9 +52,10 @@
                     <!-- Fikir B: hesabı bir PERSONEL kaydına bağla (hesabı olmayan personeller listelenir) -->
                     <ctrl:FormField Label="Personel seç (bağla)" Width="220" IsVisible="{Binding FormCompanyIsOwn}"
                                     HelpText="Bu hesap hangi personele ait? Listede yoksa önce Personel ekranından ekleyin.">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LinkablePersonnel}" SelectedItem="{Binding FormPersonnel}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="orgp:PersonnelRecord"><SelectableTextBlock Text="{Binding FullName}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LinkablePersonnel}" SelectedItem="{Binding FormPersonnel}"
+                                  FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding FullName}">
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="orgp:PersonnelRecord"><SelectableTextBlock Text="{Binding FullName}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
                     </ctrl:FormField>
                     <SelectableTextBlock Classes="Helper" Width="240" TextWrapping="Wrap" VerticalAlignment="Center"
                                          IsVisible="{Binding ShowOtherCompanyPersonnelNote}"

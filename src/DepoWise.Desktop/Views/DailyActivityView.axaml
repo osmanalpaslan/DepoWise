@@ -87,9 +87,10 @@
                             </ComboBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Operatör / Şoför" Width="200">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Süre (gün)" Width="120">
                             <NumericUpDown Classes="Field" Value="{Binding FormDuration}" Minimum="0" FormatString="0" ShowButtonSpinner="False"/>
@@ -125,9 +126,10 @@
                             </ctrl:FormField>
                         </StackPanel>
                         <ctrl:FormField Label="Teknisyen" Width="200">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MTechnician}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="14">

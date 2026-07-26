@@ -60,25 +60,28 @@
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Talep Eden" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormRequester}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                        </ComboBox>
+                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormRequester}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                        </AutoCompleteBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddRequesterCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Depo Sorumlusu" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormWarehouse}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                        </ComboBox>
+                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormWarehouse}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                        </AutoCompleteBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddWarehouseCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Onay Veren" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormApprover}">
-                                            <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                        </ComboBox>
+                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormApprover}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                        </AutoCompleteBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddApproverCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
