@@ -29,8 +29,10 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
 
-### 🆕 4 maddelik istek TAMAM (2026-07-26, Opus 4.8) — masaüstü+web, henüz YAYINLANMADI
-Kullanıcının 4 isteği yapıldı (masaüstü kodda + web'de; paket/deploy bekliyor):
+### 🆕 4 maddelik istek TAMAM + CANLIYA ALINDI (2026-07-26, Opus 4.8) — masaüstü **1.0.92 YAYINDA** + API/Web deploy
+Kullanıcının 4 isteği yapıldı ve **yayınlandı**: **API deploy** (Migration055 canlı PG'de, health 200) +
+**Web deploy** (depowise-web, 200) + **masaüstü 1.0.92** (sunucuda "en güncel = 1.0.92", checksum `1a04091f…`, 85.2 MB).
+Bu paket **birikeni** kapsar: rol atama güvenliği (eski 1.0.92 planı) + foto biçim uyarısı + detay paneli oto-kapanma + madde 1-4.
 1. **Malzemeler şube-bazlı** (Madde 1, commit f625f65): `materials.branch_id` (Migration055) + `BranchScope`
    ile seçili şubeye filtre. Şubesiz eski kayıtlar HER şubede görünür (babanın canlı verisi gizlenmez).
    Malzeme kodu benzersizliği firma-geneli kaldı (canlı veride riskli index değişimi yapılmadı).
@@ -42,8 +44,8 @@ Kullanıcının 4 isteği yapıldı (masaüstü kodda + web'de; paket/deploy bek
    Malzeme/Bakım/Sigorta-Muayene/Yakıt **sayılı butonlar** (tıkla→filtrele, tekrar tıkla→Tümü); masaüstü+web.
    **Bug düzeltildi:** araca ATANIP hiç yapılmamış bakım tanımı uyarı vermiyordu → artık "İlk bakım yapılmadı"
    (Overdue) uyarısı çıkar. **Test 582/593 yeşil** (+1 yeni bakım testi).
-> ⏳ Bekleyen: masaüstü paket yayını (biriken: rol düzeltme 1.0.92 + foto/detay + madde 1-4) + Migration055
-> için API deploy (canlı PG'de branch_id kolonu). Kullanıcı 1.0.92 için "henüz etme" demişti → toplu yayın kararı bekliyor.
+> ✅ CANLIDA: API (Migration055 → canlı PG'de `materials.branch_id` var) + Web + masaüstü **1.0.92**.
+> Makineler bir sonraki girişte 1.0.92'yi indirir. Web (Alerts/Home kategori butonları) depowise-web'de yayında.
 
 ### 🟢 Tek bakışta güncel durum
 
