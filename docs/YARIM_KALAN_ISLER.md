@@ -10,6 +10,22 @@
 
 ---
 
+## ✅ Şube-bazlı veri filtreleme + şifre/görünürlük (2026-07-25) — DÜZELTİLDİ (1.0.91 paketiyle gidecek)
+
+**1 & 2 (şifre sıfırlama + kullanıcı görünürlük):** Zaten 1.0.91 kodunda (sunucu-tabanlı Kullanıcı/Yetki ekranları,
+şifre sıfırla sunucuya yazıyor → login'de must_change → yeni şifre; liste herkese açık, düzenleme/sıfırlama admin).
+
+**3 & 4 (şube filtreleme) — YENİ:** Uygulama veriyi yazarken şubeyi kaydediyordu ama OKURKEN filtrelemiyordu.
+Yeni `BranchScope` (Application/Security): belirli şubeyle girişte (`OperatingBranchId` dolu) veri o şubeye
+filtrelenir; "Tüm Şubeler" (null) → hepsi; şubesi olmayan ESKİ kayıtlar gizlenmez (veri kaybı yok); admin dahil
+herkes seçili şubeye göre. Uygulandı: **araç grid, günlük faaliyet (liste+grid), yakıt dağıtım/depo, bakım kaydı,
+talep, stok hareketi** + **NORMAL raporlar** (Genel/Yakıt/Bakım/Depo/Talep). **Yönetici raporları FİLTRESİZ**
+(tüm şubeler). Malzeme firma-geneli (şube yok) → filtrelenmez. Servis katmanında → masaüstü (OperatingBranchId
+dolu) düzelir, web değişmez. 2 test (BranchScopeTests). 591 test (580 SQLite yeşil).
+Not: Personel listesi kendi mevcut şube-kapsamını kullanıyor (dokunulmadı); web şube bağlamı ileride.
+
+---
+
 ## ✅ Masaüstü Kullanıcı/Yetki ekranları sunucu-tabanlı (2026-07-25) — DÜZELTİLDİ (paket bekliyor)
 
 **Sorun:** Masaüstü Kullanıcı Tanım + Yetkiler ekranları yalnız YEREL DB okuyordu; kullanıcılar sunucu-otoriteli

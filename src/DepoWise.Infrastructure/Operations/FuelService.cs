@@ -188,9 +188,10 @@ SELECT fd.id, fd.vehicle_id, v.internal_code, fd.prev_meter, fd.current_meter, f
        fd.unit_price, fd.currency_code, fd.distribution_date
 FROM fuel_distributions fd
 LEFT JOIN vehicles v ON v.id = fd.vehicle_id
-WHERE fd.company_id=@c AND fd.is_deleted=0
+WHERE fd.company_id=@c AND fd.is_deleted=0" + BranchScope.Sql(s, "fd.op_branch_id") + @"
 ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@lim", limit);
         var list = new List<FuelDistributionRow>();
         using var r = cmd.ExecuteReader();
@@ -210,9 +211,10 @@ ORDER BY fd.distribution_date DESC, fd.created_at DESC LIMIT @lim;";
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT id, liters, unit_price, currency_code, entry_date, invoice_no
-FROM fuel_depot_entries WHERE company_id=@c AND is_deleted=0
+FROM fuel_depot_entries WHERE company_id=@c AND is_deleted=0" + BranchScope.Sql(s, "op_branch_id") + @"
 ORDER BY entry_date DESC, created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@lim", limit);
         var list = new List<FuelDepotRow>();
         using var r = cmd.ExecuteReader();

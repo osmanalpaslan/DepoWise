@@ -260,11 +260,12 @@ WHERE i.request_id=@r ORDER BY m.code;";
 SELECT mr.id, mr.doc_no, mr.status, mr.request_date, mr.description,
        (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
 FROM material_requests mr
-WHERE mr.company_id=@c AND mr.is_deleted=0
+WHERE mr.company_id=@c AND mr.is_deleted=0{DepoWise.Application.Security.BranchScope.Sql(s, "mr.branch_id")}
   AND (CAST(@st AS TEXT) IS NULL OR mr.status=@st)
   AND (CAST(@s AS TEXT) IS NULL OR {SqlDialect.LikeTr(conn, "mr.doc_no", "@like")} OR {SqlDialect.LikeTr(conn, "COALESCE(mr.description,'')", "@like")})
 ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@st", status is null ? DBNull.Value : RequestStatusMachine.ToDb(status.Value));
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
         cmd.AddWithValue("@s", (object?)term ?? DBNull.Value);

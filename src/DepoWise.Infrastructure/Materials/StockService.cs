@@ -174,9 +174,10 @@ FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
-WHERE sm.company_id = @c
+WHERE sm.company_id = @c" + DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id") + @"
 ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@lim", limit);
         string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
         var list = new List<StockMovementRow>();

@@ -268,13 +268,15 @@ WHERE v.company_id = @c AND v.is_deleted = 0";
             foreach (var x in byKey) if (x.Key == sortColumn) { sort = x.Col; break; }
         using var conn = _factory.Create();
         var (whereSql, orderSql, ps) = GridQuery.Build(cols, "t.internal_code", sort, sortDesc, SqlDialect.IsSqlite(conn));
-        var inner = SqlDialect.PortableSql(conn, GridInnerSql);   // PG: printf→to_char, GROUP_CONCAT→string_agg
+        // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubenin (+ şubesiz eski kayıtların) araçları; "Tüm Şubeler" → hepsi.
+        var inner = SqlDialect.PortableSql(conn, GridInnerSql) + BranchScope.Sql(s, "v.branch_id");
 
         int total;
         using (var cnt = conn.CreateCommand())
         {
             cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b0) cnt.AddWithValue("@opb", b0);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -284,6 +286,7 @@ WHERE v.company_id = @c AND v.is_deleted = 0";
         {
             cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);

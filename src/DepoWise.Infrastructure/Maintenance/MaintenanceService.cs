@@ -210,10 +210,11 @@ FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
 LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
-WHERE vm.company_id=@c AND vm.is_deleted=0
+WHERE vm.company_id=@c AND vm.is_deleted=0" + DepoWise.Application.Security.BranchScope.Sql(s, "vm.op_branch_id") + @"
   AND (CAST(@vid AS TEXT) IS NULL OR vm.vehicle_id=@vid)
 ORDER BY vm.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@vid", (object?)vehicleId ?? DBNull.Value);
         cmd.AddWithValue("@lim", limit);
         decimal? D(DbDataReader r, int i) => r.IsDBNull(i) ? (decimal?)null : Money.Parse(r.GetString(i));

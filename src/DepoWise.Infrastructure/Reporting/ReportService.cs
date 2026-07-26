@@ -269,11 +269,11 @@ SELECT v.internal_code, CAST(COUNT(fd.id) AS INTEGER),
        COALESCE(SUM(CAST(fd.liters AS REAL)),0),
        COALESCE(SUM(CAST(fd.liters AS REAL)*CAST(fd.unit_price AS REAL)),0)
 FROM fuel_distributions fd JOIN vehicles v ON v.id=fd.vehicle_id
-WHERE fd.company_id=@c AND fd.is_deleted=0
+WHERE fd.company_id=@c AND fd.is_deleted=0" + BranchScope.Sql(s, "fd.op_branch_id") + @"
 " + DateFilter(req, "fd.distribution_date") + @"
 GROUP BY v.id ORDER BY v.internal_code;";  // PK'ye grupla: PostgreSQL bare-kolon (v.internal_code) için PK bağımlılığı ister (fd.vehicle_id=v.id, sonuç aynı)
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req);
+        BindDates(cmd, req); BindBranch(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         int totIslem = 0; double totKm = 0, totLitre = 0, totTutar = 0;
         using (var r = cmd.ExecuteReader())
@@ -310,10 +310,10 @@ SELECT v.internal_code, COALESCE(v.plate,''),
    WHERE vm.vehicle_id=v.id AND vm.is_deleted=0 AND vm.is_cancelled=0" + DateFilter(req, "vm.performed_date") + @") AS matcost
 FROM vehicles v
 LEFT JOIN fuel_distributions fd ON fd.vehicle_id=v.id AND fd.is_deleted=0" + DateFilter(req, "fd.distribution_date") + @"
-WHERE v.company_id=@c AND v.is_deleted=0
+WHERE v.company_id=@c AND v.is_deleted=0" + BranchScope.Sql(s, "v.branch_id") + @"
 GROUP BY v.id ORDER BY v.internal_code;";
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req);
+        BindDates(cmd, req); BindBranch(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         double tKm = 0, tLitre = 0, tFuel = 0, tMat = 0;
         using (var r = cmd.ExecuteReader())
@@ -346,11 +346,11 @@ FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
 LEFT JOIN personnel p ON p.id = vm.technician_id
-WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0
+WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0" + BranchScope.Sql(s, "vm.op_branch_id") + @"
 " + DateFilter(req, "vm.performed_date") + @"
 ORDER BY vm.performed_date DESC;";
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req);
+        BindDates(cmd, req); BindBranch(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -370,11 +370,11 @@ ORDER BY vm.performed_date DESC;";
 SELECT entry_date, CAST(liters AS REAL), CAST(unit_price AS REAL),
        CAST(liters AS REAL)*CAST(unit_price AS REAL), COALESCE(invoice_no,'')
 FROM fuel_depot_entries
-WHERE company_id=@c AND is_deleted=0
+WHERE company_id=@c AND is_deleted=0" + BranchScope.Sql(s, "op_branch_id") + @"
 " + DateFilter(req, "entry_date") + @"
 ORDER BY entry_date DESC;";
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req);
+        BindDates(cmd, req); BindBranch(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -427,11 +427,11 @@ ORDER BY d.doc_date DESC, m.code;";
 SELECT mr.doc_no, mr.request_date, mr.status,
        (SELECT CAST(COUNT(*) AS INTEGER) FROM material_request_items i WHERE i.request_id = mr.id)
 FROM material_requests mr
-WHERE mr.company_id=@c AND mr.is_deleted=0
+WHERE mr.company_id=@c AND mr.is_deleted=0" + BranchScope.Sql(s, "mr.branch_id") + @"
 " + DateFilter(req, "mr.request_date") + @"
 ORDER BY mr.request_date DESC;";
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req);
+        BindDates(cmd, req); BindBranch(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -459,5 +459,12 @@ ORDER BY mr.request_date DESC;";
     {
         if (req.FromDate is not null) cmd.AddWithValue("@from", req.FromDate.Value);
         if (req.ToDate is not null) cmd.AddWithValue("@to", req.ToDate.Value);
+    }
+
+    /// <summary>ŞUBE KAPSAMI (NORMAL raporlar): belirli şubeyle girişte @opb bağlanır (SQL'de BranchScope.Sql
+    /// ile eşleşir). "Tüm Şubeler" → bağlama yok. YÖNETİCİ raporları bu filtreyi KULLANMAZ (tüm şubeler).</summary>
+    private static void BindBranch(DbCommand cmd, SessionContext s)
+    {
+        if (BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
     }
 }

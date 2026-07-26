@@ -279,10 +279,11 @@ LEFT JOIN vehicles v ON v.id = da.vehicle_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id
 LEFT JOIN personnel p ON p.id = da.operator_id
-WHERE da.company_id = @c AND da.is_deleted = 0
+WHERE da.company_id = @c AND da.is_deleted = 0" + BranchScope.Sql(s, "da.op_branch_id") + @"
   AND (CAST(@t AS TEXT) IS NULL OR da.activity_type = @t)
 ORDER BY da.activity_date DESC, da.created_at DESC LIMIT @lim;";
         cmd.AddWithValue("@c", s.CompanyId);
+        if (BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         cmd.AddWithValue("@t", (object?)activityType ?? DBNull.Value);
         cmd.AddWithValue("@lim", limit);
         string? S(DbDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
@@ -353,12 +354,15 @@ WHERE da.company_id = @c AND da.is_deleted = 0";
         // AYNI (bu ekran bir kronolojik günlük; Malzemeler/Araçlar'daki "filtrelerin doldurulma sırası"
         // önceliği burada anlamsız — tarih her zaman kazanır).
         if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
+        // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubede işlenen (+ şubesiz eski) faaliyetler; Tüm Şubeler → hepsi.
+        var inner = GridInnerSql + BranchScope.Sql(s, "da.op_branch_id");
 
         int total;
         using (var cnt = conn.CreateCommand())
         {
-            cnt.CommandText = $"SELECT COUNT(*) FROM ({GridInnerSql}) t {whereSql};";
+            cnt.CommandText = $"SELECT COUNT(*) FROM ({inner}) t {whereSql};";
             cnt.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b0) cnt.AddWithValue("@opb", b0);
             GridQuery.AddParams(cnt, ps);
             total = Convert.ToInt32(cnt.ExecuteScalar());
         }
@@ -366,8 +370,9 @@ WHERE da.company_id = @c AND da.is_deleted = 0";
         var items = new List<DailyActivityGridRow>();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = $"SELECT * FROM ({GridInnerSql}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
+            cmd.CommandText = $"SELECT * FROM ({inner}) t {whereSql}{orderSql}LIMIT @lim OFFSET @off;";
             cmd.AddWithValue("@c", s.CompanyId);
+            if (BranchScope.Active(s) is { } b1) cmd.AddWithValue("@opb", b1);
             GridQuery.AddParams(cmd, ps);
             cmd.AddWithValue("@lim", pageSize);
             cmd.AddWithValue("@off", (page - 1) * pageSize);
