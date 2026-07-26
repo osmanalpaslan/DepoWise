@@ -59,14 +59,21 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <Border IsVisible="{Binding !HasAlerts}" Background="{DynamicResource SurfaceElevatedBrush}"
+            <!-- İlk açılış: kategori seçilmedi → yalnız yönlendirme ipucu (uyarı listelenmez). -->
+            <Border IsVisible="{Binding ShowSelectPrompt}" Background="{DynamicResource SurfaceElevatedBrush}"
+                    CornerRadius="{StaticResource Radius8}" Padding="14,10" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="Uyarıları görmek için yukarıdan bir kategori seçin." Classes="Body" VerticalAlignment="Center"/>
+            </Border>
+
+            <!-- Seçili kategori boş → o kategoride uyarı yok. -->
+            <Border IsVisible="{Binding ShowEmptyCategory}" Background="{DynamicResource SurfaceElevatedBrush}"
                     CornerRadius="{StaticResource Radius8}" Padding="14,10" HorizontalAlignment="Left">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Border Width="22" Height="22" CornerRadius="11" Background="{DynamicResource SuccessBrush}">
                         <SelectableTextBlock Text="✓" Foreground="White" FontWeight="Bold" FontSize="13"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <SelectableTextBlock Text="Aktif uyarı yok." Classes="Body" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Bu kategoride aktif uyarı yok." Classes="Body" VerticalAlignment="Center"/>
                 </StackPanel>
             </Border>
         </StackPanel>

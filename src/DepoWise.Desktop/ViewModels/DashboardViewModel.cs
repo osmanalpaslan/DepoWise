@@ -22,6 +22,9 @@ public sealed partial class DashboardViewModel : ViewModelBase
     private readonly List<DashboardAlert> _allAlerts = new();
 
     public bool HasAlerts => Alerts.Count > 0;
+    // Görünürlük: ilk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız butonlar+sayılar (kullanıcı isteği 2026-07-26).
+    public bool ShowSelectPrompt => AlertFilter is null;                       // "Bir kategori seçin" ipucu
+    public bool ShowEmptyCategory => AlertFilter is not null && Alerts.Count == 0; // seçili kategori boş
 
     // Uyarı kategori sayıları (butonlarda gösterilir) — kullanıcı isteği 2026-07-25.
     public int MalzemeCount => _allAlerts.Count(a => a.Kind == AlertKind.LowStock);
@@ -40,13 +43,17 @@ public sealed partial class DashboardViewModel : ViewModelBase
     private void ApplyAlertFilter()
     {
         Alerts.Clear();
+        // Kategori seçili DEĞİLSE hiçbir uyarı gösterilmez (yalnız butonlar). Seçiliyse yalnız o kategori.
         var kind = AlertFilter switch
         {
             "material" => AlertKind.LowStock, "maintenance" => AlertKind.Maintenance,
             "inspection" => AlertKind.Inspection, "fuel" => AlertKind.Fuel, _ => (AlertKind?)null,
         };
-        foreach (var a in _allAlerts) if (kind is null || a.Kind == kind) Alerts.Add(a);
+        if (kind is { } k)
+            foreach (var a in _allAlerts) if (a.Kind == k) Alerts.Add(a);
         OnPropertyChanged(nameof(HasAlerts));
+        OnPropertyChanged(nameof(ShowSelectPrompt));
+        OnPropertyChanged(nameof(ShowEmptyCategory));
     }
 
     /// <summary>Yükleme/hata/boş durumları (minimum durum modeli; iş mantığı değiştirilmedi).</summary>
@@ -159,8 +166,17 @@ public sealed partial class DashboardViewModel : ViewModelBase
     {
         if (alert is null) return;
         try { DesktopServices.Dashboard.MarkAlertRead(_session, alert.Key, alert.Signature); } catch { }
+        _allAlerts.Remove(alert);   // sayaç da düşsün (buton etiketi güncellensin)
         Alerts.Remove(alert);
         OnPropertyChanged(nameof(HasAlerts));
+        OnPropertyChanged(nameof(ShowEmptyCategory));
+        NotifyAlertCounts();
+    }
+
+    private void NotifyAlertCounts()
+    {
+        foreach (var n in new[] { nameof(MalzemeCount), nameof(BakimCount), nameof(MuayeneCount), nameof(YakitCount) })
+            OnPropertyChanged(n);
     }
 
     /// <summary>Kurulum aracının uygulama klasörüne yazdığı serverurl.txt (varsa). Bağlantı ayarı otomatik gelsin diye.</summary>

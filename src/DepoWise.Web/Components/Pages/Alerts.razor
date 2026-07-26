@@ -41,7 +41,11 @@ else
                    StartIcon="@Icons.Material.Filled.LocalGasStation" OnClick="@(() => Toggle("Fuel"))">Yakıt (@CountOf("Fuel"))</MudButton>
     </div>
 
-    @if (Filtered.Count == 0)
+    @if (_filter is null)
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Uyarıları görmek için yukarıdan bir kategori seçin.</MudText>
+    }
+    else if (Filtered.Count == 0)
     {
         <MudText Typo="Typo.body2" Class="mud-text-secondary">Bu kategoride aktif uyarı yok.</MudText>
     }
@@ -71,8 +75,9 @@ else
     private List<Alert>? _alerts;
     private string? _filter;   // null → Tümü; aksi halde Kind ("LowStock"/"Maintenance"/"Inspection"/"Fuel")
 
+    // İlk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız butonlar+sayılar (kullanıcı isteği 2026-07-26).
     private List<Alert> Filtered =>
-        _filter is null ? (_alerts ?? new()) : (_alerts ?? new()).Where(a => a.Kind == _filter).ToList();
+        _filter is null ? new() : (_alerts ?? new()).Where(a => a.Kind == _filter).ToList();
 
     private int CountOf(string kind) => _alerts?.Count(a => a.Kind == kind) ?? 0;
 

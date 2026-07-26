@@ -22,6 +22,10 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     public ObservableCollection<DashboardAlert> Alerts { get; } = new();
     public bool HasAlerts => Alerts.Count > 0;
+    // Görünürlük: ilk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız butonlar+sayılar (kullanıcı isteği 2026-07-26).
+    public bool CategorySelected => Filter is not null;
+    public bool ShowSelectPrompt => Filter is null;                    // "Bir kategori seçin" ipucu
+    public bool ShowEmptyCategory => Filter is not null && Alerts.Count == 0; // seçili kategori boş
 
     // Kategori sayıları (buton etiketlerinde gösterilir).
     public int MalzemeCount => _all.Count(a => a.Kind == AlertKind.LowStock);
@@ -69,7 +73,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private void ApplyFilter()
     {
         Alerts.Clear();
-        IEnumerable<DashboardAlert> src = _all;
+        // Kategori seçili DEĞİLSE hiçbir uyarı gösterilmez (yalnız butonlar). Seçiliyse yalnız o kategori.
         if (Filter is not null)
         {
             var kind = Filter switch
@@ -80,10 +84,13 @@ public sealed partial class AlertsViewModel : ViewModelBase
                 "fuel" => AlertKind.Fuel,
                 _ => (AlertKind?)null,
             };
-            if (kind is { } k) src = _all.Where(a => a.Kind == k);
+            if (kind is { } k)
+                foreach (var a in _all.Where(a => a.Kind == k)) Alerts.Add(a);
         }
-        foreach (var a in src) Alerts.Add(a);
         OnPropertyChanged(nameof(HasAlerts));
+        OnPropertyChanged(nameof(CategorySelected));
+        OnPropertyChanged(nameof(ShowSelectPrompt));
+        OnPropertyChanged(nameof(ShowEmptyCategory));
     }
 
     private void NotifyCounts()
