@@ -209,8 +209,10 @@ public sealed partial class UsersViewModel : ViewModelBase
         bool isAdmin = AccessControl.IsAdmin(_session);
         foreach (var (key, name, _) in RoleKeys.Seed)
         {
-            // Yetki yükseltme koruması: Süper Admin yalnız süper-admin tarafından, Firma Admini yalnız admin tarafından atanabilir.
+            // Yetki yükseltme koruması: Süper Admin + Kısıtlı Süper Admin YALNIZ süper adminde görünür/atanır;
+            // Firma Admini yalnız admin tarafından atanabilir. (Web /api/roles ucu da aynı filtreyi uygular.)
             if (key == RoleKeys.SuperAdmin && !_session.IsSuperAdmin) continue;
+            if (key == RoleKeys.RestrictedSuperAdmin && !_session.IsSuperAdmin) continue;
             if (key == RoleKeys.CompanyAdmin && !isAdmin) continue;
             AssignableRoles.Add(new RolePick(key, name));
         }
