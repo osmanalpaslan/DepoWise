@@ -29,7 +29,16 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
 
-### 🔁 Malzeme modeli DEĞİŞTİ + Yedek yetkisi (2026-07-26, masaüstü **1.0.94** CANLI)
+### 📥 İçe aktarımda zorunlu şube seçimi (2026-07-26, masaüstü **1.0.95** CANLI)
+- İçe aktarım ekranında **"Şube (zorunlu)"** seçici: **"Tüm Şubeler"** (firma geneli) + firmanın şubeleri.
+  **Seçim yapılmadan import ENGELLENİR.** Seçilen şube oturum kopyasıyla (OperatingBranchId override) tüm
+  import'lara geçer (yakıt/bakım/günlük/stok op_branch_id; araç/personel satırında Şube boşsa bu şubeye düşer).
+  Seçilen hedef, çalışma şubesinden **farklıysa onay uyarısı** çıkar. Import masaüstüne özel (web'de import yok).
+- ⏳ **Bekleyen (TEMA B — canlı veri):** babanın şubesi **Karaman**; mevcut kayıtları Karaman'a atama +
+  **şube-bazlı stok** (stok_balances `material_id`→`material_id+şube`). Canlı stok defteri işi → verinin
+  KOPYASINDA test edilip öyle canlıya alınacak. Karaman kararı alındı, uygulama onay + kopya-test bekliyor.
+
+### 🔁 Malzeme modeli DEĞİŞTİ + Yedek yetkisi (2026-07-26, masaüstü 1.0.94)
 - **Malzeme = ortak firma-geneli katalog** (kullanıcı kararı): madde 1'in şube-liste filtresi **geri alındı**;
   malzeme tüm şubelerde aynı görünür. **Ayrım STOK'a taşınacak** → **şube-bazlı stok** ayrı, büyük, canlı-defter
   işi olarak **PLANLANDI, henüz yapılmadı** (bkz. aşağıdaki "Sıradaki tek iş" ve karar notu). `materials.branch_id`
