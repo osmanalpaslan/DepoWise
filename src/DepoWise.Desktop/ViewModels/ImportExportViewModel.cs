@@ -31,7 +31,32 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     [ObservableProperty] private string? _status;
     [ObservableProperty] private string? _importResult;
 
-    public ImportExportViewModel(SessionContext session) => _session = session;
+    /// <summary>İçe aktarım hedef şubesi (ZORUNLU). Id=null → "Tüm Şubeler" (firma geneli).
+    /// SelectedImportBranch == null → henüz seçilmedi (import engellenir).</summary>
+    public sealed record BranchOption(string? Id, string Name);
+    public ObservableCollection<BranchOption> ImportBranches { get; } = new();
+    [ObservableProperty] private BranchOption? _selectedImportBranch;
+
+    public ImportExportViewModel(SessionContext session)
+    {
+        _session = session;
+        // Zorunlu şube seçimi: "Tüm Şubeler" (firma geneli) + firmanın şubeleri. Varsayılan SEÇİLMEZ → kullanıcı bilinçli seçer.
+        ImportBranches.Add(new BranchOption(null, "Tüm Şubeler"));
+        try { foreach (var b in DesktopServices.Branches.List(_session)) ImportBranches.Add(new BranchOption(b.Id, b.Name)); } catch { }
+    }
+
+    /// <summary>Oturumun ÇALIŞMA şubesi adı (uyarı metni için).</summary>
+    private string CurrentBranchDisplay =>
+        _session.OperatingBranchId is null ? "Tüm Şubeler"
+        : ImportBranches.FirstOrDefault(x => x.Id == _session.OperatingBranchId)?.Name ?? "mevcut şube";
+
+    /// <summary>İçe aktarımın seçilen hedef şubeyle çalışması için oturum kopyası (OperatingBranchId override).</summary>
+    private SessionContext ImportSession(string? branchId) =>
+        new(_session.UserId, _session.CompanyId, _session.RoleKeys, _session.Permissions, _session.CanViewAllBranches)
+        {
+            OperatingBranchId = branchId,
+            BlockedModules = _session.BlockedModules,
+        };
 
     [RelayCommand]
     private async Task Export()
@@ -71,21 +96,42 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         ImportResult = null;
         try
         {
+            // ZORUNLU şube seçimi: seçilmeden içe aktarım yapılamaz (kullanıcı isteği 2026-07-26).
+            if (SelectedImportBranch is null)
+            {
+                ImportResult = "Lütfen önce içe aktarılacak ŞUBEYİ seçin (zorunlu). Tüm şubelerde görünmesi için 'Tüm Şubeler' seçin.";
+                return;
+            }
+            var chosenBranchId = SelectedImportBranch.Id;   // null = Tüm Şubeler (firma geneli)
+
+            // Farklı şube uyarısı: seçilen hedef, oturumun çalışma şubesinden farklıysa kullanıcı bilinçli onaylasın.
+            if (chosenBranchId != _session.OperatingBranchId)
+            {
+                if (!await ConfirmService.AskAsync(
+                        $"Çalışma şubeniz: «{CurrentBranchDisplay}».\nİçe aktarım «{SelectedImportBranch.Name}» şubesine yapılacak.\n\nFarklı bir şubeye aktarıyorsunuz — devam edilsin mi?",
+                        "Farklı Şubeye İçe Aktarım", "Evet, Devam Et", "Vazgeç", danger: true))
+                    return;
+            }
+
             var path = await FilePickerService.PickFileAsync("İçe Aktarılacak Excel", "Excel", "*.xlsx");
             if (string.IsNullOrEmpty(path)) return;
             var bytes = await System.IO.File.ReadAllBytesAsync(path);
             var rows = DesktopServices.Excel.ReadRows(bytes);
             if (rows.Count == 0) { ImportResult = "Dosyada veri satırı bulunamadı."; return; }
 
+            // Seçilen şubeyle oturum kopyası: işlem kayıtları (stok/yakıt/bakım/günlük) bu şubeyle etiketlenir;
+            // araç/personel için satırda "Şube" boşsa bu şubeye düşer. "Tüm Şubeler" → şubesiz (firma geneli).
+            var s = ImportSession(chosenBranchId);
+
             var dry = SelectedImport switch
             {
-                "Araçlar" => DesktopServices.VehicleImport.DryRun(_session, rows),
-                "Bakım" => DesktopServices.MaintenanceImport.DryRun(_session, rows),
-                "Personel" => DesktopServices.PersonnelImport.DryRun(_session, rows),
-                "Muayene / Sigorta" => DesktopServices.InspectionImport.DryRun(_session, rows),
-                "Yakıt Dağıtım" => DesktopServices.FuelImport.DryRun(_session, rows),
-                "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.DryRun(_session, rows),
-                _ => DesktopServices.MaterialImport.DryRun(_session, rows),
+                "Araçlar" => DesktopServices.VehicleImport.DryRun(s, rows),
+                "Bakım" => DesktopServices.MaintenanceImport.DryRun(s, rows),
+                "Personel" => DesktopServices.PersonnelImport.DryRun(s, rows),
+                "Muayene / Sigorta" => DesktopServices.InspectionImport.DryRun(s, rows),
+                "Yakıt Dağıtım" => DesktopServices.FuelImport.DryRun(s, rows),
+                "Yakıt Depo Girişi" => DesktopServices.FuelDepotImport.DryRun(s, rows),
+                _ => DesktopServices.MaterialImport.DryRun(s, rows),
             };
             // Ön kontrol hatalarını ONAY penceresinde göster: kullanıcı "depo yetersiz" / "araç bulunamadı"
             // gibi engelleri aktarımdan ÖNCE görsün (aksi halde satırlar tek tek patlar).
@@ -105,19 +151,19 @@ public sealed partial class ImportExportViewModel : ViewModelBase
             switch (SelectedImport)
             {
                 case "Araçlar":
-                    (res, createdLookups) = DesktopServices.VehicleImport.CommitWithLookups(_session, rows); break;
+                    (res, createdLookups) = DesktopServices.VehicleImport.CommitWithLookups(s, rows); break;
                 case "Bakım":
-                    (res, createdLookups) = DesktopServices.MaintenanceImport.CommitWithLookups(_session, rows); break;
+                    (res, createdLookups) = DesktopServices.MaintenanceImport.CommitWithLookups(s, rows); break;
                 case "Personel":
-                    (res, createdLookups) = DesktopServices.PersonnelImport.CommitWithLookups(_session, rows); break;
+                    (res, createdLookups) = DesktopServices.PersonnelImport.CommitWithLookups(s, rows); break;
                 case "Muayene / Sigorta":
-                    res = DesktopServices.InspectionImport.Commit(_session, rows); break;
+                    res = DesktopServices.InspectionImport.Commit(s, rows); break;
                 case "Yakıt Dağıtım":
-                    res = DesktopServices.FuelImport.Commit(_session, rows); break;
+                    res = DesktopServices.FuelImport.Commit(s, rows); break;
                 case "Yakıt Depo Girişi":
-                    res = DesktopServices.FuelDepotImport.Commit(_session, rows); break;
+                    res = DesktopServices.FuelDepotImport.Commit(s, rows); break;
                 default:
-                    (res, createdLookups) = DesktopServices.MaterialImport.CommitWithLookups(_session, rows); break;
+                    (res, createdLookups) = DesktopServices.MaterialImport.CommitWithLookups(s, rows); break;
             }
             // Yakıtta "Updated" = zaten vardı, atlandı (aynı dosya tekrar aktarıldı) — kullanıcıya böyle yaz.
             var isFuel = SelectedImport is "Yakıt Dağıtım" or "Yakıt Depo Girişi";

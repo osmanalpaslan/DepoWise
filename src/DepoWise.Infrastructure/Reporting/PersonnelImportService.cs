@@ -112,7 +112,8 @@ public sealed class PersonnelImportService
                     FullName: fullName,
                     Title: ResolveTitle(s, titleCache, created, Get(row, ColTitle)),
                     Phone: Empty(Get(row, ColPhone)),
-                    BranchId: res.Branch(Get(row, ColBranch)),
+                    // Satırda "Şube" boşsa içe aktarım ekranında seçilen şubeye (oturum) düşer (2026-07-26).
+                    BranchId: res.Branch(Get(row, ColBranch)) ?? s.OperatingBranchId,
                     IsActive: ParseBool(Get(row, ColActive)) ?? true,     // boş = Aktif
                     IsFieldStaff: fieldStaff));
                 existing[key] = id;

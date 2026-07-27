@@ -31,10 +31,19 @@
                 <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <SelectableTextBlock Text="Ekran" Classes="Helper" VerticalAlignment="Center"/>
                     <ComboBox Classes="Field" Width="220" ItemsSource="{Binding ImportItems}" SelectedItem="{Binding SelectedImport}"/>
+                    <SelectableTextBlock Text="Şube (zorunlu)" Classes="Helper" VerticalAlignment="Center"/>
+                    <ComboBox Classes="Field" Width="220" ItemsSource="{Binding ImportBranches}" SelectedItem="{Binding SelectedImportBranch}"
+                              PlaceholderText="Şube seçin…">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ImportExportViewModel+BranchOption">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <Button Classes="Secondary" Content="📄 Örnek Excel İndir" Command="{Binding DownloadTemplateCommand}"/>
                     <Button Classes="Primary" Content="📥 Excel'den İçe Aktar" Command="{Binding ImportCommand}"/>
                 </StackPanel>
-                <SelectableTextBlock Text="Önce 'Örnek Excel İndir' ile şablonu alın, doldurun, sonra içe aktarın. Malzemeler, Araçlar, Bakım ve Muayene/Sigorta desteklenir."
+                <SelectableTextBlock Text="Önce ŞUBE seçin (zorunlu): kayıtlar bu şubeye yazılır; tüm şubelerde görünmesi için 'Tüm Şubeler' seçin. Sonra 'Örnek Excel İndir' ile şablonu alın, doldurun, içe aktarın. Farklı şubeye aktarımda uyarı çıkar."
                            Classes="Helper" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>

@@ -102,7 +102,8 @@ public sealed class VehicleImportService
                     ProductionYear: ParseInt(Get(row, ColYear)),
                     CurrentMeter: ParseDecimal(Get(row, ColMeter)) ?? 0m,
                     MeterUnit: MeterUnitCode(Get(row, ColMeterUnit)),
-                    BranchId: res.Branch(Get(row, ColBranch)),
+                    // Satırda "Şube" boşsa içe aktarım ekranında seçilen şubeye (oturum) düşer (2026-07-26).
+                    BranchId: res.Branch(Get(row, ColBranch)) ?? s.OperatingBranchId,
                     DriverPersonnelId: res.Personnel(Get(row, ColDriver)),
                     ChassisNo: Empty(Get(row, ColChassis)),
                     EngineNo: Empty(Get(row, ColEngine)),
