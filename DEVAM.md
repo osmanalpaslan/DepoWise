@@ -29,7 +29,18 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
 
-### 📥 İçe aktarımda zorunlu şube seçimi (2026-07-26, masaüstü **1.0.95** CANLI)
+### 🔐 İçe/dışa aktarım yetki ayrımı (2026-07-26, masaüstü **1.0.96** CANLI)
+- `import_export` artık yalnız **İÇE AKTARIM**; **`export`** ayrı modül (Migration056: mevcut import_export
+  sahiplerine export otomatik verildi — kimse sessizce kaybetmesin). Deny-by-default.
+- Masaüstü + web: yetkisi olmayan kullanıcı için menü (import VEYA export ile görünür) ve **liste Excel
+  butonları** (Malzeme/Araç/Günlük) "yetkiniz yok" uyarısı verir + işlem engellenir. API export uçları
+  `Require(export)` → 403. Reports export kendi özel-buton yetkisinde (dokunulmadı).
+- API+Web deploy (Migration056 canlı PG'de), masaüstü 1.0.96. Test 583/594.
+- **Karaman veri notu (Tema B için):** firma OZE, KARAMAN şubesi var; test kullanıcısı test.personel / TEST
+  ŞANTİYE. Beklenen: ortak malzeme listesi HER şubede; **stok şube-bazlı** → TEST ŞANTİYE'de stok 0, mevcut
+  stok Karaman'da; başka şubede manuel giriş olmadan otomatik stok gelmez.
+
+### 📥 İçe aktarımda zorunlu şube seçimi (2026-07-26, masaüstü 1.0.95)
 - İçe aktarım ekranında **"Şube (zorunlu)"** seçici: **"Tüm Şubeler"** (firma geneli) + firmanın şubeleri.
   **Seçim yapılmadan import ENGELLENİR.** Seçilen şube oturum kopyasıyla (OperatingBranchId override) tüm
   import'lara geçer (yakıt/bakım/günlük/stok op_branch_id; araç/personel satırında Şube boşsa bu şubeye düşer).
