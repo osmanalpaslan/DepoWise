@@ -3,7 +3,7 @@
         x:Class="DepoWise.Desktop.Views.MaterialQuickEditWindow"
         Width="560" SizeToContent="Height" MaxHeight="720" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="DepoWise — Malzeme" Icon="/Assets/app-logo.ico"
+        Title="Alpnex — Malzeme" Icon="/Assets/app-logo.ico"
         Background="{DynamicResource SurfaceBrush}">
     <!-- Çift-tık ile açılan hızlı düzenle penceresi (kullanıcı isteği 2026-07-19). "Düzelt"e basılana kadar
          alanlar KİLİTLİ (IsEnabled=false); basınca düzenlenir. Kod-arkası (DataContext bağlaması YOK) —

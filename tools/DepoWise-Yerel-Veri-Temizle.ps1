@@ -1,16 +1,16 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-#  DepoWise — YEREL VERİYİ TAMAMEN TEMİZLE
-#  Bu makinedeki TÜM DepoWise yerel verisini KALICI siler:
-#    • Veritabanı (malzeme/araç/stok/… + oturum önbelleği)   %LOCALAPPDATA%\DepoWise\
+#  Alpnex — YEREL VERİYİ TAMAMEN TEMİZLE
+#  Bu makinedeki TÜM Alpnex yerel verisini KALICI siler:
+#    • Veritabanı (malzeme/araç/stok/… + oturum önbelleği)   %LOCALAPPDATA%\Alpnex\
 #    • Makine kimliği (firma/şube), "beni hatırla", güncelleme önbelleği, loglar
-#    • Yedekler                                               Belgeler\DepoWise_Yedekler\
+#    • Yedekler                                               Belgeler\Alpnex_Yedekler\
 #  Sunucudaki veriye DOKUNMAZ. Geri alınamaz. Uygulama sonraki açılışta sıfırdan başlar.
 # ═══════════════════════════════════════════════════════════════════════════════
 $ErrorActionPreference = 'Continue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-$appData  = Join-Path $env:LOCALAPPDATA 'DepoWise'
-$yedekler = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'DepoWise_Yedekler'
+$appData  = Join-Path $env:LOCALAPPDATA 'Alpnex'
+$yedekler = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Alpnex_Yedekler'
 $hedefler = @($appData, $yedekler)
 
 function KlasorBoyutu($p) {
@@ -23,10 +23,10 @@ function KlasorBoyutu($p) {
 
 Write-Host ''
 Write-Host '  ================================================================'
-Write-Host '   DepoWise - YEREL VERIYI TAMAMEN TEMIZLE'
+Write-Host '   Alpnex - YEREL VERIYI TAMAMEN TEMIZLE'
 Write-Host '  ================================================================'
 Write-Host ''
-Write-Host '  Bu makinedeki TUM DepoWise yerel verisi KALICI silinecek:'
+Write-Host '  Bu makinedeki TUM Alpnex yerel verisi KALICI silinecek:'
 Write-Host ''
 $varMi = $false
 foreach ($h in $hedefler) {
@@ -59,9 +59,9 @@ if ($onay -ne 'EVET') {
     return
 }
 
-# 1) Calisan DepoWise'i kapat (dosyalar kilitli kalmasin)
+# 1) Calisan Alpnex'i kapat (dosyalar kilitli kalmasin)
 Write-Host ''
-Write-Host '  DepoWise kapatiliyor (aciksa)...'
+Write-Host '  Alpnex kapatiliyor (aciksa)...'
 try { Get-Process 'DepoWise.Desktop' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 800 } catch {}
 
 # 2) Sil
@@ -81,6 +81,6 @@ foreach ($h in $hedefler) {
 
 Write-Host ''
 Write-Host ("  Tamamlandi. {0} konum temizlendi." -f $silinen)
-Write-Host '  Artik DepoWise''i acip giris yaptiginizda bos, temiz bir yerelle baslayacaksiniz.'
+Write-Host '  Artik Alpnex''i acip giris yaptiginizda bos, temiz bir yerelle baslayacaksiniz.'
 Write-Host ''
 Read-Host '  Kapatmak icin Enter'

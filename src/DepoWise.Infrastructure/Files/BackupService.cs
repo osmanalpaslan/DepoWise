@@ -9,7 +9,7 @@ public sealed record BackupInfo(string Path, long SizeBytes, long CreatedAt);
 
 /// <summary>
 /// Masaüstü SQLite yedeği: tutarlı tek dosya (`VACUUM INTO`), 30 gün saklama, bütünlük kontrolü
-/// (PRAGMA integrity_check) ve gerçek geri yükleme. Yedek klasörü uygulama dışı (Belgeler\DepoWise_Yedekler).
+/// (PRAGMA integrity_check) ve gerçek geri yükleme. Yedek klasörü uygulama dışı (Belgeler\Alpnex_Yedekler).
 /// </summary>
 public sealed class BackupService
 {
@@ -23,7 +23,7 @@ public sealed class BackupService
         _factory = factory;
         _clock = clock ?? new SystemClock();
         _folder = backupFolder ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DepoWise_Yedekler");
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Alpnex_Yedekler");
         Directory.CreateDirectory(_folder);
     }
 

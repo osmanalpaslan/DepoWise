@@ -147,7 +147,7 @@ public static class DesktopServices
         Companies = new CompanyService(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
         Update = new UpdateService(System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "update"));
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "update"));
         UpdateDownload = new UpdateDownloadService();
         UpdateApi = new UpdateApiClient();
         Enrollment = new DepoWise.Infrastructure.Sync.EnrollmentService(Factory, clock);

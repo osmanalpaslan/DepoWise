@@ -25,7 +25,7 @@ public static class UpdateInstaller
             throw new InvalidOperationException("Paket checksum doğrulamasını geçemedi (bozuk indirme).");
 
         var installDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise");
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex");
         var stagingRoot = Path.Combine(root, "staging");
         var staging = Path.Combine(stagingRoot, version);
         Directory.CreateDirectory(stagingRoot);

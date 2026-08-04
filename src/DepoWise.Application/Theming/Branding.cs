@@ -40,8 +40,8 @@ public sealed record BrandingSettings(
     string? Copyright)
 {
     public static BrandingSettings Default => new(
-        AppName: "DepoWise",
-        CompanyName: "DepoWise",
+        AppName: "Alpnex",
+        CompanyName: "Alpnex",
         LogoPath: null,
         Contact: null,
         Website: null,

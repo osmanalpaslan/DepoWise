@@ -47,8 +47,8 @@ public class SkeletonSmokeTests : IDisposable
     {
         var path = AppPaths.DatabasePath("Development");
         Assert.True(Path.IsPathRooted(path));
-        Assert.Contains("DepoWise", path);
-        Assert.EndsWith("depowise.db", path);
+        Assert.Contains("Alpnex", path);
+        Assert.EndsWith("alpnex.db", path);
     }
 
     [Fact]

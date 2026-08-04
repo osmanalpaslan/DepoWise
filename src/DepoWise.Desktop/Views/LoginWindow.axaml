@@ -10,7 +10,7 @@
         Icon="/Assets/app-logo.ico"
         WindowStartupLocation="CenterScreen"
         TransparencyLevelHint="None"
-        Title="DepoWise — Giriş">
+        Title="Alpnex — Giriş">
 
     <Window.Background>
         <RadialGradientBrush Center="50%,-8%" GradientOrigin="50%,-8%" RadiusX="90%" RadiusY="75%">

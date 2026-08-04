@@ -69,7 +69,7 @@
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <Image Source="/Assets/app-icon-256.png" Width="48" Height="48" VerticalAlignment="Center"/>
-                        <SelectableTextBlock Text="DepoWise" Classes="SectionTitle" VerticalAlignment="Center"
+                        <SelectableTextBlock Text="Alpnex" Classes="SectionTitle" VerticalAlignment="Center"
                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
                 </Border>

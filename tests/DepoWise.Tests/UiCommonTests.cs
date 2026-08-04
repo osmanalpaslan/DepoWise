@@ -153,7 +153,7 @@ public class UiCommonTests : IDisposable
 
         // Varsayılan (override yok)
         Assert.Equal(ThemeTokens.Default.Primary, svc.GetTheme("A").Primary);
-        Assert.Equal("DepoWise", svc.GetBranding("A").AppName);
+        Assert.Equal("Alpnex", svc.GetBranding("A").AppName);
 
         // Firma override
         svc.Set("A", SettingKeys.ThemePrimary, "#FF0000", userId: "u1");

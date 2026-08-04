@@ -6,7 +6,9 @@ namespace DepoWise.Infrastructure.Database;
 /// </summary>
 public static class AppPaths
 {
-    public const string AppFolderName = "DepoWise";
+    // Marka değişimi (2026-07-26): yerel veri klasörü artık "Alpnex". Veriler sıfırlandığı için taşıma gerekmedi.
+    // (İç kod adı DepoWise.* namespace olarak kalır — kullanıcı görmez; bu yalnız disk klasör adıdır.)
+    public const string AppFolderName = "Alpnex";
 
     public static string DataDirectory(string environment)
     {
@@ -17,7 +19,7 @@ public static class AppPaths
     }
 
     public static string DatabasePath(string environment)
-        => Path.Combine(DataDirectory(environment), "depowise.db");
+        => Path.Combine(DataDirectory(environment), "alpnex.db");
 
     private static string Sanitize(string environment)
     {

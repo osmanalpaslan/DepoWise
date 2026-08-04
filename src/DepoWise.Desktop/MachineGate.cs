@@ -21,9 +21,9 @@ public static class MachineGate
     public sealed record MachineCheck(bool Allowed, string Reason, string? Status, string? BranchId, string? BranchName, bool Online, string? CompanyId = null, string? CompanyName = null);
 
     private static string StatusFile => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "machine_status.txt");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "machine_status.txt");
     private static string BranchFile => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "machine_branch.txt");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "machine_branch.txt");
 
     public static async Task<MachineCheck> CheckAsync(string companyId)
     {

@@ -413,7 +413,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
         try
         {
             var dir = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "branding");
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "branding");
             System.IO.Directory.CreateDirectory(dir);
             var dest = System.IO.Path.Combine(dir, "company-logo" + System.IO.Path.GetExtension(src));
             System.IO.File.Copy(src, dest, overwrite: true);

@@ -33,7 +33,7 @@ sealed class SetupForm : Form
             .FirstOrDefault(a => a.Key == "ServerUrl")?.Value?.TrimEnd('/')
             ?? "https://depowise-erp.fly.dev";
 
-        Text = "DepoWise Kurulum";
+        Text = "Alpnex Kurulum";
         Width = 560; Height = 320;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -42,19 +42,19 @@ sealed class SetupForm : Form
         Font = new System.Drawing.Font("Segoe UI", 9.5f);
         ForeColor = System.Drawing.Color.White;
 
-        _title = new Label { Text = "DepoWise Kurulum", Left = 24, Top = 20, Width = 500, Height = 30,
+        _title = new Label { Text = "Alpnex Kurulum", Left = 24, Top = 20, Width = 500, Height = 30,
             Font = new System.Drawing.Font("Segoe UI", 16f, System.Drawing.FontStyle.Bold), ForeColor = System.Drawing.Color.FromArgb(59, 130, 246) };
         _serverLbl = new Label { Text = "Sunucu: " + _server, Left = 24, Top = 56, Width = 500, Height = 20,
             ForeColor = System.Drawing.Color.FromArgb(148, 163, 184) };
 
         var lbl = new Label { Text = "Kurulum klasörü:", Left = 24, Top = 92, Width = 500, Height = 20 };
         _dir = new TextBox { Left = 24, Top = 114, Width = 400, Height = 26,
-            Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "app") };
+            Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "app") };
         _browse = new Button { Text = "Gözat…", Left = 432, Top = 113, Width = 90, Height = 28, FlatStyle = FlatStyle.Flat };
         _browse.Click += (_, _) =>
         {
             using var d = new FolderBrowserDialog();
-            if (d.ShowDialog() == DialogResult.OK) _dir.Text = Path.Combine(d.SelectedPath, "DepoWise");
+            if (d.ShowDialog() == DialogResult.OK) _dir.Text = Path.Combine(d.SelectedPath, "Alpnex");
         };
 
         _progress = new ProgressBar { Left = 24, Top = 168, Width = 498, Height = 22, Minimum = 0, Maximum = 100, Style = ProgressBarStyle.Continuous };
@@ -84,7 +84,7 @@ sealed class SetupForm : Form
         if (_busy) return;
         _busy = true; _install.Enabled = false; _browse.Enabled = false; _dir.Enabled = false;
         var installDir = string.IsNullOrWhiteSpace(_dir.Text)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DepoWise", "app")
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex", "app")
             : _dir.Text.Trim();
         try
         {
@@ -102,7 +102,7 @@ sealed class SetupForm : Form
             if (string.IsNullOrWhiteSpace(downloadUrl)) throw new Exception("Paket indirme adresi yok.");
             if (downloadUrl.StartsWith("/")) downloadUrl = _server + downloadUrl;
 
-            var tmpZip = Path.Combine(Path.GetTempPath(), $"depowise-{version}.zip");
+            var tmpZip = Path.Combine(Path.GetTempPath(), $"alpnex-{version}.zip");
             SetStatus($"Sürüm {version} indiriliyor…");
             await DownloadAsync(http, downloadUrl!, tmpZip);
 
@@ -117,9 +117,9 @@ sealed class SetupForm : Form
             if (File.Exists(exe)) TryCreateShortcut(exe, installDir);
 
             SetProgress(100);
-            SetStatus($"Kurulum tamamlandı (sürüm {version}). Masaüstündeki 'DepoWise' kısayolundan açabilirsiniz.");
-            MessageBox.Show(this, $"Kurulum tamamlandı (sürüm {version}).\nMasaüstündeki 'DepoWise' kısayolundan açabilirsiniz.",
-                "DepoWise Kurulum", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            SetStatus($"Kurulum tamamlandı (sürüm {version}). Masaüstündeki 'Alpnex' kısayolundan açabilirsiniz.");
+            MessageBox.Show(this, $"Kurulum tamamlandı (sürüm {version}).\nMasaüstündeki 'Alpnex' kısayolundan açabilirsiniz.",
+                "Alpnex Kurulum", MessageBoxButtons.OK, MessageBoxIcon.Information);
             _done = true;
             _install.Text = "Kapat";
             _install.BackColor = System.Drawing.Color.FromArgb(59, 130, 246);
@@ -196,14 +196,14 @@ sealed class SetupForm : Form
         try
         {
             var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            var lnk = Path.Combine(desktop, "DepoWise.lnk");
+            var lnk = Path.Combine(desktop, "Alpnex.lnk");
             var t = Type.GetTypeFromProgID("WScript.Shell");
             if (t is null) return;
             dynamic shell = Activator.CreateInstance(t)!;
             var sc = shell.CreateShortcut(lnk);
             sc.TargetPath = exePath;
             sc.WorkingDirectory = workingDir;
-            sc.Description = "DepoWise";
+            sc.Description = "Alpnex";
             sc.Save();
         }
         catch { /* kısayol başarısız olsa da kurulum tamam */ }

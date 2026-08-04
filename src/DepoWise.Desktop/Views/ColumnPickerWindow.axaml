@@ -4,7 +4,7 @@
         x:Class="DepoWise.Desktop.Views.ColumnPickerWindow"
         Width="360" SizeToContent="Height" MaxHeight="600" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Title="DepoWise" Icon="/Assets/app-logo.ico"
+        Title="Alpnex" Icon="/Assets/app-logo.ico"
         Background="{DynamicResource SurfaceBrush}">
     <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
         <StackPanel Margin="24" Spacing="12">

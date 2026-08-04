@@ -21,7 +21,7 @@ public static class SyncLog
         try
         {
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "DepoWise", "logs");
+                "Alpnex", "logs");
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, "sync.log");
         }
