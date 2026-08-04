@@ -34,6 +34,36 @@ else if (!_unlocked)
             @(_busy ? "Kontrol ediliyor…" : "KİLİDİ AÇ")
         </MudButton>
         @if (_lockMsg is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_lockMsg</MudAlert> }
+
+        @* ── ÖZEL KODU UNUTTUM → ŞİFREYLE YENİLE (2026-07-26) ── kodu geri getirmek imkânsız (hashed);
+           şifreni doğrulayıp YENİ kodu SEN belirlersin. ── *@
+        <MudDivider Class="my-3" />
+        @if (!_forgot)
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => { _forgot = true; _resetMsg = null; })">
+                Özel kodu unuttum → şifreyle yenile
+            </MudButton>
+        }
+        else
+        {
+            <MudText Typo="Typo.subtitle2" Class="mt-1">Özel Kodu Yenile</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">
+                Şifrenizi doğrulayıp yeni bir özel kod belirleyin. Yeni kodu yalnız siz bilirsiniz.
+            </MudText>
+            <MudTextField @bind-Value="_pwReset" Label="Şifreniz" InputType="InputType.Password" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" UserAttributes="_newPw" />
+            <MudTextField @bind-Value="_newCode1" Label="Yeni Özel Kod" InputType="InputType.Password" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" UserAttributes="_newPw" Class="mt-2" />
+            <MudTextField @bind-Value="_newCode2" Label="Yeni Özel Kod (Tekrar)" InputType="InputType.Password" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" UserAttributes="_newPw" Class="mt-2" />
+            <MudStack Row="true" Class="mt-2" Spacing="2">
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => _forgot = false)" Disabled="_busy">Vazgeç</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="ResetSpecialCode" Disabled="_busy">
+                    @(_busy ? "Kaydediliyor…" : "YENİ KODU KAYDET")
+                </MudButton>
+            </MudStack>
+            @if (_resetMsg is not null) { <MudAlert Severity="@(_resetOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_resetMsg</MudAlert> }
+        }
     </MudPaper>
 }
 else
@@ -94,6 +124,34 @@ else
     private string? _companyId;
     private List<ApiClient.Opt> _companies = new();
     private string? _lockMsg, _msg; private bool _ok; private bool _busy;
+
+    // Özel kodu unuttum → şifreyle yenile (2026-07-26)
+    private bool _forgot;
+    private string _pwReset = "", _newCode1 = "", _newCode2 = "";
+    private string? _resetMsg; private bool _resetOk;
+
+    private async Task ResetSpecialCode()
+    {
+        _resetMsg = null;
+        if (string.IsNullOrWhiteSpace(_pwReset)) { _resetMsg = "Şifrenizi girin."; _resetOk = false; return; }
+        if (string.IsNullOrWhiteSpace(_newCode1)) { _resetMsg = "Yeni özel kodu girin."; _resetOk = false; return; }
+        if (_newCode1 != _newCode2) { _resetMsg = "Yeni özel kodlar eşleşmiyor."; _resetOk = false; return; }
+        _busy = true;
+        try
+        {
+            // API: kod zaten varsa şifre doğrulanır, sonra YENİ kod yazılır (SpecialCodeDto: code + password).
+            var err = await Api.PostAsync("/api/auth/special-code", new { code = _newCode1.Trim(), password = _pwReset });
+            _resetOk = err is null;
+            if (_resetOk)
+            {
+                _resetMsg = "Yeni özel kod kaydedildi. Şimdi bu kodla kilidi açabilirsiniz.";
+                _code = ""; _pwReset = ""; _newCode1 = ""; _newCode2 = ""; _forgot = false;
+            }
+            else _resetMsg = err!.Contains("şifre", StringComparison.OrdinalIgnoreCase) ? "Şifreniz hatalı." : err;
+        }
+        catch (Exception ex) { _resetOk = false; _resetMsg = "Bağlantı hatası: " + ex.Message; }
+        finally { _busy = false; }
+    }
 
     private string SelectedName => _companies.FirstOrDefault(c => c.Id == _companyId)?.Name ?? "";
 
