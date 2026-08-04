@@ -134,6 +134,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     [RelayCommand]
     private async Task ExportExcel()
     {
+        // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26).
+        if (!DepoWise.Application.Security.AccessControl.Can(_session, "export", DepoWise.Application.Security.PermissionAction.View))
+        { Status = "Dışa aktarım (export) yetkiniz yok."; return; }
         if (IsExporting) return;
         IsExporting = true;
         try

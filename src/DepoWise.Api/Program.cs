@@ -794,6 +794,7 @@ app.MapGet("/api/materials/grid/export", (HttpContext c,
     string? compatibleVehicles, string? equivalents, string? sort, bool? desc) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
         description, compatibleVehicles, equivalents);
@@ -899,6 +900,7 @@ app.MapGet("/api/vehicles/grid/export", (HttpContext c,
     string? chassisNo, string? engineNo, string? sort, bool? desc) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Vehicles.VehicleGridFilter(
         internalCode, plate, productionYear, meter, status, statusNote, vehicleType, category, brand, model,
         branch, driver, chassisNo, engineNo);
@@ -946,6 +948,7 @@ app.MapGet("/api/daily/grid/export", (HttpContext c,
     string? sort, bool? desc) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description);
     var rows = svc.DailyActivity.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
     var bytes = svc.Excel.Export(DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows));

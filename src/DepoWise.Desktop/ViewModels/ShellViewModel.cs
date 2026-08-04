@@ -678,10 +678,17 @@ public sealed partial class ShellViewModel : ViewModelBase
         // Verilmeyen ekran menüde GÖRÜNMEZ (deny-by-default).
         return all
             .Select(g => new NavGroupVm(g.Icon, g.Title, g.ModuleKey,
-                g.Children.Where(c => AccessControl.CanSeeMenu(s, BaseKey(c.Key))).ToList(), g.IsExpanded))
+                g.Children.Where(c => CanSeeChild(s, BaseKey(c.Key))).ToList(), g.IsExpanded))
             .Where(g => g.Children.Count > 0)
             .ToList();
     }
+
+    /// <summary>Menü görünürlüğü. İmport / Export ekranı, içe VEYA dışa aktarım yetkisinden en az biri varsa
+    /// görünür (2026-07-26 ayrımı); ekran içinde her bölüm kendi yetkisiyle ayrıca korunur.</summary>
+    private static bool CanSeeChild(SessionContext s, string key)
+        => key == "import_export"
+            ? AccessControl.Can(s, "import_export", PermissionAction.View) || AccessControl.Can(s, "export", PermissionAction.View)
+            : AccessControl.CanSeeMenu(s, key);
 
     private static string BaseKey(string key)
     {

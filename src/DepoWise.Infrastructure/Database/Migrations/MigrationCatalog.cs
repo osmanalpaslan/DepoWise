@@ -60,5 +60,6 @@ public static class MigrationCatalog
         new Migration053_PostgresTurkishCollations(),
         new Migration054_MaterialTemplateLink(),
         new Migration055_MaterialBranch(),
+        new Migration056_ExportPermission(),
     };
 }

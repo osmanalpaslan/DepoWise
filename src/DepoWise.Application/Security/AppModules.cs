@@ -68,7 +68,8 @@ public static class AppModules
         ("request_approval", "Talep Onaylama"),
         ("personnel", "Personel"),
         ("reports", "Raporlar"),
-        ("import_export", "İmport / Export"),
+        ("import_export", "İçe Aktarım (Import)"),   // 2026-07-26: yalnız İÇE AKTARIM
+        ("export", "Dışa Aktarım (Export)"),         // 2026-07-26: ayrı DIŞA AKTARIM (liste Excel butonları dahil)
         ("files", "Dosya / Fotoğraf"),
         ("audit", "Sistem Logu / Audit"),
         ("backup", "Yedekleme"),

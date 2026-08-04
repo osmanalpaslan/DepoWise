@@ -427,6 +427,40 @@ public class AuthPermissionTests : IDisposable
     }
 
     [Fact]
+    public void ImportExport_Yetkileri_Ayri_DenyByDefault()
+    {
+        // Kullanıcı isteği 2026-07-26: içe (import_export) ve dışa (export) aktarım AYRI yetki; biri diğerini vermez.
+        var users = new UserService(_factory, _clock);
+        var perms = new PermissionService(_factory, _clock);
+        users.EnsureInitialAdmin("A", "root", "root123", RoleKeys.SuperAdmin);
+        var auth = new AuthService(_factory, _clock);
+        var su = auth.Login("A", "root", "root123").Session!;
+
+        var staffId = users.CreateUser(su, new NewUser("per", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+
+        // Yalnız İÇE AKTARIM ver → dışa aktarım deny-by-default kapalı
+        perms.SaveForUser(su, staffId, new[] { new ModulePermission("import_export", true, false, false, false) }, Array.Empty<string>());
+        var staff = auth.Login("A", "per", "p12345").Session!;
+        Assert.True(AccessControl.Can(staff, "import_export", PermissionAction.View));
+        Assert.False(AccessControl.Can(staff, "export", PermissionAction.View));
+
+        // DIŞA AKTARIM da ver → artık açık
+        perms.SaveForUser(su, staffId, new[]
+        {
+            new ModulePermission("import_export", true, false, false, false),
+            new ModulePermission("export", true, false, false, false),
+        }, Array.Empty<string>());
+        var staff2 = auth.Login("A", "per", "p12345").Session!;
+        Assert.True(AccessControl.Can(staff2, "export", PermissionAction.View));
+
+        // Admin bypass: ikisi de açık
+        var adminId = users.CreateUser(su, new NewUser("adm", "p12345", null, new[] { RoleKeys.CompanyAdmin }, CompanyId: "A"));
+        var admin = auth.Login("A", "adm", "p12345").Session!;
+        Assert.True(AccessControl.Can(admin, "export", PermissionAction.View));
+        Assert.True(AccessControl.Can(admin, "import_export", PermissionAction.View));
+    }
+
+    [Fact]
     public void SubeKodSifre_YalnizAdmin_GorurVeDegistirir()
     {
         var users = new UserService(_factory, _clock);

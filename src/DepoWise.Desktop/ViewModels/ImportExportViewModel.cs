@@ -61,6 +61,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     [RelayCommand]
     private async Task Export()
     {
+        // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26).
+        if (!AccessControl.Can(_session, "export", PermissionAction.View))
+        { Status = "Dışa aktarım (export) yetkiniz yok."; return; }
         try
         {
             var table = BuildTable(SelectedExport);
@@ -94,6 +97,9 @@ public sealed partial class ImportExportViewModel : ViewModelBase
     private async Task Import()
     {
         ImportResult = null;
+        // Deny-by-default: içe aktarım yetkisi (2026-07-26 — export'tan ayrı).
+        if (!AccessControl.Can(_session, "import_export", PermissionAction.View))
+        { ImportResult = "İçe aktarım (import) yetkiniz yok."; return; }
         try
         {
             // ZORUNLU şube seçimi: seçilmeden içe aktarım yapılamaz (kullanıcı isteği 2026-07-26).

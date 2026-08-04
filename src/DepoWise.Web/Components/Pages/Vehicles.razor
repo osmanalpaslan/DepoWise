@@ -6,6 +6,7 @@
 @inject IDialogService Dialog
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
 
@@ -415,6 +416,8 @@
     /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları indirir.</summary>
     private async Task ExportExcel()
     {
+        // Deny-by-default: dışa aktarım ayrı yetki (2026-07-26). API da 403 döner; butonda uyarı + işlem yok.
+        if (!Auth.CanView("export")) { Snackbar.Add("Dışa aktarım (export) yetkiniz yok.", Severity.Warning); return; }
         if (_exporting) return;
         _exporting = true;
         try
