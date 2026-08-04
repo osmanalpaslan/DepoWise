@@ -29,6 +29,23 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
 
+### 🏷️ MARKA DEĞİŞTİ: DepoWise → **Alpnex** (2026-07-26, masaüstü **1.0.97** CANLI)
+Proje adı hukuken başkasına ait olduğu için marka **Alpnex** oldu. Baba tüm veriyi (yerel+sunucu) sıfırladı
+→ yerel klasör adı güvenle değişti (taşıma gerekmedi). **Seçenek A uygulandı:**
+- **DEĞİŞTİ:** görünür isimler (web PageTitle/başlık, masaüstü pencere başlıkları+üst bar, Kurulum "Alpnex
+  Kurulum" + Alpnex.lnk), merkezî marka (`BrandingSettings.Default`=Alpnex), yerel klasör/DB
+  (`%LOCALAPPDATA%\Alpnex\...\alpnex.db`, update/logs/machine/branding + Belgeler\Alpnex_Yedekler),
+  **logolar** (web `wwwroot` + masaüstü `Assets`; yeni şeffaf logodan üretildi).
+- **KALDI (kasıtlı, A):** iç kod adı `DepoWise.*` namespace/assembly + **exe `DepoWise.Desktop.exe`**
+  (kullanıcı görmez) + **Fly altyapısı** (`depowise-erp`/`depowise-web` app adları, URL, Neon `depowise_prod`,
+  secret `DEPOWISE_*`) + varsayılan firma-id `"DEPOWISE"` (iç kimlik).
+- **KAPSAM DIŞI:** `login-bg.png` / `login-hero.png` (yeni arka plan görseli verilmedi → dokunulmadı).
+- Test 583/594 (yol/marka assert'leri Alpnex'e güncellendi). Web canlı doğrulandı (sekme "Giriş — Alpnex").
+- ⚠️ **Kurulum notu:** klasör adı değiştiği için **en temiz yol yeni Kurulum aracıyla SIFIRDAN kurmak**
+  (Alpnex klasörü + Alpnex.lnk). Eski `%LOCALAPPDATA%\DepoWise\` + eski kısayol elle silinebilir. (Oto-güncelleme
+  de çalışır ama klasör geçişi nedeniyle bir kez fazladan güncelleme turu olabilir.)
+- Envanter/analiz: [docs/REBRAND_ANALIZI.md](docs/REBRAND_ANALIZI.md).
+
 ### 🔐 İçe/dışa aktarım yetki ayrımı (2026-07-26, masaüstü **1.0.96** CANLI)
 - `import_export` artık yalnız **İÇE AKTARIM**; **`export`** ayrı modül (Migration056: mevcut import_export
   sahiplerine export otomatik verildi — kimse sessizce kaybetmesin). Deny-by-default.
