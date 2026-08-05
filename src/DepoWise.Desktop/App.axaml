@@ -89,7 +89,14 @@
             <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
         </Style>
         <Style Selector="Button.NavRail.active /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3AE0951B" Offset="0"/>
+                        <GradientStop Color="#14E0951B" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Üst bar ikon düğmesi (hamburger vb.) -->
@@ -127,7 +134,14 @@
             <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
         </Style>
         <Style Selector="ToggleButton.NavGroup.active /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                        <GradientStop Color="#3AE0951B" Offset="0"/>
+                        <GradientStop Color="#10E0951B" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
         </Style>
         <!-- chevron: açıkken 90° döner -->
         <Style Selector="ToggleButton.NavGroup TextBlock.chev">

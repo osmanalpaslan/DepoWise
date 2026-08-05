@@ -1,41 +1,118 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
-      DepoWise ortak bileşen stilleri (Faz 5) — built-in kontroller için OPT-IN sınıf stilleri.
-      Tüm seçiciler Classes ile kapsanır → Classes'sız mevcut kontroller ETKİLENMEZ.
-      Renkler tema kaynağından (DynamicResource). Button.Primary + Border.Card Controls.axaml'de.
+      Alpnex ortak bileşen stilleri — AURORA.
+      src/DepoWise.Desktop/Themes/Components.axaml dosyasının YERİNE geçer.
+
+      ⚠ ÖNCEKİ SÜRÜMDEKİ ASIL SORUN:
+        Button.Secondary  = #475569  (sabit gri)
+        Button.Ghost      = #5B6473  (sabit gri)
+        ikisi de beyaz yazıyla. Bunlar TOKEN değil sabit hex olduğu için Palette.axaml
+        değişse bile butonlar gri kalıyordu — webdeki "her buton gri" sorununun
+        masaüstü ikizi. Ayrıca açık temada gri blok + beyaz yazı kötü duruyordu.
+
+      ✅ Aurora çözümü: butonlar tema renginden türeyen yarı saydam yüzeyler +
+        TextPrimaryBrush yazı. İki temada da okunur; palet değişince birlikte değişir.
+        (2026-07-19'daki "açık temada görünmüyor" şikâyeti böyle de çözülmüş kalıyor.)
+
+      Tüm seçiciler Classes ile kapsanır → Classes'sız kontroller ETKİLENMEZ.
+      Sınıf adları DEĞİŞMEDİ; ekranlar aynen çalışır.
+
+      ✔ YÜKLEME SIRASI DOĞRULANDI: App.axaml satır 49 = Controls.axaml,
+        satır 51 = Components.axaml. Avalonia'da sonra gelen stil kazandığı için bu
+        dosyadaki ezmeler geçerlidir. Şablon (Template) EZİLMİYOR; yalnız tek tek
+        özellikler inceltiliyor.
+
+      ✔ Controls.axaml OKUNDU. Orada tanımlı ve burada bilinçli ezilenler:
+        Button.Primary           → Background=AccentBrush (düz), Foreground=#FFFFFF
+                                   Beyaz yazı kehribar üstünde zayıf kontrast → #241703 yapıldı.
+        Border.Kpi               → Height=104, Width=200, Padding=PadCard, ShadowSm  (KORUNUYOR)
+        Border.Kpi.primary       → Background=AccentBrush (DOLU kehribar) + beyaz KpiValue
+                                   Aurora'da yumuşak kehribar yüzey → yazı renkleri de düzeltildi.
+        Border.IconChip          → 34x34 Radius8   → 26x26 Radius6
+        Border.AlertRow          → Radius8, Padding 12,10, Margin 0,3  (Margin korunuyor)
+        Tipografi (:is(TextBlock).PageTitle/SectionTitle/CardLabel/Metric/Body/Helper)
+                                 → FontFamily + token boyutları zaten doğru; burada
+                                   yalnız ağırlık/aralık inceltiliyor.
+        Border.SurfaceElevated, Border.Divider → dokunulmuyor.
     -->
 
-    <!-- ============ Butonlar (Primary zaten Controls.axaml'de) ============ -->
-    <!-- Secondary: kullanıcı isteği 2026-07-19 "bütün butonlarda yazı BEYAZ" → çerçeveli buton yerine koyu
-         nötr zemin (#475569) + beyaz yazı ki açık temada da okunur olsun. -->
+    <!-- ════════════════════════════════════════════════════════════════════
+         BUTONLAR
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Primary incelmesi: kehribar gradyan.
+         Controls.axaml'de Background Button'ın KENDİSİNDE (AccentBrush), hover ise
+         /template/ ContentPresenter üzerinde tanımlı. Gradyanı ContentPresenter'a
+         yazıyoruz (TemplateBinding'i ezer, kesin uygular) — bu yüzden hover kuralını da
+         BURADA tekrar tanımlamak ZORUNLU: aksi halde bizim (sonra gelen) taban kuralımız
+         Controls'ün hover kuralını da ezer ve hover ölürdü. -->
+    <Style Selector="Button.Primary">
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+        <Setter Property="Padding" Value="15,9"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="#241703"/>
+    </Style>
+    <Style Selector="Button.Primary /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#FBBF4A" Offset="0"/>
+                    <GradientStop Color="#F0980D" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style Selector="Button.Primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#FFCB63" Offset="0"/>
+                    <GradientStop Color="#F5A623" Offset="1"/>
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Secondary: nötr cam yüzey, tema-uyumlu yazı (eski sabit gri yerine) -->
     <Style Selector="Button.Secondary">
-        <Setter Property="Background" Value="#475569"/>
-        <Setter Property="Foreground" Value="#FFFFFF"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <Style Selector="Button.Secondary /template/ ContentPresenter"><Setter Property="Foreground" Value="#FFFFFF"/></Style>
+    <Style Selector="Button.Secondary /template/ ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+    </Style>
     <Style Selector="Button.Secondary:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#556072"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
     </Style>
 
-    <!-- Ghost: aynı gerekçe — beyaz yazı okunsun diye koyu nötr zemin (Secondary'den biraz daha açık). -->
+    <!-- Ghost: en hafif eylem — çerçevesiz, yalnız hover'da yüzey -->
     <Style Selector="Button.Ghost">
-        <Setter Property="Background" Value="#5B6473"/>
-        <Setter Property="Foreground" Value="#FFFFFF"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <Style Selector="Button.Ghost /template/ ContentPresenter"><Setter Property="Foreground" Value="#FFFFFF"/></Style>
+    <Style Selector="Button.Ghost /template/ ContentPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+    </Style>
     <Style Selector="Button.Ghost:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#6B7483"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <!-- Danger: yıkıcı eylem -->
@@ -69,28 +146,50 @@
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.Icon:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <Style Selector="Button.Icon:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
-    <!-- Ortak: devre dışı tüm sınıf butonlarda -->
+    <!-- Ortak: devre dışı -->
     <Style Selector="Button.Primary:disabled, Button.Secondary:disabled, Button.Ghost:disabled, Button.Danger:disabled, Button.Icon:disabled">
         <Setter Property="Opacity" Value="0.45"/>
     </Style>
 
-    <!-- ============ TextBox / SearchBox ============ -->
-    <!-- Odaklanmadan da görünür olsun (kullanıcı isteği 2026-07-19: "tıklamadığımda arka plan ile aynı
-         renkte olduğu için karıştırabiliyorum") — zemin artık panelden ayırt edilsin diye SurfaceElevatedBrush
-         (Search kutusuyla aynı desen), kenarlık aynı kalır. -->
+    <!-- Yumuşak zemin geçişi -->
+    <Style Selector="Button.Primary /template/ ContentPresenter, Button.Secondary /template/ ContentPresenter, Button.Ghost /template/ ContentPresenter, Button.Danger /template/ ContentPresenter, Button.Icon /template/ ContentPresenter">
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         GİRİŞ ALANLARI — TextBox / ComboBox / NumericUpDown / DatePicker
+         Odaklanmadan da panelden ayrışsın (2026-07-19 isteği korunuyor).
+         ════════════════════════════════════════════════════════════════════ -->
     <Style Selector="TextBox.Field">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
-        <Setter Property="Padding" Value="10,8"/>
-        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="11,9"/>
+        <Setter Property="MinHeight" Value="40"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontBody}"/>
+    </Style>
+    <Style Selector="TextBox.Field /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
     </Style>
     <Style Selector="TextBox.Field:pointerover /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
@@ -101,40 +200,60 @@
     <Style Selector="TextBox.Field:focus-within /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
     </Style>
-    <Style Selector="TextBox.Field:disabled">
-        <Setter Property="Opacity" Value="0.5"/>
-    </Style>
-    <!-- Doğrulama hatası -->
+    <Style Selector="TextBox.Field:disabled"><Setter Property="Opacity" Value="0.5"/></Style>
     <Style Selector="TextBox.Field.error /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
     </Style>
 
-    <!-- SearchBox: hap köşe -->
+    <!-- Arama kutusu: hap köşe; Fluent ve Semi temalarında AYNI görünür (2026-07-19 isteği) -->
     <Style Selector="TextBox.Search">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="999"/>
-        <Setter Property="Padding" Value="12,7"/>
-        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="Padding" Value="13,8"/>
+        <Setter Property="MinHeight" Value="38"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
         <Setter Property="FontSize" Value="{StaticResource FontBody}"/>
+    </Style>
+    <Style Selector="TextBox.Search /template/ Border#PART_BorderElement">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TextBox.Search:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="TextBox.Search:focus-within /template/ Border#PART_BorderElement">
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
     </Style>
 
-    <!-- ============ ComboBox / NumericUpDown / DatePicker — ortak yüzey ============ -->
     <Style Selector="ComboBox.Field">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
-        <Setter Property="Padding" Value="10,7"/>
-        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="11,8"/>
+        <Setter Property="MinHeight" Value="40"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
+    </Style>
+    <Style Selector="ComboBox.Field /template/ Border#Background">
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                <BrushTransition Property="Background" Duration="0:0:0.16"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ComboBox.Field:pointerover /template/ Border#Background">
+        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
     <Style Selector="ComboBox.Field:focus /template/ Border#Background">
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
@@ -145,8 +264,8 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
-        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="MinHeight" Value="40"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
     </Style>
 
@@ -155,34 +274,37 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
-        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="MinHeight" Value="40"/>
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
     </Style>
 
-    <!-- ============ Tablo (ListBox tabanlı; DataGrid paketi Avalonia 12.0.4 ile uyumsuz → ileri faz) ============
-         Desen: dışta Border.Table; içte Grid.IsSharedSizeScope ile başlık (Border.TableHeader) +
-         ListBox.Table satırları. Sütun genişlikleri SharedSizeGroup ile hizalanır. -->
+    <!-- ════════════════════════════════════════════════════════════════════
+         TABLO (ListBox tabanlı; DataGrid paketi Avalonia 12.0.4 ile uyumsuz)
+         Desen: Border.Table > Border.TableHeader + ListBox.Table
+         ════════════════════════════════════════════════════════════════════ -->
     <Style Selector="Border.Table">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
         <Setter Property="ClipToBounds" Value="True"/>
     </Style>
-    <!-- Başlık satırı -->
     <Style Selector="Border.TableHeader">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
-        <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="MinHeight" Value="42"/>
         <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
     </Style>
     <Style Selector="Border.TableHeader :is(TextBlock)">
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontCardLabel}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="{StaticResource FontHelper}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="LetterSpacing" Value="0.9"/>
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
-    <!-- Satır listesi -->
     <Style Selector="ListBox.Table">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -201,37 +323,133 @@
         <Setter Property="FontSize" Value="{StaticResource FontBody}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
-    <!-- Çok hafif alternating (zebra) -->
-    <Style Selector="ListBox.Table ListBoxItem:nth-child(2n)">
-        <Setter Property="Background" Value="#0AFFFFFF"/>
-    </Style>
-    <Style Selector="ListBox.Table ListBoxItem:pointerover /template/ ContentPresenter">
+    <!-- Zebra: eski sürümde sabit #0AFFFFFF (beyaz katman) vardı → AÇIK TEMADA GÖRÜNMÜYORDU.
+         Artık tema token'ı: iki temada da doğru. -->
+    <Style Selector="ListBox.Table ListBoxItem:nth-child(2n) /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
     </Style>
+    <Style Selector="ListBox.Table ListBoxItem /template/ ContentPresenter">
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.13"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.Table ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <!-- Seçili satır: kehribar tonu + sol aksan (webdeki seçili satırla aynı dil) -->
     <Style Selector="ListBox.Table ListBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="3,0,0,0"/>
     </Style>
 
-    <!-- ============ Panel / SectionHeader yüzeyleri ============ -->
+    <!-- ════════════════════════════════════════════════════════════════════
+         PANEL / KART / KPI / UYARI SATIRI
+         Temel tanımlar Controls.axaml'de olabilir; burada yalnız Aurora inceltmesi.
+         ════════════════════════════════════════════════════════════════════ -->
     <Style Selector="Border.Panel">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius16}"/>
         <Setter Property="Padding" Value="{StaticResource PadPage}"/>
     </Style>
-
-    <!-- ============ Dialog / Confirmation ============ -->
-    <!-- Scrim (arka karartma) -->
-    <Style Selector="Border.DialogScrim">
-        <Setter Property="Background" Value="#88000000"/>
+    <Style Selector="Border.Card">
+        <Setter Property="CornerRadius" Value="{StaticResource Radius16}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
     </Style>
-    <!-- Dialog yüzeyi -->
+
+    <!-- KPI kartı: etiket üstte küçük, değer altta iri (DashboardView) -->
+    <!-- Height=104 / Width=200 Controls.axaml'den KORUNUYOR (kartlar eşit boy kalsın). -->
+    <Style Selector="Border.Kpi">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+    </Style>
+    <Style Selector="Border.Kpi:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+    <!-- primary KPI (Toplam Araç): Controls'te DOLU kehribar zemin + beyaz yazıydı.
+         Kehribar üstünde beyaz kontrastı zayıf → Aurora'da yumuşak kehribar yüzey +
+         normal metin renkleri. Controls'ün beyaz yazı kuralları burada geri alınıyor. -->
+    <Style Selector="Border.Kpi.primary">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="Border.Kpi.primary :is(TextBlock).KpiValue">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Border.Kpi.primary :is(TextBlock).KpiLabel">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+    </Style>
+    <Style Selector=":is(TextBlock).KpiValue">
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+    <Style Selector=":is(TextBlock).KpiLabel">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <!-- Controls'te 34x34 Radius8; Aurora'da etiket üstte/değer altta düzenine göre daha küçük. -->
+    <Style Selector="Border.IconChip">
+        <Setter Property="Width" Value="26"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius6}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+    </Style>
+    <Style Selector="Border.Kpi.primary Border.IconChip">
+        <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
+    </Style>
+
+    <!-- Uyarı satırı. Margin="0,3" Controls.axaml'den KORUNUYOR. -->
+    <Style Selector="Border.AlertRow">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="Padding" Value="12,11"/>
+    </Style>
+    <Style Selector="Border.AlertRow:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+    </Style>
+
+    <!-- Durum rozeti -->
+    <Style Selector="Border.StatusBadge">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         TİPOGRAFİ SINIFLARI
+         ════════════════════════════════════════════════════════════════════ -->
+    <!-- Controls.axaml'deki :is(TextBlock).X stilleri FontFamily + token boyutlarını
+         zaten doğru veriyor (Scales.axaml Aurora değerleriyle güncellendi). Burada
+         yalnız Aurora deltası: sayfa başlığı daha ağır, bölüm başlığı aralıklı. -->
+    <Style Selector=":is(TextBlock).PageTitle">
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="LetterSpacing" Value="-0.3"/>
+    </Style>
+    <Style Selector=":is(TextBlock).SectionTitle">
+        <Setter Property="LetterSpacing" Value="1.4"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         DİYALOG / YÜKLEME / TOAST
+         ════════════════════════════════════════════════════════════════════ -->
+    <Style Selector="Border.DialogScrim">
+        <Setter Property="Background" Value="#99000000"/>
+    </Style>
     <Style Selector="Border.Dialog">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius20}"/>
         <Setter Property="Padding" Value="{StaticResource PadPage}"/>
         <Setter Property="MaxWidth" Value="460"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -239,14 +457,13 @@
         <Setter Property="BoxShadow" Value="{StaticResource ShadowMd}"/>
     </Style>
 
-    <!-- ============ Loading / Skeleton ============ -->
     <Style Selector="ProgressBar.Loading">
         <Setter Property="IsIndeterminate" Value="True"/>
         <Setter Property="Height" Value="4"/>
+        <Setter Property="CornerRadius" Value="999"/>
         <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
     </Style>
-    <!-- Skeleton placeholder: hafif nabız -->
     <Style Selector="Border.Skeleton">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius6}"/>
@@ -261,12 +478,11 @@
         </Style.Animations>
     </Style>
 
-    <!-- ============ Toast / Notification — YALNIZ STİL (altyapı yok; kural #12) ============ -->
     <Style Selector="Border.Toast">
         <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource Radius8}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius12}"/>
         <Setter Property="Padding" Value="14,10"/>
         <Setter Property="MinWidth" Value="240"/>
         <Setter Property="MaxWidth" Value="380"/>
@@ -277,8 +493,29 @@
     <Style Selector="Border.Toast.danger"><Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}"/></Style>
     <Style Selector="Border.Toast.info"><Setter Property="BorderBrush" Value="{DynamicResource InfoBrush}"/></Style>
 
-    <!-- ============ Yerleşik veri-doğrulama görselini gizle (İngilizce mesajlar) ============
-         Tüm doğrulama uyarılarımız Türkçe; FormField/Status üzerinden gösterilir. -->
+    <!-- ════════════════════════════════════════════════════════════════════
+         SCROLLBAR — ince, Aurora
+         ════════════════════════════════════════════════════════════════════ -->
+    <Style Selector="ScrollBar:vertical">
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ScrollBar:horizontal">
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb:pointerover">
+        <Setter Property="Background" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         Yerleşik veri-doğrulama görselini gizle (İngilizce mesajlar)
+         Tüm doğrulama uyarılarımız Türkçe; FormField/Status üzerinden gösterilir.
+         ════════════════════════════════════════════════════════════════════ -->
     <Style Selector="DataValidationErrors">
         <Setter Property="Template">
             <ControlTemplate>
@@ -294,112 +531,18 @@
         </Setter>
     </Style>
 
-    <!-- ============ Başlıksız TabControl (sekme şeridi gizli; geçiş yalnız menüden) ============ -->
+    <!-- Başlıksız TabControl (sekme şeridi gizli; geçiş yalnız menüden) -->
     <Style Selector="TabControl.NoHeader /template/ ItemsPresenter#PART_ItemsPresenter">
         <Setter Property="IsVisible" Value="False"/>
     </Style>
 
-    <!-- ============ Klavye odağı görünürlüğü (koyu temada belirgin halka) ============ -->
+    <!-- Klavye odağı görünürlüğü — beyaz yerine kehribar (Aurora) -->
     <Style Selector="Button.Primary:focus-visible, Button.Secondary:focus-visible, Button.Ghost:focus-visible, Button.Danger:focus-visible, Button.Icon:focus-visible">
-        <Setter Property="BorderBrush" Value="#FFFFFF"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
         <Setter Property="BorderThickness" Value="2"/>
     </Style>
-    <!-- Giriş alanlarında odak halkası (accent kenar zaten var; focus-visible'da kalınlaştır) -->
     <Style Selector="TextBox.Field:focus-visible /template/ Border#PART_BorderElement, TextBox.Search:focus-visible /template/ Border#PART_BorderElement">
         <Setter Property="BorderThickness" Value="2"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
-    </Style>
-
-    <!-- ============================================================
-         MODERNİZASYON KATMANI — form alanları + tablolar
-         (Avalonia'da sonraki stil kazanır; üstteki temel stilleri inceltir)
-         ============================================================ -->
-
-    <!-- Form alanları: daha yumuşak köşe, ferah yükseklik -->
-    <Style Selector="TextBox.Field">
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="MinHeight" Value="40"/>
-    </Style>
-    <!-- Arama kutusu: Semi (Modern) ve Fluent (Klasik) temalarında AYNI görünsün (kullanıcı isteği
-         2026-07-19) — temel TextBox.Search stili paylaşılır ama yumuşak geçiş/köşe daha önce yalnız
-         Field'a uygulanıyordu; Search'e de aynı normalizasyon eklendi (tema-bağımsız tutarlılık). -->
-    <Style Selector="TextBox.Search /template/ Border#PART_BorderElement">
-        <Setter Property="CornerRadius" Value="999"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
-                <BrushTransition Property="Background" Duration="0:0:0.16"/>
-            </Transitions>
-        </Setter>
-    </Style>
-    <Style Selector="TextBox.Search:pointerover /template/ Border#PART_BorderElement">
-        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
-    </Style>
-    <Style Selector="ComboBox.Field">
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="MinHeight" Value="40"/>
-    </Style>
-    <Style Selector="NumericUpDown.Field">
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="MinHeight" Value="40"/>
-    </Style>
-
-    <!-- Kenarlık/zemin geçişleri: hover ve odak yumuşak olsun -->
-    <Style Selector="TextBox.Field /template/ Border#PART_BorderElement">
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
-                <BrushTransition Property="Background" Duration="0:0:0.16"/>
-            </Transitions>
-        </Setter>
-    </Style>
-    <Style Selector="ComboBox.Field /template/ Border#Background">
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
-                <BrushTransition Property="Background" Duration="0:0:0.16"/>
-            </Transitions>
-        </Setter>
-    </Style>
-    <Style Selector="ComboBox.Field:pointerover /template/ Border#Background">
-        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
-    </Style>
-
-    <!-- Butonlarda yumuşak zemin geçişi -->
-    <Style Selector="Button.Primary /template/ ContentPresenter, Button.Secondary /template/ ContentPresenter, Button.Ghost /template/ ContentPresenter, Button.Danger /template/ ContentPresenter">
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.15"/>
-            </Transitions>
-        </Setter>
-    </Style>
-
-    <!-- Tablolar: daha yumuşak köşe, ferah başlık, yumuşak satır hover -->
-    <Style Selector="Border.Table">
-        <Setter Property="CornerRadius" Value="12"/>
-    </Style>
-    <Style Selector="Border.TableHeader">
-        <Setter Property="MinHeight" Value="44"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
-        <Setter Property="BorderThickness" Value="0,0,0,1"/>
-    </Style>
-    <Style Selector="Border.TableHeader :is(TextBlock)">
-        <Setter Property="LetterSpacing" Value="0.6"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-    </Style>
-    <!-- satır: yumuşak hover geçişi + biraz daha ferah -->
-    <Style Selector="ListBox.Table ListBoxItem">
-        <Setter Property="MinHeight" Value="44"/>
-    </Style>
-    <Style Selector="ListBox.Table ListBoxItem /template/ ContentPresenter">
-        <Setter Property="CornerRadius" Value="0"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="Background" Duration="0:0:0.13"/>
-            </Transitions>
-        </Setter>
     </Style>
 </Styles>
