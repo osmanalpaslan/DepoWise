@@ -20,17 +20,24 @@
 
             <!-- Kehribar (#F5A623) yarı şeffaf menü/üst bar katmanı. Zemin brush'ının üstüne biner;
                  opaklık düşük tutulur ki metin/ikon kontrastı bozulmasın (her iki temada da geçerli). -->
-            <SolidColorBrush x:Key="AmberBarEdgeBrush" Color="#F5A623" Opacity="0.34"/>
+            <!-- Aurora: kenar çizgisi biraz daha ince/soğuk, overlay'ler daha yumuşak. -->
+            <SolidColorBrush x:Key="AmberBarEdgeBrush" Color="#F5A623" Opacity="0.28"/>
             <LinearGradientBrush x:Key="AmberBarOverlayBrush" StartPoint="0%,0%" EndPoint="100%,0%">
-                <GradientStop Color="#33F5A623" Offset="0"/>
-                <GradientStop Color="#1AF5A623" Offset="0.45"/>
-                <GradientStop Color="#0AF5A623" Offset="1"/>
-            </LinearGradientBrush>
-            <LinearGradientBrush x:Key="AmberSideOverlayBrush" StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#24F5A623" Offset="0"/>
-                <GradientStop Color="#0FF5A623" Offset="0.4"/>
+                <GradientStop Color="#2EF5A623" Offset="0"/>
+                <GradientStop Color="#16F5A623" Offset="0.45"/>
                 <GradientStop Color="#06F5A623" Offset="1"/>
             </LinearGradientBrush>
+            <LinearGradientBrush x:Key="AmberSideOverlayBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#20F5A623" Offset="0"/>
+                <GradientStop Color="#0BF5A623" Offset="0.4"/>
+                <GradientStop Color="#04F5A623" Offset="1"/>
+            </LinearGradientBrush>
+            <!-- Aurora imzası: içerik alanına indigo derinlik ışıması (opsiyonel kullanım). -->
+            <RadialGradientBrush x:Key="AuroraContentGlowBrush" Center="88%,-6%" GradientOrigin="88%,-6%"
+                                 RadiusX="70%" RadiusY="60%">
+                <GradientStop Color="#226366F1" Offset="0"/>
+                <GradientStop Color="#006366F1" Offset="1"/>
+            </RadialGradientBrush>
         </ResourceDictionary>
     </Application.Resources>
 

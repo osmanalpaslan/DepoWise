@@ -2,7 +2,14 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
                     xmlns:media="clr-namespace:Avalonia.Media;assembly=Avalonia.Base">
-    <!-- DepoWise tasarım sistemi — boşluk, köşe, tipografi, elevation ölçekleri. -->
+    <!--
+      Alpnex tasarım sistemi — boşluk, köşe, tipografi, elevation ölçekleri. AURORA.
+      Anahtar adları DEĞİŞMEDİ. Değişenler:
+        · Köşe yarıçapları büyütüldü (Aurora yumuşak köşe dili: 6/8/11/14).
+        · Radius16/Radius20 EKLENDİ (büyük kart/dialog). Eskiler duruyor → hiçbir ekran bozulmaz.
+        · Font: Plus Jakarta Sans öne alındı. Font DOSYASI gömülmediyse sistem Segoe UI Variable'a
+          düşer ve hiçbir şey bozulmaz (aşağıdaki nota bak).
+    -->
 
     <!-- Boşluk ölçeği (px) -->
     <sys:Double x:Key="Space4">4</sys:Double>
@@ -18,11 +25,13 @@
     <Thickness x:Key="PadPage">24</Thickness>
     <Thickness x:Key="PadTopBar">24,14</Thickness>
 
-    <!-- Köşe yarıçapı ölçeği -->
-    <CornerRadius x:Key="Radius4">4</CornerRadius>
-    <CornerRadius x:Key="Radius6">6</CornerRadius>
-    <CornerRadius x:Key="Radius8">8</CornerRadius>
-    <CornerRadius x:Key="Radius12">12</CornerRadius>
+    <!-- Köşe yarıçapı ölçeği (Aurora: daha yumuşak) -->
+    <CornerRadius x:Key="Radius4">6</CornerRadius>
+    <CornerRadius x:Key="Radius6">8</CornerRadius>
+    <CornerRadius x:Key="Radius8">11</CornerRadius>
+    <CornerRadius x:Key="Radius12">14</CornerRadius>
+    <CornerRadius x:Key="Radius16">16</CornerRadius>
+    <CornerRadius x:Key="Radius20">20</CornerRadius>
 
     <!-- Tipografi ölçeği (font boyutları) -->
     <sys:Double x:Key="FontPageTitle">20</sys:Double>
@@ -32,10 +41,19 @@
     <sys:Double x:Key="FontBody">13</sys:Double>
     <sys:Double x:Key="FontHelper">11</sys:Double>
 
-    <!-- Sistem fontu (harici font dosyası eklenmez; Segoe UI/Aptos öncelikli, güvenli fallback) -->
-    <FontFamily x:Key="AppFontFamily">Segoe UI Variable, Segoe UI, Aptos, Inter, sans-serif</FontFamily>
+    <!--
+      FONT — iki seçenek:
+      (A) Şu anki hâl: font dosyası GÖMÜLMEZ. "Plus Jakarta Sans" kurulu değilse sistem
+          Segoe UI Variable'a düşer. Hiçbir şey bozulmaz, sadece web ile birebir aynı olmaz.
+      (B) Web ile birebir aynı görünüm istiyorsan:
+          1. PlusJakartaSans-*.ttf dosyalarını src/DepoWise.Desktop/Assets/Fonts/ altına koy
+          2. .csproj'a  <AvaloniaResource Include="Assets/Fonts/*.ttf" />  ekle
+          3. Aşağıdaki satırı şununla değiştir:
+             <FontFamily x:Key="AppFontFamily">avares://DepoWise.Desktop/Assets/Fonts#Plus Jakarta Sans</FontFamily>
+    -->
+    <FontFamily x:Key="AppFontFamily">Plus Jakarta Sans, Segoe UI Variable, Segoe UI, Aptos, Inter, sans-serif</FontFamily>
 
-    <!-- Elevation (hafif gölge; ağır blur yok) -->
-    <media:BoxShadows x:Key="ShadowSm">0 1 3 0 #33000000</media:BoxShadows>
-    <media:BoxShadows x:Key="ShadowMd">0 3 8 0 #40000000</media:BoxShadows>
+    <!-- Elevation — Aurora daha yumuşak ve derin -->
+    <media:BoxShadows x:Key="ShadowSm">0 2 6 0 #2E000000</media:BoxShadows>
+    <media:BoxShadows x:Key="ShadowMd">0 8 24 0 #45000000</media:BoxShadows>
 </ResourceDictionary>

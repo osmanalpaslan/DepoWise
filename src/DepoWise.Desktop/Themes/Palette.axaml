@@ -1,58 +1,63 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--
-      DepoWise tasarım sistemi — semantik RENK token'ları. Artık AÇIK + KOYU tema duyarlı
-      (ThemeDictionaries). Ekranlar DynamicResource ile bu brush'ları kullanır; sabit renk yazmaz.
-      Tema Ayarlar → Tema ekranından değiştirilir (RequestedThemeVariant Light/Dark).
+      Alpnex tasarım sistemi — semantik RENK token'ları. AURORA paleti.
+      Anahtar adları DEĞİŞMEDİ; yalnız değerler yenilendi. Ekranlar DynamicResource ile
+      bu brush'ları kullanır, sabit renk yazmaz. Tema Ayarlar → Tema'dan değişir.
+
+      Aurora: lacivert taban (#0D1220 ailesi) + kehribar marka aksanı. Web tarafıyla aynı dil.
+      Not: AccentBrush/AccentHoverBrush/AccentSoftBrush değerlerini ThemeService.ApplyAccent
+      çalışma zamanında ÜST SEVİYEDE ezer (kullanıcının seçtiği renk). Buradakiler yalnız
+      ilk boyama içindir.
     -->
     <ResourceDictionary.ThemeDictionaries>
 
-        <!-- ============ KOYU ============ -->
+        <!-- ============ KOYU (Aurora) ============ -->
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#12161E"/>
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#1B212C"/>
-            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#1B212C"/>
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#282F3A"/>
-            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#303743"/>
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#2E3744"/>
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#394250"/>
-            <SolidColorBrush x:Key="AccentBrush" Color="#2F6FD5"/>
-            <SolidColorBrush x:Key="AccentHoverBrush" Color="#3D7FE5"/>
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F5F7FA"/>
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AEB7C4"/>
-            <SolidColorBrush x:Key="TextMutedBrush" Color="#929DAD"/>
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0D1220"/>
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#0F1524"/>
+            <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#10162A"/>
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#151B2B"/>
+            <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#1A2133"/>
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#1F2739"/>
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#252E42"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#E0951B"/>
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#F5A623"/>
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#EAEEF7"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#8B98B2"/>
+            <SolidColorBrush x:Key="TextMutedBrush" Color="#7B8AA6"/>
             <SolidColorBrush x:Key="SuccessBrush" Color="#2CBF6D"/>
-            <SolidColorBrush x:Key="WarningBrush" Color="#D8A617"/>
+            <SolidColorBrush x:Key="WarningBrush" Color="#F5A623"/>
             <SolidColorBrush x:Key="DangerBrush" Color="#E24A3B"/>
-            <SolidColorBrush x:Key="InfoBrush" Color="#3AA0E0"/>
-            <SolidColorBrush x:Key="OverlayHoverBrush" Color="#16FFFFFF"/>
-            <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#22FFFFFF"/>
-            <SolidColorBrush x:Key="AccentSoftBrush" Color="#382F6FD5"/>
-            <SolidColorBrush x:Key="SelectedRowBrush" Color="#26000000"/>
+            <SolidColorBrush x:Key="InfoBrush" Color="#6366F1"/>
+            <SolidColorBrush x:Key="OverlayHoverBrush" Color="#14FFFFFF"/>
+            <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#20FFFFFF"/>
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#38E0951B"/>
+            <SolidColorBrush x:Key="SelectedRowBrush" Color="#24E0951B"/>
         </ResourceDictionary>
 
-        <!-- ============ AÇIK ============ -->
+        <!-- ============ AÇIK (Aurora) ============ -->
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F6FA"/>
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F7F8FB"/>
+            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F1F3F8"/>
             <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#FFFFFF"/>
             <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF"/>
             <SolidColorBrush x:Key="SurfaceElevatedBrush" Color="#F7F9FC"/>
             <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EDF1F7"/>
-            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#D8DEE7"/>
-            <SolidColorBrush x:Key="AccentBrush" Color="#2F6FD5"/>
-            <SolidColorBrush x:Key="AccentHoverBrush" Color="#255FC0"/>
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1B2430"/>
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4A5666"/>
+            <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E3E6ED"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#C07C0C"/>
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="#A66A08"/>
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#14171C"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5B6474"/>
             <SolidColorBrush x:Key="TextMutedBrush" Color="#6B7686"/>
-            <SolidColorBrush x:Key="SuccessBrush" Color="#1F9D57"/>
+            <SolidColorBrush x:Key="SuccessBrush" Color="#12A85C"/>
             <SolidColorBrush x:Key="WarningBrush" Color="#B4860F"/>
-            <SolidColorBrush x:Key="DangerBrush" Color="#D23B2C"/>
-            <SolidColorBrush x:Key="InfoBrush" Color="#2E86C4"/>
-            <SolidColorBrush x:Key="OverlayHoverBrush" Color="#0F000000"/>
-            <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#18000000"/>
-            <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F2F6FD5"/>
-            <SolidColorBrush x:Key="SelectedRowBrush" Color="#142F6FD5"/>
+            <SolidColorBrush x:Key="DangerBrush" Color="#D0392B"/>
+            <SolidColorBrush x:Key="InfoBrush" Color="#4F46E5"/>
+            <SolidColorBrush x:Key="OverlayHoverBrush" Color="#0D000000"/>
+            <SolidColorBrush x:Key="OverlaySelectedBrush" Color="#16000000"/>
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#24C07C0C"/>
+            <SolidColorBrush x:Key="SelectedRowBrush" Color="#18C07C0C"/>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
