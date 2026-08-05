@@ -37,7 +37,7 @@
                     <MudItem xs="12" md="5"><MudAutocomplete T="ApiClient.Opt" Label="Malzeme ara (kod/ad)" @bind-Value="_matSel" SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
                     <MudItem xs="4" md="2"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="8" md="3"><MudAutocomplete T="ApiClient.Opt" Label="Araç (opsiyonel)" @bind-Value="_matVehicle" SearchFunc="SearchVehicle" ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
-                    <MudItem xs="12" md="2"><MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem">Ekle</MudButton></MudItem>
+                    <MudItem xs="12" md="2"><MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddItem">Ekle</MudButton></MudItem>
                 </MudGrid>
                 @if (_items.Count > 0)
                 {

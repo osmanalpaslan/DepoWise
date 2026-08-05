@@ -196,7 +196,7 @@
                     <MudSelect T="int" Value="_pageSize" ValueChanged="OnPageSizeChanged" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="max-width:90px">
                         @foreach (var sz in PageSizes) { <MudSelectItem T="int" Value="@sz">@sz</MudSelectItem> }
                     </MudSelect>
-                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
                     <MudTooltip Text="Yalnız stok, minimum stoğun altına düşmüş (kritik) malzemeleri gösterir">
                         <MudButton Size="Size.Small" Variant="@(_criticalOnly ? Variant.Filled : Variant.Outlined)"
