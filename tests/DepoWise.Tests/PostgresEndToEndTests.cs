@@ -94,6 +94,15 @@ public class PostgresEndToEndTests
         vehicles.SetMeter(a, v, 1098m);                    // %98 → kritik uyarı
         Assert.Equal(AlertLevel.Critical, maint.GetAlerts(a).Single().Level);
 
+        // Ana ekran özeti (/api/dashboard → GetSummary) PostgreSQL'de: GetAlerts iki okuyucu/komut kullanır;
+        // aynı bağlantıda ikinci komut PG'de "command already in progress" (500) verirdi (madde-4 regresyonu,
+        // web'de catch'le gizliydi). GetSummary FIRLATMAMALI + summary alanlarını üretmeli (A2).
+        var inspection = new InspectionService(factory, clock);
+        var dashboard = new DashboardService(factory, maint, inspection);
+        var summary = dashboard.GetSummary(a);
+        Assert.True(summary.VehicleCount >= 1);
+        Assert.NotNull(summary.Alerts);
+
         // 5) Negatif stok kalkanı: eldekinden fazla çıkış REDDEDİLİR (LWW yasağı / defter bütünlüğü).
         Assert.Throws<NegativeStockException>(() =>
             stock.IssueOut(a, new[] { new StockLine(m, 1000m) }, "pg-over", personnelId: null));

@@ -198,7 +198,11 @@ WHERE rn = 1;";
         // HİÇ YAPILMAMIŞ atanmış bakımlar (2026-07-25 kullanıcı bulgusu: "bakım periyodu doldu ama uyarı çıkmadı"):
         // bir bakım tanımı araca ATANMIŞ ama o araç için HİÇ (iptal edilmemiş) bakım kaydı YOKSA, ilk bakım
         // bekliyor demektir → "İlk bakım yapılmadı" (Overdue). Baz metre/tarih tutulmadığından yüzde hesaplanmaz.
-        using (var cmd2 = conn.CreateCommand())
+        // AYRI BAĞLANTI: yukarıdaki `r` okuyucusu bu metodun sonuna kadar açık kalıyor; ikinci sorguyu AYNI
+        // bağlantıda çalıştırmak PostgreSQL'de "command already in progress" (500) verir (SQLite izin verir →
+        // test yeşil, canlı PG patlıyordu — web'de catch'le gizleniyordu). Ayrı bağlantı bu çakışmayı bitirir.
+        using (var conn2 = _factory.Create())
+        using (var cmd2 = conn2.CreateCommand())
         {
             cmd2.CommandText = @"
 SELECT mdv.vehicle_id, d.id, d.name, d.interval_value
