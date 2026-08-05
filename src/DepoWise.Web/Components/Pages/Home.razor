@@ -5,19 +5,57 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
+@*  ============================================================================
+    Ana Ekran — Aurora görünümü.
+    API DEĞİŞİKLİĞİ YOK: veri hâlâ yalnız /api/dashboard ve /api/sync/conflicts.
+    Davranış aynı: kategori seçilmeden uyarı listelenmez (2026-07-26 isteği),
+    aynı kategoriye tekrar tıklamak seçimi kaldırır, "okundu" aynı uca gider.
+    Değişen: 4 kategori düğmesi → 4 sayılı KPI/filtre kartı; uyarı satırları
+    daha okunur; masaüstü kartı ve senkron çakışmaları yeniden düzenlendi.
+    ============================================================================ *@
+
 <PageTitle>Alpnex Yönetim</PageTitle>
 
 @if (Auth.IsAuthenticated)
 {
-    <MudText Typo="Typo.h4" GutterBottom="true">Yönetim Paneli</MudText>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
-        Firma: <b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")
-    </MudText>
+    <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+        <div>
+            <MudText Typo="Typo.h4">Yönetim Paneli</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                <b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "") · @DateTime.Now.ToString("dd MMMM yyyy")
+            </MudText>
+        </div>
+        @if (_alerts is { Count: > 0 })
+        {
+            <MudChip T="string" Icon="@Icons.Material.Filled.NotificationsActive" Color="Color.Warning" Variant="Variant.Outlined">
+                @_alerts.Count aktif uyarı
+            </MudChip>
+        }
+    </div>
+
+    @* ── Sayılı KPI/filtre kartları — tıklayınca o kategori listelenir ────────── *@
+    @if (_alerts is not null && _alerts.Count > 0)
+    {
+        <div class="dw-kpis mb-6">
+            @foreach (var k in Kinds)
+            {
+                var active = _filter == k.Kind;
+                <div class="dw-kpi @(active ? "active" : "")" @onclick="@(() => Toggle(k.Kind))">
+                    <div class="dw-kpi-top">
+                        <span class="dw-kpi-label">@k.Label</span>
+                        <MudIcon Icon="@k.Icon" Size="Size.Small" Class="dw-kpi-icon" />
+                    </div>
+                    <div class="dw-kpi-value">@CountOf(k.Kind)</div>
+                    <div class="dw-kpi-unit">@(CountOf(k.Kind) == 0 ? "uyarı yok" : "aktif uyarı")</div>
+                </div>
+            }
+        </div>
+    }
 
     <MudGrid Spacing="4">
         <!-- Sol: Kritik Uyarılar -->
         <MudItem xs="12" md="7">
-            <div class="d-flex align-center mb-2">
+            <div class="d-flex align-center mb-3">
                 <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" Color="Color.Warning" Class="mr-2" />
                 <MudText Typo="Typo.h6">Kritik Uyarılar</MudText>
             </div>
@@ -27,7 +65,8 @@
             }
             else if (_alerts.Count == 0)
             {
-                <MudPaper Class="pa-6 d-flex flex-column align-center" Elevation="0" Style="border:1px dashed var(--mud-palette-lines-default); border-radius:16px;">
+                <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0"
+                          Style="border:1px dashed var(--mud-palette-lines-default); border-radius:16px;">
                     <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
                     <MudText Typo="Typo.body1" Class="mt-2">Aktif kritik uyarı yok.</MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Bakım, muayene/sigorta ve stok durumu güncel.</MudText>
@@ -35,20 +74,13 @@
             }
             else
             {
-                @* Kategori butonları (sayılı) — kullanıcı isteği 2026-07-25. Tıkla → yalnız o kategori; tekrar tıkla → Tümü. *@
-                <div class="d-flex flex-wrap gap-2 mb-3">
-                    <MudButton Variant="@(_filter == "LowStock" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Inventory2" OnClick="@(() => Toggle("LowStock"))">Malzeme (@CountOf("LowStock"))</MudButton>
-                    <MudButton Variant="@(_filter == "Maintenance" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Build" OnClick="@(() => Toggle("Maintenance"))">Bakım (@CountOf("Maintenance"))</MudButton>
-                    <MudButton Variant="@(_filter == "Inspection" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.VerifiedUser" OnClick="@(() => Toggle("Inspection"))">Sigorta-Muayene (@CountOf("Inspection"))</MudButton>
-                    <MudButton Variant="@(_filter == "Fuel" ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.LocalGasStation" OnClick="@(() => Toggle("Fuel"))">Yakıt (@CountOf("Fuel"))</MudButton>
-                </div>
                 @if (_filter is null)
                 {
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">Uyarıları görmek için yukarıdan bir kategori seçin.</MudText>
+                    <MudPaper Class="pa-6 d-flex flex-column align-center" Elevation="0"
+                              Style="border:1px dashed var(--mud-palette-lines-default); border-radius:16px;">
+                        <MudIcon Icon="@Icons.Material.Filled.TouchApp" Color="Color.Default" />
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">Uyarıları görmek için yukarıdaki kartlardan birini seçin.</MudText>
+                    </MudPaper>
                 }
                 else if (Filtered.Count == 0)
                 {
@@ -57,30 +89,26 @@
                 <MudStack Spacing="2">
                     @foreach (var a in Filtered)
                     {
-                        <MudPaper Elevation="2" Class="pa-3" Style="@($"border-radius:14px;cursor:pointer;border-left:5px solid {(a.IsCritical ? "var(--mud-palette-error)" : "var(--mud-palette-warning)")};")"
-                                  @onclick="@(() => Open(a.NavigateKey))">
-                            <div class="d-flex align-center">
-                                <MudAvatar Color="@(a.IsCritical ? Color.Error : Color.Warning)" Variant="Variant.Outlined" Class="mr-3">
-                                    <MudIcon Icon="@IconFor(a.Kind)" />
-                                </MudAvatar>
-                                <div class="flex-grow-1">
-                                    <MudText Typo="Typo.body1"><b>@a.Title</b></MudText>
-                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
-                                </div>
-                                <div @onclick:stopPropagation="true" @onclick="@(() => {})">
-                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
-                                               StartIcon="@Icons.Material.Filled.DoneAll"
-                                               OnClick="@(() => MarkRead(a))">okundu</MudButton>
-                                </div>
-                                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="mud-text-secondary" />
+                        <MudPaper Elevation="0" Class=@("dw-alert " + (a.IsCritical ? "crit" : "warn")) @onclick="@(() => Open(a.NavigateKey))">
+                            <div class="dw-alert-ico"><MudIcon Icon="@IconFor(a.Kind)" Size="Size.Small" /></div>
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <MudText Typo="Typo.body1" Style="font-weight:600;">@a.Title</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@a.Detail</MudText>
                             </div>
+                            <div @onclick:stopPropagation="true">
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                                           StartIcon="@Icons.Material.Filled.DoneAll"
+                                           OnClick="@(() => MarkRead(a))">okundu</MudButton>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Class="mud-text-secondary" />
                         </MudPaper>
                     }
                 </MudStack>
             }
+
             @if (_conflicts is { Count: > 0 })
             {
-                <div class="d-flex align-center mb-2 mt-6">
+                <div class="d-flex align-center mb-2 mt-8">
                     <MudIcon Icon="@Icons.Material.Filled.SyncProblem" Color="Color.Error" Class="mr-2" />
                     <MudText Typo="Typo.h6">Senkron Çakışmaları</MudText>
                 </div>
@@ -91,39 +119,36 @@
                 <MudStack Spacing="2">
                     @foreach (var cf in _conflicts)
                     {
-                        <MudPaper Elevation="2" Class="pa-3" Style="border-radius:14px;border-left:5px solid var(--mud-palette-error);">
-                            <div class="d-flex align-center">
-                                <MudAvatar Color="Color.Error" Variant="Variant.Outlined" Class="mr-3"><MudIcon Icon="@Icons.Material.Filled.SyncProblem" /></MudAvatar>
-                                <div class="flex-grow-1">
-                                    <MudText Typo="Typo.body1"><b>@Str(cf, "entityLabel")</b> — @Str(cf, "winnerText")</MudText>
-                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                        Web'de düzenleyen: @(string.IsNullOrEmpty(Str(cf, "adminName")) ? "—" : Str(cf, "adminName"))
-                                    </MudText>
-                                </div>
-                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default" OnClick="@(() => ResolveConflict(Str(cf, "id")))">Gizle</MudButton>
+                        <MudPaper Elevation="0" Class="dw-alert crit">
+                            <div class="dw-alert-ico"><MudIcon Icon="@Icons.Material.Filled.SyncProblem" Size="Size.Small" /></div>
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <MudText Typo="Typo.body1" Style="font-weight:600;">@Str(cf, "entityLabel") — @Str(cf, "winnerText")</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    Web'de düzenleyen: @(string.IsNullOrEmpty(Str(cf, "adminName")) ? "—" : Str(cf, "adminName"))
+                                </MudText>
                             </div>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default" OnClick="@(() => ResolveConflict(Str(cf, "id")))">Gizle</MudButton>
                         </MudPaper>
                     }
                 </MudStack>
             }
         </MudItem>
 
-        <!-- Sağ: Masaüstü kurulum (modern hero) -->
+        <!-- Sağ: Masaüstü kurulum -->
         <MudItem xs="12" md="5">
-            <MudPaper Elevation="4" Class="pa-6"
-                      Style="border-radius:20px;color:#fff;background:linear-gradient(135deg,#2563eb 0%,#1e293b 100%);">
-                <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Size="Size.Large" Style="font-size:3rem;opacity:.9;" />
-                <MudText Typo="Typo.h5" Class="mt-2" Style="color:#fff;">Masaüstü Uygulaması</MudText>
-                <MudText Typo="Typo.body2" Class="mt-1" Style="color:rgba(255,255,255,.85);">
+            <MudPaper Elevation="0" Class="pa-6 dw-hero">
+                <MudIcon Icon="@Icons.Material.Filled.DesktopWindows" Size="Size.Large" Style="font-size:2.6rem;color:var(--mud-palette-primary);" />
+                <MudText Typo="Typo.h5" Class="mt-3">Masaüstü Uygulaması</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2" Style="line-height:1.6;">
                     Kurulum aracını indirin. Çalıştırınca uygulamayı sunucudan indirir, kurar ve bağlantı
                     ayarlarını otomatik yapar. Güncellemeler otomatik gelir.
                 </MudText>
-                <MudButton Href="@Api.SetupDownloadUrl" Target="_blank" Variant="Variant.Filled"
-                           Class="mt-4" Style="background:#fff;color:#1e293b;font-weight:600;border-radius:12px;"
-                           StartIcon="@Icons.Material.Filled.Download" Size="Size.Large">
+                <MudButton Href="@Api.SetupDownloadUrl" Target="_blank" Variant="Variant.Filled" Color="Color.Primary"
+                           Class="mt-5" FullWidth="true" Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.Download">
                     Kurulum Aracını İndir
                 </MudButton>
-                <MudText Typo="Typo.caption" Class="d-block mt-3" Style="color:rgba(255,255,255,.7);">
+                <MudText Typo="Typo.caption" Class="d-block mt-3 mud-text-secondary">
                     Windows · giriş için web kullanıcı bilgilerinizi kullanın
                 </MudText>
             </MudPaper>
@@ -131,12 +156,78 @@
     </MudGrid>
 }
 
+<style>
+    /* ── KPI / filtre kartları ── */
+    .dw-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    @@media (max-width: 900px) { .dw-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .dw-kpi {
+        border-radius: 16px; padding: 15px 17px; cursor: pointer; user-select: none;
+        background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
+        border: 1px solid var(--mud-palette-lines-default);
+        transition: background-color .15s ease, border-color .15s ease, transform .05s ease;
+    }
+    .dw-kpi:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 8%, transparent); }
+    .dw-kpi:active { transform: translateY(1px); }
+    .dw-kpi.active {
+        background: linear-gradient(140deg,
+            color-mix(in srgb, var(--mud-palette-primary) 20%, transparent),
+            color-mix(in srgb, var(--mud-palette-primary) 5%, transparent));
+        border-color: color-mix(in srgb, var(--mud-palette-primary) 34%, transparent);
+        box-shadow: 0 8px 22px color-mix(in srgb, var(--mud-palette-primary) 14%, transparent);
+    }
+    .dw-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .dw-kpi-label { font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        color: var(--mud-palette-text-secondary); }
+    .dw-kpi.active .dw-kpi-label { color: var(--mud-palette-primary); }
+    .dw-kpi-icon { color: var(--mud-palette-text-secondary); }
+    .dw-kpi.active .dw-kpi-icon { color: var(--mud-palette-primary); }
+    .dw-kpi-value { font-size: 1.9rem; font-weight: 800; letter-spacing: -.03em; margin-top: 6px;
+        font-variant-numeric: tabular-nums; color: var(--mud-palette-text-primary); }
+    .dw-kpi-unit { font-size: .74rem; color: var(--mud-palette-text-secondary); margin-top: 1px; }
+
+    /* ── Uyarı satırı ── */
+    .dw-alert {
+        display: flex; align-items: center; gap: 13px; padding: 13px 15px;
+        border-radius: 14px; cursor: pointer;
+        transition: background-color .15s ease;
+    }
+    .dw-alert.crit { background: color-mix(in srgb, var(--mud-palette-error) 9%, transparent);
+        border: 1px solid color-mix(in srgb, var(--mud-palette-error) 26%, transparent); }
+    .dw-alert.crit:hover { background: color-mix(in srgb, var(--mud-palette-error) 14%, transparent); }
+    .dw-alert.warn { background: color-mix(in srgb, var(--mud-palette-warning) 9%, transparent);
+        border: 1px solid color-mix(in srgb, var(--mud-palette-warning) 24%, transparent); }
+    .dw-alert.warn:hover { background: color-mix(in srgb, var(--mud-palette-warning) 14%, transparent); }
+    .dw-alert-ico { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 11px;
+        display: flex; align-items: center; justify-content: center; }
+    .dw-alert.crit .dw-alert-ico { background: color-mix(in srgb, var(--mud-palette-error) 18%, transparent); color: var(--mud-palette-error); }
+    .dw-alert.warn .dw-alert-ico { background: color-mix(in srgb, var(--mud-palette-warning) 20%, transparent); color: var(--mud-palette-warning); }
+
+    /* ── Masaüstü kartı ── */
+    .dw-hero {
+        border-radius: 20px;
+        border: 1px solid var(--mud-palette-lines-default);
+        background:
+            radial-gradient(420px 260px at 88% 6%, color-mix(in srgb, var(--mud-palette-primary) 18%, transparent) 0%, transparent 68%),
+            color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
+    }
+</style>
+
 @code {
     private sealed record Alert(string Kind, string Title, string Detail, string NavigateKey, bool IsCritical, string Key, string Signature);
     private List<Alert>? _alerts;
-    private string? _filter;   // null → Tümü; aksi halde Kind
+    private string? _filter;   // null → hiçbiri seçili değil; aksi halde Kind
 
-    // İlk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız butonlar+sayılar (kullanıcı isteği 2026-07-26).
+    // KPI/filtre kartlarının tanımı — Kind değerleri API'den gelen kind'larla AYNI.
+    private sealed record KindDef(string Kind, string Label, string Icon);
+    private static readonly KindDef[] Kinds =
+    {
+        new("LowStock",    "Malzeme",          Icons.Material.Filled.Inventory2),
+        new("Maintenance", "Bakım",            Icons.Material.Filled.Build),
+        new("Inspection",  "Sigorta-Muayene",  Icons.Material.Filled.VerifiedUser),
+        new("Fuel",        "Yakıt",            Icons.Material.Filled.LocalGasStation),
+    };
+
+    // İlk açılışta (kategori seçilmeden) hiçbir uyarı listelenmez — yalnız kartlar+sayılar (kullanıcı isteği 2026-07-26).
     private List<Alert> Filtered =>
         _filter is null ? new() : (_alerts ?? new()).Where(a => a.Kind == _filter).ToList();
 

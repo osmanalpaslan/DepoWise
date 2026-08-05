@@ -6,174 +6,258 @@
 @inject NavigationManager Nav
 @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedLocalStorage LocalStorage
 
+@*  ============================================================================
+    Giriş ekranı — Aurora görünümü.
+    DİKKAT: Bu dosyanın @code bloğu ESKİSİYLE BİREBİR AYNIDIR. Yalnız markup ve
+    <style> bloğu yenilendi. Akış aynı: 1=kimlik · 2=firma (süper admin) ·
+    3=şube · 4=ilk giriş şifre · 5=özel kod (ADR-083).
+    Kullanılan varlıklar: logo.png, login-hero.png (ikisi de wwwroot'ta mevcut).
+    ============================================================================ *@
+
 <PageTitle>Giriş — Alpnex</PageTitle>
 
-<div class="dw-login-bg">
-    <div class="dw-login-card">
-        <img class="dw-logo" src="logo.png" alt="Alpnex" />
-
-        @if (_step == 1)
-        {
-            <h1 class="dw-title">Alpnex Yönetim</h1>
-            <p class="dw-sub">Hesabınızla giriş yapın.</p>
-
-            <label class="dw-label">Kullanıcı adı</label>
-            <div class="dw-field">
-                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z"/></svg>
-                <input type="text" placeholder="Kullanıcı adı" @bind="_username" @bind:event="oninput" @onkeyup="OnKey1"
-                       autocomplete="off" readonly="@_lockUser" @onfocus="UnlockUser" @onmousedown="UnlockUser" />
-            </div>
-
-            <label class="dw-label">Parola</label>
-            <div class="dw-field">
-                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
-                <input type="@(_showPass ? "text" : "password")" placeholder="••••••" @bind="_password" @bind:event="oninput" @onkeyup="OnKey1"
-                       autocomplete="new-password" readonly="@_lockPass" @onfocus="UnlockPass" @onmousedown="UnlockPass" />
-                <button type="button" class="dw-eye" @onclick="() => _showPass = !_showPass" tabindex="-1" aria-label="Parolayı göster/gizle">
-                    @if (_showPass)
-                    { <svg viewBox="0 0 24 24"><path d="M2 5.3 3.3 4l16.7 16.7-1.3 1.3-2.8-2.8A11 11 0 0 1 12 20C6 20 1.7 15.6 1 12c.3-1.6 1.4-3.6 3.1-5.2L2 5.3Zm7.5 7.5 1.7 1.7a2 2 0 0 1-1.7-1.7ZM12 6c6 0 10.3 4.4 11 8-.3 1.4-1.1 3-2.5 4.4l-2-2A6 6 0 0 0 12 8h-.3l-1.8-1.8C10.6 6.1 11.3 6 12 6Z"/></svg> }
-                    else
-                    { <svg viewBox="0 0 24 24"><path d="M12 5C6 5 1.7 9.4 1 13c.7 3.6 5 8 11 8s10.3-4.4 11-8c-.7-3.6-5-8-11-8Zm0 13a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg> }
-                </button>
-            </div>
-
-            <label class="dw-remember">
-                <input type="checkbox" @bind="_rememberMe" />
-                <span>Beni hatırla</span>
-            </label>
-
-            <button class="dw-btn" @onclick="DoStep1" disabled="@_busy">
-                @(_busy ? "Doğrulanıyor…" : "DEVAM")
-                @if (!_busy) { <svg viewBox="0 0 24 24" class="dw-arrow"><path d="M5 12h12l-4.5-4.5L14 6l7 7-7 7-1.5-1.5L17 14H5z"/></svg> }
-            </button>
-        }
-        else if (_step == 4)
-        {
-            <h1 class="dw-title">Yeni Şifre Belirleyin</h1>
-            <p class="dw-sub">Güvenlik için ilk girişte kendi şifrenizi oluşturmalısınız.</p>
-            <label class="dw-label">Yeni Şifre</label>
-            <div class="dw-field">
-                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
-                <input type="password" placeholder="En az 4 karakter" @bind="_newPass" @bind:event="oninput" @onkeyup="OnKeyPass" autocomplete="new-password" />
-            </div>
-            <label class="dw-label">Yeni Şifre (Tekrar)</label>
-            <div class="dw-field">
-                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
-                <input type="password" placeholder="••••••" @bind="_newPass2" @bind:event="oninput" @onkeyup="OnKeyPass" autocomplete="new-password" />
-            </div>
-            <button class="dw-btn" @onclick="DoSetPassword" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "ŞİFREYİ BELİRLE")</button>
-            <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
-        }
-        else if (_step == 5)
-        {
-            @* ÖZEL KOD (ADR-083) — YALNIZ süper adminde ve yalnız ilk kez sorulur.
-               Şifreden AYRI bir sırdır; Kalıcı Silme ekranının kilidini açar. *@
-            <h1 class="dw-title">Özel Kod Oluşturun</h1>
-            <p class="dw-sub">
-                Bu kod, <b>Kalıcı Silme</b> ekranının kilididir — firma verisini geri alınamaz şekilde silen ekran.
-                Şifrenizden ayrı, kendinize saklayacağınız bir kod belirleyin. Unutursanız şifrenizle yenisini belirleyebilirsiniz.
+<div class="dw-login">
+    <aside class="dw-brand">
+        <div class="dw-brand-top">
+            <div class="dw-brand-logo"><img src="logo.png" alt="Alpnex" /></div>
+            <span class="dw-brand-name">Alpnex</span>
+        </div>
+        <div class="dw-brand-mid">
+            <h2 class="dw-brand-head">Depo, araç ve bakım<br />tek panelde.</h2>
+            <p class="dw-brand-sub">
+                Şantiye sahasında girilen kayıt ofiste anında görünür. Masaüstü ve web aynı veriyi
+                paylaşır; çevrimdışı girişler bağlantı gelince eşitlenir.
             </p>
-            <label class="dw-label">Özel Kod</label>
-            <div class="dw-field">
-                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
-                <input type="password" placeholder="En az 6 karakter" @bind="_code1" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
+            <ul class="dw-brand-points">
+                <li><span class="dw-pt-ico">⟳</span>Masaüstü ve web tek veritabanı</li>
+                <li><span class="dw-pt-ico">☁</span>Çevrimdışı giriş, sonradan eşitleme</li>
+                <li><span class="dw-pt-ico">⛨</span>Şube ve rol bazlı yetkilendirme</li>
+            </ul>
+        </div>
+        <div class="dw-brand-foot">© 2026 Alpnex</div>
+    </aside>
+
+    <main class="dw-pane">
+        <div class="dw-card">
+            <div class="dw-steps">
+                <i class="@(_step >= 1 ? "on" : "")"></i>
+                <i class="@(_step == 2 || _step == 3 ? "on" : "")"></i>
+                <i class="@(_step == 3 ? "on" : "")"></i>
+                <span class="dw-steplabel">@StepLabel</span>
             </div>
-            <label class="dw-label">Özel Kod (Tekrar)</label>
-            <div class="dw-field">
-                <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
-                <input type="password" placeholder="••••••" @bind="_code2" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
-            </div>
-            <button class="dw-btn" @onclick="DoSetSpecialCode" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "KODU OLUŞTUR")</button>
-        }
-        else if (_step == 2)
-        {
-            <h1 class="dw-title">Süper Admin</h1>
-            <p class="dw-sub">Yönetmek istediğiniz firmayı seçin.</p>
-            <label class="dw-label">Firma</label>
-            <select class="dw-select" @bind="_selectedCompanyId">
-                <option value="">Firma seçin…</option>
-                @foreach (var co in _companies) { <option value="@co.Id">@co.Name</option> }
-            </select>
-            <button class="dw-btn" @onclick="DoStep2" disabled="@_busy">@(_busy ? "Yükleniyor…" : "DEVAM")</button>
-            <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
-        }
-        else
-        {
-            <h1 class="dw-title">@(_step == 3 && !string.IsNullOrEmpty(_companyName) ? _companyName : "Giriş")</h1>
-            <p class="dw-sub">Şube / şantiye seçip giriş yapın.</p>
-            <label class="dw-label">Şube / Şantiye</label>
-            <select class="dw-select" @bind="_branchId">
-                <option value="">Şube seçin…</option>
-                @if (_canViewAllBranches) { <option value="@AllBranches">🌐 Tüm Şubeler</option> }
-                @foreach (var b in _branches) { <option value="@b.Id">@b.Name @(string.IsNullOrEmpty(b.Code) ? "" : $"({b.Code})")</option> }
-            </select>
-            @if (SelectedBranchHasPassword)
+
+            @if (_step == 1)
             {
-                <label class="dw-label">Şube Şifresi</label>
+                <h1 class="dw-title">Hoş geldiniz</h1>
+                <p class="dw-sub">Hesabınızla giriş yapın.</p>
+
+                <label class="dw-label">Kullanıcı adı</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.9 0-7 2.2-7 5v1h14v-1c0-2.8-3.1-5-7-5Z"/></svg>
+                    <input type="text" placeholder="Kullanıcı adı" @bind="_username" @bind:event="oninput" @onkeyup="OnKey1"
+                           autocomplete="off" readonly="@_lockUser" @onfocus="UnlockUser" @onmousedown="UnlockUser" />
+                </div>
+
+                <label class="dw-label">Parola</label>
                 <div class="dw-field">
                     <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
-                    <input type="password" placeholder="••••••" @bind="_branchPassword" @bind:event="oninput" @onkeyup="OnKey2" />
+                    <input type="@(_showPass ? "text" : "password")" placeholder="••••••" @bind="_password" @bind:event="oninput" @onkeyup="OnKey1"
+                           autocomplete="new-password" readonly="@_lockPass" @onfocus="UnlockPass" @onmousedown="UnlockPass" />
+                    <button type="button" class="dw-eye" @onclick="() => _showPass = !_showPass" tabindex="-1" aria-label="Parolayı göster/gizle">
+                        @if (_showPass)
+                        { <svg viewBox="0 0 24 24"><path d="M2 5.3 3.3 4l16.7 16.7-1.3 1.3-2.8-2.8A11 11 0 0 1 12 20C6 20 1.7 15.6 1 12c.3-1.6 1.4-3.6 3.1-5.2L2 5.3Zm7.5 7.5 1.7 1.7a2 2 0 0 1-1.7-1.7ZM12 6c6 0 10.3 4.4 11 8-.3 1.4-1.1 3-2.5 4.4l-2-2A6 6 0 0 0 12 8h-.3l-1.8-1.8C10.6 6.1 11.3 6 12 6Z"/></svg> }
+                        else
+                        { <svg viewBox="0 0 24 24"><path d="M12 5C6 5 1.7 9.4 1 13c.7 3.6 5 8 11 8s10.3-4.4 11-8c-.7-3.6-5-8-11-8Zm0 13a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg> }
+                    </button>
                 </div>
-            }
-            <button class="dw-btn" @onclick="DoFinalize" disabled="@_busy">@(_busy ? "Giriş yapılıyor…" : "GİRİŞ")</button>
-            <button class="dw-link" @onclick="BackFromBranch" disabled="@_busy">← Geri</button>
-        }
 
-        @if (_error is not null) { <div class="dw-error">@_error</div> }
-    </div>
+                <label class="dw-remember">
+                    <input type="checkbox" @bind="_rememberMe" />
+                    <span>Beni hatırla</span>
+                </label>
+
+                <button class="dw-btn" @onclick="DoStep1" disabled="@_busy">
+                    @(_busy ? "Doğrulanıyor…" : "DEVAM")
+                    @if (!_busy) { <svg viewBox="0 0 24 24" class="dw-arrow"><path d="M5 12h12l-4.5-4.5L14 6l7 7-7 7-1.5-1.5L17 14H5z"/></svg> }
+                </button>
+                <p class="dw-hint">Şifrenizi bilmiyorsanız firma yöneticinize başvurun.</p>
+            }
+            else if (_step == 4)
+            {
+                <h1 class="dw-title">Yeni Şifre Belirleyin</h1>
+                <p class="dw-sub">Güvenlik için ilk girişte kendi şifrenizi oluşturmalısınız.</p>
+                <label class="dw-label">Yeni Şifre</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="password" placeholder="En az 4 karakter" @bind="_newPass" @bind:event="oninput" @onkeyup="OnKeyPass" autocomplete="new-password" />
+                </div>
+                <label class="dw-label">Yeni Şifre (Tekrar)</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="password" placeholder="••••••" @bind="_newPass2" @bind:event="oninput" @onkeyup="OnKeyPass" autocomplete="new-password" />
+                </div>
+                <button class="dw-btn" @onclick="DoSetPassword" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "ŞİFREYİ BELİRLE")</button>
+                <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
+            }
+            else if (_step == 5)
+            {
+                @* ÖZEL KOD (ADR-083) — YALNIZ süper adminde ve yalnız ilk kez sorulur.
+                   Şifreden AYRI bir sırdır; Kalıcı Silme ekranının kilidini açar. *@
+                <h1 class="dw-title">Özel Kod Oluşturun</h1>
+                <p class="dw-sub">
+                    Bu kod, <b>Kalıcı Silme</b> ekranının kilididir — firma verisini geri alınamaz şekilde silen ekran.
+                    Şifrenizden ayrı, kendinize saklayacağınız bir kod belirleyin. Unutursanız şifrenizle yenisini belirleyebilirsiniz.
+                </p>
+                <label class="dw-label">Özel Kod</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="password" placeholder="En az 6 karakter" @bind="_code1" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
+                </div>
+                <label class="dw-label">Özel Kod (Tekrar)</label>
+                <div class="dw-field">
+                    <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                    <input type="password" placeholder="••••••" @bind="_code2" @bind:event="oninput" @onkeyup="OnKeyCode" autocomplete="new-password" />
+                </div>
+                <button class="dw-btn" @onclick="DoSetSpecialCode" disabled="@_busy">@(_busy ? "Kaydediliyor…" : "KODU OLUŞTUR")</button>
+            }
+            else if (_step == 2)
+            {
+                <h1 class="dw-title">Süper Admin</h1>
+                <p class="dw-sub">Yönetmek istediğiniz firmayı seçin.</p>
+                <label class="dw-label">Firma</label>
+                <select class="dw-select" @bind="_selectedCompanyId">
+                    <option value="">Firma seçin…</option>
+                    @foreach (var co in _companies) { <option value="@co.Id">@co.Name</option> }
+                </select>
+                <button class="dw-btn" @onclick="DoStep2" disabled="@_busy">@(_busy ? "Yükleniyor…" : "DEVAM")</button>
+                <button class="dw-link" @onclick="BackToStep1" disabled="@_busy">← Geri</button>
+            }
+            else
+            {
+                <h1 class="dw-title">@(_step == 3 && !string.IsNullOrEmpty(_companyName) ? _companyName : "Giriş")</h1>
+                <p class="dw-sub">Şube / şantiye seçip giriş yapın.</p>
+                <label class="dw-label">Şube / Şantiye</label>
+                <select class="dw-select" @bind="_branchId">
+                    <option value="">Şube seçin…</option>
+                    @if (_canViewAllBranches) { <option value="@AllBranches">Tüm Şubeler</option> }
+                    @foreach (var b in _branches) { <option value="@b.Id">@b.Name @(string.IsNullOrEmpty(b.Code) ? "" : $"({b.Code})")</option> }
+                </select>
+                @if (SelectedBranchHasPassword)
+                {
+                    <label class="dw-label">Şube Şifresi</label>
+                    <div class="dw-field">
+                        <svg viewBox="0 0 24 24" class="dw-ico"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Z"/></svg>
+                        <input type="password" placeholder="••••••" @bind="_branchPassword" @bind:event="oninput" @onkeyup="OnKey2" />
+                    </div>
+                }
+                <button class="dw-btn" @onclick="DoFinalize" disabled="@_busy">@(_busy ? "Giriş yapılıyor…" : "GİRİŞ")</button>
+                <button class="dw-link" @onclick="BackFromBranch" disabled="@_busy">← Geri</button>
+            }
+
+            @if (_error is not null) { <div class="dw-error">@_error</div> }
+        </div>
+    </main>
 </div>
 
 <style>
-    .dw-login-bg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:auto;
-        background:linear-gradient(180deg,rgba(8,13,22,.34) 0%,rgba(8,13,22,.50) 45%,rgba(6,11,19,.72) 100%),
-            url("login-hero.png") center/cover no-repeat;background-color:#080e17;}
-    .dw-login-card{position:relative;z-index:1;width:min(92vw,430px);margin:6vh 0;
-        background:rgba(18,27,41,.92);border:1px solid rgba(255,255,255,.07);border-radius:22px;
-        padding:36px 34px 34px;box-shadow:0 30px 90px rgba(0,0,0,.6);backdrop-filter:blur(6px);}
-    .dw-logo{display:block;margin:0 auto 12px;width:190px;max-width:74%;height:auto;}
-    .dw-title{color:#fff;font-size:22px;font-weight:700;text-align:center;margin:2px 0 4px;letter-spacing:.01em;}
-    .dw-sub{color:#8fa0b6;text-align:center;font-size:13.5px;margin:0 0 20px;}
-    .dw-label{display:block;color:#a9b6c8;font-size:12.5px;font-weight:500;margin:15px 2px 7px;}
-    .dw-field{display:flex;align-items:center;gap:10px;height:50px;padding:0 13px;
-        background:#0e1826;border:1px solid #243750;border-radius:13px;transition:border-color .15s,box-shadow .15s;}
-    .dw-field:focus-within{border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,.14);}
-    .dw-ico{width:19px;height:19px;fill:#6c7c93;flex:0 0 auto;}
+    .dw-login{position:fixed;inset:0;display:flex;overflow:auto;background:#0D1220;
+        font-family:'Plus Jakarta Sans','Segoe UI Variable','Segoe UI',system-ui,sans-serif;}
+
+    /* ── Sol: marka paneli ── */
+    .dw-brand{flex:0 0 46%;max-width:620px;padding:46px 46px 34px;display:flex;flex-direction:column;
+        border-right:1px solid rgba(255,255,255,.07);position:relative;overflow:hidden;
+        background:
+            radial-gradient(680px 420px at 18% 12%,rgba(245,166,35,.26) 0%,rgba(245,166,35,0) 66%),
+            radial-gradient(600px 480px at 90% 88%,rgba(99,102,241,.26) 0%,rgba(99,102,241,0) 62%),
+            linear-gradient(180deg,rgba(10,15,27,.86) 0%,rgba(10,15,27,.94) 100%),
+            url("login-hero.png") center/cover no-repeat,#0A0F1B;}
+    .dw-brand-top{display:flex;align-items:center;gap:12px;}
+    .dw-brand-logo{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.94);padding:4px;
+        box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.34);}
+    .dw-brand-logo img{width:100%;height:100%;object-fit:contain;display:block;}
+    .dw-brand-name{color:#EAEEF7;font-size:21px;font-weight:700;letter-spacing:-.01em;}
+    .dw-brand-mid{margin-top:auto;margin-bottom:auto;padding:34px 0;}
+    .dw-brand-head{color:#F4F7FC;font-size:38px;font-weight:800;line-height:1.18;letter-spacing:-.03em;margin:0;}
+    .dw-brand-sub{color:#9AA7C0;font-size:15px;line-height:1.65;margin:16px 0 0;max-width:420px;text-wrap:pretty;}
+    .dw-brand-points{list-style:none;margin:32px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;}
+    .dw-brand-points li{display:flex;align-items:center;gap:12px;color:#C3CCDD;font-size:14px;font-weight:500;}
+    .dw-pt-ico{width:32px;height:32px;flex:0 0 auto;border-radius:10px;display:flex;align-items:center;justify-content:center;
+        background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.24);color:#FBBF4A;font-size:15px;}
+    .dw-brand-foot{color:#5D6C88;font-size:12px;}
+
+    /* ── Sağ: form ── */
+    .dw-pane{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;
+        background:radial-gradient(900px 520px at 60% 0%,rgba(99,102,241,.10) 0%,rgba(99,102,241,0) 62%),#0D1220;}
+    .dw-card{width:min(92vw,432px);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+        border-radius:20px;padding:34px 32px 30px;box-shadow:0 30px 80px rgba(0,0,0,.45);backdrop-filter:blur(12px);}
+
+    .dw-steps{display:flex;align-items:center;gap:7px;margin-bottom:22px;}
+    .dw-steps i{height:3px;width:34px;border-radius:999px;background:rgba(255,255,255,.12);}
+    .dw-steps i.on{background:linear-gradient(90deg,#FBBF4A,#F0980D);}
+    .dw-steplabel{color:#7B8AA6;font-size:11.5px;font-weight:600;margin-left:6px;}
+
+    .dw-title{color:#F4F7FC;font-size:23px;font-weight:700;letter-spacing:-.02em;margin:0;}
+    .dw-sub{color:#8B98B2;font-size:13.5px;line-height:1.6;margin:5px 0 0;text-wrap:pretty;}
+    .dw-sub b{color:#C3CCDD;}
+
+    .dw-label{display:block;color:#9AA7C0;font-size:12.5px;font-weight:600;margin:20px 2px 7px;}
+    .dw-field{display:flex;align-items:center;gap:10px;height:50px;padding:0 14px;
+        background:rgba(8,12,22,.55);border:1px solid rgba(255,255,255,.1);border-radius:13px;
+        transition:border-color .15s,box-shadow .15s;}
+    .dw-field:focus-within{border-color:rgba(245,166,35,.6);box-shadow:0 0 0 3px rgba(245,166,35,.14);}
+    .dw-ico{width:19px;height:19px;fill:#6B7A96;flex:0 0 auto;}
+    .dw-field:focus-within .dw-ico{fill:#FBBF4A;}
     .dw-field input{flex:1;min-width:0;height:100%;background:transparent;border:none;outline:none;
-        color:#eef3f9;font-size:14.5px;font-family:inherit;}
-    .dw-field input::placeholder{color:#5d6c81;}
-    /* Tarayıcı otomatik-doldurma (autofill) beyaz/sarı zeminini bastır → alan koyu kalır */
+        color:#EAEEF7;font-size:14.5px;font-family:inherit;}
+    .dw-field input::placeholder{color:#5D6C88;}
+    /* Tarayıcı otomatik-doldurma zeminini bastır → alan koyu kalır */
     .dw-field input:-webkit-autofill,
     .dw-field input:-webkit-autofill:hover,
     .dw-field input:-webkit-autofill:focus,
     .dw-field input:-webkit-autofill:active{
-        -webkit-text-fill-color:#eef3f9 !important;
-        -webkit-box-shadow:0 0 0 1000px #0e1826 inset !important;
-        caret-color:#eef3f9;transition:background-color 99999s ease-out 0s;}
-    .dw-remember{display:flex;align-items:center;gap:9px;margin:16px 2px 0;cursor:pointer;user-select:none;}
-    .dw-remember input{width:17px;height:17px;accent-color:#F5A623;cursor:pointer;}
-    .dw-remember span{color:#b7c2d2;font-size:13.5px;}
-    .dw-eye{background:none;border:none;cursor:pointer;display:flex;padding:4px;color:#6c7c93;}
+        -webkit-text-fill-color:#EAEEF7 !important;
+        -webkit-box-shadow:0 0 0 1000px #0B111E inset !important;
+        caret-color:#EAEEF7;transition:background-color 99999s ease-out 0s;}
+
+    .dw-remember{display:flex;align-items:center;gap:10px;margin:18px 2px 0;cursor:pointer;user-select:none;}
+    .dw-remember input{width:18px;height:18px;accent-color:#F0980D;cursor:pointer;}
+    .dw-remember span{color:#B9C3D6;font-size:13.5px;}
+
+    .dw-eye{background:none;border:none;cursor:pointer;display:flex;padding:4px;color:#6B7A96;}
     .dw-eye svg{width:19px;height:19px;fill:currentColor;}
-    .dw-eye:hover{color:#aab6c8;}
+    .dw-eye:hover{color:#AAB6C8;}
+
     .dw-btn{width:100%;height:52px;margin-top:24px;border:none;border-radius:13px;cursor:pointer;
         display:flex;align-items:center;justify-content:center;gap:10px;
-        background:linear-gradient(180deg,#F8B740,#F3A31C);color:#241703;font-weight:700;font-size:15px;
-        letter-spacing:.04em;box-shadow:0 10px 26px rgba(243,163,28,.30);transition:filter .15s,transform .04s;}
+        background:linear-gradient(150deg,#FBBF4A,#F0980D);color:#241703;font-weight:800;font-size:14.5px;
+        letter-spacing:.04em;font-family:inherit;box-shadow:0 12px 30px rgba(240,152,13,.3);
+        transition:filter .15s,transform .04s;}
     .dw-btn:hover{filter:brightness(1.06);}
     .dw-btn:active{transform:translateY(1px);}
     .dw-btn:disabled{opacity:.6;cursor:default;box-shadow:none;}
     .dw-arrow{width:20px;height:20px;fill:#241703;}
-    .dw-select{width:100%;height:50px;padding:0 13px;background:#0e1826;border:1px solid #243750;
-        border-radius:13px;color:#eef3f9;font-size:14.5px;font-family:inherit;outline:none;appearance:none;
-        background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236c7c93'><path d='M7 10l5 5 5-5z'/></svg>");
-        background-repeat:no-repeat;background-position:right 12px center;background-size:20px;}
-    .dw-select:focus{border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,.14);}
-    .dw-select option{background:#0e1826;color:#eef3f9;}
+
+    .dw-select{width:100%;height:50px;padding:0 14px;background:rgba(8,12,22,.55);
+        border:1px solid rgba(255,255,255,.1);border-radius:13px;color:#EAEEF7;font-size:14.5px;
+        font-family:inherit;outline:none;appearance:none;
+        background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7A96'><path d='M7 10l5 5 5-5z'/></svg>");
+        background-repeat:no-repeat;background-position:right 13px center;background-size:20px;}
+    .dw-select:focus{border-color:rgba(245,166,35,.6);box-shadow:0 0 0 3px rgba(245,166,35,.14);}
+    .dw-select option{background:#0B111E;color:#EAEEF7;}
+
     .dw-link{width:100%;margin-top:12px;background:none;border:none;cursor:pointer;
-        color:#8fa0b6;font-size:13px;font-family:inherit;text-align:center;}
-    .dw-link:hover{color:#cdd6e2;}
-    .dw-error{margin-top:16px;background:rgba(224,72,72,.12);border:1px solid rgba(224,72,72,.4);
-        color:#ffb4b4;padding:11px 13px;border-radius:11px;font-size:13px;}
+        color:#7B8AA6;font-size:13px;font-family:inherit;text-align:center;}
+    .dw-link:hover{color:#C3CCDD;}
+    .dw-hint{color:#6B7A96;font-size:12.5px;text-align:center;margin:16px 0 0;}
+
+    .dw-error{margin-top:16px;background:rgba(226,74,59,.12);border:1px solid rgba(226,74,59,.4);
+        color:#FFB4AC;padding:11px 13px;border-radius:12px;font-size:13px;line-height:1.5;}
+
+    /* Dar ekran: marka paneli gizlenir, kart ortalanır */
+    @@media (max-width:900px){
+        .dw-brand{display:none;}
+        .dw-pane{flex:1;}
+    }
 </style>
 
 @code {
@@ -198,6 +282,17 @@
     private LoginResponse? _authData;
     private string? _error;
     private bool _busy;
+
+    // Adım göstergesi etiketi (yalnız görsel).
+    private string StepLabel => _step switch
+    {
+        1 => "Adım 1 / 3 · Kimlik",
+        2 => "Adım 2 / 3 · Firma",
+        3 => "Adım 3 / 3 · Şube",
+        4 => "Güvenlik · Şifre belirleme",
+        5 => "Güvenlik · Özel kod",
+        _ => "",
+    };
 
     // '|' ayracını bozmamak için depoya yazarken temizle (firma/kullanıcı adında pipe nadir ama garanti).
     private static string Safe(string? v) => (v ?? "").Replace("|", " ");

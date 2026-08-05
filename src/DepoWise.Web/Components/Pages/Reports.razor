@@ -1,10 +1,46 @@
 @page "/reports"
 @using System.Text.Json
+@using System.Globalization
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IJSRuntime JS
 
+@*  ============================================================================
+    Raporlar — Aurora görünümü.
+    API DEĞİŞİKLİĞİ YOK. Rapor uçları, filtreler, Excel dışa aktarma, sekme
+    davranışı (sekme değişince veri temizlenir) aynen korundu.
+    Eklenen tek şey: sonuç geldikten sonra TARAYICIDA hesaplanan özet şeridi
+    (satır sayısı + sayısal kolon toplamları) ve saf CSS sütun grafiği.
+    Grafik jenerik çalışır: ilk metin kolonuna göre gruplar, ilk sayısal
+    kolonu toplar. Sayısal kolon yoksa grafik hiç gösterilmez.
+    ============================================================================ *@
+
 <MudText Typo="Typo.h5" GutterBottom="true">Raporlar</MudText>
+
+<MudGrid Spacing="3">
+  <!-- ── Sol: rapor seçici (eski yatay sekmelerin yerine) ── -->
+  <MudItem xs="12" md="3">
+    <MudPaper Elevation="2" Class="pa-2">
+      <MudText Typo="Typo.caption" Class="mud-text-secondary px-2 py-1 d-block"
+               Style="font-weight:700; letter-spacing:.12em;">RAPORLAR</MudText>
+      @for (var i = 0; i < ReportDefs.Length; i++)
+      {
+          var idx = i;
+          var def = ReportDefs[i];
+          var on = _tab == idx;
+          <div class="dw-rpick @(on ? "active" : "")" @onclick="@(() => OnTabChanged(idx))">
+              <MudIcon Icon="@def.Icon" Size="Size.Small" Class="dw-rpick-ico" />
+              <div style="min-width:0;">
+                  <div class="dw-rpick-name">@def.Name</div>
+                  <div class="dw-rpick-desc">@def.Desc</div>
+              </div>
+          </div>
+      }
+    </MudPaper>
+  </MudItem>
+
+  <!-- ── Sağ: filtreler + sonuç ── -->
+  <MudItem xs="12" md="9">
 
 <MudPaper Class="pa-4 mb-3" Elevation="2">
     <MudGrid Spacing="2" Class="align-center">
@@ -44,21 +80,54 @@
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
 </MudPaper>
 
-<MudTabs Elevation="1" Rounded="true" ActivePanelIndex="_tab" ActivePanelIndexChanged="OnTabChanged" TabPanelsClass="pa-4">
-    <MudTabPanel Text="Genel Rapor" />
-    <MudTabPanel Text="Stok Durumu" />
-    <MudTabPanel Text="Bakım" />
-    <MudTabPanel Text="Yakıt Tüketim" />
-    <MudTabPanel Text="Depo Girişi" />
-    <MudTabPanel Text="Talep" />
-    <MudTabPanel Text="Malzeme — Şablonlu" />
-    <MudTabPanel Text="Malzeme — Şablon Dışı" />
-    <MudTabPanel Text="Araç — Şablonlu" />
-    <MudTabPanel Text="Araç — Şablon Dışı" />
-    <MudTabPanel Text="Durum Rapor" />
-</MudTabs>
+<div class="d-flex align-center mb-1" style="gap:10px;">
+    <MudIcon Icon="@ReportDefs[_tab].Icon" Color="Color.Primary" />
+    <div>
+        <MudText Typo="Typo.h6">@ReportDefs[_tab].Name</MudText>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">@ReportDefs[_tab].Desc</MudText>
+    </div>
+</div>
 
-<MudPaper Class="pa-4 mt-2" Elevation="2">
+@* ── Özet şeridi: satır sayısı + sayısal kolon toplamları (tarayıcıda hesaplanır) ── *@
+@if (_headers is not null && _rows.Count > 0)
+{
+    <div class="dw-rsum mt-3">
+        <div class="dw-rsum-card">
+            <span class="dw-rsum-label">SATIR</span>
+            <span class="dw-rsum-value">@_rows.Count.ToString("N0", Tr)</span>
+        </div>
+        @foreach (var t in _totals.Take(3))
+        {
+            <div class="dw-rsum-card">
+                <span class="dw-rsum-label">@t.Header.ToUpperInvariant() — TOPLAM</span>
+                <span class="dw-rsum-value">@t.Sum.ToString("N2", Tr)</span>
+            </div>
+        }
+    </div>
+}
+
+@* ── Saf CSS sütun grafiği — sayısal kolon varsa ── *@
+@if (_chart.Count > 1)
+{
+    <MudPaper Class="pa-4 mt-3" Elevation="2">
+        <div class="d-flex align-center justify-space-between mb-3 flex-wrap" style="gap:8px;">
+            <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@_chartValueLabel — @_chartGroupLabel bazında</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">en yüksek @_chart.Count değer</MudText>
+        </div>
+        <div class="dw-chart">
+            @foreach (var b in _chart)
+            {
+                <div class="dw-bar-col" title="@b.Label: @b.Value.ToString("N2", Tr)">
+                    <span class="dw-bar-val">@b.Value.ToString("N0", Tr)</span>
+                    <div class="dw-bar" style="@($"height:{Pct(b.Value)}%;")"></div>
+                    <span class="dw-bar-lbl">@Short(b.Label)</span>
+                </div>
+            }
+        </div>
+    </MudPaper>
+}
+
+<MudPaper Class="pa-4 mt-3" Elevation="2">
     @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_headers is null) { <MudText Class="mud-text-secondary">Filtreleri seçip <b>Sorgula</b>'ya basın.</MudText> }
     else if (_rows.Count == 0) { <MudText Class="mud-text-secondary">Kayıt bulunamadı.</MudText> }
@@ -77,7 +146,72 @@
     }
 </MudPaper>
 
+  </MudItem>
+</MudGrid>
+
+<style>
+    .dw-rpick {
+        display: flex; align-items: flex-start; gap: 11px;
+        padding: 10px 11px; border-radius: 12px; cursor: pointer; user-select: none;
+        transition: background-color .14s ease;
+    }
+    .dw-rpick:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 7%, transparent); }
+    .dw-rpick.active {
+        background: linear-gradient(90deg,
+            color-mix(in srgb, var(--mud-palette-primary) 20%, transparent),
+            color-mix(in srgb, var(--mud-palette-primary) 5%, transparent));
+        border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
+    }
+    .dw-rpick-ico { color: var(--mud-palette-text-secondary); margin-top: 1px; }
+    .dw-rpick.active .dw-rpick-ico { color: var(--mud-palette-primary); }
+    .dw-rpick-name { font-size: .86rem; font-weight: 600; color: var(--mud-palette-text-primary); }
+    .dw-rpick.active .dw-rpick-name { color: var(--mud-palette-primary); }
+    .dw-rpick-desc { font-size: .74rem; color: var(--mud-palette-text-secondary); margin-top: 1px; }
+
+    .dw-rsum { display: flex; flex-wrap: wrap; gap: 12px; }
+    .dw-rsum-card {
+        display: flex; flex-direction: column; gap: 4px; min-width: 150px;
+        padding: 13px 16px; border-radius: 14px;
+        background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
+        border: 1px solid var(--mud-palette-lines-default);
+    }
+    .dw-rsum-label { font-size: .68rem; font-weight: 700; letter-spacing: .07em; color: var(--mud-palette-text-secondary); }
+    .dw-rsum-value { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em;
+        font-variant-numeric: tabular-nums; color: var(--mud-palette-text-primary); }
+
+    .dw-chart { display: flex; align-items: flex-end; gap: 14px; height: 168px; }
+    .dw-bar-col { flex: 1 1 0; min-width: 0; height: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; }
+    .dw-bar {
+        width: 100%; min-height: 3px; border-radius: 8px 8px 3px 3px;
+        background: linear-gradient(180deg,
+            var(--mud-palette-primary),
+            color-mix(in srgb, var(--mud-palette-primary) 35%, transparent));
+    }
+    .dw-bar-val { font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+        color: var(--mud-palette-text-primary); white-space: nowrap; }
+    .dw-bar-lbl { font-size: .7rem; color: var(--mud-palette-text-secondary);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+</style>
+
 @code {
+    // Sıra _type eşlemesiyle BİREBİR aynı olmalı — indeks değişirse rapor ucu değişir.
+    private sealed record ReportDef(string Name, string Desc, string Icon);
+    private static readonly ReportDef[] ReportDefs =
+    {
+        new("Genel Rapor",           "Araç ve şantiye bazlı genel döküm", Icons.Material.Filled.Summarize),
+        new("Stok Durumu",           "Mevcut / minimum / kritik kalemler", Icons.Material.Filled.Inventory2),
+        new("Bakım",                 "Planlı ve gecikmiş bakım kayıtları", Icons.Material.Filled.Build),
+        new("Yakıt Tüketim",         "Araç bazlı tüketim ve ortalama", Icons.Material.Filled.LocalGasStation),
+        new("Depo Girişi",           "Depoya alınan yakıt hareketleri", Icons.Material.Filled.Warehouse),
+        new("Talep",                 "Talep durumu ve onay süreleri", Icons.Material.Filled.Description),
+        new("Malzeme — Şablonlu",    "Şablona bağlı malzeme kayıtları", Icons.Material.Filled.ListAlt),
+        new("Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler", Icons.Material.Filled.PlaylistAdd),
+        new("Araç — Şablonlu",       "Şablona bağlı araç kayıtları", Icons.Material.Filled.LocalShipping),
+        new("Araç — Şablon Dışı",    "Şablonsuz girilen araçlar", Icons.Material.Filled.NoCrash),
+        new("Durum Rapor",           "Anlık durum özeti", Icons.Material.Filled.Assessment),
+    };
+
     private int _tab;
     private string _type => _tab switch { 0 => "general", 1 => "stock", 2 => "maintenance", 3 => "fuel", 4 => "fuel-depot", 5 => "requests",
         6 => "materials-template", 7 => "materials-nontemplate", 8 => "vehicles-template", 9 => "vehicles-nontemplate", 10 => "status", _ => "general" };
@@ -90,6 +224,7 @@
         _headers = null;
         _rows = new();
         _error = null;
+        ClearSummary();
     }
 
     private string? _companyId;
@@ -101,6 +236,94 @@
     private List<string>? _headers;
     private List<List<string>> _rows = new();
     private string? _error; private bool _busy;
+
+    // ── Özet + grafik (yalnız tarayıcıda hesaplanır; sunucuya hiç sorulmaz) ──
+    private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
+    private sealed record Total(string Header, decimal Sum);
+    private sealed record Bar(string Label, decimal Value);
+    private List<Total> _totals = new();
+    private List<Bar> _chart = new();
+    private string _chartValueLabel = "", _chartGroupLabel = "";
+
+    private void ClearSummary() { _totals = new(); _chart = new(); _chartValueLabel = ""; _chartGroupLabel = ""; }
+
+    private decimal Pct(decimal v)
+    {
+        var max = _chart.Count == 0 ? 0m : _chart.Max(b => b.Value);
+        if (max <= 0) return 3m;
+        var p = v / max * 100m;
+        return p < 3m ? 3m : p;
+    }
+
+    private static string Short(string s) => s.Length <= 14 ? s : s[..13] + "…";
+
+    /// <summary>Hücre metnini sayıya çevirmeyi dener: "1.234,56" (tr), "1,234.56" (en) ve düz sayı.</summary>
+    private static bool TryNum(string s, out decimal value)
+    {
+        value = 0m;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        var t = s.Trim().Replace(" ", "").Replace("\u00A0", "");
+        // sonda birim/simge varsa at (ör. "2.140 lt", "48,20 ₺")
+        int i = t.Length;
+        while (i > 0 && !char.IsDigit(t[i - 1])) i--;
+        t = t[..i];
+        if (t.Length == 0) return false;
+        if (decimal.TryParse(t, NumberStyles.Number, Tr, out value)) return true;
+        if (decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out value)) return true;
+        return false;
+    }
+
+    /// <summary>Sonuç geldikten sonra özet + grafiği kurar. Hiçbir varsayım zorlamaz: sayısal kolon
+    /// bulunamazsa özet toplamı ve grafik boş kalır (ekran yalnız tabloyu gösterir).</summary>
+    private void BuildSummary()
+    {
+        ClearSummary();
+        if (_headers is null || _rows.Count == 0) return;
+        int cols = _headers.Count;
+
+        // Hangi kolonlar sayısal? (dolu hücrelerin en az %60'ı sayıya çevrilebiliyorsa)
+        var numericCols = new List<int>();
+        for (int c = 0; c < cols; c++)
+        {
+            int filled = 0, parsed = 0;
+            foreach (var r in _rows)
+            {
+                if (c >= r.Count || string.IsNullOrWhiteSpace(r[c])) continue;
+                filled++;
+                if (TryNum(r[c], out _)) parsed++;
+            }
+            if (filled >= 3 && parsed * 10 >= filled * 6) numericCols.Add(c);
+        }
+
+        // Toplamlar
+        foreach (var c in numericCols)
+        {
+            decimal sum = 0m;
+            foreach (var r in _rows) if (c < r.Count && TryNum(r[c], out var v)) sum += v;
+            _totals.Add(new Total(_headers[c], sum));
+        }
+
+        // Grafik: ilk METİN kolonuna göre grupla, ilk SAYISAL kolonu topla
+        int valueCol = numericCols.Count > 0 ? numericCols[0] : -1;
+        int groupCol = -1;
+        for (int c = 0; c < cols; c++) if (!numericCols.Contains(c)) { groupCol = c; break; }
+        if (valueCol < 0 || groupCol < 0) return;
+
+        var groups = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in _rows)
+        {
+            if (groupCol >= r.Count || valueCol >= r.Count) continue;
+            var key = string.IsNullOrWhiteSpace(r[groupCol]) ? "—" : r[groupCol].Trim();
+            if (!TryNum(r[valueCol], out var v)) continue;
+            groups[key] = groups.TryGetValue(key, out var cur) ? cur + v : v;
+        }
+        if (groups.Count < 2) return;   // tek grup varsa grafik anlamsız
+
+        _chart = groups.OrderByDescending(kv => kv.Value).Take(8)
+                       .Select(kv => new Bar(kv.Key, kv.Value)).ToList();
+        _chartValueLabel = _headers[valueCol];
+        _chartGroupLabel = _headers[groupCol];
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -154,7 +377,7 @@
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var doc = await Api.PostJsonAsync($"/api/reports/{_type}", body);
-            if (doc is null) { _error = "Rapor alınamadı."; _headers = null; return; }
+            if (doc is null) { _error = "Rapor alınamadı."; _headers = null; ClearSummary(); return; }
             var d = doc.Value;
             _headers = d.TryGetProperty("headers", out var h) && h.ValueKind == JsonValueKind.Array
                 ? h.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : new();
@@ -162,8 +385,9 @@
             if (d.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
                 foreach (var row in rows.EnumerateArray())
                     _rows.Add(row.EnumerateArray().Select(Cell).ToList());
+            BuildSummary();
         }
-        catch (Exception ex) { _error = "Hata: " + ex.Message; _headers = null; }
+        catch (Exception ex) { _error = "Hata: " + ex.Message; _headers = null; ClearSummary(); }
         finally { _busy = false; }
     }
 
