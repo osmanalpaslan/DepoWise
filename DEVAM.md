@@ -59,8 +59,13 @@ Temiz kurulum artık yeni ikonu gösterir.
 - **KALAN (opsiyonel/ertelenen):** web §2 tek-birincil-buton (bölümler ayrı → riskli), Aşama 4 S1/S2 malzeme
   kartı bölümlü form+değişiklik sayacı, S3 kritik stok paneli, malzeme "Son Hareketler" paneli (A3 UI bağlama)
   — bunlar görsel-sweep değil, işlevsel eklemeler (çalışan forma müdahale → dikkatli, ayrı iş).
-- **Masaüstü yayın notu:** ThemeSettingsView emoji değişikliği 1.0.100'den sonra geldi, henüz YAYINLANMADI —
-  kullanıcı onayıyla sonraki masaüstü rötuşlarıyla birlikte çıkarılacak.
+### 🧾 Son Hareketler paneli + masaüstü 1.0.101 (2026-08-05, kullanıcı seçimi)
+Malzeme kartına (hem masaüstü `MaterialQuickEditWindow` hem web `Materials.razor` düzenleme formu) **"Son
+Hareketler"** paneli eklendi: o malzemenin son 10 stok hareketi (giriş yeşil / çıkış kırmızı, tarih + belge no).
+Salt-okunur; backend (A3) zaten vardı; ViewModel'e dokunulmadı (masaüstü kod-arkası, web @code helper).
+**Masaüstü 1.0.101 YAYINLANDI** (Tema ekranı emoji + bu panel; sunucu en güncel=1.0.101, indirme HTTP 200).
+Web canlı. Kalan işlevsel eklemeler (S2 değişiklik sayacı, S3 kritik stok paneli, web §2 buton disiplini)
+kullanıcı isterse ayrıca yapılır.
 
 ### 🎨 AURORA arayüz yenilemesi CANLIDA (2026-08-05, masaüstü **1.0.98**) — marka Alpnex
 Ayrı Claude (tasarım) hesabından gelen "Aurora" paketi (koyu tema + kehribar #F5A623 + indigo ışıma, Plus
