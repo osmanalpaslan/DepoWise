@@ -46,9 +46,9 @@ Proje adı hukuken başkasına ait olduğu için marka **Alpnex** oldu. Baba tü
   de çalışır ama klasör geçişi nedeniyle bir kez fazladan güncelleme turu olabilir.)
 - **Yerel temizleme aracı:** `tools/Alpnex-Yerel-Veri-Temizle.bat` (+`.ps1`) — hem yeni Alpnex hem eski
   DepoWise yerel klasörlerini + eski `DepoWise.lnk` kısayolunu temizler (onaylı, sunucuya dokunmaz).
-- **Kurulum exe'si yenilendi:** sunucudaki `DepoWiseSetup.exe` (indirme: `/api/setup/download`) Alpnex davranışıyla
-  yeniden derlenip yüklendi → indirilen kurulum artık `%LOCALAPPDATA%\Alpnex\app`'e kurar + Alpnex.lnk üretir.
-  (İndirme dosya adı hâlâ `DepoWiseSetup.exe` = iç artefakt adı, A gereği; istenirse AlpnexSetup.exe yapılır.)
+- **Kurulum exe'si tamamen Alpnex:** indirilen dosya adı artık **`AlpnexSetup.exe`** (API + AssemblyName), Alpnex
+  davranışıyla derlendi → `%LOCALAPPDATA%\Alpnex\app`'e kurar + Alpnex.lnk üretir. Native kütüphaneler exe'ye gömülü
+  (`IncludeNativeLibrariesForSelfExtract`) → tek dosya çalışır. Eski `DepoWiseSetup.exe` sunucu diskinden silindi.
 - Envanter/analiz: [docs/REBRAND_ANALIZI.md](docs/REBRAND_ANALIZI.md).
 
 ### 🔐 İçe/dışa aktarım yetki ayrımı (2026-07-26, masaüstü **1.0.96** CANLI)
