@@ -39,9 +39,15 @@ teşhis etti; iki kök neden vardı, ikisi de düzeltildi ve **web canlıya alı
 - **MASAÜSTÜ — sabit gri butonlar:** `Components.axaml`'de İptal/Temizle/Filtrele butonları sabit gri hex
   (#475569/#5B6473) ile boyalıydı; tablo zebrası (#0AFFFFFF) açık temada görünmüyordu → palet Aurora olsa bile
   gri kalıyorlardı. **Düzeltme:** hepsi tema token'ına bağlandı + App.axaml aktif menü kehribar gradyanı +
-  DashboardView emoji→ikon/KPI düzeni. **Masaüstü 1.0.99 YAYINLANDI** (kullanıcı onayı "olmuş yayınla",
-  2026-08-05) → babanın makinesi bir sonraki kontrolde otomatik güncellenir, veritabanı korunur. Doğrulama:
-  sunucu en güncel=1.0.99, indirme HTTP 200 (88.7 MB), checksum/boyut eşleşiyor.
+  DashboardView emoji→ikon/KPI düzeni. **Masaüstü 1.0.99 → 1.0.100 YAYINLANDI** (kullanıcı onayı "olmuş
+  yayınla", 2026-08-05) → babanın makinesi otomatik güncellenir, veritabanı korunur.
+
+### 🖼️ YENİ LOGO tüm ikonlara uygulandı (2026-08-05) — depo+kamyon+ekskavatör
+Kullanıcının hazırladığı yeni Alpnex logosu (şeffaf zeminli) her yere uygulandı: **web** logo.png (512px) +
+favicon.png/ico (canlı), **masaüstü** app-icon.png (giriş) + app-logo.ico (görev çubuğu/exe), **kurulum aracı**
+exe simgesi (Setup csproj'a `ApplicationIcon` eklendi). Masaüstü **1.0.100** paketinde + **AlpnexSetup.exe**
+yeniden derlenip sunucuya yüklendi (`/api/setup/download` HTTP 200). Yeni yardımcı: `scripts/publish_setup.mjs`.
+Temiz kurulum artık yeni ikonu gösterir.
 - **Kalan:** Aşama 2 (web 35 ekran bağlam satırı/tek-birincil-eylem + masaüstü ~38 view Classes atama/emoji
   süpürme), Aşama 3-4 rötuşları. Sıradaki tek iş = Aşama 2 sweep.
 
