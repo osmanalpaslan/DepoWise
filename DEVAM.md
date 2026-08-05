@@ -69,7 +69,15 @@ Salt-okunur; backend (A3) zaten vardı; ViewModel'e dokunulmadı (masaüstü kod
 - **S2 değişiklik sayacı:** kaydedilmemiş alan sayısı rozeti + İptal'de "değişiklikler kaybolur" onayı. Web + masaüstü.
 - ViewModel'e / kaydetme mantığına dokunulmadı (masaüstü kod-arkası, web @code/markup). Sunucu en güncel=1.0.102.
 - **Malzeme kartı işlevsel eklemeleri TAM** (Son Hareketler + Kritik panel + Değişiklik sayacı).
-- **Tek kalan opsiyonel:** web §2 "tek-birincil-buton" disiplini (bölümler ayrı → riskli, kullanıcı isterse).
+- **Web §2 (opsiyonel) YAPILDI — GERİ ALINABİLİR:** ikincil butonlar (Filtrele ×3, Ekle ×2) Filled→Outlined;
+  asıl Kaydet/Oluştur kehribar, Sil kırmızı, satır-içi butonlar dokunulmadı. **Geri alma:** `git revert 537ae14`
+  ya da `scratchpad/s2_backup/*.orig` geri kopyala. Canlı.
+
+### 🔍 Logo ikonu büyütüldü + 1.0.103 (2026-08-05)
+Kullanıcı bildirimi: uygulama simgesi diğer ikonların yanında küçük kalıyor. Neden: kaynak PNG'de logonun
+etrafında %23–33 şeffaf boşluk vardı → kare ikonda küçük duruyordu. **Çözüm:** şeffaf kenarlar kırpıldı
+(749×471 içerik), logo kareyi ~%94 dolduruyor. Web favicon/logo (canlı), masaüstü app-icon/app-logo.ico,
+**masaüstü 1.0.103 YAYINLANDI**, **AlpnexSetup.exe yeniden yüklendi** (yeni ikon). Sunucu güncel=1.0.103.
 
 ### 🎨 AURORA arayüz yenilemesi CANLIDA (2026-08-05, masaüstü **1.0.98**) — marka Alpnex
 Ayrı Claude (tasarım) hesabından gelen "Aurora" paketi (koyu tema + kehribar #F5A623 + indigo ışıma, Plus
