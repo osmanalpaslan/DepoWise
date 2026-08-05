@@ -6,9 +6,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>DepoWiseSetup</AssemblyName>
+    <AssemblyName>AlpnexSetup</AssemblyName>
     <!-- Tek dosya self-contained yayınlandığında paketi sıkıştır (boyutu ~%40 küçültür). -->
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Native kütüphaneleri de exe'ye GÖM (yanına DLL çıkmasın): kurulum aracı TEK dosya olarak indirilir/servis
+         edilir; yoksa çalışırken eksik native DLL hatası verir (2026-07-26). -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <!-- Sunucu adresi (kurulum bu adresten uygulamayı indirir). Yayınlarken -p:ServerUrl=... ile değiştirilebilir. -->
     <ServerUrl Condition="'$(ServerUrl)'==''">https://depowise-erp.fly.dev</ServerUrl>

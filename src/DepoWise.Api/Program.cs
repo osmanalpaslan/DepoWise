@@ -2078,9 +2078,9 @@ app.MapPost("/api/releases", async (HttpContext ctx) =>
 // ── Masaüstü kurulum aracı (setup) indirme/yükleme ──
 app.MapGet("/api/setup/download", () =>
 {
-    var path = Path.Combine(dataDir, "setup", "DepoWiseSetup.exe");
+    var path = Path.Combine(dataDir, "setup", "AlpnexSetup.exe");
     return File.Exists(path)
-        ? Results.File(path, "application/octet-stream", "DepoWiseSetup.exe")
+        ? Results.File(path, "application/octet-stream", "AlpnexSetup.exe")
         : Results.NotFound(new { error = "Kurulum aracı henüz yüklenmedi." });
 });
 app.MapPost("/api/setup", async (HttpContext ctx) =>
@@ -2089,7 +2089,7 @@ app.MapPost("/api/setup", async (HttpContext ctx) =>
     var form = await ctx.Request.ReadFormAsync();
     var file = form.Files["file"]; if (file is null) return Results.BadRequest(new { error = "file yok" });
     var dir = Path.Combine(dataDir, "setup"); Directory.CreateDirectory(dir);
-    await using var fs = File.Create(Path.Combine(dir, "DepoWiseSetup.exe"));
+    await using var fs = File.Create(Path.Combine(dir, "AlpnexSetup.exe"));
     await file.OpenReadStream().CopyToAsync(fs, ctx.RequestAborted);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
