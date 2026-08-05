@@ -133,6 +133,33 @@ public class MaterialGridTests : IDisposable
         Assert.Equal("Düşük Stok", res.Items[0].Status);
     }
 
+    // ── A1 (Aurora): "Yalnız kritik" (criticalOnly) — stok <= min stok, min stok > 0 ──
+    [Fact]
+    public void YalnizKritik_StokMinAltinda_Olanlari_Getirir()
+    {
+        var a = Admin("A");
+        var kritik = _materials.Create(a, new NewMaterial("K-1", "Kritik", MinStock: 10m));
+        _opening.RecordOpening(a, kritik, 3m, "op-k");            // 3 <= 10 → kritik
+        var stoksuzMinli = _materials.Create(a, new NewMaterial("K-2", "StoksuzMinli", MinStock: 5m)); // stok 0 <= 5 → kritik
+        var bol = _materials.Create(a, new NewMaterial("B-1", "Bol", MinStock: 10m));
+        _opening.RecordOpening(a, bol, 50m, "op-b");             // 50 > 10 → kritik DEĞİL
+        _materials.Create(a, new NewMaterial("M-0", "Minsiz"));   // min 0 → kritik DEĞİL (min tanımsız)
+
+        // criticalOnly=false → hepsi (4)
+        Assert.Equal(4, _materials.SearchGrid(a, new MaterialGridFilter(), 1, 50, criticalOnly: false).TotalCount);
+
+        // criticalOnly=true → yalnız K-1 ve K-2
+        var res = _materials.SearchGrid(a, new MaterialGridFilter(), 1, 50, criticalOnly: true);
+        Assert.Equal(2, res.TotalCount);
+        Assert.Contains(res.Items, m => m.Code == "K-1");
+        Assert.Contains(res.Items, m => m.Code == "K-2");
+        Assert.DoesNotContain(res.Items, m => m.Code == "B-1" || m.Code == "M-0");
+
+        // Export yolu (SearchGridAll) da aynı filtreyi uygular
+        var all = _materials.SearchGridAll(a, new MaterialGridFilter(), criticalOnly: true);
+        Assert.Equal(2, all.Count);
+    }
+
     [Fact]
     public void Filtre_UyumluArac_KorelasyonluAltSorgu()
     {

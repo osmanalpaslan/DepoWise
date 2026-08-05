@@ -15,6 +15,9 @@ public sealed record CountLine(string MaterialId, decimal CountedQuantity);
 
 public sealed record StockDocResult(string DocumentId, string DocNo);
 
+/// <summary>A3 (Aurora): malzeme kartı "Son Hareketler" satırı. Quantity İŞARETLİ (+giriş/−çıkış).</summary>
+public sealed record MaterialMovementRow(long Date, string Kind, decimal Quantity, string Label, string? Reference);
+
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
     string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null,
@@ -188,6 +191,55 @@ ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT @lim;";
                 r.GetInt32(5), Money.Parse(r.GetString(6)),
                 r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
                 S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1));
+        return list;
+    }
+
+    /// <summary>A3 (Aurora): TEK malzemenin son N hareketi (giriş/çıkış/transfer/sayım). Malzeme kartı sağ
+    /// sütunundaki "Son Hareketler" paneli için. Yetki: malzeme OKUMA + firma kapsamı (malzeme detay ucuyla aynı).
+    /// Tarihe göre azalan. Miktar İŞARETLİ (giriş +, çıkış −). Boşsa panel gösterilmez.</summary>
+    public IReadOnlyList<MaterialMovementRow> RecentForMaterial(SessionContext s, string materialId, int take = 10)
+    {
+        AccessControl.Require(s, "materials", PermissionAction.View);   // malzeme detay ucuyla aynı kontrol
+        if (take < 1) take = 1; if (take > 100) take = 100;
+        using var conn = _factory.Create();
+        // Firma kapsamı: yalnız oturumun firmasına ait + bu malzemenin hareketleri (çapraz-tenant sızıntısı yok).
+        EnsureMaterialOwned(conn, null, s.CompanyId, materialId);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
+       COALESCE(br.name,''), COALESCE(d.doc_no,'')
+FROM stock_movements sm
+LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN branches br ON br.id = sm.branch_id
+WHERE sm.company_id=@c AND sm.material_id=@m
+ORDER BY sm.created_at DESC, sm.rowid DESC
+LIMIT @take;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@m", materialId);
+        cmd.AddWithValue("@take", take);
+        var list = new List<MaterialMovementRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var type = r.GetString(1);
+            int dir = r.GetInt32(2);
+            var qty = Money.Parse(r.GetString(3));
+            var branch = r.GetString(4);
+            var doc = r.GetString(5);
+            var typeText = type switch
+            {
+                "in" => "Giriş", "out" => "Çıkış", "transfer" => "Transfer",
+                "adjustment" => "Sayım Düzeltme", "opening" => "Açılış", "reverse" => "İptal", _ => type
+            };
+            var kind = type switch
+            {
+                "in" or "opening" => "in", "out" => "out", "transfer" => "transfer",
+                "adjustment" or "count" => "adjust", "reverse" => "adjust", _ => type
+            };
+            var label = string.IsNullOrEmpty(branch) ? typeText : $"{typeText} · {branch}";
+            list.Add(new MaterialMovementRow(r.GetInt64(0), kind, dir * qty, label,
+                string.IsNullOrEmpty(doc) ? null : doc));
+        }
         return list;
     }
 

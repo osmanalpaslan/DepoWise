@@ -463,7 +463,7 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// "içerir" araması yapar; birden çok filtre aktifken sıralama, doldurulan alanların
     /// <see cref="MaterialListColumns.All"/>'daki SIRASINA göre "başlangıca göre" önceliklidir (GridQuery).</summary>
     public GridResult<MaterialGridRow> SearchGrid(SessionContext s, MaterialGridFilter filter, int page, int pageSize,
-        string? sortColumn = null, bool sortDesc = false)
+        string? sortColumn = null, bool sortDesc = false, bool criticalOnly = false)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -497,6 +497,11 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         // Malzeme listesi FİRMA-GENELİdir (ortak katalog) — şubeye göre filtrelenmez. Ayrım STOK'tadır
         // (kullanıcı kararı 2026-07-26: "ortak liste + şube-bazlı stok").
         var inner = SqlDialect.PortableSql(conn, GridInnerSql);
+        // A1 (Aurora): "Yalnız kritik" — stok <= min stok (min stok > 0). Düşük-stok tanımıyla birebir
+        // (bkz. DashboardService.LowStock). Varsayılan false → davranış eskisi gibi. Inner WHERE'e eklenir
+        // (hem sayım hem liste hem export SearchGridAll aynı metottan geçtiği için tek yer).
+        if (criticalOnly)
+            inner += " AND CAST(COALESCE(sb.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0";
 
         int total;
         using (var cnt = conn.CreateCommand())
@@ -530,13 +535,13 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu
     /// için (kullanıcı isteği 2026-07-19: sayfadaki değil, filtrelenmiş TÜM sonuç kümesi indirilmeli).
     /// SearchGrid'i 500'lük sayfalarla iç döngüde gezer (o metodun 500 sınırı BOZULMAZ).</summary>
-    public IReadOnlyList<MaterialGridRow> SearchGridAll(SessionContext s, MaterialGridFilter filter, string? sortColumn = null, bool sortDesc = false)
+    public IReadOnlyList<MaterialGridRow> SearchGridAll(SessionContext s, MaterialGridFilter filter, string? sortColumn = null, bool sortDesc = false, bool criticalOnly = false)
     {
         var all = new List<MaterialGridRow>();
         int page = 1;
         while (true)
         {
-            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc);
+            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc, criticalOnly);
             all.AddRange(res.Items);
             if (page >= res.TotalPages || res.Items.Count == 0) break;
             page++;

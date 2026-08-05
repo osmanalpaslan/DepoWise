@@ -616,6 +616,16 @@ app.MapGet("/api/dashboard", (HttpContext ctx) =>
             navigateKey = a.NavigateKey, isCritical = a.IsCritical, icon = a.Icon,
             key = a.Key, signature = a.Signature, read = a.Read, // #18
         }),
+        // A2 (Aurora): ana ekran KPI sayıları. AYNI GetSummary → aynı tenant/şube/yetki kapsamı
+        // (uyarılarla birebir). Yeni alan; eski davranış bozulmaz (summary yoksa web türetmeye düşer).
+        summary = new
+        {
+            vehicleCount = sum.VehicleCount,
+            materialCount = sum.MaterialCount,
+            lowStockCount = sum.LowStockCount,
+            pendingRequestCount = sum.PendingRequestCount,
+            personnelCount = sum.PersonnelCount,
+        },
     });
 }).RequireAuthorization();
 // #18 — Uyarıyı kullanıcı için "okundu" işaretle (ana ekrandan gizlenir; hali değişince yeniden görünür).
@@ -773,14 +783,15 @@ app.MapGet("/api/materials", (HttpContext c, string? search) =>
 app.MapGet("/api/materials/grid", (HttpContext c,
     string? code, string? name, string? type, string? category, string? unit, string? brand, string? supplier,
     string? unitPrice, string? currency, string? minStock, string? stock, string? status, string? description,
-    string? compatibleVehicles, string? equivalents, int page, int pageSize, string? sort, bool? desc) =>
+    string? compatibleVehicles, string? equivalents, int page, int pageSize, string? sort, bool? desc,
+    bool criticalOnly = false) =>   // A1 (Aurora): yalnız kritik (stok<=min); varsayilan false = eski davranis
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
         description, compatibleVehicles, equivalents);
     var res = svc.Materials.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
-        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, criticalOnly);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
@@ -791,18 +802,23 @@ app.MapGet("/api/materials/grid", (HttpContext c,
 app.MapGet("/api/materials/grid/export", (HttpContext c,
     string? code, string? name, string? type, string? category, string? unit, string? brand, string? supplier,
     string? unitPrice, string? currency, string? minStock, string? stock, string? status, string? description,
-    string? compatibleVehicles, string? equivalents, string? sort, bool? desc) =>
+    string? compatibleVehicles, string? equivalents, string? sort, bool? desc,
+    bool criticalOnly = false) =>   // A1 (Aurora): ekranla aynı "yalnız kritik" filtresi
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Materials.MaterialGridFilter(
         code, name, type, category, unit, brand, supplier, unitPrice, currency, minStock, stock, status,
         description, compatibleVehicles, equivalents);
-    var rows = svc.Materials.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+    var rows = svc.Materials.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, criticalOnly);
     var bytes = svc.Excel.Export(DepoWise.Infrastructure.Materials.MaterialService.ToTableModel(rows));
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Malzemeler.xlsx");
 }).RequireAuthorization();
 app.MapGet("/api/materials/{id}", (HttpContext c, string id) => S(c) is { } s ? Results.Ok(svc.Materials.GetDetail(s, id)) : Results.Unauthorized()).RequireAuthorization();
+// A3 (Aurora): malzeme kartı "Son Hareketler" — tek malzemenin son N hareketi. Yetki: malzeme okuma + firma
+// kapsamı (RecentForMaterial içinde Require(materials,View) + EnsureMaterialOwned). take verilmezse 10.
+app.MapGet("/api/materials/{id}/movements", (HttpContext c, string id, int? take) =>
+    S(c) is { } s ? Results.Ok(svc.Stock.RecentForMaterial(s, id, take is > 0 ? take.Value : 10)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
