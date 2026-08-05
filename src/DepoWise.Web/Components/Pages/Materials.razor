@@ -143,6 +143,11 @@
                     </MudSelect>
                     <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters">Filtrele</MudButton>
                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Temizle</MudButton>
+                    <MudTooltip Text="Yalnız stok, minimum stoğun altına düşmüş (kritik) malzemeleri gösterir">
+                        <MudButton Size="Size.Small" Variant="@(_criticalOnly ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Error" StartIcon="@Icons.Material.Filled.WarningAmber"
+                                   OnClick="ToggleCritical">Yalnız kritik</MudButton>
+                    </MudTooltip>
                     <MudTooltip Text="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir">
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
                                    Disabled="@_exporting" OnClick="ExportExcel">Excel'e Aktar</MudButton>
@@ -379,10 +384,15 @@
     {
         var qs = new List<string>();
         if (_sortColumn is not null) { qs.Add($"sort={_sortColumn}"); qs.Add($"desc={(_sortDesc ? "true" : "false")}"); }
+        if (_criticalOnly) qs.Add("criticalOnly=true");   // A1 (Aurora): yalnız stok≤min. Load+Export paylaşır.
         foreach (var (k, v) in _filters)
             if (!string.IsNullOrWhiteSpace(v)) qs.Add($"{k}={Uri.EscapeDataString(v.Trim())}");
         return qs;
     }
+
+    // A1 (Aurora): "Yalnız kritik" geçişi — açıkken listede/Excel'de yalnız kritik seviye altı malzemeler.
+    private bool _criticalOnly;
+    private async Task ToggleCritical() { _criticalOnly = !_criticalOnly; _page = 1; await Load(); }
 
     private bool _exporting;
     /// <summary>"Excel'e Aktar" (kullanıcı isteği 2026-07-19): AKTİF filtrelerle eşleşen TÜM sonuçları
