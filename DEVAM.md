@@ -48,8 +48,13 @@ favicon.png/ico (canlı), **masaüstü** app-icon.png (giriş) + app-logo.ico (g
 exe simgesi (Setup csproj'a `ApplicationIcon` eklendi). Masaüstü **1.0.100** paketinde + **AlpnexSetup.exe**
 yeniden derlenip sunucuya yüklendi (`/api/setup/download` HTTP 200). Yeni yardımcı: `scripts/publish_setup.mjs`.
 Temiz kurulum artık yeni ikonu gösterir.
-- **Kalan:** Aşama 2 (web 35 ekran bağlam satırı/tek-birincil-eylem + masaüstü ~38 view Classes atama/emoji
-  süpürme), Aşama 3-4 rötuşları. Sıradaki tek iş = Aşama 2 sweep.
+- **Aşama 2 (kısmen yapıldı, 2026-08-05):** WEB §1 bağlam satırı (firma + süper admin işareti) 14 çekirdek
+  ekrana eklendi + **canlı** (Vehicles/Materials/Personnel/Requests/Fuel/Maintenance/Inspection/Stock/
+  StockCount/Daily/Branches/Companies/Users/Definitions). MASAÜSTÜ ThemeSettingsView emoji→PathIcon.
+- **Aşama 2 KALAN:** web §2 (tek-birincil-buton — bölümler ayrı olduğu için riskli, ertelendi) + kalan ~23
+  yönetim/süper-admin ekranı §1 (düşük öncelik) + masaüstü §0 Classes atama (~38 view — tema zaten temel
+  stili veriyor, kırık değil; dikkatli tek tek yapılacak). Bunlar masaüstünde yeni yayın gerektirir.
+  Aşama 3-4 rötuşları da bekliyor.
 
 ### 🎨 AURORA arayüz yenilemesi CANLIDA (2026-08-05, masaüstü **1.0.98**) — marka Alpnex
 Ayrı Claude (tasarım) hesabından gelen "Aurora" paketi (koyu tema + kehribar #F5A623 + indigo ışıma, Plus
