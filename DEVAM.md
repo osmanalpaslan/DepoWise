@@ -29,6 +29,20 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-05)
 
+### 🎯 AURORA 2. TUR — "neden sadece login değişti" KÖK NEDEN BULUNDU + DÜZELTİLDİ (2026-08-05 akşam)
+İlk turda arayüzün sadece giriş ekranı değişmişti. Tasarım ekibi **"Tasarım Final.zip"** paketiyle nedeni
+teşhis etti; iki kök neden vardı, ikisi de düzeltildi ve **web canlıya alındı**:
+- **WEB — stil yükleme sırası:** `app.css` MudBlazor'dan ÖNCE yükleniyordu → tüm `.mud-*` kurallarımız
+  eziliyordu; yalnız kendi iç stilini taşıyan Login değişebiliyordu. **Düzeltme:** `App.razor`'da app.css artık
+  MudBlazor'dan SONRA yükleniyor → **40 ekran birden Aurora'ya döndü.** + app.css v2 (form bölümleme katmanı)
+  + ölü şablon CSS temizliği. Canlı doğrulandı (HTTP 200, sıra doğru, sekme "Giriş — Alpnex", konsol temiz).
+- **MASAÜSTÜ — sabit gri butonlar:** `Components.axaml`'de İptal/Temizle/Filtrele butonları sabit gri hex
+  (#475569/#5B6473) ile boyalıydı; tablo zebrası (#0AFFFFFF) açık temada görünmüyordu → palet Aurora olsa bile
+  gri kalıyorlardı. **Düzeltme:** hepsi tema token'ına bağlandı + App.axaml aktif menü kehribar gradyanı +
+  DashboardView emoji→ikon/KPI düzeni. Derleme temiz; **yayın (publish) kullanıcı onayı bekliyor.**
+- **Kalan:** Aşama 2 (web 35 ekran bağlam satırı/tek-birincil-eylem + masaüstü ~38 view Classes atama/emoji
+  süpürme), Aşama 3-4 rötuşları. Sıradaki tek iş = Aşama 2 sweep.
+
 ### 🎨 AURORA arayüz yenilemesi CANLIDA (2026-08-05, masaüstü **1.0.98**) — marka Alpnex
 Ayrı Claude (tasarım) hesabından gelen "Aurora" paketi (koyu tema + kehribar #F5A623 + indigo ışıma, Plus
 Jakarta Sans) 3 aşamada uygulandı; **her yer Alpnex** (eski marka yok), `ui/aurora` dalı → master'a birleşti.
