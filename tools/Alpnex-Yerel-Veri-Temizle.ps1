@@ -1,17 +1,29 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Alpnex — YEREL VERİYİ TAMAMEN TEMİZLE
-#  Bu makinedeki TÜM Alpnex yerel verisini KALICI siler:
-#    • Veritabanı (malzeme/araç/stok/… + oturum önbelleği)   %LOCALAPPDATA%\Alpnex\
-#    • Makine kimliği (firma/şube), "beni hatırla", güncelleme önbelleği, loglar
-#    • Yedekler                                               Belgeler\Alpnex_Yedekler\
+#  Alpnex — YEREL VERİYİ TAMAMEN TEMİZLE  (marka geçişi dahil)
+#  Bu makinedeki TÜM Alpnex yerel verisini + varsa ESKİ "DepoWise" kalıntılarını KALICI siler:
+#    • Yeni  : %LOCALAPPDATA%\Alpnex\            + Belgeler\Alpnex_Yedekler\
+#    • Eski  : %LOCALAPPDATA%\DepoWise\          + Belgeler\DepoWise_Yedekler\   (marka öncesi)
+#    • Eski masaüstü kısayolu: DepoWise.lnk (varsa kaldırılır)
+#  (Veritabanı/malzeme/araç/stok + oturum önbelleği, makine kimliği, "beni hatırla",
+#   güncelleme önbelleği, loglar ve yerel yedekler dahil.)
 #  Sunucudaki veriye DOKUNMAZ. Geri alınamaz. Uygulama sonraki açılışta sıfırdan başlar.
 # ═══════════════════════════════════════════════════════════════════════════════
 $ErrorActionPreference = 'Continue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-$appData  = Join-Path $env:LOCALAPPDATA 'Alpnex'
-$yedekler = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Alpnex_Yedekler'
-$hedefler = @($appData, $yedekler)
+$local     = $env:LOCALAPPDATA
+$belgeler  = [Environment]::GetFolderPath('MyDocuments')
+$masaustu  = [Environment]::GetFolderPath('DesktopDirectory')
+
+# Silinecek klasörler: yeni (Alpnex) + eski (DepoWise) kalıntıları
+$hedefler = @(
+    (Join-Path $local    'Alpnex'),
+    (Join-Path $local    'DepoWise'),
+    (Join-Path $belgeler 'Alpnex_Yedekler'),
+    (Join-Path $belgeler 'DepoWise_Yedekler')
+)
+# Kaldırılacak eski kısayol (marka öncesi)
+$eskiKisayol = Join-Path $masaustu 'DepoWise.lnk'
 
 function KlasorBoyutu($p) {
     if (-not (Test-Path $p)) { return $null }
@@ -23,10 +35,10 @@ function KlasorBoyutu($p) {
 
 Write-Host ''
 Write-Host '  ================================================================'
-Write-Host '   Alpnex - YEREL VERIYI TAMAMEN TEMIZLE'
+Write-Host '   Alpnex - YEREL VERIYI TAMAMEN TEMIZLE (marka gecisi dahil)'
 Write-Host '  ================================================================'
 Write-Host ''
-Write-Host '  Bu makinedeki TUM Alpnex yerel verisi KALICI silinecek:'
+Write-Host '  Bu makinedeki TUM yerel veri (Alpnex + eski DepoWise) KALICI silinecek:'
 Write-Host ''
 $varMi = $false
 foreach ($h in $hedefler) {
@@ -39,6 +51,7 @@ foreach ($h in $hedefler) {
         Write-Host ("   [zaten yok] {0}" -f $h)
     }
 }
+if (Test-Path $eskiKisayol) { $varMi = $true; Write-Host ("   [SILINECEK] {0}" -f $eskiKisayol) }
 Write-Host ''
 Write-Host '  ! SUNUCUDAKI veriye DOKUNULMAZ. Bu islem GERI ALINAMAZ.'
 Write-Host '  ! Uygulama bir sonraki acilista sifirdan (bos) baslar.'
@@ -59,10 +72,13 @@ if ($onay -ne 'EVET') {
     return
 }
 
-# 1) Calisan Alpnex'i kapat (dosyalar kilitli kalmasin)
+# 1) Calisan uygulamayi kapat (dosyalar kilitli kalmasin). Exe adi ic kod adiyla ayni: DepoWise.Desktop
 Write-Host ''
-Write-Host '  Alpnex kapatiliyor (aciksa)...'
-try { Get-Process 'DepoWise.Desktop' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 800 } catch {}
+Write-Host '  Uygulama kapatiliyor (aciksa)...'
+foreach ($proc in @('DepoWise.Desktop', 'Alpnex.Desktop')) {
+    try { Get-Process $proc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+}
+Start-Sleep -Milliseconds 800
 
 # 2) Sil
 $silinen = 0
@@ -78,9 +94,12 @@ foreach ($h in $hedefler) {
         }
     }
 }
+if (Test-Path $eskiKisayol) {
+    try { Remove-Item $eskiKisayol -Force -ErrorAction Stop; Write-Host ("   silindi : {0}" -f $eskiKisayol); $silinen++ } catch {}
+}
 
 Write-Host ''
 Write-Host ("  Tamamlandi. {0} konum temizlendi." -f $silinen)
-Write-Host '  Artik Alpnex''i acip giris yaptiginizda bos, temiz bir yerelle baslayacaksiniz.'
+Write-Host '  Artik Alpnex kurup giris yaptiginizda bos, temiz bir yerelle baslayacaksiniz.'
 Write-Host ''
 Read-Host '  Kapatmak icin Enter'
