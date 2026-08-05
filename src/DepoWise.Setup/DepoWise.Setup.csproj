@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>AlpnexSetup</AssemblyName>
+    <!-- Kurulum aracı exe simgesi (Alpnex logosu) -->
+    <ApplicationIcon>Assets\app-logo.ico</ApplicationIcon>
     <!-- Tek dosya self-contained yayınlandığında paketi sıkıştır (boyutu ~%40 küçültür). -->
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <!-- Native kütüphaneleri de exe'ye GÖM (yanına DLL çıkmasın): kurulum aracı TEK dosya olarak indirilir/servis
