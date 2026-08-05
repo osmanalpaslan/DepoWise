@@ -1,4 +1,18 @@
-﻿<!DOCTYPE html>
+@*  ============================================================================
+    App.razor — TEK KRİTİK DEĞİŞİKLİK: stil yükleme SIRASI.
+
+    ⚠ ÖNCEKİ SÜRÜMDEKİ HATA:
+        app.css, MudBlazor.min.css'ten ÖNCE yükleniyordu. CSS'te eşit özgüllükte
+        (specificity) son gelen kural kazandığı için app.css'teki .mud-* kuralları
+        MudBlazor'ın kendi kurallarına yeniliyordu. Sonuç: yalnız kendi <style>
+        bloğunu taşıyan Login ekranı değişti, diğer 39 ekran eski haliyle kaldı.
+
+    ✅ DÜZELTME: app.css ve DepoWise.Web.styles.css artık MudBlazor.min.css'ten
+        SONRA yükleniyor. Başka hiçbir şey değişmedi — script'ler, HeadOutlet,
+        Routes, dwKillAutofill, dwReadColWidths, dwDownload, dwSetStyle, dwIdle
+        birebir aynı.
+    ============================================================================ *@
+<!DOCTYPE html>
 <html lang="tr" translate="no">
 
 <head>
@@ -7,43 +21,55 @@
     <meta name="google" content="notranslate" />
     <meta http-equiv="Content-Language" content="tr" />
     <base href="/" />
+
+    @* 1) Temel/harici stiller ÖNCE *@
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="app.css" />
-    <link rel="stylesheet" href="DepoWise.Web.styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+
+    @* 2) BİZİM stillerimiz EN SON — MudBlazor'ı ezebilmesi için (kritik) *@
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="DepoWise.Web.styles.css" />
+
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="apple-touch-icon" href="favicon.png" />
     <style>
-        /* ===== Görünüm Stilleri (Tema → Görünüm Stili) — Aurora tabanı ===== */
+        /* ===== Görünüm Stilleri (Tema → Görünüm Stili) — Aurora tabanı =====
+           Sınıf adları SABİT: dwSetStyle ve ThemeState.Styles bunlara bağlı. */
+
         /* Yumuşak: daha yuvarlak + ferah */
-        body.dw-soft .mud-paper, body.dw-soft .mud-card { border-radius: 18px !important; }
-        body.dw-soft .mud-nav-link { border-radius: 13px; min-height: 40px; }
+        body.dw-soft .mud-paper, body.dw-soft .mud-card { border-radius: 20px !important; }
+        body.dw-soft .mud-navmenu .mud-nav-link { border-radius: 13px; min-height: 40px; }
         body.dw-soft .mud-button-root { border-radius: 13px; }
-        body.dw-soft .mud-table { border-radius: 16px; }
+        body.dw-soft .mud-table { border-radius: 18px; }
+        body.dw-soft .dw-panel { border-radius: 20px; }
+        body.dw-soft .mud-input.mud-input-outlined .mud-input-outlined-border { border-radius: 13px !important; }
 
         /* Canlı: kehribar ışımalı üst bar + belirgin vurgu */
         body.dw-gradient .mud-appbar {
             background-image: linear-gradient(90deg,
                 color-mix(in srgb, var(--mud-palette-primary) 26%, transparent) 0%,
-                color-mix(in srgb, var(--mud-palette-primary) 6%, transparent) 55%,
+                color-mix(in srgb, var(--mud-palette-primary) 7%, transparent) 55%,
                 transparent 100%) !important;
         }
-        body.dw-gradient .mud-button-filled { box-shadow: 0 10px 26px color-mix(in srgb, var(--mud-palette-primary) 34%, transparent) !important; }
+        body.dw-gradient .mud-button-filled.mud-button-filled-primary {
+            box-shadow: 0 10px 26px color-mix(in srgb, var(--mud-palette-primary) 36%, transparent) !important;
+        }
         body.dw-gradient .mud-navmenu .mud-nav-link.active,
-        body.dw-gradient .mud-navmenu .mud-nav-link.mud-nav-link-active { border-left: 3px solid var(--mud-palette-primary); }
+        body.dw-gradient .mud-navmenu .mud-nav-link.mud-nav-link-active { box-shadow: inset 3px 0 0 0 var(--mud-palette-primary); }
 
         /* Kompakt: sık + ince (bilgi yoğun ekranlar) */
         body.dw-compact .mud-paper, body.dw-compact .mud-card { border-radius: 10px !important; }
-        body.dw-compact .mud-nav-link { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
+        body.dw-compact .mud-navmenu .mud-nav-link { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
         body.dw-compact .mud-table-cell { padding-top: 4px !important; padding-bottom: 4px !important; font-size: .8rem; }
         body.dw-compact .dw-grid th, body.dw-compact .dw-grid td { height: 28px; padding: 3px 7px; }
         body.dw-compact .pa-6 { padding: 14px !important; }
         body.dw-compact .pa-4 { padding: 10px !important; }
         body.dw-compact .mud-appbar .mud-toolbar { min-height: 54px; }
+        body.dw-compact .dw-page-head { margin-bottom: 12px; }
     </style>
     <HeadOutlet @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
 </head>
