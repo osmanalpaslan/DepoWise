@@ -380,14 +380,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             Status = "Kod ve ad zorunlu."; return;
         }
         if (SelectedUnit is null) { Status = "Birim seçin."; return; }
-        if (!editing && SelectedMaterialTemplate is null)
-        {
-            // Şablon dışı kayıt uyarısı (tek tip kayıt için).
-            if (!await ConfirmService.AskAsync("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?",
-                    "Şablon Dışı Kayıt", "Evet, Devam Et", "Vazgeç", danger: true)) return;
-        }
-
-        if (!editing && SelectedMaterialTemplate is not null && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
+        // Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05) — şablon dışı uyarısı yok; yeni kayıtta düz onay.
+        if (!editing && !await ConfirmService.AskAsync("Yeni malzeme kaydedilsin mi?", "Kaydet")) return;
 
         // Alt kategori seçiliyse en özgün olanı (alt) kullanılır; yoksa kategori.
         var categoryId = (SelectedSubCategory ?? SelectedCategory)?.Id;

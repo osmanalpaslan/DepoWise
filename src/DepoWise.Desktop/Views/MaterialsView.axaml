@@ -60,14 +60,7 @@
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
-                <!-- Şablon (örnek kayıt) — yalnız yeni kayıt; seçilmezse kayıtta uyarı -->
-                <!-- Yeni kayıt: şablon seçince alanlar önden dolar. Düzenleme: şablona BAĞLA/DEĞİŞTİR (alanları ezmez) —
-                     "şablon-dışı" bir kaydı sonradan şablona bağlayıp raporda "şablonlu"ya taşımak için. -->
-                <ctrl:FormField Label="Şablon" Width="360"
-                                HelpText="Yeni kayıtta alanları önden doldurur; düzenlemede bu kaydı şablona bağlar (alanları değiştirmez).">
-                    <ComboBox Classes="Field" ItemsSource="{Binding MaterialTemplates}"
-                              SelectedItem="{Binding SelectedMaterialTemplate}" HorizontalAlignment="Stretch"/>
-                </ctrl:FormField>
+                <!-- Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05): malzemelerde şablon kullanılmıyor. -->
 
                 <!-- Grup 1: Tanım -->
                 <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>

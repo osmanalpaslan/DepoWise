@@ -26,17 +26,7 @@
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ MALZEME" : "MALZEME DÜZENLE")</MudText>
 
-        @if (_templates.Count > 0)
-        {
-            @* Yeni kayıt: şablon seçince alanlar önden dolar. Düzenleme: şablona BAĞLA/DEĞİŞTİR (alanları ezmez) —
-               böylece "şablon-dışı" bir kayıt sonradan şablona bağlanıp raporda "şablonlu"ya taşınabilir. *@
-            <MudSelect T="string" Value="_templateId" ValueChanged="ApplyTemplate"
-                       Label="@(_editId is null ? "Şablon (örnek kayıt)" : "Şablon (bağla / değiştir)")"
-                       Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                       HelperText="@(_editId is null ? "Şablon seçerseniz alanlar önden dolar." : "Bu kaydı bir malzeme şablonuna bağlar (alanları değiştirmez). Boş bırakırsanız şablon-dışı olur.")">
-                @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
-            </MudSelect>
-        }
+        @* Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05): malzemelerde şablon kullanılmıyor. *@
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-1 mb-1">Tanım</MudText>
         <MudGrid Spacing="2">
@@ -609,12 +599,8 @@
         if (!await Dialog.RequireBranchAsync(Auth, "Malzemeler")) return;
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
         if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
-        // Şablon dışı kayıt uyarısı (yalnız yeni kayıt + şablon seçilmemişse) — tek tip kayıt için.
-        if (_editId is null && string.IsNullOrEmpty(_templateId))
-        {
-            if (!await Dialog.Confirm("Ana Yetkiliye Bilgi verilmelidir! Şablon dışı kayıt girmektesiniz!\n\nYine de devam edilsin mi?", "Evet, Devam Et", danger: true)) return;
-        }
-        else if (!await Dialog.Confirm(_editId is null ? "Malzeme kaydedilsin mi?" : "Malzeme güncellensin mi?")) return;
+        // Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05) — şablon dışı uyarısı yok; düz onay.
+        if (!await Dialog.Confirm(_editId is null ? "Malzeme kaydedilsin mi?" : "Malzeme güncellensin mi?")) return;
         _busy = true;
         try
         {
