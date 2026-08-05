@@ -6,7 +6,12 @@
 
 <PageTitle>Makineler — Alpnex</PageTitle>
 
-<MudText Typo="Typo.h5" GutterBottom="true">Makine Yönetimi</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Makine Yönetimi</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Önce firma + şube seçip sorgulayın; ya da şube atanmamış "Kayıtsız Makineler"i listeleyin. Her sorgu yalnız seçilen makineleri çeker.</MudText>
 
 <MudPaper Class="pa-4" Elevation="2">

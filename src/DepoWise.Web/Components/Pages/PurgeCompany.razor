@@ -9,7 +9,12 @@
    Kilit: süper admin + özel kod + şifre + firma adını birebir yazma. Kendi firman silinemez.
    ═══════════════════════════════════════════════════════════════════════════════════════════════ *@
 
-<MudText Typo="Typo.h5" GutterBottom="true">Kalıcı Silme — Firma Verisi</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Kalıcı Silme — Firma Verisi</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 
 @if (!Auth.IsSuperAdmin)
 {

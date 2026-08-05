@@ -4,7 +4,12 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-<MudText Typo="Typo.h5" GutterBottom="true">Malzeme Şablonları</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Malzeme Şablonları</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:74ch;">
     Yeni malzeme kaydında kullanılacak <b>örnek şablonlar</b>. Admin şablonları tüm kullanıcılarda görünür;
     diğer kullanıcıların oluşturduğu şablonlar yalnız kendilerinde görünür. Tek tip kayıt raporlamayı korur.

@@ -12,7 +12,12 @@
 }
 else
 {
-    <MudText Typo="Typo.h5" GutterBottom="true">Rol Yetki Kontrol</MudText>
+    <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+        <div>
+            <MudText Typo="Typo.h5">Rol Yetki Kontrol</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+        </div>
+    </div>
     <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:80ch;">
         Her ekranın <b>hangi role verilebileceğini</b> burada belirlersiniz. Bir ekranı bir role
         <b>kapattığınızda</b>: o roldeki kullanıcılara yetki verilirken ekran <b>yetki ağacında hiç görünmez</b>,

@@ -10,7 +10,12 @@
 }
 else
 {
-<MudText Typo="Typo.h5" GutterBottom="true">Geliştirici Modu</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Geliştirici Modu</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 
 <MudPaper Class="pa-4" Elevation="2" Style="max-width:520px;">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">

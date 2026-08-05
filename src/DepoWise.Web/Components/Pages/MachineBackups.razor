@@ -13,7 +13,12 @@
 }
 else
 {
-    <MudText Typo="Typo.h5" GutterBottom="true">Makine Yedekleri</MudText>
+    <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+        <div>
+            <MudText Typo="Typo.h5">Makine Yedekleri</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+        </div>
+    </div>
     <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:78ch;">
         Masaüstü makineler <b>her gün</b> otomatik yedek alıp sunucuya yükler. Bir ay tamamlanınca o ayın günlük
         yedekleri tek bir <b>aylık ZIP arşivine</b> alınır ve ham dosyalar silinir (yer kaplamasın).

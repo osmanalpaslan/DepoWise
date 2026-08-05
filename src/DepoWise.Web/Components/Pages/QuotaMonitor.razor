@@ -9,7 +9,12 @@
 }
 else
 {
-<MudText Typo="Typo.h5" GutterBottom="true">Kota İzleme</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Kota İzleme</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
     Firma başına kullanıcı ve admin kotası kullanımı. Admin kotası, firma kullanıcı kotasının %20'sidir (en az 1).
     <b>ONLINE</b> sütunu, son 5 dakika içinde uygulamaya veya web'e istek gönderen (aktif) kullanıcı sayısını gösterir.

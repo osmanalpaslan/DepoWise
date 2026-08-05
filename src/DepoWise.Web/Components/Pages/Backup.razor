@@ -12,7 +12,12 @@
     return;
 }
 
-<MudText Typo="Typo.h5" GutterBottom="true">Yedek Yönetimi</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Yedek Yönetimi</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 
 <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
     Bu ekran <b>sunucu veritabanı</b> yedeğini yönetir. Masaüstü uygulamasının <b>yerel disk</b> yedekleri
