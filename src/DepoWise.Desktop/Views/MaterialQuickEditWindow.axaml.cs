@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Materials;
 
@@ -22,6 +23,17 @@ public partial class MaterialQuickEditWindow : Window
         public string Name { get; }
         public Opt(string id, string name) { Id = id; Name = name; }
         public override string ToString() => Name;
+    }
+
+    // Son Hareketler paneli satırı (salt görüntü — biçimlendirilmiş).
+    private sealed class MoveRow
+    {
+        public string DateStr { get; init; } = "";
+        public string Label { get; init; } = "";
+        public string QtyStr { get; init; } = "";
+        public string? Reference { get; init; }
+        public bool HasRef => !string.IsNullOrEmpty(Reference);
+        public IBrush? QtyBrush { get; init; }
     }
 
     public MaterialQuickEditWindow() => InitializeComponent();
@@ -83,6 +95,31 @@ public partial class MaterialQuickEditWindow : Window
         minBox.Value = d.MinStock; priceBox.Value = d.UnitPrice;
         descBox.Text = d.Description ?? "";
         stockText.Text = d.Stock.ToString("0.##");
+
+        // Son Hareketler (A3) — salt-okunur; malzemenin son 10 stok hareketi (giriş yeşil / çıkış kırmızı).
+        try
+        {
+            var moves = DesktopServices.Stock.RecentForMaterial(session, materialId, 10);
+            if (moves.Count > 0)
+            {
+                var inBrush = this.TryFindResource("SuccessBrush", out var ib) ? ib as IBrush : null;
+                var outBrush = this.TryFindResource("DangerBrush", out var ob) ? ob as IBrush : null;
+                this.FindControl<ItemsControl>("MovesList")!.ItemsSource = moves.Select(m => new MoveRow
+                {
+                    DateStr = DateTimeOffset.FromUnixTimeMilliseconds(m.Date).LocalDateTime.ToString("dd.MM.yyyy"),
+                    Label = m.Label,
+                    QtyStr = (m.Quantity >= 0 ? "+" : "") + m.Quantity.ToString("0.##"),
+                    Reference = m.Reference,
+                    QtyBrush = m.Quantity < 0 ? outBrush : inBrush,
+                }).ToList();
+                this.FindControl<Border>("MovesPanel")!.IsVisible = true;
+            }
+            else
+            {
+                this.FindControl<SelectableTextBlock>("NoMovesText")!.IsVisible = true;
+            }
+        }
+        catch { /* hareket paneli en fazla gizli kalır; düzenlemeyi engellemez */ }
 
         // Başlangıçta KİLİTLİ (salt-okunur)
         var editable = new Control[] { code, name, typeBox, catBox, unitBox, brandBox, supBox, minBox, priceBox, descBox };

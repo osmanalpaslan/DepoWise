@@ -122,6 +122,36 @@
             </MudStack>
         }
 
+        @* Son Hareketler (A3) — salt-okunur; yalnız mevcut kaydı düzenlerken (giriş yeşil / çıkış kırmızı). *@
+        @if (_editId is not null && _movements is not null)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Son Hareketler</MudText>
+            @if (_movements.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Bu malzeme için hareket kaydı yok.</MudText>
+            }
+            else
+            {
+                <div style="border:1px solid var(--mud-palette-lines-default);border-radius:12px;overflow:hidden;">
+                    @foreach (var m in _movements)
+                    {
+                        var qty = MvQty(m);
+                        <div class="d-flex align-center" style="gap:10px;padding:8px 12px;border-bottom:1px solid var(--mud-palette-lines-default);">
+                            <span class="mud-text-secondary" style="width:82px;font-size:.8rem;flex:0 0 auto;">@MvDate(m)</span>
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div style="font-size:.86rem;">@Str2(m, "label")</div>
+                                @if (!string.IsNullOrEmpty(Str2(m, "reference")))
+                                {
+                                    <div class="mud-text-secondary" style="font-size:.75rem;">@Str2(m, "reference")</div>
+                                }
+                            </div>
+                            <span style="font-weight:600;flex:0 0 auto;color:@(qty < 0 ? "var(--mud-palette-error)" : "var(--mud-palette-success)");">@(qty >= 0 ? "+" : "")@qty.ToString("0.##")</span>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
         <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
@@ -511,6 +541,7 @@
         if (_detail is null) return;
         var d = _detail.Value;
         _editId = Str(d, "id");
+        await LoadMovementsAsync(_editId);   // Son Hareketler paneli (A3)
         _templateId = NullId(d, "templateId");   // mevcut şablon bağını yükle → normal düzenleme bağı korur, değiştirilebilir
         _code = Str(d, "code"); _name = Str(d, "name"); _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
         _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
@@ -600,7 +631,25 @@
         _err = false; _editId = null; _code = _name = ""; _type = "Yedek Parça";
         _cat = _subCat = _unit = _brand = _sup = null; _min = _price = _opening = 0; _desc = "";
         _vehicleSel = new HashSet<string>(); _equivalents.Clear(); _eqPick = null; _staged.Clear();
+        _movements = null;
     }
+
+    // ── Son Hareketler paneli (A3) — salt-okunur ──────────────────────────────
+    private List<JsonElement>? _movements;
+    private async Task LoadMovementsAsync(string? id)
+    {
+        _movements = null;
+        if (string.IsNullOrEmpty(id)) return;
+        try { _movements = new List<JsonElement>(await Api.GetArrayAsync($"/api/materials/{id}/movements")); }
+        catch { _movements = null; }
+    }
+    private static string Str2(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static string MvDate(JsonElement e)
+        => e.TryGetProperty("date", out var v) && v.TryGetInt64(out var ms)
+            ? DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime.ToString("dd.MM.yyyy") : "";
+    private static decimal MvQty(JsonElement e)
+        => e.TryGetProperty("quantity", out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
 
     private static string GuessMime(string name)
     {
