@@ -23,13 +23,15 @@
                                 <Border Classes="Panel" Padding="16" BorderThickness="2"
                                         BorderBrush="{Binding IsSelected, Converter={x:Static vm:ThemeSelBrush.Instance}}">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
-                                        <SelectableTextBlock Grid.Column="0" Text="🎨" FontSize="20" VerticalAlignment="Center"/>
+                                        <PathIcon Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                  Data="M12 3a9 9 0 0 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8Zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/>
                                         <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Spacing="2">
                                             <SelectableTextBlock Text="{Binding Name}" Classes="Body" FontWeight="SemiBold"/>
                                             <SelectableTextBlock Text="{Binding Desc}" Classes="Helper"/>
                                         </StackPanel>
-                                        <SelectableTextBlock Grid.Column="2" Text="✓" FontSize="18" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsSelected}"/>
+                                        <PathIcon Grid.Column="2" Width="17" Height="17" VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsSelected}"
+                                                  Data="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4Z"/>
                                     </Grid>
                                 </Border>
                             </Button>
@@ -45,13 +47,15 @@
                     <Border Classes="Panel" Padding="16" BorderThickness="2"
                             BorderBrush="{Binding IsDark, Converter={x:Static vm:ThemeSelBrush.Instance}}">
                         <Grid ColumnDefinitions="Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="🌙" FontSize="22" VerticalAlignment="Center"/>
+                            <PathIcon Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Data="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>
                             <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Spacing="2">
                                 <SelectableTextBlock Text="Koyu" Classes="Body" FontWeight="SemiBold"/>
                                 <SelectableTextBlock Text="Göz yormayan koyu arayüz (varsayılan)." Classes="Helper"/>
                             </StackPanel>
-                            <SelectableTextBlock Grid.Column="2" Text="✓" FontSize="18" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsDark}"/>
+                            <PathIcon Grid.Column="2" Width="17" Height="17" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsDark}"
+                                      Data="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4Z"/>
                         </Grid>
                     </Border>
                 </Button>
@@ -62,13 +66,15 @@
                     <Border Classes="Panel" Padding="16" BorderThickness="2"
                             BorderBrush="{Binding IsLight, Converter={x:Static vm:ThemeSelBrush.Instance}}">
                         <Grid ColumnDefinitions="Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="☀️" FontSize="22" VerticalAlignment="Center"/>
+                            <PathIcon Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Data="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0-13V1h0v3Zm0 19v-3h0v3Zm8-9h3v0h-3Zm-19 0h3v0H1Zm15.8-6.4 2.1-2.1 1.4 1.4-2.1 2.1ZM4.1 19.9l2.1-2.1 1.4 1.4-2.1 2.1Zm14.2 1.4-2.1-2.1 1.4-1.4 2.1 2.1ZM5.5 4.1l2.1 2.1L6.2 7.6 4.1 5.5Z"/>
                             <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Spacing="2">
                                 <SelectableTextBlock Text="Açık" Classes="Body" FontWeight="SemiBold"/>
                                 <SelectableTextBlock Text="Aydınlık ortamlar için beyaz arayüz." Classes="Helper"/>
                             </StackPanel>
-                            <SelectableTextBlock Grid.Column="2" Text="✓" FontSize="18" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsLight}"/>
+                            <PathIcon Grid.Column="2" Width="17" Height="17" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsLight}"
+                                      Data="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4Z"/>
                         </Grid>
                     </Border>
                 </Button>
@@ -79,13 +85,15 @@
                     <Border Classes="Panel" Padding="16" BorderThickness="2"
                             BorderBrush="{Binding IsSystem, Converter={x:Static vm:ThemeSelBrush.Instance}}">
                         <Grid ColumnDefinitions="Auto,*,Auto">
-                            <SelectableTextBlock Grid.Column="0" Text="🖥️" FontSize="22" VerticalAlignment="Center"/>
+                            <PathIcon Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                      Data="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-6v2h3v2H7v-2h3v-2H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v8h14V6Z"/>
                             <StackPanel Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Spacing="2">
                                 <SelectableTextBlock Text="Sistem" Classes="Body" FontWeight="SemiBold"/>
                                 <SelectableTextBlock Text="Windows tema ayarını otomatik izler." Classes="Helper"/>
                             </StackPanel>
-                            <SelectableTextBlock Grid.Column="2" Text="✓" FontSize="18" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsSystem}"/>
+                            <PathIcon Grid.Column="2" Width="17" Height="17" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource AccentBrush}" IsVisible="{Binding IsSystem}"
+                                      Data="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4Z"/>
                         </Grid>
                     </Border>
                 </Button>
