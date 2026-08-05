@@ -73,7 +73,13 @@ Salt-okunur; backend (A3) zaten vardı; ViewModel'e dokunulmadı (masaüstü kod
   asıl Kaydet/Oluştur kehribar, Sil kırmızı, satır-içi butonlar dokunulmadı. **Geri alma:** `git revert 537ae14`
   ya da `scratchpad/s2_backup/*.orig` geri kopyala. Canlı.
 
-### 🔍 Logo ikonu büyütüldü + 1.0.103 (2026-08-05)
+### 🟨 Kare logo + %14 kenar kırpma → ikon kareyi dolduruyor + 1.0.105 (2026-08-05)
+Kullanıcı "Kare Logo.png" verdi ama içeriği yine yatay (≈1.5:1) çıktı. Onayıyla **%14 kenar kırpma**
+uygulandı → kare ikonlar (favicon + exe/görev çubuğu + setup) kareyi ~%92 doldurur (kamyon merkezde);
+geniş uygulama-içi logo (giriş başlığı) tam kalır. Kaynak: `scratchpad/kare_source.png`. **Masaüstü 1.0.105
+YAYINLANDI + AlpnexSetup.exe yeniden yüklendi.** Sunucu güncel=1.0.105.
+
+### 🔍 Logo ikonu büyütüldü + 1.0.103/1.0.104 (2026-08-05, ara adımlar)
 Kullanıcı bildirimi: uygulama simgesi diğer ikonların yanında küçük kalıyor. Neden: kaynak PNG'de logonun
 etrafında %23–33 şeffaf boşluk vardı → kare ikonda küçük duruyordu. **Çözüm:** şeffaf kenarlar kırpıldı
 (749×471 içerik), logo kareyi ~%94 dolduruyor. Web favicon/logo (canlı), masaüstü app-icon/app-logo.ico,
