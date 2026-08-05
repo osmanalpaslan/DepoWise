@@ -27,7 +27,25 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-07-26)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-05)
+
+### 🎨 AURORA arayüz yenilemesi CANLIDA (2026-08-05, masaüstü **1.0.98**) — marka Alpnex
+Ayrı Claude (tasarım) hesabından gelen "Aurora" paketi (koyu tema + kehribar #F5A623 + indigo ışıma, Plus
+Jakarta Sans) 3 aşamada uygulandı; **her yer Alpnex** (eski marka yok), `ui/aurora` dalı → master'a birleşti.
+- **Aşama 1 (API, canlı):** A1 `criticalOnly` (malzeme grid+export), A2 `/api/dashboard` `summary`, A3
+  `/api/materials/{id}/movements`. Hepsi geriye-uyumlu (yeni alan/param). ⚠️ **Yol boyu bulunan+düzeltilen
+  CANLI HATA:** `/api/dashboard` PostgreSQL'de 500 veriyordu (madde-4 GetAlerts ikinci sorgusu aynı bağlantıda
+  → "command in progress"; SQLite gizliyordu, web'de catch yutuyordu). Ayrı bağlantı + PG e2e testi.
+- **Aşama 3a (Web, canlı):** app.css + MainLayout BuildTheme (Aurora palet, varsayılan kehribar) + App.razor
+  (Plus Jakarta Sans) → tüm web Aurora. Login/Home/Reports Aurora düzenleri (işlevsel `@code` korundu:
+  giriş adımları, uyarı kategorileri, export). Malzeme listesinde "Yalnız kritik" geçişi (A1 bağlama).
+- **Aşama 3b (Masaüstü, 1.0.98):** Palette+Scales.axaml Aurora (kaynak anahtarları birebir → tüm ekranlar
+  otomatik) + App.axaml kehribar overlay + LoginWindow Aurora (zemin/odak halkası/gradyan buton/ışıma).
+  ViewModel'lere dokunulmadı.
+- **Atlanan/ertelenen:** S6 içe-aktar (web'de yok), S1/S2 malzeme kartı bölümlü form+sabit çubuk (çalışan
+  forma yapısal müdahale → güvenlik için ertelendi; tema zaten biçimlendiriyor), DashboardView emoji→ikon +
+  KPI mikro-düzeni (tema Aurora yapıyor; ince rötuş ertelendi). S4 foto + S5 menü arama zaten vardı.
+- Kaynak paket scratchpad'de; repoya eski-marka metniyle KONULMADI.
 
 ### 🏷️ MARKA DEĞİŞTİ: DepoWise → **Alpnex** (2026-07-26, masaüstü **1.0.97** CANLI)
 Proje adı hukuken başkasına ait olduğu için marka **Alpnex** oldu. Baba tüm veriyi (yerel+sunucu) sıfırladı
