@@ -114,24 +114,59 @@
         finally { _switching = false; }
     }
 
-    private MudTheme _theme = BuildTheme("#2563eb");
+    private MudTheme _theme = BuildTheme("#F5A623");   // Aurora markası: kehribar (kullanıcı Tema'dan değiştirebilir)
 
+    // Aurora paleti. Primary kullanıcının Tema ekranından seçtiği renktir (varsayılan kehribar).
     private static MudTheme BuildTheme(string primary) => new()
     {
         PaletteDark = new PaletteDark
         {
             Primary = primary,
-            AppbarBackground = "#1e293b",
-            Background = "#0f172a",
-            Surface = "#1e293b",
-            DrawerBackground = "#111827",
-            DrawerText = "#cbd5e1",
+            Background = "#0D1220",
+            BackgroundGray = "#0A0F1B",
+            Surface = "#151B2B",
+            AppbarBackground = "#111828",
+            AppbarText = "#EAEEF7",
+            DrawerBackground = "#0F1524",
+            DrawerText = "#C3CCDD",
+            DrawerIcon = "#7B8AA6",
+            TextPrimary = "#EAEEF7",
+            TextSecondary = "#8B98B2",
+            TextDisabled = "#5D6C88",
+            ActionDefault = "#8B98B2",
+            ActionDisabled = "#4E5C78",
+            Divider = "rgba(255,255,255,0.08)",
+            DividerLight = "rgba(255,255,255,0.05)",
+            LinesDefault = "rgba(255,255,255,0.08)",
+            LinesInputs = "rgba(255,255,255,0.14)",
+            TableLines = "rgba(255,255,255,0.07)",
+            Success = "#2CBF6D",
+            Warning = "#F5A623",
+            Error = "#E24A3B",
+            Info = "#3AA0E0",
         },
         PaletteLight = new PaletteLight
         {
             Primary = primary,
-            AppbarBackground = primary,
-            AppbarText = "#ffffff",
+            Background = "#F7F8FB",
+            BackgroundGray = "#EEF1F6",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#FFFFFF",   // artık primary DEĞİL: beyaz cam üst bar
+            AppbarText = "#14171C",
+            DrawerBackground = "#F1F3F8",
+            DrawerText = "#3A4152",
+            DrawerIcon = "#6B7385",
+            TextPrimary = "#14171C",
+            TextSecondary = "#5B6474",
+            Divider = "#E3E6ED",
+            DividerLight = "#EDEFF4",
+            LinesDefault = "#E3E6ED",
+            LinesInputs = "#D5D9E2",
+            TableLines = "#EBEDF3",
+            Success = "#12A85C",
+            Warning = "#D2870A",
+            Error = "#D0392B",
+            Info = "#2A85C8",
         },
     };
 

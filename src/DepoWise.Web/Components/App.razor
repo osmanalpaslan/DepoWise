@@ -11,31 +11,39 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="DepoWise.Web.styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="apple-touch-icon" href="favicon.png" />
     <style>
-        /* ===== Görünüm Stilleri (Tema → Görünüm Stili) — ücretsiz, MudBlazor + CSS ===== */
-        /* Yumuşak: yuvarlak köşe + yumuşak gölge + hap menü + ferah */
-        body.dw-soft .mud-paper, body.dw-soft .mud-card { border-radius: 16px !important; box-shadow: 0 6px 24px rgba(0,0,0,.10) !important; }
-        body.dw-soft .mud-nav-link { border-radius: 10px; margin: 2px 8px; }
-        body.dw-soft .mud-nav-link.active, body.dw-soft .mud-nav-link.mud-nav-link-active { background: rgba(var(--mud-palette-primary-rgb), .16) !important; }
-        body.dw-soft .mud-button-root { border-radius: 10px; }
+        /* ===== Görünüm Stilleri (Tema → Görünüm Stili) — Aurora tabanı ===== */
+        /* Yumuşak: daha yuvarlak + ferah */
+        body.dw-soft .mud-paper, body.dw-soft .mud-card { border-radius: 18px !important; }
+        body.dw-soft .mud-nav-link { border-radius: 13px; min-height: 40px; }
+        body.dw-soft .mud-button-root { border-radius: 13px; }
+        body.dw-soft .mud-table { border-radius: 16px; }
 
-        /* Canlı: gradient üst bar + belirgin vurgu */
-        body.dw-gradient .mud-appbar { background: linear-gradient(90deg, var(--mud-palette-primary) 0%, #1e293b 100%) !important; }
-        body.dw-gradient .mud-paper, body.dw-gradient .mud-card { border-radius: 14px !important; box-shadow: 0 4px 18px rgba(0,0,0,.14) !important; }
-        body.dw-gradient .mud-nav-link.active, body.dw-gradient .mud-nav-link.mud-nav-link-active { background: rgba(var(--mud-palette-primary-rgb), .20) !important; border-left: 3px solid var(--mud-palette-primary); }
-        body.dw-gradient .mud-button-filled { box-shadow: 0 4px 14px rgba(var(--mud-palette-primary-rgb), .35); }
+        /* Canlı: kehribar ışımalı üst bar + belirgin vurgu */
+        body.dw-gradient .mud-appbar {
+            background-image: linear-gradient(90deg,
+                color-mix(in srgb, var(--mud-palette-primary) 26%, transparent) 0%,
+                color-mix(in srgb, var(--mud-palette-primary) 6%, transparent) 55%,
+                transparent 100%) !important;
+        }
+        body.dw-gradient .mud-button-filled { box-shadow: 0 10px 26px color-mix(in srgb, var(--mud-palette-primary) 34%, transparent) !important; }
+        body.dw-gradient .mud-navmenu .mud-nav-link.active,
+        body.dw-gradient .mud-navmenu .mud-nav-link.mud-nav-link-active { border-left: 3px solid var(--mud-palette-primary); }
 
-        /* Kompakt: sık + ince */
-        body.dw-compact .mud-paper, body.dw-compact .mud-card { border-radius: 6px !important; }
-        body.dw-compact .mud-nav-link { min-height: 34px; }
-        body.dw-compact .mud-table-cell { padding-top: 4px !important; padding-bottom: 4px !important; }
-        body.dw-compact .pa-6 { padding: 12px !important; }
+        /* Kompakt: sık + ince (bilgi yoğun ekranlar) */
+        body.dw-compact .mud-paper, body.dw-compact .mud-card { border-radius: 10px !important; }
+        body.dw-compact .mud-nav-link { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
+        body.dw-compact .mud-table-cell { padding-top: 4px !important; padding-bottom: 4px !important; font-size: .8rem; }
+        body.dw-compact .dw-grid th, body.dw-compact .dw-grid td { height: 28px; padding: 3px 7px; }
+        body.dw-compact .pa-6 { padding: 14px !important; }
         body.dw-compact .pa-4 { padding: 10px !important; }
+        body.dw-compact .mud-appbar .mud-toolbar { min-height: 54px; }
     </style>
     <HeadOutlet @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
 </head>
