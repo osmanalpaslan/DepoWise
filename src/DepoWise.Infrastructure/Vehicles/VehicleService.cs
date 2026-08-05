@@ -90,6 +90,11 @@ public sealed class VehicleService
         // Şablon seçildiyse boş alanları doldur (kullanıcı değeri öncelikli)
         var applied = ApplyTemplate(conn, tx, s.CompanyId, dto);
 
+        // Plaka benzersiz (kullanıcı isteği 2026-08-05): aynı firmada bir plaka tek araçta olabilir.
+        // YEREL kontrol — sync ayrı upsert yolundan gider, offline çakışmada patlamaz.
+        if (!string.IsNullOrWhiteSpace(applied.Plate) && PlateExists(conn, tx, s.CompanyId, applied.Plate!, excludeId: null))
+            throw new InvalidOperationException($"Bu plaka zaten kayıtlı: {applied.Plate}");
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -373,6 +378,11 @@ WHERE v.id=@id AND v.company_id=@c AND v.is_deleted=0;";
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+
+        // Plaka benzersiz (kullanıcı isteği 2026-08-05) — kendi kaydı hariç aynı firmada başka araçta olamaz.
+        if (!string.IsNullOrWhiteSpace(dto.Plate) && PlateExists(conn, tx, s.CompanyId, dto.Plate!, excludeId: vehicleId))
+            throw new InvalidOperationException($"Bu plaka zaten kayıtlı: {dto.Plate}");
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -544,6 +554,20 @@ FROM vehicle_templates WHERE id=@id AND company_id=@c AND is_deleted=0;";
         cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE company_id=@c AND internal_code=@ic;";
         cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@ic", code.Trim());
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
+    // Plaka benzersizlik kontrolü (silinmiş araçlar hariç; excludeId=düzenlenen kayıt). Yalnız interaktif
+    // create/update yolunda çağrılır — sync upsert bu kontrole girmez (offline çakışma sistemi çökertmez).
+    private static bool PlateExists(DbConnection conn, DbTransaction tx, string companyId, string plate, string? excludeId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE company_id=@c AND is_deleted=0 AND plate=@p" +
+                          (excludeId is null ? ";" : " AND id<>@ex;");
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@p", plate.Trim());
+        if (excludeId is not null) cmd.AddWithValue("@ex", excludeId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 }

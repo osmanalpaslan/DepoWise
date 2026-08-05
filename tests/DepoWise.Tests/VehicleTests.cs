@@ -47,6 +47,22 @@ public class VehicleTests : IDisposable
         Assert.Equal(1000m, _vehicles.GetMeter(_admin, v)); // değişmedi
     }
 
+    // ---- Plaka benzersiz (kullanıcı isteği 2026-08-05) ----
+    [Fact]
+    public void Plaka_AyniFirmada_Tekrar_Reddedilir()
+    {
+        _vehicles.Create(_admin, new NewVehicle("KM-A", Plate: "34 ABC 01", CurrentMeter: 100m));
+        // Aynı plaka ikinci araçta REDDEDİLİR
+        Assert.Throws<InvalidOperationException>(() =>
+            _vehicles.Create(_admin, new NewVehicle("KM-B", Plate: "34 ABC 01")));
+        // Baştaki/sondaki boşluk farkı da aynı sayılır (Trim)
+        Assert.Throws<InvalidOperationException>(() =>
+            _vehicles.Create(_admin, new NewVehicle("KM-C", Plate: " 34 ABC 01 ")));
+        // Plakasız araçlar serbest (birden çok plakasız olabilir)
+        _vehicles.Create(_admin, new NewVehicle("KM-D"));
+        _vehicles.Create(_admin, new NewVehicle("KM-E"));
+    }
+
     // ---- Liste (Faz 7b read-query) ----
     [Fact]
     public void Liste_AramaIcKodVePlakaUzerinde_Calisir()
