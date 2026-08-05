@@ -4,7 +4,12 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-<MudText Typo="Typo.h5" GutterBottom="true">Personel</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Personel</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3" Style="max-width:70ch;">
     Kişi uygulamaya girecekse, önce <b>“Kullanıcılar”</b> ekranından hesabını açın; sonra bu formdan
     <b>“Mevcut kullanıcıyı bağla”</b> ile o hesabı bu personele bağlarsınız (bir personele <b>tek</b> hesap).

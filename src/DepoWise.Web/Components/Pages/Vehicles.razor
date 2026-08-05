@@ -8,7 +8,12 @@
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h5" GutterBottom="true">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">@(_isNew ? "Araç — Yeni Kayıt" : "Araç Listesi")</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 
 @* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
 @if (Auth.IsAllBranches())

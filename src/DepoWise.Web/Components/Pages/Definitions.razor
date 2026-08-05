@@ -1,7 +1,12 @@
 @page "/definitions"
 @inject AuthState Auth
 
-<MudText Typo="Typo.h5" GutterBottom="true">Tanım Düzenle</MudText>
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Tanım Düzenle</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
     Sistemdeki sabit tanımlar (dropdown'larda "+" ile eklenen alanlar). <b>Ekle · Düzenle · Sil</b> yapabilirsiniz.
     Adı değiştirmek kaydın kimliğini (ID) bozmaz — tüm bağlı kayıtlar korunur. Ad en fazla 50 karakter olabilir.
