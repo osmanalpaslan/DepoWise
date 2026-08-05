@@ -29,6 +29,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-05)
 
+### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
+Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**
+bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
+- ✅ **1-2 Ekran ayrımı:** masaüstü Malzeme+Araç "Yeni kayıt" — ShowAdd açıkken liste/filtre/sayfalama gizli,
+  sadece form. Web zaten route ile ayrıydı.
+- ✅ **3 Malzeme şablonu kaldırıldı** (form alanı + "şablon dışı" uyarısı + web nav link); Araç şablonları kaldı.
+- ⏳ **KALAN (4-11):** plaka benzersiz, iç kod benzersiz (YEREL-yumuşak, offline çakışma sistemi çökertmesin),
+  kategori/alt-kategori filtre mantığı, tarih seçici görüntü hatası, stok çıkış/transfer güvenlik (yalnız admin
+  tüm şubelerden; stok yoksa engelle) + teslim eden(kişi)/transfer edilen araç ayrı alan, Tanımlar ekranı
+  genişletme + ekran-bazlı ayrım, yeni Stok Hareketleri ekranı.
+- **Masaüstü yayın:** 1-2-3 için henüz yayınlanmadı; sonraki maddelerle TOPLU çıkarılacak (web canlı).
+
+
 ### 🎯 AURORA 2. TUR — "neden sadece login değişti" KÖK NEDEN BULUNDU + DÜZELTİLDİ (2026-08-05 akşam)
 İlk turda arayüzün sadece giriş ekranı değişmişti. Tasarım ekibi **"Tasarım Final.zip"** paketiyle nedeni
 teşhis etti; iki kök neden vardı, ikisi de düzeltildi ve **web canlıya alındı**:
