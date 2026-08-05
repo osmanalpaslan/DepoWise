@@ -122,6 +122,21 @@
             </MudStack>
         }
 
+        @* Kritik stok paneli (S3) — stok minimum altında/eşitse uyarı + Talep Oluştur (taslak). *@
+        @if (_editId is not null && _min > 0 && _stock <= _min)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true" Icon="@Icons.Material.Filled.Warning">
+                <div class="d-flex align-center justify-space-between flex-wrap" style="gap:8px;">
+                    <span><b>Kritik seviye altında</b> — Stok: @_stock.ToString("0.##") · Minimum: @_min.ToString("0.##")</span>
+                    @if (Auth.CanCreate("requests"))
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Error"
+                                   OnClick="CreateRequestForMaterial" Disabled="_reqBusy">Talep Oluştur</MudButton>
+                    }
+                </div>
+            </MudAlert>
+        }
+
         @* Son Hareketler (A3) — salt-okunur; yalnız mevcut kaydı düzenlerken (giriş yeşil / çıkış kırmızı). *@
         @if (_editId is not null && _movements is not null)
         {
@@ -152,8 +167,13 @@
             }
         }
 
-        <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
-            <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
+        <MudStack Row="true" Class="mt-3" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="2">
+            @if (_editId is not null && DirtyCount > 0)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined"
+                         Icon="@Icons.Material.Filled.Edit" Class="mr-auto">@DirtyCount kaydedilmemiş değişiklik</MudChip>
+            }
+            <MudButton Variant="Variant.Text" OnClick="CancelEdit">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
@@ -546,6 +566,8 @@
         _code = Str(d, "code"); _name = Str(d, "name"); _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
         _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
         _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
+        _stock = Dec(d, "stock");   // Kritik stok paneli (S3) için mevcut bakiye
+        _snap = (_code, _name, _type, _cat, _unit, _brand, _sup, _min, _price, _desc ?? "", _templateId);   // S2: değişiklik sayacı referansı
         _vehicleSel = new HashSet<string>(Arr(d, "compatibleVehicles").Select(v => Str(v, "id")).Where(x => x != ""));
         _equivalents.Clear();
         foreach (var e in Arr(d, "equivalents")) _equivalents.Add(new ApiClient.Opt(Str(e, "id"), Str(e, "name")));
@@ -631,7 +653,59 @@
         _err = false; _editId = null; _code = _name = ""; _type = "Yedek Parça";
         _cat = _subCat = _unit = _brand = _sup = null; _min = _price = _opening = 0; _desc = "";
         _vehicleSel = new HashSet<string>(); _equivalents.Clear(); _eqPick = null; _staged.Clear();
-        _movements = null;
+        _movements = null; _snap = null; _stock = 0;
+    }
+
+    // ── Değişiklik sayacı (S2) — kaydedilmemiş alan sayısı + iptalde uyarı ─────
+    private (string code, string name, string type, string? cat, string? unit, string? brand, string? sup,
+        decimal min, decimal price, string desc, string? tpl)? _snap;
+    private int DirtyCount
+    {
+        get
+        {
+            if (_snap is not { } s) return 0;
+            int n = 0;
+            if (_code != s.code) n++;
+            if (_name != s.name) n++;
+            if (_type != s.type) n++;
+            if (_cat != s.cat) n++;
+            if (_unit != s.unit) n++;
+            if (_brand != s.brand) n++;
+            if (_sup != s.sup) n++;
+            if (_min != s.min) n++;
+            if (_price != s.price) n++;
+            if ((_desc ?? "") != s.desc) n++;
+            if (_templateId != s.tpl) n++;
+            return n;
+        }
+    }
+    private async Task CancelEdit()
+    {
+        if (_editId is not null && DirtyCount > 0 &&
+            !await Dialog.Confirm($"{DirtyCount} kaydedilmemiş değişiklik var. Yine de çıkılsın mı? Değişiklikler kaybolur.",
+                okText: "Evet, Çık", danger: true)) return;
+        Clear();
+    }
+
+    // ── Kritik stok paneli (S3) — mevcut bakiye + onaylı TASLAK talep ──────────
+    private decimal _stock;
+    private bool _reqBusy;
+    private async Task CreateRequestForMaterial()
+    {
+        if (_editId is null) return;
+        var shortfall = Math.Max(1m, Math.Ceiling(_min - _stock));
+        if (!await Dialog.Confirm($"Bu malzeme için {shortfall:0.##} birim talep taslağı oluşturulsun mu? " +
+                "(Talepler ekranından şantiye/miktar tamamlayıp gönderebilirsiniz.)", okText: "Talep Oluştur")) return;
+        _reqBusy = true;
+        try
+        {
+            var body = new { items = new[] { new { materialId = _editId, quantity = shortfall } }, submitImmediately = false };
+            var err = await Api.PostAsync("/api/requests", body);
+            if (err is null) Snackbar.Add("Talep taslağı oluşturuldu (Talepler ekranından gönderebilirsiniz).", Severity.Success);
+            else Snackbar.Add(err, Severity.Error);
+        }
+        catch (Exception ex) { Snackbar.Add("Talep oluşturulamadı: " + ex.Message, Severity.Error); }
+        finally { _reqBusy = false; }
     }
 
     // ── Son Hareketler paneli (A3) — salt-okunur ──────────────────────────────

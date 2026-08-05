@@ -42,6 +42,21 @@
                 <TextBox   Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" x:Name="DescBox" Classes="Field" AcceptsReturn="True" MinHeight="56" TextWrapping="Wrap" Margin="0,4,0,4"/>
             </Grid>
 
+            <!-- Kritik stok paneli (S3) — stok minimum altındaysa uyarı + Talep Oluştur (taslak). -->
+            <Border x:Name="CriticalPanel" IsVisible="False" Padding="12,10" CornerRadius="10"
+                    Background="{DynamicResource SurfaceElevatedBrush}"
+                    BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
+                        <SelectableTextBlock x:Name="CriticalTitle" FontWeight="SemiBold"
+                                             Foreground="{DynamicResource DangerBrush}" Text="Kritik seviye altında"/>
+                        <SelectableTextBlock x:Name="CriticalDetail" Classes="Helper"/>
+                    </StackPanel>
+                    <Button x:Name="RequestBtn" Grid.Column="1" Classes="Primary" Content="Talep Oluştur"
+                            VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+            </Border>
+
             <SelectableTextBlock x:Name="StatusText" Classes="Body" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" IsVisible="False"/>
             <SelectableTextBlock x:Name="HintText" Classes="Helper" TextWrapping="Wrap" IsVisible="False"
                 Text="Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — tam düzenleme için liste ekranındaki “Düzenle”yi kullanın."/>
@@ -71,12 +86,16 @@
             </Border>
             <SelectableTextBlock x:Name="NoMovesText" Text="Bu malzeme için hareket kaydı yok." Classes="Helper" IsVisible="False"/>
 
-            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                <Button x:Name="CancelBtn" Classes="Secondary" Content="Kapat" IsCancel="True"/>
-                <Button x:Name="DeleteBtn" Classes="Danger" Content="Sil"/>
-                <Button x:Name="EditBtn" Classes="Secondary" Content="Düzelt"/>
-                <Button x:Name="SaveBtn" Classes="Primary" Content="Kaydet" IsVisible="False"/>
-            </StackPanel>
+            <Grid>
+                <SelectableTextBlock x:Name="DirtyText" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                     Classes="Helper" Foreground="{DynamicResource WarningBrush}" IsVisible="False"/>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button x:Name="CancelBtn" Classes="Secondary" Content="Kapat" IsCancel="True"/>
+                    <Button x:Name="DeleteBtn" Classes="Danger" Content="Sil"/>
+                    <Button x:Name="EditBtn" Classes="Secondary" Content="Düzelt"/>
+                    <Button x:Name="SaveBtn" Classes="Primary" Content="Kaydet" IsVisible="False"/>
+                </StackPanel>
+            </Grid>
         </StackPanel>
     </Border>
 </Window>

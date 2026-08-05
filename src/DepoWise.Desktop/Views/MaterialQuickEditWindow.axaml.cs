@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Requests;
 
 namespace DepoWise.Desktop.Views;
 
@@ -121,12 +122,78 @@ public partial class MaterialQuickEditWindow : Window
         }
         catch { /* hareket paneli en fazla gizli kalır; düzenlemeyi engellemez */ }
 
+        // Kritik stok paneli (S3) — stok minimum altında/eşitse uyarı + onaylı TASLAK talep.
+        if (d.MinStock > 0 && d.Stock <= d.MinStock)
+        {
+            var shortfall = Math.Max(1m, Math.Ceiling(d.MinStock - d.Stock));
+            var critTitle = this.FindControl<SelectableTextBlock>("CriticalTitle")!;
+            var critDetail = this.FindControl<SelectableTextBlock>("CriticalDetail")!;
+            var reqBtn = this.FindControl<Button>("RequestBtn")!;
+            critDetail.Text = $"Stok: {d.Stock:0.##} · Minimum: {d.MinStock:0.##} · Önerilen talep: {shortfall:0.##}";
+            reqBtn.IsVisible = AccessControl.Can(session, "requests", PermissionAction.Create);
+            this.FindControl<Border>("CriticalPanel")!.IsVisible = true;
+            reqBtn.Click += async (_, _) =>
+            {
+                if (!await ConfirmService.AskAsync(this,
+                        $"'{d.Name}' için {shortfall:0.##} birim talep TASLAĞI oluşturulsun mu?\n" +
+                        "(Talepler ekranından şantiye/miktar tamamlayıp gönderebilirsiniz.)", "Talep Oluştur")) return;
+                try
+                {
+                    DesktopServices.Requests.Create(session,
+                        new NewRequest(new[] { new RequestItemInput(materialId, shortfall) }));
+                    reqBtn.IsVisible = false;
+                    var ok = this.TryFindResource("SuccessBrush", out var sb) ? sb as IBrush : null;
+                    critTitle.Text = "Talep taslağı oluşturuldu";
+                    if (ok is not null) critTitle.Foreground = ok;
+                    critDetail.Text = "Talepler ekranından şantiye/miktarı tamamlayıp gönderebilirsiniz.";
+                }
+                catch (System.Exception ex)
+                {
+                    statusText.Text = "Talep oluşturulamadı: " + ex.Message; statusText.IsVisible = true;
+                }
+            };
+        }
+
         // Başlangıçta KİLİTLİ (salt-okunur)
         var editable = new Control[] { code, name, typeBox, catBox, unitBox, brandBox, supBox, minBox, priceBox, descBox };
         void SetLocked(bool locked) { foreach (var c in editable) c.IsEnabled = !locked; }
         SetLocked(true);
         editBtn.IsVisible = canEdit;
         deleteBtn.IsVisible = canDelete;
+
+        // Değişiklik sayacı (S2) — kaydedilmemiş alan sayısı; iptalde uyarı için de kullanılır.
+        var dirtyText = this.FindControl<SelectableTextBlock>("DirtyText")!;
+        int Dirty()
+        {
+            int n = 0;
+            if ((code.Text ?? "") != d.Code) n++;
+            if ((name.Text ?? "") != d.Name) n++;
+            if ((typeBox.SelectedItem as string ?? "") != (string.IsNullOrWhiteSpace(d.Type) ? "Yedek Parça" : d.Type)) n++;
+            if ((catBox.SelectedItem as Opt)?.Id != d.CategoryId) n++;
+            if ((unitBox.SelectedItem as Opt)?.Id != d.UnitId) n++;
+            if ((brandBox.SelectedItem as Opt)?.Id != d.BrandId) n++;
+            if ((supBox.SelectedItem as Opt)?.Id != d.SupplierId) n++;
+            if ((decimal)(minBox.Value ?? 0) != d.MinStock) n++;
+            if ((decimal)(priceBox.Value ?? 0) != d.UnitPrice) n++;
+            if ((descBox.Text ?? "") != (d.Description ?? "")) n++;
+            return n;
+        }
+        void Recount()
+        {
+            var n = Dirty();
+            dirtyText.Text = n > 0 ? $"{n} kaydedilmemiş değişiklik" : "";
+            dirtyText.IsVisible = n > 0;
+        }
+        code.TextChanged += (_, _) => Recount();
+        name.TextChanged += (_, _) => Recount();
+        descBox.TextChanged += (_, _) => Recount();
+        typeBox.SelectionChanged += (_, _) => Recount();
+        catBox.SelectionChanged += (_, _) => Recount();
+        unitBox.SelectionChanged += (_, _) => Recount();
+        brandBox.SelectionChanged += (_, _) => Recount();
+        supBox.SelectionChanged += (_, _) => Recount();
+        minBox.ValueChanged += (_, _) => Recount();
+        priceBox.ValueChanged += (_, _) => Recount();
 
         editBtn.Click += (_, _) =>
         {
@@ -185,7 +252,15 @@ public partial class MaterialQuickEditWindow : Window
             catch (Exception ex) { statusText.Text = "Silinemedi: " + ex.Message; statusText.IsVisible = true; }
         };
 
-        cancelBtn.Click += (_, _) => Close(null);
+        cancelBtn.Click += async (_, _) =>
+        {
+            if (saveBtn.IsVisible && Dirty() > 0 &&
+                !await ConfirmService.AskAsync(this,
+                    $"{Dirty()} kaydedilmemiş değişiklik var. Yine de çıkılsın mı? Değişiklikler kaybolur.",
+                    "Değişiklikler kaybolacak", okText: "Evet, Çık", cancelText: "Formda kal", danger: true))
+                return;
+            Close(null);
+        };
     }
 
     private static List<Opt> Load(Func<IReadOnlyList<LookupItem>> get)
