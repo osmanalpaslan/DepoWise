@@ -13,24 +13,28 @@
         Title="Alpnex — Giriş">
 
     <Window.Background>
-        <RadialGradientBrush Center="50%,-8%" GradientOrigin="50%,-8%" RadiusX="90%" RadiusY="75%">
-            <GradientStop Color="#14263B" Offset="0"/>
-            <GradientStop Color="#0C1725" Offset="0.55"/>
-            <GradientStop Color="#080F19" Offset="1"/>
+        <RadialGradientBrush Center="50%,-8%" GradientOrigin="50%,-8%" RadiusX="95%" RadiusY="80%">
+            <GradientStop Color="#1B2436" Offset="0"/>
+            <GradientStop Color="#101828" Offset="0.5"/>
+            <GradientStop Color="#0A0F1B" Offset="1"/>
         </RadialGradientBrush>
     </Window.Background>
 
     <Window.Styles>
         <Style Selector="Border.Field">
-            <Setter Property="Background" Value="#0E1826"/>
-            <Setter Property="BorderBrush" Value="#243750"/>
+            <Setter Property="Background" Value="#0B111E"/>
+            <Setter Property="BorderBrush" Value="#1E2A3E"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="CornerRadius" Value="13"/>
             <Setter Property="Height" Value="50"/>
             <Setter Property="Padding" Value="13,0"/>
         </Style>
         <Style Selector="Border.Field:pointerover">
-            <Setter Property="BorderBrush" Value="#33507A"/>
+            <Setter Property="BorderBrush" Value="#2E4260"/>
+        </Style>
+        <!-- Aurora imzası: alana odaklanınca kehribar halka -->
+        <Style Selector="Border.Field:focus-within">
+            <Setter Property="BorderBrush" Value="#8CF5A623"/>
         </Style>
         <Style Selector="PathIcon.FieldIcon">
             <Setter Property="Width" Value="18"/>
@@ -71,9 +75,16 @@
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
         <Style Selector="Button.Primary">
-            <Setter Property="Background" Value="#F5A623"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Color="#FBBF4A" Offset="0"/>
+                        <GradientStop Color="#F0980D" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
             <Setter Property="Foreground" Value="#241703"/>
-            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="CornerRadius" Value="13"/>
             <Setter Property="Height" Value="52"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="15"/>
@@ -115,14 +126,31 @@
     </Window.Styles>
 
     <Grid>
+        <!-- Aurora ışıma katmanları (hit-test kapalı; etkileşimi engellemez) -->
+        <Border IsHitTestVisible="False">
+            <Border.Background>
+                <RadialGradientBrush Center="50%,2%" GradientOrigin="50%,2%" RadiusX="70%" RadiusY="45%">
+                    <GradientStop Color="#2BF5A623" Offset="0"/>
+                    <GradientStop Color="#00F5A623" Offset="1"/>
+                </RadialGradientBrush>
+            </Border.Background>
+        </Border>
+        <Border IsHitTestVisible="False">
+            <Border.Background>
+                <RadialGradientBrush Center="86%,94%" GradientOrigin="86%,94%" RadiusX="65%" RadiusY="45%">
+                    <GradientStop Color="#2E6366F1" Offset="0"/>
+                    <GradientStop Color="#006366F1" Offset="1"/>
+                </RadialGradientBrush>
+            </Border.Background>
+        </Border>
         <!-- Kurumsal iş-makineleri zemini (yarı şeffaf) -->
         <Image Source="/Assets/login-bg.png" Opacity="0.10" Stretch="UniformToFill"
                HorizontalAlignment="Center" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
 
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
             <StackPanel Spacing="14" MaxWidth="372" Margin="34,28" VerticalAlignment="Center">
-                <!-- Logo (tam DepoWise logosu, şeffaf) -->
-                <Image Source="/Assets/app-icon.png" Width="200" Height="200"
+                <!-- Logo (Alpnex, şeffaf — arka plan/kutu YOK; kullanıcı kuralı) -->
+                <Image Source="/Assets/app-icon.png" Width="150" Height="112"
                        HorizontalAlignment="Center" Stretch="Uniform"/>
                 <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center"
                                      FontSize="14" Foreground="#9FB0C6" Margin="0,-14,0,4"/>
