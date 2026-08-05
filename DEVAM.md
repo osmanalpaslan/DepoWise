@@ -51,10 +51,16 @@ Temiz kurulum artık yeni ikonu gösterir.
 - **Aşama 2 (kısmen yapıldı, 2026-08-05):** WEB §1 bağlam satırı (firma + süper admin işareti) 14 çekirdek
   ekrana eklendi + **canlı** (Vehicles/Materials/Personnel/Requests/Fuel/Maintenance/Inspection/Stock/
   StockCount/Daily/Branches/Companies/Users/Definitions). MASAÜSTÜ ThemeSettingsView emoji→PathIcon.
-- **Aşama 2 KALAN:** web §2 (tek-birincil-buton — bölümler ayrı olduğu için riskli, ertelendi) + kalan ~23
-  yönetim/süper-admin ekranı §1 (düşük öncelik) + masaüstü §0 Classes atama (~38 view — tema zaten temel
-  stili veriyor, kırık değil; dikkatli tek tek yapılacak). Bunlar masaüstünde yeni yayın gerektirir.
-  Aşama 3-4 rötuşları da bekliyor.
+- **Aşama 2 TAM (görsel sweep):** WEB §1 bağlam satırı **30 ekrana** eklendi + canlı (yalnız Reports/Soon/Theme
+  gerekçeli atlandı). MASAÜSTÜ: ThemeSettingsView emoji→PathIcon; **§0 Classes atama zaten hazırdı** — uygulama
+  tasarım sistemi Classes'larıyla kurulmuş (ana view'lar %100 sınıflı), Stage 1 teması hepsini Aurora yapıyor.
+- **Aşama 3 API TAM (canlı):** A1 criticalOnly (materials grid/export), A2 dashboard summary, A3
+  /api/materials/{id}/movements — hepsi mevcut ve canlı (önceki oturumda yapıldı).
+- **KALAN (opsiyonel/ertelenen):** web §2 tek-birincil-buton (bölümler ayrı → riskli), Aşama 4 S1/S2 malzeme
+  kartı bölümlü form+değişiklik sayacı, S3 kritik stok paneli, malzeme "Son Hareketler" paneli (A3 UI bağlama)
+  — bunlar görsel-sweep değil, işlevsel eklemeler (çalışan forma müdahale → dikkatli, ayrı iş).
+- **Masaüstü yayın notu:** ThemeSettingsView emoji değişikliği 1.0.100'den sonra geldi, henüz YAYINLANMADI —
+  kullanıcı onayıyla sonraki masaüstü rötuşlarıyla birlikte çıkarılacak.
 
 ### 🎨 AURORA arayüz yenilemesi CANLIDA (2026-08-05, masaüstü **1.0.98**) — marka Alpnex
 Ayrı Claude (tasarım) hesabından gelen "Aurora" paketi (koyu tema + kehribar #F5A623 + indigo ışıma, Plus
