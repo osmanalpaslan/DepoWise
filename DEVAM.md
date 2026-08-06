@@ -50,10 +50,12 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
 - ✅ **11 Stok Hareketleri ayrı ekran:** StockService.SearchMovements (tarih aralığı + metin araması) +
   /api/stock/movements + web StockMovements.razor (/stock/movements) + masaüstü StockMovementsView/VM + nav
   (her iki tarafta "Giriş-Çıkış" altında). Salt-okunur.
-- 🔧 **6 (kısmi):** KÖK NEDEN bulundu — kategori kutusu `List` ile TÜM kategorileri (alt dahil) karışık
-  gösteriyordu. **Web ana form DÜZELTİLDİ** (yalnız üst-seviye). Masaüstü ana form + web alt-kategori kutusu
-  zaten doğruydu. **KALAN 6:** masaüstü MaterialQuickEditWindow + web MaterialEditDialog (düzenleme
-  diyalogları) aynı flat listeyi kullanıyor → kategori/alt-kategori ayrımı eklenecek. Araçlarda alt kategori yok.
+- 🔧 **6 (çoğu bitti):** KÖK NEDEN — kategori kutusu `List` ile TÜM kategorileri (alt dahil) karışık gösteriyordu.
+  ✅ Web ana form kategori kutusu → üst-seviye. ✅ Masaüstü ana form zaten doğru. ✅ **Masaüstü hızlı-düzenle
+  (çift-tık) FULL SPLIT** (kategori+alt kategori ayrı, mevcut değer parent-taramayla çözülür, kaydet=altKat??kat).
+  **KALAN (yalnız alt-kategorili VERİ girilince önemli — şu an veri BOŞ, etki yok):** (a) web MaterialEditDialog
+  (çift-tık düzenleme) hâlâ flat → aynı split gerekli; (b) web ana form edit-load: alt-kategorili malzemede
+  kategori kutusu BOŞ görünür ama değer korunur (kaydette kayıp YOK) → parent-çözümleme eklenecek. Araçta alt yok.
 - ⏳ **KALAN:** 6 düzenleme-diyalogları (yukarı) + 10 Tanımlar ekranı alt-kategori yönetimi/ekran-bazlı ayrım;
   8(b) per-branch stok (Tema B — ⚡ veri şu an BOŞ/silinmiş, daha rahat yapılabilir; baban kayıt girince
   kullanıcı "canlıda dikkatli ol" diye uyaracak — bkz. hafıza).
