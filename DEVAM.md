@@ -70,10 +70,17 @@ Birim birim, masaüstü önce → web ardından ilerleniyor.
   C# betiğiyle KANITLANDI: `"İSTANBUL".Contains("istanbul", OrdinalIgnoreCase)` → **False** (hatalı!). Yeni
   `FieldChecks.TrCompare` (tek ortak kaynak, tr-TR culture) ile düzeltildi — TEK dosya değişikliği 14+ ekranı
   düzeltti. Build 0 hata, test paketi 590/0.
-- 🏁 **5 BİRİMLİK PAKET TAMAMLANDI.** Hiçbiri henüz `fly deploy` ile YAYINLANMADI (hepsi GitHub'da, canlıda
-  değil). Birim 2 yeni API ucu ekledi (`/api/vehicles/{id}/history`) → web'de tam çalışması için API+web ikisi
-  de deploy edilmeli. Masaüstü değişiklikleri (Birim 1/3/5 özellikle) **kullanıcı tarafından test edilmeli**
-  (bu ortamda Avalonia önizlemesi yok).
+- 🏁 **5 BİRİMLİK PAKET TAMAMLANDI VE YAYINLANDI (2026-08-06).**
+  - ✅ API (`depowise-erp.fly.dev`) deploy edildi + canlıda sağlık kontrolü yapıldı (yeni `/api/vehicles/{id}/history`
+    ucu canlıda kayıtlı doğrulandı).
+  - ✅ Web (`depowise-web.fly.dev`) deploy edildi + **canlı tarayıcıda test hesabıyla doğrulandı**: Malzemeler
+    ekranında Birim 4'ün filtre satırı 15/15 sütunla piksel piksel hizalı çalışıyor.
+  - ✅ Masaüstü **1.0.108** yayınlandı (`dotnet publish ... -r win-x64 --self-contained -o artifacts/rc/desktop-1.0.108`
+    → zip → `scripts/publish_release.mjs`); sunucu `/api/releases/latest` artık 1.0.108 döndürüyor (doğrulandı).
+    AlpnexSetup.exe yeniden yayınlanmadı (gerek yok — kurulum sırasında zaten sunucudan "en güncel" sürümü indiriyor).
+  - Masaüstü UI değişiklikleri (Birim 1/3/5 — şube/transfer, sütun küçültme, yeni arama kutuları) **kullanıcı
+    tarafından kendi makinesinde görsel olarak test edilmeli** (bu ortamda Avalonia önizlemesi yok); mevcut
+    kurulumlar otomatik güncelleyici üzerinden 1.0.108'i alacak.
 
 ### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
 Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**

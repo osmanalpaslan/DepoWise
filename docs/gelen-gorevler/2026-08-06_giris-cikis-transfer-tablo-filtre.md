@@ -230,11 +230,20 @@ konsol betiğiyle ampirik olarak doğrulandı (yukarıdaki İSTANBUL/KIRAÇ örn
 | 4 | Başlık-altı filtre satırı | ✅ |
 | 5 | "+" seçim pencerelerinde arama standardı | ✅ |
 
-**Yayın durumu:** Hiçbir birim henüz `fly deploy` ile yayınlanmadı — hepsi commit+push edildi (GitHub güncel),
-ama canlıda değil. Birim 2 yeni bir API ucu (`/api/vehicles/{id}/history`) ekledi; o yüzden web'de tam
-çalışması için hem `fly deploy -c fly.toml` (API) hem `fly deploy -c fly.web.toml` (web) gerekiyor. Masaüstü
-değişiklikleri **görsel doğrulanmadı** (bu ortamda Avalonia önizlemesi yok) — kullanıcının kendi makinesinde
-denemesi gerekiyor, özellikle Birim 1 (şube/transfer), Birim 3 (sütun küçültme) ve Birim 5 (yeni arama kutuları).
+**Yayın durumu (2026-08-06, güncellendi): TAMAMI YAYINLANDI.**
+- ✅ API (`depowise-erp.fly.dev`) `fly deploy -c fly.toml` ile yayınlandı; canlı sağlık kontrolü yapıldı, yeni
+  `/api/vehicles/{id}/history` ucu kayıtlı doğrulandı (`401` — var, yetki istiyor).
+- ✅ Web (`depowise-web.fly.dev`) `fly deploy -c fly.web.toml` ile yayınlandı; **canlı tarayıcıda test hesabıyla
+  doğrulandı** — Malzemeler ekranında Birim 4 filtre satırı 15/15 sütunla piksel piksel hizalı.
+- ✅ Masaüstü **1.0.108** yayınlandı: `dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release
+  -r win-x64 --self-contained true -o artifacts/rc/desktop-1.0.108` → zip (`Compress-Archive`, flat yapı, önceki
+  sürümlerle birebir aynı desen) → `node scripts/publish_release.mjs <zip> 1.0.108 "<notlar>"`. Sunucu
+  `/api/releases/latest` artık `1.0.108` döndürüyor (curl ile doğrulandı). `AlpnexSetup.exe` YENİDEN
+  yayınlanmadı — gerek yok, kurulum sırasında zaten sunucudan "en güncel" sürümü indiriyor (`DepoWise.Setup.csproj`:
+  "Sunucu adresi — kurulum bu adresten uygulamayı indirir").
+- ⚠️ Masaüstü UI değişiklikleri (Birim 1/3/5 — şube/transfer, sütun küçültme, yeni arama kutuları) **görsel
+  doğrulanmadı** (bu ortamda Avalonia önizlemesi yok) — kullanıcının kendi makinesinde denemesi gerekiyor.
+  Mevcut kurulumlar otomatik güncelleyici üzerinden 1.0.108'i alacak.
 
 - [x] 1 — Şube mantığı + Transfer bütünlüğü ✅ (2026-08-06)
 - [x] 2 — İşlem Geçmişi sekmesi + detay ✅ (2026-08-06)
