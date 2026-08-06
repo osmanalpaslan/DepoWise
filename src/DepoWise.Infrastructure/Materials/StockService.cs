@@ -119,6 +119,25 @@ public sealed class StockService
         return branchId;
     }
 
+    // Şube bazlı stok bakiyesi (madde 8b) — o (malzeme, şube) için hareket defteri toplamı (giriş +, çıkış −).
+    // Money.Parse ile C#'ta toplanır (SQL CAST hassasiyeti bozmasın). Aynı tx içindeki eklenmiş hareketleri de görür.
+    private static decimal BranchBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId, string branchId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT direction, quantity FROM stock_movements WHERE company_id=@c AND material_id=@m AND branch_id=@b;";
+        cmd.AddWithValue("@c", companyId); cmd.AddWithValue("@m", materialId); cmd.AddWithValue("@b", branchId);
+        decimal total = 0m;
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            long dir = r.GetInt64(0);
+            var qty = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+            total += dir * qty;
+        }
+        return total;
+    }
+
     // ---- Sayım (gerekçeli fark hareketi) ----
     public StockDocResult Count(SessionContext s, IReadOnlyList<CountLine> lines, string reason, string operationId,
         string? branchId = null, long? docDate = null)
@@ -310,6 +329,18 @@ LIMIT @take;";
     {
         if (line.Quantity <= 0) throw new ArgumentException("Miktar pozitif olmalı.");
         EnsureMaterialOwned(conn, tx, s.CompanyId, line.MaterialId);
+
+        // Per-branch stok (madde 8b, kullanıcı isteği 2026-08-05): çıkış/transfer-çıkışta O ŞUBENİN defter
+        // bakiyesi yeterli mi? Firma-geneli kalkan (ApplyDelta) zaten var; bu ondan KATI — şubede stok yoksa
+        // çıkışı/transferi engeller. Sayım/ters kayıt HARİÇ (gerçeği düzeltir). NULL şube (Tüm Şubeler/idari) →
+        // firma-geneli kalkanla yetinilir. Şema DEĞİŞMEZ; şube bakiyesi hareket defterinden anlık hesaplanır.
+        if (direction < 0 && !string.IsNullOrEmpty(branchId) && (movementType == "out" || movementType == "transfer"))
+        {
+            var branchBal = BranchBalance(conn, tx, s.CompanyId, line.MaterialId, branchId!);
+            if (branchBal < line.Quantity)
+                throw new NegativeStockException($"Bu şubede yeterli stok yok. Mevcut: {branchBal:0.##}, çıkış istenen: {line.Quantity:0.##}.");
+        }
+
         ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
         InsertMovement(conn, tx, s.CompanyId, line.MaterialId, docId, movementType, direction, line.Quantity,
             line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);

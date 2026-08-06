@@ -83,10 +83,33 @@ public class StockOperationTests : IDisposable
         Assert.Throws<ForbiddenException>(() =>
             _stock.IssueOut(userA, new[] { new StockLine(m, 5m) }, "out-b", branchId: brB));
 
-        // "Tüm Şubeler" (null → admin) herhangi bir şubeden çıkış yapabilir
+        // "Tüm Şubeler" (null → admin) herhangi bir şubeden çıkış yapabilir. (B'ye önce stok gelir — per-branch 8b.)
         var userAll = new SessionContext(_admin.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty)
         { OperatingBranchId = null };
+        _stock.ReceiveIn(userAll, new[] { new StockLine(m, 20m) }, "in-b", branchId: brB);
         _stock.IssueOut(userAll, new[] { new StockLine(m, 5m) }, "out-all", branchId: brB);
+    }
+
+    // ---- Per-branch stok (madde 8b, 2026-08-05): stok olmayan şubeden çıkış REDDEDİLİR ----
+    [Fact]
+    public void Cikis_StokOlmayanSubeden_Reddedilir()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var brA = branches.Create(_admin, new NewBranch("Şube A"), companyId: "A");
+        var brB = branches.Create(_admin, new NewBranch("Şube B"), companyId: "A");
+        var m = Mat("M-PB");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 50m) }, "in-a", branchId: brA);   // yalnız A'ya 50
+
+        // _admin = Tüm Şubeler (şube-yetki serbest) → per-branch STOK kontrolünü izole test ederiz.
+        // Şube B'de stok YOK (firma-geneli 50 olsa bile) → çıkış REDDEDİLİR
+        Assert.Throws<NegativeStockException>(() =>
+            _stock.IssueOut(_admin, new[] { new StockLine(m, 10m) }, "out-b", branchId: brB));
+        // Şube A'da stok VAR → çıkış OK; firma-geneli 50-10=40
+        _stock.IssueOut(_admin, new[] { new StockLine(m, 10m) }, "out-a", branchId: brA);
+        Assert.Equal(40m, _stock.GetBalance(m));
+        // A'da 40 var; A'dan 45 çıkış (şubede yetersiz) → REDDEDİLİR
+        Assert.Throws<NegativeStockException>(() =>
+            _stock.IssueOut(_admin, new[] { new StockLine(m, 45m) }, "out-a2", branchId: brA));
     }
 
     [Fact]
@@ -128,7 +151,7 @@ public class StockOperationTests : IDisposable
     public void Transfer_KaynakCikisHedefGiris_AtomikVeGrupli()
     {
         var m = Mat("M-1");
-        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "branch-1");   // kaynak şubeye stok (per-branch 8b)
         var res = _stock.Transfer(_admin, m, 4m, "branch-1", "branch-2", "op-trf");
         Assert.StartsWith("TRF-", res.DocNo);
         Assert.Equal(10m, _stock.GetBalance(m)); // transfer toplam stoğu değiştirmez
