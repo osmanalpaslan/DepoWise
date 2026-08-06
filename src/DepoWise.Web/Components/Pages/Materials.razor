@@ -376,7 +376,7 @@
     {
         if (_isNew && Auth.CanCreate("materials"))
         {
-            _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+            _cats = await Api.OptionsAsync("/api/materials/subcategories", "id", "name");
             _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
@@ -468,7 +468,7 @@
         _equivalents.Add(_eqPick); _eqPick = null;
     }
 
-    private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+    private async Task ReloadCats(string _) => _cats = await Api.OptionsAsync("/api/materials/subcategories", "id", "name");
     // Alt kategori "+" sonrası: seçili kategorinin alt kategorilerini tazele + yeni ekleneni seç.
     private async Task ReloadSubCats(string name)
     {
