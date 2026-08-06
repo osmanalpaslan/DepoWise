@@ -35,11 +35,17 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
 - ✅ **1-2 Ekran ayrımı:** masaüstü Malzeme+Araç "Yeni kayıt" — ShowAdd açıkken liste/filtre/sayfalama gizli,
   sadece form. Web zaten route ile ayrıydı.
 - ✅ **3 Malzeme şablonu kaldırıldı** (form alanı + "şablon dışı" uyarısı + web nav link); Araç şablonları kaldı.
-- ⏳ **KALAN (4-11):** plaka benzersiz, iç kod benzersiz (YEREL-yumuşak, offline çakışma sistemi çökertmesin),
-  kategori/alt-kategori filtre mantığı, tarih seçici görüntü hatası, stok çıkış/transfer güvenlik (yalnız admin
-  tüm şubelerden; stok yoksa engelle) + teslim eden(kişi)/transfer edilen araç ayrı alan, Tanımlar ekranı
-  genişletme + ekran-bazlı ayrım, yeni Stok Hareketleri ekranı.
-- **Masaüstü yayın:** 1-2-3 için henüz yayınlanmadı; sonraki maddelerle TOPLU çıkarılacak (web canlı).
+- ✅ **4 Araç plakası benzersiz** (VehicleService Create+Update, firma bazında, silinen hariç, YEREL-yumuşak
+  → offline çakışma sistemi çökertmez) + test. **5 Malzeme kodu / araç iç kodu** zaten benzersizdi (doğrulandı).
+- ✅ **7 Tarih seçiciler Türkçe** (tr-TR kültür; sayı biçimi invariant/nokta bırakıldı → sayı girişi değişmez)
+  — masaüstü + web Program.cs.
+- 🔍 **6 kategori/alt-kategori:** malzeme formu mantığı DOĞRU çıktı (kategori=üst-seviye, alt=filtreli, ekleme
+  parent_id doğru). Asıl eksik Tanımlar ekranında (madde 10 ile birleşiyor) — alt kategori yönetimi yok.
+  Kullanıcıya karışmayı NEREDE gördüğü soruldu.
+- ⏳ **KALAN:** 8-9 stok çıkış/transfer GÜVENLİK (yalnız admin tüm şubelerden; stok yoksa engelle) + teslim
+  eden(kişi)/transfer edilen araç ayrı alan — **güvenlik-kritik, dikkatli+testli yapılacak**; 6+10 Tanımlar
+  ekranı (alt kategori yönetimi + ekran-bazlı ayrım); 11 Stok Hareketleri ekranı.
+- **Masaüstü yayın:** 1-7 henüz yayınlanmadı; kalanlarla TOPLU çıkarılacak (web canlı).
 
 
 ### 🎯 AURORA 2. TUR — "neden sadece login değişti" KÖK NEDEN BULUNDU + DÜZELTİLDİ (2026-08-05 akşam)
