@@ -54,9 +54,13 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
   web ana form (kutu üst-seviye + edit-load parent-çözümleme), web MaterialEditDialog (çift-tık, full split),
   masaüstü ana form (zaten doğru), masaüstü hızlı-düzenle (full split). Tüm giriş/düzenleme yolları kategori+alt
   ayrımını doğru yapıyor; mevcut değer parent-taramayla çözülür; kaydet = altKategori ?? kategori. Araçta alt yok.
-- ⏳ **KALAN:** 6 düzenleme-diyalogları (yukarı) + 10 Tanımlar ekranı alt-kategori yönetimi/ekran-bazlı ayrım;
-  8(b) per-branch stok (Tema B — ⚡ veri şu an BOŞ/silinmiş, daha rahat yapılabilir; baban kayıt girince
-  kullanıcı "canlıda dikkatli ol" diye uyaracak — bkz. hafıza).
+- ✅ **10 TAM:** Part A alt kategori YÖNETİMİ (web SubCategoryEditor + masaüstü SubCategorySection: kategori seç
+  → alt kategorilerini ekle/düzenle/sil) + Part B ekran-bazlı gruplama (web zaten gruplu, masaüstü önekli). CRUD
+  `/api/materials/subcategories` + `/api/lookups/material_categories`. Web canlı; **masaüstü republish gerekir**
+  (1.0.106 bundan önceydi).
+- ⏳ **TEK KALAN — 8(b) per-branch stok (Tema B):** stok bakiyesini şube bazında tut (`stock_balances` →
+  `material_id+branch_id`). Büyük şema işi. ⚡ Veri BOŞ olduğu için şimdi daha güvenli; kullanıcı 10'dan sonra
+  karar verecek. Baban kayıt girince "canlıda dikkatli ol" uyarısı gelecek (bkz. hafıza).
 - ✅ **MASAÜSTÜ 1.0.106 YAYINLANDI** (2026-08-05): biriken 10 madde (ekran ayrımı, şablon kaldırma, plaka
   benzersiz, tarih Türkçe, şube-çıkış güvenliği, kişi/araç etiket, Stok Hareketleri ekranı, kategori/alt split)
   masaüstüne çıktı + AlpnexSetup.exe güncellendi. Sunucu en güncel=1.0.106. Web zaten canlı. Kullanıcı test
