@@ -21,7 +21,10 @@
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Tür" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <ComboBox  Grid.Row="1" Grid.Column="1" x:Name="TypeBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
                 <TextBlock Grid.Row="1" Grid.Column="2" Text="Kategori" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
-                <ComboBox  Grid.Row="1" Grid.Column="3" x:Name="CatBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,0,4"/>
+                <StackPanel Grid.Row="1" Grid.Column="3" Spacing="4" Margin="0,4,0,4">
+                    <ComboBox x:Name="CatBox" Classes="Field" HorizontalAlignment="Stretch"/>
+                    <ComboBox x:Name="SubCatBox" Classes="Field" HorizontalAlignment="Stretch" PlaceholderText="Alt kategori (opsiyonel)"/>
+                </StackPanel>
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Birim" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <ComboBox  Grid.Row="2" Grid.Column="1" x:Name="UnitBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>

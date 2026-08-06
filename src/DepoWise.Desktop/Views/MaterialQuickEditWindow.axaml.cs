@@ -50,6 +50,7 @@ public partial class MaterialQuickEditWindow : Window
         var name = this.FindControl<TextBox>("NameBox")!;
         var typeBox = this.FindControl<ComboBox>("TypeBox")!;
         var catBox = this.FindControl<ComboBox>("CatBox")!;
+        var subCatBox = this.FindControl<ComboBox>("SubCatBox")!;
         var unitBox = this.FindControl<ComboBox>("UnitBox")!;
         var brandBox = this.FindControl<ComboBox>("BrandBox")!;
         var supBox = this.FindControl<ComboBox>("SupBox")!;
@@ -68,12 +69,22 @@ public partial class MaterialQuickEditWindow : Window
         // Tür seçenekleri (Malzeme formuyla aynı liste)
         typeBox.ItemsSource = new[] { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
 
-        // Tanımlar (hepsi düz liste — alt kategoriler de dâhil, mevcut değeri seçebilmek için)
-        var cats = Load(() => DesktopServices.Lookups.List(session, "material_categories"));
+        // Kategori YALNIZ üst-seviye (parent NULL); alt kategori ayrı kutuda, seçili kategoriye göre (madde 6).
+        var topCats = Load(() => DesktopServices.Lookups.ListCategories(session, null));
         var units = Load(() => DesktopServices.Lookups.List(session, "units"));
         var brands = Load(() => DesktopServices.Lookups.ListBrands(session, "material"));
         var sups = Load(() => DesktopServices.Lookups.List(session, "suppliers"));
-        catBox.ItemsSource = cats; unitBox.ItemsSource = units; brandBox.ItemsSource = brands; supBox.ItemsSource = sups;
+        catBox.ItemsSource = topCats; unitBox.ItemsSource = units; brandBox.ItemsSource = brands; supBox.ItemsSource = sups;
+
+        // Kategori değişince alt kategori listesi o kategoriye göre yenilenir (kullanıcı seçiminde).
+        bool resolvingCat = true;
+        catBox.SelectionChanged += (_, _) =>
+        {
+            if (resolvingCat) return;
+            var cid = (catBox.SelectedItem as Opt)?.Id;
+            subCatBox.ItemsSource = cid is null ? new List<Opt>() : Load(() => DesktopServices.Lookups.ListCategories(session, cid));
+            subCatBox.SelectedItem = null;
+        };
 
         // Kaydı yükle
         MaterialDetail? d = null;
@@ -89,7 +100,29 @@ public partial class MaterialQuickEditWindow : Window
         titleText.Text = $"{d.Code} — {d.Name}";
         code.Text = d.Code; name.Text = d.Name;
         typeBox.SelectedItem = string.IsNullOrWhiteSpace(d.Type) ? "Yedek Parça" : d.Type;
-        catBox.SelectedItem = cats.FirstOrDefault(o => o.Id == d.CategoryId);
+        // Mevcut category_id üst-seviye mi alt kategori mi? (parent'ı tara) — kutulara doğru dağıt.
+        var topMatch = topCats.FirstOrDefault(o => o.Id == d.CategoryId);
+        if (topMatch is not null)
+        {
+            catBox.SelectedItem = topMatch;
+            subCatBox.ItemsSource = Load(() => DesktopServices.Lookups.ListCategories(session, topMatch.Id));
+        }
+        else if (!string.IsNullOrEmpty(d.CategoryId))
+        {
+            foreach (var top in topCats)
+            {
+                var subs = Load(() => DesktopServices.Lookups.ListCategories(session, top.Id));
+                var subMatch = subs.FirstOrDefault(x => x.Id == d.CategoryId);
+                if (subMatch is not null)
+                {
+                    catBox.SelectedItem = top;
+                    subCatBox.ItemsSource = subs;
+                    subCatBox.SelectedItem = subMatch;
+                    break;
+                }
+            }
+        }
+        resolvingCat = false;
         unitBox.SelectedItem = units.FirstOrDefault(o => o.Id == d.UnitId);
         brandBox.SelectedItem = brands.FirstOrDefault(o => o.Id == d.BrandId);
         supBox.SelectedItem = sups.FirstOrDefault(o => o.Id == d.SupplierId);
@@ -155,7 +188,7 @@ public partial class MaterialQuickEditWindow : Window
         }
 
         // Başlangıçta KİLİTLİ (salt-okunur)
-        var editable = new Control[] { code, name, typeBox, catBox, unitBox, brandBox, supBox, minBox, priceBox, descBox };
+        var editable = new Control[] { code, name, typeBox, catBox, subCatBox, unitBox, brandBox, supBox, minBox, priceBox, descBox };
         void SetLocked(bool locked) { foreach (var c in editable) c.IsEnabled = !locked; }
         SetLocked(true);
         editBtn.IsVisible = canEdit;
@@ -169,7 +202,7 @@ public partial class MaterialQuickEditWindow : Window
             if ((code.Text ?? "") != d.Code) n++;
             if ((name.Text ?? "") != d.Name) n++;
             if ((typeBox.SelectedItem as string ?? "") != (string.IsNullOrWhiteSpace(d.Type) ? "Yedek Parça" : d.Type)) n++;
-            if ((catBox.SelectedItem as Opt)?.Id != d.CategoryId) n++;
+            if (((subCatBox.SelectedItem as Opt)?.Id ?? (catBox.SelectedItem as Opt)?.Id) != d.CategoryId) n++;
             if ((unitBox.SelectedItem as Opt)?.Id != d.UnitId) n++;
             if ((brandBox.SelectedItem as Opt)?.Id != d.BrandId) n++;
             if ((supBox.SelectedItem as Opt)?.Id != d.SupplierId) n++;
@@ -189,6 +222,7 @@ public partial class MaterialQuickEditWindow : Window
         descBox.TextChanged += (_, _) => Recount();
         typeBox.SelectionChanged += (_, _) => Recount();
         catBox.SelectionChanged += (_, _) => Recount();
+        subCatBox.SelectionChanged += (_, _) => Recount();
         unitBox.SelectionChanged += (_, _) => Recount();
         brandBox.SelectionChanged += (_, _) => Recount();
         supBox.SelectionChanged += (_, _) => Recount();
@@ -219,7 +253,7 @@ public partial class MaterialQuickEditWindow : Window
                 DesktopServices.Materials.Update(session, materialId, new UpdateMaterial(
                     Code: codeVal, Name: nameVal,
                     Type: typeBox.SelectedItem as string,
-                    CategoryId: (catBox.SelectedItem as Opt)?.Id,
+                    CategoryId: (subCatBox.SelectedItem as Opt)?.Id ?? (catBox.SelectedItem as Opt)?.Id,   // alt kategori seçiliyse o, yoksa kategori
                     UnitId: unitOpt.Id,
                     BrandId: (brandBox.SelectedItem as Opt)?.Id,
                     SupplierId: (supBox.SelectedItem as Opt)?.Id,
