@@ -601,12 +601,18 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         if (row is not null) Selected = row;
     }
 
+    /// <summary>İşlem Geçmişi (madde 4, 2026-08-06): seçili malzemenin TÜM stok hareketleri (giriş/çıkış/transfer/
+    /// sayım/iptal), kronolojik. Malzeme bilgi panelinin bir bölümü — salt-okunur.</summary>
+    public ObservableCollection<MaterialMovementRow> MaterialHistory { get; } = new();
+
     partial void OnSelectedChanged(MaterialRow? value)
     {
         ConfirmDelete = false;
-        if (value is null) { Detail = null; DetailPhotos.Clear(); return; }
+        if (value is null) { Detail = null; DetailPhotos.Clear(); MaterialHistory.Clear(); return; }
         try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); LoadDetailPhotos(value.Id); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
+        MaterialHistory.Clear();
+        try { foreach (var m in DesktopServices.Stock.RecentForMaterial(_session, value.Id, 100)) MaterialHistory.Add(m); } catch { }
     }
 
     /// <summary>Çift tık: ayrı pencerede Düzelt/Kaydet/Sil (kullanıcı isteği 2026-07-19). Tek tık mevcut detay

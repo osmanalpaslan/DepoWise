@@ -15,8 +15,12 @@ public sealed record CountLine(string MaterialId, decimal CountedQuantity);
 
 public sealed record StockDocResult(string DocumentId, string DocNo);
 
-/// <summary>A3 (Aurora): malzeme kartı "Son Hareketler" satırı. Quantity İŞARETLİ (+giriş/−çıkış).</summary>
-public sealed record MaterialMovementRow(long Date, string Kind, decimal Quantity, string Label, string? Reference);
+/// <summary>A3 (Aurora): malzeme kartı "Son Hareketler"/İşlem Geçmişi satırı. Quantity İŞARETLİ (+giriş/−çıkış).</summary>
+public sealed record MaterialMovementRow(long Date, string Kind, decimal Quantity, string Label, string? Reference)
+{
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(Date).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+    public string QtyText => (Quantity >= 0 ? "+" : "") + Quantity.ToString("0.##");
+}
 
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,

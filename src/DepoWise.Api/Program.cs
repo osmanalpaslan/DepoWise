@@ -1807,6 +1807,9 @@ app.MapGet("/api/vehicles/{id}/maintenance", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s, id)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/vehicles/{id}/movements", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(svc.DailyActivity.GetForVehicle(s, id, "movement")) : Results.Unauthorized()).RequireAuthorization();
+// İşlem Geçmişi (madde 4, 2026-08-06): oluşturma/şube transferi/genel güncelleme + sayaç değişimi — salt okuma.
+app.MapGet("/api/vehicles/{id}/history", (HttpContext c, string id, int? take) =>
+    S(c) is { } s ? Results.Ok(svc.Vehicles.RecentHistory(s, id, take is > 0 ? take.Value : 100)) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/vehicles/{id}", (HttpContext c, string id, NewVehicleDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();

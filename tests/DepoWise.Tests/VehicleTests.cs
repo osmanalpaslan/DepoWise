@@ -3,6 +3,7 @@ using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Security;
 using DepoWise.Infrastructure.Vehicles;
 using Xunit;
@@ -45,6 +46,29 @@ public class VehicleTests : IDisposable
         var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 1000m));
         Assert.Throws<MeterBackwardException>(() => _vehicles.SetMeter(_admin, v, 900m));
         Assert.Equal(1000m, _vehicles.GetMeter(_admin, v)); // değişmedi
+    }
+
+    // ---- İşlem Geçmişi: şube transferi okunaklı metin üretir (madde 4, kullanıcı isteği 2026-08-06) ----
+    [Fact]
+    public void RecentHistory_SubeTransferi_OkunakliMetinUretir()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var brA = branches.Create(_admin, new NewBranch("Nevşehir"), companyId: "A");
+        var brB = branches.Create(_admin, new NewBranch("Karaman"), companyId: "A");
+        var v = _vehicles.Create(_admin, new NewVehicle("V-TRF", BranchId: brA));
+
+        var history0 = _vehicles.RecentHistory(_admin, v);
+        Assert.Contains(history0, h => h.Label == "Araç oluşturuldu.");
+
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: null, ProductionYear: null, Status: "active", StatusNote: null, BranchId: brB));
+
+        var history = _vehicles.RecentHistory(_admin, v);
+        Assert.Contains(history, h => h.Label.Contains("Nevşehir") && h.Label.Contains("Karaman") && h.Label.Contains("transfer edildi"));
+
+        // Şube DEĞİŞMEYEN bir güncelleme → genel metin, transfer metni YOK.
+        _vehicles.Update(_admin, v, new UpdateVehicle(Plate: "34 XX 99", ProductionYear: null, Status: "active", StatusNote: null, BranchId: brB));
+        var history2 = _vehicles.RecentHistory(_admin, v);
+        Assert.Contains(history2, h => h.Label == "Araç bilgileri güncellendi.");
     }
 
     // ---- Plaka benzersiz (kullanıcı isteği 2026-08-05) ----

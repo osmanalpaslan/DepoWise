@@ -12,7 +12,7 @@ namespace DepoWise.Desktop.ViewModels;
 /// tarih aralığı + metin araması. Salt-okunur (iptal Giriş-Çıkış ekranında kalır). Şube kapsamı ve yetki API/servis
 /// katmanında (StockService.SearchMovements). Kod-arkası yok, MVVM.
 /// </summary>
-public sealed partial class StockMovementsViewModel : ViewModelBase
+public sealed partial class StockMovementsViewModel : ViewModelBase, IDeepLinkTarget
 {
     private readonly SessionContext _session;
 
@@ -52,6 +52,14 @@ public sealed partial class StockMovementsViewModel : ViewModelBase
     private void Clear()
     {
         FromDate = null; ToDate = null; Search = "";
+        Load();
+    }
+
+    /// <summary>Köprü (madde 5, 2026-08-06): İşlem Geçmişi "Kaydı Görüntüle" → bu ekrana gelip malzeme
+    /// kodu/adıyla arama yapar (belge bazlı derin bağlantı yok; malzeme bağlamı yeterli).</summary>
+    public void OpenEntity(string entityId)
+    {
+        Search = entityId;
         Load();
     }
 }

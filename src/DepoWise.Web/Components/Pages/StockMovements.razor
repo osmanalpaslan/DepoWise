@@ -64,7 +64,15 @@
     private string _search = "";
     private bool _busy;
 
-    protected override async Task OnInitializedAsync() => await Load();
+    // İşlem Geçmişi "Kaydı Görüntüle" köprüsü (madde 5, 2026-08-06): /stock/movements?q=<kod> ile gelince
+    // arama kutusu otomatik doldurulur.
+    [SupplyParameterFromQuery(Name = "q")] private string? Q { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Q)) _search = Q;
+        await Load();
+    }
 
     private async Task Load()
     {

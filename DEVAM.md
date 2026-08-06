@@ -35,9 +35,18 @@ Birim birim, masaüstü önce → web ardından ilerleniyor.
 - ✅ **Birim 1 — Şube mantığı + Transfer bütünlüğü (2026-08-06):** işlem/kaynak şube artık **login şube**
   (masaüstü+web salt-okunur; kullanıcı yalnız transfer HEDEFİNİ seçer). Giriş'in şubesiz kaydolma hatası kapandı.
   **Transfer geri ALINAMAZ** (sunucu reddeder + "İptal" butonu gizli). Testler: per-branch transfer bakiyesi +
-  transfer-geri-alma reddi. Tüm paket **589/0** (11 PG atlandı).
-- ⏭️ Sıradaki: **Birim 2 — İşlem Geçmişi sekmesi + detay** (Malzeme/Araç bilgi paneli).
-- (Birim 3 tablo hücre davranışı · 4 başlık-altı filtre · 5 "+" seçim araması bekliyor.)
+  transfer-geri-alma reddi.
+- ✅ **Birim 2 — İşlem Geçmişi sekmesi + detay (2026-08-06, Sonnet 5):** Malzeme bilgi paneline "İŞLEM GEÇMİŞİ"
+  bölümü (tüm stok hareketleri, cap 100) — masaüstü+web. Araç için YENİ `VehicleService.RecentHistory` (şube
+  transferi artık "X Şubesinden Y Şubesine transfer edildi." metniyle audit'e yazılıyor + sayaç/genel güncelleme
+  olayları) + mevcut Günlük Faaliyet hareketleri birleşik gösteriliyor (masaüstü "Araç Hareketleri" sekmesi
+  "İşlem Geçmişi" oldu; web'de bu veri daha önce çekilip hiç gösterilmiyordu, artık gösteriliyor). Çift-tık/tıkla
+  → salt-okunur detay penceresi + "Kaydı Görüntüle" (malzeme → Stok Hareketleri'ne kod ile arama; araç → Günlük
+  Faaliyet). Tüm paket **590/0** (11 PG atlandı). **Yayınlanmadı** (yeni API ucu `/api/vehicles/{id}/history`
+  deploy gerektirir). Not: web Araçlar'da Uyumlu Malzemeler/Muayene-Sigorta/Bakım sekmeleri hâlâ render
+  edilmiyor (ayrı, önceden var olan eksik — bu işin kapsamı dışı, ilerde ele alınabilir).
+- ⏭️ Sıradaki: **Birim 3 — Tablo hücre davranışı** (kolon daraltma + taşma/ellipsis, ortak bileşen).
+- (Birim 4 başlık-altı filtre · 5 "+" seçim araması bekliyor.)
 
 ### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
 Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**

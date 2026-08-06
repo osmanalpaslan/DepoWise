@@ -1,0 +1,46 @@
+@* İşlem Geçmişi kaydı detayı (madde 5, kullanıcı isteği 2026-08-06): TAMAMEN SALT-OKUNUR — hiçbir alan burada
+   düzenlenemez. "Kaydı Görüntüle" verilmişse (OpenUrl doluysa) kullanıcıyı gerçek ekrana yönlendirir. *@
+@inject NavigationManager Nav
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">İşlem Detayı</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3" Style="min-width:min(420px,80vw)">
+            <div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Tarih</MudText>
+                <MudText Typo="Typo.body1" Style="font-weight:600;">@DateText</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">İşlem</MudText>
+                <MudText Typo="Typo.body1">@KindText</MudText>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(DetailText))
+            {
+                <div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Detay</MudText>
+                    <MudText Typo="Typo.body1">@DetailText</MudText>
+                </div>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Kapat</MudButton>
+        @if (!string.IsNullOrEmpty(OpenUrl))
+        {
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="OpenRecord">Kaydı Görüntüle</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string DateText { get; set; } = "";
+    [Parameter] public string KindText { get; set; } = "";
+    [Parameter] public string? DetailText { get; set; }
+    [Parameter] public string? OpenUrl { get; set; }
+
+    private void Close() => MudDialog.Cancel();
+    private void OpenRecord() { MudDialog.Close(); Nav.NavigateTo(OpenUrl!); }
+}

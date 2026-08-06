@@ -553,6 +553,26 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+
+                <!-- İşlem Geçmişi (madde 4, kullanıcı isteği 2026-08-06): TÜM stok hareketleri, kronolojik.
+                     Çift tık → salt-okunur detay + "Kaydı Görüntüle" (madde 5). -->
+                <SelectableTextBlock Text="İŞLEM GEÇMİŞİ" Classes="SectionTitle"/>
+                <ListBox x:Name="HistoryList" ItemsSource="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).MaterialHistory}" MaxHeight="220"
+                         DoubleTapped="OnHistoryDoubleTapped">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="m:MaterialMovementRow">
+                            <Grid ColumnDefinitions="86,*,Auto" Margin="0,2">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" Classes="Helper" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center" Spacing="1">
+                                    <SelectableTextBlock Text="{Binding Label}" Classes="Body"/>
+                                    <SelectableTextBlock Text="{Binding Reference}" Classes="Helper"
+                                               IsVisible="{Binding Reference, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                                <SelectableTextBlock Grid.Column="2" Text="{Binding QtyText}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
               </StackPanel>
               </ScrollViewer>
             </DockPanel>

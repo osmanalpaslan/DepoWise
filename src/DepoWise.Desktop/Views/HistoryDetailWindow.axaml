@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DepoWise.Desktop.Views.HistoryDetailWindow"
+        Width="440" SizeToContent="Height" MaxHeight="560" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Title="Alpnex — İşlem Detayı" Icon="/Assets/app-logo.ico"
+        Background="{DynamicResource SurfaceBrush}">
+    <!-- İşlem Geçmişi kaydı detayı (madde 5, kullanıcı isteği 2026-08-06): TAMAMEN SALT-OKUNUR — hiçbir alan
+         burada düzenlenemez. "Kaydı Görüntüle" verilmişse kullanıcıyı gerçek ekrana yönlendirir. -->
+    <Border BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12">
+        <StackPanel Margin="22" Spacing="12">
+            <SelectableTextBlock x:Name="TitleText" Text="İşlem Detayı" Classes="PageTitle"/>
+
+            <StackPanel Spacing="4">
+                <SelectableTextBlock Text="Tarih" Classes="Helper"/>
+                <SelectableTextBlock x:Name="DateText" Classes="Body" FontWeight="SemiBold"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <SelectableTextBlock Text="İşlem" Classes="Helper"/>
+                <SelectableTextBlock x:Name="KindText" Classes="Body" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel x:Name="DetailPanel" Spacing="4" IsVisible="False">
+                <SelectableTextBlock Text="Detay" Classes="Helper"/>
+                <SelectableTextBlock x:Name="DetailText" Classes="Body" TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,8,0,0">
+                <Button x:Name="OpenBtn" Classes="Primary" Content="Kaydı Görüntüle" IsVisible="False"/>
+                <Button x:Name="CloseBtn" Classes="Secondary" Content="Kapat" IsCancel="True"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

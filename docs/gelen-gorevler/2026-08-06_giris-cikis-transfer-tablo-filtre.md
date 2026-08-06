@@ -109,8 +109,41 @@ Her birim masaüstü önce → web hemen ardından; birim bitince commit+push (g
 
 Sıradaki tek iş: **Birim #2 — İşlem Geçmişi sekmesi + detay** (kullanıcı onayı/motoru sonrası).
 
+---
+
+**Birim #2 BİTTİ (2026-08-06, Sonnet 5).** Yapılanlar:
+- Keşif: Malzemeler ekranında zaten "Son Hareketler" (StockService.RecentForMaterial) vardı; Araçlar ekranında
+  masaüstünde 4 sekmeli bir detay paneli (Uyumlu Malzemeler/Muayene-Sigorta/Bakım/**Araç Hareketleri**) zaten
+  vardı ama web tarafında aynı veri (`_dMaterials`/`_dMaint`/`_dMoves`) çekiliyor, HİÇ RENDER EDİLMİYORDU (yarım
+  bırakılmış/unutulmuş özellik — bu iş kapsamında yalnız İşlem Geçmişi kısmı tamamlandı, diğer 3 sekme web'de
+  hâlâ render edilmiyor; ayrı iş olarak not edildi).
+- **Madde 4 (İşlem Geçmişi sekmesi):**
+  - Malzeme: mevcut "Son Hareketler" → ana ekran bilgi paneline "İŞLEM GEÇMİŞİ" bölümü olarak taşındı/büyütüldü
+    (cap 10→100), masaüstü + web.
+  - Araç: YENİ `VehicleService.RecentHistory` — audit_logs (oluşturma/genel güncelleme/silme; ŞUBE
+    DEĞİŞİYORSA `VehicleService.Update` artık isimli JSON ile zenginleştirip "X Şubesinden Y Şubesine transfer
+    edildi." üretiyor) + vehicle_meter_logs (sayaç, kaynağa göre Yakıt/Bakım/Manuel) birleşimi. Masaüstünde
+    mevcut "Araç Hareketleri" sekmesi "İşlem Geçmişi" adıyla bu veriyle + Günlük Faaliyet hareketleriyle
+    birleşik gösteriliyor; webde aynı birleşim yeni eklendi (araç düzenleme formunda, düzenleme sırasında).
+- **Madde 5 (detay + Kaydı Görüntüle):** Masaüstü `HistoryDetailWindow` (paylaşımlı, salt-okunur) + web
+  `HistoryDetailDialog` (paylaşımlı MudDialog). Malzeme kayıtlarında her zaman "Kaydı Görüntüle" var → Stok
+  Hareketleri ekranına malzeme koduyla arama yaparak gider (yeni: `StockMovementsViewModel` artık
+  `IDeepLinkTarget`; web `StockMovements.razor` artık `?q=` query param'ı okuyor). Araç sistem-olay satırlarında
+  (oluşturma/transfer/güncelleme/sayaç) "Kaydı Görüntüle" YOK (zaten o ekrandasınız); yalnız Günlük Faaliyet
+  kaynaklı satırlarda var → Günlük Faaliyet ekranına gider.
+- **API:** yeni `GET /api/vehicles/{id}/history`.
+- **Test:** `VehicleTests.RecentHistory_SubeTransferi_OkunakliMetinUretir` (oluşturma satırı + transfer metni +
+  transfer OLMAYAN güncellemede transfer metni YOK). Tüm paket **590/0** (11 PG atlandı).
+- ⚠️ **Yayınlanmadı** (deploy edilmedi) — `/api/vehicles/{id}/history` canlıda henüz yok; web'de yeni özellik
+  test edilmeden önce hem `fly deploy -c fly.toml` (API) hem `fly deploy -c fly.web.toml` (web UI) gerekir.
+- ⚠️ Not (free housekeeping fırsatı, ayrı iş): web Araçlar ekranında Uyumlu Malzemeler/Muayene-Sigorta/Bakım
+  sekmeleri hâlâ render edilmiyor (veri çekiliyor ama gösterilmiyor) — masaüstüyle tam pariteye ulaşmak için
+  ayrıca ele alınabilir.
+
+Sıradaki tek iş: **Birim #3 — Tablo hücre davranışı** (kullanıcı onayı/motoru sonrası).
+
 - [x] 1 — Şube mantığı + Transfer bütünlüğü ✅ (2026-08-06)
-- [ ] 2 — İşlem Geçmişi sekmesi + detay
+- [x] 2 — İşlem Geçmişi sekmesi + detay ✅ (2026-08-06)
 - [ ] 3 — Tablo hücre davranışı
 - [ ] 4 — Başlık-altı filtre satırı + proje standardı
 - [ ] 5 — "+" seçim pencerelerinde arama standardı

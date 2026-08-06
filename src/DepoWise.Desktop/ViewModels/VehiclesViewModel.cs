@@ -19,8 +19,11 @@ using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
 
-/// <summary>Araç detayı "Araç Hareketleri" sekmesi satırı.</summary>
-public sealed record MovementDisplay(string DateText, string Kind, string Description);
+/// <summary>Araç detayı "İşlem Geçmişi" sekmesi satırı (madde 4, kullanıcı isteği 2026-08-06): Günlük Faaliyet
+/// modülünden loglanan hareketler + sistem olayları (oluşturma/şube transferi/güncelleme/sayaç) birleşimi.
+/// CanOpenRecord=true ise "Kaydı Görüntüle" Günlük Faaliyet ekranına yönlendirir (madde 5); sistem satırları
+/// zaten bu ekranda görüntülendiği için buton gösterilmez.</summary>
+public sealed record MovementDisplay(long DateRaw, string DateText, string Kind, string Description, bool CanOpenRecord = false);
 
 /// <summary>Araçlar — liste + arama + durum/bakım-muayene uyarı badge'i + yeni araç. VehicleService üzerine.</summary>
 public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
@@ -639,15 +642,27 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         try { foreach (var m in DesktopServices.Materials.MaterialsForVehicle(_session, vehicleId)) VehicleMaterials.Add(m); } catch { }
         try { foreach (var i in DesktopServices.Inspection.List(_session).Where(x => x.VehicleCode == code)) VehicleInspections.Add(i); } catch { }
         try { foreach (var mt in DesktopServices.Maintenance.ListMaintenances(_session, vehicleId)) VehicleMaintenances.Add(mt); } catch { }
+
+        // İşlem Geçmişi (madde 4): Günlük Faaliyet hareket kayıtları + sistem olayları (oluşturma/transfer/
+        // güncelleme/sayaç) TEK kronolojik listede birleşir.
+        var merged = new List<MovementDisplay>();
         try
         {
             foreach (var mv in DesktopServices.DailyActivity.GetForVehicle(_session, vehicleId, "movement"))
-                VehicleMovements.Add(new MovementDisplay(
+                merged.Add(new MovementDisplay(mv.ActivityDate,
                     DateTimeOffset.FromUnixTimeMilliseconds(mv.ActivityDate).LocalDateTime.ToString("dd.MM.yyyy"),
                     mv.MovementKind == "transfer" ? "Transfer" : "Hareket",
-                    mv.Description ?? ""));
+                    mv.Description ?? "", CanOpenRecord: true));
         }
         catch { }
+        try
+        {
+            foreach (var h in DesktopServices.Vehicles.RecentHistory(_session, vehicleId, 100))
+                merged.Add(new MovementDisplay(h.Date, h.DateText, "Sistem",
+                    h.Detail is null ? h.Label : $"{h.Label} ({h.Detail})"));
+        }
+        catch { }
+        foreach (var row in merged.OrderByDescending(x => x.DateRaw)) VehicleMovements.Add(row);
     }
 
     /// <summary>Seçili aracı düzenleme modunda forma yükler (tüm alanlar + lookup ön-seçim). Onay sorar.</summary>

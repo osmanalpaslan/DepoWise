@@ -557,11 +557,14 @@
                       </ItemsControl>
                     </ScrollViewer>
                   </TabItem>
-                  <!-- ARAÇ HAREKETLERİ -->
-                  <TabItem Header="Araç Hareketleri">
+                  <!-- İŞLEM GEÇMİŞİ (madde 4/5, kullanıcı isteği 2026-08-06): Günlük Faaliyet hareketleri +
+                       sistem olayları (oluşturma/transfer/güncelleme/sayaç) birleşik, kronolojik. Çift tık →
+                       salt-okunur detay + (varsa) "Kaydı Görüntüle". -->
+                  <TabItem Header="İşlem Geçmişi">
                     <ScrollViewer>
-                      <ItemsControl ItemsSource="{Binding VehicleMovements}" Margin="0,8,0,0">
-                        <ItemsControl.ItemTemplate>
+                      <ListBox x:Name="HistoryList" ItemsSource="{Binding VehicleMovements}" Margin="0,8,0,0"
+                               DoubleTapped="OnHistoryDoubleTapped">
+                        <ListBox.ItemTemplate>
                           <DataTemplate x:DataType="vm:MovementDisplay">
                             <Border Classes="Divider" Padding="0,4">
                               <Grid ColumnDefinitions="Auto,Auto,*">
@@ -571,8 +574,8 @@
                               </Grid>
                             </Border>
                           </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
                     </ScrollViewer>
                   </TabItem>
                 </TabControl>

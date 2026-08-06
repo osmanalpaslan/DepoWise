@@ -58,6 +58,14 @@ public sealed record UpdateVehicle(string? Plate, int? ProductionYear, string St
     string? VehicleTypeId = null, string? CategoryId = null, string? BrandId = null, string? VehicleModelId = null,
     string? BranchId = null, string? DriverPersonnelId = null, string? TemplateId = null);
 
+/// <summary>İşlem Geçmişi (madde 4, 2026-08-06): araç için tek satır — oluşturma/şube transferi/genel güncelleme
+/// (audit_logs) + sayaç değişimi (vehicle_meter_logs, kaynağı yakıt/bakım/manuel) birleştirilip tarihe göre azalan
+/// sıralanır. Salt-okunur; hiçbir alan bu listeden düzenlenemez.</summary>
+public sealed record VehicleHistoryRow(long Date, string Label, string? Detail)
+{
+    public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(Date).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+}
+
 /// <summary>
 /// Araç kartı — iç kod benzersiz; şablondan doldurma + şablon malzemelerini araca kopyalama (aynı transaction);
 /// sayaç geriye gidemez (MeterRule) ve tüm değişimler vehicle_meter_logs'a yazılır.
@@ -383,6 +391,18 @@ WHERE v.id=@id AND v.company_id=@c AND v.is_deleted=0;";
         if (!string.IsNullOrWhiteSpace(dto.Plate) && PlateExists(conn, tx, s.CompanyId, dto.Plate!, excludeId: vehicleId))
             throw new InvalidOperationException($"Bu plaka zaten kayıtlı: {dto.Plate}");
 
+        // İşlem Geçmişi (madde 4/1, 2026-08-06): şube DEĞİŞİYORSA (transfer) audit kaydına isim bilgisiyle
+        // yazılır → geçmiş listesinde "X Şubesinden Y Şubesine transfer edildi." Değişmiyorsa normal güncelleme.
+        string? oldBranchId;
+        using (var read = conn.CreateCommand())
+        {
+            read.Transaction = tx;
+            read.CommandText = "SELECT branch_id FROM vehicles WHERE id=@id AND company_id=@c;";
+            read.AddWithValue("@id", vehicleId);
+            read.AddWithValue("@c", s.CompanyId);
+            oldBranchId = read.ExecuteScalar() as string;
+        }
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -415,7 +435,16 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
                 throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
             }
         }
-        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Update, s.UserId), _clock);
+        string? afterJson = null;
+        if (!string.Equals(oldBranchId, dto.BranchId, StringComparison.Ordinal))
+        {
+            var fromName = BranchName(conn, tx, s.CompanyId, oldBranchId);
+            var toName = BranchName(conn, tx, s.CompanyId, dto.BranchId);
+            afterJson = $"{{\"branchFromId\":{JsonStr(oldBranchId)},\"branchFromName\":{JsonStr(fromName)}," +
+                        $"\"branchToId\":{JsonStr(dto.BranchId)},\"branchToName\":{JsonStr(toName)}}}";
+        }
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Update, s.UserId,
+            AfterJson: afterJson), _clock);
         tx.Commit();
     }
 
@@ -469,6 +498,115 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle", vehicleId, AuditActions.Delete, s.UserId), _clock);
         tx.Commit();
     }
+
+    /// <summary>İşlem Geçmişi (madde 4, 2026-08-06): audit_logs (oluşturma/şube transferi/genel güncelleme/silme)
+    /// + vehicle_meter_logs (sayaç değişimi; kaynağa göre yakıt/bakım/manuel etiketlenir) birleştirilip tarihe
+    /// göre azalan sıralanır. Salt-okunur; malzeme kartındaki "Son Hareketler"in araç karşılığı.</summary>
+    public IReadOnlyList<VehicleHistoryRow> RecentHistory(SessionContext s, string vehicleId, int take = 100)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        if (take < 1) take = 1; if (take > 300) take = 300;
+        using var conn = _factory.Create();
+        EnsureVehicleOwned(conn, s.CompanyId, vehicleId);
+
+        var rows = new List<VehicleHistoryRow>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT a.created_at, a.action, a.after_json
+FROM audit_logs a
+WHERE a.company_id=@c AND a.entity_type='vehicle' AND a.entity_id=@v
+ORDER BY a.created_at DESC LIMIT @lim;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@v", vehicleId);
+            cmd.AddWithValue("@lim", take);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var action = r.GetString(1);
+                var afterJson = r.IsDBNull(2) ? null : r.GetString(2);
+                rows.Add(new VehicleHistoryRow(r.GetInt64(0), AuditLabel(action, afterJson), null));
+            }
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+SELECT created_at, old_value, new_value, source
+FROM vehicle_meter_logs
+WHERE company_id=@c AND vehicle_id=@v AND source <> 'vehicle_create'
+ORDER BY created_at DESC LIMIT @lim;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@v", vehicleId);
+            cmd.AddWithValue("@lim", take);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var oldV = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+                var newV = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
+                var source = r.GetString(3);
+                rows.Add(new VehicleHistoryRow(r.GetInt64(0), MeterLabel(source), $"{oldV:0.##} → {newV:0.##}"));
+            }
+        }
+        return rows.OrderByDescending(x => x.Date).Take(take).ToList();
+    }
+
+    private static string AuditLabel(string action, string? afterJson)
+    {
+        if (action == AuditActions.Create) return "Araç oluşturuldu.";
+        if (action == AuditActions.Delete) return "Araç silindi (çöp kutusuna alındı).";
+        if (action == AuditActions.Update)
+        {
+            if (!string.IsNullOrEmpty(afterJson))
+            {
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(afterJson);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("branchToId", out _))
+                    {
+                        var from = root.TryGetProperty("branchFromName", out var f) && f.ValueKind == System.Text.Json.JsonValueKind.String ? f.GetString() : null;
+                        var to = root.TryGetProperty("branchToName", out var t) && t.ValueKind == System.Text.Json.JsonValueKind.String ? t.GetString() : null;
+                        return (string.IsNullOrEmpty(from) ? "Şube atanmamış durumdan" : $"{from} Şubesinden") +
+                               " " + (string.IsNullOrEmpty(to) ? "şube ataması kaldırıldı." : $"{to} Şubesine transfer edildi.");
+                    }
+                }
+                catch { /* json bozuksa genel metne düş */ }
+            }
+            return "Araç bilgileri güncellendi.";
+        }
+        return "Araç işlemi.";
+    }
+
+    private static string MeterLabel(string source) => source switch
+    {
+        "fuel_distribution" => "Sayaç güncellendi (Yakıt dağıtımı)",
+        "maintenance" => "Sayaç güncellendi (Bakım)",
+        _ => "Sayaç güncellendi (Manuel)"
+    };
+
+    private static void EnsureVehicleOwned(DbConnection conn, string companyId, string vehicleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+    }
+
+    private static string? BranchName(DbConnection conn, DbTransaction tx, string companyId, string? branchId)
+    {
+        if (string.IsNullOrEmpty(branchId)) return null;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT name FROM branches WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", branchId);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    private static string JsonStr(string? v)
+        => v is null ? "null" : "\"" + v.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
     // ---- yardımcılar ----
     private NewVehicle ApplyTemplate(DbConnection conn, DbTransaction tx, string companyId, NewVehicle dto)

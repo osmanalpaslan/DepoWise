@@ -107,6 +107,30 @@
             </MudStack>
         }
 
+        @* İşlem Geçmişi (madde 4/5, kullanıcı isteği 2026-08-06) — salt-okunur; tıklayınca detay + (varsa) "Kaydı Görüntüle". *@
+        @if (_editId is not null && _history is not null)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">İşlem Geçmişi</MudText>
+            @if (_history.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Bu araç için hareket kaydı yok.</MudText>
+            }
+            else
+            {
+                <div style="border:1px solid var(--mud-palette-lines-default);border-radius:12px;overflow:hidden;max-height:280px;overflow-y:auto;">
+                    @foreach (var h in _history)
+                    {
+                        <div class="d-flex align-center" style="gap:10px;padding:8px 12px;border-bottom:1px solid var(--mud-palette-lines-default);cursor:pointer;"
+                             @onclick="@(() => OpenHistoryDetail(h))">
+                            <span class="mud-text-secondary" style="width:82px;font-size:.8rem;flex:0 0 auto;">@h.DateText</span>
+                            <span style="font-weight:600;width:70px;flex:0 0 auto;font-size:.8rem;">@h.Kind</span>
+                            <span style="font-size:.86rem;flex-grow:1;min-width:0;">@h.Description</span>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
         <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
@@ -538,6 +562,50 @@
         _models = string.IsNullOrEmpty(_brand) ? new() : await Api.OptionsAsync($"/api/vehicles/models/{_brand}", "id", "name");
         _model = NullS(d, "vehicleModelId"); _branch = NullS(d, "branchId"); _driver = NullS(d, "driverPersonnelId");
         _msg = null;
+        await LoadHistoryAsync(_editId);
+    }
+
+    // İşlem Geçmişi (madde 4, 2026-08-06): Günlük Faaliyet hareketleri + sistem olayları (oluşturma/transfer/
+    // güncelleme/sayaç) TEK kronolojik listede birleşir. Salt-okunur.
+    private sealed record HistoryItem(long Date, string DateText, string Kind, string Description, string? OpenUrl);
+    private List<HistoryItem>? _history;
+
+    private async Task LoadHistoryAsync(string? id)
+    {
+        _history = null;
+        if (string.IsNullOrEmpty(id)) return;
+        var items = new List<HistoryItem>();
+        try
+        {
+            foreach (var mv in await Api.GetArrayAsync($"/api/vehicles/{id}/movements"))
+            {
+                var date = mv.TryGetProperty("activityDate", out var ad) && ad.TryGetInt64(out var ms) ? ms : 0L;
+                var kind = Str(mv, "movementKind") == "transfer" ? "Transfer" : "Hareket";
+                items.Add(new HistoryItem(date, DateTimeOffset.FromUnixTimeMilliseconds(date).LocalDateTime.ToString("dd.MM.yyyy"),
+                    kind, Str(mv, "description"), "/daily"));
+            }
+        }
+        catch { }
+        try
+        {
+            foreach (var h in await Api.GetArrayAsync($"/api/vehicles/{id}/history?take=100"))
+            {
+                var date = h.TryGetProperty("date", out var dd) && dd.TryGetInt64(out var ms) ? ms : 0L;
+                var label = Str(h, "label");
+                var detail = Str(h, "detail");
+                items.Add(new HistoryItem(date, Str(h, "dateText"), "Sistem",
+                    string.IsNullOrEmpty(detail) ? label : $"{label} ({detail})", null));
+            }
+        }
+        catch { }
+        _history = items.OrderByDescending(x => x.Date).ToList();
+    }
+
+    private async Task OpenHistoryDetail(HistoryItem h)
+    {
+        var pars = new DialogParameters { ["DateText"] = h.DateText, ["KindText"] = h.Kind, ["DetailText"] = h.Description, ["OpenUrl"] = h.OpenUrl };
+        await Dialog.ShowAsync<HistoryDetailDialog>("İşlem Detayı", pars,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
     }
 
     private async Task DeleteSelected()
@@ -600,6 +668,7 @@
         _code = _plate = ""; _status = "active"; _meterUnit = "km"; _statusNote = _chassis = _engine = "";
         _type = _cat = _brand = _model = _branch = _driver = null; _year = null; _meter = 0;
         _staged.Clear();
+        _history = null;
     }
 
     private string Alert(string vehicleId) => _alerts.TryGetValue(vehicleId, out var t) ? t : "—";
