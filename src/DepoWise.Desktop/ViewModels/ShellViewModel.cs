@@ -601,6 +601,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Malzeme Listesi", "materials"),
                 new NavLinkVm("Yeni Kayıt", "materials:new"),
                 new NavLinkVm("Giriş-Çıkış", "stock"),
+                new NavLinkVm("Stok Hareketleri", "stock:movements"),
                 new NavLinkVm("Stok Sayım", "stock:count"),
             }),
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
@@ -735,6 +736,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new StockEntryViewModel(_session);
                 CurrentTitle = "Malzeme Giriş-Çıkış";
                 CurrentContext = "Stok giriş / çıkış / transfer";
+                break;
+            case "stock:movements":
+                CurrentPage = new StockMovementsViewModel(_session);
+                CurrentTitle = "Stok Hareketleri";
+                CurrentContext = "Tüm giriş/çıkış/transfer hareketleri (tarih + arama)";
                 break;
             case "stock:count":
                 CurrentPage = new StockCountViewModel(_session);
