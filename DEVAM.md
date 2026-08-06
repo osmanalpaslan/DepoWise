@@ -58,9 +58,12 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
   → alt kategorilerini ekle/düzenle/sil) + Part B ekran-bazlı gruplama (web zaten gruplu, masaüstü önekli). CRUD
   `/api/materials/subcategories` + `/api/lookups/material_categories`. Web canlı; **masaüstü republish gerekir**
   (1.0.106 bundan önceydi).
-- ⏳ **TEK KALAN — 8(b) per-branch stok (Tema B):** stok bakiyesini şube bazında tut (`stock_balances` →
-  `material_id+branch_id`). Büyük şema işi. ⚡ Veri BOŞ olduğu için şimdi daha güvenli; kullanıcı 10'dan sonra
-  karar verecek. Baban kayıt girince "canlıda dikkatli ol" uyarısı gelecek (bkz. hafıza).
+- ✅ **8(b) per-branch stok BİTTİ:** çıkış/transferde o ŞUBENİN defter bakiyesi yetersizse NegativeStockException
+  (şema DEĞİŞMEDİ — şube bakiyesi hareketten anlık; sayım/ters hariç; NULL şube firma-genelile). 2 test + tüm
+  paket 587/0. → **11 maddenin HEPSİ BİTTİ.**
+- ✅ **YAYIN TAM (2026-08-05):** **API `depowise-erp` DEPLOY** edildi (servis/endpoint değişiklikleri —plaka,
+  şube güvenliği, per-branch stok, /api/stock/movements— web'de canlı; bkz. hafıza [[web-servis-degisikligi-api-deploy]]),
+  **web `depowise-web` deploy**, **masaüstü 1.0.107 + AlpnexSetup.exe** yayınlandı. Baban 1.0.107'ye güncellenir.
 - ✅ **MASAÜSTÜ 1.0.106 YAYINLANDI** (2026-08-05): biriken 10 madde (ekran ayrımı, şablon kaldırma, plaka
   benzersiz, tarih Türkçe, şube-çıkış güvenliği, kişi/araç etiket, Stok Hareketleri ekranı, kategori/alt split)
   masaüstüne çıktı + AlpnexSetup.exe güncellendi. Sunucu en güncel=1.0.106. Web zaten canlı. Kullanıcı test
