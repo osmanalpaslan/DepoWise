@@ -19,9 +19,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Tanım listeleri (accordion bölümleri): kategori/birim/marka/tedarikçi/şube/araç tanımları.</summary>
     public System.Collections.ObjectModel.ObservableCollection<LookupSectionViewModel> LookupSections { get; } = new();
 
+    /// <summary>Malzeme ALT KATEGORİ yönetimi (madde 10): kategori seç → alt kategorilerini yönet.</summary>
+    public SubCategorySectionViewModel SubCategorySection { get; }
+
     public SettingsViewModel(SessionContext session)
     {
         _session = session;
+        SubCategorySection = new SubCategorySectionViewModel(session);
         BuildLookupSections();
     }
 
