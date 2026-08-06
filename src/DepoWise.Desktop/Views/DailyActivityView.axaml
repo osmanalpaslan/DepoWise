@@ -57,15 +57,18 @@
                 <!-- ===== HAREKET / TRANSFER ===== -->
                 <StackPanel Spacing="14" IsVisible="{Binding IsMovement}">
                     <StackPanel Orientation="Horizontal" Spacing="14">
+                        <!-- "+" seçim standardı (kullanıcı isteği 2026-08-06, madde 5): arama-yazılabilir seçici. -->
                         <ctrl:FormField Label="Kaynak Şube / Şantiye" Width="220">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormFrom}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Hedef Şube / Şantiye" Width="220">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FormTo}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Operatör / Şoför" Width="200">
                             <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormOperator}"

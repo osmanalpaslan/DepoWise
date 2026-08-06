@@ -193,10 +193,51 @@ YAPISAL olarak Malzemeler ile birebir aynı desen — ayrı doğrulama gerekmedi
 
 Build (masaüstü+web) 0 hata. Test paketi 590/0 (bu birim salt UI/markup — desteki iş mantığına dokunulmadı).
 
-Sıradaki tek iş: **Birim #5 — "+" seçim pencerelerinde arama standardı** (kullanıcı onayı/motoru sonrası).
+**Birim #5 BİTTİ (2026-08-06, Sonnet 5) — PAKET TAMAMLANDI (5/5).**
+
+**Analiz:** Masaüstünde büyüyebilecek kayıt listelerini (Şube/Kategori/Alt Kategori/Birim/Marka/Tedarikçi) seçen
+**12 `ComboBox`** (6 ekranda) arama İÇERMİYORDU — kullanıcı listeyi elle kaydırmak zorundaydı. Aynı ekranlarda
+Personel/Araç seçicileri zaten `AutoCompleteBox` (arama VAR) kullanıyordu — kullanıcının şikayet ettiği
+tutarsızlık tam olarak buydu. Web'de ise TÜM "+" (Kayıt Seç) alanları zaten TEK ortak bileşen `LookupSelect.razor`
+üzerinden gidiyordu (14+ ekran) — arama zaten VARDI ama **Türkçe karakter hatası** taşıyordu.
+
+**Masaüstü:** 6 ekranda (`StockEntryView` 6, `DailyActivityView` 2, `PersonnelView` 1, `UsersView` 1,
+`SettingsView` 1, `FuelView` 1) 12 lookup `ComboBox`'ı, Personel/Araç seçicileriyle AYNI kanıtlanmış bileşene
+(`AutoCompleteBox`, `FilterMode="Contains" MinimumPrefixLength="0"`) yükseltildi — proje standardı artık tek:
+her büyüyebilir liste seçici arama-yazılabilir. Sabit kısa listeler (Tür/Durum gibi enum'lar) bilinçli olarak
+DOKUNULMADI (aramaya ihtiyaçları yok).
+
+**Web:** `LookupSelect.razor`'daki arama `StringComparison.OrdinalIgnoreCase` kullanıyordu — bu, Türkçe
+büyük/küçük harf kurallarını (İ↔i, I↔ı) YANLIŞ eşliyor. **Küçük bir C# betiğiyle KANITLANDI:**
+`"İSTANBUL".Contains("istanbul", OrdinalIgnoreCase)` → **False** (hatalı!), `"KIRAÇ".Contains("kıraç",
+OrdinalIgnoreCase)` → **False** (hatalı!). `CultureInfo("tr-TR").CompareInfo` ile ikisi de **True** (doğru).
+Yeni `FieldChecks.TrCompare` (tek ortak kaynak) eklendi; `LookupSelect.razor` (arama + tekrar-kontrolü),
+`Stock.razor` (`IdOf`), `Materials.razor` (`ReloadSubCats`) buna bağlandı — **TEK dosya değişikliği 14+ ekranı
+düzeltti** (LookupSelect ortak bileşen sayesinde).
+
+**Doğrulama:** Build (masaüstü+web) 0 hata. Test paketi 590/0. Türkçe karşılaştırma düzeltmesi bağımsız bir
+konsol betiğiyle ampirik olarak doğrulandı (yukarıdaki İSTANBUL/KIRAÇ örnekleri).
+
+---
+
+## PAKET ÖZETİ (5/5 birim tamam, 2026-08-06)
+
+| # | Birim | Durum |
+|---|-------|-------|
+| 1 | Şube mantığı + Transfer bütünlüğü | ✅ |
+| 2 | İşlem Geçmişi sekmesi + detay | ✅ |
+| 3 | Tablo hücre davranışı (küçültme + taşma) | ✅ |
+| 4 | Başlık-altı filtre satırı | ✅ |
+| 5 | "+" seçim pencerelerinde arama standardı | ✅ |
+
+**Yayın durumu:** Hiçbir birim henüz `fly deploy` ile yayınlanmadı — hepsi commit+push edildi (GitHub güncel),
+ama canlıda değil. Birim 2 yeni bir API ucu (`/api/vehicles/{id}/history`) ekledi; o yüzden web'de tam
+çalışması için hem `fly deploy -c fly.toml` (API) hem `fly deploy -c fly.web.toml` (web) gerekiyor. Masaüstü
+değişiklikleri **görsel doğrulanmadı** (bu ortamda Avalonia önizlemesi yok) — kullanıcının kendi makinesinde
+denemesi gerekiyor, özellikle Birim 1 (şube/transfer), Birim 3 (sütun küçültme) ve Birim 5 (yeni arama kutuları).
 
 - [x] 1 — Şube mantığı + Transfer bütünlüğü ✅ (2026-08-06)
 - [x] 2 — İşlem Geçmişi sekmesi + detay ✅ (2026-08-06)
 - [x] 3 — Tablo hücre davranışı ✅ (2026-08-06)
 - [x] 4 — Başlık-altı filtre satırı + proje standardı ✅ (2026-08-06)
-- [ ] 5 — "+" seçim pencerelerinde arama standardı
+- [x] 5 — "+" seçim pencerelerinde arama standardı ✅ (2026-08-06)

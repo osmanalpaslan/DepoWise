@@ -492,7 +492,8 @@
     {
         if (string.IsNullOrEmpty(_cat)) return;
         _subCats = await Api.OptionsAsync($"/api/materials/subcategories?parentId={_cat}", "id", "name");
-        var added = _subCats.FirstOrDefault(o => string.Equals(o.Name, name?.Trim(), StringComparison.OrdinalIgnoreCase));
+        // Türkçe karakter-doğru karşılaştırma (kullanıcı isteği 2026-08-06, madde 5) — bkz. LookupSelect.razor aynı gerekçe.
+        var added = _subCats.FirstOrDefault(o => DepoWise.Web.Services.FieldChecks.TrCompare.Compare(o.Name ?? "", (name ?? "").Trim(), System.Globalization.CompareOptions.IgnoreCase) == 0);
         if (added is not null) _subCat = added.Id;
     }
     private async Task ReloadUnits(string _) => _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");

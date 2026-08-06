@@ -62,7 +62,18 @@ Birim birim, masaüstü önce → web ardından ilerleniyor.
   tarayıcıda doğrulandı** (yerel dev sunucu + gerçek API, test hesabıyla): Malzemeler'de 15/15 sütun header ile
   piksel piksel hizalı, filtre gerçekten çalışıyor (2 kayıt → 1'e düştü "TEST1" ile), konsol hatası yok. Build
   0 hata, test paketi 590/0.
-- ⏭️ Sıradaki: **Birim 5 — "+" seçim pencerelerinde arama standardı** (son birim).
+- ✅ **Birim 5 — "+" seçim pencerelerinde arama standardı (2026-08-06, Sonnet 5) — PAKET TAMAMLANDI (5/5).**
+  Masaüstü: 6 ekranda (StockEntryView×6, DailyActivityView×2, PersonnelView, UsersView, SettingsView, FuelView)
+  arama İÇERMEYEN 12 lookup `ComboBox`'ı (Şube/Kategori/Birim/Marka/Tedarikçi), Personel/Araç seçicileriyle AYNI
+  kanıtlanmış `AutoCompleteBox`'a yükseltildi — artık tüm büyüyebilir listeler arama-yazılabilir. Web: ortak
+  `LookupSelect.razor` (14+ ekran) zaten arama içeriyordu ama **Türkçe karakter hatası** vardı — bağımsız bir
+  C# betiğiyle KANITLANDI: `"İSTANBUL".Contains("istanbul", OrdinalIgnoreCase)` → **False** (hatalı!). Yeni
+  `FieldChecks.TrCompare` (tek ortak kaynak, tr-TR culture) ile düzeltildi — TEK dosya değişikliği 14+ ekranı
+  düzeltti. Build 0 hata, test paketi 590/0.
+- 🏁 **5 BİRİMLİK PAKET TAMAMLANDI.** Hiçbiri henüz `fly deploy` ile YAYINLANMADI (hepsi GitHub'da, canlıda
+  değil). Birim 2 yeni API ucu ekledi (`/api/vehicles/{id}/history`) → web'de tam çalışması için API+web ikisi
+  de deploy edilmeli. Masaüstü değişiklikleri (Birim 1/3/5 özellikle) **kullanıcı tarafından test edilmeli**
+  (bu ortamda Avalonia önizlemesi yok).
 
 ### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
 Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**

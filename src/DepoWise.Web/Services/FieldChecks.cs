@@ -9,6 +9,11 @@ namespace DepoWise.Web.Services;
 /// </summary>
 public static class FieldChecks
 {
+    /// <summary>"+" seçim standardı (kullanıcı isteği 2026-08-06, madde 5): Türkçe karakter-doğru karşılaştırma
+    /// (İ/I/ı/i, Ç/Ğ/Ö/Ş/Ü). StringComparison.OrdinalIgnoreCase Türkçe büyük/küçük harf kurallarını (İ↔i, I↔ı)
+    /// DOĞRU eşlemez — arama/tekrar-kontrolü yapan TÜM ekranlar bu TEK kaynağı kullanır.</summary>
+    public static readonly System.Globalization.CompareInfo TrCompare = new System.Globalization.CultureInfo("tr-TR").CompareInfo;
+
     public const int MinVehicleYear = 1950;
     public static int MaxVehicleYear => DateTimeOffset.UtcNow.Year + 1;
     public static bool YearInRange(int? year) => year is null || (year >= MinVehicleYear && year <= MaxVehicleYear);

@@ -35,13 +35,14 @@
     private string IdToName(string? id)
         => string.IsNullOrEmpty(id) ? "" : Items.FirstOrDefault(x => x.Id == id)?.Name ?? "";
 
-    /// <summary>Metne göre filtrele; boş metinde tümü. Id değerlerini döndürür (görünen ad ItemTemplate/ToStringFunc ile).</summary>
+    /// <summary>Metne göre filtrele; boş metinde tümü. Id değerlerini döndürür (görünen ad ItemTemplate/ToStringFunc ile).
+    /// Türkçe karakter-doğru (FieldChecks.TrCompare) — bu TEK ortak bileşen 14+ ekranı etkiler.</summary>
     private Task<IEnumerable<string>> Search(string? text, System.Threading.CancellationToken _)
     {
         var q = (text ?? "").Trim();
         IEnumerable<ApiClient.Opt> src = Items;
         if (q.Length > 0)
-            src = Items.Where(o => (o.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase));
+            src = Items.Where(o => DepoWise.Web.Services.FieldChecks.TrCompare.IndexOf(o.Name ?? "", q, System.Globalization.CompareOptions.IgnoreCase) >= 0);
         return Task.FromResult(src.Select(o => o.Id));
     }
 
@@ -59,7 +60,8 @@
         if (name.Length == 0) return;
 
         // DUPLICATE KONTROLÜ (madde 9): aynı ad zaten varsa yeni tanım OLUŞTURMA — uyar ve mevcut olanı seç.
-        var dup = Items.FirstOrDefault(o => string.Equals(o.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        // Türkçe karakter-doğru karşılaştırma (bkz. Search — aynı gerekçe).
+        var dup = Items.FirstOrDefault(o => DepoWise.Web.Services.FieldChecks.TrCompare.Compare(o.Name?.Trim() ?? "", name, System.Globalization.CompareOptions.IgnoreCase) == 0);
         if (dup is not null)
         {
             await Dialog.Confirm($"\"{name}\" adında bir tanım zaten mevcut. Mevcut olan seçildi.", okText: "Tamam", cancelText: "");

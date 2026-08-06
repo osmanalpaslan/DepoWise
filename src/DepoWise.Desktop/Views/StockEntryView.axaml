@@ -38,10 +38,13 @@
                     <ctrl:FormField Label="Kaynak Şube (Şubeniz)" Width="180" IsVisible="{Binding IsTransfer}">
                         <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
                     </ctrl:FormField>
+                    <!-- "+" seçim standardı (kullanıcı isteği 2026-08-06, madde 5): arama-yazılabilir seçici — bkz. Personel/Araç
+                         alanlarıyla AYNI FilterMode/MinimumPrefixLength; büyük şube listelerinde de yazarak bulunabilir. -->
                     <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="180" IsVisible="{Binding IsTransfer}">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}"
+                                          FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
                     </ctrl:FormField>
                 </StackPanel>
 
@@ -76,31 +79,36 @@
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Birim" IsRequired="True" Width="160">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ctrl:FormField Label="Kategori" Width="200">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Alt Kategori" Width="200">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Marka" Width="200">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Tedarikçi" Width="200">
-                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
                         </ctrl:FormField>
                     </StackPanel>
                 </StackPanel>

@@ -156,9 +156,10 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Tedarikçi" Width="240">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}"
+                                                      FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                    </AutoCompleteBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Fatura/İrsaliye No" Width="200">
                                     <TextBox Classes="Field" Text="{Binding DepotInvoice}"/>

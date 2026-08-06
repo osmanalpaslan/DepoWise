@@ -97,9 +97,10 @@
                     <SelectableTextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0" IsVisible="{Binding CanManageSelected}"/>
-                    <ComboBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}" IsVisible="{Binding CanManageSelected}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <AutoCompleteBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}" IsVisible="{Binding CanManageSelected}"
+                                      FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                    </AutoCompleteBox>
                     <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}" IsVisible="{Binding CanManageSelected}"/>
                     <Button Classes="Secondary" Content="Tüm Şubeler Yetkisi (Aç/Kapat)" Margin="12,0,0,0"
                             IsVisible="{Binding IsSuperAdmin}" Command="{Binding ToggleViewAllBranchesCommand}"/>

@@ -44,9 +44,10 @@
                         <TextBox Classes="Field" Text="{Binding FPhone}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şube" Width="200">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="orgz:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}"
+                                          FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="orgz:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                        </AutoCompleteBox>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Aktif" Width="70">
                         <CheckBox IsChecked="{Binding FActive}" VerticalAlignment="Center"/>

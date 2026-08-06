@@ -232,7 +232,7 @@
     }
 
     private static string IdOf(List<(string Id, string Name)> list, string name)
-        => list.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).Id ?? "";
+        => list.FirstOrDefault(x => DepoWise.Web.Services.FieldChecks.TrCompare.Compare(x.Name ?? "", name, System.Globalization.CompareOptions.IgnoreCase) == 0).Id ?? "";
 
     private RenderFragment Opts(List<(string Id, string Name)> list) => builder =>
     {
