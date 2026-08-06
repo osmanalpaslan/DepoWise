@@ -54,6 +54,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public IReadOnlyList<int> PageSizes { get; } = new[] { 25, 50, 100, 200 };
     [ObservableProperty] private List<string> _visibleColumns = DailyActivityListColumns.DefaultVisible.ToList();
     public ObservableCollection<ColumnFilterItem> FilterFields { get; } = new();
+    /// <summary>Başlık-altı filtre satırı (madde 4, 2026-08-06) — bkz. MaterialsViewModel aynı yorum.</summary>
+    [ObservableProperty] private IReadOnlyDictionary<string, ColumnFilterItem> _filterFieldsByKey = new Dictionary<string, ColumnFilterItem>();
     public ObservableCollection<int> PageNumbers { get; } = new();
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGoPrev))]
@@ -125,6 +127,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
             FilterFields.Add(new ColumnFilterItem(key, col?.Label ?? key, false)
             { Value = old.TryGetValue(key, out var v) ? v : "" });
         }
+        FilterFieldsByKey = FilterFields.ToDictionary(f => f.Key, f => f);
     }
 
     private void RebuildPageNumbers()

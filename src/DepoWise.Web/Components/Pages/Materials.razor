@@ -201,21 +201,6 @@
                 </MudStack>
             </div>
 
-            @* Kolon bazlı filtreler — her görünür kolon için ayrı kutu; "içerir" arar (kullanıcı isteği 2026-07-17). *@
-            <MudGrid Spacing="1" Class="mb-2">
-                @foreach (var key in _visibleColumns)
-                {
-                    <MudItem xs="6" sm="4" md="3" lg="2">
-                        <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
-                            <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
-                                          Label="@Label(key)" Placeholder="@(IsNumeric(key) ? "5, >5, 5-10…" : "içerir…")"
-                                          Immediate="false" OnKeyUp="OnFilterKey"
-                                          Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
-                        </MudTooltip>
-                    </MudItem>
-                }
-            </MudGrid>
-
             @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
             else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun malzeme bulunamadı.</MudText> }
             else
@@ -239,7 +224,25 @@
                                 </div>
                             </th>
                         }
-                    </tr></thead>
+                    </tr>
+                    <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4): her kolonun TAM ALTINDA
+                         kendi filtre kutusu — table-layout:fixed sayesinde header'la otomatik hizalı, ayrı bir
+                         hizalama mekanizması gerekmez. Filtreleme mantığı (GetFilter/SetFilter/OnFilterKey)
+                         AYNEN korunur; yalnız konumu değişti. -->
+                    <tr>
+                        @foreach (var key in _visibleColumns)
+                        {
+                            <th style="@ThStyle(key)" class="dw-filter-th">
+                                <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
+                                    <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
+                                                  Placeholder="@(IsNumeric(key) ? "5, >5, 5-10…" : "içerir…")"
+                                                  Immediate="false" OnKeyUp="OnFilterKey"
+                                                  Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
+                                </MudTooltip>
+                            </th>
+                        }
+                    </tr>
+                    </thead>
                     <tbody>
                         @* Tek tık = sağdaki detay paneli (mevcut davranış korunur). Çift tık = ayrı düzenle/kaydet/sil penceresi. *@
                         @foreach (var row in _rows)

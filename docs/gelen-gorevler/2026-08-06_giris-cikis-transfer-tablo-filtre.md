@@ -163,10 +163,40 @@ Değişen dosyalar: `MaterialsView.axaml`, `VehiclesView.axaml`, `DailyActivityV
 paketi **590/0** (UI-only değişiklik, iş mantığına dokunulmadı). Görsel doğrulama YAPILAMADI (Avalonia masaüstü
 önizlemesi bu ortamda yok) — kullanıcının kendi makinesinde denemesi gerekiyor.
 
-Sıradaki tek iş: **Birim #4 — Başlık-altı filtre satırı + proje standardı** (kullanıcı onayı/motoru sonrası).
+**Birim #4 BİTTİ (2026-08-06, Sonnet 5).** Kapsam: yalnız kolon-bazlı filtreye sahip TEK 3 ekran (Malzemeler/
+Araçlar/Günlük Faaliyet — hem masaüstü hem web, 1:1 eşleşiyor). Diğer liste ekranlarında (Personel/Talepler/
+Kullanıcılar/...) kolon-bazlı filtre YOK → kapsam dışı (prompt'un kendi istisnası: "listeleme amacı taşımayan/
+uygun olmayan ekranlara dokunma").
+
+**Masaüstü:** Filtre kutuları önceden tablonun ÜSTÜNDE ayrı bir `WrapPanel` idi (sıraları görsel olarak
+sütunlarla hizalı değildi). Her ekranda: (1) VM'e `FilterFieldsByKey` (anahtara hızlı erişim, `ColWidths` ile
+AYNI desende `[ObservableProperty]`) eklendi; (2) yeni `Conv.FilterItem` converter'ı (sözlük+anahtar → o
+kolonun `ColumnFilterItem` NESNESİ); (3) XAML'de header'ın HEMEN ALTINA, AYNI `SharedSizeGroup` yapısıyla yeni
+bir filtre satırı — her hücre `ContentControl`+`DataTemplate` (`x:DataType="vm:ColumnFilterItem"`) ile o
+kolonun filtre kutusunu barındırır, dış Min/Max/IsVisible ise `ContentControl`'ün KENDİ DataContext'i (VM)
+üzerinden okunur → iki bağlama kapsamı KARIŞMAZ, derlenmiş bağlama (compiled binding) güvenli kalır. Filtreleme
+ALGORİTMASI (GetFilter/SetFilter/ApplyFilters/Enter-ile-filtrele) hiç değişmedi — yalnız konum.
+
+**Web:** Filtre kutuları önceden tablonun ÜSTÜNDE bir `MudGrid` idi (satır kayması, sütunla hizasız). Her
+ekranda: eski `MudGrid` bloğu kaldırıldı; `<thead>` içine, başlık `<tr>`'sinin HEMEN ALTINA aynı `_visibleColumns`
+sırasıyla ikinci bir `<tr>` eklendi — `table-layout:fixed` sayesinde OTOMATİK hizalanır (ekstra senkron kodu
+gerekmedi; web bu konuda masaüstünden daha basitti). Yeni `.dw-filter-th` CSS sınıfı (app.css): `resize:none`
+(başlığın sürükle-genişlet tutamağı tekrarlanmasın) + `position:sticky; top:36px` (başlığın ALTINA sabitlenir,
+üst üste binmez). GetFilter/SetFilter/OnFilterKey AYNEN korundu.
+
+**Doğrulama (canlı tarayıcı, yerel dev sunucu + gerçek API):** `osman.alpaslan` test hesabıyla giriş yapıp
+Malzemeler ekranını DOM üzerinden ölçtüm — **15 sütunun 15'i de** header ile filtre satırı arasında piksel
+piksel hizalı (`left`+`width` birebir eşit). Filtre kutusu hücreyi taşmıyor. Filtreleme GERÇEKTEN çalışıyor:
+"TEST1" yazıp Filtrele'ye basınca liste 2 kayıttan 1'e düştü. Konsol hatası yok, sayfa yatay taşması yok.
+Araçlar/Günlük Faaliyet ekranlarında bu test şirketinde hiç kayıt olmadığı için tablo render olmadı (kod
+YAPISAL olarak Malzemeler ile birebir aynı desen — ayrı doğrulama gerekmedi).
+
+Build (masaüstü+web) 0 hata. Test paketi 590/0 (bu birim salt UI/markup — desteki iş mantığına dokunulmadı).
+
+Sıradaki tek iş: **Birim #5 — "+" seçim pencerelerinde arama standardı** (kullanıcı onayı/motoru sonrası).
 
 - [x] 1 — Şube mantığı + Transfer bütünlüğü ✅ (2026-08-06)
 - [x] 2 — İşlem Geçmişi sekmesi + detay ✅ (2026-08-06)
 - [x] 3 — Tablo hücre davranışı ✅ (2026-08-06)
-- [ ] 4 — Başlık-altı filtre satırı + proje standardı
+- [x] 4 — Başlık-altı filtre satırı + proje standardı ✅ (2026-08-06)
 - [ ] 5 — "+" seçim pencerelerinde arama standardı

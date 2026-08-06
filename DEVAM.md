@@ -53,8 +53,16 @@ Birim birim, masaüstü önce → web ardından ilerleniyor.
   gerçekten çalışır, eksik yerlere tooltip eklendi. 3 ekran de düzeltildi. Web tabloları bu Avalonia'ya özgü
   hatayı yaşamıyor (zaten `overflow-x:auto`) — web hücre inceltmesi Birim 4'e bırakıldı. Build 0 hata, test
   paketi 590/0 (UI-only). **Görsel doğrulama yapılamadı** (Avalonia önizlemesi yok) — kullanıcı testi gerekiyor.
-- ⏭️ Sıradaki: **Birim 4 — Başlık-altı filtre satırı + proje standardı** (tablo/filtre yeniden tasarımı).
-- (Birim 5 "+" seçim araması bekliyor.)
+- ✅ **Birim 4 — Başlık-altı filtre satırı (2026-08-06, Sonnet 5):** aynı 3 ekran (Malzemeler/Araçlar/Günlük
+  Faaliyet, masaüstü+web — diğer liste ekranlarında kolon-filtre yok, kapsam dışı). Filtre kutuları önceden
+  tablonun ÜSTÜNDE ayrı bir satırdı (sütunla hizasız); artık header'ın HEMEN ALTINDA, sütunla piksel piksel
+  hizalı. Masaüstü: `FilterFieldsByKey`+yeni `Conv.FilterItem` converter + `ContentControl`/`DataTemplate` ile
+  aynı `SharedSizeGroup`'a bağlı filtre satırı. Web: `<thead>` içine ikinci `<tr>` (`table-layout:fixed`
+  otomatik hizalıyor) + yeni `.dw-filter-th` CSS. Filtreleme ALGORİTMASI hiç değişmedi, yalnız konum. **Canlı
+  tarayıcıda doğrulandı** (yerel dev sunucu + gerçek API, test hesabıyla): Malzemeler'de 15/15 sütun header ile
+  piksel piksel hizalı, filtre gerçekten çalışıyor (2 kayıt → 1'e düştü "TEST1" ile), konsol hatası yok. Build
+  0 hata, test paketi 590/0.
+- ⏭️ Sıradaki: **Birim 5 — "+" seçim pencerelerinde arama standardı** (son birim).
 
 ### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
 Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**

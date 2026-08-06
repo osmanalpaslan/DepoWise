@@ -31,24 +31,6 @@
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <!-- ===== Kolon bazlı filtreler — metin kolonlarında "içerir", sayısal kolonlarda tam/karşılaştırma/aralık
-             söz dizimi (kullanıcı isteği 2026-07-17 + 2026-07-18) ===== -->
-        <ItemsControl Grid.Row="2" Margin="0,10,0,0" ItemsSource="{Binding FilterFields}" IsVisible="{Binding !ShowAdd}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:ColumnFilterItem">
-                    <!-- Enter ile filtrele (kullanıcı isteği 2026-07-19) -->
-                    <TextBox Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" Width="140" Margin="0,0,8,8"
-                             ToolTip.Tip="{Binding Hint}">
-                        <TextBox.KeyBindings>
-                            <KeyBinding Gesture="Enter" Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/>
-                        </TextBox.KeyBindings>
-                    </TextBox>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
 
         <!-- ===== Yeni Kayıt formu (gruplu) ===== -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowAdd}">
@@ -375,6 +357,225 @@
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=compatibleVehicles}"/>
                             <local:SortHeader Grid.Column="14" Text="MUADİL MALZEME" ColumnKey="equivalents" MinWidth="140"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=equivalents}"/>
+                        </Grid>
+                    </Border>
+                    <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4): her kolonun TAM ALTINDA
+                         kendi filtre kutusu — header ile AYNI SharedSizeGroup'ta, ColWidths'ten Min=Max okur.
+                         ContentControl+DataTemplate: hücrenin DataContext'i o kolonun ColumnFilterItem nesnesi
+                         (Text=Value TwoWay); dış Min/Max/IsVisible ise ContentControl'ün KENDİ DataContext'i
+                         (VM) üzerinden okunur — iki kapsam KARIŞMAZ (derlenmiş bağlama güvenli kalır). -->
+                    <Border Classes="TableHeader" Padding="0,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c11"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c12"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c13"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentControl Grid.Column="0" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=code}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=code}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=code}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=code}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="1" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=name}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=name}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="2" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=type}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=type}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=type}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=type}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="3" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=category}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=category}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=category}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=category}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="4" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unit}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unit}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unit}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=unit}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="5" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=brand}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=brand}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=brand}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=brand}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="6" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=supplier}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=supplier}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=supplier}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=supplier}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="7" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unitPrice}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unitPrice}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unitPrice}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=unitPrice}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="8" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=currency}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=currency}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=currency}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=currency}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="9" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=minStock}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=minStock}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=minStock}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=minStock}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="10" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=stock}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=stock}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=stock}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=stock}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="11" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=status}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=status}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=status}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=status}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="12" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=description}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="13" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=compatibleVehicles}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=compatibleVehicles}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=compatibleVehicles}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=compatibleVehicles}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
+                            <ContentControl Grid.Column="14" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=equivalents}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=equivalents}"
+                                IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=equivalents}"
+                                Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=equivalents}">
+                                <ContentControl.ContentTemplate>
+                                    <DataTemplate x:DataType="vm:ColumnFilterItem">
+                                        <TextBox Classes="Search" Text="{Binding Value, Mode=TwoWay}" PlaceholderText="{Binding Label}" ToolTip.Tip="{Binding Hint}">
+                                            <TextBox.KeyBindings><KeyBinding Gesture="Enter" Command="{Binding $parent[ContentControl].((vm:MaterialsViewModel)DataContext).ApplyFiltersCommand}"/></TextBox.KeyBindings>
+                                        </TextBox>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
+                            </ContentControl>
                         </Grid>
                     </Border>
                     <!-- Tek tık = detay paneli (SelectedItem). Çift tık = ayrı Düzelt/Kaydet/Sil penceresi. -->

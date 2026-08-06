@@ -445,6 +445,17 @@ input[type="file"]::file-selector-button {
 }
 .dw-th { display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; user-select: none; }
 .dw-sort { font-size: .68rem; color: var(--mud-palette-primary); min-width: 10px; }
+
+/* Başlık-altı filtre satırı (ADR-090, kullanıcı isteği 2026-08-06) — her sütunun TAM ALTINDA kendi filtre
+   kutusu; table-layout:fixed sayesinde kolon genişlikleriyle otomatik hizalı. thead th'ın resize/sticky-top:0
+   davranışını MİRAS ALIR (aynı seçici) — burada resize kapatılır + ikinci sıra olarak başlığın ALTINA sabitlenir
+   (üst üste binmesin diye). */
+.dw-filter-th {
+    resize: none; position: sticky; top: 36px; z-index: 1;
+    background: var(--mud-palette-background); padding: 4px 6px; white-space: normal;
+}
+.dw-filter-th .mud-input-outlined .mud-input-outlined-border { border-radius: 8px; }
+.dw-filter-th .mud-input-slot { font-size: .78rem; padding-top: 4px; padding-bottom: 4px; }
 .dw-grid tbody tr { transition: background-color .12s ease; }
 .dw-grid tbody tr:nth-child(2n) { background: color-mix(in srgb, var(--mud-palette-text-primary) 2%, transparent); }
 .dw-grid tbody tr:hover { background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent); }

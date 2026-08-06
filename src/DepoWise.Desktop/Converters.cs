@@ -68,4 +68,23 @@ public static class Conv
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
+
+    /// <summary>Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4): value = VM'in FilterFieldsByKey
+    /// sözlüğü, ConverterParameter = kolon anahtarı → o kolonun ColumnFilterItem NESNESİ (DataContext olarak
+    /// kullanılır; içindeki Value TwoWay bağlanır — sözlük yalnız DOĞRU nesneyi BULMAK için, değeri taşımaz).</summary>
+    public static readonly IValueConverter FilterItem = new FilterItemConverter();
+
+    private sealed class FilterItemConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is IReadOnlyDictionary<string, ViewModels.ColumnFilterItem> map && parameter is string key
+                && map.TryGetValue(key, out var item))
+                return item;
+            return null;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
 }
