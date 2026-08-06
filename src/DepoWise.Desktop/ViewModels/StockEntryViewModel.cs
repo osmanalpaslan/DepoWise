@@ -65,6 +65,12 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public bool ShowSingleBranch => !IsTransfer;
     public string QuantityLabel => IsExit ? "Çıkacak Miktar" : IsNew ? "Eklenecek Stok" : "Miktar";
 
+    // İşlem şubesi = LOGIN (çalışma) şube (kullanıcı isteği 2026-08-06). Giriş/çıkışta İŞLEM şubesi, transferde
+    // KAYNAK şube budur; salt-okunur gösterilir, kullanıcı seçmez. Yalnız transfer HEDEFİ seçilir. Ekranda işlem
+    // yapmak zaten "Tüm Şubeler" modunda engelli (BranchGuard) → burada login şube daima vardır.
+    public BranchRow? LoginBranch => Branches.FirstOrDefault(b => b.Id == _session.OperatingBranchId);
+    public string LoginBranchName => LoginBranch?.Name ?? "—";
+
     // ── Mevcut malzeme seçici (Transfer / Depo Çıkışı) ──
     [ObservableProperty] private string _materialSearch = "";
     [ObservableProperty]
@@ -122,6 +128,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
             foreach (var m in DesktopServices.Stock.RecentMovements(_session)) Movements.Add(m);
             if (Branches.Count == 0)
                 try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
+            OnPropertyChanged(nameof(LoginBranchName));   // Branches yüklendi → login şube etiketini tazele
             if (Personnel.Count == 0)
                 try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
             if (Vehicles.Count == 0)
@@ -229,8 +236,8 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                 if (Quantity > 0)
                     DesktopServices.Stock.ReceiveIn(_session,
                         new[] { new StockLine(materialId, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
-                        branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
-                        invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
+                        branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                        invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // giriş şubesi = login şube
                 Status = FindMaterialIdByCode(code) is not null && materialId is not null
                     ? "Yeni kayıt: malzeme oluşturuldu/güncellendi ve stok eklendi."
                     : "Kaydedildi.";
@@ -245,16 +252,18 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     if (!await ConfirmService.AskAsync("Depo çıkışı kaydedilsin mi? (stok AZALIR)", "Depo Çıkışı")) return;
                     DesktopServices.Stock.IssueOut(_session,
                         new[] { new StockLine(SelectedMaterial.Id, Quantity) }, op,
-                        branchId: Branch?.Id, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
-                        invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
+                        branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                        invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // çıkış şubesi = login şube
                     Status = "Depo çıkışı kaydedildi.";
                 }
-                else // Transfer
+                else // Transfer — kaynak = login şube (otomatik), kullanıcı yalnız HEDEFİ seçer
                 {
-                    if (FromBranch is null || ToBranch is null) { FormError = "Transfer için kaynak ve hedef şube seçin."; return; }
-                    if (FromBranch.Id == ToBranch.Id) { FormError = "Kaynak ve hedef şube aynı olamaz."; return; }
-                    if (!await ConfirmService.AskAsync("Şubeler arası transfer kaydedilsin mi?", "Transfer")) return;
-                    DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, FromBranch.Id, ToBranch.Id, op, note,
+                    var from = _session.OperatingBranchId;
+                    if (string.IsNullOrEmpty(from)) { FormError = "Şubeniz belirlenemedi."; return; }
+                    if (ToBranch is null) { FormError = "Hedef şube seçin."; return; }
+                    if (ToBranch.Id == from) { FormError = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; return; }
+                    if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} transferi kaydedilsin mi?", "Transfer")) return;
+                    DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, from, ToBranch.Id, op, note,
                         personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
                     Status = "Transfer kaydedildi.";

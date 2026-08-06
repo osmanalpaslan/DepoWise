@@ -58,14 +58,16 @@
 
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_qty" Label="@QtyLabel" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
 
+            @* İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06).
+               Giriş/çıkışta İŞLEM şubesi, transferde KAYNAK şube budur. Yalnız transfer HEDEFİ seçilir. *@
             @if (_kind == "Transfer")
             {
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_fromBranch" Label="Kaynak Şube *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Kaynak Şube (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Şube *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
             }
             else
             {
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_branch" Label="Şube" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Şube (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             }
 
             <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_personnel" Label="Teslim Eden / Alan (Personel) *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_personnelList)</MudSelect></MudItem>
@@ -133,6 +135,12 @@
 
     private string _kind = "Yeni Kayıt";
     private string QtyLabel => _kind == "Depo Çıkışı" ? "Çıkacak Miktar" : _kind == "Yeni Kayıt" ? "Eklenecek Stok" : "Miktar";
+
+    // İşlem/kaynak şube = login (çalışma) şube — salt-okunur gösterilir (kullanıcı isteği 2026-08-06).
+    private string LoginBranchName
+    {
+        get { var b = _branches.FirstOrDefault(x => x.Id == Auth.BranchId); return string.IsNullOrEmpty(b.Name) ? "—" : b.Name; }
+    }
 
     // Yeni Kayıt alanları
     private string _code = "", _name = "", _type = "Yedek Parça", _unit = "", _cat = "", _brand = "", _sup = "";
@@ -267,9 +275,10 @@
         {
             if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
             if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
-            if (string.IsNullOrWhiteSpace(_fromBranch) || string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Kaynak ve hedef şube seçin."; _ok = false; return; }
-            if (_fromBranch == _toBranch) { _msg = "Kaynak ve hedef şube aynı olamaz."; _ok = false; return; }
-            if (!await Dialog.Confirm("Şubeler arası transfer kaydedilsin mi?", "Evet, Kaydet")) return;
+            // Kaynak = login şube (otomatik); kullanıcı yalnız HEDEFİ seçer.
+            if (string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Hedef şube seçin."; _ok = false; return; }
+            if (Auth.BranchId == _toBranch) { _msg = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; _ok = false; return; }
+            if (!await Dialog.Confirm($"{LoginBranchName} → hedef şubeye transfer kaydedilsin mi?", "Evet, Kaydet")) return;
         }
 
         _busy = true;
@@ -282,7 +291,7 @@
                 {
                     code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_cat),
                     unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
-                    quantity = _qty, unitPrice = _price, branchId = Empty(_branch), personnelId = Empty(_personnel),
+                    quantity = _qty, unitPrice = _price, branchId = Auth.BranchId, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
@@ -291,7 +300,7 @@
             {
                 err = await Api.PostAsync("/api/stock/issue", new
                 {
-                    materialId = _material!.Id, quantity = _qty, branchId = Empty(_branch), personnelId = Empty(_personnel),
+                    materialId = _material!.Id, quantity = _qty, branchId = Auth.BranchId, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
@@ -300,7 +309,7 @@
             {
                 err = await Api.PostAsync("/api/stock/transfer", new
                 {
-                    materialId = _material!.Id, quantity = _qty, fromBranchId = _fromBranch, toBranchId = _toBranch,
+                    materialId = _material!.Id, quantity = _qty, fromBranchId = Auth.BranchId, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
                     invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });

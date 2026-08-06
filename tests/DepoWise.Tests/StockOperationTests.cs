@@ -172,6 +172,46 @@ public class StockOperationTests : IDisposable
         Assert.Equal(2m, _stock.GetBalance(m));
     }
 
+    // ---- Transfer per-branch bakiye (kullanıcı isteği 2026-08-06, madde 3): kaynak DÜŞER, hedef ARTAR ----
+    [Fact]
+    public void Transfer_KaynakSubeDuser_HedefArtar_PerBranch()
+    {
+        var m = Mat("M-TRB");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "b1");   // b1:10
+        _stock.Transfer(_admin, m, 4m, "b1", "b2", "op-trb");                                // b1-4, b2+4
+        Assert.Equal(6m, BranchBal(m, "b1"));   // kaynak 10-4
+        Assert.Equal(4m, BranchBal(m, "b2"));   // hedef +4
+        Assert.Equal(10m, _stock.GetBalance(m)); // firma-geneli değişmez
+    }
+
+    // ---- Transfer GERİ ALINAMAZ (kullanıcı isteği 2026-08-06, madde 2): ReverseDocument reddeder ----
+    [Fact]
+    public void Transfer_GeriAlinamaz_Reddedilir()
+    {
+        var m = Mat("M-TRX");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "b1");
+        var res = _stock.Transfer(_admin, m, 3m, "b1", "b2", "op-trx");
+        var admin = AdminWithReverse();
+        var ex = Assert.Throws<ForbiddenException>(() => _stock.ReverseDocument(admin, res.DocumentId, "x"));
+        Assert.Contains("Transfer geri alınamaz", ex.Message);
+        Assert.Equal(10m, _stock.GetBalance(m));            // firma-geneli bakiye değişmedi
+        Assert.Equal(7m, BranchBal(m, "b1"));               // transfer etkisi korunur: kaynak 10-3
+        Assert.Equal(3m, BranchBal(m, "b2"));               // hedef +3
+    }
+
+    // Test yardımcısı: bir (malzeme, şube) için hareket defteri toplamı (giriş +, çıkış −).
+    private decimal BranchBal(string mat, string branch)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT direction, quantity FROM stock_movements WHERE material_id=@m AND branch_id=@b;";
+        cmd.AddWithValue("@m", mat); cmd.AddWithValue("@b", branch);
+        decimal t = 0m;
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) t += r.GetInt64(0) * Money.Parse(r.GetString(1));
+        return t;
+    }
+
     [Fact]
     public void Sayim_FarkHareketi_GerekceliUretir()
     {

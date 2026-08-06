@@ -24,7 +24,9 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     string? DocumentId = null, bool IsReversed = false)
 {
     public string InvoiceText => string.IsNullOrWhiteSpace(InvoiceNo) ? "—" : InvoiceNo!;
-    public bool CanReverse => !IsReversed && DocumentId != null && MovementType != "opening";
+    // Transfer geri ALINAMAZ (kullanıcı isteği 2026-08-06): iki şubenin stoğunu etkiler; doğrusu hedeften
+    // kaynağa yeni bir ters transfer. Açılış da geri alınmaz. Sunucu ReverseDocument da ayrıca reddeder.
+    public bool CanReverse => !IsReversed && DocumentId != null && MovementType != "opening" && MovementType != "transfer";
     public string StatusText => IsReversed ? "İptal edildi" : "";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
@@ -92,9 +94,13 @@ public sealed class StockService
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (quantity <= 0) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
+        // Kaynak şube = KULLANICININ ŞUBESİ (login şube). Şubeye bağlı kullanıcıda boş gelse bile kendi şubesine
+        // atanır; farklı şube gönderilirse reddedilir. Dönüş çözülmüş kaynak şubedir (eski kod dönüşü atıyordu →
+        // istemci boş fromBranchId gönderirse kaynak hareketi şubesiz kalıyordu). Şube kapsamı NULL ise (web/admin)
+        // istemcinin gönderdiği kaynak korunur.
+        fromBranchId = EnforceOwnBranch(s, fromBranchId, "transfer") ?? fromBranchId;
+        if (string.IsNullOrEmpty(fromBranchId)) throw new ArgumentException("Kaynak şube belirlenemedi.");
         if (fromBranchId == toBranchId) throw new ArgumentException("Kaynak ve hedef şube aynı olamaz.");
-        // Şubeye bağlı kullanıcı yalnız KENDİ şubesinden transfer başlatabilir (kaynak şube = kendi şubesi).
-        EnforceOwnBranch(s, fromBranchId, "transfer");
         var groupId = Guid.NewGuid().ToString("N");
         return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, personnelId, vehicleId, note, docDate,
             (conn, tx, docId) =>
@@ -176,6 +182,10 @@ public sealed class StockService
 
         var doc = LoadDocument(conn, tx, s.CompanyId, documentId)
             ?? throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
+        // Transfer geri ALINAMAZ (kullanıcı isteği 2026-08-06): iki şubenin stoğunu etkiler. Doğrusu hedeften
+        // kaynağa yeni bir ters transfer yapmaktır. Otoriter engel — API/masaüstü/web hepsi buradan geçer.
+        if (doc.DocType == "transfer")
+            throw new ForbiddenException("Transfer geri alınamaz. Hedef şubeden kaynağa yeni bir ters transfer yapın.");
         if (doc.Status == "cancelled") { tx.Commit(); return; } // idempotent
 
         foreach (var mv in ActiveMovements(conn, tx, documentId))
@@ -550,17 +560,17 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         return list;
     }
 
-    private sealed record DocRow(string Id, string Status);
+    private sealed record DocRow(string Id, string Status, string DocType);
 
     private static DocRow? LoadDocument(DbConnection conn, DbTransaction tx, string companyId, string documentId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT id, status FROM stock_documents WHERE id=@id AND company_id=@c;";
+        cmd.CommandText = "SELECT id, status, doc_type FROM stock_documents WHERE id=@id AND company_id=@c;";
         cmd.AddWithValue("@id", documentId);
         cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
-        return r.Read() ? new DocRow(r.GetString(0), r.GetString(1)) : null;
+        return r.Read() ? new DocRow(r.GetString(0), r.GetString(1), r.GetString(2)) : null;
     }
 
     private static void MarkReversed(DbConnection conn, DbTransaction tx, string movementId)

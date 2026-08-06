@@ -27,7 +27,17 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-05)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-06)
+
+### 🆕 Yeni görev paketi (2026-08-06) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
+Kullanıcı uzun bir prompt iletti; ham hali + sıralama: **[docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md](docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md)**.
+Birim birim, masaüstü önce → web ardından ilerleniyor.
+- ✅ **Birim 1 — Şube mantığı + Transfer bütünlüğü (2026-08-06):** işlem/kaynak şube artık **login şube**
+  (masaüstü+web salt-okunur; kullanıcı yalnız transfer HEDEFİNİ seçer). Giriş'in şubesiz kaydolma hatası kapandı.
+  **Transfer geri ALINAMAZ** (sunucu reddeder + "İptal" butonu gizli). Testler: per-branch transfer bakiyesi +
+  transfer-geri-alma reddi. Tüm paket **589/0** (11 PG atlandı).
+- ⏭️ Sıradaki: **Birim 2 — İşlem Geçmişi sekmesi + detay** (Malzeme/Araç bilgi paneli).
+- (Birim 3 tablo hücre davranışı · 4 başlık-altı filtre · 5 "+" seçim araması bekliyor.)
 
 ### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
 Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**

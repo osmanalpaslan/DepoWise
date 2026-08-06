@@ -31,17 +31,14 @@
                     <ctrl:FormField Label="Birim Fiyat" Width="140" IsVisible="{Binding ShowPrice}">
                         <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Şube" Width="200" IsVisible="{Binding ShowSingleBranch}">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding Branch}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
+                    <!-- İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06) -->
+                    <ctrl:FormField Label="Şube (Şubeniz)" Width="200" IsVisible="{Binding ShowSingleBranch}">
+                        <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Kaynak Şube" Width="180" IsVisible="{Binding IsTransfer}">
-                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FromBranch}">
-                            <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                        </ComboBox>
+                    <ctrl:FormField Label="Kaynak Şube (Şubeniz)" Width="180" IsVisible="{Binding IsTransfer}">
+                        <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Hedef Şube" Width="180" IsVisible="{Binding IsTransfer}">
+                    <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="180" IsVisible="{Binding IsTransfer}">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}">
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>
