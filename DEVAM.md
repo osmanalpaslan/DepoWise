@@ -47,9 +47,13 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
   engelle" = per-branch stok (Tema B, büyük canlı-veri işi) — AYRI/kopyayla.
 - ✅ **9** Stok formu kişi/araç etiket ayrımı: "Teslim Eden/Alan (Personel)" + "Transfer Edilen/Kullanılan
   Araç" (alanlar zaten ayrıydı; etiket netleşti). Masaüstü+web.
-- ⏳ **KALAN:** 6+10 Tanımlar ekranı (alt kategori yönetimi + ekran-bazlı ayrım — kullanıcı karışmayı nerede
-  gördüğünü netleştirecek), 11 Stok Hareketleri ekranı, 8(b) per-branch stok (Tema B).
-- **Masaüstü yayın:** 1-9 henüz masaüstüne çıkmadı (web canlı) — biriken 8 madde için TOPLU yayın önerilir.
+- ✅ **11 Stok Hareketleri ayrı ekran:** StockService.SearchMovements (tarih aralığı + metin araması) +
+  /api/stock/movements + web StockMovements.razor (/stock/movements) + masaüstü StockMovementsView/VM + nav
+  (her iki tarafta "Giriş-Çıkış" altında). Salt-okunur.
+- ⏳ **KALAN (2 madde):** 6+10 Tanımlar ekranı (alt kategori yönetimi yok + ekran-bazlı ayrım — kullanıcı
+  karışmayı NEREDE gördüğünü netleştirecek); 8(b) per-branch stok (Tema B, büyük canlı-veri işi, kopyayla).
+- **Masaüstü yayın:** 1-11 henüz masaüstüne çıkmadı (web canlı) — biriken ~9 madde için TOPLU yayın bekliyor
+  (kullanıcı: "geliştirmelerden sonra genel test yapacağım").
 
 
 ### 🎯 AURORA 2. TUR — "neden sadece login değişti" KÖK NEDEN BULUNDU + DÜZELTİLDİ (2026-08-05 akşam)
