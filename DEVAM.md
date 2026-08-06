@@ -42,10 +42,14 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
 - 🔍 **6 kategori/alt-kategori:** malzeme formu mantığı DOĞRU çıktı (kategori=üst-seviye, alt=filtreli, ekleme
   parent_id doğru). Asıl eksik Tanımlar ekranında (madde 10 ile birleşiyor) — alt kategori yönetimi yok.
   Kullanıcıya karışmayı NEREDE gördüğü soruldu.
-- ⏳ **KALAN:** 8-9 stok çıkış/transfer GÜVENLİK (yalnız admin tüm şubelerden; stok yoksa engelle) + teslim
-  eden(kişi)/transfer edilen araç ayrı alan — **güvenlik-kritik, dikkatli+testli yapılacak**; 6+10 Tanımlar
-  ekranı (alt kategori yönetimi + ekran-bazlı ayrım); 11 Stok Hareketleri ekranı.
-- **Masaüstü yayın:** 1-7 henüz yayınlanmadı; kalanlarla TOPLU çıkarılacak (web canlı).
+- ✅ **8(a) GÜVENLİK:** stok çıkış+transfer şube-yetki — şubeye bağlı kullanıcı yalnız KENDİ şubesinden;
+  Tüm Şubeler/admin (null) her şubeden. Ortak StockService (masaüstü+web) + test. ⏳ **8(b)** "stok yoksa
+  engelle" = per-branch stok (Tema B, büyük canlı-veri işi) — AYRI/kopyayla.
+- ✅ **9** Stok formu kişi/araç etiket ayrımı: "Teslim Eden/Alan (Personel)" + "Transfer Edilen/Kullanılan
+  Araç" (alanlar zaten ayrıydı; etiket netleşti). Masaüstü+web.
+- ⏳ **KALAN:** 6+10 Tanımlar ekranı (alt kategori yönetimi + ekran-bazlı ayrım — kullanıcı karışmayı nerede
+  gördüğünü netleştirecek), 11 Stok Hareketleri ekranı, 8(b) per-branch stok (Tema B).
+- **Masaüstü yayın:** 1-9 henüz masaüstüne çıkmadı (web canlı) — biriken 8 madde için TOPLU yayın önerilir.
 
 
 ### 🎯 AURORA 2. TUR — "neden sadece login değişti" KÖK NEDEN BULUNDU + DÜZELTİLDİ (2026-08-05 akşam)
