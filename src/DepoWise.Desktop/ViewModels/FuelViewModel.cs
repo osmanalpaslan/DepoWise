@@ -164,6 +164,27 @@ public sealed partial class FuelViewModel : ViewModelBase
     [ObservableProperty] private LookupItem? _depotSupplier;
     [ObservableProperty] private string _depotInvoice = "";
 
+    // Tedarikçi "+" ekleme (madde 2.1, kullanıcı isteği 2026-08-06): Malzemeler ekranındaki tedarikçi "+"
+    // ile AYNI desen — sabit tanım alanına "+" eklenmiş bir alan başka ekranda da aynı özelliğe sahip olmalı.
+    [ObservableProperty] private bool _isAddingSupplier;
+    [ObservableProperty] private string _newSupplierName = "";
+
+    [RelayCommand] private void StartAddSupplier() { IsAddingSupplier = true; NewSupplierName = ""; }
+    [RelayCommand] private void CancelAddSupplier() { IsAddingSupplier = false; NewSupplierName = ""; }
+    [RelayCommand]
+    private void ConfirmAddSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(NewSupplierName)) return;
+        try
+        {
+            var id = DesktopServices.Lookups.AddSupplier(_session, NewSupplierName.Trim());
+            var item = new LookupItem(id, NewSupplierName.Trim());
+            Suppliers.Add(item); DepotSupplier = item;
+            IsAddingSupplier = false; NewSupplierName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
+
     public string DepotTotalText => $"{DepotLiters * DepotPrice:0.##} ₺";
 
     partial void OnDepotLitersChanged(decimal value) => OnPropertyChanged(nameof(DepotTotalText));

@@ -146,7 +146,24 @@ stok/talep modüllerini birbirine bağlıyor) sona bırakıldı.
   AutoCompleteBox'ın `SelectedItem`/`Text` desync'i olarak biliniyor. Bu ortamda Avalonia görsel testi
   YAPILAMIYOR → kesin fix ampirik doğrulanamıyor. Kullanıcıya danışılacak (aday fix + masaüstünde test).
 
-- [~] 1 — Düzenleme-ekranı boş-alan hataları (1.7 ✅ · 1.6 hata değil · 5.1 bekliyor)
+**5.1 KARARI (kullanıcı, 2026-08-06):** "Şimdilik atla, Birim 2'ye geç." → 5.1 ertelendi; daha net tekrar-üretim
+adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tarafı (1.7) tamam, 1.6 hata değil.
+
+**Birim #2 (2026-08-06, Sonnet-önerildi ama Opus'ta yapıldı) — Yakıt tutarlılık. MASAÜSTÜNE ÖZEL bulundu.**
+- **Web zaten doğru:** Fuel.razor ortak `LookupSelect` bileşenini kullanıyor — Tedarikçi'de `AddTable="suppliers"`
+  ("+" dahili) + arama dahili; "Yakıtı Veren/Alan" `LookupSelect` (arama dahili). Web'de değişiklik gerekmedi.
+- **Masaüstü 2.1:** Depo Girişleri Tedarikçi alanına "+" ekleme (StartAddSupplier/ConfirmAddSupplier/CancelAdd +
+  IsAddingSupplier/NewSupplierName + inline ekleme satırı) — Malzemeler ekranıyla AYNI desen. `CanAddLookup`
+  (ViewModelBase) yetkisiyle gösteriliyor.
+- **Masaüstü 2.2:** "Yakıtı Veren"/"Yakıtı Alan" ComboBox → AutoCompleteBox (arama). Build 0 hata, test 590/0.
+- ⏭️ **2.1 genel kural — kalan masaüstü boşluğu:** StockEntryView "Yeni Kayıt" formundaki malzeme-oluşturma
+  lookup'ları (Birim/Kategori/Alt Kategori/Marka/Tedarikçi) MaterialsView'da "+" var ama StockEntry'de YOK.
+  Ayrı, sınırlı bir takip işi olarak kullanıcıya sunuldu (5 alan × tam "+" tesisatı; görsel test bu ortamda yok).
+  Web tüm ekranlarda merkezi `LookupSelect` sayesinde zaten tam.
+
+- [x] 1 — Düzenleme-ekranı boş-alan hataları (1.7 ✅ düzeltildi · 1.6 hata değil/ampirik kanıt · 5.1 ERTELENDİ)
+- [x] 2 — Yakıt tutarlılık (2.1 Fuel + · 2.2 Fuel arama ✅ · genel-kural StockEntry "+" takip işi olarak sunuldu)
+- [ ] 3 — Ortak seçim alanı davranışı (madde 3)
 - [ ] 2 — Yakıt tutarlılık (2.1+2.2)
 - [ ] 3 — Ortak seçim alanı davranışı (madde 3)
 - [ ] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1)

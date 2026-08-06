@@ -58,17 +58,20 @@
                                 <ctrl:FormField Label="Toplam" Width="140">
                                     <TextBox Classes="Field" Text="{Binding DistTotalText}" IsEnabled="False"/>
                                 </ctrl:FormField>
+                                <!-- Yakıtı Veren/Alan personel: aranabilir (madde 2.2, kullanıcı isteği 2026-08-06) — ortak AutoCompleteBox deseni. -->
                                 <ctrl:FormField Label="Yakıtı Veren" Width="180">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistPersonnel}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                    </AutoCompleteBox>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Yakıtı Alan" Width="180">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistRecipient}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding Personnel}" SelectedItem="{Binding DistRecipient}"
+                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                    </AutoCompleteBox>
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
@@ -155,11 +158,23 @@
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
-                                <ctrl:FormField Label="Tedarikçi" Width="240">
-                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}"
-                                                      FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                                    </AutoCompleteBox>
+                                <!-- Tedarikçi + "+" ekleme (madde 2.1, kullanıcı isteği 2026-08-06): Malzemeler ekranıyla AYNI desen. -->
+                                <ctrl:FormField Label="Tedarikçi" Width="300">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding DepotSupplier}"
+                                                              FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                            </AutoCompleteBox>
+                                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
+                                                    ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSupplier}">
+                                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSupplierName}" PlaceholderText="Yeni tedarikçi adı"/>
+                                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSupplierCommand}"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSupplierCommand}"/>
+                                        </Grid>
+                                    </StackPanel>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Fatura/İrsaliye No" Width="200">
                                     <TextBox Classes="Field" Text="{Binding DepotInvoice}"/>
