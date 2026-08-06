@@ -5,6 +5,13 @@ using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Tarih/takvim Türkçe görünsün (MudDatePicker ay adları "Ocak…", gün/ay/yıl sırası TR) — kullanıcı bildirimi
+// 2026-08-05, masaüstüyle eşit. Sayı biçimi INVARIANT (nokta) bırakılır → mevcut sayı girişi/gösterimi DEĞİŞMEZ.
+var trCulture = (System.Globalization.CultureInfo)new System.Globalization.CultureInfo("tr-TR").Clone();
+trCulture.NumberFormat = System.Globalization.CultureInfo.InvariantCulture.NumberFormat;
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = trCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = trCulture;
+
 // DataProtection anahtarlarını KALICI diske yaz (antiforgery/oturum yeniden başlatmada bozulmasın).
 var keysDir = Directory.Exists("/dpkeys") ? "/dpkeys" : Path.Combine(builder.Environment.ContentRootPath, "dpkeys");
 Directory.CreateDirectory(keysDir);
