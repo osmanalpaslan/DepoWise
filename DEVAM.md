@@ -57,8 +57,10 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
 - ⏳ **KALAN:** 6 düzenleme-diyalogları (yukarı) + 10 Tanımlar ekranı alt-kategori yönetimi/ekran-bazlı ayrım;
   8(b) per-branch stok (Tema B — ⚡ veri şu an BOŞ/silinmiş, daha rahat yapılabilir; baban kayıt girince
   kullanıcı "canlıda dikkatli ol" diye uyaracak — bkz. hafıza).
-- **Masaüstü yayın:** 1-11 henüz masaüstüne çıkmadı (web canlı) — biriken ~9 madde için TOPLU yayın bekliyor
-  (kullanıcı: "geliştirmelerden sonra genel test yapacağım").
+- ✅ **MASAÜSTÜ 1.0.106 YAYINLANDI** (2026-08-05): biriken 10 madde (ekran ayrımı, şablon kaldırma, plaka
+  benzersiz, tarih Türkçe, şube-çıkış güvenliği, kişi/araç etiket, Stok Hareketleri ekranı, kategori/alt split)
+  masaüstüne çıktı + AlpnexSetup.exe güncellendi. Sunucu en güncel=1.0.106. Web zaten canlı. Kullanıcı test
+  ETMEDEN devam edecek (kota endişesi) → kalan: 10 Tanımlar ekranı, 8b per-branch stok (Tema B).
 
 
 ### 🎯 AURORA 2. TUR — "neden sadece login değişti" KÖK NEDEN BULUNDU + DÜZELTİLDİ (2026-08-05 akşam)
