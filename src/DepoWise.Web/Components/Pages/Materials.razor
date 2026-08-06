@@ -400,6 +400,20 @@
         }
     }
 
+    // Düzenlemede mevcut category_id üst-seviye mi alt kategori mi? kutulara doğru dağıt (madde 6).
+    // _suppressSub: reaktif _lastCat mekanizması _subCat'ı temizlemesin (kategoriyi programatik ayarlıyoruz).
+    private async Task ResolveEditCategory(string? catId)
+    {
+        _subCat = null;
+        if (string.IsNullOrEmpty(catId)) { _cat = null; return; }
+        if (_cats.Any(o => o.Id == catId)) { _cat = catId; return; }   // üst-seviye kategori
+        foreach (var top in _cats)                                     // alt kategori: parent'ı tara
+        {
+            var subs = await Api.OptionsAsync($"/api/materials/subcategories?parentId={top.Id}", "id", "name");
+            if (subs.Any(x => x.Id == catId)) { _cat = top.Id; _subCat = catId; _suppressSub = true; break; }
+        }
+    }
+
     private string? _lastCat;
     protected override async Task OnAfterRenderAsync(bool first)
     {
@@ -554,7 +568,8 @@
         await LoadMovementsAsync(_editId);   // Son Hareketler paneli (A3)
         _templateId = NullId(d, "templateId");   // mevcut şablon bağını yükle → normal düzenleme bağı korur, değiştirilebilir
         _code = Str(d, "code"); _name = Str(d, "name"); _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
-        _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
+        _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
+        await ResolveEditCategory(NullId(d, "categoryId"));   // alt-kategorili malzemede kategori+alt kutulara dağıt (madde 6)
         _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
         _stock = Dec(d, "stock");   // Kritik stok paneli (S3) için mevcut bakiye
         _snap = (_code, _name, _type, _cat, _unit, _brand, _sup, _min, _price, _desc ?? "", _templateId);   // S2: değişiklik sayacı referansı

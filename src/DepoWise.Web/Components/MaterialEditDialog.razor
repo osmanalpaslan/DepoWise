@@ -42,11 +42,20 @@
                 <MudItem xs="6">
                     @if (_edit)
                     {
-                        <MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                        <MudSelect T="string" Value="_cat" ValueChanged="OnCatChanged" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true">
                             @foreach (var o in _cats) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
                         </MudSelect>
                     }
                     else { <MudField Label="Kategori" Variant="Variant.Text">@Dash(LookupName(_cats, _cat))</MudField> }
+                </MudItem>
+                <MudItem xs="6">
+                    @if (_edit)
+                    {
+                        <MudSelect T="string" @bind-Value="_subCat" Label="Alt Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Clearable="true" Disabled="@string.IsNullOrEmpty(_cat)">
+                            @foreach (var o in _subCats) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+                        </MudSelect>
+                    }
+                    else if (!string.IsNullOrEmpty(_subCat)) { <MudField Label="Alt Kategori" Variant="Variant.Text">@Dash(LookupName(_subCats, _subCat))</MudField> }
                 </MudItem>
 
                 <MudItem xs="6">
@@ -125,22 +134,23 @@
     private string? _msg;
     private string _code = "", _name = "", _type = "Yedek Parça", _desc = "", _stock = "";
     private long _version; // düzenleme kilidi (bkz. SaveRecord)
-    private string? _cat, _unit, _brand, _sup;
+    private string? _cat, _subCat, _unit, _brand, _sup;
     private decimal _min, _price;
-    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
+    private List<ApiClient.Opt> _cats = new(), _subCats = new(), _units = new(), _brands = new(), _sups = new();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _cats = await Api.OptionsAsync("/api/lookups/material_categories", "id", "name");
+            _cats = await Api.OptionsAsync("/api/materials/subcategories", "id", "name");   // yalnız ÜST-SEVİYE (madde 6)
             _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
             var d = await Api.GetObjectAsync($"/api/materials/{Id}");
             _code = Str(d, "code"); _name = Str(d, "name");
             _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
-            _cat = NullId(d, "categoryId"); _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
+            _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
+            await ResolveCategoryAsync(NullId(d, "categoryId"));   // kategori/alt kategori kutulara dağıt (madde 6)
             _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
             _stock = Str(d, "stock");
             _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
@@ -162,7 +172,8 @@
             var body = new
             {
                 code = _code.Trim(), name = _name.Trim(), type = string.IsNullOrWhiteSpace(_type) ? null : _type,
-                categoryId = _cat, unitId = _unit, brandId = _brand, supplierId = _sup,
+                categoryId = string.IsNullOrEmpty(_subCat) ? _cat : _subCat,   // alt kategori seçiliyse o, yoksa kategori
+                unitId = _unit, brandId = _brand, supplierId = _sup,
                 minStock = _min, unitPrice = _price, description = string.IsNullOrEmpty(_desc) ? null : _desc,
                 vehicleIds = (List<string>?)null,
                 // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
@@ -190,6 +201,32 @@
     }
 
     private void Close() => MudDialog.Cancel();
+
+    // Kategori değişince alt kategori listesi o kategoriye göre yenilenir (madde 6).
+    private async Task OnCatChanged(string? v)
+    {
+        _cat = v; _subCat = null;
+        _subCats = string.IsNullOrEmpty(v) ? new()
+            : await Api.OptionsAsync($"/api/materials/subcategories?parentId={v}", "id", "name");
+    }
+
+    // Mevcut category_id üst-seviye mi alt kategori mi? kutulara doğru dağıt (parent'ı tara).
+    private async Task ResolveCategoryAsync(string? catId)
+    {
+        _cat = null; _subCat = null; _subCats = new();
+        if (string.IsNullOrEmpty(catId)) return;
+        if (_cats.Any(o => o.Id == catId))
+        {
+            _cat = catId;
+            _subCats = await Api.OptionsAsync($"/api/materials/subcategories?parentId={catId}", "id", "name");
+            return;
+        }
+        foreach (var top in _cats)
+        {
+            var subs = await Api.OptionsAsync($"/api/materials/subcategories?parentId={top.Id}", "id", "name");
+            if (subs.Any(s => s.Id == catId)) { _cat = top.Id; _subCats = subs; _subCat = catId; return; }
+        }
+    }
 
     private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
     private static string LookupName(List<ApiClient.Opt> opts, string? id)
