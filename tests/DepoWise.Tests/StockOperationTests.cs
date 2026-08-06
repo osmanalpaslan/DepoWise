@@ -3,6 +3,7 @@ using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
 using DepoWise.Infrastructure.Database.Migrations;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Organization;
 using DepoWise.Infrastructure.Security;
 using Xunit;
 
@@ -61,6 +62,31 @@ public class StockOperationTests : IDisposable
         var res = _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "op-in-1");
         Assert.StartsWith("GIR-", res.DocNo);
         Assert.Equal(10m, _stock.GetBalance(m));
+    }
+
+    // ---- Şube-yetki (kullanıcı isteği 2026-08-05): şubeye bağlı kullanıcı yalnız kendi şubesinden çıkış ----
+    [Fact]
+    public void Cikis_SubeyeBagliKullanici_BaskaSubeden_Reddedilir()
+    {
+        var branches = new BranchService(_factory, _clock);
+        var brA = branches.Create(_admin, new NewBranch("Şube A"), companyId: "A");
+        var brB = branches.Create(_admin, new NewBranch("Şube B"), companyId: "A");
+        var m = Mat("M-BR");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 100m) }, "in", branchId: brA);
+
+        // Şube A'ya bağlı kullanıcı
+        var userA = new SessionContext(_admin.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty)
+        { OperatingBranchId = brA };
+        // Kendi şubesinden (A) çıkış → OK
+        _stock.IssueOut(userA, new[] { new StockLine(m, 5m) }, "out-a", branchId: brA);
+        // Başka şubeden (B) çıkış → REDDEDİLİR
+        Assert.Throws<ForbiddenException>(() =>
+            _stock.IssueOut(userA, new[] { new StockLine(m, 5m) }, "out-b", branchId: brB));
+
+        // "Tüm Şubeler" (null → admin) herhangi bir şubeden çıkış yapabilir
+        var userAll = new SessionContext(_admin.UserId, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty)
+        { OperatingBranchId = null };
+        _stock.IssueOut(userAll, new[] { new StockLine(m, 5m) }, "out-all", branchId: brB);
     }
 
     [Fact]

@@ -75,6 +75,7 @@ public sealed class StockService
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
+        branchId = EnforceOwnBranch(s, branchId, "çıkış");   // şubeye bağlı kullanıcı yalnız kendi şubesinden
         return RunDocument(s, "out", operationId, branchId, branchId, null, personnelId, vehicleId, note, docDate,
             (conn, tx, docId) =>
             {
@@ -92,6 +93,8 @@ public sealed class StockService
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (quantity <= 0) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
         if (fromBranchId == toBranchId) throw new ArgumentException("Kaynak ve hedef şube aynı olamaz.");
+        // Şubeye bağlı kullanıcı yalnız KENDİ şubesinden transfer başlatabilir (kaynak şube = kendi şubesi).
+        EnforceOwnBranch(s, fromBranchId, "transfer");
         var groupId = Guid.NewGuid().ToString("N");
         return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, personnelId, vehicleId, note, docDate,
             (conn, tx, docId) =>
@@ -101,6 +104,19 @@ public sealed class StockService
                 ApplyLine(conn, tx, s, docId, line, -1, $"{operationId}:out", "transfer", fromBranchId, fromBranchId, groupId);
                 ApplyLine(conn, tx, s, docId, line, +1, $"{operationId}:in", "transfer", toBranchId, fromBranchId, groupId);
             }, groupId, invoiceNo, orderSlipNo, creditSlipNo);
+    }
+
+    // Şube-yetki (kullanıcı isteği 2026-08-05): şubeye bağlı kullanıcı (BranchScope.Active != null) yalnız
+    // KENDİ şubesinden çıkış/transfer başlatabilir; "Tüm Şubeler"/admin (null) her şubeden. Yalnız interaktif
+    // create yolunda çağrılır — sync ve idari ters kayıt bu kontrole girmez (offline/onarım bozulmaz).
+    private static string? EnforceOwnBranch(SessionContext s, string? branchId, string op)
+    {
+        var scope = BranchScope.Active(s);
+        if (scope is null) return branchId;                   // Tüm Şubeler / admin → serbest
+        if (string.IsNullOrEmpty(branchId)) return scope;     // belirtilmemişse kendi şubesine ata
+        if (branchId != scope)
+            throw new ForbiddenException($"Yalnız kendi şubenizden {op} yapabilirsiniz.");
+        return branchId;
     }
 
     // ---- Sayım (gerekçeli fark hareketi) ----
