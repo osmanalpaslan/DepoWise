@@ -181,11 +181,17 @@ public sealed class StockService
 
     /// <summary>Son stok hareketleri (salt okuma) — malzeme kod/ad + tür/yön/miktar/fiyat/not.</summary>
     public IReadOnlyList<StockMovementRow> RecentMovements(SessionContext s, int limit = 200)
+        => SearchMovements(s, null, null, null, limit);
+
+    /// <summary>Stok Hareketleri ekranı (kullanıcı isteği 2026-08-05): tarih aralığı (fromMs/toMs, Unix ms) +
+    /// metin araması (malzeme kodu/adı, not, belge/fatura no). Şube kapsamı ve yetki RecentMovements ile aynı.</summary>
+    public IReadOnlyList<StockMovementRow> SearchMovements(SessionContext s, long? fromMs, long? toMs, string? search, int limit = 500)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
+        if (limit < 1) limit = 1; if (limit > 5000) limit = 5000;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        var sb = new System.Text.StringBuilder(@"
 SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
        d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed
@@ -193,10 +199,19 @@ FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
-WHERE sm.company_id = @c" + DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id") + @"
-ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT @lim;";
+WHERE sm.company_id = @c");
+        sb.Append(DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id"));
+        if (fromMs is not null) sb.Append(" AND sm.created_at >= @from");
+        if (toMs is not null) sb.Append(" AND sm.created_at <= @to");
+        if (!string.IsNullOrWhiteSpace(search))
+            sb.Append(" AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)");
+        sb.Append(" ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT @lim;");
+        cmd.CommandText = sb.ToString();
         cmd.AddWithValue("@c", s.CompanyId);
         if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
+        if (fromMs is not null) cmd.AddWithValue("@from", fromMs.Value);
+        if (toMs is not null) cmd.AddWithValue("@to", toMs.Value);
+        if (!string.IsNullOrWhiteSpace(search)) cmd.AddWithValue("@q", "%" + search.Trim() + "%");
         cmd.AddWithValue("@lim", limit);
         string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
         var list = new List<StockMovementRow>();

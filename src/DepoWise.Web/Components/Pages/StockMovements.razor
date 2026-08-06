@@ -1,0 +1,109 @@
+@page "/stock/movements"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+@* Stok Hareketleri — ayrı ekran (kullanıcı isteği 2026-08-05): tüm giriş/çıkış/transfer/sayım hareketleri,
+   tarih aralığı filtresi + metin araması. Salt-okunur. Şube kapsamı ve yetki API'de (/api/stock/movements). *@
+
+<PageTitle>Stok Hareketleri — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Stok Hareketleri</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")@(_rows is { Length: > 0 } ? $" · {_rows.Length} hareket" : "")</MudText>
+    </div>
+</div>
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudGrid Spacing="1" Class="align-end">
+        <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+        <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+        <MudItem xs="8" md="4">
+            <MudTextField @bind-Value="_search" Label="Ara (kod, malzeme, not, belge no)" Margin="Margin.Dense" Variant="Variant.Outlined"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="false"
+                          OnKeyDown="@(async (e) => { if (e.Key == "Enter") await Load(); })" />
+        </MudItem>
+        <MudItem xs="4" md="2" Class="d-flex" Style="gap:6px;">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Load" Disabled="_busy">Filtrele</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="Clear" Disabled="_busy">Temizle</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Class="pa-4" Elevation="2">
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Seçilen ölçütlerde hareket yok.</MudText> }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh">
+            <HeaderContent>
+                <MudTh>Tarih</MudTh><MudTh>Tip</MudTh><MudTh>Kod</MudTh><MudTh>Malzeme</MudTh>
+                <MudTh Style="text-align:right;">Miktar</MudTh><MudTh>Birim</MudTh><MudTh>Not / Belge</MudTh><MudTh>Durum</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{ var qty = Dec(context, "quantity"); var dir = Int(context, "direction"); var signed = dir < 0 ? -Math.Abs(qty) : Math.Abs(qty); }
+                <MudTd DataLabel="Tarih">@DateText(context)</MudTd>
+                <MudTd DataLabel="Tip">@TypeText(Str(context, "movementType"))</MudTd>
+                <MudTd DataLabel="Kod">@Str(context, "code")</MudTd>
+                <MudTd DataLabel="Malzeme">@Str(context, "name")</MudTd>
+                <MudTd DataLabel="Miktar" Style="text-align:right;font-weight:600;">
+                    <span style="color:@(signed < 0 ? "var(--mud-palette-error)" : "var(--mud-palette-success)");">@(signed >= 0 ? "+" : "")@signed.ToString("0.##")</span>
+                </MudTd>
+                <MudTd DataLabel="Birim">@Str(context, "unit")</MudTd>
+                <MudTd DataLabel="Not / Belge">@NoteDoc(context)</MudTd>
+                <MudTd DataLabel="Durum">@(Bool(context, "isReversed") ? "İptal edildi" : "")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private JsonElement[]? _rows;
+    private DateTime? _from, _to;
+    private string _search = "";
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _busy = true;
+        try
+        {
+            var qs = new List<string>();
+            if (_from is { } f) qs.Add($"from={new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            if (_to is { } t) qs.Add($"to={new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            if (!string.IsNullOrWhiteSpace(_search)) qs.Add($"q={Uri.EscapeDataString(_search.Trim())}");
+            var url = "/api/stock/movements" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
+            _rows = await Api.GetArrayAsync(url);
+        }
+        catch { _rows = Array.Empty<JsonElement>(); }
+        finally { _busy = false; }
+    }
+
+    private async Task Clear() { _from = _to = null; _search = ""; await Load(); }
+
+    private static string Str(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static decimal Dec(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+    private static int Int(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
+    private static bool Bool(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+    private static string DateText(JsonElement e)
+        => e.TryGetProperty("createdAt", out var v) && v.TryGetInt64(out var ms)
+            ? DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime.ToString("dd.MM.yyyy HH:mm") : "";
+    private static string TypeText(string t) => t switch
+    {
+        "in" => "Giriş", "out" => "Çıkış", "transfer" => "Transfer",
+        "adjustment" => "Sayım Düzeltme", "opening" => "Açılış", "reverse" => "İptal (ters)", "count" => "Sayım", _ => t
+    };
+    private static string NoteDoc(JsonElement e)
+    {
+        var note = Str(e, "note");
+        var inv = Str(e, "invoiceNo");
+        return string.Join(" · ", new[] { note, inv }.Where(x => !string.IsNullOrWhiteSpace(x)));
+    }
+}
