@@ -400,45 +400,83 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
                                     </Grid.ColumnDefinitions>
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"
+                                    <!-- Kolon 2-15: Min=Max ile ColWidths'e SIKI bağlı (kullanıcı isteği 2026-08-06, madde 1-3) —
+                                         header'ın sürükleyerek ayarladığı genişlik satır hücrelerini de ANINDA sınırlar; böylece
+                                         (a) sütun tekrar küçültülebilir (uzun içerik artık genişliği zorlayamaz), (b) TextTrimming
+                                         gerçekten devreye girer (taşma olmaz). Önceden yalnız statik MinWidth vardı; tavan yoktu. -->
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=code}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=code}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=code}"/>
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="140" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=name}"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding TypeDisplay}" MinWidth="90" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding TypeDisplay}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=type}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=type}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TypeDisplay}"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=type}"/>
-                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Category}" MinWidth="100" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Category}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=category}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=category}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Category}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=category}"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Unit}" MinWidth="80" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Unit}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unit}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unit}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Unit}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unit}"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding Brand}" MinWidth="90" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding Brand}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=brand}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=brand}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Brand}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=brand}"/>
-                                    <SelectableTextBlock Grid.Column="6" Text="{Binding Supplier}" MinWidth="100" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding Supplier}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=supplier}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=supplier}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Supplier}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=supplier}"/>
-                                    <SelectableTextBlock Grid.Column="7" Text="{Binding UnitPrice}" MinWidth="100" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding UnitPrice}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unitPrice}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=unitPrice}"
+                                               TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=unitPrice}"/>
-                                    <SelectableTextBlock Grid.Column="8" Text="{Binding Currency}" MinWidth="56" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="8" Text="{Binding Currency}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=currency}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=currency}"
+                                               TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=currency}"/>
-                                    <SelectableTextBlock Grid.Column="9" Text="{Binding MinStock}" MinWidth="84" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="9" Text="{Binding MinStock}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=minStock}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=minStock}"
+                                               TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=minStock}"/>
-                                    <SelectableTextBlock Grid.Column="10" Text="{Binding Stock}" MinWidth="72" VerticalAlignment="Center" FontWeight="SemiBold"
+                                    <SelectableTextBlock Grid.Column="10" Text="{Binding Stock}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=stock}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=stock}"
+                                               TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=stock}"/>
-                                    <ctrl:StatusBadge Grid.Column="11" MinWidth="104" VerticalAlignment="Center"
+                                    <ctrl:StatusBadge Grid.Column="11" VerticalAlignment="Center"
+                                                      MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=status}"
+                                                      MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=status}"
                                                       Kind="{Binding StockKind}" Text="{Binding StockDisplay}"
                                                       IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=status}"/>
-                                    <SelectableTextBlock Grid.Column="12" Text="{Binding Description}" MinWidth="140" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="12" Text="{Binding Description}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Description}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
-                                    <SelectableTextBlock Grid.Column="13" Text="{Binding CompatibleVehicles}" MinWidth="140" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="13" Text="{Binding CompatibleVehicles}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=compatibleVehicles}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=compatibleVehicles}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CompatibleVehicles}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=compatibleVehicles}"/>
-                                    <SelectableTextBlock Grid.Column="14" Text="{Binding Equivalents}" MinWidth="140" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="14" Text="{Binding Equivalents}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=equivalents}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=equivalents}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Equivalents}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=equivalents}"/>
                                 </Grid>

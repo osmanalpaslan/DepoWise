@@ -257,19 +257,40 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
                                     </Grid.ColumnDefinitions>
-                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                    <!-- Kolon 0,1,2,4,5,6: Min=Max ile ColWidths'e SIKI bağlı (kullanıcı isteği 2026-08-06,
+                                         madde 1-3) — bkz. MaterialsView.axaml aynı yorum. Kolon 3 (ROTA) "*" (esnek), dokunulmadı. -->
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=date}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=date}"
+                                               TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=date}"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="100" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=type}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=type}"
+                                               TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=type}"/>
-                                    <SelectableTextBlock Grid.Column="2" Text="{Binding VehicleText}" MinWidth="150" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding VehicleText}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=vehicle}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=vehicle}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding VehicleText}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=vehicle}"/>
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding RouteText}" MinWidth="170" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RouteText}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=route}"/>
-                                    <SelectableTextBlock Grid.Column="4" Text="{Binding OperatorText}" MinWidth="130" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding OperatorText}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=operator}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=operator}"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OperatorText}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=operator}"/>
-                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DurationText}" MinWidth="80" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DurationText}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=duration}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=duration}"
+                                               TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=duration}"/>
-                                    <SelectableTextBlock Grid.Column="6" Text="{Binding DescriptionText}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding DescriptionText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               MinWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
+                                               ToolTip.Tip="{Binding DescriptionText}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
                                     <Button Grid.Column="7" Classes="Ghost" Content="Sil" MinWidth="70" VerticalAlignment="Center"
                                             Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).DeleteActivityCommand}"

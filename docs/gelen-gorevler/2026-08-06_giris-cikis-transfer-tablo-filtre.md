@@ -140,10 +140,33 @@ Sıradaki tek iş: **Birim #2 — İşlem Geçmişi sekmesi + detay** (kullanıc
   sekmeleri hâlâ render edilmiyor (veri çekiliyor ama gösterilmiyor) — masaüstüyle tam pariteye ulaşmak için
   ayrıca ele alınabilir.
 
-Sıradaki tek iş: **Birim #3 — Tablo hücre davranışı** (kullanıcı onayı/motoru sonrası).
+**Birim #3 BİTTİ (2026-08-06, Sonnet 5).** Kök neden bulundu: masaüstü tablolarında (Malzemeler/Araçlar/Günlük
+Faaliyet — `local:SortHeader` + `ColWidths` + `SharedSizeGroup` deseni kullanan TEK 3 ekran) satır hücreleri
+yalnız statik bir `MinWidth` (taban) taşıyordu, ÜST SINIR yoktu. `Width="Auto"` + `SharedSizeGroup` altında bir
+sütunun gerçek genişliği, o SharedSizeGroup'a katılan TÜM hücrelerin (header + her satır) DOĞAL (kısıtlanmamış)
+genişliğinin MAKSİMUMU olur. Satırlarda üst sınır olmayınca: (1) uzun içerikli TEK satır bile sütunu
+küçültülemez hale getiriyordu (header'ı ne kadar sürüklerseniz sürükleyin, satırın doğal genişliği daha büyükse
+o kazanıyordu) — "önce büyütülüyor sonra küçültülemiyor" hissi buradan geliyordu; (2) `TextTrimming` zaten
+XAML'de vardı ama HİÇ ÇALIŞMIYORDU çünkü `Auto` sütun ölçümü sonsuz genişlikle yapılır, kırpma tetiklenmiyordu.
+Ayrıca proje içinde tam bu amaç için yazılmış `Conv.ColWidth` converter'ı hiçbir yerde KULLANILMIYORDU (ölü kod).
+
+**Çözüm (3 ekranın hepsinde aynı desen):** her satır hücresinin `MinWidth` VE `MaxWidth`'ini header'ın kullandığı
+AYNI `ColWidths` sözlüğüne (`Conv.ColWidth` converter'ı ile) bağladım — böylece header ile satırlar HER ZAMAN
+aynı genişliği okur; kullanıcı sürükleyince (`PreviewColumnWidth`) satırlar ANINDA küçülür/büyür, `TextTrimming`
+artık gerçek bir üst sınırla çalışıp ellipsis üretir + eksik olan sütunlara `ToolTip.Tip` eklendi (tam metin).
+"*"-genişlikli esnek sütunlara (Malzeme Adı, Araç Plakası, Günlük Faaliyet Rotası) dokunulmadı — zaten doğru
+davranıyorlardı. Web tabloları (MudTable) bu Avalonia'ya özgü SharedSizeGroup hatasını YAŞAMIYOR (zaten
+`overflow-x:auto` ile standart kayan tablo) — web hücre inceltmesi Birim #4'ün (tablo/filtre yeniden tasarımı)
+kapsamına bırakıldı, orada zaten tüm tablo yapısı ele alınacak.
+
+Değişen dosyalar: `MaterialsView.axaml`, `VehiclesView.axaml`, `DailyActivityView.axaml`. Build 0 hata, test
+paketi **590/0** (UI-only değişiklik, iş mantığına dokunulmadı). Görsel doğrulama YAPILAMADI (Avalonia masaüstü
+önizlemesi bu ortamda yok) — kullanıcının kendi makinesinde denemesi gerekiyor.
+
+Sıradaki tek iş: **Birim #4 — Başlık-altı filtre satırı + proje standardı** (kullanıcı onayı/motoru sonrası).
 
 - [x] 1 — Şube mantığı + Transfer bütünlüğü ✅ (2026-08-06)
 - [x] 2 — İşlem Geçmişi sekmesi + detay ✅ (2026-08-06)
-- [ ] 3 — Tablo hücre davranışı
+- [x] 3 — Tablo hücre davranışı ✅ (2026-08-06)
 - [ ] 4 — Başlık-altı filtre satırı + proje standardı
 - [ ] 5 — "+" seçim pencerelerinde arama standardı

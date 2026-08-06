@@ -45,8 +45,16 @@ Birim birim, masaüstü önce → web ardından ilerleniyor.
   Faaliyet). Tüm paket **590/0** (11 PG atlandı). **Yayınlanmadı** (yeni API ucu `/api/vehicles/{id}/history`
   deploy gerektirir). Not: web Araçlar'da Uyumlu Malzemeler/Muayene-Sigorta/Bakım sekmeleri hâlâ render
   edilmiyor (ayrı, önceden var olan eksik — bu işin kapsamı dışı, ilerde ele alınabilir).
-- ⏭️ Sıradaki: **Birim 3 — Tablo hücre davranışı** (kolon daraltma + taşma/ellipsis, ortak bileşen).
-- (Birim 4 başlık-altı filtre · 5 "+" seçim araması bekliyor.)
+- ✅ **Birim 3 — Tablo hücre davranışı (2026-08-06, Sonnet 5):** kök neden — Malzemeler/Araçlar/Günlük Faaliyet
+  tablolarında (`SortHeader`+`ColWidths`+`SharedSizeGroup` deseni) satır hücrelerinin ÜST SINIRI yoktu; uzun
+  içerikli tek satır bile sütunu küçültülemez yapıyordu ("önce büyütülüyor sonra küçültülemiyor") ve
+  `TextTrimming` hiç tetiklenmiyordu (Auto sütun sonsuz genişlikle ölçülür). Fix: her satır hücresi artık
+  header'la AYNI `ColWidths` kaynağına (Min=Max) bağlı — sürükleyince satırlar ANINDA küçülür/büyür, ellipsis
+  gerçekten çalışır, eksik yerlere tooltip eklendi. 3 ekran de düzeltildi. Web tabloları bu Avalonia'ya özgü
+  hatayı yaşamıyor (zaten `overflow-x:auto`) — web hücre inceltmesi Birim 4'e bırakıldı. Build 0 hata, test
+  paketi 590/0 (UI-only). **Görsel doğrulama yapılamadı** (Avalonia önizlemesi yok) — kullanıcı testi gerekiyor.
+- ⏭️ Sıradaki: **Birim 4 — Başlık-altı filtre satırı + proje standardı** (tablo/filtre yeniden tasarımı).
+- (Birim 5 "+" seçim araması bekliyor.)
 
 ### 🐞 Kullanıcı hata/iyileştirme listesi (2026-08-05) — 11 madde, sürüyor
 Kullanıcı masaüstünde test edip 11 maddelik liste verdi (her biri masaüstü+web). **Kural (hafızaya alındı):**
