@@ -49,13 +49,13 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Personel (Şoför / Teslim Alan)" Width="240">
+                    <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240">
                         <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding PersonnelSel}"
                                   FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                         </AutoCompleteBox>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Teslim Eden / Transfer Edilen Araç" Width="280">
+                    <ctrl:FormField Label="Transfer Edilen / Kullanılan Araç" Width="280">
                         <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding VehicleSel}"
                                          FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                          ValueMemberBinding="{Binding Display}">
