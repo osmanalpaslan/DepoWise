@@ -276,6 +276,34 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         catch { /* alt kategori yoksa sessiz */ }
     }
 
+    /// <summary>Düzenlemede kategori/alt kategori kutularını doğru doldur (madde 1.7, kullanıcı isteği 2026-08-06).
+    /// Malzemenin <c>category_id</c>'si YAPRAK'tır: alt kategori seçildiyse onun id'si, yoksa üst kategorinin.
+    /// Üst-seviye mi alt kategoride mi olduğunu çöz — üst-seviye ise doğrudan seç; alt kategoriyse ÖNCE ebeveyn
+    /// üst kategoriyi bul+seç (bu OnSelectedCategoryChanged'i tetikleyip alt listeyi yükler), SONRA alt kategoriyi
+    /// seç. Eskiden naif <c>FirstOrDefault</c> ile aranıyordu → alt-kategorili malzemede her iki kutu da boş
+    /// açılıyordu. QuickEdit penceresi ve web ana form zaten böyle çözüyor; masaüstü ana form da hizalandı.</summary>
+    private void ResolveEditCategory(string? categoryId)
+    {
+        SelectedCategory = null; SelectedSubCategory = null;
+        if (string.IsNullOrEmpty(categoryId)) return;
+
+        var top = Categories.FirstOrDefault(c => c.Id == categoryId);
+        if (top is not null) { SelectedCategory = top; return; }   // üst-seviye kategori (alt kategori yok)
+
+        foreach (var t in Categories)
+        {
+            List<LookupItem> subs;
+            try { subs = DesktopServices.Lookups.ListCategories(_session, t.Id).ToList(); }
+            catch { continue; }
+            if (subs.Any(x => x.Id == categoryId))
+            {
+                SelectedCategory = t;   // handler SubCategories'i t'nin altlarıyla doldurur
+                SelectedSubCategory = SubCategories.FirstOrDefault(s => s.Id == categoryId);
+                return;
+            }
+        }
+    }
+
     // ── Inline "+" yeni tanım ekleme ──
     [ObservableProperty] private bool _isAddingCategory;
     [ObservableProperty] private string _newCategoryName = "";
@@ -650,8 +678,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         NewCode = d.Code; NewName = d.Name; NewType = string.IsNullOrWhiteSpace(d.Type) ? "Diğer" : d.Type;
         NewMinStock = d.MinStock; NewUnitPrice = d.UnitPrice; NewOpeningStock = 0;
         NewDescription = d.Description ?? "";
-        SelectedCategory = Categories.FirstOrDefault(c => c.Id == d.CategoryId);
-        SelectedSubCategory = SubCategories.FirstOrDefault(c => c.Id == d.CategoryId);
+        ResolveEditCategory(d.CategoryId);   // madde 1.7: category_id yaprak → üst/alt kutulara doğru dağıt
         SelectedUnit = Units.FirstOrDefault(u => u.Id == d.UnitId);
         SelectedBrand = Brands.FirstOrDefault(b => b.Id == d.BrandId);
         SelectedSupplier = Suppliers.FirstOrDefault(x => x.Id == d.SupplierId);
