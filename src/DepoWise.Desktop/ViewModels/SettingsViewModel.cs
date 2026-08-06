@@ -33,14 +33,19 @@ public sealed partial class SettingsViewModel : ViewModelBase
             Action<SessionContext, string> add)
             => LookupSections.Add(new LookupSectionViewModel(_session, title, table, load, add));
 
-        Add("Malzeme Kategorileri", "material_categories", s => L.ListCategories(s), (s, n) => L.AddCategory(s, n));
-        Add("Birimler", "units", s => L.List(s, "units"), (s, n) => L.AddUnit(s, n));
-        Add("Markalar (Malzeme)", "brands", s => L.ListBrands(s, "material"), (s, n) => L.AddBrand(s, n, "material"));
-        Add("Tedarikçiler", "suppliers", s => L.List(s, "suppliers"), (s, n) => L.AddSupplier(s, n));
-        Add("Şube / Şantiye", "branches", s => L.List(s, "branches"), (s, n) => L.AddBranch(s, n));
-        Add("Araç Tipleri", "vehicle_types", s => L.List(s, "vehicle_types"), (s, n) => L.AddVehicleType(s, n));
-        Add("Araç Kategorileri", "vehicle_categories", s => L.List(s, "vehicle_categories"), (s, n) => L.AddVehicleCategory(s, n));
-        Add("Markalar (Araç)", "brands", s => L.ListBrands(s, "vehicle"), (s, n) => L.AddVehicleBrand(s, n));
+        // Ekran-bazlı gruplama (kullanıcı isteği 2026-08-05, madde 10): başlık öneki + sıralama ile
+        // hangi ekrana ait tanım olduğu net. (Alt kategori yönetimi ayrı/daha büyük iş — bkz. DEVAM.md.)
+        // ── MALZEME tanımları ──
+        Add("Malzeme — Kategoriler", "material_categories", s => L.ListCategories(s), (s, n) => L.AddCategory(s, n));
+        Add("Malzeme — Birimler", "units", s => L.List(s, "units"), (s, n) => L.AddUnit(s, n));
+        Add("Malzeme — Markalar", "brands", s => L.ListBrands(s, "material"), (s, n) => L.AddBrand(s, n, "material"));
+        Add("Malzeme — Tedarikçiler", "suppliers", s => L.List(s, "suppliers"), (s, n) => L.AddSupplier(s, n));
+        // ── ARAÇ tanımları ──
+        Add("Araç — Tipler", "vehicle_types", s => L.List(s, "vehicle_types"), (s, n) => L.AddVehicleType(s, n));
+        Add("Araç — Kategoriler", "vehicle_categories", s => L.List(s, "vehicle_categories"), (s, n) => L.AddVehicleCategory(s, n));
+        Add("Araç — Markalar", "brands", s => L.ListBrands(s, "vehicle"), (s, n) => L.AddVehicleBrand(s, n));
+        // ── GENEL ──
+        Add("Genel — Şube / Şantiye", "branches", s => L.List(s, "branches"), (s, n) => L.AddBranch(s, n));
     }
 
 }
