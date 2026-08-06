@@ -50,8 +50,13 @@ bir iyileştirme bildirildiğinde HER ZAMAN iki ortam da kontrol edilir.
 - ✅ **11 Stok Hareketleri ayrı ekran:** StockService.SearchMovements (tarih aralığı + metin araması) +
   /api/stock/movements + web StockMovements.razor (/stock/movements) + masaüstü StockMovementsView/VM + nav
   (her iki tarafta "Giriş-Çıkış" altında). Salt-okunur.
-- ⏳ **KALAN (2 madde):** 6+10 Tanımlar ekranı (alt kategori yönetimi yok + ekran-bazlı ayrım — kullanıcı
-  karışmayı NEREDE gördüğünü netleştirecek); 8(b) per-branch stok (Tema B, büyük canlı-veri işi, kopyayla).
+- 🔧 **6 (kısmi):** KÖK NEDEN bulundu — kategori kutusu `List` ile TÜM kategorileri (alt dahil) karışık
+  gösteriyordu. **Web ana form DÜZELTİLDİ** (yalnız üst-seviye). Masaüstü ana form + web alt-kategori kutusu
+  zaten doğruydu. **KALAN 6:** masaüstü MaterialQuickEditWindow + web MaterialEditDialog (düzenleme
+  diyalogları) aynı flat listeyi kullanıyor → kategori/alt-kategori ayrımı eklenecek. Araçlarda alt kategori yok.
+- ⏳ **KALAN:** 6 düzenleme-diyalogları (yukarı) + 10 Tanımlar ekranı alt-kategori yönetimi/ekran-bazlı ayrım;
+  8(b) per-branch stok (Tema B — ⚡ veri şu an BOŞ/silinmiş, daha rahat yapılabilir; baban kayıt girince
+  kullanıcı "canlıda dikkatli ol" diye uyaracak — bkz. hafıza).
 - **Masaüstü yayın:** 1-11 henüz masaüstüne çıkmadı (web canlı) — biriken ~9 madde için TOPLU yayın bekliyor
   (kullanıcı: "geliştirmelerden sonra genel test yapacağım").
 
