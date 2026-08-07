@@ -35,8 +35,9 @@ Ham + analiz: [docs/gelen-gorevler/2026-08-07_depo-cikisi-sube-ici-disi.md](docs
   Şube Dışı=transfer). Seçime göre alanlar dinamik gizlenir/gösterilir. Ortak servis StockService değişmedi.
 - **Birim 2 — Günlük Faaliyet:** yeni **Depo Çıkışı** kayıt tipi (araç "Transfer"i ayrı kalır); AYNI ortak
   servis (`StockService`/`/api/stock/issue|transfer`). Çıkış stok defterine yazılır (Stok Hareketleri'nde görünür).
-- Build 0 hata, test 608/0. **API/şema DEĞİŞMEDİ** → yalnız web deploy + masaüstü yeni sürüm (1.0.110, filtre
-  düzeltmesiyle birlikte) gerekir. Kullanıcı canlıda test edecek.
+- Build 0 hata, test 608/0. **API/şema DEĞİŞMEDİ.** ✅ **YAYINLANDI (2026-08-07):** web (`depowise-web`) deploy
+  (200) + masaüstü **1.0.110** (`/api/releases/latest`=1.0.110, checksum B71CFC...). 1.0.110 filtre düzeltmesini
+  DE içerir. Makineler bir sonraki girişte 1.0.110'a güncellenir. Kullanıcı canlıda test edecek.
 
 ### 🐞 Masaüstü filtre satırı SOL yerleşim hatası düzeltildi (2026-08-07, Opus 4.8) — 1.0.110'a girecek
 
