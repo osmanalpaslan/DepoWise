@@ -51,6 +51,9 @@ Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra
   **Web:** `DwDataGrid.razor` (mevcut `dw-grid` tasarımı) → Reports.razor. **Masaüstü:** `GridController` +
   `DataGridView` kontrolü → ReportsView. **Yalnız Raporlar'a uygulandı; diğer ekranlara dokunulmadı.** Build
   0 hata, test **633/0** (+17: 5 tercih + 12 grid davranış). Görsel doğrulama kullanıcıda (Avalonia önizlemesi yok).
+- ✅ **Birim 4 YAYINLANDI (2026-08-07):** API (`depowise-erp`, health 200, **Migration058 canlı Neon PG'de** —
+  additive pinned_json/sort_json; `.../sort` 401=var) + web (`depowise-web`, 200) + masaüstü **1.0.112** (sunucuda
+  en güncel, checksum 4930517B...). Baba bir sonraki girişte 1.0.112'ye güncellenir; görsel doğrulama birlikte yapılacak.
 - ⏭️ Sıradaki: raporlar tek tek yeniden tasarlanacak (önce **Araç Raporu**) — ayrı görev, kullanıcı onayıyla.
 
 
