@@ -293,8 +293,24 @@ GROUP BY v.id ORDER BY v.internal_code;";  // PK'ye grupla: PostgreSQL bare-kolo
             new[] { "Araç", "İşlem", "KM", "Litre", "Ort. Tüketim (L/km)", "Tutar" }, rows);
     }
 
-    /// <summary>Genel Rapor — araç başına birleşik: KM, Litre, L/km, Malzeme Maliyeti, Yakıt Maliyeti, Toplam.</summary>
-    public TableModel General(SessionContext s, ReportRequest req)
+    /// <summary>
+    /// ARAÇ RAPORU (kullanıcı isteği 2026-08-07) — "Genel Rapor"un YERİNE. Araç başına TEK satır: yakıt +
+    /// bakım malzemesi + DOĞRUDAN parça (bakım-dışı stok çıkışı) maliyeti, sayaç birimine (km/saat) duyarlı
+    /// birim maliyet ve ortalamalar. Karar destek raporu.
+    ///
+    /// PERFORMANS — N+1 YOK: her maliyet kaynağı araç bazında ÖNCEDEN toplanmış bir türetilmiş tabloda (derived
+    /// table) hesaplanır ve araca 1:1 LEFT JOIN edilir → tek geçiş, satır çarpımı (fan-out) yok, dış GROUP BY yok.
+    /// Yakıtı/bakımı/parçası olmayan araç 0 ile görünür (tam filo görünürlüğü). Tarih filtresi MALİYETLERE
+    /// (kaynak tarih kolonu) uygulanır; araçlar her hâlde listelenir.
+    ///
+    /// GENİŞLETİLEBİLİRLİK (rule 10): yeni bir maliyet kalemi (sigorta/kasko/lastik/amortisman…) eklemek =
+    /// 1 türetilmiş-tablo LEFT JOIN + 1 kolon + Toplam'a ekleme. Çekirdek yapı değişmez.
+    ///
+    /// meter_unit (rule 2): "Sayaç Birimi" kolonu araç kartından gelir; mesafe/tüketim/birim-maliyet aracın
+    /// KENDİ biriminde (km ya da saat) hesaplanır (sayaç farkı zaten o birimdedir) → saat makinelerinde hiçbir
+    /// hesap km'ye zorlanmaz; yalnız etiket (₺/km ↔ ₺/saat) birime göre yorumlanır.
+    /// </summary>
+    public TableModel VehicleReport(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         ReportGate.EnsureRunnable(req);
@@ -302,35 +318,88 @@ GROUP BY v.id ORDER BY v.internal_code;";  // PK'ye grupla: PostgreSQL bare-kolo
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        var vehIn = InList("v.id", "@rv", req.VehicleIds);
+        var typeIn = InList("v.vehicle_type_id", "@rt", req.VehicleTypeIds);
+        // Mesafe hesabı: yakıt fişleri arasındaki sayaç farkı (rule 3) — dönem başı/sonu farkı DEĞİL.
         cmd.CommandText = @"
 SELECT v.internal_code, COALESCE(v.plate,''),
-  COALESCE(SUM(CASE WHEN fd.prev_meter IS NOT NULL AND fd.current_meter IS NOT NULL
-       THEN CAST(fd.current_meter AS REAL)-CAST(fd.prev_meter AS REAL) ELSE 0 END),0) AS km,
-  COALESCE(SUM(CAST(fd.liters AS REAL)),0) AS litre,
-  COALESCE(SUM(CAST(fd.liters AS REAL)*CAST(fd.unit_price AS REAL)),0) AS fuelcost,
-  (SELECT COALESCE(SUM(CAST(mm.quantity AS REAL)*CAST(COALESCE(mm.unit_price,'0') AS REAL)),0)
-   FROM vehicle_maintenances vm JOIN maintenance_materials mm ON mm.maintenance_id=vm.id
-   WHERE vm.vehicle_id=v.id AND vm.is_deleted=0 AND vm.is_cancelled=0" + DateFilter(req, "vm.performed_date") + @") AS matcost
+       TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')) AS veh_name,
+       COALESCE(bch.name,'') AS branch_name, v.meter_unit,
+       COALESCE(f.km,0), COALESCE(f.litre,0), COALESCE(f.fuelcost,0),
+       COALESCE(mt.matcost,0), COALESCE(di.partcost,0)
 FROM vehicles v
-LEFT JOIN fuel_distributions fd ON fd.vehicle_id=v.id AND fd.is_deleted=0" + DateFilter(req, "fd.distribution_date") + @"
-WHERE v.company_id=@c AND v.is_deleted=0" + ReportScope.BranchSql(s, req, "v.branch_id") + @"
-GROUP BY v.id ORDER BY v.internal_code;";
+LEFT JOIN brands br ON br.id=v.brand_id
+LEFT JOIN vehicle_models vmd ON vmd.id=v.vehicle_model_id
+LEFT JOIN branches bch ON bch.id=v.branch_id
+LEFT JOIN (
+    SELECT vehicle_id,
+      SUM(CASE WHEN prev_meter IS NOT NULL AND current_meter IS NOT NULL
+           THEN CAST(current_meter AS REAL)-CAST(prev_meter AS REAL) ELSE 0 END) AS km,
+      SUM(CAST(liters AS REAL)) AS litre,
+      SUM(CAST(liters AS REAL)*CAST(unit_price AS REAL)) AS fuelcost
+    FROM fuel_distributions
+    WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "distribution_date") + @"
+    GROUP BY vehicle_id
+) f ON f.vehicle_id=v.id
+LEFT JOIN (
+    SELECT vm.vehicle_id,
+      SUM(CAST(mm.quantity AS REAL)*CAST(COALESCE(mm.unit_price,'0') AS REAL)) AS matcost
+    FROM vehicle_maintenances vm JOIN maintenance_materials mm ON mm.maintenance_id=vm.id
+    WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0" + DateFilter(req, "vm.performed_date") + @"
+    GROUP BY vm.vehicle_id
+) mt ON mt.vehicle_id=v.id
+LEFT JOIN (
+    SELECT sd.vehicle_id,
+      SUM(CAST(sm.quantity AS REAL)*CAST(COALESCE(sm.unit_price,'0') AS REAL)) AS partcost
+    FROM stock_documents sd JOIN stock_movements sm ON sm.document_id=sd.id
+    WHERE sd.company_id=@c AND sd.is_deleted=0 AND sd.doc_type='out' AND sd.status='active'
+          AND sd.vehicle_id IS NOT NULL" + DateFilter(req, "sd.doc_date") + @"
+    GROUP BY sd.vehicle_id
+) di ON di.vehicle_id=v.id
+WHERE v.company_id=@c AND v.is_deleted=0" + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn + typeIn + @"
+ORDER BY v.internal_code;";
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req); ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@rv", req.VehicleIds);
+        BindList(cmd, "@rt", req.VehicleTypeIds);
+
         var rows = new List<IReadOnlyList<object?>>();
-        double tKm = 0, tLitre = 0, tFuel = 0, tMat = 0;
+        double tLitre = 0, tFuel = 0, tMat = 0, tPart = 0, tTotal = 0;
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
-                var km = r.GetDouble(2); var litre = r.GetDouble(3); var fuel = r.GetDouble(4); var mat = r.GetDouble(5);
-                var lkm = km > 0 ? litre / km : 0;
-                rows.Add(new object?[] { r.GetString(0), r.GetString(1), km, litre, lkm, mat, fuel, mat + fuel });
-                tKm += km; tLitre += litre; tFuel += fuel; tMat += mat;
+                var meterUnit = r.GetString(4);
+                var unitTr = meterUnit == "hour" ? "Saat" : "KM";
+                double km = r.GetDouble(5), litre = r.GetDouble(6), fuel = r.GetDouble(7),
+                       mat = r.GetDouble(8), part = r.GetDouble(9);
+                double avgPrice = litre > 0 ? fuel / litre : 0;       // ağırlıklı ort. ₺/L
+                double consumption = km > 0 ? litre / km : 0;         // L/birim (km ya da saat)
+                double total = fuel + mat + part;                     // yakıt + bakım malzeme + doğrudan parça
+                double perUnit = km > 0 ? total / km : 0;             // ₺/birim (km ya da saat)
+                // Yuvarlama YALNIZ çıktıda (2 hane; para birimi doğal olarak 2 hanedir) → web ve masaüstü
+                // BİREBİR aynı gösterir. Toplamlar HAM değerlerle biriktirilir (ara yuvarlama hatası yok).
+                rows.Add(new object?[]
+                {
+                    r.GetString(0), r.GetString(1), r.GetString(2).Trim(), r.GetString(3), unitTr,
+                    R2(km), R2(litre), R2(avgPrice), R2(fuel), R2(consumption), R2(mat), R2(part), R2(total), R2(perUnit),
+                });
+                tLitre += litre; tFuel += fuel; tMat += mat; tPart += part; tTotal += total;
             }
+        // Toplam özeti (rule 9): yalnız birim-bağımsız para/litre toplamları; km↔saat karışık olan kolonlar boş.
         if (rows.Count > 0)
-            rows.Add(new object?[] { "TOPLAM", "", tKm, tLitre, tKm > 0 ? tLitre / tKm : 0, tMat, tFuel, tMat + tFuel });
-        return new TableModel("Genel Rapor",
-            new[] { "Araç", "Plaka", "KM", "Litre", "L/km", "Malzeme Maliyeti", "Yakıt Maliyeti", "Toplam" }, rows);
+            rows.Add(new object?[]
+            {
+                "TOPLAM", "", "", "", "",
+                "", R2(tLitre), R2(tLitre > 0 ? tFuel / tLitre : 0), R2(tFuel), "", R2(tMat), R2(tPart), R2(tTotal), "",
+            });
+
+        return new TableModel("Araç Raporu", new[]
+        {
+            "İç Kod", "Plaka", "Araç Adı", "Şube", "Sayaç Birimi", "Dönem Sayaç Mesafesi",
+            "Toplam Yakıt (Litre)", "Ortalama Yakıt Fiyatı", "Yakıt Maliyeti", "Ortalama Yakıt Tüketimi",
+            "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Araç Maliyeti", "Birim Başına Maliyet",
+        }, rows);
     }
 
     public TableModel Maintenance(SessionContext s, ReportRequest req)
@@ -464,6 +533,23 @@ ORDER BY mr.request_date DESC;";
         if (req.ToDate is not null) cmd.AddWithValue("@to", req.ToDate.Value);
     }
 
+    /// <summary>Çıktı yuvarlaması (2 hane, para birimi). Toplamlar HAM biriktirilir; yalnız görüntü değeri yuvarlanır.</summary>
+    private static double R2(double x) => System.Math.Round(x, 2, System.MidpointRounding.AwayFromZero);
+
+    /// <summary>Çoklu-seçim IN parçası: boş/null → ""; aksi halde "AND col IN (@px0,@px1,...)".</summary>
+    private static string InList(string col, string prefix, IReadOnlyList<string>? ids)
+    {
+        if (ids is null || ids.Count == 0) return "";
+        var ps = string.Join(",", System.Linq.Enumerable.Range(0, ids.Count).Select(i => prefix + i));
+        return $" AND {col} IN ({ps})";
+    }
+
+    private static void BindList(DbCommand cmd, string prefix, IReadOnlyList<string>? ids)
+    {
+        if (ids is null) return;
+        for (int i = 0; i < ids.Count; i++) cmd.AddWithValue(prefix + i, ids[i]);
+    }
+
     // ═══════════════ ORTAK YÜRÜTME (kullanıcı isteği 2026-08-07 — ortak rapor mimarisi) ═══════════════
     // TEK giriş noktası: katalog anahtarıyla dispatch + tarih varsayılanı (RequiresDate → Bu Ay) + maksimum
     // kayıt koruması. Hem masaüstü hem API buradan çağırır → aynı davranış/hesaplama (madde 9). Hesaplama
@@ -494,7 +580,7 @@ ORDER BY mr.request_date DESC;";
     private TableModel Dispatch(SessionContext s, string key, ReportRequest req) => key switch
     {
         "stock" => StockStatus(s, req),
-        "general" => General(s, req),
+        "vehicle" => VehicleReport(s, req),
         "maintenance" => Maintenance(s, req),
         "fuel" => FuelConsumption(s, req),
         "fuel-depot" => FuelDepot(s, req),

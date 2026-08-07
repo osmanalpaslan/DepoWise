@@ -15,7 +15,8 @@ public sealed record ReportRequest(
     long? ToDate = null,
     IReadOnlyList<string>? BranchIds = null,
     IReadOnlyList<string>? VehicleIds = null,
-    string? CompanyId = null);
+    string? CompanyId = null,
+    IReadOnlyList<string>? VehicleTypeIds = null);
 
 public static class ReportGate
 {

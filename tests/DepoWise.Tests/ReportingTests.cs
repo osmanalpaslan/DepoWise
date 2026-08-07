@@ -108,9 +108,10 @@ public class ReportingTests : IDisposable
         var talep = _reports.Requests(_admin, new ReportRequest(Executed: true));
         Assert.Equal("Talep Raporu", talep.Title);
 
-        var genel = _reports.General(_admin, new ReportRequest(Executed: true));
-        Assert.Equal("Genel Rapor", genel.Title);
-        Assert.Equal(8, genel.Headers.Count);
+        // "Genel Rapor" → "Araç Raporu" (2026-08-07): araç başına yakıt+bakım+parça maliyeti, 14 kolon.
+        var arac = _reports.VehicleReport(_admin, new ReportRequest(Executed: true));
+        Assert.Equal("Araç Raporu", arac.Title);
+        Assert.Equal(14, arac.Headers.Count);
 
         // Stok Sayım Raporu: fark 0 olan + olmayan satırlar
         var stock = new StockService(_factory, _clock);

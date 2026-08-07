@@ -9,6 +9,7 @@ public enum ReportFilters
     Date = 1,
     Branch = 2,
     Vehicle = 4,
+    VehicleType = 8,
 }
 
 /// <summary>Rapor grubu — menü/Excel-yetki ayrımı. Standart = "Raporlar", Yönetici = "Yönetici Raporları".</summary>
@@ -38,6 +39,7 @@ public sealed record ReportDescriptor(
     public bool UsesDate => Filters.HasFlag(ReportFilters.Date);
     public bool UsesBranch => Filters.HasFlag(ReportFilters.Branch);
     public bool UsesVehicle => Filters.HasFlag(ReportFilters.Vehicle);
+    public bool UsesVehicleType => Filters.HasFlag(ReportFilters.VehicleType);
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -50,8 +52,12 @@ public static class ReportCatalog
 
     public static readonly IReadOnlyList<ReportDescriptor> All = new[]
     {
-        new ReportDescriptor("general", "Genel Rapor", "Araç ve şantiye bazlı birleşik maliyet dökümü",
-            ReportCategory.Management, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        // Araç Raporu — "Genel Rapor"un YERİNE geçti (kullanıcı isteği 2026-08-07): araç başına yakıt + bakım
+        // malzemesi + doğrudan parça maliyeti, sayaç birimine (km/saat) duyarlı, tek-geçiş (N+1 yok). Karar
+        // destek raporu. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
+        new ReportDescriptor("vehicle", "Araç Raporu", "Araç başına yakıt + bakım + parça maliyeti ve birim maliyet",
+            ReportCategory.Vehicle, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard),
         new ReportDescriptor("stock", "Stok Durumu", "Mevcut / minimum / kritik kalemler",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.None, false, ExportStandard),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",

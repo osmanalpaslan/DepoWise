@@ -54,7 +54,15 @@ Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra
 - ✅ **Birim 4 YAYINLANDI (2026-08-07):** API (`depowise-erp`, health 200, **Migration058 canlı Neon PG'de** —
   additive pinned_json/sort_json; `.../sort` 401=var) + web (`depowise-web`, 200) + masaüstü **1.0.112** (sunucuda
   en güncel, checksum 4930517B...). Baba bir sonraki girişte 1.0.112'ye güncellenir; görsel doğrulama birlikte yapılacak.
-- 🔎 **Araç Raporu ANALİZİ hazır (2026-08-07, kod yok):** [docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md](docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md).
+- ✅ **ARAÇ RAPORU YENİDEN TASARLANDI (2026-08-07, Opus 4.8) — "Genel Rapor"un YERİNE.** Araç başına tek satır,
+  14 kolon: yakıt (litre/ort.fiyat/maliyet/tüketim) + bakım malzeme + **doğrudan parça** (stock_documents.vehicle_id
+  üzerinden bakım-dışı stok çıkışı) + Toplam + **Birim Başına Maliyet**; **meter_unit-bilinçli** (km/saat — saat
+  makinelerinde hesap saatte). **N+1 KALDIRILDI:** korelasyonlu alt-sorgu → 3 türetilmiş-tablo (yakıt/bakım/parça)
+  LEFT JOIN, tek geçiş, fan-out yok. Filtreler: Tarih + Şube(yetkili) + **Araç(çoklu, arama+Tümünü Seç/Kaldır)** +
+  **Araç Türü**. Sonda TOPLAM özeti. Çıktı 2-haneye yuvarlanır (web+masaüstü birebir aynı; toplamlar ham).
+  Genişletilebilir (sigorta/kasko/lastik/amortisman = +1 derived-table +1 kolon). Build 0 hata, test **642/0**
+  (+9 VehicleReportTests: km/saat/yakıtsız/bakımsız/yalnız-parça/toplam/filtreler/tarih-elenme). Görsel doğrulama
+  masaüstünde kullanıcıda (Avalonia önizlemesi yok). Analiz: [docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md](docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md).
   Bulgular: gerçek "araç maliyet raporu" `general`'e dağılmış; en yakın odur. Eksikler: km/**saat** başına maliyet
   yok, `meter_unit` (km/saat) dikkate alınmıyor (saat makinelerinde yanlış etiket), ort. yakıt fiyatı yok, **doğrudan
   stok çıkışı parçaları** (stock_documents.vehicle_id) maliyete girmiyor, bakım **işçilik** alanı yok, araç filtresi yok.

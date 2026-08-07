@@ -1656,7 +1656,7 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var cid = DepoWise.Application.Security.TenantAccessGuard.ResolveCompanyId(s, companyId); // süper admin başka firma seçebilir; diğerleri reddedilir
-    var branches = new List<object>(); var vehicles = new List<object>();
+    var branches = new List<object>(); var vehicles = new List<object>(); var vehicleTypes = new List<object>();
     using var conn = svc.Factory.Create();
     using (var cmd = conn.CreateCommand())
     {
@@ -1672,7 +1672,14 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
         using var r = cmd.ExecuteReader();
         while (r.Read()) { var p = r.GetString(2); vehicles.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
     }
-    return Results.Ok(new { branches, vehicles });
+    using (var cmd = conn.CreateCommand())   // Araç Türü filtresi (Araç Raporu)
+    {
+        cmd.CommandText = "SELECT id, name FROM vehicle_types WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
+        cmd.AddWithValue("@c", cid);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) vehicleTypes.Add(new { id = r.GetString(0), name = r.GetString(1) });
+    }
+    return Results.Ok(new { branches, vehicles, vehicleTypes });
 }).RequireAuthorization();
 // Rapor tipi → TableModel: ORTAK yürütme (ReportService.Run) — katalog dispatch + tarih varsayılanı (Bu Ay) +
 // maksimum kayıt koruması. Maks satır Sistem Ayarları'ndan okunur (yoksa varsayılan).
@@ -1692,13 +1699,13 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
         key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
         category = d.Category.ToString(), categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(d.Category),
         usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
-        requiresDate = d.RequiresDate, manager = d.IsManager
+        usesVehicleType = d.UsesVehicleType, requiresDate = d.RequiresDate, manager = d.IsManager
     }))).RequireAuthorization();
 
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId);
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds);
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new { title = tbl.Title, headers = tbl.Headers, rows = tbl.Rows });
 }).RequireAuthorization();
@@ -1709,7 +1716,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = S(c); if (s is null) return Results.Unauthorized();
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId);
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds);
     var tbl = BuildReport(s, type, req);
     var bytes = svc.Excel.Export(tbl);
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
@@ -2342,7 +2349,7 @@ record SortPrefDto(string? Key, bool Desc);        // Birim 4 (kişisel varsayı
 record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
-record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId);
+record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId, List<string>? VehicleTypeIds);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);

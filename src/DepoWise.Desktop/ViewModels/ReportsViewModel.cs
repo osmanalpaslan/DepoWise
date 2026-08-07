@@ -46,15 +46,27 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowDate))]
     [NotifyPropertyChangedFor(nameof(ShowBranchSelect))]
+    [NotifyPropertyChangedFor(nameof(ShowVehicleSelect))]
+    [NotifyPropertyChangedFor(nameof(ShowVehicleType))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
     public bool CanSelectBranches => AccessControl.CanUseButton(_session, SpecialButtons.BranchSelect);
     public bool ShowDate => SelectedReport?.UsesDate == true;
     public bool ShowBranchSelect => SelectedReport?.UsesBranch == true && CanSelectBranches;
+    public bool ShowVehicleSelect => SelectedReport?.UsesVehicle == true;
+    public bool ShowVehicleType => SelectedReport?.UsesVehicleType == true;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
+
+    /// <summary>Araç seçimi (Araç Raporu) — tümü + arama-filtreli; çoklu işaret. Boş = tüm araçlar (sunucu).</summary>
+    public ObservableCollection<VehiclePick> VehiclePicks { get; } = new();
+    public ObservableCollection<VehiclePick> FilteredVehiclePicks { get; } = new();
+    /// <summary>Araç türü filtresi (BranchPick = genel id/ad/işaret öğesi olarak yeniden kullanıldı).</summary>
+    public ObservableCollection<BranchPick> VehicleTypes { get; } = new();
+    [ObservableProperty] private string _vehicleSearch = "";
+    partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
@@ -107,6 +119,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
         Grid.PersistWidths = w => { try { DesktopServices.ListPrefs.SaveWidths(_session, GridKey, w); } catch { } };
         Grid.PersistSort = (k, d) => { try { DesktopServices.ListPrefs.SaveSort(_session, GridKey, k, d); } catch { } };
         LoadBranches();
+        LoadVehiclePicks();
+        LoadVehicleTypes();
         ApplyDateDefault();
     }
 
@@ -116,6 +130,35 @@ public sealed partial class ReportsViewModel : ViewModelBase
         try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(new BranchPick(b.Id, b.Name)); }
         catch { }
     }
+
+    private void LoadVehiclePicks()
+    {
+        try { foreach (var v in DesktopServices.Vehicles.List(_session)) VehiclePicks.Add(new VehiclePick(v.Id, v.InternalCode, v.Plate ?? "")); }
+        catch { }
+        RebuildFilteredVehicles();
+    }
+
+    private void LoadVehicleTypes()
+    {
+        try { foreach (var t in DesktopServices.Lookups.List(_session, "vehicle_types")) VehicleTypes.Add(new BranchPick(t.Id, t.Name)); }
+        catch { }
+    }
+
+    private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
+    private static bool TrContains(string s, string sub) => TrCmp.IndexOf(s ?? "", sub, System.Globalization.CompareOptions.IgnoreCase) >= 0;
+
+    private void RebuildFilteredVehicles()
+    {
+        FilteredVehiclePicks.Clear();
+        var t = VehicleSearch?.Trim();
+        foreach (var p in VehiclePicks)
+            if (string.IsNullOrEmpty(t) || TrContains(p.Display, t)) FilteredVehiclePicks.Add(p);
+    }
+
+    /// <summary>Tümünü Seç: arama sonucundakiler (arama yoksa tümü) işaretlenir (kullanıcı isteği rule 7).</summary>
+    [RelayCommand] private void SelectAllVehicles() { foreach (var p in FilteredVehiclePicks) p.IsSelected = true; }
+    /// <summary>Tümünü Kaldır: TÜM araç seçimini temizler (yalnız aramadakini değil).</summary>
+    [RelayCommand] private void ClearVehicles() { foreach (var p in VehiclePicks) p.IsSelected = false; }
 
     /// <summary>Rapor tipi değişince önceki sonucu TEMİZLE (otomatik sorgu yok) + RequiresDate ise tarih Bu Ay ön-dolu.</summary>
     partial void OnSelectedReportChanged(ReportDescriptor value)
@@ -182,11 +225,19 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var branchIds = ShowBranchSelect
             ? Branches.Where(b => b.IsChecked).Select(b => b.Id).ToList()
             : null;
+        var vehicleIds = ShowVehicleSelect
+            ? VehiclePicks.Where(p => p.IsSelected).Select(p => p.Id).ToList()
+            : null;
+        var typeIds = ShowVehicleType
+            ? VehicleTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
             ToDate: ShowDate ? ToDate?.ToUnixTimeMilliseconds() : null,
-            BranchIds: branchIds);
+            BranchIds: branchIds,
+            VehicleIds: vehicleIds,
+            VehicleTypeIds: typeIds);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

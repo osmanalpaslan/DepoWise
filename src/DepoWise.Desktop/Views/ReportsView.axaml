@@ -48,6 +48,43 @@
                         </ScrollViewer>
                     </Border>
                 </ctrl:FormField>
+                <!-- Araç Türü filtresi (Araç Raporu) — çoklu işaret. -->
+                <ctrl:FormField Label="Araç Türü (çoklu)" Width="180" IsVisible="{Binding ShowVehicleType}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding VehicleTypes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
+                <!-- Araç seçimi (çoklu) — arama + Tümünü Seç (aramadaki, yoksa tümü) / Kaldır. Boş = tüm araçlar. -->
+                <ctrl:FormField Label="Araç (çoklu; boş=tümü)" Width="240" IsVisible="{Binding ShowVehicleSelect}">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="Tümü" Margin="6,0,0,0" Command="{Binding SelectAllVehiclesCommand}"
+                                    ToolTip.Tip="Aramadaki araçları (arama yoksa tümünü) seçer"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="4,0,0,0" Command="{Binding ClearVehiclesCommand}"
+                                    ToolTip.Tip="Araç seçimini temizler"/>
+                        </Grid>
+                        <Border Classes="Field" MaxHeight="120" Padding="8,4">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding FilteredVehiclePicks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:VehiclePick">
+                                            <CheckBox Content="{Binding Display}" IsChecked="{Binding IsSelected, Mode=TwoWay}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </ctrl:FormField>
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
                 <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
                         ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu Excel'e aktarır (yetki gerekir)."/>
