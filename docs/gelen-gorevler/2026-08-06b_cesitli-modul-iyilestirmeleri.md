@@ -188,10 +188,38 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
   senkronizasyonunu farklı şekilde yönetebilir; 5.1'e dönüldüğünde önce bunun bug'ı etkileyip etkilemediği
   (düzelttiği/değiştirdiği/aynı kaldığı) yeniden test edilmeli.
 
+**Birim #4 (2026-08-07, Sonnet 5) — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1). TAMAMLANDI, masaüstü + web + API.**
+- **Ürün kararı (kullanıcı, 2026-08-07):** mevcut malzemeye girişte Tedarikçi değiştirilirse **malzeme kartı
+  güncellenir** (o malzemenin kayıtlı tedarikçisi bundan sonra bu olur) — şema/migration GEREKMEZ, düşük risk.
+  (Alternatifler: her girişe özel ayrı tedarikçi kaydı = migration gerektirirdi; hiç kaydetmeme = seçilmedi.)
+- **Masaüstü (`StockEntryViewModel`/`StockEntryView`):** "Yeni Kayıt" modunda, zaten var olan malzeme-seçici
+  (Transfer/Depo Çıkışı'nda ZORUNLU olan aynı arama kutusu) artık burada da gösterilir ama OPSİYONEL
+  (`MaterialPickerLabel`/`MaterialPickerRequired`). Malzeme seçilince `GetDetail` ile kart doldurulur ve
+  Kod/Ad/Tür/Birim/Kategori/Alt Kategori/Marka **kilitlenir** (`NewFieldsLocked`/`NewFieldsEnabled`,
+  `IsEnabled` binding'i); Kategori için 1.7'deki "ebeveyn tara" mantığı (`ResolvePickedCategory`) aynen
+  tekrar kullanıldı (alt kategori yaprak id'sini üst kutuya doğru dağıtır). Tedarikçi/Birim Fiyat/Fatura-Fiş-
+  İrsaliye/Açıklama HER ZAMAN aktif kalır (Tedarikçi ÖNERİ olarak dolduruluyor, kilitlenmiyor — kullanıcı bu
+  girişte farklısını seçebilir). "Seçimi Temizle" butonu ile gerçek yeni malzeme girişine geri dönülebilir.
+  `Save()`: malzeme seçiliyse Kod/Ad/Birim validasyonu atlanır, doğrudan `SelectedMaterial.Id` ile stok girişi
+  yapılır (Create/upsert-by-code hiç çağrılmaz); Tedarikçi değiştiyse `Materials.Update` best-effort çağrılır
+  (materials:edit yetkisi yoksa veya kayıt arada değiştiyse stok girişi zaten TAMAMLANMIŞ olur, sessiz geçilir).
+- **Web (`Stock.razor` + API `/api/stock/receive`):** aynı opsiyonel malzeme seçici "Yeni Kayıt" bölümüne
+  eklendi (mevcut `MudAutocomplete`+`SearchMaterials` deseni yeniden kullanıldı); seçilince `/api/materials/{id}`
+  ile kart doldurulur, Kod/Ad/Tür/Birim/Kategori/Marka `ReadOnly`/`Disabled` olur, Tedarikçi aktif kalır.
+  **API DTO'ya yeni opsiyonel `MaterialId` alanı eklendi** (geriye uyumlu — boşsa eski kod-bazlı upsert AYNEN
+  çalışır): doluysa Code/Name/Type doğrulaması atlanır, doğrudan o malzeme kullanılır; Tedarikçi değiştiyse
+  sunucu tarafında `GetDetail`+`Update` (best-effort, aynı sessiz-geç mantığı) çalışır. **Servis/endpoint
+  değişikliği — API (`fly.toml`) deploy gerektirir, henüz DEPLOY EDİLMEDİ** (bkz. hafıza
+  [[web-servis-degisikligi-api-deploy]]).
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü+web+API), test 598/0 (regresyon yok, bu birimde yeni test
+  eklenmedi — değişiklik orkestrasyon katmanında, alttaki Create/Update/GetDetail/ReceiveIn servisleri zaten
+  test kapsamında). **Canlı/görsel doğrulama yapılamadı** (Avalonia önizlemesi yok, API henüz deploy edilmedi)
+  — kullanıcı testi + deploy gerekiyor.
+
 - [x] 1 — Düzenleme-ekranı boş-alan hataları (1.7 ✅ düzeltildi · 1.6 hata değil/ampirik kanıt · 5.1 ERTELENDİ)
 - [x] 2 — Yakıt tutarlılık (2.1 Fuel + · 2.2 Fuel arama ✅ · genel-kural StockEntry "+" takip işi olarak sunuldu)
 - [x] 3 — Ortak seçim alanı davranışı (madde 3) — masaüstü (~27 alan) + web (LookupSelect + 9 doğrudan-arama yeri)
-- [ ] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1)
+- [x] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1) — masaüstü + web + API (deploy bekliyor)
 - [ ] 5 — Sistem Logu filtreleri (madde 4)
 - [ ] 6 — Bakım "+ Personel" butonu (5.2)
 - [ ] 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (1.2-1.5)

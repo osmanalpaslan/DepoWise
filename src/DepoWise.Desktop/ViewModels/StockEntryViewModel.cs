@@ -62,6 +62,10 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [NotifyPropertyChangedFor(nameof(IsExit))]
     [NotifyPropertyChangedFor(nameof(ShowNewForm))]
     [NotifyPropertyChangedFor(nameof(ShowMaterialPicker))]
+    [NotifyPropertyChangedFor(nameof(MaterialPickerLabel))]
+    [NotifyPropertyChangedFor(nameof(MaterialPickerRequired))]
+    [NotifyPropertyChangedFor(nameof(NewFieldsLocked))]
+    [NotifyPropertyChangedFor(nameof(NewFieldsEnabled))]
     [NotifyPropertyChangedFor(nameof(ShowPrice))]
     [NotifyPropertyChangedFor(nameof(ShowSingleBranch))]
     [NotifyPropertyChangedFor(nameof(QuantityLabel))]
@@ -71,9 +75,18 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public bool IsTransfer => SelectedKind == "Transfer";
     public bool IsExit => SelectedKind == "Depo Çıkışı";
 
-    /// <summary>Yeni Kayıt → tam malzeme formu; Transfer/Çıkış → mevcut malzeme seçici.</summary>
+    /// <summary>Yeni Kayıt → tam malzeme formu; Transfer/Çıkış → mevcut malzeme seçici (zorunlu).
+    /// Yeni Kayıt'ta da AYNI seçici gösterilir ama OPSİYONELDİR (madde 1.1, kullanıcı isteği 2026-08-06):
+    /// mevcut malzeme seçilirse Kod/Ad/Tür/Birim/Kategori/Alt Kategori/Marka kilitlenip malzemeden doldurulur.</summary>
     public bool ShowNewForm => IsNew;
-    public bool ShowMaterialPicker => IsTransfer || IsExit;
+    public bool ShowMaterialPicker => IsTransfer || IsExit || IsNew;
+    public string MaterialPickerLabel => IsNew ? "Mevcut Malzemeye Giriş Yap (opsiyonel)" : "Malzeme";
+    public bool MaterialPickerRequired => !IsNew;
+    /// <summary>Yeni Kayıt'ta mevcut malzeme seçildiyse malzeme kartı alanları (Kod/Ad/Tür/Birim/Kategori/Alt
+    /// Kategori/Marka) kilitlenir — zaten malzemeden gelir, tekrar düzenlenmez. Tedarikçi/Birim Fiyat/Fatura-
+    /// Fiş-İrsaliye/Açıklama HER ZAMAN aktif kalır (aynı malzeme farklı tedarikçiden farklı fiyatla alınabilir).</summary>
+    public bool NewFieldsLocked => IsNew && HasMaterial;
+    public bool NewFieldsEnabled => !NewFieldsLocked;
     public bool ShowPrice => IsNew;                 // birim fiyat yalnız girişte
     public bool ShowSingleBranch => !IsTransfer;
     public string QuantityLabel => IsExit ? "Çıkacak Miktar" : IsNew ? "Eklenecek Stok" : "Miktar";
@@ -88,9 +101,14 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [ObservableProperty] private string _materialSearch = "";
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMaterial))]
+    [NotifyPropertyChangedFor(nameof(NewFieldsLocked))]
+    [NotifyPropertyChangedFor(nameof(NewFieldsEnabled))]
     private MaterialRefRow? _selectedMaterial;
     public bool HasMaterial => SelectedMaterial != null;
     [ObservableProperty] private string _balanceText = "";
+    /// <summary>Yeni Kayıt'ta mevcut malzeme seçildiğinde yüklenen tam kart (madde 1.1) — Tedarikçi değiştiyse
+    /// kaydederken malzeme kartını güncellemek için diğer alanları KORUR (kullanıcı kararı 2026-08-07).</summary>
+    private MaterialDetail? _pickedDetail;
 
     // ── Yeni Kayıt: malzeme kartı alanları ──
     [ObservableProperty] private string _code = "";
@@ -194,6 +212,59 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         MaterialResults.Clear();
         try { BalanceText = $"Mevcut stok: {DesktopServices.Stock.GetBalance(m.Id):0.##}"; }
         catch { BalanceText = ""; }
+
+        _pickedDetail = null;
+        if (IsNew)
+        {
+            // madde 1.1: mevcut malzeme seçildi — kart alanları malzemeden doldurulup kilitlenir; Tedarikçi
+            // yalnız ÖNERİ olarak dolduruluyor, kilitlenmiyor (bu girişte farklı tedarikçi seçilebilir).
+            try
+            {
+                var d = DesktopServices.Materials.GetDetail(_session, m.Id);
+                _pickedDetail = d;
+                Code = d.Code; Name = d.Name; NewType = d.Type ?? "Diğer";
+                SelectedUnit = Units.FirstOrDefault(u => u.Id == d.UnitId);
+                ResolvePickedCategory(d.CategoryId);
+                SelectedBrand = Brands.FirstOrDefault(b => b.Id == d.BrandId);
+                SelectedSupplier = Suppliers.FirstOrDefault(s => s.Id == d.SupplierId);
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>1.7 ile aynı "ebeveyn tara" mantığı (bkz. MaterialsViewModel.ResolveEditCategory): category_id
+    /// yaprak (alt kategori varsa onu) tutar; üst kutu bulunamazsa tüm üst kategorileri tarayıp alt kategoriyi
+    /// içerenini bulur.</summary>
+    private void ResolvePickedCategory(string? categoryId)
+    {
+        SelectedCategory = null; SelectedSubCategory = null;
+        if (string.IsNullOrEmpty(categoryId)) return;
+        var top = Categories.FirstOrDefault(c => c.Id == categoryId);
+        if (top is not null) { SelectedCategory = top; return; }
+        foreach (var t in Categories)
+        {
+            List<LookupItem> subs;
+            try { subs = DesktopServices.Lookups.ListCategories(_session, t.Id).ToList(); }
+            catch { continue; }
+            if (subs.Any(x => x.Id == categoryId))
+            {
+                SelectedCategory = t;   // OnSelectedCategoryChanged tetiklenir → SubCategories yüklenir
+                SelectedSubCategory = SubCategories.FirstOrDefault(s => s.Id == categoryId);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Yeni Kayıt'ta yanlışlıkla/vazgeçilerek seçilen mevcut malzemeyi bırakıp gerçekten YENİ bir
+    /// malzeme kartı doldurmaya dönmek için (madde 1.1) — Miktar/Fiyat/Fatura/Personel/Araç KORUNUR.</summary>
+    [RelayCommand]
+    private void ClearPickedMaterial()
+    {
+        SelectedMaterial = null; MaterialSearch = ""; BalanceText = ""; _pickedDetail = null;
+        Code = ""; Name = ""; NewType = "Yedek Parça";
+        SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;
+        SelectedBrand = null; SelectedSupplier = null;
+        RefreshMaterials();
     }
 
     /// <summary>Koda göre mevcut malzemeyi bul (tam eşleşme). Yeni Kayıt'ta upsert için.</summary>
@@ -227,21 +298,31 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         {
             if (IsNew)
             {
-                if (string.IsNullOrWhiteSpace(Code)) { FormError = "Kod zorunlu."; return; }
-                if (string.IsNullOrWhiteSpace(Name)) { FormError = "Ad zorunlu."; return; }
-                if (SelectedUnit is null) { FormError = "Birim seçin."; return; }
                 if (Quantity < 0) { FormError = "Eklenecek stok negatif olamaz."; return; }
-                if (!await ConfirmService.AskAsync("Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)", "Yeni Kayıt")) return;
-
-                var code = Code.Trim();
-                var categoryId = SelectedSubCategory?.Id ?? SelectedCategory?.Id;
-                var materialId = FindMaterialIdByCode(code);
-                if (materialId is null)
+                if (!HasMaterial)
                 {
-                    materialId = DesktopServices.Materials.Create(_session, new NewMaterial(
+                    if (string.IsNullOrWhiteSpace(Code)) { FormError = "Kod zorunlu."; return; }
+                    if (string.IsNullOrWhiteSpace(Name)) { FormError = "Ad zorunlu."; return; }
+                    if (SelectedUnit is null) { FormError = "Birim seçin."; return; }
+                }
+                var confirmMsg = HasMaterial
+                    ? "Mevcut malzemeye stok girişi yapılsın mı? (stok ARTAR)"
+                    : "Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)";
+                if (!await ConfirmService.AskAsync(confirmMsg, "Yeni Kayıt")) return;
+
+                string materialId;
+                if (HasMaterial)
+                {
+                    materialId = SelectedMaterial!.Id;   // madde 1.1: mevcut malzeme — kart alanları değiştirilmez
+                }
+                else
+                {
+                    var code = Code.Trim();
+                    var categoryId = SelectedSubCategory?.Id ?? SelectedCategory?.Id;
+                    materialId = FindMaterialIdByCode(code) ?? DesktopServices.Materials.Create(_session, new NewMaterial(
                         Code: code, Name: Name.Trim(),
                         Type: string.IsNullOrWhiteSpace(NewType) ? null : NewType,
-                        CategoryId: categoryId, UnitId: SelectedUnit.Id,
+                        CategoryId: categoryId, UnitId: SelectedUnit!.Id,
                         BrandId: SelectedBrand?.Id, SupplierId: SelectedSupplier?.Id,
                         UnitPrice: UnitPrice, Currency: "TRY",
                         Description: note));
@@ -251,9 +332,26 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                         new[] { new StockLine(materialId, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
                         branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // giriş şubesi = login şube
-                Status = FindMaterialIdByCode(code) is not null && materialId is not null
-                    ? "Yeni kayıt: malzeme oluşturuldu/güncellendi ve stok eklendi."
-                    : "Kaydedildi.";
+
+                // madde 1.1 (kullanıcı kararı 2026-08-07): mevcut malzemeye girişte Tedarikçi değiştirildiyse
+                // malzeme kartı güncellenir (diğer alanlar KORUNUR). materials:edit yetkisi yoksa veya kayıt
+                // arada değiştiyse stok girişi zaten TAMAMLANDI — bu ikincil güncelleme sessizce atlanır.
+                if (HasMaterial && _pickedDetail is not null && SelectedSupplier?.Id != _pickedDetail.SupplierId)
+                {
+                    try
+                    {
+                        DesktopServices.Materials.Update(_session, materialId, new UpdateMaterial(
+                            Code: _pickedDetail.Code, Name: _pickedDetail.Name, Type: _pickedDetail.Type,
+                            CategoryId: _pickedDetail.CategoryId, UnitId: _pickedDetail.UnitId, BrandId: _pickedDetail.BrandId,
+                            SupplierId: SelectedSupplier?.Id, MinStock: _pickedDetail.MinStock, UnitPrice: _pickedDetail.UnitPrice,
+                            Description: _pickedDetail.Description, TemplateId: _pickedDetail.TemplateId), _pickedDetail.Version);
+                    }
+                    catch { }
+                }
+
+                Status = HasMaterial
+                    ? "Mevcut malzemeye stok girişi yapıldı."
+                    : "Yeni kayıt: malzeme oluşturuldu/güncellendi ve stok eklendi.";
             }
             else
             {
@@ -309,7 +407,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void ClearForm()
     {
-        SelectedMaterial = null; MaterialSearch = ""; BalanceText = "";
+        SelectedMaterial = null; MaterialSearch = ""; BalanceText = ""; _pickedDetail = null;
         Code = ""; Name = ""; NewType = "Yedek Parça";
         SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;
         SelectedBrand = null; SelectedSupplier = null;

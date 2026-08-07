@@ -1471,16 +1471,41 @@ app.MapGet("/api/stock/balance/{materialId}", (HttpContext c, string materialId)
 app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var code = d.Code?.Trim() ?? "";
-    if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Kod zorunlu.");
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
-    if (string.IsNullOrWhiteSpace(d.Name)) throw new ArgumentException("Ad zorunlu.");
     if (d.Quantity < 0) throw new ArgumentException("Eklenecek stok negatif olamaz.");
-    var found = svc.Materials.List(s, Page(), code).Items
-        .FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
-    var materialId = found?.Id ?? svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
-        code, d.Name.Trim(), string.IsNullOrWhiteSpace(d.Type) ? null : d.Type,
-        d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, 0m, d.UnitPrice, "TRY", Doc(d.Note)));
+
+    string materialId;
+    if (!string.IsNullOrWhiteSpace(d.MaterialId))
+    {
+        // madde 1.1 (kullanıcı isteği 2026-08-06): mevcut malzemeye giriş — Kod/Ad/Tür/Birim/Kategori/Alt
+        // Kategori/Marka DEĞİŞTİRİLMEZ. Tedarikçi değiştiyse (kullanıcı kararı 2026-08-07) malzeme kartı
+        // güncellenir; materials:edit yetkisi yoksa ya da kayıt arada değiştiyse stok girişi zaten
+        // TAMAMLANMIŞ olur — bu ikincil güncelleme sessizce atlanır.
+        materialId = d.MaterialId;
+        var detail = svc.Materials.GetDetail(s, materialId);
+        if (d.SupplierId != detail.SupplierId)
+        {
+            try
+            {
+                svc.Materials.Update(s, materialId, new DepoWise.Infrastructure.Materials.UpdateMaterial(
+                    detail.Code, detail.Name, detail.Type, detail.CategoryId, detail.UnitId, detail.BrandId,
+                    d.SupplierId, detail.MinStock, detail.UnitPrice, detail.Description, detail.TemplateId), detail.Version);
+            }
+            catch { }
+        }
+    }
+    else
+    {
+        var code = d.Code?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Kod zorunlu.");
+        if (string.IsNullOrWhiteSpace(d.Name)) throw new ArgumentException("Ad zorunlu.");
+        var found = svc.Materials.List(s, Page(), code).Items
+            .FirstOrDefault(x => string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
+        materialId = found?.Id ?? svc.Materials.Create(s, new DepoWise.Infrastructure.Materials.NewMaterial(
+            code, d.Name.Trim(), string.IsNullOrWhiteSpace(d.Type) ? null : d.Type,
+            d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, 0m, d.UnitPrice, "TRY", Doc(d.Note)));
+    }
+
     if (d.Quantity > 0)
         svc.Stock.ReceiveIn(s,
             new[] { new DepoWise.Infrastructure.Materials.StockLine(materialId, d.Quantity, d.UnitPrice > 0 ? d.UnitPrice : null) },
@@ -2289,7 +2314,10 @@ record DeveloperDto(string? Code, bool Active);
 record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);
 record MaterialTemplateDto(string Name, string? Code, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock = 0m, decimal UnitPrice = 0m, string? Currency = "TRY", string? Description = null, string? CompatibleVehicleIds = null);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
-    decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
+    decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo,
+    // madde 1.1 (kullanıcı isteği 2026-08-06): dolu ise mevcut malzemeye giriş — Code/Name/... yok sayılır,
+    // yalnız SupplierId (kart güncellemesi için) kullanılır. Boşsa eski davranış (kod ile upsert) değişmez.
+    string? MaterialId = null);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockReverseDto(string DocumentId, string? Reason);

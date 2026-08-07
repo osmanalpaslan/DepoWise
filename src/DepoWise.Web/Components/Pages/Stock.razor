@@ -29,16 +29,30 @@
         <MudGrid Spacing="2">
             @if (_kind == "Yeni Kayıt")
             {
-                <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-                <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-                <MudItem xs="6" md="4"><MudSelect T="string" @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">
+                @* Malzeme seçimi OPSİYONEL (madde 1.1, kullanıcı isteği 2026-08-06): mevcut malzeme seçilirse
+                   Kod/Ad/Tür/Birim/Kategori/Alt Kategori/Marka KİLİTLENİR + malzemeden doldurulur; Tedarikçi/
+                   Birim Fiyat/Fatura-Fiş-İrsaliye/Açıklama HER ZAMAN aktif kalır. *@
+                <MudItem xs="12" md="7">
+                    <MudAutocomplete T="MaterialItem" Label="Mevcut Malzemeye Giriş Yap (opsiyonel)" @bind-Value="_existingMaterial" @bind-Value:after="OnExistingMaterialPicked" SearchFunc="SearchMaterials"
+                                     ToStringFunc="@(m => m is null ? "" : m.Display)" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true" CoerceText="true" MinCharacters="0" />
+                </MudItem>
+                <MudItem xs="12" md="5" Class="d-flex align-center" Style="gap:8px;">
+                    @if (_existingMaterial is not null)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearExistingMaterial">Seçimi Temizle</MudButton>
+                    }
+                </MudItem>
+                <MudItem xs="6" md="3"><MudTextField @bind-Value="_code" Label="Kod *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" ReadOnly="@(_existingMaterial is not null)" /></MudItem>
+                <MudItem xs="12" md="5"><MudTextField @bind-Value="_name" Label="Ad *" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" ReadOnly="@(_existingMaterial is not null)" /></MudItem>
+                <MudItem xs="6" md="4"><MudSelect T="string" @bind-Value="_type" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)">
                     @foreach (var t in _types) { <MudSelectItem T="string" Value="@t">@t</MudSelectItem> }
                 </MudSelect></MudItem>
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("suppliers")'>@Opts(_sups)</MudSelect></MudItem>
@@ -152,6 +166,9 @@
     // Seçici (Transfer/Çıkış)
     private MaterialItem? _material;
     private string _balance = "";
+    // Mevcut malzemeye giriş (madde 1.1, Yeni Kayıt'ta opsiyonel) — seçilince kart alanları malzemeden
+    // doldurulup salt-okunur olur; Tedarikçi/Fiyat/Fatura/Açıklama HER ZAMAN aktif kalır.
+    private MaterialItem? _existingMaterial;
 
     private List<(string Id, string Name)> _units = new(), _cats = new(), _brands = new(), _sups = new(),
         _branches = new(), _personnelList = new(), _vehicles = new();
@@ -215,6 +232,26 @@
         catch { return Array.Empty<MaterialItem>(); }
     }
 
+    private async Task OnExistingMaterialPicked()
+    {
+        if (_existingMaterial is null) return;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/materials/{_existingMaterial.Id}");
+            _code = Str(d, "code"); _name = Str(d, "name");
+            var t = Str(d, "type"); _type = string.IsNullOrEmpty(t) ? "Diğer" : t;
+            _unit = NullId(d, "unitId") ?? ""; _cat = NullId(d, "categoryId") ?? ""; _brand = NullId(d, "brandId") ?? "";
+            _sup = NullId(d, "supplierId") ?? "";   // öneri — Tedarikçi düzenlenebilir kalır
+        }
+        catch { }
+    }
+
+    private void ClearExistingMaterial()
+    {
+        _existingMaterial = null;
+        _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = "";
+    }
+
     private async Task AddLk(string table)
     {
         var dlg = await Dialog.ShowAsync<AddLookupDialog>("Yeni Kayıt",
@@ -260,11 +297,17 @@
         // AYNI ve yön belirtir (stok ARTAR/AZALIR) — genel "işlem kaydedilsin mi?" yerine.
         if (_kind == "Yeni Kayıt")
         {
-            if (string.IsNullOrWhiteSpace(_code)) { _msg = "Kod zorunlu."; _ok = false; return; }
-            if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad zorunlu."; _ok = false; return; }
-            if (string.IsNullOrWhiteSpace(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
+            if (_existingMaterial is null)   // madde 1.1: mevcut malzeme seçiliyken kart alanları zorunlu DEĞİL
+            {
+                if (string.IsNullOrWhiteSpace(_code)) { _msg = "Kod zorunlu."; _ok = false; return; }
+                if (string.IsNullOrWhiteSpace(_name)) { _msg = "Ad zorunlu."; _ok = false; return; }
+                if (string.IsNullOrWhiteSpace(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
+            }
             if (_qty < 0) { _msg = "Eklenecek stok negatif olamaz."; _ok = false; return; }
-            if (!await Dialog.Confirm("Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)", "Evet, Kaydet")) return;
+            var confirmMsg = _existingMaterial is not null
+                ? "Mevcut malzemeye stok girişi yapılsın mı? (stok ARTAR)"
+                : "Malzeme kaydedilip stok girişi yapılsın mı? (stok ARTAR)";
+            if (!await Dialog.Confirm(confirmMsg, "Evet, Kaydet")) return;
         }
         else if (_kind == "Depo Çıkışı")
         {
@@ -290,6 +333,7 @@
             {
                 err = await Api.PostAsync("/api/stock/receive", new
                 {
+                    materialId = Empty(_existingMaterial?.Id),   // madde 1.1: doluysa mevcut malzeme kullanılır
                     code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_cat),
                     unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                     quantity = _qty, unitPrice = _price, branchId = Auth.BranchId, personnelId = Empty(_personnel),
@@ -338,6 +382,7 @@
         _qty = 0; _note = _invoiceNo = _orderSlipNo = _creditSlipNo = "";
         _branch = _fromBranch = _toBranch = _personnel = _vehicle = "";
         _material = null; _balance = "";
+        _existingMaterial = null;
     }
 
     private static string? Empty(string? v) => string.IsNullOrEmpty(v) ? null : v;
@@ -346,6 +391,8 @@
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString())
             : "";
+
+    private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
 
     private static bool Bool(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
