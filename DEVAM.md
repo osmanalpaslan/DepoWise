@@ -27,7 +27,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07i — Depo Çıkışı Şube İçi/Dışı + Günlük Faaliyet'e ekleme)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07j — Rapor ortak mimarisi Birim 1 backend)
+
+### 🆕 Rapor altyapısı standartlaştırma (2026-08-07, Opus 4.8) — SÜRÜYOR
+Ham + fazlar: [docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md](docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md).
+Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra tek tek, önce Araç Raporu).
+- ✅ **Birim 1 — Backend temel:** `ReportCatalog`/`ReportDescriptor` (12 rapor tek kaynak), `ReportLimits`
+  (maks-kayıt, Ayarlar'dan), genel `btn-branch-select` yetkisi (Yetki Ağacına otomatik; admin bypass; sunucu
+  zorlar), `ReportScope` (**ölü şube filtresi non-breaking düzeltildi** — boş=oturum, yetkili+açık=honor),
+  `ReportService.Run` (katalog dispatch + **Bu Ay** tarih varsayılanı + maks-kayıt). `/api/reports/catalog`.
+  Build 0 hata, test 616/0 (+8). **Henüz deploy edilmedi** (Birim 2-3 sonrası birlikte).
+- ⏭️ Sıradaki: Birim 2 (web ekran kataloğa taşınır + Stok Sayım paritesi + yetkiyle şube seçici).
+
+
 
 ### 🆕 Depo Çıkışı yeniden düzenleme (2026-08-07, Opus 4.8) — masaüstü + web, yayın bekliyor
 Ham + analiz: [docs/gelen-gorevler/2026-08-07_depo-cikisi-sube-ici-disi.md](docs/gelen-gorevler/2026-08-07_depo-cikisi-sube-ici-disi.md).

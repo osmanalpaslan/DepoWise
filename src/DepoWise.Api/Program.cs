@@ -1631,7 +1631,9 @@ app.MapPost("/api/role-permissions", (HttpContext c, RoleGrantDto d) =>
 }).RequireAuthorization();
 
 // ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
-app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s ? Results.Ok(new { showCompany = s.IsSuperAdmin }) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s
+    ? Results.Ok(new { showCompany = s.IsSuperAdmin, showBranchSelect = AccessControl.CanUseButton(s, SpecialButtons.BranchSelect) })
+    : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1654,26 +1656,25 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
     }
     return Results.Ok(new { branches, vehicles });
 }).RequireAuthorization();
-// Rapor tipi → TableModel (JSON ekranı + Excel export ortak kullanır).
-DepoWise.Application.Reports.TableModel BuildReport(DepoWise.Application.Security.SessionContext s, string type, DepoWise.Application.Reports.ReportRequest req) => type switch
+// Rapor tipi → TableModel: ORTAK yürütme (ReportService.Run) — katalog dispatch + tarih varsayılanı (Bu Ay) +
+// maksimum kayıt koruması. Maks satır Sistem Ayarları'ndan okunur (yoksa varsayılan).
+DepoWise.Application.Reports.TableModel BuildReport(DepoWise.Application.Security.SessionContext s, string type, DepoWise.Application.Reports.ReportRequest req)
 {
-    "stock" => svc.Reports.StockStatus(s, req),
-    "general" => svc.Reports.General(s, req),
-    "maintenance" => svc.Reports.Maintenance(s, req),
-    "fuel" => svc.Reports.FuelConsumption(s, req),
-    "fuel-depot" => svc.Reports.FuelDepot(s, req),
-    "stock-count" => svc.Reports.StockCount(s, req),
-    "requests" => svc.Reports.Requests(s, req),
-    "materials-template" => svc.Reports.MaterialsByTemplate(s, req),
-    "materials-nontemplate" => svc.Reports.MaterialsNonTemplate(s, req),
-    "vehicles-template" => svc.Reports.VehiclesByTemplate(s, req),
-    "vehicles-nontemplate" => svc.Reports.VehiclesNonTemplate(s, req),
-    "status" => svc.Reports.StatusReport(s, req),
-    _ => throw new ArgumentException("Bilinmeyen rapor tipi."),
-};
-// Yönetici raporu (firma geneli/şablon/durum) mu? Excel yetkisi buna göre ayrışır (iki ayrı özel buton).
-static bool IsManagerReport(string type) => type is "materials-template" or "materials-nontemplate"
-    or "vehicles-template" or "vehicles-nontemplate" or "status";
+    var max = DepoWise.Application.Reports.ReportLimits.Resolve(k => svc.Settings.Get(s.CompanyId, k));
+    return svc.Reports.Run(s, type, req, max);
+}
+// Yönetici raporu mu? Excel yetkisi buna göre ayrışır (katalog tek doğru kaynak).
+static bool IsManagerReport(string type)
+    => DepoWise.Application.Reports.ReportCatalog.ByKey(type)?.IsManager ?? false;
+
+// Ortak rapor kataloğu (madde 2/10): web UI filtre/kolon/yetki'yi buradan sürer.
+app.MapGet("/api/reports/catalog", (HttpContext c) =>
+    S(c) is null ? Results.Unauthorized() : Results.Ok(DepoWise.Application.Reports.ReportCatalog.All.Select(d => new
+    {
+        key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
+        usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
+        requiresDate = d.RequiresDate, manager = d.IsManager
+    }))).RequireAuthorization();
 
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {

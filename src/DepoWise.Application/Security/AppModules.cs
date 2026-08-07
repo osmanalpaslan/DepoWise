@@ -121,6 +121,10 @@ public static class SpecialButtons
     public const string AddLookup = "btn-add-lookup";     // "+" satır içi tanım ekleme (genel)
     public const string ExportReports = "btn-export-reports";       // Raporlar ekranı (şube bazlı) Excel dışa aktarma
     public const string ExportManagerReports = "btn-export-mgr-reports"; // Yönetici raporları (firma geneli/şablon/durum) Excel dışa aktarma
+    /// <summary>GENEL şube seçimi / çok-şubeli görüntüleme (kullanıcı isteği 2026-08-07). Rapor'a özel DEĞİL —
+    /// ileride Dashboard/Analiz/Grafik ekranlarında da kullanılacak. Bu yetki olmayan (normal) kullanıcı yalnız
+    /// login şubesini görür; şube seçici gizli. Admin/süper admin bypass (CanUseButton). Deny-by-default.</summary>
+    public const string BranchSelect = "btn-branch-select";
 
     /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
@@ -131,5 +135,6 @@ public static class SpecialButtons
         (AddLookup, "\"+\" Satır İçi Ekleme"),
         (ExportReports, "Rapor Excel Dışa Aktarma"),
         (ExportManagerReports, "Yönetici Rapor Excel Dışa Aktarma"),
+        (BranchSelect, "Şube Seçimi (Çok Şubeli Görüntüleme)"),
     };
 }
