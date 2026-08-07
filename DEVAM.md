@@ -40,7 +40,9 @@ sonra kısmen düzeliyor); **web'de sütun hiç genişletilemiyor.**
 - **Kapsam:** Malzemeler/Araçlar/Günlük (eski desen) + Raporlar (Birim 4 grid) — web+masaüstü. Genişlik artık
   hiçbir yerde kaydedilmiyor (sıra/seçim/sıralama tercihleri korunuyor). Servis/şema/endpoint dokunulmadı
   (GetWidths/SaveWidths kod var ama kullanılmıyor). Build 0 hata, test **642/0** (regresyon yok). Görsel doğrulama
-  kullanıcıda (masaüstü Avalonia + web canlı). ⏭️ Sıradaki: **Prompt 1** (sabit-tanım alanlarında sol-tık liste + sayfalama).
+  kullanıcıda (masaüstü Avalonia + web canlı). ✅ **YAYINLANDI (2026-08-08):** web (`depowise-web`, 200 — API
+  değişmedi, migration yok) + masaüstü **1.0.114** (sunucuda en güncel, checksum b374673…). ⏭️ Sıradaki: **Prompt 1**
+  (sabit-tanım alanlarında sol-tık liste + sayfalama).
 
 
 
