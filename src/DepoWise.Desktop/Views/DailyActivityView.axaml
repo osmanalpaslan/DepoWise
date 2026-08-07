@@ -42,7 +42,8 @@
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding FormKind}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
+                    <!-- Araç: Depo Çıkışı'nda OPSİYONEL (malzeme çıkışı aracsız da olabilir), diğerlerinde zorunlu. -->
+                    <ctrl:FormField Label="Araç" IsRequired="{Binding !IsStockExit}" Width="240">
                         <AutoCompleteBox ItemsSource="{Binding Vehicles}" AsyncPopulator="{Binding VehiclePopulator}" SelectedItem="{Binding FormVehicle}"
                                          MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                          ValueMemberBinding="{Binding Display}">
@@ -153,6 +154,52 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </StackPanel>
+                    </ctrl:FormField>
+                </StackPanel>
+
+                <!-- ===== DEPO ÇIKIŞI (MALZEME) — Giriş-Çıkış ile AYNI ortak servis (kullanıcı isteği 2026-08-07) ===== -->
+                <StackPanel Spacing="14" IsVisible="{Binding IsStockExit}">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ctrl:FormField Label="Çıkış Türü" Width="150">
+                            <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Çıkacak Miktar" IsRequired="True" Width="140">
+                            <NumericUpDown Classes="Field" Value="{Binding ExitQuantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="200" IsVisible="{Binding ShowExitTargetBranch}">
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" AsyncPopulator="{Binding BranchPopulator}" SelectedItem="{Binding ExitToBranch}"
+                                              MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Teslim Alan (Personel)" Width="220" IsVisible="{Binding ShowExitPersonnel}">
+                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" AsyncPopulator="{Binding PersonnelPopulator}" SelectedItem="{Binding ExitPersonnel}"
+                                      MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                            </AutoCompleteBox>
+                        </ctrl:FormField>
+                    </StackPanel>
+                    <ctrl:FormField Label="Malzeme" IsRequired="True">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBox Grid.Column="0" Classes="Search" Text="{Binding ExitMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding ExitBalanceText}" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            </Grid>
+                            <Border Classes="Table" MaxHeight="130" IsVisible="{Binding ExitMaterialResults.Count}">
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding ExitMaterialResults}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="m:MaterialRefRow">
+                                                <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                        Content="{Binding Name}"
+                                                        Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).PickExitMaterialCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
                         </StackPanel>
                     </ctrl:FormField>
                 </StackPanel>

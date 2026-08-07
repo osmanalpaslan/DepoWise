@@ -26,10 +26,11 @@
                     <MudSelectItem T="string" Value="@("İlave Yağ")">İlave Yağ</MudSelectItem>
                     <MudSelectItem T="string" Value="@("İlave Filtre")">İlave Filtre</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Tamir")">Tamir</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Depo Çıkışı")">Depo Çıkışı</MudSelectItem>
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="6">
-                <MudAutocomplete T="ApiClient.Opt" Label="Araç *" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
+                <MudAutocomplete T="ApiClient.Opt" Label="@(_kind == "Depo Çıkışı" ? "Araç (opsiyonel)" : "Araç *")" @bind-Value="_vehicle" SearchFunc="SearchVehicle"
                                  ToStringFunc="@(o => o?.Name ?? "")" Placeholder="İç kod / plaka ara..." Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" />
             </MudItem>
             <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -44,6 +45,27 @@
                 <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_duration" Label="Süre (gün)" Min="0" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             </MudGrid>
             @if (_kind == "Transfer") { <MudText Typo="Typo.caption" Class="mud-text-secondary">Transfer: araç otomatik PASİF duruma alınır.</MudText> }
+        }
+        else if (_kind == "Depo Çıkışı")
+        {
+            @* Depo Çıkışı (MALZEME) — Giriş-Çıkış ile AYNI ortak servis (/api/stock/issue|transfer). Şube İçi =
+               çıkış, Şube Dışı = transfer. Araç faaliyet "Transfer"inden (yukarıda) BAĞIMSIZ. (kullanıcı 2026-08-07) *@
+            <MudRadioGroup T="string" @bind-Value="_exitScope" Class="mb-1 ml-1">
+                <MudRadio T="string" Value="@("Şube İçi")" Color="Color.Secondary" Dense="true">Şube İçi Çıkış</MudRadio>
+                <MudRadio T="string" Value="@("Şube Dışı")" Color="Color.Secondary" Dense="true">Şube Dışı Çıkış (Transfer)</MudRadio>
+            </MudRadioGroup>
+            <MudGrid Spacing="2" Class="align-center">
+                <MudItem xs="12" md="6"><MudAutocomplete T="ApiClient.Opt" Label="Malzeme *" @bind-Value="_exitMaterial" SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_exitQty" Label="Çıkacak Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                @if (_exitScope == "Şube Dışı")
+                {
+                    <MudItem xs="6" md="3"><LookupSelect Label="Hedef Şube *" @bind-Value="_exitTo" Items="_branches" /></MudItem>
+                }
+                else
+                {
+                    <MudItem xs="6" md="3"><LookupSelect Label="Teslim Alan (Personel)" @bind-Value="_exitPersonnel" Items="_personnel" /></MudItem>
+                }
+            </MudGrid>
         }
         else
         {
@@ -191,6 +213,11 @@
     // movement
     private string? _from, _to, _operator;
     private int? _duration;
+    // Depo Çıkışı (malzeme) — Giriş-Çıkış ile aynı ortak servis
+    private string _exitScope = "Şube İçi";
+    private ApiClient.Opt? _exitMaterial;
+    private decimal _exitQty;
+    private string? _exitTo, _exitPersonnel;
     // maintenance
     private string? _mDefId, _mSubId, _mTech;
     private decimal? _mKm, _mHour;
@@ -358,6 +385,45 @@
     private async Task Save()
     {
         _msg = null;
+
+        // Depo Çıkışı (kullanıcı isteği 2026-08-07): Giriş-Çıkış ile AYNI ortak servis (/api/stock/issue|transfer).
+        // Araç OPSİYONEL → araç zorunluluk kontrolünün ÖNÜNDE ele alınır.
+        if (_kind == "Depo Çıkışı")
+        {
+            if (!await Dialog.RequireBranchAsync(Auth, "Günlük Faaliyet — Depo Çıkışı")) return;
+            if (_exitMaterial is null) { _msg = "Malzeme seçin."; _ok = false; return; }
+            if (_exitQty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+            var inBranch = _exitScope == "Şube İçi";
+            if (inBranch && string.IsNullOrEmpty(_exitPersonnel)) { _msg = "Personel (teslim alan) zorunludur."; _ok = false; return; }
+            if (!inBranch)
+            {
+                if (string.IsNullOrEmpty(_exitTo)) { _msg = "Hedef şube seçin."; _ok = false; return; }
+                if (Auth.BranchId == _exitTo) { _msg = "Hedef şube, kendi şubenizden farklı olmalı."; _ok = false; return; }
+            }
+            if (!await Dialog.Confirm(inBranch ? "Şube içi çıkış kaydedilsin mi? (stok AZALIR)" : "Şube dışı çıkış (transfer) kaydedilsin mi?", "Evet, Kaydet")) return;
+            _busy = true;
+            try
+            {
+                string? exErr = inBranch
+                    ? await Api.PostAsync("/api/stock/issue", new
+                    {
+                        materialId = _exitMaterial.Id, quantity = _exitQty, branchId = Auth.BranchId,
+                        personnelId = Empty(_exitPersonnel), vehicleId = _vehicle?.Id, note = Empty(_desc)
+                    })
+                    : await Api.PostAsync("/api/stock/transfer", new
+                    {
+                        materialId = _exitMaterial.Id, quantity = _exitQty, fromBranchId = Auth.BranchId, toBranchId = _exitTo,
+                        personnelId = (string?)null, vehicleId = _vehicle?.Id, note = Empty(_desc)
+                    });
+                _ok = exErr is null;
+                _msg = exErr ?? (inBranch ? "Şube içi çıkış kaydedildi (Stok Hareketleri'nde görünür)." : "Şube dışı çıkış (transfer) kaydedildi.");
+                if (_ok) { Clear(); await Load(); }
+            }
+            catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+            finally { _busy = false; }
+            return;
+        }
+
         if (_vehicle is null) { _msg = "Araç seçin."; _ok = false; return; }
         _busy = true;
         try
@@ -425,6 +491,7 @@
         _vehicle = null; _date = null; _desc = "";
         _from = _to = _operator = null; _duration = null;
         _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _matSel = null; _matQty = 0; _lines.Clear();
+        _exitScope = "Şube İçi"; _exitMaterial = null; _exitQty = 0; _exitTo = _exitPersonnel = null;
     }
 
     /// <summary>"Kayıt Tipi" görünen adı → sunucunun activity_type kodu (kullanıcı isteği 2026-07-19).</summary>

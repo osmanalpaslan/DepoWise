@@ -27,4 +27,24 @@ rapor.
 
 ---
 
-## ANALİZ (Claude) — doldurulacak
+## ANALİZ + UYGULAMA (Claude, 2026-08-07, Opus 4.8)
+
+**Kritik bulgu:** İki ekran AYNI işi yapmıyor. Giriş-Çıkış = MALZEME stok (in/transfer/out). Günlük Faaliyet =
+ARAÇ faaliyeti (Hareket/Transfer=araç) + bakım (malzeme düşer). "Transfer" iki ekranda FARKLI (malzeme vs araç).
+
+**Kullanıcı kararları (soruları geçti → önerilen varsayımlar):** (1) Şube İçi alıcı = Personel + Araç (yeni
+"Birim" kavramı YOK). (2) Giriş-Çıkış'ta üst "Transfer" → "Depo Çıkışı → Şube Dışı" altına BİRLEŞTİRİLDİ.
+Ortak servis: `StockService.IssueOut` (Şube İçi) / `Transfer` (Şube Dışı) — mevcut, değişmedi.
+
+- **Birim 1 (Giriş-Çıkış, masaüstü+web):** "Transfer" üst tipi kaldırıldı; "Depo Çıkışı" → Çıkış Türü alt-seçimi
+  (Şube İçi=IssueOut / Şube Dışı=Transfer). Dinamik alan göster/gizle (Şube Dışı'nda Personel gizli, Hedef Şube
+  görünür; Şube İçi'nde Personel/Araç görünür, Hedef Şube gizli). Personel zorunluluğu Şube Dışı'nda kalktı
+  (transfer). Backend değişmedi.
+- **Birim 2 (Günlük Faaliyet, masaüstü+web):** yeni "Depo Çıkışı" kayıt tipi (araç "Transfer"i ayrı kalır).
+  AYNI ortak servis/endpoint (`StockService.IssueOut`/`Transfer`; web `/api/stock/issue`,`/api/stock/transfer`).
+  Tek malzeme + miktar + Çıkış Türü + (Şube İçi: personel/araç / Şube Dışı: hedef şube). Araç OPSİYONEL.
+  **Tasarım kararı:** ayrı daily_activity log satırı OLUŞTURULMADI (şema/grid/API değişmesin diye) — çıkış stok
+  defterine yazılır, **Stok Hareketleri**'nde görünür (kullanıcıya status mesajıyla belirtiliyor). Backend/şema
+  değişmedi; kod tekrarı yok (servis ortak).
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü+web), test 608/0 (servisler değişmedi). API/şema değişmedi →
+  **API deploy GEREKMEZ**; yalnız web deploy + masaüstü yeni sürüm. Görsel doğrulama kullanıcıda (canlı).

@@ -39,7 +39,10 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public ObservableCollection<DailyActivityGridRow> Items { get; } = new();
     // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19): Bakım ile AYNI alanlar, Bakım Tanımı/Alt
     // Bakım YOK (bkz. IsRealMaintenance/IsMaintenanceLike aşağıda).
-    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir" };
+    public ObservableCollection<string> KindOptions { get; } = new() { "Hareket", "Transfer", "Bakım", "İlave Yağ", "İlave Filtre", "Tamir", "Depo Çıkışı" };
+    // Depo Çıkışı (kullanıcı isteği 2026-08-07): Giriş-Çıkış'takiyle AYNI ortak servis (StockService.IssueOut/
+    // Transfer). Şube İçi = çıkış, Şube Dışı = transfer. Araç faaliyet "Transfer"inden (mevcut) BAĞIMSIZ.
+    public ObservableCollection<string> ExitScopeOptions { get; } = new() { "Şube İçi", "Şube Dışı" };
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
     public ObservableCollection<LookupItem> Personnel { get; } = new();
@@ -221,9 +224,35 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     [NotifyPropertyChangedFor(nameof(IsMaintenance))]
     [NotifyPropertyChangedFor(nameof(IsRealMaintenance))]
     [NotifyPropertyChangedFor(nameof(IsMovement))]
+    [NotifyPropertyChangedFor(nameof(IsStockExit))]
+    [NotifyPropertyChangedFor(nameof(IsInBranchExit))]
+    [NotifyPropertyChangedFor(nameof(IsOutBranchExit))]
+    [NotifyPropertyChangedFor(nameof(ShowExitTargetBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowExitPersonnel))]
     [NotifyPropertyChangedFor(nameof(DescriptionLabel))]
     private string _formKind = "Hareket";
     public bool IsTransfer => FormKind == "Transfer";
+    /// <summary>Depo Çıkışı (MALZEME) — mevcut araç "Transfer"inden ayrı; StockService ile stok düşer.</summary>
+    public bool IsStockExit => FormKind == "Depo Çıkışı";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInBranchExit))]
+    [NotifyPropertyChangedFor(nameof(IsOutBranchExit))]
+    [NotifyPropertyChangedFor(nameof(ShowExitTargetBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowExitPersonnel))]
+    private string _exitScope = "Şube İçi";
+    public bool IsInBranchExit => IsStockExit && ExitScope == "Şube İçi";
+    public bool IsOutBranchExit => IsStockExit && ExitScope == "Şube Dışı";
+    public bool ShowExitTargetBranch => IsOutBranchExit;
+    public bool ShowExitPersonnel => IsInBranchExit;   // Şube Dışı'nda personel gizli (madde 6)
+
+    // Depo Çıkışı alanları — tek malzeme + miktar (Giriş-Çıkış deseni). Personel/Araç: Şube İçi'de görünür.
+    public ObservableCollection<MaterialRefRow> ExitMaterialResults { get; } = new();
+    [ObservableProperty] private string _exitMaterialSearch = "";
+    [ObservableProperty] private MaterialRefRow? _exitMaterial;
+    [ObservableProperty] private string _exitBalanceText = "";
+    [ObservableProperty] private decimal _exitQuantity;
+    [ObservableProperty] private BranchRow? _exitToBranch;
+    [ObservableProperty] private LookupItem? _exitPersonnel;
     /// <summary>Açıklama alanı etiketi: arıza-onarım türlerinde (İlave Yağ/Filtre/Tamir) "Arıza Açıklaması",
     /// diğerlerinde "Açıklama" (kullanıcı isteği 2026-07-19). Aynı alana (description) yazılır; şema değişmez.</summary>
     public string DescriptionLabel => FormKind is "İlave Yağ" or "İlave Filtre" or "Tamir" ? "Arıza Açıklaması" : "Açıklama";
@@ -317,6 +346,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         MDef = null; MSubDef = null; MTechnician = null; MKm = 0; MHour = 0;
         MntMaterialSearch = ""; IsAddingSub = false; NewSubName = "";
         MntLines.Clear(); RefreshMntMaterials();
+        ExitScope = "Şube İçi"; ExitMaterial = null; ExitMaterialSearch = ""; ExitBalanceText = "";
+        ExitQuantity = 0; ExitToBranch = null; ExitPersonnel = null; RefreshExitMaterials();
         ShowForm = true;
     }
 
@@ -363,6 +394,30 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         RefreshMntMaterials();
     }
 
+    // ── Depo Çıkışı: tek malzeme seçici (Giriş-Çıkış deseni) ──
+    partial void OnExitMaterialSearchChanged(string value) => RefreshExitMaterials();
+    private void RefreshExitMaterials()
+    {
+        ExitMaterialResults.Clear();
+        var term = ExitMaterialSearch?.Trim();
+        try
+        {
+            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 30 },
+                string.IsNullOrEmpty(term) ? null : term);
+            foreach (var m in page.Items) ExitMaterialResults.Add(new MaterialRefRow(m.Id, m.Code, m.Name));
+        }
+        catch { }
+    }
+    [RelayCommand] private void PickExitMaterial(MaterialRefRow? m)
+    {
+        if (m is null) return;
+        ExitMaterial = m;
+        ExitMaterialSearch = $"{m.Code} - {m.Name}";
+        ExitMaterialResults.Clear();
+        try { ExitBalanceText = $"Mevcut stok: {DesktopServices.Stock.GetBalance(m.Id):0.##}"; }
+        catch { ExitBalanceText = ""; }
+    }
+
     [RelayCommand] private void StartAddSub() { if (MDef is null) { Status = "Önce bakım tanımı seçin."; return; } IsAddingSub = true; NewSubName = ""; }
     [RelayCommand] private void CancelAddSub() { IsAddingSub = false; NewSubName = ""; }
     [RelayCommand]
@@ -386,6 +441,43 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     {
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
+
+        // Depo Çıkışı (kullanıcı isteği 2026-08-07): Giriş-Çıkış ile AYNI ortak servis. Araç OPSİYONEL → araç
+        // zorunluluk kontrolünün ÖNÜNDE ele alınır. Şube İçi = IssueOut, Şube Dışı = Transfer.
+        if (IsStockExit)
+        {
+            if (!await BranchGuard.RequireBranchAsync(_session, "Günlük Faaliyet — Depo Çıkışı")) return;
+            if (ExitMaterial is null) { FormError = "Malzeme seçin."; return; }
+            if (ExitQuantity <= 0) { FormError = "Miktar sıfırdan büyük olmalı."; return; }
+            if (ShowExitPersonnel && ExitPersonnel is null) { FormError = "Personel (teslim alan) zorunludur."; return; }
+            var opx = Guid.NewGuid().ToString("N");
+            var notex = string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim();
+            try
+            {
+                if (IsInBranchExit)   // Şube İçi = merkez depodan düşer (IssueOut)
+                {
+                    if (!await ConfirmService.AskAsync("Şube içi çıkış kaydedilsin mi? (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
+                    DesktopServices.Stock.IssueOut(_session, new[] { new StockLine(ExitMaterial.Id, ExitQuantity) }, opx,
+                        branchId: _session.OperatingBranchId, personnelId: ExitPersonnel?.Id, vehicleId: FormVehicle?.Id, note: notex);
+                    Status = "Şube içi çıkış kaydedildi (Stok Hareketleri'nde görünür).";
+                }
+                else   // Şube Dışı = Transfer
+                {
+                    var fromx = _session.OperatingBranchId;
+                    if (string.IsNullOrEmpty(fromx)) { FormError = "Şubeniz belirlenemedi."; return; }
+                    if (ExitToBranch is null) { FormError = "Hedef şube seçin."; return; }
+                    if (ExitToBranch.Id == fromx) { FormError = "Hedef şube, kendi şubenizden farklı olmalı."; return; }
+                    if (!await ConfirmService.AskAsync("Şube dışı çıkış (transfer) kaydedilsin mi?", "Depo Çıkışı — Şube Dışı")) return;
+                    DesktopServices.Stock.Transfer(_session, ExitMaterial.Id, ExitQuantity, fromx, ExitToBranch.Id, opx, notex,
+                        personnelId: null, vehicleId: FormVehicle?.Id);
+                    Status = "Şube dışı çıkış (transfer) kaydedildi (Stok Hareketleri'nde görünür).";
+                }
+                ShowForm = false; Load();
+            }
+            catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+            return;
+        }
+
         if (FormVehicle is null) { FormError = "Araç seçin."; return; }
 
         if (IsRealMaintenance)
