@@ -14,39 +14,55 @@ using SkiaSharp;
 
 namespace DepoWise.Desktop.ViewModels;
 
+/// <summary>Rapor seçicide/filtrede kullanılan şube işareti (yetkili kullanıcı çoklu şube seçebilir).</summary>
+public sealed partial class BranchPick : ObservableObject
+{
+    public string Id { get; }
+    public string Name { get; }
+    [ObservableProperty] private bool _isChecked;
+    public BranchPick(string id, string name) { Id = id; Name = name; }
+}
+
 /// <summary>
-/// Raporlar — rapor tipi + tarih filtreleri (ortak form bileşenleri) + Sorgula. Salt okuma (ReportService).
-/// Rapor, Sorgula tıklanmadan çalışmaz (ReportGate). Grafikler yalnız çalıştırılan raporun GERÇEK verisinden
-/// türetilir (ek sorgu/sahte veri yok); tema merkezi palet renklerine bağlı.
+/// Raporlar — ORTAK MİMARİ (kullanıcı isteği 2026-08-07). Rapor listesi + filtre görünürlüğü TEK KATALOĞA
+/// (ReportCatalog) göre sürülür; yürütme ortak ReportService.Run (katalog dispatch + Bu Ay tarih varsayılanı +
+/// maks-kayıt). Filtreler rapora göre görünür (tarih yalnız UsesDate; şube seçici yalnız UsesBranch VE yetki).
+/// Otomatik sorgu YOK — yalnız Sorgula (ReportGate). Hesaplama BU FAZDA değişmez.
 /// </summary>
 public sealed partial class ReportsViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
-    // Merkezi palet (Palette.axaml ile aynı) — sınırlı, tutarlı seri renkleri
     private static readonly SKColor Accent = SKColor.Parse("2F6FD5");
     private static readonly SKColor Success = SKColor.Parse("2CBF6D");
     private static readonly SKColor Warning = SKColor.Parse("D8A617");
     private static readonly SKColor TextSecondary = SKColor.Parse("AEB7C4");
-    private const int MaxBars = 20; // büyük veri: nokta sayısını sınırla
+    private const int MaxBars = 20;
 
-    public ObservableCollection<string> ReportTypes { get; } = new()
-        { "Genel Rapor", "Stok Durumu", "Stok Sayım", "Yakıt Tüketim", "Bakım Raporu", "Depo Girişi", "Talep Raporu",
-          "Malzeme — Şablonlu", "Malzeme — Şablon Dışı", "Araç — Şablonlu", "Araç — Şablon Dışı", "Durum Rapor" };
+    /// <summary>Katalog-sürümlü rapor listesi (tek doğru kaynak). ComboBox Name gösterir (DataTemplate).</summary>
+    public IReadOnlyList<ReportDescriptor> ReportItems { get; } = ReportCatalog.All;
 
-    /// <summary>Yönetici raporu mu (Excel yetkisi buna göre: Yönetici Rapor vs Rapor özel butonu).</summary>
-    private static bool IsManagerReport(string report) => report is "Malzeme — Şablonlu" or "Malzeme — Şablon Dışı"
-        or "Araç — Şablonlu" or "Araç — Şablon Dışı" or "Durum Rapor";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDate))]
+    [NotifyPropertyChangedFor(nameof(ShowBranchSelect))]
+    private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
+
+    /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
+    public bool CanSelectBranches => AccessControl.CanUseButton(_session, SpecialButtons.BranchSelect);
+    public bool ShowDate => SelectedReport?.UsesDate == true;
+    public bool ShowBranchSelect => SelectedReport?.UsesBranch == true && CanSelectBranches;
+
+    /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
+    public ObservableCollection<BranchPick> Branches { get; } = new();
+
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
 
-    // Grafik
     public ObservableCollection<ISeries> ChartSeries { get; } = new();
     public ObservableCollection<ISeries> PieSeries { get; } = new();
     public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
     public Axis[] YAxes { get; private set; } = Array.Empty<Axis>();
 
-    [ObservableProperty] private string _selectedReport = "Stok Durumu";
     [ObservableProperty] private DateTimeOffset? _fromDate;
     [ObservableProperty] private DateTimeOffset? _toDate;
     [ObservableProperty] private string? _status;
@@ -74,11 +90,22 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool HasRows => HasRun && !HasError && Rows.Count > 0;
     public bool IsEmptyResult => HasRun && !HasError && Rows.Count == 0;
 
-    public ReportsViewModel(SessionContext session) => _session = session;
+    public ReportsViewModel(SessionContext session)
+    {
+        _session = session;
+        LoadBranches();
+        ApplyDateDefault();
+    }
 
-    /// <summary>Rapor tipi değişince önceki raporun sonucunu TEMİZLE — her rapor kendi Sorgula'sını ister
-    /// (alakasız veri başka raporda görünmesin). Web sekme davranışıyla tutarlı.</summary>
-    partial void OnSelectedReportChanged(string value)
+    private void LoadBranches()
+    {
+        if (!CanSelectBranches) return;
+        try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(new BranchPick(b.Id, b.Name)); }
+        catch { }
+    }
+
+    /// <summary>Rapor tipi değişince önceki sonucu TEMİZLE (otomatik sorgu yok) + RequiresDate ise tarih Bu Ay ön-dolu.</summary>
+    partial void OnSelectedReportChanged(ReportDescriptor value)
     {
         HasRun = false;
         LoadError = null;
@@ -86,9 +113,20 @@ public sealed partial class ReportsViewModel : ViewModelBase
         Rows.Clear();
         ShowBar = ShowPie = false;
         Status = null;
+        ApplyDateDefault();
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(IsEmptyResult));
         OnPropertyChanged(nameof(IsPrompt));
+    }
+
+    private void ApplyDateDefault()
+    {
+        if (SelectedReport is { RequiresDate: true } && FromDate is null && ToDate is null)
+        {
+            var now = DateTimeOffset.Now;
+            FromDate = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset);
+            ToDate = now;
+        }
     }
 
     [RelayCommand]
@@ -119,37 +157,27 @@ public sealed partial class ReportsViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowChart));
     }
 
-    /// <summary>Seçili rapor tipini TableModel'e çevirir (ekran + Excel export ortak kullanır).</summary>
+    /// <summary>Seçili raporu ortak yürütmeyle (ReportService.Run) TableModel'e çevirir — API ile AYNI dispatch +
+    /// tarih varsayılanı + maks-kayıt. Filtreler rapora göre: tarih yalnız UsesDate; şube yalnız yetkili seçim.</summary>
     private TableModel BuildTable()
     {
+        var branchIds = ShowBranchSelect
+            ? Branches.Where(b => b.IsChecked).Select(b => b.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
-            FromDate: FromDate?.ToUnixTimeMilliseconds(),
-            ToDate: ToDate?.ToUnixTimeMilliseconds());
-        return SelectedReport switch
-        {
-            "Genel Rapor" => DesktopServices.Reports.General(_session, req),
-            "Stok Sayım" => DesktopServices.Reports.StockCount(_session, req),
-            "Yakıt Tüketim" => DesktopServices.Reports.FuelConsumption(_session, req),
-            "Bakım Raporu" => DesktopServices.Reports.Maintenance(_session, req),
-            "Depo Girişi" => DesktopServices.Reports.FuelDepot(_session, req),
-            "Talep Raporu" => DesktopServices.Reports.Requests(_session, req),
-            "Malzeme — Şablonlu" => DesktopServices.Reports.MaterialsByTemplate(_session, req),
-            "Malzeme — Şablon Dışı" => DesktopServices.Reports.MaterialsNonTemplate(_session, req),
-            "Araç — Şablonlu" => DesktopServices.Reports.VehiclesByTemplate(_session, req),
-            "Araç — Şablon Dışı" => DesktopServices.Reports.VehiclesNonTemplate(_session, req),
-            "Durum Rapor" => DesktopServices.Reports.StatusReport(_session, req),
-            _ => DesktopServices.Reports.StockStatus(_session, req),
-        };
+            FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
+            ToDate: ShowDate ? ToDate?.ToUnixTimeMilliseconds() : null,
+            BranchIds: branchIds);
+        var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
+        return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }
 
-    /// <summary>Seçili raporu Excel'e aktarır. Yetki yoksa (deny-by-default özel buton) "yetkiniz yok"
-    /// uyarısı gösterir; API tarafı da fail-closed. Yönetici raporu ↔ Rapor için iki ayrı özel buton.</summary>
+    /// <summary>Seçili raporu Excel'e aktarır. Yönetici ↔ Standart için iki ayrı özel buton (deny-by-default).</summary>
     [RelayCommand]
     private async System.Threading.Tasks.Task ExportExcelAsync()
     {
-        var button = IsManagerReport(SelectedReport)
-            ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports;
+        var button = SelectedReport.IsManager ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports;
         if (!AccessControl.CanUseButton(_session, button))
         {
             Status = "Excel dışa aktarma yetkiniz yok. Yetki için firma yöneticinize başvurun.";
@@ -160,7 +188,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
             var table = BuildTable();
             var bytes = DesktopServices.Excel.Export(table);
             var path = await DepoWise.Desktop.FilePickerService.SaveExcelAsync(SafeFileName(table.Title) + ".xlsx");
-            if (string.IsNullOrEmpty(path)) return;   // kullanıcı iptal etti
+            if (string.IsNullOrEmpty(path)) return;
             await System.IO.File.WriteAllBytesAsync(path, bytes);
             DepoWise.Desktop.FilePickerService.OpenFile(path);
             Status = $"Excel'e aktarıldı: {table.Title}";
@@ -171,7 +199,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private static string SafeFileName(string title)
         => System.Text.RegularExpressions.Regex.Replace(title ?? "Rapor", @"[^\p{L}\p{Nd}]+", "_").Trim('_');
 
-    /// <summary>Grafiği çalıştırılan raporun gerçek satırlarından kurar (sahte seri yok).</summary>
+    /// <summary>Grafiği çalıştırılan raporun gerçek satırlarından kurar (sahte seri yok). Katalog anahtarına göre.</summary>
     private void BuildChart(TableModel table)
     {
         ChartSeries.Clear();
@@ -180,9 +208,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
         var labelPaint = new SolidColorPaint(TextSecondary) { SKTypeface = SKTypeface.Default };
 
-        if (SelectedReport == "Yakıt Tüketim")
+        if (SelectedReport.Key == "fuel")
         {
-            // Araç başına litre (col0=Araç, col3=Litre). TOPLAM satırı hariç. Büyük veride ilk MaxBars.
             var data = table.Rows.Where(r => (r[0]?.ToString() ?? "") != "TOPLAM").Take(MaxBars).ToList();
             var liters = data.Select(r => ToDouble(r[3])).ToArray();
             var labels = data.Select(r => r[0]?.ToString() ?? "").ToArray();
@@ -195,7 +222,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
                 DataLabelsPaint = new SolidColorPaint(TextSecondary),
                 DataLabelsSize = 11,
                 DataLabelsPosition = LiveChartsCore.Measure.DataLabelsPosition.Top,
-                EasingFunction = null, // animasyonu azalt (perf)
+                EasingFunction = null,
             });
             XAxes = new[] { new Axis { Labels = labels, LabelsPaint = labelPaint, TextSize = 11, LabelsRotation = 30 } };
             YAxes = new[] { new Axis { Name = "Litre", NamePaint = labelPaint, LabelsPaint = labelPaint, TextSize = 11 } };
@@ -204,9 +231,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             ChartTitle = "Araç Bazında Yakıt (Litre)";
             ShowBar = liters.Length > 0;
         }
-        else if (SelectedReport == "Stok Durumu")
+        else if (SelectedReport.Key == "stock")
         {
-            // Stok durum dağılımı: Düşük (stok<=min) vs Yeterli (col2=Stok, col3=Min Stok)
             int low = 0, ok = 0;
             foreach (var r in table.Rows)
             {

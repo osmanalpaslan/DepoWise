@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:rep="using:DepoWise.Application.Reports"
              xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -16,15 +17,36 @@
         <!-- Filtreler (ortak form bileşenleri) -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
             <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Bottom">
-                <ctrl:FormField Label="Rapor" Width="200">
-                    <ComboBox Classes="Field" ItemsSource="{Binding ReportTypes}"
-                              SelectedItem="{Binding SelectedReport}" HorizontalAlignment="Stretch"/>
+                <!-- Rapor listesi TEK KATALOĞA (ReportItems) göre; ComboBox raporun adını gösterir. -->
+                <ctrl:FormField Label="Rapor" Width="220">
+                    <ComboBox Classes="Field" ItemsSource="{Binding ReportItems}"
+                              SelectedItem="{Binding SelectedReport}" HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="rep:ReportDescriptor"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Başlangıç" Width="170">
+                <!-- Tarih yalnız rapor tarih kullanıyorsa (RequiresDate → Bu Ay ön-dolu). -->
+                <ctrl:FormField Label="Başlangıç" Width="170" IsVisible="{Binding ShowDate}">
                     <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
                 </ctrl:FormField>
-                <ctrl:FormField Label="Bitiş" Width="170">
+                <ctrl:FormField Label="Bitiş" Width="170" IsVisible="{Binding ShowDate}">
                     <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                </ctrl:FormField>
+                <!-- Şube seçici (çoklu) yalnız rapor şube kullanıyorsa VE kullanıcı yetkiliyse (btn-branch-select).
+                     İşaretsiz = oturum (login) şubesi (non-breaking). -->
+                <ctrl:FormField Label="Şube (çoklu; boş=kendi şubem)" Width="230" IsVisible="{Binding ShowBranchSelect}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Branches}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
                 </ctrl:FormField>
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
                 <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"

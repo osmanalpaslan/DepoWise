@@ -32,12 +32,17 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 ### 🆕 Rapor altyapısı standartlaştırma (2026-08-07, Opus 4.8) — SÜRÜYOR
 Ham + fazlar: [docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md](docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md).
 Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra tek tek, önce Araç Raporu).
-- ✅ **Birim 1 — Backend temel:** `ReportCatalog`/`ReportDescriptor` (12 rapor tek kaynak), `ReportLimits`
-  (maks-kayıt, Ayarlar'dan), genel `btn-branch-select` yetkisi (Yetki Ağacına otomatik; admin bypass; sunucu
-  zorlar), `ReportScope` (**ölü şube filtresi non-breaking düzeltildi** — boş=oturum, yetkili+açık=honor),
-  `ReportService.Run` (katalog dispatch + **Bu Ay** tarih varsayılanı + maks-kayıt). `/api/reports/catalog`.
-  Build 0 hata, test 616/0 (+8). **Henüz deploy edilmedi** (Birim 2-3 sonrası birlikte).
-- ⏭️ Sıradaki: Birim 2 (web ekran kataloğa taşınır + Stok Sayım paritesi + yetkiyle şube seçici).
+- ✅ **Birim 1 — Backend temel:** `ReportCatalog`/`ReportDescriptor` (12 rapor tek kaynak, + `ReportCategory`
+  kategorileri + UI-dönük Description), `ReportLimits` (maks-kayıt, Ayarlar'dan), genel `btn-branch-select`
+  yetkisi (Yetki Ağacına otomatik; admin bypass; sunucu zorlar), `ReportScope` (**ölü şube filtresi non-breaking
+  düzeltildi** — boş=oturum, yetkili+açık=honor), `ReportService.Run` (katalog dispatch + **Bu Ay** tarih
+  varsayılanı + maks-kayıt). `/api/reports/catalog`.
+- ✅ **Birim 2 — Web ekran:** Reports.razor katalog-sürümlü (sabit dizi kalktı), kategori-gruplu seçici, dinamik
+  filtre (tarih yalnız UsesDate, şube seçici yalnız yetki+UsesBranch), **Stok Sayım paritesi kapandı**, yükleniyor.
+- ✅ **Birim 3 — Masaüstü ekran:** ReportsView/VM katalog ComboBox, dinamik tarih görünürlüğü, yetkili şube
+  seçici (checkbox çoklu), Bu Ay varsayılanı, ortak `ReportService.Run`. Build 0 hata, test 616/0.
+- ⏭️ Sıradaki: **DEPLOY** (API+web+masaüstü 1.0.111 — Birim 1-3 canlı) → sonra Birim 4 (ortak sonuç tablosu:
+  kolon-altı filtre/sıralama/genişlik + kolon tercihleri).
 
 
 

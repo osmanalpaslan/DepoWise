@@ -9,10 +9,10 @@ kullanılacak). 3. **PDF/Yazdır yok** (yalnız Excel). 4. **Sayfalama yok** (bu
 (Ayarlar'dan değişebilir). 8. Performans öncelik. 9. Her birim sonunda rapor + commit.
 
 ## Fazlar
-- **Birim 1 — Backend temel** ✅ (aşağıda)
-- Birim 2 — Web ekran kataloğa taşınır (dinamik filtre, şube seçici yetkiyle, Stok Sayım paritesi, yükleniyor)
-- Birim 3 — Masaüstü ekran kataloğa taşınır (dinamik filtre, yetkili şube seçici, tarih varsayılanı)
-- Birim 4 — Ortak sonuç tablosu bileşeni (kolon-altı filtre/sıralama/genişlik) + kolon tercihleri
+- **Birim 1 — Backend temel** ✅ (+kategori/Description revizesi)
+- **Birim 2 — Web ekran** ✅ katalog-sürümlü, dinamik filtre, yetkiyle şube seçici, Stok Sayım paritesi, yükleniyor
+- **Birim 3 — Masaüstü ekran** ✅ katalog ComboBox, dinamik tarih, yetkili şube (checkbox çoklu), Bu Ay varsayılanı, ortak Run
+- Birim 4 — Ortak sonuç tablosu bileşeni (kolon-altı filtre/sıralama/genişlik) + kolon tercihleri (ListPrefs) — SIRADA
 
 ---
 
