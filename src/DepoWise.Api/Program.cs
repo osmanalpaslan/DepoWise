@@ -571,7 +571,25 @@ app.MapPost("/api/me/list-columns/{listKey}", (HttpContext ctx, string listKey, 
 app.MapGet("/api/me/list-prefs/{listKey}", (HttpContext ctx, string listKey) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
-    return Results.Ok(new { pageSize = svc.ListPrefs.GetPageSize(s, listKey), widths = svc.ListPrefs.GetWidths(s, listKey) });
+    // Birim 4: TEK sorguda tüm kişisel tercih (kolon sırası/seçimi + genişlik + sayfa boyutu + pinned + sıralama).
+    // Ortak tablo bileşeni ekran açılırken bir kez çağırır (performans kuralı: her işlemde tekrar okunmaz).
+    var p = svc.ListPrefs.GetAll(s, listKey);
+    return Results.Ok(new
+    {
+        columns = p.Columns,
+        pageSize = p.PageSize,
+        widths = p.Widths,
+        pinned = p.Pinned,                                   // gelecekte aktif; şimdilik yalnız taşınır
+        sort = p.Sort is null ? null : new { key = p.Sort.Key, desc = p.Sort.Desc },
+    });
+}).RequireAuthorization();
+// Kaydedilmiş varsayılan sıralama (Birim 4 altyapı — UI'da henüz aktif değil, ama uç hazır).
+app.MapPost("/api/me/list-prefs/{listKey}/sort", (HttpContext ctx, string listKey, SortPrefDto d) =>
+{
+    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.Key)) return Results.BadRequest();
+    svc.ListPrefs.SaveSort(s, listKey, d.Key!, d.Desc);
+    return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 app.MapPost("/api/me/list-prefs/{listKey}/page-size", (HttpContext ctx, string listKey, PageSizeDto d) =>
 {
@@ -2320,6 +2338,7 @@ record MachineResetDto(string? MachineName);   // ADR-085
 record ListColumnsDto(List<string>? Columns);   // ADR-087 (liste kolon tercihi, kişisel)
 record PageSizeDto(int PageSize);                // ADR-089 (kişisel sayfa boyutu)
 record WidthsDto(Dictionary<string, int>? Widths); // ADR-089 (kişisel kolon genişlikleri)
+record SortPrefDto(string? Key, bool Desc);        // Birim 4 (kişisel varsayılan sıralama — altyapı)
 record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);

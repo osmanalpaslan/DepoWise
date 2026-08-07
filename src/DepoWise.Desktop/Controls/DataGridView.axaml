@@ -1,0 +1,120 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:prim="using:Avalonia.Controls.Primitives"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="480"
+             x:Class="DepoWise.Desktop.Controls.DataGridView"
+             x:DataType="vm:GridController">
+
+    <!--  GENEL AMAÇLI ortak tablo (Birim 4). DataContext bir GridController'dır (host verir). Rapora bağımlı
+          DEĞİL: kolon-altı filtre + başlık-tık sıralama + sürükleyerek genişlik + gizleme/sıralama (Kolonlar
+          menüsü) + kişisel tercih. Yapı MaterialsView ile aynı (dış yatay ScrollViewer + DockPanel; header/
+          filtre Top; gövde ListBox kendi dikey kaydırması) — kanıtlanmış desen.  -->
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Araç çubuğu: Kolonlar menüsü (görünürlük + sıra) + özet -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+            <Button Classes="Secondary" Content="Kolonlar ▾"
+                    ToolTip.Tip="Kolon görünürlüğü ve sırası (yalnız sizin için)">
+                <Button.Flyout>
+                    <Flyout Placement="Bottom">
+                        <ScrollViewer MaxHeight="340">
+                            <ItemsControl ItemsSource="{Binding Columns}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:GridColumnVm">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" MinWidth="240" Margin="0,2">
+                                            <!-- IsChecked SALT-GÖRÜNÜM (OneWay); değişimi YALNIZ komut yapar
+                                                 (çift-toggle önlenir; en-az-bir-kolon güvencesi + kalıcılık komutta). -->
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsVisible, Mode=OneWay}" Content="{Binding Label}"
+                                                      Command="{Binding ToggleVisibleCommand}"/>
+                                            <Button Grid.Column="1" Classes="Ghost" Content="▲" Padding="8,2" Margin="4,0,0,0"
+                                                    Command="{Binding MoveLeftCommand}" ToolTip.Tip="Sola taşı"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="▼" Padding="8,2" Margin="2,0,0,0"
+                                                    Command="{Binding MoveRightCommand}" ToolTip.Tip="Sağa taşı"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+            <SelectableTextBlock Text="{Binding Summary}" Classes="Helper" VerticalAlignment="Center"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Classes="Table">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <DockPanel HorizontalAlignment="Left">
+
+                    <!-- Başlık satırı: her kolon Width'e bağlı; tıkla=sırala; sağ kenar tutamağı=genişlik. -->
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <ItemsControl ItemsSource="{Binding Columns}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GridColumnVm">
+                                    <Grid IsVisible="{Binding IsVisible}" Width="{Binding Width}" ColumnDefinitions="*,6">
+                                        <Button Grid.Column="0" Classes="Ghost" HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Left" Padding="8,4"
+                                                Command="{Binding SortCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <SelectableTextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                                                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Text="{Binding SortGlyph}"
+                                                                     Foreground="{DynamicResource AccentBrush}"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <!-- Sürükleyerek genişlet/daralt (kod-arkası Thumb.DragDelta işler). -->
+                                        <Thumb Grid.Column="1" Width="6" Background="Transparent"
+                                               Cursor="SizeWestEast"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <!-- Başlık-altı filtre satırı: her kutu ilgili sütunun TAM ALTINDA (aynı Width). -->
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,4">
+                        <ItemsControl ItemsSource="{Binding Columns}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GridColumnVm">
+                                    <TextBox IsVisible="{Binding IsVisible}" Width="{Binding Width}" Classes="Search"
+                                             Margin="2,0" Text="{Binding Filter, Mode=TwoWay}" PlaceholderText="{Binding Hint}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <!-- Gövde: satırlar; hücreler kolon SIRASINA göre; genişlik/görünürlük kolondan okunur. -->
+                    <ListBox Classes="Table" ItemsSource="{Binding View}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GridRowVm">
+                                <ItemsControl ItemsSource="{Binding Cells}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:GridCellVm">
+                                            <SelectableTextBlock Text="{Binding Text}" Padding="8,6"
+                                                                 IsVisible="{Binding Column.IsVisible}"
+                                                                 Width="{Binding Column.Width}"
+                                                                 VerticalAlignment="Center"
+                                                                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Text}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</UserControl>

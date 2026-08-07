@@ -12,7 +12,8 @@ kullanılacak). 3. **PDF/Yazdır yok** (yalnız Excel). 4. **Sayfalama yok** (bu
 - **Birim 1 — Backend temel** ✅ (+kategori/Description revizesi)
 - **Birim 2 — Web ekran** ✅ katalog-sürümlü, dinamik filtre, yetkiyle şube seçici, Stok Sayım paritesi, yükleniyor
 - **Birim 3 — Masaüstü ekran** ✅ katalog ComboBox, dinamik tarih, yetkili şube (checkbox çoklu), Bu Ay varsayılanı, ortak Run
-- Birim 4 — Ortak sonuç tablosu bileşeni (kolon-altı filtre/sıralama/genişlik) + kolon tercihleri (ListPrefs) — SIRADA
+- **Birim 4 — Ortak tablo bileşeni** ✅ genel amaçlı (rapora özel değil); kişisel tercih (sıra/genişlik/gizli
+  aktif, pinned/sort infra); kolon-altı filtre + sıralama + genişlik + gizleme; yalnız Raporlar'a uygulandı
 
 ---
 
@@ -43,3 +44,46 @@ kesme, tarih-varsayılanı, bilinmeyen-anahtar). Tümü + tam paket **616/0** (6
 tarama engellenir); maks-kayıt kesme bellek koruması. Hesaplama sorguları değişmedi (N+1'ler rapor-bazlı redesign'da).
 
 **Commit:** `Birim 1 (rapor-mimarisi): ortak katalog + genel sube yetkisi + Run dispatch/tarih-varsayilani/maks-kayit`
+
+---
+
+## BİRİM 4 — Ortak tablo bileşeni (2026-08-07, Opus 4.8) ✅
+
+> Kullanıcı 8 mimari kural verdi (genel amaçlı; kullanıcı-bazlı tercih; performans=tek yükleme; web+masaüstü
+> aynı davranış; kolon-altı filtre; geleceğe hazır satır işlemleri; yalnız Raporlar'a uygula; test+commit+rapor).
+
+**Yapılanlar:**
+- **Tercih altyapısı (geleceğe hazır):** `Migration058` → `pinned_json` + `sort_json` (SQLite+PG, idempotent,
+  dialect-safe). `UserListPreferenceService`: `GetPinned/SavePinned`, `GetSort/SaveSort`, ve **`GetAll` (TEK
+  sorguda kolon+sayfa+genişlik+pinned+sort** — performans kuralı: ekran açılışında bir kez okunur). API:
+  `/api/me/list-prefs/{listKey}` GET artık hepsini döndürür + yeni `.../sort` POST. Web ApiClient:
+  `GetListPrefsFullAsync` + `SaveSortAsync`. **Aktif:** sıra/genişlik/gizli. **Altyapıda hazır (UI kapalı):**
+  pinned, varsayılan sıralama.
+- **Ortak çekirdek (test edilebilir):** `DepoWise.Application/Ui/GridDataView.cs` — istemci-tarafı filtre
+  (Excel-benzeri: metin=içerir; sayısal=tam / `> < >= <=` / `5-10` aralık) + sıralama. Saf/deterministik.
+- **Web bileşeni:** `DwDataGrid.razor` — genel amaçlı (`GridKey`+`Columns`+`Rows`), mevcut `dw-grid` tasarımı
+  (kolon-altı filtre satırı, ⠿ sürükle-taşı, başlık-tık sırala, CSS genişlik + "Genişlikleri kaydet", kolon
+  seçici). Filtre/sıralama tarayıcıda. → `Reports.razor` tabloyu bununla değiştirdi (GridKey=`reports:{key}`).
+- **Masaüstü bileşeni:** `GridController` (beyin: kolon/satır VM'leri, filtre/sıralama `GridDataView`'e delege,
+  tercih kancaları) + `DataGridView.axaml` kontrolü (dinamik kolonlar; header-tık sırala; Thumb sürükle-genişlik;
+  "Kolonlar" menüsü=görünürlük+sıra; kolon-altı filtre). Komutlar KOLON üzerinde → popup/item-template binding
+  güvenli. → `ReportsView` eski tabloyu `DataGridView`+`Grid` ile değiştirdi.
+- **Kapsam:** yalnız Raporlar ekranı geçirildi; Malzeme/Araç/Günlük vb. **dokunulmadı** (kural 7). Bileşen
+  ileride satır işlemleri (sağ tık/toplu seçim/renk) için esnek (RowVm/CellVm ayrı) — şimdi eklenmedi (kural 6).
+
+**Değişen/eklenen dosyalar:** `Migration058...cs`(+), `MigrationCatalog.cs`, `UserListPreferenceService.cs`,
+`Program.cs`(API GET+sort POST+DTO), `ApiClient.cs`(web), `GridDataView.cs`(+), `DwDataGrid.razor`(+),
+`Reports.razor`(web), `GridController.cs`(+), `DataGridView.axaml`(+)/`.cs`(+), `ReportsView.axaml`, `ReportsViewModel.cs`,
+`UserListPreferenceTests.cs`(+5), `GridDataViewTests.cs`(+12).
+
+**Testler:** +17 (5 tercih: pinned/sort/GetAll round-trip+kişisel izolasyon; 12 grid davranış: metin/sayısal
+filtre, karşılaştırma/aralık, boş-hücre eleme, çoklu-filtre VE, sıralama artan/azalan, Match theory). Tam
+paket **633/0** (616→633, 11 PG atlandı), regresyon yok.
+
+**Performans:** Tercih ekran açılışında **tek sorgu** (`GetAll`), değişince yalnız ilgili alan yazılır.
+Filtre/sıralama **istemcide** (sunucuya tekrar sorgu YOK) → rapor gibi hazır sonuçta ideal, VPS'e ek yük yok.
+
+**Görsel doğrulama:** Web build + davranış testleri yeşil; masaüstü Avalonia bu ortamda önizlenemez →
+binding/davranış incelendi, görsel doğrulama **1.0.112'de kullanıcıyla** yapılacak (kullanıcı notu).
+
+**Commit:** `Birim 4 (rapor-mimarisi): genel amacli ortak tablo bileseni + kullanici kolon tercihleri (web+masaustu)`

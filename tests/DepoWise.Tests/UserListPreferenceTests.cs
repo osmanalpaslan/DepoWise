@@ -127,6 +127,72 @@ public class UserListPreferenceTests : IDisposable
         Assert.Null(_prefs.GetWidths(u2, "materials"));   // başka kullanıcı etkilenmez
     }
 
+    // ── Birim 4 (ortak tablo bileşeni) — pinned + sıralama altyapısı + tek-sorguda hepsi ──
+    [Fact]
+    public void Pinned_KaydedilipGeriDoner_KisiyeOzel()
+    {
+        var u1 = User("A", "u1");
+        var u2 = User("A", "u2");
+        Assert.Null(_prefs.GetPinned(u1, "reports:general"));
+        _prefs.SavePinned(u1, "reports:general", new[] { "code", "name" });
+        Assert.Equal(new[] { "code", "name" }, _prefs.GetPinned(u1, "reports:general"));
+        Assert.Null(_prefs.GetPinned(u2, "reports:general"));   // başka kullanıcı etkilenmez
+    }
+
+    [Fact]
+    public void Sort_KaydedilipGeriDoner()
+    {
+        var u = User("A", "u1");
+        Assert.Null(_prefs.GetSort(u, "reports:fuel"));
+        _prefs.SaveSort(u, "reports:fuel", "amount", desc: true);
+        var s = _prefs.GetSort(u, "reports:fuel");
+        Assert.NotNull(s);
+        Assert.Equal("amount", s!.Key);
+        Assert.True(s.Desc);
+    }
+
+    /// <summary>Pinned/sort kaydı KOLON seçimini EZMEZ (UpsertField columns_json'ı '[]' bırakır → null).</summary>
+    [Fact]
+    public void PinnedVeSort_KolonSeciminiEzmez()
+    {
+        var u = User("A", "u1");
+        _prefs.SavePinned(u, "reports:general", new[] { "code" });
+        _prefs.SaveSort(u, "reports:general", "name", desc: false);
+        Assert.Null(_prefs.GetColumns(u, "reports:general"));   // hâlâ varsayılan
+    }
+
+    /// <summary>KRİTİK (performans kuralı): tüm tercih TEK sorguda okunur; parça parça yazılanlar birleşir.</summary>
+    [Fact]
+    public void GetAll_TumTercihiTekSorgudaGetirir()
+    {
+        var u = User("A", "u1");
+        _prefs.SaveColumns(u, "reports:general", new[] { "code", "name", "amount" });
+        _prefs.SaveWidths(u, "reports:general", new Dictionary<string, int> { ["code"] = 100 });
+        _prefs.SavePageSize(u, "reports:general", 50);
+        _prefs.SavePinned(u, "reports:general", new[] { "code" });
+        _prefs.SaveSort(u, "reports:general", "amount", desc: true);
+
+        var all = _prefs.GetAll(u, "reports:general");
+        Assert.Equal(new[] { "code", "name", "amount" }, all.Columns);
+        Assert.Equal(50, all.PageSize);
+        Assert.Equal(100, all.Widths!["code"]);
+        Assert.Equal(new[] { "code" }, all.Pinned);
+        Assert.Equal("amount", all.Sort!.Key);
+        Assert.True(all.Sort.Desc);
+    }
+
+    [Fact]
+    public void GetAll_HicKayitYoksa_TumAlanlarNull()
+    {
+        var u = User("A", "u1");
+        var all = _prefs.GetAll(u, "reports:general");
+        Assert.Null(all.Columns);
+        Assert.Null(all.PageSize);
+        Assert.Null(all.Widths);
+        Assert.Null(all.Pinned);
+        Assert.Null(all.Sort);
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_dbPath); } catch { }

@@ -381,6 +381,38 @@ public sealed class ApiClient
     public Task<string?> SaveWidthsAsync(string listKey, Dictionary<string, int> widths) =>
         PostAsync($"/api/me/list-prefs/{listKey}/widths", new { widths });
 
+    /// <summary>Birim 4 (ortak tablo bileşeni): bir ekranın TÜM kişisel tercihi TEK çağrıda — kolon
+    /// sırası/seçimi + genişlik + sıralama. Ortak tablo ekran açılırken bir kez çağırır.</summary>
+    public sealed record ListPrefsFull(List<string>? Columns, Dictionary<string, int>? Widths, string? SortKey, bool SortDesc);
+    public async Task<ListPrefsFull> GetListPrefsFullAsync(string listKey)
+    {
+        try
+        {
+            var obj = await GetObjectAsync($"/api/me/list-prefs/{listKey}");
+            List<string>? cols = null;
+            if (obj.TryGetProperty("columns", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Array)
+                cols = c.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x != "").ToList();
+            Dictionary<string, int>? w = null;
+            if (obj.TryGetProperty("widths", out var wj) && wj.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                w = new();
+                foreach (var kv in wj.EnumerateObject()) if (kv.Value.ValueKind == System.Text.Json.JsonValueKind.Number) w[kv.Name] = kv.Value.GetInt32();
+            }
+            string? sk = null; bool sd = false;
+            if (obj.TryGetProperty("sort", out var sj) && sj.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                sk = sj.TryGetProperty("key", out var k) ? k.GetString() : null;
+                sd = sj.TryGetProperty("desc", out var dd) && dd.ValueKind == System.Text.Json.JsonValueKind.True;
+            }
+            return new ListPrefsFull(cols is { Count: > 0 } ? cols : null, w is { Count: > 0 } ? w : null, sk, sd);
+        }
+        catch { return new ListPrefsFull(null, null, null, false); }
+    }
+
+    /// <summary>Kaydedilmiş varsayılan sıralama (Birim 4 altyapı — şimdilik yalnız hatırlanır).</summary>
+    public Task<string?> SaveSortAsync(string listKey, string key, bool desc) =>
+        PostAsync($"/api/me/list-prefs/{listKey}/sort", new { key, desc });
+
     public async Task<List<CompanyDto>> GetCompaniesAsync()
     {
         var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies"));

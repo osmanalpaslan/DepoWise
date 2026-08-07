@@ -27,7 +27,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07j — Rapor ortak mimarisi Birim 1 backend)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07k — Rapor ortak mimarisi Birim 4 ortak tablo)
 
 ### 🆕 Rapor altyapısı standartlaştırma (2026-08-07, Opus 4.8) — SÜRÜYOR
 Ham + fazlar: [docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md](docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md).
@@ -41,10 +41,17 @@ Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra
   filtre (tarih yalnız UsesDate, şube seçici yalnız yetki+UsesBranch), **Stok Sayım paritesi kapandı**, yükleniyor.
 - ✅ **Birim 3 — Masaüstü ekran:** ReportsView/VM katalog ComboBox, dinamik tarih görünürlüğü, yetkili şube
   seçici (checkbox çoklu), Bu Ay varsayılanı, ortak `ReportService.Run`. Build 0 hata, test 616/0.
-- ✅ **YAYINLANDI (2026-08-07):** API (`depowise-erp`, health 200, `/api/reports/catalog` 401=var) + web
-  (`depowise-web`, 200) deploy + masaüstü **1.0.111** (sunucuda en güncel, checksum 0EBDED...). Birim 1-3 CANLIDA.
-- ⏭️ Sıradaki: **Birim 4** — ortak sonuç tablosu bileşeni (kolon-altı filtre/sıralama/genişlik + kolon tercihleri
-  ListPrefs). Ondan sonra raporlar tek tek yeniden tasarlanacak (önce Araç Raporu).
+- ✅ **Birim 1-3 YAYINLANDI (2026-08-07):** API (`depowise-erp`) + web (`depowise-web`) + masaüstü **1.0.111**.
+- ✅ **Birim 4 — Ortak tablo bileşeni (GENEL AMAÇLI, rapora özel değil):** Herhangi bir listeleme ekranında
+  yeniden kullanılabilir tablo. **Kişisel kolon tercihi** (sıra+seçim+genişlik AKTİF; **pinned + varsayılan
+  sıralama altyapıda hazır**, UI'da henüz kapalı) — ekran açılışında **TEK sorgu** (`ListPrefs.GetAll`;
+  Migration058 `pinned_json`/`sort_json`). **Kolon-altı filtre** (Excel-benzeri: metin=içerir, sayısal=tam/
+  karşılaştırma/aralık), **başlık-tık sıralama**, **sürükleyerek genişlik**, **gizleme/yeniden sıralama**.
+  Filtre/sıralama İSTEMCİDE (in-memory, tekrar sorgu yok) — çekirdek ortak `GridDataView` (test edilebilir).
+  **Web:** `DwDataGrid.razor` (mevcut `dw-grid` tasarımı) → Reports.razor. **Masaüstü:** `GridController` +
+  `DataGridView` kontrolü → ReportsView. **Yalnız Raporlar'a uygulandı; diğer ekranlara dokunulmadı.** Build
+  0 hata, test **633/0** (+17: 5 tercih + 12 grid davranış). Görsel doğrulama kullanıcıda (Avalonia önizlemesi yok).
+- ⏭️ Sıradaki: raporlar tek tek yeniden tasarlanacak (önce **Araç Raporu**) — ayrı görev, kullanıcı onayıyla.
 
 
 

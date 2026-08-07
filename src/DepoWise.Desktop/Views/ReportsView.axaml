@@ -56,39 +56,9 @@
 
         <!-- Tablo / durumlar -->
         <Panel Grid.Row="2" Margin="0,16,0,0">
-            <Border Classes="Table" IsVisible="{Binding HasRows}">
-                <DockPanel>
-                    <Border Classes="TableHeader" DockPanel.Dock="Top">
-                        <ItemsControl ItemsSource="{Binding Headers}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="x:String">
-                                    <SelectableTextBlock Text="{Binding}" MinWidth="160"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Rows}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <ItemsControl ItemsSource="{Binding}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="x:String">
-                                            <SelectableTextBlock Text="{Binding}" MinWidth="160" VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
+            <!-- Ortak tablo bileşeni (Birim 4): kolon-altı filtre / sıralama / genişlik / gizleme + kişisel
+                 tercih. Rapora özel değil — DataContext bir GridController'dır (Grid), rapor sonucu buraya beslenir. -->
+            <ctrl:DataGridView DataContext="{Binding Grid}" IsVisible="{Binding HasRows}"/>
 
             <ctrl:StatePanel Mode="Empty" Title="Rapor hazır" Message="Filtreleri seçip Sorgula'ya basın."
                              IsVisible="{Binding IsPrompt}"/>

@@ -6,7 +6,20 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-07-25**
+> Son güncelleme: **2026-08-07**
+
+---
+
+## ✅ Rapor ortak mimarisi — Birim 4: Ortak tablo bileşeni (2026-08-07) — TAMAMLANDI (yayına hazır)
+
+Genel amaçlı, yeniden kullanılabilir tablo bileşeni (web `DwDataGrid` + masaüstü `GridController`/`DataGridView`):
+kolon-altı filtre (Excel-benzeri), başlık-tık sıralama, sürükle-genişlik, gizleme/yeniden sıralama + **kullanıcı-
+bazlı kolon tercihi** (sıra/genişlik/gizli aktif; **pinned + varsayılan sıralama altyapıda hazır**, UI kapalı).
+Ekran açılışında **tek sorgu** (`ListPrefs.GetAll`, Migration058). Filtre/sıralama istemcide (tekrar sorgu yok;
+çekirdek `GridDataView`). **Yalnız Raporlar'a uygulandı; diğer ekranlar dokunulmadı.** Build 0 hata, test 633/0
+(+17). Görsel doğrulama masaüstünde **1.0.112'de kullanıcıyla** (Avalonia önizlemesi yok).
+
+**Sıradaki (ayrı görev):** Raporlar tek tek yeniden tasarlanacak — **önce Araç Raporu** (kullanıcı onayıyla).
 
 ---
 

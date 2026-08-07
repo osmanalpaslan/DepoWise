@@ -1,0 +1,271 @@
+@using System.Globalization
+@inject ApiClient Api
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@*  ============================================================================
+    DwDataGrid — GENEL AMAÇLI ortak tablo bileşeni (Birim 4, kullanıcı isteği 2026-08-07).
+    Hiçbir modüle/rapora bağımlı DEĞİLDİR: kolon tanımları + satırlar (in-memory) verilir,
+    bileşen kolon-altı filtre / başlık-tık sıralama / sürükle-taşı / genişlik / gizleme +
+    KİŞİSEL kolon tercihi (sıra+seçim+genişlik; ekran açılırken TEK sefer yüklenir) sağlar.
+
+    Veri in-memory'dir: filtre/sıralama TARAYICIDA yapılır (sunucuya tekrar sorulmaz) → rapor
+    gibi önceden hesaplanmış sonuçlar için idealdir. İleride satır bazlı işlemler (sağ tık,
+    toplu seçim, renklendirme) RowActions/başka RenderFragment'larla eklenebilir — mimari esnek.
+
+    Görsel: mevcut .dw-grid tasarım dili AYNEN (app.css). Filtre kutuları her sütunun TAM ALTINDA.
+    ============================================================================ *@
+
+<div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap" Spacing="2">
+        <MudTooltip Text="Kolonları ayarla (bu tabloda sağ tık da açar) — yalnız sizin için geçerlidir">
+            <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+        </MudTooltip>
+        <MudSpacer />
+        <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarınızı) sizin için kaydeder">
+            <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
+        </MudTooltip>
+        @if (_hasFilters)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Filtreyi temizle</MudButton>
+        }
+    </MudStack>
+</div>
+
+<div style="overflow-x:auto;">
+    <table id="@_tableId" class="dw-grid">
+        <thead>
+            <tr>
+                @foreach (var key in _order)
+                {
+                    <th data-key="@key" style="@ThStyle(key)"
+                        @ondragover:preventDefault="true" @ondrop="@(() => OnDropColumn(key))">
+                        <div class="dw-th">
+                            <span title="Sürükleyerek kolonu taşı" draggable="true"
+                                  @ondragstart="@(() => _dragKey = key)"
+                                  style="cursor:grab;opacity:.45;margin-right:4px;user-select:none;">⠿</span>
+                            <span style="cursor:pointer;flex:1 1 auto;" @onclick="@(() => ToggleSort(key))">@Label(key).ToUpperInvariant()</span>
+                            <span class="dw-sort">@SortArrow(key)</span>
+                        </div>
+                    </th>
+                }
+            </tr>
+            @* Başlık-altı filtre satırı — her kolonun TAM ALTINDA (table-layout:fixed ile otomatik hizalı). *@
+            <tr>
+                @foreach (var key in _order)
+                {
+                    <th style="@ThStyle(key)" class="dw-filter-th">
+                        <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
+                            <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
+                                          Placeholder="@(IsNumeric(key) ? "5, >5, 5-10…" : "içerir…")"
+                                          Immediate="true" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" />
+                        </MudTooltip>
+                    </th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _view)
+            {
+                <tr>
+                    @foreach (var key in _order)
+                    {
+                        var cell = Value(row, key);
+                        <td title="@cell">@cell</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<MudText Typo="Typo.caption" Class="mud-text-secondary">@_view.Count / @(_rows?.Count ?? 0) satır@(_hasFilters ? " (filtreli)" : "")</MudText>
+
+@code {
+    /// <summary>Kişisel tercih anahtarı (örn. "reports:general"). Boşsa tercih yüklenmez/kaydedilmez.</summary>
+    [Parameter] public string GridKey { get; set; } = "";
+    /// <summary>Kolon tanımları (sıra = varsayılan görünüm sırası). Key benzersiz olmalı.</summary>
+    [Parameter] public IReadOnlyList<ListColumn> Columns { get; set; } = Array.Empty<ListColumn>();
+    /// <summary>Satırlar — her satır <see cref="Columns"/> ile AYNI sırada hücre değerleri (in-memory).</summary>
+    [Parameter] public IReadOnlyList<IReadOnlyList<string>> Rows { get; set; } = Array.Empty<IReadOnlyList<string>>();
+
+    private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
+    private string _tableId = "dwgrid";
+    private List<string> _order = new();                          // görünür kolonlar, sırayla (gizli = listede değil)
+    private readonly Dictionary<string, string> _filters = new(); // key → filtre metni
+    private Dictionary<string, int> _widths = new();              // key → piksel (kişisel)
+    private string? _sortKey; private bool _sortDesc;
+    private string? _dragKey;
+
+    private IReadOnlyList<IReadOnlyList<string>>? _rows;
+    private List<IReadOnlyList<string>> _view = new();
+    private Dictionary<string, int> _colIndex = new(StringComparer.Ordinal);
+    private string _signature = "";                               // Columns+GridKey imzası (değişince tercih tekrar yüklenir)
+    private bool _hasFilters => _filters.Values.Any(v => !string.IsNullOrWhiteSpace(v));
+
+    private string Label(string key) => Columns.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+    private bool IsNumeric(string key) => Columns.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
+    private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
+    private string ThStyle(string key) => _widths.TryGetValue(key, out var w) && w > 0 ? $"width:{w}px;" : "width:150px;";
+    private string SortArrow(string key) => _sortKey == key ? (_sortDesc ? "▼" : "▲") : "";
+    private string Value(IReadOnlyList<string> row, string key)
+        => _colIndex.TryGetValue(key, out var i) && i < row.Count ? row[i] : "";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var sig = GridKey + "|" + string.Join(",", Columns.Select(c => c.Key));
+        if (sig != _signature)
+        {
+            // Kolon şeması/GridKey değişti (yeni rapor seçildi) → tercihi ekran açılışında TEK sefer yükle.
+            _signature = sig;
+            _tableId = "dwgrid-" + Math.Abs(sig.GetHashCode()).ToString();
+            _colIndex = new(StringComparer.Ordinal);
+            for (int i = 0; i < Columns.Count; i++) _colIndex[Columns[i].Key] = i;
+            _filters.Clear();
+            _order = Columns.Select(c => c.Key).ToList();
+            _widths = new(); _sortKey = null; _sortDesc = false;
+            await LoadPrefs();
+        }
+        _rows = Rows;
+        Recompute();
+    }
+
+    /// <summary>Kişisel tercih (kolon sırası+seçim, genişlik, sıralama) — ekran açılışında TEK sorgu (performans).</summary>
+    private async Task LoadPrefs()
+    {
+        if (string.IsNullOrEmpty(GridKey)) return;
+        try
+        {
+            var p = await Api.GetListPrefsFullAsync(GridKey);
+            if (p.Columns is { Count: > 0 })
+            {
+                // Yalnız GEÇERLİ (mevcut şemadaki) kolonları koru; sıra kayıttan, şemada olup kayıtta olmayan gizli kalır.
+                var valid = new HashSet<string>(Columns.Select(c => c.Key), StringComparer.Ordinal);
+                var kept = p.Columns.Where(valid.Contains).ToList();
+                if (kept.Count > 0) _order = kept;
+            }
+            if (p.Widths is { Count: > 0 }) _widths = new(p.Widths);
+            if (!string.IsNullOrEmpty(p.SortKey) && _colIndex.ContainsKey(p.SortKey!)) { _sortKey = p.SortKey; _sortDesc = p.SortDesc; }
+        }
+        catch { }
+    }
+
+    private void Recompute()
+    {
+        var rows = _rows ?? Array.Empty<IReadOnlyList<string>>();
+        IEnumerable<IReadOnlyList<string>> q = rows;
+
+        // ── Filtre (kolon-altı, Excel-benzeri: metin=içerir, sayısal=tam/karşılaştırma/aralık) ──
+        foreach (var (key, raw) in _filters)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            var f = raw.Trim();
+            var numeric = IsNumeric(key);
+            q = q.Where(r => Match(Value(r, key), f, numeric));
+        }
+
+        // ── Sıralama (başlığa tıklama) — sayısal kolon sayısal, diğerleri metin karşılaştırması ──
+        var list = q.ToList();
+        if (_sortKey is not null && _colIndex.ContainsKey(_sortKey))
+        {
+            bool num = IsNumeric(_sortKey);
+            Comparison<IReadOnlyList<string>> cmp = (a, b) =>
+            {
+                var av = Value(a, _sortKey); var bv = Value(b, _sortKey);
+                int c;
+                if (num && TryNum(av, out var ad) && TryNum(bv, out var bd)) c = ad.CompareTo(bd);
+                else c = string.Compare(av, bv, StringComparison.CurrentCultureIgnoreCase);
+                return _sortDesc ? -c : c;
+            };
+            list.Sort(cmp);
+        }
+        _view = list;
+    }
+
+    private static bool Match(string cell, string filter, bool numeric)
+    {
+        if (!numeric) return cell.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
+        if (!TryNum(cell, out var v)) return false;
+        // Aralık: 5-10
+        var dash = filter.IndexOf('-', 1);
+        if (dash > 0 && TryNum(filter[..dash], out var lo) && TryNum(filter[(dash + 1)..], out var hi))
+            return v >= Math.Min(lo, hi) && v <= Math.Max(lo, hi);
+        // Karşılaştırma: >= <= > <
+        if (filter.StartsWith(">=") && TryNum(filter[2..], out var g1)) return v >= g1;
+        if (filter.StartsWith("<=") && TryNum(filter[2..], out var l1)) return v <= l1;
+        if (filter.StartsWith(">") && TryNum(filter[1..], out var g2)) return v > g2;
+        if (filter.StartsWith("<") && TryNum(filter[1..], out var l2)) return v < l2;
+        // Tam eşleşme
+        return TryNum(filter, out var eq) && v == eq;
+    }
+
+    private static bool TryNum(string s, out decimal value)
+    {
+        value = 0m;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        var t = s.Trim().Replace(" ", "").Replace(" ", "");
+        if (decimal.TryParse(t, NumberStyles.Number, Tr, out value)) return true;
+        if (decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out value)) return true;
+        return false;
+    }
+
+    private void SetFilter(string key, string v) { _filters[key] = v ?? ""; Recompute(); }
+    private void ClearFilters() { _filters.Clear(); Recompute(); }
+
+    private async Task ToggleSort(string key)
+    {
+        if (_sortKey != key) { _sortKey = key; _sortDesc = false; }
+        else if (!_sortDesc) { _sortDesc = true; }
+        else { _sortKey = null; _sortDesc = false; }
+        Recompute();
+        // Kaydedilmiş varsayılan sıralama (altyapı) — kolon seçildiğinde hatırlansın.
+        if (!string.IsNullOrEmpty(GridKey) && _sortKey is not null)
+            try { await Api.SaveSortAsync(GridKey, _sortKey, _sortDesc); } catch { }
+    }
+
+    private async Task OnDropColumn(string targetKey)
+    {
+        var src = _dragKey; _dragKey = null;
+        if (string.IsNullOrEmpty(src) || src == targetKey) return;
+        var from = _order.IndexOf(src);
+        if (from < 0) return;
+        _order.RemoveAt(from);
+        var to = _order.IndexOf(targetKey);
+        _order.Insert(to < 0 ? _order.Count : to, src);
+        await PersistColumns();
+    }
+
+    private async Task OpenColumnPicker()
+    {
+        var parameters = new DialogParameters { ["Available"] = Columns.ToList(), ["Selected"] = _order };
+        var dlg = await Dialog.ShowAsync<ColumnPickerDialog>("Kolonları Ayarla", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dlg.Result;
+        if (result is null || result.Canceled || result.Data is not List<string> chosen) return;
+        // Seçilen kolonlar; sıra: önce mevcut sıradaki seçililer, sonra yeni eklenenler (şema sırasına göre).
+        var chosenSet = new HashSet<string>(chosen, StringComparer.Ordinal);
+        var ordered = _order.Where(chosenSet.Contains).ToList();
+        ordered.AddRange(Columns.Select(c => c.Key).Where(k => chosenSet.Contains(k) && !ordered.Contains(k)));
+        _order = ordered;
+        await PersistColumns();
+        Recompute();
+    }
+
+    private async Task SaveWidths()
+    {
+        try
+        {
+            var w = await JS.InvokeAsync<Dictionary<string, int>>("dwReadColWidths", _tableId);
+            if (w is { Count: > 0 })
+            {
+                _widths = w;
+                if (!string.IsNullOrEmpty(GridKey)) await Api.SaveWidthsAsync(GridKey, w);
+            }
+        }
+        catch { }
+    }
+
+    private async Task PersistColumns()
+    {
+        if (!string.IsNullOrEmpty(GridKey)) try { await Api.SaveListColumnsAsync(GridKey, _order); } catch { }
+    }
+}

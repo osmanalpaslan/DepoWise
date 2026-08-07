@@ -151,16 +151,9 @@ else
     else if (_rows.Count == 0) { <MudText Class="mud-text-secondary">Kayıt bulunamadı.</MudText> }
     else
     {
-        <MudSimpleTable Dense="true" Hover="true" Striped="true" Style="overflow-x:auto">
-            <thead><tr>@foreach (var h in _headers) { <th>@h</th> }</tr></thead>
-            <tbody>
-                @foreach (var row in _rows)
-                {
-                    <tr>@foreach (var cell in row) { <td>@cell</td> }</tr>
-                }
-            </tbody>
-        </MudSimpleTable>
-        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_rows.Count satır</MudText>
+        @* Ortak tablo bileşeni (Birim 4): kolon-altı filtre / sıralama / genişlik / gizleme + kişisel tercih.
+           Rapora özel değil — GridKey ile herhangi bir ekran kullanabilir. *@
+        <DwDataGrid GridKey="@($"reports:{_selKey}")" Columns="_columns" Rows="_rows" />
     }
 </MudPaper>
 
@@ -261,7 +254,35 @@ else
     private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new();
     private List<string>? _headers;
     private List<List<string>> _rows = new();
+    private List<ListColumn> _columns = new();   // ortak tablo bileşenine (DwDataGrid) verilen kolon tanımları
     private string? _error; private bool _busy;
+
+    /// <summary>Rapor başlıklarından ortak tablonun kolon tanımlarını üretir: başlık = anahtar+etiket;
+    /// sayısal tespit (BuildSummary ile AYNI kural) → filtre kutusu tam-sayı/karşılaştırma/aralık kabul eder.
+    /// Aynı başlık tekrarsa anahtar benzersizleştirilir (tercih JSON'u ve data-key çakışmasın).</summary>
+    private void BuildColumns()
+    {
+        _columns = new();
+        if (_headers is null) return;
+        int cols = _headers.Count;
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int c = 0; c < cols; c++)
+        {
+            int filled = 0, parsed = 0;
+            foreach (var r in _rows)
+            {
+                if (c >= r.Count || string.IsNullOrWhiteSpace(r[c])) continue;
+                filled++;
+                if (TryNum(r[c], out _)) parsed++;
+            }
+            bool numeric = filled >= 3 && parsed * 10 >= filled * 6;
+            var label = _headers[c];
+            var key = label;
+            if (seen.TryGetValue(label, out var n)) { key = $"{label}#{n + 1}"; seen[label] = n + 1; }
+            else seen[label] = 0;
+            _columns.Add(new ListColumn(key, label, numeric));
+        }
+    }
 
     // ── Özet + grafik (yalnız tarayıcıda hesaplanır; sunucuya hiç sorulmaz) ──
     private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
@@ -428,6 +449,7 @@ else
             if (d.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
                 foreach (var row in rows.EnumerateArray())
                     _rows.Add(row.EnumerateArray().Select(Cell).ToList());
+            BuildColumns();
             BuildSummary();
         }
         catch (Exception ex) { _error = "Hata: " + ex.Message; _headers = null; ClearSummary(); }

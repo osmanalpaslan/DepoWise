@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
@@ -58,6 +59,11 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<string> Headers { get; } = new();
     public ObservableCollection<string[]> Rows { get; } = new();
 
+    /// <summary>Ortak tablo bileşeni (Birim 4) — kolon-altı filtre/sıralama/genişlik/gizleme + kişisel tercih.
+    /// Rapora özel değil; GridKey ile herhangi bir ekran kullanabilir. Rapor sonucu buraya beslenir (aşağıda).</summary>
+    public GridController Grid { get; } = new();
+    private string GridKey => $"reports:{SelectedReport.Key}";
+
     public ObservableCollection<ISeries> ChartSeries { get; } = new();
     public ObservableCollection<ISeries> PieSeries { get; } = new();
     public Axis[] XAxes { get; private set; } = Array.Empty<Axis>();
@@ -93,6 +99,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ReportsViewModel(SessionContext session)
     {
         _session = session;
+        // Ortak tablonun kişisel tercih kancaları — kalıcılık DesktopServices.ListPrefs (yerel SQLite, kişiye özel).
+        // GridKey rapor bazlı: her rapor kendi kolon sırası/genişliği/gizli/sıralamasını hatırlar. Ekran açılışında
+        // TEK yükleme (GetAll — tek sorgu); değişince ilgili alan yazılır (performans kuralı).
+        Grid.LoadPreferences = () => { try { return DesktopServices.ListPrefs.GetAll(_session, GridKey); } catch { return null; } };
+        Grid.PersistColumns = cols => { try { DesktopServices.ListPrefs.SaveColumns(_session, GridKey, cols); } catch { } };
+        Grid.PersistWidths = w => { try { DesktopServices.ListPrefs.SaveWidths(_session, GridKey, w); } catch { } };
+        Grid.PersistSort = (k, d) => { try { DesktopServices.ListPrefs.SaveSort(_session, GridKey, k, d); } catch { } };
         LoadBranches();
         ApplyDateDefault();
     }
@@ -111,6 +124,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadError = null;
         Headers.Clear();
         Rows.Clear();
+        Grid.Clear();          // ortak tablodaki eski sonucu temizle (yeni rapor için)
         ShowBar = ShowPie = false;
         Status = null;
         ApplyDateDefault();
@@ -140,13 +154,17 @@ public sealed partial class ReportsViewModel : ViewModelBase
             Headers.Clear();
             foreach (var h in table.Headers) Headers.Add(h);
             Rows.Clear();
+            var rows = new List<string[]>(table.Rows.Count);
             foreach (var row in table.Rows)
             {
                 var cells = new string[row.Count];
                 for (int i = 0; i < row.Count; i++) cells[i] = Format(row[i]);
+                rows.Add(cells);
                 Rows.Add(cells);
             }
             HasRun = true;
+            // Ortak tabloya besle (kolonlar sayısal-tespitli; satırlar snapshot). Filtre/sıralama istemcide.
+            Grid.SetData(BuildColumns(table.Headers, rows), rows);
             BuildChart(table);
             Status = $"{Rows.Count} satır — {table.Title}";
         }
@@ -268,6 +286,42 @@ public sealed partial class ReportsViewModel : ViewModelBase
         double d => (decimal)d,
         _ => decimal.TryParse(v?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
     };
+
+    /// <summary>Rapor başlıklarından ortak tablonun kolon tanımlarını üretir (web ile AYNI kural): başlık =
+    /// anahtar+etiket; sayısal tespit → filtre kutusu tam/karşılaştırma/aralık kabul eder. Aynı başlık tekrarsa
+    /// anahtar benzersizleşir (tercih JSON'u çakışmasın).</summary>
+    private static List<ListColumn> BuildColumns(IReadOnlyList<string> headers, List<string[]> rows)
+    {
+        var cols = new List<ListColumn>(headers.Count);
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int c = 0; c < headers.Count; c++)
+        {
+            int filled = 0, parsed = 0;
+            foreach (var r in rows)
+            {
+                if (c >= r.Length || string.IsNullOrWhiteSpace(r[c])) continue;
+                filled++;
+                if (TryNum(r[c], out _)) parsed++;
+            }
+            bool numeric = filled >= 3 && parsed * 10 >= filled * 6;
+            var label = headers[c];
+            var key = label;
+            if (seen.TryGetValue(label, out var n)) { key = $"{label}#{n + 1}"; seen[label] = n + 1; }
+            else seen[label] = 0;
+            cols.Add(new ListColumn(key, label, numeric));
+        }
+        return cols;
+    }
+
+    private static bool TryNum(string s, out decimal value)
+    {
+        value = 0m;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        var t = s.Trim().Replace(" ", "").Replace(" ", "");
+        if (decimal.TryParse(t, NumberStyles.Number, CultureInfo.GetCultureInfo("tr-TR"), out value)) return true;
+        if (decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out value)) return true;
+        return false;
+    }
 
     private static string Format(object? v) => v switch
     {

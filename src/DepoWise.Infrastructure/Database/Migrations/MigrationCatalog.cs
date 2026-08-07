@@ -62,5 +62,6 @@ public static class MigrationCatalog
         new Migration055_MaterialBranch(),
         new Migration056_ExportPermission(),
         new Migration057_StockChangeLog(),
+        new Migration058_ListPreferencePinnedSort(),
     };
 }
