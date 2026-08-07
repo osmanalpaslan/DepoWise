@@ -30,7 +30,10 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);
     public bool CanReverse => AccessControl.Can(_session, "stock", PermissionAction.Delete);
 
-    public ObservableCollection<string> KindOptions { get; } = new() { "Yeni Kayıt", "Transfer", "Depo Çıkışı" };
+    // Kayıt tipi (kullanıcı isteği 2026-08-07): üst seviye "Transfer" KALDIRILDI → "Depo Çıkışı" altına Şube
+    // İçi/Şube Dışı alt-seçimi olarak taşındı. Şube İçi = çıkış (IssueOut), Şube Dışı = transfer (Transfer).
+    public ObservableCollection<string> KindOptions { get; } = new() { "Yeni Kayıt", "Depo Çıkışı" };
+    public ObservableCollection<string> ExitScopeOptions { get; } = new() { "Şube İçi", "Şube Dışı" };
     public ObservableCollection<string> TypeOptions { get; } = new() { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
     public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
@@ -58,9 +61,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNew))]
-    [NotifyPropertyChangedFor(nameof(IsTransfer))]
     [NotifyPropertyChangedFor(nameof(IsExit))]
+    [NotifyPropertyChangedFor(nameof(IsInBranchExit))]
+    [NotifyPropertyChangedFor(nameof(IsOutBranchExit))]
     [NotifyPropertyChangedFor(nameof(ShowNewForm))]
+    [NotifyPropertyChangedFor(nameof(ShowExitScope))]
     [NotifyPropertyChangedFor(nameof(ShowMaterialPicker))]
     [NotifyPropertyChangedFor(nameof(MaterialPickerLabel))]
     [NotifyPropertyChangedFor(nameof(MaterialPickerRequired))]
@@ -68,27 +73,52 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [NotifyPropertyChangedFor(nameof(NewFieldsEnabled))]
     [NotifyPropertyChangedFor(nameof(ShowPrice))]
     [NotifyPropertyChangedFor(nameof(ShowSingleBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowSourceBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowTargetBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowPersonnel))]
     [NotifyPropertyChangedFor(nameof(QuantityLabel))]
     private string _selectedKind = "Yeni Kayıt";
 
-    public bool IsNew => SelectedKind == "Yeni Kayıt";
-    public bool IsTransfer => SelectedKind == "Transfer";
-    public bool IsExit => SelectedKind == "Depo Çıkışı";
+    /// <summary>Depo Çıkışı alt-kapsamı (kullanıcı isteği 2026-08-07): "Şube İçi" (=çıkış/IssueOut) ya da
+    /// "Şube Dışı" (=transfer). Yalnız "Depo Çıkışı" tipinde anlamlıdır.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInBranchExit))]
+    [NotifyPropertyChangedFor(nameof(IsOutBranchExit))]
+    [NotifyPropertyChangedFor(nameof(ShowSingleBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowSourceBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowTargetBranch))]
+    [NotifyPropertyChangedFor(nameof(ShowPersonnel))]
+    private string _exitScope = "Şube İçi";
 
-    /// <summary>Yeni Kayıt → tam malzeme formu; Transfer/Çıkış → mevcut malzeme seçici (zorunlu).
+    public bool IsNew => SelectedKind == "Yeni Kayıt";
+    public bool IsExit => SelectedKind == "Depo Çıkışı";
+    /// <summary>Şube İçi Çıkış = malzeme aynı şubedeki personel/araca teslim, merkez depodan düşer (IssueOut).</summary>
+    public bool IsInBranchExit => IsExit && ExitScope == "Şube İçi";
+    /// <summary>Şube Dışı Çıkış = başka şubeye transfer (Transfer).</summary>
+    public bool IsOutBranchExit => IsExit && ExitScope == "Şube Dışı";
+
+    /// <summary>Yeni Kayıt → tam malzeme formu; Depo Çıkışı → mevcut malzeme seçici (zorunlu).
     /// Yeni Kayıt'ta da AYNI seçici gösterilir ama OPSİYONELDİR (madde 1.1, kullanıcı isteği 2026-08-06):
     /// mevcut malzeme seçilirse Kod/Ad/Tür/Birim/Kategori/Alt Kategori/Marka kilitlenip malzemeden doldurulur.</summary>
     public bool ShowNewForm => IsNew;
-    public bool ShowMaterialPicker => IsTransfer || IsExit || IsNew;
+    public bool ShowExitScope => IsExit;   // Şube İçi/Şube Dışı alt-seçim yalnız Depo Çıkışı'nda
+    public bool ShowMaterialPicker => IsExit || IsNew;
     public string MaterialPickerLabel => IsNew ? "Mevcut Malzemeye Giriş Yap (opsiyonel)" : "Malzeme";
-    public bool MaterialPickerRequired => !IsNew;
+    public bool MaterialPickerRequired => IsExit;
     /// <summary>Yeni Kayıt'ta mevcut malzeme seçildiyse malzeme kartı alanları (Kod/Ad/Tür/Birim/Kategori/Alt
     /// Kategori/Marka) kilitlenir — zaten malzemeden gelir, tekrar düzenlenmez. Tedarikçi/Birim Fiyat/Fatura-
     /// Fiş-İrsaliye/Açıklama HER ZAMAN aktif kalır (aynı malzeme farklı tedarikçiden farklı fiyatla alınabilir).</summary>
     public bool NewFieldsLocked => IsNew && HasMaterial;
     public bool NewFieldsEnabled => !NewFieldsLocked;
     public bool ShowPrice => IsNew;                 // birim fiyat yalnız girişte
-    public bool ShowSingleBranch => !IsTransfer;
+    // Dinamik alan yönetimi (madde 6): işlem tipine göre yalnız gerekli alanlar GÖRÜNÜR.
+    // Şube (Şubeniz) salt-okunur: Yeni Kayıt + Şube İçi. Kaynak/Hedef Şube: yalnız Şube Dışı (transfer).
+    public bool ShowSingleBranch => IsNew || IsInBranchExit;
+    public bool ShowSourceBranch => IsOutBranchExit;
+    public bool ShowTargetBranch => IsOutBranchExit;
+    /// <summary>Personel (teslim eden/alan): Yeni Kayıt + Şube İçi'nde görünür/gerekli; Şube Dışı'nda GİZLİ
+    /// (transfer alıcısı şube; kişi teslim yok — kullanıcı isteği 2026-08-07 madde 5).</summary>
+    public bool ShowPersonnel => IsNew || IsInBranchExit;
     public string QuantityLabel => IsExit ? "Çıkacak Miktar" : IsNew ? "Eklenecek Stok" : "Miktar";
 
     // İşlem şubesi = LOGIN (çalışma) şube (kullanıcı isteği 2026-08-06). Giriş/çıkışta İŞLEM şubesi, transferde
@@ -285,7 +315,9 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         FormError = null;
         if (!CanWrite) { FormError = "Yetki yok."; return; }
         if (!await BranchGuard.RequireBranchAsync(_session, "Malzeme Giriş-Çıkış")) return;   // "Tüm Şubeler" modunda işlem yok
-        if (PersonnelSel is null) { FormError = "Personel (işlemi yapan) zorunludur."; return; } // madde 8
+        // madde 8: personel "işlemi yapan/teslim alan" — Yeni Kayıt + Şube İçi'nde zorunlu. Şube Dışı (transfer)
+        // alanı gizli olduğundan zorunlu değildir (kullanıcı isteği 2026-08-07).
+        if (ShowPersonnel && PersonnelSel is null) { FormError = "Personel (işlemi yapan) zorunludur."; return; }
         if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(Quantity)
             && !await ConfirmService.AskAsync($"Miktar çok büyük görünüyor ({Quantity:0.##}). Emin misiniz?", "Miktar Uyarısı", "Evet, Doğru")) return; // madde 7
 
@@ -358,26 +390,26 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                 if (SelectedMaterial is null) { FormError = "Malzeme seçin."; return; }
                 if (Quantity <= 0) { FormError = "Miktar sıfırdan büyük olmalı."; return; }
 
-                if (IsExit)
+                if (IsInBranchExit)   // Şube İçi Çıkış = merkez depodan düşer (IssueOut)
                 {
-                    if (!await ConfirmService.AskAsync("Depo çıkışı kaydedilsin mi? (stok AZALIR)", "Depo Çıkışı")) return;
+                    if (!await ConfirmService.AskAsync("Şube içi çıkış kaydedilsin mi? (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
                     DesktopServices.Stock.IssueOut(_session,
                         new[] { new StockLine(SelectedMaterial.Id, Quantity) }, op,
                         branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // çıkış şubesi = login şube
-                    Status = "Depo çıkışı kaydedildi.";
+                    Status = "Şube içi çıkış kaydedildi.";
                 }
-                else // Transfer — kaynak = login şube (otomatik), kullanıcı yalnız HEDEFİ seçer
+                else // Şube Dışı Çıkış = Transfer — kaynak = login şube (otomatik), kullanıcı yalnız HEDEFİ seçer
                 {
                     var from = _session.OperatingBranchId;
                     if (string.IsNullOrEmpty(from)) { FormError = "Şubeniz belirlenemedi."; return; }
                     if (ToBranch is null) { FormError = "Hedef şube seçin."; return; }
                     if (ToBranch.Id == from) { FormError = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; return; }
-                    if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} transferi kaydedilsin mi?", "Transfer")) return;
+                    if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?", "Depo Çıkışı — Şube Dışı")) return;
                     DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, from, ToBranch.Id, op, note,
                         personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
-                    Status = "Transfer kaydedildi.";
+                    Status = "Şube dışı çıkış (transfer) kaydedildi.";
                 }
             }
 
@@ -414,6 +446,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         Quantity = 0; UnitPrice = 0; Note = ""; Branch = null; FromBranch = null; ToBranch = null;
         PersonnelSel = null; VehicleSel = null;
         InvoiceNo = ""; OrderSlipNo = ""; CreditSlipNo = "";
+        ExitScope = "Şube İçi";
         FormError = null;
         RefreshMaterials();
     }

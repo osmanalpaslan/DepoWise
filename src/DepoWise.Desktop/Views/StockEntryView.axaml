@@ -25,6 +25,11 @@
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}"/>
                     </ctrl:FormField>
+                    <!-- Depo Çıkışı alt-türü (kullanıcı isteği 2026-08-07): Şube İçi (çıkış) / Şube Dışı (transfer).
+                         Yalnız Depo Çıkışı seçilince görünür; seçime göre alttaki alanlar dinamik gizlenir/gösterilir. -->
+                    <ctrl:FormField Label="Çıkış Türü" Width="150" IsVisible="{Binding ShowExitScope}">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"/>
+                    </ctrl:FormField>
                     <ctrl:FormField Label="{Binding QuantityLabel}" IsRequired="True" Width="140">
                         <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
@@ -35,12 +40,12 @@
                     <ctrl:FormField Label="Şube (Şubeniz)" Width="200" IsVisible="{Binding ShowSingleBranch}">
                         <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Kaynak Şube (Şubeniz)" Width="180" IsVisible="{Binding IsTransfer}">
+                    <ctrl:FormField Label="Kaynak Şube (Şubeniz)" Width="180" IsVisible="{Binding ShowSourceBranch}">
                         <SelectableTextBlock Classes="Field" Text="{Binding LoginBranchName}" VerticalAlignment="Center"/>
                     </ctrl:FormField>
                     <!-- Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): AsyncPopulator — tıklanınca
                          (arama yapmadan) en fazla 25 kayıt, arama başlayınca sınırsız + Türkçe-doğru (SearchPopulator). -->
-                    <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="180" IsVisible="{Binding IsTransfer}">
+                    <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="180" IsVisible="{Binding ShowTargetBranch}">
                         <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" AsyncPopulator="{Binding BranchPopulator}" SelectedItem="{Binding ToBranch}"
                                           MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
@@ -49,7 +54,7 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240">
+                    <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240" IsVisible="{Binding ShowPersonnel}">
                         <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" AsyncPopulator="{Binding PersonnelPopulator}" SelectedItem="{Binding PersonnelSel}"
                                   MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
