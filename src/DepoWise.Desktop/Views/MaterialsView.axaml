@@ -67,12 +67,9 @@
                 <ctrl:FormField Label="Kategori">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Categories}" AsyncPopulator="{Binding CategoryPopulator}" SelectedItem="{Binding SelectedCategory}"
-                                      MinimumPrefixLength="0" PlaceholderText="Kategori ara..."
-                                      ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                      PlaceholderText="Kategori seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni kategori" Command="{Binding StartAddCategoryCommand}"/>
                         </Grid>
@@ -87,12 +84,9 @@
                 <ctrl:FormField Label="Alt Kategori">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding SubCategories}" AsyncPopulator="{Binding SubCategoryPopulator}" SelectedItem="{Binding SelectedSubCategory}"
-                                      MinimumPrefixLength="0" PlaceholderText="Alt kategori ara..."
-                                      ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
+                                      PlaceholderText="Alt kategori seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni alt kategori" Command="{Binding StartAddSubCategoryCommand}"/>
                         </Grid>
@@ -108,12 +102,9 @@
                                 HasError="{Binding HasUnitError}" ErrorText="{Binding UnitError}">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Units}" AsyncPopulator="{Binding UnitPopulator}" SelectedItem="{Binding SelectedUnit}"
-                                      MinimumPrefixLength="0" PlaceholderText="Birim ara..."
-                                      ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
+                                      PlaceholderText="Birim seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni birim" Command="{Binding StartAddUnitCommand}"/>
                         </Grid>
@@ -128,12 +119,9 @@
                 <ctrl:FormField Label="Marka">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Brands}" AsyncPopulator="{Binding BrandPopulator}" SelectedItem="{Binding SelectedBrand}"
-                                      MinimumPrefixLength="0" PlaceholderText="Marka ara..."
-                                      ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                      PlaceholderText="Marka seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni marka" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
@@ -148,12 +136,9 @@
                 <ctrl:FormField Label="Tedarikçi">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Suppliers}" AsyncPopulator="{Binding SupplierPopulator}" SelectedItem="{Binding SelectedSupplier}"
-                                      MinimumPrefixLength="0" PlaceholderText="Tedarikçi ara..."
-                                      ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
+                                      PlaceholderText="Tedarikçi seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0"
                                     ToolTip.Tip="Yeni tedarikçi" Command="{Binding StartAddSupplierCommand}"/>
                         </Grid>

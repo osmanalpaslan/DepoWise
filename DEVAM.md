@@ -27,7 +27,21 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08 — Sütun genişliği düzeltmesi (Prompt 2))
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08b — Sabit-tanım sol-tık liste (Prompt 1, Malzemeler pilot))
+
+### 🆕 Sabit-tanım (lookup) alanlarında SOL-TIK açılır liste + sayfalama (2026-08-08, Opus 4.8) — PİLOT: Malzemeler
+Kullanıcı isteği (Prompt 1): masaüstünde sabit-tanım alanları (Kategori/Birim/Marka/Tedarikçi…) sol-tıkta liste
+açsın (ilk 25), aramada da 25/sayfa + altta ‹Önceki/Sonraki›+"Sayfa X/Y", tekrar tıkta kapansın (aç-kapa döngüsü,
+yalnız alan içinde). Mevcut `AutoCompleteBox` bunu desteklemiyordu → **yeni `LookupBox` kontrolü**.
+- **Yeni:** `DepoWise.Application/Ui/LookupPaging.cs` (saf filtre+25'lik sayfalama, Türkçe-doğru; 7 test) +
+  `DepoWise.Desktop/Controls/LookupBox.cs` (kod-tabanlı; Border alan + Flyout liste + arama + önceki/sonraki;
+  tık-toggle double-dismiss korumalı) + `Border.LookupField` stili (ComboBox.Field ile eş görünüm).
+- **Uygulama:** YALNIZ Malzemeler ekranındaki 5 lookup (Kategori/Alt Kategori/Birim/Marka/Tedarikçi). Diğer ~24
+  ekran DOKUNULMADI (kullanıcı kararı: önce 1 ekran pilot, onaydan sonra tümüne yayılacak).
+- Build 0 hata, test **649/0** (+7 LookupPaging). Masaüstü Avalonia görsel test edilemez → **1.0.115'te kullanıcı
+  Malzemeler'de görsel doğrulayacak; onaydan sonra kalan ekranlara yayılacak.** ⏭️ Sonra: rapor süreçlerine dönüş.
+
+
 
 ### 🐞 Sütun genişliği KALICILIĞI KALDIRILDI + web resize DÜZELTİLDİ (2026-08-08, Opus 4.8)
 Kullanıcı bildirdi: masaüstünde otomatik "son genişliği hatırla" ayarı hatalı (eşitleme öncesi bozuk tepki,

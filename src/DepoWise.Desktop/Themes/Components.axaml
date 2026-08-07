@@ -279,6 +279,19 @@
         <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
     </Style>
 
+    <!-- Sabit-tanım (lookup) seçim alanı görünümü (LookupBox, Prompt 1 2026-08-08) — ComboBox.Field ile eş. -->
+    <Style Selector="Border.LookupField">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="11,8"/>
+        <Setter Property="MinHeight" Value="40"/>
+    </Style>
+    <Style Selector="Border.LookupField:pointerover">
+        <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
+    </Style>
+
     <!-- ════════════════════════════════════════════════════════════════════
          TABLO (ListBox tabanlı; DataGrid paketi Avalonia 12.0.4 ile uyumsuz)
          Desen: Border.Table > Border.TableHeader + ListBox.Table
