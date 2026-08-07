@@ -258,5 +258,37 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
 - [x] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1) — masaüstü + web + API (deploy bekliyor)
 - [x] 5 — Sistem Logu filtreleri (madde 4) — masaüstü + web + API (deploy bekliyor), 5 yeni test
 - [x] 6 — Bakım "+ Personel" butonu (5.2) — masaüstü + web
-- [ ] 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (1.2-1.5)
+- [x] 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (1.2-1.5) — 7a backend + 7b masaüstü + 7c web (deploy bekliyor)
 - [ ] 8 — Bakım negatif stok davranışı (5.3)
+
+---
+
+## BİRİM 7 (2026-08-07, Opus 4.8) — Malzeme stok alanı + doğrudan-değişiklik uyarısı + log ekranı + yetki (1.2-1.5)
+
+En büyük/riskli birim; 3 alt commite bölündü. **Mimari karar (değişmez §4 gereği):** malzeme kartındaki tek
+"Stok" değeri TOPLAM bakiyedir (stock_balances malzeme başına tek satır; şube-bazlı bakiye hareketlerden anlık).
+Doğrudan stok değişikliği DOĞRUDAN BAKİYE YAZIMIYLA değil, **SAYIM/DÜZELTME (adjustment) hareketiyle** uygulanır
+(mevcut StockService.Count mekanizması) — hareket defteri ana kaynak kalır, değişiklik stock_movements'a yazılıp
+senkronlanır. Uyarı LOGU ise audit_logs GİBİ senkron edilmez (her DB kendi kaydı; iptal zaten stoku değiştirmez).
+
+- **7a — Backend (commit ayrı):** `Migration057` stock_change_logs tablosu (denormalize snapshot, portable
+  SQLite+PG). Yeni modül `stock_change_log` (AppModules.All → **Yetki Ağacına OTOMATİK**; Admin-restricted →
+  yalnız yetkiliye görünür = madde 1.5). `StockChangeLogService.Record`: continued → Count(adjustment)+log,
+  cancelled → yalnız log. `.List`: Tarih Aralığı + limit (1-5000). API `/api/stock/change-log` GET+POST.
+  DesktopServices + ServerServices kablolandı. **5 yeni test** (devam=adjustment+log, iptal=yalnız log,
+  filtre, yetki-kapısı) — hepsi geçti.
+- **7b — Masaüstü (commit ayrı):** `MaterialQuickEditWindow` (çift-tık düzenleme ekranı = 1.2 yüzeyi): "Mevcut
+  Stok" salt-metin → düzenlenebilir `NumericUpDown` (yalnız stock:Create yetkisiyle; yoksa salt-okunur). Kaydet
+  akışında stok değiştiyse **güçlü uyarı** (StockChangeLogService.WarningMessage) + Devam/Vazgeç → StockChangeLog.
+  Record (Devam: adjustment+log; Vazgeç: yalnız log, kutu eski değere döner). Yeni ekran `StockChangeLogView/VM`
+  (Sistem Logu filtre deseni). Nav: Yönetim altında "Stok Değişiklik Kaydı". NOT: masaüstü ANA MaterialsView
+  düzenleme formunda mevcut-stok alanı YOK (yalnız yeni kayıtta Açılış Stok) — çift-tık QuickEdit asıl düzenleme
+  yüzeyi olduğundan 1.2 orada karşılandı.
+- **7c — Web (commit ayrı):** `MaterialEditDialog` (web çift-tık düzenleme): "Mevcut Stok" salt-alan →
+  düzenlenebilir `MudNumericField` (stock:Create yetkisiyle) + aynı uyarı/karar → POST `/api/stock/change-log`.
+  Uyarı metni web'de `FieldChecks.StockChangeWarning` sabiti (Infrastructure'a erişemez → sunucu metninin yansısı).
+  Yeni sayfa `StockChangeLog.razor` (`/stock-change-log`, Sistem Logu deseni + Kullanıcı/Sonuç istemci filtreleri).
+  Nav: Yönetim altında yeni bağlantı (module stock_change_log).
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü+web+API), test **608/0** (603→608, +5 StockChangeLogTests).
+  **Servis/endpoint + MIGRATION değişikliği → API deploy GEREKİR** (Birim 4/5 ile birlikte bekliyor; Migration057
+  sunucuda çalışacak). **Görsel/canlı doğrulama yapılamadı** (Avalonia önizlemesi yok, deploy edilmedi).

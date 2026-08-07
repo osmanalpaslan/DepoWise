@@ -94,7 +94,16 @@
                     @if (_edit) { <MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (TRY)" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
                     else { <MudField Label="Birim Fiyat (TRY)" Variant="Variant.Text">@_price.ToString("0.##")</MudField> }
                 </MudItem>
-                <MudItem xs="6"><MudField Label="Mevcut Stok" Variant="Variant.Text">@_stock</MudField></MudItem>
+                @* madde 1.2/1.3: stok görüntülenebilir + (yetkiliyse) düzenlenebilir. Doğrudan değişimde güçlü
+                   uyarı + log (madde 1.4). Yetki yoksa salt-okunur. *@
+                <MudItem xs="6">
+                    @if (_edit && CanEditStock)
+                    {
+                        <MudNumericField T="decimal" @bind-Value="_stockValue" Label="Mevcut Stok" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                         HelperText="Doğrudan değiştirmek stok düzeltmesi olarak loglanır." />
+                    }
+                    else { <MudField Label="Mevcut Stok" Variant="Variant.Text">@_stock</MudField> }
+                </MudItem>
 
                 <MudItem xs="12">
                     @if (_edit) { <MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /> }
@@ -133,6 +142,8 @@
     private bool _loading = true, _notFound, _edit, _busy, _ok;
     private string? _msg;
     private string _code = "", _name = "", _type = "Yedek Parça", _desc = "", _stock = "";
+    private decimal _stockValue, _originalStock;   // madde 1.2: düzenlenebilir mevcut stok
+    private bool CanEditStock => Auth.CanCreate("stock");
     private long _version; // düzenleme kilidi (bkz. SaveRecord)
     private string? _cat, _subCat, _unit, _brand, _sup;
     private decimal _min, _price;
@@ -153,6 +164,7 @@
             await ResolveCategoryAsync(NullId(d, "categoryId"));   // kategori/alt kategori kutulara dağıt (madde 6)
             _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
             _stock = Str(d, "stock");
+            _originalStock = Dec(d, "stock"); _stockValue = _originalStock;
             _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
         }
         catch { _notFound = true; }
@@ -165,6 +177,14 @@
         if (string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name)) { _msg = "Kod ve ad zorunlu."; _ok = false; return; }
         if (string.IsNullOrEmpty(_unit)) { _msg = "Birim seçin."; _ok = false; return; }
         if (!await Dialog.Confirm("Malzeme güncellensin mi?")) return;
+
+        // madde 1.2/1.3/1.4: stok DOĞRUDAN değiştirildiyse güçlü uyarı + karar (Devam/Vazgeç). Karar önce alınır,
+        // uygulama malzeme güncellemesinden SONRA (API log ucu Devam'da adjustment uygular, Vazgeç'te yalnız loglar).
+        bool stockChanged = CanEditStock && _stockValue != _originalStock;
+        bool continueStock = false;
+        if (stockChanged)
+            continueStock = await Dialog.Confirm(DepoWise.Web.Services.FieldChecks.StockChangeWarning,
+                okText: "Devam Et", cancelText: "Vazgeç", danger: true);
         _busy = true;
         try
         {
@@ -180,8 +200,19 @@
                 version = _version > 0 ? (long?)_version : null
             };
             var err = await Api.PutAsync($"/api/materials/{Id}", body);
-            if (err is null) MudDialog.Close(DialogResult.Ok("saved"));
-            else { _msg = err; _ok = false; }
+            if (err is not null) { _msg = err; _ok = false; return; }
+
+            // Doğrudan stok değişikliği kararını uygula/logla (madde 1.4): Devam → adjustment + log; Vazgeç → yalnız log.
+            if (stockChanged)
+            {
+                var logErr = await Api.PostAsync("/api/stock/change-log", new
+                {
+                    materialId = Id, newQuantity = _stockValue, continued = continueStock,
+                    warningText = DepoWise.Web.Services.FieldChecks.StockChangeWarning
+                });
+                if (logErr is not null) { _msg = "Stok değişikliği kaydedilemedi: " + logErr; _ok = false; return; }
+            }
+            MudDialog.Close(DialogResult.Ok("saved"));
         }
         catch (Exception ex) { _msg = "Hata: " + ex.Message; _ok = false; }
         finally { _busy = false; }

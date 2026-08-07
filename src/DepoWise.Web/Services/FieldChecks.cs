@@ -19,6 +19,14 @@ public static class FieldChecks
     /// sınır kalkar (çağıran zaten yalnız arama BOŞKEN bu sınırı uygular).</summary>
     public const int MaxUnfilteredOptions = 25;
 
+    /// <summary>Doğrudan stok değişikliği uyarı metni (madde 1.3) — sunucudaki
+    /// StockChangeLogService.WarningMessage'ın AYNISI (web Infrastructure'a erişemez → yansı). Log'a bu metin
+    /// yazılır (POST /api/stock/change-log warningText).</summary>
+    public const string StockChangeWarning =
+        "Stok miktarını doğrudan düzenlemeye çalışıyorsunuz. Stok hareketlerinin kayıt altına alınabilmesi için " +
+        "işlemleri mümkün olduğunca Giriş/Çıkış ekranından gerçekleştirmeniz önerilir. Devam ederseniz bu " +
+        "değişiklik bir stok düzeltmesi olarak kaydedilir ve loglanır.";
+
     public const int MinVehicleYear = 1950;
     public static int MaxVehicleYear => DateTimeOffset.UtcNow.Year + 1;
     public static bool YearInRange(int? year) => year is null || (year >= MinVehicleYear && year <= MaxVehicleYear);

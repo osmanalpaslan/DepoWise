@@ -27,7 +27,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07d)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07e)
 
 ### 🆕 2. paket (2026-08-06/07) — Çeşitli Modüllerde İyileştirme (8 birim, sürüyor)
 Ham prompt + sıralama: **[docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md](docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md)**.
@@ -65,7 +65,14 @@ Birim birim, masaüstü önce → web ardından; her birim sonunda kullanıcı o
 - ✅ **Birim 6 — Bakım "+ Personel" butonu (Sonnet 5, TAMAMLANDI, 2026-08-07):** Bakım Takibi Teknisyen
   alanı yanına "+" (masaüstü+web) — eklenen kişi otomatik "Saha Personeli" işaretlenir (Personeller
   modülündeki mevcut yapı yeniden kullanıldı). Build 0 hata, test 603/0.
-- ⏭️ **Sıradaki:** Birim 7 — Malzeme stok alanı + doğrudan-değişiklik uyarısı + log ekranı + yetki (1.2-1.5).
+- ✅ **Birim 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (Opus 4.8, TAMAMLANDI, 2026-08-07):** En
+  büyük birim, 3 alt-commite bölündü. Malzeme düzenlemede (masaüstü çift-tık QuickEdit + web MaterialEditDialog)
+  "Mevcut Stok" artık düzenlenebilir (yalnız stok yetkisiyle). Doğrudan değişimde **güçlü uyarı** + Devam/Vazgeç;
+  Devam → stok mimariye uygun SAYIM/DÜZELTME hareketiyle güncellenir (doğrudan bakiye yazımı YOK) + loglanır,
+  Vazgeç → yalnız loglanır. Yeni **"Stok Değişiklik Kaydı"** ekranı (masaüstü + web, Tarih Aralığı/kayıt sayısı
+  filtreleri) + yeni yetki (Yetki Ağacına otomatik eklendi). Yeni tablo (Migration057) + 5 test. Build 0 hata,
+  test 608/0. **Migration + servis/endpoint değişikliği → API deploy GEREKİR** (Birim 4/5 ile birlikte bekliyor).
+- ⏭️ **Sıradaki:** Birim 8 — Bakım Takibi'nde negatif stok engellenmemeli; uyarı + "Taslak Talep Oluştur" (5.3).
 
 ### 🆕 Önceki görev paketi (2026-08-06, TAMAMLANDI+YAYINLANDI) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
 Kullanıcı uzun bir prompt iletti; ham hali + sıralama: **[docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md](docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md)**.

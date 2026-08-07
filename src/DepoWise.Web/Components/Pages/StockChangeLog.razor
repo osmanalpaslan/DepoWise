@@ -1,0 +1,106 @@
+@page "/stock-change-log"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+
+@if (!Auth.CanView("stock_change_log"))
+{
+    <MudAlert Severity="Severity.Error">Bu ekran için yetkiniz yok (Stok Değişiklik Kaydı).</MudAlert>
+}
+else
+{
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Stok Değişiklik Kaydı</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+<MudPaper Class="pa-4" Elevation="2">
+    @* Malzeme kartından Giriş/Çıkış KULLANILMADAN yapılan doğrudan stok değişikliklerinin uyarı logu (madde 1.4).
+       Tarih Aralığı + kayıt sayısı (Sistem Logu ile aynı desen; sunucu tarafında filtrelenir). *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap" Spacing="2">
+        <MudText Typo="Typo.h6">Doğrudan Stok Değişiklikleri</MudText><MudSpacer />
+        <MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:170px" Clearable="true" />
+        <MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:170px" Clearable="true" />
+        <MudSelect T="int" @bind-Value="_limit" Label="Kayıt Sayısı" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px" Dense="true">
+            @foreach (var n in _limitOptions) { <MudSelectItem T="int" Value="@n">@n</MudSelectItem> }
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_user" Label="Kullanıcı" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px" Dense="true">
+            @foreach (var u in _users) { <MudSelectItem T="string" Value="@u">@u</MudSelectItem> }
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_outcome" Label="Sonuç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:150px" Dense="true">
+            <MudSelectItem T="string" Value="@("Devam edildi")">Devam edildi</MudSelectItem>
+            <MudSelectItem T="string" Value="@("İptal edildi")">İptal edildi</MudSelectItem>
+        </MudSelect>
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Load">Filtrele</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ClearFilters">Temizle</MudButton>
+    </MudStack>
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else
+    {
+        var filtered = Filtered();
+        @if (filtered.Count == 0) { <MudText Class="mud-text-secondary">Kayıt yok.</MudText> }
+        else
+        {
+            <MudTable Items="filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="60vh" T="JsonElement">
+                <HeaderContent>
+                    <MudTh>TARİH</MudTh><MudTh>KULLANICI</MudTh><MudTh>MALZEME</MudTh>
+                    <MudTh Style="text-align:right">ESKİ</MudTh><MudTh Style="text-align:right">YENİ</MudTh>
+                    <MudTh Style="text-align:right">FARK</MudTh><MudTh>SONUÇ</MudTh><MudTh>UYARI</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "dateText")</MudTd>
+                    <MudTd>@Str(context, "userText")</MudTd>
+                    <MudTd>@Str(context, "materialText")</MudTd>
+                    <MudTd Style="text-align:right">@Str(context, "oldText")</MudTd>
+                    <MudTd Style="text-align:right"><b>@Str(context, "newText")</b></MudTd>
+                    <MudTd Style="text-align:right">@Str(context, "diffText")</MudTd>
+                    <MudTd>@Str(context, "outcomeText")</MudTd>
+                    <MudTd>@Str(context, "warningPreview")</MudTd>
+                </RowTemplate>
+            </MudTable>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@filtered.Count / @_rows.Length kayıt</MudText>
+        }
+    }
+</MudPaper>
+}
+
+@code {
+    private JsonElement[]? _rows;
+    private string? _user, _outcome;
+    private List<string> _users = new();
+    private DateTime? _from, _to;
+    private readonly int[] _limitOptions = { 100, 300, 500, 1000, 2000, 5000 };
+    private int _limit = 300;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _rows = null;
+        try
+        {
+            var qs = new List<string> { $"limit={_limit}" };
+            if (_from is { } f) qs.Add($"from={new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            if (_to is { } t) qs.Add($"to={new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            _rows = await Api.GetArrayAsync("/api/stock/change-log?" + string.Join("&", qs));
+        }
+        catch { _rows = Array.Empty<JsonElement>(); }
+        _users = _rows.Select(r => Str(r, "userText")).Where(x => x != "" && x != "—").Distinct().OrderBy(x => x).ToList();
+    }
+
+    private async Task ClearFilters() { _from = _to = null; _limit = 300; _user = _outcome = null; await Load(); }
+
+    private List<JsonElement> Filtered()
+    {
+        IEnumerable<JsonElement> q = _rows ?? Array.Empty<JsonElement>();
+        if (!string.IsNullOrEmpty(_user)) q = q.Where(r => Str(r, "userText") == _user);
+        if (!string.IsNullOrEmpty(_outcome)) q = q.Where(r => Str(r, "outcomeText") == _outcome);
+        return q.ToList();
+    }
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+}
