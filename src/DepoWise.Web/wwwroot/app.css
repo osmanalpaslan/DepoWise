@@ -439,12 +439,17 @@ input[type="file"]::file-selector-button {
     color: var(--mud-palette-text-secondary);
     font-size: .655rem; font-weight: 700; letter-spacing: .09em;
     position: sticky; top: 0; z-index: 2;
-    resize: horizontal;               /* sürükleyerek genişlet (tarayıcı yerel, JS'siz) */
     overflow: hidden; min-width: 60px;
     border-bottom: 1px solid var(--mud-palette-lines-default);
+    /* NOT: CSS 'resize: horizontal' table-cell (th) üzerinde tarayıcılarca YOK SAYILIR (web'de hiç çalışmamasının
+       nedeni buydu). Yerine sağ kenardaki .dw-col-grip tutamağı + JS ile sürükle-genişlet (App.razor). */
 }
 .dw-th { display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; user-select: none; }
 .dw-sort { font-size: .68rem; color: var(--mud-palette-primary); min-width: 10px; }
+/* Sütun genişletme tutamağı — başlığın sağ kenarında; sürükleyerek genişlet/daralt (oturum-içi; kaydedilmez). */
+.dw-col-grip { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize;
+    user-select: none; touch-action: none; z-index: 3; }
+.dw-col-grip:hover { background: color-mix(in srgb, var(--mud-palette-primary) 40%, transparent); }
 
 /* Başlık-altı filtre satırı (ADR-090, kullanıcı isteği 2026-08-06) — her sütunun TAM ALTINDA kendi filtre
    kutusu; table-layout:fixed sayesinde kolon genişlikleriyle otomatik hizalı. thead th'ın resize/sticky-top:0

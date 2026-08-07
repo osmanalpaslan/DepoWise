@@ -111,8 +111,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
 
     public void CommitColumnWidth()
     {
-        try { DesktopServices.ListPrefs.SaveWidths(_session, "daily_activity", ColWidths.ToDictionary(k => k.Key, v => (int)v.Value)); }
-        catch { }
+        // KALICILIK KALDIRILDI (kullanıcı isteği 2026-08-08): genişlik kaydedilmez → her login standart.
+
     }
 
     partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
@@ -293,13 +293,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "daily_activity") ?? 25; }
         finally { _suppressPageSizeReload = false; }
-        var savedWidths = DesktopServices.ListPrefs.GetWidths(session, "daily_activity");
-        if (savedWidths is { Count: > 0 })
-        {
-            var merged = new Dictionary<string, double>(DefaultColWidths);
-            foreach (var (k, v) in savedWidths) merged[k] = v;
-            ColWidths = merged;
-        }
+        // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): her login STANDART; oturum içi resize kaydedilmez.
         Load();
     }
 

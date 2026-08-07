@@ -101,8 +101,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
 
     public void CommitColumnWidth()
     {
-        try { DesktopServices.ListPrefs.SaveWidths(_session, "vehicles", ColWidths.ToDictionary(k => k.Key, v => (int)v.Value)); }
-        catch { }
+        // KALICILIK KALDIRILDI (kullanıcı isteği 2026-08-08): genişlik kaydedilmez → her login standart.
+
     }
 
     partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
@@ -317,13 +317,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "vehicles") ?? 25; }
         finally { _suppressPageSizeReload = false; }
-        var savedWidths = DesktopServices.ListPrefs.GetWidths(session, "vehicles");
-        if (savedWidths is { Count: > 0 })
-        {
-            var merged = new Dictionary<string, double>(DefaultColWidths);
-            foreach (var (k, v) in savedWidths) merged[k] = v;
-            ColWidths = merged;
-        }
+        // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): her login STANDART; oturum içi resize kaydedilmez.
         Load();
     }
 

@@ -146,8 +146,8 @@ public sealed partial class GridController : ObservableObject
                 foreach (var c in ordered) Columns.Add(c);
             }
         }
-        if (p.Widths is { Count: > 0 })
-            foreach (var c in Columns) if (p.Widths.TryGetValue(c.Key, out var w) && w > 0) c.Width = w;
+        // Kolon GENİŞLİĞİ tercihi UYGULANMAZ (kullanıcı isteği 2026-08-08): her açılışta standart genişlik;
+        // oturum içinde Thumb ile serbestçe resize (kaydedilmez). p.Widths bilinçli olarak yok sayılır.
         if (p.Sort is not null && _colIndex.ContainsKey(p.Sort.Key)) { _sortKey = p.Sort.Key; _sortDesc = p.Sort.Desc; }
         UpdateSortGlyphs();
     }

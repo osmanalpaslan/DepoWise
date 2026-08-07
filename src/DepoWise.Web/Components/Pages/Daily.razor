@@ -150,6 +150,7 @@
                             <span style="cursor:pointer;flex:1 1 auto;" @onclick="@(() => ToggleSort(key))">@Label(key).ToUpperInvariant()</span>
                             <span class="dw-sort">@SortArrow(key)</span>
                         </div>
+                        <span class="dw-col-grip"></span>@* sağ kenardan sürükle = genişlet/daralt (oturum-içi) *@
                     </th>
                 }
                 <th style="width:70px;"><div class="dw-th" style="cursor:default;"></div></th>
@@ -195,9 +196,6 @@
             <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
                            BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
             <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
-            <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarını) sizin için kaydeder">
-                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
-            </MudTooltip>
         </MudStack>
     }
 </MudPaper>
@@ -236,7 +234,7 @@
     private JsonElement[]? _rows;
     private int _page = 1, _pageSize = 25, _totalCount, _totalPages = 1;
     private string? _sortColumn; private bool _sortDesc;
-    private Dictionary<string, int> _widths = new();
+    // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): standart 140px; oturum-içi JS tutamağıyla resize.
     private bool _exporting;
 
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
@@ -253,7 +251,7 @@
         _ => "description",
     });
 
-    private string ThStyle(string key) => _widths.TryGetValue(key, out var w) && w > 0 ? $"width:{w}px;" : "width:140px;";
+    private string ThStyle(string key) => "width:140px;";   // standart; JS tutamağı oturum-içi override eder
     private string SortArrow(string key) => _sortColumn == key ? (_sortDesc ? "▼" : "▲") : "";
     private async Task ToggleSort(string key)
     {
@@ -261,15 +259,6 @@
         else if (!_sortDesc) { _sortDesc = true; }
         else { _sortColumn = null; _sortDesc = false; }
         _page = 1; await Load();
-    }
-    private async Task SaveWidths()
-    {
-        try
-        {
-            var w = await JS.InvokeAsync<Dictionary<string, int>>("dwReadColWidths", "daily-grid");
-            if (w is { Count: > 0 }) { _widths = w; await Api.SaveWidthsAsync("daily_activity", w); }
-        }
-        catch { }
     }
     private async Task ApplyFilters() { _page = 1; await Load(); }
     private async Task ClearFilters() { _filters.Clear(); _page = 1; await Load(); }
@@ -349,9 +338,8 @@
         }
         var saved = await Api.GetListColumnsAsync("daily_activity");
         if (saved is { Count: > 0 }) _visibleColumns = saved;
-        var (ps, widths) = await Api.GetListPrefsAsync("daily_activity");
-        if (ps is > 0) _pageSize = ps.Value;
-        if (widths is { Count: > 0 }) _widths = widths;
+        var (ps, _) = await Api.GetListPrefsAsync("daily_activity");
+        if (ps is > 0) _pageSize = ps.Value;   // genişlik yüklenmez (kalıcı değil)
         await Load();
     }
 

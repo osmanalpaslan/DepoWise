@@ -89,12 +89,10 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
 
     public double GetColumnWidth(string key) => ColWidths.TryGetValue(key, out var w) ? w : 100;
 
-    /// <summary>Sürükleme bittiğinde (parmak/mouse kalkınca) ÇAĞRILIR — bu ANDA kişiye özel kalıcı hâle gelir.</summary>
-    public void CommitColumnWidth()
-    {
-        try { DesktopServices.ListPrefs.SaveWidths(_session, "materials", ColWidths.ToDictionary(k => k.Key, v => (int)v.Value)); }
-        catch { }
-    }
+    /// <summary>Sürükleme bittiğinde çağrılır. KALICILIK KALDIRILDI (kullanıcı isteği 2026-08-08): kolon
+    /// genişliği ARTIK KAYDEDİLMEZ → her login'de standart (DefaultColWidths) gelir; oturum içindeki değişiklik
+    /// PreviewColumnWidth ile zaten uygulanmıştır. DB yazımı yok → sync ile çakışma/donma/hatalı tepki biter.</summary>
+    public void CommitColumnWidth() { }
 
     partial void OnVisibleColumnsChanged(List<string> value) => RebuildFilterFields();
 
@@ -361,13 +359,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "materials") ?? 25; }   // değiştirmediyse 25
         finally { _suppressPageSizeReload = false; }
-        var savedWidths = DesktopServices.ListPrefs.GetWidths(session, "materials");
-        if (savedWidths is { Count: > 0 })
-        {
-            var merged = new Dictionary<string, double>(DefaultColWidths);
-            foreach (var (k, v) in savedWidths) merged[k] = v;
-            ColWidths = merged;
-        }
+        // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): her login STANDART (DefaultColWidths);
+        // oturum içinde serbestçe genişletilip daraltılır ama kaydedilmez → sync ile çakışma/donma olmaz.
         Load();
         if (openAdd && CanWrite) { ShowAdd = true; LoadLookups(); RefreshEquivalentResults(); }
     }

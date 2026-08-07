@@ -183,6 +183,7 @@
                                     <span style="cursor:pointer;flex:1 1 auto;" @onclick="@(() => ToggleSort(key))">@Label(key).ToUpperInvariant()</span>
                                     <span class="dw-sort">@SortArrow(key)</span>
                                 </div>
+                                <span class="dw-col-grip"></span>@* sağ kenardan sürükle = genişlet/daralt (oturum-içi) *@
                             </th>
                         }
                         <th style="width:130px;"><div class="dw-th" style="cursor:default;"><span>BAKIM/MUAYENE</span></div></th>
@@ -222,9 +223,6 @@
                     <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="OnPageChanged"
                                    BoundaryCount="1" MiddleCount="3" ShowFirstButton="true" ShowLastButton="true" />
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@_totalCount kayıt — sayfa @_page / @_totalPages</MudText>
-                    <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarını) sizin için kaydeder">
-                        <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
-                    </MudTooltip>
                 </MudStack>
             }
         </MudPaper>
@@ -274,14 +272,14 @@
     private readonly Dictionary<string, string> _filters = new();
     private int _page = 1, _pageSize = 25, _totalCount, _totalPages = 1;   // varsayılan 25 (kullanıcı isteği)
     private string? _sortColumn; private bool _sortDesc;
-    private Dictionary<string, int> _widths = new();
+    // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): standart 140px; oturum-içi JS tutamağıyla resize.
 
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
     private void SetFilter(string key, string v) => _filters[key] = v ?? "";
     private static string Label(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
     private static bool IsNumeric(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
 
-    private string ThStyle(string key) => _widths.TryGetValue(key, out var w) && w > 0 ? $"width:{w}px;" : "width:140px;";
+    private string ThStyle(string key) => "width:140px;";   // standart; JS tutamağı oturum-içi override eder
     private string SortArrow(string key) => _sortColumn == key ? (_sortDesc ? "▼" : "▲") : "";
     private async Task ToggleSort(string key)
     {
@@ -290,16 +288,6 @@
         else { _sortColumn = null; _sortDesc = false; }
         _page = 1; await Load();
     }
-    private async Task SaveWidths()
-    {
-        try
-        {
-            var w = await JS.InvokeAsync<Dictionary<string, int>>("dwReadColWidths", "vehicles-grid");
-            if (w is { Count: > 0 }) { _widths = w; await Api.SaveWidthsAsync("vehicles", w); }
-        }
-        catch { }
-    }
-
     /// <summary>"Sayaç" iki alanı ("meter"+"meterUnit") birleştirir; "Durum" ham kod DEĞİL Türkçe etiketi
     /// (statusLabel) gösterir — ekran kullanıcıya hiçbir zaman ham kodu göstermez.</summary>
     private static string CellText(JsonElement row, string key) => key switch
@@ -360,9 +348,8 @@
         {
             var saved = await Api.GetListColumnsAsync("vehicles");
             if (saved is { Count: > 0 }) _visibleColumns = saved;
-            var (ps, widths) = await Api.GetListPrefsAsync("vehicles");
-            if (ps is > 0) _pageSize = ps.Value;
-            if (widths is { Count: > 0 }) _widths = widths;
+            var (ps, _) = await Api.GetListPrefsAsync("vehicles");
+            if (ps is > 0) _pageSize = ps.Value;   // genişlik yüklenmez (kalıcı değil)
             await Load();
         }
     }

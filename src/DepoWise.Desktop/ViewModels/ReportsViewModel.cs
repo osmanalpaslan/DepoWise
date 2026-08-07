@@ -116,7 +116,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
         // TEK yükleme (GetAll — tek sorgu); değişince ilgili alan yazılır (performans kuralı).
         Grid.LoadPreferences = () => { try { return DesktopServices.ListPrefs.GetAll(_session, GridKey); } catch { return null; } };
         Grid.PersistColumns = cols => { try { DesktopServices.ListPrefs.SaveColumns(_session, GridKey, cols); } catch { } };
-        Grid.PersistWidths = w => { try { DesktopServices.ListPrefs.SaveWidths(_session, GridKey, w); } catch { } };
+        // Kolon GENİŞLİĞİ kalıcı DEĞİL (kullanıcı isteği 2026-08-08): her açılışta standart; oturum içi resize kaydedilmez.
+        Grid.PersistWidths = null;
         Grid.PersistSort = (k, d) => { try { DesktopServices.ListPrefs.SaveSort(_session, GridKey, k, d); } catch { } };
         LoadBranches();
         LoadVehiclePicks();

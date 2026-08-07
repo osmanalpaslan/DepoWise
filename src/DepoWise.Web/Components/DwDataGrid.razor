@@ -22,9 +22,6 @@
             <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
         </MudTooltip>
         <MudSpacer />
-        <MudTooltip Text="Kolon genişliklerini (elle ayarladıklarınızı) sizin için kaydeder">
-            <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Straighten" OnClick="SaveWidths">Genişlikleri kaydet</MudButton>
-        </MudTooltip>
         @if (_hasFilters)
         {
             <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearFilters">Filtreyi temizle</MudButton>
@@ -47,6 +44,7 @@
                             <span style="cursor:pointer;flex:1 1 auto;" @onclick="@(() => ToggleSort(key))">@Label(key).ToUpperInvariant()</span>
                             <span class="dw-sort">@SortArrow(key)</span>
                         </div>
+                        <span class="dw-col-grip"></span>@* sağ kenardan sürükle = genişlet/daralt (oturum-içi) *@
                     </th>
                 }
             </tr>
@@ -92,7 +90,7 @@
     private string _tableId = "dwgrid";
     private List<string> _order = new();                          // görünür kolonlar, sırayla (gizli = listede değil)
     private readonly Dictionary<string, string> _filters = new(); // key → filtre metni
-    private Dictionary<string, int> _widths = new();              // key → piksel (kişisel)
+    // Kolon genişliği KALICI DEĞİL (kullanıcı isteği 2026-08-08): standart 150px; oturum-içi JS tutamağıyla resize.
     private string? _sortKey; private bool _sortDesc;
     private string? _dragKey;
 
@@ -105,7 +103,7 @@
     private string Label(string key) => Columns.FirstOrDefault(c => c.Key == key)?.Label ?? key;
     private bool IsNumeric(string key) => Columns.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
-    private string ThStyle(string key) => _widths.TryGetValue(key, out var w) && w > 0 ? $"width:{w}px;" : "width:150px;";
+    private string ThStyle(string key) => "width:150px;";   // standart; JS tutamağı oturum-içi override eder
     private string SortArrow(string key) => _sortKey == key ? (_sortDesc ? "▼" : "▲") : "";
     private string Value(IReadOnlyList<string> row, string key)
         => _colIndex.TryGetValue(key, out var i) && i < row.Count ? row[i] : "";
@@ -122,7 +120,7 @@
             for (int i = 0; i < Columns.Count; i++) _colIndex[Columns[i].Key] = i;
             _filters.Clear();
             _order = Columns.Select(c => c.Key).ToList();
-            _widths = new(); _sortKey = null; _sortDesc = false;
+            _sortKey = null; _sortDesc = false;
             await LoadPrefs();
         }
         _rows = Rows;
@@ -143,7 +141,7 @@
                 var kept = p.Columns.Where(valid.Contains).ToList();
                 if (kept.Count > 0) _order = kept;
             }
-            if (p.Widths is { Count: > 0 }) _widths = new(p.Widths);
+            // Kolon GENİŞLİĞİ tercihi UYGULANMAZ (kullanıcı isteği 2026-08-08): her açılış standart; oturum-içi resize (JS tutamağı), kaydedilmez.
             if (!string.IsNullOrEmpty(p.SortKey) && _colIndex.ContainsKey(p.SortKey!)) { _sortKey = p.SortKey; _sortDesc = p.SortDesc; }
         }
         catch { }
@@ -248,20 +246,6 @@
         _order = ordered;
         await PersistColumns();
         Recompute();
-    }
-
-    private async Task SaveWidths()
-    {
-        try
-        {
-            var w = await JS.InvokeAsync<Dictionary<string, int>>("dwReadColWidths", _tableId);
-            if (w is { Count: > 0 })
-            {
-                _widths = w;
-                if (!string.IsNullOrEmpty(GridKey)) await Api.SaveWidthsAsync(GridKey, w);
-            }
-        }
-        catch { }
     }
 
     private async Task PersistColumns()

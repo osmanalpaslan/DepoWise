@@ -107,18 +107,26 @@
         document.addEventListener('DOMContentLoaded', () => window.dwKillAutofill());
         window.addEventListener('load', () => window.dwKillAutofill());
 
-        // Excel-benzeri grid: kullanıcı başlıkları sürükleyip genişlettikten sonra her kolonun
-        // güncel piksel genişliğini (data-key → width) okur — "Genişlikleri kaydet" bunu sunucuya yollar.
-        window.dwReadColWidths = (tableId) => {
-            const t = document.getElementById(tableId);
-            if (!t) return {};
-            const out = {};
-            t.querySelectorAll('thead th[data-key]').forEach(th => {
-                const k = th.getAttribute('data-key');
-                if (k) out[k] = Math.round(th.getBoundingClientRect().width);
-            });
-            return out;
-        };
+        // Sütun genişletme (kullanıcı isteği 2026-08-08): .dw-col-grip tutamağı sürüklenince ilgili <th>'in
+        // genişliğini CANLI ayarlar (table-layout:fixed → kolon takip eder). DELEGE edilmiş tek dinleyici →
+        // Blazor yeniden render'ıyla çatışmaz, dinamik satırlar/raporlar için de çalışır. Genişlik OTURUM-İÇİDİR
+        // (kaydedilmez; her login standart). CSS 'resize' table-cell'de çalışmadığından bu yöntem kullanılır.
+        document.addEventListener('pointerdown', function (e) {
+            const grip = e.target && e.target.closest ? e.target.closest('.dw-col-grip') : null;
+            if (!grip) return;
+            const th = grip.closest('th');
+            if (!th) return;
+            e.preventDefault(); e.stopPropagation();
+            const startX = e.clientX, startW = th.offsetWidth;
+            try { grip.setPointerCapture(e.pointerId); } catch (_) { }
+            function onMove(ev) { th.style.width = Math.max(60, Math.min(700, startW + (ev.clientX - startX))) + 'px'; }
+            function onUp() {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', onUp);
+            }
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', onUp);
+        }, true);
 
         window.dwDownload = (name, b64, mime) => {
             const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);

@@ -27,7 +27,22 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07k — Rapor ortak mimarisi Birim 4 ortak tablo)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08 — Sütun genişliği düzeltmesi (Prompt 2))
+
+### 🐞 Sütun genişliği KALICILIĞI KALDIRILDI + web resize DÜZELTİLDİ (2026-08-08, Opus 4.8)
+Kullanıcı bildirdi: masaüstünde otomatik "son genişliği hatırla" ayarı hatalı (eşitleme öncesi bozuk tepki,
+sonra kısmen düzeliyor); **web'de sütun hiç genişletilemiyor.**
+- **Kök neden (web):** `.dw-grid thead th { resize: horizontal }` — CSS `resize` **table-cell** (`<th>`) öğelerinde
+  tarayıcılarca YOK SAYILIR → web'de hiç çalışmıyordu. **Çözüm:** her başlığa `.dw-col-grip` tutamağı + App.razor'da
+  **delege edilmiş JS pointer** ile canlı sürükle-genişlet (`table-layout:fixed` → kolon takip eder). Oturum-içi.
+- **Masaüstü:** genişlik **persistence kaldırıldı** (SaveWidths DB yazımı + init GetWidths yüklemesi silindi) →
+  her login **standart genişlik** (DefaultColWidths); oturum içinde grip ile donmadan resize (DB/sync çakışması yok).
+- **Kapsam:** Malzemeler/Araçlar/Günlük (eski desen) + Raporlar (Birim 4 grid) — web+masaüstü. Genişlik artık
+  hiçbir yerde kaydedilmiyor (sıra/seçim/sıralama tercihleri korunuyor). Servis/şema/endpoint dokunulmadı
+  (GetWidths/SaveWidths kod var ama kullanılmıyor). Build 0 hata, test **642/0** (regresyon yok). Görsel doğrulama
+  kullanıcıda (masaüstü Avalonia + web canlı). ⏭️ Sıradaki: **Prompt 1** (sabit-tanım alanlarında sol-tık liste + sayfalama).
+
+
 
 ### 🆕 Rapor altyapısı standartlaştırma (2026-08-07, Opus 4.8) — SÜRÜYOR
 Ham + fazlar: [docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md](docs/gelen-gorevler/2026-08-07_rapor-mimarisi.md).
