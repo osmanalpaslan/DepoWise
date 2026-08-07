@@ -27,7 +27,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07f)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07g — paket CANLIDA, masaüstü 1.0.109)
 
 ### 🆕 2. paket (2026-08-06/07) — Çeşitli Modüllerde İyileştirme (8 birim, sürüyor)
 Ham prompt + sıralama: **[docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md](docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md)**.
@@ -77,9 +77,18 @@ Birim birim, masaüstü önce → web ardından; her birim sonunda kullanıcı o
   "Taslak Talep Oluştur ve Devam Et" / "Talepsiz Devam Et" — iki yol da bakım kaydını sürdürür (iş akışı
   kesilmez). Backend `MaintenanceService.Save` allowNegative:true; eski "engelle+rollback" testi yeni davranışa
   güncellendi. Günlük Faaliyet İlave-işlemleri de aynı mekanizmayı kullandığından tutarlı. Build 0 hata, test 608/0.
-- 🏁 **8 BİRİMLİK ÇEŞİTLİ-MODÜL PAKETİ TAMAMLANDI.** Kalan: 5.1 (Bakım teknisyen seçim kaybı) ERTELENMİŞ.
-  **Tüm paketin DEPLOY'u bekliyor** (Migration057 + servis/endpoint değişiklikleri — API+web+masaüstü;
-  kullanıcı onayıyla yapılacak).
+- 🏁 **8 BİRİMLİK ÇEŞİTLİ-MODÜL PAKETİ TAMAMLANDI VE YAYINLANDI (2026-08-07).**
+  - ✅ **API** (`depowise-erp`) deploy — **Migration057 canlı PostgreSQL'de çalıştı** (yeni stock_change_logs
+    tablosu; additive, mevcut veriye dokunmadı). Yeni uçlar canlıda doğrulandı (`/api/stock/change-log` 401 =
+    route var; health 200).
+  - ✅ **Web** (`depowise-web`) deploy — home 200.
+  - ✅ **Masaüstü 1.0.109** yayınlandı (`scripts/publish_release.mjs`); sunucu `/api/releases/latest` artık
+    1.0.109 döndürüyor (doğrulandı, checksum 089F78...). AlpnexSetup.exe yeniden yayınlanmadı (gerek yok — kurulum
+    sunucudan en güncel sürümü indirir). Makineler bir sonraki girişte 1.0.109'a güncellenir.
+  - Masaüstü UI değişiklikleri (stok düzenleme, uyarılar, yeni ekranlar, arama davranışı) **kullanıcı kendi
+    makinesinde görsel test etmeli** (bu ortamda Avalonia önizlemesi yok).
+  - Kalan: **5.1 (Bakım teknisyen seçim kaybı)** — kullanıcı KENDİ testinden sonra bildirecek (2 gündür test
+    edilmemişti; atılan kodlarla düzelmiş olabilir). Gündeme kullanıcı getirene kadar açılmayacak.
 
 ### 🆕 Önceki görev paketi (2026-08-06, TAMAMLANDI+YAYINLANDI) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
 Kullanıcı uzun bir prompt iletti; ham hali + sıralama: **[docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md](docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md)**.

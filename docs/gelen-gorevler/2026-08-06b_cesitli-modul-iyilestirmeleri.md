@@ -282,8 +282,13 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
 - **Doğrulama:** tam çözüm build 0 hata (masaüstü+web+API), test 608/0. Servis davranış değişikliği → **API deploy
   gerekir** (Birim 4/5/7 ile birlikte bekliyor). Görsel/canlı doğrulama yapılamadı.
 
-## 🏁 8 BİRİMLİK PAKET TAMAMLANDI (2026-08-07). Kalan: 5.1 (Bakım teknisyen seçim kaybı) ERTELENMİŞ; tüm
-## paketin API+web+masaüstü **DEPLOY**'u kullanıcı onayıyla yapılacak (Migration057 sunucuda çalışacak).
+## 🏁 8 BİRİMLİK PAKET TAMAMLANDI VE YAYINLANDI (2026-08-07).
+- API (`depowise-erp`) deploy — Migration057 canlı PG'de çalıştı (stock_change_logs, additive); yeni uçlar
+  canlıda (`/api/stock/change-log` 401=route var; health 200).
+- Web (`depowise-web`) deploy — 200.
+- Masaüstü **1.0.109** yayınlandı; `/api/releases/latest`=1.0.109 (checksum 089F78...). AlpnexSetup yeniden
+  yüklenmedi (kurulum sunucudan en günceli indirir).
+- Kalan: **5.1** — kullanıcı kendi testinden sonra bildirecek (gündeme kullanıcı getirene kadar açılmayacak).
 
 ---
 
