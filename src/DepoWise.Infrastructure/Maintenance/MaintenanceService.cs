@@ -86,14 +86,17 @@ public sealed class MaintenanceService
 
         InsertMaintenance(conn, tx, s.CompanyId, id, dto, nextKm, nextHour, nextDate, operationId, now, s.OperatingBranchId);
 
-        // Malzeme stok düşümü — TEK düşüm, negatif guard, fiyat snapshot
+        // Malzeme stok düşümü — TEK düşüm, fiyat snapshot. NEGATİF STOK ENGELLENMEZ (madde 5.3, kullanıcı isteği
+        // 2026-08-06): kullanıcı stok girişini henüz yapmamış olabilir; bakım iş akışı stok yüzünden durmamalı.
+        // Uyarı + opsiyonel "Taslak Talep" istemci (masaüstü/web) tarafındadır; defter tüketimi yine kayıtlıdır
+        // (bakiye eksiye düşebilir — açılış stoğu gibi; ADR-086). İptal ters hareketle geri ekler.
         for (int i = 0; i < (dto.Materials?.Count ?? 0); i++)
         {
             var line = dto.Materials![i];
             if (line.Quantity <= 0) throw new ArgumentException("Malzeme miktarı pozitif olmalı.");
             EnsureMaterialOwned(conn, tx, s.CompanyId, line.MaterialId);
             var price = ReadMaterialPrice(conn, tx, line.MaterialId);
-            ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, -line.Quantity, now);
+            ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, -line.Quantity, now, allowNegative: true);
             InsertUsageMovement(conn, tx, s.CompanyId, line.MaterialId, id, line.Quantity, price, $"{operationId}:mat:{i}", now);
             InsertMaintenanceMaterial(conn, tx, id, line.MaterialId, line.Quantity, price);
         }

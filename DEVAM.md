@@ -27,7 +27,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07e)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07f)
 
 ### 🆕 2. paket (2026-08-06/07) — Çeşitli Modüllerde İyileştirme (8 birim, sürüyor)
 Ham prompt + sıralama: **[docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md](docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md)**.
@@ -72,7 +72,14 @@ Birim birim, masaüstü önce → web ardından; her birim sonunda kullanıcı o
   Vazgeç → yalnız loglanır. Yeni **"Stok Değişiklik Kaydı"** ekranı (masaüstü + web, Tarih Aralığı/kayıt sayısı
   filtreleri) + yeni yetki (Yetki Ağacına otomatik eklendi). Yeni tablo (Migration057) + 5 test. Build 0 hata,
   test 608/0. **Migration + servis/endpoint değişikliği → API deploy GEREKİR** (Birim 4/5 ile birlikte bekliyor).
-- ⏭️ **Sıradaki:** Birim 8 — Bakım Takibi'nde negatif stok engellenmemeli; uyarı + "Taslak Talep Oluştur" (5.3).
+- ✅ **Birim 8 — Bakım negatif stok davranışı (Opus 4.8, TAMAMLANDI, 2026-08-07):** Bakım Takibi'nde yetersiz
+  stok artık ENGELLENMEZ (kayıt oluşur, stok eksiye düşebilir). Eksik varsa uyarı + (talep yetkisi varsa)
+  "Taslak Talep Oluştur ve Devam Et" / "Talepsiz Devam Et" — iki yol da bakım kaydını sürdürür (iş akışı
+  kesilmez). Backend `MaintenanceService.Save` allowNegative:true; eski "engelle+rollback" testi yeni davranışa
+  güncellendi. Günlük Faaliyet İlave-işlemleri de aynı mekanizmayı kullandığından tutarlı. Build 0 hata, test 608/0.
+- 🏁 **8 BİRİMLİK ÇEŞİTLİ-MODÜL PAKETİ TAMAMLANDI.** Kalan: 5.1 (Bakım teknisyen seçim kaybı) ERTELENMİŞ.
+  **Tüm paketin DEPLOY'u bekliyor** (Migration057 + servis/endpoint değişiklikleri — API+web+masaüstü;
+  kullanıcı onayıyla yapılacak).
 
 ### 🆕 Önceki görev paketi (2026-08-06, TAMAMLANDI+YAYINLANDI) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
 Kullanıcı uzun bir prompt iletti; ham hali + sıralama: **[docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md](docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md)**.

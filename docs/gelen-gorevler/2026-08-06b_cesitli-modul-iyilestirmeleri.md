@@ -259,7 +259,31 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
 - [x] 5 — Sistem Logu filtreleri (madde 4) — masaüstü + web + API (deploy bekliyor), 5 yeni test
 - [x] 6 — Bakım "+ Personel" butonu (5.2) — masaüstü + web
 - [x] 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (1.2-1.5) — 7a backend + 7b masaüstü + 7c web (deploy bekliyor)
-- [ ] 8 — Bakım negatif stok davranışı (5.3)
+- [x] 8 — Bakım negatif stok davranışı (5.3) — masaüstü + web + backend (deploy bekliyor)
+
+---
+
+## BİRİM 8 (2026-08-07, Opus 4.8) — Bakım Takibi negatif stok davranışı (5.3) — PAKET SONU
+
+- **Backend (`MaintenanceService.Save`):** malzeme stok düşümü artık `allowNegative: true` — **yetersiz stok
+  ENGELLENMEZ** (eski `NegativeStockException` + rollback kaldırıldı). Kayıt oluşur, defter tüketimi kayıtlı
+  (bakiye eksiye düşebilir; açılış stoğu gibi, ADR-086). İptal ters hareketle geri ekler (değişmedi). **Kapsam
+  notu:** Günlük Faaliyet "İlave Yağ/Filtre/Tamir" de `_maintenance.Save`'i kullandığından (ADR-091, AYNI
+  mekanizma) onlar da artık negatif-stok engellemez — tutarlı (hepsi bakım-tipi malzeme tüketimi).
+- **Test:** `MaintenanceTests.Bakim_YetersizStok_...` ESKİ "engellenir+rollback" testi → YENİ davranışa
+  güncellendi (kayıt oluşur, stok 1-5=-4, kayıt sayısı 1). 608/0.
+- **Masaüstü + Web (SaveMnt):** Kaydet'te malzeme satırları için mevcut bakiye okunur (masaüstü doğrudan
+  `Stock.GetBalance`; web `/api/materials/{id}` `stock`). Eksik varsa **uyarı** (spec metni: "İlgili malzeme
+  için yeterli stok bulunmamaktadır. İşleme devam edebilirsiniz. İsterseniz ... otomatik bir malzeme talebi
+  oluşturabilirsiniz."). `requests:create` yetkisi varsa 2 yol: **"Taslak Talep Oluştur ve Devam Et"** (eksik
+  miktarlarla TASLAK talep — `SubmitImmediately:false` — oluşturur, "Talep taslak olarak oluşturuldu" bilgisi)
+  / **"Talepsiz Devam Et"** — İKİ YOL DA bakım kaydını sürdürür (iş akışı kesilmez). Yetki yoksa bilgilendirme +
+  geri çıkış imkânı. Eksik yoksa eski onay ("Bakım kaydı eklensin mi?") aynen.
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü+web+API), test 608/0. Servis davranış değişikliği → **API deploy
+  gerekir** (Birim 4/5/7 ile birlikte bekliyor). Görsel/canlı doğrulama yapılamadı.
+
+## 🏁 8 BİRİMLİK PAKET TAMAMLANDI (2026-08-07). Kalan: 5.1 (Bakım teknisyen seçim kaybı) ERTELENMİŞ; tüm
+## paketin API+web+masaüstü **DEPLOY**'u kullanıcı onayıyla yapılacak (Migration057 sunucuda çalışacak).
 
 ---
 

@@ -13,6 +13,7 @@ using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Org;
+using DepoWise.Infrastructure.Requests;
 using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -470,7 +471,44 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         if (MntVehicle is null) { Status = "Araç seçin."; return; }
         if (MntDef is null) { Status = "Bakım tanımı seçin."; return; }
         if (MntLines.Any(l => l.Quantity <= 0)) { Status = "Malzeme miktarı pozitif olmalı."; return; }
-        if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Kaydet")) return;
+
+        // madde 5.3: yetersiz stok ENGELLENMEZ. Eksik varsa uyarı + opsiyonel "Taslak Talep Oluştur";
+        // her iki durumda da bakım kaydı DEVAM eder (iş akışı kesilmez).
+        var shortfalls = new List<(string MaterialId, string Label, decimal Shortfall)>();
+        foreach (var l in MntLines)
+        {
+            decimal bal;
+            try { bal = DesktopServices.Stock.GetBalance(l.MaterialId); } catch { bal = 0m; }
+            if (l.Quantity > bal) shortfalls.Add((l.MaterialId, $"{l.Code} — {l.Name}", l.Quantity - bal));
+        }
+
+        if (shortfalls.Count > 0)
+        {
+            var canRequest = AccessControl.Can(_session, "requests", PermissionAction.Create);
+            var detail = string.Join("\n", shortfalls.Select(x => $"• {x.Label}: eksik {x.Shortfall:0.##}"));
+            var baseMsg = "İlgili malzeme için yeterli stok bulunmamaktadır. İşleme devam edebilirsiniz." +
+                (canRequest ? " İsterseniz bu işlem için otomatik bir malzeme talebi oluşturabilirsiniz." : "") +
+                "\n\n" + detail;
+            if (canRequest)
+            {
+                // İki yol da bakım kaydını SÜRDÜRÜR (madde 5.3 — engellenmez); tek fark taslak talep oluşturulsun mu.
+                var makeDraft = await ConfirmService.AskAsync(baseMsg, "Yetersiz Stok",
+                    okText: "Taslak Talep Oluştur ve Devam Et", cancelText: "Talepsiz Devam Et");
+                if (makeDraft)
+                {
+                    try
+                    {
+                        DesktopServices.Requests.Create(_session, new NewRequest(
+                            shortfalls.Select(x => new RequestItemInput(x.MaterialId, x.Shortfall)).ToList()));
+                        Status = "Talep taslak olarak oluşturuldu. Talepler ekranından düzenleyerek gönderebilirsiniz.";
+                    }
+                    catch (Exception rex) { Status = "Taslak talep oluşturulamadı: " + rex.Message + " (bakım kaydı yine de sürüyor)"; }
+                }
+            }
+            else if (!await ConfirmService.AskAsync(baseMsg, "Yetersiz Stok", okText: "Devam Et", cancelText: "Vazgeç", danger: true))
+                return;   // talep yetkisi olmayan kullanıcıya bilgilendirme + geri çıkış imkânı
+        }
+        else if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Kaydet")) return;
         try
         {
             var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();

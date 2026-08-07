@@ -441,8 +441,44 @@
         if (!await Dialog.RequireBranchAsync(Auth, "Bakım Takibi")) return;   // "Tüm Şubeler" modunda işlem yok
         if (_mVehicle is null) { _mMsg = "Araç seçin."; _mOk = false; return; }
         if (string.IsNullOrEmpty(_mDefId)) { _mMsg = "Bakım tanımı seçin."; _mOk = false; return; }
-        // Masaüstüyle (MaintenanceViewModel.SaveMnt) birebir aynı metin — parite.
-        if (!await Dialog.Confirm("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)")) return;
+
+        // madde 5.3: yetersiz stok ENGELLENMEZ. Eksik varsa uyarı + opsiyonel "Taslak Talep Oluştur"; her iki
+        // durumda da bakım kaydı DEVAM eder. Bakiye API'den okunur (web'in doğrudan stok erişimi yok).
+        var shortfalls = new List<(string Id, string Name, decimal Shortfall)>();
+        foreach (var l in _lines)
+        {
+            decimal bal = 0m;
+            try { bal = Dec(await Api.GetObjectAsync($"/api/materials/{l.Id}"), "stock"); } catch { }
+            if (l.Qty > bal) shortfalls.Add((l.Id, l.Name, l.Qty - bal));
+        }
+        if (shortfalls.Count > 0)
+        {
+            var canRequest = Auth.CanCreate("requests");
+            var detail = string.Join("\n", shortfalls.Select(x => $"• {x.Name}: eksik {x.Shortfall:0.##}"));
+            var baseMsg = "İlgili malzeme için yeterli stok bulunmamaktadır. İşleme devam edebilirsiniz." +
+                (canRequest ? " İsterseniz bu işlem için otomatik bir malzeme talebi oluşturabilirsiniz." : "") +
+                "\n\n" + detail;
+            if (canRequest)
+            {
+                var makeDraft = await Dialog.Confirm(baseMsg, okText: "Taslak Talep Oluştur ve Devam Et", cancelText: "Talepsiz Devam Et");
+                if (makeDraft)
+                {
+                    var body = new
+                    {
+                        items = shortfalls.Select(x => new { materialId = x.Id, quantity = x.Shortfall, vehicleId = (string?)null, note = (string?)null }).ToList(),
+                        branchId = (string?)null, requesterId = (string?)null, warehouseId = (string?)null, approverId = (string?)null,
+                        description = (string?)null, requestDate = (long?)null, submitImmediately = false   // TASLAK
+                    };
+                    var rErr = await Api.PostAsync("/api/requests", body);
+                    _mOk = rErr is null;
+                    _mMsg = rErr is null ? "Talep taslak olarak oluşturuldu. Talepler ekranından düzenleyerek gönderebilirsiniz."
+                                         : "Taslak talep oluşturulamadı: " + rErr + " (bakım kaydı yine de sürüyor)";
+                }
+            }
+            else if (!await Dialog.Confirm(baseMsg, okText: "Devam Et", cancelText: "Vazgeç", danger: true))
+                return;
+        }
+        else if (!await Dialog.Confirm("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)")) return;
         _busy = true;
         try
         {

@@ -186,22 +186,26 @@ public class MaintenanceTests : IDisposable
         Assert.Equal(8m, _opening.GetBalance(_admin, m)); // 6 değil
     }
 
+    // madde 5.3 (kullanıcı isteği 2026-08-06): Bakım Takibi'nde YETERSİZ STOK ENGELLENMEZ — kayıt oluşur,
+    // stok eksiye düşebilir (kullanıcı stok girişini sonradan yapabilir; iş akışı durmaz). Uyarı + opsiyonel
+    // "Taslak Talep" istemci tarafındadır. Eski davranış (engelle+rollback) BİLİNÇLİ olarak değiştirildi.
     [Fact]
-    public void Bakim_YetersizStok_Engellenir_Rollback()
+    public void Bakim_YetersizStok_EngellenMEZ_KayitOlusur_StokEksiyeDuser()
     {
         var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 1000m));
         var m = _materials.Create(_admin, new NewMaterial("M-1", "Filtre"));
         _opening.RecordOpening(_admin, m, 1m, "op-open");
         var def = _defs.Create(_admin, new NewMaintenanceDefinition("P", 5000m, "km"));
 
-        Assert.Throws<NegativeStockException>(() => _maint.Save(_admin,
-            new NewMaintenance(v, def, PerformedKm: 1000m, Materials: new[] { new MaintenanceMaterialLine(m, 5m) }), "op"));
-        Assert.Equal(1m, _opening.GetBalance(_admin, m)); // rollback
-        // Bakım kaydı da oluşmadı
+        var id = _maint.Save(_admin,
+            new NewMaintenance(v, def, PerformedKm: 1000m, Materials: new[] { new MaintenanceMaterialLine(m, 5m) }), "op");
+
+        Assert.False(string.IsNullOrEmpty(id));       // kayıt oluştu (engellenmedi)
+        Assert.Equal(-4m, _opening.GetBalance(_admin, m)); // 1 - 5 = -4 (defter tüketimi kayıtlı)
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM vehicle_maintenances;";
-        Assert.Equal(0L, Convert.ToInt64(cmd.ExecuteScalar()));
+        Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar()));
     }
 
     [Fact]
