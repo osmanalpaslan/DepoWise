@@ -231,9 +231,15 @@
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { await LoadList(); } }
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
-        => await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+    {
+        var r = await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+        return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
+    }
     private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
-        => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+    {
+        var r = await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+        return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
+    }
 
     private void AddItem()
     {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using DepoWise.Application.Security;
@@ -69,6 +70,7 @@ public partial class VehicleQuickEditWindow : Window
         var drivers = Load(() => DesktopServices.Lookups.ListPersonnel(session));
         typeBox.ItemsSource = types; catBox.ItemsSource = cats; brandBox.ItemsSource = brands;
         branchBox.ItemsSource = branches; driverBox.ItemsSource = drivers;
+        driverBox.AsyncPopulator = (search, _) => Task.FromResult(SelectionSearch.Apply(drivers, search, o => o.Name).Cast<object>());
 
         VehicleDetail? d = null;
         try { d = DesktopServices.Vehicles.Get(session, vehicleId); } catch { }

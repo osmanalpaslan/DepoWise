@@ -23,8 +23,8 @@
                 <SelectableTextBlock Text="YENİ BELGE" Classes="SectionTitle"/>
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Araç" IsRequired="True" Width="240">
-                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding FVehicle}"
-                                         FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" AsyncPopulator="{Binding VehiclePopulator}" SelectedItem="{Binding FVehicle}"
+                                         MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                          ValueMemberBinding="{Binding Display}">
                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                         </AutoCompleteBox>

@@ -68,8 +68,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Kategori ara..."
+                                      ItemsSource="{Binding Categories}" AsyncPopulator="{Binding CategoryPopulator}" SelectedItem="{Binding SelectedCategory}"
+                                      MinimumPrefixLength="0" PlaceholderText="Kategori ara..."
                                       ValueMemberBinding="{Binding Name}">
                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                             </AutoCompleteBox>
@@ -88,8 +88,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Alt kategori ara..."
+                                      ItemsSource="{Binding SubCategories}" AsyncPopulator="{Binding SubCategoryPopulator}" SelectedItem="{Binding SelectedSubCategory}"
+                                      MinimumPrefixLength="0" PlaceholderText="Alt kategori ara..."
                                       ValueMemberBinding="{Binding Name}">
                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                             </AutoCompleteBox>
@@ -109,8 +109,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Birim ara..."
+                                      ItemsSource="{Binding Units}" AsyncPopulator="{Binding UnitPopulator}" SelectedItem="{Binding SelectedUnit}"
+                                      MinimumPrefixLength="0" PlaceholderText="Birim ara..."
                                       ValueMemberBinding="{Binding Name}">
                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                             </AutoCompleteBox>
@@ -129,8 +129,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Marka ara..."
+                                      ItemsSource="{Binding Brands}" AsyncPopulator="{Binding BrandPopulator}" SelectedItem="{Binding SelectedBrand}"
+                                      MinimumPrefixLength="0" PlaceholderText="Marka ara..."
                                       ValueMemberBinding="{Binding Name}">
                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                             </AutoCompleteBox>
@@ -149,8 +149,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Tedarikçi ara..."
+                                      ItemsSource="{Binding Suppliers}" AsyncPopulator="{Binding SupplierPopulator}" SelectedItem="{Binding SelectedSupplier}"
+                                      MinimumPrefixLength="0" PlaceholderText="Tedarikçi ara..."
                                       ValueMemberBinding="{Binding Name}">
                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                             </AutoCompleteBox>

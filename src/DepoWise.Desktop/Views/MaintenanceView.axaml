@@ -167,8 +167,8 @@
                             <SelectableTextBlock Text="YENİ BAKIM KAYDI" Classes="SectionTitle"/>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Araç" IsRequired="True" Width="220">
-                                    <AutoCompleteBox ItemsSource="{Binding MntVehicles}" SelectedItem="{Binding MntVehicle}"
-                                                     FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
+                                    <AutoCompleteBox ItemsSource="{Binding MntVehicles}" AsyncPopulator="{Binding MntVehiclePopulator}" SelectedItem="{Binding MntVehicle}"
+                                                     MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
                                                      ValueMemberBinding="{Binding Display}">
                                         <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                     </AutoCompleteBox>
@@ -196,8 +196,8 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Teknisyen" Width="200">
-                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" SelectedItem="{Binding MntTechnician}"
-                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Teknisyen ara..." ValueMemberBinding="{Binding Name}">
+                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" AsyncPopulator="{Binding TechnicianPopulator}" SelectedItem="{Binding MntTechnician}"
+                                              MinimumPrefixLength="0" PlaceholderText="Teknisyen ara..." ValueMemberBinding="{Binding Name}">
                                         <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                     </AutoCompleteBox>
                                 </ctrl:FormField>

@@ -52,8 +52,8 @@
                     <!-- Fikir B: hesabı bir PERSONEL kaydına bağla (hesabı olmayan personeller listelenir) -->
                     <ctrl:FormField Label="Personel seç (bağla)" Width="220" IsVisible="{Binding FormCompanyIsOwn}"
                                     HelpText="Bu hesap hangi personele ait? Listede yoksa önce Personel ekranından ekleyin.">
-                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LinkablePersonnel}" SelectedItem="{Binding FormPersonnel}"
-                                  FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding FullName}">
+                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LinkablePersonnel}" AsyncPopulator="{Binding LinkablePersonnelPopulator}" SelectedItem="{Binding FormPersonnel}"
+                                  MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding FullName}">
                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="orgp:PersonnelRecord"><SelectableTextBlock Text="{Binding FullName}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                         </AutoCompleteBox>
                     </ctrl:FormField>
@@ -97,8 +97,8 @@
                     <SelectableTextBlock Text="Seçili kullanıcı:" Classes="Helper" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="{Binding Selected.Username}" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <SelectableTextBlock Text="Şube:" Classes="Helper" VerticalAlignment="Center" Margin="12,0,0,0" IsVisible="{Binding CanManageSelected}"/>
-                    <AutoCompleteBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" SelectedItem="{Binding AssignBranch}" IsVisible="{Binding CanManageSelected}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
+                    <AutoCompleteBox Classes="Field" Width="200" ItemsSource="{Binding Branches}" AsyncPopulator="{Binding BranchPopulator}" SelectedItem="{Binding AssignBranch}" IsVisible="{Binding CanManageSelected}"
+                                      MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
                         <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                     </AutoCompleteBox>
                     <Button Classes="Primary" Content="Şube Ata" Command="{Binding AssignBranchToUserCommand}" IsVisible="{Binding CanManageSelected}"/>

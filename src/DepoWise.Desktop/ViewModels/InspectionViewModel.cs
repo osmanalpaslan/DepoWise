@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +23,7 @@ public sealed partial class InspectionViewModel : ViewModelBase
 
     public ObservableCollection<InspectionRow> Items { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> VehiclePopulator => SearchPopulator.For(() => Vehicles, v => v.Display);
     public ObservableCollection<string> DocTypeOptions { get; } = new() { "Muayene", "Sigorta", "Kasko", "Kalibrasyon" };
     public ObservableCollection<string> ResultOptions { get; } = new() { "Geçti", "Kaldı", "Ertelendi" };
 

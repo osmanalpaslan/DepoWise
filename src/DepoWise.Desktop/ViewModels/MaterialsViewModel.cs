@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media.Imaging;
@@ -230,6 +231,11 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     public ObservableCollection<LookupItem> Units { get; } = new();
     public ObservableCollection<LookupItem> Brands { get; } = new();
     public ObservableCollection<LookupItem> Suppliers { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> CategoryPopulator => SearchPopulator.For(() => Categories, c => c.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> SubCategoryPopulator => SearchPopulator.For(() => SubCategories, c => c.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> UnitPopulator => SearchPopulator.For(() => Units, u => u.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> BrandPopulator => SearchPopulator.For(() => Brands, b => b.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> SupplierPopulator => SearchPopulator.For(() => Suppliers, s => s.Name);
 
     [ObservableProperty] private LookupItem? _selectedCategory;
     [ObservableProperty] private LookupItem? _selectedSubCategory;

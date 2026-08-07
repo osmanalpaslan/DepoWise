@@ -60,8 +60,8 @@
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Talep Eden" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormRequester}"
-                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" AsyncPopulator="{Binding PersonnelPopulator}" SelectedItem="{Binding FormRequester}"
+                                              MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
                                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                         </AutoCompleteBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddRequesterCommand}"/>
@@ -69,8 +69,8 @@
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Depo Sorumlusu" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormWarehouse}"
-                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" AsyncPopulator="{Binding PersonnelPopulator}" SelectedItem="{Binding FormWarehouse}"
+                                              MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
                                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                         </AutoCompleteBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddWarehouseCommand}"/>
@@ -78,8 +78,8 @@
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Onay Veren" Width="240">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding FormApprover}"
-                                              FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
+                                        <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" AsyncPopulator="{Binding PersonnelPopulator}" SelectedItem="{Binding FormApprover}"
+                                              MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
                                             <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                         </AutoCompleteBox>
                                         <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddApproverCommand}"/>
@@ -109,8 +109,8 @@
                                             <NumericUpDown Classes="Field" Value="{Binding NewItemQty}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                                         </ctrl:FormField>
                                         <ctrl:FormField Label="Araç (opsiyonel)" Width="220">
-                                            <AutoCompleteBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding NewItemVehicle}"
-                                                             FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="İç kod / plaka"
+                                            <AutoCompleteBox ItemsSource="{Binding Vehicles}" AsyncPopulator="{Binding VehiclePopulator}" SelectedItem="{Binding NewItemVehicle}"
+                                                             MinimumPrefixLength="0" PlaceholderText="İç kod / plaka"
                                                              ValueMemberBinding="{Binding Display}">
                                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                                             </AutoCompleteBox>

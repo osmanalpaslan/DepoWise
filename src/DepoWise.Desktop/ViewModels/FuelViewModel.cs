@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -25,6 +27,9 @@ public sealed partial class FuelViewModel : ViewModelBase
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<LookupItem> Personnel { get; } = new();
     public ObservableCollection<LookupItem> Suppliers { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> VehiclePopulator => SearchPopulator.For(() => Vehicles, v => v.Display);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> PersonnelPopulator => SearchPopulator.For(() => Personnel, p => p.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> SupplierPopulator => SearchPopulator.For(() => Suppliers, s => s.Name);
 
     [ObservableProperty] private string? _status;
     [ObservableProperty] private int _selectedTab;

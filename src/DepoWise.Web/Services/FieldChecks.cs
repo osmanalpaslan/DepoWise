@@ -14,6 +14,11 @@ public static class FieldChecks
     /// DOĞRU eşlemez — arama/tekrar-kontrolü yapan TÜM ekranlar bu TEK kaynağı kullanır.</summary>
     public static readonly System.Globalization.CompareInfo TrCompare = new System.Globalization.CultureInfo("tr-TR").CompareInfo;
 
+    /// <summary>Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): sunucu-taramalı (server
+    /// search) alanlar (SearchVehicle/SearchMaterial vb.) arama boşken bu kadarla sınırlanır; arama başlayınca
+    /// sınır kalkar (çağıran zaten yalnız arama BOŞKEN bu sınırı uygular).</summary>
+    public const int MaxUnfilteredOptions = 25;
+
     public const int MinVehicleYear = 1950;
     public static int MaxVehicleYear => DateTimeOffset.UtcNow.Year + 1;
     public static bool YearInRange(int? year) => year is null || (year >= MinVehicleYear && year <= MaxVehicleYear);

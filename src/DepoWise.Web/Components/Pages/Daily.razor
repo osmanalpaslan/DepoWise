@@ -341,9 +341,15 @@
     private async Task ReloadMSub(string _) { if (!string.IsNullOrEmpty(_mDefId)) _mSubOpts = await Api.OptionsAsync($"/api/maintenance/definitions?parentDefId={_mDefId}", "id", "name"); }
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
-        => await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+    {
+        var r = await Api.OptionsAsync("/api/vehicles" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "display");
+        return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
+    }
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
-        => await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+    {
+        var r = await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
+        return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
+    }
 
     private void AddMaterial() { if (_matSel is null || _matQty <= 0) return; _lines.Add(new Line(_matSel.Id, _matSel.Name, _matQty)); _matSel = null; _matQty = 0; }
 

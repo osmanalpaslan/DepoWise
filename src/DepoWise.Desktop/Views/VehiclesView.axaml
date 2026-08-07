@@ -189,8 +189,8 @@
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
                             <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelDriver}"
-                                      FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Sürücü ara..." ValueMemberBinding="{Binding Name}">
+                                      ItemsSource="{Binding Drivers}" AsyncPopulator="{Binding DriverPopulator}" SelectedItem="{Binding SelDriver}"
+                                      MinimumPrefixLength="0" PlaceholderText="Sürücü ara..." ValueMemberBinding="{Binding Name}">
                                 <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
                             </AutoCompleteBox>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>

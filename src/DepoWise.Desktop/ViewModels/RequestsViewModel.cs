@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DepoWise.Application.Common;
@@ -38,6 +40,8 @@ public sealed partial class RequestsViewModel : ViewModelBase
     public ObservableCollection<LookupItem> Sites { get; } = new();
     public ObservableCollection<LookupItem> Personnel { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> PersonnelPopulator => SearchPopulator.For(() => Personnel, p => p.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> VehiclePopulator => SearchPopulator.For(() => Vehicles, v => v.Display);
     private bool _lookupsLoaded;
 
     private const string LogoKey = "requests.company_logo";

@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -42,6 +44,17 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     public ObservableCollection<LookupItem> Units { get; } = new();
     public ObservableCollection<LookupItem> Brands { get; } = new();
     public ObservableCollection<LookupItem> Suppliers { get; } = new();
+
+    // Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): tıklanınca en fazla 25 kayıt,
+    // arama başlayınca sınırsız (SearchPopulator + SelectionSearch — bkz. Converters/Application.Ui).
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> BranchPopulator => SearchPopulator.For(() => Branches, b => b.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> PersonnelPopulator => SearchPopulator.For(() => Personnel, p => p.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> VehiclePopulator => SearchPopulator.For(() => Vehicles, v => v.Display);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> CategoryPopulator => SearchPopulator.For(() => Categories, c => c.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> SubCategoryPopulator => SearchPopulator.For(() => SubCategories, c => c.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> UnitPopulator => SearchPopulator.For(() => Units, u => u.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> BrandPopulator => SearchPopulator.For(() => Brands, b => b.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> SupplierPopulator => SearchPopulator.For(() => Suppliers, s => s.Name);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNew))]

@@ -35,14 +35,18 @@
     private string IdToName(string? id)
         => string.IsNullOrEmpty(id) ? "" : Items.FirstOrDefault(x => x.Id == id)?.Name ?? "";
 
-    /// <summary>Metne göre filtrele; boş metinde tümü. Id değerlerini döndürür (görünen ad ItemTemplate/ToStringFunc ile).
-    /// Türkçe karakter-doğru (FieldChecks.TrCompare) — bu TEK ortak bileşen 14+ ekranı etkiler.</summary>
+    /// <summary>Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): arama boşken (alana
+    /// tıklanınca) en fazla 25 kayıt; arama başlayınca sınır kalkar, TÜM eşleşenler listelenir. Türkçe
+    /// karakter-doğru (FieldChecks.TrCompare) — bu TEK ortak bileşen 14+ ekranı etkiler.</summary>
+    private const int MaxUnfiltered = 25;
     private Task<IEnumerable<string>> Search(string? text, System.Threading.CancellationToken _)
     {
         var q = (text ?? "").Trim();
-        IEnumerable<ApiClient.Opt> src = Items;
+        IEnumerable<ApiClient.Opt> src;
         if (q.Length > 0)
             src = Items.Where(o => DepoWise.Web.Services.FieldChecks.TrCompare.IndexOf(o.Name ?? "", q, System.Globalization.CompareOptions.IgnoreCase) >= 0);
+        else
+            src = Items.Take(MaxUnfiltered);
         return Task.FromResult(src.Select(o => o.Id));
     }
 

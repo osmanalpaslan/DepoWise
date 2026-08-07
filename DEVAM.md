@@ -27,9 +27,33 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-06)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07)
 
-### 🆕 Yeni görev paketi (2026-08-06) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
+### 🆕 2. paket (2026-08-06/07) — Çeşitli Modüllerde İyileştirme (8 birim, sürüyor)
+Ham prompt + sıralama: **[docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md](docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md)**.
+Birim birim, masaüstü önce → web ardından; her birim sonunda kullanıcı onayıyla sıradakine geçiliyor.
+- ✅ **Birim 1 — Düzenleme-ekranı boş-alan hataları (Opus 4.8):** 1.7 (malzeme düzenlemede Kategori/Alt Kategori
+  boş gelme) kök nedeni bulunup düzeltildi — masaüstü ana form artık web/QuickEdit ile aynı "ebeveyn tara"
+  mantığını kullanıyor. 1.6 (yetki ağacı boş gelme) canlı API'de ampirik test edildi — KOD HATASI DEĞİL çıktı,
+  dokunulmadı. 5.1 (Bakım Teknisyen seçimi bazen kayboluyor) kullanıcı kararıyla ERTELENDİ.
+- ✅ **Birim 2 — Yakıt tutarlılık (Sonnet 5):** masaüstü Depo Girişleri Tedarikçi alanına "+" (Malzemeler ile
+  aynı desen) + "Yakıtı Veren/Alan" personel alanları aranabilir oldu. Web zaten doğruydu (ortak `LookupSelect`).
+- ✅ **Birim 3 — Ortak seçim alanı davranışı (Sonnet 5, TAMAMLANDI):** TÜM seçim alanlarında (madde 3) aynı
+  kural: tıklanınca en fazla 25 kayıt, arama başlayınca sınır kalkar + Türkçe karakter-doğru. Çekirdek mantık
+  `DepoWise.Application/Ui/Validation.cs` → `SelectionSearch` (8 yeni test). Masaüstü: 11 ekran / ~27 alan
+  `AutoCompleteBox.AsyncPopulator`'a geçirildi (yeni `SearchPopulator.For<T>`) — yol boyu bulunan Avalonia
+  kısıtı: `ItemsSource` tamamen kaldırılınca derlenmiş-binding denetleyicisi `ValueMemberBinding`/`ItemTemplate`
+  öğe tipini çıkaramıyor (bir alanda derleme hatası verdi, "Name" adlı diğerlerinde VM'in kendi alakasız `Name`
+  property'siyle SESSİZCE yanlış eşleşiyordu) → çözüm: `ItemsSource` KORUNDU (yalnız tip-çıkarımı için),
+  `AsyncPopulator` ek olarak eklendi (çalışma zamanında filtrelemeyi tamamen devralıyor). Web: ortak
+  `LookupSelect.razor` (14+ ekran) + ayrıca `LookupSelect` KULLANMAYAN 9 doğrudan-sunucu-arama yeri (Daily/
+  Requests/Maintenance/Inspection/Fuel/Materials/Stock.razor) bulunup aynı 25-sınırı eklendi. Build 0 hata,
+  test **598/0** (591→598, +8 SelectionSearchTests). ⚠️ Bakım Teknisyen alanı da bu birimde AsyncPopulator'a
+  geçti (tutarlılık gereği) — 5.1'e dönüldüğünde bunun bug'ı etkileyip etkilemediği yeniden test edilmeli.
+  **Görsel doğrulama yapılamadı** (Avalonia önizlemesi yok) — kullanıcı testi gerekiyor.
+- ⏭️ **Sıradaki:** Birim 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (madde 1.1).
+
+### 🆕 Önceki görev paketi (2026-08-06, TAMAMLANDI+YAYINLANDI) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
 Kullanıcı uzun bir prompt iletti; ham hali + sıralama: **[docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md](docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md)**.
 Birim birim, masaüstü önce → web ardından ilerleniyor.
 - ✅ **Birim 1 — Şube mantığı + Transfer bütünlüğü (2026-08-06):** işlem/kaynak şube artık **login şube**

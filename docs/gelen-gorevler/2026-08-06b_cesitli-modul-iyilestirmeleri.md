@@ -161,11 +161,36 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
   Ayrı, sınırlı bir takip işi olarak kullanıcıya sunuldu (5 alan × tam "+" tesisatı; görsel test bu ortamda yok).
   Web tüm ekranlarda merkezi `LookupSelect` sayesinde zaten tam.
 
+**Birim #3 (2026-08-06, Sonnet 5) — Ortak seçim alanı davranışı. TAMAMLANDI, masaüstü + web.**
+- **Çekirdek mantık:** `DepoWise.Application/Ui/Validation.cs` içine `SelectionSearch` (statik, framework-bağımsız):
+  arama boşken `MaxUnfiltered=25` kayıt (sıra korunur), arama doluyken sınır kalkar + Türkçe-doğru (`tr-TR`
+  `CompareInfo.IndexOf`, `OrdinalIgnoreCase` DEĞİL). 8 xUnit testi (`SelectionSearchTests.cs`) — hepsi geçti.
+- **Masaüstü:** yeni `SearchPopulator.For<T>` (Avalonia `AutoCompleteBox.AsyncPopulator` için ince sarmalayıcı,
+  `SelectionSearch.Apply`'ı çağırır). Projedeki TÜM `AutoCompleteBox` alanları (StockEntry, Settings/AltKategori,
+  Personnel, Vehicles, VehicleQuickEditWindow — kod-arkası, Inspection, Users, Maintenance, Fuel, Requests,
+  DailyActivity, Materials — toplam 11 ekran, ~27 alan) `FilterMode="Contains"`'tan `AsyncPopulator`'a geçirildi.
+  **Önemli bulgu:** `ItemsSource` kaldırılıp yalnız `AsyncPopulator` bırakılınca Avalonia'nın derlenmiş-binding
+  denetleyicisi `ValueMemberBinding`/`ItemTemplate` için öğe tipini artık çıkaramıyor (StockEntryView'da
+  `ValueMemberBinding="{Binding Display}"` için AVLN2000 derleme hatası verdi — `Name` alanlarında ise VM'in
+  kendi ayrı `Name` property'siyle YANLIŞLIKLA eşleşip SESSİZCE derleniyordu, gerçek hata gizli kalıyordu).
+  Çözüm: `ItemsSource` KORUNDU (tip-çıkarımı için), `AsyncPopulator` ONA EK olarak eklendi — Avalonia çalışma
+  zamanında `AsyncPopulator` varsa filtrelemeyi TAMAMEN devralır, `ItemsSource`/`FilterMode` yok sayılır.
+- **Web:** `LookupSelect.razor` (14+ ekranda paylaşılan ortak bileşen) `Search` metoduna aynı 25-sınır +
+  Türkçe-doğru mantık eklendi — TEK dosya değişikliği tüm ekranları kapsadı. Ayrıca `LookupSelect` KULLANMAYAN,
+  doğrudan sunucu araması yapan `SearchVehicle`/`SearchMaterial` tipi metotlar bulundu (Daily/Requests/
+  Maintenance/Inspection/Fuel/Materials/Stock.razor, 9 yer) — bunlara da aynı sınır eklendi (`FieldChecks.
+  MaxUnfilteredOptions=25`, yalnız arama BOŞKEN `.Take(25)`). `StockCount.razor`'daki benzer görünen arama
+  KAPSAM DIŞI bırakıldı — o tam sayfa stok-sayım ızgarası (seçim alanı değil), 25'e kesmek sayım işini bozar.
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü + web), test 598/0 (591 önceki + SelectionSearchTests 8'i eklendi — bkz. not: 8 yeni test var, 590→598).
+- ⚠️ **5.1 ile ilişki:** Bakım Takibi Teknisyen alanı da bu birimde AsyncPopulator'a geçirildi (tutarlılık
+  gereği — madde 3 İSTİSNASIZ tüm alanları kapsıyor). Bu, 5.1'in ("bazen seçim kayboluyor") kök nedenini
+  DÜZELTMEK için yapılmadı — 5.1 hâlâ ERTELENMİŞ durumda. Ancak AsyncPopulator mekanizması SelectedItem/Text
+  senkronizasyonunu farklı şekilde yönetebilir; 5.1'e dönüldüğünde önce bunun bug'ı etkileyip etkilemediği
+  (düzelttiği/değiştirdiği/aynı kaldığı) yeniden test edilmeli.
+
 - [x] 1 — Düzenleme-ekranı boş-alan hataları (1.7 ✅ düzeltildi · 1.6 hata değil/ampirik kanıt · 5.1 ERTELENDİ)
 - [x] 2 — Yakıt tutarlılık (2.1 Fuel + · 2.2 Fuel arama ✅ · genel-kural StockEntry "+" takip işi olarak sunuldu)
-- [ ] 3 — Ortak seçim alanı davranışı (madde 3)
-- [ ] 2 — Yakıt tutarlılık (2.1+2.2)
-- [ ] 3 — Ortak seçim alanı davranışı (madde 3)
+- [x] 3 — Ortak seçim alanı davranışı (madde 3) — masaüstü (~27 alan) + web (LookupSelect + 9 doğrudan-arama yeri)
 - [ ] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1)
 - [ ] 5 — Sistem Logu filtreleri (madde 4)
 - [ ] 6 — Bakım "+ Personel" butonu (5.2)

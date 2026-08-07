@@ -71,8 +71,8 @@
                 <Expander Header="Malzeme — Alt Kategoriler" HorizontalAlignment="Stretch" Margin="0,0,0,10"
                           DataContext="{Binding SubCategorySection}">
                     <StackPanel Spacing="8" Margin="0,8,0,0">
-                        <AutoCompleteBox Classes="Field" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
-                                  FilterMode="Contains" MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}"
+                        <AutoCompleteBox Classes="Field" ItemsSource="{Binding Categories}" AsyncPopulator="{Binding CategoryPopulator}" SelectedItem="{Binding SelectedCategory}"
+                                  MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}"
                                   PlaceholderText="Önce kategori seçin..." HorizontalAlignment="Left" MinWidth="260">
                             <AutoCompleteBox.ItemTemplate>
                                 <DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate>

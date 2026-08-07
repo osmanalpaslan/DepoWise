@@ -68,6 +68,32 @@ public static class FieldChecks
 }
 
 /// <summary>
+/// Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): kullanıcı bir seçim alanına
+/// tıkladığında (arama yapmadan önce) mevcut kayıtlar listelenir; kayıt sayısı <see cref="MaxUnfiltered"/>'dan
+/// fazlaysa İLK ETAPTA en fazla bu kadarı gösterilir. Kullanıcı arama yazmaya başlayınca sınır KALKAR, arama
+/// sonucundaki TÜM uygun kayıtlar listelenir. Türkçe karakter-doğru arama (İ/I/ı/i, Ç/Ğ/Ö/Ş/Ü) —
+/// <c>StringComparison.OrdinalIgnoreCase</c> bunu YANLIŞ eşler (kanıt: web LookupSelect düzeltmesi, 2026-08-06).
+/// Saf/çerçeve-bağımsız mantık — masaüstü (AsyncPopulator) ve testler bu TEK kaynağı kullanır.
+/// </summary>
+public static class SelectionSearch
+{
+    public const int MaxUnfiltered = 25;
+    private static readonly System.Globalization.CompareInfo TrCompare =
+        new System.Globalization.CultureInfo("tr-TR").CompareInfo;
+
+    public static bool Contains(string? haystack, string needle)
+        => TrCompare.IndexOf(haystack ?? "", needle, System.Globalization.CompareOptions.IgnoreCase) >= 0;
+
+    /// <summary>Arama boşsa ilk <see cref="MaxUnfiltered"/> kayıt (mevcut sıra korunur); doluysa TÜM eşleşenler.</summary>
+    public static IEnumerable<T> Apply<T>(IEnumerable<T> items, string? search, Func<T, string?> text)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return items.Take(MaxUnfiltered);
+        var q = search.Trim();
+        return items.Where(x => Contains(text(x), q));
+    }
+}
+
+/// <summary>
 /// Numerik alan doğrulama — negatif ve sınır dışı fail-closed. Web `validateNumeric` ile aynı.
 /// </summary>
 public static class NumericInput

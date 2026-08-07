@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -274,9 +275,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     // Yeni kayıt formu
     [ObservableProperty] private bool _showMntAdd;
     public ObservableCollection<VehicleListRow> MntVehicles { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> MntVehiclePopulator => SearchPopulator.For(() => MntVehicles, v => v.Display);
     public ObservableCollection<MaintenanceDefinitionRow> MntDefs { get; } = new();
     public ObservableCollection<MaintenanceDefinitionRow> MntSubDefs { get; } = new();
     public ObservableCollection<LookupItem> Technicians { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> TechnicianPopulator => SearchPopulator.For(() => Technicians, t => t.Name);
     public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
     public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
     private bool _mntPickersLoaded;

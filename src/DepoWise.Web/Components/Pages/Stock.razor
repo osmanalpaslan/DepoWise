@@ -205,11 +205,12 @@
         try
         {
             var arr = await Api.GetArrayAsync("/api/materials" + (string.IsNullOrWhiteSpace(term) ? "" : $"?search={Uri.EscapeDataString(term)}"));
-            return arr.Where(e => e.ValueKind == JsonValueKind.Object)
+            var items = arr.Where(e => e.ValueKind == JsonValueKind.Object)
                 .Select(e => new MaterialItem(
                     e.GetProperty("id").GetString() ?? "",
                     e.TryGetProperty("code", out var c) ? c.GetString() ?? "" : "",
-                    e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "")).ToList();
+                    e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : ""));
+            return string.IsNullOrWhiteSpace(term) ? items.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions).ToList() : items.ToList();
         }
         catch { return Array.Empty<MaterialItem>(); }
     }

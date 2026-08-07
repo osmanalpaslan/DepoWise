@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -37,6 +38,7 @@ public sealed partial class UsersViewModel : ViewModelBase
     public ObservableCollection<RolePick> AssignableRoles { get; } = new();
     /// <summary>Seçili kullanıcıya şube atama listesi — DAİMA oturumun kendi firması.</summary>
     public ObservableCollection<BranchRow> Branches { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> BranchPopulator => SearchPopulator.For(() => Branches, b => b.Name);
     /// <summary>Yeni kullanıcı formundaki şube listesi — SEÇİLİ firmaya göre (süper admin başka firma seçebilir).
     /// Atama listesinden ayrıdır; yoksa firma değişince seçili kullanıcının şube kutusu da bozulurdu.</summary>
     public ObservableCollection<BranchRow> FormBranches { get; } = new();
@@ -159,6 +161,7 @@ public sealed partial class UsersViewModel : ViewModelBase
 
     // Fikir B — "Personel seç": hesabı hangi personele bağlayacağız (hesabı olmayan personeller listelenir).
     public ObservableCollection<PersonnelRecord> LinkablePersonnel { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> LinkablePersonnelPopulator => SearchPopulator.For(() => LinkablePersonnel, p => p.FullName);
     [ObservableProperty] private PersonnelRecord? _formPersonnel;
 
     /// <summary>Hesabı olmayan personelleri yükler (bir personele tek kullanıcı kuralı).

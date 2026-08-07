@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -50,6 +52,7 @@ public sealed partial class PersonnelViewModel : ViewModelBase
 
     public ObservableCollection<PersonnelRowVm> Items { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> BranchPopulator => SearchPopulator.For(() => Branches, b => b.Name);
     private readonly System.Collections.Generic.List<PersonnelRowVm> _all = new();
 
     [ObservableProperty] private string _search = "";

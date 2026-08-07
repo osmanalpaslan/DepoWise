@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -19,6 +21,7 @@ public sealed partial class SubCategorySectionViewModel : ViewModelBase
 
     public ObservableCollection<LookupItem> Categories { get; } = new();
     public ObservableCollection<LookupRowViewModel> Items { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> CategoryPopulator => SearchPopulator.For(() => Categories, c => c.Name);
     [ObservableProperty] private LookupItem? _selectedCategory;
     [ObservableProperty] private string _newName = "";
     [ObservableProperty] private string? _error;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media.Imaging;
@@ -247,6 +248,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public ObservableCollection<LookupItem> VehicleModels { get; } = new();
     public ObservableCollection<LookupItem> Branches { get; } = new();
     public ObservableCollection<LookupItem> Drivers { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> DriverPopulator => SearchPopulator.For(() => Drivers, d => d.Name);
 
     [ObservableProperty] private LookupItem? _selVehicleType;
     [ObservableProperty] private LookupItem? _selCategory;

@@ -39,7 +39,7 @@
                 <ComboBox  Grid.Row="5" Grid.Column="1" x:Name="BranchBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
                 <TextBlock Grid.Row="5" Grid.Column="2" Text="Sürücü" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <AutoCompleteBox Grid.Row="5" Grid.Column="3" x:Name="DriverBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,0,4"
-                                 FilterMode="Contains" MinimumPrefixLength="0" PlaceholderText="Personel ara..."/>
+                                 MinimumPrefixLength="0" PlaceholderText="Personel ara..."/>
 
                 <TextBlock Grid.Row="6" Grid.Column="0" Text="Şasi No" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <TextBox   Grid.Row="6" Grid.Column="1" x:Name="ChassisBox" Classes="Field" Margin="0,4,14,4"/>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -42,6 +43,9 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
     public ObservableCollection<BranchRow> Branches { get; } = new();
     public ObservableCollection<LookupItem> Personnel { get; } = new();
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> VehiclePopulator => SearchPopulator.For(() => Vehicles, v => v.Display);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> BranchPopulator => SearchPopulator.For(() => Branches, b => b.Name);
+    public Func<string, CancellationToken, Task<IEnumerable<object>>> PersonnelPopulator => SearchPopulator.For(() => Personnel, p => p.Name);
     public ObservableCollection<MaintenanceDefinitionRow> MaintDefs { get; } = new();
     public ObservableCollection<MaintenanceDefinitionRow> MaintSubDefs { get; } = new();
     public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
