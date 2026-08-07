@@ -114,7 +114,19 @@
                     </MudItem>
                     <MudItem xs="6" md="4"><LookupSelect Label="Bakım Tanımı *" @bind-Value="_mDefId" Items="_defOpts" /></MudItem>
                     <MudItem xs="6" md="4"><LookupSelect Label="Alt Bakım" @bind-Value="_mSubId" Items="_mSubOpts" CreatePath="/api/maintenance/definitions" CreateField="name" ExtraField="parentDefId" ExtraValue="@_mDefId" OnAdded="ReloadMSub" Disabled="@(string.IsNullOrEmpty(_mDefId))" /></MudItem>
-                    <MudItem xs="6" md="3"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_technicians" /></MudItem>
+                    @* Teknisyen yanına "+" Personel (madde 5.2, kullanıcı isteği 2026-08-06): eklenen kişi
+                       otomatik "Saha Personeli" işaretlenir — /api/personnel'e isFieldStaff:true ile POST. *@
+                    <MudItem xs="6" md="3">
+                        <div class="d-flex align-center" style="gap:4px;">
+                            <div style="flex:1 1 auto;"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_technicians" /></div>
+                            @if (Auth.CanCreate("personnel"))
+                            {
+                                <MudTooltip Text="Yeni personel (Saha Personeli olarak eklenir)">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Primary" OnClick="AddTechnician" />
+                                </MudTooltip>
+                            }
+                        </div>
+                    </MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_mDate" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -380,6 +392,29 @@
     }
 
     private async Task ReloadMSub(string _) { if (!string.IsNullOrEmpty(_mDefId)) _mSubOpts = await Api.OptionsAsync($"/api/maintenance/definitions?parentDefId={_mDefId}", "id", "name"); }
+
+    /// <summary>Teknisyen yanındaki "+" (madde 5.2): Personeller modülündeki NameInputDialog'u yeniden kullanır,
+    /// /api/personnel'e doğrudan POST eder — LookupSelect'in genel CreatePath yolu yalnız TEK metin alanı
+    /// destekler, isFieldStaff BOOLEAN alanı için uygun değil.</summary>
+    private async Task AddTechnician()
+    {
+        var dlg = await Dialog.ShowAsync<NameInputDialog>("Yeni Personel",
+            new DialogParameters { ["Label"] = "Ad Soyad" },
+            new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is null || res.Canceled || res.Data is not string raw) return;
+        var name = raw.Trim();
+        if (name.Length == 0) return;
+
+        var err = await Api.PostAsync("/api/personnel", new { fullName = name, isFieldStaff = true });
+        if (err is null)
+        {
+            _technicians = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+            var added = _technicians.FirstOrDefault(o => DepoWise.Web.Services.FieldChecks.TrCompare.Compare(o.Name ?? "", name, System.Globalization.CompareOptions.IgnoreCase) == 0);
+            if (added is not null) _mTech = added.Id;
+        }
+        else await Dialog.Confirm("Eklenemedi: " + err, okText: "Tamam", cancelText: "");
+    }
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
     {

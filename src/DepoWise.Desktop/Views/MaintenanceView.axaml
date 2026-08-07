@@ -195,11 +195,22 @@
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="14">
-                                <ctrl:FormField Label="Teknisyen" Width="200">
-                                    <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" AsyncPopulator="{Binding TechnicianPopulator}" SelectedItem="{Binding MntTechnician}"
-                                              MinimumPrefixLength="0" PlaceholderText="Teknisyen ara..." ValueMemberBinding="{Binding Name}">
-                                        <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                                    </AutoCompleteBox>
+                                <ctrl:FormField Label="Teknisyen" Width="220">
+                                    <StackPanel Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" AsyncPopulator="{Binding TechnicianPopulator}" SelectedItem="{Binding MntTechnician}"
+                                                      MinimumPrefixLength="0" PlaceholderText="Teknisyen ara..." ValueMemberBinding="{Binding Name}">
+                                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+                                            </AutoCompleteBox>
+                                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddTechnician}" Width="40" Margin="8,0,0,0"
+                                                    ToolTip.Tip="Yeni personel (Saha Personeli olarak eklenir)" Command="{Binding StartAddTechnicianCommand}"/>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingTechnician}">
+                                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewTechnicianName}" PlaceholderText="Yeni personel adı"/>
+                                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddTechnicianCommand}"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddTechnicianCommand}"/>
+                                        </Grid>
+                                    </StackPanel>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Yapılma KM" Width="130">
                                     <NumericUpDown Classes="Field" Value="{Binding MntKm}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>

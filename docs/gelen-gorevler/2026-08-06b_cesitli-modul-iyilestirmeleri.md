@@ -235,11 +235,28 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
   Servis-katmanı testleri gerçek SQLite ile tarih/limit davranışını KANITLADI. **Görsel/canlı doğrulama
   yapılamadı** (Avalonia önizlemesi yok, API henüz deploy edilmedi — bkz. Birim 4'teki aynı not).
 
+**Birim #6 (2026-08-07, Sonnet 5) — Bakım "+ Personel" butonu (5.2). TAMAMLANDI, masaüstü + web.**
+- **Masaüstü (`MaintenanceViewModel`/`MaintenanceView`):** Teknisyen alanı yanına "+" (Materials/Fuel'daki
+  AYNI IsAddingX/NewXName/Start-Confirm-Cancel deseni). Görünürlük `CanAddTechnician` (`AccessControl.Can(s,
+  "personnel", Create)`) ile — genel `CanAddLookup` DEĞİL, çünkü Personel tam bir CRUD modülü, basit lookup
+  değil; yanlış yetkiyle görünüp tıklanınca "yetki yok" hatası vermesin diye doğru modül kontrolü kullanıldı.
+  Eklenen kişi `DesktopServices.Personnel.Create(..., NewPersonnel(..., IsFieldStaff: true))` ile oluşturulur
+  (Personeller modülündeki mevcut alan/yapı birebir yeniden kullanıldı) ve otomatik seçilir.
+- **Web (`Maintenance.razor`):** Teknisyen `LookupSelect` yanına `MudIconButton` "+" (`Auth.CanCreate(
+  "personnel")` gated). **Not:** `LookupSelect`'in genel `CreatePath`/`ExtraField` mekanizması yalnız TEK
+  metin alanı destekliyor (`ExtraValue` string) — `isFieldStaff` BOOLEAN olduğu için bu yola uymuyor; bunun
+  yerine mevcut `NameInputDialog` (LookupSelect'in kendi iç bileşeni, yalnız ad toplar) yeniden kullanılıp
+  `/api/personnel`'e doğrudan `{ fullName, isFieldStaff: true }` POST edildi — aynı sonuca varan, tip-güvenli
+  ayrı bir yol.
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü+web), test 603/0 (regresyon yok — yeni test eklenmedi, alttaki
+  `PersonnelService.Create`/`/api/personnel` zaten test kapsamında, bu birim yalnız orkestrasyon/UI). **Görsel
+  doğrulama yapılamadı** (Avalonia önizlemesi yok) — kullanıcı testi gerekiyor.
+
 - [x] 1 — Düzenleme-ekranı boş-alan hataları (1.7 ✅ düzeltildi · 1.6 hata değil/ampirik kanıt · 5.1 ERTELENDİ)
 - [x] 2 — Yakıt tutarlılık (2.1 Fuel + · 2.2 Fuel arama ✅ · genel-kural StockEntry "+" takip işi olarak sunuldu)
 - [x] 3 — Ortak seçim alanı davranışı (madde 3) — masaüstü (~27 alan) + web (LookupSelect + 9 doğrudan-arama yeri)
 - [x] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1) — masaüstü + web + API (deploy bekliyor)
 - [x] 5 — Sistem Logu filtreleri (madde 4) — masaüstü + web + API (deploy bekliyor), 5 yeni test
-- [ ] 6 — Bakım "+ Personel" butonu (5.2)
+- [x] 6 — Bakım "+ Personel" butonu (5.2) — masaüstü + web
 - [ ] 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (1.2-1.5)
 - [ ] 8 — Bakım negatif stok davranışı (5.3)

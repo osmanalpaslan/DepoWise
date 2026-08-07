@@ -12,6 +12,7 @@ using DepoWise.Application.Security;
 using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
+using DepoWise.Infrastructure.Org;
 using DepoWise.Infrastructure.Vehicles;
 
 namespace DepoWise.Desktop.ViewModels;
@@ -308,6 +309,29 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     [ObservableProperty] private string _cancelReason = "";
     [ObservableProperty] private bool _isAddingMntSub;
     [ObservableProperty] private string _newMntSubName = "";
+
+    // Teknisyen yanına "+" Personel ekleme (madde 5.2, kullanıcı isteği 2026-08-06): eklenen kişi otomatik
+    // "Saha Personeli" işaretlenir (Personeller modülündeki IsFieldStaff — aynı alan yeniden kullanılıyor).
+    public bool CanAddTechnician => AccessControl.Can(_session, "personnel", PermissionAction.Create);
+    [ObservableProperty] private bool _isAddingTechnician;
+    [ObservableProperty] private string _newTechnicianName = "";
+
+    [RelayCommand] private void StartAddTechnician() { IsAddingTechnician = true; NewTechnicianName = ""; }
+    [RelayCommand] private void CancelAddTechnician() { IsAddingTechnician = false; NewTechnicianName = ""; }
+    [RelayCommand]
+    private void ConfirmAddTechnician()
+    {
+        if (string.IsNullOrWhiteSpace(NewTechnicianName)) return;
+        try
+        {
+            var name = NewTechnicianName.Trim();
+            var id = DesktopServices.Personnel.Create(_session, new NewPersonnel(name, null, null, null, true, IsFieldStaff: true));
+            var item = new LookupItem(id, name);
+            Technicians.Add(item); MntTechnician = item;
+            IsAddingTechnician = false; NewTechnicianName = "";
+        }
+        catch (Exception ex) { Status = "Eklenemedi: " + ex.Message; }
+    }
 
     [RelayCommand] private void StartAddMntSub() { if (MntDef is null) { Status = "Önce bakım tanımı seçin."; return; } IsAddingMntSub = true; NewMntSubName = ""; }
     [RelayCommand] private void CancelAddMntSub() { IsAddingMntSub = false; NewMntSubName = ""; }
