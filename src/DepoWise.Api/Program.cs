@@ -1672,6 +1672,7 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
     S(c) is null ? Results.Unauthorized() : Results.Ok(DepoWise.Application.Reports.ReportCatalog.All.Select(d => new
     {
         key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
+        category = d.Category.ToString(), categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(d.Category),
         usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
         requiresDate = d.RequiresDate, manager = d.IsManager
     }))).RequireAuthorization();

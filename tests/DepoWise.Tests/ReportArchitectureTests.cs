@@ -49,6 +49,8 @@ public class ReportArchitectureTests : IDisposable
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));
+            Assert.False(string.IsNullOrWhiteSpace(d.Description));                 // UI'ya-dönük açıklama dolu
+            Assert.False(string.IsNullOrWhiteSpace(ReportCatalog.CategoryLabel(d.Category)));  // kategori etiketi var
             if (d.RequiresDate) Assert.True(d.UsesDate);          // RequiresDate ⊆ UsesDate
             Assert.NotNull(ReportCatalog.ByKey(d.Key));
         }

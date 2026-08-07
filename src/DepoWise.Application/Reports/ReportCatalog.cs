@@ -14,6 +14,11 @@ public enum ReportFilters
 /// <summary>Rapor grubu — menü/Excel-yetki ayrımı. Standart = "Raporlar", Yönetici = "Yönetici Raporları".</summary>
 public enum ReportGroup { Standard, Manager }
 
+/// <summary>Rapor KATEGORİSİ (kullanıcı isteği 2026-08-07): ileride çok sayıda rapor eklendiğinde temaya göre
+/// gruplamak için (UI'da alt-başlık/klasör olarak kullanılabilir — mimari şimdiden hazır). Yeni kategori
+/// eklemek için buraya değer + <see cref="ReportCatalog.CategoryLabel"/>'a etiket eklenir.</summary>
+public enum ReportCategory { Vehicle, Material, Fuel, Maintenance, Requests, Purchasing, Stock, Management }
+
 /// <summary>
 /// TEK doğru kaynak rapor tanımı (kullanıcı isteği 2026-08-07 — ortak rapor mimarisi). Hem masaüstü hem web
 /// hem API bu kataloğdan beslenir: yeni rapor eklemek = kataloğa 1 satır + ReportService metodu; filtre/kolon/
@@ -22,7 +27,9 @@ public enum ReportGroup { Standard, Manager }
 public sealed record ReportDescriptor(
     string Key,               // kanonik id: "general", "stock", ... (API tipi + katalog anahtarı)
     string Name,              // ekran adı: "Genel Rapor"
-    string Description,       // seçicide gösterilen kısa açıklama
+    string Description,       // KULLANICIYA-DÖNÜK kısa açıklama — rapor seçicide alt-başlık + ileride "rapor
+                              // hakkında bilgi" ipucu/tooltip olarak gösterilir (teknik amaçlı DEĞİL; UI metni).
+    ReportCategory Category,  // temaya göre gruplama (Araç/Malzeme/Yakıt/... — UI'da alt-başlık/klasör)
     ReportGroup Group,
     ReportFilters Filters,    // bu raporun kullandığı filtreler
     bool RequiresDate,        // true → başlangıç/bitiş ZORUNLU + varsayılan (Bu Ay); milyonlarca kayıt taraması engellenir
@@ -43,33 +50,47 @@ public static class ReportCatalog
 
     public static readonly IReadOnlyList<ReportDescriptor> All = new[]
     {
-        new ReportDescriptor("general", "Genel Rapor", "Araç ve şantiye bazlı genel döküm",
-            ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        new ReportDescriptor("general", "Genel Rapor", "Araç ve şantiye bazlı birleşik maliyet dökümü",
+            ReportCategory.Management, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
         new ReportDescriptor("stock", "Stok Durumu", "Mevcut / minimum / kritik kalemler",
-            ReportGroup.Standard, ReportFilters.None, false, ExportStandard),
+            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.None, false, ExportStandard),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
-            ReportGroup.Standard, ReportFilters.Date, true, ExportStandard),
-        new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç bazlı tüketim ve ortalama",
-            ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
-        new ReportDescriptor("maintenance", "Bakım Raporu", "Yapılan bakım kayıtları",
-            ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date, true, ExportStandard),
+        new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç bazlı tüketim ve ortalama (L/km)",
+            ReportCategory.Fuel, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        new ReportDescriptor("maintenance", "Bakım Raporu", "Yapılan bakım kayıtları ve malzeme maliyeti",
+            ReportCategory.Maintenance, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
         new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt hareketleri",
-            ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
-        new ReportDescriptor("requests", "Talep Raporu", "Talep durumu dökümü",
-            ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+            ReportCategory.Fuel, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        new ReportDescriptor("requests", "Talep Raporu", "Malzeme taleplerinin durum dökümü",
+            ReportCategory.Requests, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
         new ReportDescriptor("materials-template", "Malzeme — Şablonlu", "Şablona bağlı malzeme kayıtları",
-            ReportGroup.Manager, ReportFilters.None, false, ExportManager),
-        new ReportDescriptor("materials-nontemplate", "Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler",
-            ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+            ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+        new ReportDescriptor("materials-nontemplate", "Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler (incele/düzelt)",
+            ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
         new ReportDescriptor("vehicles-template", "Araç — Şablonlu", "Şablona bağlı araç kayıtları",
-            ReportGroup.Manager, ReportFilters.None, false, ExportManager),
-        new ReportDescriptor("vehicles-nontemplate", "Araç — Şablon Dışı", "Şablonsuz girilen araçlar",
-            ReportGroup.Manager, ReportFilters.None, false, ExportManager),
-        new ReportDescriptor("status", "Durum Rapor", "Şube bazlı sayısal özet",
-            ReportGroup.Manager, ReportFilters.Date, true, ExportManager),
+            ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+        new ReportDescriptor("vehicles-nontemplate", "Araç — Şablon Dışı", "Şablonsuz girilen araçlar (incele/düzelt)",
+            ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+        new ReportDescriptor("status", "Durum Rapor", "Şube bazlı sayısal özet (modül başına kayıt)",
+            ReportCategory.Management, ReportGroup.Manager, ReportFilters.Date, true, ExportManager),
     };
 
     public static ReportDescriptor? ByKey(string key) => All.FirstOrDefault(d => d.Key == key);
+
+    /// <summary>Kategori → kullanıcıya-dönük Türkçe etiket (UI'da alt-başlık). Yeni kategori eklenince buraya da eklenir.</summary>
+    public static string CategoryLabel(ReportCategory c) => c switch
+    {
+        ReportCategory.Vehicle => "Araç Raporları",
+        ReportCategory.Material => "Malzeme Raporları",
+        ReportCategory.Fuel => "Yakıt Raporları",
+        ReportCategory.Maintenance => "Bakım Raporları",
+        ReportCategory.Requests => "Talep Raporları",
+        ReportCategory.Purchasing => "Satın Alma",
+        ReportCategory.Stock => "Stok",
+        ReportCategory.Management => "Yönetim",
+        _ => c.ToString(),
+    };
 
     /// <summary>Varsayılan tarih aralığı = BU AY (ayın 1'i 00:00 → şimdi). RequiresDate raporlarında UI ön-dolu
     /// gelir; sunucu tarih gelmezse buna düşürür (kullanıcı isteği 2026-08-07: aylık ERP takibi).</summary>
