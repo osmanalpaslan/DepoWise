@@ -63,6 +63,9 @@ Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra
   Genişletilebilir (sigorta/kasko/lastik/amortisman = +1 derived-table +1 kolon). Build 0 hata, test **642/0**
   (+9 VehicleReportTests: km/saat/yakıtsız/bakımsız/yalnız-parça/toplam/filtreler/tarih-elenme). Görsel doğrulama
   masaüstünde kullanıcıda (Avalonia önizlemesi yok). Analiz: [docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md](docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md).
+  ✅ **YAYINLANDI (2026-08-07):** API (`depowise-erp`, health 200 — **migration yok**, şema değişmedi) + web
+  (`depowise-web`, 200) + masaüstü **1.0.113** (sunucuda en güncel, checksum 663feff…). Baba sonraki girişte alır.
+  ⏭️ Sıradaki: kalan raporlar tek tek aynı standarda (kullanıcı onayıyla).
   Bulgular: gerçek "araç maliyet raporu" `general`'e dağılmış; en yakın odur. Eksikler: km/**saat** başına maliyet
   yok, `meter_unit` (km/saat) dikkate alınmıyor (saat makinelerinde yanlış etiket), ort. yakıt fiyatı yok, **doğrudan
   stok çıkışı parçaları** (stock_documents.vehicle_id) maliyete girmiyor, bakım **işçilik** alanı yok, araç filtresi yok.
