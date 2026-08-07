@@ -364,7 +364,7 @@
                          ContentControl+DataTemplate: hücrenin DataContext'i o kolonun ColumnFilterItem nesnesi
                          (Text=Value TwoWay); dış Min/Max/IsVisible ise ContentControl'ün KENDİ DataContext'i
                          (VM) üzerinden okunur — iki kapsam KARIŞMAZ (derlenmiş bağlama güvenli kalır). -->
-                    <Border Classes="TableHeader" Padding="0,6">
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>

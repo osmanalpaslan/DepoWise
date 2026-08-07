@@ -27,7 +27,20 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07g — paket CANLIDA, masaüstü 1.0.109)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07h — masaüstü filtre satırı SOL yerleşim hatası düzeltildi)
+
+### 🐞 Masaüstü filtre satırı "sola kayma" hatası DÜZELTİLDİ (2026-08-07, Opus 4.8)
+Kullanıcı bildirdi: Malzeme/Araç/Günlük liste ekranlarında başlık-altı filtre kutuları tablonun SOLUNA dikey
+şerit gibi geliyordu (header'ın altında değil). **Kök neden:** üç ekranda da (Materials/Vehicles/DailyActivity)
+filtre satırı `Border`'ında `DockPanel.Dock="Top"` EKSİKTİ → Avalonia DockPanel varsayılanı `Dock="Left"` olduğu
+için filtre bloğu sola doklanıyordu (header'da Dock=Top vardı, veri ListBox'ı son çocuk olarak dolduruyordu).
+**Düzeltme:** üç filtre Border'ına `DockPanel.Dock="Top"` eklendi (3 satır) → filtre satırı artık header'ın
+HEMEN ALTINDA, aynı SharedSizeGroup sütunlarıyla hizalı. Yalnız yerleşim; filtreleme mantığı/event'ler/sayfalama/
+sıralama/kolon gizleme/yatay kaydırma DEĞİŞMEDİ. Web zaten `<thead><tr>` ile doğru (hata masaüstüne özgüydü).
+Sayfalama zaten tam (sayfa boyutu + Önceki/Sonraki + tıklanabilir sayfa no + Excel) — referanstaki özellikler mevcut,
+eksik buton yok. Build 0 hata. **Görsel doğrulama kullanıcıda** (Avalonia önizlemesi yok) → masaüstü republish gerekir.
+
+### 2. paket CANLIDA (masaüstü 1.0.109)
 
 ### 🆕 2. paket (2026-08-06/07) — Çeşitli Modüllerde İyileştirme (8 birim, sürüyor)
 Ham prompt + sıralama: **[docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md](docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md)**.

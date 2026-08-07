@@ -230,7 +230,7 @@
                     <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4) — bkz. MaterialsView.axaml
                          aynı yorum. Kolon 0 (TARİH) bilinçli olarak filtresiz (yalnız başlığa tıklayarak sıralanır);
                          kolon 7 (Sil butonu) filtrelenemez. -->
-                    <Border Classes="TableHeader" Padding="0,6">
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>

@@ -331,7 +331,7 @@
                     </Border>
                     <!-- Başlık-altı filtre satırı (kullanıcı isteği 2026-08-06, madde 4) — bkz. MaterialsView.axaml aynı yorum.
                          Kolon 14 (BAKIM/MUAYENE) hesaplanan uyarı rozetidir, ColumnKey/filtre YOK. -->
-                    <Border Classes="TableHeader" Padding="0,6">
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
