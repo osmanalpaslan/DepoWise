@@ -6,35 +6,42 @@
 @inject IJSRuntime JS
 
 @*  ============================================================================
-    Raporlar — Aurora görünümü.
-    API DEĞİŞİKLİĞİ YOK. Rapor uçları, filtreler, Excel dışa aktarma, sekme
-    davranışı (sekme değişince veri temizlenir) aynen korundu.
-    Eklenen tek şey: sonuç geldikten sonra TARAYICIDA hesaplanan özet şeridi
-    (satır sayısı + sayısal kolon toplamları) ve saf CSS sütun grafiği.
-    Grafik jenerik çalışır: ilk metin kolonuna göre gruplar, ilk sayısal
-    kolonu toplar. Sayısal kolon yoksa grafik hiç gösterilmez.
+    Raporlar — ORTAK MİMARİ (kullanıcı isteği 2026-08-07). Rapor listesi, filtre
+    görünürlüğü ve yetki, sunucudaki TEK KATALOĞA (/api/reports/catalog) göre
+    dinamik sürülür — sabit dizi YOK. Yeni rapor eklemek = sunucu kataloğuna 1
+    satır; bu ekran otomatik gösterir. Filtreler rapora göre görünür (madde 3).
+    Tarih kullanan raporlarda varsayılan BU AY; kullanmayanlarda gizli (madde 4).
+    Şube seçici yalnız YETKİLİ kullanıcıda (btn-branch-select). Otomatik sorgu YOK.
+    Özet şeridi + saf CSS grafik tarayıcıda hesaplanır (değişmedi).
     ============================================================================ *@
 
 <MudText Typo="Typo.h5" GutterBottom="true">Raporlar</MudText>
 
+@if (_catalog.Count == 0)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else
+{
 <MudGrid Spacing="3">
-  <!-- ── Sol: rapor seçici (eski yatay sekmelerin yerine) ── -->
+  <!-- ── Sol: kategori-gruplu rapor seçici (katalogdan) ── -->
   <MudItem xs="12" md="3">
     <MudPaper Elevation="2" Class="pa-2">
-      <MudText Typo="Typo.caption" Class="mud-text-secondary px-2 py-1 d-block"
-               Style="font-weight:700; letter-spacing:.12em;">RAPORLAR</MudText>
-      @for (var i = 0; i < ReportDefs.Length; i++)
+      @foreach (var grp in _catalog.GroupBy(x => x.CategoryLabel))
       {
-          var idx = i;
-          var def = ReportDefs[i];
-          var on = _tab == idx;
-          <div class="dw-rpick @(on ? "active" : "")" @onclick="@(() => OnTabChanged(idx))">
-              <MudIcon Icon="@def.Icon" Size="Size.Small" Class="dw-rpick-ico" />
-              <div style="min-width:0;">
-                  <div class="dw-rpick-name">@def.Name</div>
-                  <div class="dw-rpick-desc">@def.Desc</div>
+          <MudText Typo="Typo.caption" Class="mud-text-secondary px-2 py-1 d-block"
+                   Style="font-weight:700; letter-spacing:.10em;">@grp.Key.ToUpperInvariant()</MudText>
+          @foreach (var def in grp)
+          {
+              var on = _selKey == def.Key;
+              <div class="dw-rpick @(on ? "active" : "")" @onclick="@(() => OnSelect(def.Key))">
+                  <MudIcon Icon="@IconFor(def.Category)" Size="Size.Small" Class="dw-rpick-ico" />
+                  <div style="min-width:0;">
+                      <div class="dw-rpick-name">@def.Name</div>
+                      <div class="dw-rpick-desc">@def.Description</div>
+                  </div>
               </div>
-          </div>
+          }
       }
     </MudPaper>
   </MudItem>
@@ -52,15 +59,23 @@
                 </MudSelect>
             </MudItem>
         }
-        <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
-        <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
-        <MudItem xs="12" md="2">
-            <MudSelect T="string" @bind-SelectedValues="_branchSel" Label="Şube / Şantiye" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
-                       MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} şube")">
-                @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
-            </MudSelect>
-        </MudItem>
-        @if (_type == "general")
+        @* Tarih — yalnız rapor tarih kullanıyorsa; RequiresDate ise Bu Ay ön-dolu. *@
+        @if (_sel?.UsesDate == true)
+        {
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+            <MudItem xs="6" md="2"><MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+        }
+        @* Şube seçici — yalnız rapor şube kullanıyorsa VE kullanıcı yetkiliyse (btn-branch-select). Boş = oturum şubesi. *@
+        @if (_sel?.UsesBranch == true && _showBranchSelect)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_branchSel" Label="Şube / Şantiye" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Kendi şubem" : $"{v.Count} şube")">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
+        @if (_sel?.UsesVehicle == true)
         {
             <MudItem xs="12" md="2">
                 <MudSelect T="string" @bind-SelectedValues="_vehicleSel" Label="Araçlar" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
@@ -80,13 +95,16 @@
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
 </MudPaper>
 
-<div class="d-flex align-center mb-1" style="gap:10px;">
-    <MudIcon Icon="@ReportDefs[_tab].Icon" Color="Color.Primary" />
-    <div>
-        <MudText Typo="Typo.h6">@ReportDefs[_tab].Name</MudText>
-        <MudText Typo="Typo.caption" Class="mud-text-secondary">@ReportDefs[_tab].Desc</MudText>
+@if (_sel is not null)
+{
+    <div class="d-flex align-center mb-1" style="gap:10px;">
+        <MudIcon Icon="@IconFor(_sel.Category)" Color="Color.Primary" />
+        <div>
+            <MudText Typo="Typo.h6">@_sel.Name</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_sel.Description</MudText>
+        </div>
     </div>
-</div>
+}
 
 @* ── Özet şeridi: satır sayısı + sayısal kolon toplamları (tarayıcıda hesaplanır) ── *@
 @if (_headers is not null && _rows.Count > 0)
@@ -128,7 +146,7 @@
 }
 
 <MudPaper Class="pa-4 mt-3" Elevation="2">
-    @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    @if (_busy) { <div class="d-flex align-center" style="gap:10px;"><MudProgressCircular Indeterminate="true" Size="Size.Small" /><MudText Class="mud-text-secondary">Rapor hazırlanıyor…</MudText></div> }
     else if (_headers is null) { <MudText Class="mud-text-secondary">Filtreleri seçip <b>Sorgula</b>'ya basın.</MudText> }
     else if (_rows.Count == 0) { <MudText Class="mud-text-secondary">Kayıt bulunamadı.</MudText> }
     else
@@ -148,6 +166,7 @@
 
   </MudItem>
 </MudGrid>
+}
 
 <style>
     .dw-rpick {
@@ -195,42 +214,49 @@
 </style>
 
 @code {
-    // Sıra _type eşlemesiyle BİREBİR aynı olmalı — indeks değişirse rapor ucu değişir.
-    private sealed record ReportDef(string Name, string Desc, string Icon);
-    private static readonly ReportDef[] ReportDefs =
+    // ── Katalog-sürümlü rapor listesi (sunucudan) ──
+    private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
+        bool UsesDate, bool UsesBranch, bool UsesVehicle, bool RequiresDate, bool Manager);
+    private List<CatItem> _catalog = new();
+    private string _selKey = "general";
+    private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
+
+    private static string IconFor(string category) => category switch
     {
-        new("Genel Rapor",           "Araç ve şantiye bazlı genel döküm", Icons.Material.Filled.Summarize),
-        new("Stok Durumu",           "Mevcut / minimum / kritik kalemler", Icons.Material.Filled.Inventory2),
-        new("Bakım",                 "Planlı ve gecikmiş bakım kayıtları", Icons.Material.Filled.Build),
-        new("Yakıt Tüketim",         "Araç bazlı tüketim ve ortalama", Icons.Material.Filled.LocalGasStation),
-        new("Depo Girişi",           "Depoya alınan yakıt hareketleri", Icons.Material.Filled.Warehouse),
-        new("Talep",                 "Talep durumu ve onay süreleri", Icons.Material.Filled.Description),
-        new("Malzeme — Şablonlu",    "Şablona bağlı malzeme kayıtları", Icons.Material.Filled.ListAlt),
-        new("Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler", Icons.Material.Filled.PlaylistAdd),
-        new("Araç — Şablonlu",       "Şablona bağlı araç kayıtları", Icons.Material.Filled.LocalShipping),
-        new("Araç — Şablon Dışı",    "Şablonsuz girilen araçlar", Icons.Material.Filled.NoCrash),
-        new("Durum Rapor",           "Anlık durum özeti", Icons.Material.Filled.Assessment),
+        "Vehicle" => Icons.Material.Filled.LocalShipping,
+        "Material" => Icons.Material.Filled.Inventory2,
+        "Fuel" => Icons.Material.Filled.LocalGasStation,
+        "Maintenance" => Icons.Material.Filled.Build,
+        "Requests" => Icons.Material.Filled.Description,
+        "Purchasing" => Icons.Material.Filled.ShoppingCart,
+        "Stock" => Icons.Material.Filled.Warehouse,
+        "Management" => Icons.Material.Filled.Assessment,
+        _ => Icons.Material.Filled.Summarize,
     };
 
-    private int _tab;
-    private string _type => _tab switch { 0 => "general", 1 => "stock", 2 => "maintenance", 3 => "fuel", 4 => "fuel-depot", 5 => "requests",
-        6 => "materials-template", 7 => "materials-nontemplate", 8 => "vehicles-template", 9 => "vehicles-nontemplate", 10 => "status", _ => "general" };
-
-    /// <summary>Sekme değişince önceki raporun verisini TEMİZLE — her rapor kendi "Sorgula"sını ister
-    /// (alakasız veri başka sekmede görünmesin).</summary>
-    private void OnTabChanged(int idx)
+    /// <summary>Rapor seçilince: önceki sonucu TEMİZLE (otomatik sorgu YOK) + RequiresDate ise tarihi Bu Ay'a ön-doldur.</summary>
+    private void OnSelect(string key)
     {
-        _tab = idx;
-        _headers = null;
-        _rows = new();
-        _error = null;
-        ClearSummary();
+        _selKey = key;
+        _headers = null; _rows = new(); _error = null; ClearSummary();
+        ApplyDateDefault();
+    }
+
+    private void ApplyDateDefault()
+    {
+        if (_sel is { RequiresDate: true } && _from is null && _to is null)
+        {
+            var now = DateTime.Now;
+            _from = new DateTime(now.Year, now.Month, 1);
+            _to = now;
+        }
     }
 
     private string? _companyId;
     private DateTime? _from, _to;
     private IReadOnlyCollection<string> _branchSel = new HashSet<string>();
     private IReadOnlyCollection<string> _vehicleSel = new HashSet<string>();
+    private bool _showBranchSelect;   // btn-branch-select yetkisi (yoksa şube seçici gizli — sunucu da zorlar)
 
     private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new();
     private List<string>? _headers;
@@ -257,13 +283,11 @@
 
     private static string Short(string s) => s.Length <= 14 ? s : s[..13] + "…";
 
-    /// <summary>Hücre metnini sayıya çevirmeyi dener: "1.234,56" (tr), "1,234.56" (en) ve düz sayı.</summary>
     private static bool TryNum(string s, out decimal value)
     {
         value = 0m;
         if (string.IsNullOrWhiteSpace(s)) return false;
-        var t = s.Trim().Replace(" ", "").Replace("\u00A0", "");
-        // sonda birim/simge varsa at (ör. "2.140 lt", "48,20 ₺")
+        var t = s.Trim().Replace(" ", "").Replace(" ", "");
         int i = t.Length;
         while (i > 0 && !char.IsDigit(t[i - 1])) i--;
         t = t[..i];
@@ -273,15 +297,12 @@
         return false;
     }
 
-    /// <summary>Sonuç geldikten sonra özet + grafiği kurar. Hiçbir varsayım zorlamaz: sayısal kolon
-    /// bulunamazsa özet toplamı ve grafik boş kalır (ekran yalnız tabloyu gösterir).</summary>
     private void BuildSummary()
     {
         ClearSummary();
         if (_headers is null || _rows.Count == 0) return;
         int cols = _headers.Count;
 
-        // Hangi kolonlar sayısal? (dolu hücrelerin en az %60'ı sayıya çevrilebiliyorsa)
         var numericCols = new List<int>();
         for (int c = 0; c < cols; c++)
         {
@@ -295,7 +316,6 @@
             if (filled >= 3 && parsed * 10 >= filled * 6) numericCols.Add(c);
         }
 
-        // Toplamlar
         foreach (var c in numericCols)
         {
             decimal sum = 0m;
@@ -303,7 +323,6 @@
             _totals.Add(new Total(_headers[c], sum));
         }
 
-        // Grafik: ilk METİN kolonuna göre grupla, ilk SAYISAL kolonu topla
         int valueCol = numericCols.Count > 0 ? numericCols[0] : -1;
         int groupCol = -1;
         for (int c = 0; c < cols; c++) if (!numericCols.Contains(c)) { groupCol = c; break; }
@@ -317,7 +336,7 @@
             if (!TryNum(r[valueCol], out var v)) continue;
             groups[key] = groups.TryGetValue(key, out var cur) ? cur + v : v;
         }
-        if (groups.Count < 2) return;   // tek grup varsa grafik anlamsız
+        if (groups.Count < 2) return;
 
         _chart = groups.OrderByDescending(kv => kv.Value).Take(8)
                        .Select(kv => new Bar(kv.Key, kv.Value)).ToList();
@@ -327,8 +346,30 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Katalog (rapor listesi + filtre bayrakları) + yetki (şube seçimi) + kapsam (şube/araç/firma).
+        await LoadCatalog();
+        try
+        {
+            var cf = await Api.GetObjectAsync("/api/reports/company-filter");
+            _showBranchSelect = cf.TryGetProperty("showBranchSelect", out var b) && b.ValueKind == JsonValueKind.True;
+        }
+        catch { }
         if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
         await LoadScope();
+        ApplyDateDefault();
+    }
+
+    private async Task LoadCatalog()
+    {
+        try
+        {
+            var arr = await Api.GetArrayAsync("/api/reports/catalog");
+            _catalog = arr.Select(e => new CatItem(
+                Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
+                Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "requiresDate"), Bool(e, "manager"))).ToList();
+            if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
+        }
+        catch { _catalog = new(); }
     }
 
     private string? _lastCompany;
@@ -372,11 +413,13 @@
         {
             var body = new
             {
-                fromDate = Ms(_from), toDate = Ms(_to),
-                branchIds = _branchSel.ToList(), vehicleIds = _vehicleSel.ToList(),
+                fromDate = _sel?.UsesDate == true ? Ms(_from) : null,
+                toDate = _sel?.UsesDate == true ? Ms(_to) : null,
+                branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
+                vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
-            var doc = await Api.PostJsonAsync($"/api/reports/{_type}", body);
+            var doc = await Api.PostJsonAsync($"/api/reports/{_selKey}", body);
             if (doc is null) { _error = "Rapor alınamadı."; _headers = null; ClearSummary(); return; }
             var d = doc.Value;
             _headers = d.TryGetProperty("headers", out var h) && h.ValueKind == JsonValueKind.Array
@@ -392,8 +435,6 @@
     }
 
     private bool _exporting;
-    /// <summary>Seçili rapor + filtrelerle TÜM sonucu Excel'e aktarır. Yetki yoksa API 403 döner → "yetkiniz yok"
-    /// uyarısı gösterilir (deny-by-default; iki ayrı özel buton: Rapor / Yönetici Rapor).</summary>
     private async Task ExportExcel()
     {
         if (_exporting) return;
@@ -402,11 +443,13 @@
         {
             var body = new
             {
-                fromDate = Ms(_from), toDate = Ms(_to),
-                branchIds = _branchSel.ToList(), vehicleIds = _vehicleSel.ToList(),
+                fromDate = _sel?.UsesDate == true ? Ms(_from) : null,
+                toDate = _sel?.UsesDate == true ? Ms(_to) : null,
+                branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
+                vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
-            var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_type}/export", body, "Rapor.xlsx");
+            var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");
             if (status == 403) { _error = "Excel dışa aktarma yetkiniz yok. Yetki için firma yöneticinize başvurun."; return; }
             if (bytes is null) { _error = "Excel dışa aktarma başarısız."; return; }
             await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
@@ -423,4 +466,9 @@
         JsonValueKind.True => "Evet", JsonValueKind.False => "Hayır",
         _ => v.ToString(),
     };
+
+    private static string Str(JsonElement e, string key)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool Bool(JsonElement e, string key)
+        => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
 }
