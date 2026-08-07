@@ -34,7 +34,9 @@
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Tedarikçi" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <ComboBox  Grid.Row="3" Grid.Column="1" x:Name="SupBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
                 <TextBlock Grid.Row="3" Grid.Column="2" Text="Mevcut Stok" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
-                <SelectableTextBlock Grid.Row="3" Grid.Column="3" x:Name="StockText" Classes="Body" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,6,0,6"/>
+                <!-- madde 1.2: stok görüntülenebilir + (yetkiliyse) düzenlenebilir. Doğrudan değiştirilirse madde 1.3
+                     güçlü uyarı + madde 1.4 log (kod-arkası). Yetki yoksa salt-okunur (IsEnabled=false). -->
+                <NumericUpDown Grid.Row="3" Grid.Column="3" x:Name="StockBox" Classes="Field" FormatString="0.##" ShowButtonSpinner="False" Margin="0,4,0,4"/>
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Min Stok" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="MinBox" Classes="Field" Minimum="0" FormatString="0.##" Margin="0,4,14,4"/>

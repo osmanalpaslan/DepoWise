@@ -634,6 +634,7 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Şube / Şantiye", "branches"),
                 new NavLinkVm("Sistem Logu", "audit"),
+                new NavLinkVm("Stok Değişiklik Kaydı", "stock_change_log"),   // madde 1.5 — yetkiyle görünür
                 // "Yedek Yönetimi" masaüstünden kaldırıldı (2026-07-26): yedek yönetimi yalnız WEB'de ve
                 // yalnız süper admin + kısıtlı süper adminde. Arka plandaki otomatik günlük yedek yüklemesi sürer.
             }),
@@ -834,6 +835,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new AuditLogViewModel(_session);
                 CurrentTitle = "Sistem Logu";
                 CurrentContext = "İşlem kayıtları (salt okunur, silinemez)";
+                break;
+            case "stock_change_log":
+                CurrentPage = new StockChangeLogViewModel(_session);
+                CurrentTitle = "Stok Değişiklik Kaydı";
+                CurrentContext = "Doğrudan stok değişikliği uyarı kayıtları (salt okunur)";
                 break;
             case "backup":
                 CurrentPage = new BackupViewModel(_session);

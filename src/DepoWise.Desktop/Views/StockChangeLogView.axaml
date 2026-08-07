@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="600"
+             x:Class="DepoWise.Desktop.Views.StockChangeLogView"
+             x:DataType="vm:StockChangeLogViewModel">
+
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Stok Değişiklik Kaydı">
+            <ctrl:Toolbar.FilterContent>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <!-- Tarih Aralığı + kayıt sayısı (Sistem Logu ile aynı desen) -->
+        <Border Grid.Row="1" Classes="Panel" Padding="14,12" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <ctrl:FormField Label="Başlangıç" Width="160">
+                    <DatePicker Classes="Field" SelectedDate="{Binding FromDate}"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Bitiş" Width="160">
+                    <DatePicker Classes="Field" SelectedDate="{Binding ToDate}"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Kayıt Sayısı" Width="120">
+                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding LimitOptions}" SelectedItem="{Binding Limit}"/>
+                </ctrl:FormField>
+                <Button Classes="Primary" Content="Filtrele" Command="{Binding LoadCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+                <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+            </StackPanel>
+        </Border>
+
+        <Panel Grid.Row="2" Margin="0,16,0,0">
+            <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,*">
+                            <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130"/>
+                            <SelectableTextBlock Grid.Column="1" Text="KULLANICI" MinWidth="140"/>
+                            <SelectableTextBlock Grid.Column="2" Text="MALZEME" MinWidth="180"/>
+                            <SelectableTextBlock Grid.Column="3" Text="ESKİ" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="4" Text="YENİ" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="5" Text="FARK" MinWidth="80"/>
+                            <SelectableTextBlock Grid.Column="6" Text="SONUÇ" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="7" Text="UYARI" MinWidth="160"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="m:StockChangeLogRow">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,*">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding UserText}" MinWidth="140" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding MaterialText}" MinWidth="180" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding OldText}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding NewText}" MinWidth="80" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding DiffText}" MinWidth="80" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="6" Text="{Binding OutcomeText}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="7" Text="{Binding WarningPreview}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+            <ctrl:StatePanel Mode="Error" Title="Yüklenemedi" Message="{Binding LoadError}"
+                             ActionText="Tekrar Dene" ActionCommand="{Binding LoadCommand}" IsVisible="{Binding HasError}"/>
+            <ctrl:StatePanel Mode="Empty" Title="Kayıt yok" Message="Henüz doğrudan stok değişikliği kaydı yok." IsVisible="{Binding IsEmpty}"/>
+        </Panel>
+
+        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+    </Grid>
+</UserControl>

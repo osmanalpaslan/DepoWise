@@ -45,6 +45,9 @@ public partial class MaterialQuickEditWindow : Window
 
         var canEdit = AccessControl.Can(session, "materials", PermissionAction.Edit);
         var canDelete = AccessControl.Can(session, "materials", PermissionAction.Delete);
+        // madde 1.2/1.3: stok yalnız "stock" Create yetkisi olan kullanıcı DOĞRUDAN değiştirebilir (değişiklik
+        // stok SAYIM/DÜZELTME hareketiyle uygulanır). Yetki yoksa alan salt-okunur gösterilir.
+        var canEditStock = AccessControl.Can(session, "stock", PermissionAction.Create);
 
         var code = this.FindControl<TextBox>("CodeBox")!;
         var name = this.FindControl<TextBox>("NameBox")!;
@@ -57,7 +60,7 @@ public partial class MaterialQuickEditWindow : Window
         var minBox = this.FindControl<NumericUpDown>("MinBox")!;
         var priceBox = this.FindControl<NumericUpDown>("PriceBox")!;
         var descBox = this.FindControl<TextBox>("DescBox")!;
-        var stockText = this.FindControl<SelectableTextBlock>("StockText")!;
+        var stockBox = this.FindControl<NumericUpDown>("StockBox")!;
         var titleText = this.FindControl<SelectableTextBlock>("TitleText")!;
         var statusText = this.FindControl<SelectableTextBlock>("StatusText")!;
         var hintText = this.FindControl<SelectableTextBlock>("HintText")!;
@@ -128,7 +131,8 @@ public partial class MaterialQuickEditWindow : Window
         supBox.SelectedItem = sups.FirstOrDefault(o => o.Id == d.SupplierId);
         minBox.Value = d.MinStock; priceBox.Value = d.UnitPrice;
         descBox.Text = d.Description ?? "";
-        stockText.Text = d.Stock.ToString("0.##");
+        stockBox.Value = d.Stock;
+        var originalStock = d.Stock;
 
         // Son Hareketler (A3) — salt-okunur; malzemenin son 10 stok hareketi (giriş yeşil / çıkış kırmızı).
         try
@@ -187,9 +191,9 @@ public partial class MaterialQuickEditWindow : Window
             };
         }
 
-        // Başlangıçta KİLİTLİ (salt-okunur)
+        // Başlangıçta KİLİTLİ (salt-okunur). Stok kutusu ayrıca "stock" yetkisine tabidir (madde 1.2).
         var editable = new Control[] { code, name, typeBox, catBox, subCatBox, unitBox, brandBox, supBox, minBox, priceBox, descBox };
-        void SetLocked(bool locked) { foreach (var c in editable) c.IsEnabled = !locked; }
+        void SetLocked(bool locked) { foreach (var c in editable) c.IsEnabled = !locked; stockBox.IsEnabled = !locked && canEditStock; }
         SetLocked(true);
         editBtn.IsVisible = canEdit;
         deleteBtn.IsVisible = canDelete;
@@ -209,6 +213,7 @@ public partial class MaterialQuickEditWindow : Window
             if ((decimal)(minBox.Value ?? 0) != d.MinStock) n++;
             if ((decimal)(priceBox.Value ?? 0) != d.UnitPrice) n++;
             if ((descBox.Text ?? "") != (d.Description ?? "")) n++;
+            if (canEditStock && (decimal)(stockBox.Value ?? 0) != originalStock) n++;   // madde 1.2
             return n;
         }
         void Recount()
@@ -228,6 +233,7 @@ public partial class MaterialQuickEditWindow : Window
         supBox.SelectionChanged += (_, _) => Recount();
         minBox.ValueChanged += (_, _) => Recount();
         priceBox.ValueChanged += (_, _) => Recount();
+        stockBox.ValueChanged += (_, _) => Recount();
 
         editBtn.Click += (_, _) =>
         {
@@ -248,6 +254,15 @@ public partial class MaterialQuickEditWindow : Window
             { statusText.Text = "Birim seçin."; statusText.IsVisible = true; return; }
             // Onay penceresi (kullanıcı isteği 2026-07-19) — bu pencerenin ÜZERİNDE (owner=this).
             if (!await ConfirmService.AskAsync(this, "Malzeme bilgileri güncellensin mi?", "Kaydet")) return;
+
+            // madde 1.2/1.3/1.4: stok DOĞRUDAN değiştirildiyse güçlü uyarı + log. Devam → SAYIM/DÜZELTME hareketi;
+            // Vazgeç → yalnız log (stok değişmez, kutu eski değere döner). Karar önce alınır, uygulama Update sonrası.
+            var newStock = (decimal)(stockBox.Value ?? 0);
+            bool stockChanged = canEditStock && newStock != originalStock;
+            bool continueStock = false;
+            if (stockChanged)
+                continueStock = await ConfirmService.AskAsync(this, StockChangeLogService.WarningMessage,
+                    "Doğrudan Stok Değişikliği", okText: "Devam Et", cancelText: "Vazgeç", danger: true);
             try
             {
                 DesktopServices.Materials.Update(session, materialId, new UpdateMaterial(
@@ -263,6 +278,15 @@ public partial class MaterialQuickEditWindow : Window
                     // DÜZENLEME KİLİDİ: pencere açıldığındaki sürüm — kayıt arada değiştiyse üzerine yazma.
                     expectedVersion: d.Version);
                 // Uyumlu araçlar / muadiller / fotoğraflar DEĞİŞTİRİLMEZ (korunur).
+
+                // Doğrudan stok değişikliği kararını uygula/logla (madde 1.4): Devam → adjustment + log("continued");
+                // Vazgeç → yalnız log("cancelled"), stok değişmez. Kart alanları zaten kaydedildi.
+                if (stockChanged)
+                {
+                    DesktopServices.StockChangeLog.Record(session, materialId, newStock, continueStock,
+                        StockChangeLogService.WarningMessage);
+                    if (!continueStock) { stockBox.Value = originalStock; }
+                }
                 Close("saved");
             }
             catch (DepoWise.Application.Security.ConcurrencyException ex)
