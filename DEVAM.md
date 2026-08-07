@@ -54,7 +54,13 @@ Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra
 - ✅ **Birim 4 YAYINLANDI (2026-08-07):** API (`depowise-erp`, health 200, **Migration058 canlı Neon PG'de** —
   additive pinned_json/sort_json; `.../sort` 401=var) + web (`depowise-web`, 200) + masaüstü **1.0.112** (sunucuda
   en güncel, checksum 4930517B...). Baba bir sonraki girişte 1.0.112'ye güncellenir; görsel doğrulama birlikte yapılacak.
-- ⏭️ Sıradaki: raporlar tek tek yeniden tasarlanacak (önce **Araç Raporu**) — ayrı görev, kullanıcı onayıyla.
+- 🔎 **Araç Raporu ANALİZİ hazır (2026-08-07, kod yok):** [docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md](docs/gelen-gorevler/2026-08-07_arac-raporu-analiz.md).
+  Bulgular: gerçek "araç maliyet raporu" `general`'e dağılmış; en yakın odur. Eksikler: km/**saat** başına maliyet
+  yok, `meter_unit` (km/saat) dikkate alınmıyor (saat makinelerinde yanlış etiket), ort. yakıt fiyatı yok, **doğrudan
+  stok çıkışı parçaları** (stock_documents.vehicle_id) maliyete girmiyor, bakım **işçilik** alanı yok, araç filtresi yok.
+  Performans: `general`'de **korelasyonlu alt-sorgu (N+1)** → derived-table LEFT JOIN önerildi; sayısal-TEXT CAST'ler.
+  ⏭️ Sıradaki: **kullanıcıyla nihai tasarım** (5 açık karar: işçilik/sigorta/amortisman alanı, doğrudan parça, KM ölçümü,
+  yeni rapor mu general'in yerine mi) → onay sonrası geliştirme.
 
 
 
