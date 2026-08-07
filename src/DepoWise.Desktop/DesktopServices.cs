@@ -44,6 +44,7 @@ public static class DesktopServices
     public static MaterialService Materials { get; private set; } = null!;
     public static OpeningStockService OpeningStock { get; private set; } = null!;
     public static StockService Stock { get; private set; } = null!;
+    public static StockChangeLogService StockChangeLog { get; private set; } = null!;
     public static DailyActivityService DailyActivity { get; private set; } = null!;
     public static DashboardService Dashboard { get; private set; } = null!;
     public static VehicleService Vehicles { get; private set; } = null!;
@@ -127,6 +128,7 @@ public static class DesktopServices
         Materials = new MaterialService(Factory, clock);
         OpeningStock = new OpeningStockService(Factory, clock);
         Stock = new StockService(Factory, clock);
+        StockChangeLog = new StockChangeLogService(Factory, Stock, clock);
         Maintenance = new MaintenanceService(Factory, clock);
         MaintenanceDefs = new MaintenanceDefinitionService(Factory, clock);
         // ⚠️ SIRA ÖNEMLİ: DailyActivity, Maintenance/MaintenanceDefs'i constructor'da SAKLAR (readonly alan) —

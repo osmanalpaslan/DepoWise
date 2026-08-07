@@ -72,6 +72,7 @@ public static class AppModules
         ("export", "Dışa Aktarım (Export)"),         // 2026-07-26: ayrı DIŞA AKTARIM (liste Excel butonları dahil)
         ("files", "Dosya / Fotoğraf"),
         ("audit", "Sistem Logu / Audit"),
+        ("stock_change_log", "Stok Değişiklik Kaydı"),   // madde 1.5: doğrudan stok değişikliği uyarı logu ekranı
         ("backup", "Yedekleme"),
         ("server_backups", "Sunucu Yedekleri"),
         ("machines", "Makine Yönetimi"),
@@ -106,7 +107,7 @@ public static class AppModules
     /// önce Admin'e yükseltilmelidir (web'de uyarı penceresi + otomatik yükseltme). Süper admin bu kuraldan muaf.
     /// </summary>
     public static bool IsAdminRestricted(string moduleKey)
-        => moduleKey is "users" or "permissions" or "branches" or "audit" or "backup";
+        => moduleKey is "users" or "permissions" or "branches" or "audit" or "backup" or "stock_change_log";
 }
 
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>

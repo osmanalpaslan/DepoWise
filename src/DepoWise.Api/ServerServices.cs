@@ -44,6 +44,7 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Materials.MaterialService Materials { get; }
     public DepoWise.Infrastructure.Materials.LookupService Lookups { get; }
     public DepoWise.Infrastructure.Materials.StockService Stock { get; }
+    public DepoWise.Infrastructure.Materials.StockChangeLogService StockChangeLog { get; }
     public DepoWise.Infrastructure.Materials.OpeningStockService OpeningStock { get; }
     public DepoWise.Infrastructure.Vehicles.VehicleService Vehicles { get; }
     public DepoWise.Infrastructure.Maintenance.MaintenanceService Maintenance { get; }
@@ -108,6 +109,7 @@ public sealed class ServerServices
         Materials = new DepoWise.Infrastructure.Materials.MaterialService(Factory, clock);
         Lookups = new DepoWise.Infrastructure.Materials.LookupService(Factory, clock);
         Stock = new DepoWise.Infrastructure.Materials.StockService(Factory, clock);
+        StockChangeLog = new DepoWise.Infrastructure.Materials.StockChangeLogService(Factory, Stock, clock);
         OpeningStock = new DepoWise.Infrastructure.Materials.OpeningStockService(Factory, clock);
         Vehicles = new DepoWise.Infrastructure.Vehicles.VehicleService(Factory, clock);
         Maintenance = new DepoWise.Infrastructure.Maintenance.MaintenanceService(Factory, clock);

@@ -2077,6 +2077,20 @@ app.MapDelete("/api/permission-templates/{id}", (HttpContext c, string id) =>
 app.MapGet("/api/audit", (HttpContext c, long? from, long? to, int? limit) =>
     S(c) is { } s ? Results.Ok(svc.AuditLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
 
+// ── Doğrudan stok değişikliği uyarı logu (madde 1.4/1.5, kullanıcı isteği 2026-08-06) ──
+// POST: Malzeme kartından doğrudan stok değişimi kararı (uyarı gösterildikten sonra). continued=true →
+// stok SAYIM/DÜZELTME (adjustment) ile güncellenir + loglanır; false → yalnız log (iptal).
+app.MapPost("/api/stock/change-log", (HttpContext c, StockChangeLogDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.MaterialId)) throw new ArgumentException("Malzeme seçin.");
+    svc.StockChangeLog.Record(s, d.MaterialId, d.NewQuantity, d.Continued, Doc(d.WarningText));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+// GET: log görüntüleme (Tarih Aralığı + kayıt sayısı). Yetki: module stock_change_log.
+app.MapGet("/api/stock/change-log", (HttpContext c, long? from, long? to, int? limit) =>
+    S(c) is { } s ? Results.Ok(svc.StockChangeLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
+
 // ── Sunucu veritabanı yedeği (Yedek Yönetimi'nin web karşılığı) ──
 app.MapGet("/api/backup/list", (HttpContext c) =>
     S(c) is null ? Results.Unauthorized() : Results.Ok(svc.DbBackup.ListBackups().Select(b => new
@@ -2322,6 +2336,7 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockReverseDto(string DocumentId, string? Reason);
+record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);
 record MaintLineDto(string MaterialId, decimal Quantity);
 record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,

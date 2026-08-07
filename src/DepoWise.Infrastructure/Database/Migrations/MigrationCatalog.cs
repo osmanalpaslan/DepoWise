@@ -61,5 +61,6 @@ public static class MigrationCatalog
         new Migration054_MaterialTemplateLink(),
         new Migration055_MaterialBranch(),
         new Migration056_ExportPermission(),
+        new Migration057_StockChangeLog(),
     };
 }
