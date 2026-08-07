@@ -38,8 +38,9 @@ yalnız alan içinde). Mevcut `AutoCompleteBox` bunu desteklemiyordu → **yeni 
   tık-toggle double-dismiss korumalı) + `Border.LookupField` stili (ComboBox.Field ile eş görünüm).
 - **Uygulama:** YALNIZ Malzemeler ekranındaki 5 lookup (Kategori/Alt Kategori/Birim/Marka/Tedarikçi). Diğer ~24
   ekran DOKUNULMADI (kullanıcı kararı: önce 1 ekran pilot, onaydan sonra tümüne yayılacak).
-- Build 0 hata, test **649/0** (+7 LookupPaging). Masaüstü Avalonia görsel test edilemez → **1.0.115'te kullanıcı
-  Malzemeler'de görsel doğrulayacak; onaydan sonra kalan ekranlara yayılacak.** ⏭️ Sonra: rapor süreçlerine dönüş.
+- Build 0 hata, test **649/0** (+7 LookupPaging). ✅ **YAYINLANDI: masaüstü 1.0.115** (checksum f0d166c…; web/API
+  değişmedi — masaüstü-özel). **1.0.115'te kullanıcı Malzemeler'de görsel doğrulayacak; onaydan sonra kalan ~24
+  ekrana yayılacak.** ⏭️ Sonra: rapor süreçlerine dönüş (kalan raporlar tek tek).
 
 
 
