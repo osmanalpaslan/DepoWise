@@ -41,8 +41,10 @@ Yalnız ORTAK MİMARİ; rapor hesaplamaları bu fazda değişmez (raporlar sonra
   filtre (tarih yalnız UsesDate, şube seçici yalnız yetki+UsesBranch), **Stok Sayım paritesi kapandı**, yükleniyor.
 - ✅ **Birim 3 — Masaüstü ekran:** ReportsView/VM katalog ComboBox, dinamik tarih görünürlüğü, yetkili şube
   seçici (checkbox çoklu), Bu Ay varsayılanı, ortak `ReportService.Run`. Build 0 hata, test 616/0.
-- ⏭️ Sıradaki: **DEPLOY** (API+web+masaüstü 1.0.111 — Birim 1-3 canlı) → sonra Birim 4 (ortak sonuç tablosu:
-  kolon-altı filtre/sıralama/genişlik + kolon tercihleri).
+- ✅ **YAYINLANDI (2026-08-07):** API (`depowise-erp`, health 200, `/api/reports/catalog` 401=var) + web
+  (`depowise-web`, 200) deploy + masaüstü **1.0.111** (sunucuda en güncel, checksum 0EBDED...). Birim 1-3 CANLIDA.
+- ⏭️ Sıradaki: **Birim 4** — ortak sonuç tablosu bileşeni (kolon-altı filtre/sıralama/genişlik + kolon tercihleri
+  ListPrefs). Ondan sonra raporlar tek tek yeniden tasarlanacak (önce Araç Raporu).
 
 
 
