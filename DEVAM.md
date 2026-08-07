@@ -27,7 +27,7 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07b)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-07c)
 
 ### 🆕 2. paket (2026-08-06/07) — Çeşitli Modüllerde İyileştirme (8 birim, sürüyor)
 Ham prompt + sıralama: **[docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md](docs/gelen-gorevler/2026-08-06b_cesitli-modul-iyilestirmeleri.md)**.
@@ -57,7 +57,12 @@ Birim birim, masaüstü önce → web ardından; her birim sonunda kullanıcı o
   Açıklama aktif kalır. Kullanıcı kararı (2026-08-07): Tedarikçi değişirse malzeme kartı güncellenir (şema
   değişikliği yok). **API `/api/stock/receive` ucuna yeni opsiyonel `MaterialId` alanı eklendi — servis
   değişikliği, API deploy GEREKİYOR, henüz yapılmadı.** Build 0 hata, test 598/0.
-- ⏭️ **Sıradaki:** Birim 5 — Sistem Logu filtreleri (madde 4).
+- ✅ **Birim 5 — Sistem Logu filtreleri (Sonnet 5, TAMAMLANDI, 2026-08-07):** Tarih Aralığı (Başlangıç/Bitiş)
+  + Kayıt Sayısı seçimi (100/300/500/1000/2000/5000) eklendi (masaüstü+web) — filtreleme SUNUCU tarafında,
+  kayıt sayısı performans için 5000'de sıkıştırılır (kullanıcı ne seçerse seçsin sorgu sınırsız kalmaz).
+  `/api/audit` ucuna `from`/`to`/`limit` query parametresi eklendi (geriye uyumlu). Build 0 hata, test 603/0
+  (+5 yeni AuditLogTests). **API deploy gerekiyor** (Birim 4'ün endpoint değişikliğiyle birlikte bekliyor).
+- ⏭️ **Sıradaki:** Birim 6 — Bakım Takibi'ne "+ Personel" ekleme butonu (madde 5.2).
 
 ### 🆕 Önceki görev paketi (2026-08-06, TAMAMLANDI+YAYINLANDI) — Giriş/Çıkış-Transfer + Tablo/Filtre (5 birim)
 Kullanıcı uzun bir prompt iletti; ham hali + sıralama: **[docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md](docs/gelen-gorevler/2026-08-06_giris-cikis-transfer-tablo-filtre.md)**.

@@ -216,11 +216,30 @@ adımları ya da masaüstü test turu ile sonra dönülecek. Birim 1'in kod tara
   test kapsamında). **Canlı/görsel doğrulama yapılamadı** (Avalonia önizlemesi yok, API henüz deploy edilmedi)
   — kullanıcı testi + deploy gerekiyor.
 
+**Birim #5 (2026-08-07, Sonnet 5) — Sistem Logu filtreleri (madde 4). TAMAMLANDI, masaüstü + web + API.**
+- **Servis (`AuditLogService.List`):** yeni opsiyonel `fromMs`/`toMs` (Unix ms, dahil) — `StockService.
+  SearchMovements` ile AYNI desen (param yoksa SQL koşulu hiç eklenmez). `limit` artık **1-5000 arasına
+  sıkıştırılır** (madde 4'ün performans şartı — kullanıcı ne kadar büyük bir sayı seçerse seçsin sorgu asla
+  sınırsız kalmaz). 5 yeni xUnit testi (`AuditLogTests.cs`: tarih aralığı doğru filtreler, aralık boşsa tümü
+  döner, limit uygulanır, aşırı büyük limit 5000'e sıkışır çökmez, DESC sıralama doğru) — hepsi geçti.
+  Filtreleme SUNUCU tarafında (SQL WHERE + LIMIT) — istemci tüm kayıtları çekip client-side filtrelemez.
+- **Masaüstü (`AuditLogViewModel`/`AuditLogView`):** `StockMovementsView` ile AYNI filtre satırı deseni
+  (Başlangıç/Bitiş `DatePicker` + "Filtrele"/"Temizle" butonu) + yeni "Kayıt Sayısı" `ComboBox`
+  (100/300/500/1000/2000/5000, varsayılan 300 — önceki sabit limitle aynı).
+- **Web (`Audit.razor` + API `/api/audit`):** `StockMovements.razor`'daki tarih-aralığı deseni yeniden
+  kullanıldı (`MudDatePicker`×2 + Unix ms dönüşümü) + yeni "Kayıt Sayısı" `MudSelect`. API ucuna `from`/`to`/
+  `limit` query parametreleri eklendi (geriye uyumlu — hiçbiri yoksa eski davranış: son 300 kayıt). Ekran (Kayıt/
+  Kullanıcı) filtreleri öncekiyle AYNI şekilde İSTEMCİ tarafında kalmaya devam ediyor (zaten yüklenmiş küçük
+  sonuç kümesi üzerinde, performans sorunu yok).
+- **Doğrulama:** tam çözüm build 0 hata (masaüstü+web+API), test **603/0** (598→603, +5 AuditLogTests).
+  Servis-katmanı testleri gerçek SQLite ile tarih/limit davranışını KANITLADI. **Görsel/canlı doğrulama
+  yapılamadı** (Avalonia önizlemesi yok, API henüz deploy edilmedi — bkz. Birim 4'teki aynı not).
+
 - [x] 1 — Düzenleme-ekranı boş-alan hataları (1.7 ✅ düzeltildi · 1.6 hata değil/ampirik kanıt · 5.1 ERTELENDİ)
 - [x] 2 — Yakıt tutarlılık (2.1 Fuel + · 2.2 Fuel arama ✅ · genel-kural StockEntry "+" takip işi olarak sunuldu)
 - [x] 3 — Ortak seçim alanı davranışı (madde 3) — masaüstü (~27 alan) + web (LookupSelect + 9 doğrudan-arama yeri)
 - [x] 4 — Giriş/Çıkış'ta mevcut malzemeye giriş (1.1) — masaüstü + web + API (deploy bekliyor)
-- [ ] 5 — Sistem Logu filtreleri (madde 4)
+- [x] 5 — Sistem Logu filtreleri (madde 4) — masaüstü + web + API (deploy bekliyor), 5 yeni test
 - [ ] 6 — Bakım "+ Personel" butonu (5.2)
 - [ ] 7 — Malzeme stok alanı + uyarı + log ekranı + yetki (1.2-1.5)
 - [ ] 8 — Bakım negatif stok davranışı (5.3)

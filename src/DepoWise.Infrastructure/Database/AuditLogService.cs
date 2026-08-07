@@ -20,17 +20,26 @@ public sealed class AuditLogService
     private readonly IDbConnectionFactory _factory;
     public AuditLogService(IDbConnectionFactory factory) => _factory = factory;
 
-    public IReadOnlyList<AuditLogRow> List(SessionContext s, int limit = 300)
+    /// <summary>Sistem Logu filtreleri (madde 4, kullanıcı isteği 2026-08-06): Tarih Aralığı (fromMs/toMs, Unix
+    /// ms, dahil) + kayıt sayısı (limit). Performans için limit 1-5000 arasına sıkıştırılır (StockService.
+    /// SearchMovements ile AYNI desen) — filtre yokken de varsayılan 300 ile sınırsız sorgu asla çalışmaz.</summary>
+    public IReadOnlyList<AuditLogRow> List(SessionContext s, long? fromMs = null, long? toMs = null, int limit = 300)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
+        if (limit < 1) limit = 1; if (limit > 5000) limit = 5000;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        var sb = new System.Text.StringBuilder(@"
 SELECT a.created_at, COALESCE(NULLIF(u.full_name,''), u.username, a.user_id, ''), a.entity_type, a.entity_id, a.action
 FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
-WHERE a.company_id = @c
-ORDER BY a.created_at DESC LIMIT @lim;";
+WHERE a.company_id = @c");
+        if (fromMs is not null) sb.Append(" AND a.created_at >= @from");
+        if (toMs is not null) sb.Append(" AND a.created_at <= @to");
+        sb.Append(" ORDER BY a.created_at DESC LIMIT @lim;");
+        cmd.CommandText = sb.ToString();
         cmd.AddWithValue("@c", s.CompanyId);
+        if (fromMs is not null) cmd.AddWithValue("@from", fromMs.Value);
+        if (toMs is not null) cmd.AddWithValue("@to", toMs.Value);
         cmd.AddWithValue("@lim", limit);
         var list = new List<AuditLogRow>();
         using var r = cmd.ExecuteReader();

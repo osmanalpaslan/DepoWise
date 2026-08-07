@@ -2073,8 +2073,9 @@ app.MapPost("/api/permission-templates", (HttpContext c, TemplateDto d) =>
 app.MapDelete("/api/permission-templates/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.PermissionTemplates.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
-// ── Sistem Logu (audit) ──
-app.MapGet("/api/audit", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.AuditLog.List(s)) : Results.Unauthorized()).RequireAuthorization();
+// ── Sistem Logu (audit) — Tarih Aralığı + kayıt sayısı (madde 4, kullanıcı isteği 2026-08-06) ──
+app.MapGet("/api/audit", (HttpContext c, long? from, long? to, int? limit) =>
+    S(c) is { } s ? Results.Ok(svc.AuditLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Sunucu veritabanı yedeği (Yedek Yönetimi'nin web karşılığı) ──
 app.MapGet("/api/backup/list", (HttpContext c) =>

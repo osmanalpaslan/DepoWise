@@ -17,15 +17,23 @@ else
 </div>
 
 <MudPaper Class="pa-4" Elevation="2">
+    @* Tarih Aralığı + kayıt sayısı (madde 4, kullanıcı isteği 2026-08-06): sunucu tarafında filtrelenir —
+       performans için kayıt sayısı seçilen değerle sınırlanır (varsayılan 300, en fazla 5000). *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap" Spacing="2">
         <MudText Typo="Typo.h6">Log Kayıtları</MudText><MudSpacer />
+        <MudDatePicker @bind-Date="_from" Label="Başlangıç" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:170px" Clearable="true" />
+        <MudDatePicker @bind-Date="_to" Label="Bitiş" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:170px" Clearable="true" />
+        <MudSelect T="int" @bind-Value="_limit" Label="Kayıt Sayısı" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px" Dense="true">
+            @foreach (var n in _limitOptions) { <MudSelectItem T="int" Value="@n">@n</MudSelectItem> }
+        </MudSelect>
         <MudSelect T="string" @bind-Value="_entity" Label="Kayıt (ekran)" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px" Dense="true">
             @foreach (var e in _entities) { <MudSelectItem T="string" Value="@e">@e</MudSelectItem> }
         </MudSelect>
         <MudSelect T="string" @bind-Value="_user" Label="Kullanıcı" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px" Dense="true">
             @foreach (var u in _users) { <MudSelectItem T="string" Value="@u">@u</MudSelectItem> }
         </MudSelect>
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="Load">Yenile</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Load">Filtrele</MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="ClearFilters">Temizle</MudButton>
     </MudStack>
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else
@@ -53,16 +61,29 @@ else
     private JsonElement[]? _rows;
     private string? _entity, _user;
     private List<string> _entities = new(), _users = new();
+    // Tarih Aralığı + kayıt sayısı (madde 4, kullanıcı isteği 2026-08-06) — StockMovements.razor ile AYNI desen.
+    private DateTime? _from, _to;
+    private readonly int[] _limitOptions = { 100, 300, 500, 1000, 2000, 5000 };
+    private int _limit = 300;
 
     protected override async Task OnInitializedAsync() => await Load();
 
     private async Task Load()
     {
         _rows = null;
-        try { _rows = await Api.GetArrayAsync("/api/audit"); } catch { _rows = Array.Empty<JsonElement>(); }
+        try
+        {
+            var qs = new List<string> { $"limit={_limit}" };
+            if (_from is { } f) qs.Add($"from={new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            if (_to is { } t) qs.Add($"to={new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            _rows = await Api.GetArrayAsync("/api/audit?" + string.Join("&", qs));
+        }
+        catch { _rows = Array.Empty<JsonElement>(); }
         _entities = _rows.Select(r => Str(r, "entityType")).Where(x => x != "").Distinct().OrderBy(x => x).ToList();
         _users = _rows.Select(r => Str(r, "userText")).Where(x => x != "" && x != "—").Distinct().OrderBy(x => x).ToList();
     }
+
+    private async Task ClearFilters() { _from = _to = null; _limit = 300; _entity = _user = null; await Load(); }
 
     private List<JsonElement> Filtered()
     {
