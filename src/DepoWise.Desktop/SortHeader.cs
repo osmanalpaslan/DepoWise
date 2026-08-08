@@ -94,18 +94,27 @@ public sealed class SortHeader : Grid
         UpdateArrow();
     }
 
-    /// <summary>Kişiye özel kayıtlı genişlik varsa XAML'deki sabit MinWidth'i BÜYÜTÜR (küçültmez) —
-    /// böylece kullanıcı önceden ayarladığı genişlik bir sonraki açılışta korunur.</summary>
+    /// <summary>
+    /// Genişliğin TEK KAYNAĞI ViewModel'dir (kullanıcı isteği 2026-08-08 — hizalama hatası düzeltmesi).
+    /// Eskiden başlık sürüklerken kendi MinWidth'ini ayrıca değiştiriyordu → başlık, filtre satırı ve gövde
+    /// hücreleri FARKLI genişlik kaynağı kullandığı için hizalar kayıyor, ancak liste yeniden kurulunca
+    /// (eşitleme sonrası) düzeliyordu. Artık üçü de aynı değeri (VM.ColWidths) okur: Min=Max ile SIKI bağlanır,
+    /// böylece SharedSizeGroup üç satırı da aynı ölçüde tutar.
+    /// </summary>
     private void ApplySavedWidth()
     {
         if (_vm is null || string.IsNullOrEmpty(ColumnKey)) return;
-        var saved = _vm.GetColumnWidth(ColumnKey);
-        if (saved > 0 && (double.IsNaN(MinWidth) || saved > MinWidth)) MinWidth = saved;
+        var w = _vm.GetColumnWidth(ColumnKey);
+        if (w <= 0) return;
+        MinWidth = w;
+        MaxWidth = w;
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is null or nameof(IListGridViewModel.SortState)) UpdateArrow();
+        // Genişlik VM'de değişti (sürükleme/varsayılana dönüş) → başlık da AYNI değeri alır (tek kaynak).
+        if (e.PropertyName is null or "ColWidths") ApplySavedWidth();
     }
 
     private void UpdateArrow()
@@ -115,12 +124,15 @@ public sealed class SortHeader : Grid
         _arrow.Text = col == ColumnKey ? (desc ? "▼" : "▲") : "";
     }
 
+    // NOT (2026-08-08): Sürükleme ölçümü PENCEREYE göre yapılır — eskiden `GetPosition(this)` kullanılıyordu;
+    // `this` sürükleme sırasında GENİŞLEDİĞİ/DARALDIĞI için ölçüm çerçevesi de kayıyor ve fare hareketi kendini
+    // besliyordu (özellikle SOLA çekerken sıçrama/geri dönme). Pencere koordinatı sabittir → hareket birebir.
     private void OnGripPressed(object? sender, PointerPressedEventArgs e)
     {
         if (string.IsNullOrEmpty(ColumnKey)) return;
         _dragging = true;
-        _dragStartX = e.GetPosition(this).X;
-        _dragStartWidth = double.IsNaN(MinWidth) || MinWidth <= 0 ? Bounds.Width : MinWidth;
+        _dragStartX = e.GetPosition(null).X;                       // pencereye göre (sabit çerçeve)
+        _dragStartWidth = _vm?.GetColumnWidth(ColumnKey) ?? Bounds.Width;   // tek kaynak: VM
         e.Pointer.Capture(_grip);
         e.Handled = true;
     }
@@ -128,9 +140,9 @@ public sealed class SortHeader : Grid
     private void OnGripMoved(object? sender, PointerEventArgs e)
     {
         if (!_dragging || string.IsNullOrEmpty(ColumnKey)) return;
-        var x = e.GetPosition(this).X;
+        var x = e.GetPosition(null).X;
         var newWidth = Math.Max(40, Math.Min(600, _dragStartWidth + (x - _dragStartX)));
-        MinWidth = newWidth;
+        // Kendi MinWidth'ini DOĞRUDAN değiştirme: VM'e yaz → ApplySavedWidth ile başlık+filtre+gövde birlikte güncellenir.
         _vm?.PreviewColumnWidth(ColumnKey, newWidth);
     }
 

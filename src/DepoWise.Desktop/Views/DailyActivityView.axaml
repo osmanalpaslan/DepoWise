@@ -234,7 +234,7 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
@@ -266,7 +266,7 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
@@ -358,7 +358,7 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>

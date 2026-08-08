@@ -275,7 +275,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
@@ -327,7 +327,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
@@ -356,6 +356,8 @@
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
                             <ContentControl Grid.Column="1" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=plate}"
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=plate}">
                                 <ContentControl.ContentTemplate>
@@ -532,7 +534,7 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
@@ -554,7 +556,9 @@
                                                MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=internalCode}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"
                                                IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=internalCode}"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding PlateDisplay}" MinWidth="120" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding PlateDisplay}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PlateDisplay}"
                                                IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=plate}"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding YearDisplay}" VerticalAlignment="Center"

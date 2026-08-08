@@ -42,10 +42,12 @@ public static class ThemeService
     private static Avalonia.Styling.IStyle? _baseStyle;
 
     /// <summary>Kullanılabilir GÖRÜNÜM (stil) temaları — tüm kontrolleri baştan biçimlendiren kütüphaneler.</summary>
+    /// <remarks>"Semi (Modern)" seçeneği KALDIRILDI (kullanıcı isteği 2026-08-08 — yalnız masaüstü; web temaları
+    /// olduğu gibi kalır). Daha önce Semi seçmiş kullanıcılar <see cref="ApplyStyle"/> içindeki geçerlilik
+    /// denetimiyle otomatik Fluent'e düşer (ekran boş/bozuk açılmaz).</remarks>
     public static readonly (string Key, string Name, string Desc)[] Styles =
     {
         ("fluent", "Fluent (Klasik)", "Avalonia varsayılan modern görünüm."),
-        ("semi",   "Semi (Modern)",   "Semi Design — yumuşak, çağdaş arayüz."),
     };
 
     /// <summary>Kayıtlı stil + mod + renk temasını oku ve uygula (açılışta çağrılır).</summary>
@@ -61,11 +63,13 @@ public static class ThemeService
         Apply(mode, persist: false);
     }
 
-    /// <summary>Görünüm (stil kütüphanesi) uygula. Base tema Application.Styles[0]'a yerleştirilir (Fluent/Semi).
-    /// Çalışırken değiştirilince eski base kaldırılıp yenisi eklenir.</summary>
+    /// <summary>Görünüm (stil kütüphanesi) uygula. Base tema Application.Styles[0]'a yerleştirilir.
+    /// Çalışırken değiştirilince eski base kaldırılıp yenisi eklenir.
+    /// NOT (2026-08-08): Artık TEK görünüm var (Fluent). Kayıtta eski "semi" değeri kalmış olabilir →
+    /// burada sessizce Fluent'e düşürülür ve bir daha yazılmaz.</summary>
     public static void ApplyStyle(string styleKey, bool persist = true)
     {
-        if (styleKey != "fluent" && styleKey != "semi") styleKey = "fluent";
+        if (styleKey != "fluent") styleKey = "fluent";
         CurrentStyle = styleKey;
 
         var app = Avalonia.Application.Current;
@@ -73,9 +77,7 @@ public static class ThemeService
         {
             try
             {
-                Avalonia.Styling.IStyle baseStyle = styleKey == "semi"
-                    ? new Semi.Avalonia.SemiTheme()
-                    : new Avalonia.Themes.Fluent.FluentTheme();
+                Avalonia.Styling.IStyle baseStyle = new Avalonia.Themes.Fluent.FluentTheme();
 
                 if (_baseStyle is not null && app.Styles.Contains(_baseStyle)) app.Styles.Remove(_baseStyle);
                 app.Styles.Insert(0, baseStyle);

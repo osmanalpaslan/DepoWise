@@ -42,7 +42,20 @@
             <StackPanel Spacing="14" MaxWidth="680" HorizontalAlignment="Left">
                 <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
 
-                <!-- Malzeme şablonu kaldırıldı (kullanıcı isteği 2026-08-05): malzemelerde şablon kullanılmıyor. -->
+                <!-- Malzeme şablonu GERİ EKLENDİ (kullanıcı isteği 2026-08-08): yeni kayıtta şablon seçilince
+                     alanlar şablondan dolar (düzenlemede yalnız bağ kurulur, alanlar EZİLMEZ). Şablonları
+                     yönetmek için: Malzemeler > Malzeme Şablonları ekranı. -->
+                <ctrl:FormField Label="Şablon" Width="480"
+                                HelpText="Seçilince alanlar şablondan doldurulur (isteğe bağlı; boş bırakılabilir).">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding MaterialTemplates}" SelectedItem="{Binding SelectedMaterialTemplate}"
+                                  PlaceholderText="Şablon seç / ara..."/>
+                        <Button Grid.Column="1" Classes="Ghost" Content="Temizle" Margin="8,0,0,0"
+                                ToolTip.Tip="Şablon bağını kaldırır (alanlar olduğu gibi kalır)"
+                                Command="{Binding ClearMaterialTemplateCommand}"/>
+                    </Grid>
+                </ctrl:FormField>
 
                 <!-- Grup 1: Tanım -->
                 <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
@@ -183,7 +196,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:MaterialRow">
                                             <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                    Content="{Binding Name}"
+                                                    Content="{Binding CodeNameDisplay}" ToolTip.Tip="{Binding CodeNameDisplay}"
                                                     Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).AddEquivalentPickCommand}"
                                                     CommandParameter="{Binding}"/>
                                         </DataTemplate>
@@ -195,7 +208,8 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MaterialRow">
                                     <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding CodeNameDisplay}" Classes="Body" VerticalAlignment="Center"
+                                                             TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CodeNameDisplay}"/>
                                         <Button Grid.Column="1" Classes="Ghost" Content="Kaldır"
                                                 Command="{Binding $parent[ItemsControl].((vm:MaterialsViewModel)DataContext).RemoveEquivalentPickCommand}"
                                                 CommandParameter="{Binding}"/>
@@ -297,7 +311,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
@@ -353,7 +367,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
@@ -382,6 +396,8 @@
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
                             <ContentControl Grid.Column="1" Margin="4,0" HorizontalContentAlignment="Stretch"
+                                MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=name}"
+                                MaxWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=name}"
                                 IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=name}"
                                 Content="{Binding FilterFieldsByKey, Converter={x:Static local:Conv.FilterItem}, ConverterParameter=name}">
                                 <ContentControl.ContentTemplate>
@@ -571,7 +587,7 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
@@ -595,7 +611,9 @@
                                                MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=code}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Code}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=code}"/>
-                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="140" VerticalAlignment="Center"
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                               MinWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=name}"
+                                               MaxWidth="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=name}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"
                                                IsVisible="{Binding $parent[ListBox].((vm:MaterialsViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=name}"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding TypeDisplay}" VerticalAlignment="Center"

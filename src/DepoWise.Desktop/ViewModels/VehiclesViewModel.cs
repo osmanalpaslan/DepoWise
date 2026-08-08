@@ -30,8 +30,29 @@ public sealed record MovementDisplay(long DateRaw, string DateText, string Kind,
 public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
 {
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
-    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
-    public void RefreshData() => Load();
+    /// <summary>
+    /// Eşitleme yeni veri getirince açık ekranı yenile (2026-07-19) — ANCAK kullanıcı ekranda çalışıyorsa
+    /// DOKUNMA (kullanıcı isteği 2026-08-08): detay paneli ya da ekleme/düzenleme formu açıkken liste yeniden
+    /// kurulmaz; yenileme BEKLETİLİR ve panel/form kapanınca sessizce uygulanır. Böylece arka plandaki eşitleme
+    /// ekrana müdahale etmez (açık detay kaybolmaz, seçim/yazılan filtre bozulmaz).
+    /// </summary>
+    public void RefreshData()
+    {
+        if (IsUserBusy) { _pendingRefresh = true; return; }
+        Load();
+    }
+
+    /// <summary>Kullanıcı ekranda bir işin ortasında mı (detay açık / form açık)?</summary>
+    private bool IsUserBusy => ShowAdd || Selected is not null;
+    private bool _pendingRefresh;
+
+    /// <summary>Detay/form kapanınca bekleyen eşitleme yenilemesini uygular (sessiz).</summary>
+    private void FlushPendingRefresh()
+    {
+        if (!_pendingRefresh || IsUserBusy) return;
+        _pendingRefresh = false;
+        Load();
+    }
     private readonly SessionContext _session;
 
     public ObservableCollection<VehicleRow> Items { get; } = new();
@@ -602,9 +623,16 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public bool CanEdit => AccessControl.Can(_session, "vehicles", PermissionAction.Edit);
     public bool CanDelete => AccessControl.Can(_session, "vehicles", PermissionAction.Delete);
 
+    partial void OnShowAddChanged(bool value) { if (!value) FlushPendingRefresh(); }
+
     partial void OnSelectedChanged(VehicleRow? value)
     {
-        if (value is null) { Detail = null; DetailPhotos.Clear(); ClearVehicleTabs(); return; }
+        if (value is null)
+        {
+            Detail = null; DetailPhotos.Clear(); ClearVehicleTabs();
+            FlushPendingRefresh();   // detay kapandı → eşitleme sırasında bekletilen yenileme şimdi uygulanır
+            return;
+        }
         try { Detail = DesktopServices.Vehicles.Get(_session, value.Id); LoadDetailPhotos(value.Id); LoadVehicleTabs(value.Id, value.Code); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
     }

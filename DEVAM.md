@@ -27,7 +27,29 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08i — Talep raporu ortak standarda taşındı)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08j — masaüstü ekran düzeltmeleri; rapor işi DURAKLATILDI)
+
+### 🆕 Masaüstü ekran düzeltmeleri (2026-08-08, Opus 5) — 5 madde
+Kullanıcı rapor serisini geçici olarak durdurdu (kalan: Stok Sayım + Stok Durumu) ve masaüstünde tespit ettiği
+sorunları iletti. Yapılanlar:
+1. **Sütun genişliği hizalama (KÖK NEDEN BULUNDU):** başlık/filtre/gövde grid'lerinde 2. kolon `Width="*"`
+   (esnek) tanımlıydı → üç satır esnek payı ayrı hesaplıyor, sürükleyince hizalar kayıyor, ancak liste yeniden
+   kurulunca (eşitleme sonrası) düzeliyordu. `*` kolonu `Auto + SharedSizeGroup="c2"` yapıldı ve o kolona da
+   Min/Max ColWidths bağlandı (Araçlar/Malzemeler/Günlük Faaliyet). Ayrıca **SortHeader** artık kendi MinWidth'ini
+   değiştirmiyor (tek kaynak = VM.ColWidths) ve sürükleme koordinatını PENCEREYE göre ölçüyor (eskiden kendi
+   üzerinden ölçtüğü için sola çekerken sıçrama/geri dönme oluyordu). Kalıcılık zaten yoktu → her login standart.
+2. **Eşitleme ekranı bozmasın:** liste ekranlarında `RefreshData` artık detay paneli/kayıt formu AÇIKKEN listeyi
+   yeniden kurmuyor; yenileme bekletiliyor ve panel/form kapanınca sessizce uygulanıyor (açık detay kaybolmuyor).
+3. **Tema:** masaüstünden "Semi (Modern)" görünümü kaldırıldı; eski kayıt otomatik Fluent'e düşüyor. Web'e dokunulmadı.
+4. **Muadil malzeme:** arama zaten kod+ad üzerinden çalışıyordu; listede yalnız ad göründüğü için "kod aramıyor"
+   sanılıyordu → hem sonuçlar hem seçilenler artık "KOD — Ad" gösteriyor.
+5. **Malzeme şablonu geri geldi:** altyapı duruyordu (tablo/servis/yetki/raporlar), yalnız UI kaldırılmıştı.
+   Malzeme formuna şablon seçici geri eklendi (+ "Temizle") ve masaüstüne **Malzeme Şablonları** yönetim ekranı
+   yapıldı (Malzemeler menüsü; liste/ekle/düzenle/sil; mevcut `material_templates` yetkisiyle, deny-by-default).
+- Build 0 hata, test **709/0** (11 PG atlandı) — regresyon yok. Web/API DEĞİŞMEDİ (yalnız masaüstü).
+- ⚠️ **Görsel doğrulama kullanıcıda** (Avalonia bu ortamda çalıştırılamıyor): özellikle 1. maddedeki sütun
+  sürükleme davranışı ve yeni şablon ekranı 1.0.124'te denenmeli.
+
 
 ### 🆕 Talep Raporu yeniden tasarım (2026-08-08, Opus 5) — ortak standart
 Kullanıcı isteği. Her talep tek satır (belge listesi). **8 kolon:** Şube · Belge No · Tarih · Talep Eden ·

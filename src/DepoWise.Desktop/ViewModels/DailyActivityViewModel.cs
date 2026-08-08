@@ -28,8 +28,25 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridViewModel, IRefreshable
 {
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
-    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
-    public void RefreshData() => Load();
+    /// <summary>
+    /// Eşitleme yeni veri getirince açık ekranı yenile (2026-07-19) — ANCAK kayıt formu AÇIKKEN dokunma
+    /// (kullanıcı isteği 2026-08-08): yenileme bekletilir, form kapanınca sessizce uygulanır. Arka plandaki
+    /// eşitleme kullanıcının doldurduğu formu/ekranı kesmez.
+    /// </summary>
+    public void RefreshData()
+    {
+        if (ShowForm) { _pendingRefresh = true; return; }
+        Load();
+    }
+
+    private bool _pendingRefresh;
+
+    partial void OnShowFormChanged(bool value)
+    {
+        if (value || !_pendingRefresh) return;
+        _pendingRefresh = false;
+        Load();   // form kapandı → bekletilen eşitleme yenilemesi sessizce uygulanır
+    }
     private readonly SessionContext _session;
     private bool _pickersLoaded;
 

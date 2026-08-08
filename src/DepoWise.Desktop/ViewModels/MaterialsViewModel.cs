@@ -21,8 +21,28 @@ namespace DepoWise.Desktop.ViewModels;
 public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget, IListGridViewModel, IRefreshable
 {
     ICommand IListGridViewModel.SortByCommand => SortByCommand;
-    /// <summary>Eşitleme yeni veri getirince açık ekranı yenile (kullanıcı isteği 2026-07-19).</summary>
-    public void RefreshData() => Load();
+    /// <summary>
+    /// Eşitleme yeni veri getirince açık ekranı yenile (2026-07-19) — ANCAK kullanıcı ekranda çalışıyorsa
+    /// DOKUNMA (kullanıcı isteği 2026-08-08): detay paneli ya da ekleme/düzenleme formu açıkken liste yeniden
+    /// kurulmaz; yenileme BEKLETİLİR, panel/form kapanınca sessizce uygulanır.
+    /// </summary>
+    public void RefreshData()
+    {
+        if (IsUserBusy) { _pendingRefresh = true; return; }
+        Load();
+    }
+
+    /// <summary>Kullanıcı ekranda bir işin ortasında mı (detay açık / form açık)?</summary>
+    private bool IsUserBusy => ShowAdd || Selected is not null;
+    private bool _pendingRefresh;
+
+    /// <summary>Detay/form kapanınca bekleyen eşitleme yenilemesini uygular (sessiz).</summary>
+    private void FlushPendingRefresh()
+    {
+        if (!_pendingRefresh || IsUserBusy) return;
+        _pendingRefresh = false;
+        Load();
+    }
     private readonly SessionContext _session;
 
     public ObservableCollection<MaterialRow> Items { get; } = new();
@@ -268,6 +288,9 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         }
         catch { }
     }
+
+    /// <summary>Şablon bağını kaldırır — form alanlarına DOKUNMAZ (kullanıcı doldurduğunu kaybetmesin).</summary>
+    [RelayCommand] private void ClearMaterialTemplate() => SelectedMaterialTemplate = null;
 
     private bool _lookupsLoaded;
 
@@ -636,10 +659,17 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     /// sayım/iptal), kronolojik. Malzeme bilgi panelinin bir bölümü — salt-okunur.</summary>
     public ObservableCollection<MaterialMovementRow> MaterialHistory { get; } = new();
 
+    partial void OnShowAddChanged(bool value) { if (!value) FlushPendingRefresh(); }
+
     partial void OnSelectedChanged(MaterialRow? value)
     {
         ConfirmDelete = false;
-        if (value is null) { Detail = null; DetailPhotos.Clear(); MaterialHistory.Clear(); return; }
+        if (value is null)
+        {
+            Detail = null; DetailPhotos.Clear(); MaterialHistory.Clear();
+            FlushPendingRefresh();   // detay kapandı → bekletilen eşitleme yenilemesi şimdi uygulanır
+            return;
+        }
         try { Detail = DesktopServices.Materials.GetDetail(_session, value.Id); LoadDetailPhotos(value.Id); }
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
         MaterialHistory.Clear();
@@ -896,6 +926,9 @@ public sealed record MaterialRow(string Id, string Code, string Name, string? Ty
     string Description = "", string CompatibleVehicles = "", string Equivalents = "")
 {
     // Sunum türevleri (mevcut veriden hesap; iş mantığı değişmez)
+    /// <summary>Muadil arama/seçim listelerinde gösterim (kullanıcı isteği 2026-08-08): "KOD — Ad".
+    /// Arama zaten hem kod hem ad üzerinden yapılıyordu; kod görünmediği için "kodla aramıyor" gibi duruyordu.</summary>
+    public string CodeNameDisplay => string.IsNullOrWhiteSpace(Code) ? Name : $"{Code} — {Name}";
     public bool IsLowStock => Stock <= MinStock;
     public string StockDisplay => string.IsNullOrEmpty(StatusText) ? (IsLowStock ? "Düşük" : "Yeterli") : StatusText;
     public BadgeKind StockKind => StatusText switch
