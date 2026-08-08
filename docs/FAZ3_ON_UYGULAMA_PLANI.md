@@ -488,3 +488,271 @@ Bunu ayrı bir karar maddesi olarak aşağıya koydum (K-6).
 
 **K-1 ve K-2 cevaplanmadan hiçbir kod yazılmayacaktır.**
 K-3/K-4/K-5 için önerimi onaylaman yeterli; itirazın yoksa "onaylıyorum" demen kâfi.
+
+---
+---
+
+# NİHAİ UYGULAMA PLANI (2026-08-08 — kullanıcı kararlarından sonra)
+
+**Alınan kararlar:** K-1 = **P-1** · K-2 = **(a)** · K-3 = onay · K-4 = onay · K-5 = onay.
+**Bu bölüm hâlâ PLANDIR** — kullanıcının "uygulamaya geç" onayına kadar kod yazılmaz.
+
+## N.0 Karar sonrası ortaya çıkan İKİ YENİ BULGU (planı değiştiriyor)
+
+### 🔴 Bulgu 1 — `updated_at` eklemek senkron yazımını SESSİZCE BOZABİLİR
+
+`UpsertRow`'un LWW (son yazan kazanır) koşulu:
+```csharp
+if (hasUpdated && !incomingDeleted) conds.Add($"excluded.updated_at >= {table}.updated_at");
+```
+(`BusinessSyncService.cs:584`)
+
+Bir tabloya `updated_at` eklenip **mevcut satırlar NULL kalırsa**, SQL'de `X >= NULL` → **NULL** → koşul
+"yanlış" sayılır → **o satırlar bir daha hiç güncellenmez** (hata da vermez, sessizce atlanır).
+Bugün bu iki tabloda `updated_at` **olmadığı** için LWW koşulu hiç eklenmiyor ve upsert her zaman çalışıyor.
+
+**Sonuç:** `updated_at` eklemek, `company_id` eklemekten **daha riskli** bir davranış değişikliğidir.
+
+### 🔴 Bulgu 2 — SQLite'ta bir kolonu sonradan `NOT NULL` yapmak TABLO YENİDEN OLUŞTURMAYI gerektirir
+
+PostgreSQL'de `ALTER TABLE ... ALTER COLUMN ... SET NOT NULL` mümkündür.
+**SQLite'ta böyle bir komut yoktur**; kolonu NOT NULL yapmak için tablonun yeniden yaratılıp verinin
+kopyalanması (12 adımlı prosedür) gerekir — canlı veri üzerinde **en riskli** işlem tipidir.
+
+**Sonuç:** `NOT NULL` kısıtı **veritabanı seviyesinde eklenmemeli**; zorunluluk **uygulama katmanında**
+(servis + senkron doğrulaması) uygulanmalıdır. (Kararının "constraint'ler ancak güvenli olduğu doğrulandıktan
+sonra değerlendirilsin" maddesiyle uyumlu.)
+
+### ➡️ Bu iki bulgu nedeniyle M-S1 İKİYE BÖLÜNÜYOR
+
+| Paket | İçerik | Ne zaman | Risk |
+|---|---|---|---|
+| **M-S1a** | **Yalnız `company_id`** (+ ebeveynden geri doldurma) — iki tabloya | **Faz 3'ten ÖNCE** (kararın (a)) | **Düşük** — tenant izolasyonunu hem okuma hem yazma yönünde kapatır, LWW/damga davranışına dokunmaz |
+| **M-S1b** | `created_at` / `updated_at` + `WatermarkEpoch` artırımı | **Faz S** (senkron performansı) | Orta — LWW semantiğini değiştirir (Bulgu 1) |
+
+> Bu bölünme, senin (a) kararını **daraltmıyor**: `company_id` yine Faz 3'ten önce geliyor. Yalnız, tenant
+> güvenliğiyle ilgisi olmayan ve riski yüksek olan zaman damgası kısmı, ait olduğu işe (Faz S) taşınıyor.
+> **Kabul edersen böyle ilerlerim; "hayır, ikisi birlikte olsun" dersen M-S1b'yi de aynı pakete alırım.**
+
+## N.1 Adım sırası (senin verdiğin sıra korunmuştur)
+
+| Adım | İş | Çıktı | Canlıya dokunur mu |
+|---|---|---|---|
+| **1** | Faz 3-Ön stok eşzamanlılık düzeltmesi (kod) | 6 dosya | Hayır |
+| **2** | Testler (birim + PG eşzamanlılık + regresyon) | 2 yeni test dosyası, tüm suite yeşil | Hayır |
+| **3** | **Salt-okuma** stok tutarlılık kontrolü | Fark raporu → sana sunulur | Yalnız **okur** |
+| **4** | Faz 3-Ön yayını (API + web + masaüstü paketi) | Sürüm notu | Evet (deploy) |
+| **5** | **M-S1a** migration + geri doldurma | Migration062 | **Evet — ayrıca onayınla** |
+| **6** | Migration sonrası tenant izolasyonu testleri | Test raporu | Hayır |
+| **7** | Faz 3'e geçiş için son güvenlik kontrolü | Kontrol listesi | Hayır |
+
+**Duraklar (onayın olmadan geçilmez):** 3→4 arası (tutarlılık raporunu göreceksin) ve 4→5 arası
+(migration'ı ayrıca onaylayacaksın).
+
+## N.2 Adım 1 — Faz 3-Ön kod planı (kesinleşmiş)
+
+1. `StockConcurrencyException` (yeni, Application) — **yalnız** "CAS 0 satır etkiledi" durumunda fırlar.
+2. `StockBalanceWriter` (yeni, Infrastructure) — tek ortak bakiye yazıcısı (CAS, §5.1).
+3. `StockService.ApplyDelta` **silinir** → ortak yazıcıya devreder.
+4. `MaintenanceService.ApplyDelta` **silinir** → aynı ortak yazıcıya devreder *(kararın madde 3)*.
+5. Tekrar sarmalayıcısı 4 sınırda: `RunDocument` · `ReverseDocument` · `MaintenanceService.Save` · `.Cancel`.
+6. API: `StockConcurrencyException`/`StockBusyException` → **409** + kullanıcı mesajı; log satırı.
+7. `RecomputeBalances` **değişmez** *(kararın K-3)* — ancak N.4'teki yarış koşulu ayrıca raporlanır.
+
+### N.2.1 Kararın K-5 gereği: çakışma ile sistem hatasının AYRILMASI
+
+| Durum | Tanı | Davranış |
+|---|---|---|
+| CAS `UPDATE` 0 satır etkiledi | **Gerçek yarış** | `StockConcurrencyException` → **tekrar dene** (en fazla 3) |
+| `INSERT ... DO NOTHING` 0 satır | **Gerçek yarış** (satırı başkası oluşturdu) | Aynı |
+| `NegativeStockException` | **İş kuralı** — stok yetersiz | **Tekrar YOK**, doğrudan kullanıcıya |
+| `ux_stock_movements_operation` ihlali | **Aynı işlem tekrar gönderilmiş** (idempotency) | **Tekrar YOK** — mevcut belge döner |
+| Bağlantı kopması, zaman aşımı, disk/izin, başka `DbException` | **Sistem/veritabanı hatası** | **Tekrar YOK** — olduğu gibi yukarı fırlar, log'a tam ayrıntı |
+| `ForbiddenException` | **Yetki** | Tekrar YOK |
+
+> Kural tek cümlede: **yalnız `StockConcurrencyException` tekrar edilir; başka hiçbir hata tekrar edilmez.**
+> Böylece gerçek bir arıza, "tekrar denendi ve düzeldi" görüntüsüyle gizlenmez.
+
+## N.3 Adım 1 — K-1 (transfer iptali) atomiklik değişmezi
+
+**İyi haber: istediğin atomiklik BUGÜNKÜ KODLA ZATEN GARANTİ.**
+
+Ters transfer, `ReverseDocument` ile değil, **yeni bir `Transfer` belgesi** (hedef → kaynak) ile yapılır ve
+`Transfer` kaynak çıkışını + hedef girişini **tek transaction içinde** yazar:
+```csharp
+ApplyLine(..., -1, $"{operationId}:out", "transfer", fromBranchId, ...);
+ApplyLine(..., +1, $"{operationId}:in",  "transfer", toBranchId,   ...);
+```
+(`StockService.cs:110-116`, tamamı `RunDocument`'in tek transaction'ı içinde — `:321-337`)
+
+→ **"Kaynak geri alındı ama hedef alınmadı"** (veya tersi) durumu **mimarî olarak imkânsızdır**: ikisi de
+yazılır ya da hiçbiri yazılmaz. Faz 3-Ön'ün CAS düzeltmesi bunu ayrıca **eşzamanlılık altında da** garantiler.
+Hedef şubede mal tükenmişse ters transfer **temiz hata** verir ve hiçbir yarım kayıt kalmaz.
+
+**P-1 yetki kuralı Faz 3'te (3d adımında) uygulanacaktır** — Faz 3-Ön kapsamında yetki değişikliği yoktur.
+
+## N.4 Kararın K-3 gereği: `RecomputeBalances` yarış koşulu — **VAR, bildiriyorum**
+
+**Senaryo (yalnız PostgreSQL):**
+
+| An | Sunucu: `RecomputeBalances` | Eşzamanlı kullanıcı: çıkış |
+|---|---|---|
+| t1 | Tüm hareketleri okur (M hareketi henüz yok) | — |
+| t2 | — | M hareketini yazar + bakiyeyi CAS ile düşürür, **COMMIT** |
+| t3 | Hesapladığı **mutlak** değeri yazar (`ON CONFLICT DO UPDATE SET quantity=excluded.quantity`, `:425-426`) | — |
+| t4 | **M'nin etkisi bakiyeden silinir** → bakiye olması gerekenden **yüksek** kalır | — |
+
+**Etki:** Defter (`stock_movements`) doğru kalır — veri kaybı yok. Ama bakiye önbelleği bir sonraki
+`RecomputeBalances`'a kadar **fazla** görünür; bu aralıkta teorik olarak bir oversell'e kapı açar.
+**Sıklık:** `RecomputeBalances` her business-push sonrası çalışır (`Program.cs:381`) → pencere sık ama kısa.
+**Kendi kendini onarır mı?** Evet — bir sonraki push'un recompute'u doğru değeri yazar.
+
+**Önerilen çözüm (küçük, lehçe-bağımsız) — onayına sunuyorum:**
+Recompute'a **iyimser koruma** eklenir: okumadan önce ve yazmadan hemen önce
+`SELECT COUNT(*), MAX(created_at) FROM stock_movements WHERE company_id=@c` alınır; değer değiştiyse
+(yani araya yeni hareket girdiyse) **yazma yapılmaz, en fazla 2 kez baştan hesaplanır**. Ek maliyet: push
+başına 2 ucuz sorgu. SQLite'ta zaten tek yazar olduğu için hiç tetiklenmez.
+*(Faz S'teki "yalnız etkilenen malzemeleri hesapla" iyileştirmesi pencereyi ayrıca daraltacaktır.)*
+
+→ **K-3-ek kararı:** bu koruma Faz 3-Ön'e dahil edilsin mi? **Önerim: evet** (küçük ve izole).
+
+## N.5 Adım 3 — Salt-okuma stok tutarlılık kontrolü
+
+- **Ne yapar:** her malzeme için `Σ(direction × quantity)` (defter) ↔ `stock_balances.quantity` karşılaştırır.
+- **Ne yapmaz:** hiçbir yazma; `RecomputeBalances` **çalıştırılmaz**.
+- **Nerede koşar:** canlı sunucu veritabanına **salt-okuma** bağlantıyla, deploy'dan **önce**.
+- **Çıktı:** malzeme kodu · ad · defter toplamı · kayıtlı bakiye · fark · son hareket tarihi + özet
+  (kaç malzeme, toplam sapma). **Fark çıkarsa ne yapılacağına birlikte karar veririz.**
+
+## N.6 Adım 5 — M-S1a MIGRATION PLANI (canlı veriye dokunur — ayrıca onay ister)
+
+### N.6.1 Migration planı
+
+`Migration062_ChildCompanyId` (sürüm 62). İki tablo: `material_request_items`, `maintenance_materials`.
+
+| Adım | SQL / işlem | Not |
+|---|---|---|
+| 0 | **Ön kontrol (salt-okuma, migration'dan AYRI çalışır):** yetim satır sayısı, toplam satır, firma dağılımı | Yetim > 0 ise **DURULUR**, sana bildirilir |
+| 1 | Sunucu yedeği (mevcut yedek mekanizması) | Zorunlu |
+| 2 | `ALTER TABLE material_request_items ADD COLUMN company_id TEXT;` | **NULL'a izinli** → additive, mevcut satırlar etkilenmez |
+| 3 | `ALTER TABLE maintenance_materials ADD COLUMN company_id TEXT;` | Aynı |
+| 4 | Geri doldurma (N.6.2) | Yalnız yeni/boş kolona yazar |
+| 5 | `CREATE INDEX ix_material_request_items_co ON material_request_items(company_id);` (+ diğeri) | Okuma performansı |
+| 6 | **Doğrulama (N.6.3)** | Migration içinde sayım; tutmazsa **transaction geri alınır** |
+
+**`NOT NULL` kısıtı EKLENMEZ** (Bulgu 2). Zorunluluk uygulama katmanında: servis satır yazarken `company_id`'yi
+oturumdan doldurur; `BusinessSyncService.UpsertRow` zaten `hasCompany` görünce **oturumun firmasını zorlar**
+(`:566`) → yeni satırlar her zaman doğru firmayla yazılır.
+
+### N.6.2 Backfill (geri doldurma) mantığı
+
+**İlke: sabit bir firma kimliği YAZILMAZ; her satır kendi ebeveyninden türetilir.**
+
+```sql
+UPDATE material_request_items
+   SET company_id = (SELECT r.company_id FROM material_requests r WHERE r.id = material_request_items.request_id)
+ WHERE company_id IS NULL;
+
+UPDATE maintenance_materials
+   SET company_id = (SELECT m.company_id FROM vehicle_maintenances m WHERE m.id = maintenance_materials.maintenance_id)
+ WHERE company_id IS NULL;
+```
+
+**Neden bu biçim:** İlişkili alt sorgu (correlated subquery) **hem SQLite hem PostgreSQL'de aynen** çalışır.
+(`UPDATE ... FROM` sözdizimi iki veritabanında farklıdır — bilerek kullanılmadı.)
+
+**Neden yanlış firma yazılamaz:**
+- `request_id` / `maintenance_id` **NOT NULL + FOREIGN KEY** (`Migration010:41,46` · `Migration008:68,71`) →
+  her çocuğun tek ve kesin bir ebeveyni var.
+- Ebeveynde `company_id` **NOT NULL** (`Migration010:21` · `Migration008:43`).
+- Ebeveyni olmayan satır olursa alt sorgu `NULL` döner → o satır **boş kalır** ve doğrulamada (N.6.3) yakalanır;
+  **tahmin/varsayılan firma yazılmaz.**
+
+### N.6.3 Mevcut kayıtların doğrulanması
+
+Migration transaction'ı içinde, **commit'ten önce**:
+
+| Kontrol | Beklenen | Tutmazsa |
+|---|---|---|
+| `COUNT(*) WHERE company_id IS NULL` (iki tablo) | **0** | **ROLLBACK** + sana rapor |
+| Migration öncesi/sonrası **toplam satır sayısı** | **Aynı** | ROLLBACK |
+| Firma bazında çocuk satır sayısı ↔ ebeveyn üzerinden beklenen sayı | **Aynı** | ROLLBACK |
+| Örnek doğrulama: rastgele 20 satırın `company_id`'si ebeveyninkiyle aynı mı | **Evet** | ROLLBACK |
+
+### N.6.4 Rollback / geri dönüş yaklaşımı
+
+1. **Otomatik:** Migration'lar tek `DbTransaction` içinde çalışır (`Migration061`'in `Up(conn, tx)` deseni) →
+   PostgreSQL **ve** SQLite'ta **DDL dahil transaction'a dahildir** → doğrulama tutmazsa **hiçbir iz kalmadan**
+   geri alınır.
+2. **Manuel (commit'ten sonra sorun görülürse):** yeni kolon **additive** olduğu için eski kod da çalışmaya
+   devam eder (kolonu görmezden gelir). Gerekirse `UPDATE ... SET company_id = NULL` ile etkisizleştirilir —
+   **mevcut hiçbir kolon değişmediği için veri kaybı riski yoktur.**
+3. **Son çare:** adım 1'de alınan sunucu yedeği.
+4. `Down()` (geri migration) yazılmaz — projede desen yok; yukarıdaki 3 yol yeterlidir.
+
+### N.6.5 PostgreSQL ve SQLite davranış farkları
+
+| Konu | PostgreSQL | SQLite | Plandaki karşılığı |
+|---|---|---|---|
+| `ADD COLUMN ... NULL` | Anında (tablo yeniden yazılmaz) | Anında | Sorun yok |
+| DDL transaction içinde | **Evet** | **Evet** | Otomatik rollback çalışır |
+| `UPDATE ... FROM` | Var | Sürüme bağlı | **Kullanılmıyor** — ilişkili alt sorgu tercih edildi |
+| Sonradan `SET NOT NULL` | Mümkün (tam tarama) | **Yok — tablo yeniden oluşturma gerekir** | **NOT NULL eklenmiyor** (Bulgu 2) |
+| Hatalı satırda transaction | Tüm transaction abort olur | Devam edebilir | Migration tek transaction; fark yaratmaz |
+| Index oluşturma | Anında | Anında | Sorun yok |
+
+### N.6.6 Migration'ın senkron üzerindeki etkisi (tenant izolasyonu kapanıyor)
+
+Kolon eklendiği anda, **kod değişikliği olmadan** iki koruma otomatik devreye girer:
+
+| Yön | Bugün | Migration sonrası | Kanıt |
+|---|---|---|---|
+| **Okuma** (pull) | Firma filtresi **yok** → tüm firmaların satırları dönüyor | `WHERE company_id=@c` eklenir | `BusinessSyncService.cs:117, 122` |
+| **Yazma** (push) | Tenant zorlaması **yok** → `id` ile başka firmanın satırı ezilebilir | `values["company_id"] = companyId` ile oturumun firması zorlanır | `BusinessSyncService.cs:566` |
+
+⚠️ **`StampColumn` DEĞİŞMEZ** çünkü `created_at`/`updated_at` eklenmiyor (M-S1b'ye ertelendi) →
+delta filtresi ve `WatermarkEpoch` davranışı **aynı kalır**, senkronda sürpriz olmaz.
+
+## N.7 Adım 6 — Migration sonrası tenant izolasyonu testleri
+
+| Kod | Test | Beklenen |
+|---|---|---|
+| TI-01 | İki firmalı test veritabanı; A firmasıyla `business-pull` | Yanıtta **yalnız A'nın** satırları; B'ninkiler **yok** |
+| TI-02 | A firması, B'nin bir `material_request_items` satırının `id`'siyle push yapar | Satır **değişmez** (tenant zorlaması) |
+| TI-03 | Aynı senaryo `maintenance_materials` için | Aynı |
+| TI-04 | Geri doldurma doğruluğu: her çocuk satırın `company_id`'si ebeveyninkiyle aynı | %100 |
+| TI-05 | Migration öncesi/sonrası satır sayısı | Aynı (kayıp yok) |
+| TI-06 | Yeni oluşturulan talep kalemi / bakım malzemesi | `company_id` **dolu** geliyor |
+| TI-07 | Mevcut talep/bakım ekranları regresyonu | Davranış aynı |
+
+## N.8 Adım 7 — Faz 3'e geçiş son güvenlik kontrol listesi
+
+- [ ] Tüm test paketi yeşil (mevcut 767 + yeni eşzamanlılık + tenant testleri)
+- [ ] PG eşzamanlılık testleri T-01…T-08 geçti
+- [ ] SQLite regresyonu: davranış değişmedi (T-06)
+- [ ] Salt-okuma tutarlılık raporu sunuldu ve karara bağlandı
+- [ ] M-S1a canlıda uygulandı, doğrulama sayımları temiz
+- [ ] Tenant izolasyonu TI-01…TI-07 geçti
+- [ ] Masaüstü + web + API aynı sürümde ve çalışıyor
+- [ ] `DEVAM.md` / `YARIM_KALAN_ISLER.md` / `GOREV_PANOSU.md` güncel
+
+## N.9 Faz 3-Ön bitince sana AYRI AYRI raporlanacaklar (talebin)
+
+1. Değişen dosyalar (tam liste)
+2. Uygulanan migration'lar (Faz 3-Ön: **yok**; M-S1a ayrı adımda)
+3. Test sayıları (önce/sonra, yeni eklenen)
+4. Eşzamanlılık (concurrency) test sonuçları — senaryo bazında
+5. Tenant izolasyonu test sonuçları
+6. Stok tutarlılık kontrol sonucu (defter ↔ bakiye farkları)
+7. API / Web / Masaüstü deploy durumu ve sürüm numaraları
+8. **Canlı veride yapılan değişikliklerin özeti** (Faz 3-Ön'de: yalnız kod/deploy; M-S1a'da: eklenen kolon +
+   geri doldurulan satır sayısı — tablo bazında)
+
+## N.10 Onayını beklediğim 2 küçük nokta
+
+| # | Konu | Önerim |
+|---|---|---|
+| **N-1** | M-S1'in ikiye bölünmesi: **M-S1a (yalnız `company_id`) Faz 3'ten önce**, M-S1b (zaman damgaları) Faz S'te | **Evet, bölünsün** — Bulgu 1 nedeniyle |
+| **N-2** | `RecomputeBalances` için iyimser koruma (N.4) Faz 3-Ön'e dahil edilsin mi | **Evet** — küçük ve izole |
+
+**Bu iki noktayı onayladığında (veya "böyle ilerle" dediğinde) Adım 1'den kodlamaya başlarım.**
