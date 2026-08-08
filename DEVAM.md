@@ -27,7 +27,26 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08n — FAZ 3-ÖN YAYINLANDI: API + web canlıda)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09 — ŞUBE/ŞANTİYE ÇALIŞMASI YAYINLANDI, masaüstü 1.0.130)
+
+### ✅ ŞUBE / ŞANTİYE ÇALIŞMASI YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.130**
+Şube/Şantiye tanımı artık **yalnız Şube/Şantiye Tanımları ekranından** oluşturulabiliyor.
+Raporlar: [denetim](docs/SUBE_SANTIYE_ALANLARI_DENETIM_RAPORU.md) · [plan](docs/SUBE_SANTIYE_ALANLARI_UYGULAMA_PLANI.md)
+- **Yetki açığı kapatıldı:** "Tanımlar" (definitions) yetkisiyle şube ekleme/yeniden adlandırma/**silme**
+  yapılabiliyordu; oysa `branches` modülü admin-kısıtlı. Kilit artık **servis katmanında**
+  (`LookupService.EnsureWritableTable`) → arayüz atlansa bile olmuyor.
+- **Kapatılan 6 oluşturma yolu:** masaüstü Araçlar/Talepler/Tanım Düzenle, web Araçlar/Talepler, Excel içe aktarma.
+- **Excel:** tanınmayan şube/şantiye artık **satır hatası** (önizlemede satır no + değer); otomatik kayıt yok.
+  Diğer tanım türlerinin otomatik oluşturması aynen duruyor.
+- **`kind` filtresi EKLENMEDİ** (bilinçli): canlıda 94/94 araç ve 6/6 kullanıcı `site`'a bağlı; "Şube→branch"
+  filtresi şantiyeleri listelerden düşürüp **transferi bozardı**. Onun yerine 15 alanda etiket "Şube / Şantiye".
+- **Senkron riski kapandı:** masaüstünde şube oluşturulamadığı için "yerel şube → push edilmiyor → bağlı araç
+  FK'den reddediliyor" zinciri artık tetiklenemez (testle doğrulanmıştı).
+- **Migration YOK**, şema değişmedi, canlı veri değişmedi (deploy öncesi/sonrası sayımlar aynı).
+
+---
+
+### (önceki) FAZ 3-ÖN YAYINLANDI: API + web canlıda
 
 ### ✅ FAZ 3-ÖN YAYINLANDI (2026-08-08) — stok eşzamanlılık düzeltmesi canlıda
 Sunucuda (PostgreSQL) iki kullanıcının aynı anda stok çıkışı yapması hâlinde oluşabilen **fazla satış
