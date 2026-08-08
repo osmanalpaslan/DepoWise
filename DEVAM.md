@@ -27,7 +27,26 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08j — masaüstü ekran düzeltmeleri; rapor işi DURAKLATILDI)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08k — "Bakım Ekibi Stoğundan Kullanıldı" seçeneği)
+
+### 🆕 Bakım malzemesi: "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08, Opus 5) — Migration059
+İhtiyaç: bazı malzemeler daha önce bakım ekibine teslim edilmiştir; bakım kaydına girmeli ama merkez depo
+stoğundan TEKRAR düşülmemelidir. Malzeme satırında onay kutusu: **"Bakım Ekibi Stoğundan Kullanıldı"** +
+açıklama **"İşaretlenirse merkez depo stoklarından düşülmez."**
+- **Kilit bulgu:** Araç Bakımları, Günlük Faaliyet (Bakım) ve İlave Yağ/Filtre/Tamir **AYNI ortak
+  `MaintenanceService.Save`**'i kullanıyor → iş mantığı TEK yerde değişti, üç akış birden kapsandı.
+- **Davranış:** işaretliyse `stock_balances` düşümü ve `stock_movements` tüketim hareketi YAPILMAZ; bağ kaydı +
+  fiyat snapshot YAZILIR (**maliyete dâhil kalır**). **İptalde** işaretli satır ters hareket üretmez (stok şişmez).
+  İşaretsiz = eski davranış (regresyon testleriyle korundu).
+- **Migration059:** `maintenance_materials.from_team_stock BIGINT NOT NULL DEFAULT 0` — additive, mevcut satırlar 0,
+  SQLite+PostgreSQL ortak. Denetim: işaretlenen malzemeler audit kaydına yazılır (kullanıcı+zaman oradan gelir).
+- **Web:** işaretli satır "stok yetersiz" uyarısına girmez; bakım geçmişinde "Bakım ekibi stoğu" rozeti.
+  **Günlük Faaliyet'teki "Depo Çıkışı" akışına DOKUNULMADI** (ayrı StockService yolu).
+- +16 test (MaintenanceTeamStockTests: bakiye/defter/maliyet/iptal/karışık satır/3 ekstra tür/geriye uyumluluk).
+  Tüm paket **725/0** (11 PG atlandı). ✅ **YAYINLANDI:** API (health 200, **migration canlıda uygulandı**,
+  okuma uçları 200, dbSize 14.6 MB — veri sağlam, log'da hata yok) + web (200) + masaüstü **1.0.126** (d03890…).
+
+## (önceki) 2026-08-08j — masaüstü ekran düzeltmeleri; rapor işi DURAKLATILDI
 
 ### 🆕 Masaüstü ekran düzeltmeleri (2026-08-08, Opus 5) — 5 madde
 Kullanıcı rapor serisini geçici olarak durdurdu (kalan: Stok Sayım + Stok Durumu) ve masaüstünde tespit ettiği
