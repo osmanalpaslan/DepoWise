@@ -18,7 +18,13 @@ namespace DepoWise.Tests;
 ///   K1. <c>DEPOWISE_PG_TEST_CONFIRM</c> ortam değişkeni tam olarak <see cref="ConfirmValue"/> olmalı.
 ///       (Yalnızca bağlantı adresinin tanımlı olması yıkıcı testleri BAŞLATMAZ.)
 ///   K2. Veritabanı adı "test" içermeli (canlı veritabanı adı bu koşulu sağlamaz).
-///   K3. Şema BOŞ olmalı; değilse yalnız "test boyutunda" veri barındırmalı (aşağıdaki eşikler).
+///   K3. <b>public şema TAMAMEN BOŞ olmalı</b> (uygulamaya ait tek bir tablo bile bulunmamalı).
+///       TEK İSTİSNA: şemayı daha önce BU KAPININ kendisi sıfırlamışsa — bunun kanıtı, yalnız kapı
+///       tarafından oluşturulan <see cref="MarkerSchema"/> işaret şemasıdır (uygulama onu asla yaratmaz,
+///       <c>DROP SCHEMA public</c> onu silmez). Böylece aynı koşuda arka arkaya gelen testler çalışabilir,
+///       ama içinde AZ DA OLSA gerçek veri bulunan bir veritabanı ASLA kabul edilmez.
+///       ⚠️ Satır sayısı eşikleri GÜVENLİK KAPISI DEĞİLDİR (kullanıcı kararı 2026-08-08) — yalnız hata
+///       mesajında TEŞHİS bilgisi olarak gösterilir.
 ///   K4. Veritabanı toplam boyutu <see cref="MaxDbSizeMb"/> MB'ı aşmamalı.
 ///   K5. Bağlantı salt-okunur bir yedek/replika olmamalı (yazma denemesi anlamsız olmasın).
 ///
@@ -36,17 +42,30 @@ internal static class PostgresTestGuard
     /// <summary>Bu boyutun üstü "test veritabanı" sayılmaz.</summary>
     public const int MaxDbSizeMb = 50;
 
-    // "Test boyutu" eşikleri: canlı veri bunların KATBEKAT üstündedir (ör. gerçek firmada 2500+ malzeme).
-    private static readonly (string Table, long Max)[] VolumeLimits =
+    /// <summary>
+    /// Kapının kendi işaret şeması. YALNIZ <see cref="ResetSchema"/> yaratır; uygulama kodu bu şemayı
+    /// hiçbir yerde oluşturmaz/okumaz (tüm uygulama sorguları <c>table_schema='public'</c> ile filtreler).
+    /// <c>DROP SCHEMA public CASCADE</c> bunu SİLMEZ → "bu veritabanını daha önce kapı sıfırladı" kanıtıdır.
+    /// </summary>
+    public const string MarkerSchema = "dw_test_marker";
+
+    /// <summary>SADECE TEŞHİS: hata mesajında "ne bulundu" bilgisini göstermek için. Güvenlik kararı
+    /// bunlara DAYANMAZ — şema boş değilse (ve işaret şeması yoksa) sayıya bakılmaksızın DURULUR.</summary>
+    private static readonly string[] DiagnosticTables =
     {
-        ("companies", 5),
-        ("users", 10),
-        ("materials", 100),
-        ("stock_movements", 500),
-        ("vehicles", 50),
-        ("personnel", 50),
-        ("material_requests", 100),
+        "companies", "users", "materials", "stock_movements", "vehicles", "personnel", "material_requests",
     };
+
+    /// <summary>
+    /// K3'ün SAF kararı (veritabanı gerektirmez → doğrudan test edilebilir).
+    /// İzin YALNIZ iki durumda vardır:
+    ///  • public şemada HİÇ tablo yok (tertemiz boş veritabanı), veya
+    ///  • şemayı daha önce bu kapı sıfırlamış (işaret şeması var).
+    /// Satır sayısı / veri hacmi kararı ETKİLEMEZ — içinde 1 satır gerçek veri olan bir veritabanı da
+    /// reddedilir (kullanıcı kararı 2026-08-08).
+    /// </summary>
+    public static bool SchemaAcceptable(long publicTableCount, bool markerSchemaExists)
+        => publicTableCount == 0 || markerSchemaExists;
 
     /// <summary>Testin başında çağrılır: koşullar sağlanmıyorsa test ATLANIR (patlamaz).</summary>
     public static void SkipUnlessSafe()
@@ -76,7 +95,8 @@ internal static class PostgresTestGuard
         AssertSafeTestDatabase(factory);
         using var conn = factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
+        // İşaret şeması ÖNCE yaratılır: sıfırlama yarıda kalsa bile "bu DB kapıdan geçmişti" izi kalır.
+        cmd.CommandText = $"CREATE SCHEMA IF NOT EXISTS {MarkerSchema}; DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
         cmd.ExecuteNonQuery();
     }
 
@@ -111,22 +131,27 @@ internal static class PostgresTestGuard
             throw new InvalidOperationException(
                 $"GÜVENLİK: veritabanı '{dbName}' boyutu {sizeMb} MB (> {MaxDbSizeMb} MB) → test veritabanı sayılmadı. Test çalıştırılmadı.");
 
-        // K3 — şema boş mu? Boşsa en güvenli durum; değilse "test boyutu" eşikleri aranır.
+        // K3 — public şema TAMAMEN BOŞ mu? (kullanıcı kararı 2026-08-08: eşik yaklaşımı KALDIRILDI)
         var tableCount = Convert.ToInt64(Scalar(conn,
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';"));
-        if (tableCount == 0) return;   // tertemiz boş veritabanı → geç
+        // Tek istisna: şemayı daha önce BU KAPI sıfırlamış olmalı (işaret şeması). Uygulama bunu yaratamaz.
+        var markerExists = Convert.ToInt64(Scalar(conn,
+            $"SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='{MarkerSchema}';")) > 0;
+        if (SchemaAcceptable(tableCount, markerExists)) return;
 
-        var problems = new List<string>();
-        foreach (var (table, max) in VolumeLimits)
+        // Buraya düşen her veritabanı REDDEDİLİR — satır sayısına BAKILMAKSIZIN. Sayımlar yalnız teşhis.
+        var found = new List<string>();
+        foreach (var t in DiagnosticTables)
         {
-            if (!TableExists(conn, table)) continue;
-            var rows = Convert.ToInt64(Scalar(conn, $"SELECT COUNT(*) FROM \"{table}\";"));
-            if (rows > max) problems.Add($"{table}={rows} (izin: {max})");
+            if (!TableExists(conn, t)) continue;
+            found.Add($"{t}={Convert.ToInt64(Scalar(conn, $"SELECT COUNT(*) FROM \"{t}\";"))}");
         }
-        if (problems.Count > 0)
-            throw new InvalidOperationException(
-                $"GÜVENLİK: veritabanı '{dbName}' GERÇEK VERİ içeriyor gibi görünüyor → {string.Join(", ", problems)}. " +
-                "Yıkıcı test çalıştırılmadı. Lütfen BOŞ bir test veritabanı kullanın.");
+        throw new InvalidOperationException(
+            $"GÜVENLİK: veritabanı '{dbName}' BOŞ DEĞİL — public şemada {tableCount} tablo var ve bu şemayı " +
+            $"daha önce test kapısı sıfırlamamış (işaret şeması '{MarkerSchema}' yok). Yıkıcı test ÇALIŞTIRILMADI. " +
+            "Az miktarda da olsa gerçek veri içeren bir veritabanı ASLA kabul edilmez; lütfen TAMAMEN BOŞ bir test " +
+            "veritabanı kullanın." +
+            (found.Count > 0 ? $" [yalnız teşhis: {string.Join(", ", found)}]" : ""));
     }
 
     private static bool TableExists(DbConnection conn, string table)

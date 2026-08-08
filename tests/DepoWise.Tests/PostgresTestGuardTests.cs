@@ -68,6 +68,40 @@ public class PostgresTestGuardTests
             Assert.Contains("GÜVENLİK", ex.Message);
         });
 
+    // ── K3: "public şema TAMAMEN BOŞ olmalı" (kullanıcı kararı 2026-08-08 — eşik yaklaşımı kaldırıldı) ──
+
+    [Fact]
+    public void Tertemiz_Bos_Veritabani_Kabul_Edilir()
+        => Assert.True(PostgresTestGuard.SchemaAcceptable(publicTableCount: 0, markerSchemaExists: false));
+
+    [Fact]
+    public void BOS_OLMAYAN_Veritabani_REDDEDILIR()
+    {
+        // Tek bir tablo bile olsa reddedilir — "az veri var, test boyutundadır" mazereti YOK.
+        Assert.False(PostgresTestGuard.SchemaAcceptable(publicTableCount: 1, markerSchemaExists: false));
+        Assert.False(PostgresTestGuard.SchemaAcceptable(publicTableCount: 40, markerSchemaExists: false));
+        Assert.False(PostgresTestGuard.SchemaAcceptable(publicTableCount: 1000, markerSchemaExists: false));
+    }
+
+    [Fact]
+    public void Karar_Satir_Sayisina_DEGIL_Tablo_Varligina_Dayanir()
+    {
+        // İçinde HİÇ satır olmasa bile, uygulamaya ait tablolar varsa ve şemayı kapı sıfırlamamışsa
+        // veritabanı kabul edilmez. Bu, "içinde az gerçek veri olan DB'nin test sanılması" riskini kapatır.
+        Assert.False(PostgresTestGuard.SchemaAcceptable(publicTableCount: 1, markerSchemaExists: false));
+        // Aynı tablo sayısı, ama şemayı DAHA ÖNCE KAPI sıfırlamış → aynı koşudaki sonraki testler çalışabilir.
+        Assert.True(PostgresTestGuard.SchemaAcceptable(publicTableCount: 1, markerSchemaExists: true));
+    }
+
+    [Fact]
+    public void Isaret_Semasi_Yalniz_Kapinin_Yarattigi_Bir_Isarettir()
+    {
+        // Uygulamanın hiçbir yerinde bu şema yaratılmaz/okunmaz (tüm sorgular table_schema='public' filtreli),
+        // ve DROP SCHEMA public CASCADE onu silmez → "bu DB'yi daha önce kapı sıfırladı" kanıtı olarak geçerlidir.
+        Assert.Equal("dw_test_marker", PostgresTestGuard.MarkerSchema);
+        Assert.DoesNotContain("public", PostgresTestGuard.MarkerSchema);
+    }
+
     [Fact]
     public void Kapida_Canli_Veritabanina_Ait_Hicbir_Bilgi_Yazili_Degildir()
     {
