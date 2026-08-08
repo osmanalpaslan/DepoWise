@@ -68,12 +68,25 @@
                 <tr>
                     @foreach (var key in _order)
                     {
-                        var cell = Value(row, key);
-                        <td title="@cell">@cell</td>
+                        var t = Value(row, key).Text;
+                        <td title="@t">@t</td>
                     }
                 </tr>
             }
         </tbody>
+        @* Pinned toplam satırı: en altta, kolon-hizalı, görsel ayrı; filtre/sıralamaya DAHİL DEĞİL. *@
+        @if (TotalRow is not null)
+        {
+            <tfoot>
+                <tr class="dw-total-row">
+                    @foreach (var key in _order)
+                    {
+                        var t = TotalText(key);
+                        <td title="@t">@t</td>
+                    }
+                </tr>
+            </tfoot>
+        }
     </table>
 </div>
 <MudText Typo="Typo.caption" Class="mud-text-secondary">@_view.Count / @(_rows?.Count ?? 0) satır@(_hasFilters ? " (filtreli)" : "")</MudText>
@@ -83,8 +96,14 @@
     [Parameter] public string GridKey { get; set; } = "";
     /// <summary>Kolon tanımları (sıra = varsayılan görünüm sırası). Key benzersiz olmalı.</summary>
     [Parameter] public IReadOnlyList<ListColumn> Columns { get; set; } = Array.Empty<ListColumn>();
-    /// <summary>Satırlar — her satır <see cref="Columns"/> ile AYNI sırada hücre değerleri (in-memory).</summary>
-    [Parameter] public IReadOnlyList<IReadOnlyList<string>> Rows { get; set; } = Array.Empty<IReadOnlyList<string>>();
+    /// <summary>Satırlar — her satır <see cref="Columns"/> ile AYNI sırada hücreler (görüntü Text + HAM Num).</summary>
+    [Parameter] public IReadOnlyList<IReadOnlyList<GridCell>> Rows { get; set; } = Array.Empty<IReadOnlyList<GridCell>>();
+    /// <summary>İsteğe bağlı SABİT (pinned) toplam satırı — filtre/sıralama dışı, kolon-hizalı, görsel ayrı.</summary>
+    [Parameter] public IReadOnlyList<GridCell>? TotalRow { get; set; }
+
+    /// <summary>Ortak tablo hücresi: görüntü (Text) + HAM sayısal değer (Num, sayısal kolonlarda). Sıralama/filtre
+    /// Num üzerinden; render Text ile → "₺ 12.345,67" gibi biçim sayısal davranışı bozmaz (Application.Ui.GridCell aynası).</summary>
+    public sealed record GridCell(string Text, double? Num = null);
 
     private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
     private string _tableId = "dwgrid";
@@ -94,8 +113,8 @@
     private string? _sortKey; private bool _sortDesc;
     private string? _dragKey;
 
-    private IReadOnlyList<IReadOnlyList<string>>? _rows;
-    private List<IReadOnlyList<string>> _view = new();
+    private IReadOnlyList<IReadOnlyList<GridCell>>? _rows;
+    private List<IReadOnlyList<GridCell>> _view = new();
     private Dictionary<string, int> _colIndex = new(StringComparer.Ordinal);
     private string _signature = "";                               // Columns+GridKey imzası (değişince tercih tekrar yüklenir)
     private bool _hasFilters => _filters.Values.Any(v => !string.IsNullOrWhiteSpace(v));
@@ -105,8 +124,11 @@
     private string GetFilter(string key) => _filters.TryGetValue(key, out var v) ? v : "";
     private string ThStyle(string key) => "width:150px;";   // standart; JS tutamağı oturum-içi override eder
     private string SortArrow(string key) => _sortKey == key ? (_sortDesc ? "▼" : "▲") : "";
-    private string Value(IReadOnlyList<string> row, string key)
-        => _colIndex.TryGetValue(key, out var i) && i < row.Count ? row[i] : "";
+    private static readonly GridCell EmptyCell = new("", null);
+    private GridCell Value(IReadOnlyList<GridCell> row, string key)
+        => _colIndex.TryGetValue(key, out var i) && i < row.Count ? row[i] : EmptyCell;
+    private string TotalText(string key)
+        => TotalRow is not null && _colIndex.TryGetValue(key, out var i) && i < TotalRow.Count ? TotalRow[i].Text : "";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -149,10 +171,10 @@
 
     private void Recompute()
     {
-        var rows = _rows ?? Array.Empty<IReadOnlyList<string>>();
-        IEnumerable<IReadOnlyList<string>> q = rows;
+        var rows = _rows ?? Array.Empty<IReadOnlyList<GridCell>>();
+        IEnumerable<IReadOnlyList<GridCell>> q = rows;
 
-        // ── Filtre (kolon-altı, Excel-benzeri: metin=içerir, sayısal=tam/karşılaştırma/aralık) ──
+        // ── Filtre (kolon-altı, Excel-benzeri: metin=içerir, sayısal=tam/karşılaştırma/aralık) — HAM Num üzerinden ──
         foreach (var (key, raw) in _filters)
         {
             if (string.IsNullOrWhiteSpace(raw)) continue;
@@ -161,17 +183,17 @@
             q = q.Where(r => Match(Value(r, key), f, numeric));
         }
 
-        // ── Sıralama (başlığa tıklama) — sayısal kolon sayısal, diğerleri metin karşılaştırması ──
+        // ── Sıralama (başlığa tıklama) — sayısal kolon HAM Num, diğerleri görüntü metni karşılaştırması ──
         var list = q.ToList();
         if (_sortKey is not null && _colIndex.ContainsKey(_sortKey))
         {
             bool num = IsNumeric(_sortKey);
-            Comparison<IReadOnlyList<string>> cmp = (a, b) =>
+            Comparison<IReadOnlyList<GridCell>> cmp = (a, b) =>
             {
                 var av = Value(a, _sortKey); var bv = Value(b, _sortKey);
-                int c;
-                if (num && TryNum(av, out var ad) && TryNum(bv, out var bd)) c = ad.CompareTo(bd);
-                else c = string.Compare(av, bv, StringComparison.CurrentCultureIgnoreCase);
+                int c = num
+                    ? Nullable.Compare(av.Num, bv.Num)
+                    : string.Compare(av.Text, bv.Text, StringComparison.CurrentCultureIgnoreCase);
                 return _sortDesc ? -c : c;
             };
             list.Sort(cmp);
@@ -179,21 +201,18 @@
         _view = list;
     }
 
-    private static bool Match(string cell, string filter, bool numeric)
+    private static bool Match(GridCell cell, string filter, bool numeric)
     {
-        if (!numeric) return cell.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
-        if (!TryNum(cell, out var v)) return false;
-        // Aralık: 5-10
+        if (!numeric) return (cell.Text ?? "").Contains(filter, StringComparison.CurrentCultureIgnoreCase);
+        if (cell.Num is not double v) return false;
         var dash = filter.IndexOf('-', 1);
         if (dash > 0 && TryNum(filter[..dash], out var lo) && TryNum(filter[(dash + 1)..], out var hi))
-            return v >= Math.Min(lo, hi) && v <= Math.Max(lo, hi);
-        // Karşılaştırma: >= <= > <
-        if (filter.StartsWith(">=") && TryNum(filter[2..], out var g1)) return v >= g1;
-        if (filter.StartsWith("<=") && TryNum(filter[2..], out var l1)) return v <= l1;
-        if (filter.StartsWith(">") && TryNum(filter[1..], out var g2)) return v > g2;
-        if (filter.StartsWith("<") && TryNum(filter[1..], out var l2)) return v < l2;
-        // Tam eşleşme
-        return TryNum(filter, out var eq) && v == eq;
+            return v >= (double)Math.Min(lo, hi) && v <= (double)Math.Max(lo, hi);
+        if (filter.StartsWith(">=") && TryNum(filter[2..], out var g1)) return v >= (double)g1;
+        if (filter.StartsWith("<=") && TryNum(filter[2..], out var l1)) return v <= (double)l1;
+        if (filter.StartsWith(">") && TryNum(filter[1..], out var g2)) return v > (double)g2;
+        if (filter.StartsWith("<") && TryNum(filter[1..], out var l2)) return v < (double)l2;
+        return TryNum(filter, out var eq) && Math.Round(v, 4) == Math.Round((double)eq, 4);
     }
 
     private static bool TryNum(string s, out decimal value)

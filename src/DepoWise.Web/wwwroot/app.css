@@ -464,6 +464,12 @@ input[type="file"]::file-selector-button {
 .dw-grid tbody tr { transition: background-color .12s ease; }
 .dw-grid tbody tr:nth-child(2n) { background: color-mix(in srgb, var(--mud-palette-text-primary) 2%, transparent); }
 .dw-grid tbody tr:hover { background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent); }
+/* Pinned toplam satırı (Excel mantığı): en altta, görsel ayrı — kalın + vurgu arka planı + üst kenar. */
+.dw-grid tfoot .dw-total-row td {
+    font-weight: 700;
+    background: color-mix(in srgb, var(--mud-palette-primary) 12%, var(--mud-palette-background));
+    border-top: 2px solid var(--mud-palette-primary);
+}
 
 /* Sayfalama */
 .mud-pagination-item { border-radius: 9px; font-weight: 600; }

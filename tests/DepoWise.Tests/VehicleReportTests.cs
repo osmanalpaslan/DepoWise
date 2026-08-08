@@ -93,16 +93,18 @@ public class VehicleReportTests : IDisposable
         var t = Run();
         Assert.Equal("Araç Raporu", t.Title);
         Assert.Equal(14, t.Headers.Count);
-        Assert.Equal(6, t.Rows.Count);   // 5 araç + TOPLAM
+        Assert.Equal(5, t.Rows.Count);                // 5 araç (TOPLAM artık ayrı TotalRow'da, satırlarda değil)
+        Assert.NotNull(t.Numeric);
+        Assert.NotNull(t.TotalRow);
 
         var v1 = Row(t, "V1");
         Assert.Equal("34ABC01", (string)v1[1]!);
         Assert.Equal("Ford Cargo", (string)v1[2]!);   // marka + model
         Assert.Equal("Merkez", (string)v1[3]!);
         Assert.Equal("KM", (string)v1[4]!);
-        Assert.Equal(300.0, D(v1[5]), 3);             // dönem mesafe (tarih dışı fiş elendi)
+        Assert.Equal(300.0, D(v1[5]), 3);             // dönem mesafe (tarih dışı fiş elendi) — HAM değer
         Assert.Equal(150.0, D(v1[6]), 3);             // litre
-        Assert.Equal(41.33, D(v1[7]), 2);             // ort. yakıt fiyatı (ağırlıklı, 2 hane: 6200/150=41.33)
+        Assert.Equal(6200.0 / 150.0, D(v1[7]), 4);    // ort. yakıt fiyatı HAM (yuvarlanmaz; görüntü 2 hane)
         Assert.Equal(6200.0, D(v1[8]), 3);            // yakıt maliyeti
         Assert.Equal(0.5, D(v1[9]), 3);               // ort. tüketim L/km (150/300)
         Assert.Equal(400.0, D(v1[10]), 3);            // bakım malzeme
@@ -112,14 +114,35 @@ public class VehicleReportTests : IDisposable
     }
 
     [Fact]
+    public void GorunumBicimi_HamDegerdenAyri()
+    {
+        var v1 = Row(Run(), "V1");
+        // Görüntü biçimli (₺/L/km); HAM değer sayısal → ikisi AYRI (kullanıcı isteği: değer korunur).
+        Assert.Equal("6.200,00", Disp(v1[8]).Replace("₺", "").Trim());   // yakıt maliyeti görüntü
+        Assert.Equal("150,00 L", Disp(v1[6]));                            // litre görüntü
+        Assert.Equal("300 km", Disp(v1[5]));                             // mesafe görüntü (km)
+        Assert.EndsWith("/km", Disp(v1[13]));                            // birim maliyet ₺/km
+    }
+
+    [Fact]
+    public void BosDeger_GoruntudeTire_DegerSifir()
+    {
+        var v5 = Row(Run(), "V5");   // hiç maliyeti yok
+        Assert.Equal("-", Disp(v5[12]));   // görüntüde "-"
+        Assert.Equal(0.0, D(v5[12]), 3);   // HAM değer 0 (filtre/sıralama bozulmaz)
+    }
+
+    [Fact]
     public void SaatBazliIsMakinesi_HesabiSaatUzerinden_KMDegil()
     {
         var v2 = Row(Run(), "V2");
         Assert.Equal("Saat", (string)v2[4]!);         // sayaç birimi SAAT
         Assert.Equal(60.0, D(v2[5]), 3);              // dönem "mesafe" = saat farkı
-        Assert.Equal(1.33, D(v2[9]), 2);              // L/saat (80/60=1.33, 2 hane)
+        Assert.Equal(80.0 / 60.0, D(v2[9]), 4);       // L/saat HAM (yuvarlanmaz)
+        Assert.EndsWith("L/Saat", Disp(v2[9]));       // görüntü birimi SAAT
         Assert.Equal(3600.0, D(v2[12]), 3);           // toplam = yalnız yakıt
         Assert.Equal(60.0, D(v2[13]), 3);             // ₺/saat (3600/60)
+        Assert.EndsWith("/Saat", Disp(v2[13]));       // birim maliyet ₺/Saat
     }
 
     [Fact]
@@ -153,7 +176,8 @@ public class VehicleReportTests : IDisposable
     [Fact]
     public void ToplamSatiri_ParaVeLitreToplamlari_Dogru()
     {
-        var top = Row(Run(), "TOPLAM");
+        var top = Run().TotalRow!;                    // pinned toplam satırı (satırlarda DEĞİL, ayrı)
+        Assert.Equal("TOPLAM", (string)top[0]!);
         Assert.Equal(230.0, D(top[6]), 3);            // litre 150+80
         Assert.Equal(9800.0, D(top[8]), 3);           // yakıt 6200+3600
         Assert.Equal(900.0, D(top[10]), 3);           // bakım 400+500
@@ -166,8 +190,7 @@ public class VehicleReportTests : IDisposable
     public void AracTuruFiltresi_YalnizSeciliTuru_Getirir()
     {
         var t = _reports.VehicleReport(_admin, new ReportRequest(true, 1, Base + 1, VehicleTypeIds: new[] { "T1" }));
-        // T1 = yalnız V1 (+TOPLAM)
-        Assert.Equal(2, t.Rows.Count);
+        Assert.Single(t.Rows);   // T1 = yalnız V1 (toplam ayrı TotalRow'da)
         Assert.Equal("V1", (string)t.Rows[0][0]!);
     }
 
@@ -175,7 +198,7 @@ public class VehicleReportTests : IDisposable
     public void AracFiltresi_YalnizSeciliArac_Getirir()
     {
         var t = _reports.VehicleReport(_admin, new ReportRequest(true, 1, Base + 1, VehicleIds: new[] { "v2" }));
-        Assert.Equal(2, t.Rows.Count);   // V2 + TOPLAM
+        Assert.Single(t.Rows);   // yalnız V2
         Assert.Equal("V2", (string)t.Rows[0][0]!);
     }
 
@@ -184,14 +207,23 @@ public class VehicleReportTests : IDisposable
     {
         // Admin yetkili → açık B1 seçimi honor; V1 (B1) gelir, diğerleri (B2) gelmez.
         var t = _reports.VehicleReport(_admin, new ReportRequest(true, 1, Base + 1, BranchIds: new[] { "B1" }));
-        Assert.Equal(2, t.Rows.Count);   // V1 + TOPLAM
+        Assert.Single(t.Rows);   // yalnız V1 (B1)
         Assert.Equal("V1", (string)t.Rows[0][0]!);
     }
 
     // ── Yardımcılar ──
     private TableModel Run() => _reports.VehicleReport(_admin, new ReportRequest(true, 1, 2_000_000_000_000L));
 
-    private static double D(object? v) => v is double d ? d : System.Convert.ToDouble(v);
+    // HAM sayısal değer (NumCell.Value) — sıralama/filtre bunu kullanır.
+    private static double D(object? v) => v switch
+    {
+        NumCell n => n.Value,
+        double d => d,
+        null => 0,
+        _ => System.Convert.ToDouble(v),
+    };
+    // GÖRÜNTÜ metni (NumCell.Display veya ham metin).
+    private static string Disp(object? v) => v switch { NumCell n => n.Display, null => "", _ => v.ToString() ?? "" };
 
     private static IReadOnlyList<object?> Row(TableModel t, string code)
         => t.Rows.First(r => (string)r[0]! == code);

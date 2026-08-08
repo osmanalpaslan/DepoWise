@@ -1,7 +1,9 @@
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
+using System;
 using System.Data.Common;
+using System.Globalization;
 using System.Linq;
 
 namespace DepoWise.Infrastructure.Reporting;
@@ -357,7 +359,7 @@ LEFT JOIN (
     GROUP BY sd.vehicle_id
 ) di ON di.vehicle_id=v.id
 WHERE v.company_id=@c AND v.is_deleted=0" + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn + typeIn + @"
-ORDER BY v.internal_code;";
+ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan sıralama: Şube -> Araç Adı (rule 3)
         cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
         ReportScope.BindBranch(cmd, s, req);
@@ -377,30 +379,51 @@ ORDER BY v.internal_code;";
                 double consumption = km > 0 ? litre / km : 0;         // L/birim (km ya da saat)
                 double total = fuel + mat + part;                     // yakıt + bakım malzeme + doğrudan parça
                 double perUnit = km > 0 ? total / km : 0;             // ₺/birim (km ya da saat)
-                // Yuvarlama YALNIZ çıktıda (2 hane; para birimi doğal olarak 2 hanedir) → web ve masaüstü
-                // BİREBİR aynı gösterir. Toplamlar HAM değerlerle biriktirilir (ara yuvarlama hatası yok).
+                // NumCell: HAM değer (sıralama/filtre/karşılaştırma/aralık) + GÖRÜNTÜ (biçimli). Boş → görüntüde
+                // "-", değer 0 (kullanıcı isteği: değer korunur, yalnız görünüm değişir). Birim (km/saat) araca özel.
                 rows.Add(new object?[]
                 {
                     r.GetString(0), r.GetString(1), r.GetString(2).Trim(), r.GetString(3), unitTr,
-                    R2(km), R2(litre), R2(avgPrice), R2(fuel), R2(consumption), R2(mat), R2(part), R2(total), R2(perUnit),
+                    Num(km, x => FmtDistance(x, meterUnit)),
+                    Num(litre, FmtLiter),
+                    Num(avgPrice, FmtMoney),
+                    Num(fuel, FmtMoney),
+                    Num(consumption, x => FmtConsumption(x, meterUnit)),
+                    Num(mat, FmtMoney),
+                    Num(part, FmtMoney),
+                    Num(total, FmtMoney),
+                    Num(perUnit, x => FmtPerUnit(x, meterUnit)),
                 });
                 tLitre += litre; tFuel += fuel; tMat += mat; tPart += part; tTotal += total;
             }
-        // Toplam özeti (rule 9): yalnız birim-bağımsız para/litre toplamları; km↔saat karışık olan kolonlar boş.
-        if (rows.Count > 0)
-            rows.Add(new object?[]
-            {
-                "TOPLAM", "", "", "", "",
-                "", R2(tLitre), R2(tLitre > 0 ? tFuel / tLitre : 0), R2(tFuel), "", R2(tMat), R2(tPart), R2(tTotal), "",
-            });
+
+        // Pinned toplam satırı (rule 9): yalnız birim-bağımsız para/litre toplamları; ortalamalar ve km↔saat
+        // karışık kolonlar (mesafe/tüketim/birim-maliyet) boş bırakılır (toplanmaz).
+        IReadOnlyList<object?>? totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM", "", "", "", "",
+            "", Num(tLitre, FmtLiter), "", Num(tFuel, FmtMoney), "", Num(tMat, FmtMoney), Num(tPart, FmtMoney), Num(tTotal, FmtMoney), "",
+        };
+
+        // Kolon-tipi bayrakları: ilk 5 metin (İç Kod/Plaka/Ad/Şube/Sayaç Birimi), kalan 9 sayısal.
+        var numeric = new[] { false, false, false, false, false, true, true, true, true, true, true, true, true, true };
 
         return new TableModel("Araç Raporu", new[]
         {
             "İç Kod", "Plaka", "Araç Adı", "Şube", "Sayaç Birimi", "Dönem Sayaç Mesafesi",
             "Toplam Yakıt (Litre)", "Ortalama Yakıt Fiyatı", "Yakıt Maliyeti", "Ortalama Yakıt Tüketimi",
             "Bakım Malzeme Tutarı", "Doğrudan Parça Tutarı", "Toplam Araç Maliyeti", "Birim Başına Maliyet",
-        }, rows);
+        }, rows, numeric, totalRow);
     }
+
+    // ── Araç Raporu görüntü biçimleri (kullanıcı isteği 2026-08-08). Yalnız GÖRÜNTÜ; HAM değer NumCell.Value'da. ──
+    private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
+    private static NumCell Num(double v, Func<double, string> fmt) => v == 0 ? new NumCell(0, "-") : new NumCell(v, fmt(v));
+    private static string FmtMoney(double v) => "₺ " + v.ToString("#,##0.00", Tr);
+    private static string FmtLiter(double v) => v.ToString("#,##0.00", Tr) + " L";
+    private static string FmtDistance(double v, string unit) => v.ToString("#,##0.##", Tr) + (unit == "hour" ? " Saat" : " km");
+    private static string FmtConsumption(double v, string unit) => v.ToString("#,##0.00", Tr) + (unit == "hour" ? " L/Saat" : " L/km");
+    private static string FmtPerUnit(double v, string unit) => "₺ " + v.ToString("#,##0.00", Tr) + (unit == "hour" ? "/Saat" : "/km");
 
     public TableModel Maintenance(SessionContext s, ReportRequest req)
     {
@@ -533,8 +556,6 @@ ORDER BY mr.request_date DESC;";
         if (req.ToDate is not null) cmd.AddWithValue("@to", req.ToDate.Value);
     }
 
-    /// <summary>Çıktı yuvarlaması (2 hane, para birimi). Toplamlar HAM biriktirilir; yalnız görüntü değeri yuvarlanır.</summary>
-    private static double R2(double x) => System.Math.Round(x, 2, System.MidpointRounding.AwayFromZero);
 
     /// <summary>Çoklu-seçim IN parçası: boş/null → ""; aksi halde "AND col IN (@px0,@px1,...)".</summary>
     private static string InList(string col, string prefix, IReadOnlyList<string>? ids)

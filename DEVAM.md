@@ -27,7 +27,25 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08b — Sabit-tanım sol-tık liste (Prompt 1, Malzemeler pilot))
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08e — Araç Raporu revizeleri: biçim/toplam/sıralama)
+
+### 🆕 Araç Raporu 5 UX revizesi (2026-08-08, Opus 4.8) — hesaplama DEĞİŞMEDİ, yalnız sunum
+Kullanıcı isteği. Kritik kısıt: **sayısal değer HAM kalır, biçim yalnız görüntüde** (Birim 4 sayısal filtre/sıralama
+bozulmasın). Çözüm: ortak tablo hücresi artık **`GridCell (Text görüntü + Num ham değer)`** — sıralama/filtre/
+karşılaştırma/aralık HAM `Num` üzerinden, render `Text`. Rapor sayısal hücreleri **`NumCell(Value, Display)`**
+üretir (₺ 12.345,67 · 125,50 L · 1.250 km · 125,5 Saat · ₺/km|₺/Saat); boş → görüntüde **"-"**, değer 0.
+- **Toplam satırı:** genel amaçlı **pinned** (TableModel.TotalRow) → ortak tabloda altta SABİT, kolon-hizalı,
+  görsel ayrı (kalın+vurgu), **filtre/sıralama DIŞI**. Rapora özel değil (her rapor kullanabilir).
+- **Varsayılan sıralama:** SQL `ORDER BY Şube, Araç Adı` (kullanıcı sonra istediği gibi değiştirir).
+- **Bilgi satırı:** `ReportDescriptor.InfoNote` (genel amaçlı, katalog-sürümlü) — web+masaüstü üstte gösterir.
+- Değişen: GridDataView (GridCell), ReportModels (NumCell + TableModel.Numeric/TotalRow), ReportCatalog (InfoNote),
+  ReportService.VehicleReport (biçim/sıralama/total), ExcelExport (NumCell sayısal + total), API (serialize {n,t}+
+  numeric+totalRow+infoNote), DwDataGrid + GridController + DataGridView + ReportsView(M) + Reports.razor(web).
+- Build 0 hata, test **651/0** (+ GridDataView GridCell'e taşındı; VehicleReport NumCell/TotalRow; yeni görünüm/boş testleri).
+  12 senaryonun tümü (para/litre/km/saat sıralama, > < >= <= , aralık, "-" bozmaz, toplam filtre/sıralama dışı) yeşil.
+  ⏭️ Yayın: API+web+masaüstü (şema değişmedi, migration yok).
+
+
 
 ### 🆕 Sabit-tanım (lookup) alanlarında SOL-TIK açılır liste + sayfalama (2026-08-08, Opus 4.8) — PİLOT: Malzemeler
 Kullanıcı isteği (Prompt 1): masaüstünde sabit-tanım alanları (Kategori/Birim/Marka/Tedarikçi…) sol-tıkta liste

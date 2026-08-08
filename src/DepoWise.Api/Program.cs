@@ -1699,15 +1699,27 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
         key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
         category = d.Category.ToString(), categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(d.Category),
         usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
-        usesVehicleType = d.UsesVehicleType, requiresDate = d.RequiresDate, manager = d.IsManager
+        usesVehicleType = d.UsesVehicleType, requiresDate = d.RequiresDate, manager = d.IsManager,
+        infoNote = d.InfoNote
     }))).RequireAuthorization();
+
+// Rapor hücresi serileştirme: NumCell → {n:ham değer, t:görüntü} (istemci sayısal davranışı korur); diğer → olduğu gibi.
+static object? ReportCell(object? cell)
+    => cell is DepoWise.Application.Reports.NumCell n ? new { n = n.Value, t = n.Display } : cell;
 
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds);
     var tbl = BuildReport(s, type, req);
-    return Results.Ok(new { title = tbl.Title, headers = tbl.Headers, rows = tbl.Rows });
+    return Results.Ok(new
+    {
+        title = tbl.Title,
+        headers = tbl.Headers,
+        numeric = tbl.Numeric,
+        rows = tbl.Rows.Select(r => r.Select(ReportCell).ToArray()),
+        totalRow = tbl.TotalRow?.Select(ReportCell).ToArray()
+    });
 }).RequireAuthorization();
 
 // Rapor Excel dışa aktarma — özel buton yetkisi ZORUNLU (yoksa 403; UI "yetkiniz yok" gösterir).

@@ -92,6 +92,25 @@
                         </ItemsControl>
                     </Border>
 
+                    <!-- Pinned TOPLAM satırı: altta SABİT (ListBox dikey kaydırmasının dışında), kolon-hizalı,
+                         görsel ayrı (üst kenar vurgu + kalın). Filtre/sıralamadan etkilenmez (ayrı koleksiyon). -->
+                    <Border DockPanel.Dock="Bottom" IsVisible="{Binding HasTotal}"
+                            Background="{DynamicResource SurfaceElevatedBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,2,0,0">
+                        <ItemsControl ItemsSource="{Binding TotalCells}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GridCellVm">
+                                    <SelectableTextBlock Text="{Binding Text}" Padding="8,6" FontWeight="Bold"
+                                                         IsVisible="{Binding Column.IsVisible}" Width="{Binding Column.Width}"
+                                                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
                     <!-- Gövde: satırlar; hücreler kolon SIRASINA göre; genişlik/görünürlük kolondan okunur. -->
                     <ListBox Classes="Table" ItemsSource="{Binding View}">
                         <ListBox.ItemTemplate>

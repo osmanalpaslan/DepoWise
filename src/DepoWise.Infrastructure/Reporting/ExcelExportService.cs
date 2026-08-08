@@ -58,24 +58,37 @@ public sealed class ExcelExportService
         {
             var row = model.Rows[rIdx];
             for (int c = 0; c < row.Count; c++)
-            {
-                var cell = ws.Cell(rIdx + 2, c + 1);
-                switch (row[c])
-                {
-                    case null: break;
-                    case int i: cell.Value = i; break;
-                    case long l: cell.Value = l; break;
-                    case double d: cell.Value = d; break;
-                    case decimal m: cell.Value = m; break;
-                    default: cell.Value = row[c]!.ToString(); break;
-                }
-            }
+                WriteCell(ws.Cell(rIdx + 2, c + 1), row[c]);
+        }
+
+        // Pinned toplam satırı (varsa) verinin ALTINA kalın olarak yazılır — Excel'de de en altta sabit görünür.
+        if (model.TotalRow is { } total)
+        {
+            int rowNum = model.Rows.Count + 2;
+            for (int c = 0; c < total.Count; c++)
+                WriteCell(ws.Cell(rowNum, c + 1), total[c]);
+            ws.Row(rowNum).Style.Font.Bold = true;
         }
         ws.Columns().AdjustToContents();
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    /// <summary>Hücreyi yazar. NumCell → HAM sayı (Excel'de toplanabilir/analiz edilebilir; biçimli metin değil).</summary>
+    private static void WriteCell(IXLCell cell, object? value)
+    {
+        switch (value)
+        {
+            case null: break;
+            case NumCell n: cell.Value = n.Value; break;   // ham değer (₺/birim biçimi değil) → Excel sayısal
+            case int i: cell.Value = i; break;
+            case long l: cell.Value = l; break;
+            case double d: cell.Value = d; break;
+            case decimal m: cell.Value = m; break;
+            default: cell.Value = value.ToString(); break;
+        }
     }
 
     private static string Sanitize(string title)

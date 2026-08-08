@@ -207,8 +207,11 @@ public sealed partial class ReportsViewModel : ViewModelBase
                 Rows.Add(cells);
             }
             HasRun = true;
-            // Ortak tabloya besle (kolonlar sayısal-tespitli; satırlar snapshot). Filtre/sıralama istemcide.
-            Grid.SetData(BuildColumns(table.Headers, rows), rows);
+            // Ortak tabloya besle: her hücre HAM değer (Num) + GÖRÜNTÜ (Text) taşır → filtre/sıralama HAM değerde,
+            // ekranda görüntü. Toplam satırı (varsa) pinned olarak ayrı verilir (filtre/sıralama dışı).
+            var gridRows = table.Rows.Select(rr => (IReadOnlyList<GridCell>)rr.Select(ToGridCell).ToList()).ToList();
+            IReadOnlyList<GridCell>? totalRow = table.TotalRow?.Select(ToGridCell).ToList();
+            Grid.SetData(BuildColumns(table), gridRows, totalRow);
             BuildChart(table);
             Status = $"{Rows.Count} satır — {table.Title}";
         }
@@ -339,24 +342,16 @@ public sealed partial class ReportsViewModel : ViewModelBase
         _ => decimal.TryParse(v?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
     };
 
-    /// <summary>Rapor başlıklarından ortak tablonun kolon tanımlarını üretir (web ile AYNI kural): başlık =
-    /// anahtar+etiket; sayısal tespit → filtre kutusu tam/karşılaştırma/aralık kabul eder. Aynı başlık tekrarsa
-    /// anahtar benzersizleşir (tercih JSON'u çakışmasın).</summary>
-    private static List<ListColumn> BuildColumns(IReadOnlyList<string> headers, List<string[]> rows)
+    /// <summary>Kolon tanımları: sayısal-tip raporun verdiği <see cref="TableModel.Numeric"/> bayraklarından
+    /// (varsa) alınır; yoksa hücreler örneklenir. Aynı başlık tekrarsa anahtar benzersizleşir (tercih çakışmasın).</summary>
+    private static List<ListColumn> BuildColumns(TableModel table)
     {
-        var cols = new List<ListColumn>(headers.Count);
+        var cols = new List<ListColumn>(table.Headers.Count);
         var seen = new Dictionary<string, int>(StringComparer.Ordinal);
-        for (int c = 0; c < headers.Count; c++)
+        for (int c = 0; c < table.Headers.Count; c++)
         {
-            int filled = 0, parsed = 0;
-            foreach (var r in rows)
-            {
-                if (c >= r.Length || string.IsNullOrWhiteSpace(r[c])) continue;
-                filled++;
-                if (TryNum(r[c], out _)) parsed++;
-            }
-            bool numeric = filled >= 3 && parsed * 10 >= filled * 6;
-            var label = headers[c];
+            bool numeric = table.Numeric is { } nf && c < nf.Count ? nf[c] : SampleNumeric(table.Rows, c);
+            var label = table.Headers[c];
             var key = label;
             if (seen.TryGetValue(label, out var n)) { key = $"{label}#{n + 1}"; seen[label] = n + 1; }
             else seen[label] = 0;
@@ -365,15 +360,34 @@ public sealed partial class ReportsViewModel : ViewModelBase
         return cols;
     }
 
-    private static bool TryNum(string s, out decimal value)
+    /// <summary>Rapor Numeric bayrağı vermediğinde kolon tipini örnekler (dolu hücrelerin çoğu sayısalsa numeric).</summary>
+    private static bool SampleNumeric(IReadOnlyList<IReadOnlyList<object?>> rows, int c)
     {
-        value = 0m;
-        if (string.IsNullOrWhiteSpace(s)) return false;
-        var t = s.Trim().Replace(" ", "").Replace(" ", "");
-        if (decimal.TryParse(t, NumberStyles.Number, CultureInfo.GetCultureInfo("tr-TR"), out value)) return true;
-        if (decimal.TryParse(t, NumberStyles.Number, CultureInfo.InvariantCulture, out value)) return true;
-        return false;
+        int filled = 0, parsed = 0;
+        foreach (var r in rows)
+        {
+            if (c >= r.Count) continue;
+            var cell = ToGridCell(r[c]);
+            if (string.IsNullOrWhiteSpace(cell.Text)) continue;
+            filled++;
+            if (cell.Num is not null) parsed++;
+        }
+        return filled >= 3 && parsed * 10 >= filled * 6;
     }
+
+    /// <summary>Rapor hücresi (object?) → ortak tablo hücresi: GÖRÜNTÜ (Text) + HAM sayısal değer (Num).
+    /// NumCell zaten ikisini taşır; ham sayı/string ise değer ayrıştırılıp korunur (sıralama/filtre bozulmaz).</summary>
+    private static GridCell ToGridCell(object? c) => c switch
+    {
+        null => new GridCell("", null),
+        NumCell n => new GridCell(n.Display, n.Value),
+        double d => new GridCell(d.ToString("0.##", CultureInfo.InvariantCulture), d),
+        decimal m => new GridCell(m.ToString("0.##", CultureInfo.InvariantCulture), (double)m),
+        int i => new GridCell(i.ToString(CultureInfo.InvariantCulture), i),
+        long l => new GridCell(l.ToString(CultureInfo.InvariantCulture), l),
+        string s => new GridCell(s, GridDataView.TryNum(s, out var v) ? (double)v : (double?)null),
+        _ => new GridCell(c.ToString() ?? "", null),
+    };
 
     private static string Format(object? v) => v switch
     {

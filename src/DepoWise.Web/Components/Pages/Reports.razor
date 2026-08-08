@@ -125,6 +125,13 @@ else
             <MudText Typo="Typo.caption" Class="mud-text-secondary">@_sel.Description</MudText>
         </div>
     </div>
+    @* Katalog-sürümlü bilgi/metodoloji notu (varsa) — genel amaçlı (ReportDescriptor.InfoNote). *@
+    @if (!string.IsNullOrWhiteSpace(_sel.InfoNote))
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2 d-block" Style="opacity:.85;">
+            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Style="vertical-align:middle;margin-right:4px;" />@_sel.InfoNote
+        </MudText>
+    }
 }
 
 @* ── Özet şeridi: satır sayısı + sayısal kolon toplamları (tarayıcıda hesaplanır) ── *@
@@ -174,7 +181,7 @@ else
     {
         @* Ortak tablo bileşeni (Birim 4): kolon-altı filtre / sıralama / genişlik / gizleme + kişisel tercih.
            Rapora özel değil — GridKey ile herhangi bir ekran kullanabilir. *@
-        <DwDataGrid GridKey="@($"reports:{_selKey}")" Columns="_columns" Rows="_rows" />
+        <DwDataGrid GridKey="@($"reports:{_selKey}")" Columns="_columns" Rows="_rows" TotalRow="_totalRow" />
     }
 </MudPaper>
 
@@ -230,7 +237,7 @@ else
 @code {
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
-        bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool RequiresDate, bool Manager);
+        bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -252,7 +259,7 @@ else
     private void OnSelect(string key)
     {
         _selKey = key;
-        _headers = null; _rows = new(); _error = null; ClearSummary();
+        _headers = null; _rows = new(); _totalRow = null; _numeric = null; _error = null; ClearSummary();
         ApplyDateDefault();
     }
 
@@ -289,7 +296,9 @@ else
     }
     private void ClearVehicles() => _vehicleSel = new HashSet<string>();
     private List<string>? _headers;
-    private List<List<string>> _rows = new();
+    private List<List<DwDataGrid.GridCell>> _rows = new();   // hücreler: görüntü (Text) + HAM sayı (Num)
+    private List<DwDataGrid.GridCell>? _totalRow;            // pinned toplam satırı (filtre/sıralama dışı)
+    private List<bool>? _numeric;                            // raporun verdiği kolon-tipi bayrakları (varsa)
     private List<ListColumn> _columns = new();   // ortak tablo bileşenine (DwDataGrid) verilen kolon tanımları
     private string? _error; private bool _busy;
 
@@ -304,20 +313,26 @@ else
         var seen = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int c = 0; c < cols; c++)
         {
-            int filled = 0, parsed = 0;
-            foreach (var r in _rows)
-            {
-                if (c >= r.Count || string.IsNullOrWhiteSpace(r[c])) continue;
-                filled++;
-                if (TryNum(r[c], out _)) parsed++;
-            }
-            bool numeric = filled >= 3 && parsed * 10 >= filled * 6;
+            bool numeric = _numeric is { } nf && c < nf.Count ? nf[c] : SampleNumeric(c);
             var label = _headers[c];
             var key = label;
             if (seen.TryGetValue(label, out var n)) { key = $"{label}#{n + 1}"; seen[label] = n + 1; }
             else seen[label] = 0;
             _columns.Add(new ListColumn(key, label, numeric));
         }
+    }
+
+    /// <summary>Rapor Numeric bayrağı vermediğinde kolon tipini HAM değerden (cell.Num) örnekler.</summary>
+    private bool SampleNumeric(int c)
+    {
+        int filled = 0, parsed = 0;
+        foreach (var r in _rows)
+        {
+            if (c >= r.Count || string.IsNullOrWhiteSpace(r[c].Text)) continue;
+            filled++;
+            if (r[c].Num is not null) parsed++;
+        }
+        return filled >= 3 && parsed * 10 >= filled * 6;
     }
 
     // ── Özet + grafik (yalnız tarayıcıda hesaplanır; sunucuya hiç sorulmaz) ──
@@ -357,41 +372,27 @@ else
     private void BuildSummary()
     {
         ClearSummary();
-        if (_headers is null || _rows.Count == 0) return;
-        int cols = _headers.Count;
+        if (_headers is null || _rows.Count == 0 || _columns.Count == 0) return;
 
-        var numericCols = new List<int>();
-        for (int c = 0; c < cols; c++)
-        {
-            int filled = 0, parsed = 0;
-            foreach (var r in _rows)
-            {
-                if (c >= r.Count || string.IsNullOrWhiteSpace(r[c])) continue;
-                filled++;
-                if (TryNum(r[c], out _)) parsed++;
-            }
-            if (filled >= 3 && parsed * 10 >= filled * 6) numericCols.Add(c);
-        }
-
+        // Sayısal kolonlar _columns (rapor bayrağı/örnekleme) üzerinden; toplamlar HAM Num değerinden.
+        var numericCols = Enumerable.Range(0, _columns.Count).Where(c => _columns[c].IsNumeric).ToList();
         foreach (var c in numericCols)
         {
-            decimal sum = 0m;
-            foreach (var r in _rows) if (c < r.Count && TryNum(r[c], out var v)) sum += v;
-            _totals.Add(new Total(_headers[c], sum));
+            double sum = 0;
+            foreach (var r in _rows) if (c < r.Count && r[c].Num is double v) sum += v;
+            _totals.Add(new Total(_headers[c], (decimal)sum));
         }
 
         int valueCol = numericCols.Count > 0 ? numericCols[0] : -1;
-        int groupCol = -1;
-        for (int c = 0; c < cols; c++) if (!numericCols.Contains(c)) { groupCol = c; break; }
+        int groupCol = Enumerable.Range(0, _columns.Count).FirstOrDefault(c => !_columns[c].IsNumeric, -1);
         if (valueCol < 0 || groupCol < 0) return;
 
         var groups = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         foreach (var r in _rows)
         {
-            if (groupCol >= r.Count || valueCol >= r.Count) continue;
-            var key = string.IsNullOrWhiteSpace(r[groupCol]) ? "—" : r[groupCol].Trim();
-            if (!TryNum(r[valueCol], out var v)) continue;
-            groups[key] = groups.TryGetValue(key, out var cur) ? cur + v : v;
+            if (groupCol >= r.Count || valueCol >= r.Count || r[valueCol].Num is not double v) continue;
+            var key = string.IsNullOrWhiteSpace(r[groupCol].Text) ? "—" : r[groupCol].Text.Trim();
+            groups[key] = groups.TryGetValue(key, out var cur) ? cur + (decimal)v : (decimal)v;
         }
         if (groups.Count < 2) return;
 
@@ -424,7 +425,7 @@ else
             _catalog = arr.Select(e => new CatItem(
                 Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
                 Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "usesVehicleType"),
-                Bool(e, "requiresDate"), Bool(e, "manager"))).ToList();
+                Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
         }
         catch { _catalog = new(); }
@@ -484,10 +485,14 @@ else
             var d = doc.Value;
             _headers = d.TryGetProperty("headers", out var h) && h.ValueKind == JsonValueKind.Array
                 ? h.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : new();
+            _numeric = d.TryGetProperty("numeric", out var nm) && nm.ValueKind == JsonValueKind.Array
+                ? nm.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.True).ToList() : null;
             _rows = new();
             if (d.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
                 foreach (var row in rows.EnumerateArray())
-                    _rows.Add(row.EnumerateArray().Select(Cell).ToList());
+                    _rows.Add(row.EnumerateArray().Select(ParseCell).ToList());
+            _totalRow = d.TryGetProperty("totalRow", out var tr) && tr.ValueKind == JsonValueKind.Array
+                ? tr.EnumerateArray().Select(ParseCell).ToList() : null;
             BuildColumns();
             BuildSummary();
         }
@@ -521,13 +526,22 @@ else
         finally { _exporting = false; }
     }
 
-    private static string Cell(JsonElement v) => v.ValueKind switch
+    /// <summary>Sunucu hücresini ayrıştırır: {n,t} nesnesi → (görüntü t + HAM sayı n); ham sayı → sayısal;
+    /// metin → sayı ise Num korunur (sıralama/filtre için); bool → Evet/Hayır. Değer ile görüntü ayrı taşınır.</summary>
+    private static DwDataGrid.GridCell ParseCell(JsonElement v) => v.ValueKind switch
     {
-        JsonValueKind.Null => "",
-        JsonValueKind.String => v.GetString() ?? "",
-        JsonValueKind.True => "Evet", JsonValueKind.False => "Hayır",
-        _ => v.ToString(),
+        JsonValueKind.Object => new DwDataGrid.GridCell(
+            v.TryGetProperty("t", out var t) ? t.GetString() ?? "" : "",
+            v.TryGetProperty("n", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetDouble() : (double?)null),
+        JsonValueKind.Number => new DwDataGrid.GridCell(
+            v.GetDouble().ToString("0.##", CultureInfo.InvariantCulture), v.GetDouble()),
+        JsonValueKind.True => new DwDataGrid.GridCell("Evet", null),
+        JsonValueKind.False => new DwDataGrid.GridCell("Hayır", null),
+        JsonValueKind.Null => new DwDataGrid.GridCell("", null),
+        _ => StringCell(v.GetString() ?? ""),
     };
+
+    private static DwDataGrid.GridCell StringCell(string s) => new(s, TryNum(s, out var d) ? (double)d : (double?)null);
 
     private static string Str(JsonElement e, string key)
         => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";

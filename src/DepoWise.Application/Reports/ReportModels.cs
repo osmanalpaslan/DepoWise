@@ -2,8 +2,22 @@ using DepoWise.Application.Security;
 
 namespace DepoWise.Application.Reports;
 
+/// <summary>Sayısal hücre (2026-08-08 revizesi): HAM değer + GÖRÜNTÜ metni ayrı. Rapor sayısal kolonlarda bunu
+/// üretir → ortak tablo sıralama/filtreyi HAM <see cref="Value"/> ile yapar, ekranda <see cref="Display"/> gösterir
+/// (ör. "₺ 12.345,67", "1.250 km", boş için "-"). Backend'de string'e çevrilmez; değer korunur (kullanıcı isteği).</summary>
+public sealed record NumCell(double Value, string Display);
+
 /// <summary>Genel tablo modeli (rapor + Excel export ortak).</summary>
-public sealed record TableModel(string Title, IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<object?>> Rows);
+/// <param name="Numeric">İsteğe bağlı: kolon başına "sayısal mı" bayrakları (Headers ile aynı sırada). Verilirse
+/// ortak tablo kolon-tipini örneklemeye çalışmaz, bunu kullanır. null → eski davranış (örnekleme).</param>
+/// <param name="TotalRow">İsteğe bağlı: en altta SABİT (pinned) toplam satırı — normal filtre/sıralamaya dahil
+/// DEĞİL, kolon-hizalı, görsel ayrı. null → toplam satırı yok. Genel amaçlı (her rapor kullanabilir).</param>
+public sealed record TableModel(
+    string Title,
+    IReadOnlyList<string> Headers,
+    IReadOnlyList<IReadOnlyList<object?>> Rows,
+    IReadOnlyList<bool>? Numeric = null,
+    IReadOnlyList<object?>? TotalRow = null);
 
 /// <summary>
 /// Rapor isteği. Ağır rapor kullanıcı Sorgula/Filtrele demeden çalışmaz → <see cref="Executed"/>

@@ -68,11 +68,14 @@ public sealed partial class GridController : ObservableObject
 {
     public ObservableCollection<GridColumnVm> Columns { get; } = new();   // GÖRÜNÜM SIRASI (gizli de dahil, IsVisible=false)
     public ObservableCollection<GridRowVm> View { get; } = new();         // filtreli + sıralı satırlar
+    public ObservableCollection<GridCellVm> TotalCells { get; } = new();  // pinned toplam satırı (kolon-hizalı; filtre/sıralama dışı)
 
     [ObservableProperty] private bool _hasRows;
+    [ObservableProperty] private bool _hasTotal;
     [ObservableProperty] private string _summary = "";
 
-    private IReadOnlyList<IReadOnlyList<string>> _rows = Array.Empty<IReadOnlyList<string>>();
+    private IReadOnlyList<IReadOnlyList<GridCell>> _rows = Array.Empty<IReadOnlyList<GridCell>>();
+    private IReadOnlyList<GridCell>? _totalRow;
     private readonly Dictionary<string, int> _colIndex = new(StringComparer.Ordinal);
     private string? _sortKey; private bool _sortDesc;
     private bool _suspend;   // toplu değişiklikte tekrar tekrar hesaplamayı önler
@@ -83,8 +86,9 @@ public sealed partial class GridController : ObservableObject
     public Action<IReadOnlyDictionary<string, int>>? PersistWidths { get; set; }
     public Action<string, bool>? PersistSort { get; set; }
 
-    /// <summary>Yeni veri seti yükler (yeni rapor). Kolon şeması değişince tercih TEK sefer yüklenir.</summary>
-    public void SetData(IReadOnlyList<ListColumn> columns, IReadOnlyList<IReadOnlyList<string>> rows)
+    /// <summary>Yeni veri seti yükler (yeni rapor). Kolon şeması değişince tercih TEK sefer yüklenir.
+    /// <paramref name="totalRow"/> verilirse en altta SABİT (pinned) toplam satırı gösterilir (filtre/sıralama dışı).</summary>
+    public void SetData(IReadOnlyList<ListColumn> columns, IReadOnlyList<IReadOnlyList<GridCell>> rows, IReadOnlyList<GridCell>? totalRow = null)
     {
         _suspend = true;
         foreach (var c in Columns) c.PropertyChanged -= OnColumnChanged;
@@ -106,6 +110,7 @@ public sealed partial class GridController : ObservableObject
             Columns.Add(vm);
         }
         _rows = rows;
+        _totalRow = totalRow;
         ApplyPreferences();     // sıra + seçim + genişlik + sıralama (varsa)
         _suspend = false;
         Recompute();
@@ -118,10 +123,12 @@ public sealed partial class GridController : ObservableObject
         foreach (var c in Columns) c.PropertyChanged -= OnColumnChanged;
         Columns.Clear();
         View.Clear();
+        TotalCells.Clear();
         _colIndex.Clear();
-        _rows = Array.Empty<IReadOnlyList<string>>();
+        _rows = Array.Empty<IReadOnlyList<GridCell>>();
+        _totalRow = null;
         _sortKey = null; _sortDesc = false;
-        HasRows = false; Summary = "";
+        HasRows = false; HasTotal = false; Summary = "";
         _suspend = false;
     }
 
@@ -168,14 +175,22 @@ public sealed partial class GridController : ObservableObject
                              .ToDictionary(c => c.Key, c => c.Filter, StringComparer.Ordinal);
         var list = GridDataView.Compute(cols, _rows, filters, _sortKey, _sortDesc);
 
-        // View'i kolon SIRASINA göre kur (yeniden sıralama/gizleme burada yansır).
+        // View'i kolon SIRASINA göre kur (yeniden sıralama/gizleme burada yansır). Hücre GÖRÜNTÜSÜ = GridCell.Text.
         View.Clear();
         foreach (var r in list)
         {
             var cells = new List<GridCellVm>(Columns.Count);
-            foreach (var col in Columns) cells.Add(new GridCellVm(Cell(r, col.Key), col));
+            foreach (var col in Columns) cells.Add(new GridCellVm(CellOf(r, col.Key).Text, col));
             View.Add(new GridRowVm(cells));
         }
+        // Pinned toplam satırı — kolon sırasına/görünürlüğüne uyar; filtre/sıralamadan ETKİLENMEZ (ayrı render).
+        TotalCells.Clear();
+        if (_totalRow is { } tr)
+        {
+            foreach (var col in Columns) TotalCells.Add(new GridCellVm(CellOf(tr, col.Key).Text, col));
+            HasTotal = true;
+        }
+        else HasTotal = false;
         HasRows = _rows.Count > 0;
         Summary = _rows.Count == 0 ? "" : $"{View.Count} / {_rows.Count} satır" + (list.Count != _rows.Count ? " (filtreli)" : "");
     }
@@ -216,6 +231,6 @@ public sealed partial class GridController : ObservableObject
     public void CommitWidth(GridColumnVm col)
         => PersistWidths?.Invoke(Columns.ToDictionary(c => c.Key, c => (int)Math.Round(c.Width)));
 
-    private string Cell(IReadOnlyList<string> row, string key)
-        => _colIndex.TryGetValue(key, out var i) && i < row.Count ? row[i] : "";
+    private GridCell CellOf(IReadOnlyList<GridCell> row, string key)
+        => _colIndex.TryGetValue(key, out var i) && i < row.Count ? row[i] : new GridCell("", null);
 }

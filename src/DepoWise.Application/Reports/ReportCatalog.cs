@@ -34,7 +34,8 @@ public sealed record ReportDescriptor(
     ReportGroup Group,
     ReportFilters Filters,    // bu raporun kullandığı filtreler
     bool RequiresDate,        // true → başlangıç/bitiş ZORUNLU + varsayılan (Bu Ay); milyonlarca kayıt taraması engellenir
-    string ExportButton)      // Excel yetkisi: Rapor / Yönetici Rapor özel butonu
+    string ExportButton,      // Excel yetkisi: Rapor / Yönetici Rapor özel butonu
+    string? InfoNote = null)  // GENEL AMAÇLI: rapor üstünde gösterilecek küçük bilgi/metodoloji notu (katalog-sürümlü; UI kodu değil)
 {
     public bool UsesDate => Filters.HasFlag(ReportFilters.Date);
     public bool UsesBranch => Filters.HasFlag(ReportFilters.Branch);
@@ -57,7 +58,8 @@ public static class ReportCatalog
         // destek raporu. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
         new ReportDescriptor("vehicle", "Araç Raporu", "Araç başına yakıt + bakım + parça maliyeti ve birim maliyet",
             ReportCategory.Vehicle, ReportGroup.Standard,
-            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard),
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
+            InfoNote: "Yakıt tüketimi ve mesafe, yakıt fişleri arasındaki sayaç farkına göre hesaplanır. Tutarlar seçili tarih aralığındaki maliyetleri kapsar."),
         new ReportDescriptor("stock", "Stok Durumu", "Mevcut / minimum / kritik kalemler",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.None, false, ExportStandard),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
