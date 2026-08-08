@@ -283,9 +283,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
         if (SelectedReport.Key == "fuel")
         {
-            var data = table.Rows.Where(r => (r[0]?.ToString() ?? "") != "TOPLAM").Take(MaxBars).ToList();
-            var liters = data.Select(r => ToDouble(r[3])).ToArray();
-            var labels = data.Select(r => r[0]?.ToString() ?? "").ToArray();
+            // Kolonu İNDEKS'e değil BAŞLIĞA göre hedefle (yeni yapıda Litre index 8) — kolon sırası değişse de kırılmaz.
+            // TotalRow artık ayrı (satırlarda TOPLAM yok). NumCell → HAM değer ToDouble ile okunur.
+            int litreCol = HeaderIndex(table, "Litre");
+            int labelCol = HeaderIndex(table, "Araç İç Kod");
+            var data = table.Rows.Take(MaxBars).ToList();
+            var liters = data.Select(r => litreCol >= 0 && litreCol < r.Count ? ToDouble(r[litreCol]) : 0).ToArray();
+            var labels = data.Select(r => (labelCol >= 0 && labelCol < r.Count ? r[labelCol]?.ToString() : null) ?? "").ToArray();
 
             ChartSeries.Add(new ColumnSeries<double>
             {
@@ -328,8 +332,16 @@ public sealed partial class ReportsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Grafikte kolonu başlığa göre bulur (indeks sabitlenmez → kolon sırası değişse de kırılmaz). Yoksa -1.</summary>
+    private static int HeaderIndex(TableModel t, string header)
+    {
+        for (int i = 0; i < t.Headers.Count; i++) if (t.Headers[i] == header) return i;
+        return -1;
+    }
+
     private static double ToDouble(object? v) => v switch
     {
+        NumCell n => n.Value,
         double d => d,
         decimal m => (double)m,
         _ => double.TryParse(v?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
@@ -392,6 +404,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private static string Format(object? v) => v switch
     {
         null => "",
+        NumCell n => n.Display,
         double d => d.ToString("0.##"),
         decimal m => m.ToString("0.##"),
         _ => v.ToString() ?? "",

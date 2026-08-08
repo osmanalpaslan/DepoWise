@@ -64,8 +64,13 @@ public static class ReportCatalog
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.None, false, ExportStandard),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date, true, ExportStandard),
-        new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç bazlı tüketim ve ortalama (L/km)",
-            ReportCategory.Fuel, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        // Yakıt Tüketim — Araç Raporu standardına taşındı (kullanıcı isteği 2026-08-08): araç başına işlem/mesafe/
+        // litre/ortalama tüketim/ağırlıklı ort. fiyat/toplam maliyet/birim maliyet; sayaç birimine (km/saat) duyarlı,
+        // tek-geçiş (N+1 yok), tam filo. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
+        new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç başına tüketim, ortalama fiyat ve birim maliyet (km/saat duyarlı)",
+            ReportCategory.Fuel, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
+            InfoNote: "Yakıt tüketimi ve mesafe, seçilen tarih aralığındaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez."),
         new ReportDescriptor("maintenance", "Bakım Raporu", "Yapılan bakım kayıtları ve malzeme maliyeti",
             ReportCategory.Maintenance, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
         new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt hareketleri",

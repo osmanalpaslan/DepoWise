@@ -258,6 +258,28 @@ GROUP BY branch_id;";
         return d;
     }
 
+    /// <summary>
+    /// YAKIT TÜKETİM RAPORU (kullanıcı isteği 2026-08-08) — Araç Raporu standardına taşındı. Araç başına TEK satır:
+    /// işlem sayısı, dönem sayaç mesafesi, litre, ortalama tüketim, AĞIRLIKLI ortalama yakıt fiyatı, toplam yakıt
+    /// maliyeti ve birim başına maliyet; sayaç birimine (km/saat) duyarlı.
+    ///
+    /// KAPSAM (rule 1): seçili tarih/şube kapsamındaki TÜM araçlar listelenir — o dönem yakıt almayan araç da 0
+    /// (görüntüde "-") ile görünür (tam filo görünürlüğü, Araç Raporu ile aynı davranış). Tarih filtresi YAKIT
+    /// fişlerine uygulanır; araçlar her hâlde listelenir.
+    ///
+    /// PERFORMANS — N+1 YOK: yakıt maliyeti/mesafe/litre/işlem araç bazında ÖNCEDEN TEK türetilmiş tabloda toplanır
+    /// ve araca 1:1 LEFT JOIN edilir (satır çarpımı yok, dış GROUP BY yok). PG + SQLite ORTAK: yalnız CAST(... AS REAL)
+    /// + COALESCE + standart JOIN kullanılır (DB'ye özel sözdizimi yok); işlem sayısı REAL alınır (PG bigint/SQLite
+    /// int ayrımı GetDouble ile güvenli okunur).
+    ///
+    /// PARA BİRİMİ (rule 4): sistemde ORTAK kur dönüşümü YOK (Money varsayılan TRY; genel bir çevrim yardımcısı
+    /// bulunmuyor). Bu yüzden tutarlar MEVCUT davranışla işlem para biriminde (litre×birim fiyat) toplanır; farklı
+    /// para birimleri kur ile dönüştürülmez. Durum InfoNote'ta kullanıcıya belirtilir (yeni varsayım uydurulmadı).
+    ///
+    /// TOPLAM (rule 9, "A" akıllı toplam): İşlem/Litre/Toplam Maliyet/Ort. Fiyat HER ZAMAN toplanır (birimden
+    /// bağımsız). Mesafe/Ort. Tüketim/Birim Maliyet YALNIZ tüm satırlar aynı sayaç birimindeyse hesaplanır; km↔saat
+    /// karışımında bu üç hücre boş bırakılır (yanlış birimli toplam üretilmez).
+    /// </summary>
     public TableModel FuelConsumption(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -266,33 +288,96 @@ GROUP BY branch_id;";
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        // KM = Σ(current-prev) [geçerli sayaç çiftlerinde]; Ort. Tüketim (L/km) = toplam litre / toplam km.
+        var vehIn = InList("v.id", "@rv", req.VehicleIds);
+        var typeIn = InList("v.vehicle_type_id", "@rt", req.VehicleTypeIds);
+        // Mesafe: yakıt fişleri arasındaki sayaç farkı (rule 3). Türetilmiş tabloda araç bazında önceden toplanır.
         cmd.CommandText = @"
-SELECT v.internal_code, CAST(COUNT(fd.id) AS INTEGER),
-       COALESCE(SUM(CASE WHEN fd.prev_meter IS NOT NULL AND fd.current_meter IS NOT NULL
-              THEN CAST(fd.current_meter AS REAL)-CAST(fd.prev_meter AS REAL) ELSE 0 END),0),
-       COALESCE(SUM(CAST(fd.liters AS REAL)),0),
-       COALESCE(SUM(CAST(fd.liters AS REAL)*CAST(fd.unit_price AS REAL)),0)
-FROM fuel_distributions fd JOIN vehicles v ON v.id=fd.vehicle_id
-WHERE fd.company_id=@c AND fd.is_deleted=0" + ReportScope.BranchSql(s, req, "fd.op_branch_id") + @"
-" + DateFilter(req, "fd.distribution_date") + @"
-GROUP BY v.id ORDER BY v.internal_code;";  // PK'ye grupla: PostgreSQL bare-kolon (v.internal_code) için PK bağımlılığı ister (fd.vehicle_id=v.id, sonuç aynı)
+SELECT COALESCE(bch.name,'') AS branch_name, v.internal_code, COALESCE(v.plate,''),
+       TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')) AS veh_name,
+       COALESCE(vt.name,'') AS type_name, v.meter_unit,
+       COALESCE(f.cnt,0), COALESCE(f.km,0), COALESCE(f.litre,0), COALESCE(f.fuelcost,0)
+FROM vehicles v
+LEFT JOIN brands br ON br.id=v.brand_id
+LEFT JOIN vehicle_models vmd ON vmd.id=v.vehicle_model_id
+LEFT JOIN vehicle_types vt ON vt.id=v.vehicle_type_id
+LEFT JOIN branches bch ON bch.id=v.branch_id
+LEFT JOIN (
+    SELECT vehicle_id,
+      CAST(COUNT(*) AS REAL) AS cnt,
+      SUM(CASE WHEN prev_meter IS NOT NULL AND current_meter IS NOT NULL
+           THEN CAST(current_meter AS REAL)-CAST(prev_meter AS REAL) ELSE 0 END) AS km,
+      SUM(CAST(liters AS REAL)) AS litre,
+      SUM(CAST(liters AS REAL)*CAST(unit_price AS REAL)) AS fuelcost
+    FROM fuel_distributions
+    WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "distribution_date") + @"
+    GROUP BY vehicle_id
+) f ON f.vehicle_id=v.id
+WHERE v.company_id=@c AND v.is_deleted=0" + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn + typeIn + @"
+ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayilan siralama: Sube -> Arac Adi (rule 11)
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req); ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@rv", req.VehicleIds);
+        BindList(cmd, "@rt", req.VehicleTypeIds);
+
         var rows = new List<IReadOnlyList<object?>>();
-        int totIslem = 0; double totKm = 0, totLitre = 0, totTutar = 0;
+        double tCnt = 0, tKm = 0, tLitre = 0, tFuel = 0;
+        var units = new HashSet<string>(StringComparer.Ordinal);
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
-                var islem = r.GetInt32(1); var km = r.GetDouble(2); var litre = r.GetDouble(3); var tutar = r.GetDouble(4);
-                var lkm = km > 0 ? litre / km : 0;
-                rows.Add(new object?[] { r.GetString(0), islem, km, litre, lkm, tutar });
-                totIslem += islem; totKm += km; totLitre += litre; totTutar += tutar;
+                var meterUnit = r.GetString(5);
+                var unitTr = meterUnit == "hour" ? "Saat" : "KM";
+                double cnt = r.GetDouble(6), km = r.GetDouble(7), litre = r.GetDouble(8), fuel = r.GetDouble(9);
+                double consumption = km > 0 ? litre / km : 0;   // L/birim (km ya da saat)
+                double avgPrice = litre > 0 ? fuel / litre : 0;  // ağırlıklı ort. ₺/L
+                double perUnit = km > 0 ? fuel / km : 0;         // ₺/birim (km ya da saat)
+                rows.Add(new object?[]
+                {
+                    r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3).Trim(), r.GetString(4), unitTr,
+                    Num(cnt, FmtCount),
+                    Num(km, x => FmtDistance(x, meterUnit)),
+                    Num(litre, FmtLiter),
+                    Num(consumption, x => FmtConsumption(x, meterUnit)),
+                    Num(avgPrice, FmtMoney),
+                    Num(fuel, FmtMoney),
+                    Num(perUnit, x => FmtPerUnit(x, meterUnit)),
+                });
+                tCnt += cnt; tKm += km; tLitre += litre; tFuel += fuel;
+                units.Add(meterUnit);
             }
+
+        // Pinned toplam (rule 9, "A"): homojen birimde mesafe/tüketim/birim-maliyet hesaplanır; karışıkta boş.
+        IReadOnlyList<object?>? totalRow = null;
         if (rows.Count > 0)
-            rows.Add(new object?[] { "TOPLAM", totIslem, totKm, totLitre, totKm > 0 ? totLitre / totKm : 0, totTutar });
-        return new TableModel("Yakıt Tüketim",
-            new[] { "Araç", "İşlem", "KM", "Litre", "Ort. Tüketim (L/km)", "Tutar" }, rows);
+        {
+            bool homo = units.Count <= 1;
+            var unit = units.Count == 1 ? units.First() : "km";
+            double totConsumption = tKm > 0 ? tLitre / tKm : 0;
+            double totAvgPrice = tLitre > 0 ? tFuel / tLitre : 0;
+            double totPerUnit = tKm > 0 ? tFuel / tKm : 0;
+            totalRow = new object?[]
+            {
+                "TOPLAM", "", "", "", "", "",
+                Num(tCnt, FmtCount),
+                homo ? Num(tKm, x => FmtDistance(x, unit)) : (object?)"",
+                Num(tLitre, FmtLiter),
+                homo ? Num(totConsumption, x => FmtConsumption(x, unit)) : (object?)"",
+                Num(totAvgPrice, FmtMoney),
+                Num(tFuel, FmtMoney),
+                homo ? Num(totPerUnit, x => FmtPerUnit(x, unit)) : (object?)"",
+            };
+        }
+
+        // Kolon-tipi: ilk 6 metin (Şube/İç Kod/Plaka/Araç Adı/Araç Türü/Sayaç Birimi), kalan 7 sayısal.
+        var numeric = new[] { false, false, false, false, false, false, true, true, true, true, true, true, true };
+
+        return new TableModel("Yakıt Tüketim", new[]
+        {
+            "Şube", "Araç İç Kod", "Plaka", "Araç Adı", "Araç Türü", "Sayaç Birimi",
+            "İşlem Sayısı", "Mesafe", "Litre", "Ortalama Yakıt Tüketimi", "Ortalama Yakıt Fiyatı",
+            "Toplam Yakıt Maliyeti", "Birim Başına Yakıt Maliyeti",
+        }, rows, numeric, totalRow);
     }
 
     /// <summary>
@@ -419,6 +504,7 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan s�
     // ── Araç Raporu görüntü biçimleri (kullanıcı isteği 2026-08-08). Yalnız GÖRÜNTÜ; HAM değer NumCell.Value'da. ──
     private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
     private static NumCell Num(double v, Func<double, string> fmt) => v == 0 ? new NumCell(0, "-") : new NumCell(v, fmt(v));
+    private static string FmtCount(double v) => v.ToString("#,##0", Tr);
     private static string FmtMoney(double v) => "₺ " + v.ToString("#,##0.00", Tr);
     private static string FmtLiter(double v) => v.ToString("#,##0.00", Tr) + " L";
     private static string FmtDistance(double v, string unit) => v.ToString("#,##0.##", Tr) + (unit == "hour" ? " Saat" : " km");

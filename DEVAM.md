@@ -27,7 +27,27 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08e — Araç Raporu revizeleri: biçim/toplam/sıralama)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08f — Yakıt Tüketim raporu Araç Raporu standardına taşındı)
+
+### 🆕 Yakıt Tüketim raporu yeniden tasarım (2026-08-08, Opus 4.8) — Araç Raporu standardı
+Kullanıcı isteği. Mevcut "Yakıt Tüketim" raporu (ayrı yeni rapor DEĞİL) Araç Raporu standardına taşındı: tam filo
+(yakıt almayan araç da 0/"-"), sayaç birimine (km/saat) duyarlı, tek-geçiş (N+1 yok). **Kolonlar (13):** Şube ·
+Araç İç Kod · Plaka · Araç Adı · Araç Türü · Sayaç Birimi · İşlem Sayısı · Mesafe · Litre · Ort. Tüketim ·
+Ort. Yakıt Fiyatı (ağırlıklı) · Toplam Yakıt Maliyeti · Birim Başına Maliyet.
+- **Filtreler:** Tarih (zorunlu, Bu Ay) + Şube (yetkili/fail-closed, mevcut btn-branch-select) + Araç (çoklu+arama+
+  Tümünü Seç/Kaldır) + Araç Türü (çoklu, SQL'de gerçekten uygulanır). Web+masaüstü katalog-sürümlü → filtre UI otomatik.
+- **Toplam (akıllı, "A" seçeneği):** İşlem/Litre/Toplam Maliyet/Ort. Fiyat hep toplanır; Mesafe/Ort. Tüketim/Birim
+  Maliyet yalnız tüm satırlar aynı birimdeyse (km↔saat karışımında boş — yanlış birimli toplam üretilmez).
+- **Para birimi:** sistemde ortak kur dönüşümü YOK → tutarlar işlem para biriminde toplanır (mevcut davranış korundu),
+  durum InfoNote'ta belirtildi (yeni varsayım uydurulmadı).
+- **Web özeti çift sayım BUG'ı:** eski satır-içi "TOPLAM" kaldırıldı, pinned TotalRow ayrı → BuildSummary artık
+  yalnız veri satırlarını toplar (regresyon testi eklendi). **Masaüstü grafik:** Litre kolonu artık BAŞLIĞA göre
+  hedefleniyor (eski sabit r[3] index'i kaldırıldı), NumCell HAM değeri okunuyor.
+- Değişen: ReportCatalog (fuel: Vehicle|VehicleType + InfoNote), ReportService.FuelConsumption (tam yeniden yazım),
+  ReportsViewModel (grafik başlık-hedefli + NumCell). API/DwDataGrid/Reports.razor değişmedi (katalog-sürümlü + genel).
+- Build 0 hata, test **668/0** (11 PG atlandı) — +17 yeni FuelConsumptionTests (KM/Saat/yakıtsız/eksik sayaç/sıfıra
+  bölme/ağırlıklı fiyat/araç-tür-şube filtre/yetkisiz şube fail-closed/akıllı toplam/TotalRow ayrımı/çift-sayım/NumCell).
+
 
 ### 🆕 Araç Raporu 5 UX revizesi (2026-08-08, Opus 4.8) — hesaplama DEĞİŞMEDİ, yalnız sunum
 Kullanıcı isteği. Kritik kısıt: **sayısal değer HAM kalır, biçim yalnız görüntüde** (Birim 4 sayısal filtre/sıralama
