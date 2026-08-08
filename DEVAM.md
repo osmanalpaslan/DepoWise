@@ -45,6 +45,9 @@ Reddedilen/iptal talepler **listede kalır** (Durum filtresiyle daraltılır). B
 - Değişen: ReportModels (ReportRequest+2), ReportCatalog (ReportFilters+2, RequestStatusOptions, requests tanımı+
   InfoNote), ReportService.Requests (yeniden yazım), Program.cs (DTO+scope+katalog), ReportsViewModel +
   ReportsView.axaml, Reports.razor. Build 0 hata, test **709/0** (11 PG atlandı) — +17 RequestReportTests.
+  ✅ **YAYINLANDI (2026-08-08):** API (`depowise-erp`, health 200 — migration YOK) + web (`depowise-web`, 200) +
+  masaüstü **1.0.123** (checksum 514b23…). PG doğrulama: canlı /api/reports/requests 200 (8 kolon) + durum filtreli
+  çağrı 200 + scope 200 (requestStatuses: Taslak/Beklemede/Onaylı/Reddedildi/İptal).
 
 
 ### 🆕 Depo Girişi raporu yeniden tasarım (2026-08-08, Opus 4.8) — ortak standart
