@@ -501,7 +501,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
             if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Yeni Kayıt")) return;
             try
             {
-                var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
+                var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
                 DesktopServices.DailyActivity.SaveMaintenanceActivity(_session, new NewMaintenance(
                     VehicleId: FormVehicle.Id, DefinitionId: MDef.Id, SubDefinitionId: MSubDef?.Id,
                     TechnicianId: MTechnician?.Id,
@@ -529,7 +529,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     "İlave Yağ" => ExtraActivityTypes.ExtraOil, "İlave Filtre" => ExtraActivityTypes.ExtraFilter,
                     "Tamir" => ExtraActivityTypes.Repair, _ => throw new InvalidOperationException("Geçersiz kayıt tipi."),
                 };
-                var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
+                var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
                 DesktopServices.DailyActivity.SaveExtraActivity(_session, extraType, new NewMaintenance(
                     VehicleId: FormVehicle.Id, DefinitionId: "", SubDefinitionId: null,
                     TechnicianId: MTechnician?.Id,

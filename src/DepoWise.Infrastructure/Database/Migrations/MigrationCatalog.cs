@@ -63,5 +63,6 @@ public static class MigrationCatalog
         new Migration056_ExportPermission(),
         new Migration057_StockChangeLog(),
         new Migration058_ListPreferencePinnedSort(),
+        new Migration059_MaintenanceTeamStock(),
     };
 }

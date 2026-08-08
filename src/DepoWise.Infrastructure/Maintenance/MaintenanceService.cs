@@ -7,7 +7,11 @@ using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Maintenance;
 
-public sealed record MaintenanceMaterialLine(string MaterialId, decimal Quantity);
+/// <summary>Bakımda kullanılan malzeme satırı. <paramref name="FromTeamStock"/> = "Bakım Ekibi Stoğundan
+/// Kullanıldı" (kullanıcı isteği 2026-08-08): malzeme bakım kaydına YAZILIR, maliyete DÂHİL olur; ancak
+/// merkez depo stoğundan DÜŞÜLMEZ (bakiye + hareket defteri) ve iptalde ters hareket üretilmez —
+/// çünkü malzeme daha önce ekibe teslim edilmiştir. Varsayılan false = bugünkü davranış (hiç değişmez).</summary>
+public sealed record MaintenanceMaterialLine(string MaterialId, decimal Quantity, bool FromTeamStock = false);
 
 public sealed record NewMaintenance(
     string VehicleId, string DefinitionId, string? SubDefinitionId = null, string? TechnicianId = null,
@@ -35,7 +39,11 @@ public sealed record MaintenanceRow(
     public string StatusText => IsCancelled ? "İptal" : "Aktif";
 }
 
-public sealed record MaintenanceMaterialRow(string Code, string Name, decimal Quantity);
+public sealed record MaintenanceMaterialRow(string Code, string Name, decimal Quantity, bool FromTeamStock = false)
+{
+    /// <summary>Geçmiş kayıtta gösterim: işaretliyse kaynağı belli olsun (kullanıcı isteği 2026-08-08).</summary>
+    public string SourceText => FromTeamStock ? "Bakım ekibi stoğu" : "Merkez depo";
+}
 
 /// <summary>
 /// Bakım kaydı — TEK transaction: kayıt + malzeme stok düşümü (negatif guard, tek düşüm) + sayaç ileri +
@@ -90,21 +98,35 @@ public sealed class MaintenanceService
         // 2026-08-06): kullanıcı stok girişini henüz yapmamış olabilir; bakım iş akışı stok yüzünden durmamalı.
         // Uyarı + opsiyonel "Taslak Talep" istemci (masaüstü/web) tarafındadır; defter tüketimi yine kayıtlıdır
         // (bakiye eksiye düşebilir — açılış stoğu gibi; ADR-086). İptal ters hareketle geri ekler.
+        // "Bakım Ekibi Stoğundan Kullanıldı" (kullanıcı isteği 2026-08-08): işaretli satırda malzeme bakım
+        // kaydına YAZILIR (maliyete dâhil) ama merkez depo stoğuna HİÇ dokunulmaz — ne bakiye (ApplyDelta) ne de
+        // hareket defteri (InsertUsageMovement). Defter ile bakiye böylece tutarlı kalır (yeni paralel stok
+        // mantığı YOK). İptalde de ters hareket üretilmez (aşağıda Cancel).
+        var teamStockUsed = new List<string>();
         for (int i = 0; i < (dto.Materials?.Count ?? 0); i++)
         {
             var line = dto.Materials![i];
             if (line.Quantity <= 0) throw new ArgumentException("Malzeme miktarı pozitif olmalı.");
             EnsureMaterialOwned(conn, tx, s.CompanyId, line.MaterialId);
             var price = ReadMaterialPrice(conn, tx, line.MaterialId);
-            ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, -line.Quantity, now, allowNegative: true);
-            InsertUsageMovement(conn, tx, s.CompanyId, line.MaterialId, id, line.Quantity, price, $"{operationId}:mat:{i}", now);
-            InsertMaintenanceMaterial(conn, tx, id, line.MaterialId, line.Quantity, price);
+            if (!line.FromTeamStock)
+            {
+                ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, -line.Quantity, now, allowNegative: true);
+                InsertUsageMovement(conn, tx, s.CompanyId, line.MaterialId, id, line.Quantity, price, $"{operationId}:mat:{i}", now);
+            }
+            else teamStockUsed.Add(line.MaterialId);
+            InsertMaintenanceMaterial(conn, tx, id, line.MaterialId, line.Quantity, price, line.FromTeamStock);
         }
 
         // Sayaç ileri (geçmiş kaydı engellemez)
         AdvanceMeterInTx(conn, tx, s.CompanyId, dto.VehicleId, def.IntervalUnit, dto.PerformedKm, dto.PerformedHour, now);
 
-        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", id, AuditActions.Create, s.UserId), _clock);
+        // Denetim: hangi malzemeler ekip stoğundan işaretlendi → kullanıcı + zaman audit kaydından gelir
+        // (ek kolon açılmadı; kullanıcı kararı 2026-08-08).
+        var afterJson = teamStockUsed.Count == 0 ? null
+            : "{\"teamStockMaterials\":[" + string.Join(",", teamStockUsed.Select(m => "\"" + m + "\"")) + "]}";
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", id, AuditActions.Create, s.UserId,
+            AfterJson: afterJson), _clock);
         tx.Commit();
         return id;
     }
@@ -123,13 +145,15 @@ public sealed class MaintenanceService
             ?? throw new ForbiddenException("Bakım kaydı bulunamadı veya başka firmaya ait.");
         if (status) { tx.Commit(); return; } // zaten iptal — idempotent
 
-        // Malzemeleri geri ekle (ters hareket)
+        // Malzemeleri geri ekle (ters hareket). "Bakım ekibi stoğu" işaretli satırlar ATLANIR: kayıt sırasında
+        // merkez depodan hiç düşülmemişlerdi → geri eklemek stoğu ŞİŞİRİRDİ (kullanıcı isteği 2026-08-08).
         int i = 0;
-        foreach (var (materialId, qty, price) in LoadMaintenanceMaterials(conn, tx, maintenanceId))
+        foreach (var (materialId, qty, price, fromTeamStock) in LoadMaintenanceMaterials(conn, tx, maintenanceId))
         {
-            ApplyDelta(conn, tx, s.CompanyId, materialId, +qty, now, allowNegative: true);
-            InsertUsageMovement(conn, tx, s.CompanyId, materialId, maintenanceId, qty, price, $"cancel:{maintenanceId}:{i}", now, reverse: true);
             i++;
+            if (fromTeamStock) continue;
+            ApplyDelta(conn, tx, s.CompanyId, materialId, +qty, now, allowNegative: true);
+            InsertUsageMovement(conn, tx, s.CompanyId, materialId, maintenanceId, qty, price, $"cancel:{maintenanceId}:{i - 1}", now, reverse: true);
         }
         using (var cmd = conn.CreateCommand())
         {
@@ -266,14 +290,17 @@ ORDER BY vm.created_at DESC LIMIT @lim;";
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // from_team_stock: geçmiş kayıtta "merkez depo mu, ekip stoğu mu" görünsün (kullanıcı isteği 2026-08-08).
         cmd.CommandText = @"
-SELECT m.code, m.name, mm.quantity FROM maintenance_materials mm
+SELECT m.code, m.name, mm.quantity, COALESCE(mm.from_team_stock,0) FROM maintenance_materials mm
 JOIN materials m ON m.id = mm.material_id
 WHERE mm.maintenance_id=@mt ORDER BY m.code;";
         cmd.AddWithValue("@mt", maintenanceId);
         var list = new List<MaintenanceMaterialRow>();
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add(new MaintenanceMaterialRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2))));
+        while (r.Read())
+            list.Add(new MaintenanceMaterialRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2)),
+                Convert.ToInt64(r.GetValue(3)) == 1));
         return list;
     }
 
@@ -370,17 +397,18 @@ VALUES(@id,@c,@m,NULL,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,NULL
     }
 
     private static void InsertMaintenanceMaterial(DbConnection conn, DbTransaction tx, string maintenanceId,
-        string materialId, decimal qty, decimal? price)
+        string materialId, decimal qty, decimal? price, bool fromTeamStock = false)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "INSERT INTO maintenance_materials(id, maintenance_id, material_id, quantity, unit_price) VALUES(@id,@mt,@m,@q,@p);";
+            "INSERT INTO maintenance_materials(id, maintenance_id, material_id, quantity, unit_price, from_team_stock) VALUES(@id,@mt,@m,@q,@p,@ts);";
         cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
         cmd.AddWithValue("@mt", maintenanceId);
         cmd.AddWithValue("@m", materialId);
         cmd.AddWithValue("@q", Money.Serialize(qty));
         cmd.AddWithValue("@p", price is null ? DBNull.Value : Money.Serialize(price.Value));
+        cmd.AddWithValue("@ts", fromTeamStock ? 1L : 0L);
         cmd.ExecuteNonQuery();
     }
 
@@ -451,17 +479,19 @@ VALUES(@id,@c,@m,NULL,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,NULL
         return v is null ? null : Convert.ToInt64(v) == 1;
     }
 
-    private static IEnumerable<(string MaterialId, decimal Qty, decimal? Price)> LoadMaintenanceMaterials(
+    /// <summary>İptalde kullanılır: ekip stoğu işaretli satırlar ters harekete GİRMEZ (hiç düşülmemişlerdi).</summary>
+    private static IEnumerable<(string MaterialId, decimal Qty, decimal? Price, bool FromTeamStock)> LoadMaintenanceMaterials(
         DbConnection conn, DbTransaction tx, string maintenanceId)
     {
-        var list = new List<(string, decimal, decimal?)>();
+        var list = new List<(string, decimal, decimal?, bool)>();
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT material_id, quantity, unit_price FROM maintenance_materials WHERE maintenance_id=@mt;";
+        cmd.CommandText = "SELECT material_id, quantity, unit_price, COALESCE(from_team_stock,0) FROM maintenance_materials WHERE maintenance_id=@mt;";
         cmd.AddWithValue("@mt", maintenanceId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add((r.GetString(0), Money.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Money.Parse(r.GetString(2))));
+            list.Add((r.GetString(0), Money.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Money.Parse(r.GetString(2)),
+                Convert.ToInt64(r.GetValue(3)) == 1));
         return list;
     }
 

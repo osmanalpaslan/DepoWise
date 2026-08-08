@@ -166,7 +166,19 @@
                         <tbody>
                             @foreach (var l in _lines)
                             {
-                                <tr><td>@l.Name</td><td>@l.Qty</td><td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td></tr>
+                                <tr>
+                                    <td>@l.Name</td>
+                                    <td>@l.Qty</td>
+                                    <td>
+                                        @* Masaüstüyle AYNI seçenek (2026-08-08): işaretliyse merkez depodan düşülmez. *@
+                                        <MudCheckBox T="bool" Value="l.FromTeamStock" ValueChanged="@((bool v) => l.FromTeamStock = v)"
+                                                     Dense="true" Label="Bakım Ekibi Stoğundan Kullanıldı" />
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block" Style="margin-left:32px;">
+                                            İşaretlenirse merkez depo stoklarından düşülmez.
+                                        </MudText>
+                                    </td>
+                                    <td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td>
+                                </tr>
                             }
                         </tbody>
                     </MudSimpleTable>
@@ -220,7 +232,17 @@
                         <MudText Typo="Typo.subtitle2" Class="mt-2">KULLANILAN MALZEMELER</MudText>
                         @foreach (var mm in _maintMaterials)
                         {
-                            <MudStack Row="true" Justify="Justify.SpaceBetween"><MudText Typo="Typo.body2">@Str(mm, "name")</MudText><MudText Typo="Typo.body2"><b>@Str(mm, "quantity")</b></MudText></MudStack>
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body2">
+                                    @Str(mm, "name")
+                                    @* Kaynak: merkez depo mu, bakım ekibi stoğu mu (2026-08-08) *@
+                                    @if (Bool(mm, "fromTeamStock"))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text" Class="ml-1">Bakım ekibi stoğu</MudChip>
+                                    }
+                                </MudText>
+                                <MudText Typo="Typo.body2"><b>@Str(mm, "quantity")</b></MudText>
+                            </MudStack>
                         }
                         @if (!Bool(sm, "isCancelled"))
                         {
@@ -293,7 +315,9 @@
     private string? _mVehStatus; private string _mVehStatusNote = "";
     private decimal _matQty;
     private readonly List<Line> _lines = new();
-    private sealed record Line(string Id, string Name, decimal Qty);
+    /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer + maliyete dâhil,
+    /// merkez depodan düşülmez. Masaüstündeki MntMaterialLine ile AYNI davranış.</summary>
+    private sealed record Line(string Id, string Name, decimal Qty) { public bool FromTeamStock { get; set; } }
     private JsonElement[]? _maint;
     private JsonElement? _selMaint;
     private JsonElement[] _maintMaterials = Array.Empty<JsonElement>();
@@ -444,9 +468,12 @@
 
         // madde 5.3: yetersiz stok ENGELLENMEZ. Eksik varsa uyarı + opsiyonel "Taslak Talep Oluştur"; her iki
         // durumda da bakım kaydı DEVAM eder. Bakiye API'den okunur (web'in doğrudan stok erişimi yok).
+        // "Bakım ekibi stoğu" işaretli satırlar merkez depodan DÜŞÜLMEYECEĞİ için stok yetersizliği
+        // kontrolüne de GİRMEZ (2026-08-08) — aksi halde gereksiz "stok yetersiz" uyarısı çıkardı.
         var shortfalls = new List<(string Id, string Name, decimal Shortfall)>();
         foreach (var l in _lines)
         {
+            if (l.FromTeamStock) continue;
             decimal bal = 0m;
             try { bal = Dec(await Api.GetObjectAsync($"/api/materials/{l.Id}"), "stock"); } catch { }
             if (l.Qty > bal) shortfalls.Add((l.Id, l.Name, l.Qty - bal));
@@ -487,7 +514,7 @@
                 vehicleId = _mVehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                 description = Empty(_mDesc), performedKm = _mKm, performedHour = _mHour,
                 performedDate = _mDate is null ? (long?)null : new DateTimeOffset(_mDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
-                materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
+                materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList()
             });
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
             // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.

@@ -79,7 +79,7 @@
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             </MudGrid>
-            <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">Malzemeler (stoktan düşülür)</MudText>
+            <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">Malzemeler (varsayılan: merkez depo stoğundan düşülür)</MudText>
             <MudGrid Spacing="2" Class="align-center">
                 <MudItem xs="12" md="6"><MudAutocomplete T="ApiClient.Opt" Label="Malzeme ara (kod/ad)" @bind-Value="_matSel" SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -91,7 +91,19 @@
                     <tbody>
                         @foreach (var l in _lines)
                         {
-                            <tr><td>@l.Name</td><td>@l.Qty</td><td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td></tr>
+                            <tr>
+                                <td>@l.Name</td>
+                                <td>@l.Qty</td>
+                                <td>
+                                    @* Bakım ekranıyla AYNI seçenek (2026-08-08). *@
+                                    <MudCheckBox T="bool" Value="l.FromTeamStock" ValueChanged="@((bool v) => l.FromTeamStock = v)"
+                                                 Dense="true" Label="Bakım Ekibi Stoğundan Kullanıldı" />
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block" Style="margin-left:32px;">
+                                        İşaretlenirse merkez depo stoklarından düşülmez.
+                                    </MudText>
+                                </td>
+                                <td><MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => _lines.Remove(l))" /></td>
+                            </tr>
                         }
                     </tbody>
                 </MudSimpleTable>
@@ -221,7 +233,9 @@
     private decimal? _mKm, _mHour;
     private ApiClient.Opt? _matSel; private decimal _matQty;
     private readonly List<Line> _lines = new();
-    private sealed record Line(string Id, string Name, decimal Qty);
+    /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): Bakım ekranıyla AYNI davranış —
+    /// kayda girer + maliyete dâhil olur, merkez depodan düşülmez.</summary>
+    private sealed record Line(string Id, string Name, decimal Qty) { public bool FromTeamStock { get; set; } }
 
     private List<ApiClient.Opt> _branches = new(), _personnel = new(), _defOpts = new(), _mSubOpts = new();
     private string? _msg; private bool _ok; private bool _busy;
@@ -426,7 +440,7 @@
                 {
                     vehicleId = _vehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                     description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
-                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
+                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList()
                 });
             }
             else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
@@ -437,7 +451,7 @@
                 {
                     type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
                     description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
-                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty }).ToList()
+                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList()
                 });
             }
             else

@@ -511,7 +511,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         else if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Kaydet")) return;
         try
         {
-            var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity)).ToList();
+            var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
             DesktopServices.Maintenance.Save(_session, new NewMaintenance(
                 VehicleId: MntVehicle.Id, DefinitionId: MntDef.Id, SubDefinitionId: MntSubDef?.Id,
                 TechnicianId: MntTechnician?.Id,
@@ -595,12 +595,16 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     }
 }
 
+/// <summary>Bakım/Günlük Faaliyet formundaki malzeme satırı — İKİ EKRAN da bu sınıfı paylaşır (ortak davranış).</summary>
 public sealed partial class MntMaterialLine : ObservableObject
 {
     public string MaterialId { get; }
     public string Code { get; }
     public string Name { get; }
     [ObservableProperty] private decimal _quantity = 1;
+    /// <summary>"Bakım Ekibi Stoğundan Kullanıldı" (kullanıcı isteği 2026-08-08): işaretliyse malzeme kayda
+    /// girer ve maliyete dâhil olur, ancak merkez depo stoğundan düşülmez. Varsayılan false = eski davranış.</summary>
+    [ObservableProperty] private bool _fromTeamStock;
     public MntMaterialLine(string materialId, string code, string name) { MaterialId = materialId; Code = code; Name = name; }
 }
 

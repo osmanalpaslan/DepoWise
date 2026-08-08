@@ -131,13 +131,21 @@
                             <ItemsControl ItemsSource="{Binding MntLines}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MntMaterialLine">
-                                        <Grid ColumnDefinitions="*,120,Auto" Margin="0,2">
-                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
-                                            <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
-                                            <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
-                                                    Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
-                                                    CommandParameter="{Binding}"/>
-                                        </Grid>
+                                        <!-- Bakım ekranıyla AYNI davranış (kullanıcı isteği 2026-08-08): işaretliyse
+                                             malzeme kayda girer + maliyete dâhil olur, merkez depodan düşülmez. -->
+                                        <StackPanel Spacing="2" Margin="0,2">
+                                            <Grid ColumnDefinitions="*,120,Auto">
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Name}" Classes="Body" VerticalAlignment="Center"/>
+                                                <NumericUpDown Grid.Column="1" Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
+                                                <Button Grid.Column="2" Classes="Ghost" Content="Kaldır" Margin="6,0,0,0"
+                                                        Command="{Binding $parent[ItemsControl].((vm:DailyActivityViewModel)DataContext).RemoveMntLineCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                            <CheckBox Content="Bakım Ekibi Stoğundan Kullanıldı" IsChecked="{Binding FromTeamStock, Mode=TwoWay}"
+                                                      ToolTip.Tip="İşaretlenirse merkez depo stoklarından düşülmez."/>
+                                            <SelectableTextBlock Text="İşaretlenirse merkez depo stoklarından düşülmez."
+                                                                 Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}" Margin="24,0,0,0"/>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

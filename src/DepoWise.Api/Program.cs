@@ -1773,7 +1773,7 @@ app.MapPost("/api/maintenance/definitions", (HttpContext c, MaintDefDto d) =>
 app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity)).ToList();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
     var id = svc.Maintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
@@ -1857,7 +1857,7 @@ app.MapPost("/api/daily/movement", (HttpContext c, MovementDto d) =>
 app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity)).ToList();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
     var id = svc.DailyActivity.SaveMaintenanceActivity(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
@@ -1870,7 +1870,7 @@ app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (!DepoWise.Infrastructure.Operations.ExtraActivityTypes.IsValid(d.Type))
         return Results.Json(new { error = "Geçersiz kayıt tipi." }, statusCode: 400);
-    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity)).ToList();
+    var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
     var id = svc.DailyActivity.SaveExtraActivity(s, d.Type, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, "", null, d.TechnicianId, Doc(d.Description), null,
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
@@ -2407,7 +2407,9 @@ record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchI
 record StockReverseDto(string DocumentId, string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);
-record MaintLineDto(string MaterialId, decimal Quantity);
+/// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer, merkez depodan düşmez.
+/// Varsayılan false → eski istemciler (alanı göndermeyen) bugünkü davranışı aynen alır (geriye uyumlu).</summary>
+record MaintLineDto(string MaterialId, decimal Quantity, bool FromTeamStock = false);
 record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds);
