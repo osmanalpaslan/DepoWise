@@ -23,7 +23,12 @@ geri alınamaz işlem (silme, sıfırlama, veri taşıyan migration, toplu günc
 Faz 3 (talep karşılama + gerçek stok hareketleri) öncesi **yalnız analiz** yapıldı; kod/migration/deploy YOK.
 Rapor: **[docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md)**.
 
-Bekleyen tek şey: raporun sonundaki **15 maddelik onay listesi**. Onay gelince önerilen sıra:
+**Güncelleme (2026-08-08):** 15 maddenin **13'ü onaylandı**. Faz 3-Ön uygulama planı hazırlandı:
+**[docs/FAZ3_ON_UYGULAMA_PLANI.md](FAZ3_ON_UYGULAMA_PLANI.md)** (9 başlık: plan · dosyalar · migration ·
+transaction sınırı · CAS/retry · yetki noktaları · test · transfer iptali yetki analizi · company_id risk analizi).
+Kalan iki karar: **K-1 transfer iptali politikası (P-1/P-2/P-3)** ve **K-2 M-S1 migration zamanlaması**.
+
+Onay gelince önerilen sıra:
 1. **Faz 3-Ön** — PostgreSQL eşzamanlılık (oversell) düzeltmesi: `stock_balances` üzerinde iyimser CAS +
    sınırlı tekrar. **Migration yok**, SQLite davranışı değişmez.
 2. **Faz 3a** — `request_fulfillments` tablosu (M-062) + servis + senkron listesine ekleme.

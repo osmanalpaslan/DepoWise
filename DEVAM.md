@@ -40,7 +40,15 @@ yapıldı: [docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](docs/FAZ3_ONCESI_KARAR_VE
 - Senkron darboğazları ölçüldü (22 sorgulu sürüm hesabı, her push'ta tüm defterden bakiye hesabı, yankı pull).
 - **Ek bulgu:** `material_request_items` / `maintenance_materials` tablolarında `company_id` yok →
   senkron çekmede firma filtresi uygulanmıyor (ikinci firmada gerçek sızıntı riski).
-- **15 madde kullanıcı onayı bekliyor** (raporun sonundaki liste). Onaysız kod/migration/deploy YOK.
+- **15 maddenin 13'ü ONAYLANDI** (2026-08-08). Ardından **Faz 3-Ön uygulama planı** hazırlandı:
+  [docs/FAZ3_ON_UYGULAMA_PLANI.md](docs/FAZ3_ON_UYGULAMA_PLANI.md).
+  - Bakiye yazımı **tek ortak sınıfa** (`StockBalanceWriter`) taşınacak → `StockService` + `MaintenanceService`
+    aynı güvenlik mantığını kullanacak. **Migration YOK**, ekran/yetki değişikliği YOK.
+  - `btn-reverse` yetkisi incelendi: tüm kodda **tek kullanım** (`StockService.ReverseDocument`) →
+    ne fazla geniş ne yetersiz; karşılama iptali için uygun.
+  - **Kalan 2 karar:** K-1 transfer iptali politikası (P-1/P-2/P-3) · K-2 `company_id` migration'ı (M-S1) ne zaman.
+  - Yeni bulgu: `company_id`siz iki tabloda sızıntı **çift yönlü** — okuma (pull filtresiz) + **yazma**
+    (`UpsertRow` tenant zorlamasını yalnız `company_id` olan tabloda yapıyor).
 
 
 
