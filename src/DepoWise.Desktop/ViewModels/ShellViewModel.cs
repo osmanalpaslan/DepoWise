@@ -643,6 +643,8 @@ public sealed partial class ShellViewModel : ViewModelBase
             {
                 new NavLinkVm("Talep Formu", "requests:form"),
                 new NavLinkVm("Talep Onaylama", "requests:approve"),
+                // Talep Operasyonları (Faz 2): Ana Depo + Satın Alma kullanır; yetkisi request_ops.
+                new NavLinkVm("Talep Operasyonları", "request_ops:board"),
             }),
             new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
             // Yönetici Raporları — alt raporlar planlanıyor (şimdilik genel Raporlar).
@@ -769,6 +771,11 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new VehiclesViewModel(_session);
                 CurrentTitle = "Araçlar";
                 CurrentContext = "Araç kartları, durum ve uyarılar";
+                break;
+            case "request_ops:board":
+                CurrentPage = new RequestOperationsViewModel(_session);
+                CurrentTitle = "Talep Operasyonları";
+                CurrentContext = "Onaylı taleplerin operasyon süreci (Ana Depo / Satın Alma)";
                 break;
             case "material_templates:templates":
                 CurrentPage = new MaterialTemplatesViewModel(_session);

@@ -1,0 +1,245 @@
+@page "/request-operations"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@*  ============================================================================
+    TALEP OPERASYONLARI (Faz 2, kullanıcı isteği 2026-08-08) — masaüstüyle AYNI
+    iş mantığı ve aynı kullanıcı deneyimi. Onaylanmış taleplerin operasyon süreci:
+    durum değiştirme (sunucudaki onaylı geçiş matrisi + yetki), gönderim bilgileri
+    ve işlem geçmişi. Durum listesi SUNUCUDAN gelir (/next-states) → istemci matris
+    bilgisini kopyalamaz (tek doğru kaynak).
+    FAZ 2 SINIRI: kısmi miktar, alternatif malzeme, bölme, satın alma detayları,
+    teslim alan/şekli, dosya eki, bildirim ve otomatik stok hareketleri YOK.
+    ============================================================================ *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Talep Operasyonları</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+    Onaylanmış taleplerin operasyon süreci (Ana Depo / Satın Alma). Operasyon süreci, talep <b>onaylandığında</b> başlar.
+</MudText>
+
+@if (!Auth.CanView("request_ops"))
+{
+    <MudAlert Severity="Severity.Warning" Dense="true">Bu ekranı görüntüleme yetkiniz yok.</MudAlert>
+}
+else
+{
+<MudGrid Spacing="3">
+  <MudItem xs="12" md="7">
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Style="gap:10px;">
+            <MudSelect T="string" @bind-Value="_statusFilter" Label="Operasyon durumu" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:260px;">
+                <MudSelectItem T="string" Value="@("")">Tümü</MudSelectItem>
+                @foreach (var st in _allStatuses)
+                {
+                    <MudSelectItem T="string" Value="@st.Key">@st.Label</MudSelectItem>
+                }
+            </MudSelect>
+            <MudButton Variant="Variant.Outlined" OnClick="Load">Yenile</MudButton>
+        </MudStack>
+
+        @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Bu filtrede onaylanmış talep bulunmuyor.</MudText> }
+        else
+        {
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" OnRowClick="@(e => Select(e.Item))" T="JsonElement">
+                <HeaderContent>
+                    <MudTh>BELGE NO</MudTh><MudTh>TARİH</MudTh><MudTh>TALEP EDEN</MudTh>
+                    <MudTh>ÖNCELİK</MudTh><MudTh>OPERASYON DURUMU</MudTh><MudTh>GÖNDERİM</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@Str(context, "docNo")</MudTd>
+                    <MudTd>@Str(context, "dateText")</MudTd>
+                    <MudTd>@Str(context, "requesterName")</MudTd>
+                    <MudTd><MudChip T="string" Size="Size.Small" Color="@OpsColor(Str(context,"priorityColor"))" Variant="Variant.Text">@Str(context, "priorityText")</MudChip></MudTd>
+                    <MudTd><MudChip T="string" Size="Size.Small" Color="@OpsColor(Str(context,"operationStatusColor"))" Variant="Variant.Text">@Str(context, "operationStatusText")</MudChip></MudTd>
+                    <MudTd>@Str(context, "toBranchDisplay")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
+  </MudItem>
+
+  <MudItem xs="12" md="5">
+    <MudPaper Class="pa-4" Elevation="2">
+        @if (_sel is null) { <MudText Class="mud-text-secondary">İşlem yapmak için bir talep seçin.</MudText> }
+        else
+        {
+            var d = _sel.Value;
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h6">@Str(d, "docNo")</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@OpsColor(Str(d,"operationStatusColor"))" Variant="Variant.Text">@Str(d, "operationStatusText")</MudChip>
+            </MudStack>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@Str(d, "descriptionDisplay")</MudText>
+
+            <MudText Typo="Typo.subtitle2" Class="mt-3">KALEMLER</MudText>
+            @foreach (var it in _items)
+            {
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2">@Str(it, "materialName")</MudText>
+                    <MudText Typo="Typo.body2"><b>@Str(it, "quantity")</b></MudText>
+                </MudStack>
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="mt-3">GÖNDERİM BİLGİLERİ</MudText>
+            <LookupSelect Label="Gönderen Şube" @bind-Value="_fromBranch" Items="_branches" />
+            <LookupSelect Label="Gönderilecek Şube" @bind-Value="_toBranch" Items="_branches" />
+            <MudTextField T="string" @bind-Value="_note" Label="Operasyon Notu" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" />
+            @if (_canEdit)
+            {
+                <MudButton Variant="Variant.Outlined" Class="mt-1" OnClick="SaveShipment">Gönderim Bilgilerini Kaydet</MudButton>
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="mt-3">DURUM DEĞİŞTİR</MudText>
+            @if (_nextStates.Length == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Bu durumdan yapabileceğiniz bir geçiş yok (son durum ya da yetkiniz yok).
+                </MudText>
+            }
+            else
+            {
+                <MudSelect T="string" @bind-Value="_newStatus" Label="Yeni Durum" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           HelperText="Yalnız bu durumdan geçilebilecek adımlar listelenir (yetkinize göre).">
+                    @foreach (var ns in _nextStates)
+                    {
+                        <MudSelectItem T="string" Value="@Str(ns, "key")">@Str(ns, "label")</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-1" OnClick="ApplyStatus" Disabled="_busy">Durumu Güncelle</MudButton>
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="mt-3">İŞLEM GEÇMİŞİ</MudText>
+            @if (_history.Length == 0) { <MudText Typo="Typo.body2" Class="mud-text-secondary">Henüz operasyon işlemi yapılmadı.</MudText> }
+            else
+            {
+                @foreach (var h in _history)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@Str(h, "line")</MudText>
+                }
+            }
+
+            @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+        }
+    </MudPaper>
+  </MudItem>
+</MudGrid>
+}
+
+@code {
+    private sealed record StatusOpt(string Key, string Label);
+    // Şartname sırası — sunucudaki ortak kaynakla aynı (yalnız FİLTRE listesi; geçiş matrisi sunucudadır).
+    private readonly StatusOpt[] _allStatuses =
+    {
+        new("pending_ops", "Beklemede"), new("under_review", "İnceleniyor"),
+        new("from_warehouse", "Depodan Karşılanacak"), new("branch_transfer", "Şubeden Transfer Edilecek"),
+        new("purchasing", "Satın Alma Sürecinde"), new("order_placed", "Tedarikçiye Sipariş Verildi"),
+        new("order_preparing", "Sipariş Hazırlanıyor"), new("shipped", "Gönderim İçin Yola Çıktı"),
+        new("arrived_at_branch", "Şubeye Ulaştı"), new("delivered", "Teslim Edildi"),
+        new("partially_fulfilled", "Kısmen Karşılandı"), new("completed", "Tamamlandı"),
+        new("cancelled_ops", "İptal Edildi"),
+    };
+
+    private JsonElement[]? _rows;
+    private JsonElement? _sel;
+    private JsonElement[] _items = Array.Empty<JsonElement>();
+    private JsonElement[] _history = Array.Empty<JsonElement>();
+    private JsonElement[] _nextStates = Array.Empty<JsonElement>();
+    private List<ApiClient.Opt> _branches = new();
+    private string _statusFilter = "";
+    private string? _fromBranch, _toBranch, _newStatus;
+    private string _note = "";
+    private string? _msg; private bool _ok; private bool _busy;
+    private bool _canEdit => Auth.CanEdit("request_ops") || Auth.IsSuperAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _branches = await Api.OptionsAsync("/api/branches", "id", "name"); } catch { }
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _sel = null; _items = Array.Empty<JsonElement>(); _history = Array.Empty<JsonElement>();
+        _nextStates = Array.Empty<JsonElement>(); _msg = null;
+        try { _rows = await Api.GetArrayAsync("/api/request-ops" + (string.IsNullOrEmpty(_statusFilter) ? "" : $"?status={_statusFilter}")); }
+        catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task Select(JsonElement row)
+    {
+        _sel = row; _msg = null; _newStatus = null;
+        var id = Str(row, "id");
+        _fromBranch = NullS(row, "fromBranchId");
+        _toBranch = NullS(row, "toBranchId");
+        _note = Str(row, "opsNote");
+        try { _items = await Api.GetArrayAsync($"/api/requests/{id}/items"); } catch { _items = Array.Empty<JsonElement>(); }
+        try { _history = await Api.GetArrayAsync($"/api/request-ops/{id}/history"); } catch { _history = Array.Empty<JsonElement>(); }
+        try { _nextStates = await Api.GetArrayAsync($"/api/request-ops/{id}/next-states"); } catch { _nextStates = Array.Empty<JsonElement>(); }
+    }
+
+    private async Task ApplyStatus()
+    {
+        if (_sel is null || string.IsNullOrEmpty(_newStatus)) { _msg = "Önce yeni durum seçin."; _ok = false; return; }
+        var label = _nextStates.FirstOrDefault(x => Str(x, "key") == _newStatus) is var ns && ns.ValueKind == JsonValueKind.Object
+            ? Str(ns, "label") : _newStatus;
+        // Projenin ortak onay diyaloğu (diğer ekranlarla aynı desen).
+        if (!await Dialog.Confirm($"'{Str(_sel.Value, "docNo")}' talebinin operasyon durumu \"{label}\" olarak güncellensin mi?")) return;
+
+        _busy = true;
+        try
+        {
+            var id = Str(_sel.Value, "id");
+            var err = await Api.PostAsync($"/api/request-ops/{id}/status", new
+            {
+                status = _newStatus, note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
+                fromBranchId = _fromBranch, toBranchId = _toBranch, updateBranches = true
+            });
+            _ok = err is null;
+            _msg = err ?? $"Durum güncellendi: {label}";
+            if (_ok)
+            {
+                await Load();
+                var again = (_rows ?? Array.Empty<JsonElement>()).FirstOrDefault(r => Str(r, "id") == id);
+                if (again.ValueKind == JsonValueKind.Object) await Select(again);
+            }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task SaveShipment()
+    {
+        if (_sel is null) return;
+        try
+        {
+            var id = Str(_sel.Value, "id");
+            var err = await Api.PutAsync($"/api/request-ops/{id}/shipment", new
+            {
+                fromBranchId = _fromBranch, toBranchId = _toBranch,
+                note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim()
+            });
+            _ok = err is null;
+            _msg = err ?? "Gönderim bilgileri kaydedildi.";
+            if (_ok) await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+    }
+
+    /// <summary>Sunucudan gelen ortak renk anahtarı → MudBlazor rengi (masaüstüyle aynı mantık).</summary>
+    private static Color OpsColor(string key) => key switch
+    {
+        "success" => Color.Success,
+        "warning" => Color.Warning,
+        "danger" => Color.Error,
+        "info" => Color.Info,
+        "primary" => Color.Primary,
+        _ => Color.Default,
+    };
+
+    private static string Str(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
+            ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+}

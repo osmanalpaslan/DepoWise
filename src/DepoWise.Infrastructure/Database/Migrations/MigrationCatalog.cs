@@ -65,5 +65,6 @@ public static class MigrationCatalog
         new Migration058_ListPreferencePinnedSort(),
         new Migration059_MaintenanceTeamStock(),
         new Migration060_RequestOperations(),
+        new Migration061_RequestOperationFields(),
     };
 }

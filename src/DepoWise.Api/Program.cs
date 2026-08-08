@@ -2008,6 +2008,30 @@ app.MapPost("/api/requests/{id}/reject", (HttpContext c, string id, IdReasonDto 
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Reject(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Reddedildi" : d!.Reason!)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/requests/{id}/cancel", (HttpContext c, string id, IdReasonDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Cancel(s, id, d?.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+// ── Talep Operasyonları (Faz 2) — onaylı taleplerin operasyon süreci. Stok DEĞİŞTİRİLMEZ. ──
+app.MapGet("/api/request-ops", (HttpContext c, string? status) =>
+    S(c) is { } s ? Results.Ok(svc.RequestOps.List(s, string.IsNullOrWhiteSpace(status) ? null : status)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/request-ops/{id}/next-states", (HttpContext c, string id) =>
+    S(c) is { } s
+        ? Results.Ok(svc.RequestOps.AllowedNextStates(s, id).Select(x => new
+        {
+            key = DepoWise.Application.Requests.RequestOperationStatusInfo.ToDb(x),
+            label = DepoWise.Application.Requests.RequestOperationStatusInfo.Label(x),
+            color = DepoWise.Application.Requests.RequestOperationStatusInfo.Color(x),
+        }))
+        : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/request-ops/{id}/history", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(svc.RequestOps.GetHistory(s, id)) : Results.Unauthorized()).RequireAuthorization();
+app.MapPost("/api/request-ops/{id}/status", (HttpContext c, string id, RequestOpsStatusDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var to = DepoWise.Application.Requests.RequestOperationStatusInfo.FromDb(d.Status);
+    if (to is null) return Results.Json(new { error = "Geçersiz operasyon durumu." }, statusCode: 400);
+    return Results.Ok(new { ok = Void(() => svc.RequestOps.ChangeStatus(s, id, to.Value, d.Note, d.FromBranchId, d.ToBranchId, d.UpdateBranches)) });
+}).RequireAuthorization();
+app.MapPut("/api/request-ops/{id}/shipment", (HttpContext c, string id, RequestOpsShipmentDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.RequestOps.UpdateShipmentInfo(s, id, d.FromBranchId, d.ToBranchId, d.Note)) }) : Results.Unauthorized()).RequireAuthorization();
+
 app.MapGet("/api/requests/{id}/history", (HttpContext c, string id) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -2426,6 +2450,10 @@ record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, de
 record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);
 /// <summary>Priority: "normal|high|urgent|critical" (şartname madde 18). Gönderilmezse Normal (geriye uyumlu).</summary>
 record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately, string? Priority = null);
+/// <summary>Talep Operasyonları durum değişikliği (Faz 2). UpdateBranches=true ise gönderen/gönderilecek şube
+/// de yazılır. İşlemin YAPILDIĞI şube istemciden alınmaz — sunucuda oturumdan belirlenir.</summary>
+record RequestOpsStatusDto(string Status, string? Note, string? FromBranchId, string? ToBranchId, bool UpdateBranches = false);
+record RequestOpsShipmentDto(string? FromBranchId, string? ToBranchId, string? Note);
 record RolesDto(List<string>? Roles);
 record ActiveDto(bool Active);
 record PasswordDto(string Password);

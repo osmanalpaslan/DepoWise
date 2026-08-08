@@ -57,6 +57,8 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Org.PersonnelTitleService PersonnelTitles { get; private set; } = null!;
     public static FuelService Fuel { get; private set; } = null!;
     public static RequestService Requests { get; private set; } = null!;
+    /// <summary>Talep Operasyonları (Faz 2) — onaylı taleplerin operasyon süreci; stok DEĞİŞTİRMEZ.</summary>
+    public static RequestOperationsService RequestOps { get; private set; } = null!;
     public static IRequestPdfService RequestPdf { get; private set; } = null!;
     public static ReportService Reports { get; private set; } = null!;
     public static ExcelExportService Excel { get; private set; } = null!;
@@ -142,6 +144,7 @@ public static class DesktopServices
         MaterialTemplates = new MaterialTemplateService(Factory, clock);
         Fuel = new FuelService(Factory, clock);
         Requests = new RequestService(Factory, new StockService(Factory, clock), clock);
+        RequestOps = new RequestOperationsService(Factory, clock);
         RequestPdf = new RequestPdfService();
         Branches = new BranchService(Factory, clock);
         Permissions = new PermissionService(Factory, clock);

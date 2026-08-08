@@ -52,6 +52,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Operations.FuelService Fuel { get; }
     public DepoWise.Infrastructure.Operations.DailyActivityService DailyActivity { get; }
     public DepoWise.Infrastructure.Requests.RequestService Requests { get; }
+    /// <summary>Talep Operasyonları (Faz 2) — onaylı taleplerin operasyon süreci; stok DEĞİŞTİRMEZ.</summary>
+    public DepoWise.Infrastructure.Requests.RequestOperationsService RequestOps { get; }
     public DepoWise.Infrastructure.Organization.BranchService Branches { get; }
     public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
     public DepoWise.Infrastructure.Org.PersonnelTitleService PersonnelTitles { get; }
@@ -118,6 +120,7 @@ public sealed class ServerServices
         MaintenanceDefinitions = new DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService(Factory, clock);
         DailyActivity = new DepoWise.Infrastructure.Operations.DailyActivityService(Factory, Maintenance, clock, MaintenanceDefinitions);
         Requests = new DepoWise.Infrastructure.Requests.RequestService(Factory, new DepoWise.Infrastructure.Materials.StockService(Factory, clock), clock);
+        RequestOps = new DepoWise.Infrastructure.Requests.RequestOperationsService(Factory, clock);
         Branches = new DepoWise.Infrastructure.Organization.BranchService(Factory, clock);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
