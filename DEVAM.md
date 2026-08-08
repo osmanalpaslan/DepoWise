@@ -43,6 +43,9 @@ Malzeme Maliyeti. Maliyet yalnız malzeme (işçilik alanı YOK — kullanıcı 
 - Değişen: ReportModels (ReportRequest+2), ReportCatalog (ReportFilters+2, maintenance tanımı+InfoNote),
   ReportService.Maintenance (tam yeniden yazım), Program.cs (DTO+scope+katalog), ReportsViewModel + ReportsView.axaml,
   Reports.razor. Build 0 hata, test **682/0** (11 PG atlandı) — +14 MaintenanceReportTests, ReportingTests kolon güncellendi.
+  ✅ **YAYINLANDI (2026-08-08):** API (`depowise-erp`, health 200 — migration YOK) + web (`depowise-web`, 200) +
+  masaüstü **1.0.121** (checksum 550068…). PG doğrulama: canlı /api/reports/maintenance 200 + scope 200 (teknisyen geldi);
+  derived-table GetDouble deseni satırlı çalışan Araç Raporu ile aynı. Görsel doğrulama kullanıcıda.
 
 
 ### 🆕 Yakıt Tüketim raporu yeniden tasarım (2026-08-08, Opus 4.8) — Araç Raporu standardı
