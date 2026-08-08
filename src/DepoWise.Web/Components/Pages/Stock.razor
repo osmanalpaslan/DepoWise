@@ -86,7 +86,7 @@
             @if (IsOutBranch)
             {
                 <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Kaynak Şube (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Şube *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Şube / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
             }
             else
             {

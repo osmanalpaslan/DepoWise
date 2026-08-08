@@ -43,7 +43,7 @@
                     <ctrl:FormField Label="Telefon" Width="180">
                         <TextBox Classes="Field" Text="{Binding FPhone}"/>
                     </ctrl:FormField>
-                    <ctrl:FormField Label="Şube" Width="200">
+                    <ctrl:FormField Label="Şube / Şantiye" Width="200">
                         <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}"
                                         PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>

@@ -102,7 +102,7 @@
             <MudText Typo="Typo.body2" Class="mud-text-secondary">Mevcut şube: <b>@Str(_selUser.Value, "branchDisplay")</b></MudText>
             @if (CanManageSelected)
             {
-                <MudSelect T="string" @bind-Value="_assignBranch" Label="Şube Ata" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px">
+                <MudSelect T="string" @bind-Value="_assignBranch" Label="Şube / Şantiye Ata" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Style="max-width:200px">
                     @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
                 </MudSelect>
                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignBranch">Şube Ata</MudButton>

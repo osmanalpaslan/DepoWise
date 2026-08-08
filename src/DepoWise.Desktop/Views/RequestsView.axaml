@@ -43,19 +43,12 @@
                                         <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Sites}" SelectedItem="{Binding FormSite}">
                                             <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                                         </ComboBox>
-                                        <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddSiteCommand}"/>
                                     </Grid>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Tarih" Width="180">
                                     <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
                                 </ctrl:FormField>
                             </StackPanel>
-
-                            <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingSite}">
-                                <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewSiteName}" PlaceholderText="Yeni şantiye adı"/>
-                                <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddSiteCommand}"/>
-                                <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddSiteCommand}"/>
-                            </Grid>
 
                             <StackPanel Orientation="Horizontal" Spacing="14">
                                 <ctrl:FormField Label="Talep Eden" Width="240">

@@ -59,6 +59,7 @@ public sealed class PersonnelImportService
     public ImportResult DryRun(SessionContext s, IReadOnlyList<ImportRow> rows)
     {
         AccessControl.Require(s, "personnel", PermissionAction.View);
+        var res = new ImportLookupResolver(_lookups, s);
         var errors = new List<ImportRowError>(); int valid = 0;
         var linkable = LinkableUsernames(s);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -68,6 +69,11 @@ public sealed class PersonnelImportService
             if (!Validate(row, linkable, out var err))
             {
                 if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, err!));
+                continue;
+            }
+            if (!BranchKnown(s, res, row, out var berr))
+            {
+                if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, berr!));
                 continue;
             }
             // Dosya İÇİNDE aynı ad iki kez → ikincisi atlanacak; kullanıcı ŞİMDİ bilsin.
@@ -100,6 +106,8 @@ public sealed class PersonnelImportService
         {
             if (!Validate(row, linkable, out var verr))
             { failed++; if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, verr!)); continue; }
+            if (!BranchKnown(s, res, row, out var berr))
+            { failed++; if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, berr!)); continue; }
             try
             {
                 var fullName = Get(row, ColName)!.Trim();
@@ -220,4 +228,21 @@ public sealed class PersonnelImportService
     private static string UserKey(string s) => s.Trim().ToUpperInvariant();
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string? Get(ImportRow row, string col) => row.Values.TryGetValue(col, out var v) ? v : null;
+
+    /// <summary>
+    /// Şube / Şantiye adı verilmişse TANIMLI olmalı (kullanıcı kararı 2026-08-09).
+    /// İçe aktarma artık Şube/Şantiye OLUŞTURMAZ; tanınmayan ad satır hatası üretir ve kullanıcı bunu
+    /// ÖNİZLEMEDE (DryRun) görür. Boş bırakılan alanın davranışı DEĞİŞMEDİ (kullanıcının kendi şubesi).
+    /// Tanımları okuma yetkisi yoksa kontrol atlanır (yeni yetki şartı getirilmez).
+    /// </summary>
+    private static bool BranchKnown(SessionContext s, ImportLookupResolver res, ImportRow row, out string? error)
+    {
+        error = null;
+        var name = Get(row, ColBranch);
+        if (string.IsNullOrWhiteSpace(name)) return true;
+        if (!AccessControl.Can(s, "definitions", PermissionAction.View)) return true;
+        if (res.Branch(name) is not null) return true;
+        error = $"Şube / Şantiye bulunamadı: '{name.Trim()}'. Lütfen Şube / Şantiye Tanımları ekranından ekleyin ya da adı düzeltin.";
+        return false;
+    }
 }

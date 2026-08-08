@@ -114,7 +114,10 @@ public class VehicleTests : IDisposable
         look.AddVehicleType(_admin, "İş Makinesi");
         var brand = look.AddVehicleBrand(_admin, "Caterpillar");
         look.AddVehicleModel(_admin, brand, "320D");
-        look.AddBranch(_admin, "Şantiye A");
+        // 2026-08-09: Şube/Şantiye artık tanım servisinden OLUŞTURULAMAZ (admin-kısıtlı "branches"
+        // modülüne aittir) → meşru yol olan BranchService kullanılır.
+        new DepoWise.Infrastructure.Organization.BranchService(_factory, _clock)
+            .Create(_admin, new DepoWise.Infrastructure.Organization.NewBranch("Şantiye A", "site", null, null, null));
         look.AddPersonnel(_admin, "Ahmet Yılmaz", "Şoför");
 
         Assert.Single(look.List(_admin, "vehicle_types"));

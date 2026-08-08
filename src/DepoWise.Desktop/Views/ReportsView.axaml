@@ -35,7 +35,7 @@
                 </ctrl:FormField>
                 <!-- Şube seçici (çoklu) yalnız rapor şube kullanıyorsa VE kullanıcı yetkiliyse (btn-branch-select).
                      İşaretsiz = oturum (login) şubesi (non-breaking). -->
-                <ctrl:FormField Label="Şube (çoklu; boş=kendi şubem)" Width="230" IsVisible="{Binding ShowBranchSelect}">
+                <ctrl:FormField Label="Şube / Şantiye (çoklu; boş=kendi şubem)" Width="230" IsVisible="{Binding ShowBranchSelect}">
                     <Border Classes="Field" MaxHeight="110" Padding="8,4">
                         <ScrollViewer>
                             <ItemsControl ItemsSource="{Binding Branches}">

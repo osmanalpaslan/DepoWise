@@ -169,12 +169,6 @@
                             <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
                                       ItemsSource="{Binding Branches}" SelectedItem="{Binding SelBranch}"
                                       PlaceholderText="Şantiye / şube seç / ara..."/>
-                            <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBranchCommand}"/>
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBranch}">
-                            <TextBox Grid.Column="0" Classes="Field" Text="{Binding NewBranchName}" PlaceholderText="Yeni şantiye/şube"/>
-                            <Button Grid.Column="1" Classes="Primary" Content="Ekle" Margin="8,0,0,0" Command="{Binding ConfirmAddBranchCommand}"/>
-                            <Button Grid.Column="2" Classes="Ghost" Content="Vazgeç" Margin="6,0,0,0" Command="{Binding CancelAddBranchCommand}"/>
                         </Grid>
                     </StackPanel>
                 </ctrl:FormField>

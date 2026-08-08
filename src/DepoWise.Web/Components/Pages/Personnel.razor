@@ -56,7 +56,7 @@
             </MudItem>
 
             <MudItem xs="6" md="4"><MudTextField @bind-Value="_phone" @bind-Value:after="OnKeyFieldsChanged" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
-            <MudItem xs="6" md="4"><LookupSelect Label="Şube" @bind-Value="_branch" Items="_branches" /></MudItem>
+            <MudItem xs="6" md="4"><LookupSelect Label="Şube / Şantiye" @bind-Value="_branch" Items="_branches" /></MudItem>
             <MudItem xs="6" md="2" Class="d-flex align-center"><MudCheckBox T="bool" @bind-Value="_active" Label="Aktif" Dense="true" /></MudItem>
             <MudItem xs="6" md="2" Class="d-flex align-center">
                 <MudTooltip Text="İşaretlenirse bu kişi uygulamaya girmez; kullanıcı bağlanmadı uyarısı çıkmaz.">

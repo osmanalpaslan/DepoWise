@@ -52,6 +52,7 @@ public sealed class VehicleImportService
     public ImportResult DryRun(SessionContext s, IReadOnlyList<ImportRow> rows)
     {
         AccessControl.Require(s, "vehicles", PermissionAction.View);
+        var res = new ImportLookupResolver(_lookups, s);
         var errors = new List<ImportRowError>(); int valid = 0;
         // Dosya İÇİNDE tekrar eden iç kodu da yakala (DB'de yok ama aynı dosyada iki kez geçiyor olabilir).
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -60,6 +61,11 @@ public sealed class VehicleImportService
             if (!Validate(row, out var err))
             {
                 if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, err!));
+                continue;
+            }
+            if (!BranchKnown(s, res, row, out var berr))
+            {
+                if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, berr!));
                 continue;
             }
             var code = Get(row, ColCode)!.Trim();
@@ -88,6 +94,8 @@ public sealed class VehicleImportService
         {
             if (!Validate(row, out var verr))
             { failed++; if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, verr!)); continue; }
+            if (!BranchKnown(s, res, row, out var berr))
+            { failed++; if (errors.Count < ImportResult.MaxReportedErrors) errors.Add(new ImportRowError(row.RowNumber, berr!)); continue; }
             try
             {
                 var code = Get(row, ColCode)!.Trim();
@@ -176,4 +184,21 @@ public sealed class VehicleImportService
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string? Get(ImportRow row, string col) => row.Values.TryGetValue(col, out var v) ? v : null;
+
+    /// <summary>
+    /// Şube / Şantiye adı verilmişse TANIMLI olmalı (kullanıcı kararı 2026-08-09).
+    /// İçe aktarma artık Şube/Şantiye OLUŞTURMAZ; tanınmayan ad satır hatası üretir ve kullanıcı bunu
+    /// ÖNİZLEMEDE (DryRun) görür. Boş bırakılan alanın davranışı DEĞİŞMEDİ (kullanıcının kendi şubesi).
+    /// Tanımları okuma yetkisi yoksa kontrol atlanır (yeni yetki şartı getirilmez).
+    /// </summary>
+    private static bool BranchKnown(SessionContext s, ImportLookupResolver res, ImportRow row, out string? error)
+    {
+        error = null;
+        var name = Get(row, ColBranch);
+        if (string.IsNullOrWhiteSpace(name)) return true;
+        if (!AccessControl.Can(s, "definitions", PermissionAction.View)) return true;
+        if (res.Branch(name) is not null) return true;
+        error = $"Şube / Şantiye bulunamadı: '{name.Trim()}'. Lütfen Şube / Şantiye Tanımları ekranından ekleyin ya da adı düzeltin.";
+        return false;
+    }
 }

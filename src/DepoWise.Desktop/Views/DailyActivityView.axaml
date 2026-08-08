@@ -162,7 +162,7 @@
                         <ctrl:FormField Label="Çıkacak Miktar" IsRequired="True" Width="140">
                             <NumericUpDown Classes="Field" Value="{Binding ExitQuantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="200" IsVisible="{Binding ShowExitTargetBranch}">
+                        <ctrl:FormField Label="Hedef Şube / Şantiye" IsRequired="True" Width="200" IsVisible="{Binding ShowExitTargetBranch}">
                             <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ExitToBranch}"
                                             PlaceholderText="Şube seç / ara..."/>
                         </ctrl:FormField>

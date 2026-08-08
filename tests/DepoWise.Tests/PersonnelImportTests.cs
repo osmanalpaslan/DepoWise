@@ -54,6 +54,10 @@ public class PersonnelImportTests : IDisposable
         _imp = new PersonnelImportService(_personnel, _titles, _users, _lookups);
         var uid = _users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         _admin = new SessionContext(uid, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        // 2026-08-09: içe aktarma artık Şube/Şantiye OLUŞTURMAZ → testte önceden tanımlanır.
+        _branches.Create(_admin, new DepoWise.Infrastructure.Organization.NewBranch("Merkez Şantiye", "site", null, null, null));
+        for (int i = 0; i < 8; i++)
+            _branches.Create(_admin, new DepoWise.Infrastructure.Organization.NewBranch($"Şantiye-{i}", "site", null, null, null));
     }
 
     private sealed class TestClock : IClock
@@ -116,7 +120,8 @@ public class PersonnelImportTests : IDisposable
         Assert.NotNull(p.BranchId);
 
         Assert.Contains(created, x => x.Contains("Şoför"));
-        Assert.Contains(created, x => x.Contains("Merkez Şantiye"));
+        // 2026-08-09: Şube/Şantiye artık içe aktarmada OLUŞTURULMAZ.
+        Assert.DoesNotContain(created, x => x.Contains("Merkez Şantiye"));
     }
 
     [Fact]
@@ -362,7 +367,8 @@ public class PersonnelImportTests : IDisposable
 
         // Tanımlar TEKİL: 12 unvan + 8 şantiye.
         Assert.Equal(12, _titles.List(_admin).Count);
-        Assert.Equal(12 + 8, created.Count);
+        // 12 unvan; 8 şantiye ARTIK oluşturulmuyor (önceden tanımlı) → yalnız 12.
+        Assert.Equal(12, created.Count);
         Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"3000 personel {sw.Elapsed.TotalSeconds:0} sn sürdü — çok yavaş (önbellek bozulmuş olabilir).");
     }
 

@@ -552,7 +552,7 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
         NewCode = ""; NewPlate = ""; NewYear = 0; NewStatusPick = PickStatus(DepoWise.Application.Ui.VehicleStatus.Active); NewMeter = 0; NewMeterUnit = "km";
         NewChassisNo = ""; NewEngineNo = ""; NewStatusNote = "";
         SelVehicleType = null; SelCategory = null; SelBrand = null; SelModel = null; SelBranch = null; SelDriver = null;
-        IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingBranch = IsAddingDriver = false;
+        IsAddingType = IsAddingCat = IsAddingBrand = IsAddingModel = IsAddingDriver = false;
         Photos.Clear();
         SelectedTemplate = null; _templateId = null;
         EditId = null;
@@ -591,11 +591,6 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     [RelayCommand] private void StartAddModel() { if (SelBrand is null) { Status = "Önce marka seçin."; return; } IsAddingModel = true; NewModelName = ""; }
     [RelayCommand] private void CancelAddModel() { IsAddingModel = false; NewModelName = ""; }
     [RelayCommand] private void ConfirmAddModel() { if (SelBrand is null) return; AddLookup(NewModelName, () => DesktopServices.Lookups.AddVehicleModel(_session, SelBrand!.Id, NewModelName.Trim()), VehicleModels, x => SelModel = x, () => { IsAddingModel = false; NewModelName = ""; }); }
-
-    [RelayCommand] private void StartAddBranch() { IsAddingBranch = true; NewBranchName = ""; }
-    [RelayCommand] private void CancelAddBranch() { IsAddingBranch = false; NewBranchName = ""; }
-    [RelayCommand] private void ConfirmAddBranch() => AddLookup(NewBranchName, () => DesktopServices.Lookups.AddBranch(_session, NewBranchName.Trim()), Branches, x => SelBranch = x, () => { IsAddingBranch = false; NewBranchName = ""; });
-
     [RelayCommand] private void StartAddDriver() { IsAddingDriver = true; NewDriverName = ""; }
     [RelayCommand] private void CancelAddDriver() { IsAddingDriver = false; NewDriverName = ""; }
     [RelayCommand] private void ConfirmAddDriver() => AddLookup(NewDriverName, () => DesktopServices.Lookups.AddPersonnel(_session, NewDriverName.Trim(), "Şoför"), Drivers, x => SelDriver = x, () => { IsAddingDriver = false; NewDriverName = ""; });

@@ -100,11 +100,11 @@
 
                         <!-- Gönderim bilgileri (şartname §6) -->
                         <SelectableTextBlock Text="GÖNDERİM BİLGİLERİ" Classes="SectionTitle"/>
-                        <ctrl:FormField Label="Gönderen Şube">
+                        <ctrl:FormField Label="Gönderen Şube / Şantiye">
                             <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}"
                                             SelectedItem="{Binding FromBranch}" PlaceholderText="Şube seç / ara..."/>
                         </ctrl:FormField>
-                        <ctrl:FormField Label="Gönderilecek Şube">
+                        <ctrl:FormField Label="Gönderilecek Şube / Şantiye">
                             <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}"
                                             SelectedItem="{Binding ToBranch}" PlaceholderText="Şube seç / ara..."/>
                         </ctrl:FormField>

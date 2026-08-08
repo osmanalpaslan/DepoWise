@@ -60,6 +60,20 @@ public sealed class ImportLookupResolver
         return newId;
     }
 
+    /// <summary>Yalnız EŞLEŞTİRİR; bulamazsa <c>null</c> döner ve HİÇBİR kayıt oluşturmaz.
+    /// Önbellek mantığı <see cref="Resolve"/> ile aynıdır (aynı dosyada iki kez sorgu atılmaz).</summary>
+    private string? ResolveOnly(string kind, string? name, Func<IReadOnlyList<LookupItem>> list)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (!_cache.TryGetValue(kind, out var map))
+        {
+            map = new Dictionary<string, string>(StringComparer.Ordinal);
+            try { foreach (var i in list()) map[Key(i.Name)] = i.Id; } catch { }
+            _cache[kind] = map;
+        }
+        return map.TryGetValue(Key(name), out var id) ? id : null;
+    }
+
     // ── Araç tanımları ──────────────────────────────────────────────────────────────────────
     public string? VehicleType(string? name)
         => Resolve("vehicle_types", name, () => _lookups.List(_s, "vehicle_types"),
@@ -82,10 +96,24 @@ public sealed class ImportLookupResolver
             n => _lookups.AddVehicleModel(_s, brandId!, n), "Araç Modeli");
     }
 
-    /// <summary>Şube/şantiye. Yeni oluşanlar "şantiye" (site) türünde açılır.</summary>
+    /// <summary>
+    /// Şube/şantiye — YALNIZ EŞLEŞTİRİR, ASLA OLUŞTURMAZ (kullanıcı kararı 2026-08-09).
+    ///
+    /// Eskiden tanınmayan ad sessizce yeni "şantiye" olarak açılıyordu; bu hem yazım hatalarını kalıcı
+    /// tanıma çeviriyor hem de admin-kısıtlı <c>branches</c> modülünü atlatıyordu. Artık eşleşme yoksa
+    /// <c>null</c> döner; çağıran içe aktarma servisi satırı <c>ImportRowError</c> ile geçersiz sayar,
+    /// böylece kullanıcı ÖNİZLEMEDE (DryRun) hangi satırda hangi adın tanınmadığını görür.
+    /// Diğer tanım türlerinin (birim/marka/tip…) otomatik oluşturma davranışı DEĞİŞMEDİ.
+    /// </summary>
     public string? Branch(string? name)
-        => Resolve("branches", name, () => _lookups.List(_s, "branches"),
-            n => _lookups.AddBranch(_s, n), "Şube/Şantiye");
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        return ResolveOnly("branches", name, () => _lookups.List(_s, "branches"));
+    }
+
+    /// <summary>Bu adla tanım var mı? Yoksa <c>null</c> (oluşturma YOK).</summary>
+    public bool IsUnknownBranch(string? name)
+        => !string.IsNullOrWhiteSpace(name) && Branch(name) is null;
 
     /// <summary>Personel (sürücü/teknisyen/yakıtı veren).</summary>
     public string? Personnel(string? name)

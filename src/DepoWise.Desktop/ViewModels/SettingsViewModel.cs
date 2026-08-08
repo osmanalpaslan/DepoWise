@@ -48,8 +48,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Add("Araç — Tipler", "vehicle_types", s => L.List(s, "vehicle_types"), (s, n) => L.AddVehicleType(s, n));
         Add("Araç — Kategoriler", "vehicle_categories", s => L.List(s, "vehicle_categories"), (s, n) => L.AddVehicleCategory(s, n));
         Add("Araç — Markalar", "brands", s => L.ListBrands(s, "vehicle"), (s, n) => L.AddVehicleBrand(s, n));
-        // ── GENEL ──
-        Add("Genel — Şube / Şantiye", "branches", s => L.List(s, "branches"), (s, n) => L.AddBranch(s, n));
+        // NOT: "Genel — Şube / Şantiye" girdisi KALDIRILDI (2026-08-09). Şube/Şantiye tanımları
+        // admin-kısıtlı "branches" modülüne aittir ve yalnız Şube / Şantiye Tanımları ekranından
+        // yönetilir; "Tanımlar" (definitions) yetkisiyle eklenip silinemez.
     }
 
 }

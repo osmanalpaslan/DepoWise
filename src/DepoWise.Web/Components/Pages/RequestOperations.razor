@@ -83,8 +83,8 @@ else
             }
 
             <MudText Typo="Typo.subtitle2" Class="mt-3">GÖNDERİM BİLGİLERİ</MudText>
-            <LookupSelect Label="Gönderen Şube" @bind-Value="_fromBranch" Items="_branches" />
-            <LookupSelect Label="Gönderilecek Şube" @bind-Value="_toBranch" Items="_branches" />
+            <LookupSelect Label="Gönderen Şube / Şantiye" @bind-Value="_fromBranch" Items="_branches" />
+            <LookupSelect Label="Gönderilecek Şube / Şantiye" @bind-Value="_toBranch" Items="_branches" />
             <MudTextField T="string" @bind-Value="_note" Label="Operasyon Notu" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" />
             @if (_canEdit)
             {

@@ -65,6 +65,12 @@ public class ImportFullFieldsTests : IDisposable
         var users = new UserService(_factory, _clock);
         var uid = users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         _admin = new SessionContext(uid, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        // 2026-08-09: içe aktarma artık Şube/Şantiye OLUŞTURMAZ → testte önceden tanımlanır
+        // (gerçek akışta da Şube/Şantiye Tanımları ekranından gelir).
+        var br = new DepoWise.Infrastructure.Organization.BranchService(_factory, _clock);
+        br.Create(_admin, new DepoWise.Infrastructure.Organization.NewBranch("Merkez Şantiye", "site", null, null, null));
+        for (int i = 0; i < 8; i++)
+            br.Create(_admin, new DepoWise.Infrastructure.Organization.NewBranch($"Şantiye-{i}", "site", null, null, null));
     }
 
     private sealed class TestClock : IClock
@@ -161,7 +167,9 @@ public class ImportFullFieldsTests : IDisposable
         Assert.Contains(created, x => x.Contains("Kamyon"));
         Assert.Contains(created, x => x.Contains("Mercedes"));
         Assert.Contains(created, x => x.Contains("Actros"));
-        Assert.Contains(created, x => x.Contains("Merkez Şantiye"));
+        // 2026-08-09: Şube/Şantiye artık İÇE AKTARMADA OLUŞTURULMAZ (tanım ekranından gelir)
+        // → "oluşturulanlar" listesinde yer ALMAMALI.
+        Assert.DoesNotContain(created, x => x.Contains("Merkez Şantiye"));
         Assert.Contains(created, x => x.Contains("Ahmet Yılmaz"));
     }
 
@@ -520,7 +528,8 @@ public class ImportFullFieldsTests : IDisposable
         Assert.Equal(5, _lookups.List(_admin, "vehicle_categories").Count);
         Assert.Equal(50, _lookups.ListPersonnel(_admin).Count);
         // Model markaya bağlı: 30 model adı × 20 marka kombinasyonu → benzersiz (marka,model) çiftleri.
-        Assert.Equal(20 + 10 + 5 + 8 + 50 + ExpectedModelCount(), created.Count);
+        // 8 şantiye ARTIK oluşturulmuyor (önceden tanımlı) → toplamdan çıkarıldı.
+        Assert.Equal(20 + 10 + 5 + 50 + ExpectedModelCount(), created.Count);
 
         // Süre koruması: önbellek çalışmazsa (satır başına sorgu) bu eşik AŞILIR → regresyon yakalanır.
         Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"3000 araç {sw.Elapsed.TotalSeconds:0} sn sürdü — çok yavaş (önbellek bozulmuş olabilir).");

@@ -40,7 +40,6 @@ public sealed class LookupService
     public string AddVehicleType(SessionContext s, string name) => Insert(s, "vehicle_types", name);
     public string AddVehicleCategory(SessionContext s, string name) => Insert(s, "vehicle_categories", name);
     public string AddVehicleBrand(SessionContext s, string name) => Insert(s, "brands", name, ("brand_type", "vehicle"));
-    public string AddBranch(SessionContext s, string name) => Insert(s, "branches", name, ("kind", "site"));
     public string AddVehicleModel(SessionContext s, string brandId, string name)
         => Insert(s, "vehicle_models", name, ("brand_id", brandId));
 
@@ -157,7 +156,7 @@ ORDER BY name;";
     private string Insert(SessionContext s, string table, string name, params (string Col, object Val)[] extra)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
-        EnsureKnownTable(table);
+        EnsureWritableTable(table);
         name = NormalizeSpaces(name ?? "");
         if (string.IsNullOrEmpty(name)) throw new ArgumentException("Ad boş olamaz.");
         if (name.Length > MaxNameLength) throw new ArgumentException($"Tanım adı en fazla {MaxNameLength} karakter olabilir.");
@@ -214,7 +213,7 @@ ORDER BY name;";
     public void Rename(SessionContext s, string table, string id, string newName)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
-        EnsureKnownTable(table);
+        EnsureWritableTable(table);
         RequireNotLocked(s, table, id, "Sabit tanım düzenlenemez.");
         newName = NormalizeSpaces(newName ?? "");
         if (string.IsNullOrEmpty(newName)) throw new ArgumentException("Ad boş olamaz.");
@@ -242,7 +241,7 @@ ORDER BY name;";
     public void Delete(SessionContext s, string table, string id)
     {
         AccessControl.Require(s, Module, PermissionAction.Delete);
-        EnsureKnownTable(table);
+        EnsureWritableTable(table);
         RequireNotLocked(s, table, id, "Sabit tanım silinemez.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
@@ -296,10 +295,33 @@ ORDER BY name;";
         if (v is not null && System.Convert.ToInt64(v) != 0) throw new ArgumentException(message);
     }
 
+    /// <summary>OKUMA için tanınan tablolar. <c>branches</c> burada KALIR (seçim listeleri okur).</summary>
     private static void EnsureKnownTable(string table)
     {
         if (table is not ("material_categories" or "brands" or "units" or "suppliers"
             or "vehicle_types" or "vehicle_categories" or "vehicle_models" or "branches"))
             throw new ArgumentException($"Bilinmeyen tanım tablosu: {table}");
+    }
+
+    /// <summary>
+    /// YAZMA (ekle/yeniden adlandır/sil) için tanınan tablolar — <c>branches</c> BİLEREK YOKTUR.
+    ///
+    /// GEREKÇE (2026-08-09 denetimi): Şube/Şantiye tanımları <c>branches</c> modülüne aittir ve o modül
+    /// <see cref="DepoWise.Application.Security.AppModules.IsAdminRestricted"/> ile admin-kısıtlıdır.
+    /// Bu sınıf ise <c>definitions</c> ("Tanımlar") modülüyle çalışır ve normal rollere verilebilir.
+    /// Bu yüzden buradan şube yazımına izin vermek, admin-kısıtlı modülün ATLATILMASI anlamına geliyordu
+    /// (ekleme, yeniden adlandırma ve silme dahil).
+    ///
+    /// Kilit BİLEREK servis katmanındadır: arayüzdeki buton gizlense, istemci değiştirilse ya da uç nokta
+    /// doğrudan çağrılsa bile şube yazımı buradan geçemez. Meşru yol: Şube/Şantiye Tanımları ekranı →
+    /// <c>Organization.BranchService</c> (yetki: <c>branches</c> Create/Edit/Delete).
+    /// </summary>
+    private static void EnsureWritableTable(string table)
+    {
+        EnsureKnownTable(table);
+        if (table == "branches")
+            throw new ForbiddenException(
+                "Şube / Şantiye tanımları buradan oluşturulamaz, değiştirilemez veya silinemez. " +
+                "Bu işlem yalnızca Şube / Şantiye Tanımları ekranından yapılabilir.");
     }
 }

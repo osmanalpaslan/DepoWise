@@ -309,23 +309,9 @@ public sealed partial class RequestsViewModel : ViewModelBase
         }
         catch (Exception ex) { FormError = "Personel eklenemedi: " + ex.Message; }
     }
-
-    [RelayCommand] private void StartAddSite() { NewSiteName = ""; IsAddingSite = true; }
-    [RelayCommand] private void CancelAddSite() { IsAddingSite = false; NewSiteName = ""; }
-
-    [RelayCommand]
-    private void ConfirmAddSite()
-    {
-        if (string.IsNullOrWhiteSpace(NewSiteName)) return;
-        try
-        {
-            var id = DesktopServices.Lookups.AddBranch(_session, NewSiteName.Trim());
-            var item = new LookupItem(id, NewSiteName.Trim());
-            Sites.Add(item); FormSite = item;
-            IsAddingSite = false; NewSiteName = "";
-        }
-        catch (Exception ex) { FormError = "Şantiye eklenemedi: " + ex.Message; }
-    }
+    // NOT (2026-08-09): "Yeni şantiye ekle" komutu KALDIRILDI. Şube/Şantiye tanımları admin-kısıtlı
+    // "branches" modülüne aittir; yalnız Şube / Şantiye Tanımları ekranından oluşturulur. Kilit ayrıca
+    // servis katmanındadır (LookupService.EnsureWritableTable) → arayüz atlansa bile oluşturma olmaz.
 
     [RelayCommand]
     private async System.Threading.Tasks.Task SaveRequest()

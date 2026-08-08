@@ -44,7 +44,7 @@
                     </ctrl:FormField>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Şube" Width="220" HelpText="Seçili firmanın şubeleri. Boş = şubesiz.">
+                    <ctrl:FormField Label="Şube / Şantiye" Width="220" HelpText="Seçili firmanın şubeleri. Boş = şubesiz.">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding FormBranches}" SelectedItem="{Binding FormBranch}">
                             <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                         </ComboBox>

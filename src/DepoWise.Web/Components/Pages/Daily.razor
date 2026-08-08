@@ -59,7 +59,7 @@
                 <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_exitQty" Label="Çıkacak Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 @if (_exitScope == "Şube Dışı")
                 {
-                    <MudItem xs="6" md="3"><LookupSelect Label="Hedef Şube *" @bind-Value="_exitTo" Items="_branches" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Hedef Şube / Şantiye *" @bind-Value="_exitTo" Items="_branches" /></MudItem>
                 }
                 else
                 {
