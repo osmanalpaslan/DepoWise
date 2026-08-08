@@ -310,21 +310,21 @@
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c11"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c12"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c13"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <local:SortHeader Grid.Column="0" Text="KOD" ColumnKey="code" MinWidth="90"
                                        IsVisible="{Binding VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=code}"/>
@@ -366,21 +366,21 @@
                     <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c11"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c12"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c13"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <ContentControl Grid.Column="0" Margin="4,0" HorizontalContentAlignment="Stretch"
                                 MinWidth="{Binding ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=code}"
@@ -586,21 +586,21 @@
                             <DataTemplate x:DataType="vm:MaterialRow">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c1"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c2"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c3"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c7"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c8"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c9"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c10"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c11"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c12"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c13"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c14"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="c15"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <!-- Kolon 2-15: Min=Max ile ColWidths'e SIKI bağlı (kullanıcı isteği 2026-08-06, madde 1-3) —
                                          header'ın sürükleyerek ayarladığı genişlik satır hücrelerini de ANINDA sınırlar; böylece

@@ -115,6 +115,9 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     public void PreviewColumnWidth(string key, double newWidth)
     {
         var w = Math.Max(40, Math.Min(600, newWidth));
+        // Aynı piksel ise DOKUNMA: sürüklerken her fare hareketinde tüm hücrelerin yeniden
+        // hesaplanmasını önler (akıcılık — kullanıcı isteği 2026-08-08).
+        if (ColWidths.TryGetValue(key, out var cur) && System.Math.Abs(cur - w) < 1) return;
         ColWidths = new Dictionary<string, double>(ColWidths) { [key] = w };
     }
 
