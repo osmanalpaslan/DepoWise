@@ -28,8 +28,7 @@ public class PostgresConnectionTests
     [SkippableFact]
     public async Task PostgreSQL_Sunucusuna_Baglanip_Surum_Okunabiliyor()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl),
-            "DEPOWISE_PG_URL tanımlı değil → PostgreSQL bağlantı testi atlandı (henüz sunucu kurulmadı).");
+        PostgresTestGuard.SkipUnlessSafe();
 
         await using var conn = new NpgsqlConnection(PgUrl);
         await conn.OpenAsync();
@@ -44,8 +43,7 @@ public class PostgresConnectionTests
     [SkippableFact]
     public async Task PostgreSQL_Basit_Sorgu_Dogru_Sonuc_Doner()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl),
-            "DEPOWISE_PG_URL tanımlı değil → PostgreSQL bağlantı testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
 
         await using var conn = new NpgsqlConnection(PgUrl);
         await conn.OpenAsync();

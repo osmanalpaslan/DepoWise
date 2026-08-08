@@ -37,12 +37,8 @@ public class PostgresStockConcurrencyTests
     private static Fixture Setup()
     {
         var factory = new PostgresMigrationTests.NpgsqlTestFactory(PgUrl!);
-        using (var conn = factory.Create())
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
-            cmd.ExecuteNonQuery();
-        }
+        // GÜVENLİK KAPISI: şema YALNIZ doğrulanmış boş test veritabanında sıfırlanır (bkz. PostgresTestGuard).
+        PostgresTestGuard.ResetSchema(factory);
         new MigrationRunner(factory).Run();
 
         var clock = new TestClock();
@@ -70,7 +66,7 @@ public class PostgresStockConcurrencyTests
     [SkippableFact]
     public void Eszamanli_Iki_Cikis_Oversell_Ve_Kayip_Dusum_Uretmez()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → PostgreSQL eşzamanlılık testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
         var f = Setup();
 
         // ── T-01: stok 10; eşzamanlı 6 ve 7 → yalnız biri geçmeli (toplam 13 ASLA çıkmamalı) ──
@@ -117,7 +113,7 @@ public class PostgresStockConcurrencyTests
     [SkippableFact]
     public void Yuksek_Cekismede_Bakiye_Negatife_Dusmez_Ve_Defterle_Tutarli_Kalir()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → PostgreSQL çekişme testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
         var f = Setup();
 
         var m = f.Materials.Create(f.Admin, new NewMaterial("M-CC3", "Rulman"));
@@ -142,7 +138,7 @@ public class PostgresStockConcurrencyTests
     [SkippableFact]
     public void Eszamanli_Giris_Ve_Cikis_Birbirini_Ezmez()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → PostgreSQL giriş/çıkış testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
         var f = Setup();
 
         var m = f.Materials.Create(f.Admin, new NewMaterial("M-CC4", "Kayış"));

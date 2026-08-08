@@ -33,14 +33,10 @@ public class PostgresSyncRecoveryTests
     [SkippableFact]
     public void ApplyCore_PostgreSQLde_HataliSatiri_Atlar_GecerliyiYazar()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → PG sync kurtarma testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
         var factory = new PostgresMigrationTests.NpgsqlTestFactory(PgUrl!);
-        using (var conn = factory.Create())
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
-            cmd.ExecuteNonQuery();
-        }
+        // GÜVENLİK KAPISI: şema YALNIZ doğrulanmış boş test veritabanında sıfırlanır (bkz. PostgresTestGuard).
+        PostgresTestGuard.ResetSchema(factory);
         new MigrationRunner(factory).Run();
 
         var clock = new TestClock();

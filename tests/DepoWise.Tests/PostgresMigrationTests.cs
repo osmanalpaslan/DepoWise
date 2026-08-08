@@ -37,16 +37,12 @@ public class PostgresMigrationTests
     [SkippableFact]
     public void Migrationlar_PostgreSQLde_Temiz_Kurulur()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → PostgreSQL migration testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
         var factory = new NpgsqlTestFactory(PgUrl!);
 
         // 1) TEMİZ ŞEMA (boş dev DB) — her koşu sıfırdan.
-        using (var conn = factory.Create())
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
-            cmd.ExecuteNonQuery();
-        }
+        // GÜVENLİK KAPISI: şema YALNIZ doğrulanmış boş test veritabanında sıfırlanır (bkz. PostgresTestGuard).
+        PostgresTestGuard.ResetSchema(factory);
 
         // 2) Tüm migration'ları çalıştır.
         var runner = new MigrationRunner(factory);

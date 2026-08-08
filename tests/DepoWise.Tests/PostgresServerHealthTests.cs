@@ -20,7 +20,7 @@ public class PostgresServerHealthTests
     [SkippableFact]
     public void Saglik_Kontrolu_PostgreSQLde_Calisir()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → PostgreSQL health testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
         // GERÇEK üretim factory'si (DepoWise.Api) — bağlantı açma + DatabasePath etiketi de kanıtlanır.
         var factory = new DepoWise.Api.PostgresConnectionFactory(PgUrl!);
 

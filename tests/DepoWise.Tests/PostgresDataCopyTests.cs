@@ -43,7 +43,7 @@ public class PostgresDataCopyTests : IDisposable
     [SkippableFact]
     public void Copier_SQLite_Verisini_PostgreSQLe_Dogru_Tasir()
     {
-        Skip.If(string.IsNullOrWhiteSpace(PgUrl), "DEPOWISE_PG_URL yok → veri kopyalama testi atlandı.");
+        PostgresTestGuard.SkipUnlessSafe();
 
         // 1) KAYNAK: SQLite'ta zengin, gerçekçi veri kur.
         var sqlite = new SqliteConnectionFactory(_sqlitePath);
@@ -93,12 +93,8 @@ public class PostgresDataCopyTests : IDisposable
 
         // 2) HEDEF: temiz Neon şeması (53 migration).
         var pg = new PostgresMigrationTests.NpgsqlTestFactory(PgUrl!);
-        using (var conn = pg.Create())
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "DROP SCHEMA public CASCADE; CREATE SCHEMA public;";
-            cmd.ExecuteNonQuery();
-        }
+        // GÜVENLİK KAPISI: şema YALNIZ doğrulanmış boş test veritabanında sıfırlanır (bkz. PostgresTestGuard).
+        PostgresTestGuard.ResetSchema(pg);
         new MigrationRunner(pg).Run();
 
         // 3) KOPYALA.
