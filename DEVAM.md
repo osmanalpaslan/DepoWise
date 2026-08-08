@@ -45,7 +45,24 @@ diğerine geçilmiyor. **Faz 1 = temel** (ekran ve geçiş kuralları Faz 2'de).
 - **UI:** Talep Formu'nda (masaüstü + web) Öncelik · Onay Durumu · Operasyon Durumu kolonları, renkli rozet.
 - +18 test, tüm paket **743/0** (11 PG atlandı). ✅ **YAYINLANDI:** API (health 200, Migration060 canlıda —
   `/api/requests` 200 yeni kolonları okuyor, dbSize 14.6 MB veri sağlam) + web (200) + masaüstü **1.0.127**.
-- **SIRADAKİ: FAZ 2** — "Talep Operasyonları" ekranı (masaüstü+web) + geçiş matrisi (önce kullanıcı onayı).
+### ✅ FAZ 2 BİTTİ (2026-08-08) — Talep Operasyonları ekranı + geçiş matrisi (Migration061)
+- **Geçiş matrisi KULLANICI ONAYLI.** Kullanıcı düzeltmesi uygulandı: **"Teslim Edildi → Kısmen Karşılandı"
+  KALDIRILDI** (Faz 3'te miktar bazlı ele alınacak). Elden teslim (Depodan/Yola Çıktı → Teslim Edildi) ve
+  kaynak değişikliği geçişleri korundu; Tamamlandı/İptal terminal; terminal olmayan her durumdan İptal'e geçilir.
+- **Yetki (onaylı):** `request_ops` (ekran + genel adımlar) · `request_ops_purchase` (satın alma adımları) ·
+  `request_ops_warehouse` (depo/sevkiyat/teslim) · firma admini + süper admin bypass.
+- **Migration061** (additive, NULL'a izinli, geri-doldurma YOK): `ops_from_branch_id`, `ops_to_branch_id`,
+  `ops_note` + `request_status_history.op_branch_id`.
+- **Güvenlik:** işlemin yapıldığı şube (`op_branch_id`) **istemciden alınmaz**, oturumun çalışma şubesinden
+  yazılır; gönderen/gönderilecek şube firmaya aitlik doğrulamasından geçer. Operasyon geçmişi `kind='operation'`
+  ile onay geçmişinden ayrı; hiçbir kayıt silinmez.
+- **Ekranlar:** masaüstü "Talep Operasyonları" (liste + işlem paneli + geçmiş, menüde Talepler altında) ve
+  web `/request-operations`. Durum listesi **iki platformda da sunucudan** gelir (matris kopyalanmaz).
+- **FAZ 2 SINIRI korundu:** kısmi miktar, alternatif malzeme, bölme, satın alma detayları, teslim alan/şekli,
+  dosya eki, bildirim ve **otomatik stok hareketleri YOK** (test: stok değişmiyor).
+- +24 test, tüm paket **767/0**. ✅ **YAYINLANDI:** API (health 200; `/api/request-ops` 200 → Migration061 canlıda;
+  dbSize 14.6 MB veri sağlam) + web (200) + masaüstü **1.0.128**.
+- **SIRADAKİ: FAZ 3** — kısmi karşılama (miktar), alternatif malzeme, talebin bölünmesi + otomatik stok hareketleri.
 
 ## (önceki) 2026-08-08k — "Bakım Ekibi Stoğundan Kullanıldı" seçeneği
 
