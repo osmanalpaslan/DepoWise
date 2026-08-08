@@ -135,6 +135,26 @@ else
                 </MudSelect>
             </MudItem>
         }
+        @* Talep Eden filtresi (Talep Raporu) — mevcut personel listesini kullanır (ayrı seçim durumu). *@
+        @if (_sel?.UsesRequester == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_requesterSel" Label="Talep Eden" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} kişi")">
+                    @foreach (var pe in _technicians) { <MudSelectItem T="string" Value="@pe.Id">@pe.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
+        @* Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar (iptal/reddedilen dâhil). *@
+        @if (_sel?.UsesStatus == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_statusSel" Label="Durum" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} durum")">
+                    @foreach (var st in _requestStatuses) { <MudSelectItem T="string" Value="@st.Id">@st.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
         <MudItem xs="6" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="_busy">Sorgula</MudButton></MudItem>
         <MudItem xs="6" md="2">
             <MudTooltip Text="Seçili rapor ve filtrelerle TÜM sonucu Excel'e aktarır (yetki gerekir).">
@@ -268,7 +288,7 @@ else
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
         bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool UsesMaintenanceDef, bool UsesTechnician,
-        bool UsesSupplier, bool RequiresDate, bool Manager, string? InfoNote);
+        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -312,11 +332,13 @@ else
     private IReadOnlyCollection<string> _maintDefSel = new HashSet<string>();
     private IReadOnlyCollection<string> _techSel = new HashSet<string>();
     private IReadOnlyCollection<string> _supplierSel = new HashSet<string>();
+    private IReadOnlyCollection<string> _requesterSel = new HashSet<string>();
+    private IReadOnlyCollection<string> _statusSel = new HashSet<string>();
     private string? _vehSearch;
     private bool _showBranchSelect;   // btn-branch-select yetkisi (yoksa şube seçici gizli — sunucu da zorlar)
 
     private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new(), _vehicleTypes = new(),
-        _maintenanceDefs = new(), _technicians = new(), _suppliers = new();
+        _maintenanceDefs = new(), _technicians = new(), _suppliers = new(), _requestStatuses = new();
 
     // Araç arama (Türkçe-doğru "içerir") — Tümünü Seç yalnız listelenenleri (arama yoksa tümünü) ekler (rule 7).
     private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
@@ -461,6 +483,7 @@ else
                 Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
                 Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "usesVehicleType"),
                 Bool(e, "usesMaintenanceDef"), Bool(e, "usesTechnician"), Bool(e, "usesSupplier"),
+                Bool(e, "usesRequester"), Bool(e, "usesStatus"),
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
         }
@@ -489,8 +512,10 @@ else
             _maintenanceDefs = Read(doc, "maintenanceDefs", "id", "name");
             _technicians = Read(doc, "technicians", "id", "name");
             _suppliers = Read(doc, "suppliers", "id", "name");
+            _requestStatuses = Read(doc, "requestStatuses", "id", "name");   // sabit liste (sunucu = tek doğru kaynak)
             _branchSel = new HashSet<string>(); _vehicleSel = new HashSet<string>(); _vehTypeSel = new HashSet<string>();
-            _maintDefSel = new HashSet<string>(); _techSel = new HashSet<string>(); _supplierSel = new HashSet<string>(); _vehSearch = null;
+            _maintDefSel = new HashSet<string>(); _techSel = new HashSet<string>(); _supplierSel = new HashSet<string>();
+            _requesterSel = new HashSet<string>(); _statusSel = new HashSet<string>(); _vehSearch = null;
         }
         catch { }
     }
@@ -521,6 +546,8 @@ else
                 maintenanceDefIds = _sel?.UsesMaintenanceDef == true ? _maintDefSel.ToList() : new List<string>(),
                 technicianIds = _sel?.UsesTechnician == true ? _techSel.ToList() : new List<string>(),
                 supplierIds = _sel?.UsesSupplier == true ? _supplierSel.ToList() : new List<string>(),
+                requesterIds = _sel?.UsesRequester == true ? _requesterSel.ToList() : new List<string>(),
+                statuses = _sel?.UsesStatus == true ? _statusSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var doc = await Api.PostJsonAsync($"/api/reports/{_selKey}", body);
@@ -560,6 +587,8 @@ else
                 maintenanceDefIds = _sel?.UsesMaintenanceDef == true ? _maintDefSel.ToList() : new List<string>(),
                 technicianIds = _sel?.UsesTechnician == true ? _techSel.ToList() : new List<string>(),
                 supplierIds = _sel?.UsesSupplier == true ? _supplierSel.ToList() : new List<string>(),
+                requesterIds = _sel?.UsesRequester == true ? _requesterSel.ToList() : new List<string>(),
+                statuses = _sel?.UsesStatus == true ? _statusSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");

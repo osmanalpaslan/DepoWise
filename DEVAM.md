@@ -27,7 +27,25 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08h — Depo Girişi raporu ortak standarda taşındı)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08i — Talep raporu ortak standarda taşındı)
+
+### 🆕 Talep Raporu yeniden tasarım (2026-08-08, Opus 5) — ortak standart
+Kullanıcı isteği. Her talep tek satır (belge listesi). **8 kolon:** Şube · Belge No · Tarih · Talep Eden ·
+Onaylayan · Durum · Kalem Sayısı · Açıklama. Kalem = `material_request_items` SATIR adedi (miktar toplamı değil).
+Reddedilen/iptal talepler **listede kalır** (Durum filtresiyle daraltılır). Bu raporda para/araç olmadığı için
+₺/km/saat standartları uygulanmadı (kullanıcı kararı).
+- **Yeni filtreler (uçtan uca):** Durum (çoklu, sabit liste) + Talep Eden (çoklu, mevcut personel listesi) —
+  `ReportRequest.RequesterIds/Statuses`, `ReportFilters.Requester|Status`, API DTO + scope (`requestStatuses`;
+  Talep Eden ayrı sorgu ÇEKMEZ, mevcut personel listesini kullanır) + katalog bayrakları + masaüstü/web picker.
+- **`RequestStatusOptions`** (Application) = durum listesi + Türkçe etiket için TEK doğru kaynak; hem filtre
+  listesi hem rapor etiketi (eski `StatusTr` buna delege edildi) → iki platform aynı değerleri kullanır.
+- **Performans:** correlated subquery KALDIRILDI → kalem sayısı `request_id` bazında derived-table'da sayılıp
+  1:1 LEFT JOIN. N+1 yok. Varsayılan sıralama: Şube → Tarih (yeni önce). Migration YOK.
+- **Toplam (pinned):** talep sayısı (TOPLAM etiketinde) + toplam kalem; diğer kolonlar boş.
+- Değişen: ReportModels (ReportRequest+2), ReportCatalog (ReportFilters+2, RequestStatusOptions, requests tanımı+
+  InfoNote), ReportService.Requests (yeniden yazım), Program.cs (DTO+scope+katalog), ReportsViewModel +
+  ReportsView.axaml, Reports.razor. Build 0 hata, test **709/0** (11 PG atlandı) — +17 RequestReportTests.
+
 
 ### 🆕 Depo Girişi raporu yeniden tasarım (2026-08-08, Opus 4.8) — ortak standart
 Kullanıcı isteği. Depoya alınan yakıt alım kayıtları; her giriş tek satır. **8 kolon:** Şube (işlenen/op_branch_id) ·

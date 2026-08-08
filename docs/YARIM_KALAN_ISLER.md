@@ -29,7 +29,12 @@ ayrı analiz edilir (hesap kopyalanmaz). Sıra: **ANALİZ → KAPSAM → GELİŞ
 - ✅ **Depo Girişi** (2026-08-08) — CANLI (API+web+masaüstü **1.0.122**). 8 kolon (Şube/Tarih/Tedarikçi/Litre/
   Birim Fiyat/Tutar/Fatura No/Para Birimi), yeni **Tedarikçi** filtresi (uçtan uca), pinned toplam (litre+tutar+
   ağırlıklı ort. birim fiyat). Para birimi: kur dönüşümü yok → mevcut davranış + Para Birimi kolonu + InfoNote. Test 692/0 (+10).
-- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Talep / Stok Sayım / Stok Durumu). Önce ANALİZ.
+- ✅ **Talep Raporu** (2026-08-08) — CANLI (API+web+masaüstü **1.0.123**). 8 kolon (Şube/Belge No/Tarih/Talep Eden/
+  Onaylayan/Durum/Kalem Sayısı/Açıklama), yeni **Durum + Talep Eden** filtreleri (uçtan uca), pinned toplam
+  (talep + kalem sayısı), kalem = satır adedi, red/iptal listede kalır. `RequestStatusOptions` = durum tek kaynağı.
+  Correlated subquery kaldırıldı (derived-table). Test 709/0 (+17).
+- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Stok Sayım / Stok Durumu — standart raporlarda kalan son ikisi;
+  ardından yönetici raporları). Önce ANALİZ.
   **İleride ayrı iş adayı:** bakım işçilik/servis maliyeti (şema + form), çoklu para birimi kur dönüşümü,
   **"Alan/Kolon Yönetimi" ekranı** (tüm raporlar standarda geçtikten sonra + özel-alan özelliğiyle birlikte).
 

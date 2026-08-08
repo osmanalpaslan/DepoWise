@@ -51,6 +51,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowMaintenanceDef))]
     [NotifyPropertyChangedFor(nameof(ShowTechnician))]
     [NotifyPropertyChangedFor(nameof(ShowSupplier))]
+    [NotifyPropertyChangedFor(nameof(ShowRequester))]
+    [NotifyPropertyChangedFor(nameof(ShowStatus))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -62,6 +64,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool ShowMaintenanceDef => SelectedReport?.UsesMaintenanceDef == true;
     public bool ShowTechnician => SelectedReport?.UsesTechnician == true;
     public bool ShowSupplier => SelectedReport?.UsesSupplier == true;
+    public bool ShowRequester => SelectedReport?.UsesRequester == true;
+    public bool ShowStatus => SelectedReport?.UsesStatus == true;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -77,6 +81,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<BranchPick> Technicians { get; } = new();
     /// <summary>Tedarikçi filtresi (Depo Girişi) — çoklu işaret.</summary>
     public ObservableCollection<BranchPick> Suppliers { get; } = new();
+    /// <summary>Talep eden filtresi (Talep Raporu) — mevcut personel listesinden; Teknisyen'den AYRI işaret durumu.</summary>
+    public ObservableCollection<BranchPick> Requesters { get; } = new();
+    /// <summary>Durum filtresi (Talep Raporu) — sabit liste (RequestStatusOptions); Id = DB değeri.</summary>
+    public ObservableCollection<BranchPick> Statuses { get; } = new();
     [ObservableProperty] private string _vehicleSearch = "";
     partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
@@ -137,6 +145,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadMaintenanceDefs();
         LoadTechnicians();
         LoadSuppliers();
+        LoadRequesters();
+        LoadStatuses();
         ApplyDateDefault();
     }
 
@@ -176,6 +186,19 @@ public sealed partial class ReportsViewModel : ViewModelBase
     {
         try { foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(new BranchPick(sp.Id, sp.Name)); }
         catch { }
+    }
+
+    /// <summary>Talep eden listesi — Teknisyen ile AYNI personel kaynağı, AYRI öğeler (işaret durumu karışmasın).</summary>
+    private void LoadRequesters()
+    {
+        try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Requesters.Add(new BranchPick(p.Id, p.Name)); }
+        catch { }
+    }
+
+    /// <summary>Talep durumları — sabit liste (web ile AYNI kaynak: RequestStatusOptions). Sorgu yok.</summary>
+    private void LoadStatuses()
+    {
+        foreach (var (key, label) in RequestStatusOptions.All) Statuses.Add(new BranchPick(key, label));
     }
 
     private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
@@ -277,6 +300,12 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var supplierIds = ShowSupplier
             ? Suppliers.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        var requesterIds = ShowRequester
+            ? Requesters.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
+        var statuses = ShowStatus
+            ? Statuses.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
@@ -286,7 +315,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
             VehicleTypeIds: typeIds,
             MaintenanceDefIds: defIds,
             TechnicianIds: techIds,
-            SupplierIds: supplierIds);
+            SupplierIds: supplierIds,
+            RequesterIds: requesterIds,
+            Statuses: statuses);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

@@ -13,6 +13,29 @@ public enum ReportFilters
     MaintenanceDef = 16,   // Bakım Raporu: bakım tanımı (ana) çoklu filtre
     Technician = 32,       // Bakım Raporu: teknisyen (personel) çoklu filtre
     Supplier = 64,         // Depo Girişi: tedarikçi çoklu filtre
+    Requester = 128,       // Talep Raporu: talep eden (personel) çoklu filtre
+    Status = 256,          // Talep Raporu: durum çoklu filtre (sabit liste — DB tanımı değil)
+}
+
+/// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
+/// picker) ve rapor görüntü etiketi buradan gelir; iki platform aynı değerleri kullanır. DB değeri = <c>Key</c>.</summary>
+public static class RequestStatusOptions
+{
+    public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
+    {
+        ("draft", "Taslak"),
+        ("pending", "Beklemede"),
+        ("approved", "Onaylı"),
+        ("rejected", "Reddedildi"),
+        ("cancelled", "İptal"),
+    };
+
+    /// <summary>DB durum değeri → kullanıcıya dönük Türkçe etiket. Bilinmeyen değer olduğu gibi döner.</summary>
+    public static string Label(string key)
+    {
+        foreach (var (k, l) in All) if (k == key) return l;
+        return key;
+    }
 }
 
 /// <summary>Rapor grubu — menü/Excel-yetki ayrımı. Standart = "Raporlar", Yönetici = "Yönetici Raporları".</summary>
@@ -47,6 +70,8 @@ public sealed record ReportDescriptor(
     public bool UsesMaintenanceDef => Filters.HasFlag(ReportFilters.MaintenanceDef);
     public bool UsesTechnician => Filters.HasFlag(ReportFilters.Technician);
     public bool UsesSupplier => Filters.HasFlag(ReportFilters.Supplier);
+    public bool UsesRequester => Filters.HasFlag(ReportFilters.Requester);
+    public bool UsesStatus => Filters.HasFlag(ReportFilters.Status);
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -92,8 +117,13 @@ public static class ReportCatalog
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Supplier, true, ExportStandard,
             InfoNote: "Depoya alınan yakıt giriş kayıtları. Şube, girişin işlendiği şubedir. Tutar = litre × birim fiyat. Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez."),
-        new ReportDescriptor("requests", "Talep Raporu", "Malzeme taleplerinin durum dökümü",
-            ReportCategory.Requests, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        // Talep Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her talep TEK satır (belge listesi);
+        // şube/talep eden/onaylayan/açıklama gösterilir, kalem sayısı derived-table'dan (correlated subquery YOK).
+        // Reddedilen/iptal talepler LİSTEDE KALIR (Durum filtresiyle daraltılır). Para/araç kolonu yoktur.
+        new ReportDescriptor("requests", "Talep Raporu", "Malzeme talepleri: şube, talep eden, onaylayan, durum, kalem",
+            ReportCategory.Requests, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Requester | ReportFilters.Status, true, ExportStandard,
+            InfoNote: "Her satır bir malzeme talebidir. Kalem sayısı, talepteki malzeme satırı adedidir (miktar toplamı değildir). Reddedilen ve iptal edilen talepler de listelenir; Durum filtresiyle daraltabilirsiniz."),
         new ReportDescriptor("materials-template", "Malzeme — Şablonlu", "Şablona bağlı malzeme kayıtları",
             ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
         new ReportDescriptor("materials-nontemplate", "Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler (incele/düzelt)",

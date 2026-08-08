@@ -735,6 +735,18 @@ ORDER BY d.doc_date DESC, m.code;";
             new[] { "Tarih", "Kod", "Malzeme", "Sistem", "Sayılan", "Fark", "Durum", "Gerekçe" }, rows);
     }
 
+    /// <summary>
+    /// TALEP RAPORU (kullanıcı isteği 2026-08-08) — ortak standarda taşındı. Her malzeme talebi TEK satır (belge
+    /// listesi). Şube = talebin şubesi (material_requests.branch_id — bu tabloda op_branch_id YOKTUR). Reddedilen ve
+    /// iptal edilen talepler LİSTEDE KALIR (durum birer statüdür, silme değil); kullanıcı Durum filtresiyle daraltır.
+    ///
+    /// PERFORMANS — correlated subquery KALDIRILDI: kalem sayısı request_id bazında TEK derived-table'da sayılıp
+    /// talebe 1:1 LEFT JOIN edilir. PG + SQLite ORTAK: CAST(COUNT(*) AS REAL) + COALESCE + standart LEFT JOIN
+    /// (sayım REAL alınır → PG bigint / SQLite int ayrımı GetDouble ile güvenli).
+    ///
+    /// Bu raporda PARA/ARAÇ yoktur → ₺, km/saat, ağırlıklı ortalama gibi standartlar UYGULANMAZ (kullanıcı kararı).
+    /// Kalem sayısı NumCell'dir: HAM değer sıralama/filtrede, görüntü hücrede (0 → "-").
+    /// </summary>
     public TableModel Requests(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -743,29 +755,75 @@ ORDER BY d.doc_date DESC, m.code;";
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        var reqIn = InList("mr.requester_id", "@rq", req.RequesterIds);
+        var stIn = InList("mr.status", "@rs", req.Statuses);
         cmd.CommandText = @"
-SELECT mr.doc_no, mr.request_date, mr.status,
-       (SELECT CAST(COUNT(*) AS INTEGER) FROM material_request_items i WHERE i.request_id = mr.id)
+SELECT COALESCE(b.name,'') AS branch_name, mr.doc_no, mr.request_date,
+       COALESCE(pr.full_name,''), COALESCE(pa.full_name,''),
+       mr.status, COALESCE(it.cnt,0), COALESCE(mr.description,'')
 FROM material_requests mr
-WHERE mr.company_id=@c AND mr.is_deleted=0" + ReportScope.BranchSql(s, req, "mr.branch_id") + @"
-" + DateFilter(req, "mr.request_date") + @"
-ORDER BY mr.request_date DESC;";
+LEFT JOIN branches b ON b.id = mr.branch_id
+LEFT JOIN personnel pr ON pr.id = mr.requester_id
+LEFT JOIN personnel pa ON pa.id = mr.approver_id
+LEFT JOIN (
+    SELECT i.request_id, CAST(COUNT(*) AS REAL) AS cnt
+    FROM material_request_items i
+    JOIN material_requests mrx ON mrx.id = i.request_id
+    WHERE mrx.company_id=@c
+    GROUP BY i.request_id
+) it ON it.request_id = mr.id
+WHERE mr.company_id=@c AND mr.is_deleted=0"
+            + ReportScope.BranchSql(s, req, "mr.branch_id") + reqIn + stIn
+            + DateFilter(req, "mr.request_date") + @"
+ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (yeni önce)
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req); ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@rq", req.RequesterIds);
+        BindList(cmd, "@rs", req.Statuses);
+
         var rows = new List<IReadOnlyList<object?>>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            rows.Add(new object?[] { r.GetString(0), D(r.GetInt64(1)), StatusTr(r.GetString(2)), r.GetInt32(3) });
-        return new TableModel("Talep Raporu", new[] { "Belge No", "Tarih", "Durum", "Kalem" }, rows);
+        double tItems = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                double items = r.GetDouble(6);
+                rows.Add(new object?[]
+                {
+                    r.GetString(0),                       // Şube
+                    r.GetString(1),                       // Belge No
+                    D(r.IsDBNull(2) ? null : r.GetInt64(2)), // Tarih
+                    r.GetString(3),                       // Talep Eden
+                    r.GetString(4),                       // Onaylayan
+                    StatusTr(r.GetString(5)),             // Durum (Türkçe etiket)
+                    Num(items, FmtCount),                 // Kalem Sayısı (HAM + görüntü)
+                    r.GetString(7),                       // Açıklama
+                });
+                tItems += items;
+            }
+
+        // Pinned toplam: talep sayısı (TOPLAM etiketinde) + toplam kalem sayısı; diğer kolonlar boş (kullanıcı kararı).
+        IReadOnlyList<object?>? totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM (" + FmtCount(rows.Count) + " talep)",
+            "", "", "", "", "",
+            Num(tItems, FmtCount),
+            "",
+        };
+
+        // Kolon-tipi: yalnız Kalem Sayısı(6) sayısal; kalanlar metin (Tarih dâhil — biçimli metin).
+        var numeric = new[] { false, false, false, false, false, false, true, false };
+
+        return new TableModel("Talep Raporu", new[]
+        {
+            "Şube", "Belge No", "Tarih", "Talep Eden", "Onaylayan", "Durum", "Kalem Sayısı", "Açıklama",
+        }, rows, numeric, totalRow);
     }
 
     private static string D(long? ms) => ms is null or 0 ? "" : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).LocalDateTime.ToString("dd.MM.yyyy");
 
-    private static string StatusTr(string s) => s switch
-    {
-        "draft" => "Taslak", "pending" => "Beklemede", "approved" => "Onaylı",
-        "rejected" => "Reddedildi", "cancelled" => "İptal", _ => s
-    };
+    /// <summary>Talep durumu → Türkçe etiket. TEK doğru kaynak: <see cref="RequestStatusOptions"/> (filtre listesiyle aynı).</summary>
+    private static string StatusTr(string s) => RequestStatusOptions.Label(s);
 
     private static string DateFilter(ReportRequest req, string col)
     {
