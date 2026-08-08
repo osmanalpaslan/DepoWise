@@ -47,7 +47,13 @@ yalnız alan içinde). Mevcut `AutoCompleteBox` bunu desteklemiyordu → **yeni 
   Vehicles (~30 alan). Gösterim alanı: VehicleListRow→Display, PersonnelRecord→FullName, diğerleri→Name.
   **İstisna:** VehicleQuickEditWindow diyalogundaki `DriverBox` code-behind ile yönetildiğinden AutoCompleteBox
   kaldı (ana Araçlar formundaki Sürücü dönüştü). ComboBox alanlara dokunulmadı (zaten tıkta açılır). Build 0 hata,
-  test 649/0. ✅ **YAYINLANDI: masaüstü 1.0.116** (web/API değişmedi). ⏭️ Sonra: rapor süreçlerine dönüş.
+  test 649/0. ✅ **YAYINLANDI: masaüstü 1.0.116** (web/API değişmedi).
+- ✅ **ARAÇLAR EKRANI DÜZELTİLDİ (2026-08-08c):** Kullanıcı: Araçlar'da yalnız Sürücü doğru; diğer tanım alanları
+  farklı (arama yok). Kök neden: Araçlar bu alanlar için `AutoCompleteBox` değil **ComboBox** kullanıyordu
+  (arama/sayfalama yok), bu yüzden ilk yayılımda atlanmıştı. Düzeltme: Araçlar formundaki 6 tanım ComboBox'ı
+  (Şablon, Makine Tipi, Kategori, Marka, Model, Şantiye/Şube) LookupBox'a çevrildi → hepsi sol-tık liste + arama +
+  sayfalama, Sürücü ile aynı. Durum/Birim/Sayfa-boyutu sabit enum → ComboBox bırakıldı. Build 0 hata. ✅ **YAYINLANDI:
+  masaüstü 1.0.117.** ⏭️ Sonra: rapor süreçlerine dönüş.
 
 
 

@@ -48,10 +48,9 @@
                      "şablon-dışı" bir aracı sonradan şablona bağlayıp raporda "şablonlu"ya taşımak için. -->
                 <ctrl:FormField Label="Şablon (Araç Genel Tanım)"
                                 HelpText="Yeni kayıtta alanları önden doldurur; düzenlemede bu aracı şablona bağlar (alanları değiştirmez).">
-                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
-                              ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:VehicleTemplateRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <ctrl:LookupBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
+                              PlaceholderText="Şablon seç / ara..."/>
                 </ctrl:FormField>
 
                 <SelectableTextBlock Text="Tanım" Classes="CardLabel"/>
@@ -101,10 +100,9 @@
                 <ctrl:FormField Label="Makine Tipi">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding VehicleTypes}" SelectedItem="{Binding SelVehicleType}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding VehicleTypes}" SelectedItem="{Binding SelVehicleType}"
+                                      PlaceholderText="Makine tipi seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingType}">
@@ -118,10 +116,9 @@
                 <ctrl:FormField Label="Kategori">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding VehicleCategories}" SelectedItem="{Binding SelCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding VehicleCategories}" SelectedItem="{Binding SelCategory}"
+                                      PlaceholderText="Kategori seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCat}">
@@ -135,10 +132,9 @@
                 <ctrl:FormField Label="Marka">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding VehicleBrands}" SelectedItem="{Binding SelBrand}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding VehicleBrands}" SelectedItem="{Binding SelBrand}"
+                                      PlaceholderText="Marka seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
@@ -152,10 +148,9 @@
                 <ctrl:FormField Label="Model">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding VehicleModels}" SelectedItem="{Binding SelModel}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding VehicleModels}" SelectedItem="{Binding SelModel}"
+                                      PlaceholderText="Model seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingModel}">
@@ -171,10 +166,9 @@
                 <ctrl:FormField Label="Şantiye / Şube">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Branches}" SelectedItem="{Binding SelBranch}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Branches}" SelectedItem="{Binding SelBranch}"
+                                      PlaceholderText="Şantiye / şube seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBranchCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBranch}">
