@@ -504,6 +504,9 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan s�
     // ── Araç Raporu görüntü biçimleri (kullanıcı isteği 2026-08-08). Yalnız GÖRÜNTÜ; HAM değer NumCell.Value'da. ──
     private static readonly CultureInfo Tr = CultureInfo.GetCultureInfo("tr-TR");
     private static NumCell Num(double v, Func<double, string> fmt) => v == 0 ? new NumCell(0, "-") : new NumCell(v, fmt(v));
+    /// <summary>TEXT decimal (invariant) → double; boş/geçersiz → 0. performed_km/hour gibi metin sayaç alanları için
+    /// (PG'de CAST('' AS REAL) hata verir; bu yüzden C# tarafında güvenli ayrıştırılır).</summary>
+    private static double PNum(string s) => double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
     private static string FmtCount(double v) => v.ToString("#,##0", Tr);
     private static string FmtMoney(double v) => "₺ " + v.ToString("#,##0.00", Tr);
     private static string FmtLiter(double v) => v.ToString("#,##0.00", Tr) + " L";
@@ -511,6 +514,19 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan s�
     private static string FmtConsumption(double v, string unit) => v.ToString("#,##0.00", Tr) + (unit == "hour" ? " L/Saat" : " L/km");
     private static string FmtPerUnit(double v, string unit) => "₺ " + v.ToString("#,##0.00", Tr) + (unit == "hour" ? "/Saat" : "/km");
 
+    /// <summary>
+    /// BAKIM RAPORU (kullanıcı isteği 2026-08-08) — ortak standarda taşındı. Her bakım kaydı TEK satır (detay/işlem
+    /// listesi; araç başına toplu DEĞİL). İptal edilen (is_cancelled) kayıtlar hariç. Şube = bakımın İŞLENDİĞİ şube
+    /// (op_branch_id). Sayaç, bakımın yapıldığı andaki değerdir; araç birimine (km/saat) duyarlı. Maliyet YALNIZ
+    /// bakım malzemelerini kapsar (işçilik/servis alanı yok — rule 5).
+    ///
+    /// PERFORMANS — correlated subquery KALDIRILDI (rule 9): malzeme maliyeti + kalem sayısı maintenance_id bazında
+    /// TEK derived-table'da toplanıp bakıma 1:1 LEFT JOIN edilir. PG + SQLite ORTAK: yalnız CAST(... AS REAL) +
+    /// COALESCE + standart JOIN + GROUP BY; sayım REAL alınır (bigint/int ayrımı GetDouble ile güvenli).
+    ///
+    /// TOPLAM (rule 6): bakım kayıt sayısı (TOPLAM etiketinde), malzeme kalem sayısı ve malzeme maliyeti toplanır;
+    /// Sayaç TOPLANMAZ (km↔saat karışımı anlamsız toplam üretir). Filtre/sıralama dışı pinned satır.
+    /// </summary>
     public TableModel Maintenance(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -519,24 +535,92 @@ ORDER BY COALESCE(bch.name,''), veh_name, v.internal_code;";   // varsayılan s�
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        var vehIn = InList("v.id", "@mv", req.VehicleIds);
+        var typeIn = InList("v.vehicle_type_id", "@mt", req.VehicleTypeIds);
+        var defIn = InList("vm.maintenance_def_id", "@md", req.MaintenanceDefIds);
+        var techIn = InList("vm.technician_id", "@tp", req.TechnicianIds);
         cmd.CommandText = @"
-SELECT vm.performed_date, v.internal_code, d.name, COALESCE(p.full_name,''),
-       (SELECT COALESCE(SUM(CAST(mm.quantity AS REAL)*CAST(COALESCE(mm.unit_price,'0') AS REAL)),0)
-        FROM maintenance_materials mm WHERE mm.maintenance_id = vm.id)
+SELECT COALESCE(bch.name,'') AS branch_name, vm.performed_date,
+       v.internal_code, COALESCE(v.plate,''),
+       TRIM(COALESCE(br.name,'') || ' ' || COALESCE(vmd.name,'')) AS veh_name,
+       COALESCE(vt.name,'') AS type_name, COALESCE(d.name,'') AS def_name, COALESCE(sd.name,'') AS sub_name,
+       v.meter_unit, COALESCE(vm.performed_km,''), COALESCE(vm.performed_hour,''),
+       COALESCE(p.full_name,''),
+       COALESCE(mm.itemcount,0), COALESCE(mm.matcost,0)
 FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
-JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
+LEFT JOIN branches bch ON bch.id = vm.op_branch_id
+LEFT JOIN brands br ON br.id = v.brand_id
+LEFT JOIN vehicle_models vmd ON vmd.id = v.vehicle_model_id
+LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
+LEFT JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
+LEFT JOIN maintenance_definitions sd ON sd.id = vm.sub_definition_id
 LEFT JOIN personnel p ON p.id = vm.technician_id
-WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0" + ReportScope.BranchSql(s, req, "vm.op_branch_id") + @"
-" + DateFilter(req, "vm.performed_date") + @"
-ORDER BY vm.performed_date DESC;";
+LEFT JOIN (
+    SELECT mm.maintenance_id,
+      CAST(COUNT(*) AS REAL) AS itemcount,
+      SUM(CAST(mm.quantity AS REAL) * CAST(COALESCE(mm.unit_price,'0') AS REAL)) AS matcost
+    FROM maintenance_materials mm
+    JOIN vehicle_maintenances vmx ON vmx.id = mm.maintenance_id
+    WHERE vmx.company_id=@c
+    GROUP BY mm.maintenance_id
+) mm ON mm.maintenance_id = vm.id
+WHERE vm.company_id=@c AND vm.is_deleted=0 AND vm.is_cancelled=0"
+            + ReportScope.BranchSql(s, req, "vm.op_branch_id") + vehIn + typeIn + defIn + techIn
+            + DateFilter(req, "vm.performed_date") + @"
+ORDER BY branch_name, vm.performed_date DESC, v.internal_code;";   // varsayılan: Şube -> Tarih (yeni önce)
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req); ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@mv", req.VehicleIds);
+        BindList(cmd, "@mt", req.VehicleTypeIds);
+        BindList(cmd, "@md", req.MaintenanceDefIds);
+        BindList(cmd, "@tp", req.TechnicianIds);
+
         var rows = new List<IReadOnlyList<object?>>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            rows.Add(new object?[] { D(r.IsDBNull(0) ? null : r.GetInt64(0)), r.GetString(1), r.GetString(2), r.GetString(3), r.GetDouble(4) });
-        return new TableModel("Bakım Raporu", new[] { "Tarih", "Araç", "Bakım", "Teknisyen", "Malzeme Maliyeti" }, rows);
+        double tItems = 0, tCost = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var meterUnit = r.GetString(8);
+                double sayac = meterUnit == "hour" ? PNum(r.GetString(10)) : PNum(r.GetString(9));
+                double items = r.GetDouble(12), cost = r.GetDouble(13);
+                rows.Add(new object?[]
+                {
+                    r.GetString(0),                                   // Şube (işlenen)
+                    D(r.IsDBNull(1) ? null : r.GetInt64(1)),          // Tarih
+                    r.GetString(2),                                   // Araç İç Kod
+                    r.GetString(3),                                   // Plaka
+                    r.GetString(4).Trim(),                            // Araç Adı (marka+model)
+                    r.GetString(5),                                   // Araç Türü
+                    r.GetString(6),                                   // Bakım
+                    r.GetString(7),                                   // Alt Bakım
+                    Num(sayac, x => FmtDistance(x, meterUnit)),       // Sayaç (km/saat)
+                    r.GetString(11),                                  // Teknisyen
+                    Num(items, FmtCount),                             // Malzeme Kalem Sayısı
+                    Num(cost, FmtMoney),                              // Malzeme Maliyeti
+                });
+                tItems += items; tCost += cost;
+            }
+
+        // Pinned toplam (rule 6): kayıt sayısı TOPLAM etiketinde; kalem + maliyet toplanır; Sayaç toplanmaz (karışık birim).
+        IReadOnlyList<object?>? totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM (" + FmtCount(rows.Count) + " kayıt)",
+            "", "", "", "", "", "", "", "",              // Tarih..Sayaç (indeks 1-8) boş
+            "",                                           // Teknisyen (indeks 9) boş
+            Num(tItems, FmtCount),                        // Kalem toplamı
+            Num(tCost, FmtMoney),                         // Maliyet toplamı
+        };
+
+        // Kolon-tipi: yalnız Sayaç(8) + Kalem(10) + Maliyet(11) sayısal; kalanlar metin (Tarih dâhil — biçimli metin).
+        var numeric = new[] { false, false, false, false, false, false, false, false, true, false, true, true };
+
+        return new TableModel("Bakım Raporu", new[]
+        {
+            "Şube", "Tarih", "Araç İç Kod", "Plaka", "Araç Adı", "Araç Türü",
+            "Bakım", "Alt Bakım", "Sayaç", "Teknisyen", "Malzeme Kalem Sayısı", "Malzeme Maliyeti",
+        }, rows, numeric, totalRow);
     }
 
     public TableModel FuelDepot(SessionContext s, ReportRequest req)

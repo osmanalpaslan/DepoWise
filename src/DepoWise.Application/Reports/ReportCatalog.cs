@@ -10,6 +10,8 @@ public enum ReportFilters
     Branch = 2,
     Vehicle = 4,
     VehicleType = 8,
+    MaintenanceDef = 16,   // Bakım Raporu: bakım tanımı (ana) çoklu filtre
+    Technician = 32,       // Bakım Raporu: teknisyen (personel) çoklu filtre
 }
 
 /// <summary>Rapor grubu — menü/Excel-yetki ayrımı. Standart = "Raporlar", Yönetici = "Yönetici Raporları".</summary>
@@ -41,6 +43,8 @@ public sealed record ReportDescriptor(
     public bool UsesBranch => Filters.HasFlag(ReportFilters.Branch);
     public bool UsesVehicle => Filters.HasFlag(ReportFilters.Vehicle);
     public bool UsesVehicleType => Filters.HasFlag(ReportFilters.VehicleType);
+    public bool UsesMaintenanceDef => Filters.HasFlag(ReportFilters.MaintenanceDef);
+    public bool UsesTechnician => Filters.HasFlag(ReportFilters.Technician);
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -71,8 +75,14 @@ public static class ReportCatalog
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
             InfoNote: "Yakıt tüketimi ve mesafe, seçilen tarih aralığındaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez."),
-        new ReportDescriptor("maintenance", "Bakım Raporu", "Yapılan bakım kayıtları ve malzeme maliyeti",
-            ReportCategory.Maintenance, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        // Bakım Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her bakım kaydı TEK satır (detay/işlem
+        // listesi), işlenen şube (op_branch_id), km/saat duyarlı sayaç, malzeme maliyeti + kalem sayısı derived-table'dan
+        // (correlated subquery YOK). Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü + Bakım Tanımı + Teknisyen.
+        new ReportDescriptor("maintenance", "Bakım Raporu", "Bakım kayıtları: tanım/alt bakım, sayaç, teknisyen, malzeme maliyeti",
+            ReportCategory.Maintenance, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType
+            | ReportFilters.MaintenanceDef | ReportFilters.Technician, true, ExportStandard,
+            InfoNote: "Her satır bir bakım kaydıdır (iptal edilenler hariç). Şube, bakımın işlendiği şubedir. Sayaç, bakımın yapıldığı andaki değerdir (araç birimi km ya da saat). Maliyet yalnızca bakım malzemelerini kapsar; işçilik/servis dâhil değildir."),
         new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt hareketleri",
             ReportCategory.Fuel, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
         new ReportDescriptor("requests", "Talep Raporu", "Malzeme taleplerinin durum dökümü",

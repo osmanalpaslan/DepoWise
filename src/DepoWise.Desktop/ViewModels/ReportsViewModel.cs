@@ -48,6 +48,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowBranchSelect))]
     [NotifyPropertyChangedFor(nameof(ShowVehicleSelect))]
     [NotifyPropertyChangedFor(nameof(ShowVehicleType))]
+    [NotifyPropertyChangedFor(nameof(ShowMaintenanceDef))]
+    [NotifyPropertyChangedFor(nameof(ShowTechnician))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -56,6 +58,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool ShowBranchSelect => SelectedReport?.UsesBranch == true && CanSelectBranches;
     public bool ShowVehicleSelect => SelectedReport?.UsesVehicle == true;
     public bool ShowVehicleType => SelectedReport?.UsesVehicleType == true;
+    public bool ShowMaintenanceDef => SelectedReport?.UsesMaintenanceDef == true;
+    public bool ShowTechnician => SelectedReport?.UsesTechnician == true;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -65,6 +69,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<VehiclePick> FilteredVehiclePicks { get; } = new();
     /// <summary>Araç türü filtresi (BranchPick = genel id/ad/işaret öğesi olarak yeniden kullanıldı).</summary>
     public ObservableCollection<BranchPick> VehicleTypes { get; } = new();
+    /// <summary>Bakım tanımı filtresi (Bakım Raporu) — çoklu işaret.</summary>
+    public ObservableCollection<BranchPick> MaintenanceDefs { get; } = new();
+    /// <summary>Teknisyen filtresi (Bakım Raporu) — çoklu işaret.</summary>
+    public ObservableCollection<BranchPick> Technicians { get; } = new();
     [ObservableProperty] private string _vehicleSearch = "";
     partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
@@ -122,6 +130,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadBranches();
         LoadVehiclePicks();
         LoadVehicleTypes();
+        LoadMaintenanceDefs();
+        LoadTechnicians();
         ApplyDateDefault();
     }
 
@@ -142,6 +152,18 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private void LoadVehicleTypes()
     {
         try { foreach (var t in DesktopServices.Lookups.List(_session, "vehicle_types")) VehicleTypes.Add(new BranchPick(t.Id, t.Name)); }
+        catch { }
+    }
+
+    private void LoadMaintenanceDefs()
+    {
+        try { foreach (var d in DesktopServices.MaintenanceDefs.List(_session)) MaintenanceDefs.Add(new BranchPick(d.Id, d.Name)); }
+        catch { }
+    }
+
+    private void LoadTechnicians()
+    {
+        try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Technicians.Add(new BranchPick(p.Id, p.Name)); }
         catch { }
     }
 
@@ -235,13 +257,21 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var typeIds = ShowVehicleType
             ? VehicleTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        var defIds = ShowMaintenanceDef
+            ? MaintenanceDefs.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
+        var techIds = ShowTechnician
+            ? Technicians.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
             ToDate: ShowDate ? ToDate?.ToUnixTimeMilliseconds() : null,
             BranchIds: branchIds,
             VehicleIds: vehicleIds,
-            VehicleTypeIds: typeIds);
+            VehicleTypeIds: typeIds,
+            MaintenanceDefIds: defIds,
+            TechnicianIds: techIds);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

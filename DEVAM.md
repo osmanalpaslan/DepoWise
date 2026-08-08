@@ -27,7 +27,23 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08f — Yakıt Tüketim raporu Araç Raporu standardına taşındı)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08g — Bakım Raporu ortak standarda taşındı)
+
+### 🆕 Bakım Raporu yeniden tasarım (2026-08-08, Opus 4.8) — ortak standart
+Kullanıcı isteği. Her bakım kaydı TEK satır (detay). **12 kolon:** Şube (işlenen/op_branch_id) · Tarih · Araç İç Kod ·
+Plaka · Araç Adı · Araç Türü · Bakım · Alt Bakım · Sayaç (km/saat duyarlı) · Teknisyen · Malzeme Kalem Sayısı ·
+Malzeme Maliyeti. Maliyet yalnız malzeme (işçilik alanı YOK — kullanıcı kararı, ileride ayrı iş).
+- **Yeni filtreler (uçtan uca):** Bakım Tanımı + Teknisyen — `ReportRequest.MaintenanceDefIds/TechnicianIds`,
+  `ReportFilters.MaintenanceDef|Technician`, API DTO + scope (`maintenanceDefs`/`technicians`) + katalog bayrakları,
+  masaüstü + web picker'ları. Ayrıca Araç + Araç Türü (mevcut) + Tarih + Şube (yetkili/fail-closed).
+- **Performans:** correlated subquery KALDIRILDI → malzeme maliyeti + kalem sayısı `maintenance_id` bazında tek
+  derived-table'da toplanıp bakıma 1:1 LEFT JOIN. N+1 yok. PG+SQLite ortak sözdizimi; migration YOK.
+- **Toplam (pinned, "A"):** kayıt sayısı (TOPLAM etiketinde) + malzeme kalem toplamı + malzeme maliyeti toplamı;
+  Sayaç toplanmaz (km↔saat karışımı). İptal (is_cancelled) kayıtlar hariç. Varsayılan sıralama: Şube → Tarih (yeni önce).
+- Değişen: ReportModels (ReportRequest+2), ReportCatalog (ReportFilters+2, maintenance tanımı+InfoNote),
+  ReportService.Maintenance (tam yeniden yazım), Program.cs (DTO+scope+katalog), ReportsViewModel + ReportsView.axaml,
+  Reports.razor. Build 0 hata, test **682/0** (11 PG atlandı) — +14 MaintenanceReportTests, ReportingTests kolon güncellendi.
+
 
 ### 🆕 Yakıt Tüketim raporu yeniden tasarım (2026-08-08, Opus 4.8) — Araç Raporu standardı
 Kullanıcı isteği. Mevcut "Yakıt Tüketim" raporu (ayrı yeni rapor DEĞİL) Araç Raporu standardına taşındı: tam filo

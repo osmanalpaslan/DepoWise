@@ -105,6 +105,26 @@ else
                 </div>
             </MudItem>
         }
+        @* Bakım Tanımı filtresi (Bakım Raporu) — sunucu tarafında vm.maintenance_def_id IN (...). *@
+        @if (_sel?.UsesMaintenanceDef == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_maintDefSel" Label="Bakım Tanımı" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} tanım")">
+                    @foreach (var md in _maintenanceDefs) { <MudSelectItem T="string" Value="@md.Id">@md.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
+        @* Teknisyen filtresi (Bakım Raporu) — sunucu tarafında vm.technician_id IN (...). *@
+        @if (_sel?.UsesTechnician == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_techSel" Label="Teknisyen" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tümü" : $"{v.Count} kişi")">
+                    @foreach (var tc in _technicians) { <MudSelectItem T="string" Value="@tc.Id">@tc.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        }
         <MudItem xs="6" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="_busy">Sorgula</MudButton></MudItem>
         <MudItem xs="6" md="2">
             <MudTooltip Text="Seçili rapor ve filtrelerle TÜM sonucu Excel'e aktarır (yetki gerekir).">
@@ -237,7 +257,8 @@ else
 @code {
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
-        bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool RequiresDate, bool Manager, string? InfoNote);
+        bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool UsesMaintenanceDef, bool UsesTechnician,
+        bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -278,10 +299,13 @@ else
     private IReadOnlyCollection<string> _branchSel = new HashSet<string>();
     private IReadOnlyCollection<string> _vehicleSel = new HashSet<string>();
     private IReadOnlyCollection<string> _vehTypeSel = new HashSet<string>();
+    private IReadOnlyCollection<string> _maintDefSel = new HashSet<string>();
+    private IReadOnlyCollection<string> _techSel = new HashSet<string>();
     private string? _vehSearch;
     private bool _showBranchSelect;   // btn-branch-select yetkisi (yoksa şube seçici gizli — sunucu da zorlar)
 
-    private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new(), _vehicleTypes = new();
+    private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new(), _vehicleTypes = new(),
+        _maintenanceDefs = new(), _technicians = new();
 
     // Araç arama (Türkçe-doğru "içerir") — Tümünü Seç yalnız listelenenleri (arama yoksa tümünü) ekler (rule 7).
     private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
@@ -425,6 +449,7 @@ else
             _catalog = arr.Select(e => new CatItem(
                 Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
                 Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "usesVehicleType"),
+                Bool(e, "usesMaintenanceDef"), Bool(e, "usesTechnician"),
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
         }
@@ -450,7 +475,10 @@ else
             _branches = Read(doc, "branches", "id", "name");
             _vehicles = Read(doc, "vehicles", "id", "display");
             _vehicleTypes = Read(doc, "vehicleTypes", "id", "name");
-            _branchSel = new HashSet<string>(); _vehicleSel = new HashSet<string>(); _vehTypeSel = new HashSet<string>(); _vehSearch = null;
+            _maintenanceDefs = Read(doc, "maintenanceDefs", "id", "name");
+            _technicians = Read(doc, "technicians", "id", "name");
+            _branchSel = new HashSet<string>(); _vehicleSel = new HashSet<string>(); _vehTypeSel = new HashSet<string>();
+            _maintDefSel = new HashSet<string>(); _techSel = new HashSet<string>(); _vehSearch = null;
         }
         catch { }
     }
@@ -478,6 +506,8 @@ else
                 branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
                 vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 vehicleTypeIds = _sel?.UsesVehicleType == true ? _vehTypeSel.ToList() : new List<string>(),
+                maintenanceDefIds = _sel?.UsesMaintenanceDef == true ? _maintDefSel.ToList() : new List<string>(),
+                technicianIds = _sel?.UsesTechnician == true ? _techSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var doc = await Api.PostJsonAsync($"/api/reports/{_selKey}", body);
@@ -514,6 +544,8 @@ else
                 branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
                 vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 vehicleTypeIds = _sel?.UsesVehicleType == true ? _vehTypeSel.ToList() : new List<string>(),
+                maintenanceDefIds = _sel?.UsesMaintenanceDef == true ? _maintDefSel.ToList() : new List<string>(),
+                technicianIds = _sel?.UsesTechnician == true ? _techSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");

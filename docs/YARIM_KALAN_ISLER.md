@@ -22,7 +22,12 @@ ayrı analiz edilir (hesap kopyalanmaz). Sıra: **ANALİZ → KAPSAM → GELİŞ
   ağırlıklı ort. fiyat, akıllı toplam (km↔saat karışımında mesafe/ort./birim boş), Araç+Araç Türü filtreleri,
   web özeti çift-sayım bug'ı giderildi. Para birimi: ortak kur dönüşümü yok → mevcut davranış + InfoNote notu.
   Test 668/0 (+17). **Not:** ortak kur dönüşümü ileride gerekirse ayrı iş (Money USD/EUR var ama çevrim altyapısı yok).
-- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Bakım Raporu / Depo Girişi / Talep / Stok Sayım). Önce ANALİZ.
+- ✅ **Bakım Raporu** (2026-08-08) — CANLI (API+web+masaüstü **1.0.121**). Detay (her bakım bir satır), 12 kolon,
+  işlenen şube (op_branch_id), km/saat sayaç, malzeme maliyeti + kalem sayısı (derived-table, correlated subquery yok),
+  yeni **Bakım Tanımı + Teknisyen** filtreleri (uçtan uca) + Araç + Araç Türü. Pinned toplam (kayıt+kalem+maliyet;
+  sayaç toplanmaz). İptaller hariç. İşçilik maliyeti alanı YOK → yalnız malzeme (ileride ayrı iş). Test 682/0 (+14).
+- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Depo Girişi / Talep / Stok Sayım / Stok Durumu). Önce ANALİZ.
+  **İleride ayrı iş adayı:** bakım işçilik/servis maliyeti (şema + form), çoklu para birimi kur dönüşümü.
 
 ---
 

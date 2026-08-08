@@ -99,7 +99,9 @@ public class ReportingTests : IDisposable
     {
         var bakim = _reports.Maintenance(_admin, new ReportRequest(Executed: true));
         Assert.Equal("Bakım Raporu", bakim.Title);
-        Assert.Equal(new[] { "Tarih", "Araç", "Bakım", "Teknisyen", "Malzeme Maliyeti" }, bakim.Headers);
+        // Bakım Raporu ortak standarda taşındı (2026-08-08): 12 kolon, işlenen şube, km/saat sayaç, kalem+maliyet.
+        Assert.Equal(new[] { "Şube", "Tarih", "Araç İç Kod", "Plaka", "Araç Adı", "Araç Türü",
+            "Bakım", "Alt Bakım", "Sayaç", "Teknisyen", "Malzeme Kalem Sayısı", "Malzeme Maliyeti" }, bakim.Headers);
 
         var depo = _reports.FuelDepot(_admin, new ReportRequest(Executed: true));
         Assert.Equal("Depo Girişi Raporu", depo.Title);

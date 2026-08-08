@@ -85,6 +85,34 @@
                         </Border>
                     </StackPanel>
                 </ctrl:FormField>
+                <!-- Bakım Tanımı filtresi (Bakım Raporu) — çoklu işaret. -->
+                <ctrl:FormField Label="Bakım Tanımı (çoklu)" Width="190" IsVisible="{Binding ShowMaintenanceDef}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding MaintenanceDefs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
+                <!-- Teknisyen filtresi (Bakım Raporu) — çoklu işaret. -->
+                <ctrl:FormField Label="Teknisyen (çoklu)" Width="190" IsVisible="{Binding ShowTechnician}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Technicians}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
                 <Button Classes="Primary" Content="Sorgula" Command="{Binding RunCommand}" VerticalAlignment="Bottom"/>
                 <Button Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" VerticalAlignment="Bottom"
                         ToolTip.Tip="Seçili rapor ve filtrelerle tüm sonucu Excel'e aktarır (yetki gerekir)."/>
