@@ -43,7 +43,8 @@ karşılaştırma/aralık HAM `Num` üzerinden, render `Text`. Rapor sayısal h�
   numeric+totalRow+infoNote), DwDataGrid + GridController + DataGridView + ReportsView(M) + Reports.razor(web).
 - Build 0 hata, test **651/0** (+ GridDataView GridCell'e taşındı; VehicleReport NumCell/TotalRow; yeni görünüm/boş testleri).
   12 senaryonun tümü (para/litre/km/saat sıralama, > < >= <= , aralık, "-" bozmaz, toplam filtre/sıralama dışı) yeşil.
-  ⏭️ Yayın: API+web+masaüstü (şema değişmedi, migration yok).
+  ✅ **YAYINLANDI (2026-08-08):** API (`depowise-erp`, health 200 — migration yok) + web (`depowise-web`, 200) +
+  masaüstü **1.0.119** (checksum a39e98d…). Görsel doğrulama kullanıcıda (web canlı + masaüstü 1.0.119).
 
 
 
