@@ -48,6 +48,15 @@ sorunları iletti. Yapılanlar:
    yapıldı (Malzemeler menüsü; liste/ekle/düzenle/sil; mevcut `material_templates` yetkisiyle, deny-by-default).
 - Build 0 hata, test **709/0** (11 PG atlandı) — regresyon yok. Web/API DEĞİŞMEDİ (yalnız masaüstü).
 - ✅ **YAYINLANDI: masaüstü 1.0.124** (checksum 2c7395…). Web/API deploy GEREKMEDİ (değişmediler).
+- 🔁 **2. DÜZELTME — 1.0.125 (2026-08-08):** 1.0.124 sorunu ÇÖZMEDİ (kullanıcı: "hâlâ aynı, ~10 sn sürüyor").
+  GERÇEK kök neden: başlık/filtre/gövde ÜÇ AYRI Grid genişliği **SharedSizeGroup** ile pazarlık ediyordu;
+  paylaşılan ölçü BÜYÜMEYİ anında, KÜÇÜLMEYİ ancak liste yeniden kurulunca uyguluyor → kullanıcının gördüğü
+  "10 saniye" = 15 sn'lik eşitleme turunun listeyi yeniden kurması. Raporlar tablosu (DataGridView) bu sorunu
+  yaşamıyor çünkü her hücreye DOĞRUDAN `Width` veriyor, SharedSizeGroup kullanmıyor → aynı ilkeye geçildi:
+  3 ekranda tüm `SharedSizeGroup="cN"` kaldırıldı (kolonlar Auto + hücrelerde Min=Max pin). Ayrıca Günlük
+  Faaliyet'te filtre satırındaki TARİH yer tutucusu eklendi, ROTA filtresine pin verildi ve ROTA gövde
+  hücresindeki sabit `MinWidth=170` kaldırıldı (o kolon 170'in altına inemiyordu). Sürükleme akıcılığı için
+  aynı piksel değerinde yeniden çizim yapılmıyor. **1.0.125 (checksum 32184c…)**. Test 709/0.
 - ⚠️ **Görsel doğrulama kullanıcıda** (Avalonia bu ortamda çalıştırılamıyor): özellikle 1. maddedeki sütun
   sürükleme davranışı ve yeni şablon ekranı 1.0.124'te denenmeli.
 
