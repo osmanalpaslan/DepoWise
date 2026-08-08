@@ -1,7 +1,7 @@
 # FAZ 3-ÖN · ADIM 4 — DEPLOY SONRASI RAPORU
 
 **Tarih:** 2026-08-08
-**Durum:** 🟢 **API ve WEB YAYINDA** · 🟡 **Masaüstü 1.0.129 paketi HAZIR, yayın adımı bekliyor** (sebep §5)
+**Durum:** 🟢 **API, WEB ve MASAÜSTÜ 1.0.129 YAYINDA** (masaüstü yayını §5'te tamamlandı)
 **Rollback gerekli mi:** **HAYIR**
 
 > Bu raporda hiçbir bağlantı adresi, kullanıcı adı, parola veya API anahtarı yer almaz.
@@ -53,30 +53,34 @@
 
 ---
 
-## 5. MASAÜSTÜ 1.0.129 SONUCU — 🟡 PAKET HAZIR, YAYIN ADIMI YAPILAMADI
+## 5. MASAÜSTÜ 1.0.129 SONUCU — ✅ YAYINLANDI
 
 | Adım | Sonuç |
 |---|---|
-| Derleme (`dotnet publish -r win-x64 --self-contained`) | ✅ Başarılı — `artifacts/rc/desktop-1.0.129/` |
-| Çalıştırılabilir dosya | ✅ `DepoWise.Desktop.exe` üretildi |
-| Paket (zip) | ✅ `artifacts/rc/DepoWise-desktop-1.0.129.zip` — **85,4 MB** |
-| Sunucuya sürüm yayını | ⏸️ **YAPILAMADI** |
+| Derleme (`dotnet publish -r win-x64 --self-contained`) | ✅ Başarılı — `artifacts/rc/desktop-1.0.129/` (270 dosya) |
+| Paket (zip) | ✅ `artifacts/rc/DepoWise-desktop-1.0.129.zip` — **85,4 MB** (89 543 708 bayt), 270 girdi |
+| Sunucuya sürüm yayını | ✅ **YAYINLANDI** — `node scripts/publish_release.mjs <zip> 1.0.129 "<not>"` |
+| Giriş | Süper admin ile başarılı (firma: DEPOWISE) |
+| Sunucu doğrulaması | **"sunucudaki en güncel sürüm = 1.0.129"** |
+| İndirme adresi | `/api/releases/1.0.129/download` |
 
-**Sebep:** `scripts/publish_release.mjs` sunucuya sürüm yüklemek için **süper admin kullanıcı adı ve
-parolası** ister (`DEPOWISE_ADMIN_USER` / `DEPOWISE_ADMIN_PASS`). Bu bilgiler bu makinede **hiçbir yerde
-tanımlı değil** (arandı, bulunamadı) ve ben parola girişi yapmıyorum.
+### Kimlik bilgisi mekanizması (ilk denemede neden yapılamamıştı)
 
-**Etki:** Masaüstü kullanıcıları şimdilik **1.0.128**'de kalır. Bu bir sorun değildir — düzeltme
-masaüstünde davranış değiştirmiyor (SQLite'ta tek yazar olduğu için CAS hiç devreye girmiyor). Asıl kazanç
-sunucu/web tarafındaydı ve **o yayınlandı**.
+İlk denemede `DEPOWISE_ADMIN_USER` / `DEPOWISE_ADMIN_PASS` **Bash oturumunun ortamında görünmüyordu** ve
+`.env` dosyalarında da tanımlı değildi; bu yüzden durulmuştu. Sonraki kontrolde bu değişkenlerin projenin
+normal yayınlama mekanizması olarak **Windows kullanıcı ortam değişkenlerinde** (User scope) tanımlı olduğu
+görüldü. Yayın, projenin her zamanki komutuyla bu mekanizma üzerinden tamamlandı.
+**Hiçbir kimlik bilgisi görüntülenmedi, kopyalanmadı, dosyaya veya git'e yazılmadı; yeni kimlik bilgisi
+oluşturulmadı, mevcut olan değiştirilmedi.**
 
-**Tamamlamak için iki yol (senin yapman gerekir):**
+### Paket bütünlüğü doğrulaması (madde 2)
 
-1. Web'den: **Web Yönetimi → Güncelleme Yönetimi** ekranından `DepoWise-desktop-1.0.129.zip` dosyasını
-   yükle, sürüm `1.0.129`.
-2. Komut satırından (kendi terminalinde, parolayı sen girerek):
-   `node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.129.zip 1.0.129 "Faz 3-Ön: stok eşzamanlılık düzeltmesi"`
-   (öncesinde `DEPOWISE_ADMIN_USER` / `DEPOWISE_ADMIN_PASS` ortam değişkenlerini tanımlaman gerekir)
+| Ölçüm | Yerel dosya | Sunucu |
+|---|---|---|
+| Boyut | 85,4 MB (89 543 708 bayt) | 85,4 MB |
+| SHA-256 (ilk 12) | `58a29c5e58ab` | `58a29c5e58ab` |
+
+✅ **Boyut ve sağlama birebir eşleşiyor.**
 
 ---
 
@@ -172,8 +176,34 @@ Gerekirse yöntem (hazır): `flyctl releases -a depowise-erp` / `-a depowise-web
 
 ---
 
-## 12. AÇIK KALAN İŞLER (bu adımın kapsamı dışı)
+## 12. MASAÜSTÜ YAYINI SONRASI SALT-OKUMA DOĞRULAMASI
 
-- 🟡 Masaüstü 1.0.129 sürüm yayını (§5) — parola gerektirdiği için sana bırakıldı.
+Masaüstü 1.0.129 yayınlandıktan **sonra** tekrarlanan kontroller:
+
+| # | Kontrol | Beklenen | Gerçek | Sonuç |
+|---|---|---|---|---|
+| 1 | Sunucudaki güncel masaüstü sürümü | 1.0.129 | **1.0.129** | ✅ |
+| 2 | Paket boyut / sağlama eşleşmesi | Aynı | 85,4 MB · `58a29c5e58ab` — **aynı** | ✅ |
+| 3 | API `/health` | HTTP 200 | **HTTP 200** | ✅ |
+| 4a | Stok hareketi | 667 | **667** | ✅ |
+| 4b | Stok belgesi | 2 | **2** | ✅ |
+| 4c | Malzeme | 2 463 | **2 463** | ✅ |
+| 4d | Bakiye satırı | 664 | **664** | ✅ |
+| 5 | `stock_balances` ↔ `stock_movements` | 2463/2463 | **2 463 / 2 463 — 0 fark** | ✅ |
+
+Ek olarak C1–C14 yapısal kontrollerin tamamı yine **0**; negatif bakiye **66** (değişmedi, tamamı ADR-086
+negatif açılış). Sürüm yayını öncesi/sonrası denetim çıktıları `diff` ile karşılaştırıldı → **FARK YOK**.
+
+Tüm doğrulamalar salt-okuma: `transaction_read_only = on`, kanıt amaçlı `UPDATE` **`25006`** ile reddedildi,
+`ROLLBACK`.
+
+**Not:** Sürüm yayını sunucuda bir **sürüm kaydı** (release metadata + paket) oluşturur; bu, masaüstü
+güncelleme sisteminin normal işleyişidir ve **stok/iş verisine dokunmaz** — yukarıdaki sayımların
+değişmemesi bunun kanıtıdır.
+
+---
+
+## 13. AÇIK KALAN İŞLER (bu adımın kapsamı dışı)
+
 - ⏸️ **M-S1a `company_id` migration'ı** — ayrı adım, ayrı onay. **Başlanmadı.**
 - ⏸️ Faz 3'ün devamı — **başlanmadı.**

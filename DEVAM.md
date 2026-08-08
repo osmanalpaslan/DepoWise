@@ -39,8 +39,8 @@ Sunucuda (PostgreSQL) iki kullanıcının aynı anda stok çıkışı yapması h
   olarak ele alındı (kullanıcı kararı S1).
 - Canlı veri kontrolü (salt-okuma): **2463/2463 bakiye-defter tutarlı**, yarım/yetim/tutarsız kayıt 0,
   çapraz firma sızıntısı 0. Deploy öncesi/sonrası sayımlar **birebir aynı** → yayın veriye dokunmadı.
-- 🟡 **Açık iş:** masaüstü **1.0.129** paketi hazır (`artifacts/rc/DepoWise-desktop-1.0.129.zip`) ama sunucuya
-  sürüm yayını yapılmadı — süper admin parolası gerekiyor, kullanıcı tamamlayacak. Masaüstü şimdilik 1.0.128.
+- ✅ **Masaüstü 1.0.129 YAYINLANDI** — sunucudaki güncel sürüm 1.0.129; paket boyutu ve SHA-256 sağlaması
+  yerel dosyayla birebir eşleşiyor. Yayın sonrası stok sayımları değişmedi (667 hareket / 2 belge).
 - ⏸️ **M-S1a `company_id` migration'ı ve Faz 3 BAŞLAMADI** — ayrı onay bekliyor.
 
 ---
