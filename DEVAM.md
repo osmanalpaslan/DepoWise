@@ -27,7 +27,27 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08k — "Bakım Ekibi Stoğundan Kullanıldı" seçeneği)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08l — Talep Operasyonları FAZ 1 tamam)
+
+### 🆕 TALEP OPERASYONLARI — 5 FAZLI PROJE (2026-08-08, Opus 5) · **FAZ 1 BİTTİ**
+Talep modülü gerçek ERP iş akışına dönüştürülüyor. Kullanıcı onayıyla **5 faza** bölündü; bir faz bitmeden
+diğerine geçilmiyor. **Faz 1 = temel** (ekran ve geçiş kuralları Faz 2'de).
+- **Migration060** (additive, canlı-veri güvenli): `material_requests.operation_status` (NULL'a izinli,
+  varsayılan YOK) + `priority` (DEFAULT 'normal'); `request_status_history.kind` (DEFAULT 'approval').
+  **Geri-doldurma (kullanıcı kararı B):** YALNIZ `approved` talepler `pending_ops`; taslak/beklemede/
+  reddedildi/iptal kayıtlar NULL kalır → ekranda "—". **Onay durumu ile operasyon durumu AYRI.**
+- **13 operasyon durumu + öncelik:** isim/sıra kullanıcı şartnamesinden BİREBİR (projede tanımı yoktu — arandı).
+  Etiket + RENK anahtarı tek ortak kaynakta (`RequestOperationStatusInfo`) → masaüstü rozeti ve web MudBlazor
+  rengi aynı mantıktan beslenir. **Geçiş kuralları (matris) Faz 1'de YOK — Faz 2 başında onaylatılacak.**
+- **Onay veren kısıtı:** talebi yalnız formda seçilen Onay Veren (users.personnel_id bağı) onaylar/reddeder;
+  firma admini + süper admin istisna; onay veren seçilmemişse eski davranış (geriye uyumluluk).
+- **Yetkiler:** `request_ops`, `request_ops_warehouse`, `request_ops_purchase` (deny-by-default).
+- **UI:** Talep Formu'nda (masaüstü + web) Öncelik · Onay Durumu · Operasyon Durumu kolonları, renkli rozet.
+- +18 test, tüm paket **743/0** (11 PG atlandı). ✅ **YAYINLANDI:** API (health 200, Migration060 canlıda —
+  `/api/requests` 200 yeni kolonları okuyor, dbSize 14.6 MB veri sağlam) + web (200) + masaüstü **1.0.127**.
+- **SIRADAKİ: FAZ 2** — "Talep Operasyonları" ekranı (masaüstü+web) + geçiş matrisi (önce kullanıcı onayı).
+
+## (önceki) 2026-08-08k — "Bakım Ekibi Stoğundan Kullanıldı" seçeneği
 
 ### 🆕 Bakım malzemesi: "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08, Opus 5) — Migration059
 İhtiyaç: bazı malzemeler daha önce bakım ekibine teslim edilmiştir; bakım kaydına girmeli ama merkez depo
