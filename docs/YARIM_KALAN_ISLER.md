@@ -6,7 +6,23 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-08-07**
+> Son güncelleme: **2026-08-08**
+
+---
+
+## ✅ Raporların tek tek yeniden tasarımı (ortak standart) — DEVAM EDEN GÖREV
+
+Ortak standart: Birim 1-4 mimarisi + Araç Raporu'nda oturan biçim (NumCell HAM değer + görüntü), pinned TotalRow,
+InfoNote, km/saat duyarlılığı, tam filo, tek-geçiş (N+1 yok), web+masaüstü parite. Her rapor kendi iş mantığıyla
+ayrı analiz edilir (hesap kopyalanmaz). Sıra: **ANALİZ → KAPSAM → GELİŞTİRME → TEST → COMMIT → DEPLOY.**
+
+- ✅ **Araç Raporu** (2026-08-08) — CANLI (API+web+masaüstü 1.0.119).
+- ✅ **Yakıt Tüketim** (2026-08-08) — CANLI (API+web+masaüstü **1.0.120**). Tam filo, km/saat duyarlı, 13 kolon
+  (Şube/İç Kod/Plaka/Araç Adı/Türü/Sayaç Birimi/İşlem/Mesafe/Litre/Ort. Tüketim/Ort. Fiyat/Toplam/Birim Maliyet),
+  ağırlıklı ort. fiyat, akıllı toplam (km↔saat karışımında mesafe/ort./birim boş), Araç+Araç Türü filtreleri,
+  web özeti çift-sayım bug'ı giderildi. Para birimi: ortak kur dönüşümü yok → mevcut davranış + InfoNote notu.
+  Test 668/0 (+17). **Not:** ortak kur dönüşümü ileride gerekirse ayrı iş (Money USD/EUR var ama çevrim altyapısı yok).
+- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Bakım Raporu / Depo Girişi / Talep / Stok Sayım). Önce ANALİZ.
 
 ---
 

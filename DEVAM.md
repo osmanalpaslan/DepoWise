@@ -47,6 +47,8 @@ Ort. Yakıt Fiyatı (ağırlıklı) · Toplam Yakıt Maliyeti · Birim Başına 
   ReportsViewModel (grafik başlık-hedefli + NumCell). API/DwDataGrid/Reports.razor değişmedi (katalog-sürümlü + genel).
 - Build 0 hata, test **668/0** (11 PG atlandı) — +17 yeni FuelConsumptionTests (KM/Saat/yakıtsız/eksik sayaç/sıfıra
   bölme/ağırlıklı fiyat/araç-tür-şube filtre/yetkisiz şube fail-closed/akıllı toplam/TotalRow ayrımı/çift-sayım/NumCell).
+  ✅ **YAYINLANDI (2026-08-08):** API (`depowise-erp`, health 200 — migration YOK, şema değişmedi) + web
+  (`depowise-web`, 200) + masaüstü **1.0.120** (checksum 3f671fdf…). Görsel doğrulama kullanıcıda (web canlı + 1.0.120).
 
 
 ### 🆕 Araç Raporu 5 UX revizesi (2026-08-08, Opus 4.8) — hesaplama DEĞİŞMEDİ, yalnız sunum
