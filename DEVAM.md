@@ -38,9 +38,16 @@ yalnız alan içinde). Mevcut `AutoCompleteBox` bunu desteklemiyordu → **yeni 
   tık-toggle double-dismiss korumalı) + `Border.LookupField` stili (ComboBox.Field ile eş görünüm).
 - **Uygulama:** YALNIZ Malzemeler ekranındaki 5 lookup (Kategori/Alt Kategori/Birim/Marka/Tedarikçi). Diğer ~24
   ekran DOKUNULMADI (kullanıcı kararı: önce 1 ekran pilot, onaydan sonra tümüne yayılacak).
-- Build 0 hata, test **649/0** (+7 LookupPaging). ✅ **YAYINLANDI: masaüstü 1.0.115** (checksum f0d166c…; web/API
-  değişmedi — masaüstü-özel). **1.0.115'te kullanıcı Malzemeler'de görsel doğrulayacak; onaydan sonra kalan ~24
-  ekrana yayılacak.** ⏭️ Sonra: rapor süreçlerine dönüş (kalan raporlar tek tek).
+- Build 0 hata, test **649/0** (+7 LookupPaging). Malzemeler pilotu 1.0.115'te yayınlandı.
+- ✅ **GENİŞLİK DÜZELTİLDİ + TÜM EKRANLARA YAYILDI (2026-08-08b):** Kullanıcı geri bildirimi: işlev doğru, tek
+  sorun açılır listenin alandan dar olması. Kök neden: Avalonia FlyoutPresenter varsayılan MaxWidth'i → düzeltme:
+  presenter kısıtı/padding kaldırıldı (`FlyoutPresenter.dw-lookup-presenter`), açılır liste kod'da TAM alan
+  genişliğine sabitlendi. Ardından `AutoCompleteBox` lookup'ları **10 ekranda** LookupBox'a geçirildi:
+  Materials, Inspection, Fuel, StockEntry, Requests, DailyActivity, Maintenance, Users, Personnel, Settings,
+  Vehicles (~30 alan). Gösterim alanı: VehicleListRow→Display, PersonnelRecord→FullName, diğerleri→Name.
+  **İstisna:** VehicleQuickEditWindow diyalogundaki `DriverBox` code-behind ile yönetildiğinden AutoCompleteBox
+  kaldı (ana Araçlar formundaki Sürücü dönüştü). ComboBox alanlara dokunulmadı (zaten tıkta açılır). Build 0 hata,
+  test 649/0. ✅ **YAYINLANDI: masaüstü 1.0.116** (web/API değişmedi). ⏭️ Sonra: rapor süreçlerine dönüş.
 
 
 

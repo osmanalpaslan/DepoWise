@@ -44,10 +44,8 @@
                         <TextBox Classes="Field" Text="{Binding FPhone}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Şube" Width="200">
-                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" AsyncPopulator="{Binding BranchPopulator}" SelectedItem="{Binding FBranch}"
-                                          MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="orgz:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding FBranch}"
+                                        PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Aktif" Width="70">
                         <CheckBox IsChecked="{Binding FActive}" VerticalAlignment="Center"/>

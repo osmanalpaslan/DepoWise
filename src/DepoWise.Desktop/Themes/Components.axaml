@@ -291,6 +291,21 @@
     <Style Selector="Border.LookupField:pointerover">
         <Setter Property="BorderBrush" Value="{DynamicResource TextMutedBrush}"/>
     </Style>
+    <!-- LookupBox açılır listesi: presenter'ın varsayılan MaxWidth/padding/çerçevesi kaldırılır → açılır liste
+         alanla TAM AYNI genişlikte olabilir (Border.Width kodda alan genişliğine set edilir, kullanıcı isteği). -->
+    <Style Selector="FlyoutPresenter.dw-lookup-presenter">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="MaxWidth" Value="10000"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Border.dw-lookup-popup">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+    </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
          TABLO (ListBox tabanlı; DataGrid paketi Avalonia 12.0.4 ile uyumsuz)

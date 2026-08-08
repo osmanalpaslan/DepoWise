@@ -46,28 +46,19 @@
                     <!-- Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): AsyncPopulator — tıklanınca
                          (arama yapmadan) en fazla 25 kayıt, arama başlayınca sınırsız + Türkçe-doğru (SearchPopulator). -->
                     <ctrl:FormField Label="Hedef Şube" IsRequired="True" Width="180" IsVisible="{Binding ShowTargetBranch}">
-                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" AsyncPopulator="{Binding BranchPopulator}" SelectedItem="{Binding ToBranch}"
-                                          MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Branches}" SelectedItem="{Binding ToBranch}"
+                                        PlaceholderText="Şube seç / ara..."/>
                     </ctrl:FormField>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Teslim Eden / Alan (Personel)" Width="240" IsVisible="{Binding ShowPersonnel}">
-                        <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" AsyncPopulator="{Binding PersonnelPopulator}" SelectedItem="{Binding PersonnelSel}"
-                                  MinimumPrefixLength="0" PlaceholderText="Personel ara..." ValueMemberBinding="{Binding Name}">
-                            <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
+                        <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding PersonnelSel}"
+                                        PlaceholderText="Personel seç / ara..."/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Transfer Edilen / Kullanılan Araç" Width="280">
-                        <AutoCompleteBox ItemsSource="{Binding Vehicles}" AsyncPopulator="{Binding VehiclePopulator}" SelectedItem="{Binding VehicleSel}"
-                                         MinimumPrefixLength="0" PlaceholderText="İç kod / plaka ara..."
-                                         ValueMemberBinding="{Binding Display}">
-                            <AutoCompleteBox.ItemTemplate>
-                                <DataTemplate x:DataType="veh:VehicleListRow"><SelectableTextBlock Text="{Binding Display}"/></DataTemplate>
-                            </AutoCompleteBox.ItemTemplate>
-                        </AutoCompleteBox>
+                        <ctrl:LookupBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding VehicleSel}"
+                                        DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
                     </ctrl:FormField>
                 </StackPanel>
 
@@ -112,38 +103,28 @@
                             <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding NewType}"/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Birim" IsRequired="True" Width="160" IsEnabled="{Binding NewFieldsEnabled}">
-                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Units}" AsyncPopulator="{Binding UnitPopulator}" SelectedItem="{Binding SelectedUnit}"
-                                              MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}"
+                                            PlaceholderText="Birim seç / ara..."/>
                         </ctrl:FormField>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ctrl:FormField Label="Kategori" Width="200" IsEnabled="{Binding NewFieldsEnabled}">
-                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" AsyncPopulator="{Binding CategoryPopulator}" SelectedItem="{Binding SelectedCategory}"
-                                              MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                                            PlaceholderText="Kategori seç / ara..."/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Alt Kategori" Width="200" IsEnabled="{Binding NewFieldsEnabled}">
-                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding SubCategories}" AsyncPopulator="{Binding SubCategoryPopulator}" SelectedItem="{Binding SelectedSubCategory}"
-                                              MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding SubCategories}" SelectedItem="{Binding SelectedSubCategory}"
+                                            PlaceholderText="Alt kategori seç / ara..."/>
                         </ctrl:FormField>
                         <ctrl:FormField Label="Marka" Width="200" IsEnabled="{Binding NewFieldsEnabled}">
-                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" AsyncPopulator="{Binding BrandPopulator}" SelectedItem="{Binding SelectedBrand}"
-                                              MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelectedBrand}"
+                                            PlaceholderText="Marka seç / ara..."/>
                         </ctrl:FormField>
                         <!-- Tedarikçi (madde 1.1): mevcut malzeme seçilse bile AKTİF kalır — bu girişte farklı
                              tedarikçi seçilirse malzeme kartındaki tedarikçi de güncellenir (kullanıcı kararı). -->
                         <ctrl:FormField Label="Tedarikçi" Width="200">
-                            <AutoCompleteBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" AsyncPopulator="{Binding SupplierPopulator}" SelectedItem="{Binding SelectedSupplier}"
-                                              MinimumPrefixLength="0" ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}"
+                                            PlaceholderText="Tedarikçi seç / ara..."/>
                         </ctrl:FormField>
                     </StackPanel>
                 </StackPanel>

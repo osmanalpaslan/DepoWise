@@ -188,11 +188,9 @@
                 <ctrl:FormField Label="Sürücü">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <AutoCompleteBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch"
-                                      ItemsSource="{Binding Drivers}" AsyncPopulator="{Binding DriverPopulator}" SelectedItem="{Binding SelDriver}"
-                                      MinimumPrefixLength="0" PlaceholderText="Sürücü ara..." ValueMemberBinding="{Binding Name}">
-                                <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                            </AutoCompleteBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding Drivers}" SelectedItem="{Binding SelDriver}"
+                                      PlaceholderText="Sürücü seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddDriverCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingDriver}">

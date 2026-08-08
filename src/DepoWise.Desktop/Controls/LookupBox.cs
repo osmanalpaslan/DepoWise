@@ -47,6 +47,7 @@ public class LookupBox : UserControl
     private readonly ListBox _list;
     private readonly TextBlock _pageText;
     private readonly Button _prev, _next;
+    private readonly Border _popupBorder;
     private readonly Flyout _flyout;
     private int _page = 1;
     private bool _suppress;
@@ -88,9 +89,13 @@ public class LookupBox : UserControl
 
         var panel = new StackPanel { Spacing = 6 };
         panel.Children.Add(_search); panel.Children.Add(_list); panel.Children.Add(footer);
-        var border = new Border { MinWidth = 240, Padding = new Thickness(6), Child = panel };
+        _popupBorder = new Border { Padding = new Thickness(6), Child = panel };
+        _popupBorder.Classes.Add("dw-lookup-popup");   // arka plan/kenar/köşe (presenter'ın kendi çerçevesi kapatıldı)
 
-        _flyout = new Flyout { Content = border, Placement = PlacementMode.BottomEdgeAlignedLeft };
+        _flyout = new Flyout { Content = _popupBorder, Placement = PlacementMode.BottomEdgeAlignedLeft };
+        // FlyoutPresenter'ın VARSAYILAN MaxWidth'i (geniş alanlarda açılır listeyi daraltan sebep) + padding kaldırılır
+        // → açılır liste TAM alan genişliğine sabitlenebilir (Border.Width OnFieldClick'te set edilir).
+        _flyout.FlyoutPresenterClasses.Add("dw-lookup-presenter");
         _flyout.Closed += (_, _) => _closedAt = DateTime.UtcNow;
 
         UpdateDisplay();
@@ -104,7 +109,7 @@ public class LookupBox : UserControl
         _page = 1;
         _suppress = true; _search.Text = ""; _suppress = false;
         Refresh();
-        if (Bounds.Width > 240) ((Border)_flyout.Content!).MinWidth = Bounds.Width;
+        _popupBorder.Width = System.Math.Max(Bounds.Width, 200);   // açılır liste TAM alan genişliğinde (kullanıcı isteği)
         _flyout.ShowAt(_field);
         Dispatcher.UIThread.Post(() => { try { _search.Focus(); } catch { } });
     }
