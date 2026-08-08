@@ -171,16 +171,14 @@
                                                     DisplayMember="Display" PlaceholderText="İç kod / plaka seç / ara..."/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Bakım Tanımı" IsRequired="True" Width="220">
-                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntDefs}" SelectedItem="{Binding MntDef}">
-                                        <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding MntDefs}" SelectedItem="{Binding MntDef}"
+                                                    PlaceholderText="Bakım tanımı seç / ara..."/>
                                 </ctrl:FormField>
                                 <ctrl:FormField Label="Alt Bakım" Width="240">
                                     <StackPanel Spacing="6">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}">
-                                                <ComboBox.ItemTemplate><DataTemplate x:DataType="inf:MaintenanceDefinitionRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                                            </ComboBox>
+                                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding MntSubDefs}" SelectedItem="{Binding MntSubDef}"
+                                                            PlaceholderText="Alt bakım seç / ara..."/>
                                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" ToolTip.Tip="Yeni alt bakım" Command="{Binding StartAddMntSubCommand}"/>
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingMntSub}">

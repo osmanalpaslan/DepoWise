@@ -53,7 +53,10 @@ yalnız alan içinde). Mevcut `AutoCompleteBox` bunu desteklemiyordu → **yeni 
   (arama/sayfalama yok), bu yüzden ilk yayılımda atlanmıştı. Düzeltme: Araçlar formundaki 6 tanım ComboBox'ı
   (Şablon, Makine Tipi, Kategori, Marka, Model, Şantiye/Şube) LookupBox'a çevrildi → hepsi sol-tık liste + arama +
   sayfalama, Sürücü ile aynı. Durum/Birim/Sayfa-boyutu sabit enum → ComboBox bırakıldı. Build 0 hata. ✅ **YAYINLANDI:
-  masaüstü 1.0.117.** ⏭️ Sonra: rapor süreçlerine dönüş.
+  masaüstü 1.0.117.**
+- ✅ **Bakım Takibi + Günlük Faaliyet "Bakım Tanımı / Alt Bakım" (2026-08-08d):** kullanıcı onayıyla bu 4 ComboBox
+  da LookupBox'a çevrildi (aranabilir + sayfalı). Böylece TÜM tanım alanları tutarlı. Build 0 hata. ✅ **YAYINLANDI:
+  masaüstü 1.0.118.** ⏭️ Sonra: rapor süreçlerine dönüş.
 
 
 
