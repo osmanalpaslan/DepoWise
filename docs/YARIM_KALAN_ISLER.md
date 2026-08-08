@@ -26,8 +26,12 @@ ayrı analiz edilir (hesap kopyalanmaz). Sıra: **ANALİZ → KAPSAM → GELİŞ
   işlenen şube (op_branch_id), km/saat sayaç, malzeme maliyeti + kalem sayısı (derived-table, correlated subquery yok),
   yeni **Bakım Tanımı + Teknisyen** filtreleri (uçtan uca) + Araç + Araç Türü. Pinned toplam (kayıt+kalem+maliyet;
   sayaç toplanmaz). İptaller hariç. İşçilik maliyeti alanı YOK → yalnız malzeme (ileride ayrı iş). Test 682/0 (+14).
-- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Depo Girişi / Talep / Stok Sayım / Stok Durumu). Önce ANALİZ.
-  **İleride ayrı iş adayı:** bakım işçilik/servis maliyeti (şema + form), çoklu para birimi kur dönüşümü.
+- ✅ **Depo Girişi** (2026-08-08) — CANLI (API+web+masaüstü **1.0.122**). 8 kolon (Şube/Tarih/Tedarikçi/Litre/
+  Birim Fiyat/Tutar/Fatura No/Para Birimi), yeni **Tedarikçi** filtresi (uçtan uca), pinned toplam (litre+tutar+
+  ağırlıklı ort. birim fiyat). Para birimi: kur dönüşümü yok → mevcut davranış + Para Birimi kolonu + InfoNote. Test 692/0 (+10).
+- ⏳ **Sıradaki rapor:** kullanıcı seçecek (aday: Talep / Stok Sayım / Stok Durumu). Önce ANALİZ.
+  **İleride ayrı iş adayı:** bakım işçilik/servis maliyeti (şema + form), çoklu para birimi kur dönüşümü,
+  **"Alan/Kolon Yönetimi" ekranı** (tüm raporlar standarda geçtikten sonra + özel-alan özelliğiyle birlikte).
 
 ---
 

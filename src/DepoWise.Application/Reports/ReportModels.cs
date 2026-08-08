@@ -32,7 +32,8 @@ public sealed record ReportRequest(
     string? CompanyId = null,
     IReadOnlyList<string>? VehicleTypeIds = null,
     IReadOnlyList<string>? MaintenanceDefIds = null,   // Bakım Raporu: bakım tanımı (ana) filtresi
-    IReadOnlyList<string>? TechnicianIds = null);      // Bakım Raporu: teknisyen (personel) filtresi
+    IReadOnlyList<string>? TechnicianIds = null,       // Bakım Raporu: teknisyen (personel) filtresi
+    IReadOnlyList<string>? SupplierIds = null);        // Depo Girişi: tedarikçi filtresi
 
 public static class ReportGate
 {

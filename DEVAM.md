@@ -27,7 +27,20 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08g — Bakım Raporu ortak standarda taşındı)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08h — Depo Girişi raporu ortak standarda taşındı)
+
+### 🆕 Depo Girişi raporu yeniden tasarım (2026-08-08, Opus 4.8) — ortak standart
+Kullanıcı isteği. Depoya alınan yakıt alım kayıtları; her giriş tek satır. **8 kolon:** Şube (işlenen/op_branch_id) ·
+Tarih · Tedarikçi · Litre · Birim Fiyat · Tutar · Fatura No · Para Birimi. Tutar = litre × birim fiyat.
+- **Yeni filtre (uçtan uca):** Tedarikçi — `ReportRequest.SupplierIds`, `ReportFilters.Supplier`, API DTO + scope
+  (`suppliers`) + katalog bayrağı + masaüstü/web picker. Ayrıca Tarih + Şube (yetkili/fail-closed).
+- **Toplam (pinned):** litre + tutar toplanır; birim fiyat = ağırlıklı ort. (toplam tutar ÷ toplam litre). Filtre/sıralama dışı.
+- **Para birimi:** ortak kur dönüşümü yok → mevcut davranış korundu, Para Birimi kolonu bilgi amaçlı + InfoNote notu.
+- **Performans:** tek tablo + tedarikçi/şube 1:1 LEFT JOIN (N+1 yok). Varsayılan sıralama: Şube → Tarih (yeni önce).
+- Değişen: ReportModels (ReportRequest+1), ReportCatalog (ReportFilters+1, fuel-depot tanımı+InfoNote),
+  ReportService.FuelDepot (yeniden yazım), Program.cs (DTO+scope suppliers+katalog), ReportsViewModel + ReportsView.axaml,
+  Reports.razor. Build 0 hata, test **692/0** (11 PG atlandı) — +10 FuelDepotReportTests, ReportingTests kolon güncellendi.
+
 
 ### 🆕 Bakım Raporu yeniden tasarım (2026-08-08, Opus 4.8) — ortak standart
 Kullanıcı isteği. Her bakım kaydı TEK satır (detay). **12 kolon:** Şube (işlenen/op_branch_id) · Tarih · Araç İç Kod ·

@@ -50,6 +50,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowVehicleType))]
     [NotifyPropertyChangedFor(nameof(ShowMaintenanceDef))]
     [NotifyPropertyChangedFor(nameof(ShowTechnician))]
+    [NotifyPropertyChangedFor(nameof(ShowSupplier))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -60,6 +61,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool ShowVehicleType => SelectedReport?.UsesVehicleType == true;
     public bool ShowMaintenanceDef => SelectedReport?.UsesMaintenanceDef == true;
     public bool ShowTechnician => SelectedReport?.UsesTechnician == true;
+    public bool ShowSupplier => SelectedReport?.UsesSupplier == true;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -73,6 +75,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<BranchPick> MaintenanceDefs { get; } = new();
     /// <summary>Teknisyen filtresi (Bakım Raporu) — çoklu işaret.</summary>
     public ObservableCollection<BranchPick> Technicians { get; } = new();
+    /// <summary>Tedarikçi filtresi (Depo Girişi) — çoklu işaret.</summary>
+    public ObservableCollection<BranchPick> Suppliers { get; } = new();
     [ObservableProperty] private string _vehicleSearch = "";
     partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
@@ -132,6 +136,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadVehicleTypes();
         LoadMaintenanceDefs();
         LoadTechnicians();
+        LoadSuppliers();
         ApplyDateDefault();
     }
 
@@ -164,6 +169,12 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private void LoadTechnicians()
     {
         try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Technicians.Add(new BranchPick(p.Id, p.Name)); }
+        catch { }
+    }
+
+    private void LoadSuppliers()
+    {
+        try { foreach (var sp in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(new BranchPick(sp.Id, sp.Name)); }
         catch { }
     }
 
@@ -263,6 +274,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var techIds = ShowTechnician
             ? Technicians.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        var supplierIds = ShowSupplier
+            ? Suppliers.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
@@ -271,7 +285,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             VehicleIds: vehicleIds,
             VehicleTypeIds: typeIds,
             MaintenanceDefIds: defIds,
-            TechnicianIds: techIds);
+            TechnicianIds: techIds,
+            SupplierIds: supplierIds);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

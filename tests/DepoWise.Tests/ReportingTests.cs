@@ -105,7 +105,8 @@ public class ReportingTests : IDisposable
 
         var depo = _reports.FuelDepot(_admin, new ReportRequest(Executed: true));
         Assert.Equal("Depo Girişi Raporu", depo.Title);
-        Assert.Equal(5, depo.Headers.Count);
+        // Depo Girişi ortak standarda taşındı (2026-08-08): 8 kolon (Şube/Tarih/Tedarikçi/Litre/Birim Fiyat/Tutar/Fatura No/Para Birimi).
+        Assert.Equal(new[] { "Şube", "Tarih", "Tedarikçi", "Litre", "Birim Fiyat", "Tutar", "Fatura No", "Para Birimi" }, depo.Headers);
 
         var talep = _reports.Requests(_admin, new ReportRequest(Executed: true));
         Assert.Equal("Talep Raporu", talep.Title);

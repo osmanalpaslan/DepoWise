@@ -623,6 +623,20 @@ ORDER BY branch_name, vm.performed_date DESC, v.internal_code;";   // varsayıla
         }, rows, numeric, totalRow);
     }
 
+    /// <summary>
+    /// DEPO GİRİŞİ RAPORU (kullanıcı isteği 2026-08-08) — ortak standarda taşındı. Depoya alınan yakıt alım kayıtları;
+    /// her giriş TEK satır. Şube = girişin İŞLENDİĞİ şube (op_branch_id). Tutar = litre × birim fiyat.
+    ///
+    /// PERFORMANS: tek tablo taraması + tedarikçi/şube adı için 1:1 LEFT JOIN (N+1 / correlated subquery YOK).
+    /// PG + SQLite ORTAK: yalnız CAST(... AS REAL) + COALESCE + standart JOIN. liters/unit_price her zaman geçerli
+    /// decimal metin (NOT NULL) → CAST güvenli.
+    ///
+    /// PARA BİRİMİ (rule): ortak kur dönüşümü YOK → tutarlar işlem para biriminde toplanır, farklı para birimleri
+    /// kur ile dönüştürülmez (InfoNote'ta belirtilir). Para Birimi kolonu bilgi amaçlı gösterilir.
+    ///
+    /// TOPLAM: litre + tutar toplanır; birim fiyat = AĞIRLIKLI ortalama (toplam tutar / toplam litre). Pinned, filtre/
+    /// sıralama dışı.
+    /// </summary>
     public TableModel FuelDepot(SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -631,20 +645,61 @@ ORDER BY branch_name, vm.performed_date DESC, v.internal_code;";   // varsayıla
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        var supIn = InList("fde.supplier_id", "@sup", req.SupplierIds);
         cmd.CommandText = @"
-SELECT entry_date, CAST(liters AS REAL), CAST(unit_price AS REAL),
-       CAST(liters AS REAL)*CAST(unit_price AS REAL), COALESCE(invoice_no,'')
-FROM fuel_depot_entries
-WHERE company_id=@c AND is_deleted=0" + ReportScope.BranchSql(s, req, "op_branch_id") + @"
-" + DateFilter(req, "entry_date") + @"
-ORDER BY entry_date DESC;";
+SELECT COALESCE(bch.name,'') AS branch_name, fde.entry_date, COALESCE(sup.name,'') AS supplier_name,
+       CAST(fde.liters AS REAL), CAST(fde.unit_price AS REAL),
+       CAST(fde.liters AS REAL) * CAST(fde.unit_price AS REAL),
+       COALESCE(fde.invoice_no,''), COALESCE(fde.currency_code,'TRY')
+FROM fuel_depot_entries fde
+LEFT JOIN branches bch ON bch.id = fde.op_branch_id
+LEFT JOIN suppliers sup ON sup.id = fde.supplier_id
+WHERE fde.company_id=@c AND fde.is_deleted=0"
+            + ReportScope.BranchSql(s, req, "fde.op_branch_id") + supIn
+            + DateFilter(req, "fde.entry_date") + @"
+ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (yeni önce)
         cmd.AddWithValue("@c", companyId);
-        BindDates(cmd, req); ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@sup", req.SupplierIds);
+
         var rows = new List<IReadOnlyList<object?>>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            rows.Add(new object?[] { D(r.GetInt64(0)), r.GetDouble(1), r.GetDouble(2), r.GetDouble(3), r.GetString(4) });
-        return new TableModel("Depo Girişi Raporu", new[] { "Tarih", "Litre", "Birim Fiyat", "Tutar", "Fatura No" }, rows);
+        double tLitre = 0, tTutar = 0;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                double litre = r.GetDouble(3), price = r.GetDouble(4), tutar = r.GetDouble(5);
+                rows.Add(new object?[]
+                {
+                    r.GetString(0),                 // Şube (işlenen)
+                    D(r.GetInt64(1)),               // Tarih
+                    r.GetString(2),                 // Tedarikçi
+                    Num(litre, FmtLiter),           // Litre
+                    Num(price, FmtMoney),           // Birim Fiyat
+                    Num(tutar, FmtMoney),           // Tutar
+                    r.GetString(6),                 // Fatura No
+                    r.GetString(7),                 // Para Birimi
+                });
+                tLitre += litre; tTutar += tutar;
+            }
+
+        // Pinned toplam: litre + tutar toplanır; birim fiyat = ağırlıklı ort. (toplam tutar / toplam litre).
+        IReadOnlyList<object?>? totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM", "", "",
+            Num(tLitre, FmtLiter),
+            Num(tLitre > 0 ? tTutar / tLitre : 0, FmtMoney),
+            Num(tTutar, FmtMoney),
+            "", "",
+        };
+
+        // Kolon-tipi: Litre(3) + Birim Fiyat(4) + Tutar(5) sayısal; kalanlar metin.
+        var numeric = new[] { false, false, false, true, true, true, false, false };
+
+        return new TableModel("Depo Girişi Raporu", new[]
+        {
+            "Şube", "Tarih", "Tedarikçi", "Litre", "Birim Fiyat", "Tutar", "Fatura No", "Para Birimi",
+        }, rows, numeric, totalRow);
     }
 
     /// <summary>Stok Sayım Raporu — her sayım satırı: sistem/sayılan/fark (fark 0 olanlar dahil).</summary>

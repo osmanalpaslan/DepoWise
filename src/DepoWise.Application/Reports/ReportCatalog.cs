@@ -12,6 +12,7 @@ public enum ReportFilters
     VehicleType = 8,
     MaintenanceDef = 16,   // Bakım Raporu: bakım tanımı (ana) çoklu filtre
     Technician = 32,       // Bakım Raporu: teknisyen (personel) çoklu filtre
+    Supplier = 64,         // Depo Girişi: tedarikçi çoklu filtre
 }
 
 /// <summary>Rapor grubu — menü/Excel-yetki ayrımı. Standart = "Raporlar", Yönetici = "Yönetici Raporları".</summary>
@@ -45,6 +46,7 @@ public sealed record ReportDescriptor(
     public bool UsesVehicleType => Filters.HasFlag(ReportFilters.VehicleType);
     public bool UsesMaintenanceDef => Filters.HasFlag(ReportFilters.MaintenanceDef);
     public bool UsesTechnician => Filters.HasFlag(ReportFilters.Technician);
+    public bool UsesSupplier => Filters.HasFlag(ReportFilters.Supplier);
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -83,8 +85,13 @@ public static class ReportCatalog
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType
             | ReportFilters.MaintenanceDef | ReportFilters.Technician, true, ExportStandard,
             InfoNote: "Her satır bir bakım kaydıdır (iptal edilenler hariç). Şube, bakımın işlendiği şubedir. Sayaç, bakımın yapıldığı andaki değerdir (araç birimi km ya da saat). Maliyet yalnızca bakım malzemelerini kapsar; işçilik/servis dâhil değildir."),
-        new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt hareketleri",
-            ReportCategory.Fuel, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
+        // Depo Girişi — ortak standarda taşındı (kullanıcı isteği 2026-08-08): depoya alınan yakıt alım kayıtları;
+        // Şube (op_branch_id) + Tedarikçi + Litre/Birim Fiyat/Tutar (NumCell) + pinned toplam (litre+tutar+ağırlıklı
+        // ort. fiyat). Filtreler: Tarih + Şube(yetkili) + Tedarikçi.
+        new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt: tedarikçi, litre, birim fiyat, tutar",
+            ReportCategory.Fuel, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Supplier, true, ExportStandard,
+            InfoNote: "Depoya alınan yakıt giriş kayıtları. Şube, girişin işlendiği şubedir. Tutar = litre × birim fiyat. Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez."),
         new ReportDescriptor("requests", "Talep Raporu", "Malzeme taleplerinin durum dökümü",
             ReportCategory.Requests, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Branch, true, ExportStandard),
         new ReportDescriptor("materials-template", "Malzeme — Şablonlu", "Şablona bağlı malzeme kayıtları",
