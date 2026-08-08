@@ -49,6 +49,15 @@ public class PostgresStockConcurrencyTests
             new OpeningStockService(factory, clock), admin);
     }
 
+    /// <summary>Ham sayım sorgusu (yarım belge / artık kayıt kontrolü için).</summary>
+    private static int RawCount(PostgresMigrationTests.NpgsqlTestFactory factory, string sql)
+    {
+        using var conn = factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
     /// <summary>Defterden gerçek bakiye: Σ(direction × quantity). Bakiye önbelleğiyle tutmalı.</summary>
     private static decimal LedgerBalance(PostgresMigrationTests.NpgsqlTestFactory factory, string materialId)
     {
@@ -73,22 +82,44 @@ public class PostgresStockConcurrencyTests
         var m1 = f.Materials.Create(f.Admin, new NewMaterial("M-CC1", "Filtre"));
         f.Opening.RecordOpening(f.Admin, m1, 10m, "pg-cc-open-1");
 
+        // Yarış KANITI: tekrar mekanizmasının gerçekten devreye girdiğini log üzerinden doğrularız
+        // (kullanıcı kuralı: yalnız sonucun doğru olması yeterli değil).
+        var log = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var oldLog = StockBalanceWriter.Log;
+        StockBalanceWriter.Log = msg => log.Add(msg);
+
         var errors = new System.Collections.Concurrent.ConcurrentBag<Exception>();
         int ok1 = 0;
-        void Issue(string op, decimal qty)
+        try
         {
-            try { f.Stock.IssueOut(f.Admin, new[] { new StockLine(m1, qty) }, op, personnelId: null); Interlocked.Increment(ref ok1); }
-            catch (Exception ex) { errors.Add(ex); }
+            void Issue(string op, decimal qty)
+            {
+                try { f.Stock.IssueOut(f.Admin, new[] { new StockLine(m1, qty) }, op, personnelId: null); Interlocked.Increment(ref ok1); }
+                catch (Exception ex) { errors.Add(ex); }
+            }
+            Parallel.Invoke(() => Issue("pg-cc-a", 6m), () => Issue("pg-cc-b", 7m));
         }
-        Parallel.Invoke(() => Issue("pg-cc-a", 6m), () => Issue("pg-cc-b", 7m));
+        finally { StockBalanceWriter.Log = oldLog; }
 
-        Assert.Equal(1, ok1);                                   // tam olarak biri başarılı
+        Assert.Equal(1, ok1);                                   // tam olarak biri başarılı (6 birimlik)
+        // Kaybeden işlem İŞ KURALI ile reddedilmeli: doc_no çakışması artık tekrar edildiği için
+        // yeniden denemede stok kontrolü çalışır ve 7 birim için yetersiz stok hatası verir.
         Assert.All(errors, e => Assert.True(e is NegativeStockException or StockBusyException,
             $"beklenmeyen hata tipi: {e.GetType().Name} — {e.Message}"));
+        // Hangi işlemin kazandığı GERÇEK bir yarıştır (zamanlamaya bağlı): 6 kazanırsa bakiye 4,
+        // 7 kazanırsa 3. İKİSİ DE DOĞRUDUR — değişmez kural, toplam çıkışın 13 OLMAMASIDIR.
         var bal1 = f.Stock.GetBalance(m1);
-        Assert.True(bal1 is 4m or 3m, $"bakiye 4 veya 3 olmalı, gelen: {bal1}");
-        Assert.Equal(bal1, LedgerBalance(f.Factory, m1));       // defter ↔ bakiye TUTARLI (kayıp düşüm yok)
-        Assert.True(bal1 >= 0m);                                // oversell yok
+        Assert.True(bal1 is 4m or 3m, $"bakiye 4 (6 kazandı) veya 3 (7 kazandı) olmalı, gelen: {bal1}");
+        Assert.Equal(bal1, LedgerBalance(f.Factory, m1));        // defter ↔ bakiye TUTARLI (kayıp düşüm yok)
+        Assert.True(bal1 >= 0m);                                 // oversell yok
+
+        // Yarım belge / artık kayıt kalmamalı: tek açılış + tek çıkış belgesi.
+        Assert.Equal(2, RawCount(f.Factory, "SELECT COUNT(*) FROM stock_movements WHERE material_id='" + m1 + "';"));
+        Assert.Equal(1, RawCount(f.Factory, "SELECT COUNT(*) FROM stock_documents WHERE doc_type='out';"));
+
+        // Yarış gerçekten oluştuysa TEKRAR edilmiş olmalı (doc_no ya da bakiye CAS).
+        var races = log.Where(l => l.Contains("[stock-docno]") || l.Contains("[stock-cas]")).ToList();
+        Assert.DoesNotContain(races, l => l.Contains("give-up"));   // tekrar hakkı tükenmedi
 
         // ── T-02: stok 10; eşzamanlı 6 ve 3 → İKİSİ DE geçmeli, bakiye 1 (bir düşüm kaybolmamalı) ──
         var m2 = f.Materials.Create(f.Admin, new NewMaterial("M-CC2", "Conta"));

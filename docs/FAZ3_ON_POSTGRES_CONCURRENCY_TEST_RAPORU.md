@@ -1,5 +1,9 @@
 # FAZ 3-ÖN — POSTGRESQL EŞZAMANLILIK TEST RAPORU
 
+> ⚠️ **BU RAPOR İKİ BÖLÜMDÜR.** §1–§9 **ilk koşuyu** (S1 düzeltmesinden ÖNCE) anlatır ve belge numarası
+> yarışının nasıl bulunduğunu gösterir. **§10, S1 düzeltmesinden SONRAKİ sonuçtur — güncel durum odur:
+> 3 PostgreSQL testinin de GEÇTİĞİ hâl.**
+
 **Tarih:** 2026-08-08
 **Ortam:** Ayrı ve **boş** PostgreSQL test veritabanı (`depowise_test`) — canlı veritabanına **hiç bağlanılmadı**.
 **Çalıştırılan filtre:** `FullyQualifiedName~PostgresStockConcurrencyTests` (yalnız 3 test)
@@ -215,10 +219,127 @@ başarıyla sonuçlanacağı için).
 
 ---
 
-## 9. BU AŞAMADA YAPILMAYANLAR
+## 9. İLK KOŞUDA YAPILMAYANLAR
 
 - Kod değiştirilmedi, yeni test yazılmadı, HTTP 409 testi eklenmedi.
 - Migration çalıştırılmadı, M-S1a'ya başlanmadı.
 - Deploy yapılmadı.
 - Canlı veritabanına bağlanılmadı, canlı salt-okuma kontrolü başlatılmadı.
 - Başka hiçbir PostgreSQL testi çalıştırılmadı (yalnız adı geçen 3 test).
+
+---
+---
+
+# 10. S1 DÜZELTMESİ SONRASI — GÜNCEL DURUM ✅
+
+**Kullanıcı kararı S1 uygulandı:** belge numarası (`doc_no`) çakışması artık **yarış** olarak tanınıyor ve
+mevcut tekrar mekanizmasıyla yeniden deneniyor. Migration yok, şema değişikliği yok, sequence yok.
+
+## 10.1 Kod değişikliği (tek dosya)
+
+`src/DepoWise.Infrastructure/Materials/StockBalanceWriter.cs`
+
+1. **`IsDocumentNumberRace(Exception)`** eklendi. Lehçeye özel tip kullanmaz (Infrastructure Npgsql'e
+   bağımlı değildir); bir `DbException`'ın (ve iç istisnalarının) metninde **yalnız** şu iki ayırt edici
+   ifadeden biri aranır:
+   - `ux_stock_documents_no` → PostgreSQL'in ürettiği metin
+   - `stock_documents.doc_no` → SQLite'ın ürettiği metin
+2. **`Run<T>` tekrar sarmalayıcısı** artık iki yarış türünü de yakalıyor:
+   `catch (Exception ex) when (ex is StockConcurrencyException || IsDocumentNumberRace(ex))`
+   Logda **ayrı etiketlenir**: `[stock-cas]` (bakiye) ve `[stock-docno]` (belge numarası).
+
+**Kapsam bilerek dardır.** Genel `23505`, başka benzersizlik kısıtları, yabancı anahtar hataları,
+doğrulama hataları ve gerçek sistem arızaları **tekrarlanmaz** (test edildi — §10.3).
+
+## 10.2 Tekrar sınırları — DEĞİŞMEDİ
+
+| Kural | Değer |
+|---|---|
+| En fazla tekrar | **3** (toplam en fazla 4 deneme) |
+| Bekleme | **10–40 ms** rastgele, döngüsüz |
+| Tükenince | `StockBusyException` → kullanıcıya teknik olmayan mesaj → HTTP **409** |
+| `NegativeStockException` | Tekrar **YOK** |
+| `ForbiddenException` | Tekrar **YOK** |
+| Gerçek sistem/veritabanı hatası | Tekrar **YOK** |
+| Bakiye CAS yarışı | Tekrar **VAR** |
+| Belge numarası yarışı | Tekrar **VAR** (yeni) |
+
+## 10.3 Eklenen testler
+
+**SQLite (deterministik, her zaman koşar)** — `tests/DepoWise.Tests/StockConcurrencyTests.cs`:
+
+| Test | Kanıtladığı |
+|---|---|
+| `DocNo_Cakismasi_YARIS_Sayilir_Ve_Tekrar_Edilir` | Hem SQLite hem PostgreSQL metni yarış sayılıyor; 2 çakışmadan sonra 3. denemede başarı (**tekrar gerçekten yapıldı**) |
+| `DocNo_Cakismasi_Tekrar_Hakki_Bitince_Kullanici_Mesajina_Doner` | Tam 4 deneme, sonra kullanıcı mesajı — **sınır değişmedi** |
+| `BASKA_Veritabani_Hatalari_YARIS_SAYILMAZ_Ve_Tekrar_EDILMEZ` | `ux_stock_movements_operation`, başka bir `ux_..._no`, FK ihlali, "database is locked", `InvalidOperationException` → hepsi **tek deneme** |
+
+**PostgreSQL** — `tests/DepoWise.Tests/PostgresStockConcurrencyTests.cs` (Test 1 güçlendirildi):
+tekrarın gerçekten olduğu **log üzerinden** doğrulanıyor; yarım belge/artık kayıt sayımı eklendi;
+"tekrar hakkı tükenmedi" kontrolü eklendi.
+
+## 10.4 Test sonuçları (S1 sonrası)
+
+| Koşu | Sonuç |
+|---|---|
+| PostgreSQL eşzamanlılık (3 test) | ✅ **3 geçti / 0 kaldı** |
+| Tüm paket | ✅ **788 geçti / 0 kaldı / 14 atlandı** (802 toplam) |
+
+### Tekrarın gerçekleştiğinin kanıtı (koşu logundan)
+
+```
+[stock-docno] conflict document:out op=pg-cc-d  attempt=1/4  23505: duplicate key value violates ...
+[stock-docno] conflict document:out op=pg-cc-x0 attempt=1/4 ... attempt=2/4 ... attempt=3/4
+[stock-cas]   conflict document:in  op=pg-cc-in attempt=1/4  stock_balances yarışı: ...
+```
+
+Yani **iki koruma da gerçek yarışta tetiklendi**: belge numarası çakışması yeniden denendi, bakiye CAS'i
+de eşzamanlı giriş/çıkışta devreye girdi. "Sonuç doğru çıktı" değil, **mekanizmanın çalıştığı** kanıtlandı.
+
+## 10.5 Test bazında sonuçlar (S1 sonrası)
+
+| Test | Senaryo | Beklenen | Gerçek | Sonuç |
+|---|---|---|---|---|
+| `Eszamanli_Iki_Cikis_Oversell_Ve_Kayip_Dusum_Uretmez` | 10 → eşzamanlı 6+7; ardından 10 → eşzamanlı 6+3 | Tam 1 başarılı; kaybeden **iş kuralıyla** reddedilir; toplam 13 çıkış asla olmaz. İkinci kısımda ikisi de başarılı, bakiye 1 | Tam 1 başarılı; kaybeden `NegativeStockException`; bakiye **4**, defter **4**. İkinci kısım: ikisi de başarılı, bakiye **1**, defter **1** | ✅ **GEÇTİ** |
+| `Yuksek_Cekismede_Bakiye_Negatife_Dusmez_Ve_Defterle_Tutarli_Kalir` | 10 stok, 20 paralel 1'er birim çıkış | Negatife düşmez; bakiye = 10 − başarılı; defterle tutarlı | Sağlandı; birkaç işlem 4 denemede de çakışıp kullanıcı mesajıyla reddedildi (beklenen davranış) | ✅ **GEÇTİ** |
+| `Eszamanli_Giris_Ve_Cikis_Birbirini_Ezmez` | 100 stok; eşzamanlı 40 giriş + 25 çıkış | Bakiye 115, defter 115 | Bakiye **115**, defter **115**; bakiye CAS'i tetiklendi | ✅ **GEÇTİ** (önceden de geçiyordu — korundu) |
+
+### 10 → 6 + 7 senaryosunun S1 sonrası davranışı
+
+1. İki işlem aynı anda başlar, ikisi de aynı belge numarasını hesaplar.
+2. Biri belgesini yazar; diğerinin INSERT'ü `23505` ile reddedilir → **artık yarış olarak tanınır**.
+3. Kaybeden işlemin transaction'ı geri alınır, **10–40 ms** beklenir ve **tamamı baştan** çalışır.
+4. Yeniden denemede belge numarası bir sonrakini alır **ve stok kontrolü baştan yapılır**.
+5. Kalan stok yetersiz olduğu için `NegativeStockException` → temiz, anlaşılır iş kuralı hatası.
+6. **Sonuç:** tam 1 başarılı çıkış, bakiye **4**, defter **4**, tek çıkış belgesi, **oversell yok**.
+
+> **Not (dürüst tespit):** Hangi işlemin kazandığı gerçek bir yarıştır. 6 kazanırsa bakiye 4, 7 kazanırsa 3
+> olur; ikisi de doğrudur. Testin ilk sürümü "her zaman 6 kazanır" varsaydığı için bir koşuda kaldı;
+> bu bir ürün hatası değil, **test beklentisinin fazla katı olmasıydı** ve düzeltildi. Değişmez kural
+> korunuyor: **toplam çıkış asla 13 olamaz** ve defter ile bakiye her zaman eşittir.
+
+## 10.6 Test veritabanı son durumu (salt-okuma)
+
+| Ölçüm | Değer |
+|---|---|
+| Veritabanı | `depowise_test` |
+| public tablo sayısı | 65 |
+| `stock_documents` / `stock_movements` | 3 / 5 (son testin normal çıktısı) |
+| Negatif bakiyeli malzeme | **0** |
+| `M-CC1` defter ↔ bakiye | 4 ↔ 4 ✅ |
+| `M-CC2` defter ↔ bakiye | 1 ↔ 1 ✅ |
+| Yarım belge / artık kayıt | **Yok** |
+
+## 10.7 SQLite ↔ PostgreSQL davranışı
+
+- **SQLite:** `BeginImmediate` tek yazara izin verdiği için ne bakiye CAS'i ne doc_no çakışması oluşur →
+  **davranış hiç değişmedi** (tüm mevcut testler aynen geçiyor).
+- **PostgreSQL:** iki yarış da oluşabiliyor, ikisi de **aynı** politikayla yeniden deneniyor.
+- Tek kod yolu, tek politika; PostgreSQL'e özel sequence veya SQL kullanılmadı.
+
+## 10.8 Kapsam dışında bırakılanlar (bu adımda yapılmadı)
+
+Migration yok · şema değişikliği yok · sequence yok · yetki/UI/ekran değişikliği yok ·
+Transfer / ReverseDocument / MaintenanceService / OpeningStockService iş kuralları değişmedi ·
+canlı veritabanına bağlanılmadı · deploy yok · M-S1a yok · Adım 3 yok · Faz 3 yok.
+

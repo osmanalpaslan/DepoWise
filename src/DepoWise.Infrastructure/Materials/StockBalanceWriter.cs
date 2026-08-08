@@ -133,12 +133,14 @@ UPDATE stock_balances SET quantity=@q, updated_at=@now WHERE material_id=@m AND 
         for (int attempt = 1; ; attempt++)
         {
             try { return action(); }
-            catch (StockConcurrencyException ex)
+            catch (Exception ex) when (ex is StockConcurrencyException || IsDocumentNumberRace(ex))
             {
-                Log($"[stock-cas] conflict {context} attempt={attempt}/{MaxRetries + 1} {ex.Message}");
+                // İki yarış türü aynı politikayı paylaşır ama logda AYRI etiketlenir (yarış ≠ sistem hatası).
+                var tag = ex is StockConcurrencyException ? "stock-cas" : "stock-docno";
+                Log($"[{tag}] conflict {context} attempt={attempt}/{MaxRetries + 1} {ex.Message}");
                 if (attempt > MaxRetries)
                 {
-                    Log($"[stock-cas] give-up {context} ({MaxRetries} tekrar sonrası) {ex.Message}");
+                    Log($"[{tag}] give-up {context} ({MaxRetries} tekrar sonrası) {ex.Message}");
                     throw new StockBusyException(BusyMessage);
                 }
                 int wait; lock (_jitter) { wait = _jitter.Next(10, 41); }
@@ -150,4 +152,43 @@ UPDATE stock_balances SET quantity=@q, updated_at=@now WHERE material_id=@m AND 
     /// <summary>Değer döndürmeyen işlemler için <see cref="Run{T}"/> eşleniği.</summary>
     public static void Run(Action action, string context)
         => Run<object?>(() => { action(); return null; }, context);
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // BELGE NUMARASI (doc_no) YARIŞI — PostgreSQL test bulgusu 2026-08-08, kullanıcı kararı S1
+    //
+    // NextDocNo, belge numarasını "MAX(doc_no) + 1" ile üretir; tek koruma
+    // ux_stock_documents_no (company_id, doc_type, doc_no) BENZERSİZLİK indeksidir. PostgreSQL'de
+    // eşzamanlı iki AYNI TİP belge aynı numarayı hesaplar → ikinci INSERT 23505 ile reddedilir.
+    // Bu, bakiye CAS'i ile AYNI SINIFTAN bir yarıştır (veri bozulmaz, işlem tümüyle geri alınır) ve
+    // aynı şekilde yeniden denenmelidir: tekrar sırasında NextDocNo bir sonraki numarayı alır ve
+    // stok kontrolleri BAŞTAN çalışır.
+    //
+    // ⚠️ KAPSAM BİLEREK DARDIR (kullanıcı kuralı): yalnız doc_no benzersizlik ihlali yarış sayılır.
+    // Genel 23505, başka benzersizlik kısıtları (ör. ux_stock_movements_operation), yabancı anahtar
+    // hataları, doğrulama hataları ve gerçek sistem/veritabanı arızaları TEKRARLANMAZ.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>PostgreSQL'in bu kısıt için ürettiği metin (indeks adını içerir).</summary>
+    private const string PgDocNoConstraint = "ux_stock_documents_no";
+
+    /// <summary>SQLite'ın aynı ihlal için ürettiği metin (indeks adı yerine kolonu yazar).</summary>
+    private const string SqliteDocNoColumn = "stock_documents.doc_no";
+
+    /// <summary>
+    /// Bu veritabanı hatası, BELGE NUMARASI çakışması mı (yani yeniden denenebilir bir yarış mı)?
+    /// Lehçeye özel tip kullanılmaz (Infrastructure Npgsql'e bağımlı değildir); iki veritabanının da
+    /// ürettiği ayırt edici metin aranır. Başka hiçbir hata bu koşulu sağlamaz.
+    /// </summary>
+    public static bool IsDocumentNumberRace(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is not DbException) continue;
+            var m = e.Message;
+            if (m.Contains(PgDocNoConstraint, StringComparison.OrdinalIgnoreCase) ||
+                m.Contains(SqliteDocNoColumn, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
 }

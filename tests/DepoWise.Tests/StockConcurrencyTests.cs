@@ -168,6 +168,75 @@ public class StockConcurrencyTests : IDisposable
         Assert.Equal(1, sys);
     }
 
+    // ── 2b. BELGE NUMARASI (doc_no) YARIŞI — PG bulgusu 2026-08-08, kullanıcı kararı S1 ──
+    //
+    // Gerçek yarış yalnız PostgreSQL'de oluşur (bkz. PostgresStockConcurrencyTests). Burada mekanizma
+    // DETERMİNİSTİK olarak kanıtlanır: doc_no benzersizlik ihlali tekrarlanır, BAŞKA hiçbir ihlal
+    // tekrarlanmaz. (SQLite ve PostgreSQL'in ürettiği iki farklı metin de ayrı ayrı doğrulanır.)
+
+    /// <summary>SQLite'ın doc_no ihlali için ürettiği metin — yarış sayılmalı.</summary>
+    private static Exception SqliteDocNoViolation()
+        => new Microsoft.Data.Sqlite.SqliteException(
+            "UNIQUE constraint failed: stock_documents.company_id, stock_documents.doc_type, stock_documents.doc_no", 19);
+
+    /// <summary>PostgreSQL'in doc_no ihlali için ürettiği metin (indeks adıyla) — yarış sayılmalı.</summary>
+    private static Exception PgDocNoViolation()
+        => new Microsoft.Data.Sqlite.SqliteException(
+            "duplicate key value violates unique constraint \"ux_stock_documents_no\"", 19);
+
+    [Fact]
+    public void DocNo_Cakismasi_YARIS_Sayilir_Ve_Tekrar_Edilir()
+    {
+        foreach (var make in new Func<Exception>[] { SqliteDocNoViolation, PgDocNoViolation })
+        {
+            Assert.True(StockBalanceWriter.IsDocumentNumberRace(make()));
+
+            int calls = 0;
+            var result = StockBalanceWriter.Run(() =>
+            {
+                calls++;
+                if (calls < 3) throw make();   // iki kez doc_no çakışması, sonra başarı
+                return "tamam";
+            }, "test");
+
+            Assert.Equal("tamam", result);
+            Assert.Equal(3, calls);            // tekrar GERÇEKTEN yapıldı
+        }
+    }
+
+    [Fact]
+    public void DocNo_Cakismasi_Tekrar_Hakki_Bitince_Kullanici_Mesajina_Doner()
+    {
+        int calls = 0;
+        var ex = Assert.Throws<StockBusyException>(() =>
+            StockBalanceWriter.Run<object>(() => { calls++; throw SqliteDocNoViolation(); }, "test"));
+
+        Assert.Equal(StockBalanceWriter.MaxRetries + 1, calls);   // ilk deneme + 3 tekrar (sınır DEĞİŞMEDİ)
+        Assert.Equal(StockBalanceWriter.BusyMessage, ex.Message);
+    }
+
+    [Fact]
+    public void BASKA_Veritabani_Hatalari_YARIS_SAYILMAZ_Ve_Tekrar_EDILMEZ()
+    {
+        // Kapsam bilerek dardır: yalnız doc_no benzersizlik ihlali yarıştır.
+        var digerleri = new Exception[]
+        {
+            new Microsoft.Data.Sqlite.SqliteException("UNIQUE constraint failed: stock_movements.operation_id", 19),
+            new Microsoft.Data.Sqlite.SqliteException("duplicate key value violates unique constraint \"ux_material_requests_no\"", 19),
+            new Microsoft.Data.Sqlite.SqliteException("FOREIGN KEY constraint failed", 19),
+            new Microsoft.Data.Sqlite.SqliteException("database is locked", 5),
+            new InvalidOperationException("baglanti koptu"),
+        };
+
+        foreach (var e in digerleri)
+        {
+            Assert.False(StockBalanceWriter.IsDocumentNumberRace(e), $"yanlışlıkla yarış sayıldı: {e.Message}");
+            int calls = 0;
+            Assert.ThrowsAny<Exception>(() => StockBalanceWriter.Run<object>(() => { calls++; throw e; }, "test"));
+            Assert.Equal(1, calls);            // TEK deneme — tekrar yok
+        }
+    }
+
     // ── 3. Mevcut davranış değişmedi (regresyon) ─────────────────────────────────────────
 
     [Fact]
