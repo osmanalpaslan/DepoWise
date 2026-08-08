@@ -43,7 +43,7 @@
                         <TextBox Classes="Field" Text="{Binding FormPassword}" PasswordChar="•"/>
                     </ctrl:FormField>
                 </StackPanel>
-                <ctrl:FormField Label="Üst Şube" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
+                <ctrl:FormField Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
                     <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}">
                         <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>

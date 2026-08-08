@@ -38,7 +38,7 @@
                                        Classes="Helper" TextWrapping="Wrap"/>
 
                             <StackPanel Orientation="Horizontal" Spacing="14">
-                                <ctrl:FormField Label="Şantiye" IsRequired="True" Width="280">
+                                <ctrl:FormField Label="Şube / Şantiye" IsRequired="True" Width="280">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Sites}" SelectedItem="{Binding FormSite}">
                                             <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>

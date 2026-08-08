@@ -24,7 +24,7 @@
                 <MudText Typo="Typo.subtitle1">@(_editId is null ? "YENİ TALEP" : "TALEP DÜZENLE")</MudText>
                 <MudText Typo="Typo.caption" Class="mud-text-secondary mb-2">Belge no otomatik (TLP-YYYY-NNNN). Kaydedince talep yöneticiye iletilir; sonra düzenlenemez.</MudText>
                 <MudGrid Spacing="2">
-                    <MudItem xs="12" md="6"><LookupSelect Label="Şantiye *" @bind-Value="_branch" Items="_branches" OnAdded="ReloadBranches" /></MudItem>
+                    <MudItem xs="12" md="6"><LookupSelect Label="Şube / Şantiye *" @bind-Value="_branch" Items="_branches" OnAdded="ReloadBranches" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="12" md="4"><LookupSelect Label="Talep Eden" @bind-Value="_requester" Items="_personnel" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
                     <MudItem xs="12" md="4"><LookupSelect Label="Depo Sorumlusu" @bind-Value="_warehouse" Items="_personnel" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
