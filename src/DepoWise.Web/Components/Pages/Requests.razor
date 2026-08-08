@@ -83,13 +83,17 @@
                         else
                         {
                             <MudTable Items="filtered" Dense="true" Hover="true" Striped="true" OnRowClick="@(e => OpenDetail(e.Item))" T="JsonElement">
-                                <HeaderContent><MudTh>BELGE NO</MudTh><MudTh>TARİH</MudTh><MudTh>KALEM</MudTh><MudTh>AÇIKLAMA</MudTh><MudTh>DURUM</MudTh></HeaderContent>
+                                @* ÖNCELİK + ONAY DURUMU + OPERASYON DURUMU (Faz 1, madde 15-16). Metin ve renk
+                                   sunucudan (ortak kaynak RequestOperationStatusInfo) gelir → masaüstüyle birebir aynı. *@
+                                <HeaderContent><MudTh>BELGE NO</MudTh><MudTh>TARİH</MudTh><MudTh>KALEM</MudTh><MudTh>AÇIKLAMA</MudTh><MudTh>ÖNCELİK</MudTh><MudTh>ONAY DURUMU</MudTh><MudTh>OPERASYON DURUMU</MudTh></HeaderContent>
                                 <RowTemplate>
                                     <MudTd>@Str(context, "docNo")</MudTd>
                                     <MudTd>@Date(context, "requestDate")</MudTd>
                                     <MudTd>@Str(context, "itemCount")</MudTd>
                                     <MudTd>@Str(context, "description")</MudTd>
+                                    <MudTd><MudChip T="string" Size="Size.Small" Color="@OpsColor(Str(context,"priorityColor"))" Variant="Variant.Text">@Str(context, "priorityText")</MudChip></MudTd>
                                     <MudTd><MudChip T="string" Size="Size.Small" Color="@StatusColor(Int(context,"status"))" Variant="Variant.Text">@StatusTr(Int(context, "status"))</MudChip></MudTd>
+                                    <MudTd><MudChip T="string" Size="Size.Small" Color="@OpsColor(Str(context,"operationStatusColor"))" Variant="Variant.Text">@Str(context, "operationStatusText")</MudChip></MudTd>
                                 </RowTemplate>
                             </MudTable>
                         }
@@ -324,6 +328,18 @@
 
     private static string StatusTr(int s) => s switch { 0 => "Taslak", 1 => "Beklemede", 2 => "Onaylı", 3 => "Reddedildi", 4 => "İptal", _ => "?" };
     private static Color StatusColor(int s) => s switch { 2 => Color.Success, 3 => Color.Error, 1 => Color.Warning, 4 => Color.Default, _ => Color.Default };
+
+    /// <summary>Ortak renk anahtarı (sunucudan: neutral|info|warning|primary|success|danger) → MudBlazor rengi.
+    /// Masaüstü aynı anahtarı kendi rozet türüne eşler → iki platformda AYNI renk mantığı (madde 16).</summary>
+    private static Color OpsColor(string key) => key switch
+    {
+        "success" => Color.Success,
+        "warning" => Color.Warning,
+        "danger" => Color.Error,
+        "info" => Color.Info,
+        "primary" => Color.Primary,
+        _ => Color.Default,
+    };
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Str(JsonElement row, string key)

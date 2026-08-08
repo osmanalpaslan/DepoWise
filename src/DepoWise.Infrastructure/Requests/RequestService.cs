@@ -9,14 +9,28 @@ namespace DepoWise.Infrastructure.Requests;
 
 public sealed record RequestItemInput(string MaterialId, decimal Quantity, string? VehicleId = null, string? Note = null);
 
+/// <summary><paramref name="Priority"/> = talep önceliği (şartname madde 18); varsayılan Normal.
+/// Sona eklendi → mevcut çağrılar bozulmaz (geriye uyumlu).</summary>
 public sealed record NewRequest(
     IReadOnlyList<RequestItemInput> Items, string? BranchId = null, string? RequesterId = null,
     string? WarehouseId = null, string? ApproverId = null, string? Description = null,
-    long? RequestDate = null, bool SubmitImmediately = false);
+    long? RequestDate = null, bool SubmitImmediately = false,
+    RequestPriority Priority = RequestPriority.Normal);
 
 public sealed record RequestHeader(string Id, string DocNo, RequestStatus Status, string CompanyId);
 
-public sealed record RequestListRow(string Id, string DocNo, RequestStatus Status, long RequestDate, int ItemCount, string? Description);
+/// <summary>Talep listesi satırı. <paramref name="OperationStatusDb"/> = operasyon durumu HAM db değeri
+/// (null → talep henüz onaylanmamış/operasyona girmemiş → ekranda "—"); ONAY durumundan ayrıdır.</summary>
+public sealed record RequestListRow(string Id, string DocNo, RequestStatus Status, long RequestDate, int ItemCount,
+    string? Description, string? OperationStatusDb = null, string PriorityDb = "normal")
+{
+    /// <summary>Talep Formu'nda gösterilecek "Operasyon Durumu" metni (yoksa "—").</summary>
+    public string OperationStatusText => RequestOperationStatusInfo.LabelOrDash(OperationStatusDb);
+    /// <summary>Renk anahtarı (neutral/info/warning/primary/success/danger) — platformlar kendi rengine eşler.</summary>
+    public string OperationStatusColor => RequestOperationStatusInfo.ColorOrNeutral(OperationStatusDb);
+    public string PriorityText => RequestPriorityInfo.LabelOf(PriorityDb);
+    public string PriorityColor => RequestPriorityInfo.ColorOf(PriorityDb);
+}
 
 public sealed record RequestItemRow(string MaterialCode, string MaterialName, decimal Quantity, string? Note);
 
@@ -69,8 +83,9 @@ public sealed class RequestService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO material_requests(id, company_id, doc_no, request_date, branch_id, requester_id, warehouse_id,
-    approver_id, description, status, created_at, updated_at, version, is_deleted)
-VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@now,@now,1,0);";
+    approver_id, description, status, priority, created_at, updated_at, version, is_deleted)
+VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@prio,@now,@now,1,0);";
+            // Operasyon durumu BİLİNÇLİ olarak yazılmaz → NULL kalır; talep ONAYLANINCA 'pending_ops' olur.
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@no", docNo);
@@ -81,6 +96,7 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@now,@now,1,0);";
             cmd.AddWithValue("@ap", (object?)dto.ApproverId ?? DBNull.Value);
             cmd.AddWithValue("@desc", (object?)dto.Description ?? DBNull.Value);
             cmd.AddWithValue("@st", RequestStatusMachine.ToDb(status));
+            cmd.AddWithValue("@prio", RequestPriorityInfo.ToDb(dto.Priority));
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
@@ -123,7 +139,9 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@now,@now,1,0);";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh, approver_id=@ap,
-    description=@desc, request_date=@dt, version=version+1, updated_at=@now WHERE id=@id;";
+    description=@desc, request_date=@dt, priority=@prio, version=version+1, updated_at=@now WHERE id=@id;";
+            // operation_status'a DOKUNULMAZ (onay/operasyon ayrı; düzenleme yalnız onaylanmamış talepte yapılır).
+            cmd.AddWithValue("@prio", RequestPriorityInfo.ToDb(dto.Priority));
             cmd.AddWithValue("@br", (object?)dto.BranchId ?? DBNull.Value);
             cmd.AddWithValue("@req", (object?)dto.RequesterId ?? DBNull.Value);
             cmd.AddWithValue("@wh", (object?)dto.WarehouseId ?? DBNull.Value);
@@ -208,13 +226,51 @@ WHERE i.request_id=@r ORDER BY m.code;";
     public void Approve(SessionContext s, string requestId)
     {
         // Onay ayrı ekran/yetki: "Talep Onaylama" (request_approval). Form (requests) Edit'i YETMEZ.
-        Transition(s, requestId, RequestStatus.Approved, PermissionAction.Edit, null, setApproval: true, gateModule: ApprovalModule);
+        EnsureIsDesignatedApprover(s, requestId);
+        // Onaylanınca operasyon süreci BAŞLAR: operation_status = Beklemede (kullanıcı kararı B, 2026-08-08).
+        Transition(s, requestId, RequestStatus.Approved, PermissionAction.Edit, null, setApproval: true,
+            gateModule: ApprovalModule, startOperations: true);
     }
 
     public void Reject(SessionContext s, string requestId, string reason)
     {
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Ret gerekçesi zorunlu.");
+        EnsureIsDesignatedApprover(s, requestId);
         Transition(s, requestId, RequestStatus.Rejected, PermissionAction.Edit, reason, gateModule: ApprovalModule);
+    }
+
+    /// <summary>
+    /// ONAY VEREN KISITI (kullanıcı isteği 2026-08-08, madde 3): talebi YALNIZ formda seçilen "Onay Veren"
+    /// kullanıcı onaylayabilir/reddedebilir. İSTİSNA: firma admini ve süper admin (kullanıcı kararı) — süreç
+    /// kilitlenmesin. Onay veren SEÇİLMEMİŞSE eski davranış korunur (yetkili herkes) → mevcut/eski talepler
+    /// kilitlenmez (geriye uyumluluk).
+    ///
+    /// Not: "Onay Veren" alanı PERSONEL kaydını gösterir; kullanıcı hesabı bağı <c>users.personnel_id</c>
+    /// üzerindedir (Migration033 — "Mevcut kullanıcıyı bağla"). Personelin bağlı hesabı YOKSA kural
+    /// UYGULANMAZ — aksi halde talep hiç onaylanamaz hâle gelirdi (geriye uyumluluk).
+    /// </summary>
+    private void EnsureIsDesignatedApprover(SessionContext s, string requestId)
+    {
+        if (AccessControl.IsAdmin(s)) return;   // firma admini / süper admin istisnası
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        // approver_id (personel) → o personele BAĞLI kullanıcı hesabı (users.personnel_id). Bağ yoksa satır gelmez.
+        cmd.CommandText = @"
+SELECT u.id
+FROM material_requests r
+JOIN users u ON u.personnel_id = r.approver_id AND u.company_id = r.company_id AND u.is_deleted = 0
+WHERE r.id=@id AND r.company_id=@c;";
+        cmd.AddWithValue("@id", requestId);
+        cmd.AddWithValue("@c", s.CompanyId);
+
+        var approverUserIds = new List<string>();
+        using (var rd = cmd.ExecuteReader())
+            while (rd.Read()) approverUserIds.Add(rd.GetString(0));
+
+        if (approverUserIds.Count == 0) return;   // onay veren seçilmemiş / hesabı yok → eski davranış korunur
+        if (!approverUserIds.Contains(s.UserId, StringComparer.Ordinal))
+            throw new ForbiddenException("Bu talebi yalnız talep formunda seçilen 'Onay Veren' kullanıcı onaylayabilir.");
     }
 
     public void Cancel(SessionContext s, string requestId, string? reason = null)
@@ -258,7 +314,8 @@ WHERE i.request_id=@r ORDER BY m.code;";
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $@"
 SELECT mr.id, mr.doc_no, mr.status, mr.request_date, mr.description,
-       (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id)
+       (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id),
+       mr.operation_status, COALESCE(mr.priority,'normal')
 FROM material_requests mr
 WHERE mr.company_id=@c AND mr.is_deleted=0{DepoWise.Application.Security.BranchScope.Sql(s, "mr.branch_id")}
   AND (CAST(@st AS TEXT) IS NULL OR mr.status=@st)
@@ -275,7 +332,8 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new RequestListRow(r.GetString(0), r.GetString(1), RequestStatusMachine.FromDb(r.GetString(2)),
-                r.GetInt64(3), r.GetInt32(5), r.IsDBNull(4) ? null : r.GetString(4)));
+                r.GetInt64(3), r.GetInt32(5), r.IsDBNull(4) ? null : r.GetString(4),
+                r.IsDBNull(6) ? null : r.GetString(6), r.GetString(7)));
         return list;
     }
 
@@ -352,7 +410,9 @@ WHERE i.request_id=@r ORDER BY m.code;";
     }
 
     // ---- çekirdek ----
-    private void Transition(SessionContext s, string requestId, RequestStatus to, PermissionAction perm, string? reason, bool setApproval = false, string? gateModule = null)
+    /// <param name="startOperations">Onayda true: operasyon süreci BAŞLAR → operation_status='pending_ops'
+    /// (Beklemede). Onay durumu ile operasyon durumu AYRI alanlardır, birbirine karışmaz (kullanıcı kararı B).</param>
+    private void Transition(SessionContext s, string requestId, RequestStatus to, PermissionAction perm, string? reason, bool setApproval = false, string? gateModule = null, bool startOperations = false)
     {
         AccessControl.Require(s, gateModule ?? Module, perm);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -367,8 +427,11 @@ WHERE i.request_id=@r ORDER BY m.code;";
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
+            // startOperations: onayla birlikte operasyon durumu Beklemede olarak BAŞLAR (yalnız onay yolunda).
             cmd.CommandText = setApproval
-                ? "UPDATE material_requests SET status=@st, approved_by=@by, approved_at=@now, version=version+1, updated_at=@now WHERE id=@id;"
+                ? (startOperations
+                    ? "UPDATE material_requests SET status=@st, approved_by=@by, approved_at=@now, operation_status='pending_ops', version=version+1, updated_at=@now WHERE id=@id;"
+                    : "UPDATE material_requests SET status=@st, approved_by=@by, approved_at=@now, version=version+1, updated_at=@now WHERE id=@id;")
                 : "UPDATE material_requests SET status=@st, version=version+1, updated_at=@now WHERE id=@id;";
             cmd.AddWithValue("@st", RequestStatusMachine.ToDb(to));
             cmd.AddWithValue("@now", now);
@@ -418,9 +481,11 @@ WHERE i.request_id=@r ORDER BY m.code;";
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
+        // kind='approval': bu satır ONAY geçişidir. Operasyon geçişleri Faz 2'de kind='operation' ile yazılacak
+        // (aynı tablo, aynı "hiçbir geçmiş silinmez" ilkesi).
         cmd.CommandText =
-            "INSERT INTO request_status_history(id, request_id, from_status, to_status, by_user, reason, created_at) " +
-            "VALUES(@id,@r,@from,@to,@by,@reason,@now);";
+            "INSERT INTO request_status_history(id, request_id, from_status, to_status, by_user, reason, created_at, kind) " +
+            "VALUES(@id,@r,@from,@to,@by,@reason,@now,'approval');";
         cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
         cmd.AddWithValue("@r", requestId);
         cmd.AddWithValue("@from", from is null ? DBNull.Value : RequestStatusMachine.ToDb(from.Value));

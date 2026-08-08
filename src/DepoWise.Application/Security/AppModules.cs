@@ -66,6 +66,11 @@ public static class AppModules
         ("daily_activity", "Günlük Faaliyet"),
         ("requests", "Talep Formu"),
         ("request_approval", "Talep Onaylama"),
+        // Talep Operasyonları (kullanıcı isteği 2026-08-08, Faz 1): ekran yetkisi + iki birim yetkisi.
+        // Faz 1'de yalnız ağaca eklenir/atanabilir; operasyon ekranı ve adımları Faz 2+'da bunlara bağlanır.
+        ("request_ops", "Talep Operasyonları"),
+        ("request_ops_warehouse", "Talep Operasyonları — Ana Depo"),
+        ("request_ops_purchase", "Talep Operasyonları — Satın Alma"),
         ("personnel", "Personel"),
         ("reports", "Raporlar"),
         ("import_export", "İçe Aktarım (Import)"),   // 2026-07-26: yalnız İÇE AKTARIM

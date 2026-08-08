@@ -110,11 +110,11 @@ public sealed partial class RequestsViewModel : ViewModelBase
             Items.Clear();
             foreach (var r in DesktopServices.Requests.List(_session, FilterStatus,
                          string.IsNullOrWhiteSpace(Search) ? null : Search.Trim()))
-                Items.Add(new RequestRow(r.Id, r.DocNo, r.Status, r.RequestDate, r.ItemCount, r.Description));
+                Items.Add(new RequestRow(r.Id, r.DocNo, r.Status, r.RequestDate, r.ItemCount, r.Description, r.OperationStatusDb, r.PriorityDb));
 
             PendingItems.Clear();
             foreach (var r in DesktopServices.Requests.List(_session, RequestStatus.Pending))
-                PendingItems.Add(new RequestRow(r.Id, r.DocNo, r.Status, r.RequestDate, r.ItemCount, r.Description));
+                PendingItems.Add(new RequestRow(r.Id, r.DocNo, r.Status, r.RequestDate, r.ItemCount, r.Description, r.OperationStatusDb, r.PriorityDb));
 
             Status = $"{Items.Count} talep · {PendingItems.Count} bekleyen";
         }
@@ -516,10 +516,29 @@ public sealed partial class ReqItemLine : ObservableObject
     public string VehicleText => string.IsNullOrEmpty(VehicleDisplay) ? "—" : VehicleDisplay!;
 }
 
-public sealed record RequestRow(string Id, string DocNo, RequestStatus Status, long RequestDate, int ItemCount, string? Description)
+/// <summary><paramref name="OperationStatusDb"/> = OPERASYON durumu (onay durumundan AYRI; null → "—").
+/// Sona eklendi → mevcut çağrılar bozulmaz (Faz 1, kullanıcı isteği 2026-08-08).</summary>
+public sealed record RequestRow(string Id, string DocNo, RequestStatus Status, long RequestDate, int ItemCount, string? Description,
+    string? OperationStatusDb = null, string PriorityDb = "normal")
 {
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(RequestDate).LocalDateTime.ToString("dd.MM.yyyy");
     public string DescriptionDisplay => string.IsNullOrWhiteSpace(Description) ? "—" : Description!;
+
+    // ── Operasyon Durumu (şartname madde 15) + renk (madde 16). Ortak kaynak: RequestOperationStatusInfo. ──
+    public string OperationStatusText => RequestOperationStatusInfo.LabelOrDash(OperationStatusDb);
+    public BadgeKind OperationStatusKind => ToBadge(RequestOperationStatusInfo.ColorOrNeutral(OperationStatusDb));
+    public string PriorityText => RequestPriorityInfo.LabelOf(PriorityDb);
+    public BadgeKind PriorityKind => ToBadge(RequestPriorityInfo.ColorOf(PriorityDb));
+
+    /// <summary>Ortak renk anahtarı → masaüstü rozet türü (web kendi tarafında MudBlazor rengine eşler).</summary>
+    private static BadgeKind ToBadge(string color) => color switch
+    {
+        "success" => BadgeKind.Success,
+        "warning" => BadgeKind.Warning,
+        "danger" => BadgeKind.Danger,
+        "info" or "primary" => BadgeKind.Info,
+        _ => BadgeKind.Neutral,
+    };
     public string StatusText => StatusLabel(Status);
     public BadgeKind StatusKind => Status switch
     {

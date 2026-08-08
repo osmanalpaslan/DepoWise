@@ -1990,7 +1990,7 @@ app.MapPost("/api/requests", (HttpContext c, RequestDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
-    var h = svc.Requests.Create(s, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately));
+    var h = svc.Requests.Create(s, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately, DepoWise.Application.Requests.RequestPriorityInfo.FromDb(d.Priority)));
     return Results.Ok(new { id = h.Id, docNo = h.DocNo });
 }).RequireAuthorization();
 app.MapGet("/api/requests/{id}/edit", (HttpContext c, string id) =>
@@ -1999,7 +1999,7 @@ app.MapPut("/api/requests/{id}", (HttpContext c, string id, RequestDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
-    svc.Requests.Update(s, id, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately));
+    svc.Requests.Update(s, id, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately, DepoWise.Application.Requests.RequestPriorityInfo.FromDb(d.Priority)));
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 app.MapPost("/api/requests/{id}/approve", (HttpContext c, string id) =>
@@ -2424,7 +2424,8 @@ record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, de
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
     long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
 record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);
-record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately);
+/// <summary>Priority: "normal|high|urgent|critical" (şartname madde 18). Gönderilmezse Normal (geriye uyumlu).</summary>
+record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately, string? Priority = null);
 record RolesDto(List<string>? Roles);
 record ActiveDto(bool Active);
 record PasswordDto(string Password);

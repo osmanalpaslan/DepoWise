@@ -170,12 +170,19 @@
                                     <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
-                                                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                                                <!-- Kolon 4: ONAY durumu · Kolon 5: OPERASYON durumu (Faz 1, madde 15-16).
+                                                     İkisi AYRI rozettir; operasyon yoksa "—" görünür. -->
+                                                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
                                                     <SelectableTextBlock Grid.Column="0" Text="{Binding DocNo}" MinWidth="130" VerticalAlignment="Center"/>
                                                     <SelectableTextBlock Grid.Column="1" Text="{Binding DateText}" MinWidth="90" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                     <SelectableTextBlock Grid.Column="2" Text="{Binding ItemCount}" MinWidth="60" VerticalAlignment="Center"/>
                                                     <SelectableTextBlock Grid.Column="3" Text="{Binding DescriptionDisplay}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <ctrl:StatusBadge Grid.Column="4" MinWidth="110" VerticalAlignment="Center" Kind="{Binding StatusKind}" Text="{Binding StatusText}"/>
+                                                    <ctrl:StatusBadge Grid.Column="4" MinWidth="90" VerticalAlignment="Center" Kind="{Binding PriorityKind}" Text="{Binding PriorityText}"
+                                                                      ToolTip.Tip="Öncelik"/>
+                                                    <ctrl:StatusBadge Grid.Column="5" MinWidth="110" VerticalAlignment="Center" Kind="{Binding StatusKind}" Text="{Binding StatusText}"
+                                                                      ToolTip.Tip="Onay durumu"/>
+                                                    <ctrl:StatusBadge Grid.Column="6" MinWidth="150" VerticalAlignment="Center" Kind="{Binding OperationStatusKind}" Text="{Binding OperationStatusText}"
+                                                                      ToolTip.Tip="Operasyon durumu (talep onaylandıktan sonra başlar)"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
@@ -193,9 +200,14 @@
                                     <DataTemplate x:DataType="vm:RequestsViewModel">
                                         <ScrollViewer>
                                             <StackPanel Spacing="12">
-                                                <Grid ColumnDefinitions="*,Auto">
+                                                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                                     <SelectableTextBlock Grid.Column="0" Text="{Binding Selected.DocNo}" Classes="PageTitle" VerticalAlignment="Center"/>
-                                                    <ctrl:StatusBadge Grid.Column="1" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"/>
+                                                    <ctrl:StatusBadge Grid.Column="1" Margin="0,0,6,0" Kind="{Binding Selected.PriorityKind}" Text="{Binding Selected.PriorityText}"
+                                                                      ToolTip.Tip="Öncelik"/>
+                                                    <ctrl:StatusBadge Grid.Column="2" Margin="0,0,6,0" Kind="{Binding Selected.StatusKind}" Text="{Binding Selected.StatusText}"
+                                                                      ToolTip.Tip="Onay durumu"/>
+                                                    <ctrl:StatusBadge Grid.Column="3" Kind="{Binding Selected.OperationStatusKind}" Text="{Binding Selected.OperationStatusText}"
+                                                                      ToolTip.Tip="Operasyon durumu (talep onaylandıktan sonra başlar)"/>
                                                 </Grid>
                                                 <SelectableTextBlock Text="KALEMLER" Classes="SectionTitle"/>
                                                 <ItemsControl ItemsSource="{Binding DetailItems}">
