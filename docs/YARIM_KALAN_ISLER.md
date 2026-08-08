@@ -18,6 +18,26 @@ geri alınamaz işlem (silme, sıfırlama, veri taşıyan migration, toplu günc
 
 ---
 
+## ⏳ Talep Faz 3 — KULLANICI ONAYI BEKLİYOR (2026-08-08)
+
+Faz 3 (talep karşılama + gerçek stok hareketleri) öncesi **yalnız analiz** yapıldı; kod/migration/deploy YOK.
+Rapor: **[docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md)**.
+
+Bekleyen tek şey: raporun sonundaki **15 maddelik onay listesi**. Onay gelince önerilen sıra:
+1. **Faz 3-Ön** — PostgreSQL eşzamanlılık (oversell) düzeltmesi: `stock_balances` üzerinde iyimser CAS +
+   sınırlı tekrar. **Migration yok**, SQLite davranışı değişmez.
+2. **Faz 3a** — `request_fulfillments` tablosu (M-062) + servis + senkron listesine ekleme.
+3. **Faz 3b/3c** — masaüstü ve web karşılama ekranı. 4. **Faz 3d** — şube transferiyle karşılama + iptal.
+
+Analizden çıkan, Faz 3'ten **bağımsız** iki iş (ayrıca onay bekliyor):
+- **Faz S — Senkron performansı:** 22 sorgulu sürüm hesabı → tek sorgu; her push'ta tüm defterden bakiye
+  yeniden hesabı → yalnız etkilenen malzemeler; push sonrası "yankı pull"un kesilmesi; uyarlanabilir tur aralığı.
+- **M-S1 — Çok-kiracı sızıntısı:** `material_request_items` ve `maintenance_materials` tablolarında `company_id`
+  olmadığı için senkron çekmede firma filtresi uygulanmıyor (bugün tek firma olduğu için zarar yok; ikinci
+  firmada gerçek sızıntı olur).
+
+---
+
 ## ✅ Masaüstü ekran düzeltmeleri (2026-08-08) — TAMAMLANDI + KULLANICI DOĞRULADI
 
 Kullanıcı testinde bildirilen 5 madde; **1.0.125 ile sütun sorunu da dâhil hepsi çözüldü ("sorun düzelmiş")**.

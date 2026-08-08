@@ -27,7 +27,22 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08l — Talep Operasyonları FAZ 1 tamam)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08m — Faz 3 öncesi karar/risk analizi hazır, ONAY BEKLİYOR)
+
+### 🧭 FAZ 3 ÖNCESİ KARAR VE RİSK ANALİZİ (2026-08-08, Opus 5) · **KOD YAZILMADI**
+Kullanıcı isteğiyle Faz 3'e (talep karşılama + gerçek stok hareketleri) başlamadan önce **yalnız analiz**
+yapıldı: [docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md).
+- **En kritik bulgu:** `BeginImmediate` yalnız **SQLite'ta** serialize eder; **PostgreSQL'de koruma yoktur** →
+  eşzamanlı iki çıkışta **oversell + bakiye kaybı** mümkün. Önerilen çözüm: `stock_balances` üzerinde
+  **iyimser CAS + sınırlı tekrar** (şema değişmez, iki veritabanında aynı davranış).
+- Karşılama kaydı ile stok hareketi bugün **aynı transaction'da olamıyor** → `StockService`'e iç giriş noktası.
+- Yeni `request_fulfillments` tablosu **senkron listesine eklenmezse** masaüstü verisi sunucuya ulaşmaz.
+- Senkron darboğazları ölçüldü (22 sorgulu sürüm hesabı, her push'ta tüm defterden bakiye hesabı, yankı pull).
+- **Ek bulgu:** `material_request_items` / `maintenance_materials` tablolarında `company_id` yok →
+  senkron çekmede firma filtresi uygulanmıyor (ikinci firmada gerçek sızıntı riski).
+- **15 madde kullanıcı onayı bekliyor** (raporun sonundaki liste). Onaysız kod/migration/deploy YOK.
+
+
 
 ### 🆕 TALEP OPERASYONLARI — 5 FAZLI PROJE (2026-08-08, Opus 5) · **FAZ 1 BİTTİ**
 Talep modülü gerçek ERP iş akışına dönüştürülüyor. Kullanıcı onayıyla **5 faza** bölündü; bir faz bitmeden
@@ -1078,7 +1093,14 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Aktif iş — PostgreSQL geçişi (Görev A):** Sunucu KODU artık uçtan uca PG-hazır ve 579 test yeşil.
+> **Aktif iş — Talep Faz 3 ONAY BEKLİYOR:** [docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md)
+> sonundaki **15 maddelik onay listesi** cevaplanmadan Faz 3 kodlamasına başlanmaz. Önerilen sıra:
+> **Faz 3-Ön** (PostgreSQL eşzamanlılık düzeltmesi, migration yok) → Faz 3a (migration + servis) →
+> 3b masaüstü → 3c web → 3d transfer/iptal.
+>
+> ---
+>
+> **(Geçmiş bağlam) PostgreSQL geçişi (Görev A):** Sunucu KODU artık uçtan uca PG-hazır ve 579 test yeşil.
 > **Kod tarafında açık iş kalmadı.** Sıradaki tek şey **canlı geçiş** ve bu **senin onayınla** başlar
 > (üretim + altın kural): Fly API'yi Neon bölgesinde çalıştır → babanın verisinin **KOPYASIYLA** prova →
 > sağlamsa yeni makineleri yönlendir; eski SQLite sunucusu yedekte kalır. Hazır olduğunda "canlı geçişe
