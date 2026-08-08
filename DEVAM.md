@@ -57,6 +57,12 @@ sorunları iletti. Yapılanlar:
   Faaliyet'te filtre satırındaki TARİH yer tutucusu eklendi, ROTA filtresine pin verildi ve ROTA gövde
   hücresindeki sabit `MinWidth=170` kaldırıldı (o kolon 170'in altına inemiyordu). Sürükleme akıcılığı için
   aynı piksel değerinde yeniden çizim yapılmıyor. **1.0.125 (checksum 32184c…)**. Test 709/0.
+  ✅ **KULLANICI DOĞRULADI (2026-08-08): "sorun düzelmiş"** — 5 maddenin tamamı kapandı.
+
+### 🔴 CANLI VERİ MODU AÇIK (2026-08-08)
+Baban **gerçek veri girmeye başladı** (kullanıcı `mustafa.alpaslan`, şube **Karaman**). Bundan sonra geri
+alınamaz her işlem (silme, sıfırlama, veri taşıyan migration, toplu güncelleme) **açık onay olmadan yapılmaz**;
+şema değişikliği veri taşıma/yedek planı olmadan girişilmez. Testler yalnız yerel/ayrı test DB'sinde koşar.
 - ⚠️ **Görsel doğrulama kullanıcıda** (Avalonia bu ortamda çalıştırılamıyor): özellikle 1. maddedeki sütun
   sürükleme davranışı ve yeni şablon ekranı 1.0.124'te denenmeli.
 

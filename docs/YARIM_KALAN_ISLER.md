@@ -10,6 +10,33 @@
 
 ---
 
+## 🔴 CANLI VERİ MODU AÇIK (2026-08-08)
+
+**Baban gerçek veri girmeye başladı** (kullanıcı `mustafa.alpaslan`, şube **Karaman**). Bundan sonra her işte:
+geri alınamaz işlem (silme, sıfırlama, veri taşıyan migration, toplu güncelleme) **açık onay olmadan yapılmaz**;
+şema değişikliği veri taşıma/yedek planı olmadan girişilmez. Testler yalnız yerel/ayrı test veritabanında koşar.
+
+---
+
+## ✅ Masaüstü ekran düzeltmeleri (2026-08-08) — TAMAMLANDI + KULLANICI DOĞRULADI
+
+Kullanıcı testinde bildirilen 5 madde; **1.0.125 ile sütun sorunu da dâhil hepsi çözüldü ("sorun düzelmiş")**.
+1. **Sütun daraltma/genişletme** — kök neden: başlık/filtre/gövde üç ayrı Grid genişliği `SharedSizeGroup` ile
+   pazarlık ediyordu; paylaşılan ölçü büyümeyi anında, **küçülmeyi ancak liste yeniden kurulunca** uyguluyordu
+   (kullanıcının gördüğü "~10 sn" = 15 sn'lik eşitleme turu). Çözüm: Raporlar tablosundaki ilke — SharedSizeGroup
+   kaldırıldı, her hücrede genişlik doğrudan sabitlendi (Araçlar/Malzemeler/Günlük Faaliyet). 1.0.124 yetmedi,
+   **1.0.125** çözdü. (İlk turda ayrıca `*` esnek kolon → paylaşımlı ölçü ve SortHeader tek-kaynak/koordinat düzeltmesi.)
+2. **Eşitleme ekranı bozmasın** — detay paneli/form açıkken liste yeniden kurulmuyor; yenileme bekletilip
+   kapanınca sessizce uygulanıyor (açık detay artık kaybolmuyor).
+3. **Tema** — masaüstünden "Semi (Modern)" kaldırıldı (web'e dokunulmadı).
+4. **Muadil malzeme** — sonuç ve seçilenler "KOD — Ad" gösteriyor (arama zaten kod+ad idi).
+5. **Malzeme şablonu** — forma şablon seçici geri eklendi + masaüstüne **Malzeme Şablonları** yönetim ekranı
+   (Malzemeler menüsü; mevcut `material_templates` yetkisi). Altyapı zaten duruyordu, yalnız UI eksikti.
+
+Test 709/0. Web/API değişmedi. Yayın: **masaüstü 1.0.125**.
+
+---
+
 ## ✅ Raporların tek tek yeniden tasarımı (ortak standart) — DEVAM EDEN GÖREV
 
 Ortak standart: Birim 1-4 mimarisi + Araç Raporu'nda oturan biçim (NumCell HAM değer + görüntü), pinned TotalRow,
