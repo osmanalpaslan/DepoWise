@@ -92,6 +92,9 @@ app.Use(async (ctx, next) =>
     // 500 "Sunucuda beklenmeyen bir hata oluştu" dönüyordu. Kural DOĞRU çalışıyordu (negatif stok/sayaç
     // geri alma engelleniyordu) ama kullanıcı sebebi göremiyordu. Mesajları iş metnidir, güvenle gösterilir.
     catch (DepoWise.Infrastructure.Materials.NegativeStockException ex) { await Write(ctx, 400, ex.Message); }
+    // Faz 3-Ön: aynı malzemede eşzamanlı işlem — 3 tekrardan sonra vazgeçildi. Mesaj teknik değildir;
+    // gerçek teknik sebep [stock-cas] etiketiyle sunucu logundadır (kullanıcı kararı K-5).
+    catch (DepoWise.Infrastructure.Materials.StockBusyException ex) { await Write(ctx, 409, ex.Message); }
     catch (DepoWise.Application.Common.MeterBackwardException ex) { await Write(ctx, 400, ex.Message); }
     catch (ArgumentException ex) { await Write(ctx, 400, ex.Message); }
     catch (InvalidOperationException ex) { await Write(ctx, 400, ex.Message); }

@@ -179,7 +179,12 @@ public sealed class StockService
         AccessControl.Require(s, Module, PermissionAction.Edit);
         AccessControl.RequireButton(s, SpecialButtons.Reverse);
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("İptal gerekçesi zorunlu.");
+        // Faz 3-Ön: bakiye yarışında tüm iptal işlemi geri alınıp baştan denenir (kısmi tekrar yok).
+        StockBalanceWriter.Run(() => ReverseDocumentOnce(s, documentId, reason), $"reverse:{documentId}");
+    }
 
+    private void ReverseDocumentOnce(SessionContext s, string documentId, string reason)
+    {
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
@@ -309,7 +314,19 @@ LIMIT @take;";
 
     // ================= çekirdek =================
 
+    /// <summary>Belge motoru + TEKRAR SARMALAYICISI (Faz 3-Ön). Bakiye yarışında (yalnız o durumda) transaction
+    /// tamamen geri alınır ve belge BAŞTAN üretilir — kısmi tekrar yoktur. Gövde (<paramref name="body"/>)
+    /// yalnız veritabanı işlemi yapar, geri alınamaz yan etkisi yoktur → yeniden çalıştırmak güvenlidir.
+    /// Aynı operationId ile yeniden denenir; başarısız deneme geri alındığı için idempotency bozulmaz.</summary>
     private StockDocResult RunDocument(SessionContext s, string docType, string operationId,
+        string? toBranch, string? fromBranch, string? primaryBranch, string? personnelId, string? vehicleId,
+        string? note, long? docDate, Action<DbConnection, DbTransaction, string> body, string? groupId = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
+        => StockBalanceWriter.Run(() => RunDocumentOnce(s, docType, operationId, toBranch, fromBranch, primaryBranch,
+            personnelId, vehicleId, note, docDate, body, groupId, invoiceNo, orderSlipNo, creditSlipNo),
+            $"document:{docType} op={operationId}");
+
+    private StockDocResult RunDocumentOnce(SessionContext s, string docType, string operationId,
         string? toBranch, string? fromBranch, string? primaryBranch, string? personnelId, string? vehicleId,
         string? note, long? docDate, Action<DbConnection, DbTransaction, string> body, string? groupId = null,
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
@@ -360,34 +377,15 @@ LIMIT @take;";
             line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
     }
 
-    /// <summary>Bakiyeye işaretli miktarı uygular; düşüşte negatif olursa fail-closed.</summary>
+    /// <summary>Bakiyeye işaretli miktarı uygular; düşüşte negatif olursa fail-closed.
+    /// Faz 3-Ön: gerçek yazma TEK ORTAK yazıcıdadır (<see cref="StockBalanceWriter"/>) — bakım tarafı da
+    /// aynı sınıfı kullanır, böylece aynı stok için iki farklı güvenlik mantığı kalmaz (kullanıcı kararı 3).</summary>
     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         decimal signedQty, long now, bool allowNegative)
-    {
-        var current = ReadBalance(conn, tx, materialId);
-        var updated = current + signedQty;
-        if (!allowNegative && updated < 0)
-            throw new NegativeStockException($"Negatif stok engellendi: mevcut {current}, talep {-signedQty}.");
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = @"
-INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now)
-ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.AddWithValue("@c", companyId);
-        cmd.AddWithValue("@m", materialId);
-        cmd.AddWithValue("@q", Money.Serialize(updated));
-        cmd.AddWithValue("@now", now);
-        cmd.ExecuteNonQuery();
-    }
+        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, signedQty, now, allowNegative);
 
     private static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string materialId)
-    {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
-        cmd.AddWithValue("@m", materialId);
-        return Money.Parse(cmd.ExecuteScalar() as string);
-    }
+        => StockBalanceWriter.ReadBalance(conn, tx, materialId);
 
     /// <summary>
     /// SUNUCU-OTORİTELİ bakiye (Senkron 2b): firmanın TÜM stok bakiyelerini hareket defterinden yeniden hesaplar.
@@ -395,42 +393,83 @@ ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=ex
     /// Money ile decimal-kesin (quantity TEXT). Çok makineli senkronda push sonrası çağrılır → makinelerin
     /// birleşik hareketlerinden DOĞRU tek bakiye üretir (istemci snapshot'ı birbirini ezmez).
     /// </summary>
+    /// <remarks>
+    /// ⚠️ Bu metot BİLEREK CAS kullanmaz (kullanıcı kararı K-3): defterden MUTLAK doğruyu yeniden kurar,
+    /// yani üzerine yazması gerekir. Ancak PostgreSQL'de bir yarış penceresi vardır: hareketler okunduktan
+    /// SONRA eşzamanlı bir çıkış commit ederse, yazılan mutlak değer o çıkışın etkisini siler (bakiye fazla
+    /// görünür; defter yine doğrudur ve bir sonraki çağrı düzeltir).
+    ///
+    /// İYİMSER KORUMA (kullanıcı kararı N-2): hesaplamadan ÖNCE ve yazmadan ÖNCE hareket defterinin özeti
+    /// (satır sayısı + en büyük created_at) alınır. Değiştiyse hesaplanan bakiye YAZILMAZ ve hesaplama baştan
+    /// yapılır — en fazla 2 yeniden hesaplama. Sonsuz döngü yoktur; hakkı biterse yazma atlanır (bir sonraki
+    /// çağrı zaten düzeltir) ve loga AYRI bir etiketle yazılır (yarış ≠ sistem hatası).
+    /// SQLite'ta aynı anda tek yazar olduğu için özet hiç değişmez → davranış değişmez.
+    /// </remarks>
     public void RecomputeBalances(string companyId)
     {
-        using var conn = _factory.Create();
-        using var tx = conn.BeginImmediate();
-
-        var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
-        using (var read = conn.CreateCommand())
+        const int maxRecomputes = 2;   // ilk deneme + en fazla 2 yeniden hesaplama
+        for (int attempt = 0; attempt <= maxRecomputes; attempt++)
         {
-            read.Transaction = tx;
-            read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
-            read.AddWithValue("@c", companyId);
-            using var r = read.ExecuteReader();
-            while (r.Read())
+            using var conn = _factory.Create();
+            using var tx = conn.BeginImmediate();
+
+            var before = LedgerSignature(conn, tx, companyId);
+
+            var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            using (var read = conn.CreateCommand())
             {
-                var mat = r.GetString(0);
-                long dir = r.GetInt64(1);
-                var qty = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
-                totals.TryGetValue(mat, out var cur);
-                totals[mat] = cur + dir * qty;
+                read.Transaction = tx;
+                read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
+                read.AddWithValue("@c", companyId);
+                using var r = read.ExecuteReader();
+                while (r.Read())
+                {
+                    var mat = r.GetString(0);
+                    long dir = r.GetInt64(1);
+                    var qty = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
+                    totals.TryGetValue(mat, out var cur);
+                    totals[mat] = cur + dir * qty;
+                }
             }
-        }
 
-        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-        foreach (var (mat, total) in totals)
-        {
-            using var up = conn.CreateCommand();
-            up.Transaction = tx;
-            up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now) " +
-                "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-            up.AddWithValue("@c", companyId);
-            up.AddWithValue("@m", mat);
-            up.AddWithValue("@q", Money.Serialize(total));
-            up.AddWithValue("@now", now);
-            up.ExecuteNonQuery();
+            // Yazmadan hemen önce defter yeniden mühürlenir: araya yeni hareket girdiyse yazma yapılmaz.
+            if (LedgerSignature(conn, tx, companyId) != before)
+            {
+                tx.Rollback();
+                StockBalanceWriter.Log($"[stock-recompute] race company={companyId} attempt={attempt + 1}/{maxRecomputes + 1} — yazma atlandı, yeniden hesaplanıyor");
+                if (attempt < maxRecomputes) continue;
+                StockBalanceWriter.Log($"[stock-recompute] give-up company={companyId} — bu turda bakiye yazılmadı (defter doğru; bir sonraki eşitleme düzeltir)");
+                return;
+            }
+
+            var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+            foreach (var (mat, total) in totals)
+            {
+                using var up = conn.CreateCommand();
+                up.Transaction = tx;
+                up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now) " +
+                    "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
+                up.AddWithValue("@c", companyId);
+                up.AddWithValue("@m", mat);
+                up.AddWithValue("@q", Money.Serialize(total));
+                up.AddWithValue("@now", now);
+                up.ExecuteNonQuery();
+            }
+            tx.Commit();
+            return;
         }
-        tx.Commit();
+    }
+
+    /// <summary>Hareket defterinin ucuz "mührü": (satır sayısı, en büyük created_at). Defter append-only
+    /// olduğu için bu ikili değiştiyse araya yeni hareket girmiş demektir.</summary>
+    private static (long Count, long MaxCreated) LedgerSignature(DbConnection conn, DbTransaction tx, string companyId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*), COALESCE(MAX(created_at),0) FROM stock_movements WHERE company_id=@c;";
+        cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? (Convert.ToInt64(r.GetValue(0)), Convert.ToInt64(r.GetValue(1))) : (0L, 0L);
     }
 
     private static string InsertMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,

@@ -62,10 +62,17 @@ public sealed class MaintenanceService
         _clock = clock ?? new SystemClock();
     }
 
+    /// <summary>Faz 3-Ön: bakiye yarışında tüm kayıt geri alınıp baştan denenir (en fazla 3 tekrar).
+    /// Aynı operationId kullanılır; başarısız deneme geri alındığı için idempotency korunur.</summary>
     public string Save(SessionContext s, NewMaintenance dto, string operationId)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
+        return StockBalanceWriter.Run(() => SaveOnce(s, dto, operationId), $"maintenance:save op={operationId}");
+    }
+
+    private string SaveOnce(SessionContext s, NewMaintenance dto, string operationId)
+    {
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
@@ -136,6 +143,11 @@ public sealed class MaintenanceService
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("İptal gerekçesi zorunlu.");
+        StockBalanceWriter.Run(() => CancelOnce(s, maintenanceId, reason), $"maintenance:cancel id={maintenanceId}");
+    }
+
+    private void CancelOnce(SessionContext s, string maintenanceId, string reason)
+    {
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
@@ -348,30 +360,13 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>Faz 3-Ön (kullanıcı kararı 3): bakım tarafının AYRI bakiye kopyası KALDIRILDI. Stok bakiyesi
+    /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer → aynı stok için iki farklı
+    /// güvenlik mantığı yok. Negatife izin verme davranışı (allowNegative: true) DEĞİŞMEDİ.</summary>
     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         decimal signedQty, long now, bool allowNegative = false)
     {
-        decimal current;
-        using (var read = conn.CreateCommand())
-        {
-            read.Transaction = tx;
-            read.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
-            read.AddWithValue("@m", materialId);
-            current = Money.Parse(read.ExecuteScalar() as string);
-        }
-        var updated = current + signedQty;
-        if (!allowNegative && updated < 0)
-            throw new NegativeStockException($"Negatif stok engellendi: mevcut {current}, talep {-signedQty}.");
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = @"
-INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now)
-ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.AddWithValue("@c", companyId);
-        cmd.AddWithValue("@m", materialId);
-        cmd.AddWithValue("@q", Money.Serialize(updated));
-        cmd.AddWithValue("@now", now);
-        cmd.ExecuteNonQuery();
+        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, signedQty, now, allowNegative);
     }
 
     private static void InsertUsageMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,

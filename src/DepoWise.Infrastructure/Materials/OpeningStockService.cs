@@ -30,7 +30,14 @@ public sealed class OpeningStockService
         AccessControl.Require(s, Module, PermissionAction.Create);
         if (quantity == 0) throw new ArgumentException("Açılış miktarı sıfır olamaz.");
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
+        // Faz 3-Ön: bakiye yarışında tüm açılış kaydı geri alınıp baştan denenir (en fazla 3 tekrar).
+        StockBalanceWriter.Run(() => RecordOpeningOnce(s, materialId, quantity, operationId, unitPrice, currency,
+            branchId, fxRate, note), $"opening op={operationId}");
+    }
 
+    private void RecordOpeningOnce(SessionContext s, string materialId, decimal quantity, string operationId,
+        decimal? unitPrice, string currency, string? branchId, decimal? fxRate, string? note)
+    {
         // ADR-086: açılış NEGATİF olabilir. Ledger sözleşmesi korunur → quantity DAİMA pozitif saklanır,
         // işaret DIRECTION ile taşınır. Böylece (1) stock_movements'in negatif-değer senkron kalkanı geçilir,
         // (2) RecomputeBalances (Σ yön×miktar) doğru kalır. Türetilmiş BAKİYE eksi olabilir; operasyonel
@@ -91,28 +98,11 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
+    /// <summary>Faz 3-Ön (kullanıcı kararı 3): açılış stoğunun AYRI bakiye yazımı KALDIRILDI — stok bakiyesi
+    /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer. Açılış NEGATİF olabildiği için
+    /// (ADR-086) negatif kalkanı burada KAPALI kalır — eski davranışla birebir aynı.</summary>
     private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId, decimal delta, long now)
-    {
-        decimal current;
-        using (var read = conn.CreateCommand())
-        {
-            read.Transaction = tx;
-            read.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
-            read.AddWithValue("@m", materialId);
-            current = Money.Parse(read.ExecuteScalar() as string);
-        }
-        var updated = current + delta;
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = @"
-INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now)
-ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
-        cmd.AddWithValue("@c", companyId);
-        cmd.AddWithValue("@m", materialId);
-        cmd.AddWithValue("@q", Money.Serialize(updated));
-        cmd.AddWithValue("@now", now);
-        cmd.ExecuteNonQuery();
-    }
+        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, delta, now, allowNegative: true);
 
     private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {
