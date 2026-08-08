@@ -47,6 +47,7 @@ sorunları iletti. Yapılanlar:
    Malzeme formuna şablon seçici geri eklendi (+ "Temizle") ve masaüstüne **Malzeme Şablonları** yönetim ekranı
    yapıldı (Malzemeler menüsü; liste/ekle/düzenle/sil; mevcut `material_templates` yetkisiyle, deny-by-default).
 - Build 0 hata, test **709/0** (11 PG atlandı) — regresyon yok. Web/API DEĞİŞMEDİ (yalnız masaüstü).
+- ✅ **YAYINLANDI: masaüstü 1.0.124** (checksum 2c7395…). Web/API deploy GEREKMEDİ (değişmediler).
 - ⚠️ **Görsel doğrulama kullanıcıda** (Avalonia bu ortamda çalıştırılamıyor): özellikle 1. maddedeki sütun
   sürükleme davranışı ve yeni şablon ekranı 1.0.124'te denenmeli.
 
