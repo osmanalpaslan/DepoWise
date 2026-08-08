@@ -40,6 +40,8 @@ Tarih · Tedarikçi · Litre · Birim Fiyat · Tutar · Fatura No · Para Birimi
 - Değişen: ReportModels (ReportRequest+1), ReportCatalog (ReportFilters+1, fuel-depot tanımı+InfoNote),
   ReportService.FuelDepot (yeniden yazım), Program.cs (DTO+scope suppliers+katalog), ReportsViewModel + ReportsView.axaml,
   Reports.razor. Build 0 hata, test **692/0** (11 PG atlandı) — +10 FuelDepotReportTests, ReportingTests kolon güncellendi.
+  ✅ **YAYINLANDI (2026-08-08):** API (`depowise-erp`, health 200 — migration YOK) + web (`depowise-web`, 200) +
+  masaüstü **1.0.122** (checksum 98657b…). PG doğrulama: canlı /api/reports/fuel-depot 200 + scope 200 (suppliers geldi).
 
 
 ### 🆕 Bakım Raporu yeniden tasarım (2026-08-08, Opus 4.8) — ortak standart
