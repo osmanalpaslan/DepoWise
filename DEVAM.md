@@ -27,7 +27,25 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08m — Faz 3 öncesi karar/risk analizi hazır, ONAY BEKLİYOR)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-08n — FAZ 3-ÖN YAYINLANDI: API + web canlıda)
+
+### ✅ FAZ 3-ÖN YAYINLANDI (2026-08-08) — stok eşzamanlılık düzeltmesi canlıda
+Sunucuda (PostgreSQL) iki kullanıcının aynı anda stok çıkışı yapması hâlinde oluşabilen **fazla satış
+(oversell)** ve **bakiye kaybı** riski kapatıldı. Rapor: [docs/FAZ3_ON_DEPLOY_SONRASI_RAPORU.md](docs/FAZ3_ON_DEPLOY_SONRASI_RAPORU.md)
+- **API `depowise-erp` + web `depowise-web` yayında**, health 200, loglar temiz. **Migration YOK, şema değişmedi.**
+- Bakiye yazımı tek ortak sınıfa (`StockBalanceWriter`) toplandı; `StockService`, `MaintenanceService` ve
+  `OpeningStockService` aynı korumayı kullanıyor. En fazla 3 tekrar, 10–40 ms bekleme.
+- Test bulgusu: **belge numarası (doc_no) tahsisinde de aynı yarış vardı** — o da tekrar edilebilir yarış
+  olarak ele alındı (kullanıcı kararı S1).
+- Canlı veri kontrolü (salt-okuma): **2463/2463 bakiye-defter tutarlı**, yarım/yetim/tutarsız kayıt 0,
+  çapraz firma sızıntısı 0. Deploy öncesi/sonrası sayımlar **birebir aynı** → yayın veriye dokunmadı.
+- 🟡 **Açık iş:** masaüstü **1.0.129** paketi hazır (`artifacts/rc/DepoWise-desktop-1.0.129.zip`) ama sunucuya
+  sürüm yayını yapılmadı — süper admin parolası gerekiyor, kullanıcı tamamlayacak. Masaüstü şimdilik 1.0.128.
+- ⏸️ **M-S1a `company_id` migration'ı ve Faz 3 BAŞLAMADI** — ayrı onay bekliyor.
+
+---
+
+### (önceki) Faz 3 öncesi karar/risk analizi
 
 ### 🧭 FAZ 3 ÖNCESİ KARAR VE RİSK ANALİZİ (2026-08-08, Opus 5) · **KOD YAZILMADI**
 Kullanıcı isteğiyle Faz 3'e (talep karşılama + gerçek stok hareketleri) başlamadan önce **yalnız analiz**
