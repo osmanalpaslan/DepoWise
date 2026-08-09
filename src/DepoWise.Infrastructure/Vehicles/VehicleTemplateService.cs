@@ -73,7 +73,7 @@ VALUES(@id,@c,@n,@ic,@vt,@cat,@br,@vm,@yr,@mu,@by,@g,@now,@now,1,0);";
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }
-        if (materialIds is not null) ReplaceMaterials(conn, tx, id, materialIds);
+        if (materialIds is not null) ReplaceMaterials(conn, tx, s.CompanyId, id, materialIds);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_template", id, AuditActions.Create, s.UserId), _clock);
         tx.Commit();
         return id;
@@ -86,7 +86,7 @@ VALUES(@id,@c,@n,@ic,@vt,@cat,@br,@vm,@yr,@mu,@by,@g,@now,@now,1,0);";
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         EnsureOwned(conn, tx, s.CompanyId, templateId);
-        ReplaceMaterials(conn, tx, templateId, materialIds);
+        ReplaceMaterials(conn, tx, s.CompanyId, templateId, materialIds);
         tx.Commit();
     }
 
@@ -250,7 +250,23 @@ WHERE tm.template_id=@t ORDER BY m.code;";
         return prefix + next.ToString().PadLeft(width, '0');
     }
 
-    private static void ReplaceMaterials(DbConnection conn, DbTransaction tx, string templateId, IEnumerable<string> materialIds)
+    /// <summary>Malzeme oturumun firmasına mı ait? (İş C-3, 2026-08-09.) Eskiden YALNIZ şablonun
+    /// sahipliği doğrulanıyordu; şablona yazılan malzemeler hiç kontrol edilmiyordu. Yabancı malzeme
+    /// şablona girerse, o şablondan araç oluşturulunca <c>CopyTemplateMaterials</c> onu
+    /// <c>material_compatible_vehicles</c>'a kopyalar → korunan tabloya arka kapı.
+    /// <see cref="Materials.MaterialService"/> içindeki guard ile AYNI desen.</summary>
+    private static void EnsureMaterialOwned(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM materials WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", materialId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
+    }
+
+    private static void ReplaceMaterials(DbConnection conn, DbTransaction tx, string companyId, string templateId, IEnumerable<string> materialIds)
     {
         using (var del = conn.CreateCommand())
         {
@@ -261,6 +277,9 @@ WHERE tm.template_id=@t ORDER BY m.code;";
         }
         foreach (var mid in materialIds.Distinct())
         {
+            // Tek transaction: bir malzeme bile yabancıysa TAMAMI geri alınır (yarım yazma yok).
+            EnsureMaterialOwned(conn, tx, companyId, mid);
+
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT INTO vehicle_template_materials(template_id, material_id) VALUES(@t,@m) ON CONFLICT DO NOTHING;";

@@ -185,4 +185,44 @@ public class CompatibleVehicleIsolationTests : IDisposable
 
         Assert.Contains("ARC-BB", CompatibleColumn(_b, matB));
     }
+
+    // ── C-3: AYNI TABLOYU BESLEYEN İKİNCİ YOL — araç şablonu ──────────────────────────────
+    //
+    // VehicleTemplateService.SetMaterials / Create YALNIZ ŞABLONUN sahipliğini doğruluyordu;
+    // materialIds hiç kontrol edilmiyordu (SetCompatibleVehicles ile AYNI kusur).
+    // POST /api/vehicle-templates bu listeyi doğrudan geçirir. Yabancı malzeme şablona yazılırsa,
+    // o şablondan araç oluşturulduğunda VehicleService.CopyTemplateMaterials onu
+    // material_compatible_vehicles'a KOPYALAR → C-1/C-2 ile korunan tabloya arka kapıdan girer.
+
+    private VehicleTemplateService Templates => new(_factory, _clock);
+
+    [Fact]
+    public void Sablona_BASKA_firmanin_malzemesi_YAZILAMAZ_create()
+    {
+        var matB = _materials.Create(_b, new NewMaterial("M-B-T", "B malzemesi"));
+
+        Assert.Throws<ForbiddenException>(() =>
+            Templates.Create(_a, new NewVehicleTemplate("A Şablonu"), new[] { matB }));
+    }
+
+    [Fact]
+    public void Sablona_BASKA_firmanin_malzemesi_YAZILAMAZ_setmaterials()
+    {
+        var tplA = Templates.Create(_a, new NewVehicleTemplate("A Şablonu 2"));
+        var matB = _materials.Create(_b, new NewMaterial("M-B-T2", "B malzemesi 2"));
+
+        Assert.Throws<ForbiddenException>(() => Templates.SetMaterials(_a, tplA, new[] { matB }));
+        Assert.Empty(Templates.GetMaterials(tplA));   // yarım yazma yok
+    }
+
+    [Fact]
+    public void Sablona_KENDI_malzemesi_normal_sekilde_YAZILIR()
+    {
+        var tplA = Templates.Create(_a, new NewVehicleTemplate("A Şablonu 3"));
+        var matA = _materials.Create(_a, new NewMaterial("M-A-T", "A malzemesi"));
+
+        Templates.SetMaterials(_a, tplA, new[] { matA });
+
+        Assert.Equal(new[] { matA }, Templates.GetMaterials(tplA));
+    }
 }
