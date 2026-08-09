@@ -3,10 +3,10 @@
         xmlns:vm="using:DepoWise.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="620"
+        mc:Ignorable="d" d:DesignWidth="880" d:DesignHeight="560"
         x:Class="DepoWise.Desktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
-        Width="440" Height="640" CanResize="False"
+        Width="880" Height="560" CanResize="False"
         Icon="/Assets/app-logo.ico"
         WindowStartupLocation="CenterScreen"
         TransparencyLevelHint="None"
@@ -123,37 +123,116 @@
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="Padding" Value="8,4"/>
         </Style>
+
+        <!-- Marka paneli madde satırı (FAZ M5) -->
+        <Style Selector="Border.BrandPoint">
+            <Setter Property="Background" Value="#0DFFFFFF"/>
+            <Setter Property="BorderBrush" Value="#12FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,8,11,8"/>
+        </Style>
+        <Style Selector="Border.BrandPointIcon">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Background" Value="#24F5A623"/>
+            <Setter Property="BorderBrush" Value="#3DF5A623"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
     </Window.Styles>
 
-    <Grid>
-        <!-- Aurora ışıma katmanları (hit-test kapalı; etkileşimi engellemez) -->
-        <Border IsHitTestVisible="False">
-            <Border.Background>
-                <RadialGradientBrush Center="50%,2%" GradientOrigin="50%,2%" RadiusX="70%" RadiusY="45%">
-                    <GradientStop Color="#2BF5A623" Offset="0"/>
-                    <GradientStop Color="#00F5A623" Offset="1"/>
-                </RadialGradientBrush>
-            </Border.Background>
-        </Border>
-        <Border IsHitTestVisible="False">
-            <Border.Background>
-                <RadialGradientBrush Center="86%,94%" GradientOrigin="86%,94%" RadiusX="65%" RadiusY="45%">
-                    <GradientStop Color="#2E6366F1" Offset="0"/>
-                    <GradientStop Color="#006366F1" Offset="1"/>
-                </RadialGradientBrush>
-            </Border.Background>
-        </Border>
-        <!-- Kurumsal iş-makineleri zemini (yarı şeffaf) -->
-        <Image Source="/Assets/login-bg.png" Opacity="0.10" Stretch="UniformToFill"
-               HorizontalAlignment="Center" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
+    <Grid ColumnDefinitions="46*,54*">
 
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Spacing="14" MaxWidth="372" Margin="34,28" VerticalAlignment="Center">
-                <!-- Logo (Alpnex, şeffaf — arka plan/kutu YOK; kullanıcı kuralı) -->
-                <Image Source="/Assets/app-icon.png" Width="150" Height="112"
-                       HorizontalAlignment="Center" Stretch="Uniform"/>
-                <SelectableTextBlock Text="Depo ve Filo Yönetimi" HorizontalAlignment="Center"
-                                     FontSize="14" Foreground="#9FB0C6" Margin="0,-14,0,4"/>
+        <!-- ═══ SOL: marka paneli (FAZ M5) ═══ -->
+        <Grid Grid.Column="0">
+            <!-- İş makineleri görseli: artık GERÇEKTEN görünür (eskiden 0.10) -->
+            <Image Source="/Assets/login-bg.png" Opacity="0.22" Stretch="UniformToFill"
+                   VerticalAlignment="Bottom" IsHitTestVisible="False"/>
+            <!-- Aurora ışıma katmanları (mevcut iki Border'ın taşınmış hâli) -->
+            <Border IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush Center="18%,12%" GradientOrigin="18%,12%" RadiusX="80%" RadiusY="60%">
+                        <GradientStop Color="#42F5A623" Offset="0"/>
+                        <GradientStop Color="#00F5A623" Offset="1"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+            <Border IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush Center="90%,88%" GradientOrigin="90%,88%" RadiusX="75%" RadiusY="60%">
+                        <GradientStop Color="#3A6366F1" Offset="0"/>
+                        <GradientStop Color="#006366F1" Offset="1"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- Karartma: görselin üstünde metin okunur kalsın -->
+            <Border IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#D60A0F1B" Offset="0"/>
+                        <GradientStop Color="#EE0A0F1B" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- Sağ kenar çizgisi -->
+            <Border Width="1" HorizontalAlignment="Right" Background="#14FFFFFF"/>
+
+            <DockPanel Margin="32,30,32,24">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="11">
+                    <Image Source="/Assets/app-icon-256.png" Width="42" Height="42" VerticalAlignment="Center"/>
+                    <SelectableTextBlock Text="Alpnex" FontSize="19" FontWeight="Bold"
+                                         Foreground="#EAEEF7" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <SelectableTextBlock DockPanel.Dock="Bottom" Text="© 2026 Alpnex"
+                                     FontSize="11" Foreground="#5D6C88"/>
+
+                <StackPanel VerticalAlignment="Center" Spacing="13">
+                    <SelectableTextBlock Text="Depo, araç ve bakım tek panelde."
+                                         FontSize="26" FontWeight="Bold" LineHeight="31"
+                                         Foreground="#F4F7FC" TextWrapping="Wrap"/>
+                    <SelectableTextBlock Text="Sahada girilen kayıt ofiste anında görünür. Bağlantı yokken de çalışır; bağlantı gelince eşitlenir."
+                                         FontSize="12.5" LineHeight="20" Foreground="#9AA7C0" TextWrapping="Wrap"/>
+                    <StackPanel Spacing="9" Margin="0,8,0,0">
+                        <Border Classes="BrandPoint">
+                            <StackPanel Orientation="Horizontal" Spacing="11">
+                                <Border Classes="BrandPointIcon">
+                                    <PathIcon Width="14" Height="14" Foreground="#FBBF4A"
+                                              Data="M6.5 19a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 18 10.2a3.9 3.9 0 0 1-.5 8.8h-11Z"/>
+                                </Border>
+                                <SelectableTextBlock Text="Sahada çevrimdışı çalışır, sonra eşitler"
+                                                     FontSize="12.5" Foreground="#C3CCDD" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="BrandPoint">
+                            <StackPanel Orientation="Horizontal" Spacing="11">
+                                <Border Classes="BrandPointIcon">
+                                    <PathIcon Width="14" Height="14" Foreground="#FBBF4A"
+                                              Data="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/>
+                                </Border>
+                                <SelectableTextBlock Text="Masaüstü ve web tek veritabanı"
+                                                     FontSize="12.5" Foreground="#C3CCDD" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="BrandPoint">
+                            <StackPanel Orientation="Horizontal" Spacing="11">
+                                <Border Classes="BrandPointIcon">
+                                    <PathIcon Width="14" Height="14" Foreground="#FBBF4A"
+                                              Data="M12 2 4 5v6c0 5 3.4 9.2 8 11 4.6-1.8 8-6 8-11V5l-8-3Z"/>
+                                </Border>
+                                <SelectableTextBlock Text="Şube ve rol bazlı yetkilendirme"
+                                                     FontSize="12.5" Foreground="#C3CCDD" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+        </Grid>
+
+        <!-- ═══ SAĞ: mevcut form, olduğu gibi (adım panelleri değiştirilmedi) ═══ -->
+        <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="12" MaxWidth="330" Margin="26,24" VerticalAlignment="Center">
 
                 <!-- ADIM 1: kimlik -->
                 <StackPanel Spacing="12" IsVisible="{Binding IsStep1}">
