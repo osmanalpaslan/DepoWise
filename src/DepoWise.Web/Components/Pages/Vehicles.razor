@@ -133,7 +133,10 @@
 
         <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">
+                @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                @(_busy ? "Kaydediliyor…" : "Kaydet")
+            </MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
@@ -147,8 +150,10 @@
             <div @oncontextmenu="OpenColumnPicker" @oncontextmenu:preventDefault="true">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
                     <MudText Typo="Typo.h6">Araç Listesi</MudText>
-                    <MudTooltip Text="Kolonları ayarla (bu alanda sağ tık da açar) — yalnız sizin için geçerlidir">
-                        <MudIconButton Icon="@Icons.Material.Filled.ViewColumn" Size="Size.Small" OnClick="OpenColumnPicker" />
+                    <MudTooltip Text="Hangi sütunların görüneceğini seçin — bu alanda sağ tık da açar. Yalnız sizin için geçerlidir.">
+                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                   StartIcon="@Icons.Material.Filled.Tune"
+                                   OnClick="OpenColumnPicker">Kolonlar</MudButton>
                     </MudTooltip>
                     <MudSpacer />
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayfa boyutu</MudText>
@@ -164,7 +169,29 @@
                 </MudStack>
             </div>
 
-            @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            @if (_rows is null)
+            {
+                <div style="overflow-x:auto;">
+                <table class="dw-grid">
+                    <thead><tr>
+                        @foreach (var key in _visibleColumns)
+                        {
+                            <th style="@ThStyle(key)"><div class="dw-th" style="cursor:default;"><span>@Label(key).ToUpperInvariant()</span></div></th>
+                        }
+                        <th style="width:130px;"><div class="dw-th" style="cursor:default;"><span>BAKIM/MUAYENE</span></div></th>
+                    </tr></thead>
+                    <tbody class="dw-skeleton">
+                        @for (var i = 0; i < 8; i++)
+                        {
+                            <tr>
+                                @foreach (var key in _visibleColumns) { <td></td> }
+                                <td></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            }
             else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun araç bulunamadı.</MudText> }
             else
             {
@@ -174,7 +201,7 @@
                         @foreach (var key in _visibleColumns)
                         {
                             @* ⠿ tutamağı sürükle = kolonu taşı; başlık metnine tıkla = sırala; sağ kenar = genişlik. *@
-                            <th data-key="@key" style="@ThStyle(key)"
+                            <th data-key="@key" style="@ThStyle(key)" class="@(IsNumeric(key) ? "dw-num" : null)"
                                 @ondragover:preventDefault="true" @ondrop="@(() => OnDropColumn(key))">
                                 <div class="dw-th">
                                     <span title="Sürükleyerek kolonu taşı" draggable="true"
@@ -192,7 +219,7 @@
                     <tr>
                         @foreach (var key in _visibleColumns)
                         {
-                            <th style="@ThStyle(key)" class="dw-filter-th">
+                            <th style="@ThStyle(key)" class="@(IsNumeric(key) ? "dw-filter-th dw-num" : "dw-filter-th")">
                                 <MudTooltip Text="@(IsNumeric(key) ? "Tam sayı: 5 · Karşılaştırma: >5  <5  >=5  <=5 · Aralık: 5-10" : "İçerir araması")">
                                     <MudTextField T="string" Value="@GetFilter(key)" ValueChanged="@((string v) => SetFilter(key, v))"
                                                   Placeholder="@(IsNumeric(key) ? "5, >5, 5-10…" : "içerir…")"
@@ -210,7 +237,19 @@
                         {
                             @* Çift tık = ayrı Düzelt/Kaydet/Sil penceresi (yan detay paneli kaldırıldı — tablo tam genişlik). *@
                             <tr @ondblclick="@(() => OpenQuickEdit(Str(row, "id")))" style="cursor:pointer;">
-                                @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
+                                @foreach (var key in _visibleColumns)
+                                {
+                                    <td title="@CellText(row, key)" class="@(IsNumeric(key) ? "dw-num" : null)">
+                                        @if (key == "status")
+                                        {
+                                            <span class="dw-badge @StatusBadgeClass(Str(row, "status"))"><span>@Dash(CellText(row, key))</span></span>
+                                        }
+                                        else
+                                        {
+                                            @Dash(CellText(row, key))
+                                        }
+                                    </td>
+                                }
                                 <td>@Alert(Str(row, "id"))</td>
                             </tr>
                         }
@@ -278,6 +317,18 @@
     private void SetFilter(string key, string v) => _filters[key] = v ?? "";
     private static string Label(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.Label ?? key;
     private static bool IsNumeric(string key) => VehicleListColumns.All.FirstOrDefault(c => c.Key == key)?.IsNumeric ?? false;
+
+    /// <summary>Durum kodunu rozet rengine eşler. Kod listesi TEK KAYNAK:
+    /// Services/VehicleStatus.cs — yeni durum eklenirse buraya da bir satır eklenir,
+    /// eklenmezse rozet nötr (gri) görünür; metin yine doğrudur.</summary>
+    private static string StatusBadgeClass(string? status) => status?.ToLowerInvariant() switch
+    {
+        DepoWise.Web.Services.VehicleStatus.Active      => "dw-badge-ok",
+        DepoWise.Web.Services.VehicleStatus.Maintenance => "dw-badge-warn",
+        DepoWise.Web.Services.VehicleStatus.Faulty      => "dw-badge-error",
+        DepoWise.Web.Services.VehicleStatus.Passive     => "dw-badge-muted",
+        _ => "dw-badge-muted",
+    };
 
     private string ThStyle(string key) => "width:140px;";   // standart; JS tutamağı oturum-içi override eder
     private string SortArrow(string key) => _sortColumn == key ? (_sortDesc ? "▼" : "▲") : "";

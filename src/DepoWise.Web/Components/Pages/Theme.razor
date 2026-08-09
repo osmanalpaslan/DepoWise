@@ -3,68 +3,54 @@
 
 <PageTitle>Tema — Alpnex</PageTitle>
 
-<MudText Typo="Typo.h5" GutterBottom="true">Tema</MudText>
+<MudText Typo="Typo.h5">Tema</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
-    Web arayüzü temasını seçin. Seçim anında uygulanır ve bu tarayıcıda saklanır. (Web'e özel — masaüstünden bağımsızdır.)
+    Web arayüzü temasını seçin. Seçim anında uygulanır ve hesabınızla birlikte gelir.
+    (Web'e özel — masaüstünden bağımsızdır.)
 </MudText>
 
-<MudStack Spacing="3" Style="max-width:620px;">
+<MudText Typo="Typo.subtitle2" Class="mud-text-secondary">Görünüm Modu</MudText>
+<div style="max-width:620px;margin-top:10px;">
     @foreach (var o in Options)
     {
         var selected = ThemeSvc.Mode == o.Mode;
-        <MudPaper Elevation="@(selected ? 6 : 1)" Class="pa-4"
-                  Style="@($"border-radius:16px;cursor:pointer;border:2px solid {(selected ? "var(--mud-palette-primary)" : "transparent")};")"
-                  @onclick="@(() => Choose(o.Mode))">
-            <div class="d-flex align-center">
-                <MudIcon Icon="@o.Icon" Size="Size.Large" Color="@(selected ? Color.Primary : Color.Default)" Class="mr-4" />
-                <div class="flex-grow-1">
-                    <MudText Typo="Typo.h6">@o.Title</MudText>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@o.Desc</MudText>
-                </div>
-                @if (selected)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" />
-                }
+        <div class="@("dw-theme-card" + (selected ? " sel" : ""))" @onclick="@(() => Choose(o.Mode))">
+            <MudIcon Icon="@o.Icon" Size="Size.Large" Color="@(selected ? Color.Primary : Color.Default)" />
+            <div class="flex-grow-1">
+                <MudText Typo="Typo.h6">@o.Title</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@o.Desc</MudText>
             </div>
-        </MudPaper>
+            @if (selected) { <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" /> }
+        </div>
     }
-</MudStack>
+</div>
 
-<MudText Typo="Typo.h6" Class="mt-6 mb-2">Görünüm Stili</MudText>
+<MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-8">Görünüm Stili</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Menü, üst bar ve panellerin dokusunu seçin. Anında canlı önizlenir.</MudText>
-<MudStack Spacing="2" Style="max-width:620px;">
+<div style="max-width:620px;">
     @foreach (var st in DepoWise.Web.Services.ThemeState.Styles)
     {
         var sel = ThemeSvc.Style == st.Key;
-        <MudPaper Elevation="@(sel ? 6 : 1)" Class="pa-4"
-                  Style="@($"border-radius:14px;cursor:pointer;border:2px solid {(sel ? "var(--mud-palette-primary)" : "transparent")};")"
-                  @onclick="@(() => ChooseStyle(st.Key))">
-            <div class="d-flex align-center">
-                <MudIcon Icon="@Icons.Material.Filled.Dashboard" Color="@(sel ? Color.Primary : Color.Default)" Class="mr-3" />
-                <div class="flex-grow-1">
-                    <MudText Typo="Typo.body1"><b>@st.Name</b></MudText>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@st.Desc</MudText>
-                </div>
-                @if (sel) { <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" /> }
+        <div class="@("dw-theme-card" + (sel ? " sel" : ""))" @onclick="@(() => ChooseStyle(st.Key))">
+            <MudIcon Icon="@Icons.Material.Filled.Dashboard" Color="@(sel ? Color.Primary : Color.Default)" />
+            <div class="flex-grow-1">
+                <MudText Typo="Typo.body1"><b>@st.Name</b></MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@st.Desc</MudText>
             </div>
-        </MudPaper>
+            @if (sel) { <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Primary" /> }
+        </div>
     }
-</MudStack>
+</div>
 
-<MudText Typo="Typo.h6" Class="mt-6 mb-2">Renk Teması</MudText>
-<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Arayüzün ana rengini seçin.</MudText>
-<div style="display:flex;flex-wrap:wrap;gap:14px;max-width:620px;">
+<MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-8">Renk Teması</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Arayüzün ana rengini seçin. Her kutu o rengin üst bar ve menüde nasıl duracağını gösterir.</MudText>
+<div class="dw-theme-swatches" style="max-width:620px;">
     @foreach (var p in DepoWise.Web.Services.ThemeState.Palettes)
     {
         var sel = ThemeSvc.Color == p.Key;
-        <div @onclick="@(() => ChooseColor(p.Key))" style="cursor:pointer;text-align:center;width:76px;">
-            <div style="@($"width:56px;height:56px;border-radius:50%;margin:0 auto;background:{p.Hex};box-shadow:0 0 0 3px {(sel ? "var(--mud-palette-text-primary)" : "transparent")};display:flex;align-items:center;justify-content:center;")">
-                @if (sel)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.Check" Style="color:#fff;" />
-                }
-            </div>
-            <MudText Typo="Typo.caption" Class="d-block mt-1">@p.Name</MudText>
+        <div class="@("dw-swatch" + (sel ? " sel" : ""))" style="@($"--dw-c:{p.Hex};")" @onclick="@(() => ChooseColor(p.Key))">
+            <div class="dw-swatch-mini"><i></i><i></i><i></i></div>
+            <div class="dw-swatch-name">@p.Name</div>
         </div>
     }
 </div>

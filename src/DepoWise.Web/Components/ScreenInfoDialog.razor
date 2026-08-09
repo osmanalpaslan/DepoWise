@@ -6,7 +6,9 @@
         <MudText Typo="Typo.h6"><MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />Ekran Bilgisi</MudText>
     </TitleContent>
     <DialogContent>
-        <MudPaper Class="pa-3 mb-3" Elevation="0" Style="background:rgba(59,130,246,0.08)">
+        <MudPaper Class="pa-3 mb-3" Elevation="0"
+                  Style="background:color-mix(in srgb, var(--mud-palette-info) 10%, transparent);
+                         border:1px solid color-mix(in srgb, var(--mud-palette-info) 26%, transparent);">
             <MudText Typo="Typo.subtitle2">Ekran</MudText>
             <MudText Typo="Typo.body1"><b>@ScreenName</b></MudText>
             <MudText Typo="Typo.caption" Class="mud-text-secondary">Kod: <code>@ScreenCode</code></MudText>

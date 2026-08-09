@@ -10,6 +10,37 @@
 
 ---
 
+## 🎨 TASARIM PAKETİ (FAZ 1–9 web + M1–M5 masaüstü) — dalda hazır, birleştirme bekliyor
+
+**Dal:** `feature/tasarim-faz1-9-ve-M1-M5` · **geri dönüş etiketi:** `tasarim-oncesi-20260809`
+**Yalnız görünüm** — iş kuralı/veri/yetki/API değişmedi, **migration yok**, canlıya çıkmadı.
+Build 0 hata · test 984 geçti / 0 başarısız / 33 atlandı · görsel kontrol kullanıcıda yapıldı.
+
+| Faz | Kapsam | Durum |
+|---|---|---|
+| FAZ 1–9 | Web: giriş ekranı · `app.css` ortak tasarım dili · Araç Listesi · form/diyalog geri bildirimleri · ana ekran KPI · **katlanabilir kenar menü** · tema ekranı + açık tema · Canlı Sunucu · son renkler | ✅ uygulandı |
+| M1 | Masaüstü üst bar sadeleştirme | ✅ uygulandı |
+| M2 | Masaüstü kenar menü yoğunluğu (14 grup tek ekranda) | ✅ uygulandı (M2.5 hariç) |
+| M3 | Masaüstü ana ekran KPI ikonları + uyarı rozetleri + güncelleme kartı en alta | ✅ uygulandı (M3.4 hariç) |
+| M4 | Masaüstü araç listesi — sayısal sütunlar sağa yaslı | ✅ uygulandı (M4.1/M4.3/M4.4 hariç) |
+| M5 | Masaüstü giriş penceresi bölünmüş panel | ✅ uygulandı |
+
+**Bu iş kapsamında düzeltilen 2 gerçek hata:** masaüstü KPI kartlarındaki boş ikon kutusu ·
+Malzeme Şablonları'nda fotoğraf silme düğmesinin görünmez zemini.
+
+### 🔴 AÇIK KARAR — masaüstü menüsündeki emoji ikonlar (M2.5)
+Masaüstü kenar menüsündeki ikonlar şu an **emoji**. Vektör ikona çevrilsin mi? **Kullanıcı kararı
+bekleniyor.** Karar verilmeden tasarım dalı `master`'a birleştirilmiyor.
+
+**Uygulanmayan diğer maddeler (gerekçeli, iş kalmadı):**
+- **M3.4** — uyarı satırında "kalan gün" rozeti: `DashboardAlert` içinde böyle bir alan yok;
+  yeni veri alanı açmak ortak iş katmanına dokunmak demekti, yapılmadı.
+- **M4.1** — durum sütunu rozeti: **zaten var** (`StatusBadge`, renk ayrımıyla birlikte).
+- **M4.3** — satır eylemleri hover'da: araç listesi satırlarında eylem düğmesi yok, hedefi yok.
+- **M4.4** — sıralanan sütun işareti: **zaten var** (▲/▼ oku).
+
+---
+
 ## 📋 ONAYLI GELİŞTİRME SIRASI (kullanıcı kararı 2026-08-09, K1–K7)
 
 Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·

@@ -1,25 +1,86 @@
 /* ============================================================================
-   Alpnex Web — app.css  ·  AURORA  ·  sürüm 2
+   Alpnex Web — app.css  ·  AURORA  ·  sürüm 3  (FAZ 2 — ortak tasarım dili)
    ----------------------------------------------------------------------------
    src/DepoWise.Web/wwwroot/app.css dosyasının YERİNE geçer.
 
-   ⚠ ÖN KOŞUL: App.razor içinde bu dosya MudBlazor.min.css'ten SONRA
-     yüklenmelidir. Aksi halde aşağıdaki kuralların çoğu MudBlazor'a yenilir
-     ve yalnız Login ekranı değişmiş görünür. (Bkz. web-guncelleme/Components/App.razor)
+   ⚠ ÖN KOŞUL (değişmedi): App.razor içinde bu dosya MudBlazor.min.css'ten SONRA
+     yüklenmelidir. Mevcut App.razor bunu zaten yapıyor.
 
-   Bu dosya 40 ekranın tamamını kapsar: her ekran aynı MudBlazor bileşenlerinden
-   (MudPaper, MudTable, MudTextField, MudSelect, MudButton, MudDialog, MudChip,
-   MudPagination, dw-grid…) kurulu olduğu için buradaki kurallar hepsine işler.
+   SÜRÜM 2'DEN FARKI — hiçbir Razor dosyası değişmeden:
+     · Tek bir ÖLÇÜ SİSTEMİ: köşe (radius), gölge, yüzey ve kenar renkleri artık
+       :root'ta tanımlı değişkenlerden geliyor. Aynı değer 40 yerde tekrar
+       yazılmıyor; tek noktadan ayarlanıyor.
+     · Yüzey hiyerarşisi netleşti: zemin < kart < kart başlığı < açılır katman.
+       Önceden hepsi birbirine çok yakın griydi.
+     · Tipografi ölçeği ve satır aralıkları yeniden dengelendi.
+     · Tablolar Excel görünümünden ERP görünümüne çekildi (başlık, filtre şeridi,
+       satır ritmi, seçili satır, toplam satırı) — bilgi yoğunluğu KORUNDU.
+     · Buton hiyerarşisi 3 kademeye oturtuldu: birincil / ikincil / sessiz.
+     · Boş durum, yükleniyor ve iskelet (skeleton) görünümleri tanımlandı.
+     · Odak halkası, klavye erişilebilirliği ve prefers-reduced-motion her yerde.
+     · Dar ekran (tablet / 1366 laptop / kısa ekran) davranışı eklendi.
 
    KORUNAN İŞLEVSEL SINIFLAR (silme, yeniden adlandırma):
      .dw-userchip .dw-companyswitch .dw-logout        → MainLayout.razor
-     .dw-grid .dw-th .dw-sort                         → liste ekranları (ADR-089)
+     .dw-grid .dw-th .dw-sort .dw-col-grip .dw-filter-th .dw-total-row
+     .dw-kpi* .dw-alert* .dw-hero                     → Home.razor
      .valid.modified .invalid .validation-message     → form doğrulama
      .blazor-error-boundary #blazor-error-ui          → Blazor altyapısı
+     body.dw-soft / dw-gradient / dw-compact          → Tema → Görünüm Stili
+
+   YENİ SINIFLAR (isteğe bağlı — markup eklenmeden de dosya çalışır):
+     .dw-skeleton   → liste yükleme iskeleti (bkz. §14, Razor'da 3 satır)
+     .dw-num        → sayısal hücreyi sağa yaslar (bkz. §8.3)
    ============================================================================ */
 
 /* ══════════════════════════════════════════════════════════════════════════
-   0) TEMEL
+   0) ÖLÇÜ SİSTEMİ — tek kaynak
+   Bütün dosya bu değişkenleri kullanır. Bir değeri buradan değiştirmek
+   40 ekranın tamamını aynı anda günceller.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* NOT: hem :root hem body üzerinde tanımlanır. Türetilmiş değerler --mud-palette-*
+   değişkenlerine bakar; MudBlazor bu paleti :root'a yazar, bazı kurulumlarda body/
+   tema sınıfına yazar. İki yerde de tanımlamak, paletin nerede yayınlandığından
+   bağımsız olarak tokenların DOLU çözülmesini garanti eder (boş çözülen bir
+   var() 'border: 1px solid var(--dw-border)' gibi kısayolları tamamen iptal eder). */
+:root, body {
+    /* Köşe ölçeği */
+    --dw-r-xs: 8px;
+    --dw-r-sm: 10px;
+    --dw-r-md: 12px;
+    --dw-r-lg: 16px;
+    --dw-r-xl: 20px;
+
+    /* Yüzey katmanları — temadan bağımsız, metin renginden türetilir */
+    --dw-surface-1: color-mix(in srgb, var(--mud-palette-text-primary) 2.5%, transparent);
+    --dw-surface-2: color-mix(in srgb, var(--mud-palette-text-primary) 4.5%, transparent);
+    --dw-surface-3: color-mix(in srgb, var(--mud-palette-text-primary) 7%, transparent);
+    --dw-surface-hover: color-mix(in srgb, var(--mud-palette-text-primary) 9%, transparent);
+
+    /* Kenarlar */
+    --dw-border: var(--mud-palette-lines-default);
+    --dw-border-soft: color-mix(in srgb, var(--mud-palette-lines-default) 58%, transparent);
+    --dw-border-strong: color-mix(in srgb, var(--mud-palette-text-primary) 18%, transparent);
+
+    /* Vurgu türevleri */
+    --dw-accent-weak: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
+    --dw-accent-soft: color-mix(in srgb, var(--mud-palette-primary) 16%, transparent);
+    --dw-accent-line: color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
+    --dw-accent-ring: color-mix(in srgb, var(--mud-palette-primary) 18%, transparent);
+
+    /* Gölge ölçeği — koyu temada derinlik, açık temada hafiflik */
+    --dw-shadow-1: 0 1px 2px rgba(4,8,16,.10), 0 2px 8px rgba(4,8,16,.07);
+    --dw-shadow-2: 0 2px 6px rgba(4,8,16,.12), 0 10px 26px rgba(4,8,16,.14);
+    --dw-shadow-3: 0 8px 20px rgba(4,8,16,.20), 0 22px 56px rgba(4,8,16,.28);
+
+    /* Hareket */
+    --dw-ease: cubic-bezier(.22, 1, .36, 1);
+    --dw-fast: .14s;
+    --dw-mid: .22s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1) TEMEL
    ══════════════════════════════════════════════════════════════════════════ */
 html, body {
     font-family: 'Plus Jakarta Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
@@ -38,15 +99,15 @@ a:hover, .btn-link:hover { color: var(--mud-palette-primary-darken); text-decora
 /* Metin seçimi marka renginde */
 ::selection { background: color-mix(in srgb, var(--mud-palette-primary) 32%, transparent); }
 
-/* Form doğrulama (mevcut davranış) */
+/* Form doğrulama (mevcut davranış korunur, görünüm yumuşatıldı) */
 .valid.modified:not([type=checkbox]) { outline: 1px solid var(--mud-palette-success); }
 .invalid { outline: 1px solid var(--mud-palette-error); }
-.validation-message { color: var(--mud-palette-error); font-size: .8rem; }
+.validation-message { color: var(--mud-palette-error); font-size: .78rem; font-weight: 500; margin-top: 3px; }
 
 /* Blazor hata kabuğu */
 .blazor-error-boundary {
     background: #B32121; color: #fff; padding: 1rem 1rem 1rem 1.15rem;
-    border-radius: 12px; font-size: .9rem;
+    border-radius: var(--dw-r-md); font-size: .9rem;
 }
 .blazor-error-boundary::after { content: "Bir hata oluştu."; }
 
@@ -57,8 +118,16 @@ a:hover, .btn-link:hover { color: var(--mud-palette-primary-darken); text-decora
 }
 #blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: .75rem; top: .5rem; }
 
+/* Klavye odağı — TEK kural, her etkileşimli öğede aynı halka */
+.mud-button-root:focus-visible, .mud-icon-button:focus-visible, .mud-nav-link:focus-visible,
+.mud-tab:focus-visible, .mud-list-item:focus-visible, .dw-kpi:focus-visible, .dw-th:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+    border-radius: var(--dw-r-sm);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
-   1) ZEMİN — Aurora ışıklı derinlik
+   2) ZEMİN — Aurora ışıklı derinlik
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-layout { min-height: 100vh; }
 
@@ -75,18 +144,22 @@ body {
         radial-gradient(950px 520px at 99% 2%, rgba(99,102,241,.07) 0%, transparent 58%);
 }
 
-/* Sayfa kabı — biraz daha ferah, geniş ekranda ortalanmış */
-.mud-main-content > .mud-container { padding-top: 24px; padding-bottom: 40px; }
+/* Sayfa kabı */
+.mud-main-content > .mud-container { padding-top: 22px; padding-bottom: 40px; }
+
+/* Sayfa girişi — içerik yerine oturarak gelir (yalnız opacity/transform) */
+@keyframes dwPageIn { from { opacity: 0; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: none; } }
+.mud-main-content > .mud-container { animation: dwPageIn .3s var(--dw-ease) both; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   2) ÜST BAR — cam yüzey + kehribar çizgi
+   3) ÜST BAR — cam yüzey + marka çizgisi
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-appbar {
-    background-color: color-mix(in srgb, var(--mud-palette-appbar-background) 84%, transparent);
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    box-shadow: 0 6px 26px rgba(4,8,16,.22);
-    backdrop-filter: blur(14px) saturate(115%);
-    -webkit-backdrop-filter: blur(14px) saturate(115%);
+    background-color: color-mix(in srgb, var(--mud-palette-appbar-background) 82%, transparent);
+    border-bottom: 1px solid var(--dw-border);
+    box-shadow: var(--dw-shadow-2);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
 }
 .mud-appbar::after {
     content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
@@ -95,264 +168,305 @@ body {
         color-mix(in srgb, var(--mud-palette-primary) 12%, transparent) 46%,
         transparent 100%);
 }
-.mud-appbar .mud-toolbar { min-height: 64px; gap: 6px; }
+.mud-appbar .mud-toolbar { min-height: 62px; gap: 6px; }
+.mud-appbar .mud-typography-h6 { font-size: 1rem; font-weight: 700; letter-spacing: -.012em; }
 
-/* Logo — koyu üst barda logonun lacivert parçaları kayboluyor: açık plaka */
+/* Logo — koyu üst barda logonun lacivert parçaları kaybolmasın diye açık plaka */
 .mud-appbar img[alt] {
-    height: 40px !important; width: auto;
+    height: 36px !important; width: auto;
     background: rgba(255,255,255,.94);
-    border-radius: 10px; padding: 3px;
-    box-shadow: 0 4px 14px rgba(0,0,0,.24);
+    border-radius: var(--dw-r-sm); padding: 3px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.22), 0 0 0 1px rgba(255,255,255,.10);
 }
 
 /* Aktif firma seçici (süper admin) */
 .dw-companyswitch .mud-input.mud-input-outlined .mud-input-outlined-border {
-    border-radius: 10px; border-color: var(--mud-palette-lines-default);
+    border-radius: var(--dw-r-sm); border-color: var(--dw-border);
 }
 
 /* Kullanıcı chip'i */
 .dw-userchip {
     display: flex; align-items: center; gap: 10px;
     padding: 4px 14px 4px 6px; margin-left: 4px;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 7%, transparent);
-    border: 1px solid var(--mud-palette-lines-default);
+    background: var(--dw-surface-3);
+    border: 1px solid var(--dw-border);
     border-radius: 999px; line-height: 1.2;
+    transition: background-color var(--dw-fast) ease;
 }
-.dw-userchip .mud-icon-root { font-size: 1.7rem; opacity: .9; }
+.dw-userchip:hover { background: var(--dw-surface-hover); }
+.dw-userchip .mud-icon-root { font-size: 1.6rem; opacity: .9; }
 .dw-userchip-meta { display: flex; flex-direction: column; min-width: 0; }
-.dw-userchip-name { font-size: .82rem; font-weight: 600; }
+.dw-userchip-name { font-size: .82rem; font-weight: 600; letter-spacing: -.005em; }
 .dw-userchip-sub { font-size: .69rem; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 
 .dw-logout.mud-button-root {
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 6%, transparent);
+    border: 1px solid var(--dw-border);
+    border-radius: var(--dw-r-sm);
+    background: var(--dw-surface-2);
 }
-.dw-logout.mud-button-root:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 13%, transparent); }
+.dw-logout.mud-button-root:hover { background: var(--dw-surface-hover); }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   3) KENAR MENÜ — hap linkler, kehribar aktif vurgu
+   4) KENAR MENÜ — hap linkler, marka renkli aktif vurgu
+   MENÜ YAPISI VE SIRASI DEĞİŞMEZ — yalnız görünüm.
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-drawer {
     background-color: var(--mud-palette-drawer-background);
-    border-right: 1px solid var(--mud-palette-lines-default);
+    border-right: 1px solid var(--dw-border);
 }
-.mud-navmenu { padding: 10px 8px; }
-.mud-navmenu .mud-input-control { border-radius: 11px; }
+.mud-navmenu { padding: 8px 8px 16px; }
+.mud-navmenu .mud-input-control { border-radius: var(--dw-r-sm); }
+
+/* Menü içi arama — üstte kalır, uzun menüde kaybolmaz */
+.mud-navmenu > .px-3.py-2:first-child {
+    position: sticky; top: 0; z-index: 4;
+    background: var(--mud-palette-drawer-background);
+    padding: 10px 10px 8px !important;
+    border-bottom: 1px solid var(--dw-border-soft);
+    margin-bottom: 6px;
+}
 
 .mud-navmenu .mud-nav-link {
     position: relative;
-    border-radius: 11px;
-    margin: 2px;
-    min-height: 38px;
-    padding-top: 8px; padding-bottom: 8px;
-    font-size: .845rem;
-    transition: background-color .16s ease, color .16s ease;
+    border-radius: var(--dw-r-sm);
+    margin: 1px 2px;
+    min-height: 36px;
+    padding-top: 7px; padding-bottom: 7px;
+    font-size: .835rem;
+    transition: background-color var(--dw-fast) ease, color var(--dw-fast) ease;
 }
-.mud-navmenu .mud-nav-link:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 7%, transparent); }
+.mud-navmenu .mud-nav-link:hover { background: var(--dw-surface-3); }
 
 .mud-navmenu .mud-nav-link.active,
 .mud-navmenu .mud-nav-link.mud-nav-link-active {
-    background: linear-gradient(90deg,
-        color-mix(in srgb, var(--mud-palette-primary) 22%, transparent) 0%,
-        color-mix(in srgb, var(--mud-palette-primary) 6%, transparent) 100%);
-    border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 28%, transparent);
+    background: linear-gradient(90deg, var(--dw-accent-soft) 0%, var(--dw-accent-weak) 100%);
     color: var(--mud-palette-primary);
     font-weight: 600;
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
+}
+/* Aktif sayfanın sol kenarında dolu marka çubuğu — bakışın ilk yakaladığı yer */
+.mud-navmenu .mud-nav-link.active::before,
+.mud-navmenu .mud-nav-link.mud-nav-link-active::before {
+    content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
+    border-radius: 0 999px 999px 0; background: var(--mud-palette-primary);
 }
 .mud-navmenu .mud-nav-link.active .mud-nav-link-icon,
 .mud-navmenu .mud-nav-link.mud-nav-link-active .mud-nav-link-icon { color: var(--mud-palette-primary); }
 
-.mud-navmenu .mud-nav-group > .mud-nav-link { font-weight: 500; }
+/* Grup başlığı — link değil, bölüm etiketi gibi okunur.
+   :first-child + :not(.active) ŞART: MudNavGroup'un alt linkleri de bu kabın içinde
+   olabildiği için kural kapsanmazsa tüm alt linkleri büyük harfe çevirir ve aktif
+   linkin marka rengini ezer (aynı özgüllük, dosyada daha sonra geldiği için kazanır). */
+.mud-navmenu .mud-nav-group > .mud-nav-link:first-child:not(.active):not(.mud-nav-link-active) {
+    font-weight: 600; font-size: .76rem; letter-spacing: .055em; text-transform: uppercase;
+    color: var(--mud-palette-text-secondary); min-height: 34px;
+}
 .mud-navmenu .mud-nav-group .mud-nav-link { padding-left: 18px; }
-.mud-navmenu .mud-nav-link .mud-nav-link-icon { min-width: 34px; }
+.mud-navmenu .mud-nav-link .mud-nav-link-icon { min-width: 32px; font-size: 1.15rem; }
+.mud-navmenu .mud-nav-group + .mud-nav-group { margin-top: 2px; }
 
 /* Alt-liste açılışı: kısa fade + kayma, ince stagger */
 @keyframes dwNavIn { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: none; } }
-.mud-navmenu .mud-nav-group a.mud-nav-link { animation: dwNavIn .22s ease both; }
+.mud-navmenu .mud-nav-group a.mud-nav-link { animation: dwNavIn .2s ease both; }
 .mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(2) { animation-delay: .03s; }
 .mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(3) { animation-delay: .06s; }
 .mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(4) { animation-delay: .09s; }
 .mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(5) { animation-delay: .12s; }
 .mud-navmenu .mud-nav-group a.mud-nav-link:nth-of-type(n+6) { animation-delay: .15s; }
-@media (prefers-reduced-motion: reduce) { .mud-navmenu .mud-nav-group a.mud-nav-link { animation: none; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   4) TİPOGRAFİ — sayfa başlıkları ve bölüm etiketleri
+   5) TİPOGRAFİ — sayfa başlıkları ve bölüm etiketleri
    Her ekran "MudText Typo=h5" ile açılıyor → tek kural 40 ekranın başlığını düzeltir.
    ══════════════════════════════════════════════════════════════════════════ */
-.mud-typography-h4 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.025em; }
-.mud-typography-h5 { font-size: 1.4rem; font-weight: 700; letter-spacing: -.022em; line-height: 1.25; }
-.mud-typography-h6 { font-size: 1.04rem; font-weight: 700; letter-spacing: -.012em; }
+.mud-typography-h4 { font-size: 1.55rem; font-weight: 800; letter-spacing: -.028em; line-height: 1.2; }
+.mud-typography-h5 { font-size: 1.32rem; font-weight: 700; letter-spacing: -.024em; line-height: 1.25; }
+.mud-typography-h6 { font-size: 1rem; font-weight: 700; letter-spacing: -.014em; }
 .mud-typography-subtitle1 { font-weight: 600; }
+.mud-typography-body2 { line-height: 1.6; }
+.mud-typography-caption { line-height: 1.5; }
 
-/* Bölüm etiketi: ekranlarda "MudText subtitle2 + mud-text-secondary" kalıbı
-   form bölümlerini ayırmak için kullanılıyor — küçük, aralıklı, üstte çizgi hissi */
+/* Bölüm etiketi: "subtitle2 + mud-text-secondary" kalıbı form bölümlerini ayırır */
 .mud-typography-subtitle2.mud-text-secondary {
-    font-size: .7rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+    font-size: .69rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
     opacity: .85;
 }
 
-/* Sayfa başlığı ile içerik arasına nefes; başlığın altına ince kehribar iz */
+/* Sayfa başlığı ile içerik arasına nefes; başlığın altına ince marka izi */
 .mud-main-content .mud-typography-h5:first-child,
 .mud-main-content .mud-typography-h4:first-child {
-    position: relative; padding-bottom: 14px; margin-bottom: 20px;
+    position: relative; padding-bottom: 13px; margin-bottom: 20px;
 }
 .mud-main-content .mud-typography-h5:first-child::after,
 .mud-main-content .mud-typography-h4:first-child::after {
-    content: ""; position: absolute; left: 0; bottom: 0; width: 56px; height: 3px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--mud-palette-primary), color-mix(in srgb, var(--mud-palette-primary) 20%, transparent));
+    content: ""; position: absolute; left: 0; bottom: 0; width: 52px; height: 3px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--mud-palette-primary), var(--dw-accent-soft));
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   5) KARTLAR / PANELLER
+   6) KARTLAR / PANELLER
    Ekranların tamamı MudPaper Class="pa-4" Elevation="2" kullanıyor.
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-paper {
-    border-radius: 16px;
-    background-color: color-mix(in srgb, var(--mud-palette-surface) 92%, transparent);
-    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--dw-r-lg);
+    background-color: color-mix(in srgb, var(--mud-palette-surface) 94%, transparent);
+    border: 1px solid var(--dw-border);
     background-image: none;
 }
 .mud-paper.mud-elevation-0 { box-shadow: none; }
-.mud-paper.mud-elevation-1 { box-shadow: 0 4px 16px rgba(4,8,16,.12); }
+.mud-paper.mud-elevation-1 { box-shadow: var(--dw-shadow-1); }
 .mud-paper.mud-elevation-2,
 .mud-paper.mud-elevation-3,
-.mud-paper.mud-elevation-4 { box-shadow: 0 10px 30px rgba(4,8,16,.16); }
+.mud-paper.mud-elevation-4 { box-shadow: var(--dw-shadow-2); }
 .mud-paper.mud-elevation-8,
 .mud-paper.mud-elevation-16,
-.mud-paper.mud-elevation-24 { box-shadow: 0 22px 60px rgba(4,8,16,.34); }
+.mud-paper.mud-elevation-24 { box-shadow: var(--dw-shadow-3); }
 
 /* Üst bar ve menü MudPaper'dan türüyor — onlara kart kenarı uygulanmasın */
 .mud-appbar.mud-paper, .mud-drawer.mud-paper { border-radius: 0; border-left: none; border-top: none; }
 .mud-appbar.mud-paper { border-right: none; }
 
-.mud-card { border-radius: 16px; border: 1px solid var(--mud-palette-lines-default); }
+.mud-card { border-radius: var(--dw-r-lg); border: 1px solid var(--dw-border); }
 .mud-card-header { padding-bottom: 8px; }
 
 /* Popover / menü / autocomplete listesi — cam yüzey */
 .mud-popover {
-    border-radius: 14px;
-    border: 1px solid var(--mud-palette-lines-default);
-    box-shadow: 0 18px 48px rgba(4,8,16,.34);
+    border-radius: var(--dw-r-md);
+    border: 1px solid var(--dw-border);
+    box-shadow: var(--dw-shadow-3);
     background-color: color-mix(in srgb, var(--mud-palette-surface) 97%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 }
-.mud-list-item { border-radius: 9px; margin: 1px 4px; }
-.mud-list-item:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 8%, transparent); }
+.mud-list-item { border-radius: var(--dw-r-xs); margin: 1px 4px; transition: background-color var(--dw-fast) ease; }
+.mud-list-item:hover { background: var(--dw-surface-hover); }
 .mud-selected-item, .mud-list-item.mud-selected-item {
-    background: color-mix(in srgb, var(--mud-palette-primary) 18%, transparent) !important;
+    background: var(--dw-accent-soft) !important;
     color: var(--mud-palette-primary) !important;
+    font-weight: 600;
 }
 
-/* Genişletilebilir panel (bazı ekranlarda bölüm açar) */
-.mud-expand-panel { border-radius: 14px !important; border: 1px solid var(--mud-palette-lines-default); overflow: hidden; }
+/* Genişletilebilir panel */
+.mud-expand-panel { border-radius: var(--dw-r-md) !important; border: 1px solid var(--dw-border); overflow: hidden; }
 .mud-expand-panel + .mud-expand-panel { margin-top: 8px; }
-.mud-expand-panel-header { min-height: 48px; font-weight: 600; }
+.mud-expand-panel-header { min-height: 46px; font-weight: 600; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   6) FORM ALANLARI
-   Ekranlar Variant="Outlined" Margin="Dense" kullanıyor → bu iki kural her alanı kapsar.
+   7) FORM ALANLARI
+   Ekranlar Variant="Outlined" Margin="Dense" kullanıyor → bu kurallar hepsini kapsar.
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-input.mud-input-outlined .mud-input-outlined-border {
-    border-radius: 11px;
-    border-color: color-mix(in srgb, var(--mud-palette-text-primary) 20%, transparent);
-    transition: border-color .16s ease, box-shadow .16s ease;
+    border-radius: var(--dw-r-sm);
+    border-color: var(--dw-border-strong);
+    transition: border-color var(--dw-fast) ease, box-shadow var(--dw-mid) ease;
 }
 .mud-input.mud-input-outlined:hover .mud-input-outlined-border {
-    border-color: color-mix(in srgb, var(--mud-palette-primary) 48%, var(--mud-palette-lines-default));
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 48%, var(--dw-border));
 }
 .mud-input.mud-input-outlined.mud-focused .mud-input-outlined-border {
     border-width: 1px;
     border-color: var(--mud-palette-primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-primary) 18%, transparent);
+    box-shadow: 0 0 0 3px var(--dw-accent-ring);
 }
 .mud-input.mud-input-outlined.mud-input-error .mud-input-outlined-border {
     border-color: var(--mud-palette-error);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-error) 15%, transparent);
 }
 .mud-input-label-outlined { font-weight: 500; }
-.mud-input-helper-text { font-size: .72rem; opacity: .85; line-height: 1.45; margin-top: 4px; }
+.mud-input-helper-text { font-size: .715rem; opacity: .85; line-height: 1.45; margin-top: 4px; }
 
-/* Alan içi zemin — koyu temada alan panelden ayrışsın (aksi halde "tıklamadan görünmüyor") */
+/* Alan içi zemin — koyu temada alan panelden ayrışsın */
 .mud-input.mud-input-outlined input,
 .mud-input.mud-input-outlined textarea,
-.mud-input.mud-input-outlined .mud-input-slot {
-    background: transparent;
-}
+.mud-input.mud-input-outlined .mud-input-slot { background: transparent; }
 .mud-input-control-input-container > .mud-input.mud-input-outlined {
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-    border-radius: 11px;
+    background: var(--dw-surface-1);
+    border-radius: var(--dw-r-sm);
 }
+
+/* Zorunlu alan: bu uygulamada zorunluluk MudBlazor Required ile değil, etiketin
+   sonuna yazılan " *" ile ifade ediliyor (ör. Label="İç Kod *"). Metin olduğu için
+   ayrıca biçimlendirilemez — markup değişmeden bırakılıyor. */
+
+/* Salt-okunur alan (MudField Variant="Text") — VehicleEditDialog'un okuma modu.
+   Giriş alanı gibi durur ama tıklanamaz olduğu belli olur. */
+.mud-field {
+    background: var(--dw-surface-1);
+    border: 1px solid var(--dw-border-soft);
+    border-radius: var(--dw-r-sm);
+    padding: 5px 11px 6px;
+}
+.mud-field .mud-field-label, .mud-field label {
+    font-size: .68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+}
+.mud-field .mud-input-slot, .mud-field &gt; div:last-child { font-size: .86rem; }
 
 /* Anahtar / onay kutusu / radyo */
 .mud-switch .mud-switch-track { border-radius: 999px; }
-.mud-checkbox .mud-icon-root, .mud-radio .mud-icon-root { transition: color .14s ease; }
+.mud-checkbox .mud-icon-root, .mud-radio .mud-icon-root { transition: color var(--dw-fast) ease; }
 
 /* Dosya seçici (InputFile — Araçlar/Malzemeler fotoğraf alanı) */
 input[type="file"] {
     font-size: .82rem; color: var(--mud-palette-text-secondary);
-    padding: 10px 12px; width: 100%; box-sizing: border-box;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-    border: 1px dashed color-mix(in srgb, var(--mud-palette-text-primary) 22%, transparent);
-    border-radius: 12px; cursor: pointer;
-    transition: border-color .16s ease, background-color .16s ease;
+    padding: 11px 13px; width: 100%; box-sizing: border-box;
+    background: var(--dw-surface-1);
+    border: 1px dashed var(--dw-border-strong);
+    border-radius: var(--dw-r-md); cursor: pointer;
+    transition: border-color var(--dw-fast) ease, background-color var(--dw-fast) ease;
 }
 input[type="file"]:hover {
     border-color: color-mix(in srgb, var(--mud-palette-primary) 55%, transparent);
-    background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent);
+    background: var(--dw-accent-weak);
 }
 input[type="file"]::file-selector-button {
     margin-right: 12px; padding: 6px 13px; cursor: pointer;
-    border: none; border-radius: 8px; font: inherit; font-weight: 600; font-size: .78rem;
-    background: color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
+    border: none; border-radius: var(--dw-r-xs); font: inherit; font-weight: 600; font-size: .78rem;
+    background: var(--dw-accent-soft);
     color: var(--mud-palette-primary);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   7) BUTONLAR
-   ----------------------------------------------------------------------------
-   Eski app.css'te "tüm butonlarda yazı BEYAZ + Text/Outlined butonlara #475569
-   zemin" kuralı vardı (2026-07-19 isteği: açık temada görünmüyorlardı). O kural
-   her butonu aynı gri bloğa çeviriyordu. Yerine: tema renginden türeyen, iki
-   temada da okunur yüzeyler. Beyaz yazı şartsa bu bölümü eski haline döndür.
+   8) BUTONLAR — üç kademeli hiyerarşi
+   ① Birincil eylem (Kaydet, Giriş)  ② İkincil (İptal, Filtrele, Excel)
+   ③ Sessiz (ikon butonları, satır içi eylemler)
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-button-root {
-    border-radius: 11px;
+    border-radius: var(--dw-r-sm);
     font-weight: 600;
     letter-spacing: .004em;
     text-transform: none;
-    transition: filter .15s ease, transform .05s ease, background-color .15s ease, box-shadow .15s ease;
+    transition: filter var(--dw-fast) ease, transform .05s ease,
+                background-color var(--dw-fast) ease, box-shadow var(--dw-mid) ease;
 }
 .mud-button-root:hover { filter: brightness(1.05); }
 .mud-button-root:active { transform: translateY(1px); }
-.mud-button-root.mud-button-disabled { opacity: .5; }
+.mud-button-root.mud-button-disabled { opacity: .48; }
 
-/* Birincil eylem: kehribar/tema rengi gradyanı + yumuşak ışıma */
+/* ① Birincil */
 .mud-button-filled.mud-button-filled-primary {
     background: linear-gradient(150deg,
         color-mix(in srgb, var(--mud-palette-primary) 86%, #fff) 0%,
         var(--mud-palette-primary) 100%);
-    box-shadow: 0 8px 22px color-mix(in srgb, var(--mud-palette-primary) 28%, transparent);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--mud-palette-primary) 26%, transparent),
+                inset 0 1px 0 rgba(255,255,255,.22);
 }
 .mud-button-filled.mud-button-filled-primary:hover {
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--mud-palette-primary) 36%, transparent);
+    box-shadow: 0 10px 26px color-mix(in srgb, var(--mud-palette-primary) 36%, transparent),
+                inset 0 1px 0 rgba(255,255,255,.26);
 }
-.mud-button-filled.mud-button-filled-error { box-shadow: 0 8px 22px color-mix(in srgb, var(--mud-palette-error) 26%, transparent); }
-.mud-button-filled.mud-button-filled-success { box-shadow: 0 8px 22px color-mix(in srgb, var(--mud-palette-success) 24%, transparent); }
+.mud-button-filled.mud-button-filled-error { box-shadow: 0 6px 18px color-mix(in srgb, var(--mud-palette-error) 24%, transparent); }
+.mud-button-filled.mud-button-filled-success { box-shadow: 0 6px 18px color-mix(in srgb, var(--mud-palette-success) 22%, transparent); }
 
-/* İkincil eylemler (İptal / Temizle / Filtrele / Excel'e Aktar…) */
+/* ② İkincil */
 .mud-button-outlined:not(.mud-icon-button):not(.mud-pagination-item),
 .mud-button-text:not(.mud-icon-button):not(.mud-pagination-item):not(.mud-nav-link):not(.mud-tab) {
-    background-color: color-mix(in srgb, var(--mud-palette-text-primary) 7%, transparent);
-    border: 1px solid var(--mud-palette-lines-default);
+    background-color: var(--dw-surface-3);
+    border: 1px solid var(--dw-border);
     color: var(--mud-palette-text-primary);
 }
 .mud-button-outlined:not(.mud-icon-button):not(.mud-pagination-item):hover,
 .mud-button-text:not(.mud-icon-button):not(.mud-pagination-item):not(.mud-nav-link):not(.mud-tab):hover {
-    background-color: color-mix(in srgb, var(--mud-palette-text-primary) 13%, transparent);
+    background-color: var(--dw-surface-hover);
+    border-color: var(--dw-border-strong);
 }
 /* Renk verilmiş text/outlined butonlar kendi rengini korur */
 .mud-button-outlined.mud-button-outlined-error, .mud-button-text.mud-button-text-error { color: var(--mud-palette-error); }
@@ -360,134 +474,212 @@ input[type="file"]::file-selector-button {
 .mud-button-outlined.mud-button-outlined-primary, .mud-button-text.mud-button-text-primary { color: var(--mud-palette-primary); }
 .mud-button-outlined.mud-button-outlined-secondary, .mud-button-text.mud-button-text-secondary { color: var(--mud-palette-secondary); }
 
-/* İkon butonları */
-.mud-icon-button { border-radius: 10px; }
-.mud-icon-button:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 9%, transparent); }
+/* ③ Sessiz — ikon butonları */
+.mud-icon-button { border-radius: var(--dw-r-sm); transition: background-color var(--dw-fast) ease; }
+.mud-icon-button:hover { background: var(--dw-surface-hover); }
 .mud-appbar .mud-icon-button:hover { background: rgba(255,255,255,.12); }
 
-/* Klavye odağı — her yerde görünür kehribar halka */
-.mud-button-root:focus-visible, .mud-icon-button:focus-visible, .mud-nav-link:focus-visible {
-    outline: 2px solid var(--mud-palette-primary);
-    outline-offset: 2px;
-}
+/* Kaydediyor durumu — MudButton Loading="true" kullanan ekranlarda */
+.mud-button-root .mud-progress-circular { margin-right: 6px; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   8) TABLOLAR — MudTable / MudSimpleTable
+   9) TABLOLAR — MudTable / MudSimpleTable
    ══════════════════════════════════════════════════════════════════════════ */
 .mud-table {
-    border-radius: 14px;
+    border-radius: var(--dw-r-md);
     overflow: hidden;
-    border: 1px solid var(--mud-palette-lines-default);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 3%, transparent);
+    border: 1px solid var(--dw-border);
+    background: var(--dw-surface-1);
 }
-.mud-table .mud-table-toolbar { min-height: 54px; }
+.mud-table .mud-table-toolbar { min-height: 52px; }
 .mud-table .mud-table-head .mud-table-cell {
-    font-weight: 700; font-size: .66rem; letter-spacing: .09em; text-transform: uppercase;
+    font-weight: 700; font-size: .655rem; letter-spacing: .085em; text-transform: uppercase;
     color: var(--mud-palette-text-secondary);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent);
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    white-space: nowrap; padding-top: 8px; padding-bottom: 8px;
+    background: var(--dw-surface-2);
+    border-bottom: 1px solid var(--dw-border);
+    white-space: nowrap; padding-top: 9px; padding-bottom: 9px;
 }
 .mud-table .mud-table-body .mud-table-cell {
-    font-size: .84rem; padding-top: 7px; padding-bottom: 7px;
-    border-bottom: 1px solid color-mix(in srgb, var(--mud-palette-lines-default) 55%, transparent);
+    font-size: .835rem; padding-top: 7px; padding-bottom: 7px;
+    border-bottom: 1px solid var(--dw-border-soft);
 }
-.mud-table .mud-table-body .mud-table-row { transition: background-color .12s ease; }
-.mud-table .mud-table-body .mud-table-row:hover { background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent); }
+.mud-table .mud-table-body .mud-table-row { transition: background-color var(--dw-fast) ease; }
+.mud-table .mud-table-body .mud-table-row:hover { background: var(--dw-accent-weak); }
 .mud-table .mud-table-body .mud-table-row:last-child .mud-table-cell { border-bottom: none; }
-.mud-table .mud-table-pagination { border-top: 1px solid var(--mud-palette-lines-default); }
+.mud-table .mud-table-pagination { border-top: 1px solid var(--dw-border); }
 
 .mud-table .mud-table-body .mud-table-row.mud-selected-row,
 .mud-table .mud-table-body .mud-table-row.mud-selected-row:hover {
-    background: color-mix(in srgb, var(--mud-palette-primary) 18%, transparent);
+    background: var(--dw-accent-soft);
     box-shadow: inset 3px 0 0 0 var(--mud-palette-primary);
 }
 
-.mud-simple-table {
-    border-radius: 14px; overflow: hidden; border: 1px solid var(--mud-palette-lines-default);
-}
+.mud-simple-table { border-radius: var(--dw-r-md); overflow: hidden; border: 1px solid var(--dw-border); }
 .mud-simple-table thead th {
-    font-weight: 700; font-size: .66rem; letter-spacing: .09em; text-transform: uppercase;
+    font-weight: 700; font-size: .655rem; letter-spacing: .085em; text-transform: uppercase;
     color: var(--mud-palette-text-secondary);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent);
-    border-bottom: 1px solid var(--mud-palette-lines-default);
+    background: var(--dw-surface-2);
+    border-bottom: 1px solid var(--dw-border);
     white-space: nowrap;
 }
-.mud-simple-table tbody tr { transition: background-color .12s ease; }
-.mud-simple-table tbody tr:hover { background: color-mix(in srgb, var(--mud-palette-primary) 6%, transparent); }
-.mud-simple-table td { border-bottom: 1px solid color-mix(in srgb, var(--mud-palette-lines-default) 55%, transparent); }
+.mud-simple-table tbody tr { transition: background-color var(--dw-fast) ease; }
+.mud-simple-table tbody tr:hover { background: var(--dw-accent-weak); }
+.mud-simple-table td { border-bottom: 1px solid var(--dw-border-soft); }
 
-/* ── Excel-benzeri liste grid'i (ADR-089) — davranış aynı, görünüm yenilendi ──
+/* ── 9.1 Excel-benzeri liste grid'i (ADR-089) — davranış aynı, görünüm yenilendi ──
    Araçlar, Malzemeler, Personel, Talepler… hepsi bu tabloyu kullanıyor. */
 .dw-grid {
     table-layout: fixed; border-collapse: separate; border-spacing: 0;
     width: max-content; min-width: 100%;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 14px; overflow: hidden;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 3%, transparent);
+    border: 1px solid var(--dw-border);
+    border-radius: var(--dw-r-md); overflow: hidden;
+    background: var(--dw-surface-1);
 }
 .dw-grid th, .dw-grid td {
-    border-right: 1px solid color-mix(in srgb, var(--mud-palette-lines-default) 60%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--mud-palette-lines-default) 55%, transparent);
-    padding: 7px 10px; font-size: .82rem; height: 36px;
+    border-right: 1px solid var(--dw-border-soft);
+    border-bottom: 1px solid var(--dw-border-soft);
+    padding: 7px 11px; font-size: .82rem; height: 36px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0;
 }
 .dw-grid th:last-child, .dw-grid td:last-child { border-right: none; }
 .dw-grid tbody tr:last-child td { border-bottom: none; }
 .dw-grid thead th {
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 6%, transparent);
+    background: var(--dw-surface-2);
     color: var(--mud-palette-text-secondary);
-    font-size: .655rem; font-weight: 700; letter-spacing: .09em;
+    font-size: .645rem; font-weight: 700; letter-spacing: .085em; text-transform: uppercase;
     position: sticky; top: 0; z-index: 2;
     overflow: hidden; min-width: 60px;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    /* NOT: CSS 'resize: horizontal' table-cell (th) üzerinde tarayıcılarca YOK SAYILIR (web'de hiç çalışmamasının
-       nedeni buydu). Yerine sağ kenardaki .dw-col-grip tutamağı + JS ile sürükle-genişlet (App.razor). */
+    border-bottom: 1px solid var(--dw-border);
+    /* NOT: CSS 'resize: horizontal' th üzerinde tarayıcılarca YOK SAYILIR.
+       Genişletme .dw-col-grip tutamağı + App.razor'daki JS ile yapılır. */
+}
+/* Sıralanan sütun başlığı marka rengiyle işaretlenir */
+.dw-grid thead th:has(.dw-sort:not(:empty)) {
+    color: var(--mud-palette-primary);
+    box-shadow: inset 0 -2px 0 0 var(--mud-palette-primary);
 }
 .dw-th { display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; user-select: none; }
+.dw-th:hover { color: var(--mud-palette-text-primary); }
 .dw-sort { font-size: .68rem; color: var(--mud-palette-primary); min-width: 10px; }
-/* Sütun genişletme tutamağı — başlığın sağ kenarında; sürükleyerek genişlet/daralt (oturum-içi; kaydedilmez). */
+/* Sütun genişletme tutamağı */
 .dw-col-grip { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize;
-    user-select: none; touch-action: none; z-index: 3; }
-.dw-col-grip:hover { background: color-mix(in srgb, var(--mud-palette-primary) 40%, transparent); }
+    user-select: none; touch-action: none; z-index: 3; transition: background-color var(--dw-fast) ease; }
+.dw-col-grip:hover { background: color-mix(in srgb, var(--mud-palette-primary) 45%, transparent); }
 
-/* Başlık-altı filtre satırı (ADR-090, kullanıcı isteği 2026-08-06) — her sütunun TAM ALTINDA kendi filtre
-   kutusu; table-layout:fixed sayesinde kolon genişlikleriyle otomatik hizalı. thead th'ın resize/sticky-top:0
-   davranışını MİRAS ALIR (aynı seçici) — burada resize kapatılır + ikinci sıra olarak başlığın ALTINA sabitlenir
-   (üst üste binmesin diye). */
+/* Başlık-altı filtre satırı (ADR-090) — her sütunun TAM ALTINDA kendi filtre kutusu */
 .dw-filter-th {
     resize: none; position: sticky; top: 36px; z-index: 1;
-    background: var(--mud-palette-background); padding: 4px 6px; white-space: normal;
+    background: color-mix(in srgb, var(--mud-palette-background) 96%, var(--mud-palette-primary));
+    padding: 5px 6px; white-space: normal;
+    border-bottom: 1px solid var(--dw-border);
 }
-.dw-filter-th .mud-input-outlined .mud-input-outlined-border { border-radius: 8px; }
+.dw-filter-th .mud-input-outlined .mud-input-outlined-border { border-radius: var(--dw-r-xs); }
 .dw-filter-th .mud-input-slot { font-size: .78rem; padding-top: 4px; padding-bottom: 4px; }
-.dw-grid tbody tr { transition: background-color .12s ease; }
-.dw-grid tbody tr:nth-child(2n) { background: color-mix(in srgb, var(--mud-palette-text-primary) 2%, transparent); }
-.dw-grid tbody tr:hover { background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent); }
-/* Pinned toplam satırı (Excel mantığı): en altta, görsel ayrı — kalın + vurgu arka planı + üst kenar. */
-.dw-grid tfoot .dw-total-row td {
-    font-weight: 700;
-    background: color-mix(in srgb, var(--mud-palette-primary) 12%, var(--mud-palette-background));
-    border-top: 2px solid var(--mud-palette-primary);
+/* Dolu filtre — hangi sütunun filtrelendiği bir bakışta görünür */
+.dw-filter-th .mud-input-outlined:has(input:not(:placeholder-shown)) .mud-input-outlined-border {
+    border-color: var(--mud-palette-primary);
+    background: var(--dw-accent-weak);
 }
 
+.dw-grid tbody tr { transition: background-color var(--dw-fast) ease; }
+.dw-grid tbody tr:nth-child(2n) { background: color-mix(in srgb, var(--mud-palette-text-primary) 2%, transparent); }
+.dw-grid tbody tr:hover { background: var(--dw-accent-weak); box-shadow: inset 2px 0 0 0 var(--dw-accent-line); }
+
+/* Pinned toplam satırı (Excel mantığı) */
+.dw-grid tfoot .dw-total-row td {
+    font-weight: 700;
+    background: color-mix(in srgb, var(--mud-palette-primary) 11%, var(--mud-palette-background));
+    border-top: 2px solid var(--mud-palette-primary);
+    position: sticky; bottom: 0; z-index: 2;
+}
+
+/* ── 9.2 Yatay kaydırma kabı — kenarda gölge ipucu ── */
+:is(.mud-main-content, .mud-dialog) .mud-paper > div[style*="overflow-x"] {
+    border-radius: var(--dw-r-md);
+    margin-bottom: 4px;
+    scrollbar-gutter: stable;
+}
+
+/* ── 9.3 Sayısal hücre hizalama (İSTEĞE BAĞLI — yeni markup gerektirir) ──
+   Kullanımı: <td class="dw-num">1.250,00</td>  ·  <th class="dw-num">Miktar</th>
+   Eklenmezse hiçbir şey değişmez; mevcut hücreler sola yaslı kalır. */
+.dw-grid td.dw-num, .dw-grid th.dw-num,
+.mud-table-cell.dw-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Başlıkta YALNIZ etiket sağa yaslanır. Sıra (flex-direction) DEĞİŞTİRİLMEZ:
+   th içeriği [⠿ tutamak · etiket · ▲ sıralama] sırasındadır; ters çevirmek
+   sürükle tutamağını ve sıralama okunu sütun tipine göre yer değiştirir. */
+.dw-grid th.dw-num .dw-th > span:nth-child(2) { flex: 1 1 auto; text-align: right; }
+
+/* ── 9.4 DURUM ROZETİ (İSTEĞE BAĞLI — yeni markup gerektirir, bkz. FAZ 3) ──
+   Kullanımı: <span class="dw-badge dw-badge-ok">Aktif</span>
+   Renk sınıfı yoksa nötr görünür; hiç eklenmezse hücreler düz metin kalır.
+   Kod → sınıf eşlemesi ekranda yapılır (VehicleStatus tek kaynak). */
+.dw-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 21px; padding: 0 9px; border-radius: 999px;
+    font-size: .7rem; font-weight: 600; letter-spacing: .01em; line-height: 1;
+    background: var(--dw-surface-3); border: 1px solid var(--dw-border);
+    color: var(--mud-palette-text-secondary); white-space: nowrap;
+}
+.dw-badge::before {
+    content: ""; width: 6px; height: 6px; border-radius: 999px; flex: none;
+    background: currentColor;
+}
+.dw-badge-ok    { color: var(--mud-palette-success); background: color-mix(in srgb, var(--mud-palette-success) 13%, transparent); border-color: color-mix(in srgb, var(--mud-palette-success) 30%, transparent); }
+.dw-badge-warn  { color: var(--mud-palette-warning); background: color-mix(in srgb, var(--mud-palette-warning) 15%, transparent); border-color: color-mix(in srgb, var(--mud-palette-warning) 32%, transparent); }
+.dw-badge-error { color: var(--mud-palette-error);   background: color-mix(in srgb, var(--mud-palette-error) 13%, transparent);   border-color: color-mix(in srgb, var(--mud-palette-error) 30%, transparent); }
+.dw-badge-muted { color: var(--mud-palette-text-secondary); }
+
+/* Rozet, .dw-grid hücresinin içinde: hücre kuralı (max-width:0 + overflow:hidden +
+   text-overflow:ellipsis) YALNIZ satır içi metni kısaltabilir. Rozet inline-flex
+   olduğu için kısalmaz, KESİLİR — dar sütunda "bozuk" görünür. Bu yüzden rozet
+   hücreye uyar ve metnini kendi içinde üç noktayla kısaltır. */
+.dw-grid td .dw-badge { max-width: 100%; min-width: 0; padding: 0 8px; overflow: hidden; }
+.dw-grid td .dw-badge > span { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 9.5 İLK SÜTUNU SABİTLE (yalnız CSS) ────────────────────────────────────
+   Yatay kaydırmada kimlik sütunu (İç Kod / Kod / Plaka) ekranda kalır.
+   .dw-grid'de table-layout:fixed olduğu için genişlik zaten bilinir.
+   NOT: Sütun sürükle-taşıma ile ilk sütun değişirse sabitlenen de değişir —
+   davranış doğru kalır. Sorun çıkarsa bu bloğu silmek yeterlidir. */
+.dw-grid thead th:first-child,
+.dw-grid tbody td:first-child,
+.dw-grid tfoot td:first-child {
+    position: sticky; left: 0; z-index: 1;
+    background: color-mix(in srgb, var(--mud-palette-background) 94%, var(--mud-palette-text-primary));
+    box-shadow: 1px 0 0 0 var(--dw-border);
+}
+.dw-grid thead th:first-child { z-index: 3; }
+.dw-grid thead tr:nth-child(2) th:first-child { z-index: 3; }
+.dw-grid tbody tr:hover td:first-child { background: color-mix(in srgb, var(--mud-palette-primary) 10%, var(--mud-palette-background)); }
+
 /* Sayfalama */
-.mud-pagination-item { border-radius: 9px; font-weight: 600; }
+.mud-pagination-item { border-radius: var(--dw-r-xs); font-weight: 600; }
 .mud-pagination-item.mud-pagination-item-selected {
     background: linear-gradient(150deg, color-mix(in srgb, var(--mud-palette-primary) 86%, #fff), var(--mud-palette-primary));
     color: #241703;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   9) CHIP / ALERT / DİYALOG / SNACKBAR / SEKME / İLERLEME
+   10) CHIP / ALERT / DİYALOG / SNACKBAR / SEKME / İLERLEME
    ══════════════════════════════════════════════════════════════════════════ */
-.mud-chip { border-radius: 999px; font-weight: 600; font-size: .74rem; }
+/* Chip = durum rozeti. Ekranlar zaten MudChip kullanıyor; burada rozet diline oturuyor. */
+.mud-chip {
+    border-radius: 999px; font-weight: 600; font-size: .72rem; letter-spacing: .01em;
+    height: 24px; padding: 0 11px;
+}
 .mud-chip.mud-chip-outlined { border-width: 1px; }
+.mud-chip.mud-chip-text-success, .mud-chip.mud-chip-filled-success { background: color-mix(in srgb, var(--mud-palette-success) 16%, transparent); }
+.mud-chip.mud-chip-text-warning, .mud-chip.mud-chip-filled-warning { background: color-mix(in srgb, var(--mud-palette-warning) 18%, transparent); }
+.mud-chip.mud-chip-text-error, .mud-chip.mud-chip-filled-error { background: color-mix(in srgb, var(--mud-palette-error) 16%, transparent); }
+/* Tablo hücresi içindeki chip satır yüksekliğini bozmasın */
+.dw-grid td .mud-chip, .mud-table-cell .mud-chip { height: 21px; font-size: .69rem; padding: 0 9px; }
 
 .mud-alert {
-    border-radius: 13px;
-    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--dw-r-md);
+    border: 1px solid var(--dw-border);
     font-size: .85rem;
+    align-items: center;
 }
 .mud-alert.mud-alert-filled-warning, .mud-alert.mud-alert-text-warning {
     border-color: color-mix(in srgb, var(--mud-palette-warning) 34%, transparent);
@@ -499,18 +691,40 @@ input[type="file"]::file-selector-button {
     border-color: color-mix(in srgb, var(--mud-palette-success) 34%, transparent);
 }
 
+/* Diyalog — başlık ve eylem çubuğu bantlanır, gövde nefes alır */
 .mud-dialog {
-    border-radius: 18px;
-    border: 1px solid var(--mud-palette-lines-default);
-    box-shadow: 0 30px 80px rgba(0,0,0,.45);
+    border-radius: var(--dw-r-xl);
+    border: 1px solid var(--dw-border);
+    box-shadow: var(--dw-shadow-3);
+    animation: dwDialogIn .18s var(--dw-ease) both;
 }
-.mud-dialog-title { font-weight: 700; letter-spacing: -.012em; padding-bottom: 8px; }
-.mud-dialog-actions { gap: 8px; padding: 12px 20px 18px; }
+@keyframes dwDialogIn { from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.985); } to { opacity: 1; transform: none; } }
+.mud-dialog-title {
+    font-weight: 700; letter-spacing: -.014em;
+    padding: 16px 22px 14px;
+    border-bottom: 1px solid var(--dw-border);
+    background: var(--dw-surface-2);
+}
+.mud-dialog-content { padding-top: 18px; }
+.mud-dialog-actions {
+    gap: 8px; padding: 13px 22px 16px;
+    border-top: 1px solid var(--dw-border);
+    background: var(--dw-surface-2);
+}
+/* Yıkıcı eylem (Sil) birincil eylemin (Kaydet/Düzelt) yanında durmasın: sola itilir.
+   Yalnız CSS — markup sırası aynı kalır, sekme (tab) sırası bozulmaz.
+   :not(:last-child) ŞART: onay penceresinde ("Vazgeç · Evet, Sil") yıkıcı buton
+   SON eylemdir ve orada birincil eylemdir — orada itilmemelidir.
+   NOT: :first-of-type KULLANILAMAZ — eylem çubuğundaki butonların hepsi <button>
+   olduğu için yıkıcı buton hiçbir zaman "ilk tür" olmaz; kural hiç eşleşmez. */
+.mud-dialog-actions .mud-button-filled.mud-button-filled-error:not(:last-child) { margin-right: auto; }
+/* Uzun formlu diyalogda gövde kaydırılır; başlık ve eylem çubuğu sabit kalır. */
+.mud-dialog-content { max-height: min(68vh, 720px); overflow-y: auto; }
 .mud-overlay-dialog { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 
-.mud-snackbar { border-radius: 13px; border: 1px solid var(--mud-palette-lines-default); }
+.mud-snackbar { border-radius: var(--dw-r-md); border: 1px solid var(--dw-border); box-shadow: var(--dw-shadow-3); }
 
-.mud-tabs .mud-tab { text-transform: none; font-weight: 600; letter-spacing: 0; border-radius: 10px 10px 0 0; }
+.mud-tabs .mud-tab { text-transform: none; font-weight: 600; letter-spacing: 0; border-radius: var(--dw-r-sm) var(--dw-r-sm) 0 0; }
 .mud-tabs .mud-tab.mud-tab-active { color: var(--mud-palette-primary); }
 .mud-tabs .mud-tab-slider { height: 3px; border-radius: 999px; }
 
@@ -518,19 +732,55 @@ input[type="file"]::file-selector-button {
 .mud-progress-linear { border-radius: 999px; overflow: hidden; }
 
 .mud-tooltip {
-    border-radius: 10px; font-size: .78rem; line-height: 1.5;
-    border: 1px solid var(--mud-palette-lines-default);
-    box-shadow: 0 10px 28px rgba(0,0,0,.3);
+    border-radius: var(--dw-r-sm); font-size: .78rem; line-height: 1.5;
+    border: 1px solid var(--dw-border);
+    box-shadow: var(--dw-shadow-2);
     max-width: 320px;
 }
 
-/* Boş durum metinleri — çıplak gri yazı yerine hafif çerçeveli alan hissi */
+/* ══════════════════════════════════════════════════════════════════════════
+   11) BOŞ DURUM · YÜKLENİYOR · İSKELET
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Kartın tek çocuğu olan gri metin = boş durum */
 .mud-paper > .mud-typography.mud-text-secondary:only-child {
-    display: block; padding: 22px 4px; text-align: center; font-size: .88rem;
+    display: block; padding: 30px 16px; text-align: center; font-size: .88rem;
 }
 
+/* Yükleniyor göstergesi ortalanır */
+:is(.mud-main-content, .mud-dialog) .mud-paper > .mud-progress-circular:last-child {
+    display: block; margin: 28px auto;
+}
+
+/* İSKELET (İSTEĞE BAĞLI — yeni markup gerektirir, bkz. §14)
+   Kullanımı: yükleniyorken tablo gövdesine <tbody class="dw-skeleton"> ile
+   birkaç boş <tr><td></td>…</tr> basılır. Hücreler kendiliğinden parlar. */
+@keyframes dwShimmer { from { background-position: -180% 0; } to { background-position: 180% 0; } }
+.dw-skeleton td {
+    position: relative; color: transparent !important;
+}
+.dw-skeleton td::after {
+    content: ""; position: absolute; left: 11px; right: 11px; top: 50%; height: 9px;
+    transform: translateY(-50%); border-radius: 999px;
+    background: linear-gradient(90deg,
+        var(--dw-surface-2) 0%, var(--dw-surface-hover) 50%, var(--dw-surface-2) 100%);
+    background-size: 220% 100%;
+    animation: dwShimmer 1.25s linear infinite;
+}
+.dw-skeleton tr:nth-child(2n) td::after { animation-delay: .12s; }
+
+/* FORM/DİYALOG İSKELETİ (İSTEĞE BAĞLI — yeni markup gerektirir, bkz. FAZ 4.2)
+   Kullanımı: yüklenirken <div class="dw-form-skeleton"> içine boş <div>'ler. */
+.dw-form-skeleton { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 0; }
+.dw-form-skeleton > div {
+    height: 46px; border-radius: var(--dw-r-sm);
+    background: linear-gradient(90deg, var(--dw-surface-2) 0%, var(--dw-surface-hover) 50%, var(--dw-surface-2) 100%);
+    background-size: 220% 100%;
+    animation: dwShimmer 1.25s linear infinite;
+}
+.dw-form-skeleton > div:nth-child(2n) { animation-delay: .12s; }
+
 /* ══════════════════════════════════════════════════════════════════════════
-   10) KAYDIRMA ÇUBUĞU
+   12) KAYDIRMA ÇUBUĞU
    ══════════════════════════════════════════════════════════════════════════ */
 * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--mud-palette-text-primary) 22%, transparent) transparent; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -544,17 +794,17 @@ input[type="file"]::file-selector-button {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   11) Bootstrap kalıntıları (bazı ekranlarda hâlâ kullanılıyor)
+   13) Bootstrap kalıntıları (bazı ekranlarda hâlâ kullanılıyor)
    ══════════════════════════════════════════════════════════════════════════ */
 .content { padding-top: 1.1rem; }
 .btn-primary { color: #fff; background-color: var(--mud-palette-primary); border-color: var(--mud-palette-primary); }
 .darker-border-checkbox.form-check-input { border-color: #929292; }
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-primary) 22%, transparent);
+    box-shadow: 0 0 0 3px var(--dw-accent-ring);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   13) YAPISAL KATMAN — mevcut markup'ı mockup düzenine yaklaştırır
+   14) YAPISAL KATMAN — mevcut markup'ı kart/bölüm düzenine oturtur
    ----------------------------------------------------------------------------
    40 ekranın hiçbirinde Razor değişikliği YAPILMADAN, ekranların zaten ürettiği
    DOM kalıbı yeniden şekillendirilir. Hedeflenen kalıplar (Vehicles.razor,
@@ -565,7 +815,7 @@ input[type="file"]::file-selector-button {
        ├ MudStack Row (h6 + butonlar + MudSpacer)    → araç çubuğu
        ├ MudGrid Spacing=1  (kolon filtreleri)       → filtre şeridi
        ├ MudText subtitle2.mud-text-secondary
-       │   + MudGrid Spacing=2                       → form BÖLÜMÜ (başlık + gövde)
+       │   + MudGrid Spacing=2                       → form BÖLÜMÜ
        ├ div[style*=overflow-x] > table.dw-grid      → liste
        ├ MudStack Row (MudPagination + ...)          → sayfalama şeridi
        └ MudStack Row justify-end (İptal + Kaydet)   → eylem çubuğu
@@ -575,159 +825,133 @@ input[type="file"]::file-selector-button {
    tarayıcıda bu bölüm sessizce yok sayılır — ekran yine çalışır, sadece sade görünür.
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* Ortak kapsam: sayfa gövdesi + diyalog içi (VehicleEditDialog, MaterialQuickEdit…) */
 :is(.mud-main-content, .mud-dialog) .mud-paper { position: relative; }
 
-/* ── 13.1 Kart başlığı (MudText h6, kartın ilk çocuğu) ───────────────────── */
+/* ── 14.1 Kart başlığı (MudText h6, kartın ilk çocuğu) ───────────────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography-h6:first-child {
     margin: -16px -16px 16px;
     padding: 14px 18px;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-    border-radius: 16px 16px 0 0;
+    border-bottom: 1px solid var(--dw-border);
+    background: var(--dw-surface-2);
+    border-radius: var(--dw-r-lg) var(--dw-r-lg) 0 0;
 }
 
-/* ── 13.2 Araç çubuğu — h6 + butonları taşıyan MudStack Row ──────────────── */
+/* ── 14.2 Araç çubuğu — h6 + butonları taşıyan MudStack Row ──────────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.flex-row:has(> .mud-typography-h6):has(.mud-button-root),
 :is(.mud-main-content, .mud-dialog) .mud-paper > div > .d-flex.flex-row:has(> .mud-typography-h6):has(.mud-button-root) {
     margin: -16px -16px 14px !important;
     padding: 12px 18px;
-    gap: 8px;
-    row-gap: 8px;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-    border-radius: 16px 16px 0 0;
+    gap: 8px; row-gap: 8px;
+    border-bottom: 1px solid var(--dw-border);
+    background: var(--dw-surface-2);
+    border-radius: var(--dw-r-lg) var(--dw-r-lg) 0 0;
     align-items: center;
 }
-/* Araç çubuğundaki başlık artık kart başlığı — kendi bandını almasın */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.flex-row > .mud-typography-h6,
 :is(.mud-main-content, .mud-dialog) .mud-paper > div > .d-flex.flex-row > .mud-typography-h6 {
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: none;
+    margin: 0; padding: 0; border: none; background: none;
 }
-/* Araç çubuğundaki "Sayfa boyutu" gibi küçük etiketler */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.flex-row > .mud-typography-caption,
 :is(.mud-main-content, .mud-dialog) .mud-paper > div > .d-flex.flex-row > .mud-typography-caption {
-    white-space: nowrap; font-size: .72rem; font-weight: 600; letter-spacing: .04em; opacity: .75;
+    white-space: nowrap; font-size: .71rem; font-weight: 600; letter-spacing: .04em; opacity: .75;
 }
 
-/* ── 13.3 Filtre şeridi — Spacing=1 ile açılan çok kutulu MudGrid ────────── */
+/* ── 14.3 Filtre şeridi — Spacing=1 ile açılan çok kutulu MudGrid ────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-grid.mud-grid-spacing-xs-1 {
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 3%, transparent);
-    border: 1px solid color-mix(in srgb, var(--mud-palette-lines-default) 70%, transparent);
-    border-radius: 12px;
+    background: var(--dw-surface-1);
+    border: 1px solid var(--dw-border-soft);
+    border-radius: var(--dw-r-md);
     padding: 10px 8px 4px;
     margin-bottom: 14px !important;
 }
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-grid.mud-grid-spacing-xs-1 .mud-input-label-outlined {
-    font-size: .74rem;
+    font-size: .73rem;
 }
 
-/* ── 13.4 FORM BÖLÜMLERİ — mockup'taki "Kimlik / Stok / Ticari" kartları ───
-   Kalıp: MudText subtitle2.mud-text-secondary  +  MudGrid.
-   Başlık bölüm başı, ardındaki ızgara bölüm gövdesi olarak kutulanır. */
+/* ── 14.4 FORM BÖLÜMLERİ — "Kimlik / Stok / Ticari" kartları ─────────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography-subtitle2.mud-text-secondary:has(+ .mud-grid) {
     margin: 18px 0 0 !important;
     padding: 11px 15px 9px;
-    border: 1px solid var(--mud-palette-lines-default);
+    border: 1px solid var(--dw-border);
     border-bottom: none;
-    border-radius: 14px 14px 0 0;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 5%, transparent);
-    font-size: .7rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+    border-radius: var(--dw-r-md) var(--dw-r-md) 0 0;
+    background: var(--dw-surface-2);
+    font-size: .69rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
     color: var(--mud-palette-text-secondary);
     display: flex; align-items: center; gap: 8px;
 }
-/* Başlığın soluna kehribar işaret */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography-subtitle2.mud-text-secondary:has(+ .mud-grid)::before {
     content: ""; flex: none; width: 3px; height: 12px; border-radius: 999px;
     background: var(--mud-palette-primary);
 }
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography-subtitle2.mud-text-secondary:has(+ .mud-grid) + .mud-grid {
-    border: 1px solid var(--mud-palette-lines-default);
+    border: 1px solid var(--dw-border);
     border-top: none;
-    border-radius: 0 0 14px 14px;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 2.5%, transparent);
+    border-radius: 0 0 var(--dw-r-md) var(--dw-r-md);
+    background: var(--dw-surface-1);
     padding: 14px 12px 4px;
     margin: 0 0 2px !important;
     width: 100%;
 }
-
-/* Bölüm başlığı ızgara DEĞİL bir alan/dosya seçici tarafından izleniyorsa
-   (ör. "Fotoğraflar" → InputFile) yine bölüm başı gibi görünsün */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography-subtitle2.mud-text-secondary:has(+ input[type="file"]) {
     margin: 18px 0 8px !important;
     padding-left: 11px;
     border-left: 3px solid var(--mud-palette-primary);
-    font-size: .7rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+    font-size: .69rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
 }
 
-/* ── 13.5 Liste sarmalayıcı — yatay kaydırmalı dw-grid kabı ──────────────── */
-:is(.mud-main-content, .mud-dialog) .mud-paper > div[style*="overflow-x"] {
-    border-radius: 14px;
-    margin-bottom: 4px;
-}
-
-/* ── 13.6 Sayfalama şeridi ───────────────────────────────────────────────── */
+/* ── 14.5 Sayfalama şeridi ───────────────────────────────────────────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.flex-row:has(> .mud-pagination) {
     margin: 12px -16px -16px !important;
     padding: 10px 18px;
     gap: 10px;
-    border-top: 1px solid var(--mud-palette-lines-default);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-    border-radius: 0 0 16px 16px;
+    border-top: 1px solid var(--dw-border);
+    background: var(--dw-surface-2);
+    border-radius: 0 0 var(--dw-r-lg) var(--dw-r-lg);
     align-items: center;
 }
 
-/* ── 13.7 EYLEM ÇUBUĞU — mockup'taki sabit kaydet çubuğu ─────────────────
-   Kalıp: kartın SON çocuğu olan, sağa yaslı, buton taşıyan MudStack Row.
-   Uzun formlarda ekranın altına yapışır; kısa formlarda görünür etkisi yoktur. */
+/* ── 14.6 EYLEM ÇUBUĞU — uzun formlarda ekranın altına yapışır ───────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.flex-row.justify-end:last-child:has(.mud-button-root),
 :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.justify-end:last-child:has(.mud-button-root) {
     position: sticky; bottom: 0; z-index: 3;
     margin: 20px -16px -16px !important;
     padding: 12px 18px;
     gap: 8px;
-    border-top: 1px solid var(--mud-palette-lines-default);
+    border-top: 1px solid var(--dw-border);
     background: color-mix(in srgb, var(--mud-palette-surface) 92%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 var(--dw-r-lg) var(--dw-r-lg);
     align-items: center;
 }
 
-/* ── 13.8 Kart içi uyarı/mesaj kutuları — kenarlara yaklaşmasın ──────────── */
+/* ── 14.7 Kart içi uyarı/mesaj ve boş durum kutuları ─────────────────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-alert:last-child { margin-bottom: 0; }
-
-/* ── 13.9 Boş/yükleniyor durumları — çıplak yazı yerine alan ─────────────── */
 :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography.mud-text-secondary:last-child:not(:only-child) {
     display: block; margin-top: 8px;
-    padding: 26px 16px; text-align: center; font-size: .88rem;
-    border: 1px dashed color-mix(in srgb, var(--mud-palette-lines-default) 85%, transparent);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 2%, transparent);
-}
-:is(.mud-main-content, .mud-dialog) .mud-paper > .mud-progress-circular:last-child {
-    display: block; margin: 26px auto;
+    padding: 28px 16px; text-align: center; font-size: .87rem;
+    border: 1px dashed var(--dw-border);
+    border-radius: var(--dw-r-md);
+    background: var(--dw-surface-1);
 }
 
-/* ── 13.10 Fotoğraf küçük resimleri (Araçlar / Malzemeler) ───────────────── */
-:is(.mud-main-content, .mud-dialog) .mud-image { border-radius: 10px; }
+/* ── 14.8 Fotoğraf küçük resimleri (Araçlar / Malzemeler) ────────────────── */
+:is(.mud-main-content, .mud-dialog) .mud-image { border-radius: var(--dw-r-sm); }
 
-/* ── 13.11 "Tüm Şubeler" banner'ı — sayfa başında dikkat çekici ──────────── */
+/* ── 14.9 "Tüm Şubeler" banner'ı — sayfa başında dikkat çekici ───────────── */
 :is(.mud-main-content) > .mud-container > .mud-alert:first-of-type {
     border-left: 3px solid var(--mud-palette-warning);
 }
 
-/* ── 13.12 Sekmeli ekranlar (Malzemeler/Yakıt/Bakım/Talepler {Section}) ──── */
+/* ── 14.10 Sekmeli ekranlar (Malzemeler/Yakıt/Bakım/Talepler {Section}) ──── */
 :is(.mud-main-content) .mud-tabs-toolbar {
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    background: color-mix(in srgb, var(--mud-palette-text-primary) 3%, transparent);
-    border-radius: 14px 14px 0 0;
+    border-bottom: 1px solid var(--dw-border);
+    background: var(--dw-surface-1);
+    border-radius: var(--dw-r-md) var(--dw-r-md) 0 0;
 }
 
-/* :has() desteklemeyen tarayıcı — yapısal katmanı tamamen atla, temel görünüm kalsın */
+/* :has() desteklemeyen tarayıcı — yapısal katmanı atla, temel görünüm kalsın */
 @supports not selector(:has(*)) {
     :is(.mud-main-content, .mud-dialog) .mud-paper > .mud-typography-h6:first-child {
         margin: 0 0 12px; padding: 0 0 10px; background: none; border-radius: 0;
@@ -735,18 +959,160 @@ input[type="file"]::file-selector-button {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   12) color-mix() DESTEKLEMEYEN TARAYICILAR — güvenli geri düşüş
-   Chrome/Edge <111, Firefox <113, Safari <16.2. Kritik yüzeyler okunur kalsın.
+   15) DAR EKRAN DAVRANIŞI
+   Mevcut yerleşim korunur; yalnız boşluk ve ölçüler sıkışır.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* 1366 laptop */
+@media (max-width: 1440px) {
+    .mud-main-content > .mud-container.pa-6 { padding-left: 18px !important; padding-right: 18px !important; }
+}
+/* Tablet */
+@media (max-width: 960px) {
+    .mud-main-content > .mud-container.pa-6 { padding: 14px !important; }
+    .mud-appbar .mud-toolbar { min-height: 56px; }
+    .dw-userchip-sub { display: none; }
+    .mud-typography-h4 { font-size: 1.32rem; }
+    .mud-typography-h5 { font-size: 1.18rem; }
+    /* Kart içi bantlar dar ekranda sarabilsin */
+    :is(.mud-main-content, .mud-dialog) .mud-paper > .d-flex.flex-row:has(> .mud-typography-h6):has(.mud-button-root) { flex-wrap: wrap; }
+}
+/* Telefon / çok dar */
+@media (max-width: 600px) {
+    .dw-userchip { padding: 4px 8px; }
+    .dw-userchip-meta { display: none; }
+    .mud-dialog { border-radius: var(--dw-r-lg); }
+    .mud-dialog-title, .mud-dialog-actions { padding-left: 16px; padding-right: 16px; }
+}
+/* Kısa ekran — dikey boşluklar sıkışır */
+@media (max-height: 760px) {
+    .mud-main-content > .mud-container { padding-top: 16px; padding-bottom: 24px; }
+    .mud-main-content .mud-typography-h5:first-child,
+    .mud-main-content .mud-typography-h4:first-child { padding-bottom: 10px; margin-bottom: 14px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   16) HAREKET AZALTMA TERCİHİ
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+    .mud-main-content > .mud-container,
+    .mud-navmenu .mud-nav-group a.mud-nav-link,
+    .mud-dialog { animation: none !important; }
+    .dw-skeleton td::after { animation: none; }
+    .mud-button-root:active { transform: none; }
+    * { transition-duration: .01ms !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   18) AÇIK TEMADA OKUNABİLİRLİK
+   ----------------------------------------------------------------------------
+   Sorun: ana renk kullanıcı tercihine bağlı ve varsayılan KEHRİBAR (#F5A623).
+   Kehribar, beyaz zemin üzerinde METİN olarak kullanıldığında kontrast ~2:1'e
+   düşer (WCAG AA metin eşiği 4.5:1) — açık temada "Filtrele", bağlantılar ve
+   aktif menü yazısı soluk görünür. Koyu temada aynı renk sorunsuzdur.
+
+   Çözüm: açık temada YALNIZ METİN/İKON rolündeki kullanımlar, ana rengin siyahla
+   karıştırılmış koyu tonuna çekilir (color-mix, %62 renk + siyah — beyaz zeminde
+   yaklaşık 5:1). MudBlazor'ın kendi --mud-palette-primary-darken değeri KULLANILMAZ:
+   ölçüldüğünde ~3.2:1'de kalıyor, eşiği geçmiyor. Dolgu zeminler, çubuklar ve rozet
+   arka planları AYNEN kalır — marka rengi kaybolmaz.
+   Tema seçimi, palet listesi ve ThemeState mantığı DEĞİŞMEZ.
+   ══════════════════════════════════════════════════════════════════════════ */
+.mud-theme-light a, body.mud-theme-light a,
+.mud-theme-light .btn-link, body.mud-theme-light .btn-link { color: color-mix(in srgb, var(--mud-palette-primary) 62%, #000); }
+
+.mud-theme-light .mud-button-text.mud-button-text-primary,
+body.mud-theme-light .mud-button-text.mud-button-text-primary,
+.mud-theme-light .mud-button-outlined.mud-button-outlined-primary,
+body.mud-theme-light .mud-button-outlined.mud-button-outlined-primary,
+.mud-theme-light .mud-navmenu .mud-nav-link.active,
+body.mud-theme-light .mud-navmenu .mud-nav-link.active,
+.mud-theme-light .mud-navmenu .mud-nav-link.mud-nav-link-active,
+body.mud-theme-light .mud-navmenu .mud-nav-link.mud-nav-link-active,
+.mud-theme-light .mud-tabs .mud-tab.mud-tab-active,
+body.mud-theme-light .mud-tabs .mud-tab.mud-tab-active,
+.mud-theme-light .dw-sort, body.mud-theme-light .dw-sort,
+.mud-theme-light .dw-kpi.active .dw-kpi-label, body.mud-theme-light .dw-kpi.active .dw-kpi-label,
+.mud-theme-light .dw-kpi.active .dw-kpi-icon, body.mud-theme-light .dw-kpi.active .dw-kpi-icon,
+.mud-theme-light .mud-selected-item, body.mud-theme-light .mud-selected-item {
+    color: color-mix(in srgb, var(--mud-palette-primary) 62%, #000) !important;
+}
+/* İkon plakası ve aktif menü zemini marka renginde KALIR — yalnız yazı koyulaşır */
+.mud-theme-light .dw-kpi.active .dw-kpi-icon, body.mud-theme-light .dw-kpi.active .dw-kpi-icon {
+    background: color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
+}
+/* Dolgulu birincil butonun yazısı: kehribar zeminde koyu, koyu zeminde açık */
+.mud-theme-light .mud-button-filled.mud-button-filled-primary,
+body.mud-theme-light .mud-button-filled.mud-button-filled-primary { color: #241703; }
+
+/* Açık temada rozet metni de koyulaşır (zemin aynı kalır) */
+.mud-theme-light .dw-badge-warn, body.mud-theme-light .dw-badge-warn {
+    color: color-mix(in srgb, var(--mud-palette-warning) 62%, #000);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   19) TEMA EKRANI (isteğe bağlı — FAZ 7 markup'ı uygulanırsa kullanılır)
+   Sınıflar: .dw-theme-card .dw-theme-swatches .dw-swatch .dw-swatch-dot
+             .dw-swatch-mini
+   Markup uygulanmazsa bu blok hiçbir şeye denk gelmez, zararsızdır.
+   ══════════════════════════════════════════════════════════════════════════ */
+.dw-theme-card {
+    display: flex; align-items: center; gap: 16px;
+    padding: 15px 17px; border-radius: var(--dw-r-lg); cursor: pointer;
+    border: 1px solid var(--dw-border);
+    background: var(--dw-surface-2);
+    transition: border-color var(--dw-fast) ease, background-color var(--dw-fast) ease, transform var(--dw-fast) ease;
+}
+.dw-theme-card:hover { background: var(--dw-surface-3); transform: translateY(-1px); }
+.dw-theme-card.sel {
+    border-color: var(--mud-palette-primary);
+    background: linear-gradient(150deg, var(--dw-accent-soft), var(--dw-accent-weak));
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--mud-palette-primary) 14%, transparent);
+}
+.dw-theme-card + .dw-theme-card { margin-top: 10px; }
+
+.dw-theme-swatches { display: flex; flex-wrap: wrap; gap: 14px; }
+.dw-swatch {
+    width: 92px; padding: 10px 8px 9px; border-radius: var(--dw-r-md); cursor: pointer;
+    border: 1px solid var(--dw-border); background: var(--dw-surface-1);
+    text-align: center;
+    transition: border-color var(--dw-fast) ease, background-color var(--dw-fast) ease, transform var(--dw-fast) ease;
+}
+.dw-swatch:hover { background: var(--dw-surface-3); transform: translateY(-2px); }
+.dw-swatch.sel { border-color: var(--dw-c); background: color-mix(in srgb, var(--dw-c) 12%, transparent); }
+/* Mini kabuk önizlemesi: üst bar + menü + iki içerik satırı */
+.dw-swatch-mini {
+    height: 44px; border-radius: var(--dw-r-xs); overflow: hidden; margin-bottom: 7px;
+    border: 1px solid var(--dw-border);
+    background: var(--mud-palette-surface);
+    display: grid; grid-template-columns: 16px 1fr; grid-template-rows: 10px 1fr;
+}
+.dw-swatch-mini i:nth-child(1) { grid-column: 1 / -1; background: var(--dw-c); display: block; }
+.dw-swatch-mini i:nth-child(2) { background: color-mix(in srgb, var(--dw-c) 22%, transparent); display: block; }
+.dw-swatch-mini i:nth-child(3) {
+    display: block; margin: 5px 5px 0 4px; border-radius: 3px; height: 6px;
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 22%, transparent);
+    box-shadow: 0 9px 0 0 color-mix(in srgb, var(--mud-palette-text-primary) 12%, transparent);
+}
+.dw-swatch-name { font-size: .74rem; font-weight: 600; }
+.dw-swatch-dot { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   17) color-mix() DESTEKLEMEYEN TARAYICILAR — güvenli geri düşüş
+   Chrome/Edge <111, Firefox <113, Safari <16.2.
    ══════════════════════════════════════════════════════════════════════════ */
 @supports not (color: color-mix(in srgb, red 50%, blue)) {
-    .mud-paper { background-color: var(--mud-palette-surface); }
-    .mud-navmenu .mud-nav-link.active,
-    .mud-navmenu .mud-nav-link.mud-nav-link-active { background: rgba(245,166,35,.18); }
-    .mud-button-outlined:not(.mud-icon-button),
-    .mud-button-text:not(.mud-icon-button):not(.mud-nav-link):not(.mud-tab) {
-        background-color: rgba(127,127,127,.14); color: var(--mud-palette-text-primary);
+    :root, body {
+        --dw-surface-1: rgba(127,127,127,.05);
+        --dw-surface-2: rgba(127,127,127,.09);
+        --dw-surface-3: rgba(127,127,127,.13);
+        --dw-surface-hover: rgba(127,127,127,.18);
+        --dw-border-soft: var(--mud-palette-lines-default);
+        --dw-border-strong: rgba(127,127,127,.35);
+        --dw-accent-weak: rgba(245,166,35,.10);
+        --dw-accent-soft: rgba(245,166,35,.18);
+        --dw-accent-line: rgba(245,166,35,.30);
+        --dw-accent-ring: rgba(245,166,35,.20);
     }
-    .dw-grid tbody tr:hover, .mud-table .mud-table-body .mud-table-row:hover { background: rgba(245,166,35,.1); }
-    .dw-grid thead th, .mud-table .mud-table-head .mud-table-cell { background: rgba(127,127,127,.12); }
+    .mud-paper { background-color: var(--mud-palette-surface); }
     body { background-image: none; }
 }

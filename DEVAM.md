@@ -27,7 +27,28 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09h — İş #4–#8 kod tamam, YAYIN BEKLİYOR)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09i — tasarım paketi dalda, birleştirme bekliyor)
+
+### 🟡 TASARIM PAKETİ (FAZ 1–9 web + M1–M5 masaüstü) — dalda hazır, `master`'a **birleştirilmedi**
+Görünüm/tasarım işi tek oturumda uygulandı. **Yalnız görünüm** — iş kuralı, veri, yetki, API
+değişmedi; **migration yok**, **canlıya çıkmadı**.
+- **Dal:** `feature/tasarim-faz1-9-ve-M1-M5` (14 commit, her faz ayrı commit).
+- **Geri dönüş noktası:** `tasarim-oncesi-20260809` etiketi — `master` bu işten hiç etkilenmedi.
+- **Web (9 faz):** giriş ekranı · `app.css` ortak tasarım dili · Araç Listesi (renkli durum rozeti,
+  iskelet bekleme görüntüsü, sayısal sütunlar sağa yaslı, "Kolonlar" düğmesi) · form/diyalog
+  geri bildirimleri (Kaydet'te dönen bekleme işareti) · ana ekran KPI · **kenar menü artık
+  katlanabilir ve tercih hatırlanıyor** · tema ekranı + açık tema okunabilirliği · Canlı Sunucu
+  göstergeleri · tema dışı kalan son renkler.
+- **Masaüstü (5 faz):** giriş penceresi bölünmüş panel (M5) · üst bar sadeleştirme (M1) · ana ekran
+  KPI ikonları + uyarı rozetleri, güncelleme kartı en alta indi (M3) · araç listesi (M4) ·
+  kenar menü yoğunluğu, 14 grup tek ekrana sığıyor (M2).
+- **Gerçek hata olarak düzeltilenler:** masaüstü KPI kartlarındaki boş ikon kutusu; Malzeme
+  Şablonları'nda fotoğraf silme düğmesinin görünmez zemini.
+- **Doğrulama:** çözüm build **0 hata**, test **984 geçti / 0 başarısız / 33 atlandı**.
+  Görsel kontrol kullanıcı tarafından yerel kopyada yapıldı.
+- **Uygulanmayanlar:** M2.5 (masaüstü menü emoji ikonları → vektör) **karar bekliyor**;
+  M3.4 (uyarıda "kalan gün" rozeti) — `DashboardAlert` içinde böyle bir alan yok, yeni veri alanı
+  açılmadı; M4.1/M4.3/M4.4 — zaten mevcut ya da uygulanacak yeri yok.
 
 ### 🟡 İŞ #4 + #5 + #6 + #7 + #8 KOD TAMAM — henüz **yayınlanmadı** (yayın onayı bekliyor)
 Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **migration yok**.
@@ -1243,7 +1264,13 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **SIRADAKİ (onaylı sıranın 4. maddesi): ortak düzenleme altyapısı + Personel/Talepler çift tık.**
+> **SIRADAKİ: masaüstü kenar menüsündeki emoji ikonlar (M2.5) — karar ver, sonra tasarım dalını
+> `master`'a birleştir.** Menüdeki ikonlar şu an emoji; vektör ikona çevrilsin mi çevrilmesin mi
+> kararı bekliyor. Karar sonrası `feature/tasarim-faz1-9-ve-M1-M5` birleştirilip yayınlanır.
+>
+> ---
+>
+> **(Sonraki) onaylı sıranın 4. maddesi: ortak düzenleme altyapısı + Personel/Talepler çift tık.**
 >
 > ✅ KD-1 (stok hareketleri hatası) **Paket 1 ile düzeltildi ve yayınlandı** (1.0.134).
 >

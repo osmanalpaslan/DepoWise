@@ -24,7 +24,7 @@
             <DockPanel>
                 <!-- Marka ikonu (daraltılmış çubuk) — şeffaf, arka plan yok -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="0">
-                    <Image Source="/Assets/app-icon-256.png" Width="46" Height="46"
+                    <Image Source="/Assets/app-icon-256.png" Width="36" Height="36"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <!-- Kullanıcı avatarı (alt) -->
@@ -68,7 +68,7 @@
                 <!-- Logo (açık kenar çubuğu) — şeffaf, arka plan yok. Sembol + marka yazısı. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Image Source="/Assets/app-icon-256.png" Width="48" Height="48" VerticalAlignment="Center"/>
+                        <Image Source="/Assets/app-icon-256.png" Width="34" Height="34" VerticalAlignment="Center"/>
                         <SelectableTextBlock Text="Alpnex" Classes="SectionTitle" VerticalAlignment="Center"
                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
@@ -81,7 +81,7 @@
                 </Border>
                 <!-- Menü arama -->
                 <Border DockPanel.Dock="Top" Padding="10,6">
-                    <TextBox Text="{Binding MenuSearch}" Watermark="🔍 Ekran ara..." Classes="Field"/>
+                    <TextBox Text="{Binding MenuSearch}" Watermark="Ekran ara…" Classes="Search"/>
                 </Border>
                 <ScrollViewer>
                     <StackPanel Margin="8,6">
@@ -113,7 +113,7 @@
                                                      koyu modda açık. Kenar menü zemini de varyantla değişir (açık
                                                      modda beyaz), sabit renk açık modda görünmez oluyordu (2026-07-19). -->
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
-                                                           FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"
+                                                           FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
@@ -152,93 +152,123 @@
                     BorderBrush="{DynamicResource AmberBarEdgeBrush}" BorderThickness="0,0,0,1"
                     BoxShadow="0 3 18 0 #2A000000" ZIndex="1">
                 <Border Background="{DynamicResource AmberBarOverlayBrush}" Padding="16,0">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                    <!-- Panel daralt/genişlet -->
-                    <Button Grid.Column="0" Classes="IconGhost" Content="☰" FontSize="16"
-                            VerticalAlignment="Center" ToolTip.Tip="Menüyü daralt/genişlet"
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+
+                    <!-- 1) Menü daralt/genişlet -->
+                    <Button Grid.Column="0" Classes="IconGhost" VerticalAlignment="Center"
+                            ToolTip.Tip="Menüyü daralt/genişlet"
                             a11y:AutomationProperties.Name="Menüyü daralt veya genişlet"
-                            Command="{Binding ToggleNavPanelCommand}"/>
-                    <!-- Başlık + bağlam -->
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+                            Command="{Binding ToggleNavPanelCommand}">
+                        <PathIcon Width="17" Height="17" Data="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/>
+                    </Button>
+
+                    <!-- 2) Başlık + bağlam. MinWidth sayesinde pencere daralınca
+                            başlık tamamen kaybolmaz, kısalarak kalır. -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0"
+                                MinWidth="90" ClipToBounds="True">
                         <SelectableTextBlock Text="{Binding CurrentTitle}" Classes="PageTitle"
-                                   TextTrimming="CharacterEllipsis"/>
+                                             TextTrimming="CharacterEllipsis"/>
                         <SelectableTextBlock Text="{Binding CurrentContext}" Classes="Helper"
-                                   TextTrimming="CharacterEllipsis"/>
+                                             TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
-                    <!-- Eşitle (mevcut yer tutucu; gerçek sync komutu ilgili fazda bağlanacak) -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <!-- Sunucu bağlantı durumu -->
-                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="10,4"
-                                VerticalAlignment="Center" ToolTip.Tip="Sunucu bağlantı durumu">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Ellipse Width="10" Height="10" Fill="{Binding ConnectionBrush}" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Text="{Binding ConnectionText}" Classes="Helper" VerticalAlignment="Center"/>
+
+                    <!-- 3) BAĞLAM: firma + şube tek kutuda -->
+                    <Border Grid.Column="2" Height="36" Padding="12,0" CornerRadius="10"
+                            VerticalAlignment="Center" Margin="0,0,8,0"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
+                            ToolTip.Tip="{Binding ActiveCompanyTip}">
+                        <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                            <PathIcon Width="15" Height="15" Foreground="{DynamicResource TextMutedBrush}"
+                                      Data="M12 2 4 5.5v6c0 4.6 3.2 8.6 8 9.9 4.8-1.3 8-5.3 8-9.9v-6L12 2Z"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <SelectableTextBlock Text="{Binding ActiveCompanyName}" Classes="Body"
+                                                     FontSize="12" FontWeight="SemiBold"
+                                                     MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <SelectableTextBlock Text="{Binding ActiveBranchName}" Classes="Helper"
+                                                         MaxWidth="130" TextTrimming="CharacterEllipsis"
+                                                         ToolTip.Tip="{Binding ActiveBranchTip}"/>
+                                    <!-- "Tüm Şubeler" modunda uyarı işareti (mevcut davranış) -->
+                                    <SelectableTextBlock Text="⚠" Classes="Helper" FontWeight="Bold"
+                                                         Foreground="{DynamicResource WarningBrush}"
+                                                         IsVisible="{Binding IsAllBranches}"/>
+                                </StackPanel>
                             </StackPanel>
-                        </Border>
-                        <!-- Z5: senkron durum rozeti — DAİMA görünür, tıklanınca durum paneli açılır.
-                             Sorun yoksa "✓ Senkron"; sorun varsa "gönderilemiyor / yeniden denenecek" yazar (Z3). -->
-                        <Button Classes="Secondary" Command="{Binding ShowSyncStatusCommand}"
-                                Content="{Binding SyncStatusChip}" VerticalAlignment="Center"
-                                ToolTip.Tip="Senkron durumu: son gönderim/çekme zamanı, bekleyen ve gönderilemeyen kayıtlar"/>
-                        <Button Classes="Secondary" Content="🟢 Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
-                                IsVisible="{Binding IsSuperAdmin}"
-                                ToolTip.Tip="Yalnız ekran adı + alan adları (kolay tarif için)"/>
-                        <Button Classes="Secondary" Content="ⓘ Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
-                                IsVisible="{Binding IsSuperAdmin}"
-                                ToolTip.Tip="Bu ekranın gerçek kodunu göster (kopyalanabilir)"/>
-                        <ProgressBar Width="90" Height="6" Minimum="0" Maximum="100" VerticalAlignment="Center"
-                                     Value="{Binding SyncProgress}" IsVisible="{Binding IsSyncing}"/>
-                        <SelectableTextBlock Text="{Binding SyncProgress, StringFormat='%{0}'}" Classes="Helper"
-                                   VerticalAlignment="Center" IsVisible="{Binding IsSyncing}"/>
-                        <Button Classes="Primary" Content="Eşitle" Command="{Binding SyncCommand}"
-                                IsEnabled="{Binding !IsSyncing}"
-                                ToolTip.Tip="Sunucudaki tanımları bu makineye çeker"/>
-                        <!-- Yalnız süper admin: yerel iş verisini temizleyip sunucudan tam çeker (sıfır PC gibi) -->
-                        <Button Classes="Secondary" Content="Yereli Sıfırla" Command="{Binding ResetLocalAndResyncCommand}"
-                                IsEnabled="{Binding !IsSyncing}" IsVisible="{Binding IsSuperAdmin}"
-                                ToolTip.Tip="Bu makinedeki yerel malzeme/araç/stok verisini siler ve sunucudan yeniden çeker (sunucudaki veri etkilenmez)"/>
-                    </StackPanel>
-                    <!-- Kullanıcı -->
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <!-- AKTİF FİRMA: hangi firmaya kayıt açtığın daima görünür (yanlış firma riskine karşı) -->
-                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="10,4"
-                                VerticalAlignment="Center" Margin="0,0,6,0"
-                                ToolTip.Tip="{Binding ActiveCompanyTip}">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <SelectableTextBlock Text="🏢" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Text="{Binding ActiveCompanyName}" Classes="Helper" FontWeight="SemiBold"
-                                                     VerticalAlignment="Center" MaxWidth="160" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                        </Border>
-                        <!-- ÇALIŞMA ŞUBESİ: "Tüm Şubeler" modunda uyarı renginde — o modda şube bazlı ekranlarda işlem yapılamaz -->
-                        <Border CornerRadius="12" Padding="10,4" VerticalAlignment="Center" Margin="0,0,6,0"
-                                Background="{DynamicResource SurfaceBrush}" ToolTip.Tip="{Binding ActiveBranchTip}">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <SelectableTextBlock Text="📍" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Text="{Binding ActiveBranchName}" Classes="Helper" FontWeight="SemiBold"
-                                                     VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis"/>
-                                <SelectableTextBlock Text="⚠" VerticalAlignment="Center" IsVisible="{Binding IsAllBranches}"
-                                                     Foreground="{DynamicResource WarningBrush}" FontWeight="Bold"/>
-                            </StackPanel>
-                        </Border>
-                        <StackPanel VerticalAlignment="Center" Spacing="3" Margin="0,0,6,0">
-                            <SelectableTextBlock Text="{Binding BuildStamp}" Classes="Helper" ToolTip.Tip="Çalışan derleme zamanı"/>
-                            <SelectableTextBlock Text="{Binding Version}" Classes="Helper" FontWeight="SemiBold"
-                                       ToolTip.Tip="Kurulu uygulama sürümü"/>
                         </StackPanel>
-                        <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis" MaxWidth="160"/>
-                        <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource AccentBrush}">
-                            <SelectableTextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <Button Classes="Secondary" Content="Çıkış" Command="{Binding LogoutCommand}"
-                                ToolTip.Tip="Çıkış yap (giriş ekranına dön)"
-                                a11y:AutomationProperties.Name="Çıkış yap"/>
-                    </StackPanel>
+                    </Border>
+
+                    <!-- 4) DURUM: bağlantı + senkron tek kutuda, tıklanınca durum paneli -->
+                    <Button Grid.Column="3" Classes="Ghost" Height="36" Padding="12,0"
+                            CornerRadius="10" VerticalAlignment="Center" Margin="0,0,8,0"
+                            Command="{Binding ShowSyncStatusCommand}"
+                            ToolTip.Tip="Senkron durumu: son gönderim/çekme zamanı, bekleyen ve gönderilemeyen kayıtlar">
+                        <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                            <Ellipse Width="9" Height="9" Fill="{Binding ConnectionBrush}" VerticalAlignment="Center"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <SelectableTextBlock Text="{Binding SyncStatusChip}" Classes="Body"
+                                                     FontSize="12" FontWeight="SemiBold"
+                                                     MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                <SelectableTextBlock Text="{Binding ConnectionText}" Classes="Helper"
+                                                     IsVisible="{Binding !IsSyncing}"/>
+                                <SelectableTextBlock Text="{Binding SyncProgress, StringFormat='Eşitleniyor · %{0}'}"
+                                                     Classes="Helper" IsVisible="{Binding IsSyncing}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 5) Tek birincil eylem -->
+                    <Button Grid.Column="4" Classes="Primary" Height="36" VerticalAlignment="Center"
+                            Command="{Binding SyncCommand}" IsEnabled="{Binding !IsSyncing}"
+                            ToolTip.Tip="Sunucudaki tanımları bu makineye çeker">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="15" Height="15" Foreground="#241703"
+                                      Data="M12 5V2L8 6l4 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/>
+                            <TextBlock Text="Eşitle" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Border Grid.Column="5" Width="1" Height="26" Margin="12,0"
+                            Background="{DynamicResource BorderSubtleBrush}" VerticalAlignment="Center"/>
+
+                    <!-- 6) Kullanıcı menüsü — taşınan komutlar burada -->
+                    <Button Grid.Column="6" Classes="Ghost" Height="36" Padding="4,0,10,0"
+                            CornerRadius="10" VerticalAlignment="Center"
+                            ToolTip.Tip="{Binding DisplayName}">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Border Width="28" Height="28" CornerRadius="14"
+                                    Background="{DynamicResource AccentBrush}">
+                                <SelectableTextBlock Text="{Binding Initial}" Foreground="#241703" FontWeight="Bold"
+                                                     FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <SelectableTextBlock Text="{Binding DisplayName}" Classes="Body" FontSize="12.5"
+                                                 VerticalAlignment="Center" MaxWidth="140"
+                                                 TextTrimming="CharacterEllipsis"/>
+                            <PathIcon Width="13" Height="13" Data="M7 10l5 5 5-5z"
+                                      Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="{Binding Version, StringFormat='Sürüm {0}'}" IsEnabled="False"/>
+                                <MenuItem Header="{Binding BuildStamp, StringFormat='Derleme {0}'}" IsEnabled="False"/>
+                                <Separator/>
+                                <MenuItem Header="Ekran Bilgisi" Command="{Binding ShowScreenInfoCommand}"
+                                          IsVisible="{Binding IsSuperAdmin}"/>
+                                <MenuItem Header="Basit Ekran Bilgisi" Command="{Binding ShowSimpleScreenInfoCommand}"
+                                          IsVisible="{Binding IsSuperAdmin}"/>
+                                <MenuItem Header="Yereli Sıfırla…" Command="{Binding ResetLocalAndResyncCommand}"
+                                          IsVisible="{Binding IsSuperAdmin}"
+                                          Foreground="{DynamicResource DangerBrush}"/>
+                                <Separator IsVisible="{Binding IsSuperAdmin}"/>
+                                <MenuItem Header="Çıkış" Command="{Binding LogoutCommand}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+
                 </Grid>
                 </Border>
             </Border>
+
 
             <!-- İçerik (modül ekranı; ViewLocator VM->View) -->
             <ContentControl Content="{Binding CurrentPage}"/>

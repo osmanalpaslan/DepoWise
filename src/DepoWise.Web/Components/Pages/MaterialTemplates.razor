@@ -58,7 +58,7 @@
                         <MudImage Src="@ph.Url" Width="72" Height="72" ObjectFit="ObjectFit.Cover" Style="border-radius:6px;" />
                         @if (Auth.CanEdit("material_templates"))
                         {
-                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:0;right:0;background:#99000000;" OnClick="@(() => DeletePhoto(ph.Id))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" Style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border-radius:10px;" OnClick="@(() => DeletePhoto(ph.Id))" />
                         }
                     </div>
                 }
