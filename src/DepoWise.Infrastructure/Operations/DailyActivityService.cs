@@ -491,6 +491,69 @@ WHERE da.company_id = @c";
     /// Ekranlar kullanıcıya "…bağlı bakım kaydı ve N adet malzeme çıkışı da iptal edilecek" diyebilsin diye.
     /// Salt-okuma; hiçbir şey değiştirmez.
     /// </summary>
+    /// <summary>
+    /// Günlük faaliyetin YAN ETKİSİZ (metadata) alanlarını günceller — İş #5 (2026-08-09), seçenek A.
+    ///
+    /// NEDEN YALNIZ BU ALANLAR: <c>SaveMovement</c>'ta <c>MovementKind="transfer"</c> + <c>VehicleId</c>
+    /// aracı PASİFE ALIR; bakım tipli faaliyetlerde ise bağlı bakım kaydı stok defterini değiştirir.
+    /// Bu yan etkileri geriye dönük düzenlemek yerine mevcut yol korunur: <b>iptal + yeniden oluştur</b>
+    /// (bkz. <see cref="Delete"/>). Burada yalnız açıklama/operatör/süre düzeltilir — hiçbir hareket üretmez.
+    ///
+    /// Firma izolasyonu + düzenleme kilidi UPDATE koşulundadır; iptal edilmiş kayıt düzenlenemez.
+    /// </summary>
+    public void UpdateMetadata(SessionContext s, string id, string? description, string? operatorId,
+        int? durationDays, long? expectedVersion = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (durationDays is < 0) throw new ArgumentException("Süre negatif olamaz.");
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        if (operatorId is not null) EnsurePersonnelOwned(conn, tx, s.CompanyId, operatorId);
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE daily_activities SET description=@d, operator_id=@o, duration_days=@dur, " +
+                "version=version+1, updated_at=@now " +
+                "WHERE id=@id AND company_id=@c AND is_deleted=0"
+                + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
+            cmd.AddWithValue("@d", (object?)TrimOrNull(description) ?? DBNull.Value);
+            cmd.AddWithValue("@o", (object?)operatorId ?? DBNull.Value);
+            cmd.AddWithValue("@dur", durationDays is { } dd ? dd : DBNull.Value);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "daily_activities", id, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Faaliyet kaydı bulunamadı, iptal edilmiş veya başka firmaya ait.");
+            }
+        }
+
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id,
+            AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    private static string? TrimOrNull(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    /// <summary>Operatör (personel) oturumun firmasına mı ait? (İş #5 — yabancı personel atanamaz.)</summary>
+    private static void EnsurePersonnelOwned(DbConnection conn, DbTransaction tx, string companyId, string personnelId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM personnel WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", personnelId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Personel bulunamadı veya başka firmaya ait.");
+    }
+
     public (bool HasMaintenance, int MaterialLines, decimal TotalQuantity) GetCancelImpact(SessionContext s, string id)
     {
         AccessControl.Require(s, Module, PermissionAction.View);

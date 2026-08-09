@@ -266,6 +266,50 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     public bool HasMaintSelection => SelectedMaint != null;
     public bool CanCancelSelected => SelectedMaint is { IsCancelled: false } && CanEdit;
 
+    // ── İş #5: bakım kaydının YAN ETKİSİZ alanları (açıklama/alt not/teknisyen) ────────────────
+    // Malzeme ve sayaç alanları BİLİNÇLİ olarak düzenlenmez; onlar için "İptal Et + yeniden gir".
+    [ObservableProperty] private bool _showMetaEdit;
+    [ObservableProperty] private string _metaDescription = "";
+    [ObservableProperty] private string _metaSubNote = "";
+    [ObservableProperty] private LookupItem? _metaTechnician;
+    [ObservableProperty] private string? _metaError;
+    private long _metaVersion;   // düzenleme kilidi: formu açtığımız andaki sürüm
+
+    /// <summary>Seçili bakımın metadata düzenleme formunu açar (mevcut değerlerle, servis katmanından).</summary>
+    [RelayCommand]
+    private void BeginMetaEdit()
+    {
+        if (SelectedMaint is null || !CanCancelSelected) return;
+        LoadMntPickers();
+        MetaDescription = SelectedMaint.Description ?? "";
+        MetaSubNote = SelectedMaint.SubDefinitionNote ?? "";
+        MetaTechnician = Technicians.FirstOrDefault(t => t.Id == SelectedMaint.TechnicianId);
+        _metaVersion = SelectedMaint.Version;   // düzenleme kilidi: formu açtığımız andaki sürüm
+        MetaError = null;
+        ShowMetaEdit = true;
+    }
+
+    [RelayCommand]
+    private void CancelMetaEdit() { ShowMetaEdit = false; MetaError = null; }
+
+    /// <summary>Kaydet — servis katmanı yetki, firma izolasyonu ve düzenleme kilidini uygular.</summary>
+    [RelayCommand]
+    private async Task SaveMetaEdit()
+    {
+        if (SelectedMaint is null) return;
+        if (!await ConfirmService.AskAsync("Bakım kaydının açıklama/teknisyen bilgileri güncellensin mi?", "Kaydet")) return;
+        try
+        {
+            DesktopServices.Maintenance.UpdateMetadata(_session, SelectedMaint.Id,
+                MetaDescription, MetaSubNote, MetaTechnician?.Id, _metaVersion);
+            ShowMetaEdit = false; MetaError = null;
+            Status = "Bakım kaydı güncellendi.";
+            LoadMaint();
+        }
+        catch (Exception ex) { MetaError = ex.Message; }
+    }
+
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMaintError))]
     [NotifyPropertyChangedFor(nameof(MaintEmpty))]

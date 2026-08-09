@@ -360,7 +360,31 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                     <Border Classes="Divider"/>
+                                    <!-- İş #5: yalnız YAN ETKİSİZ alanlar düzenlenir. Malzeme ve sayaç
+                                         değişikliği için "Bakımı İptal Et" + yeniden giriş kullanılır. -->
                                     <StackPanel Spacing="6" IsVisible="{Binding CanCancelSelected}">
+                                        <Button Classes="Secondary" Content="Düzenle" HorizontalAlignment="Left"
+                                                IsVisible="{Binding !ShowMetaEdit}" Command="{Binding BeginMetaEditCommand}"/>
+                                        <StackPanel Spacing="6" IsVisible="{Binding ShowMetaEdit}">
+                                            <SelectableTextBlock Classes="Helper"
+                                                Text="Yalnız açıklama, alt bakım notu ve teknisyen düzeltilebilir. Malzeme veya sayaç değişecekse bakımı iptal edip yeniden girin."/>
+                                            <ctrl:FormField Label="Açıklama">
+                                                <TextBox Classes="Field" Text="{Binding MetaDescription}"/>
+                                            </ctrl:FormField>
+                                            <ctrl:FormField Label="Alt Bakım Notu">
+                                                <TextBox Classes="Field" Text="{Binding MetaSubNote}"/>
+                                            </ctrl:FormField>
+                                            <ctrl:FormField Label="Teknisyen">
+                                                <ctrl:LookupBox ItemsSource="{Binding Technicians}" SelectedItem="{Binding MetaTechnician}"
+                                                                Populator="{Binding TechnicianPopulator}"/>
+                                            </ctrl:FormField>
+                                            <SelectableTextBlock Classes="Error" Text="{Binding MetaError}" IsVisible="{Binding MetaError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMetaEditCommand}"/>
+                                                <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelMetaEditCommand}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Border Classes="Divider"/>
                                         <ctrl:FormField Label="İptal Gerekçesi">
                                             <TextBox Classes="Field" Text="{Binding CancelReason}"/>
                                         </ctrl:FormField>

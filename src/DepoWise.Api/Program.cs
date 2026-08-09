@@ -1784,6 +1784,13 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
     return Results.Ok(new { id });
 }).RequireAuthorization();
+// İş #5 (2026-08-09): bakım kaydının YAN ETKİSİZ alanları (açıklama/not/teknisyen). Malzeme ve sayaç
+// alanları BİLİNÇLİ olarak burada DEĞİL — onlar için iptal + yeniden oluştur yolu kullanılır.
+app.MapPut("/api/maintenance/{id}/metadata", (HttpContext c, string id, MaintenanceMetaDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Maintenance.UpdateMetadata(s, id, d.Description, d.SubDefinitionNote, d.TechnicianId, d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
+// İş #5: günlük faaliyetin YAN ETKİSİZ alanları (açıklama/operatör/süre).
+app.MapPut("/api/daily/{id}/metadata", (HttpContext c, string id, DailyMetaDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.DailyActivity.UpdateMetadata(s, id, d.Description, d.OperatorId, d.DurationDays, d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/maintenance/cancel", (HttpContext c, IdReasonDto d) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Maintenance.Cancel(s, d.Id, string.IsNullOrWhiteSpace(d.Reason) ? "Kullanıcı iptali" : d.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/maintenance/definitions/{id}", (HttpContext c, string id, MaintDefDto d) =>
@@ -2461,6 +2468,8 @@ record StockReverseDto(string DocumentId, string? Reason);
 record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);
+record MaintenanceMetaDto(string? Description, string? SubDefinitionNote, string? TechnicianId, long? Version);
+record DailyMetaDto(string? Description, string? OperatorId, int? DurationDays, long? Version);
 /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer, merkez depodan düşmez.
 /// Varsayılan false → eski istemciler (alanı göndermeyen) bugünkü davranışı aynen alır (geriye uyumlu).</summary>
 record MaintLineDto(string MaterialId, decimal Quantity, bool FromTeamStock = false);

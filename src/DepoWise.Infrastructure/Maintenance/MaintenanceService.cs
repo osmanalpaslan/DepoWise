@@ -26,7 +26,8 @@ public sealed record MaintenanceAlert(
 public sealed record MaintenanceRow(
     string Id, string VehicleCode, string DefinitionName, string? SubDefinitionName,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate,
-    decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled, string VehicleId = "")
+    decimal? NextDueKm, decimal? NextDueHour, long? NextDueDate, bool IsCancelled, string VehicleId = "",
+    long Version = 0, string? Description = null, string? SubDefinitionNote = null, string? TechnicianId = null)
 {
     private static string Fmt(decimal? km, decimal? hour, long? date) =>
         km is not null ? $"{km:0.##} km"
@@ -202,6 +203,71 @@ public sealed class MaintenanceService
     }
 
     /// <summary>Her (araç,tanım) için EN SON iptal edilmemiş bakımdan ilerleme + uyarı seviyesi.</summary>
+    /// <summary>
+    /// Bakım kaydının YAN ETKİSİZ (metadata) alanlarını günceller — İş #5 (2026-08-09), seçenek A.
+    ///
+    /// NEDEN YALNIZ BU ALANLAR: <c>Save</c> akışında malzeme satırları stok bakiyesini ve hareket defterini
+    /// (<c>ApplyDelta</c> + <c>InsertUsageMovement</c>), <c>PerformedKm/Hour</c> ise ARAÇ SAYACINI
+    /// (<c>AdvanceMeterInTx</c>) ve sonraki bakım hedefini değiştirir. Bunları geriye dönük düzenlemek
+    /// "defter ana kaynaktır / bakiye doğrudan değiştirilmez" ve "sayaç geriye gitmez" (<c>MeterRule</c>)
+    /// kurallarıyla çelişir. O alanlar için mevcut yol korunur: <b>iptal + yeniden oluştur</b>
+    /// (bkz. <see cref="Cancel"/>). Burada yalnız açıklama/not/teknisyen düzeltilir — hiçbir hareket üretmez.
+    ///
+    /// Firma izolasyonu + düzenleme kilidi: UPDATE, <c>company_id</c> ve (verilmişse) <c>version</c> ile
+    /// eşleşir; 0 satır etkilenirse neden ayırt edilir (eski sürüm mü, başka firma mı).
+    /// </summary>
+    public void UpdateMetadata(SessionContext s, string maintenanceId, string? description,
+        string? subDefinitionNote, string? technicianId, long? expectedVersion = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        if (technicianId is not null) EnsurePersonnelOwned(conn, tx, s.CompanyId, technicianId);
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE vehicle_maintenances SET description=@d, sub_definition_note=@n, technician_id=@t, " +
+                "version=version+1, updated_at=@now " +
+                "WHERE id=@id AND company_id=@c AND is_deleted=0 AND is_cancelled=0"
+                + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
+            cmd.AddWithValue("@d", (object?)Trim(description) ?? DBNull.Value);
+            cmd.AddWithValue("@n", (object?)Trim(subDefinitionNote) ?? DBNull.Value);
+            cmd.AddWithValue("@t", (object?)technicianId ?? DBNull.Value);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", maintenanceId);
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "vehicle_maintenances", maintenanceId, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Bakım kaydı bulunamadı, iptal edilmiş veya başka firmaya ait.");
+            }
+        }
+
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", maintenanceId,
+            AuditActions.Update, s.UserId), _clock);
+        tx.Commit();
+    }
+
+    private static string? Trim(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    /// <summary>Teknisyen (personel) oturumun firmasına mı ait? (İş #5 — yabancı personel atanamaz.)</summary>
+    private static void EnsurePersonnelOwned(DbConnection conn, DbTransaction tx, string companyId, string personnelId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM personnel WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", personnelId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Personel bulunamadı veya başka firmaya ait.");
+    }
+
     public IReadOnlyList<MaintenanceAlert> GetAlerts(SessionContext s)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
@@ -294,7 +360,8 @@ WHERE NOT EXISTS (
         cmd.CommandText = @"
 SELECT vm.id, v.internal_code, d.name, sd.name,
        vm.performed_km, vm.performed_hour, vm.performed_date,
-       vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id
+       vm.next_due_km, vm.next_due_hour, vm.next_due_date, vm.is_cancelled, vm.vehicle_id,
+       vm.version, vm.description, vm.sub_definition_note, vm.technician_id
 FROM vehicle_maintenances vm
 JOIN vehicles v ON v.id = vm.vehicle_id
 JOIN maintenance_definitions d ON d.id = vm.maintenance_def_id
@@ -313,7 +380,12 @@ ORDER BY vm.created_at DESC LIMIT @lim;";
         while (rr.Read())
             list.Add(new MaintenanceRow(rr.GetString(0), rr.GetString(1), rr.GetString(2),
                 rr.IsDBNull(3) ? null : rr.GetString(3),
-                D(rr, 4), D(rr, 5), L(rr, 6), D(rr, 7), D(rr, 8), L(rr, 9), Convert.ToInt64(rr.GetValue(10)) == 1, rr.GetString(11)));
+                D(rr, 4), D(rr, 5), L(rr, 6), D(rr, 7), D(rr, 8), L(rr, 9), Convert.ToInt64(rr.GetValue(10)) == 1, rr.GetString(11),
+                // İş #5: düzenleme formunu doldurmak + düzenleme kilidi için sürüm ve metadata alanları.
+                Convert.ToInt64(rr.GetValue(12)),
+                rr.IsDBNull(13) ? null : rr.GetString(13),
+                rr.IsDBNull(14) ? null : rr.GetString(14),
+                rr.IsDBNull(15) ? null : rr.GetString(15)));
         return list;
     }
 
