@@ -214,6 +214,35 @@ public class ApiMultiCompanyTests : IClassFixture<ApiMultiCompanyTests.Fixture>,
 
     // ── S3/S5 · Başka firmanın verisini DEĞİŞTİREMEMELİ ─────────────────────────────────────
 
+    [Fact]  // İş C (2026-08-09): uyumlu araç ilişkisinde araç sahipliği doğrulanmıyordu.
+    public async Task S3_C_Baska_firmanin_araci_UYUMLU_ARAC_olarak_baglanamaz()
+    {
+        var a = await _fx.ClientAAsync();
+
+        // A kendi malzemesine, B'nin ARACINI bağlamaya çalışıyor → REDDEDİLMELİ.
+        var r = await a.PostAsJsonAsync($"/api/materials/{_fx.A.MaterialId}/compatible-vehicles",
+            new { ids = new[] { _fx.B.VehicleId } });
+        Assert.True(ApiTestHost.IsDenied(r),
+            $"B firmasının aracı A'nın malzemesine BAĞLANDI: {(int)r.StatusCode} {await BodyAsync(r)}");
+
+        // Ve hiçbir ilişki yazılmamış olmalı (yarım yazma yok).
+        var svc = _fx.Host.Services.GetRequiredService<ServerServices>();
+        using var conn = svc.Factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM material_compatible_vehicles WHERE material_id=@m;";
+        cmd.AddWithValue("@m", _fx.A.MaterialId);
+        Assert.Equal(0L, Convert.ToInt64(cmd.ExecuteScalar()));
+    }
+
+    [Fact]  // İş C: doğru kullanım bozulmamalı (aşırı-kısıtlama regresyonu)
+    public async Task S3_C_KENDI_araci_uyumlu_arac_olarak_baglanabilir()
+    {
+        var a = await _fx.ClientAAsync();
+        var r = await a.PostAsJsonAsync($"/api/materials/{_fx.A.MaterialId}/compatible-vehicles",
+            new { ids = new[] { _fx.A.VehicleId } });
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+    }
+
     [Fact]  // T-2a
     public async Task S3_T2_Baska_firmanin_bakim_tanimi_GUNCELLENEMEZ()
     {

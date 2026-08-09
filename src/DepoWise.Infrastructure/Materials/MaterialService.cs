@@ -216,6 +216,13 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         }
         foreach (var v in vehicleIds.Distinct())
         {
+            // İŞ C (2026-08-09) — FİRMA İZOLASYONU: eskiden YALNIZ malzemenin sahipliği doğrulanıyordu;
+            // araç hiç kontrol edilmiyordu. API üç uçta bu listeyi doğrudan geçirdiği için, A firmasının
+            // yetkili kullanıcısı B firmasından bir araç id'si biliyorsa ilişkiyi yazabiliyordu.
+            // Paket 1'de Y-2 için kullanılan guard'ın AYNISI (yeni mekanizma değil).
+            // Tek transaction: bir araç bile yabancıysa TAMAMI geri alınır (yarım yazma yok).
+            EnsureVehicleOwned(conn, tx, s.CompanyId, v);
+
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT INTO material_compatible_vehicles(material_id, vehicle_id) VALUES(@m,@v) ON CONFLICT DO NOTHING;";
@@ -452,10 +459,16 @@ SELECT m.id AS id, m.code AS code, m.name AS name, COALESCE(m.type,'') AS type,
             WHEN CAST(COALESCE(sb.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) THEN 'Düşük Stok'
             ELSE 'Yeterli' END AS status,
        COALESCE(m.description,'') AS description,
+       -- İŞ C (2026-08-09) — SAVUNMA KATMANI: alt sorgularda araç/malzeme tarafına da FİRMA filtresi.
+       -- Yazma tarafı artık sahipliği doğruluyor (EnsureVehicleOwned / EnsureOwned), ama eski sürümde
+       -- yazılmış ya da elle oluşmuş bozuk bir ilişki varsa BAŞKA firmanın araç iç kodu / malzeme kodu
+       -- bu kolonlarda görünüyordu. Filtre, dış sorgunun firmasıyla eşleşmeyi zorunlu kılar.
        COALESCE((SELECT GROUP_CONCAT(v.internal_code, ', ') FROM material_compatible_vehicles mcv
-                 JOIN vehicles v ON v.id = mcv.vehicle_id WHERE mcv.material_id = m.id), '') AS compatible_vehicles,
+                 JOIN vehicles v ON v.id = mcv.vehicle_id AND v.company_id = m.company_id
+                 WHERE mcv.material_id = m.id), '') AS compatible_vehicles,
        COALESCE((SELECT GROUP_CONCAT(m2.code, ', ') FROM material_equivalents me
-                 JOIN materials m2 ON m2.id = me.equivalent_material_id WHERE me.material_id = m.id), '') AS equivalents
+                 JOIN materials m2 ON m2.id = me.equivalent_material_id AND m2.company_id = m.company_id
+                 WHERE me.material_id = m.id), '') AS equivalents
 FROM materials m
 LEFT JOIN material_categories mc ON mc.id = m.category_id
 LEFT JOIN units u ON u.id = m.unit_id
@@ -592,6 +605,20 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         cmd.AddWithValue("@c", companyId);
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
             throw new ForbiddenException("Malzeme bulunamadı veya başka firmaya ait.");
+    }
+
+    /// <summary>Araç oturumun firmasına mı ait? (İş C, 2026-08-09 — uyumlu araç ilişkisi için.)
+    /// <see cref="Maintenance.MaintenanceDefinitionService"/> içindeki Y-2 guard'ıyla AYNI davranış:
+    /// silinmiş araç da reddedilir.</summary>
+    private static void EnsureVehicleOwned(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
     }
 
     private static void InsertPair(DbConnection conn, DbTransaction tx, string a, string b)

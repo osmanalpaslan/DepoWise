@@ -146,14 +146,21 @@ public class MaterialTests : IDisposable
         var a = Admin("A");
         var m1 = _materials.Create(a, new NewMaterial("M-1", "Filtre"));
         var m2 = _materials.Create(a, new NewMaterial("M-2", "Yağ"));
-        _materials.SetCompatibleVehicles(a, m1, new[] { "VH-1" });
-        _materials.SetCompatibleVehicles(a, m2, new[] { "VH-1" });
+
+        // İŞ C (2026-08-09): araç artık GERÇEK ve firmaya ait olmalı. Bu test eskiden uydurma bir
+        // "VH-1" metni kullanıyordu — Migration005'teki "vehicle_id şimdilik serbest metin referans"
+        // döneminden kalma. Artık SetCompatibleVehicles araç sahipliğini doğruluyor; testin İDDİASI
+        // (uyumlu araç → malzeme stoğu gösterimi) değişmedi, yalnız seed gerçek veriye çekildi.
+        var vehicleId = new DepoWise.Infrastructure.Vehicles.VehicleService(_factory, _clock)
+            .Create(a, new DepoWise.Infrastructure.Vehicles.NewVehicle("VH-1"));
+        _materials.SetCompatibleVehicles(a, m1, new[] { vehicleId });
+        _materials.SetCompatibleVehicles(a, m2, new[] { vehicleId });
 
         // Açılış stoğu (ledger üzerinden)
         _opening.RecordOpening(a, m1, 10m, "op-1");
         _opening.RecordOpening(a, m2, 5m, "op-2");
 
-        var forVehicle = _materials.MaterialsForVehicle(a, "VH-1");
+        var forVehicle = _materials.MaterialsForVehicle(a, vehicleId);
         Assert.Equal(2, forVehicle.Count);
         Assert.Equal(10m, forVehicle.First(x => x.MaterialId == m1).Quantity);
         Assert.Equal(5m, forVehicle.First(x => x.MaterialId == m2).Quantity);
