@@ -27,3 +27,6 @@ src/DepoWise.Web/dpkeys/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Masaustu yayin ciktilari (yerel) - depoya GIRMEZ; dagitim sunucudaki paket uzerinden yapilir
+publish/
