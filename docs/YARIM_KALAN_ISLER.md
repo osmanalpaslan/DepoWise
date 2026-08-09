@@ -43,9 +43,21 @@ eklendi (bu sınıf hatayı bundan sonra otomatik yakalar). PostgreSQL'deki flak
   aramasız yüklüyordu; `PageRequest.MaxLimit = 200` nedeniyle 2463 malzemeli firmada 200'den
   sonrası **hiç seçilemiyordu**. 4 çoklu seçim + 13 personel seçicisi sunucu-taraflı aramaya
   geçirildi; `/api/personnel`'e arama eklendi. [Rapor](tests/WebLookupArama_Test_Report.md)
-- **P2 (yeni) — `/api/vehicles` da sayfalı (limit 200).** Canlıda 94 araç → bugün kesilmiyor;
-  filo 200'ü geçerse aynı sessiz kayıp araçlarda oluşur. Seçiciler aramaya geçirildiği için
-  semptom kapandı, sınır duruyor (`PageRequest.MaxLimit` sistem geneli karar → değiştirilmedi).
+- **P3 — `/api/vehicles` sayfalı (limit 200).** Canlıda 94 araç. **Kod üzerinden doğrulandı
+  (2026-08-09): artık bu ucu aramasız yükleyen hiçbir web seçicisi kalmadı** → aktif kullanıcı
+  problemi YOK. `PageRequest.MaxLimit` sistem geneli bir karardır; tüm çağıranlar incelenmeden
+  değiştirilmemeli. **Backlog'da kalır, iş açılmaz.**
+- **P3 — Y-3 `VehicleTemplateService.GetMaterials`.** Kod üzerinden yeniden doğrulandı
+  (2026-08-09): **hâlâ API ucu YOK**, tek çağıran masaüstü ViewModel'i → dışarıdan erişilemiyor.
+  Latent. Kod değiştirilmedi.
+- **P3 — `.claude/rules/list-screens.md` metni eski** (silinen ayna katalog dosyasını anlatıyor).
+  `.claude/` kullanıcı talimatıyla **kapsam dışı** → dokunulmadı. Metnin güncellenmesi kullanıcının
+  kararı; kod davranışını etkilemiyor.
+
+**✅ İŞ C (2026-08-09) — gerçek P1 firma izolasyonu açığı kapatıldı.** FK değil, guard sorunuydu:
+`SetCompatibleVehicles` araç sahipliğini, `VehicleTemplateService` malzeme sahipliğini
+doğrulamıyordu; `SearchGrid`'in "Uyumlu Araçlar"/"Muadil" alt sorgularında firma filtresi yoktu
+(grid gerçekten yabancı araç kodunu gösteriyordu — testle kanıtlandı). Migration gerekmedi.
 - **P3 — `LookupBox`'ta "seçimi temizle" yok.** Opsiyonel alanda seçim geri alınamıyor.
   Eski `ComboBox`ta da alınamıyordu → regresyon değil.
 

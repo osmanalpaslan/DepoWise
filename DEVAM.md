@@ -51,6 +51,13 @@ Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
+### ✅ İŞ C TAMAMLANDI (2026-08-09) — firmalar arası veri sızıntısı kapatıldı
+Bir firmanın kullanıcısı, **başka firmanın aracını** kendi malzemesine "uyumlu araç" olarak
+bağlayabiliyordu; üstelik Malzeme Listesi ekranı o aracın kodunu **gösteriyordu**. Aynı kusur araç
+şablonlarında malzeme tarafında da vardı. İkisi de kapatıldı, ekran da ikinci bir savunma katmanıyla
+korundu. **Şema değişikliği gerekmedi.** Ayrıca masaüstündeki seçim alanlarına **"seçimi temizle"**
+eklendi (web'de zaten vardı).
+
 ### ✅ İŞ A TAMAMLANDI (2026-08-09) — seçicilerde sessiz kayıt kaybı düzeltildi
 Malzeme/araç/personel seçicilerinde liste **200 kayıtta sessizce kesiliyordu** — 2463 malzemesi olan
 firmada 200'den sonraki malzeme **hiç seçilemiyordu** ve ekranda bunu söyleyen bir uyarı yoktu.
