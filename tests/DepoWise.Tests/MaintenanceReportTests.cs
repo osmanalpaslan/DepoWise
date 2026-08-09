@@ -264,7 +264,7 @@ public class MaintenanceReportTests : IDisposable
             ("@canc", cancelled ? 1 : 0), ("@op", "op-" + id), ("@n", Base));
 
     private void Material(string maintId, string qty, string price)
-        => Exec("INSERT INTO maintenance_materials(id,maintenance_id,material_id,quantity,unit_price) VALUES(@id,@m,@mat,@q,@pr);",
+        => Exec("INSERT INTO maintenance_materials(id,company_id,maintenance_id,material_id,quantity,unit_price) VALUES(@id,'A',@m,@mat,@q,@pr);",
             ("@id", maintId + "-mm-" + Guid.NewGuid().ToString("N")[..6]), ("@m", maintId), ("@mat", _mat), ("@q", qty), ("@pr", price));
 
     private void Exec(string sql, params (string, object?)[] ps)

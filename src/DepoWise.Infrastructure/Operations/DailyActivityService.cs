@@ -508,8 +508,9 @@ WHERE da.company_id = @c";
 
         using var cmd = conn.CreateCommand();
         // "Bakım ekibi stoğu" satırları merkez depodan düşmemişti → etkide sayılmaz.
-        cmd.CommandText = "SELECT quantity, from_team_stock FROM maintenance_materials WHERE maintenance_id=@m;";
+        cmd.CommandText = "SELECT quantity, from_team_stock FROM maintenance_materials WHERE maintenance_id=@m AND company_id=@c;";   // M-S1a
         cmd.AddWithValue("@m", maintenanceId);
+        cmd.AddWithValue("@c", s.CompanyId);
         int lines = 0; decimal total = 0m;
         using var rr = cmd.ExecuteReader();
         while (rr.Read())

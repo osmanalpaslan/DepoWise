@@ -249,7 +249,7 @@ public class RequestReportTests : IDisposable
             ("@ap", (object?)approver), ("@desc", (object?)desc), ("@st", status), ("@n", Base));
 
     private void Item(string requestId, string qty)
-        => Exec("INSERT INTO material_request_items(id,request_id,material_id,quantity) VALUES(@id,@r,@m,@q);",
+        => Exec("INSERT INTO material_request_items(id,company_id,request_id,material_id,quantity) VALUES(@id,'A',@r,@m,@q);",
             ("@id", requestId + "-it-" + Guid.NewGuid().ToString("N")[..6]), ("@r", requestId), ("@m", _mat), ("@q", qty));
 
     private void Exec(string sql, params (string, object?)[] ps)

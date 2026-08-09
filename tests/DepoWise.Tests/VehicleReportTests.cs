@@ -250,7 +250,7 @@ public class VehicleReportTests : IDisposable
             ("@id", id), ("@v", veh), ("@d", Base), ("@op", "op-" + id), ("@n", Base));
         int i = 0;
         foreach (var (qty, price) in materials)
-            Exec("INSERT INTO maintenance_materials(id,maintenance_id,material_id,quantity,unit_price) VALUES(@id,@m,@mat,@q,@pr);",
+            Exec("INSERT INTO maintenance_materials(id,company_id,maintenance_id,material_id,quantity,unit_price) VALUES(@id,'A',@m,@mat,@q,@pr);",
                 ("@id", id + "-mm" + i++), ("@m", id), ("@mat", _mat), ("@q", qty), ("@pr", price));
     }
 

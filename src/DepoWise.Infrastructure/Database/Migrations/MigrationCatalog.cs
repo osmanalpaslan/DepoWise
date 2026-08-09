@@ -66,5 +66,6 @@ public static class MigrationCatalog
         new Migration059_MaintenanceTeamStock(),
         new Migration060_RequestOperations(),
         new Migration061_RequestOperationFields(),
+        new Migration062_ChildTableCompanyId(),
     };
 }

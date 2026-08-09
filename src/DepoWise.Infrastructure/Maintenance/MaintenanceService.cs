@@ -122,7 +122,7 @@ public sealed class MaintenanceService
                 InsertUsageMovement(conn, tx, s.CompanyId, line.MaterialId, id, line.Quantity, price, $"{operationId}:mat:{i}", now);
             }
             else teamStockUsed.Add(line.MaterialId);
-            InsertMaintenanceMaterial(conn, tx, id, line.MaterialId, line.Quantity, price, line.FromTeamStock);
+            InsertMaintenanceMaterial(conn, tx, s.CompanyId, id, line.MaterialId, line.Quantity, price, line.FromTeamStock);
         }
 
         // Sayaç ileri (geçmiş kaydı engellemez)
@@ -182,7 +182,7 @@ public sealed class MaintenanceService
         // Malzemeleri geri ekle (ters hareket). "Bakım ekibi stoğu" işaretli satırlar ATLANIR: kayıt sırasında
         // merkez depodan hiç düşülmemişlerdi → geri eklemek stoğu ŞİŞİRİRDİ (kullanıcı isteği 2026-08-08).
         int i = 0;
-        foreach (var (materialId, qty, price, fromTeamStock) in LoadMaintenanceMaterials(conn, tx, maintenanceId))
+        foreach (var (materialId, qty, price, fromTeamStock) in LoadMaintenanceMaterials(conn, tx, s.CompanyId, maintenanceId))
         {
             i++;
             if (fromTeamStock) continue;
@@ -327,8 +327,9 @@ ORDER BY vm.created_at DESC LIMIT @lim;";
         cmd.CommandText = @"
 SELECT m.code, m.name, mm.quantity, COALESCE(mm.from_team_stock,0) FROM maintenance_materials mm
 JOIN materials m ON m.id = mm.material_id
-WHERE mm.maintenance_id=@mt ORDER BY m.code;";
+WHERE mm.maintenance_id=@mt AND mm.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
         cmd.AddWithValue("@mt", maintenanceId);
+        cmd.AddWithValue("@c", s.CompanyId);
         var list = new List<MaintenanceMaterialRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -412,14 +413,15 @@ VALUES(@id,@c,@m,NULL,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,NULL
         cmd.ExecuteNonQuery();
     }
 
-    private static void InsertMaintenanceMaterial(DbConnection conn, DbTransaction tx, string maintenanceId,
+    private static void InsertMaintenanceMaterial(DbConnection conn, DbTransaction tx, string companyId, string maintenanceId,
         string materialId, decimal qty, decimal? price, bool fromTeamStock = false)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText =
-            "INSERT INTO maintenance_materials(id, maintenance_id, material_id, quantity, unit_price, from_team_stock) VALUES(@id,@mt,@m,@q,@p,@ts);";
+            "INSERT INTO maintenance_materials(id, company_id, maintenance_id, material_id, quantity, unit_price, from_team_stock) VALUES(@id,@c,@mt,@m,@q,@p,@ts);";
         cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+        cmd.AddWithValue("@c", companyId);   // M-S1a: firma izolasyonu
         cmd.AddWithValue("@mt", maintenanceId);
         cmd.AddWithValue("@m", materialId);
         cmd.AddWithValue("@q", Money.Serialize(qty));
@@ -497,13 +499,15 @@ VALUES(@id,@c,@m,NULL,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,NULL
 
     /// <summary>İptalde kullanılır: ekip stoğu işaretli satırlar ters harekete GİRMEZ (hiç düşülmemişlerdi).</summary>
     private static IEnumerable<(string MaterialId, decimal Qty, decimal? Price, bool FromTeamStock)> LoadMaintenanceMaterials(
-        DbConnection conn, DbTransaction tx, string maintenanceId)
+        DbConnection conn, DbTransaction tx, string companyId, string maintenanceId)
     {
         var list = new List<(string, decimal, decimal?, bool)>();
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT material_id, quantity, unit_price, COALESCE(from_team_stock,0) FROM maintenance_materials WHERE maintenance_id=@mt;";
+        // M-S1a: firma izolasyonu — üst kayıt zaten doğrulanmış olsa da çocuk satır da firmaya bağlı okunur.
+        cmd.CommandText = "SELECT material_id, quantity, unit_price, COALESCE(from_team_stock,0) FROM maintenance_materials WHERE maintenance_id=@mt AND company_id=@c;";
         cmd.AddWithValue("@mt", maintenanceId);
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add((r.GetString(0), Money.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Money.Parse(r.GetString(2)),

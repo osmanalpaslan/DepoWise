@@ -105,8 +105,9 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@prio,@now,@now,1,0);";
             EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
             using var ic = conn.CreateCommand();
             ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@r,@m,@q,@v,@n);";
+            ic.CommandText = "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@c,@r,@m,@q,@v,@n);";
             ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ic.AddWithValue("@c", s.CompanyId);   // M-S1a: firma izolasyonu
             ic.AddWithValue("@r", id);
             ic.AddWithValue("@m", item.MaterialId);
             ic.AddWithValue("@q", Money.Serialize(item.Quantity));
@@ -155,8 +156,9 @@ UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh,
         using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
-            del.CommandText = "DELETE FROM material_request_items WHERE request_id=@r;";
+            del.CommandText = "DELETE FROM material_request_items WHERE request_id=@r AND company_id=@c;";   // M-S1a
             del.AddWithValue("@r", requestId);
+            del.AddWithValue("@c", s.CompanyId);
             del.ExecuteNonQuery();
         }
         foreach (var item in dto.Items)
@@ -164,8 +166,9 @@ UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh,
             EnsureMaterialOwned(conn, tx, s.CompanyId, item.MaterialId);
             using var ic = conn.CreateCommand();
             ic.Transaction = tx;
-            ic.CommandText = "INSERT INTO material_request_items(id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@r,@m,@q,@v,@n);";
+            ic.CommandText = "INSERT INTO material_request_items(id, company_id, request_id, material_id, quantity, vehicle_id, note) VALUES(@id,@c,@r,@m,@q,@v,@n);";
             ic.AddWithValue("@id", Guid.NewGuid().ToString("N"));
+            ic.AddWithValue("@c", s.CompanyId);   // M-S1a: firma izolasyonu
             ic.AddWithValue("@r", requestId);
             ic.AddWithValue("@m", item.MaterialId);
             ic.AddWithValue("@q", Money.Serialize(item.Quantity));
@@ -208,8 +211,9 @@ SELECT i.material_id, m.code, m.name, i.quantity, i.vehicle_id, v.internal_code,
 FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
 LEFT JOIN vehicles v ON v.id = i.vehicle_id
-WHERE i.request_id=@r ORDER BY m.code;";
+WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
             ic.AddWithValue("@r", requestId);
+            ic.AddWithValue("@c", s.CompanyId);
             using var ir = ic.ExecuteReader();
             while (ir.Read())
                 items.Add(new RequestEditItem(ir.GetString(0), ir.GetString(1), ir.GetString(2), Money.Parse(ir.GetString(3)),
@@ -285,7 +289,7 @@ WHERE r.id=@id AND r.company_id=@c;";
         if (status != RequestStatus.Approved)
             throw new InvalidOperationException("Yalnız onaylı talepten stok çıkışı başlatılabilir.");
 
-        var lines = LoadItems(requestId);
+        var lines = LoadItems(companyId, requestId);
         // Stok çıkışı ayrı, kontrollü işlem (StockService kendi negatif guard/transaction'ı)
         return _stock.IssueOut(s, lines, operationId, note: $"Talep: {requestId}");
     }
@@ -346,8 +350,9 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         cmd.CommandText = @"
 SELECT m.code, m.name, i.quantity, i.note
 FROM material_request_items i JOIN materials m ON m.id = i.material_id
-WHERE i.request_id=@r ORDER BY m.code;";
+WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
         cmd.AddWithValue("@r", requestId);
+        cmd.AddWithValue("@c", s.CompanyId);
         var list = new List<RequestItemRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -395,8 +400,9 @@ FROM material_request_items i
 JOIN materials m ON m.id = i.material_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN vehicles v ON v.id = i.vehicle_id
-WHERE i.request_id=@r ORDER BY m.code;";
+WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma izolasyonu
             ic.AddWithValue("@r", requestId);
+            ic.AddWithValue("@c", s.CompanyId);
             using var ir = ic.ExecuteReader();
             while (ir.Read())
             {
@@ -464,12 +470,13 @@ WHERE i.request_id=@r ORDER BY m.code;";
         return (RequestStatusMachine.FromDb(r.GetString(0)), cid);
     }
 
-    private IReadOnlyList<StockLine> LoadItems(string requestId)
+    private IReadOnlyList<StockLine> LoadItems(string companyId, string requestId)
     {
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT material_id, quantity FROM material_request_items WHERE request_id=@r;";
+        cmd.CommandText = "SELECT material_id, quantity FROM material_request_items WHERE request_id=@r AND company_id=@c;"   /* M-S1a */;
         cmd.AddWithValue("@r", requestId);
+        cmd.AddWithValue("@c", companyId);
         var list = new List<StockLine>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add(new StockLine(r.GetString(0), Money.Parse(r.GetString(1))));
