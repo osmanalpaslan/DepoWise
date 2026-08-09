@@ -346,7 +346,9 @@
         _exporting = true;
         try
         {
-            var qs = string.Join("&", BuildFilterSortQs());
+            var parts = BuildFilterSortQs();
+            if (_showCancelled) parts.Add("includeCancelled=true");   // ekranda ne görünüyorsa Excel'de de o
+            var qs = string.Join("&", parts);
             var (bytes, fileName) = await Api.GetFileAsync("/api/daily/grid/export" + (qs.Length > 0 ? "?" + qs : ""), "GunlukFaaliyet.xlsx");
             if (bytes is not null)
                 await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),

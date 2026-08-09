@@ -971,12 +971,13 @@ app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Daily
 // dokunulmadı. "Tarih" filtre almaz — yalnız sıralanır.
 app.MapGet("/api/daily/grid", (HttpContext c,
     string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
-    int page, int pageSize, string? sort, bool? desc) =>
+    int page, int pageSize, string? sort, bool? desc, bool? includeCancelled) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description);
+    // K3 (2026-08-09): iptal edilen faaliyetler varsayılan GİZLİ; yalnız "İptal edilenleri göster" kutusu ile gelir.
     var res = svc.DailyActivity.SearchGrid(s, filter, page <= 0 ? 1 : page, pageSize <= 0 ? 25 : pageSize,
-        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+        string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true);
     return Results.Ok(new
     {
         items = res.Items, totalCount = res.TotalCount, page = res.Page, pageSize = res.PageSize, totalPages = res.TotalPages,
@@ -985,12 +986,13 @@ app.MapGet("/api/daily/grid", (HttpContext c,
 // Günlük Faaliyet Listesi — "Excel'e Aktar" (kullanıcı isteği 2026-07-19) — bkz. materials/grid/export (aynı desen).
 app.MapGet("/api/daily/grid/export", (HttpContext c,
     string? type, string? vehicle, string? route, string? operatorText, string? duration, string? description,
-    string? sort, bool? desc) =>
+    string? sort, bool? desc, bool? includeCancelled) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     DepoWise.Application.Security.AccessControl.Require(s, "export", DepoWise.Application.Security.PermissionAction.View);   // dışa aktarım yetkisi (2026-07-26)
     var filter = new DepoWise.Infrastructure.Operations.DailyActivityGridFilter(type, vehicle, route, operatorText, duration, description);
-    var rows = svc.DailyActivity.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true);
+    // Excel ekrandaki AYNI kümeyi verir: "İptal edilenleri göster" işaretliyse iptaller de dışa aktarılır.
+    var rows = svc.DailyActivity.SearchGridAll(s, filter, string.IsNullOrWhiteSpace(sort) ? null : sort, desc == true, includeCancelled == true);
     var bytes = svc.Excel.Export(DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows));
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "GunlukFaaliyet.xlsx");
 }).RequireAuthorization();
