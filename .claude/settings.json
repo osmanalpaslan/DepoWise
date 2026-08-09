@@ -1,7 +1,7 @@
 {
   "hooks": {},
   "permissions": {
-    "defaultMode": "acceptEdits",
+    "defaultMode": "bypassPermissions",
 
     "ask": [
       "Bash(flyctl deploy:*)",
