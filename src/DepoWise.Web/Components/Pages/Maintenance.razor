@@ -253,7 +253,26 @@
                             {
                                 <MudTextField @bind-Value="_cancelReason" Label="İptal Gerekçesi" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-2" />
                             }
+                            @* İş #5: YAN ETKİSİZ alanlar (açıklama/alt not/teknisyen). Malzeme veya sayaç
+                               değişecekse "Düzelt" (iptal + yeniden gir) kullanılır. *@
+                            @if (_metaEdit)
+                            {
+                                <MudPaper Class="pa-3 mt-2" Elevation="1">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                                        Yalnız açıklama, alt bakım notu ve teknisyen düzeltilebilir. Malzeme veya sayaç değişecekse "Düzelt" kullanın.
+                                    </MudText>
+                                    <MudTextField @bind-Value="_metaDesc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" />
+                                    <MudTextField @bind-Value="_metaNote" Label="Alt Bakım Notu" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-2" />
+                                    <div class="mt-2"><LookupSelect Label="Teknisyen" @bind-Value="_metaTech" Items="_technicians" /></div>
+                                    @if (_metaError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_metaError</MudAlert> }
+                                    <MudStack Row="true" Spacing="2" Class="mt-2">
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMetaEdit">Kaydet</MudButton>
+                                        <MudButton Variant="Variant.Text" OnClick="@(() => _metaEdit = false)">Vazgeç</MudButton>
+                                    </MudStack>
+                                </MudPaper>
+                            }
                             <MudStack Row="true" Class="mt-2" Spacing="2">
+                                @if (Auth.CanEdit("maintenance")) { <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="BeginMetaEdit">Bilgileri Düzenle</MudButton> }
                                 @if (Auth.CanEdit("maintenance")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="EditMaint">Düzelt</MudButton> }
                                 @if (Auth.CanDelete("maintenance")) { <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="CancelMaint">Sil</MudButton> }
                             </MudStack>
@@ -552,6 +571,35 @@
     }
 
     // Düzelt: eski kaydı sil (stok geri al) + araç/tanımı forma taşı → düzeltilmiş kayıt gir
+    // ── İş #5: metadata düzenleme (yan etkisiz alanlar) ─────────────────────────────────────
+    private bool _metaEdit;
+    private string? _metaDesc, _metaNote, _metaTech, _metaError;
+    private long _metaVersion;
+
+    private void BeginMetaEdit()
+    {
+        if (_selMaint is null) return;
+        var sm = _selMaint.Value;
+        _metaDesc = Str(sm, "description");
+        _metaNote = Str(sm, "subDefinitionNote");
+        var t = Str(sm, "technicianId"); _metaTech = string.IsNullOrEmpty(t) ? null : t;
+        _metaVersion = sm.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0L;
+        _metaError = null; _metaEdit = true;
+    }
+
+    private async Task SaveMetaEdit()
+    {
+        if (_selMaint is null) return;
+        _metaError = null;
+        var err = await Api.PutAsync($"/api/maintenance/{Str(_selMaint.Value, "id")}/metadata", new
+        {
+            description = _metaDesc, subDefinitionNote = _metaNote,
+            technicianId = _metaTech, version = _metaVersion,
+        });
+        if (err is not null) { _metaError = err; return; }
+        _metaEdit = false; _selMaint = null; await LoadMaint();
+    }
+
     private async Task EditMaint()
     {
         if (_selMaint is null) return;

@@ -69,7 +69,8 @@ public sealed record DailyActivityListRow(string Id, string ActivityType, string
 /// (DailyActivityView.axaml) satır şablonu hiç değişmeden bu tipe geçebilsin diye (kullanıcı isteği 2026-07-19).</summary>
 public sealed record DailyActivityGridRow(
     string Id, long DateRaw, string Type, string Vehicle, string Route, string Operator, string Duration,
-    string Description, string? MaintenanceId, bool IsCancelled = false)
+    string Description, string? MaintenanceId, bool IsCancelled = false,
+    long Version = 0, string? OperatorId = null, int? DurationDays = null)   // İş #5: metadata düzenleme formu + kilit
 {
     /// <summary>İptal edilen faaliyet listede ayırt edilir (kullanıcı kararı K3).</summary>
     public string StatusText => IsCancelled ? "İptal edildi" : "";
@@ -320,7 +321,10 @@ SELECT da.id AS id,
        CASE WHEN da.duration_days IS NULL THEN '' ELSE CAST(da.duration_days AS TEXT) || ' gün' END AS duration_text,
        COALESCE(da.description, '') AS description,
        da.maintenance_id AS maintenance_id,
-       da.is_deleted AS is_cancelled
+       da.is_deleted AS is_cancelled,
+       da.version AS row_version,
+       da.operator_id AS operator_id,
+       da.duration_days AS duration_days
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id
@@ -386,7 +390,11 @@ WHERE da.company_id = @c";
                 items.Add(new DailyActivityGridRow(
                     r.GetString(0), r.GetInt64(1), r.GetString(2), r.GetString(3),
                     r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
-                    r.IsDBNull(8) ? null : r.GetString(8), r.GetInt64(9) == 1));
+                    r.IsDBNull(8) ? null : r.GetString(8), r.GetInt64(9) == 1,
+                    // İş #5: düzenleme formu + düzenleme kilidi için sürüm ve ham id/süre.
+                    r.IsDBNull(10) ? 0L : Convert.ToInt64(r.GetValue(10)),
+                    r.IsDBNull(11) ? null : r.GetString(11),
+                    r.IsDBNull(12) ? null : (int?)Convert.ToInt32(r.GetValue(12))));
         }
         return new GridResult<DailyActivityGridRow>(items, total, page, pageSize);
     }

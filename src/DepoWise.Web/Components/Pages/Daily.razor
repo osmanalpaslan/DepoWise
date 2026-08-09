@@ -145,7 +145,28 @@
         </MudStack>
     </div>
 
-    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    @* İş #5: yalnız YAN ETKİSİZ alanlar. Stok/araç durumu değişecekse iptal edip yeniden girin. *@
+@if (_editId is not null)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:620px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-1">FAALİYET KAYDINI DÜZENLE</MudText>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-3">
+            Yalnız açıklama, operatör ve süre düzeltilebilir. Stok veya araç durumu değişecekse kaydı iptal edip yeniden girin.
+        </MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12"><MudTextField @bind-Value="_editDescription" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Operatör / Şoför" @bind-Value="_editOperator" Items="_personnel" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_editDuration" Label="Süre (gün)" Min="0" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+        </MudGrid>
+        @if (_editError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_editError</MudAlert> }
+        <MudStack Row="true" Spacing="2" Class="mt-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEdit">Kaydet</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => _editId = null)">Vazgeç</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Filtre kriterine uygun faaliyet bulunamadı.</MudText> }
     else
     {
@@ -206,6 +227,7 @@
                             }
                             else if (Auth.CanDelete("daily_activity"))
                             {
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => BeginEdit(row))">Düzenle</MudButton>
                                 <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(row))">İptal Et</MudButton>
                             }
                         </td>
@@ -485,6 +507,36 @@
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
+    }
+
+    // ── İş #5: metadata düzenleme (yan etkisiz alanlar) ─────────────────────────────────────
+    private string? _editId, _editOperator, _editError, _editDescription;
+    private int? _editDuration;
+    private long _editVersion;
+
+    private void BeginEdit(JsonElement row)
+    {
+        if (Bool(row, "isCancelled")) { _msg = "İptal edilmiş kayıt düzenlenemez."; _ok = false; return; }
+        _editId = Str(row, "id");
+        _editVersion = row.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0L;
+        _editDescription = Str(row, "description");
+        _editOperator = NullS(row, "operatorId");
+        _editDuration = row.TryGetProperty("durationDays", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt32() : null;
+        _editError = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editId is null) return;
+        _editError = null;
+        var err = await Api.PutAsync($"/api/daily/{_editId}/metadata", new
+        {
+            description = _editDescription, operatorId = _editOperator,
+            durationDays = _editDuration, version = _editVersion,
+        });
+        if (err is not null) { _editError = err; return; }
+        _editId = null; _msg = "Faaliyet kaydı güncellendi."; _ok = true;
+        await Load();
     }
 
     private async Task Delete(JsonElement row)

@@ -570,6 +570,55 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
 
     partial void OnShowCancelledChanged(bool value) => Load();
 
+    // ── İş #5: faaliyetin YAN ETKİSİZ alanları (açıklama/operatör/süre) ───────────────────────
+    // Stok hareketi veya araç durumu etkileyen alanlar düzenlenmez; onlar için "İptal Et + yeniden gir".
+    [ObservableProperty] private bool _showMetaEdit;
+    [ObservableProperty] private string _metaDescription = "";
+    [ObservableProperty] private LookupItem? _metaOperator;
+    [ObservableProperty] private int? _metaDuration;
+    [ObservableProperty] private string? _metaError;
+    private string? _metaId;
+    private long _metaVersion;
+
+
+    /// <summary>Seçili faaliyetin metadata düzenleme formunu açar (mevcut değerlerle).</summary>
+    [RelayCommand]
+    private void BeginMetaEdit(DailyActivityGridRow? row)
+    {
+        if (row is null) return;
+        if (!CanWrite) { Status = "Yetki yok."; return; }
+        if (row.IsCancelled) { Status = "İptal edilmiş kayıt düzenlenemez."; return; }
+
+        EnsurePickers();   // mevcut ortak yükleyici — Personel listesi buradan gelir (yeni koleksiyon YOK)
+        _metaId = row.Id;
+        _metaVersion = row.Version;
+        MetaDescription = row.Description ?? "";
+        MetaOperator = Personnel.FirstOrDefault(o => o.Id == row.OperatorId);
+        MetaDuration = row.DurationDays;
+        MetaError = null;
+        ShowMetaEdit = true;
+    }
+
+    [RelayCommand]
+    private void CancelMetaEdit() { ShowMetaEdit = false; MetaError = null; _metaId = null; }
+
+    /// <summary>Kaydet — servis katmanı yetki, firma izolasyonu ve düzenleme kilidini uygular.</summary>
+    [RelayCommand]
+    private async Task SaveMetaEdit()
+    {
+        if (_metaId is null) return;
+        if (!await ConfirmService.AskAsync("Faaliyet kaydının açıklama/operatör/süre bilgileri güncellensin mi?", "Kaydet")) return;
+        try
+        {
+            DesktopServices.DailyActivity.UpdateMetadata(_session, _metaId,
+                MetaDescription, MetaOperator?.Id, MetaDuration, _metaVersion);
+            ShowMetaEdit = false; MetaError = null; _metaId = null;
+            Status = "Faaliyet kaydı güncellendi.";
+            Load();
+        }
+        catch (Exception ex) { MetaError = ex.Message; }
+    }
+
     [RelayCommand]
     private async Task DeleteActivity(DailyActivityGridRow? row)
     {

@@ -375,8 +375,8 @@
                                                 <TextBox Classes="Field" Text="{Binding MetaSubNote}"/>
                                             </ctrl:FormField>
                                             <ctrl:FormField Label="Teknisyen">
-                                                <ctrl:LookupBox ItemsSource="{Binding Technicians}" SelectedItem="{Binding MetaTechnician}"
-                                                                Populator="{Binding TechnicianPopulator}"/>
+                                                <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Technicians}" SelectedItem="{Binding MetaTechnician}"
+                                                                PlaceholderText="Teknisyen seç / ara..."/>
                                             </ctrl:FormField>
                                             <SelectableTextBlock Classes="Error" Text="{Binding MetaError}" IsVisible="{Binding MetaError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                             <StackPanel Orientation="Horizontal" Spacing="8">

@@ -34,6 +34,31 @@
         </ctrl:Toolbar>
 
 
+        <!-- İş #5: metadata düzenleme paneli — yalnız yan etkisiz alanlar. -->
+        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowMetaEdit}">
+            <StackPanel Spacing="10" MaxWidth="620" HorizontalAlignment="Left">
+                <SelectableTextBlock Text="FAALİYET KAYDINI DÜZENLE" Classes="SectionTitle"/>
+                <SelectableTextBlock Classes="Helper"
+                    Text="Yalnız açıklama, operatör ve süre düzeltilebilir. Stok veya araç durumu değişecekse kaydı iptal edip yeniden girin."/>
+                <ctrl:FormField Label="Açıklama">
+                    <TextBox Classes="Field" Text="{Binding MetaDescription}"/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Operatör / Şoför">
+                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding Personnel}" SelectedItem="{Binding MetaOperator}"
+                                    PlaceholderText="Personel seç / ara..."/>
+                </ctrl:FormField>
+                <ctrl:FormField Label="Süre (gün)">
+                    <NumericUpDown Classes="Field" Value="{Binding MetaDuration}" Minimum="0" FormatString="0"/>
+                </ctrl:FormField>
+                <SelectableTextBlock Classes="Error" Text="{Binding MetaError}"
+                                     IsVisible="{Binding MetaError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveMetaEditCommand}"/>
+                    <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelMetaEditCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <!-- Tek form — Kayıt Tipi'ne göre alanlar değişir -->
         <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0" IsVisible="{Binding ShowForm}">
             <ScrollViewer MaxHeight="440">
@@ -418,9 +443,16 @@
                                                MaxWidth="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=description}"
                                                ToolTip.Tip="{Binding DescriptionText}"
                                                IsVisible="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=description}"/>
-                                    <Button Grid.Column="7" Classes="Ghost" Content="İptal Et" MinWidth="80" VerticalAlignment="Center"
-                                            Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).DeleteActivityCommand}"
-                                            CommandParameter="{Binding}"/>
+                                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <!-- İş #5: yalnız YAN ETKİSİZ alanlar (açıklama/operatör/süre).
+                                             Stok veya araç durumu değişecekse "İptal Et" + yeniden giriş. -->
+                                        <Button Classes="Ghost" Content="Düzenle" MinWidth="70"
+                                                Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).BeginMetaEditCommand}"
+                                                CommandParameter="{Binding}"/>
+                                        <Button Classes="Ghost" Content="İptal Et" MinWidth="80"
+                                                Command="{Binding $parent[ListBox].((vm:DailyActivityViewModel)DataContext).DeleteActivityCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
