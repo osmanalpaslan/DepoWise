@@ -122,7 +122,9 @@
                             <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80"/>
                         </Grid>
                     </Border>
-                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                    <!-- Tek tık = seçim. Çift tık = düzenleme formu (Malzemeler/Araçlar ile AYNI davranış). -->
+                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                             DoubleTapped="OnRowDoubleTapped">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:PersonnelRowVm">
                                 <Grid ColumnDefinitions="*,*,Auto,Auto,Auto">

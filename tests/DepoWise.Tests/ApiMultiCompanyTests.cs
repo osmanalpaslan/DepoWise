@@ -23,6 +23,10 @@ namespace DepoWise.Tests;
 /// Bu testler T-1…T-6 ve Y-1/Y-2 açıklarını KANITLAR; düzeltmeden önce kırmızıdırlar.
 /// Kurulum (seed) hız ve kesinlik için servis katmanından yapılır; DOĞRULAMA her zaman HTTP'dendir.
 /// </summary>
+// ApiTestHost SUREC-GENELI ortam degiskenleri yazar (DEPOWISE_SERVER_DATA, DEPOWISE_PG_URL...).
+// Ayni degiskenlere dokunan PostgresTestGuardTests ile PARALEL kosarsa nadiren cakisir (flaky).
+// Bu yuzden env-hassas testlerle AYNI koleksiyonda serilestirilir. (Is #4, 2026-08-09)
+[Collection("PostgresSchema")]
 public class ApiMultiCompanyTests : IClassFixture<ApiMultiCompanyTests.Fixture>, IAsyncLifetime
 {
     private readonly Fixture _fx;

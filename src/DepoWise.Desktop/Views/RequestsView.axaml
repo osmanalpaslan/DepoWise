@@ -160,7 +160,9 @@
                                             <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="110"/>
                                         </Grid>
                                     </Border>
-                                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}">
+                                    <!-- Tek tik = secim. Cift tik = duzenleme formu (Malzemeler/Araclar ile AYNI davranis). -->
+                                    <ListBox Classes="Table" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                                             DoubleTapped="OnRowDoubleTapped">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
                                                 <!-- Kolon 4: ONAY durumu · Kolon 5: OPERASYON durumu (Faz 1, madde 15-16).
@@ -263,7 +265,8 @@
                                             <SelectableTextBlock Grid.Column="3" Text="AÇIKLAMA" MinWidth="120"/>
                                         </Grid>
                                     </Border>
-                                    <ListBox Classes="Table" ItemsSource="{Binding PendingItems}" SelectedItem="{Binding Selected}">
+                                    <ListBox Classes="Table" ItemsSource="{Binding PendingItems}" SelectedItem="{Binding Selected}"
+                                             DoubleTapped="OnRowDoubleTapped">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate x:DataType="vm:RequestRow">
                                                 <Grid ColumnDefinitions="Auto,Auto,Auto,*">
