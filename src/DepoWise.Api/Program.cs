@@ -964,7 +964,7 @@ app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string?
     S(c) is { } s ? Results.Ok(svc.Stock.SearchMovements(s, from, to, q, 1000)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/fuel", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/fuel", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/daily", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.DailyActivity.List(s)) : Results.Unauthorized()).RequireAuthorization();
 // Günlük Faaliyet LİSTE ekranı: kolon bazlı filtre + sayfalama + sıralama (kullanıcı isteği 2026-07-19 —
 // Malzemeler/Araçlar'a yapılan geliştirmenin AYNISI, bkz. ADR-087/088/089). Eski "/api/daily" (yukarıda)
@@ -1826,7 +1826,7 @@ app.MapPost("/api/inspection", (HttpContext c, InspectionDto d) =>
         d.VehicleId, d.DocType, d.LastDate, d.NextDate, Doc(d.Result), Doc(d.Place), Doc(d.Note))) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Yakıt ──
-app.MapGet("/api/fuel/depot", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDepotEntries(s)) : Results.Unauthorized()).RequireAuthorization();
+app.MapGet("/api/fuel/depot", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDepotEntries(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/fuel/summary", (HttpContext c) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -1846,8 +1846,24 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Yakıt dağıtımında personel (işlemi yapan) zorunludur."); // madde 8
     return Results.Ok(new { id = svc.Fuel.Distribute(s, new DepoWise.Infrastructure.Operations.NewDistribution(
         d.VehicleId, d.Liters, d.CurrentMeter, d.UnitPrice, "TRY", d.PersonnelId, d.DistributionDate, Doc(d.Note),
-        RecipientPersonnelId: Doc(d.RecipientPersonnelId)), Guid.NewGuid().ToString("N")) });
+        RecipientPersonnelId: Doc(d.RecipientPersonnelId), PrevMeter: d.PrevMeter), Guid.NewGuid().ToString("N")) });
 }).RequireAuthorization();
+// ── Yakıt kaydı İPTALİ (kullanıcı kararları Y1–Y5, 2026-08-09) — ortak FuelService; sayaç GERİ ALINMAZ ──
+app.MapPost("/api/fuel/{id}/cancel", (HttpContext c, string id, FuelCancelDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Fuel.CancelDistribution(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Kullanıcı iptali" : d!.Reason!);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+app.MapPost("/api/fuel/depot/{id}/cancel", (HttpContext c, string id, FuelCancelDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Fuel.CancelDepotEntry(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Kullanıcı iptali" : d!.Reason!);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+// Düzeltme akışı (Y2): iptal edilen dağıtımın BAŞLANGIÇ SAYACI — yeni kayda taşınır.
+app.MapGet("/api/fuel/{id}/prev-meter", (HttpContext c, string id) =>
+    S(c) is { } s ? Results.Ok(new { prevMeter = svc.Fuel.GetCancelledPrevMeter(s, id) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPost("/api/fuel/depot", (HttpContext c, DepotEntryDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Fuel.AddDepotEntry(s, new DepoWise.Infrastructure.Operations.NewDepotEntry(
         d.Liters, d.UnitPrice, "TRY", d.SupplierId, Doc(d.InvoiceNo), Doc(d.Note), d.EntryDate), Guid.NewGuid().ToString("N")) }) : Results.Unauthorized()).RequireAuthorization();
@@ -2432,6 +2448,7 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
 record StockReverseDto(string DocumentId, string? Reason);
+record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);
 /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer, merkez depodan düşmez.
@@ -2442,7 +2459,7 @@ record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefiniti
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate);
-record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null);
+record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null);
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
 // ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,

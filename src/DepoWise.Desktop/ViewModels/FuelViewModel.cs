@@ -61,6 +61,57 @@ public sealed partial class FuelViewModel : ViewModelBase
         Load();
     }
 
+    // ── KAYIT İPTALİ (kullanıcı kararları Y1–Y5, 2026-08-09) ──
+    // Not: formdaki "Vazgeç" butonları FORMU temizler; buradaki iptal GERÇEK kayıt iptalidir.
+
+    /// <summary>Y3: iptal edilen kayıtlar varsayılan GİZLİ; bu kutu işaretlenince görünür.</summary>
+    [ObservableProperty] private bool _showCancelled;
+
+    partial void OnShowCancelledChanged(bool value) => Load();
+
+    /// <summary>Y5: iptal için "Ters Kayıt" özel buton yetkisi gerekir — butonlar buna göre görünür.</summary>
+    public bool CanCancelFuel =>
+        DesktopServices.Session is { } s && AccessControl.CanUseButton(s, SpecialButtons.Reverse);
+
+    [ObservableProperty] private FuelRow? _selectedDistribution;
+    [ObservableProperty] private FuelDepotRow? _selectedDepotEntry;
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task CancelDistribution()
+    {
+        if (SelectedDistribution is not { } row || row.IsCancelled) return;
+        if (!await ConfirmService.AskAsync(
+                $"Bu yakıt kaydı iptal edilecek ({row.LitersText} L · {row.VehicleCode}).\n\n" +
+                "İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +
+                "Araç sayacı geri alınmaz. İşlem geri alınamaz.\n\nDevam etmek istiyor musunuz?",
+                "Yakıt Kaydı İptali", "Evet, İptal Et", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Fuel.CancelDistribution(_session, row.Id, "Kullanıcı iptali");
+            Status = "Yakıt dağıtımı iptal edildi.";
+            Load();
+        }
+        catch (Exception ex) { Status = "Hata: " + ex.Message; LoadError = ex.Message; }
+    }
+
+    [RelayCommand]
+    private async System.Threading.Tasks.Task CancelDepotEntry()
+    {
+        if (SelectedDepotEntry is not { } row || row.IsCancelled) return;
+        if (!await ConfirmService.AskAsync(
+                $"Bu depo girişi iptal edilecek ({row.LitersText} L).\n\n" +
+                "İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. İşlem geri alınamaz.\n\n" +
+                "Devam etmek istiyor musunuz?",
+                "Depo Girişi İptali", "Evet, İptal Et", "Vazgeç", danger: true)) return;
+        try
+        {
+            DesktopServices.Fuel.CancelDepotEntry(_session, row.Id, "Kullanıcı iptali");
+            Status = "Depo girişi iptal edildi.";
+            Load();
+        }
+        catch (Exception ex) { Status = "Hata: " + ex.Message; LoadError = ex.Message; }
+    }
+
     [RelayCommand]
     private void Load()
     {
@@ -73,13 +124,15 @@ public sealed partial class FuelViewModel : ViewModelBase
             CurrentPrice = DesktopServices.Fuel.GetCurrentFuelPrice(_session);
 
             foreach (var v in DesktopServices.Vehicles.List(_session)) Vehicles.Add(v);
-            foreach (var d in DesktopServices.Fuel.ListDistributions(_session))
-                Distributions.Add(new FuelRow(d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter, d.Liters, d.UnitPrice, d.Currency, d.DistributionDate));
-            foreach (var e in DesktopServices.Fuel.ListDepotEntries(_session))
+            foreach (var d in DesktopServices.Fuel.ListDistributions(_session, 200, ShowCancelled))
+                Distributions.Add(new FuelRow(d.Id, d.VehicleCode ?? d.VehicleId, d.PrevMeter, d.CurrentMeter,
+                    d.Liters, d.UnitPrice, d.Currency, d.DistributionDate, d.IsCancelled));
+            foreach (var e in DesktopServices.Fuel.ListDepotEntries(_session, 200, ShowCancelled))
                 DepotEntries.Add(e);
 
-            TotalDistributed = Distributions.Sum(x => x.Liters);
-            TotalReceived = DepotEntries.Sum(x => x.Liters);
+            // İptal edilenler toplamlara GİRMEZ (bakiye zaten servis tarafında filtreli).
+            TotalDistributed = Distributions.Where(x => !x.IsCancelled).Sum(x => x.Liters);
+            TotalReceived = DepotEntries.Where(x => !x.IsCancelled).Sum(x => x.Liters);
             Status = $"{Distributions.Count} dağıtım · {DepotEntries.Count} depo girişi";
         }
         catch (Exception ex) { LoadError = ex.Message; Status = "Hata: " + ex.Message; }
@@ -229,9 +282,11 @@ public sealed partial class FuelViewModel : ViewModelBase
     }
 }
 
-public sealed record FuelRow(string VehicleCode, decimal PrevMeter, decimal CurrentMeter, decimal Liters,
-    decimal UnitPrice, string Currency, long DistributionDate)
+public sealed record FuelRow(string Id, string VehicleCode, decimal PrevMeter, decimal CurrentMeter, decimal Liters,
+    decimal UnitPrice, string Currency, long DistributionDate, bool IsCancelled = false)
 {
+    /// <summary>İptal edilen satır listede ayırt edilir (kullanıcı kararı Y3).</summary>
+    public string StatusText => IsCancelled ? "İptal edildi" : "";
     public string LitersText => $"{Liters:0.##}";
     public string PriceText => $"{UnitPrice:0.##} {Currency}";
     public string TotalText => $"{Liters * UnitPrice:0.##} {Currency}";

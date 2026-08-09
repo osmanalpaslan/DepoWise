@@ -20,7 +20,13 @@
                     <ctrl:Toolbar Grid.Row="0" Title="Yakıt Dağıtımları"
                                   PrimaryActionText="Yeni Dağıtım" PrimaryActionCommand="{Binding ToggleDistCommand}">
                         <ctrl:Toolbar.FilterContent>
-                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+    <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center"/>
+                                <Button Classes="Danger" Content="Kaydı İptal Et" Margin="8,0,0,0"
+                                        IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDistributionCommand}"
+                                        ToolTip.Tip="Seçili yakıt dağıtımını iptal eder. Bakiye ve raporlardan çıkar; araç sayacı geri alınmaz."/>
+                                <Button Classes="Secondary" Content="Yenile" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                            </StackPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 
@@ -66,7 +72,7 @@
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                                <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDistCommand}"/>
+                                <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDistCommand}"/>
                                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDistCommand}"/>
                             </StackPanel>
                         </StackPanel>
@@ -93,7 +99,7 @@
                                         <SelectableTextBlock Grid.Column="5" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
                                     </Grid>
                                 </Border>
-                                <ListBox Classes="Table" ItemsSource="{Binding Distributions}">
+                                <ListBox Classes="Table" ItemsSource="{Binding Distributions}" SelectedItem="{Binding SelectedDistribution}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="vm:FuelRow">
                                             <Grid>
@@ -104,6 +110,7 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c4"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c5"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="c6"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleCode}" MinWidth="100" VerticalAlignment="Center"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding MeterText}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -111,6 +118,7 @@
                                                 <SelectableTextBlock Grid.Column="3" Text="{Binding PriceText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="4" Text="{Binding TotalText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="5" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="6" Text="{Binding StatusText}" MinWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -130,7 +138,13 @@
                     <ctrl:Toolbar Grid.Row="0" Title="Depo Girişleri"
                                   PrimaryActionText="Yeni Giriş" PrimaryActionCommand="{Binding ToggleDepotCommand}">
                         <ctrl:Toolbar.FilterContent>
-                            <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+    <CheckBox Content="İptal edilenleri göster" IsChecked="{Binding ShowCancelled}" VerticalAlignment="Center"/>
+                                <Button Classes="Danger" Content="Kaydı İptal Et" Margin="8,0,0,0"
+                                        IsVisible="{Binding CanCancelFuel}" Command="{Binding CancelDepotEntryCommand}"
+                                        ToolTip.Tip="Seçili depo girişini iptal eder. Bakiyeyi eksiye düşürecekse engellenir."/>
+                                <Button Classes="Secondary" Content="Yenile" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                            </StackPanel>
                         </ctrl:Toolbar.FilterContent>
                     </ctrl:Toolbar>
 
@@ -171,7 +185,7 @@
                                 </ctrl:FormField>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                                <Button Classes="Secondary" Content="İptal" Command="{Binding ClearDepotCommand}"/>
+                                <Button Classes="Secondary" Content="Vazgeç" Command="{Binding ClearDepotCommand}"/>
                                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveDepotCommand}"/>
                             </StackPanel>
                         </StackPanel>
@@ -194,7 +208,7 @@
                                         <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100" TextAlignment="Right"/>
                                     </Grid>
                                 </Border>
-                                <ListBox Classes="Table" ItemsSource="{Binding DepotEntries}">
+                                <ListBox Classes="Table" ItemsSource="{Binding DepotEntries}" SelectedItem="{Binding SelectedDepotEntry}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="op:FuelDepotRow">
                                             <Grid>
@@ -203,11 +217,13 @@
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d2"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d3"/>
                                                     <ColumnDefinition Width="Auto" SharedSizeGroup="d4"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding InvoiceDisplay}" MinWidth="140" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                 <SelectableTextBlock Grid.Column="1" Text="{Binding LitersText}" MinWidth="90" VerticalAlignment="Center" TextAlignment="Right" FontWeight="SemiBold"/>
                                                 <SelectableTextBlock Grid.Column="2" Text="{Binding PriceText}" MinWidth="110" VerticalAlignment="Center" TextAlignment="Right"/>
                                                 <SelectableTextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center" TextAlignment="Right" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding StatusText}" MinWidth="90" Margin="12,0,0,0" VerticalAlignment="Center" IsVisible="{Binding IsCancelled}" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}"/>
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>

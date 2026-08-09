@@ -45,13 +45,16 @@
                 @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
             </MudPaper>
         }
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDist">Yenile</MudButton>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDist">Yenile</MudButton>
+            <MudCheckBox T="bool" Value="_showCancelled" ValueChanged="ToggleCancelled" Label="İptal edilenleri göster" Dense="true" />
+        </MudStack>
         @if (_dist is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
         else if (_dist.Length == 0) { <MudText Class="mud-text-secondary mt-2">Henüz yakıt dağıtımı kaydı yok.</MudText> }
         else
         {
             <MudTable Items="_dist" Dense="true" Hover="true" Striped="true" Class="mt-2">
-                <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>SAYAÇ</MudTh><MudTh Style="text-align:right">LİTRE</MudTh><MudTh Style="text-align:right">BİRİM FİYAT</MudTh><MudTh Style="text-align:right">TOPLAM</MudTh><MudTh Style="text-align:right">TARİH</MudTh></HeaderContent>
+                <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>SAYAÇ</MudTh><MudTh Style="text-align:right">LİTRE</MudTh><MudTh Style="text-align:right">BİRİM FİYAT</MudTh><MudTh Style="text-align:right">TOPLAM</MudTh><MudTh Style="text-align:right">TARİH</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
                     <MudTd>@Str(context, "vehicleCode")</MudTd>
                     <MudTd>@Str(context, "prevMeter") → @Str(context, "currentMeter")</MudTd>
@@ -59,6 +62,14 @@
                     <MudTd Style="text-align:right">@Dec(context, "unitPrice").ToString("0.##")</MudTd>
                     <MudTd Style="text-align:right">@((Dec(context, "liters") * Dec(context, "unitPrice")).ToString("0.##"))</MudTd>
                     <MudTd Style="text-align:right">@Date(context, "distributionDate")</MudTd>
+                    <MudTd Style="text-align:right">
+                        @if (Bool(context, "isCancelled")) { <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip> }
+                        else if (Auth.CanEdit("fuel"))
+                        {
+                            <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                       OnClick="@(() => CancelDist(Str(context, "id")))">İptal Et</MudButton>
+                        }
+                    </MudTd>
                 </RowTemplate>
             </MudTable>
         }
@@ -85,18 +96,29 @@
                 @if (_dMsg is not null) { <MudAlert Severity="@(_dOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_dMsg</MudAlert> }
             </MudPaper>
         }
-        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDepot">Yenile</MudButton>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadDepot">Yenile</MudButton>
+            <MudCheckBox T="bool" Value="_showCancelled" ValueChanged="ToggleCancelled" Label="İptal edilenleri göster" Dense="true" />
+        </MudStack>
         @if (_depot is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
         else if (_depot.Length == 0) { <MudText Class="mud-text-secondary mt-2">Henüz depo girişi kaydı yok.</MudText> }
         else
         {
             <MudTable Items="_depot" Dense="true" Hover="true" Striped="true" Class="mt-2">
-                <HeaderContent><MudTh>FATURA NO</MudTh><MudTh Style="text-align:right">LİTRE</MudTh><MudTh Style="text-align:right">BİRİM FİYAT</MudTh><MudTh Style="text-align:right">TARİH</MudTh></HeaderContent>
+                <HeaderContent><MudTh>FATURA NO</MudTh><MudTh Style="text-align:right">LİTRE</MudTh><MudTh Style="text-align:right">BİRİM FİYAT</MudTh><MudTh Style="text-align:right">TARİH</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
                     <MudTd>@Str(context, "invoiceDisplay")</MudTd>
                     <MudTd Style="text-align:right">@Str(context, "litersText")</MudTd>
                     <MudTd Style="text-align:right">@Str(context, "priceText")</MudTd>
                     <MudTd Style="text-align:right">@Str(context, "dateText")</MudTd>
+                    <MudTd Style="text-align:right">
+                        @if (Bool(context, "isCancelled")) { <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip> }
+                        else if (Auth.CanEdit("fuel"))
+                        {
+                            <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                       OnClick="@(() => CancelDepot(Str(context, "id")))">İptal Et</MudButton>
+                        }
+                    </MudTd>
                 </RowTemplate>
             </MudTable>
         }
@@ -162,8 +184,8 @@
     }
 
     private async Task ReloadSuppliers(string _) => _suppliers = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
-    private async Task LoadDist() { _dist = null; try { _dist = await Api.GetArrayAsync("/api/fuel"); } catch { _dist = Array.Empty<JsonElement>(); } }
-    private async Task LoadDepot() { _depot = null; try { _depot = await Api.GetArrayAsync("/api/fuel/depot"); } catch { _depot = Array.Empty<JsonElement>(); } }
+    private async Task LoadDist() { _dist = null; try { _dist = await Api.GetArrayAsync("/api/fuel?includeCancelled=" + (_showCancelled ? "true" : "false")); } catch { _dist = Array.Empty<JsonElement>(); } }
+    private async Task LoadDepot() { _depot = null; try { _depot = await Api.GetArrayAsync("/api/fuel/depot?includeCancelled=" + (_showCancelled ? "true" : "false")); } catch { _depot = Array.Empty<JsonElement>(); } }
     private async Task LoadSummary()
     {
         try
@@ -228,6 +250,31 @@
 
     private void ClearDist() { _vehicle = null; _lastVehicle = null; _prevMeter = _meter = _liters = 0; _price = _currentPrice; _person = null; _recipient = null; }
     private void ClearDepot() { _dLiters = 0; _dPrice = _currentPrice; _dSupplier = _dInvoice = null; }
+
+    // ── KAYIT İPTALİ (kullanıcı kararları Y1–Y5) — ortak FuelService/API; sayaç geri alınmaz ──
+    private bool _showCancelled;
+    private async Task ToggleCancelled(bool v) { _showCancelled = v; await LoadDist(); await LoadDepot(); }
+
+    private async Task CancelDist(string id) => await CancelFuel($"/api/fuel/{id}/cancel", LoadDist,
+        "Bu yakıt kaydı iptal edilecek. İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +
+        "Araç sayacı geri alınmaz. İşlem geri alınamaz. Devam etmek istiyor musunuz?");
+
+    private async Task CancelDepot(string id) => await CancelFuel($"/api/fuel/depot/{id}/cancel", LoadDepot,
+        "Bu depo girişi iptal edilecek. İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +
+        "İşlem geri alınamaz. Devam etmek istiyor musunuz?");
+
+    private async Task CancelFuel(string path, Func<Task> reload, string question)
+    {
+        if (!await Dialog.Confirm(question)) return;
+        var err = await Api.PostAsync(path, new Dictionary<string, object?> { ["reason"] = "Kullanıcı iptali" });
+        _ok = err is null;
+        _msg = err ?? "Kayıt iptal edildi.";
+        await reload();
+        await LoadSummary();
+    }
+
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Str(JsonElement row, string key)
