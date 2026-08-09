@@ -6,7 +6,38 @@
 > **Nasıl güncel kalır?** Claude her anlamlı değişiklikten sonra bu dosyayı günceller (bir madde bitince
 > "Tamamlananlar"a taşır, yeni iş çıkınca ekler). Özet burada; ayrıntı `docs/` ve `DEVAM.md`'de.
 >
-> Son güncelleme: **2026-08-08**
+> Son güncelleme: **2026-08-09**
+
+---
+
+## 📋 ONAYLI GELİŞTİRME SIRASI (kullanıcı kararı 2026-08-09, K1–K7)
+
+Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
+[docs/YARIM_ISLER_VE_EKRAN_STANDARDIZASYONU_ANALIZI.md](YARIM_ISLER_VE_EKRAN_STANDARDIZASYONU_ANALIZI.md)
+
+| # | İş | Durum |
+|---|---|---|
+| 1 | **Yakıt kaydı iptali** | ✅ YAYINLANDI (masaüstü 1.0.131) |
+| 2 | **Günlük Faaliyet → stok/bakım tutarlılığı** | ✅ YAYINLANDI (masaüstü 1.0.132) |
+| 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | ⏭️ SIRADAKİ — veri taşıyan migration, canlıya uygulanmadan önce DURULACAK |
+| 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | bekliyor |
+| 5 | Günlük Faaliyet + Bakım kaydı düzenleme | bekliyor |
+| 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | bekliyor |
+| 7 | Excel içe aktarma → Web | bekliyor |
+| 8 | Çoklu malzeme + şube sürüm kontrolü | bekliyor |
+| 9 | LookupBox ortak bileşeni | bekliyor |
+| 10 | Kolon kataloğu → Alan/Kolon Yönetimi | bekliyor |
+| 11 | Faz S (senkron performansı) / FK / benzersizlik | bekliyor |
+
+### ✅ 2 — Günlük Faaliyet iptali (2026-08-09, masaüstü 1.0.132)
+Faaliyet iptal edilince **bağlı bakım + malzeme çıkışları da aynı tek işlemde** iptal olur, malzemeler stoğa
+döner; bir adım başarısız olursa hiçbiri olmaz. "Sil" → **"İptal Et"**; onay penceresi etkiyi önceden yazar.
+İptal edilenler varsayılan gizli. Araç sayacı geri alınmaz, işlem geri alınamaz. Yetki servis katmanında.
+**Migration YOK.** Test: 825 geçti / 0 başarısız ·
+[test raporu](tests/GunlukFaaliyet_Iptal_Test_Report.md)
+
+**Bu iş sırasında bulunan ve düzeltilen ek hata:** `/api/daily/grid` ucu "İptal edilenleri göster" bayrağını
+iletmiyordu (web'de kutu işe yaramıyordu) — API'ye eklendi, Excel dışa aktarımı da ekranla aynı kümeyi verir.
 
 ---
 

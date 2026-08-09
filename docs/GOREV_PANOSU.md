@@ -10,7 +10,7 @@
 > **İlişki:** `DEVAM.md` = oturum girişi (kısa) · `docs/YARIM_KALAN_ISLER.md` = tüm bekleyen işler havuzu ·
 > **bu dosya = aktif paralel işlerin durumu ve devam noktaları.**
 >
-> Son güncelleme: **2026-07-23**
+> Son güncelleme: **2026-08-09**
 
 ---
 
@@ -177,11 +177,11 @@ bağımsız çalışır, babanın verisine dokunmaz** (normal uygulama geliştir
 **Amaç:** Geçiş sürerken babanın günlük kullandığı uygulamaya istenen geliştirmeleri yapmak.
 Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kaldığı için geçişten etkilenmez.
 
-- **Durum:** 🟢 DEVAM EDİYOR (backlog `docs/YARIM_KALAN_ISLER.md`).
-- **Nerede kaldık:** Son biten iş — **düzenleme kilidi** (Malzeme/Araç/Personel/Bakım Tanımı) + eşitleme
-  defter düzeltmesi; masaüstü **1.0.87 yayında**.
-- **Sıradaki adım (kullanıcı seçecek):** Giriş hız sınırı kararı · Giriş-Çıkış çoklu malzeme ·
-  makine bazlı güncelleme yetkisi · Yedek ekranları. Yeni istek geldikçe buraya eklenir.
+- **Durum:** 🟢 DEVAM EDİYOR — 11 adımlık **onaylı sıra** işletiliyor (bkz. `docs/YARIM_KALAN_ISLER.md` başı).
+- **Nerede kaldık (2026-08-09):** Sıranın **1. işi (Yakıt iptali, 1.0.131)** ve **2. işi (Günlük Faaliyet
+  iptali → bakım/stok tutarlılığı, 1.0.132)** yayınlandı. Her ikisinde de migration YOK, canlı veri değişmedi.
+- **Sıradaki adım:** **3 — M-S1a `company_id` migration'ı** (`material_request_items`, `maintenance_materials`).
+  ⚠️ Veri taşıyan migration → canlıya uygulanmadan önce **durulup kullanıcıya bildirilecek**.
 
 ---
 

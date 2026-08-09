@@ -27,7 +27,26 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09b — YAKIT İPTALİ YAYINLANDI, masaüstü 1.0.131)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09c — GÜNLÜK FAALİYET İPTALİ YAYINLANDI, masaüstü 1.0.132)
+
+### ✅ İŞ 2 — GÜNLÜK FAALİYET İPTALİ YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.132**
+Bir günlük faaliyet iptal edildiğinde **bağlı bakım kaydı ve malzeme çıkışları da aynı anda** iptal ediliyor;
+malzemeler stoğa geri dönüyor. Analiz: [docs/IS2_GUNLUK_FAALIYET_TUTARLILIK_ANALIZI.md](docs/IS2_GUNLUK_FAALIYET_TUTARLILIK_ANALIZI.md)
+- **Eski durum (sorun):** faaliyet siliniyor, bağlı bakım ve stoktan düşülen malzemeler öylece kalıyordu →
+  stok ve bakım geçmişi gerçekle uyuşmuyordu.
+- **Yeni durum:** hepsi **tek işlem**; bir adım bile başarısız olursa hiçbiri olmuyor (ya hepsi ya hiçbiri).
+- **Buton "Sil" → "İptal Et".** Onay penceresi ne olacağını önceden yazar: bağlı bakım + kaç adet malzeme
+  stoğa döneceği. **Araç sayacı geri alınmaz**, işlem geri alınamaz.
+- İptal edilenler listede **varsayılan gizli**; "İptal edilenleri göster" kutusuyla üstü çizili görünür.
+- "Bakım Ekibi Stoğundan Kullanıldı" satırları stoğa eklenmez (merkez depodan hiç düşülmemişti).
+- Yetki: **yalnız Günlük Faaliyet silme/iptal yetkisi** yeterli; kontrol servis katmanında — arayüz değiştirilerek
+  veya API doğrudan çağrılarak aşılamaz.
+- **Migration YOK** (`is_deleted`/`is_cancelled`/`version` zaten vardı). Testler: **825 geçti / 0 başarısız**.
+- Test raporu: [docs/tests/GunlukFaaliyet_Iptal_Test_Report.md](docs/tests/GunlukFaaliyet_Iptal_Test_Report.md)
+
+---
+
+### (önceki) YAKIT İPTALİ YAYINLANDI, masaüstü 1.0.131
 
 ### ✅ İŞ 1 — YAKIT KAYDI İPTALİ YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.131**
 Yanlış girilen yakıt kaydı artık **iptal edilebiliyor**. Analiz: [docs/IS1_YAKIT_IPTALI_ANALIZI.md](docs/IS1_YAKIT_IPTALI_ANALIZI.md)
@@ -1152,7 +1171,18 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **Aktif iş — Talep Faz 3 ONAY BEKLİYOR:** [docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md)
+> **SIRADAKİ (11 adımlık onaylı sıranın 3. maddesi): M-S1a `company_id` migration'ı** —
+> `material_request_items` ve `maintenance_materials` tablolarına firma kolonu eklenecek (çok-kiracı sızıntısı).
+> **Veri taşıyan migration olduğu için canlıya uygulanmadan ÖNCE durulup sana bildirilecek.**
+> Sonrası: 4) ortak düzenleme altyapısı + Personel/Talepler çift tık · 5) Günlük Faaliyet + Bakım düzenleme ·
+> 6) düzenleme kilitleri · 7) Excel → Web · 8) çoklu malzeme + şube sürüm kontrolü · 9) LookupBox ·
+> 10) kolon kataloğu → Alan/Kolon Yönetimi · 11) Faz S / FK / benzersizlik.
+> Sıra kaynağı: [docs/KARAR_ANALIZI_K1_K7.md](docs/KARAR_ANALIZI_K1_K7.md) ·
+> [docs/YARIM_ISLER_VE_EKRAN_STANDARDIZASYONU_ANALIZI.md](docs/YARIM_ISLER_VE_EKRAN_STANDARDIZASYONU_ANALIZI.md)
+>
+> ---
+>
+> **(Geçmiş bağlam) Talep Faz 3 ONAY BEKLİYOR:** [docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md](docs/FAZ3_ONCESI_KARAR_VE_RISK_ANALIZI.md)
 > sonundaki **15 maddelik onay listesi** cevaplanmadan Faz 3 kodlamasına başlanmaz. Önerilen sıra:
 > **Faz 3-Ön** (PostgreSQL eşzamanlılık düzeltmesi, migration yok) → Faz 3a (migration + servis) →
 > 3b masaüstü → 3c web → 3d transfer/iptal.
