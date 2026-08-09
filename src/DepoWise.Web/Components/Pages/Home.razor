@@ -33,8 +33,20 @@
         }
     </div>
 
-    @* ── Sayılı KPI/filtre kartları — tıklayınca o kategori listelenir ────────── *@
-    @if (_alerts is not null && _alerts.Count > 0)
+    @if (_alerts is null)
+    {
+        <div class="dw-kpis mb-6">
+            <div class="dw-kpi-skeleton"></div>
+            <div class="dw-kpi-skeleton"></div>
+            <div class="dw-kpi-skeleton"></div>
+            <div class="dw-kpi-skeleton"></div>
+        </div>
+    }
+
+    @* ── Sayılı KPI/filtre kartları — tıklayınca o kategori listelenir.
+       Uyarı sayısı 0 olsa da gösterilir: "0 · uyarı yok" da bir bilgidir ve
+       kartların yeri sabit kalır (filtre düğmesi görevi görüyorlar). ────────── *@
+    @if (_alerts is not null)
     {
         <div class="dw-kpis mb-6">
             @foreach (var k in Kinds)
@@ -157,59 +169,187 @@
 }
 
 <style>
-    /* ── KPI / filtre kartları ── */
-    .dw-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-    @@media (max-width: 900px) { .dw-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    .dw-kpi {
-        border-radius: 16px; padding: 15px 17px; cursor: pointer; user-select: none;
-        background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-        border: 1px solid var(--mud-palette-lines-default);
-        transition: background-color .15s ease, border-color .15s ease, transform .05s ease;
-    }
-    .dw-kpi:hover { background: color-mix(in srgb, var(--mud-palette-text-primary) 8%, transparent); }
-    .dw-kpi:active { transform: translateY(1px); }
-    .dw-kpi.active {
-        background: linear-gradient(140deg,
-            color-mix(in srgb, var(--mud-palette-primary) 20%, transparent),
-            color-mix(in srgb, var(--mud-palette-primary) 5%, transparent));
-        border-color: color-mix(in srgb, var(--mud-palette-primary) 34%, transparent);
-        box-shadow: 0 8px 22px color-mix(in srgb, var(--mud-palette-primary) 14%, transparent);
-    }
-    .dw-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .dw-kpi-label { font-size: .74rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-        color: var(--mud-palette-text-secondary); }
-    .dw-kpi.active .dw-kpi-label { color: var(--mud-palette-primary); }
-    .dw-kpi-icon { color: var(--mud-palette-text-secondary); }
-    .dw-kpi.active .dw-kpi-icon { color: var(--mud-palette-primary); }
-    .dw-kpi-value { font-size: 1.9rem; font-weight: 800; letter-spacing: -.03em; margin-top: 6px;
-        font-variant-numeric: tabular-nums; color: var(--mud-palette-text-primary); }
-    .dw-kpi-unit { font-size: .74rem; color: var(--mud-palette-text-secondary); margin-top: 1px; }
 
-    /* ── Uyarı satırı ── */
-    .dw-alert {
-        display: flex; align-items: center; gap: 13px; padding: 13px 15px;
-        border-radius: 14px; cursor: pointer;
-        transition: background-color .15s ease;
-    }
-    .dw-alert.crit { background: color-mix(in srgb, var(--mud-palette-error) 9%, transparent);
-        border: 1px solid color-mix(in srgb, var(--mud-palette-error) 26%, transparent); }
-    .dw-alert.crit:hover { background: color-mix(in srgb, var(--mud-palette-error) 14%, transparent); }
-    .dw-alert.warn { background: color-mix(in srgb, var(--mud-palette-warning) 9%, transparent);
-        border: 1px solid color-mix(in srgb, var(--mud-palette-warning) 24%, transparent); }
-    .dw-alert.warn:hover { background: color-mix(in srgb, var(--mud-palette-warning) 14%, transparent); }
-    .dw-alert-ico { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 11px;
-        display: flex; align-items: center; justify-content: center; }
-    .dw-alert.crit .dw-alert-ico { background: color-mix(in srgb, var(--mud-palette-error) 18%, transparent); color: var(--mud-palette-error); }
-    .dw-alert.warn .dw-alert-ico { background: color-mix(in srgb, var(--mud-palette-warning) 20%, transparent); color: var(--mud-palette-warning); }
+/* ── KPI / filtre kartları ────────────────────────────────────────────────── */
+.dw-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+@@media (max-width: 1100px) { .dw-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@@media (max-width: 600px)  { .dw-kpis { grid-template-columns: 1fr; } }
 
-    /* ── Masaüstü kartı ── */
-    .dw-hero {
-        border-radius: 20px;
-        border: 1px solid var(--mud-palette-lines-default);
-        background:
-            radial-gradient(420px 260px at 88% 6%, color-mix(in srgb, var(--mud-palette-primary) 18%, transparent) 0%, transparent 68%),
-            color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
-    }
+.dw-kpi {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    padding: 15px 17px 16px;
+    cursor: pointer;
+    user-select: none;
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
+    border: 1px solid var(--mud-palette-lines-default);
+    transition: background-color .16s ease, border-color .16s ease, transform .16s cubic-bezier(.22,1,.36,1), box-shadow .18s ease;
+    animation: dwKpiIn .34s cubic-bezier(.22,1,.36,1) both;
+}
+.dw-kpi:nth-child(2) { animation-delay: .05s; }
+.dw-kpi:nth-child(3) { animation-delay: .10s; }
+.dw-kpi:nth-child(4) { animation-delay: .15s; }
+@@keyframes dwKpiIn { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+
+.dw-kpi:hover {
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 7%, transparent);
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 26%, var(--mud-palette-lines-default));
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(4,8,16,.16);
+}
+.dw-kpi:active { transform: translateY(0); }
+.dw-kpi:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 2px; }
+
+/* Seçili kart — alt kenarda dolu marka çubuğu + ışıklı yüzey */
+.dw-kpi.active {
+    background: linear-gradient(150deg,
+        color-mix(in srgb, var(--mud-palette-primary) 18%, transparent),
+        color-mix(in srgb, var(--mud-palette-primary) 4%, transparent));
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 34%, transparent);
+    box-shadow: 0 10px 26px color-mix(in srgb, var(--mud-palette-primary) 16%, transparent);
+}
+.dw-kpi.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+    background: linear-gradient(90deg, var(--mud-palette-primary), color-mix(in srgb, var(--mud-palette-primary) 25%, transparent));
+}
+
+.dw-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dw-kpi-label {
+    font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: color .16s ease;
+}
+.dw-kpi.active .dw-kpi-label { color: var(--mud-palette-primary); }
+
+/* İkon artık çıplak değil — kendi plakasında durur */
+.dw-kpi-icon {
+    flex: none;
+    width: 30px; height: 30px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--mud-palette-text-primary) 6%, transparent);
+    border: 1px solid var(--mud-palette-lines-default);
+    color: var(--mud-palette-text-secondary);
+    transition: background-color .16s ease, color .16s ease, border-color .16s ease;
+}
+.dw-kpi:hover .dw-kpi-icon { color: var(--mud-palette-text-primary); }
+.dw-kpi.active .dw-kpi-icon {
+    background: color-mix(in srgb, var(--mud-palette-primary) 18%, transparent);
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
+    color: var(--mud-palette-primary);
+}
+
+.dw-kpi-value {
+    font-size: 2rem; font-weight: 800; letter-spacing: -.035em; line-height: 1.05;
+    margin-top: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--mud-palette-text-primary);
+}
+/* Sıfır, "veri yok" değil "sorun yok" demektir — sessizleştirilir, gizlenmez */
+.dw-kpi-value:has(+ .dw-kpi-unit) { color: var(--mud-palette-text-primary); }
+.dw-kpi-unit { font-size: .73rem; color: var(--mud-palette-text-secondary); margin-top: 3px; }
+
+/* Yükleniyor iskeleti (yalnız FAZ 5.2 uygulanırsa görünür) */
+.dw-kpi-skeleton {
+    border-radius: 16px; height: 104px;
+    border: 1px solid var(--mud-palette-lines-default);
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent) 0%,
+        color-mix(in srgb, var(--mud-palette-text-primary) 9%, transparent) 50%,
+        color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent) 100%);
+    background-size: 220% 100%;
+    animation: dwKpiShimmer 1.25s linear infinite;
+}
+.dw-kpi-skeleton:nth-child(2n) { animation-delay: .12s; }
+@@keyframes dwKpiShimmer { from { background-position: -180% 0; } to { background-position: 180% 0; } }
+
+/* ── Uyarı satırı ─────────────────────────────────────────────────────────── */
+.dw-alert {
+    position: relative;
+    display: flex; align-items: center; gap: 13px;
+    padding: 12px 15px 12px 17px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background-color .15s ease, transform .15s cubic-bezier(.22,1,.36,1), border-color .15s ease;
+    animation: dwAlertIn .3s cubic-bezier(.22,1,.36,1) both;
+}
+.dw-alert:nth-child(2) { animation-delay: .04s; }
+.dw-alert:nth-child(3) { animation-delay: .08s; }
+.dw-alert:nth-child(4) { animation-delay: .12s; }
+.dw-alert:nth-child(n+5) { animation-delay: .16s; }
+@@keyframes dwAlertIn { from { opacity: 0; transform: translate3d(-6px, 0, 0); } to { opacity: 1; transform: none; } }
+
+.dw-alert:hover { transform: translateX(3px); }
+
+/* Sol kenarda durum çubuğu — renk körlüğünde de ayırt edilir (kalınlık + ikon) */
+.dw-alert::before {
+    content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+    border-radius: 0 999px 999px 0;
+}
+.dw-alert.crit {
+    background: color-mix(in srgb, var(--mud-palette-error) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--mud-palette-error) 26%, transparent);
+}
+.dw-alert.crit::before { background: var(--mud-palette-error); }
+.dw-alert.crit:hover {
+    background: color-mix(in srgb, var(--mud-palette-error) 14%, transparent);
+    border-color: color-mix(in srgb, var(--mud-palette-error) 40%, transparent);
+}
+.dw-alert.warn {
+    background: color-mix(in srgb, var(--mud-palette-warning) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--mud-palette-warning) 24%, transparent);
+}
+.dw-alert.warn::before { background: var(--mud-palette-warning); }
+.dw-alert.warn:hover {
+    background: color-mix(in srgb, var(--mud-palette-warning) 14%, transparent);
+    border-color: color-mix(in srgb, var(--mud-palette-warning) 38%, transparent);
+}
+
+.dw-alert-ico {
+    width: 36px; height: 36px; flex: 0 0 auto; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+}
+.dw-alert.crit .dw-alert-ico {
+    background: color-mix(in srgb, var(--mud-palette-error) 18%, transparent);
+    color: var(--mud-palette-error);
+}
+.dw-alert.warn .dw-alert-ico {
+    background: color-mix(in srgb, var(--mud-palette-warning) 20%, transparent);
+    color: var(--mud-palette-warning);
+}
+/* Satır sonundaki ok — imleç satırın üstündeyken hafifçe ilerler */
+.dw-alert .mud-icon-root:last-child { transition: transform .18s cubic-bezier(.22,1,.36,1); }
+.dw-alert:hover .mud-icon-root:last-child { transform: translateX(3px); }
+/* "okundu" butonu sessiz durur, gerektiğinde belirir */
+.dw-alert .mud-button-root { opacity: .62; transition: opacity .15s ease; }
+.dw-alert:hover .mud-button-root { opacity: 1; }
+
+/* ── Masaüstü kurulum kartı ───────────────────────────────────────────────── */
+.dw-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid var(--mud-palette-lines-default);
+    background:
+        radial-gradient(460px 280px at 88% 4%, color-mix(in srgb, var(--mud-palette-primary) 20%, transparent) 0%, transparent 68%),
+        color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent);
+}
+.dw-hero::before {
+    content: ""; position: absolute; left: 24px; right: 24px; top: -1px; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mud-palette-primary) 55%, transparent), transparent);
+}
+
+/* ── Hareket azaltma tercihi ──────────────────────────────────────────────── */
+@@media (prefers-reduced-motion: reduce) {
+    .dw-kpi, .dw-alert { animation: none; }
+    .dw-kpi-skeleton { animation: none; }
+    .dw-kpi:hover, .dw-alert:hover { transform: none; }
+}
 </style>
 
 @code {
