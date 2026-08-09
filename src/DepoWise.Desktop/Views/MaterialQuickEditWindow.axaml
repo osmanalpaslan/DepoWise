@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:DepoWise.Desktop.Controls"
         x:Class="DepoWise.Desktop.Views.MaterialQuickEditWindow"
         Width="560" SizeToContent="Height" MaxHeight="720" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
@@ -22,17 +23,19 @@
                 <ComboBox  Grid.Row="1" Grid.Column="1" x:Name="TypeBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
                 <TextBlock Grid.Row="1" Grid.Column="2" Text="Kategori" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <StackPanel Grid.Row="1" Grid.Column="3" Spacing="4" Margin="0,4,0,4">
-                    <ComboBox x:Name="CatBox" Classes="Field" HorizontalAlignment="Stretch"/>
-                    <ComboBox x:Name="SubCatBox" Classes="Field" HorizontalAlignment="Stretch" PlaceholderText="Alt kategori (opsiyonel)"/>
+                    <!-- İş #9: aranabilir ortak seçim (LookupBox). Eskiden düz ComboBox'tı → yüzlerce
+                         kategori/marka/tedarikçi olan firmada kullanıcı arama yapamadan kaydırmak zorundaydı. -->
+                    <ctrl:LookupBox x:Name="CatBox" HorizontalAlignment="Stretch" PlaceholderText="Kategori seç / ara..."/>
+                    <ctrl:LookupBox x:Name="SubCatBox" HorizontalAlignment="Stretch" PlaceholderText="Alt kategori (opsiyonel)"/>
                 </StackPanel>
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Birim" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
-                <ComboBox  Grid.Row="2" Grid.Column="1" x:Name="UnitBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
+                <ctrl:LookupBox Grid.Row="2" Grid.Column="1" x:Name="UnitBox" HorizontalAlignment="Stretch" Margin="0,4,14,4" PlaceholderText="Birim seç / ara..."/>
                 <TextBlock Grid.Row="2" Grid.Column="2" Text="Marka" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
-                <ComboBox  Grid.Row="2" Grid.Column="3" x:Name="BrandBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,0,4"/>
+                <ctrl:LookupBox Grid.Row="2" Grid.Column="3" x:Name="BrandBox" HorizontalAlignment="Stretch" Margin="0,4,0,4" PlaceholderText="Marka seç / ara..."/>
 
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Tedarikçi" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
-                <ComboBox  Grid.Row="3" Grid.Column="1" x:Name="SupBox" Classes="Field" HorizontalAlignment="Stretch" Margin="0,4,14,4"/>
+                <ctrl:LookupBox Grid.Row="3" Grid.Column="1" x:Name="SupBox" HorizontalAlignment="Stretch" Margin="0,4,14,4" PlaceholderText="Tedarikçi seç / ara..."/>
                 <TextBlock Grid.Row="3" Grid.Column="2" Text="Mevcut Stok" Classes="Body" VerticalAlignment="Center" Margin="0,6,10,6"/>
                 <!-- madde 1.2: stok görüntülenebilir + (yetkiliyse) düzenlenebilir. Doğrudan değiştirilirse madde 1.3
                      güçlü uyarı + madde 1.4 log (kod-arkası). Yetki yoksa salt-okunur (IsEnabled=false). -->

@@ -51,7 +51,7 @@ Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
-**Sıradaki iş:** #9 — LookupBox ortak bileşeni (kalan ekranlarda aynı arama/seçim davranışı).
+**Sıradaki iş:** #10 — Kolon kataloğu → Alan/Kolon Yönetimi (önce analiz).
 
 ⚠️ **Yayında sıra önemli:** web bu yeni ekranları uzak API'den çağırır → **önce API (fly.toml),
 sonra web (fly.web.toml)** yayınlanmalı; yoksa web'de ekran açılır ama işlem yapamaz.

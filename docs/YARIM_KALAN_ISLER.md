@@ -26,8 +26,8 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | ✅ kod tamam (yayın bekliyor) |
 | 7 | Excel içe aktarma → Web | ✅ kod tamam (yayın bekliyor) — [rapor](tests/ExcelIceAktarim_Web_Test_Report.md) |
 | 8 | Çoklu malzeme + şube sürüm kontrolü | ✅ kod tamam (yayın bekliyor) — [rapor](tests/CokluMalzeme_Stok_Test_Report.md) |
-| 9 | LookupBox ortak bileşeni | ⏭️ SIRADAKİ |
-| 10 | Kolon kataloğu → Alan/Kolon Yönetimi | bekliyor |
+| 9 | LookupBox ortak bileşeni | ✅ kod tamam (yayın bekliyor) — [rapor](tests/LookupBox_Ortak_Bilesen_Test_Report.md) |
+| 10 | Kolon kataloğu → Alan/Kolon Yönetimi | ⏭️ SIRADAKİ |
 | 11 | Faz S (senkron performansı) / FK / benzersizlik | bekliyor |
 
 ### ✅ 3b — Paket 1: KD-1 + firma izolasyonu (2026-08-09, masaüstü 1.0.134)
@@ -37,6 +37,13 @@ düzeltildi. Ayrıca **8 firma izolasyonu açığı** kapatıldı (T-1…T-6, Y-
 eklendi (bu sınıf hatayı bundan sonra otomatik yakalar). PostgreSQL'deki flaky (kararsız) test de çözüldü.
 **Migration YOK.** Testler: SQLite 866/0 · PostgreSQL **35/0/0 atlandı**.
 [Uygulama raporu](PAKET1_UYGULAMA_RAPORU.md) · [plan](PAKET1_UYGULAMA_PLANI.md)
+
+**Sonradan çıkan bulgular (backlog'a eklendi, 2026-08-09):**
+- **P2 — Web'de lookup alanlarında arama yok.** Masaüstü İş #9'da ortak `LookupBox`'a geçirildi;
+  web aynı alanlarda `MudSelect` (aramasız) kullanıyor. Web'in kendi aranabilir deseni zaten var
+  (`Stock.razor` → `MudAutocomplete`); 18+ kontrolün dönüştürülmesi ayrı iş.
+- **P3 — `LookupBox`'ta "seçimi temizle" yok.** Opsiyonel alanda seçim geri alınamıyor.
+  Eski `ComboBox`ta da alınamıyordu → regresyon değil.
 
 **Kapsam dışı bırakılanlar (hâlâ açık):** Y-3 (latent, API ucu yok) · Y-4/Y-5 (ölü kod) ·
 Y-6 (`/api/materials` N+1 performans) · **D-1: `CLAUDE.md` satır 53-54 yanlış** ("sunucu SQLite" diyor,

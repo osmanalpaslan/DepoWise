@@ -47,9 +47,7 @@
                 <ctrl:FormField Label="Makine Tipi">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Types}" SelectedItem="{Binding SelType}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Types}" SelectedItem="{Binding SelType}" PlaceholderText="Makine tipi seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddTypeCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingType}">
@@ -62,9 +60,7 @@
                 <ctrl:FormField Label="Kategori">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelCategory}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelCategory}" PlaceholderText="Kategori seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddCatCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingCat}">
@@ -77,9 +73,7 @@
                 <ctrl:FormField Label="Marka">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelBrand}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Brands}" SelectedItem="{Binding SelBrand}" PlaceholderText="Marka seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddBrandCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingBrand}">
@@ -92,9 +86,7 @@
                 <ctrl:FormField Label="Model">
                     <StackPanel Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <ComboBox Grid.Column="0" Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding Models}" SelectedItem="{Binding SelModel}">
-                                <ComboBox.ItemTemplate><DataTemplate x:DataType="m:LookupItem"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <ctrl:LookupBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Models}" SelectedItem="{Binding SelModel}" PlaceholderText="Model seç / ara..."/>
                             <Button Grid.Column="1" Classes="Secondary" Content="+" IsVisible="{Binding CanAddLookup}" Width="40" Margin="8,0,0,0" Command="{Binding StartAddModelCommand}"/>
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto,Auto" IsVisible="{Binding IsAddingModel}">

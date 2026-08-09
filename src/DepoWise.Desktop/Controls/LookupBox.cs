@@ -35,6 +35,13 @@ public class LookupBox : UserControl
     public static readonly StyledProperty<string?> PlaceholderTextProperty =
         AvaloniaProperty.Register<LookupBox, string?>(nameof(PlaceholderText));
 
+    /// <summary>
+    /// Seçim değişti (İş #9, 2026-08-09). MVVM ekranları <c>SelectedItem</c> bağlayıp
+    /// <c>partial void On...Changed</c> kullanır; KOD-ARKASI ekranlar (hızlı düzenleme pencereleri)
+    /// için ComboBox'taki <c>SelectionChanged</c> ile aynı işi gören olay budur.
+    /// </summary>
+    public event EventHandler? SelectionChanged;
+
     public IEnumerable? ItemsSource { get => GetValue(ItemsSourceProperty); set => SetValue(ItemsSourceProperty, value); }
     public object? SelectedItem { get => GetValue(SelectedItemProperty); set => SetValue(SelectedItemProperty, value); }
     public string? DisplayMember { get => GetValue(DisplayMemberProperty); set => SetValue(DisplayMemberProperty, value); }
@@ -143,6 +150,8 @@ public class LookupBox : UserControl
         base.OnPropertyChanged(e);
         if (e.Property == SelectedItemProperty || e.Property == PlaceholderTextProperty || e.Property == DisplayMemberProperty)
             UpdateDisplay();
+        // Programatik atama da (ör. formu doldururken) olayı tetikler — ComboBox.SelectionChanged ile aynı davranış.
+        if (e.Property == SelectedItemProperty) SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void UpdateDisplay()

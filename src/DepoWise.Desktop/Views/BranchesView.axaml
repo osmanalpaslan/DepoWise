@@ -16,10 +16,11 @@
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <!-- Firma seçici: yalnız süper adminde. Liste + yeni şube bu firmaya göre çalışır. -->
                     <SelectableTextBlock Text="Firma:" Classes="Helper" VerticalAlignment="Center" IsVisible="{Binding IsSuperAdmin}"/>
-                    <ComboBox Classes="Field" Width="200" IsVisible="{Binding IsSuperAdmin}"
-                              ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:CompanyPick"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <!-- İş #9: ortak aranabilir seçim (LookupBox) — çok firmalı süper adminde düz liste
+                         kaydırma gerektiriyordu; diğer ekranlarla aynı davranış. -->
+                    <ctrl:LookupBox Width="200" IsVisible="{Binding IsSuperAdmin}"
+                                    ItemsSource="{Binding Companies}" SelectedItem="{Binding SelectedCompany}"
+                                    PlaceholderText="Firma seç / ara..."/>
                     <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>
@@ -44,9 +45,8 @@
                     </ctrl:FormField>
                 </StackPanel>
                 <ctrl:FormField Label="Üst Şube / Şantiye" Width="260" HelpText="Boş = en üst seviye. Kod+şifre login şube seçimi içindir.">
-                    <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="org:BranchRow"><SelectableTextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <ctrl:LookupBox HorizontalAlignment="Stretch" ItemsSource="{Binding ParentOptions}" SelectedItem="{Binding FormParent}"
+                                    PlaceholderText="Üst şube seç / ara... (boş = en üst)"/>
                 </ctrl:FormField>
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>

@@ -52,11 +52,13 @@ public partial class MaterialQuickEditWindow : Window
         var code = this.FindControl<TextBox>("CodeBox")!;
         var name = this.FindControl<TextBox>("NameBox")!;
         var typeBox = this.FindControl<ComboBox>("TypeBox")!;
-        var catBox = this.FindControl<ComboBox>("CatBox")!;
-        var subCatBox = this.FindControl<ComboBox>("SubCatBox")!;
-        var unitBox = this.FindControl<ComboBox>("UnitBox")!;
-        var brandBox = this.FindControl<ComboBox>("BrandBox")!;
-        var supBox = this.FindControl<ComboBox>("SupBox")!;
+        // İş #9: sabit tanım (lookup) alanları ana ekranlarla AYNI ortak bileşene geçirildi (aranabilir +
+        // sayfalı). "Tür" 5 sabit değerdir → ComboBox olarak KALIR (lookup değil, enum).
+        var catBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("CatBox")!;
+        var subCatBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("SubCatBox")!;
+        var unitBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("UnitBox")!;
+        var brandBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("BrandBox")!;
+        var supBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("SupBox")!;
         var minBox = this.FindControl<NumericUpDown>("MinBox")!;
         var priceBox = this.FindControl<NumericUpDown>("PriceBox")!;
         var descBox = this.FindControl<TextBox>("DescBox")!;

@@ -39,12 +39,14 @@ public partial class VehicleQuickEditWindow : Window
         var statusBox = this.FindControl<ComboBox>("StatusBox")!;
         var yearBox = this.FindControl<NumericUpDown>("YearBox")!;
         var noteBox = this.FindControl<TextBox>("NoteBox")!;
-        var typeBox = this.FindControl<ComboBox>("TypeBox")!;
-        var catBox = this.FindControl<ComboBox>("CatBox")!;
-        var brandBox = this.FindControl<ComboBox>("BrandBox")!;
-        var modelBox = this.FindControl<ComboBox>("ModelBox")!;
-        var branchBox = this.FindControl<ComboBox>("BranchBox")!;
-        var driverBox = this.FindControl<AutoCompleteBox>("DriverBox")!;
+        // İş #9: sabit tanım (lookup) alanları ana ekranlarla AYNI ortak bileşene geçirildi (aranabilir +
+        // sayfalı). "Durum" 3 sabit değerdir → ComboBox olarak KALIR (lookup değil, enum).
+        var typeBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("TypeBox")!;
+        var catBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("CatBox")!;
+        var brandBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("BrandBox")!;
+        var modelBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("ModelBox")!;
+        var branchBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("BranchBox")!;
+        var driverBox = this.FindControl<DepoWise.Desktop.Controls.LookupBox>("DriverBox")!;
         var chassisBox = this.FindControl<TextBox>("ChassisBox")!;
         var engineBox = this.FindControl<TextBox>("EngineBox")!;
         var codeText = this.FindControl<SelectableTextBlock>("CodeText")!;
@@ -70,7 +72,7 @@ public partial class VehicleQuickEditWindow : Window
         var drivers = Load(() => DesktopServices.Lookups.ListPersonnel(session));
         typeBox.ItemsSource = types; catBox.ItemsSource = cats; brandBox.ItemsSource = brands;
         branchBox.ItemsSource = branches; driverBox.ItemsSource = drivers;
-        driverBox.AsyncPopulator = (search, _) => Task.FromResult(SelectionSearch.Apply(drivers, search, o => o.Name).Cast<object>());
+        // LookupBox aramayı/sayfalamayı kendi yapar (LookupPaging) → ayrı AsyncPopulator gerekmez.
 
         VehicleDetail? d = null;
         try { d = DesktopServices.Vehicles.Get(session, vehicleId); } catch { }
