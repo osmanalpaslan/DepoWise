@@ -27,7 +27,22 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09c — GÜNLÜK FAALİYET İPTALİ YAYINLANDI, masaüstü 1.0.132)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09d — FİRMA İZOLASYONU (M-S1a) YAYINLANDI, masaüstü 1.0.133)
+
+### ✅ M-S1a — FİRMA VERİ İZOLASYONU YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.133**
+Talep kalemleri ve bakım malzemeleri artık **firmaya bağlı**. İleride aynı sistemde birden fazla firma
+kullanıldığında bir firmanın kayıtlarının diğerine geçmesi **şema düzeyinde** engellendi.
+- **Canlı migration uygulandı:** şema 61 → **62**. 2 talep kalemi doğru firmaya taşındı (Oze İnşaat).
+- **Kaybolan kayıt 0 · yanlış firma 0 · boş firma 0 · çözülemeyen 0.** Diğer tüm tablo sayıları aynı.
+- **Kanıt:** DEPOWISE firmasının eşitleme paketinde diğer firmanın kalemleri artık YOK (migration öncesi vardı).
+- **Geri dönüş noktası:** Neon `pre-ms1a` dalı duruyor (silinmedi).
+- Masaüstü: gerçek bir veritabanı dosyasının **kopyasında** 56→62 zinciri sorunsuz çalıştı, veri korundu.
+  ⚠️ Babanın kendi makinesindeki dosyaya erişimim yok — orası 1.0.133’e güncellendiğinde migrate olacak.
+- Raporlar: [ön](docs/MS1A_PRE_MIGRATION_RAPORU.md) · [sonuç](docs/MS1A_MIGRATION_SONRASI_RAPORU.md)
+
+---
+
+### (önceki) GÜNLÜK FAALİYET İPTALİ, masaüstü 1.0.132
 
 ### ✅ İŞ 2 — GÜNLÜK FAALİYET İPTALİ YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.132**
 Bir günlük faaliyet iptal edildiğinde **bağlı bakım kaydı ve malzeme çıkışları da aynı anda** iptal ediliyor;
@@ -1171,11 +1186,11 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **AKTİF: M-S1a — ONAYIN BEKLENİYOR.** `material_request_items` + `maintenance_materials` tablolarına
-> firma kolonu: **kod ve testler hazır, canlıya UYGULANMADI.** Ön rapor:
-> [docs/MS1A_PRE_MIGRATION_RAPORU.md](docs/MS1A_PRE_MIGRATION_RAPORU.md).
-> ⚠️ **API yayınlamak = canlı migration** (API açılışta migration çalıştırır) → onayın gelmeden yayınlanmayacak.
-> Canlıda taşınacak satır: 2 (ikisi de Oze İnşaat), çözülemeyen: 0. Testler: 14/14 SQLite, 6/6 PostgreSQL, takım 839/0.
+> **SIRADAKİ (onaylı sıranın 4. maddesi): ortak düzenleme altyapısı + Personel/Talepler çift tık.**
+>
+> ⚠️ **Kapsam dışı, AÇIK bir hata var (KD-1):** sunucuda `/api/stock` ve `/api/stock/movements` **500**
+> veriyor (sıralamada SQLite'a özel `rowid`, PostgreSQL'de yok). 2026-08-05'ten beri var, M-S1a ile ilgisiz.
+> "Stok Hareketleri" listesi sunucu/web'de açılmıyor; masaüstü etkilenmiyor. Sen ne zaman istersen düzeltilir.
 > Sonrası: 4) ortak düzenleme altyapısı + Personel/Talepler çift tık · 5) Günlük Faaliyet + Bakım düzenleme ·
 > 6) düzenleme kilitleri · 7) Excel → Web · 8) çoklu malzeme + şube sürüm kontrolü · 9) LookupBox ·
 > 10) kolon kataloğu → Alan/Kolon Yönetimi · 11) Faz S / FK / benzersizlik.

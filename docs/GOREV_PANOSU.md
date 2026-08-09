@@ -180,10 +180,13 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
 - **Durum:** 🟢 DEVAM EDİYOR — 11 adımlık **onaylı sıra** işletiliyor (bkz. `docs/YARIM_KALAN_ISLER.md` başı).
 - **Nerede kaldık (2026-08-09):** Sıranın **1. işi (Yakıt iptali, 1.0.131)** ve **2. işi (Günlük Faaliyet
   iptali → bakım/stok tutarlılığı, 1.0.132)** yayınlandı. Her ikisinde de migration YOK, canlı veri değişmedi.
-- **Sıradaki adım — M-S1a ONAY BEKLİYOR:** `material_request_items` + `maintenance_materials` firma kolonu.
-  Kod + testler hazır (14/14 SQLite · 6/6 PostgreSQL · takım 839/0), **canlıya UYGULANMADI**.
-  ⚠️ API yayınlamak migration'ı çalıştırır → kullanıcı onayı olmadan yayın YOK.
-  Ön rapor: [MS1A_PRE_MIGRATION_RAPORU.md](MS1A_PRE_MIGRATION_RAPORU.md).
+- **Son biten iş (2026-08-09): M-S1a firma izolasyonu YAYINLANDI** — masaüstü **1.0.133**.
+  Canlı migration 61→62 uygulandı; 2 kalem doğru firmaya taşındı, kayıp/yanlış firma/çözülemeyen = 0.
+  Geri dönüş noktası **Neon `pre-ms1a` dalı** duruyor (silinmedi).
+  [Sonuç raporu](MS1A_MIGRATION_SONRASI_RAPORU.md) · [Ön rapor](MS1A_PRE_MIGRATION_RAPORU.md)
+- **Sıradaki adım:** onaylı sıranın **4. maddesi** — ortak düzenleme altyapısı + Personel/Talepler çift tık.
+- ⚠️ **Açık hata (kapsam dışı, KD-1):** `/api/stock` ve `/api/stock/movements` sunucuda 500
+  (`sm.rowid` PostgreSQL'de yok). M-S1a ile ilgisiz, 2026-08-05'ten beri var.
 
 ---
 

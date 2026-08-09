@@ -19,8 +19,8 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 |---|---|---|
 | 1 | **Yakıt kaydı iptali** | ✅ YAYINLANDI (masaüstü 1.0.131) |
 | 2 | **Günlük Faaliyet → stok/bakım tutarlılığı** | ✅ YAYINLANDI (masaüstü 1.0.132) |
-| 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | 🟡 KOD + TESTLER HAZIR — [ön rapor](MS1A_PRE_MIGRATION_RAPORU.md) · **canlı migration KULLANICI ONAYI bekliyor** |
-| 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | bekliyor |
+| 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | ✅ YAYINLANDI (masaüstü 1.0.133) — [sonuç raporu](MS1A_MIGRATION_SONRASI_RAPORU.md) |
+| 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | ⏭️ SIRADAKİ |
 | 5 | Günlük Faaliyet + Bakım kaydı düzenleme | bekliyor |
 | 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | bekliyor |
 | 7 | Excel içe aktarma → Web | bekliyor |
@@ -28,6 +28,20 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 9 | LookupBox ortak bileşeni | bekliyor |
 | 10 | Kolon kataloğu → Alan/Kolon Yönetimi | bekliyor |
 | 11 | Faz S (senkron performansı) / FK / benzersizlik | bekliyor |
+
+### ✅ 3 — M-S1a firma izolasyonu (2026-08-09, masaüstü 1.0.133)
+`material_request_items` + `maintenance_materials` tablolarına **firma kolonu** eklendi (NOT NULL, varsayılan yok).
+Canlıda 2 kalem doğru firmaya taşındı; silinen/kaybolan kayıt 0, çözülemeyen 0, yanlış firma 0, şema 61→62.
+Eşitleme paketi artık yalnız kendi firmasının satırlarını taşıyor (canlıda doğrulandı).
+Geri dönüş noktası: Neon `pre-ms1a` dalı duruyor.
+[Ön rapor](MS1A_PRE_MIGRATION_RAPORU.md) · [Sonuç raporu](MS1A_MIGRATION_SONRASI_RAPORU.md)
+
+**KAPSAM DIŞI, AÇIK KALDI (KD-1):** sunucuda `/api/stock` ve `/api/stock/movements` **500** veriyor —
+sıralamada SQLite'a özel `rowid` kullanılıyor, PostgreSQL'de yok. 2026-08-05'ten beri var, M-S1a ile ilgisiz.
+Ayrıca açık: **M-S1b** (`request_status_history`, `maintenance_definition_vehicles` firma kolonu) ·
+**M-S1c** (yeni tabloda firma kolonu unutulmasın kontrolü) · **M-S1d** (eşitlemede üst kayıt firma doğrulaması).
+
+---
 
 ### ✅ 2 — Günlük Faaliyet iptali (2026-08-09, masaüstü 1.0.132)
 Faaliyet iptal edilince **bağlı bakım + malzeme çıkışları da aynı tek işlemde** iptal olur, malzemeler stoğa
