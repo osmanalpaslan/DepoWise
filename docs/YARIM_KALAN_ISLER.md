@@ -10,11 +10,14 @@
 
 ---
 
-## 🎨 TASARIM PAKETİ (FAZ 1–9 web + M1–M5 masaüstü) — dalda hazır, birleştirme bekliyor
+## 🎨 TASARIM PAKETİ (FAZ 1–9 web + M1–M5 masaüstü) — ✅ YAYINLANDI (2026-08-09)
 
+**Yayın:** `master`'a birleştirildi → web deploy (`depowise-web.fly.dev`, giriş ekranı canlıda
+doğrulandı, konsol hatası yok) → **masaüstü 1.0.136** (`/api/releases/latest` = 1.0.136, indirme 200).
+**API deploy gerekmedi** — servis/uç/migration değişmedi. Sunucu diski %40 (553 MB boş).
 **Dal:** `feature/tasarim-faz1-9-ve-M1-M5` · **geri dönüş etiketi:** `tasarim-oncesi-20260809`
-**Yalnız görünüm** — iş kuralı/veri/yetki/API değişmedi, **migration yok**, canlıya çıkmadı.
-Build 0 hata · test 984 geçti / 0 başarısız / 33 atlandı · görsel kontrol kullanıcıda yapıldı.
+**Yalnız görünüm** — iş kuralı/veri/yetki/API değişmedi, **migration yok**.
+Build 0 hata · test 984 geçti / 0 başarısız / 33 atlandı.
 
 | Faz | Kapsam | Durum |
 |---|---|---|

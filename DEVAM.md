@@ -27,11 +27,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09i — tasarım paketi dalda, birleştirme bekliyor)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09j — TASARIM PAKETİ YAYINLANDI)
 
-### 🟡 TASARIM PAKETİ (FAZ 1–9 web + M1–M5 masaüstü) — dalda hazır, `master`'a **birleştirilmedi**
+### ✅ TASARIM PAKETİ (FAZ 1–9 web + M1–M5 masaüstü) — **YAYINLANDI (2026-08-09)**
 Görünüm/tasarım işi tek oturumda uygulandı. **Yalnız görünüm** — iş kuralı, veri, yetki, API
-değişmedi; **migration yok**, **canlıya çıkmadı**.
+değişmedi; **migration YOK**.
+- **Yayın:** `master`'a birleştirildi → **web deploy edildi** (`depowise-web.fly.dev`, giriş ekranı
+  canlıda doğrulandı, konsol hatası yok) → **masaüstü 1.0.136** yayınlandı
+  (`/api/releases/latest` = 1.0.136 doğrulandı, indirme ucu 200).
+  **API deploy GEREKMEDİ** — bu işte hiçbir servis/uç/migration değişmedi.
 - **Dal:** `feature/tasarim-faz1-9-ve-M1-M5` (14 commit, her faz ayrı commit).
 - **Geri dönüş noktası:** `tasarim-oncesi-20260809` etiketi — `master` bu işten hiç etkilenmedi.
 - **Web (9 faz):** giriş ekranı · `app.css` ortak tasarım dili · Araç Listesi (renkli durum rozeti,
@@ -1264,9 +1268,9 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **SIRADAKİ: masaüstü kenar menüsündeki emoji ikonlar (M2.5) — karar ver, sonra tasarım dalını
-> `master`'a birleştir.** Menüdeki ikonlar şu an emoji; vektör ikona çevrilsin mi çevrilmesin mi
-> kararı bekliyor. Karar sonrası `feature/tasarim-faz1-9-ve-M1-M5` birleştirilip yayınlanır.
+> **SIRADAKİ: masaüstü kenar menüsündeki emoji ikonlar (M2.5) — karar bekliyor.**
+> Menüdeki ikonlar şu an emoji; vektör ikona çevrilsin mi çevrilmesin mi kararı verilmedi.
+> Tasarım paketinin geri kalanı yayınlandı (web + masaüstü 1.0.136); bu madde ayrı ve bağımsız bir iş.
 >
 > ---
 >
