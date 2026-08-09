@@ -58,7 +58,12 @@
   **Masaüstü SQLite'ta KALIR** (çevrimdışı çalışma bundan gelir) — şema aynı migration kataloğuyla yürür.
   Lehçe farkları `SqlDialect` / `DbIntrospect` / `DialectPurge` içinde toplanmıştır; iki lehçe de test edilir.
 - Web ve masaüstü işlevsel olarak eşit; piksel eşitliği zorunlu değil.
-- API `/api/v1`, ortak hata modeli, correlation id, OpenAPI sözleşmesi.
+- API uçları **`/api/...`** altındadır (sürüm öneki YOKTUR — `/api/v1` kullanılmaz).
+  **Ortak hata modeli VARDIR:** tek bir middleware istisnaları HTTP koduna çevirir ve gövdeyi
+  `{"error": "..."}` olarak yazar (403 yetki, 409 düzenleme kilidi, 400 iş kuralı/doğrulama, 500 diğer).
+  **Correlation id ve OpenAPI/Swagger sözleşmesi YOKTUR** (D-1b, 2026-08-09 doğrulandı — kodda ne
+  `correlation` başlığı ne de Swagger paketi var). İhtiyaç olursa ayrı iş olarak eklenir; bu satır
+  "yapılacak" değil, **mevcut durumdur**.
 - `company_id` yalnız güvenilir session/server context'ten gelir.
 - Para decimal + currency; zaman UTC/Unix ms; sorgular parametreli.
 - Stok hareket defteri ana kaynaktır; doğrudan bakiye değiştirme yok.

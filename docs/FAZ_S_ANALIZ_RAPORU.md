@@ -79,25 +79,61 @@ toplu okuma tek-tek okumayla **birebir aynı** sonucu veriyor · hareketi olmaya
 Bu tablolara yazan servisler **ebeveyn sahipliğini doğruluyor** (Paket 1'de T-1…T-6, Y-1, Y-2 ile
 kapatıldı). Yani bilinen aktif bir sızıntı yok; kolon eklemek **derinlemesine savunma** olur.
 
-## 🛑 DURULDU — migration gerektiriyor
+## ✅ CANLI SALT-OKUMA TARAMASI YAPILDI (2026-08-09)
 
-Eksik FK eklemek ya da yukarıdaki tablolara `company_id` eklemek **şema değişikliğidir**.
-Talimatınız gereği uygulanmadı. Onay isterseniz gereken bilgiler:
+`depowise_prod` üzerinde **yalnız SELECT**. Kanıt: oturum `SET TRANSACTION READ ONLY` ile açıldı ve
+bir yazma denemesi **SqlState 25006 ile reddedildi**; ardından transaction geri alındı.
+Hiçbir INSERT/UPDATE/DELETE/ALTER/VACUUM/migration çalıştırılmadı.
 
-1. **Neden gerekli?** Yalnız derinlemesine savunma ve veri tutarlılığı — bilinen aktif bir hata yok.
-2. **Hangi tablolar?** Yukarıdaki ❌ satırları (M-S1b kapsamı dahil).
-3. **Ne değişir?** Yeni `company_id` kolonu + index; bazı yerlerde yeni FK.
-4. **Risk?** **Önce canlıda öksüz (orphan) kayıt taraması ZORUNLU.** Ebeveyni silinmiş bir çocuk
-   satır varsa FK eklenemez; migration yarıda kalır.
-5. **Öksüz/duplicate veri var mı?** **BİLİNMİYOR** — canlı veritabanına salt-okuma sorgusu gerekiyor.
-   Bu rapor hazırlanırken canlıya bağlanılmadı.
-6. **Büyüklük?** M-S1a'ya benzer (2 tablo) değil; burada 6–7 tablo → **daha büyük**.
-7. **Geri alınabilir mi?** Evet — M-S1a'daki gibi kolon düşürme betiği yazılabilir (SQLite'ta önce
-   index düşürülmeli; bu ders M-S1a'da alındı).
-8. **SQLite/PostgreSQL uyumu?** M-S1a deseni: PG'de `ADD COLUMN → backfill → SET NOT NULL`,
-   SQLite'ta tablo yeniden kurulur. Kanıtlanmış yöntem.
-9. **Kesinti?** Beklenmiyor (migration API açılışında koşar), ama tablo sayısı arttığı için süre uzar.
-10. **Yayın sırası?** Önce API (migration onunla koşar), sonra web, sonra masaüstü paketi.
+### Sonuç: canlı veri TAMAMEN TEMİZ
+
+| Tarama | Sonuç |
+|---|---|
+| Öksüz (orphan) kayıt — 15 ebeveyn-çocuk bağı | **0** |
+| Firmalar arası bağ (bir çocuğun iki ebeveyni farklı firmada) — 7 kontrol | **0** |
+| `company_id` geri doldurulamayan satır — 7 kontrol | **0** |
+
+### Canlıda GERÇEKTEN VAR OLAN FK sayısı: **54**
+
+Analizin ilk hâlinde "eksik FK" sanılanların büyük kısmı **zaten mevcut**:
+`material_equivalents`, `maintenance_definition_vehicles`, `stock_count_lines`,
+`vehicle_template_materials`, `request_status_history`, `user_roles` — hepsinin FK'leri kurulu.
+
+**Tek gerçek eksik FK:** `material_compatible_vehicles.vehicle_id → vehicles.id`
+(kodda zaten "Faz 08'de eklenecek" notu var, bilinçli ertelenmiş).
+
+### 🔎 Migration'ın GEREKÇESİ ÇÜRÜDÜ — hazırlanmadı
+
+M-S1a'da `company_id` eklemenin somut gerekçesi vardı: `BusinessSyncService` snapshot'ı firma
+filtresini **yalnız company_id kolonu olan tablolara** uygular; o iki tablo filtresiz gidiyordu.
+
+Bu tur kontrol edildi: **`BusinessSyncService.Tables` listesi 22 tablodur ve aday çocuk tabloların
+HİÇBİRİ bu listede değildir.** Yani bu tablolar snapshot'a hiç girmiyor → M-S1a'daki sızıntı yolu
+bunlar için **yok**.
+
+Buna ek olarak:
+
+| Tablo | Canlı satır sayısı |
+|---|---|
+| `material_equivalents` · `material_compatible_vehicles` · `maintenance_definition_vehicles` | **0** |
+| `stock_count_lines` · `vehicle_template_materials` · `request_status_history` · `maintenance_materials` | **0** |
+| `user_roles` | 8 |
+
+Ve servis katmanı ebeveyn sahipliğini zaten doğruluyor (Paket 1: T-1…T-6, Y-1, Y-2).
+
+**Üç şey birden doğru:** sızıntı yolu yok · tablolar boş · FK'ler zaten kurulu.
+Bu durumda `company_id` migration'ı **gösterilmiş bir problemi çözmüyor**. Bu yüzden
+migration dosyası **hazırlanmadı** — "çalışan şemayı gerekçesiz değiştirme" kuralı gereği.
+
+### Kararınıza kalan tek şey (küçük)
+
+`material_compatible_vehicles.vehicle_id` FK'si. Tablo **boş** olduğu için eklenmesi risksiz;
+faydası, ileride silinmiş bir araca işaret eden satırı şemanın engellemesi. Yine de **şema
+değişikliğidir** → onayınız olmadan hazırlanmadı/çalıştırılmadı.
+
+> ℹ️ Önemli işletim notu: bu projede migration'lar **API açılışında otomatik koşar**
+> (`MigrationRunner`). Yani bir migration dosyasını kataloğa eklemek, **bir sonraki API deploy'unda
+> çalışacağı** anlamına gelir. Bu yüzden onaysız migration dosyası eklenmedi.
 
 ---
 
@@ -138,14 +174,20 @@ Gereksiz index bulunmadı.
 
 ---
 
-# Sonuç ve öneri
+# Sonuç ve öneri (2026-08-09 canlı tarama sonrası güncellendi)
 
-**Şu an uygulanan:** yalnız #11-A'daki N+1 düzeltmesi (küçük, testli, geri alınabilir, migration yok).
+**Uygulanan:** yalnız #11-A'daki N+1 düzeltmesi (küçük, testli, geri alınabilir, migration yok).
+Doğrulama: SQLite 964 yeşil · **PostgreSQL 42 yeşil, 0 atlandı** · toplu okuma tek-tek okumayla birebir aynı.
 
-**Onayınızı bekleyen (hiçbiri uygulanmadı):**
-1. Canlıda **salt-okuma öksüz/duplicate taraması** — FK kararı bunsuz verilemez.
-2. Kalan çocuk tablolara `company_id` (M-S1b dahil) — derinlemesine savunma.
-3. Eksik FK index'leri.
+**Yapılan ama uygulanmayan:** canlı salt-okuma tarama (yukarıda) — **veri temiz çıktı**.
 
-**Önerim:** önce (1) — salt-okuma, risksiz, ve (2)/(3)'ün gerçekten gerekip gerekmediğini
-belirleyecek tek şey o. Öksüz kayıt yoksa migration basit; varsa önce veri onarımı gerekir.
+**Migration hazırlanmadı** çünkü tarama gerekçeyi çürüttü: aday tablolar eşitleme kapsamında değil,
+canlıda boş, FK'leri zaten kurulu ve servis katmanı sahipliği doğruluyor.
+
+**Kararınıza kalan tek madde:** `material_compatible_vehicles.vehicle_id` FK'si — küçük, risksiz,
+ama yine de şema değişikliği. "Ekle" derseniz migration'ı hazırlarım; **çalıştırmak yine ayrı onay
+ister** (API deploy'u ile otomatik koşacağı için).
+
+**M-S1b / M-S1d hakkında:** M-S1b'nin gerekçesi de aynı taramayla zayıfladı
+(`request_status_history` eşitlenmiyor, canlıda 0 satır, FK'si var). Yeniden değerlendirilmeli;
+"migration gerektiren bekleyen iş" olarak listede tutmak artık yanıltıcı.

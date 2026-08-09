@@ -2,10 +2,19 @@
 
 **Son güncelleme:** 2026-07-12 (ADR-064…074; faz gövdesi tarihseldir)
 **Aktif faz:** Faz 17 sonrası — kullanıcı geri bildirimi + canlı yayın cilası
-**Durum:** **Backend/iş mantığı YAYIN ADAYI**; **267 test yeşil**, **migration 034**. Web + API canlı
-(`depowise-web.fly.dev` / `depowise-erp.fly.dev`, Blazor/SQLite — ADR-057). **Masaüstü 1.0.46 yayında.**
-**Bekleyen iş yok** (bkz. `docs/YARIM_KALAN_ISLER.md`). **NOT: R4/R7 (PostgreSQL) yayın engeli DEĞİL** —
-sistem uçtan uca SQLite; PostgreSQL yalnız ölçek gerekirse (ADR-057, MALIYET_KALEMLERI #2).
+**Durum (GÜNCEL — 2026-08-09, D-1c ile gerçekle eşlendi):** Web + API canlı
+(`depowise-web.fly.dev` / `depowise-erp.fly.dev`, **Blazor Server + PostgreSQL**). **Masaüstü 1.0.134 yayında.**
+**Sunucu/web veritabanı 2026-07-24'ten beri PostgreSQL'dir** (Neon `depowise_prod`); **masaüstü SQLite'ta
+KALIR** (çevrimdışı çalışma bundan gelir). Şema sürümü **62**. Testler: SQLite 964 yeşil · PostgreSQL 42 yeşil.
+Bekleyen işler: `docs/YARIM_KALAN_ISLER.md`.
+
+> ⚠️ Aşağıdaki satırların bir kısmı **tarihsel kayıttır** (o günkü durumu anlatır) ve bilinçli olarak
+> değiştirilmemiştir. Güncel mimari için yukarıdaki paragraf ve `CLAUDE.md` §4 bağlayıcıdır.
+> Özellikle "sistem uçtan uca SQLite / PostgreSQL yalnız ölçek gerekirse" (ADR-057) ifadeleri **ARTIK
+> GEÇERLİ DEĞİLDİR** — ADR-057 sonrası PostgreSQL geçişi yapıldı ve canlıya alındı.
+
+**(tarihsel, 12.07)** Backend/iş mantığı YAYIN ADAYI; 267 test yeşil, migration 034; masaüstü 1.0.46.
+R4/R7 (PostgreSQL) o tarihte yayın engeli sayılmıyordu — sistem uçtan uca SQLite'tı.
 
 **Bu oturumun (12.07) kalıcı mimari sonuçları — yeni geliştiricinin bilmesi gerekenler:**
 - **Süper admin hiçbir koşulda kilitlenemez** (ADR-064/068): firma silme onu pasife almaz; sunucu açılışında

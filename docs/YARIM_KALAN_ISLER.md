@@ -45,9 +45,17 @@ eklendi (bu sınıf hatayı bundan sonra otomatik yakalar). PostgreSQL'deki flak
 - **P3 — `LookupBox`'ta "seçimi temizle" yok.** Opsiyonel alanda seçim geri alınamıyor.
   Eski `ComboBox`ta da alınamıyordu → regresyon değil.
 
-**Kapsam dışı bırakılanlar (hâlâ açık):** Y-3 (latent, API ucu yok) · Y-4/Y-5 (ölü kod) ·
+**Y-3 / Y-4 / Y-5 yeniden değerlendirildi (2026-08-09, kod üzerinden):**
+- **Y-3** `VehicleTemplateService.GetMaterials` — tek çağıran hâlâ masaüstü ViewModel'i; **API ucu YOK**
+  → dışarıdan erişilemiyor. **Latent, P3.** Kod değiştirilmedi.
+- **Y-4/Y-5 "ölü kod" sınıflaması YANLIŞ ÇIKTI.** `OpeningStockService.GetBalance` 5+ testte,
+  `BranchRepository.SoftDelete` `DatabaseFoundationTests`'te (tenant davranışının regresyon kalkanı)
+  **aktif kullanılıyor**. **SİLİNMEMELİ** — silmek testleri kırardı.
+
+**Kapsam dışı bırakılanlar (hâlâ açık):** Y-3 (latent, API ucu yok) ·
 Y-6 (`/api/materials` N+1 performans) · **D-1: `CLAUDE.md` satır 53-54 yanlış** ("sunucu SQLite" diyor,
-gerçekte PostgreSQL) · M-S1b (`request_status_history` + 5 tablo firma kolonu, **migration gerektirir**) ·
+gerçekte PostgreSQL) · M-S1b (⚠️ **gerekçesi 2026-08-09 canlı taramasıyla ZAYIFLADI** — `request_status_history` eşitleme
+kapsamında değil, canlıda **0 satır**, FK'si zaten var; bkz. [FAZ_S_ANALIZ_RAPORU](FAZ_S_ANALIZ_RAPORU.md)) ·
 M-S1d (eşitlemede üst kayıt firma doğrulaması).
 
 ---
