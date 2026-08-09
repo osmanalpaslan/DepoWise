@@ -2035,7 +2035,7 @@ app.MapPut("/api/requests/{id}", (HttpContext c, string id, RequestDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var items = (d.Items ?? new()).Select(i => new DepoWise.Infrastructure.Requests.RequestItemInput(i.MaterialId, i.Quantity, i.VehicleId, Doc(i.Note))).ToList();
-    svc.Requests.Update(s, id, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately, DepoWise.Application.Requests.RequestPriorityInfo.FromDb(d.Priority)));
+    svc.Requests.Update(s, id, new DepoWise.Infrastructure.Requests.NewRequest(items, d.BranchId, d.RequesterId, d.WarehouseId, d.ApproverId, Doc(d.Description), d.RequestDate, d.SubmitImmediately, DepoWise.Application.Requests.RequestPriorityInfo.FromDb(d.Priority)), expectedVersion: d.Version);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 app.MapPost("/api/requests/{id}/approve", (HttpContext c, string id) =>
@@ -2108,7 +2108,7 @@ app.MapGet("/api/requests/{id}/pdf", (HttpContext c, string id, bool? economic) 
 app.MapDelete("/api/personnel/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Lookups.Delete(s, "personnel", id)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/branches/{id}", (HttpContext c, string id, BranchDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)), d.CompanyId)) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Update(s, id, new DepoWise.Infrastructure.Organization.NewBranch(d.Name, string.IsNullOrWhiteSpace(d.Kind) ? "branch" : d.Kind!, d.ParentId, Doc(d.Code), Doc(d.Password)), d.CompanyId, d.Version)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/branches/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Branches.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 
@@ -2451,7 +2451,7 @@ record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranı
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId, List<string>? VehicleTypeIds, List<string>? MaintenanceDefIds, List<string>? TechnicianIds, List<string>? SupplierIds, List<string>? RequesterIds, List<string>? Statuses);
-record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null);
+record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
 record DeveloperDto(string? Code, bool Active);
@@ -2488,7 +2488,7 @@ record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, de
     long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)
 record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, string? Note);
 /// <summary>Priority: "normal|high|urgent|critical" (şartname madde 18). Gönderilmezse Normal (geriye uyumlu).</summary>
-record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately, string? Priority = null);
+record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately, string? Priority = null, long? Version = null);
 /// <summary>Talep Operasyonları durum değişikliği (Faz 2). UpdateBranches=true ise gönderen/gönderilecek şube
 /// de yazılır. İşlemin YAPILDIĞI şube istemciden alınmaz — sunucuda oturumdan belirlenir.</summary>
 record RequestOpsStatusDto(string Status, string? Note, string? FromBranchId, string? ToBranchId, bool UpdateBranches = false);

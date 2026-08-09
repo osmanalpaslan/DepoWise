@@ -189,6 +189,8 @@
     private static readonly string[] _filters = { "Tümü", "Taslak", "Beklemede", "Onaylı", "Reddedildi", "İptal" };
 
     private string? _editId, _branch, _requester, _warehouse, _approver;
+    /// <summary>DÜZENLEME KİLİDİ: formun açıldığı andaki talep sürümü; kaydederken geri gönderilir (0 = yeni kayıt).</summary>
+    private long _editVersion;
     private DateTime? _date;
     private string _desc = "";
     private ApiClient.Opt? _matSel, _matVehicle;
@@ -274,7 +276,9 @@
             {
                 items = _items.Select(i => new { materialId = i.MaterialId, quantity = i.Qty, vehicleId = i.VehicleId, note = (string?)null }).ToList(),
                 branchId = _branch, requesterId = _requester, warehouseId = _warehouse, approverId = _approver,
-                description = Empty(_desc), requestDate = Ms(_date), submitImmediately = _editId is null
+                description = Empty(_desc), requestDate = Ms(_date), submitImmediately = _editId is null,
+                // version: DÜZENLEME KİLİDİ — düzenlemede geri gönderilir; talep arada değiştiyse sunucu 409 döner.
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null
             };
             var err = _editId is null ? await Api.PostAsync("/api/requests", body) : await Api.PutAsync($"/api/requests/{_editId}", body);
             _ok = err is null; _msg = err ?? (_editId is null ? "Talep oluşturuldu." : "Güncellendi.");
@@ -289,6 +293,7 @@
         try
         {
             var d = await Api.GetObjectAsync($"/api/requests/{id}/edit");
+            _editVersion = d.TryGetProperty("version", out var rv) && rv.ValueKind == JsonValueKind.Number ? rv.GetInt64() : 0; // düzenleme kilidi
             _editId = id; _branch = NullS(d, "branchId"); _requester = NullS(d, "requesterId"); _warehouse = NullS(d, "warehouseId"); _approver = NullS(d, "approverId");
             _desc = Str(d, "description");
             _items.Clear();
@@ -322,7 +327,7 @@
 
     private void Clear()
     {
-        _editId = null; _branch = _requester = _warehouse = _approver = null; _date = null; _desc = "";
+        _editId = null; _editVersion = 0; _branch = _requester = _warehouse = _approver = null; _date = null; _desc = "";
         _items.Clear(); _matSel = null; _matVehicle = null; _matQty = 0;
     }
 

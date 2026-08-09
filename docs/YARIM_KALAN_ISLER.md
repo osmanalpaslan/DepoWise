@@ -21,10 +21,10 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 2 | **Günlük Faaliyet → stok/bakım tutarlılığı** | ✅ YAYINLANDI (masaüstü 1.0.132) |
 | 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | ✅ YAYINLANDI (masaüstü 1.0.133) — [sonuç raporu](MS1A_MIGRATION_SONRASI_RAPORU.md) |
 | 3b | **Paket 1** — KD-1 (stok hareketleri 500) + firma izolasyonu T-1…T-6, Y-1, Y-2 + API çok-firmalı testler | ✅ YAYINLANDI (masaüstü 1.0.134) — [rapor](PAKET1_UYGULAMA_RAPORU.md) |
-| 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | ⏭️ SIRADAKİ |
-| 5 | Günlük Faaliyet + Bakım kaydı düzenleme | bekliyor |
-| 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | bekliyor |
-| 7 | Excel içe aktarma → Web | bekliyor |
+| 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | ✅ kod tamam (yayın bekliyor) |
+| 5 | Günlük Faaliyet + Bakım kaydı düzenleme | ✅ kod tamam (yayın bekliyor) |
+| 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | ✅ kod tamam (yayın bekliyor) |
+| 7 | Excel içe aktarma → Web | ⏭️ SIRADAKİ |
 | 8 | Çoklu malzeme + şube sürüm kontrolü | bekliyor |
 | 9 | LookupBox ortak bileşeni | bekliyor |
 | 10 | Kolon kataloğu → Alan/Kolon Yönetimi | bekliyor |
@@ -275,13 +275,20 @@ materials-template **200**, status/export **200** (geçerli xlsx). Commit `af11b
 
 ---
 
-## ✅ Düzenleme kilidi (2026-07-22) — TAMAMLANDI (API+web canlıda; masaüstü paket bekliyor)
+## ✅ Düzenleme kilidi — KAPSAM TAMAMLANDI (İş #6, 2026-08-09; yayın bekliyor)
 
-**Kapsanan ekranlar:** Malzemeler · Araçlar · Personel · Bakım Tanımları (hepsi masaüstü + web + API).
+**Kapsanan ekranlar:** Malzemeler · Araçlar · Personel · Bakım Tanımları *(2026-07-22)* ·
+**Talepler** · **Şube/Şantiye** *(İş #6, 2026-08-09)* · Günlük Faaliyet + Bakım kaydı metadata'sı
+*(İş #5, 2026-08-09)* — hepsi masaüstü + web + API.
 
-**KAPSAM DIŞI (kasıtlı):** Günlük Faaliyet, Yakıt ve Bakım *kayıtları* düzenlenemiyor — bunlar §4 gereği
-ekle-only defter kayıtları (oluşturulur, iptal/silinir; alanları hiç `UPDATE` edilmez). Üzerine yazılacak
-bir şey olmadığı için kilit uygulanamaz; yoktan "düzenleme" yolu açmak §4'ü ihlal ederdi.
+**İş #6'da bulunan açık:** Talepler ve Şube/Şantiye'de `version` sütunu vardı ve her kaydetmede
+ilerliyordu ama **hiç kontrol edilmiyordu** → iki kişi aynı talebi/şubeyi düzenlediğinde ikincisi
+birincisini sessizce eziyordu. Mevcut `EditLockGuard` deseni bu iki servise de uygulandı; **yeni
+mekanizma yazılmadı, migration gerekmedi** (sütunlar zaten vardı).
+
+**KAPSAM DIŞI (kasıtlı):** Yakıt kayıtları ve Günlük Faaliyet/Bakım'ın **stok + sayaç** alanları
+düzenlenemez — bunlar §4 gereği ekle-only defter kayıtlarıdır (iptal + yeniden gir). Değiştirilebilen
+alanlar (açıklama, operatör, teknisyen, süre) İş #5'te kilit ile birlikte açıldı.
 
 **Canlı kanıt:** Malzeme/Araç/Personel için güncel sürümle PUT **200**, eski sürümle PUT **409**,
 ilk verinin ezilmediği doğrulandı (geçici test kayıtlarıyla, sonra silindi).

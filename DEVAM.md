@@ -27,9 +27,26 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09e — PAKET 1 YAYINLANDI, masaüstü 1.0.134)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09f — İş #4, #5, #6 kod tamam, YAYIN BEKLİYOR)
 
-### ✅ PAKET 1 YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.134**
+### 🟡 İŞ #4 + #5 + #6 KOD TAMAM — henüz **yayınlanmadı** (yayın onayı bekliyor)
+Üç iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **migration yok**.
+- **#4 — Düzenleme hattı:** Personel ve Talepler listesinde **çift tıklayınca düzenleme açılıyor**.
+- **#5 — Günlük Faaliyet + Bakım kaydı düzenleme:** artık açıklama, operatör/teknisyen ve süre
+  **düzeltilebiliyor**. Stok ve sayaç bilinçli olarak dokunulmaz kaldı — onlar için doğru yol
+  hâlâ "iptal et, yeniden gir" (yanlış rakam düzeltilirken stok/sayaç bozulmasın diye).
+- **#6 — Düzenleme kilidi tamamlandı:** **Talepler** ve **Şube/Şantiye**'de iki kişi aynı kaydı
+  düzenlerse ikincisi birincisini **sessizce eziyordu**. Artık ikinci kişi uyarı alıyor
+  ("Kaydı yenile / Formda kal") ve ilk kaydedenin verisi korunuyor. Diğer ekranlarda bu koruma
+  zaten vardı; eksik olan bu ikisiydi.
+- Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
+- Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
+
+**Sıradaki iş:** #7 — Excel içe aktarma → Web.
+
+---
+
+### (önceki) ✅ PAKET 1 YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.134**
 İki iş bir arada: **(1)** sunucudaki **Stok Hareketleri** listesi açılmıyordu (3 uç hata veriyordu) — düzeltildi.
 **(2)** Firma verilerinin karışmasına yol açabilecek **8 açık** kapatıldı.
 - **Migration YOK**, şema 62’de kaldı, canlı veriye yazılmadı.

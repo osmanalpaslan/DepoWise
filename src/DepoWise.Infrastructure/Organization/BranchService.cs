@@ -6,8 +6,10 @@ using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Organization;
 
+/// <summary><paramref name="Version"/> = DÜZENLEME KİLİDİ için formun açıldığı andaki sürüm; kaydederken
+/// geri gönderilir. Sona eklendi → mevcut çağrılar bozulmaz (geriye uyumlu).</summary>
 public sealed record BranchRow(string Id, string Name, string Kind, string? ParentId, string? ParentName, int UserCount,
-    string? Code = null, bool HasPassword = false)
+    string? Code = null, bool HasPassword = false, long Version = 0)
 {
     public string KindDisplay => Kind == "site" ? "Şantiye" : "Şube";
     public string ParentDisplay => string.IsNullOrEmpty(ParentName) ? "—" : ParentName!;
@@ -51,7 +53,7 @@ public sealed class BranchService
         cmd.CommandText = @"
 SELECT b.id, b.name, b.kind, b.parent_id, p.name,
        (SELECT COUNT(*) FROM users u WHERE u.branch_id = b.id AND u.is_deleted = 0),
-       b.code, b.password_hash
+       b.code, b.password_hash, b.version
 FROM branches b
 LEFT JOIN branches p ON p.id = b.parent_id
 WHERE b.company_id = @c AND b.is_deleted = 0
@@ -67,7 +69,8 @@ ORDER BY b.name;";
                 r.IsDBNull(4) ? null : r.GetString(4),
                 r.GetInt32(5),
                 admin ? (r.IsDBNull(6) ? null : r.GetString(6)) : null,
-                admin && !r.IsDBNull(7) && !string.IsNullOrEmpty(r.GetString(7))));
+                admin && !r.IsDBNull(7) && !string.IsNullOrEmpty(r.GetString(7)),
+                r.GetInt64(8)));   // düzenleme kilidi: formun açıldığı andaki sürüm
         return list;
     }
 
@@ -105,7 +108,10 @@ ORDER BY b.name;";
         return id;
     }
 
-    public void Update(SessionContext s, string id, NewBranch dto, string? companyId = null)
+    /// <param name="expectedVersion">DÜZENLEME KİLİDİ: formun açıldığı andaki <c>version</c> (bkz. <see cref="List"/>).
+    /// Verilirse ve şube o andan beri değiştiyse <see cref="ConcurrencyException"/> atılır (ad/kod/şifre dahil
+    /// hiçbir alan yazılmaz). null = kontrol yok (geriye uyumlu).</param>
+    public void Update(SessionContext s, string id, NewBranch dto, string? companyId = null, long? expectedVersion = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Şube adı zorunlu.");
@@ -121,10 +127,12 @@ ORDER BY b.name;";
         {
             cmd.Transaction = tx;
             // Admin: kod yazılır, şifre boşsa mevcut korunur (COALESCE). Admin DEĞİL: kod/şifre sütunlarına HİÇ dokunulmaz.
-            cmd.CommandText = admin
+            cmd.CommandText = (admin
                 ? "UPDATE branches SET name=@n, kind=@k, parent_id=@p, code=@code, " +
-                  "password_hash=COALESCE(@pw, password_hash), version=version+1, updated_at=@now WHERE id=@id AND company_id=@c;"
-                : "UPDATE branches SET name=@n, kind=@k, parent_id=@p, version=version+1, updated_at=@now WHERE id=@id AND company_id=@c;";
+                  "password_hash=COALESCE(@pw, password_hash), version=version+1, updated_at=@now WHERE id=@id AND company_id=@c"
+                : "UPDATE branches SET name=@n, kind=@k, parent_id=@p, version=version+1, updated_at=@now WHERE id=@id AND company_id=@c")
+                + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
             cmd.AddWithValue("@n", dto.Name.Trim());
             cmd.AddWithValue("@k", dto.Kind == "site" ? "site" : "branch");
             cmd.AddWithValue("@p", (object?)dto.ParentId ?? DBNull.Value);
@@ -137,7 +145,13 @@ ORDER BY b.name;";
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", cid);
-            cmd.ExecuteNonQuery();
+            // 0 satır + sürüm verilmişse → şube biz düzenlerken değişmiş (düzenleme kilidi).
+            // EnsureBranchOwned yukarıda geçtiği için kayıt vardır; tek olası sebep sürüm uyuşmazlığıdır.
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "branches", id, cid, expectedVersion);
+                throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+            }
         }
         AuditWriter.Write(conn, tx, new AuditEntry(cid, "branch", id, AuditActions.Update, s.UserId), _clock);
         tx.Commit();

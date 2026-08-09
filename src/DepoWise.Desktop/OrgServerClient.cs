@@ -26,15 +26,19 @@ public static class OrgServerClient
 {
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
 
-    public sealed record Result(bool Ok, bool Offline, string? Error, string? Id);
+    /// <summary><paramref name="Status"/> = sunucunun HTTP kodu (0 = ulaşılamadı). 409 → DÜZENLEME KİLİDİ:
+    /// kayıt biz formu açtıktan sonra değişti. Sona eklendi → mevcut çağrılar bozulmaz.</summary>
+    public sealed record Result(bool Ok, bool Offline, string? Error, string? Id, int Status = 0);
     private static Result OfflineResult => new(false, true, null, null);
 
     // ── Şubeler ──
     public static Task<Result> CreateBranchAsync(string name, string kind, string? parentId, string? code, string? password, string? companyId)
         => PostIdAsync("/api/branches", new { name, kind, parentId, code, password, companyId });
 
-    public static Task<Result> UpdateBranchAsync(string id, string name, string kind, string? parentId, string? code, string? password, string? companyId)
-        => SendOkAsync(HttpMethod.Put, $"/api/branches/{id}", new { name, kind, parentId, code, password, companyId });
+    /// <param name="version">DÜZENLEME KİLİDİ: formun açıldığı andaki şube sürümü (BranchRow.Version).
+    /// null = kontrol yok (geriye uyumlu).</param>
+    public static Task<Result> UpdateBranchAsync(string id, string name, string kind, string? parentId, string? code, string? password, string? companyId, long? version = null)
+        => SendOkAsync(HttpMethod.Put, $"/api/branches/{id}", new { name, kind, parentId, code, password, companyId, version });
 
     public static Task<Result> DeleteBranchAsync(string id)
         => SendOkAsync(HttpMethod.Delete, $"/api/branches/{id}", null);
@@ -180,8 +184,8 @@ public static class OrgServerClient
             if (body is not null) req.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var resp = await _http.SendAsync(req);
-            if (resp.IsSuccessStatusCode) return new(true, false, null, null);
-            return new(false, false, ExtractError(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode), null);
+            if (resp.IsSuccessStatusCode) return new(true, false, null, null, (int)resp.StatusCode);
+            return new(false, false, ExtractError(await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode), null, (int)resp.StatusCode);
         }
         catch { return OfflineResult; }
     }

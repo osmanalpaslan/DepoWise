@@ -117,7 +117,8 @@ public sealed partial class BranchesViewModel : ViewModelBase
     private void NewBranch()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
-        EditId = null; FormName = ""; FormKind = "Şube"; FormParent = null; FormCode = ""; FormPassword = ""; FormError = null;
+        EditId = null; _editVersion = null;   // düzenleme kilidi: yeni kayıtta sürüm yok
+        FormName = ""; FormKind = "Şube"; FormParent = null; FormCode = ""; FormPassword = ""; FormError = null;
         ShowAdd = true;
         OnPropertyChanged(nameof(FormTitle)); OnPropertyChanged(nameof(PasswordLabel));
     }
@@ -127,7 +128,7 @@ public sealed partial class BranchesViewModel : ViewModelBase
     {
         if (Selected is null) { Status = "Şube seçin."; return; }
         if (!CanEdit) { Status = "Yetki yok."; return; }
-        EditId = Selected.Id;
+        EditId = Selected.Id; _editVersion = Selected.Version;   // düzenleme kilidi
         FormName = Selected.Name;
         FormKind = Selected.Kind == "site" ? "Şantiye" : "Şube";
         FormParent = ParentOptions.FirstOrDefault(p => p.Id == Selected.ParentId);
@@ -137,7 +138,11 @@ public sealed partial class BranchesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CancelAdd() { ShowAdd = false; EditId = null; }
+    private void CancelAdd() { ShowAdd = false; EditId = null; _editVersion = null; }
+
+    /// <summary>DÜZENLEME KİLİDİ: formun açıldığı andaki şube sürümü (bkz. <see cref="BeginEdit"/>).
+    /// Kaydederken sunucuya geri gönderilir; şube arada değiştiyse sunucu 409 döner ve üzerine yazılmaz.</summary>
+    private long? _editVersion;
 
     [RelayCommand]
     private async Task Save()
@@ -156,12 +161,27 @@ public sealed partial class BranchesViewModel : ViewModelBase
             // ŞUBELER SUNUCU-OTORİTELİ (2026-07-25): çevrimiçiyken SUNUCUYA yaz. Yalnız yerele yazarsak sonraki
             // girişte aynalama (BranchMirror) sunucuda olmayan yerel şubeyi siler → kayıt kaybolur. Çevrimdışı → uyar.
             var res = editing
-                ? await OrgServerClient.UpdateBranchAsync(EditId!, FormName.Trim(), kind, parentId, code, pass, TargetCompanyId)
+                ? await OrgServerClient.UpdateBranchAsync(EditId!, FormName.Trim(), kind, parentId, code, pass, TargetCompanyId, _editVersion)
                 : await OrgServerClient.CreateBranchAsync(FormName.Trim(), kind, parentId, code, pass, TargetCompanyId);
             if (res.Offline) { FormError = "Şube işlemi çevrimiçi olmayı gerektirir (şubeler sunucuda tutulur). İnternet bağlantısıyla tekrar deneyin."; return; }
+            if (res.Status == 409)
+            {
+                // DÜZENLEME KİLİDİ: şube biz formu açtıktan sonra değişti. Yazdıklarını KAYBETME: karar kullanıcının.
+                FormError = res.Error ?? "Kayıt değişti.";
+                if (await ConfirmService.AskAsync(
+                        FormError + "\n\nŞubenin güncel hâlini yüklemek ister misiniz? " +
+                        "(\"Formda kal\" derseniz yazdıklarınız durur, kopyalayıp tekrar uygulayabilirsiniz.)",
+                        "Kayıt değişti", okText: "Kaydı yenile", cancelText: "Formda kal"))
+                {
+                    ShowAdd = false; EditId = null; _editVersion = null;
+                    await BranchMirror.RefreshAsync(TargetCompanyId);
+                    Load();
+                }
+                return;
+            }
             if (!res.Ok) { FormError = res.Error ?? "Sunucu işlemi başarısız."; return; }
             await BranchMirror.RefreshAsync(TargetCompanyId);   // sunucu yazdı → yerel kopyayı anında aynala
-            ShowAdd = false; EditId = null;
+            ShowAdd = false; EditId = null; _editVersion = null;
             Load();
             Status = editing ? "Şube güncellendi." : "Şube oluşturuldu.";
         }

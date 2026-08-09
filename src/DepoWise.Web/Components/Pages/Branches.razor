@@ -167,6 +167,7 @@
     {
         // Düzenlemeye giriş onayı: iptal edilirse form doldurulmaz (liste hiç tıklanmamış gibi kalır).
         if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
+        _editVersion = d.TryGetProperty("version", out var bv) && bv.ValueKind == JsonValueKind.Number ? bv.GetInt64() : 0; // düzenleme kilidi
         _editId = Str(d, "id"); _name = Str(d, "name"); _kind = string.IsNullOrEmpty(Str(d, "kind")) ? "branch" : Str(d, "kind");
         _code = Str(d, "code"); _password = "";
         _parent = NullS(d, "parentId"); _msg = null;
@@ -181,7 +182,9 @@
         _busy = true;
         try
         {
-            var body = new { name = _name.Trim(), kind = _kind, parentId = _parent, code = _code, password = _password, companyId = _companyId };
+            // version: DÜZENLEME KİLİDİ — düzenlemede geri gönderilir; şube arada değiştiyse sunucu 409 döner.
+            var body = new { name = _name.Trim(), kind = _kind, parentId = _parent, code = _code, password = _password, companyId = _companyId,
+                version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null };
             var err = _editId is null ? await Api.PostAsync("/api/branches", body) : await Api.PutAsync($"/api/branches/{_editId}", body);
             _ok = err is null; _msg = err ?? (_editId is null ? "Eklendi." : "Güncellendi.");
             if (_ok) { Clear(); await Load(); }
@@ -198,7 +201,10 @@
         _msg = err ?? "Silindi."; _ok = err is null; _detail = null; await Load();
     }
 
-    private void Clear() { _err = false; _editId = null; _name = ""; _kind = "branch"; _parent = null; _code = ""; _password = ""; }
+    private void Clear() { _err = false; _editId = null; _editVersion = 0; _name = ""; _kind = "branch"; _parent = null; _code = ""; _password = ""; }
+
+    /// <summary>DÜZENLEME KİLİDİ: formun açıldığı andaki şube sürümü; kaydederken geri gönderilir (0 = yeni kayıt).</summary>
+    private long _editVersion;
 
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)

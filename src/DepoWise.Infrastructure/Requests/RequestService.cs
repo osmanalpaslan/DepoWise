@@ -39,8 +39,11 @@ public sealed record RequestPdfLine(string Code, string Name, string Unit, decim
 public sealed record RequestEditItem(string MaterialId, string Code, string Name, decimal Quantity,
     string? VehicleId, string? VehicleCode, string? VehiclePlate);
 
+/// <summary><paramref name="Version"/> = DÜZENLEME KİLİDİ için formun açıldığı andaki sürüm; kaydederken
+/// geri gönderilir. Sona eklendi → mevcut çağrılar bozulmaz (geriye uyumlu).</summary>
 public sealed record RequestEditData(string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId,
-    string? Description, long RequestDate, RequestStatus Status, IReadOnlyList<RequestEditItem> Items);
+    string? Description, long RequestDate, RequestStatus Status, IReadOnlyList<RequestEditItem> Items,
+    long Version = 0);
 
 public sealed record RequestPdfData(
     string DocNo, long RequestDate, RequestStatus Status, string? BranchName,
@@ -122,7 +125,10 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@prio,@now,@now,1,0);";
     }
 
     /// <summary>Mevcut talebi günceller (başlık + kalemler tam değiştirir). ONAYLI talep değiştirilemez. Belge no/durum korunur.</summary>
-    public void Update(SessionContext s, string requestId, NewRequest dto)
+    /// <param name="expectedVersion">DÜZENLEME KİLİDİ: formun açıldığı andaki <c>version</c> (bkz. <see cref="GetForEdit"/>).
+    /// Verilirse ve talep o andan beri değiştiyse <see cref="ConcurrencyException"/> atılır; kalemler dahil HİÇBİR
+    /// değişiklik uygulanmaz (tek transaction). null = kontrol yok (geriye uyumlu).</param>
+    public void Update(SessionContext s, string requestId, NewRequest dto, long? expectedVersion = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         if (dto.Items.Count == 0) throw new ArgumentException("En az bir kalem gerekli.");
@@ -140,8 +146,11 @@ VALUES(@id,@c,@no,@dt,@br,@req,@wh,@ap,@desc,@st,@prio,@now,@now,1,0);";
             cmd.Transaction = tx;
             cmd.CommandText = @"
 UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh, approver_id=@ap,
-    description=@desc, request_date=@dt, priority=@prio, version=version+1, updated_at=@now WHERE id=@id;";
+    description=@desc, request_date=@dt, priority=@prio, version=version+1, updated_at=@now
+WHERE id=@id AND company_id=@c" + EditLockGuard.Clause(expectedVersion) + ";";
             // operation_status'a DOKUNULMAZ (onay/operasyon ayrı; düzenleme yalnız onaylanmamış talepte yapılır).
+            EditLockGuard.Bind(cmd, expectedVersion);
+            cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@prio", RequestPriorityInfo.ToDb(dto.Priority));
             cmd.AddWithValue("@br", (object?)dto.BranchId ?? DBNull.Value);
             cmd.AddWithValue("@req", (object?)dto.RequesterId ?? DBNull.Value);
@@ -151,7 +160,13 @@ UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh,
             cmd.AddWithValue("@dt", dto.RequestDate ?? now);
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", requestId);
-            cmd.ExecuteNonQuery();
+            // 0 satır + sürüm verilmişse → talep biz düzenlerken değişmiş (düzenleme kilidi).
+            // Kalemlere DOKUNULMADAN önce atılır; transaction commit edilmez → hiçbir değişiklik kalmaz.
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "material_requests", requestId, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Talep bulunamadı veya başka firmaya ait.");
+            }
         }
         using (var del = conn.CreateCommand())
         {
@@ -186,14 +201,15 @@ UPDATE material_requests SET branch_id=@br, requester_id=@req, warehouse_id=@wh,
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
 
-        string? br, rq, wh, ap, desc; long date; string status;
+        string? br, rq, wh, ap, desc; long date; string status; long version;
         using (var hc = conn.CreateCommand())
         {
-            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id FROM material_requests WHERE id=@id;";
+            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id, version FROM material_requests WHERE id=@id;";
             hc.AddWithValue("@id", requestId);
             using var hr = hc.ExecuteReader();
             if (!hr.Read()) throw new ForbiddenException("Talep bulunamadı.");
             if (hr.GetString(7) != s.CompanyId) throw new ForbiddenException("Talep başka firmaya ait.");
+            version = hr.GetInt64(8);   // düzenleme kilidi: formun açıldığı andaki sürüm
             br = hr.IsDBNull(0) ? null : hr.GetString(0);
             rq = hr.IsDBNull(1) ? null : hr.GetString(1);
             wh = hr.IsDBNull(2) ? null : hr.GetString(2);
@@ -221,7 +237,7 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
                     ir.IsDBNull(5) ? null : ir.GetString(5),
                     ir.IsDBNull(6) ? null : ir.GetString(6)));
         }
-        return new RequestEditData(br, rq, wh, ap, desc, date, RequestStatusMachine.FromDb(status), items);
+        return new RequestEditData(br, rq, wh, ap, desc, date, RequestStatusMachine.FromDb(status), items, version);
     }
 
     public void Submit(SessionContext s, string requestId)

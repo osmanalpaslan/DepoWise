@@ -211,7 +211,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
     private void NewRequest()
     {
         if (!CanWrite) { Status = "Yetki yok."; return; }
-        EditId = null;
+        EditId = null; _editVersion = null;   // düzenleme kilidi: yeni kayıtta sürüm yok
         FormSite = null; FormRequester = null; FormWarehouse = null; FormApprover = null;
         FormDate = DateTimeOffset.Now; FormDescription = ""; FormError = null;
         FormItems.Clear();
@@ -222,7 +222,11 @@ public sealed partial class RequestsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CancelForm() { ShowForm = false; EditId = null; }
+    private void CancelForm() { ShowForm = false; EditId = null; _editVersion = null; }
+
+    /// <summary>DÜZENLEME KİLİDİ: formun açıldığı andaki talep sürümü (bkz. <see cref="BeginEditRequest"/>).
+    /// Kaydederken geri gönderilir; talep arada değiştiyse sessizce ezmek yerine uyarı verilir.</summary>
+    private long? _editVersion;
 
     /// <summary>Seçili talebi forma yükler (onaylı değilse). Belge no/durum korunur, kalemler tam değiştirilir.</summary>
     [RelayCommand]
@@ -234,7 +238,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
         try
         {
             var d = DesktopServices.Requests.GetForEdit(_session, Selected.Id);
-            EditId = Selected.Id;
+            EditId = Selected.Id; _editVersion = d.Version;   // düzenleme kilidi
             FormSite = Sites.FirstOrDefault(x => x.Id == d.BranchId);
             FormRequester = Personnel.FirstOrDefault(x => x.Id == d.RequesterId);
             FormWarehouse = Personnel.FirstOrDefault(x => x.Id == d.WarehouseId);
@@ -339,12 +343,24 @@ public sealed partial class RequestsViewModel : ViewModelBase
                 RequestDate: FormDate?.ToUnixTimeMilliseconds(),
                 SubmitImmediately: true);
 
-            if (editing) DesktopServices.Requests.Update(_session, EditId!, dto);
+            if (editing) DesktopServices.Requests.Update(_session, EditId!, dto, _editVersion);
             else DesktopServices.Requests.Create(_session, dto);
 
-            ShowForm = false; EditId = null;
+            ShowForm = false; EditId = null; _editVersion = null;
             Load();
             Status = editing ? "Talep güncellendi." : "Talep oluşturuldu ve iletildi.";
+        }
+        catch (DepoWise.Application.Security.ConcurrencyException ex)
+        {
+            // Talep biz düzenlerken değişti. Yazdıklarını KAYBETME: karar kullanıcının.
+            FormError = ex.Message;
+            if (await ConfirmService.AskAsync(
+                    ex.Message + "\n\nTalebin güncel hâlini yüklemek ister misiniz? " +
+                    "(\"Formda kal\" derseniz yazdıklarınız durur, kopyalayıp tekrar uygulayabilirsiniz.)",
+                    "Kayıt değişti", okText: "Kaydı yenile", cancelText: "Formda kal"))
+            {
+                ShowForm = false; EditId = null; _editVersion = null; Load();
+            }
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }
