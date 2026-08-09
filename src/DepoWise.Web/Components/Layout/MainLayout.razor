@@ -16,8 +16,13 @@
 
 <MudLayout>
     <MudAppBar Elevation="1" Color="Color.Primary">
+        <MudTooltip Text="Menüyü aç / kapat">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                           Edge="Edge.Start" OnClick="ToggleDrawer" />
+        </MudTooltip>
         @* Logo — şeffaf, arka plan YOK (yalnız logo). *@
-        <img src="logo.png" alt="Alpnex" style="height:48px;width:auto;display:block;margin-right:12px;" />
+        @* Yükseklik/çerçeve app.css §3'ten gelir (üst barda okunur plaka). *@
+        <img src="logo.png" alt="Alpnex" />
         <MudText Typo="Typo.h6">Alpnex Yönetim</MudText>
         <MudSpacer />
         @if (Auth.IsAuthenticated)
@@ -47,7 +52,7 @@
             <MudButton Color="Color.Inherit" Class="dw-logout ml-2" StartIcon="@Icons.Material.Filled.Logout" OnClick="SignOut">Çıkış</MudButton>
         }
     </MudAppBar>
-    <MudDrawer Open="true" Elevation="2" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
         <NavMenu />
     </MudDrawer>
     <MudMainContent>
@@ -203,6 +208,15 @@
         StateHasChanged();
     }
 
+    // ── Kenar menü açık/kapalı (kullanıcı tercihi, cihaz bazlı) ──────────────
+    private bool _drawerOpen = true;
+
+    private async Task ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+        try { await LocalStorage.SetAsync("dw_drawer", _drawerOpen); } catch { }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || _authInit) return;
@@ -218,6 +232,13 @@
                 if (tc.Success && !string.IsNullOrEmpty(tc.Value)) Theme.Color = tc.Value;
                 var ts = await LocalStorage.GetAsync<string>("dw_theme_style");
                 if (ts.Success && !string.IsNullOrEmpty(ts.Value)) Theme.Style = ts.Value;
+            }
+            catch { }
+            // Kayıtlı kenar menü tercihi (FAZ 6) — temadan bağımsız, kendi try/catch'i var.
+            try
+            {
+                var dr = await LocalStorage.GetAsync<bool>("dw_drawer");
+                if (dr.Success) _drawerOpen = dr.Value;
             }
             catch { }
             await ApplyThemeAsync();
