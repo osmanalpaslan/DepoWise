@@ -180,13 +180,12 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
 - **Durum:** 🟢 DEVAM EDİYOR — 11 adımlık **onaylı sıra** işletiliyor (bkz. `docs/YARIM_KALAN_ISLER.md` başı).
 - **Nerede kaldık (2026-08-09):** Sıranın **1. işi (Yakıt iptali, 1.0.131)** ve **2. işi (Günlük Faaliyet
   iptali → bakım/stok tutarlılığı, 1.0.132)** yayınlandı. Her ikisinde de migration YOK, canlı veri değişmedi.
-- **Son biten iş (2026-08-09): M-S1a firma izolasyonu YAYINLANDI** — masaüstü **1.0.133**.
-  Canlı migration 61→62 uygulandı; 2 kalem doğru firmaya taşındı, kayıp/yanlış firma/çözülemeyen = 0.
-  Geri dönüş noktası **Neon `pre-ms1a` dalı** duruyor (silinmedi).
-  [Sonuç raporu](MS1A_MIGRATION_SONRASI_RAPORU.md) · [Ön rapor](MS1A_PRE_MIGRATION_RAPORU.md)
+- **Son biten iş (2026-08-09): Paket 1 YAYINLANDI** — masaüstü **1.0.134**.
+  KD-1 (sunucuda Stok Hareketleri 3 ucu 500 veriyordu) düzeltildi + 8 firma izolasyonu açığı kapatıldı
+  (T-1…T-6, Y-1, Y-2) + gerçek HTTP hattından çok-firmalı test paketi eklendi. **Migration YOK**, şema 62.
+  Testler: SQLite 866/0 · PostgreSQL 35/0/0 atlandı. [Rapor](PAKET1_UYGULAMA_RAPORU.md)
+- (önceki) M-S1a firma izolasyonu migration'ı — 1.0.133, şema 61→62, geri dönüş noktası `pre-ms1a` duruyor.
 - **Sıradaki adım:** onaylı sıranın **4. maddesi** — ortak düzenleme altyapısı + Personel/Talepler çift tık.
-- ⚠️ **Açık hata (kapsam dışı, KD-1):** `/api/stock` ve `/api/stock/movements` sunucuda 500
-  (`sm.rowid` PostgreSQL'de yok). M-S1a ile ilgisiz, 2026-08-05'ten beri var.
 
 ---
 

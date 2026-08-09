@@ -27,7 +27,19 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09d — FİRMA İZOLASYONU (M-S1a) YAYINLANDI, masaüstü 1.0.133)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09e — PAKET 1 YAYINLANDI, masaüstü 1.0.134)
+
+### ✅ PAKET 1 YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.134**
+İki iş bir arada: **(1)** sunucudaki **Stok Hareketleri** listesi açılmıyordu (3 uç hata veriyordu) — düzeltildi.
+**(2)** Firma verilerinin karışmasına yol açabilecek **8 açık** kapatıldı.
+- **Migration YOK**, şema 62’de kaldı, canlı veriye yazılmadı.
+- Artık **her yeni özellik otomatik denetleniyor**: gerçek istek hattı üzerinden çok-firmalı test paketi eklendi.
+- Testler: 866 geçti / 0 başarısız · PostgreSQL **35/35, atlanan yok** (kararsız test de düzeltildi).
+- Rapor: [docs/PAKET1_UYGULAMA_RAPORU.md](docs/PAKET1_UYGULAMA_RAPORU.md)
+
+---
+
+### (önceki) M-S1a FİRMA VERİ İZOLASYONU, masaüstü 1.0.133
 
 ### ✅ M-S1a — FİRMA VERİ İZOLASYONU YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.133**
 Talep kalemleri ve bakım malzemeleri artık **firmaya bağlı**. İleride aynı sistemde birden fazla firma
@@ -1188,9 +1200,11 @@ süper admin korundu).
 
 > **SIRADAKİ (onaylı sıranın 4. maddesi): ortak düzenleme altyapısı + Personel/Talepler çift tık.**
 >
-> ⚠️ **Kapsam dışı, AÇIK bir hata var (KD-1):** sunucuda `/api/stock` ve `/api/stock/movements` **500**
-> veriyor (sıralamada SQLite'a özel `rowid`, PostgreSQL'de yok). 2026-08-05'ten beri var, M-S1a ile ilgisiz.
-> "Stok Hareketleri" listesi sunucu/web'de açılmıyor; masaüstü etkilenmiyor. Sen ne zaman istersen düzeltilir.
+> ✅ KD-1 (stok hareketleri hatası) **Paket 1 ile düzeltildi ve yayınlandı** (1.0.134).
+>
+> Küçük ve bağımsız açık işler: **D-1** (`CLAUDE.md` §4 yanlış — "sunucu SQLite" diyor, gerçekte
+> PostgreSQL) · **Y-6** (`/api/materials` N+1 performans) · **Y-3/Y-4/Y-5** (latent + ölü kod).
+> Migration gerektirenler (ayrı onay ister): **M-S1b**, **M-S1d**.
 > Sonrası: 4) ortak düzenleme altyapısı + Personel/Talepler çift tık · 5) Günlük Faaliyet + Bakım düzenleme ·
 > 6) düzenleme kilitleri · 7) Excel → Web · 8) çoklu malzeme + şube sürüm kontrolü · 9) LookupBox ·
 > 10) kolon kataloğu → Alan/Kolon Yönetimi · 11) Faz S / FK / benzersizlik.

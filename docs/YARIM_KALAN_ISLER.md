@@ -20,6 +20,7 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 1 | **Yakıt kaydı iptali** | ✅ YAYINLANDI (masaüstü 1.0.131) |
 | 2 | **Günlük Faaliyet → stok/bakım tutarlılığı** | ✅ YAYINLANDI (masaüstü 1.0.132) |
 | 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | ✅ YAYINLANDI (masaüstü 1.0.133) — [sonuç raporu](MS1A_MIGRATION_SONRASI_RAPORU.md) |
+| 3b | **Paket 1** — KD-1 (stok hareketleri 500) + firma izolasyonu T-1…T-6, Y-1, Y-2 + API çok-firmalı testler | ✅ YAYINLANDI (masaüstü 1.0.134) — [rapor](PAKET1_UYGULAMA_RAPORU.md) |
 | 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | ⏭️ SIRADAKİ |
 | 5 | Günlük Faaliyet + Bakım kaydı düzenleme | bekliyor |
 | 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | bekliyor |
@@ -28,6 +29,21 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 9 | LookupBox ortak bileşeni | bekliyor |
 | 10 | Kolon kataloğu → Alan/Kolon Yönetimi | bekliyor |
 | 11 | Faz S (senkron performansı) / FK / benzersizlik | bekliyor |
+
+### ✅ 3b — Paket 1: KD-1 + firma izolasyonu (2026-08-09, masaüstü 1.0.134)
+Sunucudaki **Stok Hareketleri** listesi açılmıyordu (3 uç 500 veriyordu — `rowid` PostgreSQL'de yok);
+düzeltildi. Ayrıca **8 firma izolasyonu açığı** kapatıldı (T-1…T-6, Y-1, Y-2) — hepsi servis katmanında,
+çünkü masaüstü aynı metotları doğrudan çağırıyor. Gerçek HTTP hattı üzerinden **çok-firmalı test paketi**
+eklendi (bu sınıf hatayı bundan sonra otomatik yakalar). PostgreSQL'deki flaky (kararsız) test de çözüldü.
+**Migration YOK.** Testler: SQLite 866/0 · PostgreSQL **35/0/0 atlandı**.
+[Uygulama raporu](PAKET1_UYGULAMA_RAPORU.md) · [plan](PAKET1_UYGULAMA_PLANI.md)
+
+**Kapsam dışı bırakılanlar (hâlâ açık):** Y-3 (latent, API ucu yok) · Y-4/Y-5 (ölü kod) ·
+Y-6 (`/api/materials` N+1 performans) · **D-1: `CLAUDE.md` satır 53-54 yanlış** ("sunucu SQLite" diyor,
+gerçekte PostgreSQL) · M-S1b (`request_status_history` + 5 tablo firma kolonu, **migration gerektirir**) ·
+M-S1d (eşitlemede üst kayıt firma doğrulaması).
+
+---
 
 ### ✅ 3 — M-S1a firma izolasyonu (2026-08-09, masaüstü 1.0.133)
 `material_request_items` + `maintenance_materials` tablolarına **firma kolonu** eklendi (NOT NULL, varsayılan yok).
