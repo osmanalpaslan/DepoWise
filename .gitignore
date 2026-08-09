@@ -30,3 +30,7 @@ Thumbs.db
 
 # Masaustu yayin ciktilari (yerel) - depoya GIRMEZ; dagitim sunucudaki paket uzerinden yapilir
 publish/
+
+# Claude ayar yedekleri - gizli deger tasiyabilir, depoya GIRMEZ
+.claude/*.bak
+*.bak
