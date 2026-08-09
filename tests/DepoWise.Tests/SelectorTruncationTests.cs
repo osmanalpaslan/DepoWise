@@ -124,4 +124,74 @@ public class SelectorTruncationTests : IAsyncLifetime
         var bos = await NamesAsync("/api/materials?search=");
         Assert.Equal(MaxLimit, bos.Count);
     }
+
+    // ── PERSONEL: arama İş A'da EKLENDİ (uçta hiç yoktu) ──────────────────────────────────
+
+    private async Task<List<string>> PersonnelNamesAsync(string path)
+    {
+        var r = await _client.GetAsync(path);
+        r.EnsureSuccessStatusCode();
+        return (await ApiTestHost.JsonAsync(r)).EnumerateArray()
+            .Select(e => e.GetProperty("fullName").GetString() ?? "").ToList();
+    }
+
+    private void SeedPersonnel(int count)
+    {
+        for (int i = 1; i <= count; i++)
+            _svc.Personnel.Create(_s, new DepoWise.Infrastructure.Org.NewPersonnel($"Personel {i:0000}", null, null, null));
+    }
+
+    [Fact]
+    public async Task Personel_ARAMA_sinirin_otesindeki_kayda_ULASIR()
+    {
+        SeedPersonnel(MaxLimit + 25);
+
+        // Aramasız liste sınırda kesilir → en eski personel GÖRÜNMEZ.
+        var hepsi = await PersonnelNamesAsync("/api/personnel");
+        Assert.Equal(MaxLimit, hepsi.Count);
+        Assert.DoesNotContain("Personel 0001", hepsi);
+
+        // Arama ona ULAŞIR (İş A'dan önce bu uçta arama parametresi HİÇ YOKTU).
+        var bulunan = await PersonnelNamesAsync($"/api/personnel?search={Uri.EscapeDataString("Personel 0001")}");
+        Assert.Contains("Personel 0001", bulunan);
+    }
+
+    [Fact]
+    public async Task Personel_aramasi_BASKA_firmanin_kaydini_getirmez()
+    {
+        using (var conn = _svc.Factory.Create())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText =
+                "INSERT INTO companies(id, name, created_at, updated_at, version, is_deleted, machine_quota, max_users, max_admins) " +
+                "VALUES('KESIK-P', 'KESIK-P', 1, 1, 1, 0, 5, 20, 5) ON CONFLICT(id) DO NOTHING;";
+            cmd.ExecuteNonQuery();
+        }
+        var uidP = _svc.Users.EnsureInitialAdmin("KESIK-P", "kesik_p", Pass, RoleKeys.CompanyAdmin);
+        var sP = new SessionContext(uidP, "KESIK-P", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        _svc.Personnel.Create(sP, new DepoWise.Infrastructure.Org.NewPersonnel("Gizli Personel", null, null, null));
+
+        // Firma izolasyonu SERVİS katmanındadır; arama onu delemez.
+        Assert.DoesNotContain("Gizli Personel", await PersonnelNamesAsync("/api/personnel?search=Gizli"));
+    }
+
+    [Fact]
+    public async Task Personel_bos_arama_ESKI_davranisi_korur()
+    {
+        SeedPersonnel(10);
+        var aramasiz = await PersonnelNamesAsync("/api/personnel");
+        var bosArama = await PersonnelNamesAsync("/api/personnel?search=");
+        Assert.Equal(aramasiz, bosArama);   // "search=" boşsa hiçbir şey değişmemeli (geriye uyumlu)
+    }
+
+    [Fact]
+    public async Task Personel_aramasi_TURKCE_karakter_dogru_esler()
+    {
+        _svc.Personnel.Create(_s, new DepoWise.Infrastructure.Org.NewPersonnel("İsmail Şahin", null, null, null));
+        _svc.Personnel.Create(_s, new DepoWise.Infrastructure.Org.NewPersonnel("Ahmet Yilmaz", null, null, null));
+
+        var sonuc = await PersonnelNamesAsync($"/api/personnel?search={Uri.EscapeDataString("şahin")}");
+        Assert.Contains("İsmail Şahin", sonuc);
+        Assert.DoesNotContain("Ahmet Yilmaz", sonuc);
+    }
 }

@@ -51,7 +51,7 @@
             <MudItem xs="12" md="6">
                 @if (SelectedIsOwnCompany)
                 {
-                    <LookupSelect Label="Personel seç (bağla)" @bind-Value="_personnelId" Items="_personnel" />
+                    <LookupSelect Label="Personel seç (bağla)" @bind-Value="_personnelId" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" />
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
                         Bu hesabın hangi personele ait olduğunu seçin. Listede yoksa önce <b>Personel</b> ekranından ekleyin.
                         Hesabı olmayan personeller listelenir.

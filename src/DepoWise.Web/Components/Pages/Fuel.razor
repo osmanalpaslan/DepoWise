@@ -35,8 +35,8 @@
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_liters" Label="Litre *" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat (₺/L)" HelperText="Varsayılan: güncel fiyat." Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                     <MudItem xs="6" md="3"><MudTextField Value="@((_liters * _price).ToString("0.##"))" ReadOnly="true" Label="Toplam" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Veren *" @bind-Value="_person" Items="_personnel" /></MudItem>
-                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Alan" @bind-Value="_recipient" Items="_personnel" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Veren *" @bind-Value="_person" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Yakıtı Alan" @bind-Value="_recipient" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
                 </MudGrid>
                 <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text" OnClick="ClearDist">İptal</MudButton>

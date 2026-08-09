@@ -35,11 +35,13 @@
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_price" Label="Birim Fiyat" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="6"><MudTextField @bind-Value="_desc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             <MudItem xs="12" md="6">
-                <MudSelect T="string" @bind-SelectedValues="_compatVehicles" Label="Uyumlu Araçlar" MultiSelection="true"
-                           Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                           MultiSelectionTextFunc="@(sel => $"{sel.Count} araç seçili")">
-                    @foreach (var v in _vehicles) { <MudSelectItem T="string" Value="@v.Id">@v.Name</MudSelectItem> }
-                </MudSelect>
+                @* İş A: diğer iki ekranla AYNI davranış (aranabilir uç). Not: bu ekran daha önce
+                   "/api/vehicles/options" (sayfasız) kullanıyordu, yani kesilmiyordu; arama uçlu
+                   sürüme geçirilerek üç ekran tek desende toplandı. *@
+                <SearchableMultiSelect Label="Uyumlu Araçlar" ItemNoun="araç"
+                                       SearchLabel="Araç ara (iç kod / plaka)"
+                                       SearchPath="/api/vehicles" NameField="display"
+                                       SelectedValues="_compatVehicles" SelectedValuesChanged="@(v => _compatVehicles = v)" />
             </MudItem>
         </MudGrid>
 
@@ -107,7 +109,7 @@
     private string _name = "", _code = "", _desc = "";
     private string? _type, _cat, _unit, _brand, _sup;
     private decimal _min, _price;
-    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new(), _vehicles = new();
+    private List<ApiClient.Opt> _cats = new(), _units = new(), _brands = new(), _sups = new();
     private IReadOnlyCollection<string> _compatVehicles = new HashSet<string>();
     private readonly List<Staged> _staged = new();
     private readonly List<PhotoRef> _photos = new();
@@ -124,7 +126,6 @@
             _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
-            try { _vehicles = await Api.OptionsAsync("/api/vehicles/options", "id", "display"); } catch { }
         }
         await Load();
     }

@@ -82,7 +82,7 @@
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Konum &amp; Atama</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6"><LookupSelect Label="Şantiye / Şube *" @bind-Value="_branch" Items="_branches" OnAdded="ReloadBranches" /></MudItem>
-            <MudItem xs="12" md="6"><LookupSelect Label="Sürücü" @bind-Value="_driver" Items="_drivers" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadDrivers" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Sürücü" @bind-Value="_driver" Items="_drivers" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadDrivers" /></MudItem>
         </MudGrid>
 
         <MudText Typo="Typo.subtitle2" Class="mud-text-secondary mt-3 mb-1">Teknik</MudText>

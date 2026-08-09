@@ -37,10 +37,12 @@
                     </MudItem>
                     <MudItem xs="12"><MudTextField @bind-Value="_defDesc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
                     <MudItem xs="12">
-                        <MudSelect T="string" @bind-SelectedValues="_defVehicles" Label="İlişkili Araçlar (periyodik takip)" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
-                                   MultiSelectionTextFunc="@(v => $"{v.Count} araç seçili")" HelperText="Seçilen araçlar bu bakım için periyodik takip edilir.">
-                            @foreach (var o in _vehicles) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
-                        </MudSelect>
+                        @* İş A: sunucu-taraflı aramalı çoklu seçim (bkz. SearchableMultiSelect). *@
+                        <SearchableMultiSelect Label="İlişkili Araçlar (periyodik takip)" ItemNoun="araç"
+                                               HelperText="Seçilen araçlar bu bakım için periyodik takip edilir."
+                                               SearchLabel="Araç ara (iç kod / plaka)"
+                                               SearchPath="/api/vehicles" NameField="display"
+                                               SelectedValues="_defVehicles" SelectedValuesChanged="@(v => _defVehicles = v)" />
                     </MudItem>
                 </MudGrid>
                 <MudStack Row="true" Class="mt-2" Justify="Justify.FlexEnd" Spacing="2">
@@ -118,7 +120,7 @@
                        otomatik "Saha Personeli" işaretlenir — /api/personnel'e isFieldStaff:true ile POST. *@
                     <MudItem xs="6" md="3">
                         <div class="d-flex align-center" style="gap:4px;">
-                            <div style="flex:1 1 auto;"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_technicians" /></div>
+                            <div style="flex:1 1 auto;"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_technicians" SearchPath="/api/personnel" NameField="fullName" /></div>
                             @if (Auth.CanCreate("personnel"))
                             {
                                 <MudTooltip Text="Yeni personel (Saha Personeli olarak eklenir)">
@@ -263,7 +265,7 @@
                                     </MudText>
                                     <MudTextField @bind-Value="_metaDesc" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" />
                                     <MudTextField @bind-Value="_metaNote" Label="Alt Bakım Notu" Margin="Margin.Dense" Variant="Variant.Outlined" Class="mt-2" />
-                                    <div class="mt-2"><LookupSelect Label="Teknisyen" @bind-Value="_metaTech" Items="_technicians" /></div>
+                                    <div class="mt-2"><LookupSelect Label="Teknisyen" @bind-Value="_metaTech" Items="_technicians" SearchPath="/api/personnel" NameField="fullName" /></div>
                                     @if (_metaError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_metaError</MudAlert> }
                                     <MudStack Row="true" Spacing="2" Class="mt-2">
                                         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMetaEdit">Kaydet</MudButton>
@@ -313,7 +315,7 @@
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
 
-    private List<ApiClient.Opt> _vehicles = new(), _defOpts = new(), _mSubOpts = new(), _technicians = new();
+    private List<ApiClient.Opt> _defOpts = new(), _mSubOpts = new(), _technicians = new();
 
     // Tab 1: definitions
     private string? _defEditId;
@@ -350,7 +352,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _vehicles = await Api.OptionsAsync("/api/vehicles", "id", "display");
         _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
         _technicians = await Api.OptionsAsync("/api/personnel", "id", "fullName");
         await LoadDefs(); await LoadMaint(); await LoadAlerts();

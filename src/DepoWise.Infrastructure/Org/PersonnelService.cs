@@ -154,23 +154,33 @@ public sealed class PersonnelService
     public void Restore(SessionContext session, string id) => SetDeleted(session, id, false, AuditActions.Restore, PermissionAction.Edit);
 
     /// <summary>Tenant + kapsam filtreli keyset sayfası.</summary>
-    public PagedResult<PersonnelRecord> List(SessionContext session, PageRequest page, bool includeDeleted = false)
+    /// <param name="search">Ada göre arama (İş A, 2026-08-09). Sona eklendi → mevcut çağrılar bozulmaz.
+    /// NEDEN: bu liste SAYFALIDIR (<see cref="PageRequest.NormalizedLimit"/>). Web/masaüstü personel
+    /// seçicileri aramasız yüklediğinde, sınırın ötesindeki personel HİÇ SEÇİLEMİYORDU. Arama
+    /// <see cref="Materials.MaterialService.List"/> ile AYNI desende, aynı yerde (servis katmanı) yapılır —
+    /// firma ve şube kapsamı filtreleri aynen korunur, aramaya devredilmez.</param>
+    public PagedResult<PersonnelRecord> List(SessionContext session, PageRequest page, bool includeDeleted = false,
+        string? search = null)
     {
         AccessControl.Require(session, Module, PermissionAction.View);
         var allowedBranches = _scope.AllowedBranchIds(session);
         bool isAdmin = AccessControl.IsAdmin(session);
         var limit = page.NormalizedLimit();
         var hasCursor = Cursor.TryDecode(page.Cursor, out var cursor);
+        bool hasSearch = !string.IsNullOrWhiteSpace(search);
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
             "WHERE company_id = @c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
+            // Seçicilerde görünen alan full_name'dir → arama da onun üzerinden yapılır (Türkçe-doğru LikeTr).
+            (hasSearch ? $"AND {SqlDialect.LikeTr(conn, "full_name", "@q")} " : "") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT @limit;";
         cmd.AddWithValue("@c", session.CompanyId);
         cmd.AddWithValue("@limit", limit + 1);
+        if (hasSearch) cmd.AddWithValue("@q", "%" + search!.Trim() + "%");
         if (hasCursor)
         {
             cmd.AddWithValue("@cursorCreatedAt", cursor.CreatedAt);

@@ -41,7 +41,7 @@
             <MudGrid Spacing="2">
                 <MudItem xs="6" md="3"><LookupSelect Label="Kaynak Şube / Şantiye" @bind-Value="_from" Items="_branches" /></MudItem>
                 <MudItem xs="6" md="3"><LookupSelect Label="Hedef Şube / Şantiye" @bind-Value="_to" Items="_branches" /></MudItem>
-                <MudItem xs="6" md="3"><LookupSelect Label="Operatör / Şoför" @bind-Value="_operator" Items="_personnel" /></MudItem>
+                <MudItem xs="6" md="3"><LookupSelect Label="Operatör / Şoför" @bind-Value="_operator" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_duration" Label="Süre (gün)" Min="0" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             </MudGrid>
             @if (_kind == "Transfer") { <MudText Typo="Typo.caption" Class="mud-text-secondary">Transfer: araç otomatik PASİF duruma alınır.</MudText> }
@@ -63,7 +63,7 @@
                 }
                 else
                 {
-                    <MudItem xs="6" md="3"><LookupSelect Label="Teslim Alan (Personel)" @bind-Value="_exitPersonnel" Items="_personnel" /></MudItem>
+                    <MudItem xs="6" md="3"><LookupSelect Label="Teslim Alan (Personel)" @bind-Value="_exitPersonnel" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
                 }
             </MudGrid>
         }
@@ -75,7 +75,7 @@
                     <MudItem xs="6" md="4"><LookupSelect Label="Bakım Tanımı *" @bind-Value="_mDefId" Items="_defOpts" /></MudItem>
                     <MudItem xs="6" md="4"><LookupSelect Label="Alt Bakım" @bind-Value="_mSubId" Items="_mSubOpts" CreatePath="/api/maintenance/definitions" CreateField="name" ExtraField="parentDefId" ExtraValue="@_mDefId" OnAdded="ReloadMSub" Disabled="@(string.IsNullOrEmpty(_mDefId))" /></MudItem>
                 }
-                <MudItem xs="6" md="4"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_personnel" /></MudItem>
+                <MudItem xs="6" md="4"><LookupSelect Label="Teknisyen" @bind-Value="_mTech" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mKm" Label="Yapılma KM" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             </MudGrid>
@@ -155,7 +155,7 @@
         </MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12"><MudTextField @bind-Value="_editDescription" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-            <MudItem xs="12" md="6"><LookupSelect Label="Operatör / Şoför" @bind-Value="_editOperator" Items="_personnel" /></MudItem>
+            <MudItem xs="12" md="6"><LookupSelect Label="Operatör / Şoför" @bind-Value="_editOperator" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" /></MudItem>
             <MudItem xs="6" md="3"><MudNumericField T="int?" @bind-Value="_editDuration" Label="Süre (gün)" Min="0" Format="0" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
         </MudGrid>
         @if (_editError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_editError</MudAlert> }

@@ -27,27 +27,61 @@
     /// <summary>"+" ile ekleme sonrası ebeveyn listeyi tazelesin diye (yeni ad döner).</summary>
     [Parameter] public EventCallback<string> OnAdded { get; set; }
 
+    // ── SUNUCU-TARAFLI ARAMA (İş A, 2026-08-09) — OPSİYONEL ──────────────────────────────
+    // Varsayılan davranış DEĞİŞMEDİ: SearchPath verilmezse arama eskisi gibi Items üzerinde
+    // (istemcide) yapılır. Küçük/sayfasız lookup'lar (birim, marka, kategori…) için doğrusu budur.
+    //
+    // SearchPath verilirse arama SUNUCUDA yapılır. Gerekçe: /api/personnel gibi SAYFALI uçlarda
+    // Items en fazla 200 kayıt taşır → 200'den sonraki personel istemci aramasıyla ASLA bulunamıyordu.
+    /// <summary>Doluysa arama sunucuda yapılır (ör. "/api/personnel"). "?search=" bileşen tarafından eklenir.</summary>
+    [Parameter] public string? SearchPath { get; set; }
+    /// <summary>Sunucu yanıtındaki görünen ad alanı (ör. "fullName").</summary>
+    [Parameter] public string NameField { get; set; } = "name";
+
+    /// <summary>Sunucudan görülen adlar — seçili kayıt Items'ta olmasa da adı gösterilebilsin diye.</summary>
+    private readonly Dictionary<string, string> _serverNames = new(StringComparer.Ordinal);
+
     private bool CanAdd => AddTable is not null || CreatePath is not null;
 
     private async Task Changed(string? v) { Value = v; await ValueChanged.InvokeAsync(v); }
 
-    /// <summary>Id → görünen ad (seçili değeri metne çevirir).</summary>
+    /// <summary>Id → görünen ad (seçili değeri metne çevirir). Sunucu aramasında, seçili kayıt
+    /// Items'ta olmayabilir → sunucudan görülen adlar önbellekten çözülür (aksi halde alan boş görünürdü).</summary>
     private string IdToName(string? id)
-        => string.IsNullOrEmpty(id) ? "" : Items.FirstOrDefault(x => x.Id == id)?.Name ?? "";
+    {
+        if (string.IsNullOrEmpty(id)) return "";
+        var fromItems = Items.FirstOrDefault(x => x.Id == id)?.Name;
+        if (!string.IsNullOrEmpty(fromItems)) return fromItems!;
+        return _serverNames.TryGetValue(id, out var n) ? n : "";
+    }
 
     /// <summary>Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): arama boşken (alana
     /// tıklanınca) en fazla 25 kayıt; arama başlayınca sınır kalkar, TÜM eşleşenler listelenir. Türkçe
     /// karakter-doğru (FieldChecks.TrCompare) — bu TEK ortak bileşen 14+ ekranı etkiler.</summary>
     private const int MaxUnfiltered = 25;
-    private Task<IEnumerable<string>> Search(string? text, System.Threading.CancellationToken _)
+    private async Task<IEnumerable<string>> Search(string? text, System.Threading.CancellationToken _)
     {
         var q = (text ?? "").Trim();
+
+        // SearchPath verildiyse arama SUNUCUDA (sayfa sınırının ötesine ulaşır). Verilmediyse eski
+        // istemci-taraflı davranış AYNEN korunur — 14+ mevcut kullanım etkilenmez.
+        if (!string.IsNullOrEmpty(SearchPath))
+        {
+            var url = SearchPath + (q.Length > 0 ? $"?search={Uri.EscapeDataString(q)}" : "");
+            List<ApiClient.Opt> found;
+            try { found = await Api.OptionsAsync(url, "id", NameField); }
+            catch { found = new List<ApiClient.Opt>(); }
+            foreach (var o in found) _serverNames[o.Id] = o.Name;
+            // Arama boşken de sunucudan gelen ilk sayfa gösterilir (alana tıklayınca liste boş kalmasın).
+            return (q.Length > 0 ? found : found.Take(MaxUnfiltered)).Select(o => o.Id);
+        }
+
         IEnumerable<ApiClient.Opt> src;
         if (q.Length > 0)
             src = Items.Where(o => DepoWise.Web.Services.FieldChecks.TrCompare.IndexOf(o.Name ?? "", q, System.Globalization.CompareOptions.IgnoreCase) >= 0);
         else
             src = Items.Take(MaxUnfiltered);
-        return Task.FromResult(src.Select(o => o.Id));
+        return src.Select(o => o.Id);
     }
 
     private bool _busy;

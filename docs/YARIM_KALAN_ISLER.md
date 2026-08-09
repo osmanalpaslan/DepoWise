@@ -39,9 +39,13 @@ eklendi (bu sınıf hatayı bundan sonra otomatik yakalar). PostgreSQL'deki flak
 [Uygulama raporu](PAKET1_UYGULAMA_RAPORU.md) · [plan](PAKET1_UYGULAMA_PLANI.md)
 
 **Sonradan çıkan bulgular (backlog'a eklendi, 2026-08-09):**
-- **P2 — Web'de lookup alanlarında arama yok.** Masaüstü İş #9'da ortak `LookupBox`'a geçirildi;
-  web aynı alanlarda `MudSelect` (aramasız) kullanıyor. Web'in kendi aranabilir deseni zaten var
-  (`Stock.razor` → `MudAutocomplete`); 18+ kontrolün dönüştürülmesi ayrı iş.
+- ✅ **İŞ A TAMAMLANDI — "web'de arama yok" bulgusu aslında P1 çıktı.** Seçiciler sayfalı uçları
+  aramasız yüklüyordu; `PageRequest.MaxLimit = 200` nedeniyle 2463 malzemeli firmada 200'den
+  sonrası **hiç seçilemiyordu**. 4 çoklu seçim + 13 personel seçicisi sunucu-taraflı aramaya
+  geçirildi; `/api/personnel`'e arama eklendi. [Rapor](tests/WebLookupArama_Test_Report.md)
+- **P2 (yeni) — `/api/vehicles` da sayfalı (limit 200).** Canlıda 94 araç → bugün kesilmiyor;
+  filo 200'ü geçerse aynı sessiz kayıp araçlarda oluşur. Seçiciler aramaya geçirildiği için
+  semptom kapandı, sınır duruyor (`PageRequest.MaxLimit` sistem geneli karar → değiştirilmedi).
 - **P3 — `LookupBox`'ta "seçimi temizle" yok.** Opsiyonel alanda seçim geri alınamıyor.
   Eski `ComboBox`ta da alınamıyordu → regresyon değil.
 

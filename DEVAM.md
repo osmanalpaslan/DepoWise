@@ -51,6 +51,13 @@ Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
+### ✅ İŞ A TAMAMLANDI (2026-08-09) — seçicilerde sessiz kayıt kaybı düzeltildi
+Malzeme/araç/personel seçicilerinde liste **200 kayıtta sessizce kesiliyordu** — 2463 malzemesi olan
+firmada 200'den sonraki malzeme **hiç seçilemiyordu** ve ekranda bunu söyleyen bir uyarı yoktu.
+Artık bu alanlarda **arama kutusu** var ve arama **sunucuda** yapılıyor; yazdıkça tüm kayıtlara
+ulaşılıyor, seçtikleriniz arama daralınca kaybolmuyor. Testler: SQLite 972 · PostgreSQL 43/43.
+[Rapor](docs/tests/WebLookupArama_Test_Report.md)
+
 **Sıradaki iş:** ⏸️ **Senin kararın.** Onaylı sıranın 11 maddesi bitti. #11'de bir yavaşlık düzeltildi;
 geri kalanı (FK/index şema değişikliği) **senin onayını bekliyor** — bkz.
 [docs/FAZ_S_ANALIZ_RAPORU.md](docs/FAZ_S_ANALIZ_RAPORU.md). Ayrıca #4–#11 arası **hiçbiri yayınlanmadı**.

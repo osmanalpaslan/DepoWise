@@ -1,0 +1,95 @@
+@inject ApiClient Api
+
+@* ═══════════════════════════════════════════════════════════════════════════════════════════
+   SUNUCU-TARAFLI ARAMALI ÇOKLU SEÇİM (İş A, 2026-08-09)
+
+   NEDEN VAR: Bazı seçiciler SAYFALI uçları (/api/materials, /api/vehicles) aramasız yüklüyordu.
+   Bu uçlar en fazla PageRequest.MaxLimit (200) kayıt döner → 2000+ malzemesi olan firmada geri
+   kalanlar seçicide HİÇ GÖRÜNMÜYORDU (sessiz işlev kaybı, uyarı da yok).
+
+   TASARIM (mevcut davranışı BOZMADAN düzeltir):
+     • İlk yükleme ARAMASIZDIR → bugünkü davranışın aynısı. Düzenlemede sunucudan gelen seçili
+       kayıtların ADLARI böylece çözülür (liste zaten onları içerir).
+     • Kullanıcı yazınca arama SUNUCUDA yapılır (?search=) → sayfa sınırının ötesine ulaşılır.
+     • SEÇİLİ kayıtlar arama sonucuna DAİMA eklenir → arama daraldığında seçim kaybolmaz.
+     • Görülen adlar önbelleğe alınır; seçili bir kayıt sonuçtan çıksa bile adı korunur.
+
+   Firma izolasyonu bu bileşende DEĞİL, servis katmanındadır (uçlar oturumun firmasına göre filtreler).
+   Bu bileşen yalnız görünümdür; yetki/filtre kuralı taşımaz.
+   ═══════════════════════════════════════════════════════════════════════════════════════════ *@
+
+<MudTextField T="string" Value="@_search" ValueChanged="OnSearch" DebounceInterval="300" Immediate="true"
+              Label="@SearchLabel" Margin="Margin.Dense" Variant="Variant.Outlined"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+              HelperText="@_helper" Disabled="@Disabled" />
+
+<MudSelect T="string" SelectedValues="@SelectedValues" SelectedValuesChanged="OnSelectionChanged"
+           Label="@Label" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+           Class="mt-2" Disabled="@Disabled" HelperText="@HelperText"
+           MultiSelectionTextFunc="@(v => v.Count == 0 ? "—" : $"{v.Count} {ItemNoun} seçili")">
+    @foreach (var o in _options) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+</MudSelect>
+
+@code {
+    /// <summary>Çoklu seçim etiketi (ör. "Uyumlu Araçlar").</summary>
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? HelperText { get; set; }
+    /// <summary>Arama kutusunun etiketi (ör. "Araç ara (kod/plaka)").</summary>
+    [Parameter] public string SearchLabel { get; set; } = "Ara";
+    /// <summary>Sayaç metnindeki ad (ör. "araç" → "3 araç seçili").</summary>
+    [Parameter] public string ItemNoun { get; set; } = "kayıt";
+    /// <summary>Arama yapılacak uç (ör. "/api/vehicles"). "?search=" bu bileşen tarafından eklenir.</summary>
+    [Parameter, EditorRequired] public string SearchPath { get; set; } = "";
+    /// <summary>Yanıttaki görünen ad alanı (ör. "display" / "name").</summary>
+    [Parameter] public string NameField { get; set; } = "name";
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public IReadOnlyCollection<string> SelectedValues { get; set; } = new HashSet<string>();
+    [Parameter] public EventCallback<IReadOnlyCollection<string>> SelectedValuesChanged { get; set; }
+
+    private List<ApiClient.Opt> _options = new();
+    private readonly Dictionary<string, string> _names = new(StringComparer.Ordinal);
+    private string _search = "";
+    private string? _helper;
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync() { await Reload(); _loaded = true; }
+
+    /// <summary>Ebeveyn düzenlemeye geçtiğinde (seçili idler sonradan gelir) listeyi tazeler —
+    /// yoksa seçili kayıt listede olmadığı için görünmezdi.</summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_loaded) return;
+        if (SelectedValues.Any(id => !_options.Any(o => o.Id == id))) await Reload();
+    }
+
+    private async Task OnSearch(string? value) { _search = value ?? ""; await Reload(); }
+
+    private async Task OnSelectionChanged(IReadOnlyCollection<string> values)
+    {
+        SelectedValues = values;
+        await SelectedValuesChanged.InvokeAsync(values);
+    }
+
+    private async Task Reload()
+    {
+        var q = string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search.Trim())}";
+        List<ApiClient.Opt> found;
+        try { found = await Api.OptionsAsync(SearchPath + q, "id", NameField); }
+        catch { found = new List<ApiClient.Opt>(); }
+
+        foreach (var o in found) _names[o.Id] = o.Name;
+
+        // Seçili olanlar HER ZAMAN listede kalır (arama daraldığında seçim kaybolmasın).
+        var merged = found.ToList();
+        foreach (var id in SelectedValues)
+            if (!merged.Any(x => x.Id == id))
+                merged.Add(new ApiClient.Opt(id, _names.TryGetValue(id, out var n) ? n : id));
+
+        _options = merged;
+        // Sunucudaki sayfa sınırı burada TEKRARLANMAZ; sayı yerine davranış anlatılır.
+        _helper = string.IsNullOrWhiteSpace(_search)
+            ? "Liste sınırlı gelir. Aradığınız yoksa yazarak arayın (arama sunucuda yapılır)."
+            : $"{found.Count} sonuç.";
+    }
+}

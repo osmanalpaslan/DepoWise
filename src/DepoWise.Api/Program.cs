@@ -724,11 +724,13 @@ app.MapGet("/api/branches", (HttpContext c, string? companyId) => S(c) is { } s 
 // Firma seçicileri için tenant-kapsamlı liste: süper admin tümü, diğerleri YALNIZ kendi firması.
 app.MapGet("/api/companies/options", (HttpContext c) =>
     S(c) is { } s ? Results.Ok(svc.Companies.Selectable(s).Select(x => new { id = x.Id, name = x.Name })) : Results.Unauthorized()).RequireAuthorization();
-app.MapGet("/api/personnel", (HttpContext c) =>
+// İş A (2026-08-09): "search" eklendi. Bu uç SAYFALIDIR; personel seçicileri aramasız yüklediğinde
+// sınırın ötesindeki personel seçilemiyordu. /api/materials ve /api/vehicles ile AYNI desen.
+app.MapGet("/api/personnel", (HttpContext c, string? search) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var acc = svc.Users.AccountsByPersonnel(s.CompanyId); // #6: personel → bağlı kullanıcı rozeti
-    var rows = svc.Personnel.List(s, Page()).Items.Select(p =>
+    var acc = svc.Users.AccountsByPersonnel(s.CompanyId); // #6: personel → bağlı kullanıcı rozeti (döngü ÖNCESİ tek sorgu)
+    var rows = svc.Personnel.List(s, Page(), search: Doc(search)).Items.Select(p =>
     {
         acc.TryGetValue(p.Id, out var a);
         return new

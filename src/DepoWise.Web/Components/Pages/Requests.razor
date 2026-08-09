@@ -26,9 +26,9 @@
                 <MudGrid Spacing="2">
                     <MudItem xs="12" md="6"><LookupSelect Label="Şube / Şantiye *" @bind-Value="_branch" Items="_branches" OnAdded="ReloadBranches" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                    <MudItem xs="12" md="4"><LookupSelect Label="Talep Eden" @bind-Value="_requester" Items="_personnel" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
-                    <MudItem xs="12" md="4"><LookupSelect Label="Depo Sorumlusu" @bind-Value="_warehouse" Items="_personnel" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
-                    <MudItem xs="12" md="4"><LookupSelect Label="Onay Veren" @bind-Value="_approver" Items="_personnel" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
+                    <MudItem xs="12" md="4"><LookupSelect Label="Talep Eden" @bind-Value="_requester" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
+                    <MudItem xs="12" md="4"><LookupSelect Label="Depo Sorumlusu" @bind-Value="_warehouse" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
+                    <MudItem xs="12" md="4"><LookupSelect Label="Onay Veren" @bind-Value="_approver" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
                     <MudItem xs="12"><MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
                 </MudGrid>
 
