@@ -81,6 +81,39 @@
 
             <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_qty" Label="@QtyLabel" Margin="Margin.Dense" Variant="Variant.Outlined" Min="0" /></MudItem>
 
+            @* ÇOK MALZEMELİ ÇIKIŞ (İş #8, 2026-08-09): eskiden bir çıkış/transfer belgesinde yalnız BİR malzeme
+               olabiliyordu. Artık "Listeye Ekle" ile birkaç malzeme toplanıp TEK belgede kaydedilir.
+               Liste boş bırakılırsa eski davranış aynen sürer. Masaüstündeki desenle birebir aynı. *@
+            @if (ShowExitLines)
+            {
+                <MudItem xs="12">
+                    <div class="d-flex align-center flex-wrap" style="gap:12px;">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PlaylistAdd"
+                                   OnClick="AddExitLine"
+                                   title="Seçili malzeme ve miktarı listeye ekler; sonra başka malzeme seçebilirsiniz.">
+                            Listeye Ekle
+                        </MudButton>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@ExitLinesSummary</MudText>
+                    </div>
+                    @if (_exitLines.Count > 0)
+                    {
+                        <MudSimpleTable Dense="true" Striped="true" Class="mt-2" Style="overflow-x:auto;">
+                            <thead><tr><th>Malzeme</th><th style="width:120px;">Miktar</th><th style="width:90px;"></th></tr></thead>
+                            <tbody>
+                                @foreach (var l in _exitLines.ToList())
+                                {
+                                    <tr>
+                                        <td>@l.Display</td>
+                                        <td>@l.Quantity.ToString("0.##")</td>
+                                        <td><MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => RemoveExitLine(l))">Çıkar</MudButton></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudItem>
+            }
+
             @* İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06).
                Giriş/çıkışta İŞLEM şubesi, transferde KAYNAK şube budur. Yalnız transfer HEDEFİ seçilir. *@
             @if (IsOutBranch)
@@ -309,8 +342,10 @@
         if (!await Dialog.RequireBranchAsync(Auth, "Malzeme Giriş-Çıkış")) return;   // "Tüm Şubeler" modunda işlem yok
         // madde 8: personel Yeni Kayıt + Şube İçi'nde zorunlu; Şube Dışı (transfer) alanı gizli → zorunlu değil.
         if ((IsNew || IsInBranch) && string.IsNullOrWhiteSpace(_personnel)) { _msg = "Personel (işlemi yapan) zorunludur."; _ok = false; return; }
-        if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(_qty)
-            && !await Dialog.Confirm($"Miktar çok büyük görünüyor ({_qty:0.##}). Emin misiniz?", "Evet, Doğru")) return; // madde 7
+        // madde 7 — İş #8: sepetteki satırlar da denetlenir (formdaki miktar 0 olduğunda eski kontrol hiç tetiklenmezdi).
+        var biggest = _exitLines.Count == 0 ? _qty : Math.Max(_qty, _exitLines.Max(l => l.Quantity));
+        if (DepoWise.Web.Services.FieldChecks.IsSuspiciouslyLarge(biggest)
+            && !await Dialog.Confirm($"Miktar çok büyük görünüyor ({biggest:0.##}). Emin misiniz?", "Evet, Doğru")) return;
 
         // MASAÜSTÜYLE PARİTE (StockEntryViewModel.Save): alan doğrulaması ÖNCE, onay penceresi SONRA — kullanıcı
         // eksik alanla "kaydedilsin mi?" sorusuna tıklayıp ardından hata görmesin. Onay metni de masaüstüyle
@@ -331,18 +366,18 @@
         }
         else if (IsInBranch)   // Şube İçi Çıkış = merkez depodan düşer (issue)
         {
-            if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
-            if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
-            if (!await Dialog.Confirm("Şube içi çıkış kaydedilsin mi? (stok AZALIR)", "Evet, Kaydet")) return;
+            _saveLines = BuildExitLines();
+            if (_saveLines.Count == 0) { _msg = "Malzeme seçin (ya da listeye ekleyin)."; _ok = false; return; }
+            if (!await Dialog.Confirm($"Şube içi çıkış kaydedilsin mi?{LineText(_saveLines)} (stok AZALIR)", "Evet, Kaydet")) return;
         }
         else // Şube Dışı Çıkış = Transfer
         {
-            if (_material is null) { _msg = "Malzeme seçin."; _ok = false; return; }
-            if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+            _saveLines = BuildExitLines();
+            if (_saveLines.Count == 0) { _msg = "Malzeme seçin (ya da listeye ekleyin)."; _ok = false; return; }
             // Kaynak = login şube (otomatik); kullanıcı yalnız HEDEFİ seçer.
             if (string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Hedef şube seçin."; _ok = false; return; }
             if (Auth.BranchId == _toBranch) { _msg = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; _ok = false; return; }
-            if (!await Dialog.Confirm($"{LoginBranchName} → hedef şubeye şube dışı çıkış (transfer) kaydedilsin mi?", "Evet, Kaydet")) return;
+            if (!await Dialog.Confirm($"{LoginBranchName} → hedef şubeye şube dışı çıkış (transfer) kaydedilsin mi?{LineText(_saveLines)}", "Evet, Kaydet")) return;
         }
 
         _busy = true;
@@ -365,7 +400,9 @@
             {
                 err = await Api.PostAsync("/api/stock/issue", new
                 {
-                    materialId = _material!.Id, quantity = _qty, branchId = Auth.BranchId, personnelId = Empty(_personnel),
+                    lines = _saveLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity }),
+                    materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
+                    branchId = Auth.BranchId, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
@@ -374,7 +411,9 @@
             {
                 err = await Api.PostAsync("/api/stock/transfer", new
                 {
-                    materialId = _material!.Id, quantity = _qty, fromBranchId = Auth.BranchId, toBranchId = _toBranch,
+                    lines = _saveLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity }),
+                    materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
+                    fromBranchId = Auth.BranchId, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
                     invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
@@ -396,9 +435,51 @@
         await LoadMovements();
     }
 
+    // ══════════════ ÇOK MALZEMELİ ÇIKIŞ (İş #8, 2026-08-09) ══════════════
+    // Masaüstüyle birebir aynı desen: "Listeye Ekle" ile sepet toplanır, Kaydet'te TEK belge oluşur.
+    // Liste boş bırakılırsa eski davranış aynen sürer (tek malzeme + miktar).
+
+    private sealed record ExitLine(string MaterialId, string Display, decimal Quantity);
+    private readonly List<ExitLine> _exitLines = new();
+    private List<ExitLine> _saveLines = new();
+
+    private bool ShowExitLines => !IsNew;
+    private string ExitLinesSummary => _exitLines.Count == 0
+        ? "Listeye malzeme eklemeden tek malzeme de kaydedebilirsiniz."
+        : $"{_exitLines.Count} malzeme listede — Kaydet'e basınca hepsi TEK belgede işlenir.";
+    private static string LineText(List<ExitLine> lines) => lines.Count == 1 ? "" : $" ({lines.Count} malzeme, tek belge)";
+
+    private void AddExitLine()
+    {
+        _msg = null;
+        if (_material is null) { _msg = "Önce malzeme seçin."; _ok = false; return; }
+        if (_qty <= 0) { _msg = "Miktar sıfırdan büyük olmalı."; _ok = false; return; }
+        // Aynı malzeme tekrar eklenirse miktarlar TOPLANIR (iki ayrı satır kullanıcıyı yanıltırdı).
+        var i = _exitLines.FindIndex(l => l.MaterialId == _material.Id);
+        if (i >= 0) _exitLines[i] = _exitLines[i] with { Quantity = _exitLines[i].Quantity + _qty };
+        else _exitLines.Add(new ExitLine(_material.Id, _material.Display, _qty));
+        _material = null; _qty = 0; _balance = "";
+    }
+
+    private void RemoveExitLine(ExitLine line) => _exitLines.Remove(line);
+
+    /// <summary>Sepet + (varsa) formda duran seçim. Kullanıcı "Listeye Ekle"ye basmayı unutursa seçim kaybolmasın.</summary>
+    private List<ExitLine> BuildExitLines()
+    {
+        var lines = _exitLines.ToList();
+        if (_material is not null && _qty > 0)
+        {
+            var i = lines.FindIndex(l => l.MaterialId == _material.Id);
+            if (i >= 0) lines[i] = lines[i] with { Quantity = lines[i].Quantity + _qty };
+            else lines.Add(new ExitLine(_material.Id, _material.Display, _qty));
+        }
+        return lines;
+    }
+
     private void ClearForm()
     {
         _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = ""; _price = 0;
+        _exitLines.Clear(); _saveLines = new();   // İş #8: sepet de temizlenir
         _qty = 0; _note = _invoiceNo = _orderSlipNo = _creditSlipNo = "";
         _branch = _fromBranch = _toBranch = _personnel = _vehicle = "";
         _material = null; _balance = "";

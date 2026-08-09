@@ -89,6 +89,34 @@
                     </StackPanel>
                 </ctrl:FormField>
 
+                <!-- ÇOK MALZEMELİ ÇIKIŞ (İş #8, 2026-08-09): eskiden bir çıkış/transfer belgesinde yalnız BİR
+                     malzeme olabiliyordu. Artık "Listeye Ekle" ile birkaç malzeme toplanıp TEK belgede kaydedilir.
+                     Liste boş bırakılırsa eski davranış aynen sürer (tek malzeme + miktar). -->
+                <StackPanel Spacing="8" IsVisible="{Binding ShowExitLines}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddExitLineCommand}"
+                                ToolTip.Tip="Seçili malzeme ve miktarı listeye ekler; sonra başka malzeme seçebilirsiniz."/>
+                        <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding ExitLinesSummary}"/>
+                    </StackPanel>
+                    <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasExitLines}">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding ExitLines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:StockEntryViewModel+ExitLine">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,4">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Display}" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding QtyDisplay}" VerticalAlignment="Center" Margin="12,0"/>
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Çıkar"
+                                                    Command="{Binding $parent[ItemsControl].((vm:StockEntryViewModel)DataContext).RemoveExitLineCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+
                 <!-- Yeni Kayıt: malzeme kartı alanları — mevcut malzeme seçildiyse (NewFieldsLocked) Kod/Ad/Tür/
                      Birim/Kategori/Alt Kategori/Marka KİLİTLENİR (madde 1.1); Tedarikçi HER ZAMAN aktif kalır. -->
                 <StackPanel Spacing="14" IsVisible="{Binding ShowNewForm}">

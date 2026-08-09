@@ -91,13 +91,27 @@ public sealed class StockService
     }
 
     // ---- Transfer (kaynak çıkış + hedef giriş atomik, aynı grup) ----
+    /// <summary>Tek malzemeli transfer — çok malzemeli sürüme yönlendirir (geriye uyumluluk).</summary>
     public StockDocResult Transfer(SessionContext s, string materialId, decimal quantity,
+        string fromBranchId, string toBranchId, string operationId, string? note = null, long? docDate = null,
+        string? personnelId = null, string? vehicleId = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
+        => Transfer(s, new[] { new StockLine(materialId, quantity) }, fromBranchId, toBranchId, operationId,
+            note, docDate, personnelId, vehicleId, invoiceNo, orderSlipNo, creditSlipNo);
+
+    /// <summary>
+    /// ÇOK MALZEMELİ transfer (İş #8, 2026-08-09) — tek belgede N malzeme, tek transaction.
+    /// <see cref="ReceiveIn"/> ve <see cref="IssueOut"/> zaten çok satırlıydı; transfer tek malzemeydi.
+    /// Bir satır bile başarısız olursa (ör. negatif stok) TAMAMI geri alınır — yarım transfer olmaz.
+    /// </summary>
+    public StockDocResult Transfer(SessionContext s, IReadOnlyList<StockLine> lines,
         string fromBranchId, string toBranchId, string operationId, string? note = null, long? docDate = null,
         string? personnelId = null, string? vehicleId = null,
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);
-        if (quantity <= 0) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
+        if (lines.Count == 0) throw new ArgumentException("En az bir malzeme seçin.");
+        if (lines.Any(l => l.Quantity <= 0)) throw new ArgumentException("Transfer miktarı pozitif olmalı.");
         // Kaynak şube = KULLANICININ ŞUBESİ (login şube). Şubeye bağlı kullanıcıda boş gelse bile kendi şubesine
         // atanır; farklı şube gönderilirse reddedilir. Dönüş çözülmüş kaynak şubedir (eski kod dönüşü atıyordu →
         // istemci boş fromBranchId gönderirse kaynak hareketi şubesiz kalıyordu). Şube kapsamı NULL ise (web/admin)
@@ -109,10 +123,16 @@ public sealed class StockService
         return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, personnelId, vehicleId, note, docDate,
             (conn, tx, docId) =>
             {
-                var line = new StockLine(materialId, quantity);
-                // Kaynak çıkış (negatif guard) + hedef giriş — net bakiye değişmez ama hareketler kayıtlı
-                ApplyLine(conn, tx, s, docId, line, -1, $"{operationId}:out", "transfer", fromBranchId, fromBranchId, groupId);
-                ApplyLine(conn, tx, s, docId, line, +1, $"{operationId}:in", "transfer", toBranchId, fromBranchId, groupId);
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    // Idempotency anahtarı: TEK malzemede eski biçim ("op:out") AYNEN korunur — bekleyen
+                    // bir tekrar denemesi (retry) sürüm değişikliği yüzünden kopya hareket üretmesin.
+                    // Çok malzemede satır numarası eklenir (satırlar birbirinden ayrışsın).
+                    var suffix = lines.Count == 1 ? "" : $":{i}";
+                    // Kaynak çıkış (negatif guard) + hedef giriş — net bakiye değişmez ama hareketler kayıtlı
+                    ApplyLine(conn, tx, s, docId, lines[i], -1, $"{operationId}{suffix}:out", "transfer", fromBranchId, fromBranchId, groupId);
+                    ApplyLine(conn, tx, s, docId, lines[i], +1, $"{operationId}{suffix}:in", "transfer", toBranchId, fromBranchId, groupId);
+                }
             }, groupId, invoiceNo, orderSlipNo, creditSlipNo);
     }
 

@@ -77,6 +77,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [NotifyPropertyChangedFor(nameof(ShowTargetBranch))]
     [NotifyPropertyChangedFor(nameof(ShowPersonnel))]
     [NotifyPropertyChangedFor(nameof(QuantityLabel))]
+    [NotifyPropertyChangedFor(nameof(ShowExitLines))]   // İş #8: çoklu malzeme sepeti yalnız Depo Çıkışı'nda
     private string _selectedKind = "Yeni Kayıt";
 
     /// <summary>Depo Çıkışı alt-kapsamı (kullanıcı isteği 2026-08-07): "Şube İçi" (=çıkış/IssueOut) ya da
@@ -318,8 +319,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         // madde 8: personel "işlemi yapan/teslim alan" — Yeni Kayıt + Şube İçi'nde zorunlu. Şube Dışı (transfer)
         // alanı gizli olduğundan zorunlu değildir (kullanıcı isteği 2026-08-07).
         if (ShowPersonnel && PersonnelSel is null) { FormError = "Personel (işlemi yapan) zorunludur."; return; }
-        if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(Quantity)
-            && !await ConfirmService.AskAsync($"Miktar çok büyük görünüyor ({Quantity:0.##}). Emin misiniz?", "Miktar Uyarısı", "Evet, Doğru")) return; // madde 7
+        // madde 7 — İş #8: sepetteki satırlar da denetlenir (aksi halde sepete konan çok büyük miktar
+        // uyarısız geçerdi; formdaki miktar 0 olduğu için eski kontrol hiç tetiklenmezdi).
+        var biggest = ExitLines.Count == 0 ? Quantity : Math.Max(Quantity, ExitLines.Max(l => l.Quantity));
+        if (DepoWise.Application.Ui.FieldChecks.IsSuspiciouslyLarge(biggest)
+            && !await ConfirmService.AskAsync($"Miktar çok büyük görünüyor ({biggest:0.##}). Emin misiniz?", "Miktar Uyarısı", "Evet, Doğru")) return;
 
         string? Doc(string v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
         var note = Doc(Note);
@@ -387,17 +391,18 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
             }
             else
             {
-                if (SelectedMaterial is null) { FormError = "Malzeme seçin."; return; }
-                if (Quantity <= 0) { FormError = "Miktar sıfırdan büyük olmalı."; return; }
+                // İş #8: sepetteki satırlar + (varsa) formda duran seçim birlikte TEK belgede işlenir.
+                var exitLines = BuildExitLines();
+                if (exitLines.Count == 0) { FormError = "Malzeme seçin (ya da listeye ekleyin)."; return; }
+                var lineText = exitLines.Count == 1 ? "" : $" ({exitLines.Count} malzeme, tek belge)";
 
                 if (IsInBranchExit)   // Şube İçi Çıkış = merkez depodan düşer (IssueOut)
                 {
-                    if (!await ConfirmService.AskAsync("Şube içi çıkış kaydedilsin mi? (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
-                    DesktopServices.Stock.IssueOut(_session,
-                        new[] { new StockLine(SelectedMaterial.Id, Quantity) }, op,
+                    if (!await ConfirmService.AskAsync($"Şube içi çıkış kaydedilsin mi?{lineText} (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
+                    DesktopServices.Stock.IssueOut(_session, exitLines, op,
                         branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // çıkış şubesi = login şube
-                    Status = "Şube içi çıkış kaydedildi.";
+                    Status = exitLines.Count == 1 ? "Şube içi çıkış kaydedildi." : $"Şube içi çıkış kaydedildi ({exitLines.Count} malzeme).";
                 }
                 else // Şube Dışı Çıkış = Transfer — kaynak = login şube (otomatik), kullanıcı yalnız HEDEFİ seçer
                 {
@@ -405,11 +410,11 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     if (string.IsNullOrEmpty(from)) { FormError = "Şubeniz belirlenemedi."; return; }
                     if (ToBranch is null) { FormError = "Hedef şube seçin."; return; }
                     if (ToBranch.Id == from) { FormError = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; return; }
-                    if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?", "Depo Çıkışı — Şube Dışı")) return;
-                    DesktopServices.Stock.Transfer(_session, SelectedMaterial.Id, Quantity, from, ToBranch.Id, op, note,
+                    if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?{lineText}", "Depo Çıkışı — Şube Dışı")) return;
+                    DesktopServices.Stock.Transfer(_session, exitLines, from, ToBranch.Id, op, note,
                         personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
-                    Status = "Şube dışı çıkış (transfer) kaydedildi.";
+                    Status = exitLines.Count == 1 ? "Şube dışı çıkış (transfer) kaydedildi." : $"Şube dışı çıkış (transfer) kaydedildi ({exitLines.Count} malzeme).";
                 }
             }
 
@@ -417,6 +422,77 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
             Load();
         }
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    // ══════════════ ÇOK MALZEMELİ ÇIKIŞ (İş #8, 2026-08-09) ══════════════
+    // Eskiden bir çıkış/transfer belgesinde YALNIZ BİR malzeme olabiliyordu; 10 malzeme veren depocu
+    // 10 ayrı belge açmak zorundaydı. Servis katmanı (ReceiveIn/IssueOut) zaten çok satırlıydı; transfer
+    // de bu işte çok satırlı hâle getirildi. Ekranda "listeye ekle" sepeti eklendi.
+    //
+    // Geriye uyumluluk: sepet BOŞ bırakılıp tek malzeme + miktar yazılırsa eski davranış aynen sürer.
+
+    public sealed record ExitLine(string MaterialId, string Code, string Name, decimal Quantity)
+    {
+        public string Display => $"{Code} — {Name}";
+        public string QtyDisplay => Quantity.ToString("0.##");
+    }
+
+    public ObservableCollection<ExitLine> ExitLines { get; } = new();
+
+    /// <summary>Sepet yalnız Depo Çıkışı'nda görünür (Yeni Kayıt malzeme KARTI oluşturur; oraya sepet uymaz).</summary>
+    public bool ShowExitLines => IsExit;
+    public bool HasExitLines => ExitLines.Count > 0;
+    public string ExitLinesSummary => ExitLines.Count == 0
+        ? "Listeye malzeme eklemeden tek malzeme de kaydedebilirsiniz."
+        : $"{ExitLines.Count} malzeme listede — Kaydet'e basınca hepsi TEK belgede işlenir.";
+
+    [RelayCommand]
+    private void AddExitLine()
+    {
+        FormError = null;
+        if (SelectedMaterial is null) { FormError = "Önce malzeme seçin."; return; }
+        if (Quantity <= 0) { FormError = "Miktar sıfırdan büyük olmalı."; return; }
+        // Aynı malzeme tekrar eklenirse miktarlar TOPLANIR (iki ayrı satır kullanıcıyı yanıltırdı).
+        var existing = ExitLines.FirstOrDefault(l => l.MaterialId == SelectedMaterial.Id);
+        if (existing is not null)
+        {
+            ExitLines[ExitLines.IndexOf(existing)] = existing with { Quantity = existing.Quantity + Quantity };
+        }
+        else
+        {
+            ExitLines.Add(new ExitLine(SelectedMaterial.Id, SelectedMaterial.Code, SelectedMaterial.Name, Quantity));
+        }
+        ClearPickedMaterial();
+        Quantity = 0;
+        NotifyExitLines();
+    }
+
+    [RelayCommand]
+    private void RemoveExitLine(ExitLine? line)
+    {
+        if (line is null) return;
+        ExitLines.Remove(line);
+        NotifyExitLines();
+    }
+
+    private void NotifyExitLines()
+    {
+        OnPropertyChanged(nameof(HasExitLines));
+        OnPropertyChanged(nameof(ExitLinesSummary));
+    }
+
+    /// <summary>Kaydetmede kullanılacak satırlar: sepet + (varsa) formda duran seçim.
+    /// Kullanıcı "listeye ekle"ye basmayı unutursa seçimi kaybetmeyelim diye formdaki de dahil edilir.</summary>
+    private List<StockLine> BuildExitLines()
+    {
+        var lines = ExitLines.Select(l => new StockLine(l.MaterialId, l.Quantity)).ToList();
+        if (SelectedMaterial is not null && Quantity > 0)
+        {
+            var idx = lines.FindIndex(l => l.MaterialId == SelectedMaterial.Id);
+            if (idx >= 0) lines[idx] = lines[idx] with { Quantity = lines[idx].Quantity + Quantity };
+            else lines.Add(new StockLine(SelectedMaterial.Id, Quantity));
+        }
+        return lines;
     }
 
     [RelayCommand]
@@ -443,6 +519,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         Code = ""; Name = ""; NewType = "Yedek Parça";
         SelectedCategory = null; SelectedSubCategory = null; SelectedUnit = null;
         SelectedBrand = null; SelectedSupplier = null;
+        ExitLines.Clear(); NotifyExitLines();   // İş #8: sepet de temizlenir
         Quantity = 0; UnitPrice = 0; Note = ""; Branch = null; FromBranch = null; ToBranch = null;
         PersonnelSel = null; VehicleSel = null;
         InvoiceNo = ""; OrderSlipNo = ""; CreditSlipNo = "";

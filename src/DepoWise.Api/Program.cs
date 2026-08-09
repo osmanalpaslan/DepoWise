@@ -1537,14 +1537,29 @@ app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
     return Results.Ok(new { id = materialId });
 }).RequireAuthorization();
 
+// İş #8 (2026-08-09): ÇOK malzemeli stok işlemi. Yeni istemci "lines" gönderir; eski istemci
+// tek malzeme (materialId + quantity) gönderir → ikisi de aynı doğrulamadan geçer, davranış aynı kalır.
+static IReadOnlyList<DepoWise.Infrastructure.Materials.StockLine> StockLines(
+    List<StockLineDto>? lines, string? materialId, decimal quantity)
+{
+    var src = lines is { Count: > 0 }
+        ? lines
+        : new List<StockLineDto> { new(materialId ?? "", quantity) };
+    if (src.Any(l => string.IsNullOrWhiteSpace(l.MaterialId))) throw new ArgumentException("Malzeme seçin.");
+    if (src.Any(l => l.Quantity <= 0)) throw new ArgumentException("Miktar sıfırdan büyük olmalı.");
+    // Aynı malzeme iki kez eklenmişse tek satırda toplanır: iki ayrı hareket yerine doğru tek hareket
+    // (aksi halde bakiye doğru ama hareket defteri kullanıcıya kafa karıştırıcı görünürdü).
+    return src.GroupBy(l => l.MaterialId, StringComparer.Ordinal)
+        .Select(g => new DepoWise.Infrastructure.Materials.StockLine(g.Key, g.Sum(x => x.Quantity)))
+        .ToList();
+}
+
 app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (string.IsNullOrWhiteSpace(d.MaterialId)) throw new ArgumentException("Malzeme seçin.");
-    if (d.Quantity <= 0) throw new ArgumentException("Miktar sıfırdan büyük olmalı.");
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
-    svc.Stock.IssueOut(s,
-        new[] { new DepoWise.Infrastructure.Materials.StockLine(d.MaterialId, d.Quantity) },
+    var lines = StockLines(d.Lines, d.MaterialId, d.Quantity);
+    svc.Stock.IssueOut(s, lines,
         Guid.NewGuid().ToString("N"), d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { ok = true });
@@ -1553,10 +1568,9 @@ app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
 app.MapPost("/api/stock/transfer", (HttpContext c, StockTransferDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (string.IsNullOrWhiteSpace(d.MaterialId)) throw new ArgumentException("Malzeme seçin.");
-    if (d.Quantity <= 0) throw new ArgumentException("Miktar sıfırdan büyük olmalı.");
     if (string.IsNullOrWhiteSpace(d.FromBranchId) || string.IsNullOrWhiteSpace(d.ToBranchId)) throw new ArgumentException("Kaynak ve hedef şube seçin.");
-    svc.Stock.Transfer(s, d.MaterialId, d.Quantity, d.FromBranchId, d.ToBranchId, Guid.NewGuid().ToString("N"), Doc(d.Note),
+    var lines = StockLines(d.Lines, d.MaterialId, d.Quantity);
+    svc.Stock.Transfer(s, lines, d.FromBranchId, d.ToBranchId, Guid.NewGuid().ToString("N"), Doc(d.Note),
         personnelId: d.PersonnelId, vehicleId: d.VehicleId,
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { ok = true });
@@ -2618,8 +2632,11 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
     // madde 1.1 (kullanıcı isteği 2026-08-06): dolu ise mevcut malzemeye giriş — Code/Name/... yok sayılır,
     // yalnız SupplierId (kart güncellemesi için) kullanılır. Boşsa eski davranış (kod ile upsert) değişmez.
     string? MaterialId = null);
-record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
-record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo);
+/// <summary>İş #8: <c>Lines</c> ÇOK malzemeli işlem içindir. Verilmezse eski tek malzemeli alanlar
+/// (MaterialId + Quantity) kullanılır → mevcut istemciler bozulmaz.</summary>
+record StockLineDto(string MaterialId, decimal Quantity);
+record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null);
+record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null);
 record StockReverseDto(string DocumentId, string? Reason);
 record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);

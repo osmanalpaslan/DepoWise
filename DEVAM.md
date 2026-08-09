@@ -27,10 +27,14 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09g — İş #4, #5, #6, #7 kod tamam, YAYIN BEKLİYOR)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09h — İş #4–#8 kod tamam, YAYIN BEKLİYOR)
 
-### 🟡 İŞ #4 + #5 + #6 + #7 KOD TAMAM — henüz **yayınlanmadı** (yayın onayı bekliyor)
-Dört iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **migration yok**.
+### 🟡 İŞ #4 + #5 + #6 + #7 + #8 KOD TAMAM — henüz **yayınlanmadı** (yayın onayı bekliyor)
+Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **migration yok**.
+- **#8 — Bir belgede ARTIK BİRÇOK MALZEME:** depo çıkışı ve şubeler arası transferde eskiden
+  belge başına yalnız 1 malzeme vardı; 10 malzeme veren depocu 10 ayrı kayıt açıyordu. Artık
+  "Listeye Ekle" ile hepsi toplanıp **tek belgede** kaydediliyor (masaüstü + web). Bir malzeme
+  bile yetersizse **hiçbiri** işlenmiyor — yarım belge oluşmuyor.
 - **#7 — Excel içe aktarım artık WEB'DE de var:** eskiden yalnız masaüstünde vardı. Menü:
   *Ayarlar › Excel İçe Aktarım*. Akış: şablon indir → dosya seç → **ön kontrol** (hiçbir kayıt
   oluşturmaz, hatalı satırları gösterir) → onay → aktar. 7 tür: Malzeme, Araç, Personel, Bakım,
@@ -47,7 +51,7 @@ Dört iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, *
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
-**Sıradaki iş:** #8 — Çoklu malzeme + şube sürüm kontrolü (önce analiz).
+**Sıradaki iş:** #9 — LookupBox ortak bileşeni (kalan ekranlarda aynı arama/seçim davranışı).
 
 ⚠️ **Yayında sıra önemli:** web bu yeni ekranları uzak API'den çağırır → **önce API (fly.toml),
 sonra web (fly.web.toml)** yayınlanmalı; yoksa web'de ekran açılır ama işlem yapamaz.
