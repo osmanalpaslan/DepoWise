@@ -59,6 +59,7 @@ VALUES(@id,@c,@p,@n,@iv,@iu,@d,@now,@now,1,0);";
         }
         foreach (var vid in vehicleIds?.Distinct() ?? Enumerable.Empty<string>())
         {
+            EnsureVehicleOwned(conn, tx, s.CompanyId, vid);   // Y-2: yabancı araç bağlanamaz
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES(@d,@v) ON CONFLICT DO NOTHING;";
@@ -152,6 +153,7 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
+        EnsureDefinitionOwned(conn, null, s.CompanyId, defId);   // T-3: yabancı tanımın araçları okunamaz
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT vehicle_id FROM maintenance_definition_vehicles WHERE definition_id=@d;";
         cmd.AddWithValue("@d", defId);
@@ -167,6 +169,7 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
         AccessControl.Require(s, Module, PermissionAction.Edit);
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+        EnsureDefinitionOwned(conn, tx, s.CompanyId, defId);   // T-2a: yabancı tanım değiştirilemez
         using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
@@ -176,6 +179,7 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
         }
         foreach (var vid in vehicleIds.Distinct())
         {
+            EnsureVehicleOwned(conn, tx, s.CompanyId, vid);   // T-2b: yabancı araç bağlanamaz
             using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = "INSERT INTO maintenance_definition_vehicles(definition_id, vehicle_id) VALUES(@d,@v) ON CONFLICT DO NOTHING;";
@@ -184,5 +188,34 @@ UPDATE maintenance_definitions SET name=@n, interval_value=@iv, interval_unit=@i
             ins.ExecuteNonQuery();
         }
         tx.Commit();
+    }
+
+    // ── firma sahipliği kontrolleri (T-2 / T-3 / Y-2, 2026-08-09) ──────────────────────────────
+    //
+    // NEDEN SERVİS KATMANI: bu metotlar hem API'den hem MASAÜSTÜNDEN doğrudan çağrılıyor
+    // (MaintenanceViewModel). API'de kapatmak masaüstünü korumaz.
+
+    /// <summary>Bakım tanımı oturumun firmasına ait mi? Değilse <see cref="ForbiddenException"/>.</summary>
+    private static void EnsureDefinitionOwned(DbConnection conn, DbTransaction? tx, string companyId, string defId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM maintenance_definitions WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", defId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Bakım tanımı bulunamadı veya başka firmaya ait.");
+    }
+
+    /// <summary>Araç oturumun firmasına ait mi? Değilse <see cref="ForbiddenException"/>.</summary>
+    private static void EnsureVehicleOwned(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
     }
 }

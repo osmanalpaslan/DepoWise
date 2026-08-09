@@ -478,7 +478,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         foreach (var l in MntLines)
         {
             decimal bal;
-            try { bal = DesktopServices.Stock.GetBalance(l.MaterialId); } catch { bal = 0m; }
+            try { bal = DesktopServices.Stock.GetBalance(_session, l.MaterialId); } catch { bal = 0m; }
             if (l.Quantity > bal) shortfalls.Add((l.MaterialId, $"{l.Code} — {l.Name}", l.Quantity - bal));
         }
 

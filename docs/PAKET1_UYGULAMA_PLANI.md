@@ -1,8 +1,9 @@
 # PAKET 1 — UYGULAMA PLANI (KD-1 + T-1…T-6 + API çok-firmalı testler)
 
 - **Tarih:** 2026-08-09
-- **Durum:** ⏸️ **YALNIZ PLAN** — kod değiştirilmedi, migration çalıştırılmadı, deploy yapılmadı,
-  canlı veriye yazılmadı.
+- **Durum:** ✅ **UYGULANDI** (2026-08-09) — kod + testler tamam; **migration YOK, deploy YOK,
+  canlı veriye yazma YOK**. Sonuçlar: `docs/PAKET1_UYGULAMA_RAPORU.md`.
+  Y-1 ve Y-2 kullanıcı kararıyla pakete DAHİL edildi.
 - **Yöntem:** salt-okuma kod incelemesi + canlı salt-okuma HTTP kontrolleri.
 
 ---

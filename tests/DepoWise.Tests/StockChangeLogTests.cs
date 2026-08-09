@@ -54,7 +54,7 @@ public class StockChangeLogTests : IDisposable
         var m = MatWithStock("M-CONT", 10m);
         _log.Record(_admin, m, newQuantity: 25m, continued: true, warningText: StockChangeLogService.WarningMessage);
 
-        Assert.Equal(25m, _stock.GetBalance(m));                    // bakiye güncellendi
+        Assert.Equal(25m, _stock.GetBalance(_admin, m));                    // bakiye güncellendi
         var moves = _stock.SearchMovements(_admin, null, null, null);
         Assert.Contains(moves, x => x.MovementType == "adjustment"); // doğrudan yazım DEĞİL, adjustment hareketi
     }
@@ -79,7 +79,7 @@ public class StockChangeLogTests : IDisposable
         var m = MatWithStock("M-CANC", 12m);
         _log.Record(_admin, m, newQuantity: 3m, continued: false, warningText: "uyarı");
 
-        Assert.Equal(12m, _stock.GetBalance(m));   // stok değişmedi
+        Assert.Equal(12m, _stock.GetBalance(_admin, m));   // stok değişmedi
         var moves = _stock.SearchMovements(_admin, null, null, null);
         Assert.DoesNotContain(moves, x => x.MovementType == "adjustment");
         var rows = _log.List(_admin);

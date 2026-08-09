@@ -83,7 +83,7 @@ public sealed partial class StockCountViewModel : ViewModelBase
         SelectedMaterial = m;
         MaterialSearch = $"{m.Code} - {m.Name}";
         MaterialResults.Clear();
-        try { SystemBalance = DesktopServices.Stock.GetBalance(m.Id); } catch { SystemBalance = 0; }
+        try { SystemBalance = DesktopServices.Stock.GetBalance(_session, m.Id); } catch { SystemBalance = 0; }
         CountedQty = SystemBalance;
         OnPropertyChanged(nameof(DiffText));
     }

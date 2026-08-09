@@ -11,6 +11,7 @@ namespace DepoWise.Tests;
 ///  • Onay yoksa <c>AssertSafeTestDatabase</c> BAĞLANTI DAHİ AÇMADAN hata verir (fail-closed),
 ///  • Kapı "izin-listesi" mantığındadır: kodda canlı veritabanına ait hiçbir bilgi yoktur.
 /// </summary>
+[Collection("PostgresSchema")]   // env DEGISTIRIR: paralel kosarsa diger PG testlerini ATLATIR (flaky) — serilestir.
 public class PostgresTestGuardTests
 {
     /// <summary>Kullanılırsa testi patlatan sahte factory — "bağlantı açılmadı" kanıtı.</summary>

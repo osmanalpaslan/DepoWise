@@ -19,6 +19,9 @@
     <PackageReference Include="Npgsql" Version="8.0.5" />
     <!-- PostgreSQL bağlantı testi, sunucu yoksa SESSİZCE ATLANSIN diye (Skip.If). -->
     <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
+    <!-- Paket 1 (2026-08-09): API'yi bellek-içi ayağa kaldırıp GERÇEK HTTP hattı üzerinden test etmek için
+         (çok-firmalı izolasyon testleri). Kimlik doğrulama + yetkilendirme + model bağlama dahil kapsanır. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
   </ItemGroup>
 
   <ItemGroup>

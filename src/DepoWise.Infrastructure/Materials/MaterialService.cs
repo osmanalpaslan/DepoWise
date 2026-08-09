@@ -164,10 +164,15 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         tx.Commit();
     }
 
+    /// <summary>Y-1 (2026-08-09): firma sahipliği doğrulanMIYORDU — başka firmanın iki malzemesi
+    /// arasındaki muadil ilişkisi silinebiliyordu. Artık <c>AddEquivalent</c> ile AYNI kontrol uygulanır
+    /// (asimetri giderildi). API ucu yoktur; bu metot yalnız masaüstünden çağrılır.</summary>
     public void RemoveEquivalent(SessionContext s, string materialId, string equivalentId)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         using var conn = _factory.Create();
+        EnsureOwned(conn, null, s.CompanyId, materialId);
+        EnsureOwned(conn, null, s.CompanyId, equivalentId);
         using var cmd = conn.CreateCommand();
         cmd.CommandText =
             "DELETE FROM material_equivalents WHERE (material_id=@a AND equivalent_material_id=@b) " +
@@ -576,7 +581,9 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
-    private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
+    /// <summary>Malzeme oturumun firmasına mı ait? <paramref name="tx"/> null olabilir (transaction
+    /// dışında da çağrılır — bkz. RemoveEquivalent).</summary>
+    private static void EnsureOwned(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;

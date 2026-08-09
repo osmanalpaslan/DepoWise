@@ -108,7 +108,7 @@ public class PostgresStockConcurrencyTests
             $"beklenmeyen hata tipi: {e.GetType().Name} — {e.Message}"));
         // Hangi işlemin kazandığı GERÇEK bir yarıştır (zamanlamaya bağlı): 6 kazanırsa bakiye 4,
         // 7 kazanırsa 3. İKİSİ DE DOĞRUDUR — değişmez kural, toplam çıkışın 13 OLMAMASIDIR.
-        var bal1 = f.Stock.GetBalance(m1);
+        var bal1 = f.Stock.GetBalance(f.Admin, m1);
         Assert.True(bal1 is 4m or 3m, $"bakiye 4 (6 kazandı) veya 3 (7 kazandı) olmalı, gelen: {bal1}");
         Assert.Equal(bal1, LedgerBalance(f.Factory, m1));        // defter ↔ bakiye TUTARLI (kayıp düşüm yok)
         Assert.True(bal1 >= 0m);                                 // oversell yok
@@ -134,7 +134,7 @@ public class PostgresStockConcurrencyTests
         Parallel.Invoke(() => Issue2("pg-cc-c", 6m), () => Issue2("pg-cc-d", 3m));
 
         Assert.Equal(2, ok2);
-        Assert.Equal(1m, f.Stock.GetBalance(m2));               // 10 - 6 - 3 (DÜZELTMEDEN ÖNCE 4 veya 7 olurdu)
+        Assert.Equal(1m, f.Stock.GetBalance(f.Admin, m2));               // 10 - 6 - 3 (DÜZELTMEDEN ÖNCE 4 veya 7 olurdu)
         Assert.Equal(1m, LedgerBalance(f.Factory, m2));
     }
 
@@ -158,7 +158,7 @@ public class PostgresStockConcurrencyTests
             catch (StockBusyException) { }
         });
 
-        var bal = f.Stock.GetBalance(m);
+        var bal = f.Stock.GetBalance(f.Admin, m);
         Assert.True(ok >= 1 && ok <= 10, $"başarılı çıkış sayısı 1..10 olmalı, gelen: {ok}");
         Assert.True(bal >= 0m, $"bakiye negatife düştü: {bal}");
         Assert.Equal(10m - ok, bal);                            // her başarılı çıkış TAM BİR kez düşmüş
@@ -179,7 +179,7 @@ public class PostgresStockConcurrencyTests
             () => f.Stock.ReceiveIn(f.Admin, new[] { new StockLine(m, 40m) }, "pg-cc-in"),
             () => f.Stock.IssueOut(f.Admin, new[] { new StockLine(m, 25m) }, "pg-cc-out", personnelId: null));
 
-        Assert.Equal(115m, f.Stock.GetBalance(m));              // 100 + 40 - 25
+        Assert.Equal(115m, f.Stock.GetBalance(f.Admin, m));              // 100 + 40 - 25
         Assert.Equal(115m, LedgerBalance(f.Factory, m));
     }
 }

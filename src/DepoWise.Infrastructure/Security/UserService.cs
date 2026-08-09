@@ -330,9 +330,14 @@ ORDER BY u.username;");
     }
 
     /// <summary>Bir kullanıcının rol anahtarları (rol düzenleme ekranı için).</summary>
+    /// <summary>T-6 (2026-08-09): <c>actor</c> daha önce alınıp HİÇ KULLANILMIYORDU — ne yetki ne firma
+    /// kontrolü vardı; başka firmanın kullanıcı id'siyle rolleri okunabiliyordu. Artık <c>SetRoles</c> ile
+    /// aynı yetki kontrolü + kullanıcı sahipliği doğrulanıyor.</summary>
     public IReadOnlyList<string> GetRoleKeys(SessionContext actor, string userId)
     {
+        AccessControl.Require(actor, "users", PermissionAction.View);
         using var conn = _factory.Create();
+        EnsureUserOwned(conn, actor, userId);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u;";
         cmd.AddWithValue("@u", userId);
@@ -776,5 +781,17 @@ ORDER BY c.name;";
         cmd.CommandText = sql;
         bind(cmd);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Hedef kullanıcı oturumun firmasına mı ait? (T-6, 2026-08-09 — PermissionService'teki
+    /// aynı desen.) Süper admin tüm firmalara yetkilidir.</summary>
+    private static void EnsureUserOwned(DbConnection conn, SessionContext actor, string userId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT company_id FROM users WHERE id=@u AND is_deleted=0;";
+        cmd.AddWithValue("@u", userId);
+        var cid = cmd.ExecuteScalar() as string ?? throw new ForbiddenException("Kullanıcı bulunamadı.");
+        if (!actor.IsSuperAdmin && cid != actor.CompanyId)
+            throw new ForbiddenException("Kullanıcı başka firmaya ait.");
     }
 }

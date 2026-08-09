@@ -30,6 +30,19 @@ internal static class SqlDialect
             ? "lower(hex(randomblob(16)))"
             : "replace(gen_random_uuid()::text,'-','')";
 
+    /// <summary>
+    /// Aynı <c>created_at</c> (Unix ms) değerine sahip satırlar için KARARLI ikincil sıralama anahtarı.
+    ///
+    /// SQLite'ta <c>rowid</c> ekleme sırasını verir ve bugünkü davranış budur → SQLite'ta AYNEN korunur.
+    /// PostgreSQL'de <c>rowid</c> YOKTUR (<c>42703: column ... does not exist</c>) ve <c>ctid</c> fiziksel
+    /// konumdur (VACUUM ile değişir) → kullanılamaz. Bu yüzden PG'de birincil anahtar (<c>id</c>, TEXT)
+    /// kullanılır: ekleme sırasını vermez ama sıralamayı DETERMİNİSTİK yapar (aynı sorgu → aynı sıra).
+    ///
+    /// <paramref name="alias"/>: sorgudaki tablo takma adı (örn. "sm").
+    /// </summary>
+    public static string RowTieBreaker(DbConnection conn, string alias)
+        => IsSqlite(conn) ? $"{alias}.rowid" : $"{alias}.id";
+
     /// <summary>Otomatik artan BIGINT birincil anahtar kolon tanımı (sıra numarası tabloları için).
     /// SQLite: INTEGER PRIMARY KEY AUTOINCREMENT; PostgreSQL: GENERATED ALWAYS AS IDENTITY.</summary>
     public static string AutoIncPk(DbConnection conn)

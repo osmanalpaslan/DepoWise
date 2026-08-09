@@ -201,6 +201,12 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
     public IReadOnlyList<RequestOperationHistoryRow> GetHistory(SessionContext s, string requestId)
     {
         AccessControl.Require(s, RequestOperationStateMachine.ModuleOps, PermissionAction.View);
+        // T-5 (2026-08-09): request_status_history'de firma kolonu YOK → üst talebin sahipliği önce
+        // doğrulanır. LoadOperationStatus zaten "id + company_id" ile sorgular; başka firmanın talebinde
+        // null döner. Aksi halde yabancı talebin operasyon geçmişi okunabiliyordu.
+        if (LoadOperationStatus(s, requestId) is null && !RequestBelongsToCompany(s, requestId))
+            throw new ForbiddenException("Talep bulunamadı veya başka firmaya ait.");
+
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
@@ -221,6 +227,17 @@ ORDER BY h.created_at;";
 
     // ── yardımcılar ──
     private static string? Trim(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    /// <summary>Talep bu firmaya mı ait? (operation_status NULL olabildiği için ayrı kontrol — T-5).</summary>
+    private bool RequestBelongsToCompany(SessionContext s, string requestId)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM material_requests WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", requestId);
+        cmd.AddWithValue("@c", s.CompanyId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
 
     private RequestOperationStatus? LoadOperationStatus(SessionContext s, string requestId)
     {

@@ -221,7 +221,7 @@ public class RequestOperationsPhase1Tests : IDisposable
     {
         var id = NewPendingRequest();
         _requests.Approve(_admin, id);
-        var history = _requests.GetHistory(id);
+        var history = _requests.GetHistory(_admin, id);
         Assert.True(history.Count >= 2);                       // oluşturma + onay
         Assert.Contains(history, h => h.To == RequestStatus.Approved);
     }

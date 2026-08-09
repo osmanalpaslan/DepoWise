@@ -72,11 +72,11 @@ public class PostgresEndToEndTests
         // 1) Malzeme + açılış stoğu (ledger → bakiye).
         var m = materials.Create(a, new NewMaterial("M-1", "Filtre", UnitPrice: 50m, MinStock: 5m));
         opening.RecordOpening(a, m, 100m, "pg-open");
-        Assert.Equal(100m, stock.GetBalance(m));
+        Assert.Equal(100m, stock.GetBalance(a, m));
 
         // 2) İdempotency: AYNI operation_id ile tekrar → çift yazmaz (retry güvenli).
         opening.RecordOpening(a, m, 100m, "pg-open");
-        Assert.Equal(100m, stock.GetBalance(m));
+        Assert.Equal(100m, stock.GetBalance(a, m));
 
         // 3) Araç + sayaç.
         var v = vehicles.Create(a, new NewVehicle("V-1", CurrentMeter: 1000m));
@@ -86,7 +86,7 @@ public class PostgresEndToEndTests
         var def = defs.Create(a, new NewMaintenanceDefinition("Periyodik", 100m, "km"));
         maint.Save(a, new NewMaintenance(v, def, PerformedKm: 1000m,
             Materials: new[] { new MaintenanceMaterialLine(m, 10m) }), "pg-mnt");
-        Assert.Equal(90m, stock.GetBalance(m));            // 100 - 10
+        Assert.Equal(90m, stock.GetBalance(a, m));            // 100 - 10
         vehicles.SetMeter(a, v, 1098m);                    // %98 → kritik uyarı
         Assert.Equal(AlertLevel.Critical, maint.GetAlerts(a).Single().Level);
 
@@ -102,14 +102,14 @@ public class PostgresEndToEndTests
         // 5) Negatif stok kalkanı: eldekinden fazla çıkış REDDEDİLİR (LWW yasağı / defter bütünlüğü).
         Assert.Throws<NegativeStockException>(() =>
             stock.IssueOut(a, new[] { new StockLine(m, 1000m) }, "pg-over", personnelId: null));
-        Assert.Equal(90m, stock.GetBalance(m));            // değişmedi
+        Assert.Equal(90m, stock.GetBalance(a, m));            // değişmedi
 
         // 6) Talep: onay stoğu DEĞİŞTİRMEZ; kontrollü çıkış düşürür.
         var req = requests.Create(a, new NewRequest(new[] { new RequestItemInput(m, 20m) }, SubmitImmediately: true));
         requests.Approve(a, req.Id);
-        Assert.Equal(90m, stock.GetBalance(m));
+        Assert.Equal(90m, stock.GetBalance(a, m));
         requests.CreateIssueFromRequest(a, req.Id, "pg-issue");
-        Assert.Equal(70m, stock.GetBalance(m));            // 90 - 20
+        Assert.Equal(70m, stock.GetBalance(a, m));            // 90 - 20
 
         // 7) Tenant izolasyonu: B, A'nın malzemesini görmez.
         Assert.Empty(materials.List(b, new PageRequest { Limit = 50 }).Items);
@@ -123,7 +123,7 @@ public class PostgresEndToEndTests
         using var doc = System.Text.Json.JsonDocument.Parse(snapshot);
         var res = sync.ApplyPull("A", doc.RootElement, null);   // upsert (ON CONFLICT DO UPDATE) — PG'de sınar
         Assert.Empty(res.Errors);
-        Assert.Equal(70m, stock.GetBalance(m));                 // upsert bakiyeyi bozmadı
+        Assert.Equal(70m, stock.GetBalance(a, m));                 // upsert bakiyeyi bozmadı
 
         // 9) YÖNETİCİ RAPORLARI PG'de (2026-07-25): COUNT/SUM → GetInt32 yolu PG'de int8/numeric döner;
         //    tüm sayımlar CAST(... AS INTEGER) ile sarılı olmalı (aksi halde InvalidCastException / 500).

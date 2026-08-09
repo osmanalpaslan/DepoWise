@@ -211,10 +211,22 @@ public sealed class StockService
         tx.Commit();
     }
 
-    public decimal GetBalance(string materialId)
+    /// <summary>
+    /// Malzemenin güncel stok bakiyesi — YALNIZ oturumun firmasına ait malzemeler için (T-1, 2026-08-09).
+    ///
+    /// Firma kontrolü AYRI bir sahiplik sorgusuyla (EnsureMaterialOwned) değil, AYNI sorgudaki
+    /// <c>company_id=@c</c> filtresiyle yapılır: bu metot malzeme listesinde satır başına çağrıldığı için
+    /// (bkz. <c>/api/materials</c>) ek sorgu, mevcut N+1 yükünü İKİYE KATLARDI.
+    /// Başka firmanın malzemesi için 0 döner (kayıt yokmuş gibi) — bilgi sızdırmaz.
+    /// </summary>
+    public decimal GetBalance(SessionContext s, string materialId)
     {
         using var conn = _factory.Create();
-        return ReadBalance(conn, null, materialId);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m AND company_id=@c;";
+        cmd.AddWithValue("@m", materialId);
+        cmd.AddWithValue("@c", s.CompanyId);
+        return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
     /// <summary>Son stok hareketleri (salt okuma) — malzeme kod/ad + tür/yön/miktar/fiyat/not.</summary>
@@ -243,7 +255,8 @@ WHERE sm.company_id = @c");
         if (toMs is not null) sb.Append(" AND sm.created_at <= @to");
         if (!string.IsNullOrWhiteSpace(search))
             sb.Append(" AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)");
-        sb.Append(" ORDER BY sm.created_at DESC, sm.rowid DESC LIMIT @lim;");
+        // KD-1: rowid SQLite'a özeldir, PostgreSQL'de 42703 verir → lehçeye göre kararlı anahtar.
+        sb.Append($" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;");
         cmd.CommandText = sb.ToString();
         cmd.AddWithValue("@c", s.CompanyId);
         if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
@@ -274,14 +287,15 @@ WHERE sm.company_id = @c");
         // Firma kapsamı: yalnız oturumun firmasına ait + bu malzemenin hareketleri (çapraz-tenant sızıntısı yok).
         EnsureMaterialOwned(conn, null, s.CompanyId, materialId);
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        // KD-1: ikincil sıralama anahtarı lehçeye göre (SQLite rowid · PostgreSQL id) — bkz. SqlDialect.
+        cmd.CommandText = $@"
 SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
        COALESCE(br.name,''), COALESCE(d.doc_no,'')
 FROM stock_movements sm
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 LEFT JOIN branches br ON br.id = sm.branch_id
 WHERE sm.company_id=@c AND sm.material_id=@m
-ORDER BY sm.created_at DESC, sm.rowid DESC
+ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC
 LIMIT @take;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@m", materialId);

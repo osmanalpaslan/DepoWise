@@ -21,6 +21,7 @@ namespace DepoWise.Tests;
 ///   $env:DEPOWISE_PG_URL = "Host=localhost;Port=5432;Database=depowise_dev;Username=postgres;Password=..."
 ///   dotnet test --filter "FullyQualifiedName~PostgresConnectionTests"
 /// </summary>
+[Collection("PostgresSchema")]   // env-bagimli: guard testleriyle paralel kosarsa ATLANIYORDU.
 public class PostgresConnectionTests
 {
     private static string? PgUrl => Environment.GetEnvironmentVariable("DEPOWISE_PG_URL");

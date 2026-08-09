@@ -52,7 +52,7 @@ public class StockCountTests : IDisposable
         var m = Mat("M-1");
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, "in");                          // sistem 5
         _stock.Count(_admin, new[] { new CountLine(m, 8m) }, "Fazla bulundu", "op-c1");          // sayım 8 → +3
-        Assert.Equal(8m, _stock.GetBalance(m));
+        Assert.Equal(8m, _stock.GetBalance(_admin, m));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class StockCountTests : IDisposable
         var m = Mat("M-1");
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, "in");
         _stock.Count(_admin, new[] { new CountLine(m, 5m) }, "Kontrol", "op-c2");                // fark 0
-        Assert.Equal(5m, _stock.GetBalance(m));
+        Assert.Equal(5m, _stock.GetBalance(_admin, m));
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
@@ -76,8 +76,8 @@ public class StockCountTests : IDisposable
         var a = Mat("A"); var b = Mat("B");
         _stock.ReceiveIn(_admin, new[] { new StockLine(a, 10m), new StockLine(b, 10m) }, "in");
         _stock.Count(_admin, new[] { new CountLine(a, 7m), new CountLine(b, 12m) }, "Sayım", "op-c3");
-        Assert.Equal(7m, _stock.GetBalance(a));    // -3
-        Assert.Equal(12m, _stock.GetBalance(b));   // +2
+        Assert.Equal(7m, _stock.GetBalance(_admin, a));    // -3
+        Assert.Equal(12m, _stock.GetBalance(_admin, b));   // +2
     }
 
     [Fact]
@@ -86,12 +86,12 @@ public class StockCountTests : IDisposable
         var m = Mat("M-1");
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, "in");
         _stock.Count(_admin, new[] { new CountLine(m, 8m) }, "Fazla", "op-dup");                 // +3 → 8
-        Assert.Equal(8m, _stock.GetBalance(m));
+        Assert.Equal(8m, _stock.GetBalance(_admin, m));
         Assert.Equal(1, CountDocs());
 
         // Ağ retry: aynı operationId ile tekrar → mevcut belge döner, İKİNCİ belge/hareket ÜRETİLMEZ.
         _stock.Count(_admin, new[] { new CountLine(m, 8m) }, "Fazla", "op-dup");
-        Assert.Equal(8m, _stock.GetBalance(m));    // hâlâ 8
+        Assert.Equal(8m, _stock.GetBalance(_admin, m));    // hâlâ 8
         Assert.Equal(1, CountDocs());              // hâlâ tek sayım belgesi (idempotent)
     }
 

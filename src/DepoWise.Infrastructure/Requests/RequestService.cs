@@ -296,8 +296,12 @@ WHERE r.id=@id AND r.company_id=@c;";
 
     public RequestStatus GetStatus(SessionContext s, string requestId) => LoadStatus(s, requestId).Status;
 
-    public IReadOnlyList<(RequestStatus? From, RequestStatus To, string? Reason)> GetHistory(string requestId)
+    /// <summary>Talebin onay durumu geçmişi. T-4 (2026-08-09): <c>request_status_history</c> tablosunda
+    /// firma kolonu YOK → üst talebin sahipliği <see cref="LoadStatus"/> ile doğrulanır (aynı sınıftaki
+    /// <c>GetItems</c> deseni). Aksi halde başka firmanın talep id'siyle geçmişi okunabiliyordu.</summary>
+    public IReadOnlyList<(RequestStatus? From, RequestStatus To, string? Reason)> GetHistory(SessionContext s, string requestId)
     {
+        LoadStatus(s, requestId);   // tenant guard (firma sahipliği)
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT from_status, to_status, reason FROM request_status_history WHERE request_id=@r ORDER BY created_at;";

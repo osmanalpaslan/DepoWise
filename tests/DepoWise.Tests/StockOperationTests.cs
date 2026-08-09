@@ -52,7 +52,7 @@ public class StockOperationTests : IDisposable
         { cmd.CommandText = "UPDATE stock_balances SET quantity='999' WHERE material_id=@m;"; cmd.AddWithValue("@m", m); cmd.ExecuteNonQuery(); }
 
         _stock.RecomputeBalances("A"); // hareket defterinden yeniden hesapla (sunucu-otoriteli)
-        Assert.Equal(12m, _stock.GetBalance(m)); // 10+5-3 = 12 (999 düzeltildi)
+        Assert.Equal(12m, _stock.GetBalance(_admin, m)); // 10+5-3 = 12 (999 düzeltildi)
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class StockOperationTests : IDisposable
         var m = Mat("M-1");
         var res = _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "op-in-1");
         Assert.StartsWith("GIR-", res.DocNo);
-        Assert.Equal(10m, _stock.GetBalance(m));
+        Assert.Equal(10m, _stock.GetBalance(_admin, m));
     }
 
     // ---- Şube-yetki (kullanıcı isteği 2026-08-05): şubeye bağlı kullanıcı yalnız kendi şubesinden çıkış ----
@@ -106,7 +106,7 @@ public class StockOperationTests : IDisposable
             _stock.IssueOut(_admin, new[] { new StockLine(m, 10m) }, "out-b", branchId: brB));
         // Şube A'da stok VAR → çıkış OK; firma-geneli 50-10=40
         _stock.IssueOut(_admin, new[] { new StockLine(m, 10m) }, "out-a", branchId: brA);
-        Assert.Equal(40m, _stock.GetBalance(m));
+        Assert.Equal(40m, _stock.GetBalance(_admin, m));
         // A'da 40 var; A'dan 45 çıkış (şubede yetersiz) → REDDEDİLİR
         Assert.Throws<NegativeStockException>(() =>
             _stock.IssueOut(_admin, new[] { new StockLine(m, 45m) }, "out-a2", branchId: brA));
@@ -118,7 +118,7 @@ public class StockOperationTests : IDisposable
         var m = Mat("M-1");
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in");
         _stock.IssueOut(_admin, new[] { new StockLine(m, 4m) }, "out");
-        Assert.Equal(6m, _stock.GetBalance(m));
+        Assert.Equal(6m, _stock.GetBalance(_admin, m));
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class StockOperationTests : IDisposable
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 3m) }, "in");
         Assert.Throws<NegativeStockException>(() =>
             _stock.IssueOut(_admin, new[] { new StockLine(m, 5m) }, "out"));
-        Assert.Equal(3m, _stock.GetBalance(m)); // rollback → değişmedi
+        Assert.Equal(3m, _stock.GetBalance(_admin, m)); // rollback → değişmedi
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class StockOperationTests : IDisposable
         var r1 = _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "op-dup");
         var r2 = _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "op-dup");
         Assert.Equal(r1.DocumentId, r2.DocumentId);
-        Assert.Equal(10m, _stock.GetBalance(m)); // 20 değil
+        Assert.Equal(10m, _stock.GetBalance(_admin, m)); // 20 değil
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
@@ -154,7 +154,7 @@ public class StockOperationTests : IDisposable
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "branch-1");   // kaynak şubeye stok (per-branch 8b)
         var res = _stock.Transfer(_admin, m, 4m, "branch-1", "branch-2", "op-trf");
         Assert.StartsWith("TRF-", res.DocNo);
-        Assert.Equal(10m, _stock.GetBalance(m)); // transfer toplam stoğu değiştirmez
+        Assert.Equal(10m, _stock.GetBalance(_admin, m)); // transfer toplam stoğu değiştirmez
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
@@ -169,7 +169,7 @@ public class StockOperationTests : IDisposable
         var m = Mat("M-1");
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 2m) }, "in");
         Assert.Throws<NegativeStockException>(() => _stock.Transfer(_admin, m, 5m, "b1", "b2", "op-trf"));
-        Assert.Equal(2m, _stock.GetBalance(m));
+        Assert.Equal(2m, _stock.GetBalance(_admin, m));
     }
 
     // ---- Transfer per-branch bakiye (kullanıcı isteği 2026-08-06, madde 3): kaynak DÜŞER, hedef ARTAR ----
@@ -181,7 +181,7 @@ public class StockOperationTests : IDisposable
         _stock.Transfer(_admin, m, 4m, "b1", "b2", "op-trb");                                // b1-4, b2+4
         Assert.Equal(6m, BranchBal(m, "b1"));   // kaynak 10-4
         Assert.Equal(4m, BranchBal(m, "b2"));   // hedef +4
-        Assert.Equal(10m, _stock.GetBalance(m)); // firma-geneli değişmez
+        Assert.Equal(10m, _stock.GetBalance(_admin, m)); // firma-geneli değişmez
     }
 
     // ---- Transfer GERİ ALINAMAZ (kullanıcı isteği 2026-08-06, madde 2): ReverseDocument reddeder ----
@@ -194,7 +194,7 @@ public class StockOperationTests : IDisposable
         var admin = AdminWithReverse();
         var ex = Assert.Throws<ForbiddenException>(() => _stock.ReverseDocument(admin, res.DocumentId, "x"));
         Assert.Contains("Transfer geri alınamaz", ex.Message);
-        Assert.Equal(10m, _stock.GetBalance(m));            // firma-geneli bakiye değişmedi
+        Assert.Equal(10m, _stock.GetBalance(_admin, m));            // firma-geneli bakiye değişmedi
         Assert.Equal(7m, BranchBal(m, "b1"));               // transfer etkisi korunur: kaynak 10-3
         Assert.Equal(3m, BranchBal(m, "b2"));               // hedef +3
     }
@@ -219,7 +219,7 @@ public class StockOperationTests : IDisposable
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in");
         // Fiziksel sayım 7 → fark -3
         _stock.Count(_admin, new[] { new CountLine(m, 7m) }, "Fire", "op-count");
-        Assert.Equal(7m, _stock.GetBalance(m));
+        Assert.Equal(7m, _stock.GetBalance(_admin, m));
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
@@ -243,11 +243,11 @@ public class StockOperationTests : IDisposable
     {
         var m = Mat("M-1");
         var doc = _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in");
-        Assert.Equal(10m, _stock.GetBalance(m));
+        Assert.Equal(10m, _stock.GetBalance(_admin, m));
 
         var admin = AdminWithReverse();
         _stock.ReverseDocument(admin, doc.DocumentId, "Hatalı giriş");
-        Assert.Equal(0m, _stock.GetBalance(m)); // ters hareketle geri alındı
+        Assert.Equal(0m, _stock.GetBalance(_admin, m)); // ters hareketle geri alındı
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
@@ -270,7 +270,7 @@ public class StockOperationTests : IDisposable
         var admin = AdminWithReverse();
         _stock.ReverseDocument(admin, doc.DocumentId, "x");
         _stock.ReverseDocument(admin, doc.DocumentId, "x"); // tekrar → no-op
-        Assert.Equal(0m, _stock.GetBalance(m));
+        Assert.Equal(0m, _stock.GetBalance(_admin, m));
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public class StockOperationTests : IDisposable
 
         Assert.Equal(1, ok);
         Assert.Equal(1, failed);
-        Assert.Equal(0m, _stock.GetBalance(m)); // asla negatif
+        Assert.Equal(0m, _stock.GetBalance(_admin, m)); // asla negatif
     }
 
     [Fact]

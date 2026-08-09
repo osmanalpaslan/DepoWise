@@ -321,7 +321,7 @@ public class RequestOperationsPhase2Tests : IDisposable
         _ops.ChangeStatus(_admin, id, RequestOperationStatus.UnderReview);
 
         Assert.Single(_ops.GetHistory(_admin, id));                  // yalnız operasyon (kind='operation')
-        Assert.True(_requests.GetHistory(id).Count >= 2);            // onay geçmişi ayrı durur, silinmedi
+        Assert.True(_requests.GetHistory(_admin, id).Count >= 2);            // onay geçmişi ayrı durur, silinmedi
     }
 
     [Fact]

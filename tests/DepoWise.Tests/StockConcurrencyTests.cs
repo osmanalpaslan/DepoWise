@@ -113,7 +113,7 @@ public class StockConcurrencyTests : IDisposable
 
         _stock.IssueOut(_admin, new[] { new StockLine(m, 3m) }, "op-scale", personnelId: null);
 
-        Assert.Equal(7m, _stock.GetBalance(m));    // ilk denemede geçmeli, sahte çakışma olmamalı
+        Assert.Equal(7m, _stock.GetBalance(_admin, m));    // ilk denemede geçmeli, sahte çakışma olmamalı
     }
 
     // ── 2. Tekrar (retry) davranışı — kullanıcı kararı K-5 ───────────────────────────────
@@ -245,27 +245,27 @@ public class StockConcurrencyTests : IDisposable
         var m = SeedMaterial(10m);
 
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, "op-in");
-        Assert.Equal(15m, _stock.GetBalance(m));
+        Assert.Equal(15m, _stock.GetBalance(_admin, m));
 
         var outDoc = _stock.IssueOut(_admin, new[] { new StockLine(m, 4m) }, "op-out", personnelId: null);
-        Assert.Equal(11m, _stock.GetBalance(m));
+        Assert.Equal(11m, _stock.GetBalance(_admin, m));
 
         // Negatif stok kalkanı: DEĞİŞMEDİ.
         Assert.Throws<NegativeStockException>(() =>
             _stock.IssueOut(_admin, new[] { new StockLine(m, 999m) }, "op-over", personnelId: null));
-        Assert.Equal(11m, _stock.GetBalance(m));
+        Assert.Equal(11m, _stock.GetBalance(_admin, m));
 
         // İdempotency: aynı operation_id ikinci kez → yeni hareket yok.
         _stock.IssueOut(_admin, new[] { new StockLine(m, 4m) }, "op-out", personnelId: null);
-        Assert.Equal(11m, _stock.GetBalance(m));
+        Assert.Equal(11m, _stock.GetBalance(_admin, m));
 
         // Sayım: fark hareketi üretir.
         _stock.Count(_admin, new[] { new CountLine(m, 20m) }, "sayım farkı", "op-count");
-        Assert.Equal(20m, _stock.GetBalance(m));
+        Assert.Equal(20m, _stock.GetBalance(_admin, m));
 
         // İptal (ters kayıt): çıkış geri gelir.
         _stock.ReverseDocument(_admin, outDoc.DocumentId, "hatalı kayıt");
-        Assert.Equal(24m, _stock.GetBalance(m));
+        Assert.Equal(24m, _stock.GetBalance(_admin, m));
     }
 
     [Fact]
@@ -282,10 +282,10 @@ public class StockConcurrencyTests : IDisposable
         // Bakım tarafı negatife İZİN VERİR (ADR / kullanıcı isteği 2026-08-06) — bu davranış değişmedi.
         var id = maint.Save(_admin, new NewMaintenance(v, def, PerformedKm: 100m,
             Materials: new[] { new MaintenanceMaterialLine(m, 5m) }), "op-mnt");
-        Assert.Equal(-4m, _stock.GetBalance(m));   // 1 - 5
+        Assert.Equal(-4m, _stock.GetBalance(_admin, m));   // 1 - 5
 
         maint.Cancel(_admin, id, "yanlış kayıt");
-        Assert.Equal(1m, _stock.GetBalance(m));    // ters hareketle geri geldi
+        Assert.Equal(1m, _stock.GetBalance(_admin, m));    // ters hareketle geri geldi
     }
 
     [Fact]
@@ -294,13 +294,13 @@ public class StockConcurrencyTests : IDisposable
         var m = SeedMaterial(10m);
         _stock.IssueOut(_admin, new[] { new StockLine(m, 3m) }, "op-a", personnelId: null);
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, "op-b");
-        Assert.Equal(12m, _stock.GetBalance(m));
+        Assert.Equal(12m, _stock.GetBalance(_admin, m));
 
         // Bakiye önbelleğini bozup yeniden kurdur → defterden doğru değer gelmeli (iyimser koruma
         // SQLite'ta tek yazar olduğu için hiç tetiklenmez; davranış değişmez).
         SetRawBalance(m, "999");
         _stock.RecomputeBalances("A");
-        Assert.Equal(12m, _stock.GetBalance(m));
+        Assert.Equal(12m, _stock.GetBalance(_admin, m));
     }
 
     public void Dispose()

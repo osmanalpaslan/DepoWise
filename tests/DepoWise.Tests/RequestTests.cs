@@ -138,7 +138,7 @@ public class RequestTests : IDisposable
 
         _requests.Approve(_admin, r.Id);
         Assert.Equal(RequestStatus.Approved, _requests.GetStatus(_admin, r.Id));
-        Assert.Equal(100m, _stock.GetBalance(m)); // STOK AYNI
+        Assert.Equal(100m, _stock.GetBalance(_admin, m)); // STOK AYNI
     }
 
     [Fact]
@@ -186,10 +186,10 @@ public class RequestTests : IDisposable
         _opening.RecordOpening(_admin, m, 100m, "op-open");
         var r = _requests.Create(_admin, new NewRequest(new[] { new RequestItemInput(m, 10m) }, SubmitImmediately: true));
         _requests.Approve(_admin, r.Id);
-        Assert.Equal(100m, _stock.GetBalance(m)); // onayda düşmedi
+        Assert.Equal(100m, _stock.GetBalance(_admin, m)); // onayda düşmedi
 
         _requests.CreateIssueFromRequest(_admin, r.Id, "op-issue"); // açık, kontrollü çıkış
-        Assert.Equal(90m, _stock.GetBalance(m)); // şimdi düştü
+        Assert.Equal(90m, _stock.GetBalance(_admin, m)); // şimdi düştü
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public class RequestTests : IDisposable
         var m = Mat("M-1");
         var r = _requests.Create(_admin, new NewRequest(new[] { new RequestItemInput(m, 1m) }, SubmitImmediately: true));
         _requests.Approve(_admin, r.Id);
-        var hist = _requests.GetHistory(r.Id);
+        var hist = _requests.GetHistory(_admin, r.Id);
         Assert.Contains(hist, h => h.To == RequestStatus.Pending);
         Assert.Contains(hist, h => h.To == RequestStatus.Approved);
     }

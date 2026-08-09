@@ -428,7 +428,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         ExitMaterial = m;
         ExitMaterialSearch = $"{m.Code} - {m.Name}";
         ExitMaterialResults.Clear();
-        try { ExitBalanceText = $"Mevcut stok: {DesktopServices.Stock.GetBalance(m.Id):0.##}"; }
+        try { ExitBalanceText = $"Mevcut stok: {DesktopServices.Stock.GetBalance(_session, m.Id):0.##}"; }
         catch { ExitBalanceText = ""; }
     }
 

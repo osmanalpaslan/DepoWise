@@ -792,7 +792,7 @@ app.MapGet("/api/materials", (HttpContext c, string? search) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     var rows = svc.Materials.List(s, Page(), search).Items.Select(m =>
     {
-        var stock = svc.Stock.GetBalance(m.Id);
+        var stock = svc.Stock.GetBalance(s, m.Id);
         var status = stock <= 0 ? "Stok Yok" : stock <= m.MinStock ? "Düşük Stok" : "Yeterli";
         return new { id = m.Id, code = m.Code, name = m.Name, type = m.Type, unitPrice = m.UnitPrice, currency = m.Currency, minStock = m.MinStock, stock, statusText = status };
     }).ToList();
@@ -1489,7 +1489,7 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
 
 // ── Stok İşlemleri (Yeni Kayıt / Transfer / Depo Çıkışı + hareket iptali) — masaüstüyle birebir ──
 app.MapGet("/api/stock/balance/{materialId}", (HttpContext c, string materialId) =>
-    S(c) is null ? Results.Unauthorized() : Results.Ok(new { balance = svc.Stock.GetBalance(materialId) })).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { balance = svc.Stock.GetBalance(s, materialId) }) : Results.Unauthorized()).RequireAuthorization();
 
 app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
 {
@@ -2072,7 +2072,7 @@ app.MapGet("/api/requests/{id}/history", (HttpContext c, string id) =>
         DepoWise.Application.Requests.RequestStatus.Rejected => "Reddedildi",
         _ => "İptal",
     };
-    var rows = svc.Requests.GetHistory(id).Select(h =>
+    var rows = svc.Requests.GetHistory(s, id).Select(h =>
         $"{(h.From is null ? "—" : Lbl(h.From.Value))} → {Lbl(h.To)}" + (string.IsNullOrWhiteSpace(h.Reason) ? "" : $" ({h.Reason})"));
     return Results.Ok(rows);
 }).RequireAuthorization();
@@ -2570,3 +2570,11 @@ public static class ServerPresence
     /// <summary>Yalnız test için: izleyiciyi sıfırla.</summary>
     public static void ResetForTests() => _seen.Clear();
 }
+
+/// <summary>
+/// Yalnız TEST altyapısı için: top-level statements kullanan bu uygulamayı
+/// <c>WebApplicationFactory&lt;Program&gt;</c> ile bellek-içi ayağa kaldırabilmenin standart yolu
+/// (Paket 1, 2026-08-09 — çok-firmalı izolasyon testleri gerçek HTTP hattından koşar).
+/// Çalışma zamanı davranışını DEĞİŞTİRMEZ.
+/// </summary>
+public partial class Program { }

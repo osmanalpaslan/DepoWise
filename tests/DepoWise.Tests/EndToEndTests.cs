@@ -67,7 +67,7 @@ public class EndToEndTests : IDisposable
         // 1) Malzeme + açılış stoğu (ledger)
         var m = materials.Create(a, new NewMaterial("M-1", "Filtre", UnitPrice: 50m, MinStock: 5m));
         opening.RecordOpening(a, m, 100m, "e2e-open");
-        Assert.Equal(100m, stock.GetBalance(m));
+        Assert.Equal(100m, stock.GetBalance(a, m));
 
         // 2) Araç + sayaç
         var v = vehicles.Create(a, new NewVehicle("V-1", CurrentMeter: 1000m));
@@ -76,7 +76,7 @@ public class EndToEndTests : IDisposable
         var def = defs.Create(a, new NewMaintenanceDefinition("Periyodik", 100m, "km"));
         maint.Save(a, new NewMaintenance(v, def, PerformedKm: 1000m,
             Materials: new[] { new MaintenanceMaterialLine(m, 10m) }), "e2e-mnt");
-        Assert.Equal(90m, stock.GetBalance(m));            // 100 - 10
+        Assert.Equal(90m, stock.GetBalance(a, m));            // 100 - 10
         Assert.Equal(1000m, vehicles.GetMeter(a, v));
         vehicles.SetMeter(a, v, 1098m);                    // tüketilen 98 → %98 kritik
         Assert.Equal(AlertLevel.Critical, maint.GetAlerts(a).Single().Level);
@@ -87,9 +87,9 @@ public class EndToEndTests : IDisposable
         // 4) Talep: onay STOK DEĞİŞTİRMEZ; kontrollü çıkış stok düşürür
         var req = requests.Create(a, new NewRequest(new[] { new RequestItemInput(m, 20m) }, SubmitImmediately: true));
         requests.Approve(a, req.Id);
-        Assert.Equal(90m, stock.GetBalance(m));            // onayda değişmedi
+        Assert.Equal(90m, stock.GetBalance(a, m));            // onayda değişmedi
         requests.CreateIssueFromRequest(a, req.Id, "e2e-issue");
-        Assert.Equal(70m, stock.GetBalance(m));            // kontrollü çıkış: 90 - 20
+        Assert.Equal(70m, stock.GetBalance(a, m));            // kontrollü çıkış: 90 - 20
 
         // 5) Tenant izolasyonu: B firması A'nın malzemesini görmez
         Assert.Empty(materials.List(b, new PageRequest { Limit = 50 }).Items);

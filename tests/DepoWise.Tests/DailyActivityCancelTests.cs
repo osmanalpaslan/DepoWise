@@ -109,7 +109,7 @@ public class DailyActivityCancelTests : IDisposable
         var (v, m, d) = Seed(100m);
         var act = MaintenanceActivity(v, d, m, 10m);
 
-        Assert.Equal(90m, _stock.GetBalance(m));                 // 100 - 10
+        Assert.Equal(90m, _stock.GetBalance(_admin, m));                 // 100 - 10
         var mnt = MaintenanceIdOf(act);
         Assert.NotNull(mnt);
         Assert.False(MaintenanceCancelled(mnt!));
@@ -121,7 +121,7 @@ public class DailyActivityCancelTests : IDisposable
         // Bağlı bakım iptal
         Assert.True(MaintenanceCancelled(mnt!));
         // Stok GERİ DÖNDÜ
-        Assert.Equal(100m, _stock.GetBalance(m));
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));
     }
 
     [Fact]
@@ -155,15 +155,15 @@ public class DailyActivityCancelTests : IDisposable
                 new MaintenanceMaterialLine(m3, 7m),
             }), "op-multi");
 
-        Assert.Equal(45m, _stock.GetBalance(m1));
-        Assert.Equal(47m, _stock.GetBalance(m2));
-        Assert.Equal(43m, _stock.GetBalance(m3));
+        Assert.Equal(45m, _stock.GetBalance(_admin, m1));
+        Assert.Equal(47m, _stock.GetBalance(_admin, m2));
+        Assert.Equal(43m, _stock.GetBalance(_admin, m3));
 
         _daily.Delete(_admin, act);
 
-        Assert.Equal(50m, _stock.GetBalance(m1));
-        Assert.Equal(50m, _stock.GetBalance(m2));
-        Assert.Equal(50m, _stock.GetBalance(m3));
+        Assert.Equal(50m, _stock.GetBalance(_admin, m1));
+        Assert.Equal(50m, _stock.GetBalance(_admin, m2));
+        Assert.Equal(50m, _stock.GetBalance(_admin, m3));
     }
 
     [Fact]
@@ -174,9 +174,9 @@ public class DailyActivityCancelTests : IDisposable
         var act = _daily.SaveMaintenanceActivity(_admin, new NewMaintenance(v, d, PerformedKm: 1100m,
             Materials: new[] { new MaintenanceMaterialLine(m, 10m, FromTeamStock: true) }), "op-team");
 
-        Assert.Equal(100m, _stock.GetBalance(m));   // hiç düşmedi
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));   // hiç düşmedi
         _daily.Delete(_admin, act);
-        Assert.Equal(100m, _stock.GetBalance(m));   // ❗ şişmedi
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));   // ❗ şişmedi
     }
 
     // ── 2. HAREKET/SEVKİYAT — davranış DEĞİŞMEDİ (senaryo 4) ────────────────────────────────
@@ -188,11 +188,11 @@ public class DailyActivityCancelTests : IDisposable
         var act = _daily.SaveMovement(_admin, new NewMovementActivity("movement", v, Description: "sevk"), "op-mv");
 
         Assert.Null(MaintenanceIdOf(act));
-        var before = _stock.GetBalance(m);
+        var before = _stock.GetBalance(_admin, m);
 
         _daily.Delete(_admin, act);
 
-        Assert.Equal(before, _stock.GetBalance(m));                 // stok hiç etkilenmedi
+        Assert.Equal(before, _stock.GetBalance(_admin, m));                 // stok hiç etkilenmedi
         Assert.Empty(_daily.SearchGrid(_admin, new DailyActivityGridFilter(), 1, 50).Items);
     }
 
@@ -204,11 +204,11 @@ public class DailyActivityCancelTests : IDisposable
         var (v, m, d) = Seed(100m);
         var act = MaintenanceActivity(v, d, m, 10m);
         _daily.Delete(_admin, act);
-        Assert.Equal(100m, _stock.GetBalance(m));
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));
 
         var ex = Assert.Throws<InvalidOperationException>(() => _daily.Delete(_admin, act));
         Assert.Contains("zaten iptal", ex.Message);
-        Assert.Equal(100m, _stock.GetBalance(m));                   // ❗ stok İKİNCİ KEZ geri eklenmedi
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));                   // ❗ stok İKİNCİ KEZ geri eklenmedi
     }
 
     [Fact]
@@ -219,11 +219,11 @@ public class DailyActivityCancelTests : IDisposable
         var mnt = MaintenanceIdOf(act)!;
 
         _maint.Cancel(_admin, mnt, "önce bakım ekranından");        // stok 100'e döndü
-        Assert.Equal(100m, _stock.GetBalance(m));
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));
 
         _daily.Delete(_admin, act);                                  // faaliyet de iptal
 
-        Assert.Equal(100m, _stock.GetBalance(m));                    // ❗ 110 OLMADI
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));                    // ❗ 110 OLMADI
         Assert.True(MaintenanceCancelled(mnt));
     }
 
@@ -235,7 +235,7 @@ public class DailyActivityCancelTests : IDisposable
         var (v, m, d) = Seed(100m);
         var act = MaintenanceActivity(v, d, m, 10m);
         var mnt = MaintenanceIdOf(act)!;
-        Assert.Equal(90m, _stock.GetBalance(m));
+        Assert.Equal(90m, _stock.GetBalance(_admin, m));
 
         // Faaliyet satırını "yok" gibi göstererek 3. adımı (UPDATE) başarısız kıl:
         // aynı transaction içinde bakım iptali ZATEN yapılmış olacak → rollback ile o da geri alınmalı.
@@ -251,7 +251,7 @@ public class DailyActivityCancelTests : IDisposable
 
         // ROLLBACK kanıtı: bakım İPTAL EDİLMEDİ ve stok GERİ DÖNMEDİ.
         Assert.False(MaintenanceCancelled(mnt));
-        Assert.Equal(90m, _stock.GetBalance(m));
+        Assert.Equal(90m, _stock.GetBalance(_admin, m));
     }
 
     // ── 5. YETKİ (senaryo 5) ────────────────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ public class DailyActivityCancelTests : IDisposable
         var staff = new SessionContext("u2", "A", new[] { RoleKeys.Staff }, perms);
 
         Assert.Throws<ForbiddenException>(() => _daily.Delete(staff, act));
-        Assert.Equal(90m, _stock.GetBalance(m));                     // hiçbir şey değişmedi
+        Assert.Equal(90m, _stock.GetBalance(_admin, m));                     // hiçbir şey değişmedi
         Assert.False(MaintenanceCancelled(MaintenanceIdOf(act)!));
     }
 
@@ -284,7 +284,7 @@ public class DailyActivityCancelTests : IDisposable
         _daily.Delete(user, act);                                    // geçmeli
 
         Assert.True(MaintenanceCancelled(MaintenanceIdOf(act)!));
-        Assert.Equal(100m, _stock.GetBalance(m));
+        Assert.Equal(100m, _stock.GetBalance(_admin, m));
     }
 
     // ── 6. GÖRÜNÜRLÜK (senaryolar 6–7, K3) ──────────────────────────────────────────────────
@@ -333,7 +333,7 @@ public class DailyActivityCancelTests : IDisposable
 
         var act = MaintenanceActivity(v, d, m, 10m);
         Assert.NotNull(act);
-        Assert.Equal(90m, _stock.GetBalance(m));                     // stok düşümü aynı
+        Assert.Equal(90m, _stock.GetBalance(_admin, m));                     // stok düşümü aynı
         Assert.NotNull(MaintenanceIdOf(act));                        // bakım kaydı üretiliyor
         Assert.Equal(1100m, _vehicles.GetMeter(_admin, v));          // sayaç ilerledi
 

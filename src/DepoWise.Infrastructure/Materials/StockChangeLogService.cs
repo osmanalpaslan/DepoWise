@@ -54,7 +54,7 @@ public sealed class StockChangeLogService
     {
         AccessControl.Require(s, "materials", PermissionAction.Edit);
         var (code, name) = ReadMaterial(s.CompanyId, materialId);   // firma sahipliği + snapshot
-        var oldQty = _stock.GetBalance(materialId);
+        var oldQty = _stock.GetBalance(s, materialId);
         var branchId = s.OperatingBranchId;
 
         if (continued && newQuantity != oldQty)

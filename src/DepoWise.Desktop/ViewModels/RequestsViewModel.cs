@@ -150,7 +150,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
         try
         {
             foreach (var it in DesktopServices.Requests.GetItems(_session, value.Id)) DetailItems.Add(it);
-            foreach (var (from, to, reason) in DesktopServices.Requests.GetHistory(value.Id))
+            foreach (var (from, to, reason) in DesktopServices.Requests.GetHistory(_session, value.Id))
                 History.Add($"{(from is null ? "—" : RequestRow.StatusLabel(from.Value))} → {RequestRow.StatusLabel(to)}"
                             + (string.IsNullOrWhiteSpace(reason) ? "" : $" ({reason})"));
         }
