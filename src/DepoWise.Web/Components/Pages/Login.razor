@@ -160,104 +160,399 @@
 </div>
 
 <style>
-    .dw-login{position:fixed;inset:0;display:flex;overflow:auto;background:#0D1220;
-        font-family:'Plus Jakarta Sans','Segoe UI Variable','Segoe UI',system-ui,sans-serif;}
 
-    /* ── Sol: marka paneli ── */
-    .dw-brand{flex:0 0 46%;max-width:620px;padding:46px 46px 34px;display:flex;flex-direction:column;
-        border-right:1px solid rgba(255,255,255,.07);position:relative;overflow:hidden;
-        background:
-            radial-gradient(680px 420px at 18% 12%,rgba(245,166,35,.26) 0%,rgba(245,166,35,0) 66%),
-            radial-gradient(600px 480px at 90% 88%,rgba(99,102,241,.26) 0%,rgba(99,102,241,0) 62%),
-            linear-gradient(180deg,rgba(10,15,27,.86) 0%,rgba(10,15,27,.94) 100%),
-            url("login-hero.png") center/cover no-repeat,#0A0F1B;}
-    .dw-brand-top{display:flex;align-items:center;gap:12px;}
-    .dw-brand-logo{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.94);padding:4px;
-        box-sizing:border-box;box-shadow:0 8px 22px rgba(0,0,0,.34);}
-    .dw-brand-logo img{width:100%;height:100%;object-fit:contain;display:block;}
-    .dw-brand-name{color:#EAEEF7;font-size:21px;font-weight:700;letter-spacing:-.01em;}
-    .dw-brand-mid{margin-top:auto;margin-bottom:auto;padding:34px 0;}
-    .dw-brand-head{color:#F4F7FC;font-size:38px;font-weight:800;line-height:1.18;letter-spacing:-.03em;margin:0;}
-    .dw-brand-sub{color:#9AA7C0;font-size:15px;line-height:1.65;margin:16px 0 0;max-width:420px;text-wrap:pretty;}
-    .dw-brand-points{list-style:none;margin:32px 0 0;padding:0;display:flex;flex-direction:column;gap:12px;}
-    .dw-brand-points li{display:flex;align-items:center;gap:12px;color:#C3CCDD;font-size:14px;font-weight:500;}
-    .dw-pt-ico{width:32px;height:32px;flex:0 0 auto;border-radius:10px;display:flex;align-items:center;justify-content:center;
-        background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.24);color:#FBBF4A;font-size:15px;}
-    .dw-brand-foot{color:#5D6C88;font-size:12px;}
+/* ── Kabuk ────────────────────────────────────────────────────────────────── */
+/* Kutu modeli — Bootstrap reboot ile AYNI kural, yalnız giriş ekranına kapsanmış.
+   Bootstrap yüklüyken etkisizdir; yüklenmediği/kaldırıldığı durumda ölçüler
+   (46% marka paneli, 432px kart, iç boşluklar) yine de doğru çözülür. */
+.dw-login, .dw-login *, .dw-login *::before, .dw-login *::after { box-sizing: border-box; }
 
-    /* ── Sağ: form ── */
-    .dw-pane{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px;
-        background:radial-gradient(900px 520px at 60% 0%,rgba(99,102,241,.10) 0%,rgba(99,102,241,0) 62%),#0D1220;}
-    .dw-card{width:min(92vw,432px);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
-        border-radius:20px;padding:34px 32px 30px;box-shadow:0 30px 80px rgba(0,0,0,.45);backdrop-filter:blur(12px);}
+.dw-login {
+    position: fixed; inset: 0; display: flex; overflow: auto; background: #0D1220;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
 
-    .dw-steps{display:flex;align-items:center;gap:7px;margin-bottom:22px;}
-    .dw-steps i{height:3px;width:34px;border-radius:999px;background:rgba(255,255,255,.12);}
-    .dw-steps i.on{background:linear-gradient(90deg,#FBBF4A,#F0980D);}
-    .dw-steplabel{color:#7B8AA6;font-size:11.5px;font-weight:600;margin-left:6px;}
+/* ── Sol: marka paneli ────────────────────────────────────────────────────── */
+.dw-brand {
+    flex: 0 0 46%; max-width: 620px; padding: 46px 46px 34px;
+    display: flex; flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,.07);
+    position: relative; overflow: hidden; isolation: isolate;
+    background:
+        linear-gradient(180deg, rgba(10,15,27,.86) 0%, rgba(10,15,27,.94) 100%),
+        url("login-hero.png") center/cover no-repeat, #0A0F1B;
+}
+/* Aurora ışık katmanı — ÇOK yavaş sürüklenir (24 s), yalnız transform/opacity.
+   Ayrı katman olduğu için hero fotoğrafın üstünde döner, layout'a dokunmaz. */
+.dw-brand::before {
+    content: ""; position: absolute; inset: -22%; z-index: -1; pointer-events: none;
+    background:
+        radial-gradient(620px 400px at 20% 16%, rgba(245,166,35,.30) 0%, rgba(245,166,35,0) 66%),
+        radial-gradient(560px 460px at 86% 84%, rgba(99,102,241,.28) 0%, rgba(99,102,241,0) 62%);
+    animation: dwAurora 24s ease-in-out infinite alternate;
+    will-change: transform;
+}
+@@keyframes dwAurora {
+    from { transform: translate3d(-2%, -1.5%, 0) scale(1); }
+    to   { transform: translate3d(2.5%, 2%, 0) scale(1.06); }
+}
+/* Üst kenarda ince kehribar iz — panelin "ürün" hissini bitirir */
+.dw-brand::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, rgba(245,166,35,.55) 0%, rgba(245,166,35,.08) 52%, transparent 100%);
+}
 
-    .dw-title{color:#F4F7FC;font-size:23px;font-weight:700;letter-spacing:-.02em;margin:0;}
-    .dw-sub{color:#8B98B2;font-size:13.5px;line-height:1.6;margin:5px 0 0;text-wrap:pretty;}
-    .dw-sub b{color:#C3CCDD;}
+.dw-brand-top { display: flex; align-items: center; gap: 12px; animation: dwUp .55s cubic-bezier(.22,1,.36,1) both; }
+.dw-brand-logo {
+    width: 44px; height: 44px; border-radius: 13px; background: rgba(255,255,255,.94); padding: 4px;
+    box-sizing: border-box; box-shadow: 0 8px 22px rgba(0,0,0,.34), 0 0 0 1px rgba(255,255,255,.12);
+    animation: dwLogoIn .72s cubic-bezier(.34,1.56,.64,1) both;
+}
+@@keyframes dwLogoIn {
+    from { opacity: 0; transform: scale(.72) rotate(-8deg); }
+    to   { opacity: 1; transform: none; }
+}
+.dw-brand-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.dw-brand-name { color: #EAEEF7; font-size: 21px; font-weight: 700; letter-spacing: -.012em; }
 
-    .dw-label{display:block;color:#9AA7C0;font-size:12.5px;font-weight:600;margin:20px 2px 7px;}
-    .dw-field{display:flex;align-items:center;gap:10px;height:50px;padding:0 14px;
-        background:rgba(8,12,22,.55);border:1px solid rgba(255,255,255,.1);border-radius:13px;
-        transition:border-color .15s,box-shadow .15s;}
-    .dw-field:focus-within{border-color:rgba(245,166,35,.6);box-shadow:0 0 0 3px rgba(245,166,35,.14);}
-    .dw-ico{width:19px;height:19px;fill:#6B7A96;flex:0 0 auto;}
-    .dw-field:focus-within .dw-ico{fill:#FBBF4A;}
-    .dw-field input{flex:1;min-width:0;height:100%;background:transparent;border:none;outline:none;
-        color:#EAEEF7;font-size:14.5px;font-family:inherit;}
-    .dw-field input::placeholder{color:#5D6C88;}
-    /* Tarayıcı otomatik-doldurma zeminini bastır → alan koyu kalır */
-    .dw-field input:-webkit-autofill,
-    .dw-field input:-webkit-autofill:hover,
-    .dw-field input:-webkit-autofill:focus,
-    .dw-field input:-webkit-autofill:active{
-        -webkit-text-fill-color:#EAEEF7 !important;
-        -webkit-box-shadow:0 0 0 1000px #0B111E inset !important;
-        caret-color:#EAEEF7;transition:background-color 99999s ease-out 0s;}
+.dw-brand-mid { position: relative; margin-top: auto; margin-bottom: auto; padding: 34px 0; }
+/* Teknik ızgara katmanı — çok yavaş çapraz kayar (34 s), kenarlara doğru silinir.
+   Sadece transform canlandırılır; çizgiler tek bir gradyan katmanıdır. */
+.dw-brand-mid::before {
+    content: ""; position: absolute; inset: -150%; z-index: -1; pointer-events: none;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 46px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 46px);
+    -webkit-mask-image: radial-gradient(closest-side at 50% 50%, #000 35%, transparent 78%);
+            mask-image: radial-gradient(closest-side at 50% 50%, #000 35%, transparent 78%);
+    animation: dwGrid 34s linear infinite;
+    will-change: transform;
+}
+@@keyframes dwGrid {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(46px, 46px, 0); }
+}
+.dw-brand-head {
+    color: #F4F7FC; font-size: clamp(28px, 3.1vw, 40px); font-weight: 800;
+    line-height: 1.14; letter-spacing: -.032em; margin: 0; text-wrap: balance;
+    animation: dwHeadIn .85s cubic-bezier(.22,1,.36,1) .1s both;
+}
+/* Başlık aşağıdan açılır (clip-path) — "perde kalkıyor" hissi, tek eleman. */
+@@keyframes dwHeadIn {
+    from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translate3d(0, 14px, 0); }
+    to   { opacity: 1; clip-path: inset(0 0 -10% 0); transform: none; }
+}
+.dw-brand-sub {
+    color: #9AA7C0; font-size: 15px; line-height: 1.68; margin: 16px 0 0; max-width: 430px; text-wrap: pretty;
+    animation: dwUp .6s cubic-bezier(.22,1,.36,1) .12s both;
+}
+.dw-brand-points { list-style: none; margin: 32px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.dw-brand-points li {
+    display: flex; align-items: center; gap: 12px; color: #C3CCDD; font-size: 14px; font-weight: 500;
+    padding: 9px 12px 9px 9px; border-radius: 13px;
+    background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07);
+    transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+    animation: dwPointIn .6s cubic-bezier(.22,1,.36,1) both;
+}
+@@keyframes dwPointIn {
+    from { opacity: 0; transform: translate3d(-14px, 0, 0) scale(.97); }
+    to   { opacity: 1; transform: none; }
+}
+.dw-brand-points li:nth-child(1) { animation-delay: .26s; }
+.dw-brand-points li:nth-child(2) { animation-delay: .36s; }
+.dw-brand-points li:nth-child(3) { animation-delay: .46s; }
+.dw-brand-points li:hover {
+    background: rgba(255,255,255,.06); border-color: rgba(245,166,35,.22); transform: translateX(3px);
+}
+.dw-pt-ico {
+    width: 34px; height: 34px; flex: 0 0 auto; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, rgba(245,166,35,.22), rgba(245,166,35,.10));
+    border: 1px solid rgba(245,166,35,.28); color: #FBBF4A; font-size: 15px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+}
+.dw-brand-foot { color: #5D6C88; font-size: 12px; letter-spacing: .01em; }
 
-    .dw-remember{display:flex;align-items:center;gap:10px;margin:18px 2px 0;cursor:pointer;user-select:none;}
-    .dw-remember input{width:18px;height:18px;accent-color:#F0980D;cursor:pointer;}
-    .dw-remember span{color:#B9C3D6;font-size:13.5px;}
+/* ── Sağ: form paneli ─────────────────────────────────────────────────────── */
+.dw-pane {
+    position: relative; overflow: hidden; isolation: isolate;
+    flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px;
+    background:
+        radial-gradient(900px 520px at 60% -6%, rgba(99,102,241,.12) 0%, rgba(99,102,241,0) 62%),
+        radial-gradient(700px 500px at 30% 108%, rgba(245,166,35,.07) 0%, rgba(245,166,35,0) 60%),
+        #0D1220;
+}
+/* Çok yavaş dönen ışık huzmesi — panelin "canlı" durmasını sağlar.
+   Tek katman, yalnız transform: kompozitörde döner, yeniden yerleşim yapmaz. */
+.dw-pane::before {
+    content: ""; position: absolute; inset: -40%; z-index: -1; pointer-events: none;
+    background: conic-gradient(from 0deg,
+        transparent 0 62%,
+        rgba(245,166,35,.055) 72%,
+        rgba(99,102,241,.05) 80%,
+        transparent 88%);
+    animation: dwBeam 26s linear infinite;
+    will-change: transform;
+}
+@@keyframes dwBeam { to { transform: rotate(360deg); } }
 
-    .dw-eye{background:none;border:none;cursor:pointer;display:flex;padding:4px;color:#6B7A96;}
-    .dw-eye svg{width:19px;height:19px;fill:currentColor;}
-    .dw-eye:hover{color:#AAB6C8;}
+/* Kartın arkasında süzülen iki yumuşak küre — derinlik hissi.
+   Tek pseudo, iki radyal gradyan; yalnız transform canlandırılır. */
+.dw-pane::after {
+    content: ""; position: absolute; inset: -15%; z-index: -1; pointer-events: none;
+    background:
+        radial-gradient(260px 260px at 22% 30%, rgba(245,166,35,.16) 0%, rgba(245,166,35,0) 70%),
+        radial-gradient(320px 320px at 78% 74%, rgba(99,102,241,.16) 0%, rgba(99,102,241,0) 72%);
+    animation: dwOrbs 19s ease-in-out infinite alternate;
+    will-change: transform;
+}
+@@keyframes dwOrbs {
+    from { transform: translate3d(-3%, -2%, 0) scale(1); }
+    to   { transform: translate3d(4%, 3%, 0) scale(1.12); }
+}
+.dw-card {
+    position: relative; width: min(92vw, 432px);
+    background: linear-gradient(180deg, rgba(255,255,255,.065) 0%, rgba(255,255,255,.035) 100%);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 22px; padding: 34px 32px 30px;
+    box-shadow: 0 34px 90px rgba(0,0,0,.50), inset 0 1px 0 rgba(255,255,255,.09);
+    backdrop-filter: blur(14px) saturate(120%);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    animation: dwCardIn .62s cubic-bezier(.22,1,.36,1) both;
+}
+/* Kartın üst kenarındaki ışık çizgisi */
+.dw-card::before {
+    content: ""; position: absolute; left: 22px; right: 22px; top: -1px; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(245,166,35,.55), transparent);
+}
+/* Kartın kenarında yavaşça dolaşan ışık halkası — girişin "imzası".
+   Konik gradyanın açısı canlandırılır; maske sayesinde yalnız 1px'lik kenar
+   boyanır (küçük alan). @@property desteklemeyen tarayıcıda açı sabit kalır →
+   hareketsiz ama düzgün bir kenar ışığı görünür, bozulma olmaz. */
+@@property --dw-a { syntax: "\3c angle>"; initial-value: 0deg; inherits: false; }
+.dw-card::after {
+    content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+    pointer-events: none;
+    background: conic-gradient(from var(--dw-a),
+        rgba(245,166,35,.62) 0deg,
+        rgba(99,102,241,.34) 55deg,
+        transparent 130deg,
+        transparent 300deg,
+        rgba(245,166,35,.62) 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
+    animation: dwRing 14s linear infinite;
+}
+@@keyframes dwRing { to { --dw-a: 360deg; } }
 
-    .dw-btn{width:100%;height:52px;margin-top:24px;border:none;border-radius:13px;cursor:pointer;
-        display:flex;align-items:center;justify-content:center;gap:10px;
-        background:linear-gradient(150deg,#FBBF4A,#F0980D);color:#241703;font-weight:800;font-size:14.5px;
-        letter-spacing:.04em;font-family:inherit;box-shadow:0 12px 30px rgba(240,152,13,.3);
-        transition:filter .15s,transform .04s;}
-    .dw-btn:hover{filter:brightness(1.06);}
-    .dw-btn:active{transform:translateY(1px);}
-    .dw-btn:disabled{opacity:.6;cursor:default;box-shadow:none;}
-    .dw-arrow{width:20px;height:20px;fill:#241703;}
+@@keyframes dwCardIn {
+    from { opacity: 0; transform: translate3d(0, 22px, 0) scale(.965); filter: blur(6px); }
+    to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@@keyframes dwUp {
+    from { opacity: 0; transform: translate3d(0, 10px, 0); }
+    to   { opacity: 1; transform: none; }
+}
 
-    .dw-select{width:100%;height:50px;padding:0 14px;background:rgba(8,12,22,.55);
-        border:1px solid rgba(255,255,255,.1);border-radius:13px;color:#EAEEF7;font-size:14.5px;
-        font-family:inherit;outline:none;appearance:none;
-        background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7A96'><path d='M7 10l5 5 5-5z'/></svg>");
-        background-repeat:no-repeat;background-position:right 13px center;background-size:20px;}
-    .dw-select:focus{border-color:rgba(245,166,35,.6);box-shadow:0 0 0 3px rgba(245,166,35,.14);}
-    .dw-select option{background:#0B111E;color:#EAEEF7;}
+/* Adım göstergesi — dolum animasyonlu */
+.dw-steps { display: flex; align-items: center; gap: 7px; margin-bottom: 22px; }
+.dw-steps i {
+    position: relative; height: 3px; width: 34px; border-radius: 999px;
+    background: rgba(255,255,255,.12); overflow: hidden;
+}
+.dw-steps i::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, #FBBF4A, #F0980D);
+    transform: scaleX(0); transform-origin: left; transition: transform .34s cubic-bezier(.22,1,.36,1);
+}
+.dw-steps i.on::after { transform: scaleX(1); }
+.dw-steps i.on { box-shadow: 0 0 12px rgba(245,166,35,.35); }
+/* Aktif çubukta çok yavaş ilerleyen ışık — "süreç devam ediyor" işareti */
+.dw-steps i.on::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+    transform: translateX(-100%);
+    animation: dwStepGlow 3.2s ease-in-out infinite;
+}
+@@keyframes dwStepGlow {
+    0%, 55% { transform: translateX(-100%); }
+    85%, 100% { transform: translateX(100%); }
+}
+.dw-steplabel {
+    color: #7B8AA6; font-size: 11.5px; font-weight: 600; margin-left: 6px;
+    letter-spacing: .02em; white-space: nowrap;
+}
 
-    .dw-link{width:100%;margin-top:12px;background:none;border:none;cursor:pointer;
-        color:#7B8AA6;font-size:13px;font-family:inherit;text-align:center;}
-    .dw-link:hover{color:#C3CCDD;}
-    .dw-hint{color:#6B7A96;font-size:12.5px;text-align:center;margin:16px 0 0;}
+/* NOT: Adım içeriği (başlık, etiket, alan, buton, bağlantı) giriş animasyonu
+   TAŞIMAZ. Adım değişince bu öğeler yeniden oluştuğu için animasyon her adımda
+   tekrar oynar ve "sayfa yenilendi" hissi verirdi. Açılış animasyonu yalnız
+   kartta, marka panelinde ve logodadır — onlar adımlar boyunca yerinde kalır. */
+.dw-title { color: #F4F7FC; font-size: 23px; font-weight: 700; letter-spacing: -.022em; margin: 0; }
+.dw-sub { color: #8B98B2; font-size: 13.5px; line-height: 1.6; margin: 5px 0 0; text-wrap: pretty; }
+.dw-sub b { color: #C3CCDD; font-weight: 600; }
 
-    .dw-error{margin-top:16px;background:rgba(226,74,59,.12);border:1px solid rgba(226,74,59,.4);
-        color:#FFB4AC;padding:11px 13px;border-radius:12px;font-size:13px;line-height:1.5;}
+/* Etiket + alan */
+.dw-label {
+    display: block; color: #9AA7C0; font-size: 12.5px; font-weight: 600; margin: 20px 2px 7px;
+    letter-spacing: .005em; transition: color .16s ease;
+}
+/* Odaklanan alanın ETİKETİ kehribara döner (markup değişmeden, :has ile) */
+.dw-label:has(+ .dw-field:focus-within) { color: #FBBF4A; }
 
-    /* Dar ekran: marka paneli gizlenir, kart ortalanır */
-    @@media (max-width:900px){
-        .dw-brand{display:none;}
-        .dw-pane{flex:1;}
+.dw-field {
+    display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px;
+    background: rgba(8,12,22,.55); border: 1px solid rgba(255,255,255,.10); border-radius: 13px;
+    transition: border-color .16s ease, box-shadow .18s ease, background-color .16s ease, transform .16s ease;
+}
+.dw-field:hover { border-color: rgba(255,255,255,.18); background: rgba(8,12,22,.68); }
+.dw-field:focus-within {
+    border-color: rgba(245,166,35,.62); background: rgba(8,12,22,.75);
+    box-shadow: 0 0 0 3px rgba(245,166,35,.15), 0 8px 22px rgba(0,0,0,.28);
+    transform: translateY(-1px);
+}
+.dw-ico { width: 19px; height: 19px; fill: #6B7A96; flex: 0 0 auto; transition: fill .16s ease; }
+.dw-field:focus-within .dw-ico { fill: #FBBF4A; }
+.dw-field input {
+    flex: 1; min-width: 0; height: 100%; background: transparent; border: none; outline: none;
+    color: #EAEEF7; font-size: 14.5px; font-family: inherit; letter-spacing: .005em;
+}
+.dw-field input::placeholder { color: #5D6C88; }
+/* Tarayıcı otomatik-doldurma zemini bastırılır (mevcut davranış korunur) */
+.dw-field input:-webkit-autofill,
+.dw-field input:-webkit-autofill:hover,
+.dw-field input:-webkit-autofill:focus,
+.dw-field input:-webkit-autofill:active {
+    -webkit-text-fill-color: #EAEEF7 !important;
+    -webkit-box-shadow: 0 0 0 1000px #0B111E inset !important;
+    caret-color: #EAEEF7; transition: background-color 99999s ease-out 0s;
+}
+
+.dw-eye {
+    background: none; border: none; cursor: pointer; display: flex; padding: 5px; margin-right: -4px;
+    color: #6B7A96; border-radius: 8px; transition: color .15s ease, background-color .15s ease;
+}
+.dw-eye svg { width: 19px; height: 19px; fill: currentColor; }
+.dw-eye:hover { color: #D6DEEC; background: rgba(255,255,255,.07); }
+.dw-eye:focus-visible { outline: 2px solid rgba(245,166,35,.7); outline-offset: 1px; }
+
+/* Beni hatırla */
+.dw-remember {
+    display: flex; align-items: center; gap: 10px; margin: 18px 2px 0; cursor: pointer; user-select: none;
+}
+.dw-remember input { width: 18px; height: 18px; accent-color: #F0980D; cursor: pointer; }
+.dw-remember span { color: #B9C3D6; font-size: 13.5px; transition: color .15s ease; }
+.dw-remember:hover span { color: #EAEEF7; }
+
+/* Birincil buton — hover'da yumuşak parlama, basınçta oturma */
+.dw-btn {
+    position: relative; overflow: hidden; width: 100%; height: 52px; margin-top: 24px;
+    border: none; border-radius: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: linear-gradient(150deg, #FBBF4A 0%, #F0980D 100%);
+    color: #241703; font-weight: 800; font-size: 14.5px; letter-spacing: .045em; font-family: inherit;
+    box-shadow: 0 12px 30px rgba(240,152,13,.30), inset 0 1px 0 rgba(255,255,255,.30);
+    transition: filter .16s ease, transform .05s ease, box-shadow .18s ease;
+}
+.dw-btn::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, transparent 32%, rgba(255,255,255,.34) 50%, transparent 68%);
+    transform: translateX(-120%); transition: transform .55s ease;
+}
+.dw-btn:hover { filter: brightness(1.05); box-shadow: 0 16px 38px rgba(240,152,13,.40), inset 0 1px 0 rgba(255,255,255,.34); }
+.dw-btn:hover::after { transform: translateX(120%); }
+.dw-btn:active { transform: translateY(1px); box-shadow: 0 8px 20px rgba(240,152,13,.28); }
+.dw-btn:focus-visible { outline: 2px solid #FFD27A; outline-offset: 3px; }
+.dw-btn:disabled { opacity: .72; cursor: progress; box-shadow: none; filter: none; }
+/* İşlem sürerken (disabled = _busy) üstte akan ince ışık şeridi — "çalışıyor" geri bildirimi */
+.dw-btn:disabled::after {
+    transform: none; animation: dwSweep 1.15s linear infinite;
+    background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.28) 50%, transparent 65%);
+}
+@@keyframes dwSweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.dw-arrow { width: 20px; height: 20px; fill: #241703; transition: transform .2s cubic-bezier(.22,1,.36,1); }
+.dw-btn:hover .dw-arrow { transform: translateX(3px); }
+
+/* Açılır liste — alanla aynı dil */
+.dw-select {
+    width: 100%; height: 50px; padding: 0 40px 0 14px;
+    background-color: rgba(8,12,22,.55);
+    border: 1px solid rgba(255,255,255,.10); border-radius: 13px; color: #EAEEF7; font-size: 14.5px;
+    font-family: inherit; outline: none; appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7A96'><path d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat: no-repeat; background-position: right 13px center; background-size: 20px;
+    transition: border-color .16s ease, box-shadow .18s ease, background-color .16s ease;
+}
+.dw-select:hover { border-color: rgba(255,255,255,.18); background-color: rgba(8,12,22,.68); }
+.dw-select:focus {
+    border-color: rgba(245,166,35,.62); background-color: rgba(8,12,22,.75);
+    box-shadow: 0 0 0 3px rgba(245,166,35,.15);
+}
+.dw-select option { background: #0B111E; color: #EAEEF7; }
+
+/* İkincil bağlantı ve ipucu */
+.dw-link {
+    width: 100%; margin-top: 12px; padding: 8px 0; background: none; border: none; cursor: pointer;
+    color: #7B8AA6; font-size: 13px; font-family: inherit; text-align: center; border-radius: 9px;
+    transition: color .15s ease, background-color .15s ease;
+}
+.dw-link:hover { color: #D6DEEC; background: rgba(255,255,255,.05); }
+.dw-link:focus-visible { outline: 2px solid rgba(245,166,35,.7); outline-offset: 2px; }
+.dw-hint { color: #6B7A96; font-size: 12.5px; text-align: center; margin: 16px 0 0; line-height: 1.55; }
+
+/* Hata kutusu — dikkat çeker, sarsmaz */
+.dw-error {
+    margin-top: 16px; background: rgba(226,74,59,.12); border: 1px solid rgba(226,74,59,.42);
+    color: #FFB4AC; padding: 11px 13px 11px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5;
+    box-shadow: inset 3px 0 0 0 #E24A3B;
+    animation: dwErrIn .28s cubic-bezier(.22,1,.36,1) both;
+}
+@@keyframes dwErrIn {
+    from { opacity: 0; transform: translate3d(0, -6px, 0); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ── Uyarlanır davranış ───────────────────────────────────────────────────── */
+/* Laptop / dar masaüstü: marka paneli daralır, form nefes almaya devam eder */
+@@media (max-width: 1280px) {
+    .dw-brand { flex-basis: 42%; padding: 38px 34px 28px; }
+    .dw-brand-points li { font-size: 13.5px; }
+}
+/* Tablet: marka paneli gizlenir, kart ortalanır (mevcut davranış korunur) */
+@@media (max-width: 900px) {
+    .dw-brand { display: none; }
+    .dw-pane { flex: 1; padding: 32px 20px; }
+}
+/* Küçük ekran: kart kenarlara yaklaşır, dokunma hedefleri korunur */
+@@media (max-width: 480px) {
+    .dw-card { padding: 26px 20px 24px; border-radius: 18px; }
+    .dw-title { font-size: 21px; }
+    .dw-steps i { width: 26px; }
+}
+/* Kısa ekran (dizüstü, 720p): dikey boşluklar sıkışır, kaydırma gerekmez */
+@@media (max-height: 720px) {
+    .dw-pane { padding: 20px 24px; }
+    .dw-card { padding: 26px 28px 24px; }
+    .dw-label { margin-top: 15px; }
+    .dw-btn { margin-top: 18px; height: 48px; }
+    .dw-brand-mid { padding: 18px 0; }
+}
+
+/* ── Hareket azaltma tercihi ──────────────────────────────────────────────── */
+@@media (prefers-reduced-motion: reduce) {
+    .dw-brand::before, .dw-brand-mid::before, .dw-pane::before, .dw-pane::after,
+    .dw-brand-top, .dw-brand-logo, .dw-brand-head, .dw-brand-sub,
+    .dw-brand-points li, .dw-card, .dw-card::after, .dw-steps i.on::before,
+    .dw-title, .dw-sub, .dw-label, .dw-field, .dw-select, .dw-btn, .dw-link, .dw-error {
+        animation: none !important;
     }
+    .dw-card { filter: none; clip-path: none; }
+    .dw-brand-head { clip-path: none; }
+    .dw-btn::after, .dw-steps i::after { transition: none; }
+    .dw-field:focus-within, .dw-brand-points li:hover { transform: none; }
+}
 </style>
 
 @code {
