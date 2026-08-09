@@ -555,15 +555,18 @@
                                                MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=plate}"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PlateDisplay}"
                                                IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=plate}"/>
+                                    <!-- Sayısal sütun (ListColumns: IsNumeric) → sağa yaslı okunur. -->
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding YearDisplay}" VerticalAlignment="Center"
                                                MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=productionYear}"
                                                MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=productionYear}"
+                                               TextAlignment="Right"
                                                TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource TextSecondaryBrush}"
                                                IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=productionYear}"/>
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding MeterDisplay}" VerticalAlignment="Center"
                                                MinWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=meter}"
                                                MaxWidth="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).ColWidths, Converter={x:Static local:Conv.ColWidth}, ConverterParameter=meter}"
+                                               TextAlignment="Right"
                                                TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding $parent[ListBox].((vm:VehiclesViewModel)DataContext).VisibleColumns, Converter={x:Static local:Conv.ColumnVisible}, ConverterParameter=meter}"/>
                                     <ctrl:StatusBadge Grid.Column="4" VerticalAlignment="Center"
