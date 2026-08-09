@@ -1171,9 +1171,11 @@ süper admin korundu).
 
 ## 3. SIRADAKI TEK IŞ
 
-> **SIRADAKİ (11 adımlık onaylı sıranın 3. maddesi): M-S1a `company_id` migration'ı** —
-> `material_request_items` ve `maintenance_materials` tablolarına firma kolonu eklenecek (çok-kiracı sızıntısı).
-> **Veri taşıyan migration olduğu için canlıya uygulanmadan ÖNCE durulup sana bildirilecek.**
+> **AKTİF: M-S1a — ONAYIN BEKLENİYOR.** `material_request_items` + `maintenance_materials` tablolarına
+> firma kolonu: **kod ve testler hazır, canlıya UYGULANMADI.** Ön rapor:
+> [docs/MS1A_PRE_MIGRATION_RAPORU.md](docs/MS1A_PRE_MIGRATION_RAPORU.md).
+> ⚠️ **API yayınlamak = canlı migration** (API açılışta migration çalıştırır) → onayın gelmeden yayınlanmayacak.
+> Canlıda taşınacak satır: 2 (ikisi de Oze İnşaat), çözülemeyen: 0. Testler: 14/14 SQLite, 6/6 PostgreSQL, takım 839/0.
 > Sonrası: 4) ortak düzenleme altyapısı + Personel/Talepler çift tık · 5) Günlük Faaliyet + Bakım düzenleme ·
 > 6) düzenleme kilitleri · 7) Excel → Web · 8) çoklu malzeme + şube sürüm kontrolü · 9) LookupBox ·
 > 10) kolon kataloğu → Alan/Kolon Yönetimi · 11) Faz S / FK / benzersizlik.

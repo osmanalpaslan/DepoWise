@@ -180,8 +180,10 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
 - **Durum:** 🟢 DEVAM EDİYOR — 11 adımlık **onaylı sıra** işletiliyor (bkz. `docs/YARIM_KALAN_ISLER.md` başı).
 - **Nerede kaldık (2026-08-09):** Sıranın **1. işi (Yakıt iptali, 1.0.131)** ve **2. işi (Günlük Faaliyet
   iptali → bakım/stok tutarlılığı, 1.0.132)** yayınlandı. Her ikisinde de migration YOK, canlı veri değişmedi.
-- **Sıradaki adım:** **3 — M-S1a `company_id` migration'ı** (`material_request_items`, `maintenance_materials`).
-  ⚠️ Veri taşıyan migration → canlıya uygulanmadan önce **durulup kullanıcıya bildirilecek**.
+- **Sıradaki adım — M-S1a ONAY BEKLİYOR:** `material_request_items` + `maintenance_materials` firma kolonu.
+  Kod + testler hazır (14/14 SQLite · 6/6 PostgreSQL · takım 839/0), **canlıya UYGULANMADI**.
+  ⚠️ API yayınlamak migration'ı çalıştırır → kullanıcı onayı olmadan yayın YOK.
+  Ön rapor: [MS1A_PRE_MIGRATION_RAPORU.md](MS1A_PRE_MIGRATION_RAPORU.md).
 
 ---
 

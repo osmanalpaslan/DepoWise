@@ -19,7 +19,7 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 |---|---|---|
 | 1 | **Yakıt kaydı iptali** | ✅ YAYINLANDI (masaüstü 1.0.131) |
 | 2 | **Günlük Faaliyet → stok/bakım tutarlılığı** | ✅ YAYINLANDI (masaüstü 1.0.132) |
-| 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | ⏭️ SIRADAKİ — veri taşıyan migration, canlıya uygulanmadan önce DURULACAK |
+| 3 | **M-S1a `company_id` migration'ı** (çok-kiracı sızıntısı) | 🟡 KOD + TESTLER HAZIR — [ön rapor](MS1A_PRE_MIGRATION_RAPORU.md) · **canlı migration KULLANICI ONAYI bekliyor** |
 | 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | bekliyor |
 | 5 | Günlük Faaliyet + Bakım kaydı düzenleme | bekliyor |
 | 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | bekliyor |
