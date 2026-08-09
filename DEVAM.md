@@ -27,7 +27,21 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09 — ŞUBE/ŞANTİYE ÇALIŞMASI YAYINLANDI, masaüstü 1.0.130)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09b — YAKIT İPTALİ YAYINLANDI, masaüstü 1.0.131)
+
+### ✅ İŞ 1 — YAKIT KAYDI İPTALİ YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.131**
+Yanlış girilen yakıt kaydı artık **iptal edilebiliyor**. Analiz: [docs/IS1_YAKIT_IPTALI_ANALIZI.md](docs/IS1_YAKIT_IPTALI_ANALIZI.md)
+- **Nasıl çalışır:** kayıt silinmez, "iptal" işaretlenir → bakiyeden ve raporlardan otomatik çıkar, geçmişte iz kalır.
+- **Araç sayacı GERİ ALINMAZ** (proje kuralı) — 10.500'e çıkmışsa 10.500'de kalır.
+- **Depo girişi**, bakiyeyi eksiye düşürecekse iptal edilemez; "önce dağıtımları iptal edin" der.
+- **Düzeltme:** iptal edilen dağıtımın başlangıç sayacı yeni kayda taşınır → rapor km'si bozulmaz.
+- İptal edilenler varsayılan gizli; "İptal edilenleri göster" ile üstü işaretli görünür. İptal geri alınamaz.
+- Yetki: mevcut **"Ters Kayıt"** yetkisi (yeni yetki yok). Formlardaki yanıltıcı "İptal" butonları **"Vazgeç"** oldu.
+- **Migration YOK** (`is_deleted`/`prev_meter` zaten vardı). Testler: 811 geçti / 0 başarısız.
+
+---
+
+### (önceki) ŞUBE/ŞANTİYE ÇALIŞMASI YAYINLANDI, masaüstü 1.0.130
 
 ### ✅ ŞUBE / ŞANTİYE ÇALIŞMASI YAYINLANDI (2026-08-09) — API + web + masaüstü **1.0.130**
 Şube/Şantiye tanımı artık **yalnız Şube/Şantiye Tanımları ekranından** oluşturulabiliyor.
