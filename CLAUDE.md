@@ -50,8 +50,13 @@
 - **Web: Blazor Server/.NET (MudBlazor)** — `src/DepoWise.Web`, canlıda `depowise-web.fly.dev`. `apps/web`
   (Next.js/Drizzle/PostgreSQL) 2026-06-27'den beri donmuş/terk edilmiş; yalnız referans/geçmiş, aktif
   geliştirme yok. Masaüstü: .NET 8/Avalonia/MVVM/Dapper/SQLite.
-- **API/sunucu veritabanı: SQLite** (`depowise-server.db`, Fly.io kalıcı disk `/data`) — planlanan
-  PostgreSQL/Drizzle (ADR-000/005) hiç üretime alınmadı, gerçek çalışan sistem uçtan uca SQLite (bkz. R4/R7).
+- **API/sunucu veritabanı: PostgreSQL** (Neon, `depowise_prod`) — **2026-07-24'ten beri üretimde**.
+  Sunucu, `DEPOWISE_PG_URL` ortam değişkeni tanımlıysa PostgreSQL'e bağlanır (Fly secret olarak ayarlı);
+  değişken TANIMSIZSA SQLite'a düşer — bu geri dönüş yolu bilinçli olarak korunuyor
+  (`flyctl secrets unset DEPOWISE_PG_URL` + redeploy). Eski `depowise-server.db` (Fly kalıcı disk `/data`)
+  yedek olarak duruyor. Üretim şema sürümü: **62**.
+  **Masaüstü SQLite'ta KALIR** (çevrimdışı çalışma bundan gelir) — şema aynı migration kataloğuyla yürür.
+  Lehçe farkları `SqlDialect` / `DbIntrospect` / `DialectPurge` içinde toplanmıştır; iki lehçe de test edilir.
 - Web ve masaüstü işlevsel olarak eşit; piksel eşitliği zorunlu değil.
 - API `/api/v1`, ortak hata modeli, correlation id, OpenAPI sözleşmesi.
 - `company_id` yalnız güvenilir session/server context'ten gelir.
