@@ -3,6 +3,7 @@ using DepoWise.Application.Common;
 using DepoWise.Application.Security;
 using DepoWise.Application.Ui;
 using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Maintenance;
 using System.Data.Common;
 
@@ -68,8 +69,10 @@ public sealed record DailyActivityListRow(string Id, string ActivityType, string
 /// (DailyActivityView.axaml) satır şablonu hiç değişmeden bu tipe geçebilsin diye (kullanıcı isteği 2026-07-19).</summary>
 public sealed record DailyActivityGridRow(
     string Id, long DateRaw, string Type, string Vehicle, string Route, string Operator, string Duration,
-    string Description, string? MaintenanceId)
+    string Description, string? MaintenanceId, bool IsCancelled = false)
 {
+    /// <summary>İptal edilen faaliyet listede ayırt edilir (kullanıcı kararı K3).</summary>
+    public string StatusText => IsCancelled ? "İptal edildi" : "";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(DateRaw).LocalDateTime.ToString("dd.MM.yyyy");
     public string TypeText => Dash(Type);
     public string VehicleText => Dash(Vehicle);
@@ -316,19 +319,21 @@ SELECT da.id AS id,
        COALESCE(p.full_name, '') AS operator_text,
        CASE WHEN da.duration_days IS NULL THEN '' ELSE CAST(da.duration_days AS TEXT) || ' gün' END AS duration_text,
        COALESCE(da.description, '') AS description,
-       da.maintenance_id AS maintenance_id
+       da.maintenance_id AS maintenance_id,
+       da.is_deleted AS is_cancelled
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id
 LEFT JOIN personnel p ON p.id = da.operator_id
-WHERE da.company_id = @c AND da.is_deleted = 0";
+WHERE da.company_id = @c";
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama + sıralama + Excel'e aktar (kullanıcı isteği
     /// 2026-07-19: Malzemeler/Araçlar'a yapılan geliştirmenin AYNISI — ADR-087/088/089 deseni).
     /// "Tarih" YALNIZ sıralanır (bkz. <see cref="DailyActivityGridFilter"/>), filtre kutusu yoktur.</summary>
+    /// <param name="includeCancelled">K3: varsayılan GİZLİ; true ise iptal edilen faaliyetler de gelir.</param>
     public GridResult<DailyActivityGridRow> SearchGrid(SessionContext s, DailyActivityGridFilter filter, int page, int pageSize,
-        string? sortColumn = null, bool sortDesc = false)
+        string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -355,7 +360,7 @@ WHERE da.company_id = @c AND da.is_deleted = 0";
         // önceliği burada anlamsız — tarih her zaman kazanır).
         if (sort is null) orderSql = "ORDER BY t.date_raw DESC, t.id ";
         // ŞUBE KAPSAMI: belirli şubeyle girişte yalnız o şubede işlenen (+ şubesiz eski) faaliyetler; Tüm Şubeler → hepsi.
-        var inner = GridInnerSql + BranchScope.Sql(s, "da.op_branch_id");
+        var inner = GridInnerSql + (includeCancelled ? "" : " AND da.is_deleted = 0") + BranchScope.Sql(s, "da.op_branch_id");
 
         int total;
         using (var cnt = conn.CreateCommand())
@@ -381,19 +386,19 @@ WHERE da.company_id = @c AND da.is_deleted = 0";
                 items.Add(new DailyActivityGridRow(
                     r.GetString(0), r.GetInt64(1), r.GetString(2), r.GetString(3),
                     r.GetString(4), r.GetString(5), r.GetString(6), r.GetString(7),
-                    r.IsDBNull(8) ? null : r.GetString(8)));
+                    r.IsDBNull(8) ? null : r.GetString(8), r.GetInt64(9) == 1));
         }
         return new GridResult<DailyActivityGridRow>(items, total, page, pageSize);
     }
 
     /// <summary>Filtrelenmiş/sıralanmış TÜM sonuçları (sayfalama sınırı YOK) döner — "Excel'e Aktar" butonu için.</summary>
-    public IReadOnlyList<DailyActivityGridRow> SearchGridAll(SessionContext s, DailyActivityGridFilter filter, string? sortColumn = null, bool sortDesc = false)
+    public IReadOnlyList<DailyActivityGridRow> SearchGridAll(SessionContext s, DailyActivityGridFilter filter, string? sortColumn = null, bool sortDesc = false, bool includeCancelled = false)
     {
         var all = new List<DailyActivityGridRow>();
         int page = 1;
         while (true)
         {
-            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc);
+            var res = SearchGrid(s, filter, page, 500, sortColumn, sortDesc, includeCancelled);
             all.AddRange(res.Items);
             if (page >= res.TotalPages || res.Items.Count == 0) break;
             page++;
@@ -412,18 +417,108 @@ WHERE da.company_id = @c AND da.is_deleted = 0";
         return new Application.Reports.TableModel("Günlük Faaliyet", headers, body);
     }
 
-    /// <summary>Günlük faaliyeti soft-delete eder. Bakım tipinde bağlı bakım kaydı Bakım ekranında kalır (orada iptal edilir).</summary>
+    /// <summary>
+    /// Günlük faaliyeti İPTAL eder (fiziksel silme YOK — <c>is_deleted=1</c>).
+    ///
+    /// TUTARLILIK (kullanıcı kararları K1–K4, 2026-08-09 · İş 2): Faaliyete BAĞLI bakım kaydı varsa
+    /// (bakım / ilave yağ / ilave filtre / tamir türleri) o da AYNI TRANSACTION içinde iptal edilir ve
+    /// bakımın düşürdüğü malzemeler ters hareketle stoğa geri döner. Böylece Günlük Faaliyet, Bakım ve
+    /// Stok raporları aynı gerçeği gösterir.
+    ///
+    /// Eski davranış: yalnız faaliyet gizleniyor, bakım ve stok yerinde kalıyordu → üç rapor birbirini
+    /// tutmuyordu (ekranlar bunu "bağlı bakım Bakım ekranında kalır" diye uyarıyordu).
+    ///
+    /// ⚠️ Hareket/Sevkiyat türleri (<c>movement</c>) bakım ve stok ÜRETMEZ → davranışları DEĞİŞMEDİ.
+    /// ⚠️ Araç sayacı GERİ ALINMAZ (proje kuralı; sayaç yalnız ileri gider).
+    /// ⚠️ Yetki (K2): yalnız <c>daily_activity</c>/Delete aranır. Bakım iptali bunun doğal sonucudur;
+    ///    ayrıca bakım/Ters Kayıt yetkisi istenmez. Kontrol SERVİS katmanındadır — arayüz değiştirilerek
+    ///    ya da uç nokta doğrudan çağrılarak atlatılamaz.
+    /// </summary>
     public void Delete(SessionContext s, string id)
     {
         AccessControl.Require(s, Module, PermissionAction.Delete);
+        // Bakım iptali stok bakiyesine dokunduğu için eşzamanlılık koruması altında çalışır
+        // (Faz 3-Ön: CAS çakışmasında işlemin TAMAMI geri alınıp yeniden denenir).
+        StockBalanceWriter.Run(() => DeleteOnce(s, id), $"daily-activity:cancel id={id}");
+    }
+
+    private void DeleteOnce(SessionContext s, string id)
+    {
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
+        using var tx = conn.BeginImmediate();   // TEK ATOMİK İŞLEM (K1)
+
+        // 1) Faaliyeti kilitle/oku: var mı, zaten iptal mi, bağlı bakımı var mı?
+        string? maintenanceId;
+        using (var read = conn.CreateCommand())
+        {
+            read.Transaction = tx;
+            read.CommandText = "SELECT maintenance_id, is_deleted FROM daily_activities WHERE id=@id AND company_id=@c;";
+            read.AddWithValue("@id", id);
+            read.AddWithValue("@c", s.CompanyId);
+            using var r = read.ExecuteReader();
+            if (!r.Read()) throw new ForbiddenException("Faaliyet bulunamadı veya başka firmaya ait.");
+            maintenanceId = r.IsDBNull(0) ? null : r.GetString(0);
+            if (r.GetInt64(1) == 1) throw new InvalidOperationException("Bu faaliyet kaydı zaten iptal edilmiş.");
+        }
+
+        // 2) Bağlı bakım varsa AYNI transaction'da iptal et (stok ters hareketle geri döner).
+        //    Bakım başka yerden zaten iptal edilmişse ikinci kez geri eklemez (idempotent).
+        if (!string.IsNullOrEmpty(maintenanceId))
+            _maintenance.CancelInTransaction(conn, tx, s, maintenanceId!, "Günlük faaliyet iptali");
+
+        // 3) Faaliyeti iptal işaretle (version + updated_at — senkron LWW tutarlılığı).
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE daily_activities SET is_deleted=1, version=version+1, updated_at=@now " +
+                              "WHERE id=@id AND company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Faaliyet iptal edilemedi.");
+        }
+
+        // 4) Denetim kaydı (eskiden HİÇ yazılmıyordu).
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "daily_activity", id, AuditActions.Reverse, s.UserId,
+            AfterJson: maintenanceId is null ? null : $"{{\"maintenanceCancelled\":\"{maintenanceId}\"}}"), _clock);
+
+        tx.Commit();
+    }
+
+    /// <summary>
+    /// İptal ONAYI için özet: bu faaliyete bağlı bakım var mı, kaç malzeme satırı stoktan düşmüş?
+    /// Ekranlar kullanıcıya "…bağlı bakım kaydı ve N adet malzeme çıkışı da iptal edilecek" diyebilsin diye.
+    /// Salt-okuma; hiçbir şey değiştirmez.
+    /// </summary>
+    public (bool HasMaintenance, int MaterialLines, decimal TotalQuantity) GetCancelImpact(SessionContext s, string id)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+
+        string? maintenanceId;
+        using (var read = conn.CreateCommand())
+        {
+            read.CommandText = "SELECT maintenance_id FROM daily_activities WHERE id=@id AND company_id=@c AND is_deleted=0;";
+            read.AddWithValue("@id", id);
+            read.AddWithValue("@c", s.CompanyId);
+            maintenanceId = read.ExecuteScalar() as string;
+        }
+        if (string.IsNullOrEmpty(maintenanceId)) return (false, 0, 0m);
+
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE daily_activities SET is_deleted=1, updated_at=@now WHERE id=@id AND company_id=@c AND is_deleted=0;";
-        cmd.AddWithValue("@now", now);
-        cmd.AddWithValue("@id", id);
-        cmd.AddWithValue("@c", s.CompanyId);
-        if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Faaliyet bulunamadı veya başka firmaya ait.");
+        // "Bakım ekibi stoğu" satırları merkez depodan düşmemişti → etkide sayılmaz.
+        cmd.CommandText = "SELECT quantity, from_team_stock FROM maintenance_materials WHERE maintenance_id=@m;";
+        cmd.AddWithValue("@m", maintenanceId);
+        int lines = 0; decimal total = 0m;
+        using var rr = cmd.ExecuteReader();
+        while (rr.Read())
+        {
+            if (rr.GetInt64(1) == 1) continue;
+            lines++;
+            total += Money.Parse(rr.GetString(0));
+        }
+        return (true, lines, total);
     }
 
     private string? FindActivity(string operationId)

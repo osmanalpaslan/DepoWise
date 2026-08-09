@@ -140,6 +140,8 @@
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
                            Disabled="@_exporting" OnClick="ExportExcel">Excel'e Aktar</MudButton>
             </MudTooltip>
+            @* K3: iptal edilen faaliyetler varsayılan GİZLİ — masaüstüyle aynı. *@
+            <MudCheckBox T="bool" Value="_showCancelled" ValueChanged="ToggleCancelled" Label="İptal edilenleri göster" Dense="true" />
         </MudStack>
     </div>
 
@@ -194,9 +196,19 @@
             <tbody>
                 @foreach (var row in _rows)
                 {
-                    <tr>
+                    var cancelled = Bool(row, "isCancelled");
+                    <tr style="@(cancelled ? "opacity:.55;text-decoration:line-through;" : "")">
                         @foreach (var key in _visibleColumns) { <td title="@CellText(row, key)">@Dash(CellText(row, key))</td> }
-                        <td>@if (Auth.CanDelete("daily_activity")) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(row))">Sil</MudButton> }</td>
+                        <td>
+                            @if (cancelled)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip>
+                            }
+                            else if (Auth.CanDelete("daily_activity"))
+                            {
+                                <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Delete(row))">İptal Et</MudButton>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -310,6 +322,7 @@
         _rows = null;
         var qs = new List<string> { $"page={_page}", $"pageSize={_pageSize}" };
         qs.AddRange(BuildFilterSortQs());
+        if (_showCancelled) qs.Add("includeCancelled=true");
         var grid = await Api.GetGridAsync("/api/daily/grid?" + string.Join("&", qs));
         _rows = grid.Items; _totalCount = grid.TotalCount; _page = grid.Page; _pageSize = grid.PageSize; _totalPages = grid.TotalPages;
     }
@@ -476,15 +489,25 @@
     {
         var id = Str(row, "id");
         if (string.IsNullOrEmpty(id)) return;
-        // Masaüstüyle parite (DeleteActivity): kayıt türü + bağlı bakım kaydı uyarısı — kullanıcı bakım
-        // kaydının Bakım ekranında KALDIĞINI bilsin (yalnız günlük faaliyet satırı silinir).
+        // Masaüstüyle parite (DeleteActivity): bağlı bakım + malzeme çıkışı varsa kullanıcı NE OLACAĞINI görür.
+        // Kullanıcı kararı K1/K4 (2026-08-09): bağlı kayıtlar da AYNI atomik işlemde iptal edilir.
         var typeText = Str(row, "type");
-        var maintenanceId = NullS(row, "maintenanceId");
-        var msg = $"{(string.IsNullOrEmpty(typeText) ? "Faaliyet" : typeText)} kaydı silinsin mi?" +
-            (maintenanceId is not null ? "\n(Bağlı bakım kaydı Bakım ekranında kalır.)" : "");
-        if (!await Dialog.Confirm(msg, "Evet, Sil", danger: true)) return;
+        var msg = $"{(string.IsNullOrEmpty(typeText) ? "Faaliyet" : typeText)} kaydı iptal edilecek.";
+        try
+        {
+            var imp = await Api.GetObjectAsync($"/api/daily/{id}/cancel-impact");
+            if (imp.ValueKind == JsonValueKind.Object && Bool(imp, "hasMaintenance"))
+            {
+                var qty = Dec(imp, "totalQuantity");
+                msg = "Bu faaliyet kaydına bağlı bakım kaydı" + (qty > 0 ? $" ve {qty:0.##} adet malzeme çıkışı" : "") +
+                      " bulunmaktadır.\n\nFaaliyeti iptal ederseniz bağlı kayıtlar da iptal edilecek ve malzemeler " +
+                      "stoğa geri eklenecektir. Araç sayacı geri alınmaz. İşlem geri alınamaz.";
+            }
+        }
+        catch { /* etki okunamadıysa sade metinle devam */ }
+        if (!await Dialog.Confirm(msg + "\n\nDevam etmek istiyor musunuz?", "Evet, İptal Et", danger: true)) return;
         var err = await Api.DeleteAsync($"/api/daily/{id}");
-        _msg = err ?? "Silindi."; _ok = err is null;
+        _msg = err ?? "Faaliyet iptal edildi."; _ok = err is null;
         await Load();
     }
 
@@ -505,8 +528,18 @@
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
     private static string Dash(string s) => string.IsNullOrEmpty(s) ? "—" : s;
+    /// <summary>K3: iptal edilen faaliyetler varsayılan GİZLİ; kutu işaretlenince görünür (masaüstüyle aynı).</summary>
+    private bool _showCancelled;
+    private async Task ToggleCancelled(bool v) { _showCancelled = v; await Load(); }
+
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
+    private static bool Bool(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static decimal Dec(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0m;
+
     private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
 }

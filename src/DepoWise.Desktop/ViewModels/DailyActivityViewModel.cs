@@ -178,7 +178,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         IsExporting = true;
         try
         {
-            var rows = DesktopServices.DailyActivity.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
+            var rows = DesktopServices.DailyActivity.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, ShowCancelled);
             var path = await FilePickerService.SaveExcelAsync("GunlukFaaliyet.xlsx");
             if (path is null) return;
             var bytes = DesktopServices.Excel.Export(DailyActivityService.ToTableModel(rows));
@@ -324,7 +324,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         {
             LoadError = null;
             Items.Clear();
-            var grid = DesktopServices.DailyActivity.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc);
+            var grid = DesktopServices.DailyActivity.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc, ShowCancelled);
             foreach (var a in grid.Items) Items.Add(a);
             TotalCount = grid.TotalCount; TotalPages = grid.TotalPages;
             Page = grid.Page;
@@ -565,20 +565,41 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         catch (Exception ex) { FormError = "Kaydedilemedi: " + ex.Message; }
     }
 
+    /// <summary>K3: iptal edilen faaliyetler varsayılan GİZLİ; bu kutu işaretlenince görünür.</summary>
+    [ObservableProperty] private bool _showCancelled;
+
+    partial void OnShowCancelledChanged(bool value) => Load();
+
     [RelayCommand]
     private async Task DeleteActivity(DailyActivityGridRow? row)
     {
         if (row is null) return;
         if (!CanDelete) { Status = "Yetki yok."; return; }
-        if (!await ConfirmService.AskAsync(
-                $"{row.TypeText} kaydı silinsin mi?" + (row.MaintenanceId != null ? "\n(Bağlı bakım kaydı Bakım ekranında kalır.)" : ""),
-                "Faaliyet Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        if (row.IsCancelled) { Status = "Bu kayıt zaten iptal edilmiş."; return; }
+
+        // İptal ONAYI (kullanıcı kararları K1/K4): bağlı bakım ve malzeme çıkışı varsa kullanıcı
+        // NE OLACAĞINI görsün. Eski metin "bağlı bakım Bakım ekranında kalır" diyordu; artık bağlı
+        // kayıtlar da AYNI işlemde iptal ediliyor.
+        var msg = $"{row.TypeText} kaydı iptal edilecek.";
+        try
+        {
+            var (hasMnt, lines, qty) = DesktopServices.DailyActivity.GetCancelImpact(_session, row.Id);
+            if (hasMnt)
+                msg = $"Bu faaliyet kaydına bağlı bakım kaydı" +
+                      (lines > 0 ? $" ve {qty:0.##} adet malzeme çıkışı" : "") +
+                      " bulunmaktadır.\n\nFaaliyeti iptal ederseniz bağlı kayıtlar da iptal edilecek ve " +
+                      "malzemeler stoğa geri eklenecektir. Araç sayacı geri alınmaz. İşlem geri alınamaz.";
+        }
+        catch { /* etki okunamadıysa sade metinle devam */ }
+
+        if (!await ConfirmService.AskAsync(msg + "\n\nDevam etmek istiyor musunuz?",
+                "Faaliyet İptali", "Evet, İptal Et", "Vazgeç", danger: true)) return;
         try
         {
             DesktopServices.DailyActivity.Delete(_session, row.Id);
             Load();
-            Status = "Faaliyet silindi.";
+            Status = "Faaliyet iptal edildi.";
         }
-        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+        catch (Exception ex) { Status = "İptal edilemedi: " + ex.Message; }
     }
 }

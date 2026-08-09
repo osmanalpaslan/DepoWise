@@ -1895,6 +1895,14 @@ app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
         d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
     return Results.Ok(new { id });
 }).RequireAuthorization();
+// İptal ONAYI için etki özeti (bağlı bakım + malzeme satırı) — salt-okuma.
+app.MapGet("/api/daily/{id}/cancel-impact", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var (hasMaintenance, materialLines, totalQuantity) = svc.DailyActivity.GetCancelImpact(s, id);
+    return Results.Ok(new { hasMaintenance, materialLines, totalQuantity });
+}).RequireAuthorization();
+// İPTAL: faaliyet + bağlı bakım + stok TEK atomik işlemde (kullanıcı kararı K1).
 app.MapDelete("/api/daily/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.DailyActivity.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 

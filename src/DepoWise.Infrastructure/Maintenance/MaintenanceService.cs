@@ -148,14 +148,36 @@ public sealed class MaintenanceService
 
     private void CancelOnce(SessionContext s, string maintenanceId, string reason)
     {
-        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-
         using var conn = _factory.Create();
         using var tx = conn.BeginImmediate();
+        CancelCore(conn, tx, s, maintenanceId, reason);
+        tx.Commit();
+    }
+
+    /// <summary>
+    /// PAYLAŞIMLI TRANSACTION GİRİŞİ (kullanıcı kararı K1, 2026-08-09 · İş 2).
+    ///
+    /// Bakım iptalini ÇAĞIRANIN bağlantısı/transaction'ı içinde çalıştırır → Günlük Faaliyet iptali ile
+    /// bakım+stok iptali TEK atomik işlem olur; herhangi bir adım hata verirse HEPSİ geri alınır.
+    /// Faz 3-Ön'de <c>StockService</c> için kurulan desenin aynısıdır; iş kuralları DEĞİŞMEZ.
+    ///
+    /// ⚠️ YETKİ: Bu metot yetki KONTROL ETMEZ — çağıranın yetkilendirmeyi yapmış olması ZORUNLUDUR.
+    /// Kullanıcı kararı K2: Günlük Faaliyet iptal yetkisi olan kullanıcı için ayrıca bakım/Ters Kayıt
+    /// yetkisi aranmaz. Bu yüzden <c>internal</c>'dır: yalnız Infrastructure içinden çağrılabilir,
+    /// API/UI doğrudan çağıramaz (arayüz değiştirilerek veya uç nokta çağrılarak atlatılamaz).
+    /// </summary>
+    internal void CancelInTransaction(DbConnection conn, DbTransaction tx, SessionContext s,
+        string maintenanceId, string reason)
+        => CancelCore(conn, tx, s, maintenanceId, reason);
+
+    /// <summary>İptalin ortak gövdesi — transaction'ı AÇMAZ/KAPATMAZ (çağırana aittir).</summary>
+    private void CancelCore(DbConnection conn, DbTransaction tx, SessionContext s, string maintenanceId, string reason)
+    {
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         var status = LoadMaintenanceStatus(conn, tx, s.CompanyId, maintenanceId)
             ?? throw new ForbiddenException("Bakım kaydı bulunamadı veya başka firmaya ait.");
-        if (status) { tx.Commit(); return; } // zaten iptal — idempotent
+        if (status) return; // zaten iptal — idempotent (stok İKİNCİ KEZ geri eklenmez)
 
         // Malzemeleri geri ekle (ters hareket). "Bakım ekibi stoğu" işaretli satırlar ATLANIR: kayıt sırasında
         // merkez depodan hiç düşülmemişlerdi → geri eklemek stoğu ŞİŞİRİRDİ (kullanıcı isteği 2026-08-08).
@@ -177,7 +199,6 @@ public sealed class MaintenanceService
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_maintenance", maintenanceId, AuditActions.Reverse, s.UserId,
             AfterJson: $"{{\"reason\":\"{reason}\"}}"), _clock);
-        tx.Commit();
     }
 
     /// <summary>Her (araç,tanım) için EN SON iptal edilmemiş bakımdan ilerleme + uyarı seviyesi.</summary>
