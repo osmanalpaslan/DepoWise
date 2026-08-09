@@ -24,7 +24,7 @@
             <DockPanel>
                 <!-- Marka ikonu (daraltılmış çubuk) — şeffaf, arka plan yok -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="0">
-                    <Image Source="/Assets/app-icon-256.png" Width="46" Height="46"
+                    <Image Source="/Assets/app-icon-256.png" Width="36" Height="36"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
                 <!-- Kullanıcı avatarı (alt) -->
@@ -68,7 +68,7 @@
                 <!-- Logo (açık kenar çubuğu) — şeffaf, arka plan yok. Sembol + marka yazısı. -->
                 <Border DockPanel.Dock="Top" Height="60" Padding="16,0">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <Image Source="/Assets/app-icon-256.png" Width="48" Height="48" VerticalAlignment="Center"/>
+                        <Image Source="/Assets/app-icon-256.png" Width="34" Height="34" VerticalAlignment="Center"/>
                         <SelectableTextBlock Text="Alpnex" Classes="SectionTitle" VerticalAlignment="Center"
                                              Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
@@ -81,7 +81,7 @@
                 </Border>
                 <!-- Menü arama -->
                 <Border DockPanel.Dock="Top" Padding="10,6">
-                    <TextBox Text="{Binding MenuSearch}" Watermark="🔍 Ekran ara..." Classes="Field"/>
+                    <TextBox Text="{Binding MenuSearch}" Watermark="Ekran ara…" Classes="Search"/>
                 </Border>
                 <ScrollViewer>
                     <StackPanel Margin="8,6">
@@ -113,7 +113,7 @@
                                                      koyu modda açık. Kenar menü zemini de varyantla değişir (açık
                                                      modda beyaz), sabit renk açık modda görünmez oluyordu (2026-07-19). -->
                                                 <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
-                                                           FontWeight="SemiBold" VerticalAlignment="Center" FontSize="14"
+                                                           FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"

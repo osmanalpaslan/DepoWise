@@ -119,7 +119,7 @@
         <Style Selector="ToggleButton.NavGroup">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Padding" Value="11,8"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <!-- Menü yazısı VARYANT-DUYARLI (açık modda koyu, koyu modda açık) — kenar menü zemini de varyantla
@@ -161,11 +161,11 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="3,0,0,0"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Padding" Value="9,7"/>
+            <Setter Property="Padding" Value="10,6"/>
             <Setter Property="Margin" Value="0,1"/>
             <Setter Property="Opacity" Value="0.82"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <!-- Ekran isimleri: varyant-duyarlı ikincil metin (açık modda okunur koyu, koyu modda açık). -->
             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         </Style>
