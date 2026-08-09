@@ -50,6 +50,7 @@ public class LookupBox : UserControl
     private const int PageSize = 25;
     private readonly Border _field;
     private readonly TextBlock _display;
+    private readonly TextBlock _clear;
     private readonly TextBox _search;
     private readonly ListBox _list;
     private readonly TextBlock _pageText;
@@ -65,10 +66,27 @@ public class LookupBox : UserControl
     public LookupBox()
     {
         _display = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis };
+
+        // SEÇİMİ TEMİZLE (İş E, 2026-08-09) — yalnız bir şey seçiliyken görünür.
+        // GEREKÇE: web'deki eşdeğer bileşen (LookupSelect → MudAutocomplete Clearable="true") seçimi
+        // temizleyebiliyordu, masaüstü temizleyemiyordu. Opsiyonel alanlarda (Marka, Tedarikçi, Alt
+        // Kategori) kullanıcı yanlış seçimi geri alamıyordu. Yeni iş kuralı YOK — yalnız platform paritesi.
+        _clear = new TextBlock
+        {
+            Text = "✕", Opacity = 0.55, VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 0, 0, 0), IsVisible = false,
+            Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        ToolTip.SetTip(_clear, "Seçimi temizle");
+        // Tıklama alanın kendisine GİTMEMELİ; aksi halde açılır liste de açılırdı.
+        _clear.PointerReleased += (_, e) => { SelectedItem = null; e.Handled = true; };
+
         var chevron = new TextBlock { Text = "▾", Opacity = 0.5, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        Grid.SetColumn(chevron, 1);
-        var fieldContent = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(_clear, 1);
+        Grid.SetColumn(chevron, 2);
+        var fieldContent = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
         fieldContent.Children.Add(_display);
+        fieldContent.Children.Add(_clear);
         fieldContent.Children.Add(chevron);
 
         _field = new Border { Child = fieldContent, HorizontalAlignment = HorizontalAlignment.Stretch, Cursor = new Cursor(StandardCursorType.Hand) };
@@ -158,6 +176,7 @@ public class LookupBox : UserControl
     {
         if (SelectedItem is { } sel) { _display.Text = DisplayOf(sel); _display.Opacity = 1; }
         else { _display.Text = PlaceholderText ?? ""; _display.Opacity = 0.5; }
+        _clear.IsVisible = SelectedItem is not null;   // İş E: temizle yalnız seçiliyken görünür
     }
 
     // Reflection ile görünen metin (DisplayMember; varsayılan "Name"). Tip başına PropertyInfo önbelleklenir.
