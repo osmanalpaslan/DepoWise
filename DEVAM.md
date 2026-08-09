@@ -51,7 +51,8 @@ Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
-**Sıradaki iş:** #10 — Kolon kataloğu → Alan/Kolon Yönetimi (önce analiz).
+**Sıradaki iş:** #11 — Faz S: eşitleme performansı + FK + benzersizlik (önce analiz; migration
+gerekirse DUR ve kullanıcıya sor).
 
 ⚠️ **Yayında sıra önemli:** web bu yeni ekranları uzak API'den çağırır → **önce API (fly.toml),
 sonra web (fly.web.toml)** yayınlanmalı; yoksa web'de ekran açılır ama işlem yapamaz.

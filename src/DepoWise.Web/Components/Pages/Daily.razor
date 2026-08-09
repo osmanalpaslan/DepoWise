@@ -388,7 +388,8 @@
             _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
         }
         var saved = await Api.GetListColumnsAsync("daily_activity");
-        if (saved is { Count: > 0 }) _visibleColumns = saved;
+        // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür — masaüstüyle aynı kural (hayalet kolon çizilmesin).
+        if (saved is { Count: > 0 }) _visibleColumns = DailyActivityListColumns.Sanitize(saved).ToList();
         var (ps, _) = await Api.GetListPrefsAsync("daily_activity");
         if (ps is > 0) _pageSize = ps.Value;   // genişlik yüklenmez (kalıcı değil)
         await Load();

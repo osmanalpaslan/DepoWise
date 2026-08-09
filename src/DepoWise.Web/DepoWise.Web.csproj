@@ -10,4 +10,21 @@
     <PackageReference Include="MudBlazor" Version="9.6.0" />
   </ItemGroup>
 
+  <!--
+    KOLON KATALOĞU TEKİLLEŞTİRİLDİ (İş #10, 2026-08-09).
+
+    Eskiden aynı katalog İKİ dosyada duruyordu (Application/Ui/ListColumns.cs + Web/Services/ListColumns.cs)
+    ve elle senkron tutuluyordu; biri unutulunca ekran sessizce filtrelenemez/eksik kalıyordu.
+
+    Neden PROJE REFERANSI değil de DOSYA PAYLAŞIMI: web bilinçli olarak tek başınadır (iş kurallarına
+    derleme-zamanı erişimi YOKTUR, her şeyi API'den alır). Proje referansı bu sınırı gevşetirdi.
+    Neden API'den ÇEKME değil: katalog `const` alanlar içerir ve Razor'da `switch` desenlerinde
+    kullanılır — çalışma zamanında gelen veri `const` yerine geçemez.
+
+    Sonuç: TEK dosya, iki projede derlenir. Katalog artık tek yerden yönetilir.
+  -->
+  <ItemGroup>
+    <Compile Include="..\DepoWise.Application\Ui\ListColumns.cs" Link="Services\ListColumns.cs" />
+  </ItemGroup>
+
 </Project>

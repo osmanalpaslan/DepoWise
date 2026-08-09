@@ -180,7 +180,12 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
 - **Durum:** 🟢 DEVAM EDİYOR — 11 adımlık **onaylı sıra** işletiliyor (bkz. `docs/YARIM_KALAN_ISLER.md` başı).
 - **Nerede kaldık (2026-08-09):** Sıranın **1. işi (Yakıt iptali, 1.0.131)** ve **2. işi (Günlük Faaliyet
   iptali → bakım/stok tutarlılığı, 1.0.132)** yayınlandı. Her ikisinde de migration YOK, canlı veri değişmedi.
-- **Son biten iş (2026-08-09): sıranın 9. maddesi — LookupBox ortak bileşeni.** Ortak bileşen ZATEN
+- **Son biten iş (2026-08-09): sıranın 10. maddesi — kolon kataloğu tekilleştirildi.** Katalog iki
+  dosyada duruyordu (elle senkron); web artık AYNI dosyayı derliyor (proje referansı değil, dosya
+  paylaşımı) → ayna kopya silindi. Ayrıca yazılmış ama hiç çağrılmayan `Sanitize` 6 yere bağlandı:
+  kaldırılmış bir kolon kullanıcının kaydında kalırsa artık hayalet kolon çizilmiyor.
+  **Migration YOK.** Testler: 8/8, SQLite 958/0. [Rapor](tests/KolonKatalogu_Test_Report.md)
+- **(aynı gün) sıranın 9. maddesi — LookupBox ortak bileşeni.** Ortak bileşen ZATEN
   vardı (13 görünüm); geride kalan 4 ekran (2 hızlı düzenleme penceresi + Araç Şablonları + Şubeler)
   ona geçirildi. Yeni bileşen yazılmadı. **Migration YOK.** Testler: 7/7, SQLite 950/0.
   [Rapor](tests/LookupBox_Ortak_Bilesen_Test_Report.md)
@@ -203,7 +208,8 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
   (T-1…T-6, Y-1, Y-2) + gerçek HTTP hattından çok-firmalı test paketi eklendi. **Migration YOK**, şema 62.
   Testler: SQLite 866/0 · PostgreSQL 35/0/0 atlandı. [Rapor](PAKET1_UYGULAMA_RAPORU.md)
 - (önceki) M-S1a firma izolasyonu migration'ı — 1.0.133, şema 61→62, geri dönüş noktası `pre-ms1a` duruyor.
-- **Sıradaki adım:** onaylı sıranın **10. maddesi** — kolon kataloğu → Alan/Kolon Yönetimi (önce analiz).
+- **Sıradaki adım:** onaylı sıranın **11. maddesi** — Faz S: eşitleme performansı + FK + benzersizlik
+  (önce analiz; migration gerekirse DUR ve kullanıcıya sor).
 
 ---
 

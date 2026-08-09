@@ -27,8 +27,8 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 7 | Excel içe aktarma → Web | ✅ kod tamam (yayın bekliyor) — [rapor](tests/ExcelIceAktarim_Web_Test_Report.md) |
 | 8 | Çoklu malzeme + şube sürüm kontrolü | ✅ kod tamam (yayın bekliyor) — [rapor](tests/CokluMalzeme_Stok_Test_Report.md) |
 | 9 | LookupBox ortak bileşeni | ✅ kod tamam (yayın bekliyor) — [rapor](tests/LookupBox_Ortak_Bilesen_Test_Report.md) |
-| 10 | Kolon kataloğu → Alan/Kolon Yönetimi | ⏭️ SIRADAKİ |
-| 11 | Faz S (senkron performansı) / FK / benzersizlik | bekliyor |
+| 10 | Kolon kataloğu → Alan/Kolon Yönetimi | ✅ kod tamam (yayın bekliyor) — [rapor](tests/KolonKatalogu_Test_Report.md) |
+| 11 | Faz S (senkron performansı) / FK / benzersizlik | ⏭️ SIRADAKİ (önce analiz) |
 
 ### ✅ 3b — Paket 1: KD-1 + firma izolasyonu (2026-08-09, masaüstü 1.0.134)
 Sunucudaki **Stok Hareketleri** listesi açılmıyordu (3 uç 500 veriyordu — `rowid` PostgreSQL'de yok);

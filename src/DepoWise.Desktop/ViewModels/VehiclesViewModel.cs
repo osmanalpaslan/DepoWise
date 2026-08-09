@@ -337,7 +337,8 @@ public sealed partial class VehiclesViewModel : ViewModelBase, IDeepLinkTarget, 
     {
         _session = session;
         var saved = DesktopServices.ListPrefs.GetColumns(session, "vehicles");
-        VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : VehicleListColumns.DefaultVisible.ToList();
+        // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür (hayalet kolon çizilmesin) — bkz. ListColumns.Sanitize.
+        VisibleColumns = VehicleListColumns.Sanitize(saved).ToList();
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "vehicles") ?? 25; }
         finally { _suppressPageSizeReload = false; }

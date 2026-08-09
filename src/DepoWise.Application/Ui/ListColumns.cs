@@ -1,3 +1,8 @@
+// ⚠️ PAYLAŞILAN DOSYA (İş #10, 2026-08-09) — bu dosya İKİ projede derlenir:
+//    • DepoWise.Application  (masaüstü + sunucu/API)
+//    • DepoWise.Web          (Compile Include ile paylaşılır; proje referansı DEĞİL)
+// Bu yüzden BAŞKA HİÇBİR ŞEYE bağımlı olmamalıdır — yalnız aşağıdaki iki using.
+// Eskiden web'de bir AYNA kopya vardı ve elle senkron tutuluyordu; kaldırıldı.
 using System.Collections.Generic;
 using System.Linq;
 
@@ -16,8 +21,8 @@ public sealed record ListColumn(string Key, string Label, bool IsNumeric = false
 /// "Açılış Stok" BİLİNÇLİ OLARAK YOK: kartta kalıcı bir alan değil, yalnız kayıt anındaki bir hareket
 /// (bkz. OpeningStockService) — kartın "şu an"ki durumunu göstermez, listede yanıltıcı olurdu.
 ///
-/// NOT: Web projesi tek başınadır (Application'a referansı yok) → aynı liste
-/// <c>DepoWise.Web/Services/ListColumns.cs</c> içinde AYNADIR. İkisi birlikte güncellenmelidir.
+/// ⚠️ TEK KAYNAK (İş #10, 2026-08-09): bu dosya web projesinde de derlenir (paylaşılan dosya).
+/// Kolon eklemek/çıkarmak HER İKİ platformu birden günceller — güncellenecek ikinci bir yer YOKTUR.
 /// </summary>
 public static class MaterialListColumns
 {
@@ -79,8 +84,8 @@ public static class MaterialListColumns
 /// "Şablon" istisnasıyla aynı gerekçe). "Bakım/Muayene" uyarı kolonu her zaman sabittir, bu listede değildir
 /// (form alanı değil, hesaplanan bir göstergedir — kullanıcı tercihiyle kapatılamaz).
 ///
-/// NOT: Web projesi tek başınadır (Application'a referansı yok) → aynı liste
-/// <c>DepoWise.Web/Services/ListColumns.cs</c> içinde AYNADIR. İkisi birlikte güncellenmelidir.
+/// ⚠️ TEK KAYNAK (İş #10, 2026-08-09): bu dosya web projesinde de derlenir (paylaşılan dosya).
+/// Kolon eklemek/çıkarmak HER İKİ platformu birden günceller — güncellenecek ikinci bir yer YOKTUR.
 /// </summary>
 public static class VehicleListColumns
 {
@@ -137,8 +142,8 @@ public static class VehicleListColumns
 /// yapılan filtre+sayfalama+sıralama+Excel-aktar geliştirmesinin AYNISI). "Tarih" bilinçli olarak filtre
 /// kutusu ALMAZ (yalnız başlığa tıklayarak sıralanır) — ham zaman damgası üzerinden kronolojik sıralanır.
 ///
-/// NOT: Web projesi tek başınadır (Application'a referansı yok) → aynı liste
-/// <c>DepoWise.Web/Services/ListColumns.cs</c> içinde AYNADIR. İkisi birlikte güncellenmelidir.
+/// ⚠️ TEK KAYNAK (İş #10, 2026-08-09): bu dosya web projesinde de derlenir (paylaşılan dosya).
+/// Kolon eklemek/çıkarmak HER İKİ platformu birden günceller — güncellenecek ikinci bir yer YOKTUR.
 /// </summary>
 public static class DailyActivityListColumns
 {

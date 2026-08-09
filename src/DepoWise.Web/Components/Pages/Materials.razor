@@ -385,7 +385,8 @@
         if (!_isNew)
         {
             var saved = await Api.GetListColumnsAsync("materials");
-            if (saved is { Count: > 0 }) _visibleColumns = saved;
+            // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür — masaüstüyle aynı kural (hayalet kolon çizilmesin).
+            if (saved is { Count: > 0 }) _visibleColumns = MaterialListColumns.Sanitize(saved).ToList();
             var (ps, _) = await Api.GetListPrefsAsync("materials");
             if (ps is > 0) _pageSize = ps.Value;               // değiştirmediyse null → 25 kalır (genişlik yüklenmez)
             await Load();

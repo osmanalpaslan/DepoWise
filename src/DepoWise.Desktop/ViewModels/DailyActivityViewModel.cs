@@ -309,7 +309,10 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     {
         _session = session;
         var saved = DesktopServices.ListPrefs.GetColumns(session, "daily_activity");
-        VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : DailyActivityListColumns.DefaultVisible.ToList();
+        // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür. Sürüm yükseltmesinde kaldırılan/yeniden
+        // adlandırılan bir kolon kullanıcının kaydında kalmışsa hayalet kolon çizilirdi (başlık = ham anahtar,
+        // veri yok). Sanitize kataloğun dışındaki anahtarları atar; hiçbiri kalmazsa varsayılana düşer.
+        VisibleColumns = DailyActivityListColumns.Sanitize(saved).ToList();
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "daily_activity") ?? 25; }
         finally { _suppressPageSizeReload = false; }

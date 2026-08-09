@@ -381,7 +381,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     {
         _session = session;
         var saved = DesktopServices.ListPrefs.GetColumns(session, "materials");
-        VisibleColumns = saved is { Count: > 0 } ? saved.ToList() : MaterialListColumns.DefaultVisible.ToList();
+        // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür (hayalet kolon çizilmesin) — bkz. ListColumns.Sanitize.
+        VisibleColumns = MaterialListColumns.Sanitize(saved).ToList();
         _suppressPageSizeReload = true;
         try { PageSize = DesktopServices.ListPrefs.GetPageSize(session, "materials") ?? 25; }   // değiştirmediyse 25
         finally { _suppressPageSizeReload = false; }
