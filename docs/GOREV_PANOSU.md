@@ -180,7 +180,12 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
 - **Durum:** 🟢 DEVAM EDİYOR — 11 adımlık **onaylı sıra** işletiliyor (bkz. `docs/YARIM_KALAN_ISLER.md` başı).
 - **Nerede kaldık (2026-08-09):** Sıranın **1. işi (Yakıt iptali, 1.0.131)** ve **2. işi (Günlük Faaliyet
   iptali → bakım/stok tutarlılığı, 1.0.132)** yayınlandı. Her ikisinde de migration YOK, canlı veri değişmedi.
-- **Son biten iş (2026-08-09): sıranın 10. maddesi — kolon kataloğu tekilleştirildi.** Katalog iki
+- **Son biten iş (2026-08-09): sıranın 11. maddesi — Faz S ANALİZİ.** Bir gerçek yavaşlık bulundu ve
+  düzeltildi (`/api/materials` malzeme başına ayrı bakiye sorgusu atıyordu → tek sorgu). FK ve index
+  eksikleri çıkarıldı ama **şema değişikliği gerektirdiği için UYGULANMADI, onay bekliyor.**
+  Benzersizlik (unique) tarafı zaten doğru: firma bazlı kurulmuş. **Migration YOK.**
+  [Rapor](FAZ_S_ANALIZ_RAPORU.md)
+- **(aynı gün) sıranın 10. maddesi — kolon kataloğu tekilleştirildi.** Katalog iki
   dosyada duruyordu (elle senkron); web artık AYNI dosyayı derliyor (proje referansı değil, dosya
   paylaşımı) → ayna kopya silindi. Ayrıca yazılmış ama hiç çağrılmayan `Sanitize` 6 yere bağlandı:
   kaldırılmış bir kolon kullanıcının kaydında kalırsa artık hayalet kolon çizilmiyor.
@@ -208,8 +213,9 @@ Bu görev **Görev A'dan bağımsız** ilerler; masaüstü zaten SQLite'ta kald�
   (T-1…T-6, Y-1, Y-2) + gerçek HTTP hattından çok-firmalı test paketi eklendi. **Migration YOK**, şema 62.
   Testler: SQLite 866/0 · PostgreSQL 35/0/0 atlandı. [Rapor](PAKET1_UYGULAMA_RAPORU.md)
 - (önceki) M-S1a firma izolasyonu migration'ı — 1.0.133, şema 61→62, geri dönüş noktası `pre-ms1a` duruyor.
-- **Sıradaki adım:** onaylı sıranın **11. maddesi** — Faz S: eşitleme performansı + FK + benzersizlik
-  (önce analiz; migration gerekirse DUR ve kullanıcıya sor).
+- **Sıradaki adım:** ⏸️ **kullanıcı kararı.** 11 maddelik onaylı sıra bitti. Bekleyen iki karar:
+  (1) #4–#11 arası işlerin **yayını** (API → web → masaüstü sırasıyla),
+  (2) Faz S'in FK/index **migration'ı** (önce canlıda salt-okuma öksüz kayıt taraması).
 
 ---
 

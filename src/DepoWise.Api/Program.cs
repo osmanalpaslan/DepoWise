@@ -790,9 +790,14 @@ app.MapDelete("/api/personnel/{id}/account", (HttpContext c, string id) =>
 app.MapGet("/api/materials", (HttpContext c, string? search) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var rows = svc.Materials.List(s, Page(), search).Items.Select(m =>
+    var items = svc.Materials.List(s, Page(), search).Items;
+    // Faz S / İş #11: bakiyeler TEK sorguda okunur. Eskiden satır başına ayrı sorgu atılıyordu
+    // (sayfa başına 200'e kadar) — sunucu PostgreSQL'e (ağ üzerinden) geçtiği için her biri bir
+    // gidiş-dönüştü. Bu uç, diğer ekranlardaki hızlı-arama seçicisidir; sık çağrılır.
+    var balances = svc.Stock.GetBalances(s, items.Select(m => m.Id).ToList());
+    var rows = items.Select(m =>
     {
-        var stock = svc.Stock.GetBalance(s, m.Id);
+        var stock = balances.TryGetValue(m.Id, out var q) ? q : 0m;   // bakiyesi yoksa 0 (eski davranışla aynı)
         var status = stock <= 0 ? "Stok Yok" : stock <= m.MinStock ? "Düşük Stok" : "Yeterli";
         return new { id = m.Id, code = m.Code, name = m.Name, type = m.Type, unitPrice = m.UnitPrice, currency = m.Currency, minStock = m.MinStock, stock, statusText = status };
     }).ToList();

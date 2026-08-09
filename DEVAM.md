@@ -51,8 +51,9 @@ Beş iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
-**Sıradaki iş:** #11 — Faz S: eşitleme performansı + FK + benzersizlik (önce analiz; migration
-gerekirse DUR ve kullanıcıya sor).
+**Sıradaki iş:** ⏸️ **Senin kararın.** Onaylı sıranın 11 maddesi bitti. #11'de bir yavaşlık düzeltildi;
+geri kalanı (FK/index şema değişikliği) **senin onayını bekliyor** — bkz.
+[docs/FAZ_S_ANALIZ_RAPORU.md](docs/FAZ_S_ANALIZ_RAPORU.md). Ayrıca #4–#11 arası **hiçbiri yayınlanmadı**.
 
 ⚠️ **Yayında sıra önemli:** web bu yeni ekranları uzak API'den çağırır → **önce API (fly.toml),
 sonra web (fly.web.toml)** yayınlanmalı; yoksa web'de ekran açılır ama işlem yapamaz.

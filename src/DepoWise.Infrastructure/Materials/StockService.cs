@@ -249,6 +249,41 @@ public sealed class StockService
         return Money.Parse(cmd.ExecuteScalar() as string);
     }
 
+    /// <summary>
+    /// ÇOK MALZEMELİ bakiye okuma — TEK sorgu (Faz S / İş #11, 2026-08-09).
+    ///
+    /// Sebep: <c>/api/materials</c> her satır için ayrı <see cref="GetBalance"/> çağırıyordu → bir sayfada
+    /// 200 malzeme = 200 ayrı sorgu (N+1). Sunucu veritabanı artık PostgreSQL'de (ağ üzerinden) olduğu için
+    /// her sorgu bir gidiş-dönüş demek; bu uç ayrıca Stok/Talep/Bakım ekranlarının hızlı-arama seçicisidir
+    /// (sık çağrılır). Tek sorguya indirildi.
+    ///
+    /// Bakiyesi olmayan malzeme sözlükte YER ALMAZ → çağıran 0 varsayar (GetBalance ile aynı sonuç).
+    /// </summary>
+    public IReadOnlyDictionary<string, decimal> GetBalances(SessionContext s, IReadOnlyCollection<string> materialIds)
+    {
+        var result = new Dictionary<string, decimal>(StringComparer.Ordinal);
+        if (materialIds.Count == 0) return result;
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        // IN listesi PARAMETRELİ kurulur (id'ler SQL metnine gömülmez).
+        var names = new List<string>(materialIds.Count);
+        var i = 0;
+        foreach (var id in materialIds)
+        {
+            var p = "@m" + i++;
+            names.Add(p);
+            cmd.AddWithValue(p, id);
+        }
+        cmd.CommandText =
+            $"SELECT material_id, quantity FROM stock_balances WHERE company_id=@c AND material_id IN ({string.Join(",", names)});";
+        cmd.AddWithValue("@c", s.CompanyId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            result[r.GetString(0)] = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+        return result;
+    }
+
     /// <summary>Son stok hareketleri (salt okuma) — malzeme kod/ad + tür/yön/miktar/fiyat/not.</summary>
     public IReadOnlyList<StockMovementRow> RecentMovements(SessionContext s, int limit = 200)
         => SearchMovements(s, null, null, null, limit);
