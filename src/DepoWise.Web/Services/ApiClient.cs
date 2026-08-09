@@ -193,6 +193,38 @@ public sealed class ApiClient
         return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}";
     }
 
+    /// <summary>
+    /// Excel içe aktarım (İş #7): .xlsx dosyasını + hedef şubeyi POST eder, sonucu JSON olarak alır.
+    /// Hata gövdesindeki <c>error</c> alanı çıkarılır → kullanıcıya ham JSON gösterilmez.
+    /// </summary>
+    public async Task<(string? Error, System.Text.Json.JsonElement? Data)> UploadImportAsync(
+        string path, string fileName, byte[] bytes, string branchId)
+    {
+        using var form = new MultipartFormDataContent();
+        var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        form.Add(content, "file", fileName);
+        form.Add(new StringContent(branchId), "branchId");
+
+        var req = Req(HttpMethod.Post, path);
+        req.Content = form;
+        var r = await _http.SendAsync(req);
+        var text = await r.Content.ReadAsStringAsync();
+        if (!r.IsSuccessStatusCode)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(text);
+                if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return (e.GetString(), null);
+            }
+            catch { }
+            return ($"İşlem başarısız (sunucu kodu {(int)r.StatusCode}).", null);
+        }
+        try { return (null, System.Text.Json.JsonDocument.Parse(text).RootElement.Clone()); }
+        catch { return ("Sunucu yanıtı okunamadı.", null); }
+    }
+
     /// <summary>Korumalı bir uçtan dosya (bytes) + dosya adı çeker (PDF/Excel indirme için).</summary>
     public async Task<(byte[]? Bytes, string FileName)> GetFileAsync(string path, string fallbackName)
     {

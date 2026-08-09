@@ -1769,6 +1769,162 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fn);
 }).RequireAuthorization();
 
+// ════════════════════ EXCEL İÇE AKTARIM (İş #7, 2026-08-09) ════════════════════
+// Masaüstünde zaten vardı (ImportExportViewModel), web'de HİÇ YOKTU. Aynı import servisleri kullanılır →
+// iki platform BİREBİR aynı doğrulamayı ve iş kurallarını uygular; yeni iş kuralı YAZILMADI.
+//
+// Akış masaüstüyle aynı: şablon indir → dosya seç → ÖN KONTROL (dry-run, hiç yazmaz) → onay → aktar.
+// Hedef şube ZORUNLU (masaüstü kuralı 2026-07-26): işlem kayıtları bu şubeyle etiketlenir.
+// "__all__" → Tüm Şubeler (firma geneli, şubesiz).
+
+/// <summary>Web'in sabit kodlamaması için: içe aktarılabilir kayıt türleri (masaüstüyle aynı liste).</summary>
+app.MapGet("/api/import/entities", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "import_export", PermissionAction.View);
+    return Results.Ok(ImportEntityKeys().Select(k => new { key = k, label = ImportEntityLabel(k) }));
+}).RequireAuthorization();
+
+app.MapGet("/api/import/{entity}/template", (HttpContext c, string entity) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    AccessControl.Require(s, "import_export", PermissionAction.View);
+    var headers = ImportHeaders(svc, entity);
+    var label = ImportEntityLabel(entity);
+    var bytes = svc.Excel.Template(label + " Şablon", headers);
+    var fn = System.Text.RegularExpressions.Regex.Replace(label, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + "_sablon.xlsx";
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fn);
+}).RequireAuthorization();
+
+// ÖN KONTROL: veritabanına HİÇBİR ŞEY yazmaz. Kullanıcı hatalı satırları aktarımdan ÖNCE görür.
+app.MapPost("/api/import/{entity}/preview", async (HttpContext ctx, string entity) =>
+{
+    var (s, rows, err) = await ReadImportAsync(ctx, svc, entity);
+    if (err is not null) return err;
+    var res = ImportDryRun(svc, entity, s!, rows!);
+    return Results.Ok(ImportPayload(res, System.Array.Empty<string>()));
+}).RequireAuthorization();
+
+app.MapPost("/api/import/{entity}/commit", async (HttpContext ctx, string entity) =>
+{
+    var (s, rows, err) = await ReadImportAsync(ctx, svc, entity);
+    if (err is not null) return err;
+    var (res, created) = ImportCommit(svc, entity, s!, rows!);
+    return Results.Ok(ImportPayload(res, created));
+}).RequireAuthorization();
+
+// ── İçe aktarım yardımcıları (yukarıdaki 4 uç bunları kullanır) ──
+
+/// <summary>
+/// Yüklenen .xlsx'i okur ve içe aktarım oturumunu kurar. Ortak kapı: yetki, dosya, boyut ve
+/// HEDEF ŞUBE doğrulaması tek yerde yapılır (önizleme ile aktarım arasında fark olmasın).
+///
+/// Şube: form alanı <c>branchId</c>. Boş/"__all__" → Tüm Şubeler (firma geneli, şubesiz).
+/// Aksi halde şube kullanıcının KAPSAMINDA olmalı (fail-closed; ScopeResolver).
+/// </summary>
+async Task<(SessionContext? Session, IReadOnlyList<DepoWise.Application.Reports.ImportRow>? Rows, IResult? Error)>
+    ReadImportAsync(HttpContext ctx, ServerServices services, string entity)
+{
+    var s = Session(ctx);
+    if (s is null) return (null, null, Results.Unauthorized());
+    AccessControl.Require(s, "import_export", PermissionAction.View);
+    ImportEntityLabel(entity);   // bilinmeyen tür → 400 (ArgumentException, ortak hata katmanı çevirir)
+
+    if (!ctx.Request.HasFormContentType)
+        return (null, null, Results.Json(new { error = "Excel dosyası gönderilmedi." }, statusCode: 400));
+    var form = await ctx.Request.ReadFormAsync();
+    var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+    if (file is null || file.Length == 0)
+        return (null, null, Results.Json(new { error = "Excel dosyası gönderilmedi." }, statusCode: 400));
+    const long MaxBytes = 20 * 1024 * 1024;   // 20 MB — şablon tabanlı liste dosyaları için fazlasıyla yeterli
+    if (file.Length > MaxBytes)
+        return (null, null, Results.Json(new { error = "Dosya çok büyük (en fazla 20 MB)." }, statusCode: 400));
+
+    // Hedef şube ZORUNLU seçilir; masaüstündeki kuralın aynısı (2026-07-26).
+    var rawBranch = form["branchId"].ToString();
+    if (string.IsNullOrWhiteSpace(rawBranch))
+        return (null, null, Results.Json(new { error = "Lütfen önce içe aktarılacak ŞUBEYİ seçin (zorunlu). Tüm şubelerde görünmesi için 'Tüm Şubeler' seçin." }, statusCode: 400));
+    var branchId = rawBranch == "__all__" ? null : rawBranch;
+    services.Scopes.EnsureBranchAllowed(s, branchId);   // kapsam dışı şube → 403
+
+    using var ms = new MemoryStream();
+    await file.OpenReadStream().CopyToAsync(ms, ctx.RequestAborted);
+    IReadOnlyList<DepoWise.Application.Reports.ImportRow> rows;
+    try { rows = services.Excel.ReadRows(ms.ToArray()); }
+    catch { return (null, null, Results.Json(new { error = "Dosya okunamadı. Geçerli bir .xlsx dosyası seçin." }, statusCode: 400)); }
+    if (rows.Count == 0)
+        return (null, null, Results.Json(new { error = "Dosyada veri satırı bulunamadı." }, statusCode: 400));
+
+    // Seçilen şubeyle oturum kopyası — masaüstündeki ImportSession ile birebir aynı.
+    var importSession = new SessionContext(s.UserId, s.CompanyId, s.RoleKeys, s.Permissions, s.CanViewAllBranches)
+    {
+        OperatingBranchId = branchId,
+        BlockedModules = s.BlockedModules,
+    };
+    return (importSession, rows, null);
+}
+
+static string[] ImportEntityKeys() => new[]
+    { "materials", "vehicles", "personnel", "maintenance", "inspection", "fuel", "fuel-depot" };
+
+static string ImportEntityLabel(string key) => key switch
+{
+    "vehicles" => "Araçlar",
+    "personnel" => "Personel",
+    "maintenance" => "Bakım",
+    "inspection" => "Muayene / Sigorta",
+    "fuel" => "Yakıt Dağıtım",
+    "fuel-depot" => "Yakıt Depo Girişi",
+    "materials" => "Malzemeler",
+    _ => throw new ArgumentException($"Bilinmeyen içe aktarım türü: {key}"),
+};
+
+static IReadOnlyList<string> ImportHeaders(ServerServices svc, string entity) => entity switch
+{
+    "vehicles" => svc.VehicleImport.SampleHeaders(),
+    "personnel" => svc.PersonnelImport.SampleHeaders(),
+    "maintenance" => svc.MaintenanceImport.SampleHeaders(),
+    "inspection" => svc.InspectionImport.SampleHeaders(),
+    "fuel" => svc.FuelImport.SampleHeaders(),
+    "fuel-depot" => svc.FuelDepotImport.SampleHeaders(),
+    "materials" => svc.MaterialImport.SampleHeaders(),
+    _ => throw new ArgumentException($"Bilinmeyen içe aktarım türü: {entity}"),
+};
+
+static DepoWise.Application.Reports.ImportResult ImportDryRun(ServerServices svc, string entity,
+    SessionContext s, IReadOnlyList<DepoWise.Application.Reports.ImportRow> rows) => entity switch
+{
+    "vehicles" => svc.VehicleImport.DryRun(s, rows),
+    "personnel" => svc.PersonnelImport.DryRun(s, rows),
+    "maintenance" => svc.MaintenanceImport.DryRun(s, rows),
+    "inspection" => svc.InspectionImport.DryRun(s, rows),
+    "fuel" => svc.FuelImport.DryRun(s, rows),
+    "fuel-depot" => svc.FuelDepotImport.DryRun(s, rows),
+    "materials" => svc.MaterialImport.DryRun(s, rows),
+    _ => throw new ArgumentException($"Bilinmeyen içe aktarım türü: {entity}"),
+};
+
+/// <summary>Masaüstündeki switch ile BİREBİR aynı: hangi servisin oluşturduğu yeni tanımları raporladığı dahil.</summary>
+static (DepoWise.Application.Reports.ImportResult Result, IReadOnlyList<string> CreatedLookups) ImportCommit(
+    ServerServices svc, string entity, SessionContext s, IReadOnlyList<DepoWise.Application.Reports.ImportRow> rows) => entity switch
+{
+    "vehicles" => svc.VehicleImport.CommitWithLookups(s, rows),
+    "personnel" => svc.PersonnelImport.CommitWithLookups(s, rows),
+    "maintenance" => svc.MaintenanceImport.CommitWithLookups(s, rows),
+    "inspection" => (svc.InspectionImport.Commit(s, rows), System.Array.Empty<string>()),
+    "fuel" => (svc.FuelImport.Commit(s, rows), System.Array.Empty<string>()),
+    "fuel-depot" => (svc.FuelDepotImport.Commit(s, rows), System.Array.Empty<string>()),
+    "materials" => svc.MaterialImport.CommitWithLookups(s, rows),
+    _ => throw new ArgumentException($"Bilinmeyen içe aktarım türü: {entity}"),
+};
+
+static object ImportPayload(DepoWise.Application.Reports.ImportResult r, IReadOnlyList<string> created) => new
+{
+    dryRun = r.DryRun, total = r.Total, valid = r.Valid, added = r.Added, updated = r.Updated, failed = r.Failed,
+    errors = r.Errors.Select(e => new { rowNumber = e.RowNumber, message = e.Message }),
+    createdLookups = created,
+};
+
 // ── Bakım (Bakım Takibi) — masaüstüyle birebir ──
 app.MapGet("/api/maintenance/definitions", (HttpContext c, string? parentDefId) =>
     S(c) is { } s ? Results.Ok(svc.MaintenanceDefinitions.List(s, parentDefId)) : Results.Unauthorized()).RequireAuthorization();

@@ -56,6 +56,9 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Requests.RequestOperationsService RequestOps { get; }
     public DepoWise.Infrastructure.Organization.BranchService Branches { get; }
     public DepoWise.Infrastructure.Org.PersonnelService Personnel { get; }
+    /// <summary>Şube kapsamı çözümleyici — içe aktarımda seçilen hedef şubenin kullanıcının
+    /// kapsamında olduğunu doğrulamak için (fail-closed).</summary>
+    public DepoWise.Infrastructure.Org.ScopeResolver Scopes { get; }
     public DepoWise.Infrastructure.Org.PersonnelTitleService PersonnelTitles { get; }
     public DepoWise.Infrastructure.Maintenance.MaintenanceDefinitionService MaintenanceDefinitions { get; }
     public DepoWise.Infrastructure.Security.PermissionService Permissions { get; }
@@ -71,6 +74,16 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Reporting.DashboardService Dashboard { get; }
     /// <summary>Filtrelenmiş liste sonuçlarını Excel'e aktarma (kullanıcı isteği 2026-07-19).</summary>
     public DepoWise.Infrastructure.Reporting.ExcelExportService Excel { get; }
+
+    // ── Excel İÇE AKTARIM (İş #7, 2026-08-09) — masaüstünde zaten vardı, web'e taşındı.
+    // Aynı servisler kullanılır → iki platform BİREBİR aynı doğrulama ve iş kurallarını uygular.
+    public DepoWise.Infrastructure.Reporting.MaterialImportService MaterialImport { get; }
+    public DepoWise.Infrastructure.Reporting.VehicleImportService VehicleImport { get; }
+    public DepoWise.Infrastructure.Reporting.PersonnelImportService PersonnelImport { get; }
+    public DepoWise.Infrastructure.Reporting.MaintenanceImportService MaintenanceImport { get; }
+    public DepoWise.Infrastructure.Reporting.InspectionImportService InspectionImport { get; }
+    public DepoWise.Infrastructure.Reporting.FuelImportService FuelImport { get; }
+    public DepoWise.Infrastructure.Reporting.FuelDepotImportService FuelDepotImport { get; }
     public DepoWise.Infrastructure.Files.BackupService DbBackup { get; }
     public DepoWise.Infrastructure.Settings.SettingsService Settings { get; }
     /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (kullanıcı bazlı, firma bağımsız).</summary>
@@ -122,7 +135,8 @@ public sealed class ServerServices
         Requests = new DepoWise.Infrastructure.Requests.RequestService(Factory, new DepoWise.Infrastructure.Materials.StockService(Factory, clock), clock);
         RequestOps = new DepoWise.Infrastructure.Requests.RequestOperationsService(Factory, clock);
         Branches = new DepoWise.Infrastructure.Organization.BranchService(Factory, clock);
-        Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, new DepoWise.Infrastructure.Org.ScopeResolver(Factory), clock);
+        Scopes = new DepoWise.Infrastructure.Org.ScopeResolver(Factory);
+        Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, Scopes, clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
         Permissions = new DepoWise.Infrastructure.Security.PermissionService(Factory, clock);
         PermissionTemplates = new DepoWise.Infrastructure.Security.PermissionTemplateService(Factory, clock);
@@ -136,6 +150,14 @@ public sealed class ServerServices
         Reports = new DepoWise.Infrastructure.Reporting.ReportService(Factory);
         Dashboard = new DepoWise.Infrastructure.Reporting.DashboardService(Factory, Maintenance, Inspection);
         Excel = new DepoWise.Infrastructure.Reporting.ExcelExportService();
+        // İçe aktarım servisleri — masaüstündeki (DesktopServices) bağlamayla BİREBİR aynı.
+        MaterialImport = new DepoWise.Infrastructure.Reporting.MaterialImportService(Materials, Lookups, OpeningStock, Vehicles);
+        VehicleImport = new DepoWise.Infrastructure.Reporting.VehicleImportService(Vehicles, Lookups);
+        InspectionImport = new DepoWise.Infrastructure.Reporting.InspectionImportService(Inspection, Vehicles);
+        MaintenanceImport = new DepoWise.Infrastructure.Reporting.MaintenanceImportService(Maintenance, MaintenanceDefinitions, Vehicles, Lookups);
+        FuelImport = new DepoWise.Infrastructure.Reporting.FuelImportService(Fuel, Vehicles, Lookups);
+        FuelDepotImport = new DepoWise.Infrastructure.Reporting.FuelDepotImportService(Fuel, Lookups);
+        PersonnelImport = new DepoWise.Infrastructure.Reporting.PersonnelImportService(Personnel, PersonnelTitles, Users, Lookups);
         DbBackup = new DepoWise.Infrastructure.Files.BackupService(Factory, clock, Path.Combine(dataDir, "dbbackups"));
         Settings = new DepoWise.Infrastructure.Settings.SettingsService(Factory, clock);
         ListPrefs = new DepoWise.Infrastructure.Settings.UserListPreferenceService(Factory, clock);

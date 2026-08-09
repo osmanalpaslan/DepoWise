@@ -1,0 +1,311 @@
+@page "/import"
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject IJSRuntime JS
+
+@* Excel İçe Aktarım (İş #7, 2026-08-09) — masaüstündeki İmport/Export ekranının web karşılığı.
+   Aynı sunucu servislerini kullanır → doğrulama ve iş kuralları masaüstüyle BİREBİR aynıdır.
+   Dışa aktarım burada YOKTUR: her liste ekranında zaten "Excel'e Aktar" butonu var (ADR-087/088/089). *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Excel İçe Aktarım</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    <b>@Auth.CompanyDisplay</b> — Excel dosyasından toplu kayıt ekleyin. Aynı ekran masaüstünde de vardır; kurallar aynıdır.
+</MudText>
+
+@if (!Auth.CanView("import_export"))
+{
+    <MudAlert Severity="Severity.Warning">İçe aktarım (import) yetkiniz yok.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-Value="_entity" Label="Ne aktarılacak? *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           @bind-Value:after="OnEntityChanged"
+                           HelperText="Her tür için ayrı şablon vardır.">
+                    @foreach (var e in _entities) { <MudSelectItem T="string" Value="@e.Key">@e.Label</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                @* ZORUNLU şube seçimi — masaüstü kuralı (2026-07-26). Varsayılan SEÇİLİ DEĞİL: kullanıcı bilinçli seçsin. *@
+                <MudSelect T="string" @bind-Value="_branchId" Label="Hangi şubeye? *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           @bind-Value:after="ResetResult"
+                           HelperText="İşlem kayıtları bu şubeyle etiketlenir. Tüm şubelerde görünmesi için 'Tüm Şubeler' seçin.">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2" Class="mb-1">1. Şablonu indirin</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                    Şablondaki sütun başlıkları, yeni kayıt formundaki alanlarla aynıdır. Başlıkları değiştirmeyin.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="DownloadTemplate" Disabled="_busy">Örnek Şablon İndir</MudButton>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2" Class="mb-1">2. Doldurduğunuz dosyayı seçin</MudText>
+                <InputFile OnChange="OnFile" accept=".xlsx" />
+                @if (_file is not null)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-1">Seçilen dosya: <b>@_file.Name</b></MudText>
+                }
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.subtitle2" Class="mb-1">3. Önce kontrol edin, sonra aktarın</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                    <b>Ön kontrol</b> hiçbir kayıt oluşturmaz — sadece dosyanızı denetler. Sorun yoksa "İçe Aktar" ile kaydedin.
+                </MudText>
+                <div class="d-flex flex-wrap" style="gap:8px;">
+                    <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.FactCheck"
+                               OnClick="Preview" Disabled="@(_busy || _file is null)">Ön Kontrol (yazmaz)</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
+                               OnClick="Commit" Disabled="@(_busy || _file is null)">İçe Aktar</MudButton>
+                </div>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_busy)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+
+    @if (_msg is not null)
+    {
+        <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Class="mb-4" Style="max-width:820px;">@_msg</MudAlert>
+    }
+
+    @if (_result is not null)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:820px;">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">@(_resultIsPreview ? "ÖN KONTROL SONUCU (hiçbir kayıt oluşturulmadı)" : "İÇE AKTARIM SONUCU")</MudText>
+            <div class="d-flex flex-wrap" style="gap:8px;">
+                <MudChip T="string" Color="Color.Default">Toplam satır: @_result.Total</MudChip>
+                @if (_resultIsPreview)
+                {
+                    <MudChip T="string" Color="Color.Success">Geçerli: @_result.Valid</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Success">Eklenen: @_result.Added</MudChip>
+                    <MudChip T="string" Color="Color.Info">@(IsFuel ? "Zaten vardı (atlandı)" : "Güncellenen"): @_result.Updated</MudChip>
+                }
+                <MudChip T="string" Color="@(_result.Failed > 0 ? Color.Error : Color.Default)">Hatalı: @_result.Failed</MudChip>
+            </div>
+
+            @if (_result.Errors.Count > 0)
+            {
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Hatalı satırlar</MudText>
+                <MudSimpleTable Dense="true" Striped="true" Style="overflow-x:auto;">
+                    <thead><tr><th style="width:90px;">Satır</th><th>Sebep</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in _result.Errors)
+                        {
+                            <tr><td>@(e.RowNumber > 0 ? e.RowNumber.ToString() : "—")</td><td>@e.Message</td></tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+                @if (_result.Failed > _result.Errors.Count)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">
+                        … ve @(_result.Failed - _result.Errors.Count) hata daha (ilk @_result.Errors.Count tanesi listelendi).
+                    </MudText>
+                }
+            }
+
+            @if (_result.CreatedLookups.Count > 0)
+            {
+                <MudDivider Class="my-3" />
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">
+                    Dosyada olup sistemde bulunmayan @_result.CreatedLookups.Count tanım <b>otomatik oluşturuldu</b>.
+                    Yazım hatası var mı diye kontrol edin — "CATERPILLAR" ve "caterpiller" iki AYRI marka olur.
+                </MudAlert>
+                <MudText Typo="Typo.body2">@string.Join(" · ", _result.CreatedLookups)</MudText>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private sealed record EntityOpt(string Key, string Label);
+    private sealed record BranchOpt(string Id, string Name);
+    private sealed record RowError(int RowNumber, string Message);
+    private sealed record ImportView(int Total, int Valid, int Added, int Updated, int Failed,
+        IReadOnlyList<RowError> Errors, IReadOnlyList<string> CreatedLookups);
+
+    /// <summary>"Tüm Şubeler" için sunucuya gönderilen özel değer (boş string form alanında ayırt edilemez).</summary>
+    private const string AllBranches = "__all__";
+
+    private List<EntityOpt> _entities = new();
+    private List<BranchOpt> _branches = new();
+    private string _entity = "materials";
+    private string? _branchId;
+    private IBrowserFile? _file;
+    /// <summary>Seçilen dosyanın içeriği — seçim anında okunur (bkz. <see cref="OnFile"/>).</summary>
+    private byte[]? _fileBytes;
+    private ImportView? _result;
+    private bool _resultIsPreview, _busy, _ok;
+    private string? _msg;
+
+    private bool IsFuel => _entity is "fuel" or "fuel-depot";
+    private string EntityLabel => _entities.FirstOrDefault(e => e.Key == _entity)?.Label ?? _entity;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAuthenticated || !Auth.CanView("import_export")) return;
+        try
+        {
+            foreach (var e in await Api.GetArrayAsync("/api/import/entities"))
+                _entities.Add(new EntityOpt(Str(e, "key"), Str(e, "label")));
+        }
+        catch { }
+        _branches.Add(new BranchOpt(AllBranches, "Tüm Şubeler"));
+        try
+        {
+            foreach (var b in await Api.GetArrayAsync("/api/branches"))
+                _branches.Add(new BranchOpt(Str(b, "id"), Str(b, "name")));
+        }
+        catch { }
+    }
+
+    private void OnEntityChanged() { _file = null; _fileBytes = null; ResetResult(); }
+    private void ResetResult() { _result = null; _msg = null; }
+
+    /// <summary>
+    /// Dosya SEÇİLİR SEÇİLMEZ okunur ve bellekte tutulur.
+    /// Sebep: Blazor'da <c>IBrowserFile.OpenReadStream</c> yalnız BİR KEZ açılabilir; "İçe Aktar"
+    /// önce ön kontrol sonra aktarım yaptığı için ikinci okuma hata verirdi.
+    /// </summary>
+    private async Task OnFile(InputFileChangeEventArgs e)
+    {
+        ResetResult();
+        _file = e.File; _fileBytes = null;
+        const long MaxBytes = 20 * 1024 * 1024;
+        if (_file is null) return;
+        if (_file.Size > MaxBytes) { _ok = false; _msg = "Dosya çok büyük (en fazla 20 MB)."; _file = null; return; }
+        try
+        {
+            using var ms = new MemoryStream();
+            await _file.OpenReadStream(maxAllowedSize: MaxBytes).CopyToAsync(ms);
+            _fileBytes = ms.ToArray();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Dosya okunamadı: " + ex.Message; _file = null; }
+    }
+
+    private async Task DownloadTemplate()
+    {
+        _busy = true;
+        try
+        {
+            var (bytes, fileName) = await Api.GetFileAsync($"/api/import/{_entity}/template", EntityLabel + "_sablon.xlsx");
+            if (bytes is null) { _ok = false; _msg = "Şablon indirilemedi."; return; }
+            await JS.InvokeVoidAsync("dwDownload", fileName, Convert.ToBase64String(bytes),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex) { _ok = false; _msg = "Şablon indirilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Preview()
+    {
+        if (!Validate()) return;
+        _busy = true; ResetResult();
+        try
+        {
+            var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!);
+            if (err is not null) { _ok = false; _msg = err; return; }
+            _result = Parse(data!.Value); _resultIsPreview = true;
+            _ok = _result.Failed == 0;
+            _msg = _result.Failed == 0
+                ? $"Ön kontrol tamam: {_result.Total} satırın tamamı geçerli. Şimdi \"İçe Aktar\" diyebilirsiniz."
+                : $"Ön kontrol: {_result.Total} satırın {_result.Failed} tanesi hatalı. Hatalı satırlar aktarılmaz (aşağıda listelendi).";
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ön kontrol yapılamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task Commit()
+    {
+        if (!Validate()) return;
+
+        // Önce ön kontrol → kullanıcı ne aktaracağını ONAY penceresinde görür (masaüstündeki akışın aynısı).
+        _busy = true; ResetResult();
+        ImportView pre;
+        try
+        {
+            var (preErr, preData) = await Api.UploadImportAsync($"/api/import/{_entity}/preview", _file!.Name, _fileBytes!, _branchId!);
+            if (preErr is not null) { _ok = false; _msg = preErr; return; }
+            pre = Parse(preData!.Value);
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ön kontrol yapılamadı: " + ex.Message; return; }
+        finally { _busy = false; }
+
+        var detail = pre.Errors.Count > 0
+            ? "\n\nÖn kontrol uyarıları:\n" + string.Join("\n", pre.Errors.Take(8)
+                .Select(e => e.RowNumber > 0 ? $"• Satır {e.RowNumber}: {e.Message}" : $"• {e.Message}"))
+              + (pre.Errors.Count > 8 ? $"\n… ve {pre.Errors.Count - 8} uyarı daha" : "")
+            : "";
+        var branchName = _branches.FirstOrDefault(b => b.Id == _branchId)?.Name ?? "";
+        if (!await Dialog.Confirm(
+                $"«{EntityLabel}» → «{branchName}»\n\n{pre.Total} satır okundu, {pre.Valid} geçerli, {pre.Failed} hatalı.{detail}\n\nİçe aktarılsın mı? (hatalı satırlar atlanır)",
+                okText: "Evet, İçe Aktar"))
+            return;
+
+        _busy = true;
+        try
+        {
+            var (err, data) = await Api.UploadImportAsync($"/api/import/{_entity}/commit", _file!.Name, _fileBytes!, _branchId!);
+            if (err is not null) { _ok = false; _msg = err; return; }
+            _result = Parse(data!.Value); _resultIsPreview = false;
+            _ok = true;
+            _msg = IsFuel
+                ? $"İçe aktarım tamamlandı: toplam {_result.Total}, eklenen {_result.Added}, zaten vardı (atlandı) {_result.Updated}, hatalı {_result.Failed}."
+                : $"İçe aktarım tamamlandı: toplam {_result.Total}, eklenen {_result.Added}, güncellenen {_result.Updated}, hatalı {_result.Failed}.";
+        }
+        catch (Exception ex) { _ok = false; _msg = "İçe aktarılamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private bool Validate()
+    {
+        if (string.IsNullOrEmpty(_branchId))
+        {
+            _ok = false;
+            _msg = "Lütfen önce içe aktarılacak ŞUBEYİ seçin (zorunlu). Tüm şubelerde görünmesi için 'Tüm Şubeler' seçin.";
+            return false;
+        }
+        if (_file is null || _fileBytes is null) { _ok = false; _msg = "Önce Excel dosyasını seçin."; return false; }
+        return true;
+    }
+
+    private static ImportView Parse(JsonElement d)
+    {
+        var errors = new List<RowError>();
+        if (d.TryGetProperty("errors", out var es) && es.ValueKind == JsonValueKind.Array)
+            foreach (var e in es.EnumerateArray())
+                errors.Add(new RowError(Int(e, "rowNumber"), Str(e, "message")));
+        var created = new List<string>();
+        if (d.TryGetProperty("createdLookups", out var cs) && cs.ValueKind == JsonValueKind.Array)
+            foreach (var c in cs.EnumerateArray()) if (c.ValueKind == JsonValueKind.String) created.Add(c.GetString() ?? "");
+        return new ImportView(Int(d, "total"), Int(d, "valid"), Int(d, "added"), Int(d, "updated"), Int(d, "failed"),
+            errors, created);
+    }
+
+    private static string Str(JsonElement o, string k)
+        => o.ValueKind == JsonValueKind.Object && o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString() ?? "" : "";
+    private static int Int(JsonElement o, string k)
+        => o.ValueKind == JsonValueKind.Object && o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number
+            ? v.GetInt32() : 0;
+}

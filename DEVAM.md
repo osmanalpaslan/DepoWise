@@ -27,10 +27,15 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 
 ---
 
-## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09f — İş #4, #5, #6 kod tamam, YAYIN BEKLİYOR)
+## 2. ŞU AN NEREDEYIM? (son güncelleme: 2026-08-09g — İş #4, #5, #6, #7 kod tamam, YAYIN BEKLİYOR)
 
-### 🟡 İŞ #4 + #5 + #6 KOD TAMAM — henüz **yayınlanmadı** (yayın onayı bekliyor)
-Üç iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **migration yok**.
+### 🟡 İŞ #4 + #5 + #6 + #7 KOD TAMAM — henüz **yayınlanmadı** (yayın onayı bekliyor)
+Dört iş arka arkaya bitti; hepsi yerelde commit'li, **canlıya çıkmadı**, **migration yok**.
+- **#7 — Excel içe aktarım artık WEB'DE de var:** eskiden yalnız masaüstünde vardı. Menü:
+  *Ayarlar › Excel İçe Aktarım*. Akış: şablon indir → dosya seç → **ön kontrol** (hiçbir kayıt
+  oluşturmaz, hatalı satırları gösterir) → onay → aktar. 7 tür: Malzeme, Araç, Personel, Bakım,
+  Muayene/Sigorta, Yakıt Dağıtım, Yakıt Depo Girişi. Kurallar masaüstüyle **birebir aynı**
+  (aynı servisler çağrılıyor). Gerçek tarayıcıda uçtan uca denendi ve kayıtların oluştuğu görüldü.
 - **#4 — Düzenleme hattı:** Personel ve Talepler listesinde **çift tıklayınca düzenleme açılıyor**.
 - **#5 — Günlük Faaliyet + Bakım kaydı düzenleme:** artık açıklama, operatör/teknisyen ve süre
   **düzeltilebiliyor**. Stok ve sayaç bilinçli olarak dokunulmaz kaldı — onlar için doğru yol
@@ -42,7 +47,10 @@ MudBlazor, tarayıcı) + **API** (sunucu, Fly.io, SQLite). İş kuralları ve ye
 - Testler: SQLite **915 geçti / 0 başarısız** · PostgreSQL ayrı koşuluyor.
 - Rapor: [docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md](docs/tests/DuzenlemeKilidi_Talepler_Subeler_Test_Report.md)
 
-**Sıradaki iş:** #7 — Excel içe aktarma → Web.
+**Sıradaki iş:** #8 — Çoklu malzeme + şube sürüm kontrolü (önce analiz).
+
+⚠️ **Yayında sıra önemli:** web bu yeni ekranları uzak API'den çağırır → **önce API (fly.toml),
+sonra web (fly.web.toml)** yayınlanmalı; yoksa web'de ekran açılır ama işlem yapamaz.
 
 ---
 

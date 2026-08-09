@@ -24,8 +24,8 @@ Kaynak: [docs/KARAR_ANALIZI_K1_K7.md](KARAR_ANALIZI_K1_K7.md) ·
 | 4 | Ortak düzenleme altyapısı + Personel/Talepler çift tık | ✅ kod tamam (yayın bekliyor) |
 | 5 | Günlük Faaliyet + Bakım kaydı düzenleme | ✅ kod tamam (yayın bekliyor) |
 | 6 | Düzenleme kilitleri (aynı kaydı iki kişi) | ✅ kod tamam (yayın bekliyor) |
-| 7 | Excel içe aktarma → Web | ⏭️ SIRADAKİ |
-| 8 | Çoklu malzeme + şube sürüm kontrolü | bekliyor |
+| 7 | Excel içe aktarma → Web | ✅ kod tamam (yayın bekliyor) — [rapor](tests/ExcelIceAktarim_Web_Test_Report.md) |
+| 8 | Çoklu malzeme + şube sürüm kontrolü | ⏭️ SIRADAKİ |
 | 9 | LookupBox ortak bileşeni | bekliyor |
 | 10 | Kolon kataloğu → Alan/Kolon Yönetimi | bekliyor |
 | 11 | Faz S (senkron performansı) / FK / benzersizlik | bekliyor |
