@@ -133,7 +133,10 @@
 
         <MudStack Row="true" Class="mt-3" Justify="Justify.FlexEnd" Spacing="2">
             <MudButton Variant="Variant.Text" OnClick="Clear">İptal</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">
+                @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                @(_busy ? "Kaydediliyor…" : "Kaydet")
+            </MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
     </MudPaper>
