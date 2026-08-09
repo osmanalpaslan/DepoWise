@@ -153,7 +153,19 @@ var ✅), `CompanyService.Update` (süper admin kısıtlı modül ✅), `UserLis
 
 ---
 
-## 5. POSTGRESQL'DE ATLANAN TEST — KÖK NEDEN BULUNDU
+## 5. POSTGRESQL'DE ATLANAN TEST — KESİNLEŞTİ
+
+### Hangi test atlandı? (trx raporuyla kanıtlandı)
+
+```
+[NotExecuted] DepoWise.Tests.PostgresConnectionTests.PostgreSQL_Sunucusuna_Baglanip_Surum_Okunabiliyor
+toplam 30 · geçen 29 · başarısız 0
+```
+
+**Bu sonuç aşağıdaki kök nedeni birebir doğruluyor:** atlanan test, `[Collection]` taşımayan —
+yani **paralel çalışan** — iki sınıftan biri olan `PostgresConnectionTests` içinde.
+Diğer paralel sınıf (`PostgresTestGuardTests`) ise ortam değişkenlerini bozan sınıftır.
+Koleksiyona bağlı 8 sınıfın **hiçbirinde** atlama olmadı.
 
 ### Sorulara cevaplar
 
@@ -186,8 +198,9 @@ test **atlanır**. `finally` bloğu env'i geri koyar — ama iş işten geçmiş
 **Test altyapısı değişti mi?** ❌ Hayır. `PostgresTestGuardTests` ve `PostgresConnectionTests`
 bu oturumda **hiç değiştirilmedi**. Kusur **baştan beri** vardı; yalnız bugüne kadar tetiklenmemişti.
 
-**Tekrar çalıştırıldığında geçiyor mu?** Zamanlamaya bağlı — bazen evet, bazen hayır. Kalıcı çözüm
-gerekli (aşağıda).
+**Tekrar çalıştırıldığında geçiyor mu?** **Hayır — bu oturumda İKİ ardışık koşuda da atlandı**
+(29/1 ve 29/1), üçüncü bir daha önceki koşuda ise 30/30 geçmişti. Yani kararsız (flaky):
+yeniden çalıştırmak **çözmüyor**, kalıcı düzeltme gerekiyor.
 
 **Elenen alternatif hipotezler (ölçülerek):** test veritabanı `depowise_test` = **14,3 MB**
 (guard sınırı 50 MB → aşılmadı), `dw_test_marker` şeması **var**, replica **değil**, ad "test"
