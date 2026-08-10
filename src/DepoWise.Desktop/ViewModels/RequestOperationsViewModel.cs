@@ -162,14 +162,17 @@ public sealed partial class RequestOperationsViewModel : ViewModelBase
             return;
         try
         {
+            // KLT-01a: gönderim alanları da yazıldığı için (updateBranches:true) sürüm jetonu gönderilir.
+            // Durum geçişinin kendisi zaten durum makinesiyle korunuyor.
             DesktopServices.RequestOps.ChangeStatus(_session, Selected.Id, NewStatus.Value,
                 string.IsNullOrWhiteSpace(OpsNote) ? null : OpsNote.Trim(),
-                FromBranch?.Id, ToBranch?.Id, updateBranches: true);
+                FromBranch?.Id, ToBranch?.Id, updateBranches: true, expectedVersion: Selected.Version);
             Status = $"Durum güncellendi: {target}";
             var keepId = Selected.Id;
             Load();
             Selected = Items.FirstOrDefault(x => x.Id == keepId);   // seçim korunur (ekran atlamasın)
         }
+        catch (ConcurrencyException) { HandleOpsConflict(); }
         catch (Exception ex) { Status = "Güncellenemedi: " + ex.Message; }
     }
 
@@ -180,13 +183,30 @@ public sealed partial class RequestOperationsViewModel : ViewModelBase
         if (Selected is null) return;
         try
         {
+            // KLT-01a: düzenleme kilidi — ekran açıldığındaki sürüm gönderilir.
             DesktopServices.RequestOps.UpdateShipmentInfo(_session, Selected.Id,
-                FromBranch?.Id, ToBranch?.Id, string.IsNullOrWhiteSpace(OpsNote) ? null : OpsNote.Trim());
+                FromBranch?.Id, ToBranch?.Id, string.IsNullOrWhiteSpace(OpsNote) ? null : OpsNote.Trim(),
+                expectedVersion: Selected.Version);
             Status = "Gönderim bilgileri kaydedildi.";
             var keepId = Selected.Id;
             Load();
             Selected = Items.FirstOrDefault(x => x.Id == keepId);
         }
+        catch (ConcurrencyException) { HandleOpsConflict(); }
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// KLT-01a — DÜZENLEME KİLİDİ çakışması: talep, ekran açıldıktan sonra başkası tarafından
+    /// değiştirilmiş. Değişiklik YAZILMADI. Liste tazelenir ki kullanıcı güncel hâli görsün ve
+    /// eski veriyle tekrar denemesin (sürüm de böylece yenilenir).
+    /// </summary>
+    private void HandleOpsConflict()
+    {
+        var keepId = Selected?.Id;
+        Load();
+        Selected = Items.FirstOrDefault(x => x.Id == keepId);
+        Status = "Bu talep siz ekranı açtıktan sonra başka bir kullanıcı tarafından değiştirildi. "
+               + "Değişikliğiniz kaydedilmedi. Güncel bilgiler yeniden yüklendi; kontrol edip tekrar deneyin.";
     }
 }

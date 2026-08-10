@@ -11,7 +11,8 @@ public sealed record RequestOperationRow(
     string Id, string DocNo, long RequestDate, int ItemCount, string? Description,
     string? OperationStatusDb, string PriorityDb,
     string? BranchName, string? RequesterName, string? ApproverName,
-    string? FromBranchId, string? FromBranchName, string? ToBranchId, string? ToBranchName, string? OpsNote)
+    string? FromBranchId, string? FromBranchName, string? ToBranchId, string? ToBranchName, string? OpsNote,
+    long Version = 0)
 {
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(RequestDate).LocalDateTime.ToString("dd.MM.yyyy");
     public string OperationStatusText => RequestOperationStatusInfo.LabelOrDash(OperationStatusDb);
@@ -72,7 +73,8 @@ SELECT mr.id, mr.doc_no, mr.request_date,
        (SELECT COUNT(*) FROM material_request_items i WHERE i.request_id = mr.id),
        mr.description, mr.operation_status, COALESCE(mr.priority,'normal'),
        b.name, pr.full_name, pa.full_name,
-       mr.ops_from_branch_id, fb.name, mr.ops_to_branch_id, tb.name, mr.ops_note
+       mr.ops_from_branch_id, fb.name, mr.ops_to_branch_id, tb.name, mr.ops_note,
+       mr.version
 FROM material_requests mr
 LEFT JOIN branches b  ON b.id  = mr.branch_id
 LEFT JOIN personnel pr ON pr.id = mr.requester_id
@@ -94,7 +96,8 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         while (r.Read())
             list.Add(new RequestOperationRow(
                 r.GetString(0), r.GetString(1), r.GetInt64(2), r.GetInt32(3), S(4), S(5), r.GetString(6),
-                S(7), S(8), S(9), S(10), S(11), S(12), S(13), S(14)));
+                S(7), S(8), S(9), S(10), S(11), S(12), S(13), S(14),
+                r.IsDBNull(15) ? 0L : r.GetInt64(15)));   // KLT-01a: düzenleme kilidi jetonu
         return list;
     }
 
@@ -112,8 +115,26 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
     /// Operasyon durumunu değiştirir + gönderim bilgilerini günceller (verilmişse) + geçmişe yazar.
     /// TEK transaction; geçiş matrisi ve yetki sunucuda doğrulanır. Stok DEĞİŞTİRİLMEZ (Faz 2 sınırı).
     /// </summary>
+    /// <param name="expectedVersion">
+    /// KLT-01a — DÜZENLEME KİLİDİ, <b>YALNIZ <paramref name="updateBranches"/> = true iken uygulanır.</b>
+    ///
+    /// <b>Durum geçişinin kendisine sürüm kontrolü EKLENMEZ</b> (kullanıcı kararı 2026-08-10): durum
+    /// zaten korumalıdır — <see cref="DbCommandExtensions.BeginImmediate"/> yazarları sıraya sokar,
+    /// mevcut durum transaction'ın İÇİNDE okunur ve
+    /// <c>RequestOperationStateMachine.CanTransition</c> içinde <c>from == to → false</c> olduğu için
+    /// aynı geçişin ikinci kez uygulanması zaten reddedilir.
+    ///
+    /// Korunması gereken, <paramref name="updateBranches"/> = true iken AYNI cümlede körlemesine yazılan
+    /// <c>ops_from_branch_id</c> / <c>ops_to_branch_id</c> / <c>ops_note</c> alanlarıdır.
+    /// Bu alanlar durum kolonuyla <b>tek bir UPDATE</b> içinde yazıldığından (ve tek transaction atomik
+    /// olduğundan) sürüm kontrolü sütun bazında uygulanamaz: çakışma hâlinde çağrının tamamı reddedilir.
+    /// Bu, kapsam genişletmesi değil, tek-cümle/tek-transaction yapısının teknik sonucudur.
+    ///
+    /// <c>null</c> veya <paramref name="updateBranches"/> = false → kontrol yok (geriye uyumlu).
+    /// </param>
     public void ChangeStatus(SessionContext s, string requestId, RequestOperationStatus to,
-        string? note = null, string? fromBranchId = null, string? toBranchId = null, bool updateBranches = false)
+        string? note = null, string? fromBranchId = null, string? toBranchId = null, bool updateBranches = false,
+        long? expectedVersion = null)
     {
         AccessControl.Require(s, RequestOperationStateMachine.ModuleOps, PermissionAction.Edit);
         if (!RequestOperationStateMachine.CanUserPerform(s, to))
@@ -140,12 +161,16 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
             EnsureBranchOwned(conn, tx, s.CompanyId, toBranchId);
         }
 
+        // KLT-01a: sürüm kontrolü YALNIZ gönderim alanları da yazılırken (updateBranches) devrededir.
+        // Durum geçişi için kontrol EKLENMEZ — durum makinesi zaten koruyor (bkz. expectedVersion açıklaması).
+        var lockVersion = updateBranches ? expectedVersion : null;
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
             cmd.CommandText = updateBranches
                 ? @"UPDATE material_requests SET operation_status=@ops, ops_from_branch_id=@fb, ops_to_branch_id=@tb,
-                        ops_note=@note, version=version+1, updated_at=@now WHERE id=@id;"
+                        ops_note=@note, version=version+1, updated_at=@now WHERE id=@id" + EditLockGuard.Clause(lockVersion) + ";"
                 : @"UPDATE material_requests SET operation_status=@ops, ops_note=COALESCE(@note, ops_note),
                         version=version+1, updated_at=@now WHERE id=@id;";
             cmd.AddWithValue("@ops", RequestOperationStatusInfo.ToDb(to));
@@ -157,7 +182,13 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
             }
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", requestId);
-            cmd.ExecuteNonQuery();
+            EditLockGuard.Bind(cmd, lockVersion);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                // Çakışma → transaction commit EDİLMEZ: durum, gönderim bilgisi, geçmiş ve audit yazılmaz.
+                EditLockGuard.ThrowIfStale(conn, tx, "material_requests", requestId, s.CompanyId, lockVersion);
+                throw new InvalidOperationException("Talep bulunamadı.");
+            }
         }
 
         WriteOperationHistory(conn, tx, requestId, current.Value, to, s, Trim(note), now);
@@ -166,8 +197,22 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         tx.Commit();
     }
 
-    /// <summary>Yalnız gönderim bilgisi/not güncellemesi (durum değişmeden). Geçmişe DURUM satırı yazılmaz.</summary>
-    public void UpdateShipmentInfo(SessionContext s, string requestId, string? fromBranchId, string? toBranchId, string? note)
+    /// <summary>
+    /// Yalnız gönderim bilgisi/not güncellemesi (durum değişmeden). Geçmişe DURUM satırı yazılmaz.
+    /// </summary>
+    /// <param name="expectedVersion">
+    /// KLT-01a — DÜZENLEME KİLİDİ. Ekranın açıldığı andaki <c>material_requests.version</c>.
+    ///
+    /// Neden gerekli: bu metodun üç alanı (<c>ops_from_branch_id</c>, <c>ops_to_branch_id</c>,
+    /// <c>ops_note</c>) KÖRLEMESİNE yazıyordu — mevcut değerlerle karşılaştırma yoktu. İki kullanıcı
+    /// aynı talebin gönderim bilgisini düzenlerse ikincisi birincisini SESSİZCE eziyordu.
+    /// <see cref="ChangeStatus"/>'ta böyle bir açık YOKTUR: orada durum makinesi
+    /// (<c>CanTransition</c>, <c>from==to</c> → false) ikinci aynı geçişi zaten reddeder.
+    ///
+    /// <c>null</c> → kontrol yok (geriye uyumlu: sürüm taşımayan eski çağrılar bozulmaz).
+    /// </param>
+    public void UpdateShipmentInfo(SessionContext s, string requestId, string? fromBranchId, string? toBranchId, string? note,
+        long? expectedVersion = null)
     {
         AccessControl.Require(s, RequestOperationStateMachine.ModuleOps, PermissionAction.Edit);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -185,13 +230,21 @@ ORDER BY mr.request_date DESC, mr.created_at DESC LIMIT @lim;";
         {
             cmd.Transaction = tx;
             cmd.CommandText = @"UPDATE material_requests SET ops_from_branch_id=@fb, ops_to_branch_id=@tb,
-                                    ops_note=@note, version=version+1, updated_at=@now WHERE id=@id;";
+                                    ops_note=@note, version=version+1, updated_at=@now WHERE id=@id"
+                                + EditLockGuard.Clause(expectedVersion) + ";";
             cmd.AddWithValue("@fb", (object?)Trim(fromBranchId) ?? DBNull.Value);
             cmd.AddWithValue("@tb", (object?)Trim(toBranchId) ?? DBNull.Value);
             cmd.AddWithValue("@note", (object?)Trim(note) ?? DBNull.Value);
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", requestId);
-            cmd.ExecuteNonQuery();
+            EditLockGuard.Bind(cmd, expectedVersion);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                // Kayıt duruyorsa sebep sürüm uyuşmazlığıdır → ConcurrencyException (409).
+                // Transaction commit EDİLMEZ → gönderim bilgileri ve audit yazılmaz (kısmi yazma yok).
+                EditLockGuard.ThrowIfStale(conn, tx, "material_requests", requestId, s.CompanyId, expectedVersion);
+                throw new InvalidOperationException("Talep bulunamadı.");
+            }
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_request", requestId, AuditActions.Update, s.UserId), _clock);
         tx.Commit();

@@ -2240,10 +2240,14 @@ app.MapPost("/api/request-ops/{id}/status", (HttpContext c, string id, RequestOp
     var s = S(c); if (s is null) return Results.Unauthorized();
     var to = DepoWise.Application.Requests.RequestOperationStatusInfo.FromDb(d.Status);
     if (to is null) return Results.Json(new { error = "Geçersiz operasyon durumu." }, statusCode: 400);
-    return Results.Ok(new { ok = Void(() => svc.RequestOps.ChangeStatus(s, id, to.Value, d.Note, d.FromBranchId, d.ToBranchId, d.UpdateBranches)) });
+    // KLT-01a: version yalnız updateBranches=true iken kullanılır (gönderim alanları); durum geçişi
+    // zaten durum makinesiyle korunur. Gönderilmezse (eski istemci) kontrol yapılmaz.
+    return Results.Ok(new { ok = Void(() => svc.RequestOps.ChangeStatus(s, id, to.Value, d.Note, d.FromBranchId, d.ToBranchId, d.UpdateBranches,
+        d.Version > 0 ? d.Version : null)) });
 }).RequireAuthorization();
 app.MapPut("/api/request-ops/{id}/shipment", (HttpContext c, string id, RequestOpsShipmentDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.RequestOps.UpdateShipmentInfo(s, id, d.FromBranchId, d.ToBranchId, d.Note)) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.RequestOps.UpdateShipmentInfo(s, id, d.FromBranchId, d.ToBranchId, d.Note,
+        d.Version > 0 ? d.Version : null)) }) : Results.Unauthorized()).RequireAuthorization();
 
 app.MapGet("/api/requests/{id}/history", (HttpContext c, string id) =>
 {
@@ -2673,8 +2677,10 @@ record RequestItemDto(string MaterialId, decimal Quantity, string? VehicleId, st
 record RequestDto(List<RequestItemDto>? Items, string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId, string? Description, long? RequestDate, bool SubmitImmediately, string? Priority = null, long? Version = null);
 /// <summary>Talep Operasyonları durum değişikliği (Faz 2). UpdateBranches=true ise gönderen/gönderilecek şube
 /// de yazılır. İşlemin YAPILDIĞI şube istemciden alınmaz — sunucuda oturumdan belirlenir.</summary>
-record RequestOpsStatusDto(string Status, string? Note, string? FromBranchId, string? ToBranchId, bool UpdateBranches = false);
-record RequestOpsShipmentDto(string? FromBranchId, string? ToBranchId, string? Note);
+// KLT-01a: Version = düzenleme kilidi jetonu (material_requests.version); 0/eksik → kontrol yok.
+record RequestOpsStatusDto(string Status, string? Note, string? FromBranchId, string? ToBranchId, bool UpdateBranches = false,
+    long Version = 0);
+record RequestOpsShipmentDto(string? FromBranchId, string? ToBranchId, string? Note, long Version = 0);
 record RolesDto(List<string>? Roles);
 record ActiveDto(bool Active);
 record PasswordDto(string Password);

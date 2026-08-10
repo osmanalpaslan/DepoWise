@@ -194,7 +194,9 @@ else
             var err = await Api.PostAsync($"/api/request-ops/{id}/status", new
             {
                 status = _newStatus, note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
-                fromBranchId = _fromBranch, toBranchId = _toBranch, updateBranches = true
+                fromBranchId = _fromBranch, toBranchId = _toBranch, updateBranches = true,
+                // KLT-01a: gönderim alanları da yazıldığı için düzenleme kilidi jetonu gönderilir.
+                version = Num(_sel.Value, "version")
             });
             _ok = err is null;
             _msg = err ?? $"Durum güncellendi: {label}";
@@ -218,7 +220,9 @@ else
             var err = await Api.PutAsync($"/api/request-ops/{id}/shipment", new
             {
                 fromBranchId = _fromBranch, toBranchId = _toBranch,
-                note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim()
+                note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
+                // KLT-01a: düzenleme kilidi jetonu — arada başkası kaydettiyse sunucu 409 döner.
+                version = Num(_sel.Value, "version")
             });
             _ok = err is null;
             _msg = err ?? "Gönderim bilgileri kaydedildi.";
@@ -242,4 +246,8 @@ else
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";
     private static string? NullS(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
+
+    /// <summary>KLT-01a: düzenleme kilidi jetonu (version). Alan yoksa 0 → sunucu kontrol yapmaz.</summary>
+    private static long Num(JsonElement row, string key)
+        => row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : 0L;
 }
