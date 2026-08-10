@@ -226,6 +226,11 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
         var id = Guid.NewGuid().ToString("N");
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+        // B-3 (PRT-01 Grup 5, 2026-08-10): araç id'si İSTEMCİDEN gelir → firmaya ait olduğu doğrulanır.
+        // Bakım ve "ilave" akışları bu korumayı MaintenanceService.Save üzerinden ZATEN alıyor; hareket/transfer
+        // akışı ise araç id'sini doğrudan yazıyordu → yabancı araca REFERANS veren kayıt oluşabiliyordu.
+        // (Transfer'in aracı pasife alan UPDATE'i zaten firma süzgeçliydi; boşluk yalnız bu referanstaydı.)
+        if (dto.VehicleId is not null) EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
         InsertActivity(conn, tx, id, s.CompanyId, "movement", dto.MovementKind, dto.VehicleId, dto.FromLocationId,
             dto.ToLocationId, dto.OperatorId, dto.DurationDays, dto.Description, null, stockProcessed: false,
             dto.ActivityDate ?? now, operationId, now, s.OperatingBranchId);
@@ -279,7 +284,7 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
 SELECT da.id, da.activity_type, da.movement_kind, v.internal_code, v.plate,
        fb.name, tb.name, p.full_name, da.duration_days, da.description, da.activity_date, da.maintenance_id
 FROM daily_activities da
-LEFT JOIN vehicles v ON v.id = da.vehicle_id
+LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id
 LEFT JOIN personnel p ON p.id = da.operator_id
@@ -326,7 +331,7 @@ SELECT da.id AS id,
        da.operator_id AS operator_id,
        da.duration_days AS duration_days
 FROM daily_activities da
-LEFT JOIN vehicles v ON v.id = da.vehicle_id
+LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
 LEFT JOIN branches fb ON fb.id = da.from_location_id
 LEFT JOIN branches tb ON tb.id = da.to_location_id
 LEFT JOIN personnel p ON p.id = da.operator_id
@@ -631,5 +636,17 @@ VALUES(@id,@c,@at,@mk,@v,@from,@to,@op2,@dur,@desc,@mid,'daily_activity',@sp,@ad
         cmd.AddWithValue("@op", operationId);
         cmd.AddWithValue("@now", now);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>B-3: araç bu firmaya ait mi? (MaintenanceService/InspectionService ile aynı desen.)</summary>
+    private static void EnsureVehicleOwned(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
     }
 }

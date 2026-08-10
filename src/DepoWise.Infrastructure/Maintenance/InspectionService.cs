@@ -46,6 +46,11 @@ public sealed class InspectionService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+        // B-2 (PRT-01 Grup 5, 2026-08-10): araç id'si İSTEMCİDEN gelir → firmaya ait olduğu doğrulanır.
+        // Eskiden hiç kontrol yoktu: başka firmanın araç id'siyle muayene kaydı oluşturulabiliyordu
+        // (satır doğru company_id alıyordu ama yabancı araca REFERANS veriyordu). Aynı korumanın emsali:
+        // MaintenanceService:85 ve MaintenanceDefinitionService:71,192 ("yabancı araç bağlanamaz").
+        EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -80,7 +85,7 @@ VALUES(@id,@c,@v,@dt,@ld,@nd,@res,@pl,@note,@now,@now,1,0);";
         cmd.CommandText = @"
 SELECT v.internal_code, COALESCE(v.plate,''), vi.doc_type, vi.last_date, vi.next_date,
        COALESCE(vi.place,''), COALESCE(vi.result,'')
-FROM vehicle_inspections vi JOIN vehicles v ON v.id = vi.vehicle_id
+FROM vehicle_inspections vi JOIN vehicles v ON v.id = vi.vehicle_id AND v.company_id = vi.company_id
 WHERE vi.company_id=@c AND vi.is_deleted=0
 ORDER BY (vi.next_date IS NULL), vi.next_date;";
         cmd.AddWithValue("@c", s.CompanyId);
@@ -125,5 +130,17 @@ AND created_at = (SELECT MAX(created_at) FROM vehicle_inspections x
             list.Add(new InspectionAlert(r.GetString(0), r.GetString(1), nextDate, level));
         }
         return list;
+    }
+
+    /// <summary>B-2: araç bu firmaya ait mi? (MaintenanceService/MaintenanceDefinitionService ile aynı desen.)</summary>
+    private static void EnsureVehicleOwned(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
     }
 }
