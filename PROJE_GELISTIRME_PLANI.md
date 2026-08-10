@@ -10,13 +10,13 @@
 AKTİF AŞAMA:         FAZ 1 — Senkron optimizasyonu (FAZ 0 kod tarafı BİTTİ)
 AKTİF İŞ ID:         YOK — aktif kod işi yok
 AKTİF İŞ:            —
-DURUM:               ✅ SNK-02 KAPANDI (2026-08-10) — kod doğrulandı, HTTP QA yapılamadı
-                     ✅ KLT-01 KAPANDI · ✅ MLZ-01 · ❌ SNK-01 İPTAL
-SON TAMAMLANAN İŞ:   SNK-02 — Seçici senkron kadansı (daraltılmış 2a) (2026-08-10)
-SONRAKİ İŞ (ÖNERİ):  SNK-03 — Hata halinde exponential backoff (FAZ 1)
-                     ⚠️ ONAY + DETAY ANALİZ gerekli; kendiliğinden başlanmaz
+DURUM:               ✅ SNK-03 KAPANDI (2026-08-10) — kod doğrulandı, çalışma zamanı QA yapılamadı
+                     ✅ SNK-02 KAPANDI · ✅ KLT-01 KAPANDI · ✅ MLZ-01 · ❌ SNK-01 İPTAL
+SON TAMAMLANAN İŞ:   SNK-03 — Hata halinde exponential backoff (2026-08-10)
+SONRAKİ İŞ (ÖNERİ):  SNK-04 — Günlük yedeği senkron turundan ayırma (FAZ 1)
+                     ⚠️ ONAY + DETAY ANALİZ gerekli; varsayımı DOĞRULANMAMIŞ
 İPTAL (2026-08-10):  SNK-01 — koruma kodda zaten vardı (c8d3dc7, 2026-07-19)
-AÇIK DOĞRULAMA:      SNK-02 gerçek HTTP kadans ölçümü — GUI oturumu sınırı (§5)
+AÇIK DOĞRULAMA:      SNK-02 + SNK-03 çalışma zamanı/HTTP davranışı — GUI oturumu sınırı (§5)
 BEKLEYEN KARAR:      KARAR-4 (bakımda negatif stok ↔ onay) — FAZ 5'e kadar beklenebilir
                      YET-01 (yetki modeli) — FAZ 2'ye girmeden ÖNCE gerekli
 YENİ BULGU:          WEB-01 — web hata mesajlarında ham JSON (§6, ayrı iş, fazlanmadı)
@@ -460,13 +460,37 @@ korundu (parametreyle atlanıyor, dışarı taşınmadı) · push/pull/watermark
 > **HTTP kadansı "gerçek ortamda doğrulandı" olarak yazılmayacaktır** — kadans mantığı yalnız
 > **kod düzeyinde** doğrulandı. Ölçüm, kullanıcının kendi oturumunda ayrı bir tur olarak yapılabilir.
 
-**ID:** `SNK-03`
+**ID:** `SNK-03` ◄ ✅ **TAMAMLANDI (2026-08-10)**
 **Başlık:** Hata halinde exponential backoff
-**Açıklama:** Sunucu hata verirse 15 sn'de bir tekrar denemek yükü artırır; aralık kademeli açılır.
-**Neden gerekli:** Sunucu zorlanırken istemcilerin onu daha da zorlaması engellenir (§1.9).
-**Öncelik:** P1 · **Bağımlılık:** SNK-02 · **Masaüstü:** ✅ · **Migration:** ❌ · **Maliyet:** Düşük
-**Test:** Sunucu kapalıyken aralığın açıldığı, geri gelince toparladığı
-**DURUM:** `BEKLEMEDE`
+**DURUM:** ✅ `TAMAMLANDI / UYGULANDI` — **bağımlılık `SNK-02` karşılandı**
+**Öncelik:** P1 · **Masaüstü:** ✅ · **Migration:** ❌ · **API:** ❌ · **Yeni bağımlılık:** ❌
+
+**Seçilen çözüm: B2 — sınıflandırmalı backoff** (kullanıcı kararı). Geçici sunucu/ağ hatasında
+iş verisi senkron turu (`business-version` + push + pull) kademeli olarak seyreltilir.
+
+| Hata türü | Backoff |
+|---|---|
+| Taşıma/ağ/DNS/bağlantı · zaman aşımı · HTTP 5xx · HTTP 429 | ✅ **tetikler** |
+| HTTP 401 / 403 / diğer 4xx · JSON/veri hataları | ❌ **tetiklemez** (normal hata akışı) |
+| Z3 "sunucu satır atladı" | ❌ tetiklemez (kendi retry'ı var) |
+
+**Dizi:** `15 → 30 → 60 → 120 → 240 → 300 sn` · **±%20 jitter** ·
+**jitter dahil mutlak maksimum 300 sn** · **başarılı turda sıfırlanır**.
+
+**Korunanlar:** Backoff kontrolü **`SyncGate`'ten ÖNCE** (kapı tutulmaz) · manuel "Eşitle"
+**bypass** eder ve başarıda sıfırlar · login/import/personel bağlama/kapanış push'u backoff'a
+tabi değil · `authsig`, `machines/register`, `/health`, `conflicts` kadansları **değişmedi**
+(SNK-02 2a kararı korundu) · yeni timer yok · `Task.Delay` yok · push/pull/watermark/LWW değişmedi.
+
+**Değişen dosyalar (3):** `BusinessSyncPullService.cs` · `BusinessSyncPushService.cs` ·
+`ShellViewModel.cs` — toplam **+109/−7**. `tests/` **değişmedi**.
+**Build:** 0 hata · **Test:** 1057 / 1024 / 0 / 33 (regresyon yok).
+
+> ### ⚠️ DOĞRULAMA SINIRI
+> **Kod incelemesi + build/regresyon testleri ile doğrulandı; çalışma zamanı/HTTP davranışı
+> GUI/QA ortamı sınırı nedeniyle gözlenmedi.** (Sebep `SNK-02` ile aynı; ayrıca `DepoWise.Desktop`
+> test projesinde referanslı değil.) Ayrıntı:
+> [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §6.2.
 
 **ID:** `SNK-04`
 **Başlık:** Günlük yedek kontrolünü senkron turundan ayırma
@@ -918,8 +942,8 @@ KLT-01 (eksik kilitler) ──────── bağımsız
 
 SNK-01 ❌ İPTAL (koruma zaten vardı)
 SNK-02 ✅ UYGULANDI (seçici kadans 2a)
-   └─► SNK-03 (backoff)  ◄ sıradaki aday
-SNK-04 ───────────────────────── bağımsız (varsayımı doğrulanacak)
+   └─► SNK-03 ✅ UYGULANDI (sınıflandırmalı backoff)
+SNK-04 ───────────────────────── bağımsız  ◄ sıradaki aday (varsayımı doğrulanacak)
 
 PRT-01 (parite denetimi) ─────── bağımsız
    └─► PRT-02 (ad eşleme)
@@ -969,8 +993,8 @@ GNL-01 (mükerrer uyarı) ──────── bağımsız (LOG-01'e hazır 
 | 4 | ~~`KLT-01`~~ | Eksik düzenleme kilitleri — ✅ **TAMAMLANDI** (3 commit, 2 alt iş iptal) | 0 |
 | 5 | ~~`SNK-01`~~ | Değişiklik yoksa push yapma — ❌ **İPTAL** (koruma zaten vardı) | 1 |
 | 6 | ~~`SNK-02`~~ | Seçici senkron kadansı (2a) — ✅ **TAMAMLANDI** | 1 |
-| 7 | **`SNK-03`** | **Exponential backoff** ◄ SIRADAKİ (onay bekliyor) | 1 |
-| 8 | `SNK-04` | Günlük yedeği ayır | 1 |
+| 7 | ~~`SNK-03`~~ | Exponential backoff — ✅ **TAMAMLANDI** | 1 |
+| 8 | **`SNK-04`** | **Günlük yedeği ayır** ◄ SIRADAKİ (onay bekliyor) | 1 |
 | 9 | `PRT-01` | Tam parite denetimi | 1 |
 | 10 | `PRT-02` | Ekran adı eşleme | 1 |
 | 10b | **`YET-01`** | **Yetki modeli KARARI (TMZ-02 dahil)** ← FAZ 2'nin kapısı | 2 |
@@ -1095,10 +1119,14 @@ yapılmadı** (araç sınırı + kullanıcının gerçek yerel veritabanına yaz
 
 ### ⏭️ Sıradaki iş — ÖNERİ (onay bekliyor)
 
-**`SNK-03` — Hata halinde exponential backoff (FAZ 1).** Bağımlılığı (`SNK-02`) karşılandı.
-Sunucu hata verirken istemcilerin aralığı kademeli açması → sunucu zorlanırken daha da zorlanmaması.
-**Başlamadan önce:** kullanıcı onayı + `SNK-03` detay analizi (kapsam koddan yeniden çıkarılmalı —
+**`SNK-04` — Günlük yedeği senkron turundan ayırma (FAZ 1).** FAZ 1'in kalan son maddesi.
+⚠️ **Varsayımı DOĞRULANMAMIŞ:** `SNK-01` analizi sırasında `MaybeDailyBackupAsync` içinde zaten
+saatlik kısıt göründü → `SNK-01` gibi "zaten yapılmış" çıkabilir.
+**Başlamadan önce:** kullanıcı onayı + `SNK-04` detay analizi (kapsam koddan yeniden çıkarılmalı —
 plan kapsamı `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı).
+
+**`SNK-03` ✅ TAMAMLANDI (2026-08-10)** — sınıflandırmalı backoff (B2); §5'e bakınız.
+⚠️ Açık doğrulama: çalışma zamanı/HTTP davranışı GUI/QA ortamı sınırı nedeniyle gözlenmedi.
 
 **`SNK-02` ✅ TAMAMLANDI (2026-08-10)** — seçici kadans (2a); §5'e bakınız.
 ⚠️ Açık doğrulama: gerçek HTTP kadans ölçümü GUI oturumu sınırı nedeniyle yapılamadı.
@@ -1199,18 +1227,20 @@ idempotent retry · çevrimdışı kalıcılık · update rollback
 
 ## 17. SONRAKİ ADIM
 
-**`SNK-03` — Hata halinde exponential backoff (FAZ 1).** ⚠️ **ÖNERİ — onay alınmadan başlanmaz.**
+**`SNK-04` — Günlük yedeği senkron turundan ayırma (FAZ 1).** ⚠️ **ÖNERİ — onay alınmadan başlanmaz.**
 
 FAZ 0'ın kod tarafı bitti (`MLZ-01` ✅, `KLT-01` ✅). FAZ 1'de `SNK-01` **İPTAL** (koruma zaten
-mevcuttu), `SNK-02` **TAMAMLANDI** (seçici kadans 2a) → sıradaki aday **`SNK-03`**'tür;
-bağımlılığı (`SNK-02`) karşılandı ve `YET-01` kararını beklemez.
+mevcuttu), `SNK-02` **TAMAMLANDI** (seçici kadans 2a), `SNK-03` **TAMAMLANDI** (sınıflandırmalı
+backoff) → FAZ 1'in kalan son maddesi **`SNK-04`**'tür; `YET-01` kararını beklemez.
+⚠️ `SNK-04`'ün varsayımı doğrulanmamıştır (saatlik koruma zaten mevcut olabilir).
 
-**`SNK-02`'den devreden açık doğrulama:** gerçek HTTP kadans ölçümü GUI/etkileşimli oturum sınırı
-nedeniyle yapılamadı. Ayrı bir tur olarak (kullanıcının kendi oturumunda) tamamlanabilir.
+**`SNK-02` ve `SNK-03`'ten devreden açık doğrulama:** çalışma zamanı/HTTP davranışı
+GUI/etkileşimli oturum sınırı nedeniyle gözlenmedi. Ayrı bir tur olarak (kullanıcının kendi
+oturumunda) tamamlanabilir.
 
 > Kalıcı analiz kuralı: bkz. [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §12.5
 > — `version++` + `expectedVersion` yokluğu TEK BAŞINA concurrency açığı demek DEĞİLDİR.
-> Aynı disiplin `SNK-03`'te de uygulanır: **plandaki kapsam varsayımları koddan yeniden doğrulanır.**
+> Aynı disiplin `SNK-04`'te de uygulanır: **plandaki kapsam varsayımları koddan yeniden doğrulanır.**
 > Plan kapsamı `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı; `SNK-02`'de plan kapsamı
 > **kullanıcı kararıyla daraltıldı** (ADR-099 ile çelişiyordu). `SNK-01`'in özel dersi:
 > **bir madde "zaten yapılmış" olabilir** — çağrı akışını uçtan uca izle ve `git log -S` ile

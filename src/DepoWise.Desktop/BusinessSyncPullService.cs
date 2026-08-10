@@ -8,6 +8,35 @@ using DepoWise.Infrastructure.Sync;
 namespace DepoWise.Desktop;
 
 /// <summary>
+/// SNK-03 — senkron turunun son başarısızlık TÜRÜ. Backoff yalnız <see cref="Transient"/> için uygulanır.
+/// Bu ayrım olmadan (eskiden olduğu gibi) 401/403 ile 503 aynı kovaya düşer ve yetki hatası da geciktirilirdi.
+/// </summary>
+public enum SyncFailureKind
+{
+    /// <summary>Başarısızlık yok ya da hiç istek denenmedi (URL/token yok) → backoff YOK.</summary>
+    None = 0,
+    /// <summary>Geçici: ağ/DNS/bağlantı/zaman aşımı, HTTP 5xx, HTTP 429 → backoff VAR.</summary>
+    Transient,
+    /// <summary>Kalıcı: 401/403/diğer 4xx, JSON/format/veri hatası → backoff YOK (normal hata akışı).</summary>
+    Permanent,
+}
+
+/// <summary>SNK-03 — HTTP yanıtını / istisnayı backoff açısından sınıflandırır (tek yer, iki servis kullanır).</summary>
+internal static class SyncFailureClassifier
+{
+    /// <summary>5xx ve 429 geçici; 401/403 dahil diğer tüm başarısız kodlar kalıcı.</summary>
+    public static SyncFailureKind FromStatus(System.Net.HttpStatusCode status) =>
+        (int)status >= 500 || (int)status == 429 ? SyncFailureKind.Transient : SyncFailureKind.Permanent;
+
+    /// <summary>Taşıma katmanı istisnaları geçici; JSON/veri/diğer istisnalar kalıcı (tekrar denemek düzeltmez).
+    /// <c>TaskCanceledException</c> burada zaman aşımıdır (istek iptali kullanılmıyor).</summary>
+    public static SyncFailureKind FromException(Exception ex) =>
+        ex is HttpRequestException or TaskCanceledException or OperationCanceledException or System.IO.IOException
+            ? SyncFailureKind.Transient
+            : SyncFailureKind.Permanent;
+}
+
+/// <summary>
 /// İş verisi GERİ-ÇEKME (server → masaüstü): firmanın sunucudaki iş verisini çeker ve YEREL DB'ye uygular (LWW).
 /// Böylece bu makine, AYNI firmadaki DİĞER makinelerin girdiği veriyi görür (çok makineli görünürlük).
 /// Push'un simetriğidir; birlikte çalışır. NOT: stock_balances (türetilmiş) hariç tutulur — sunucu-otoriteli
@@ -17,6 +46,11 @@ public static class BusinessSyncPullService
 {
     // ⚠️ 300sn — bkz. BusinessSyncPushService (delta ile rutin çekme küçük; ilk/tam çekme büyük olabilir).
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(300) };
+
+    /// <summary>SNK-03 — son <see cref="PullAsync"/> / <see cref="GetServerVersionAsync"/> çağrısının
+    /// başarısızlık türü. Metot imzaları DEĞİŞMEDİ (5 çağıran etkilenmesin); bilgi bu özellikle taşınır.
+    /// Başarıda ve hiç istek denenmediğinde <see cref="SyncFailureKind.None"/>.</summary>
+    public static SyncFailureKind LastFailure { get; private set; } = SyncFailureKind.None;
     // Senkron 2b sonrası: stock_balances artık SUNUCU-OTORİTELİ (push sonrası sunucu hareketlerden hesaplar) →
     // geri-çekmede uygulanır (LWW; sunucunun birleşik/doğru bakiyesi gelir). Hariç tablo kalmadı.
     private static readonly System.Collections.Generic.HashSet<string>? Exclude = null;
@@ -31,6 +65,7 @@ public static class BusinessSyncPullService
     /// <returns>true = başarıyla çekilip uygulandı (kabuk pull imlecini o zaman ilerletir); false = ulaşılamadı/hata.</returns>
     public static async Task<bool> PullAsync(long sinceVersion = 0)
     {
+        LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın (istek denenmeden dönülebilir)
         var url = ResolveServerUrl();
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return false;
@@ -43,8 +78,10 @@ public static class BusinessSyncPullService
             using var req = new HttpRequestMessage(HttpMethod.Get, pullUrl);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var resp = await _http.SendAsync(req);
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized) { await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
-            if (!resp.IsSuccessStatusCode) return false;
+            // 401: token yenilenir; KALICI sayılır → backoff tetiklemez (yetki akışı normal seyrinde kalır).
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            { LastFailure = SyncFailureKind.Permanent; await ServerAuthClient.EnsureFreshTokenAsync(); return false; }
+            if (!resp.IsSuccessStatusCode) { LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode); return false; }
             var json = await resp.Content.ReadAsStringAsync();
             // Trusted sunucu verisi → yerele uygula (yazma-yetkisi filtresi yok); stock_balances hariç.
             // Ağır JSON parse + upsert döngüsü ARKA PLANDA (arayüzü bloklamasın).
@@ -55,15 +92,18 @@ public static class BusinessSyncPullService
             });
             // Z5: son BAŞARILI çekme zamanı (senkron durum paneli gösterir).
             try { DesktopServices.Settings.Set(companyId!, "sync_last_pull_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString(), DesktopServices.Session?.UserId ?? ""); } catch { }
+            LastFailure = SyncFailureKind.None;
             return true;
         }
-        catch { return false; /* sessiz — ağ dönünce sonraki tur tekrar dener */ }
+        // Taşıma hatası → Transient (backoff); JSON/veri hatası → Permanent (tekrar denemek düzeltmez).
+        catch (Exception ex) { LastFailure = SyncFailureClassifier.FromException(ex); return false; /* sessiz — ağ dönünce sonraki tur tekrar dener */ }
     }
 
     /// <summary>Sunucudaki firmanın iş verisi SÜRÜMÜ (en büyük updated_at) — ucuz tek sayı. Tam snapshot
     /// çekmeden "değişti mi?" için (kullanıcı isteği 2026-07-19: anlık ama bant israfsız). null = ulaşılamadı.</summary>
     public static async Task<long?> GetServerVersionAsync()
     {
+        LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın
         var url = ResolveServerUrl();
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return null;
@@ -75,11 +115,12 @@ public static class BusinessSyncPullService
             using var req = new HttpRequestMessage(HttpMethod.Get, url!.TrimEnd('/') + "/api/sync/business-version");
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             using var resp = await _http.SendAsync(req);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode) { LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode); return null; }
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            LastFailure = SyncFailureKind.None;
             return doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : (long?)null;
         }
-        catch { return null; }
+        catch (Exception ex) { LastFailure = SyncFailureClassifier.FromException(ex); return null; }
     }
 
     private static string? ResolveServerUrl()

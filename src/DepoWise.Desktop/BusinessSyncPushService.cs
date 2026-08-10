@@ -29,8 +29,14 @@ public static class BusinessSyncPushService
     /// _connTimer.Tick) ve "Eşitle" butonu bu metodu ARAYÜZ İŞ PARÇACIĞININ devamı olarak çağırıyordu →
     /// büyük firmada (binlerce kayıt) bu senkron iş arayüzü DONDURUYORDU. <see cref="Task.Run"/> ile arka
     /// plana alındı — kim çağırırsa çağırsın arayüz artık bloklanmaz.</summary>
+    /// <summary>SNK-03 — son push denemesinin başarısızlık TÜRÜ (backoff kararı için).
+    /// <see cref="LastPushFailed"/> ve <see cref="LastPushResult"/>.HasProblem (Z3) ayrımı DEĞİŞMEDİ:
+    /// Z3 "sunucu yanıt verdi ama satır atladı" durumudur ve kendi retry'ını yürütür → backoff'a girmez.</summary>
+    public static SyncFailureKind LastFailure { get; private set; } = SyncFailureKind.None;
+
     public static async Task PushAsync()
     {
+        LastFailure = SyncFailureKind.None;   // SNK-03: bayat değer kalmasın (gönderilecek yoksa çıkılabilir)
         var url = ResolveServerUrl();
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(companyId)) return;
@@ -112,10 +118,11 @@ public static class BusinessSyncPushService
             else
             {
                 LastPushFailed = true;
+                LastFailure = SyncFailureClassifier.FromStatus(resp.StatusCode);   // SNK-03: 5xx/429 → backoff, 4xx → hayır
                 SyncLog.Write("PUSH reddedildi", $"HTTP {(int)resp.StatusCode} {resp.StatusCode}; gövde: {Truncate(bodyText, 500)}");
             }
         }
-        catch (Exception ex) { LastPushFailed = true; SyncLog.Write("PUSH hata", ex.Message); /* sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
+        catch (Exception ex) { LastPushFailed = true; LastFailure = SyncFailureClassifier.FromException(ex); SyncLog.Write("PUSH hata", ex.Message); /* sync best-effort; ağ dönünce sonraki tur tekrar dener */ }
     }
 
     /// <summary>Sunucunun push yanıtı: kaç satır uygulandı / atlandı + hata mesajları (max 20). Z2 (2026-07-19):

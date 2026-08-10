@@ -180,6 +180,9 @@ public sealed partial class ShellViewModel : ViewModelBase
             RefreshSyncWarning(); // Z2: sunucunun atladığı kayıt varsa rozeti güncelle
             var hasSkips = BusinessSyncPushService.LastPushResult?.HasProblem == true;
             var allOk = ok && !BusinessSyncPushService.LastPushFailed && !hasSkips;
+            // SNK-03: manuel "Eşitle" backoff'a TABİ DEĞİLDİR (bu yol MaybePushBusinessAsync'ten geçmez);
+            // başarılı olduysa sunucu geri gelmiş demektir → otomatik tur da normal kadansa dönsün.
+            if (allOk) ResetSyncBackoff();
             await ConfirmService.AskAsync(
                 (ok && !BusinessSyncPushService.LastPushFailed && !hasSkips) ? "Eşitleme tamamlandı. Tanımlar ve diğer makinelerin verileri güncellendi." :
                 BusinessSyncPushService.LastPushFailed ? "Veri gönderimi başarısız oldu (sunucuya ulaşılamadı ya da zaman aşımı). İnternet bağlantısını kontrol edip tekrar deneyin." :
@@ -240,6 +243,39 @@ public sealed partial class ShellViewModel : ViewModelBase
         catch { }
     }
 
+    // ── SNK-03 (2026-08-10): GEÇİCİ hata sonrası üstel geri çekilme (exponential backoff). ──
+    // Yalnız İŞ VERİSİ senkron turu (business-version + push + pull) için; uç bazında DEĞİL, tur bazında
+    // (üçü aynı sunucuya, aynı SyncGate bloğunda, sıralı gider → birlikte başarısız olurlar).
+    // authsig / machines/register / health SNK-02 kadanslarında KALIR (güvenlik ve rozet gecikmemeli).
+    // Task.Delay YOK, yeni timer YOK: yalnız "sonraki deneme zamanı" damgası — bekleme sırasında hiçbir
+    // kilit tutulmaz. Bellek içi: uygulama kapanınca sıfırlanması DOĞRU davranıştır.
+    private const int SyncBackoffBaseSeconds = 15;    // normal kadans = ilk adım
+    private const int SyncBackoffMaxSeconds = 300;    // SNK-03 için belirlenen maksimum otomatik senkron
+                                                      // backoff süresi (jitter dahil ASLA aşılmaz)
+    private static readonly Random _syncJitter = new();
+    private int _syncFailStreak;
+    private DateTime _syncNextAttemptUtc = DateTime.MinValue;
+
+    /// <summary>GEÇİCİ hata (ağ/zaman aşımı/5xx/429): 15 → 30 → 60 → 120 → 240 → 300 sn (tavan), ±%20 jitter.
+    /// Jitter, birden çok makinenin aynı anda toparlanıp sunucuya dalga hâlinde yüklenmesini önler.</summary>
+    private void NoteSyncTransientFailure()
+    {
+        _syncFailStreak++;
+        var seconds = Math.Min(SyncBackoffBaseSeconds * Math.Pow(2, _syncFailStreak - 1), SyncBackoffMaxSeconds);
+        // Jitter ±%20; tavan jitter'dan SONRA da uygulanır → 300 sn hiçbir durumda aşılmaz
+        // (tavan seviyesinde jitter yalnız aşağı yönlü çalışır: 240–300 sn, dalga önleme korunur).
+        var jittered = Math.Min(seconds * (0.8 + _syncJitter.NextDouble() * 0.4), SyncBackoffMaxSeconds);
+        _syncNextAttemptUtc = DateTime.UtcNow.AddSeconds(jittered);
+    }
+
+    /// <summary>Başarılı senkron turu → normal 15 sn kadansa DÖN (en geç bir sonraki tick'te).
+    /// Manuel "Eşitle" başarılı olduğunda da çağrılır.</summary>
+    private void ResetSyncBackoff()
+    {
+        _syncFailStreak = 0;
+        _syncNextAttemptUtc = DateTime.MinValue;
+    }
+
     /// <param name="checkConflicts">
     /// SNK-02: çakışma bildirimi YAVAŞ gruptadır (60 sn). Bu çağrı <see cref="SyncGate"/>'in İÇİNDE
     /// kalmalı (dışarı taşımak gating davranışını değiştirirdi) → dışarı taşımak yerine parametreyle
@@ -249,6 +285,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     {
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(companyId)) return;
+        // SNK-03: geçici hata sonrası geri çekilme. Kontrol SyncGate'ten ÖNCE → bekleme sırasında kapı
+        // TUTULMAZ; manuel "Eşitle" (EnterAsync) ve özel push'lar bu koddan hiç geçmediği için serbesttir.
+        if (DateTime.UtcNow < _syncNextAttemptUtc) return;
         EnsureSyncCursorLoaded();
         // Z1: ORTAK kapı. Manuel Eşitle / Yereli Sıfırla / giriş senkronu çalışıyorsa bu tur ATLANIR
         // (eskiden ayrı bayrak kullanıldığı için reset ile tick aynı anda çalışabiliyordu → yarış).
@@ -256,13 +295,22 @@ public sealed partial class ShellViewModel : ViewModelBase
         try
         {
             var serverV = await BusinessSyncPullService.GetServerVersionAsync();
-            if (serverV is not { } sv) return;         // çevrimdışı → sessiz
+            if (serverV is not { } sv)
+            {
+                // SNK-03: yalnız GEÇİCİ hatada geri çekil. Kalıcı (401/403/4xx/JSON) ya da hiç istek
+                // denenmediyse (token/URL yok) kadans bozulmaz — normal hata akışı sürer.
+                if (BusinessSyncPullService.LastFailure == SyncFailureKind.Transient) NoteSyncTransientFailure();
+                return;                                // çevrimdışı → sessiz
+            }
             // PUSH: bu makinenin GÖNDERİLMEMİŞ yerel değişikliklerini gönder. Gönderilecekler PushAsync içinde,
             // bu makinenin KENDİ "son gönderilen watermark"ına göre belirlenir (sunucu global max'ına BAKILMAZ —
             // Z4 kök neden: başka tablo/makinenin zaman damgası artık bu makinenin kaydını atlatamaz).
             await BusinessSyncPushService.PushAsync();
             // Z2: push sonucunda sunucu kayıt atladıysa uyarı rozetini güncelle (UI thread).
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RefreshSyncWarning);
+            // SNK-03: turun GEÇİCİ hata gördüğü an. (Z3'ün "skipped satır" durumu buraya GİRMEZ —
+            // sunucu yanıt vermiştir, kendi retry'ı vardır; backoff konusu değildir.)
+            var transient = BusinessSyncPushService.LastFailure == SyncFailureKind.Transient;
             // PULL DELTA: sunucuda en son uyguladığımızdan yeni varsa çek + açık ekranı yenile.
             if (sv > _lastServerVersionPulled)
             {
@@ -273,7 +321,13 @@ public sealed partial class ShellViewModel : ViewModelBase
                     try { DesktopServices.Settings.Set(companyId!, "sync_pull_cursor", sv.ToString(), _session.UserId); } catch { }
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
                 }
+                else if (BusinessSyncPullService.LastFailure == SyncFailureKind.Transient) transient = true;
             }
+            // SNK-03: geçici hata varsa geri çekil; yoksa tur BAŞARILI sayılır → normal 15 sn kadansa dön.
+            // Kalıcı hatada (401/403/4xx) mevcut durum korunur: ne ilerletilir ne sıfırlanır.
+            if (transient) NoteSyncTransientFailure();
+            else if (BusinessSyncPushService.LastFailure == SyncFailureKind.None
+                  && BusinessSyncPullService.LastFailure == SyncFailureKind.None) ResetSyncBackoff();
             if (checkConflicts) await WarnConflictsAsync();   // SNK-02: yavaş grup (60 sn)
         }
         catch { }

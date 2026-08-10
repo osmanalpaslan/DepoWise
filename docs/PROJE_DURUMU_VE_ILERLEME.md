@@ -75,7 +75,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | Faz | İçerik | Durum |
 |---|---|---|
 | **FAZ 0** | Canlıya geçiş öncesi zorunlu düzeltmeler (GUV-01, DOG-01, MLZ-01, KLT-01) | 🔵 **AKTİF** — kod işleri (MLZ-01 ✅, KLT-01 ✅) **bitti**; kalan iki madde **kullanıcı aksiyonu** (GUV-01, DOG-01) |
-| FAZ 1 | Senkron optimizasyonu + parite (SNK-01…04, PRT-01, PRT-02) | 🔵 **AKTİF** — SNK-01 ❌ iptal · SNK-02 ✅ · sırada SNK-03 |
+| FAZ 1 | Senkron optimizasyonu + parite (SNK-01…04, PRT-01, PRT-02) | 🔵 **AKTİF** — SNK-01 ❌ iptal · SNK-02 ✅ · SNK-03 ✅ · sırada SNK-04 |
 | FAZ 2 | Yetki ağacı (YET-01 kapı → BRM-01, YTK-01…04) | BEKLEMEDE |
 | FAZ 3 | Gerçek kayıt kilidi (KLT-02, KLT-03, KLT-04) | BEKLEMEDE |
 | FAZ 4 | Depo bazlı stok (STK-01…07) | BEKLEMEDE |
@@ -103,7 +103,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | **KLT-01d** | **`MaterialTemplateService.Update`** *(daraltıldı)* | 0 | **TAMAMLANDI** | P2 | — | ✅ | ✅ | ✅ 1057/1024/0/33 **+ gerçek HTTP/web QA** | `4f3524a` |
 | ~~SNK-01~~ | ~~Değişiklik yoksa push yapma~~ | 1 | ❌ **İPTAL** *(2026-08-10)* — koruma zaten mevcut (`c8d3dc7`) | — | — | ✅ | — | — | — |
 | **SNK-02** | Seçici kadans *(daraltıldı — 2a)* | 1 | ✅ **UYGULANDI / KOD DOĞRULANDI** — ⚠️ gerçek HTTP QA yapılamadı | P1 | — | ✅ | ✅ | ✅ 1057/1024/0/33 · ⚠️ kadans **ölçülmedi** | `0501729` |
-| **SNK-03** | Hata halinde exponential backoff | 1 | **BEKLEMEDE** — sıradaki aday | P1 | SNK-02 ✅ | kısmi | ❌ | ❌ | — |
+| **SNK-03** | Hata halinde exponential backoff | 1 | ✅ **TAMAMLANDI / UYGULANDI** — ⚠️ çalışma zamanı QA yapılamadı | P1 | SNK-02 ✅ | ✅ | ✅ | ✅ 1057/1024/0/33 | *(bu commit)* |
 | SNK-04 | Günlük yedeği senkron turundan ayırma | 1 | BEKLEMEDE — ⚠️ varsayım **doğrulanacak** (saatlik koruma zaten var olabilir) | P2 | — | kısmi | ❌ | ❌ | — |
 | PRT-01 | Tam ekran parite denetimi | 1 | ANALİZ BEKLİYOR | P1 | — | ❌ | ❌ | ❌ | — |
 | PRT-02 | Ekran adı eşleme | 1 | BEKLEMEDE | P2 | PRT-01 | ❌ | ❌ | ❌ | — |
@@ -136,6 +136,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | **KLT-01a** — Gönderim bilgilerinde düzenleme kilidi | **`ef905d6`** | `UpdateShipmentInfo` üç alanı körlemesine yazıyordu → `material_requests.version` jetonu eklendi. `ChangeStatus` durum geçişine kontrol EKLENMEDİ (durum makinesi zaten koruyor; regresyon testi eklendi). `updateBranches:true` tek UPDATE olduğu için tamamı kontrole tabi. 4 dosya + 1 yeni test (13 test). Migration yok. | ❌ |
 | **KLT-01d** — Şablon güncellemede düzenleme kilidi | **`4f3524a`** | `MaterialTemplateService.Update` 12 alanı körlemesine yazıyordu → `material_templates.version` jetonu eklendi. Çakışmada `tx.Commit()` çağrılmıyor → ne alanlar ne **audit kaydı** yazılıyor. 4 kod + 1 yeni test dosyası (11 test), +340/−12 satır. Kapsam daraltıldı: `PersonnelTitleService` ve `CompanyService` **çıkarıldı**. `material_templates` senkron listesinde **değil** → LWW politikasıyla çelişmiyor. Migration yok. | ❌ |
 | ✅ **KLT-01 KAPANIŞI** | — | Ana iş **tamamlandı** (aşağıda §6). 3 alt iş bitti, 2'si gerekçeli iptal. Kapanış doğrulaması sırasında **hiçbir kod dosyası değiştirilmedi**. | ❌ |
+| **SNK-03** — Hata halinde exponential backoff | *(bu commit)* | Geçici sunucu/ağ hatasında iş verisi senkron turu kademeli olarak seyreltiliyor (15→30→60→120→240→300 sn, ±%20 jitter, jitter dahil **300 sn asla aşılmaz**). Backoff **yalnız geçici** hatalarda: taşıma/ağ, zaman aşımı, 5xx, 429. **401/403/diğer 4xx ve JSON/veri hataları backoff tetiklemez.** Başarılı turda sıfırlanır. Kontrol `SyncGate`'ten **önce** → kapı tutulmaz, manuel "Eşitle" bypass eder. `authsig`/`machines/register`/`/health` kadansları **değişmedi**. 3 dosya, +109/−7. Migration/API/`.csproj`/yeni bağımlılık **yok**, `tests/` **değişmedi**. ⚠️ Çalışma zamanı/HTTP davranışı **gözlenmedi** (aşağıya bakınız). | ❌ |
 | **SNK-02** — Seçici senkron kadansı *(daraltılmış 2a)* | **`0501729`** | Tek dosya (`ShellViewModel.cs`, +33/−3). Mevcut 15 sn'lik timer'a **tick sayacı** eklendi; gecikmeye dayanıklı iki uç 60 sn'ye alındı. **Yeni timer yok, aktivite takibi yok, `SyncGate` değişmedi, veri yolu (push/pull/watermark/LWW) değişmedi.** Migration yok. ⚠️ **Gerçek HTTP kadans ölçümü YAPILAMADI** (aşağıya bakınız). | ❌ |
 
 **Bu plandan önce tamamlananlar:** Tasarım paketi (FAZ 1-9 web + M1-M5 masaüstü) — yayınlandı,
@@ -247,6 +248,51 @@ yerel API logundaki zaman damgalarından kadans ölçülebilir. Ayrı bir tur ol
 
 ---
 
+## 6.2 ✅ `SNK-03` — KAPANDI (2026-08-10)
+
+**Durum: `TAMAMLANDI / UYGULANDI`** · **Bağımlılık `SNK-02` karşılandı.**
+
+Geçici sunucu/ağ hatasında iş verisi senkron turu (`business-version` + push + pull) kademeli
+olarak seyreltilir. Karar: **B2 — sınıflandırmalı backoff** (kullanıcı kararı).
+
+**Backoff yalnız GEÇİCİ hatalarda devreye girer:**
+
+| Hata | Backoff |
+|---|---|
+| Taşıma/ağ/DNS/bağlantı | ✅ |
+| Zaman aşımı | ✅ |
+| HTTP 5xx | ✅ |
+| HTTP 429 | ✅ |
+| **HTTP 401 / 403 / diğer 4xx** | ❌ **tetiklemez** |
+| **JSON / veri (deserialization) hataları** | ❌ **tetiklemez** |
+| Z3 "sunucu satır atladı" durumu | ❌ tetiklemez (kendi retry'ı var) |
+
+**Backoff dizisi:** `15 → 30 → 60 → 120 → 240 → 300 sn` · **±%20 jitter** ·
+**jitter dahil mutlak maksimum 300 sn** (tavan jitter'dan sonra da uygulanır) ·
+**başarılı senkron turundan sonra sıfırlanır** (en geç bir sonraki tick'te 15 sn kadansa dönülür).
+
+**Mimari kurallar korundu:** Backoff kontrolü **`SyncGate`'ten ÖNCE** → bekleme sırasında kapı
+tutulmaz · manuel "Eşitle" backoff'u **bypass eder** (ayrı yol) ve başarıda sıfırlar ·
+login / import / personel bağlama / kapanış push'u backoff'a **tabi değil** ·
+`authsig`, `machines/register`, `/health` ve `conflicts` kadansları **değiştirilmedi** (SNK-02 2a
+kararı korundu) · yeni timer yok · `Task.Delay` yok · push/pull/watermark/LWW mantığı değişmedi.
+
+**Değişen dosyalar (3):** `BusinessSyncPullService.cs` (`SyncFailureKind` + sınıflandırıcı +
+`LastFailure`) · `BusinessSyncPushService.cs` (`LastFailure`; `LastPushFailed` ve Z3 ayrımı
+korundu) · `ShellViewModel.cs` (backoff durumu + gate öncesi kontrol + reset).
+Toplam **+109/−7**. **Migration / API / `.csproj` / yeni bağımlılık YOK. `tests/` değişmedi.**
+
+**Build/test:** 0 hata · **1057 toplam / 1024 başarılı / 0 başarısız / 33 atlanan** (regresyon yok).
+
+### ⚠️ DOĞRULAMA SINIRI
+
+**Kod incelemesi + build/regresyon testleri ile doğrulandı; çalışma zamanı/HTTP davranışı
+GUI/QA ortamı sınırı nedeniyle gözlenmedi.** (Sebep `SNK-02` §6.1 ile aynı: kadansı çalıştıran
+`ShellViewModel` yalnız girişten sonra başlıyor, Avalonia giriş penceresi geliştirme ortamından
+görüntülenemiyor; ayrıca `DepoWise.Desktop` test projesinde referanslı değil.)
+
+---
+
 ## 7. SIRADAKİ İŞ
 
 **⏳ KULLANICI KARARI BEKLİYOR — kod işi başlatılmadı.**
@@ -256,11 +302,13 @@ kullanıcı aksiyonudur, Claude tamamlayamaz.
 
 **`SNK-01` analiz edildi ve İPTAL edildi (2026-08-10)** — koruma kodda zaten vardı (§13).
 **`SNK-02` uygulandı ve kapandı (2026-08-10)** — bkz. §6.1 (HTTP QA doğrulama sınırı dahil).
+**`SNK-03` uygulandı ve kapandı (2026-08-10)** — bkz. §6.2.
 
-**Sıradaki aday: `SNK-03` — hata halinde exponential backoff.**
-Bağımlılığı (`SNK-02`) karşılandı. Sunucu hata verirken istemcilerin onu daha da zorlamasını önler.
+**Sıradaki aday: `SNK-04` — günlük yedeği senkron turundan ayırma.**
+⚠️ Bu maddenin varsayımı **doğrulanmamıştır**: `SNK-01` analizi sırasında `MaybeDailyBackupAsync`
+içinde **zaten saatlik kısıt** göründü — `SNK-01` gibi "zaten yapılmış" çıkabilir.
 
-**Başlamadan önce gereken:** kullanıcı onayı + `SNK-03` için **detay analiz** (kapsam koddan
+**Başlamadan önce gereken:** kullanıcı onayı + `SNK-04` için **detay analiz** (kapsam koddan
 yeniden çıkarılmalı — plan varsayımları `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı; bkz.
 §12.5 ve §13'ün altındaki kalıcı ders).
 
@@ -275,7 +323,9 @@ yeniden çıkarılmalı — plan varsayımları `KLT-01`'de üç, `SNK-01`'de bi
    ↓
 ✅ SNK-02 UYGULANDI (seçici kadans 2a) — ⚠️ gerçek HTTP QA yapılamadı (§6.1)
    ↓
-SNK-03 → SNK-04  (senkron optimizasyonu)  ◄ SIRADAKİ ADAY: SNK-03
+✅ SNK-03 UYGULANDI (sınıflandırmalı backoff) — ⚠️ çalışma zamanı QA yapılamadı (§6.2)
+   ↓
+SNK-04  (senkron optimizasyonu)  ◄ SIRADAKİ ADAY: SNK-04 (varsayımı doğrulanacak)
    ↓
 PRT-01/02  (parite denetimi)
    ↓
