@@ -105,7 +105,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | **SNK-02** | Seçici kadans *(daraltıldı — 2a)* | 1 | ✅ **UYGULANDI / KOD DOĞRULANDI** — ⚠️ gerçek HTTP QA yapılamadı | P1 | — | ✅ | ✅ | ✅ 1057/1024/0/33 · ⚠️ kadans **ölçülmedi** | `0501729` |
 | **SNK-03** | Hata halinde exponential backoff | 1 | ✅ **TAMAMLANDI / UYGULANDI** — ⚠️ çalışma zamanı QA yapılamadı | P1 | SNK-02 ✅ | ✅ | ✅ | ✅ 1057/1024/0/33 | *(bu commit)* |
 | ~~SNK-04~~ | ~~Günlük yedeği senkron turundan ayırma~~ | 1 | ❌ **ZATEN YAPILMIŞ / İPTAL** *(2026-08-10)* — saatlik koruma `b2604de` ile mevcut | — | — | ✅ | — | — | — |
-| **PRT-01** | Tam ekran parite denetimi | 1 | 🔵 **DEVAM EDİYOR** — Grup 1 (stok) ✅, Grup 2 + 2b ✅, **Grup 3 (bakım+yakıt) ✅**, kalan Grup 4/5/6 | P1 | — | ✅ | kısmi | ✅ 1090/1057/0/33 | Grup 3: *(bu commit)* |
+| **PRT-01** | Tam ekran parite denetimi | 1 | 🔵 **DEVAM EDİYOR** — Grup 1 (stok) ✅, Grup 2 + 2b ✅, Grup 3 (bakım+yakıt) ✅, **Grup 4 (talepler) ✅**, kalan Grup 5/6 | P1 | — | ✅ | kısmi | ✅ 1108/1075/0/33 | Grup 3: `00f712a` · Grup 4: `d5d601d` |
 | PRT-02 | Ekran adı eşleme | 1 | BEKLEMEDE | P2 | PRT-01 | ❌ | ❌ | ❌ | — |
 | **YET-01** | **Yetki modeli KARARI** | 2 | **KARAR BEKLİYOR** | P1 | — | ✅ | ❌ | ❌ | — |
 | TMZ-02 | BranchService + user_scopes | 2 | ERTELENDİ→YET-01 | P1 | YET-01 | ✅ | ❌ | ❌ | — |
@@ -122,6 +122,9 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | TST-01 | 33 atlanan test | 6 | ANALİZ TAMAM | P2 | — | ✅ | ❌ | ❌ | — |
 | TMZ-01 | ListColumns çift kopya | 6 | BEKLEMEDE | P2 | — | ✅ | ❌ | ❌ | — |
 | **WEB-01** | Web hata mesajlarında ham JSON *(yeni bulgu)* | — | **FAZLANMADI** | P2 | — | ✅ | ❌ | ❌ | — |
+| **SNK-05** | **Senkron LWW talebin ONAY DURUMUNU eziyor** *(PRT-01 Grup 4'te bulundu)* | — | **KARAR BEKLİYOR** *(ürün kararı: çevrimdışı onay sunucuya yansısın mı?)* | P1 | — | ✅ | ❌ | ❌ | — |
+| **WEB-02** | **Web'de şube kapsamı (`BranchScope`) hiç çalışmıyor** *(PRT-01 Grup 4'te bulundu)* | — | **FAZLANMADI** | P1 | — | ✅ | ❌ | ❌ | — |
+| **TLP-B5** | Web talep PDF'inde firma logosu yok *(sunucuda logo kaynağı yok)* | — | **FAZLANMADI** | P3 | sunucu dosya depolama | ✅ | ❌ | ❌ | — |
 
 ---
 
@@ -567,10 +570,84 @@ diğer ekranlardaki sabit gerekçe (`StockEntryViewModel.cs:508`, `Stock.razor:4
 
 ---
 
-**Sıradaki aday: PRT-01 Grup 4 — önce ANALİZ.**
-*(Grup 1 stok ✅ · Grup 2 malzemeler ✅ · Grup 2b şablonlar ✅ · Grup 3 bakım+yakıt ✅.)*
-**Grup 4 henüz analiz edilmedi** — Grup 2b ve Grup 3'te olduğu gibi ayrı analiz aşaması olarak yürütülecek;
-kapsam plandan değil **koddan** çıkarılır.
+### ✅ `PRT-01 GRUP 4 — TALEPLER` (2026-08-10) — commit **`d5d601d`**
+
+**Kapsam (koddan):** plan yalnız *"4 Talepler"* diyordu. Gerçek kapsam **2.993 satır**: `RequestService` ·
+`RequestOperationsService` · `RequestPdfService` · `Requests.razor` · `RequestOperations.razor` ·
+`RequestsViewModel`/`View` · `RequestOperationsViewModel`/`View` · 13 API ucu · 3 tablo.
+**Grup 4a (Form + Onaylama)** denetlendi; **4b (Operasyonlar)** `KLT-01a`'da sertleştirildiği için
+**dokunulmadı**.
+
+**Ürün kararları (kullanıcı):**
+
+| Karar | Sonuç |
+|---|---|
+| **K1** — öncelik alanı | ✅ **UYGULA** |
+| **K2** — sunucu tarafı filtre/arama/limit | ✅ **UYGULA** (geriye uyumlu) |
+| **K3** — ret/iptal gerekçeleri | ✅ **UYGULA** (Grup 3 emsali) |
+| **K4** — LWW/onay senkron sorunu | ❌ **KAPSAM DIŞI** — ayrı iş |
+| **K5** — taslak akışı | **B** — ölü UI/komut temizliği |
+| **K6** — web PDF logosu | araştır + uygunsa → **uygulanamadı** |
+| **K7** — kapsam | `B-1`…`B-6` |
+
+**Uygulananlar:**
+
+| # | İş | Sonuç |
+|---|---|---|
+| **B-1** | Durum/arama/limit **sunucuya ulaşıyor**; web istemci tarafı süzmeyi bıraktı | ✅ |
+| **B-2** | **Öncelik seçici** web + masaüstü (ortak katalog → aynı seçenekler) | ✅ |
+| **B-3** | API'nin boş ret gerekçesini `"Reddedildi"` yapması kaldırıldı → **400** | ✅ |
+| **B-4** | **Gerçek iptal gerekçesi** (web + masaüstü + API); boş → **400** | ✅ |
+| **B-5** | Web PDF logosu | ⚪ **UYGULANAMADI → teknik borç** |
+| **B-6** | Ölü **taslak** akışı temizlendi | ✅ |
+
+> ⚠️ **B-1'de kusurun gerçek yeri:** uç parametresizdi → en yeni **200** kayıt dönüyor, web bunun
+> *içinde* süzüyordu. 200'den fazla talebi olan firmada **eski talepler web'de hiç bulunamıyordu**.
+> Masaüstü aynı parametreleri servise **zaten** geçiyordu; eksik olan **yalnız HTTP hattıydı**.
+
+> ⚠️ **B-2'de taşıma zinciri:** `GetForEdit` önceliği döndürmüyordu → seçici eklenince düzenlemede
+> öncelik **sıfırlanacaktı**. `RequestEditData.PriorityDb` eklenerek zincir tamamlandı (Grup 3'teki
+> `Version` taşıma zincirinin aynısı). Ayrıca **"Talep Onaylama" sekmesi** artık sunucudan
+> `status=pending` ister — aynı `_rows`'u paylaştığı için sunucu tarafı süzme onu bozacaktı.
+> Her iki ek de **keyfi genişletme değil**, kendi değişikliğimizin doğru çalışması için zorunluydu.
+
+**B-5 neden uygulanmadı:** masaüstü logoyu `app_settings`'te (`requests.company_logo`) **yerel dosya
+yolu** olarak tutuyor · `app_settings` **senkron tablo listesinde değil** · sunucuda logo deposu/ucu
+**yok**. Güvenilir sunucu kaynağı olmadığı için (K6) logo sistemi **icat edilmedi** → teknik borç.
+
+**Testler:** `ApiGroup4Tests` **+18** (gerçek HTTP: filtre/arama/limit · geçersiz durum 400 · tenant
+izolasyonu · öncelik kaydı/varsayılanı/düzenlemede korunması · boş ret/iptal 400 · gerçek gerekçeler
+geçmişte · başka firmanın talebi 403). Toplam **1108 / 1075 / 0 / 33**. Build **0 hata, yeni uyarı yok**.
+**Migration YOK, bağımlılık değişikliği YOK.**
+> **Test düzeltmesi:** `B1_Tenant_Izolasyonu` ilk koşuda 403 ile düştü — **üretim kodu doğruydu**
+> (`EnsureMaterialOwned`); **test** düzeltildi.
+
+**Gerçek tarayıcı/HTTP QA (izole ortam, canlıya sıfır istek — 281 yerel istek):** 211 kayıt kurulup
+hedef talebin 200'lük sayfada **olmadığı**, aramayla **bulunduğu** doğrulandı · geçersiz durum 400 ·
+limit ve üst sınır · öncelik seçici ve seçenekleri (`Normal/Yüksek/Acil/Kritik`) · iptalde boş gerekçe
+**istek göndermedi**, gerçek gerekçe veritabanına yazıldı (`"Kullanıcı iptali"` **0 kayıt**) ·
+durum filtresinde "Taslak" yok.
+
+⚠️ **Masaüstü GUI etkileşimi GÖZLEMLENMEDİ** (Avalonia otomasyon sınırı) — yeni öncelik açılır listesi
+ve iptal gerekçesi penceresi **elle kontrol edilmeli**.
+⚠️ **B-2'nin web formundan uçtan uca oluşturma turu tarayıcıda tamamlanamadı** (MudBlazor otomatik
+tamamlamayla kalem ekleme sentetik etkileşimle oturmadı); kaydetme zinciri **API testleriyle**
+kanıtlandı — "tarayıcıda uçtan uca kaydedildi" **denmiyor**.
+
+**Grup 4'te KAPSAM DIŞI bırakılanlar:** `B-7` (senkron LWW onay durumunu eziyor — **ayrı iş**) ·
+`B-8` (web'de `BranchScope` etkisiz — **ayrı iş**) · `B-9` UPDATE `company_id` savunma derinliği ·
+`B-10` `request_status_history` firma kolonu · `B-11` kalem notu · `B-12` detay uçlarında `is_deleted` ·
+`B-13` doc-no yarışı hata davranışı · `CreateIssueFromRequest` UI bağlantısı · Talep Operasyonları.
+
+**Ayrıntılı QA raporu:** [`docs/tests/Talepler_Test_Report.md`](tests/Talepler_Test_Report.md)
+
+---
+
+**Sıradaki aday: PRT-01 Grup 5 (Araç / Muayene / Personel / Günlük) — önce ANALİZ.**
+*(Grup 1 stok ✅ · Grup 2 malzemeler ✅ · Grup 2b şablonlar ✅ · Grup 3 bakım+yakıt ✅ · Grup 4 talepler ✅.)*
+**Grup 5 henüz analiz edilmedi** — Grup 2b, 3 ve 4'te olduğu gibi ayrı analiz aşaması olarak yürütülecek;
+kapsam plandan değil **koddan** çıkarılır. Grup 5'te ayrıca `ARC-01` (`Vehicles.razor`'daki ölü `EditNav`)
+beklemektedir.
 
 **Başlamadan önce gereken:** her aşama için ayrı kullanıcı onayı (kapsam koddan doğrulanır —
 plan varsayımları `KLT-01`'de üç, `SNK-01` ve `SNK-04`'te birer kez yanlış çıktı;
@@ -742,6 +819,58 @@ etkiler. `KLT-01` kapsamına alınması dar kapsam kuralını bozardı.
 > Ölçüldü: `ApiClient.cs` içinde **5 biçimlendirme noktası**, bunları kullanan **36 web bileşeni**.
 > Grup 3'e özgü **değil** → dar kapsam kuralı gereği kodla dokunulmadı. Borç burada kalır.
 
+### 🔴 `SNK-05` — Senkron LWW talebin ONAY DURUMUNU ezebiliyor *(PRT-01 Grup 4 analizinde bulundu, 2026-08-10)*
+*(Kullanıcı kararı **K4: KAPSAM DIŞI** — Grup 4'te kodla DOKUNULMADI)*
+
+**Doğrulanan durum (koddan):** `material_requests` senkron tablo listesindedir
+(`BusinessSyncService.cs:54`) ve `ConflictTracked` kümesindedir (satır 265). `ApplyCore` tablonun
+**TÜM kolonlarını** yazar (`ColumnNames` — kolon süzgeci yoktur) → `status`, `approved_by`,
+`approved_at`, `operation_status` **durum makinesinden geçmeden** (`RequestStatusMachine.CanTransition`
+çalıştırılmadan) LWW ile değişebilir ve **`request_status_history` satırı oluşmaz** → onay geçmişi ile
+gerçek durum **ayrışır**.
+
+**Kural çelişkisi:** `CLAUDE.md` §4 — *"Stok, sayaç, yakıt, bakım ve **onayda LWW yasaktır**."*
+
+**Hafifletici (önemli):** çakışma **kaydedilir ve yöneticiye gösterilir** (`ConflictTracked`), push
+yazma yetkisi modül bazında kontrol edilir. Yani **sessiz değil** — ama **engellenmiyor**.
+
+**Neden ayrı iş:** düzeltme `BusinessSyncService`'in kolon yazma davranışına dokunur; tüm çakışma ve
+yayılma mekanizmasını etkiler. Ayrıca *"çevrimdışı yapılan onaylar sunucuya hiç yansımasın mı?"*
+başlı başına bir **ürün kararıdır**. Grup 4'ün parite kapsamının dışına taşar.
+**Öncelik önerisi:** P1 · **Migration:** yok · **Masaüstü:** etkilenir (asıl senaryo çevrimdışı onay).
+
+### 🔴 `WEB-02` — Web'de şube kapsamı (`BranchScope`) hiç çalışmıyor *(PRT-01 Grup 4 analizinde bulundu, 2026-08-10)*
+*(Grup 4 kapsamı DIŞI — kodla dokunulmadı)*
+
+**Doğrulanan durum (koddan):** JWT yalnız `sub` + `company` taşır, **şube claim'i yoktur**
+(`JwtTokens.cs:24-28`). `PermissionSnapshot.ToSession()` **`OperatingBranchId` kurmaz**
+(`PermissionSnapshot.cs:42-46`). Bu alanı yalnız **içe aktarım ucu** açıkça set eder
+(`Program.cs:1894`). Masaüstü ise girişte set eder (`LoginViewModel.cs:420`).
+→ `BranchScope.Active(s)` web/API yolunda **daima null** → **10 serviste** kullanılan şube filtresi
+web'de **no-op**'tur (`MaterialService`, `StockService`, `VehicleService`, `FuelService`,
+`MaintenanceService`, `DailyActivityService`, `RequestService`, `RequestOperationsService`,
+`ReportScope`, Migration055).
+
+**Bu bir TENANT SIZINTISI DEĞİLDİR** — firma izolasyonu ayrıdır ve sağlamdır (testli). Sorun
+**şube görünürlüğü ve web↔masaüstü paritesidir**: masaüstünde şubeye göre süzülen listeler web'de
+süzülmez.
+
+**Neden ayrı iş:** düzeltme oturum/token mimarisine dokunur (JWT'ye şube taşımak veya oturum kurulumunu
+değiştirmek) ve **10 servisin** liste davranışını aynı anda etkiler → dar kapsam kuralını bozar
+(`WEB-01` emsali). **Öncelik önerisi:** P1 · **Migration:** yok · **Masaüstü:** etkilenmiyor.
+
+### 🔍 `TLP-B5` — Web talep PDF'inde firma logosu yok *(PRT-01 Grup 4, 2026-08-10)*
+*(Kullanıcı kararı **K6**: güvenilir kaynak yoksa uygulama → **uygulanamadı**)*
+
+**Doğrulanan durum (koddan):** masaüstü logoyu `app_settings`'te `requests.company_logo` anahtarıyla
+**yerel dosya yolu** olarak tutar (`RequestsViewModel.cs:47,139,449`); `app_settings` **senkron tablo
+listesinde değildir**; sunucuda logo deposu, yükleme ucu veya blob kolonu **yoktur**. API pdf ucu
+`RequestPdfModel`'i `LogoPath` **olmadan** kurar → web PDF'i logosuz çıkar, masaüstü PDF'i logolu.
+
+**Neden uygulanmadı:** güvenilir bir sunucu kaynağı yok; eklemek dosya yükleme ucu + depolama +
+tenant ilişkisi + migration gerektirirdi — kullanıcı bunu açıkça **yasakladı** ("logo sistemi icat etme").
+**Öncelik önerisi:** P3 · **Bağımlılık:** sunucu tarafı dosya depolama kararı.
+
 ### 🔍 `TMZ-03` — Seed'de bulunmayan rol sabitleri
 *(2026-08-10'da `KLT-01c` testi yazılırken tesadüfen bulundu — kullanıcı kararı: **şimdilik olduğu gibi bırak**)*
 
@@ -837,6 +966,25 @@ Bundan sonra her concurrency adayı **şu sırayla** değerlendirilecek:
 
 ## 14. SON YAPILAN İŞLEM
 
+**2026-08-10** — **`PRT-01 Grup 4` (Talepler) KAPANDI — commit `d5d601d`.**
+`B-1` durum/arama/limit sunucuya taşındı (uç geriye uyumlu genişledi; web'de istemci tarafı süzme
+kalktı — 200'den eski talepler artık bulunabiliyor) · `B-2` öncelik seçici web + masaüstü (ortak
+katalog; `RequestEditData.PriorityDb` ile taşıma zinciri tamamlandı) · `B-3` boş ret gerekçesi 400 ·
+`B-4` gerçek iptal gerekçesi (web + masaüstü + API; masaüstünde ret alanını ödünç alma düzeltildi) ·
+`B-6` ölü taslak akışı temizlendi. `B-5` **uygulanamadı** → `TLP-B5` teknik borcu.
+7 dosya + 1 yeni test dosyası (**+18 test**). **Migration yok, bağımlılık değişikliği yok.**
+Test paketi **1108 / 1075 / 0 / 33**, build **0 hata / yeni uyarı yok**.
+Web **gerçek tarayıcıda** doğrulandı (izole ortam, canlıya sıfır istek);
+⚠️ masaüstü GUI etkileşimi gözlemlenemedi (Avalonia otomasyon sınırı).
+Ayrıntı: [`docs/tests/Talepler_Test_Report.md`](tests/Talepler_Test_Report.md). **Push yapılmadı.**
+
+> **Grup 4'te açılan iki YENİ iş kalemi (kodla dokunulmadı):** `SNK-05` — senkron LWW talebin **onay
+> durumunu** ezebiliyor (CLAUDE.md §4 ile çelişki; kullanıcı kararı **K4 = kapsam dışı**) ·
+> `WEB-02` — web'de **`BranchScope` hiç çalışmıyor** (JWT şube taşımıyor; 10 servis etkileniyor,
+> tenant sızıntısı **değil**). İkisi de §12'de ayrıntılı kayıtlı.
+
+---
+
 **2026-08-10** — **`PRT-01 Grup 3` (Bakım + Yakıt) KAPANDI.** `B-1` bakım tanımı düzenleme kilidi
 (sürüm taşıma zinciri: liste → ekran → kayıt, web + masaüstü + API), `B-4` gerçek iptal gerekçesi
 (yakıt; sabit `"Kullanıcı iptali"` hem arayüzlerden hem API'den kaldırıldı), `B-5` web yakıt para
@@ -855,13 +1003,15 @@ Ayrıntı: [`docs/tests/Bakim_Yakit_Test_Report.md`](tests/Bakim_Yakit_Test_Repo
 
 ## 15. SIRADAKİ CLAUDE CODE İŞLEMİ
 
-1. **Önce:** Kullanıcının `PRT-01 Grup 3` push kararını al (commit yapıldı, **push yapılmadı**;
-   dalda birikmiş push'suz commit var).
-2. **Sonra:** `PRT-01 Grup 4` için **detay analiz promptunu** bekle — kendiliğinden analiz veya
-   kodlama başlatma.
-3. Analizde grubun kapsamını **plandan değil koddan** çıkar (Grup 2b ve Grup 3'te plan varsayımları
-   yine yanlış çıktı; bkz. §12.5 ve §13).
+1. **Önce:** Kullanıcının push kararını al — `PRT-01 Grup 4` dahil dalda **push'suz commit** birikti
+   (Grup 4: `d5d601d`). Push **yapılmadı**.
+2. **Sonra:** `PRT-01 Grup 5` (Araç / Muayene / Personel / Günlük) için **detay analiz promptunu**
+   bekle — kendiliğinden analiz veya kodlama başlatma.
+3. Analizde grubun kapsamını **plandan değil koddan** çıkar (Grup 2b, 3 ve 4'te plan varsayımları
+   yine yanlış çıktı; bkz. §12.5 ve §13). Grup 5'te `ARC-01` de beklemektedir.
 4. Analiz sonucu raporla → kullanıcı kararı → geliştirme → test → commit → **bu dosyayı güncelle**.
+5. **Ayrıca karar bekleyen yeni işler:** `SNK-05` (çevrimdışı onay senkronu — ürün kararı) ve
+   `WEB-02` (web'de şube kapsamı). İkisi de Grup 4'te bulundu, **kodla dokunulmadı**.
 
 ---
 
@@ -897,3 +1047,4 @@ veriyor.
 | 2026-08-10 | **Grup 2a kod commit'i `ffbb995`** (G2-04 + G2-02 + G2-03, 11 dosya). Ardından **`G2-01` uygulandı** (commit edilmedi): "Tam Düzenleme" giriş yolu + **yetki kapısı düzeltmesi** (yeni kayıt=Create, düzenleme=Edit) + başlık. Uygulamada planda olmayan **zorunlu** bir düzeltme çıktı: `/materials` ↔ `/materials/new` aynı bileşen olduğu için `OnInitializedAsync` tekrar çalışmıyordu → `forceLoad` gerekti (kayıt sonrası liste dönüşündeki gizli kusuru da kapattı). Yetki ayrımı **gerçek kullanıcı yetkileriyle** tarayıcıda doğrulandı (admin / edit-only / view-only). Yeni teknik borç: **`ARC-01`** — `Vehicles.razor`'da **aynı ölü `EditNav`**, Grup 5'e bırakıldı. |
 | 2026-08-10 | **Uzun vadeli gereksinim gözden geçirmesi (kullanıcının 17 maddesi).** Çoğunun **zaten `H-1…H-12` altında planlı** olduğu doğrulandı → mükerrer iş açılmadı. Gerçekten eksik çıkan **dört** konu eklendi: **`GNL-03`** (kayıt tipi kataloğu — `YTK-02`'nin önkoşulu), **`LOG-02`** (audit önceki/yeni değer), **`PRF-01`** (ölçek darboğaz haritası, ücretsiz), **`PRT-01` Grup 2b (Şablonlar)** ayrı analiz aşaması olarak işaretlendi. **`KARAR-7`** açıldı: şube bazlı malzeme silme isteği **`KARAR-1` ile çelişiyor** → kullanıcı kararı bekliyor. `Y-6`/`Y-7` ve maliyet kalemleri #9/#10 eklendi. **Hiç kod yazılmadı.** |
 | 2026-08-10 | **PRT-01 GRUP 3 (Bakım + Yakıt) KAPANDI.** Kullanıcı kararları: **K1=A** (tanım kilidi) · **K2=C** (`btn-reverse` değiştirilmedi) · **K3=C** (para birimi/kur alanı eklenmedi) · **K4=A** (gerçek gerekçe) · **K5=B** (kapsam `B-1+B-2+B-4+B-5`). `B-1` bakım tanımı düzenleme kilidi — mekanizma zaten vardı, **sürüm taşıma zinciri** yoktu (liste/DTO/iki platform); eklendi. `B-4` yakıt iptal gerekçesi arayüzlerden **ve API yedeğinden** kaldırıldı → boş gerekçe artık **400**. `B-5` web yakıt para birimi. Test **1090/1057/0/33** (+10: 4 servis + 6 gerçek HTTP). Migration ve dependency **YOK**. ⚠️ **İki analiz düzeltmesi:** `B-2` (masaüstü tanım silme) **zaten mevcuttu** → kod yazılmadı; `B-4`'ün **bakım yarısı zaten yapılmıştı** → yalnız yakıt uygulandı. Her ikisi de kod yazılmadan önce bildirildi. Kapsam dışı: `WEB-01` (ham JSON — 36 web bileşeni), `/api/maintenance/cancel` + `/api/stock/reverse` yedekleri, `B-6`…`B-10`. Rapor: `docs/tests/Bakim_Yakit_Test_Report.md`. |
+| 2026-08-10 | **PRT-01 GRUP 4 (Talepler) KAPANDI — commit `d5d601d`.** Kullanıcı kararları: **K1** öncelik UYGULA · **K2** sunucu tarafı filtre UYGULA · **K3** ret/iptal gerekçesi UYGULA · **K4** LWW/onay **KAPSAM DIŞI** · **K5=B** ölü taslak temizliği · **K6** logo araştır+uygunsa · **K7** kapsam B-1…B-6. `B-1` durum/arama/limit **sunucuya taşındı** (uç geriye uyumlu genişledi, üst sınır 1000, geçersiz durum 400; web'de istemci tarafı süzme kalktı → 200'den eski talepler artık bulunabiliyor; "Talep Onaylama" sekmesi `status=pending` ister). `B-2` **öncelik seçici** web + masaüstü — ortak `RequestPriorityInfo` kataloğu web'e link'lendi ve `RequestEditData.PriorityDb` ile taşıma zinciri tamamlandı (aksi halde düzenlemede öncelik sıfırlanırdı). `B-3` boş ret gerekçesi **400** (sahte "Reddedildi" kaldırıldı). `B-4` **gerçek iptal gerekçesi** web + masaüstü + API; masaüstünde iptalin **ret gerekçesi alanını ödünç alması** düzeltildi. `B-6` ölü taslak akışı temizlendi (masaüstü `SubmitCommand` XAML'de hiç bağlı değildi; "Taslak" filtresi iki platformdan kaldırıldı — **Taslak DURUMU korundu**, `RequestService.Submit` **silinmedi**). Test **1108/1075/0/33** (+18 gerçek HTTP). Migration ve dependency **YOK**. ⚠️ **`B-5` uygulanamadı** — sunucuda logo kaynağı yok (`app_settings` yerel dosya yolu, senkron dışı) → `TLP-B5` borcu. ⚠️ **Masaüstü GUI gözlemlenemedi**; `B-2`'nin web formundan uçtan uca oluşturma turu tarayıcıda tamamlanamadı (kaydetme zinciri API testleriyle kanıtlandı). **İki yeni iş kalemi açıldı:** `SNK-05` (senkron LWW onay durumunu eziyor — CLAUDE.md §4 çelişkisi) ve `WEB-02` (web'de `BranchScope` no-op, 10 servis; tenant sızıntısı değil). Rapor: `docs/tests/Talepler_Test_Report.md`. |
