@@ -59,8 +59,10 @@
                     <MudTd>@Str(context, "vehicleCode")</MudTd>
                     <MudTd>@Str(context, "prevMeter") → @Str(context, "currentMeter")</MudTd>
                     <MudTd Style="text-align:right">@Dec(context, "liters").ToString("0.##")</MudTd>
-                    <MudTd Style="text-align:right">@Dec(context, "unitPrice").ToString("0.##")</MudTd>
-                    <MudTd Style="text-align:right">@((Dec(context, "liters") * Dec(context, "unitPrice")).ToString("0.##"))</MudTd>
+                    @* B-5: para birimi masaüstündeki gibi gösterilir — kayıt TRY dışı bir birimde girilmişse
+                       rakam yalnız başına yanıltıcıydı. Depo tablosu bunu zaten sunucudan "priceText" ile alıyor. *@
+                    <MudTd Style="text-align:right">@Dec(context, "unitPrice").ToString("0.##") @Cur(context)</MudTd>
+                    <MudTd Style="text-align:right">@((Dec(context, "liters") * Dec(context, "unitPrice")).ToString("0.##")) @Cur(context)</MudTd>
                     <MudTd Style="text-align:right">@Date(context, "distributionDate")</MudTd>
                     <MudTd Style="text-align:right">
                         @if (Bool(context, "isCancelled")) { <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip> }
@@ -265,12 +267,22 @@
 
     private async Task CancelFuel(string path, Func<Task> reload, string question)
     {
-        if (!await Dialog.Confirm(question)) return;
-        var err = await Api.PostAsync(path, new Dictionary<string, object?> { ["reason"] = "Kullanıcı iptali" });
+        // B-4: gerekçe artık sabit "Kullanıcı iptali" DEĞİL — kullanıcıdan alınır ve denetim kaydına yazılır.
+        // Vazgeçildiğinde (null) hiçbir istek gönderilmez.
+        var reason = await Dialog.AskReason(question);
+        if (reason is null) return;
+        var err = await Api.PostAsync(path, new Dictionary<string, object?> { ["reason"] = reason });
         _ok = err is null;
         _msg = err ?? "Kayıt iptal edildi.";
         await reload();
         await LoadSummary();
+    }
+
+    /// <summary>B-5: satırın para birimi. Eski/eksik kayıtta boş gelirse varsayılan TRY gösterilir.</summary>
+    private static string Cur(JsonElement row)
+    {
+        var c = Str(row, "currency");
+        return string.IsNullOrWhiteSpace(c) ? "TRY" : c;
     }
 
     private static bool Bool(JsonElement row, string key)

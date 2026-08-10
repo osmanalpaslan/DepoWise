@@ -5,8 +5,12 @@
 > İş ayrıntıları ve bağımlılıklar **[../PROJE_GELISTIRME_PLANI.md](../PROJE_GELISTIRME_PLANI.md)** dosyasında.
 >
 > **Bu dosya neden duruyor?** Aşağıdaki liste projenin **geçmiş kaydıdır**; silinmedi.
-> Ancak **artık güncellenmiyor** — 2026-08-09 ve öncesine aittir, MLZ-01 / KLT-01 çalışmalarını
-> **içermez**.
+> Ancak **artık güncellenmiyor** — 2026-08-09 ve öncesine aittir; **MLZ-01 · KLT-01 · SNK-01…04 ·
+> PRT-01 (Grup 1, 2, 2b, 3)** çalışmalarını **içermez**.
+>
+> **PRT-01 Grup 3 (Bakım + Yakıt, 2026-08-10)** kapanışı da bu dosyaya DEĞİL,
+> [PROJE_DURUMU_VE_ILERLEME.md](PROJE_DURUMU_VE_ILERLEME.md) §7'ye ve QA raporu
+> [tests/Bakim_Yakit_Test_Report.md](tests/Bakim_Yakit_Test_Report.md) dosyasına yazıldı.
 
 ---
 

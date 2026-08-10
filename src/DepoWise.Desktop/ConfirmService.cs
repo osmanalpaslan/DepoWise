@@ -27,4 +27,19 @@ public static class ConfirmService
         var win = new ConfirmWindow(title, message, okText, cancelText, danger);
         return await win.ShowDialog<bool>(owner);
     }
+
+    /// <summary>
+    /// B-4: İptal işlemleri için onay + GEREKÇE penceresi. Uyarıyı gösterir ve gerekçeyi tek adımda alır.
+    /// Dönüş: kullanıcı vazgeçtiyse <c>null</c>, onayladıysa boş olmayan gerekçe metni.
+    /// </summary>
+    public static async Task<string?> AskReasonAsync(string message, string title = "İptal",
+        string label = "İptal gerekçesi", string okText = "Evet, İptal Et", string cancelText = "Vazgeç")
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+            || desktop.MainWindow is null)
+            return null;
+
+        var win = new ReasonWindow(title, message, label, okText, cancelText);
+        return await win.ShowDialog<string?>(desktop.MainWindow);
+    }
 }

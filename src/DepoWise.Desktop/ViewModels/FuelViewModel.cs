@@ -80,14 +80,16 @@ public sealed partial class FuelViewModel : ViewModelBase
     private async System.Threading.Tasks.Task CancelDistribution()
     {
         if (SelectedDistribution is not { } row || row.IsCancelled) return;
-        if (!await ConfirmService.AskAsync(
+        // B-4: gerekçe artık sabit "Kullanıcı iptali" DEĞİL — kullanıcıdan alınır, denetim kaydına yazılır.
+        var reason = await ConfirmService.AskReasonAsync(
                 $"Bu yakıt kaydı iptal edilecek ({row.LitersText} L · {row.VehicleCode}).\n\n" +
                 "İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. " +
-                "Araç sayacı geri alınmaz. İşlem geri alınamaz.\n\nDevam etmek istiyor musunuz?",
-                "Yakıt Kaydı İptali", "Evet, İptal Et", "Vazgeç", danger: true)) return;
+                "Araç sayacı geri alınmaz. İşlem geri alınamaz.",
+                "Yakıt Kaydı İptali");
+        if (reason is null) return;
         try
         {
-            DesktopServices.Fuel.CancelDistribution(_session, row.Id, "Kullanıcı iptali");
+            DesktopServices.Fuel.CancelDistribution(_session, row.Id, reason);
             Status = "Yakıt dağıtımı iptal edildi.";
             Load();
         }
@@ -98,14 +100,15 @@ public sealed partial class FuelViewModel : ViewModelBase
     private async System.Threading.Tasks.Task CancelDepotEntry()
     {
         if (SelectedDepotEntry is not { } row || row.IsCancelled) return;
-        if (!await ConfirmService.AskAsync(
+        // B-4: gerekçe kullanıcıdan alınır (bkz. CancelDistribution).
+        var reason = await ConfirmService.AskReasonAsync(
                 $"Bu depo girişi iptal edilecek ({row.LitersText} L).\n\n" +
-                "İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. İşlem geri alınamaz.\n\n" +
-                "Devam etmek istiyor musunuz?",
-                "Depo Girişi İptali", "Evet, İptal Et", "Vazgeç", danger: true)) return;
+                "İptal edilen kayıt bakiye ve rapor hesaplarından çıkarılacaktır. İşlem geri alınamaz.",
+                "Depo Girişi İptali");
+        if (reason is null) return;
         try
         {
-            DesktopServices.Fuel.CancelDepotEntry(_session, row.Id, "Kullanıcı iptali");
+            DesktopServices.Fuel.CancelDepotEntry(_session, row.Id, reason);
             Status = "Depo girişi iptal edildi.";
             Load();
         }

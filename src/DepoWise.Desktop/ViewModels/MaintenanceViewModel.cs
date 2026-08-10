@@ -63,6 +63,10 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     [NotifyPropertyChangedFor(nameof(DefIsEditMode))]
     [NotifyPropertyChangedFor(nameof(DefFormTitle))]
     private string? _defEditId;
+    /// <summary>B-1: düzenlemeye başlanan andaki <c>version</c>. Kaydederken servise geri verilir; kayıt bu
+    /// arada başkası tarafından değiştiyse servis <c>ConcurrencyException</c> atar (sessiz üzerine yazma olmaz).
+    /// 0 = sürüm bilinmiyor → kontrol yapılmaz.</summary>
+    private long _defEditVersion;
     public bool DefIsEditMode => DefEditId != null;
     public string DefFormTitle => DefIsEditMode ? "BAKIM TANIMI DÜZENLE" : "YENİ BAKIM TANIMI";
     public string? AddDefButtonText => CanWrite ? "Yeni Tanım" : null;
@@ -135,7 +139,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     {
         DefName = ""; DefDescription = ""; DefIntervalValue = 0; DefUnitDisplay = "km";
         foreach (var p in VehiclePicks) p.IsSelected = false;
-        VehicleSearch = ""; DefEditId = null; TriedDefSave = false; ShowDefAdd = false;
+        VehicleSearch = ""; DefEditId = null; _defEditVersion = 0; TriedDefSave = false; ShowDefAdd = false;
     }
 
     [RelayCommand]
@@ -164,7 +168,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         {
             if (editing)
             {
-                DesktopServices.MaintenanceDefs.Update(_session, DefEditId!, dto);
+                DesktopServices.MaintenanceDefs.Update(_session, DefEditId!, dto,
+                    _defEditVersion > 0 ? _defEditVersion : null); // B-1: düzenleme kilidi
                 DesktopServices.MaintenanceDefs.SetVehicles(_session, DefEditId!, vehIds);
                 Status = "Bakım tanımı güncellendi.";
             }
@@ -186,7 +191,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         if (!await ConfirmService.AskAsync("Bu bakım tanımını düzenlemek istiyor musunuz?", "Düzenle")) return;
         LoadVehiclePicks();
         var d = SelectedDef;
-        DefEditId = d.Id;
+        DefEditId = d.Id; _defEditVersion = d.Version; // B-1: kilit jetonunu forma al
         DefName = d.Name; DefDescription = d.Description ?? "";
         DefIntervalValue = d.IntervalValue; DefUnitDisplay = UnitDisplay(d.IntervalUnit);
         var ids = DesktopServices.MaintenanceDefs.GetVehicleIds(_session, d.Id).ToHashSet();

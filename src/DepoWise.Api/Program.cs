@@ -1986,7 +1986,8 @@ app.MapPut("/api/maintenance/definitions/{id}", (HttpContext c, string id, Maint
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     svc.MaintenanceDefinitions.Update(s, id, new DepoWise.Infrastructure.Maintenance.NewMaintenanceDefinition(
-        d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description));
+        d.Name, d.IntervalValue, string.IsNullOrWhiteSpace(d.IntervalUnit) ? "km" : d.IntervalUnit, d.ParentDefId, d.Description),
+        d.Version is > 0 ? d.Version : null); // B-1: 0/null = sürüm bilinmiyor → kilit kontrolü yok
     if (d.VehicleIds is not null) svc.MaintenanceDefinitions.SetVehicles(s, id, d.VehicleIds);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -2050,13 +2051,17 @@ app.MapPost("/api/fuel/distribute", (HttpContext c, DistributionDto d) =>
 app.MapPost("/api/fuel/{id}/cancel", (HttpContext c, string id, FuelCancelDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    svc.Fuel.CancelDistribution(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Kullanıcı iptali" : d!.Reason!);
+    // B-4 (PRT-01 Grup 3, 2026-08-10): sabit "Kullanıcı iptali" yedeği KALDIRILDI. FuelService gerekçeyi zaten
+    // ZORUNLU tutuyor; buradaki yedek o kuralı eziyor ve denetim kaydına kullanıcının yazmadığı bir gerekçe
+    // yazıyordu (gerçek gerekçeden ayırt edilemez). Boş gelirse servis ArgumentException atar → ortak hata
+    // middleware'i 400 + {"error":"İptal gerekçesi zorunlu."} döndürür.
+    svc.Fuel.CancelDistribution(s, id, d?.Reason ?? "");
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 app.MapPost("/api/fuel/depot/{id}/cancel", (HttpContext c, string id, FuelCancelDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    svc.Fuel.CancelDepotEntry(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Kullanıcı iptali" : d!.Reason!);
+    svc.Fuel.CancelDepotEntry(s, id, d?.Reason ?? ""); // B-4: yedek kaldırıldı (bkz. /api/fuel/{id}/cancel)
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 // Düzeltme akışı (Y2): iptal edilen dağıtımın BAŞLANGIÇ SAYACI — yeni kayda taşınır.
@@ -2680,7 +2685,8 @@ record DailyMetaDto(string? Description, string? OperatorId, int? DurationDays, 
 record MaintLineDto(string MaterialId, decimal Quantity, bool FromTeamStock = false);
 record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,
     decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
-record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds);
+// B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
+record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
 record DepotEntryDto(decimal Liters, decimal UnitPrice, string? SupplierId, string? InvoiceNo, string? Note, long? EntryDate);
 record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, decimal? UnitPrice, string? PersonnelId, long? DistributionDate, string? Note, string? RecipientPersonnelId = null, decimal? PrevMeter = null);

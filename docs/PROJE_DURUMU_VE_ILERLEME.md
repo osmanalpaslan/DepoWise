@@ -105,7 +105,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | **SNK-02** | Seçici kadans *(daraltıldı — 2a)* | 1 | ✅ **UYGULANDI / KOD DOĞRULANDI** — ⚠️ gerçek HTTP QA yapılamadı | P1 | — | ✅ | ✅ | ✅ 1057/1024/0/33 · ⚠️ kadans **ölçülmedi** | `0501729` |
 | **SNK-03** | Hata halinde exponential backoff | 1 | ✅ **TAMAMLANDI / UYGULANDI** — ⚠️ çalışma zamanı QA yapılamadı | P1 | SNK-02 ✅ | ✅ | ✅ | ✅ 1057/1024/0/33 | *(bu commit)* |
 | ~~SNK-04~~ | ~~Günlük yedeği senkron turundan ayırma~~ | 1 | ❌ **ZATEN YAPILMIŞ / İPTAL** *(2026-08-10)* — saatlik koruma `b2604de` ile mevcut | — | — | ✅ | — | — | — |
-| **PRT-01** | Tam ekran parite denetimi | 1 | 🔵 **DEVAM EDİYOR** — envanter + Grup 1 (stok) ✅, kalan 5 grup | P1 | — | ✅ | kısmi | ✅ 1057/1024/0/33 | `8bf27cb` |
+| **PRT-01** | Tam ekran parite denetimi | 1 | 🔵 **DEVAM EDİYOR** — Grup 1 (stok) ✅, Grup 2 + 2b ✅, **Grup 3 (bakım+yakıt) ✅**, kalan Grup 4/5/6 | P1 | — | ✅ | kısmi | ✅ 1090/1057/0/33 | Grup 3: *(bu commit)* |
 | PRT-02 | Ekran adı eşleme | 1 | BEKLEMEDE | P2 | PRT-01 | ❌ | ❌ | ❌ | — |
 | **YET-01** | **Yetki modeli KARARI** | 2 | **KARAR BEKLİYOR** | P1 | — | ✅ | ❌ | ❌ | — |
 | TMZ-02 | BranchService + user_scopes | 2 | ERTELENDİ→YET-01 | P1 | YET-01 | ✅ | ❌ | ❌ | — |
@@ -506,11 +506,71 @@ sayfalama yokluğu · `ReportService`'e `t.is_deleted` filtresi eklenmesi (gerek
 
 ---
 
-**Sıradaki aday: PRT-01 Grup 3 (Bakım + Yakıt) — önce ANALİZ.**
-*(Grup 2 — Malzemeler **ve** Şablonlar — tamamlandı.)*
-Sıra gerekçesi: `G2-01` (formun kapısını açmak) **en sonda**, çünkü `G2-02` ve `G2-03` çözülmeden
-form açılırsa bugün gizli olan iki sessiz hata kullanıcıya açılır.
-Ardından **Grup 2b (Şablonlar)** — **henüz analiz edilmedi**, ayrı analiz aşaması olarak yürütülecek.
+### ✅ `PRT-01 GRUP 3 — BAKIM + YAKIT` (2026-08-10)
+
+**Ürün kararları (kullanıcı):**
+
+| Karar | Sonuç |
+|---|---|
+| **K1** — bakım tanımı düzenleme kilidi | ✅ **A** — uygulanacak |
+| **K2** — `btn-reverse` buton yetkisi | ❌ **C** — **değiştirilmedi** |
+| **K3** — yakıt para birimi / kur alanı | ❌ **C** — **eklenmedi** (yalnız gösterim) |
+| **K4** — gerçek iptal gerekçesi | ✅ **A** — kullanıcıdan alınacak |
+| **K5** — kapsam | **B** — yalnız `B-1 + B-2 + B-4 + B-5` |
+
+**Uygulananlar:**
+
+| # | İş | Sonuç |
+|---|---|---|
+| **B-1** | Bakım tanımı **düzenleme kilidi** — `version` liste → ekran → kayıt zinciri boyunca taşınıyor (web + masaüstü + API) | ✅ |
+| **B-2** | Masaüstü bakım tanımı silme | ⚪ **ZATEN MEVCUT** — kod yazılmadı |
+| **B-4** | **Gerçek iptal gerekçesi** — sabit `"Kullanıcı iptali"` kaldırıldı (web + masaüstü + API) | ✅ *yalnız yakıt* |
+| **B-5** | Web yakıt dağıtım listesinde **para birimi** | ✅ |
+
+> ⚠️ **B-1'de kusurun gerçek yeri:** `MaintenanceDefinitionService.Update` **zaten** `expectedVersion`
+> alıyordu ve `EditLockGuard` eksiksizdi — ama sürüm **hiçbir yere taşınmıyordu** (`List` sorgusu kolonu
+> seçmiyor, `MaintenanceDefinitionRow` alanı yok, `MaintDefDto` alanı yok, iki platform da göndermiyor).
+> Mekanizma vardı, **hiç devreye girmiyordu**. Eklenen tek şey **taşıma zinciri**; kilit mantığı
+> değiştirilmedi.
+
+> ⚠️ **İKİ ANALİZ DÜZELTMESİ — sessizce değiştirilmedi, kullanıcıya bildirildi:**
+> - **`B-2` "masaüstünde silme yok" denmişti → GERÇEKTE MEVCUT.** Koddan doğrulandı:
+>   `MaintenanceViewModel.RequestDeleteDef` (yetki + onay + hata yakalama) ve
+>   `MaintenanceView.axaml:141` `IsVisible="{Binding CanDelete}"` bağlı **"Sil"** butonu; ayrıca alt
+>   bakım silme (satır 126). **Çalışan davranış yeniden yazılmadı.**
+> - **`B-4` "bakım + yakıt" denmişti → GERÇEKTE yalnız YAKIT.** Bakım iptalinde gerekçe iki platformda
+>   da zaten zorunluydu (`Maintenance.razor:572`, `MaintenanceViewModel.cs:602`).
+
+**API davranış değişikliği (bilinçli):** `/api/fuel/{id}/cancel` ve `/api/fuel/depot/{id}/cancel`
+uçlarındaki `"Kullanıcı iptali"` yedeği **kaldırıldı**. Gerekçe: `FuelService` gerekçeyi **zaten zorunlu**
+tutuyordu; API bu kuralı eziyor ve denetim kaydına kullanıcının **yazmadığı** bir gerekçe yazıyordu —
+gerçek gerekçeden ayırt edilemez. Boş gerekçe artık **400** döner. Depodaki **tek çağıran** web yakıt
+ekranıdır ve o artık her zaman gerçek gerekçe gönderir; masaüstü servisi doğrudan çağırır.
+**`/api/maintenance/cancel` ve `/api/stock/reverse` uçlarına DOKUNULMADI** — başka modüller, kapsam dışı.
+
+**Testler:** `MaintenanceDefinitionConcurrencyTests` **+4** (servis) ·
+`ApiGroup3Tests` **+6** (gerçek HTTP hattı: 409 · geriye uyumluluk · 400 boş gerekçe).
+Toplam **1090 / 1057 / 0 / 33**. Build **0 hata, yeni uyarı yok**. **Migration YOK, bağımlılık değişikliği YOK.**
+
+**Gerçek tarayıcı QA (izole ortam, canlıya sıfır istek):** web bakım tanımında eşzamanlı düzenleme →
+409 uyarısı ekranda, veri ezilmedi · yakıt iptalinde boş gerekçe → istek **gitmedi** · gerçek gerekçe →
+denetim kaydında göründü · para birimi `42.5 TRY` / `5100 TRY`.
+⚠️ **Masaüstü GUI etkileşimi gözlemlenmedi** (Avalonia otomasyon sınırı) — yeni `ReasonWindow`
+penceresinin görsel davranışı elle bakılmalı. Test edilmiş gibi raporlanmadı.
+
+**Grup 3'te KAPSAM DIŞI bırakılanlar (teknik borç):** `WEB-01` ham JSON hata gösterimi (Grup 3'e özgü
+değil — `ApiClient.cs`, 36 web bileşeni) · `/api/maintenance/cancel` + `/api/stock/reverse` yedekleri ·
+diğer ekranlardaki sabit gerekçe (`StockEntryViewModel.cs:508`, `Stock.razor:498`, `Requests.razor:318`) ·
+`B-6`…`B-10` (K5 kararıyla kapsam dışı).
+
+**Ayrıntılı QA raporu:** [`docs/tests/Bakim_Yakit_Test_Report.md`](tests/Bakim_Yakit_Test_Report.md)
+
+---
+
+**Sıradaki aday: PRT-01 Grup 4 — önce ANALİZ.**
+*(Grup 1 stok ✅ · Grup 2 malzemeler ✅ · Grup 2b şablonlar ✅ · Grup 3 bakım+yakıt ✅.)*
+**Grup 4 henüz analiz edilmedi** — Grup 2b ve Grup 3'te olduğu gibi ayrı analiz aşaması olarak yürütülecek;
+kapsam plandan değil **koddan** çıkarılır.
 
 **Başlamadan önce gereken:** her aşama için ayrı kullanıcı onayı (kapsam koddan doğrulanır —
 plan varsayımları `KLT-01`'de üç, `SNK-01` ve `SNK-04`'te birer kez yanlış çıktı;
@@ -676,6 +736,12 @@ etkiler. `KLT-01` kapsamına alınması dar kapsam kuralını bozardı.
 **Öncelik önerisi:** P2 · **Bağımlılık:** yok · **Migration:** yok · **Masaüstü:** etkilenmiyor
 (masaüstü servisleri doğrudan çağırır, HTTP gövdesi görmez).
 
+> 🔁 **`PRT-01 Grup 3` (2026-08-10) kapanışında TEKRAR görüldü ve TEKRAR kapsam dışı bırakıldı.**
+> Bakım tanımı düzenleme kilidi QA'sinde aynı metin çıktı:
+> `Hata 409: {"error":"Bu kayıt siz düzenlemeye başladıktan sonra..."}`.
+> Ölçüldü: `ApiClient.cs` içinde **5 biçimlendirme noktası**, bunları kullanan **36 web bileşeni**.
+> Grup 3'e özgü **değil** → dar kapsam kuralı gereği kodla dokunulmadı. Borç burada kalır.
+
 ### 🔍 `TMZ-03` — Seed'de bulunmayan rol sabitleri
 *(2026-08-10'da `KLT-01c` testi yazılırken tesadüfen bulundu — kullanıcı kararı: **şimdilik olduğu gibi bırak**)*
 
@@ -771,23 +837,30 @@ Bundan sonra her concurrency adayı **şu sırayla** değerlendirilecek:
 
 ## 14. SON YAPILAN İŞLEM
 
-**2026-08-10** — `KLT-01c` geliştirildi, test edildi ve **commit edildi (`18a21f8`)**:
-`PermissionService.SaveForUser` artık `users.version` jetonuyla korunuyor. İki yönetici aynı
-kullanıcının yetkisini düzenlerse ikincisi **409** alıyor, birincinin verdiği yetki silinmiyor,
-kısmi yazma olmuyor. 5 dosya + 1 yeni test dosyası (8 test). Migration yok.
-**Commit: `18a21f8`.** Push yapılmadı.
+**2026-08-10** — **`PRT-01 Grup 3` (Bakım + Yakıt) KAPANDI.** `B-1` bakım tanımı düzenleme kilidi
+(sürüm taşıma zinciri: liste → ekran → kayıt, web + masaüstü + API), `B-4` gerçek iptal gerekçesi
+(yakıt; sabit `"Kullanıcı iptali"` hem arayüzlerden hem API'den kaldırıldı), `B-5` web yakıt para
+birimi. `B-2` **zaten mevcut** olduğu için kod yazılmadı.
+11 dosya + 2 yeni test dosyası (**+10 test**). **Migration yok, bağımlılık değişikliği yok.**
+Test paketi **1090 / 1057 / 0 / 33**, build **0 hata / yeni uyarı yok**.
+Web tarafı **gerçek tarayıcıda** doğrulandı (izole ortam, canlıya sıfır istek);
+⚠️ masaüstü GUI etkileşimi gözlemlenemedi (Avalonia otomasyon sınırı).
+Ayrıntı: [`docs/tests/Bakim_Yakit_Test_Report.md`](tests/Bakim_Yakit_Test_Report.md). Push yapılmadı.
 
-Ayrıca bu dosya (proje hafızası) oluşturuldu ve eski takip dosyaları işaretçi hâline getirildi.
+> **Kalıcı ders tekrar doğrulandı (§12.5 / §13):** Grup 3 analizinde **iki madde yanlış** çıktı —
+> `B-2` (masaüstü silme) zaten vardı, `B-4`'ün bakım yarısı zaten yapılmıştı. Her ikisi de **kod
+> yazılmadan önce** koddan doğrulandı ve kullanıcıya bildirildi; sessizce düzeltilmedi.
 
 ---
 
 ## 15. SIRADAKİ CLAUDE CODE İŞLEMİ
 
-1. **Önce:** Kullanıcının `KLT-01c` commit kararını al.
-2. **Sonra:** `KLT-01a` için **detay analiz promptunu** bekle — kendiliğinden analiz veya
+1. **Önce:** Kullanıcının `PRT-01 Grup 3` push kararını al (commit yapıldı, **push yapılmadı**;
+   dalda birikmiş push'suz commit var).
+2. **Sonra:** `PRT-01 Grup 4` için **detay analiz promptunu** bekle — kendiliğinden analiz veya
    kodlama başlatma.
-3. Analizde `RequestOperationsService.ChangeStatus` / `UpdateShipmentInfo` zincirini
-   (servis → API → web ekranı → masaüstü ViewModel → testler → yetki/şube kapsamı) koddan incele.
+3. Analizde grubun kapsamını **plandan değil koddan** çıkar (Grup 2b ve Grup 3'te plan varsayımları
+   yine yanlış çıktı; bkz. §12.5 ve §13).
 4. Analiz sonucu raporla → kullanıcı kararı → geliştirme → test → commit → **bu dosyayı güncelle**.
 
 ---
@@ -823,3 +896,4 @@ veriyor.
 | 2026-08-10 | **PRT-01 GRUP 2 TAMAMLANDI.** `G2-05` (`0de1e5a`) masaüstü "Yalnız kritik" · `G2-07` (`4222b44`) boş tür fallback'i **"Diğer"** (dört malzeme kartı ekranında; yeni kayıt varsayılanı "Yedek Parça" KALDI). **Grup 2b (Şablonlar)** analiz edildi ve uygulandı: `305619d` (B-3 şablon silme→`template_id` temizliği, K2 currency kaybının önlenmesi, B-4 `compatible_vehicle_ids` firma izolasyonu) + `ae11e02` (masaüstüne uyumlu araç + fotoğraf yönetimi). **Kullanıcı kararları: K1 web'e şablon seçici GERİ EKLENMEDİ · K2 currency korunuyor, alan eklenmedi · K3 şablon senkronizasyonu AÇILMADI.** Test **1080/1047/0/33** (+5). Migration ve dependency YOK. ⚠️ B-3 teşhisi düzeltildi: `MaterialsByTemplate` sorgusunda `t.is_deleted` filtresi yok → silinmiş şablon raporda görünmeye devam ediyordu. Kalan teknik borç: B-6, B-7, B-9. |
 | 2026-08-10 | **Grup 2a kod commit'i `ffbb995`** (G2-04 + G2-02 + G2-03, 11 dosya). Ardından **`G2-01` uygulandı** (commit edilmedi): "Tam Düzenleme" giriş yolu + **yetki kapısı düzeltmesi** (yeni kayıt=Create, düzenleme=Edit) + başlık. Uygulamada planda olmayan **zorunlu** bir düzeltme çıktı: `/materials` ↔ `/materials/new` aynı bileşen olduğu için `OnInitializedAsync` tekrar çalışmıyordu → `forceLoad` gerekti (kayıt sonrası liste dönüşündeki gizli kusuru da kapattı). Yetki ayrımı **gerçek kullanıcı yetkileriyle** tarayıcıda doğrulandı (admin / edit-only / view-only). Yeni teknik borç: **`ARC-01`** — `Vehicles.razor`'da **aynı ölü `EditNav`**, Grup 5'e bırakıldı. |
 | 2026-08-10 | **Uzun vadeli gereksinim gözden geçirmesi (kullanıcının 17 maddesi).** Çoğunun **zaten `H-1…H-12` altında planlı** olduğu doğrulandı → mükerrer iş açılmadı. Gerçekten eksik çıkan **dört** konu eklendi: **`GNL-03`** (kayıt tipi kataloğu — `YTK-02`'nin önkoşulu), **`LOG-02`** (audit önceki/yeni değer), **`PRF-01`** (ölçek darboğaz haritası, ücretsiz), **`PRT-01` Grup 2b (Şablonlar)** ayrı analiz aşaması olarak işaretlendi. **`KARAR-7`** açıldı: şube bazlı malzeme silme isteği **`KARAR-1` ile çelişiyor** → kullanıcı kararı bekliyor. `Y-6`/`Y-7` ve maliyet kalemleri #9/#10 eklendi. **Hiç kod yazılmadı.** |
+| 2026-08-10 | **PRT-01 GRUP 3 (Bakım + Yakıt) KAPANDI.** Kullanıcı kararları: **K1=A** (tanım kilidi) · **K2=C** (`btn-reverse` değiştirilmedi) · **K3=C** (para birimi/kur alanı eklenmedi) · **K4=A** (gerçek gerekçe) · **K5=B** (kapsam `B-1+B-2+B-4+B-5`). `B-1` bakım tanımı düzenleme kilidi — mekanizma zaten vardı, **sürüm taşıma zinciri** yoktu (liste/DTO/iki platform); eklendi. `B-4` yakıt iptal gerekçesi arayüzlerden **ve API yedeğinden** kaldırıldı → boş gerekçe artık **400**. `B-5` web yakıt para birimi. Test **1090/1057/0/33** (+10: 4 servis + 6 gerçek HTTP). Migration ve dependency **YOK**. ⚠️ **İki analiz düzeltmesi:** `B-2` (masaüstü tanım silme) **zaten mevcuttu** → kod yazılmadı; `B-4`'ün **bakım yarısı zaten yapılmıştı** → yalnız yakıt uygulandı. Her ikisi de kod yazılmadan önce bildirildi. Kapsam dışı: `WEB-01` (ham JSON — 36 web bileşeni), `/api/maintenance/cancel` + `/api/stock/reverse` yedekleri, `B-6`…`B-10`. Rapor: `docs/tests/Bakim_Yakit_Test_Report.md`. |

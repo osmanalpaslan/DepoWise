@@ -9,8 +9,17 @@ public sealed record NewMaintenanceDefinition(
     string Name, decimal IntervalValue, string IntervalUnit = "km",
     string? ParentDefId = null, string? Description = null);
 
+/// <param name="Version">
+/// B-1 (PRT-01 Grup 3, 2026-08-10) — DÜZENLEME KİLİDİ jetonu (<c>maintenance_definitions.version</c>).
+/// <see cref="MaintenanceDefinitionService.Update"/> zaten <c>expectedVersion</c> destekliyordu ama sürüm
+/// hiçbir yere TAŞINMIYORDU: liste bu değeri döndürmüyor, DTO'da alan yoktu, iki platform da göndermiyordu
+/// → iki yönetici aynı tanımı düzenlerse ikincisi birincinin değişikliklerini SESSİZCE eziyordu.
+/// Ekran bu değeri okur, kaydederken geri gönderir. 0 = sürüm bilinmiyor (eski istemci) → kontrol yapılmaz.
+/// Varsayılanı 0 olduğu için mevcut çağrılar KIRILMAZ (geriye uyumlu).
+/// </param>
 public sealed record MaintenanceDefinitionRow(
-    string Id, string Name, decimal IntervalValue, string IntervalUnit, string? Description, string? ParentDefId)
+    string Id, string Name, decimal IntervalValue, string IntervalUnit, string? Description, string? ParentDefId,
+    long Version = 0)
 {
     public string UnitDisplay => IntervalUnit switch { "hour" => "saat", "day" => "gün", _ => "km" };
     public string IntervalDisplay => $"{IntervalValue:0.##} {UnitDisplay}";
@@ -79,7 +88,7 @@ VALUES(@id,@c,@p,@n,@iv,@iu,@d,@now,@now,1,0);";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT id, name, interval_value, interval_unit, description, parent_def_id
+SELECT id, name, interval_value, interval_unit, description, parent_def_id, version
 FROM maintenance_definitions
 WHERE company_id=@c AND is_deleted=0
   AND ((CAST(@p AS TEXT) IS NULL AND parent_def_id IS NULL) OR parent_def_id=@p)
@@ -90,7 +99,8 @@ ORDER BY name;";
         using var r = cmd.ExecuteReader();
         while (r.Read())
             list.Add(new MaintenanceDefinitionRow(r.GetString(0), r.GetString(1), Money.Parse(r.GetString(2)),
-                r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5)));
+                r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
+                r.GetInt64(6))); // düzenleme kilidi jetonu (B-1)
         return list;
     }
 

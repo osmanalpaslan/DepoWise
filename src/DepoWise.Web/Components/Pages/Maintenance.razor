@@ -319,6 +319,9 @@
 
     // Tab 1: definitions
     private string? _defEditId;
+    // B-1: düzenleme kilidi jetonu — form açılırken listeden okunur, kaydederken geri gönderilir.
+    // 0 = yeni kayıt veya sürüm bilinmiyor → sunucu kilit kontrolü yapmaz.
+    private long _defVersion;
     private string _defName = "", _defDesc = "", _defUnit = "km";
     private decimal _defInterval;
     private IReadOnlyCollection<string> _defVehicles = new HashSet<string>();
@@ -375,7 +378,8 @@
         _busy = true;
         try
         {
-            var body = new { name = _defName.Trim(), intervalValue = _defInterval, intervalUnit = _defUnit, parentDefId = (string?)null, description = Empty(_defDesc), vehicleIds = _defVehicles.ToList() };
+            // B-1: version yalnız DÜZENLEMEde anlamlı; yeni kayıtta 0 gider ve sunucu kilit kontrolü yapmaz.
+            var body = new { name = _defName.Trim(), intervalValue = _defInterval, intervalUnit = _defUnit, parentDefId = (string?)null, description = Empty(_defDesc), vehicleIds = _defVehicles.ToList(), version = _defEditId is null ? 0L : _defVersion };
             var err = _defEditId is null ? await Api.PostAsync("/api/maintenance/definitions", body) : await Api.PutAsync($"/api/maintenance/definitions/{_defEditId}", body);
             _defOk = err is null; _defMsg = err ?? "Kaydedildi.";
             if (_defOk) { ClearDef(); await LoadDefs(); }
@@ -389,6 +393,7 @@
         if (_defDetail is null) return;
         var d = _defDetail.Value;
         _defEditId = Str(d, "id"); _defName = Str(d, "name"); _defDesc = Str(d, "description");
+        _defVersion = d.TryGetProperty("version", out var dv) && dv.ValueKind == JsonValueKind.Number ? dv.GetInt64() : 0L;
         _defUnit = string.IsNullOrEmpty(Str(d, "intervalUnit")) ? "km" : Str(d, "intervalUnit");
         _defInterval = Dec(d, "intervalValue");
         try { var arr = await Api.GetArrayAsync($"/api/maintenance/definitions/{_defEditId}/vehicles"); _defVehicles = new HashSet<string>(arr.Select(e => e.GetString() ?? "").Where(x => x != "")); }

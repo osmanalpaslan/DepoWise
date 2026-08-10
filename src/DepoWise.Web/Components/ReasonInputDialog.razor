@@ -1,0 +1,37 @@
+@* B-4 (PRT-01 Grup 3, 2026-08-10) — İPTAL GEREKÇESİ penceresi.
+   Neden ayrı bileşen: ConfirmDialog yalnız "evet/hayır" döner, gerekçe toplayamaz; NameInputDialog ise
+   uyarı metni gösteremez. İptal geri alınamaz bir işlem olduğu için kullanıcı HEM uyarıyı görmeli HEM de
+   gerekçeyi tek adımda yazmalı — bu yüzden ikisi tek pencerede birleştirildi.
+   Gerekçe denetim kaydına (audit) yazılır; boş bırakılamaz. *@
+<MudDialog>
+    <DialogContent>
+        <MudText Style="white-space:pre-line" Class="mb-3">@Message</MudText>
+        <MudTextField @bind-Value="_reason" Label="@Label" Variant="Variant.Outlined" Immediate="true"
+                      AutoFocus="true" Margin="Margin.Dense" Lines="2" MaxLength="200"
+                      Error="@_error" ErrorText="İptal gerekçesi zorunlu."
+                      HelperText="Bu gerekçe kayıt geçmişine yazılır."
+                      UserAttributes="@(new Dictionary<string, object?> { ["autocomplete"] = "off" })" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => Dialog.Cancel())">@CancelText</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Ok">@OkText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public string Message { get; set; } = "Bu kayıt iptal edilecek. İşlem geri alınamaz.";
+    [Parameter] public string Label { get; set; } = "İptal gerekçesi";
+    [Parameter] public string OkText { get; set; } = "İptal Et";
+    [Parameter] public string CancelText { get; set; } = "Vazgeç";
+
+    private string _reason = "";
+    private bool _error;
+
+    private void Ok()
+    {
+        // Boş/yalnız boşluk kabul edilmez: sunucu da aynı kuralı uygular (FuelService "İptal gerekçesi zorunlu.").
+        if (string.IsNullOrWhiteSpace(_reason)) { _error = true; return; }
+        Dialog.Close(DialogResult.Ok(_reason.Trim()));
+    }
+}
