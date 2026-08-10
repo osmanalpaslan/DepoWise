@@ -240,7 +240,12 @@ public sealed partial class ShellViewModel : ViewModelBase
         catch { }
     }
 
-    private async System.Threading.Tasks.Task MaybePushBusinessAsync()
+    /// <param name="checkConflicts">
+    /// SNK-02: çakışma bildirimi YAVAŞ gruptadır (60 sn). Bu çağrı <see cref="SyncGate"/>'in İÇİNDE
+    /// kalmalı (dışarı taşımak gating davranışını değiştirirdi) → dışarı taşımak yerine parametreyle
+    /// atlanır. Veri yolu (sürüm kontrolü + push + pull) bu bayraktan ETKİLENMEZ, her tur çalışır.
+    /// </param>
+    private async System.Threading.Tasks.Task MaybePushBusinessAsync(bool checkConflicts)
     {
         var companyId = DesktopServices.Session?.CompanyId;
         if (string.IsNullOrWhiteSpace(companyId)) return;
@@ -269,7 +274,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => (CurrentPage as IRefreshable)?.RefreshData());
                 }
             }
-            await WarnConflictsAsync();
+            if (checkConflicts) await WarnConflictsAsync();   // SNK-02: yavaş grup (60 sn)
         }
         catch { }
         finally { SyncGate.Exit(); }
@@ -292,13 +297,37 @@ public sealed partial class ShellViewModel : ViewModelBase
         catch { }
     }
 
+    // ── SNK-02 (2026-08-10): tick kadansı. Timer 15 sn'de kalır; GECİKMEYE DAYANIKLI iki uç
+    // (bağlantı rozeti + çakışma bildirimi) her 4. turda çalışır → boşta ~%30 daha az istek.
+    // YENİ TIMER YOK, kullanıcı aktivite takibi YOK, veri yolu (push/pull/watermark/LWW) DEĞİŞMEDİ. ──
+
+    /// <summary>Hızlı grup aralığı. ADR-099 kararı: veri "anlık" görünmeli → 15 sn KORUNUR.</summary>
+    private const int FastTickSeconds = 15;
+
+    /// <summary>Yavaş grup kaç hızlı turda bir çalışır (4 × 15 sn = 60 sn).</summary>
+    private const int SlowEveryNTicks = 4;
+
+    /// <summary>Tick sayacı — yalnız UI thread'de artar, kilit gerekmez.</summary>
+    private int _tick;
+
     // Not: MenuSearchItem record'u dosya sonunda (namespace düzeyinde) tanımlı.
     private void StartConnectionMonitor()
     {
         _ = PingAsync();
         // 15 sn: eşitleme artık her tick'te ÜCUZ sürüm kontrolü yapıp yalnız değişince aktarıyor (duyarlı).
-        _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
-        _connTimer.Tick += async (_, _) => { await PingAsync(); await RegisterMachineAsync(); await CheckUserChangedAsync(); await MaybePushBusinessAsync(); await MaybeDailyBackupAsync(); }; // ping + heartbeat + yetki + iş verisi push + günlük yedek
+        _connTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(FastTickSeconds) };
+        _connTimer.Tick += async (_, _) =>
+        {
+            // İlk tur (0) yavaş grubu DA çalıştırır → açılıştan sonra rozet/çakışma geç kalmaz.
+            bool slow = (_tick++ % SlowEveryNTicks) == 0;
+
+            // Çağrı SIRASI bilinçli olarak DEĞİŞTİRİLMEDİ; yalnız iki uç koşullu hale geldi.
+            if (slow) await PingAsync();      // YAVAŞ (60 sn): bağlantı rozeti — veri akışı buna bağlı DEĞİL
+            await RegisterMachineAsync();     // HIZLI (15 sn): makine iptali algılama — kullanıcı kararı 2a
+            await CheckUserChangedAsync();    // HIZLI (15 sn): yetki/şifre değişikliği algılama
+            await MaybePushBusinessAsync(checkConflicts: slow);  // HIZLI: sürüm+push+pull · çakışma bildirimi YAVAŞ
+            await MaybeDailyBackupAsync();    // kendi saatlik kısıtı var
+        };
         _connTimer.Start();
     }
 
