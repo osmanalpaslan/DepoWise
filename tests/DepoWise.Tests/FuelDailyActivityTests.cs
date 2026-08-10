@@ -42,6 +42,22 @@ public class FuelDailyActivityTests : IDisposable
         _admin = new SessionContext(uid, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
     }
 
+    /// <summary>B-8: testler için firmaya ait gerçek bir şube oluşturur (BranchService'e bağımlılık
+    /// eklemeden, doğrudan tabloya — bu fixture yalnız şube ID'sine ihtiyaç duyar).</summary>
+    private string NewBranchId(string name)
+    {
+        var id = Guid.NewGuid().ToString("N");
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "INSERT INTO branches(id, company_id, name, kind, created_at, updated_at, version, is_deleted) " +
+            "VALUES(@id,'A',@n,'branch',1,1,1,0);";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@n", name);
+        cmd.ExecuteNonQuery();
+        return id;
+    }
+
     private sealed class TestClock : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000);
@@ -171,7 +187,12 @@ public class FuelDailyActivityTests : IDisposable
     public void GunlukFaaliyet_Transfer_AraciPasifeAlir()
     {
         var v = _vehicles.Create(_admin, new NewVehicle("V-1"));
-        _daily.SaveMovement(_admin, new NewMovementActivity("transfer", VehicleId: v, FromLocationId: "b1", ToLocationId: "b2"), "op-trf");
+        // B-8 (2026-08-11): konum id'leri artık firmaya ait GERÇEK şube olmalı. Eskiden uydurma "b1"/"b2"
+        // yeterliydi; yabancı/var olmayan şube referansı engellendiği için testte gerçek şube açılıyor.
+        // Testin konusu değişmedi: transfer aracı pasife alır.
+        var b1 = NewBranchId("Şantiye 1");
+        var b2 = NewBranchId("Şantiye 2");
+        _daily.SaveMovement(_admin, new NewMovementActivity("transfer", VehicleId: v, FromLocationId: b1, ToLocationId: b2), "op-trf");
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT status FROM vehicles WHERE id=@id;";

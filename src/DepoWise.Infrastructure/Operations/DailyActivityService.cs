@@ -231,6 +231,11 @@ WHERE NOT EXISTS (SELECT 1 FROM maintenance_definitions
         // akışı ise araç id'sini doğrudan yazıyordu → yabancı araca REFERANS veren kayıt oluşabiliyordu.
         // (Transfer'in aracı pasife alan UPDATE'i zaten firma süzgeçliydi; boşluk yalnız bu referanstaydı.)
         if (dto.VehicleId is not null) EnsureVehicleOwned(conn, tx, s.CompanyId, dto.VehicleId);
+        // B-8 (PRT-01 Grup 5, 2026-08-11): gönderen/alan konum (şube) ve operatör (personel) id'leri de
+        // İSTEMCİDEN gelir → aynı şekilde firmaya ait oldukları doğrulanır. Araç kartındaki B-7 ile aynı sınıf.
+        EnsureOwned(conn, tx, "branches", s.CompanyId, dto.FromLocationId, "Şube bulunamadı veya başka firmaya ait.");
+        EnsureOwned(conn, tx, "branches", s.CompanyId, dto.ToLocationId, "Şube bulunamadı veya başka firmaya ait.");
+        EnsureOwned(conn, tx, "personnel", s.CompanyId, dto.OperatorId, "Personel bulunamadı veya başka firmaya ait.");
         InsertActivity(conn, tx, id, s.CompanyId, "movement", dto.MovementKind, dto.VehicleId, dto.FromLocationId,
             dto.ToLocationId, dto.OperatorId, dto.DurationDays, dto.Description, null, stockProcessed: false,
             dto.ActivityDate ?? now, operationId, now, s.OperatingBranchId);
@@ -285,9 +290,9 @@ SELECT da.id, da.activity_type, da.movement_kind, v.internal_code, v.plate,
        fb.name, tb.name, p.full_name, da.duration_days, da.description, da.activity_date, da.maintenance_id
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
-LEFT JOIN branches fb ON fb.id = da.from_location_id
-LEFT JOIN branches tb ON tb.id = da.to_location_id
-LEFT JOIN personnel p ON p.id = da.operator_id
+LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
+LEFT JOIN branches tb ON tb.id = da.to_location_id AND tb.company_id = da.company_id
+LEFT JOIN personnel p ON p.id = da.operator_id AND p.company_id = da.company_id
 WHERE da.company_id = @c AND da.is_deleted = 0" + BranchScope.Sql(s, "da.op_branch_id") + @"
   AND (CAST(@t AS TEXT) IS NULL OR da.activity_type = @t)
 ORDER BY da.activity_date DESC, da.created_at DESC LIMIT @lim;";
@@ -332,9 +337,9 @@ SELECT da.id AS id,
        da.duration_days AS duration_days
 FROM daily_activities da
 LEFT JOIN vehicles v ON v.id = da.vehicle_id AND v.company_id = da.company_id
-LEFT JOIN branches fb ON fb.id = da.from_location_id
-LEFT JOIN branches tb ON tb.id = da.to_location_id
-LEFT JOIN personnel p ON p.id = da.operator_id
+LEFT JOIN branches fb ON fb.id = da.from_location_id AND fb.company_id = da.company_id
+LEFT JOIN branches tb ON tb.id = da.to_location_id AND tb.company_id = da.company_id
+LEFT JOIN personnel p ON p.id = da.operator_id AND p.company_id = da.company_id
 WHERE da.company_id = @c";
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama + sıralama + Excel'e aktar (kullanıcı isteği
@@ -640,13 +645,19 @@ VALUES(@id,@c,@at,@mk,@v,@from,@to,@op2,@dur,@desc,@mid,'daily_activity',@sp,@ad
 
     /// <summary>B-3: araç bu firmaya ait mi? (MaintenanceService/InspectionService ile aynı desen.)</summary>
     private static void EnsureVehicleOwned(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId)
+        => EnsureOwned(conn, tx, "vehicles", companyId, vehicleId, "Araç bulunamadı veya başka firmaya ait.");
+
+    /// <summary>B-8: istemciden gelen bir id'nin firmaya ait olduğunu doğrular. null/boş = serbest
+    /// (alan opsiyonel). Tablo adı YALNIZ bu sınıftaki sabitlerden gelir — dışarıdan parametre alınmaz.</summary>
+    private static void EnsureOwned(DbConnection conn, DbTransaction? tx, string table,
+        string companyId, string? id, string error)
     {
+        if (string.IsNullOrEmpty(id)) return;
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c AND is_deleted=0;";
-        cmd.AddWithValue("@id", vehicleId);
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", id);
         cmd.AddWithValue("@c", companyId);
-        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
-            throw new ForbiddenException("Araç bulunamadı veya başka firmaya ait.");
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException(error);
     }
 }

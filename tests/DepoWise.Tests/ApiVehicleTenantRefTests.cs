@@ -130,6 +130,43 @@ public class ApiVehicleTenantRefTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
     }
 
+    // ── B-8: günlük faaliyette konum/operatör referansı ────────────────────────────────────
+
+    private Task<HttpResponseMessage> SaveMovementAsync(string? fromId, string? toId, string? operatorId)
+        => _a.PostAsJsonAsync("/api/daily/movement", new
+        {
+            movementKind = "movement", vehicleId = (string?)null, fromLocationId = fromId,
+            toLocationId = toId, operatorId, durationDays = (int?)null,
+            description = "B-8 testi", activityDate = (long?)null,
+        });
+
+    [Fact]
+    public async Task B8_Kendi_Konum_Ve_Operatoruyle_Hareket_Olusur()
+    {
+        (await SaveMovementAsync(_branchA, _branchA, _personA)).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task B8_Yabanci_Konum_Ile_Hareket_Olusturulamaz()
+    {
+        var r = await SaveMovementAsync(_branchB, null, null);
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task B8_Yabanci_Operator_Ile_Hareket_Olusturulamaz()
+    {
+        var r = await SaveMovementAsync(_branchA, null, _personB);
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task B8_Konumsuz_Operatorsuz_Hareket_Calismaya_Devam_Eder()
+    {
+        // Üçü de OPSİYONELDİR → yeni kontrol bunları ENGELLEMEMELİ.
+        (await SaveMovementAsync(null, null, null)).EnsureSuccessStatusCode();
+    }
+
     [Fact]
     public async Task Gecmiste_Olusmus_Yabanci_Referans_Listede_ISIM_GOSTERMEZ()
     {
