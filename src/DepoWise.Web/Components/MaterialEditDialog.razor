@@ -111,7 +111,9 @@
                 </MudItem>
             </MudGrid>
             @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
-            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — tam düzenleme için liste ekranındaki “Düzenle”yi kullanın.</MudText> }
+            @* G2-01: eskiden "liste ekranındaki Düzenle"yi işaret ediyordu — ÖYLE BİR DÜĞME YOKTU.
+               Artık bu pencerenin kendi "Tam Düzenleme" düğmesine yönlendiriyor. *@
+            @if (_edit) { <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">Fotoğraf, muadil ve uyumlu araçlar bu pencerede değişmez (korunur) — bunları değiştirmek için pencereyi kapatıp “Tam Düzenleme”yi kullanın.</MudText> }
         }
     </DialogContent>
     <DialogActions>
@@ -124,6 +126,13 @@
             }
             @if (!_edit && Auth.CanEdit("materials"))
             {
+                @* G2-01: tam düzenleme formuna GİRİŞ YOLU. Fotoğraf / muadil / uyumlu araç yalnız orada
+                   değiştirilebilir; bu pencere onları korur. Yalnız SALT-OKUNUR modda gösterilir —
+                   düzenleme moduna geçilmişken çıkmak yazılanları kaybettirirdi. *@
+                <MudTooltip Text="Fotoğraf, muadil ve uyumlu araçlar dahil tüm alanları düzenle">
+                    <MudButton Color="Color.Primary" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew"
+                               OnClick="@(() => MudDialog.Close(DialogResult.Ok("fulledit")))">Tam Düzenleme</MudButton>
+                </MudTooltip>
                 <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => _edit = true)">Düzelt</MudButton>
             }
             @if (_edit)

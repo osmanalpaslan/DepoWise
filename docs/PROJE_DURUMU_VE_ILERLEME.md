@@ -383,7 +383,7 @@ Günlük · 6 Yönetim ekranları.
 | `G2-04` | Hızlı düzenleme malzemenin **şablon bağını siliyordu** (web **ve** masaüstü) | ✅ **UYGULANDI** — ⚠️ **commit EDİLMEDİ**, çalışma ağacında duruyor |
 | `G2-02` | Web ana düzenleme formu **düzenleme kilidi göndermiyor** | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
 | `G2-03` | `PUT /api/materials/{id}` **`equivalentIds`'i yok sayıyor** | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
-| `G2-01` | Web'de **tam düzenleme formuna giriş yolu yok** (muadil/uyumlu araç/foto web'den değiştirilemiyor) | ⏳ onay bekliyor — önkoşulları (`G2-02`+`G2-03`) **TAMAM**, sıradaki aday |
+| `G2-01` | Web'de **tam düzenleme formuna giriş yolu yok** (muadil/uyumlu araç/foto web'den değiştirilemiyor) | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
 | `G2-05` | Masaüstünde **"Yalnız kritik"** filtresi yok (servis + testi hazır) | ⏳ onay bekliyor |
 | `G2-06` | Kritik stok paneli çapraz eksik (P3) | ⏸️ **değişiklik önerilmedi** |
 | `G2-07` | Düzenlemede boş "Tür" varsayılanı platformlar arası farklı | ⏳ **ürün kararı** (§11) |
@@ -411,6 +411,34 @@ liste simetrik yazılır. `Program.cs`'e `is not null` koşullu tek çağrı —
 **`null` ≠ `[]` semantiği** `VehicleIds` ile birebir aynı: `null` = dokunma (hızlı düzenleme pencereleri
 bu alanı göndermez), `[]` = hepsini kaldır.
 **+6 HTTP testi** (yeni `ApiMaterialEquivalentTests.cs`) · **1066/1033/0/33** · yeni uyarı yok.
+
+### ✅ `G2-01` — web tam düzenleme formuna giriş yolu (2026-08-10)
+Form kodda hep vardı, **onu açan kontrol yoktu** (`EditNav` ölüydü); üstelik hızlı düzenleme penceresi
+kullanıcıyı **var olmayan** bir "Düzenle" düğmesine yönlendiriyordu.
+- Hızlı düzenleme penceresine **"Tam Düzenleme"** düğmesi (`Auth.CanEdit` ile) → `fulledit` sonucu →
+  mevcut `EditNav`. Yanıltıcı ipucu metni gerçeğe uyduruldu. Ekstra onay **yok** (kullanıcı zaten bastı).
+- **YETKİ KAPISI DÜZELTİLDİ:** form iki yerde `CanCreate`'e bağlıydı → düzenleme yetkisi olup oluşturma
+  yetkisi olmayan kullanıcı **bomboş sayfa** görüyordu. Artık **yeni kayıt = Create, düzenleme = Edit**
+  (masaüstündeki `CanWrite`/`CanEdit` ayrımının aynısı).
+- Sayfa başlığı düzenlemede "Malzeme — Yeni Kayıt" yazıyordu → **"Malzeme — Düzenle"**.
+
+**⚠️ Uygulama sırasında çıkan ZORUNLU düzeltme (planda yoktu):** `/materials` ile `/materials/new`
+**aynı bileşene** bağlı (`@page "/materials"` + `@page "/materials/{Section}"`). Blazor bileşeni
+yeniden oluşturmadığı için `OnInitializedAsync` **tekrar çalışmıyordu** → form **boş açıldı**.
+`EditNav` ve kayıt sonrası listeye dönüş `forceLoad: true` ile tam sayfa yüklemesine çevrildi.
+İkincisi **önceden var olan ama ulaşılamayan** bir kusuru da kapatıyor: kaydettikten sonra liste
+dönen göstergede kalırdı.
+
+**Test:** yeni otomatik test **yazılmadı** (değişiklik UI/gezinme + yetki görünürlüğü katmanında;
+API/servis davranışı değişmedi). Regresyon: **1066/1033/0/33 — değişmedi**, build 0 hata / 13 uyarı.
+**Tarayıcı QA (izole, `127.0.0.1`, canlıya sıfır istek), GERÇEK KULLANICI YETKİLERİYLE:**
+
+| Kullanıcı | Beklenen | Gözlenen |
+|---|---|---|
+| **admin** (tüm yetkiler) | düğme görünür, form dolu açılır | ✅ `Kapat / Sil / Tam Düzenleme / Düzelt`; form doldu, başlık "Malzeme — Düzenle"; kaydetme sonrası **listeye döndü ve liste render oldu** |
+| **qa_edit** (View+**Edit**, Create YOK) | düğme görünür, form **dolu açılır** | ✅ `Kapat / Tam Düzenleme / Düzelt` (**Sil yok** — Delete yetkisi yok); form kod/ad/muadille **doldu**. *Düzeltmeden önce burada boş sayfa gelirdi.* |
+| **qa_edit** → `/materials/new` (yeni kayıt) | form **açılmamalı** | ✅ Kaydet düğmesi yok, form yok |
+| **qa_view** (yalnız View) | düzenleme düğmesi **görünmemeli** | ✅ pencerede **yalnız "Kapat"**; URL ile `?edit=` zorlansa da form **açılmadı** |
 **İzole gerçek HTTP QA (web):** aynı `PUT` iki gövde şekliyle koşuldu — `templateId` **gönderilince
 bağ korundu**, gönderilmeyince `null`'a düştü (kusur birebir üretildi). 18 isteğin tamamı
 `127.0.0.1`'e gitti, **canlıya tek istek gitmedi**.
@@ -424,7 +452,8 @@ UI gizleme değil **veri katmanı** koruması; elle API çağrısı atlatamaz. Y
 
 ---
 
-**Sıradaki aday: `G2-01` (web tam düzenleme formuna giriş yolu) — önkoşulları TAMAM, sonra `G2-05`.**
+**Sıradaki aday: `G2-05` (masaüstüne "Yalnız kritik" filtresi) — sonra `G2-07` karar kapısı.**
+*(`G2-01` ✅ tamamlandı; Grup 2a'nın kalan tek kod işi `G2-05`.)*
 Sıra gerekçesi: `G2-01` (formun kapısını açmak) **en sonda**, çünkü `G2-02` ve `G2-03` çözülmeden
 form açılırsa bugün gizli olan iki sessiz hata kullanıcıya açılır.
 Ardından **Grup 2b (Şablonlar)** — **henüz analiz edilmedi**, ayrı analiz aşaması olarak yürütülecek.
@@ -545,6 +574,7 @@ turda kodlanmadı. Aşağıdaki tablo *"bu konu unutuldu mu?"* sorusunun kalıc�
 | — | `users.version` artık yetki değişiminde artıyor; ileride kullanıcı düzenlemesine kilit eklenirse **aynı jetonu paylaşacaklar** (doğru davranış ama YET-01'de teyit edilmeli) | YET-01 |
 | **WEB-01** | **Web hata mesajlarında ham JSON gösteriliyor** — aşağıda ayrıntı | ⏳ **AYRI İŞ** — henüz fazlanmadı |
 | **G2-08** | **`Materials.razor`'da ölü kod** (2026-08-10, PRT-01 Grup 2a): `_v` alanı (derleyici **`CS0169`** ile zaten uyarıyor), `DeleteSelected`, `DeletePhoto`, `OpenDetail`/`_detailPhotos`, `ApplyTemplate`/`_templates` — hiçbiri markup'tan çağrılmıyor (yan detay paneli ve şablon seçici kaldırılınca kalmışlar). **Kullanılmama nedeni doğrulandı.** ⚠️ `OpenDetail` **`OpenQuickEdit` içinden çağrılıyor** → tamamen ölü DEĞİL; kör silme yapılmamalı | 📝 **YALNIZ KAYIT** — `G2-01` bu dosyaya zaten dokunacak; temizlik o iş sırasında **aynı dosyada** değerlendirilir. Tek başına refactor açılmayacak (H-12) |
+| **ARC-01** | **`Vehicles.razor`'da `EditNav` ÖLÜ — araç tam düzenleme formuna web'den ULAŞILAMIYOR** (2026-08-10, `G2-01` analizinde bulundu). Malzemedeki `G2-01` kusurunun **birebir aynısı**: metot tanımlı ([Vehicles.razor:276](../src/DepoWise.Web/Components/Pages/Vehicles.razor:276)) ama hiçbir markup'a bağlı değil; listede yalnız çift-tık hızlı düzenleme var. Araç formunun yetki kapısının da `CanCreate`'e bağlı olup olmadığı **kontrol edilmedi** | ⏳ **AÇIK** — **`PRT-01` Grup 5 (Araç)** kapsamında ele alınacak. `G2-01`'de bilerek **dokunulmadı** (kullanıcı kararı). Çözüm deseni hazır: `G2-01`'in aynısı |
 | **MUA-01** | **Muadil: TRANSİTİF gösterim ↔ DOĞRUDAN yazım uyuşmazlığı** (2026-08-10, `G2-03` analizinde bulundu). `GetEquivalentGroup` **BFS ile transitif** çalışır (A↔B, B↔C ⇒ grup(A)={B,C}), `GetDetail` bu transitif grubu "Muadiller" olarak gösterir. Yazma tarafı ise **doğrudan** çift üzerinde çalışır. Sonuç: A'nın listesinden **yalnızca transitif bağlı** bir malzeme çıkarılırsa silinecek doğrudan satır yoktur → **kullanıcıya "silinmiyor" gibi görünür**. Aynı sınır **masaüstü uzlaştırmasında da vardır** (yeni değil). Ayrıca web tam formu transitif grubu geri gönderdiği için kaydetme, transitif bağları **doğrudan satıra dönüştürür** (graf yoğunlaşır — zararsız ama davranış değişikliği) | ⏳ **ÜRÜN KARARI GEREKİR:** "muadil" bir **grup (transitif)** mu, malzeme başına **liste** mi? `G2-03`'te davranış **bilerek DEĞİŞTİRİLMEDİ**, yalnız kayda alındı |
 | **MUA-02** | **`EnsureOwned` silinmiş malzemeyi kabul ediyor** — `SELECT COUNT(*) FROM materials WHERE id=@id AND company_id=@c` (**`is_deleted` filtresi YOK**). Aynı dosyadaki `EnsureVehicleOwned` ise `is_deleted=0` kontrol ediyor → **asimetri**. Etki: soft-silinmiş bir malzeme muadil olarak eklenebilir; `GetDetail` gösterirken siliyor ama BFS silinmiş kaydın **üzerinden geçmeye devam ediyor** | 📝 **YALNIZ KAYIT** — `G2-03`'te davranış **değiştirilmedi** (yeni davranış icat edilmedi). Düzeltilecekse muadil/silme davranışıyla birlikte ele alınmalı (`MLZ-01` ailesi) |
 | **AUD-01** | **`audit_logs.before_json` / `after_json` kolonları var ama neredeyse hiç doldurulmuyor** — `AuditWriter` destekliyor, çağıranların hemen hepsi `null` geçiyor (`AfterJson` yalnız `FileService` + `MaintenanceService`; `BeforeJson` **hiçbir yerde**). Sonuç: bugün "bu kayıtta ne değişti?" sorusu **cevaplanamıyor**. Ayrıca **Audit görüntüleme ekranı yalnız web'de var** (`Audit.razor`), masaüstünde yok | ⏳ **`LOG-02`** olarak plana eklendi (§6) · masaüstü eksiği `PRT-01` **Grup 6**'da denetlenecek |
@@ -736,4 +766,5 @@ veriyor.
 | 2026-08-10 | **`PRT-01` Grup 1 (stok) kapandı** (`8bf27cb`) — 6 bulgu giderildi; `G1-02` masaüstü GUI QA yapılamadı, açıkça öyle kaydedildi. Doküman kapanışı `7bf4afa`. |
 | 2026-08-10 | **`PRT-01` Grup 2a (Malzemeler) analizi** — 8 bulgu (`G2-01…G2-08`). Silme koruması derinlemesine denetlendi: **tek noktalı, veri katmanında, elle API çağrısı atlatamaz**; yakıt tabloları `material_id` taşımıyor. **`G2-04` uygulandı** (şablon bağı korunuyor), izole gerçek HTTP QA ile doğrulandı; masaüstü GUI gözlenemedi. **Commit edilmedi.** |
 | 2026-08-10 | **`G2-02` + `G2-03` uygulandı.** `G2-02`: web tam formu artık `version` gönderiyor, 409'da "Kaydı yenile/Formda kal" (masaüstü deseni), ölü `_v` alanı amacına uygun kullanıldı → `CS0169` giderildi. `G2-03`: **yalnız `Program.cs` yetmedi** — `MaterialService.SetEquivalents` (tek transaction, `null`≠`[]`, çift yönlü, hepsi-veya-hiçbiri) eklendi. **1066/1033/0/33** (+8 test). İkisi de izole gerçek HTTP + tarayıcı QA ile doğrulandı. **Commit edilmedi.** Yeni teknik borç: **`MUA-01`** (muadil transitif↔doğrudan uyuşmazlığı — ürün kararı), **`MUA-02`** (`EnsureOwned` silinmiş malzemeyi kabul ediyor). İkisinde de **davranış bilerek değiştirilmedi**. |
+| 2026-08-10 | **Grup 2a kod commit'i `ffbb995`** (G2-04 + G2-02 + G2-03, 11 dosya). Ardından **`G2-01` uygulandı** (commit edilmedi): "Tam Düzenleme" giriş yolu + **yetki kapısı düzeltmesi** (yeni kayıt=Create, düzenleme=Edit) + başlık. Uygulamada planda olmayan **zorunlu** bir düzeltme çıktı: `/materials` ↔ `/materials/new` aynı bileşen olduğu için `OnInitializedAsync` tekrar çalışmıyordu → `forceLoad` gerekti (kayıt sonrası liste dönüşündeki gizli kusuru da kapattı). Yetki ayrımı **gerçek kullanıcı yetkileriyle** tarayıcıda doğrulandı (admin / edit-only / view-only). Yeni teknik borç: **`ARC-01`** — `Vehicles.razor`'da **aynı ölü `EditNav`**, Grup 5'e bırakıldı. |
 | 2026-08-10 | **Uzun vadeli gereksinim gözden geçirmesi (kullanıcının 17 maddesi).** Çoğunun **zaten `H-1…H-12` altında planlı** olduğu doğrulandı → mükerrer iş açılmadı. Gerçekten eksik çıkan **dört** konu eklendi: **`GNL-03`** (kayıt tipi kataloğu — `YTK-02`'nin önkoşulu), **`LOG-02`** (audit önceki/yeni değer), **`PRF-01`** (ölçek darboğaz haritası, ücretsiz), **`PRT-01` Grup 2b (Şablonlar)** ayrı analiz aşaması olarak işaretlendi. **`KARAR-7`** açıldı: şube bazlı malzeme silme isteği **`KARAR-1` ile çelişiyor** → kullanıcı kararı bekliyor. `Y-6`/`Y-7` ve maliyet kalemleri #9/#10 eklendi. **Hiç kod yazılmadı.** |

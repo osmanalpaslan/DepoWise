@@ -10,7 +10,9 @@
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
-        <MudText Typo="Typo.h5">@(_isNew ? "Malzeme — Yeni Kayıt" : "Malzeme Listesi")</MudText>
+        @* G2-01: düzenlemede "Yeni Kayıt" yazıyordu (yalnız _isNew'e bakıyordu) — kart içi başlık doğru
+           olduğu hâlde sayfa başlığı yanlıştı. Artık yeni kayıt / düzenleme ayrımı başlığa da yansıyor. *@
+        <MudText Typo="Typo.h5">@(_isNew ? (_isEditRoute ? "Malzeme — Düzenle" : "Malzeme — Yeni Kayıt") : "Malzeme Listesi")</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
 </div>
@@ -21,7 +23,7 @@
     <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
 }
 
-@if (_isNew && Auth.CanCreate("materials"))
+@if (_isNew && CanUseForm)
 {
     <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:760px;">
         <MudText Typo="Typo.h6" Class="mb-2">@(_editId is null ? "YENİ MALZEME" : "MALZEME DÜZENLE")</MudText>
@@ -276,11 +278,26 @@
 @code {
     [Parameter] public string? Section { get; set; }
     private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase);
-    private async Task EditNav(string id)
-    {
-        if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
-        Nav.NavigateTo($"/materials/new?edit={id}");
-    }
+
+    // ── G2-01: tam düzenleme formunun GİRİŞ YOLU + YETKİ KAPISI ───────────────────────────────
+    // Form kodda hep vardı ama onu açan hiçbir kontrol yoktu (bu metot ölüydü). Artık hızlı düzenleme
+    // penceresindeki "Tam Düzenleme" düğmesinden çağrılıyor. Ekstra onay YOK: kullanıcı zaten açıkça
+    // o düğmeye bastı; ikinci bir "emin misiniz" gürültü olurdu.
+    /// ⚠️ <c>forceLoad: true</c> ZORUNLU: <c>/materials</c> ile <c>/materials/new</c> AYNI bileşene
+    /// bağlıdır (`@page "/materials"` + `@page "/materials/{Section}"`). Blazor bileşeni yeniden
+    /// oluşturmaz, yalnız parametreyi günceller → <c>OnInitializedAsync</c> TEKRAR ÇALIŞMAZ ve form
+    /// boş açılırdı. Tam sayfa yüklemesi başlangıç akışını (tanımlar + kaydı yükle) yeniden çalıştırır.
+    private void EditNav(string id) => Nav.NavigateTo($"/materials/new?edit={id}", forceLoad: true);
+
+    /// <summary>URL'de <c>?edit=</c> var mı — yani form YENİ KAYIT için mi, DÜZENLEME için mi açıldı.
+    /// İlk render'dan ÖNCE (OnInitializedAsync'in ilk await'inden önce) belirlenir; <c>_editId</c> o anda
+    /// henüz set edilmemiş olabileceği için yetki kapısı buna bakar, <c>_editId</c>'ye değil.</summary>
+    private bool _isEditRoute;
+
+    /// <summary>YETKİ KAPISI (G2-01): yeni kayıt <b>Create</b>, mevcut kaydı düzenleme <b>Edit</b> ister.
+    /// Eskiden ikisi de <c>CanCreate</c>'e bağlıydı → düzenleme yetkisi olup oluşturma yetkisi olmayan
+    /// kullanıcı bomboş sayfa görüyordu. Masaüstündeki ayrımın aynısı (MaterialsViewModel.CanWrite/CanEdit).</summary>
+    private bool CanUseForm => _isEditRoute ? Auth.CanEdit("materials") : Auth.CanCreate("materials");
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
     private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
@@ -375,18 +392,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (_isNew && Auth.CanCreate("materials"))
+        // G2-01: kapıyı belirleyen bilgi İLK AWAIT'TEN ÖNCE hesaplanır → ilk render'da da doğru.
+        var q0 = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        _isEditRoute = q0.TryGetValue("edit", out var e0) && !string.IsNullOrEmpty(e0);
+
+        if (_isNew && CanUseForm)
         {
             _cats = await Api.OptionsAsync("/api/materials/subcategories", "id", "name");
             _units = await Api.OptionsAsync("/api/lookups/units", "id", "name");
             _brands = await Api.OptionsAsync("/api/lookups/brands", "id", "name");
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
             try { _templates = await Api.OptionsAsync("/api/material-templates", "id", "name"); } catch { }
-            // Liste ekranından "Düzenle" ile gelindiyse (?edit=id) kaydı forma yükle
-            var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
-            if (q.TryGetValue("edit", out var eid) && !string.IsNullOrEmpty(eid))
+            // Hızlı düzenleme penceresindeki "Tam Düzenleme" ile gelindiyse (?edit=id) kaydı forma yükle
+            if (_isEditRoute)
             {
-                try { _detail = await Api.GetObjectAsync($"/api/materials/{eid}"); await BeginEdit(); } catch { }
+                try { _detail = await Api.GetObjectAsync($"/api/materials/{e0}"); await BeginEdit(); } catch { }
             }
         }
         if (!_isNew)
@@ -535,6 +555,9 @@
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
         var res = await dlg.Result;
         if (res is null || res.Canceled) return;
+        // G2-01: "Tam Düzenleme" seçildi → fotoğraf/muadil/uyumlu araç dahil tam forma git.
+        // Kayıt değişmediği için listeyi tazelemeye gerek yok (form dönüşünde zaten yenilenir).
+        if (res.Data as string == "fulledit") { EditNav(id); return; }
         await Load();
         if (res.Data as string == "deleted") _detail = null;
         else if (_detail is not null && Str(_detail.Value, "id") == id) await OpenDetail(id);
@@ -679,7 +702,10 @@
                 await Api.UploadFilesAsync($"/api/materials/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
 
             _ok = err is null; _msg = err ?? (_editId is null ? "Malzeme eklendi." : "Malzeme güncellendi.");
-            if (_ok) { Clear(); Nav.NavigateTo("/materials"); }
+            // forceLoad: EditNav ile aynı gerekçe — listeye dönerken bileşen yeniden kurulmalı ki
+            // OnInitializedAsync (kolon tercihleri + Load) çalışsın; aksi hâlde liste boş/dönen
+            // göstergede kalırdı. (G2-01 kapıyı açınca bu yol gerçekten kullanılır hâle geldi.)
+            if (_ok) { Clear(); Nav.NavigateTo("/materials", forceLoad: true); }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }

@@ -27,11 +27,13 @@ DURUM:               ✅ FAZ 1 SENKRON OPTİMİZASYONU (SNK-01…04) TAMAMLANDI 
                      SNK-01 ❌ · SNK-02 ✅ · SNK-03 ✅ · SNK-04 ❌
                      ✅ KLT-01 KAPANDI · ✅ MLZ-01
 SON TAMAMLANAN İŞ:   SNK-04 — analiz sonucu ZATEN YAPILMIŞ (2026-08-10)
-SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 2a — G2-01 (önkoşulları TAMAM) → sonra G2-05
-                     G2-04 ✅ · G2-02 ✅ · G2-03 ✅ UYGULANDI (üçü de commit EDİLMEDİ)
+SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 2a — G2-05 (son kod işi) → sonra G2-07 karar kapısı
+                     G2-04 · G2-02 · G2-03 ✅ commit ffbb995 · G2-01 ✅ commit EDİLMEDİ
                      ⚠️ Her aşama için ayrı ONAY gerekir; kendiliğinden başlanmaz
 YENİ TEKNİK BORÇ:    MUA-01 (muadil transitif↔doğrudan uyuşmazlığı — ÜRÜN KARARI)
                      MUA-02 (EnsureOwned silinmiş malzemeyi kabul ediyor — yalnız kayıt)
+                     ARC-01 (Vehicles.razor'da EditNav ölü — araç tam formu web'den
+                             ulaşılamıyor; G2-01'in aynısı, Grup 5 kapsamı)
 İPTAL (2026-08-10):  SNK-01 — koruma kodda zaten vardı (c8d3dc7, 2026-07-19)
                      SNK-04 — koruma kodda zaten vardı (b2604de, 2026-07-11)
 AÇIK DOĞRULAMA:      SNK-02 + SNK-03 çalışma zamanı/HTTP davranışı — GUI oturumu sınırı (§5)
@@ -622,11 +624,14 @@ Sonucu yeni iş kalemleri doğurur.
 >
 > | Yarı | Durum |
 > |---|---|
-> | **2a — Malzemeler** (`Materials.razor` · `MaterialEditDialog.razor` · `MaterialsView.axaml` + VM · `MaterialQuickEditWindow`) | ✅ **Analiz TAMAM** — 8 bulgu (G2-01…G2-08). `G2-04` uygulandı *(commit edilmedi)*. `G2-01/02/03/05/07` onay bekliyor, `G2-06` değişiklik önerilmedi, `G2-08` yalnız kayıt |
+> | **2a — Malzemeler** (`Materials.razor` · `MaterialEditDialog.razor` · `MaterialsView.axaml` + VM · `MaterialQuickEditWindow`) | 🔵 **Analiz TAMAM, uygulama SÜRÜYOR** — 8 bulgu (G2-01…G2-08). ✅ `G2-04` + `G2-02` + `G2-03` (**commit `ffbb995`**) · ✅ `G2-01` *(commit edilmedi)* · ⏳ `G2-05` **son kod işi** · `G2-07` ürün kararı · `G2-06` değişiklik önerilmedi · `G2-08` yalnız kayıt (`_v`/`CS0169` kısmı `G2-02` ile kapandı) |
 > | **2b — Şablonlar** (`MaterialTemplates.razor` · `MaterialTemplatesView.axaml` + VM) | ⏳ **ANALİZ YAPILMADI** — Grup 2'nin ikinci yarısı. **Ayrı bir analiz aşaması olarak yürütülecek**; Malzemeler yarısının uygulaması bitince sırası gelir. Bilinen ilgili iş: `KLT-01d` ✅ (şablon güncellemede düzenleme kilidi) |
 >
-> **Grup 2a bulguları (özet):** `G2-01` web'de tam düzenleme formuna giriş yolu yok (muadil/uyumlu
-> araç/fotoğraf web'den değiştirilemiyor) · `G2-02` web ana formu düzenleme kilidi göndermiyor ·
+> **Grup 2a bulguları (özet):** `G2-01` ✅ web'de tam düzenleme formuna **giriş yolu yoktu** (muadil/
+> uyumlu araç/fotoğraf web'den hiç değiştirilemiyordu) — hızlı düzenleme penceresine "Tam Düzenleme"
+> düğmesi eklendi; ayrıca **yetki kapısı düzeltildi** (yeni kayıt=Create, düzenleme=Edit; eskiden ikisi
+> de Create'ti) ve `/materials` ↔ `/materials/new` **aynı bileşen** olduğu için `forceLoad` gerekti ·
+> `G2-02` web ana formu düzenleme kilidi göndermiyor ·
 > `G2-03` ✅ `PUT /api/materials/{id}` `equivalentIds`'i yok sayıyordu — **yalnız `Program.cs` yetmedi**,
 > `SetCompatibleVehicles`'ın simetriği olan **`MaterialService.SetEquivalents`** (tek transaction,
 > `null`≠`[]`, çift yönlü) eklendi · `G2-02` ✅ web tam formunda düzenleme kilidi (ölü `_v` alanı
