@@ -94,8 +94,115 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
     public bool IsEditMode => EditId != null;
     public string FormTitle => IsEditMode ? "ŞABLON DÜZENLE" : "YENİ ŞABLON";
 
-    /// <summary>Düzenlemede korunacak alan: bu ekranda yönetilmeyen "uyumlu araçlar" bağı EZİLMESİN.</summary>
-    private string? _editCompatibleVehicleIds;
+    // ══════════ B-4 (PRT-01 Grup 2b, 2026-08-10): UYUMLU ARAÇLAR — artık MASAÜSTÜNDE DE YÖNETİLİYOR ══════════
+    // Web'de (MaterialTemplates.razor) zaten yönetilebiliyordu; masaüstünde yalnız KORUNUYORDU
+    // (_editCompatibleVehicleIds ile geri gönderiliyordu). Desen: MaterialsViewModel'deki VehiclePick
+    // çoklu seçim listesi — arama + tümünü seç/temizle. Yeni DB yapısı, migration veya model değişikliği YOK;
+    // aynı virgülle ayrık compatible_vehicle_ids alanı kullanılır.
+    // Firma izolasyonu servis tarafında SanitizeVehicleIds ile ayrıca güvenceye alınmıştır.
+    public ObservableCollection<VehiclePick> VehiclePicks { get; } = new();
+    public ObservableCollection<VehiclePick> FilteredVehiclePicks { get; } = new();
+    [ObservableProperty] private string _vehicleSearch = "";
+
+    partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
+
+    private void LoadVehiclePicks()
+    {
+        VehiclePicks.Clear();
+        try { foreach (var v in DesktopServices.Vehicles.List(_session)) VehiclePicks.Add(new VehiclePick(v.Id, v.InternalCode, v.Plate ?? "")); }
+        catch { /* araç yoksa sessiz — şablon yine kaydedilebilir */ }
+        RebuildFilteredVehicles();
+    }
+
+    private void RebuildFilteredVehicles()
+    {
+        FilteredVehiclePicks.Clear();
+        var t = VehicleSearch?.Trim();
+        foreach (var p in VehiclePicks)
+            if (string.IsNullOrEmpty(t)
+                || p.Code.Contains(t, StringComparison.OrdinalIgnoreCase)
+                || p.Plate.Contains(t, StringComparison.OrdinalIgnoreCase))
+                FilteredVehiclePicks.Add(p);
+    }
+
+    [RelayCommand] private void SelectAllVehicles() { foreach (var p in FilteredVehiclePicks) p.IsSelected = true; }
+    [RelayCommand] private void ClearVehicles() { foreach (var p in FilteredVehiclePicks) p.IsSelected = false; }
+
+    /// <summary>Seçili araçlar → virgülle ayrık id listesi (alanın mevcut biçimi; değiştirilmedi).</summary>
+    private string? SelectedVehicleIds()
+    {
+        var ids = VehiclePicks.Where(p => p.IsSelected).Select(p => p.Id).ToList();
+        return ids.Count == 0 ? null : string.Join(",", ids);
+    }
+
+    /// <summary>Şablonun mevcut bağını seçim kutularına dağıtır (düzenleme).</summary>
+    private void ApplyVehicleSelection(string? csv)
+    {
+        var set = (csv ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var p in VehiclePicks) p.IsSelected = set.Contains(p.Id);
+    }
+
+    // ══════════ B-5 (PRT-01 Grup 2b, 2026-08-10): ŞABLON FOTOĞRAFLARI — masaüstüne eklendi ══════════
+    // Web'de (MaterialTemplates.razor + /api/templates/material/{id}/photos) zaten vardı; masaüstünde yoktu.
+    // MEVCUT altyapı kullanılır: FileService + Storage, varlık adı "material_template" — web ucunun
+    // TplEntity("material") ile ürettiği ADIN AYNISI, yani iki platform AYNI kayıtları görür.
+    // Yeni fotoğraf sistemi, migration, dependency veya API tasarımı YOK.
+    // Desen: MaterialsViewModel'deki Photos/DetailPhotos akışının aynısı.
+    public ObservableCollection<PhotoStage> Photos { get; } = new();
+    public ObservableCollection<DetailPhoto> DetailPhotos { get; } = new();
+
+    private const string PhotoEntity = "material_template";
+
+    [RelayCommand]
+    private async Task AddPhotos()
+    {
+        var picked = await FilePickerService.PickImagesAsync();
+        // Desteklenmeyen biçim (yalnız JPEG/PNG) seçilirse uyarır, yalnız geçerlileri forma ekler.
+        var valid = await PhotoPickHelper.ValidateAndWarnAsync(picked);
+        foreach (var p in valid) Photos.Add(new PhotoStage(p));
+    }
+
+    [RelayCommand] private void RemovePhoto(PhotoStage? p) { if (p is not null) Photos.Remove(p); }
+    [RelayCommand] private void OpenPhoto(Avalonia.Media.Imaging.Bitmap? b) => PhotoViewer.Show(b);
+
+    /// <summary>Kayıtlı fotoğrafı sil (onaylı) — yalnız düzenleme modunda anlamlı.</summary>
+    [RelayCommand]
+    private async Task DeleteDetailPhoto(DetailPhoto? p)
+    {
+        if (p is null || EditId is null) return;
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        if (!await ConfirmService.AskAsync("Bu fotoğraf silinsin mi?", "Fotoğraf Sil", "Evet, Sil", "Vazgeç", danger: true)) return;
+        try { DesktopServices.Files.DeletePhoto(_session, p.FileId); LoadDetailPhotos(EditId); Status = "Fotoğraf silindi."; }
+        catch (Exception ex) { Status = "Silinemedi: " + ex.Message; }
+    }
+
+    private void SaveStagedPhotos(string templateId)
+    {
+        foreach (var ph in Photos)
+        {
+            try
+            {
+                var bytes = System.IO.File.ReadAllBytes(ph.LocalPath);
+                DesktopServices.Files.SavePhoto(_session, PhotoEntity, templateId, System.IO.Path.GetFileName(ph.LocalPath), null, bytes);
+            }
+            catch (Exception ex) { Status = "Foto kaydedilemedi: " + ex.Message; }
+        }
+    }
+
+    private void LoadDetailPhotos(string templateId)
+    {
+        DetailPhotos.Clear();
+        try
+        {
+            foreach (var f in DesktopServices.Files.GetPhotos(_session, PhotoEntity, templateId))
+            {
+                var bytes = DesktopServices.Storage.Read(f.StorageKey);
+                DetailPhotos.Add(new DetailPhoto(f.Id, new Avalonia.Media.Imaging.Bitmap(new System.IO.MemoryStream(bytes))));
+            }
+        }
+        catch { /* foto yoksa sessiz */ }
+    }
 
     public MaterialTemplatesViewModel(SessionContext session)
     {
@@ -138,12 +245,24 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
             MinStock: NewMinStock, UnitPrice: NewUnitPrice,
             Currency: string.IsNullOrWhiteSpace(NewCurrency) ? "TRY" : NewCurrency,
             Description: string.IsNullOrWhiteSpace(NewDescription) ? null : NewDescription.Trim(),
-            CompatibleVehicleIds: _editCompatibleVehicleIds);   // bu ekranda yönetilmiyor → mevcut bağ korunur
+            // B-4: artık bu ekranda YÖNETİLİYOR — seçili araçlar gönderilir (eskiden mevcut bağ körlemesine korunurdu).
+            CompatibleVehicleIds: SelectedVehicleIds());
 
         try
         {
-            if (editing) { DesktopServices.MaterialTemplates.Update(_session, EditId!, dto, expectedVersion: _editVersion > 0 ? _editVersion : null); Clear(); Load(); Status = "Şablon güncellendi."; }
-            else { DesktopServices.MaterialTemplates.Create(_session, dto); Clear(); Load(); Status = "Şablon eklendi."; }
+            // B-5: bekleyen fotoğraflar kayıt BAŞARILI olduktan sonra, oluşan/güncellenen şablona yüklenir.
+            if (editing)
+            {
+                DesktopServices.MaterialTemplates.Update(_session, EditId!, dto, expectedVersion: _editVersion > 0 ? _editVersion : null);
+                SaveStagedPhotos(EditId!);
+                Clear(); Load(); Status = "Şablon güncellendi.";
+            }
+            else
+            {
+                var newId = DesktopServices.MaterialTemplates.Create(_session, dto);
+                SaveStagedPhotos(newId);
+                Clear(); Load(); Status = "Şablon eklendi.";
+            }
         }
         catch (ConcurrencyException)
         {
@@ -176,7 +295,8 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
         SelUnit = Units.FirstOrDefault(x => x.Id == t.UnitId);
         SelBrand = Brands.FirstOrDefault(x => x.Id == t.BrandId);
         SelSupplier = Suppliers.FirstOrDefault(x => x.Id == t.SupplierId);
-        _editCompatibleVehicleIds = t.CompatibleVehicleIds;
+        ApplyVehicleSelection(t.CompatibleVehicleIds);   // B-4: mevcut bağı seçim kutularına dağıt
+        Photos.Clear(); LoadDetailPhotos(Selected.Id);   // B-5: kayıtlı fotoğrafları göster
         TriedSave = false; ShowAdd = true;
     }
 
@@ -194,7 +314,9 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
         NewName = ""; NewCode = ""; NewType = null; NewDescription = "";
         NewMinStock = 0m; NewUnitPrice = 0m; NewCurrency = "TRY";
         SelCategory = null; SelUnit = null; SelBrand = null; SelSupplier = null;
-        _editCompatibleVehicleIds = null;
+        foreach (var p in VehiclePicks) p.IsSelected = false;   // B-4
+        VehicleSearch = "";
+        Photos.Clear(); DetailPhotos.Clear();   // B-5
         EditId = null; _editVersion = 0; TriedSave = false; ShowAdd = false;
     }
 
@@ -217,6 +339,7 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
             Units.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "units")) Units.Add(x);
             Brands.Clear(); foreach (var x in DesktopServices.Lookups.ListBrands(_session, "material")) Brands.Add(x);
             Suppliers.Clear(); foreach (var x in DesktopServices.Lookups.List(_session, "suppliers")) Suppliers.Add(x);
+            LoadVehiclePicks();   // B-4: uyumlu araç seçim listesi
             _lookupsLoaded = true;
         }
         catch (Exception ex) { Status = "Tanımlar yüklenemedi: " + ex.Message; }

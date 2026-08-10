@@ -92,6 +92,74 @@
                     <TextBox Classes="Field" Text="{Binding NewDescription}" AcceptsReturn="True" MaxHeight="90"/>
                 </ctrl:FormField>
 
+                <!-- B-4 (PRT-01 Grup 2b): Uyumlu Araçlar — web'de (MaterialTemplates.razor) zaten yönetiliyordu,
+                     masaüstünde yalnız korunuyordu. Malzemeler ekranındaki VehiclePick deseninin aynısı. -->
+                <ctrl:FormField Label="Uyumlu Araçlar" Width="480"
+                                HelpText="Bu şablondan oluşacak malzemenin takıldığı araçlar (çoklu seçim).">
+                    <StackPanel Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding VehicleSearch}" PlaceholderText="Araç ara (kod/plaka)"/>
+                            <Button Grid.Column="1" Classes="Secondary" Content="Tümünü Seç" Margin="8,0,0,0" Command="{Binding SelectAllVehiclesCommand}"/>
+                            <Button Grid.Column="2" Classes="Ghost" Content="Temizle" Margin="6,0,0,0" Command="{Binding ClearVehiclesCommand}"/>
+                        </Grid>
+                        <Border Classes="Table" MaxHeight="160">
+                            <ListBox ItemsSource="{Binding FilteredVehiclePicks}" Background="Transparent" BorderThickness="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:VehiclePick">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Display}"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </StackPanel>
+                </ctrl:FormField>
+
+                <!-- B-5 (PRT-01 Grup 2b): Şablon fotoğrafları — web'de zaten vardı, masaüstüne eklendi.
+                     Aynı FileService/Storage altyapısı ve AYNI varlık adı ("material_template") kullanılır. -->
+                <SelectableTextBlock Text="Fotoğraflar" Classes="CardLabel"/>
+                <StackPanel Spacing="8">
+                    <Button Classes="Secondary" Content="Foto Ekle" HorizontalAlignment="Left"
+                            Command="{Binding AddPhotosCommand}"/>
+
+                    <!-- Kaydedilmeyi bekleyenler -->
+                    <ItemsControl ItemsSource="{Binding Photos}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PhotoStage">
+                                <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
+                                        Background="{DynamicResource SurfaceElevatedBrush}">
+                                    <Panel>
+                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).RemovePhotoCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Panel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Kayıtlı fotoğraflar (yalnız düzenlemede dolar) -->
+                    <ItemsControl ItemsSource="{Binding DetailPhotos}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DetailPhoto">
+                                <Border Margin="0,0,8,8" Width="84" Height="84" CornerRadius="8" ClipToBounds="True"
+                                        Background="{DynamicResource SurfaceElevatedBrush}">
+                                    <Panel>
+                                        <Image Source="{Binding Image}" Stretch="UniformToFill"/>
+                                        <Button Classes="Icon" Content="×" Width="24" Height="24"
+                                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                Command="{Binding $parent[ItemsControl].((vm:MaterialTemplatesViewModel)DataContext).DeleteDetailPhotoCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Panel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Button Classes="Primary" Content="Kaydet" Command="{Binding AddCommand}"/>
                     <Button Classes="Ghost" Content="Vazgeç" Command="{Binding ClearCommand}"/>
