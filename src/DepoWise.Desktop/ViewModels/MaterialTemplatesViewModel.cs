@@ -86,6 +86,11 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(IsEditMode))]
     [NotifyPropertyChangedFor(nameof(FormTitle))]
     private string? _editId;
+
+    /// <summary>KLT-01d DÜZENLEME KİLİDİ: form açılırken okunan şablon sürümü.
+    /// Kaydederken geri gönderilir; arada başka yönetici kaydettiyse ConcurrencyException atılır.
+    /// 0 = yeni kayıt / bilinmiyor → kontrol yapılmaz.</summary>
+    private long _editVersion;
     public bool IsEditMode => EditId != null;
     public string FormTitle => IsEditMode ? "ŞABLON DÜZENLE" : "YENİ ŞABLON";
 
@@ -137,8 +142,15 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
 
         try
         {
-            if (editing) { DesktopServices.MaterialTemplates.Update(_session, EditId!, dto); Clear(); Load(); Status = "Şablon güncellendi."; }
+            if (editing) { DesktopServices.MaterialTemplates.Update(_session, EditId!, dto, expectedVersion: _editVersion > 0 ? _editVersion : null); Clear(); Load(); Status = "Şablon güncellendi."; }
             else { DesktopServices.MaterialTemplates.Create(_session, dto); Clear(); Load(); Status = "Şablon eklendi."; }
+        }
+        catch (ConcurrencyException)
+        {
+            // KLT-01d DÜZENLEME KİLİDİ: şablon, form açıldıktan sonra başkası tarafından değiştirilmiş.
+            // Form KAPATILMAZ — kullanıcının 12 alanlık girdisi korunur, kararı kendisi verir.
+            Status = "Bu şablon siz formu açtıktan sonra başka bir yönetici tarafından değiştirildi. "
+                   + "Değişiklikleriniz kaydedilmedi. Vazgeçip şablonu yeniden açın ve tekrar deneyin.";
         }
         catch (Exception ex) { Status = editing ? "Güncellenemedi: " + ex.Message : "Eklenemedi: " + ex.Message; }
     }
@@ -155,6 +167,7 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
         var t = DesktopServices.MaterialTemplates.Get(_session, Selected.Id);
         if (t is null) { Status = "Şablon bulunamadı."; return; }
         EditId = t.Id;
+        _editVersion = t.Version;   // KLT-01d: düzenleme kilidi jetonu
         NewName = t.Name; NewCode = t.Code ?? ""; NewType = t.Type;
         NewMinStock = t.MinStock; NewUnitPrice = t.UnitPrice;
         NewCurrency = string.IsNullOrWhiteSpace(t.Currency) ? "TRY" : t.Currency;
@@ -182,7 +195,7 @@ public sealed partial class MaterialTemplatesViewModel : ViewModelBase
         NewMinStock = 0m; NewUnitPrice = 0m; NewCurrency = "TRY";
         SelCategory = null; SelUnit = null; SelBrand = null; SelSupplier = null;
         _editCompatibleVehicleIds = null;
-        EditId = null; TriedSave = false; ShowAdd = false;
+        EditId = null; _editVersion = 0; TriedSave = false; ShowAdd = false;
     }
 
     [RelayCommand]

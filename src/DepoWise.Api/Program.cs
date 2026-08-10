@@ -2163,8 +2163,10 @@ app.MapPost("/api/material-templates", (HttpContext c, MaterialTemplateDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.MaterialTemplates.Create(s, new DepoWise.Infrastructure.Materials.NewMaterialTemplate(
         d.Name, Doc(d.Code), Doc(d.Type), d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, d.Currency ?? "TRY", Doc(d.Description), Doc(d.CompatibleVehicleIds))) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapPut("/api/material-templates/{id}", (HttpContext c, string id, MaterialTemplateDto d) =>
+    // KLT-01d: sürüm gönderilmediyse (eski istemci) kontrol yapılmaz — geriye uyumlu.
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.MaterialTemplates.Update(s, id, new DepoWise.Infrastructure.Materials.NewMaterialTemplate(
-        d.Name, Doc(d.Code), Doc(d.Type), d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, d.Currency ?? "TRY", Doc(d.Description), Doc(d.CompatibleVehicleIds)))) }) : Results.Unauthorized()).RequireAuthorization();
+        d.Name, Doc(d.Code), Doc(d.Type), d.CategoryId, d.UnitId, d.BrandId, d.SupplierId, d.MinStock, d.UnitPrice, d.Currency ?? "TRY", Doc(d.Description), Doc(d.CompatibleVehicleIds)),
+        d.Version > 0 ? d.Version : null)) }) : Results.Unauthorized()).RequireAuthorization();
 app.MapDelete("/api/material-templates/{id}", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.MaterialTemplates.Delete(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
 // Araç uyarı özeti (satır BAKIM/MUAYENE kolonu): vehicleId -> metin
@@ -2639,7 +2641,8 @@ record CountLineDto(string MaterialId, decimal CountedQuantity);
 record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
 record DeveloperDto(string? Code, bool Active);
 record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);
-record MaterialTemplateDto(string Name, string? Code, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock = 0m, decimal UnitPrice = 0m, string? Currency = "TRY", string? Description = null, string? CompatibleVehicleIds = null);
+// KLT-01d: Version = düzenleme kilidi jetonu (material_templates.version); 0/eksik → kontrol yok.
+record MaterialTemplateDto(string Name, string? Code, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock = 0m, decimal UnitPrice = 0m, string? Currency = "TRY", string? Description = null, string? CompatibleVehicleIds = null, long Version = 0);
 record StockReceiveDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId,
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo,
     // madde 1.1 (kullanıcı isteği 2026-08-06): dolu ise mevcut malzemeye giriş — Code/Name/... yok sayılır,

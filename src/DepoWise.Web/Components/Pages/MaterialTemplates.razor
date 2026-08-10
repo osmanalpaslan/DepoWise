@@ -106,6 +106,8 @@
 @code {
     private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
     private string? _editId;
+    /// <summary>KLT-01d DÜZENLEME KİLİDİ: form açılırken okunan şablon sürümü (0 = yeni kayıt / bilinmiyor).</summary>
+    private long _editVersion;
     private string _name = "", _code = "", _desc = "";
     private string? _type, _cat, _unit, _brand, _sup;
     private decimal _min, _price;
@@ -143,6 +145,8 @@
         {
             var t = await Api.GetObjectAsync($"/api/material-templates/{id}");
             _editId = id;
+            // KLT-01d DÜZENLEME KİLİDİ: kaydederken geri gönderilir; arada başkası kaydettiyse 409.
+            _editVersion = t.TryGetProperty("version", out var tv) && tv.TryGetInt64(out var tvv) ? tvv : 0;
             _name = Str(t, "name"); _code = Str(t, "code"); _type = NullId(t, "type"); _desc = Str(t, "description");
             _cat = NullId(t, "categoryId"); _unit = NullId(t, "unitId"); _brand = NullId(t, "brandId"); _sup = NullId(t, "supplierId");
             _min = Dec(t, "minStock"); _price = Dec(t, "unitPrice");
@@ -202,7 +206,8 @@
                 name = _name.Trim(), code = Empty(_code), type = _type,
                 categoryId = _cat, unitId = _unit, brandId = _brand, supplierId = _sup,
                 minStock = _min, unitPrice = _price, currency = "TRY", description = Empty(_desc),
-                compatibleVehicleIds = _compatVehicles.Any() ? string.Join(",", _compatVehicles) : null
+                compatibleVehicleIds = _compatVehicles.Any() ? string.Join(",", _compatVehicles) : null,
+                version = _editVersion   // KLT-01d: düzenleme kilidi (yeni kayıtta 0 → kontrol yok)
             };
             string? err; string? savedId = _editId;
             if (_editId is null) (err, savedId) = await Api.CreateAsync("/api/material-templates", body);
@@ -227,7 +232,7 @@
 
     private void ClearForm()
     {
-        _editId = null; _name = _code = _desc = ""; _type = _cat = _unit = _brand = _sup = null; _min = _price = 0; _msg = null;
+        _editId = null; _editVersion = 0; _name = _code = _desc = ""; _type = _cat = _unit = _brand = _sup = null; _min = _price = 0; _msg = null;
         _compatVehicles = new HashSet<string>(); _staged.Clear(); _photos.Clear();
     }
 

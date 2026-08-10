@@ -11,10 +11,15 @@ public sealed record NewMaterialTemplate(
     string? BrandId = null, string? SupplierId = null, decimal MinStock = 0m, decimal UnitPrice = 0m,
     string Currency = "TRY", string? Description = null, string? CompatibleVehicleIds = null);
 
+/// <param name="Version">
+/// KLT-01d — DÜZENLEME KİLİDİ jetonu (<c>material_templates.version</c>). Form bu değeri okur,
+/// kaydederken geri gönderir; arada başkası kaydettiyse sürüm artmıştır ve kayıt reddedilir.
+/// 0 = sürüm bilinmiyor (eski istemci) → kontrol yapılmaz.
+/// </param>
 public sealed record MaterialTemplateRecord(
     string Id, string Name, string? Code, string? Type, string? CategoryId, string? UnitId,
     string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string Currency, string? Description,
-    string? CompatibleVehicleIds = null);
+    string? CompatibleVehicleIds = null, long Version = 0);
 
 /// <summary>Şablon listesi satırı. IsGlobal = admin şablonu (herkese görünür); Mine = aktör oluşturmuş.</summary>
 public sealed record MaterialTemplateRow(string Id, string Name, string? Code, string? UnitName, bool IsGlobal, bool Mine)
@@ -119,7 +124,8 @@ ORDER BY t.is_global DESC, t.name LIMIT @lim;";
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT id, name, code, type, category_id, unit_id, brand_id, supplier_id, min_stock, unit_price, currency, description, compatible_vehicle_ids
+SELECT id, name, code, type, category_id, unit_id, brand_id, supplier_id, min_stock, unit_price, currency, description, compatible_vehicle_ids,
+       version
 FROM material_templates
 WHERE id=@id AND company_id=@c AND is_deleted=0 AND (is_global=1 OR created_by=@me);";
         cmd.AddWithValue("@id", templateId);
@@ -129,10 +135,25 @@ WHERE id=@id AND company_id=@c AND is_deleted=0 AND (is_global=1 OR created_by=@
         if (!r.Read()) return null;
         string? S(int i) => r.IsDBNull(i) ? null : r.GetString(i);
         return new MaterialTemplateRecord(r.GetString(0), r.GetString(1), S(2), S(3), S(4), S(5), S(6), S(7),
-            P(r.GetString(8)), P(r.GetString(9)), r.GetString(10), S(11), S(12));
+            P(r.GetString(8)), P(r.GetString(9)), r.GetString(10), S(11), S(12),
+            r.IsDBNull(13) ? 0L : r.GetInt64(13));   // KLT-01d: düzenleme kilidi jetonu
     }
 
-    public void Update(SessionContext s, string templateId, NewMaterialTemplate dto)
+    /// <param name="expectedVersion">
+    /// KLT-01d — DÜZENLEME KİLİDİ. <see cref="Get"/>'in döndürdüğü <c>Version</c> geri gönderilir.
+    ///
+    /// Neden gerekli: bu metot <b>12 alanı körlemesine</b> yazıyordu (mevcut değerlerle karşılaştırma yok).
+    /// Aynı GENEL şablonu iki firma yöneticisi eşzamanlı düzenlerse ikincisi birincinin tüm
+    /// değişikliklerini SESSİZCE eziyordu. (Kişisel şablonda çakışma imkânsızdır:
+    /// <see cref="EnsureManageable"/> yalnız <c>created_by</c> sahibine izin verir.)
+    ///
+    /// Senkron notu: <c>material_templates</c> <c>BusinessSyncService.Tables</c> listesinde YOKTUR →
+    /// senkron katmanının LWW politikası bu tabloya uygulanmaz, dolayısıyla burada iyimser kilit
+    /// eklemek "iki farklı çakışma politikası" çelişkisi yaratmaz.
+    ///
+    /// <c>null</c> → kontrol yok (geriye uyumlu: sürüm taşımayan eski çağrılar bozulmaz).
+    /// </param>
+    public void Update(SessionContext s, string templateId, NewMaterialTemplate dto, long? expectedVersion = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Edit);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -146,7 +167,7 @@ WHERE id=@id AND company_id=@c AND is_deleted=0 AND (is_global=1 OR created_by=@
 UPDATE material_templates SET name=@n, code=@code, type=@t, category_id=@cat, unit_id=@u, brand_id=@br,
     supplier_id=@sup, min_stock=@min, unit_price=@up, currency=@cur, description=@desc, compatible_vehicle_ids=@cv,
     version=version+1, updated_at=@now
-WHERE id=@id AND company_id=@c AND is_deleted=0;";
+WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
             cmd.AddWithValue("@n", dto.Name.Trim());
             cmd.AddWithValue("@code", (object?)Norm(dto.Code) ?? DBNull.Value);
             cmd.AddWithValue("@t", (object?)Norm(dto.Type) ?? DBNull.Value);
@@ -162,7 +183,14 @@ WHERE id=@id AND company_id=@c AND is_deleted=0;";
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", templateId);
             cmd.AddWithValue("@c", s.CompanyId);
-            if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+            EditLockGuard.Bind(cmd, expectedVersion);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                // Kayıt duruyorsa sebep sürüm uyuşmazlığıdır → ConcurrencyException (409).
+                // tx.Commit() ÇAĞRILMAZ → 12 alanın hiçbiri ve AUDIT KAYDI yazılmaz.
+                EditLockGuard.ThrowIfStale(conn, tx, "material_templates", templateId, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
+            }
         }
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", templateId, AuditActions.Update, s.UserId), _clock);
         tx.Commit();
