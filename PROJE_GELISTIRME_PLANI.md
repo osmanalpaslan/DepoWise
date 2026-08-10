@@ -7,15 +7,20 @@
 ---
 
 ```
-AKTİF AŞAMA:         FAZ 0 — Canlıya geçiş öncesi zorunlu düzeltmeler
-AKTİF İŞ ID:         KLT-01 (alt iş: KLT-01a sırada)
-AKTİF İŞ:            Eksik iyimser düzenleme kilitleri
-DURUM:               KLT-01c TAMAMLANDI (commit EDİLMEDİ) — sırada KLT-01a
-SON TAMAMLANAN İŞ:   KLT-01c — Yetki kaydetmede düzenleme kilidi (2026-08-10)
-SONRAKİ İŞ:          KLT-01a — RequestOperationsService (ChangeStatus, UpdateShipmentInfo)
+AKTİF AŞAMA:         FAZ 1 — Senkron optimizasyonu (FAZ 0 kod tarafı BİTTİ)
+AKTİF İŞ ID:         YOK — aktif kod işi yok
+AKTİF İŞ:            —
+DURUM:               ✅ SNK-02 KAPANDI (2026-08-10) — kod doğrulandı, HTTP QA yapılamadı
+                     ✅ KLT-01 KAPANDI · ✅ MLZ-01 · ❌ SNK-01 İPTAL
+SON TAMAMLANAN İŞ:   SNK-02 — Seçici senkron kadansı (daraltılmış 2a) (2026-08-10)
+SONRAKİ İŞ (ÖNERİ):  SNK-03 — Hata halinde exponential backoff (FAZ 1)
+                     ⚠️ ONAY + DETAY ANALİZ gerekli; kendiliğinden başlanmaz
+İPTAL (2026-08-10):  SNK-01 — koruma kodda zaten vardı (c8d3dc7, 2026-07-19)
+AÇIK DOĞRULAMA:      SNK-02 gerçek HTTP kadans ölçümü — GUI oturumu sınırı (§5)
 BEKLEYEN KARAR:      KARAR-4 (bakımda negatif stok ↔ onay) — FAZ 5'e kadar beklenebilir
                      YET-01 (yetki modeli) — FAZ 2'ye girmeden ÖNCE gerekli
-SON GÜNCELLEME:      2026-08-10 (yetki mimarisi analizi; TMZ-02 → YET-01'e bağlandı)
+YENİ BULGU:          WEB-01 — web hata mesajlarında ham JSON (§6, ayrı iş, fazlanmadı)
+SON GÜNCELLEME:      2026-08-10 (KLT-01 kapanışı + 409 QA doğrulaması + WEB-01 kaydı)
 ```
 
 **Kullanıcı tarafında paralel yürüyen görevler (kod işi değil):**
@@ -307,9 +312,10 @@ her iki platformda aynı mesaj · yetki kontrolü bozulmadı
 
 ---
 
-**ID:** `KLT-01` ◄ **AKTİF İŞ**
+**ID:** `KLT-01` ◄ ✅ **TAMAMLANDI (2026-08-10)**
 **Başlık:** Eksik iyimser (optimistic) düzenleme kilitleri
-**DURUM:** `GELİŞTİRMEYE HAZIR` — ⚠️ **KAPSAM 2026-08-10'da DÜZELTİLDİ**
+**DURUM:** ✅ `TAMAMLANDI` — 3 alt iş bitti, 2 alt iş gerekçeli iptal
+— ⚠️ **KAPSAM 2026-08-10'da DÜZELTİLDİ**
 
 > ### ⚠️ ÖNEMLİ KAPSAM DÜZELTMESİ
 > Planın ilk hâli hedefleri **yakıt, stok belgeleri, muayene, kullanıcılar** diye yazıyordu.
@@ -331,10 +337,10 @@ kontrolü yok, ve gerçek bir düzenleme yolu var):**
 
 | Alt iş | Servis / metot | Risk | Öncelik |
 |---|---|---|---|
-| **`KLT-01a`** | `RequestOperationsService.ChangeStatus` + `UpdateShipmentInfo` | Talep operasyon durumu ve sevkiyat bilgisi — iki kullanıcı aynı talebi işlerken **sessiz eziyor** | **P1** |
-| **`KLT-01b`** | `LookupService.Rename` (birim, marka, tedarikçi, kategori…) | Tanım yeniden adlandırma çakışması | P2 |
-| **`KLT-01c`** | `PermissionService.SaveForUser` | ✅ **TAMAMLANDI (2026-08-10)** — aşağıya bakınız | **P1** |
-| **`KLT-01d`** | `MaterialTemplateService`, `PersonnelTitleService`, `CompanyService` | Tanım/şablon düzenleme | P2 |
+| **`KLT-01a`** | `RequestOperationsService.ChangeStatus` + `UpdateShipmentInfo` | ✅ **TAMAMLANDI (2026-08-10)** — `ef905d6`. `UpdateShipmentInfo`'ya `material_requests.version` jetonu eklendi; `ChangeStatus` durum makinesiyle zaten korunuyordu, kontrol EKLENMEDİ (regresyon testi eklendi) | **P1** |
+| ~~**`KLT-01b`**~~ | ~~`LookupService.Rename`~~ | ❌ **İPTAL (2026-08-10)** — LWW bu tanım tablolarında **mimari politika** (`BusinessSyncService` + `CLAUDE.md` §4 yasağı tanımları kapsamıyor). Kural ihlali yok, risk düşük. `expectedVersion` eklemek senkron LWW'siyle **iki farklı çakışma politikası** yaratırdı | — |
+| **`KLT-01c`** | `PermissionService.SaveForUser` | ✅ **TAMAMLANDI (2026-08-10)** — `18a21f8`, aşağıya bakınız | **P1** |
+| **`KLT-01d`** | **`MaterialTemplateService.Update`** — *(2026-08-10 DARALTILDI)* | ✅ **TAMAMLANDI (2026-08-10)** — `4f3524a`. 12 alan körlemesine yazılıyordu → `material_templates.version` jetonu. Çakışmada commit yok → alanlar **ve audit** yazılmıyor. `PersonnelTitleService` (Update yolu YOK) ve `CompanyService` (yalnız süper admin) **kapsamdan ÇIKARILDI**. Otomatik test **+ gerçek HTTP/web QA** ile doğrulandı | P2 |
 
 **Ayrıca doğrulanan bir tuhaflık:** `users` tablosunda `version` kolonu **var ama hiç
 artırılmıyor** (`UserService`'te 8 UPDATE, `version=version+1` sıfır). Kullanıcı düzenlemesi
@@ -396,22 +402,63 @@ Kullanılan roller: SuperAdmin, RestrictedSuperAdmin, CompanyAdmin, Staff.
 
 ---
 
-**ID:** `SNK-01`
-**Başlık:** Değişiklik yoksa push yapma
-**Açıklama:** Yerel değişiklik yoksa push HTTP isteği hiç yapılmasın.
-**Neden gerekli:** İstemci başına 15 sn'de ~5-6 istek üretiliyor; çoğu boşa.
-**Öncelik:** P1 · **Bağımlılık:** Yok · **Masaüstü:** ✅ (`ShellViewModel`, `BusinessSyncPushService`)
-**Migration:** ❌ · **Canlı veri riski:** Yok · **Maliyet:** Çok düşük
-**Test gereksinimi:** Değişiklik yokken ağ trafiği sıfır; değişiklik varken push çalışıyor
-**DURUM:** `BEKLEMEDE`
+**ID:** ~~`SNK-01`~~ ◄ ❌ **İPTAL EDİLDİ (2026-08-10)**
+**Başlık:** ~~Değişiklik yoksa push yapma~~
+**DURUM:** ❌ `İPTAL` — **yapılacak iş yok, koruma kodda zaten mevcut**
 
-**ID:** `SNK-02`
-**Başlık:** Boştayken senkron aralığını seyreltme (15 sn → 60 sn)
-**Açıklama:** Kullanıcı 5 dk işlem yapmadıysa aralık açılır; işlem yapınca hemen sıkılaşır.
-**Neden gerekli:** Sunucu yükünü tek başına ~4 kat düşürür. **En yüksek getiri/maliyet oranlı iş.**
-**Öncelik:** P1 · **Bağımlılık:** Yok · **Masaüstü:** ✅ · **Migration:** ❌
-**Maliyet:** Çok düşük · **Test:** Boşta seyrelme · işlem sonrası hızlanma · veri gecikmesi kabul edilebilir
-**DURUM:** `BEKLEMEDE`
+> **İptal gerekçesi (koddan doğrulandı, 2026-08-10 detay analizi):**
+>
+> | Kanıt | Bulgu |
+> |---|---|
+> | [`BusinessSyncPushService.cs:55`](src/DepoWise.Desktop/BusinessSyncPushService.cs:55) | `if (localV <= pushWm) return;` → yerel değişiklik yoksa **snapshot hiç üretilmiyor, push HTTP isteği hiç atılmıyor** |
+> | `git log -S` | Mekanizma **`c8d3dc7`** commit'i ile **2026-07-19**'da eklenmiş; bu plan **2026-08-10**'da yazıldı → plan 22 gün geriden geliyordu |
+> | Sonuç | **Kod değişikliği yok, performans kazancı sıfır** |
+>
+> **Planın doğru olan kısmı:** *"15 sn'de ~5-6 istek, çoğu boşa"* tespiti **doğrudur** —
+> boşta tick başına **5** istek gidiyor: `/health` · `/api/machines/register` ·
+> `/api/me/authsig` · `/api/sync/business-version` · `/api/sync/conflicts/unseen`.
+> **Ama bunların hiçbiri push değildir**; en pahalı istek (snapshot POST) zaten eleniyor.
+> Boştaki yükün kaynağı **aralığın kendisidir** → çözüm **`SNK-02`**'dir, `SNK-01` değil.
+>
+> Ayrıntılı kayıt + yanlış varsayım dersi:
+> [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §13.
+
+**ID:** `SNK-02` ◄ ✅ **TAMAMLANDI (2026-08-10)**
+**Başlık:** ~~Boştayken senkron aralığını seyreltme (15 sn → 60 sn)~~ →
+**Seçici senkron kadansı (daraltılmış kapsam — 2a)**
+**DURUM:** ✅ `UYGULANDI / KOD DOĞRULANDI — GERÇEK HTTP QA YAPILAMADI`
+
+> **Kapsam neden daraltıldı (kullanıcı kararı, 2026-08-10):** Planın aslı (tüm döngü 15→60 sn)
+> uçtan uca veri görünürlüğünü ~120 sn'ye çıkarırdı ve **ADR-099'daki "veriler anlık görünmeli"
+> kararına aykırıydı** → reddedildi. Claude'un B önerisi de (`authsig` 60 sn) yetki değişikliği
+> algılamasını gereksiz geciktirdiği için reddedildi. Uygulanan: **2a**.
+
+| Uç | Kadans | Gerekçe |
+|---|---|---|
+| `business-version` (+push/pull) | **15 sn** | ADR-099 duyarlılığı korunur |
+| `authsig` | **15 sn** | Yetki/şifre değişikliği algılama gecikmesi artmasın |
+| `machines/register` | **15 sn** | Makine iptali algılama gecikmesi artmasın (**2a**) |
+| `/health` | **60 sn** | Yalnız bağlantı rozeti |
+| `conflicts/unseen` | **60 sn** | Çözülmüş çakışmaların bildirimi |
+
+**Uygulama:** Mevcut 15 sn'lik timer korundu; **tick sayacı** (`_tick % 4`) eklendi.
+**Yeni timer YOK · aktivite takibi YOK · `SyncGate` değişmedi · `WarnConflictsAsync` gating'i
+korundu (parametreyle atlanıyor, dışarı taşınmadı) · push/pull/watermark/LWW DEĞİŞMEDİ.**
+**Değişen dosya:** yalnız `ShellViewModel.cs` (+33/−3) · **Migration:** ❌ ·
+**Web/API/Infrastructure:** dokunulmadı.
+
+**Beklenen kazanç: TEORİK %30** (20 → 14 istek/dk/makine) — ⚠️ **hesaplandı, ölçülmedi**.
+**Build:** 0 hata · **Test:** 1057 / 1024 / 0 / 33 (referansla aynı, regresyon yok).
+
+> ### ⚠️ DOĞRULAMA SINIRI (başarısızlık değil)
+> **Gerçek HTTP kadans ölçümü yapılamadı.** Kadansı çalıştıran `ShellViewModel` yalnız girişten
+> sonra başlıyor; Avalonia giriş penceresi geliştirme ortamından görüntülenemiyor (etkileşimli
+> masaüstü oturumu yok) → giriş yapılamıyor, zamanlayıcı başlamıyor.
+> İzole QA ortamı **güvenle kuruldu** (ayrı build klasörü + localhost yönlendirmesi + ayrı
+> veritabanı `QA-SNK02`); **canlı sunucuya 0 istek** gitti; gerçek veritabanı açılmadı; gerçek
+> build klasörüne `serverurl.txt` konulmadı; QA süreçleri kapatıldı.
+> **HTTP kadansı "gerçek ortamda doğrulandı" olarak yazılmayacaktır** — kadans mantığı yalnız
+> **kod düzeyinde** doğrulandı. Ölçüm, kullanıcının kendi oturumunda ayrı bir tur olarak yapılabilir.
 
 **ID:** `SNK-03`
 **Başlık:** Hata halinde exponential backoff
@@ -425,7 +472,11 @@ Kullanılan roller: SuperAdmin, RestrictedSuperAdmin, CompanyAdmin, Staff.
 **Başlık:** Günlük yedek kontrolünü senkron turundan ayırma
 **Açıklama:** `MaybeDailyBackupAsync` her 15 sn'de çalışıyor; saatte bir yeterli.
 **Öncelik:** P2 · **Bağımlılık:** Yok · **Masaüstü:** ✅ · **Migration:** ❌ · **Maliyet:** Çok düşük
-**DURUM:** `BEKLEMEDE`
+**DURUM:** `BEKLEMEDE` — ⚠️ **VARSAYIM DOĞRULANACAK.** `SNK-01` analizi sırasında yolun üstünde
+görüldü: `MaybeDailyBackupAsync` içinde **zaten saatlik kısıt var** görünüyor
+(`if ((DateTime.UtcNow - _lastBackupCheck).TotalHours < 1) return;`). Bu madde `SNK-01` gibi
+"zaten yapılmış" çıkabilir. **Bu turda karar verilmedi, kodla dokunulmadı** — sırası gelince
+kendi detay analizinde kesinleştirilecek.
 
 **ID:** `PRT-01`
 **Başlık:** Tam ekran parite denetimi (alan/işlev düzeyinde)
@@ -750,6 +801,33 @@ idempotent (çift onay çift düşürmüyor) · audit kaydı oluşuyor
 | `TST-01` | 33 atlanan testin neden atlandığının doğrulanması | Geliştirmeleri durdurmaz ama bilinmeli | P2 |
 | `TMZ-01` | `ListColumns` çift kopya tekilleştirme | Gerçek teknik borç (biri güncellenip diğeri unutulursa ekran sessizce bozulur) ama acil değil | P2 |
 | `TMZ-02` | **İki `BranchService` + ulaşılamayan `user_scopes`** — aşağıda | ⚠️ **2026-08-10: BAĞIMSIZ TEKNİK BORÇ DEĞİL.** `YET-01`'in içine alındı — bkz. aşağıdaki karar | P1 (YET-01 ile) |
+| **`WEB-01`** | **Web hata mesajlarında ham JSON gösterimi** — aşağıda | 2026-08-10'da `KLT-01` kapanış QA'sinde bulundu. **`KLT-01`'in parçası değildir**; ayrı iş olarak açıldı, henüz fazlanmadı | P2 |
+
+### 🔍 `WEB-01` — Web hata mesajlarında ham JSON gösterimi
+*(2026-08-10, `KLT-01` kapanış QA'si — yalnız İNCELEME, kod değiştirilmedi)*
+
+**Gerçek tarayıcı koşusunda kullanıcının gördüğü metin:**
+
+```
+Hata 409: {"error":"Bu kayıt siz düzenlemeye başladıktan sonra bir başkası tarafından değiştirildi. ..."}
+```
+
+**Sebep:** `src/DepoWise.Web/Services/ApiClient.cs` içindeki `PutAsync` ve `DeleteAsync`,
+sunucunun `{"error":"..."}` gövdesini **ayrıştırmadan** kullanıcı mesajına yapıştırıyor
+(`$"Hata {kod}: {gövde}"`). Aynı dosyadaki **`UploadImportAsync` aynı gövdeyi doğru ayrıştırıyor**
+(`TryGetProperty("error")`) → doğru desen projede zaten var, **7 çağrı noktasında** uygulanmamış.
+
+**Bu `KLT-01d` tarafından oluşturulmuş bir hata DEĞİLDİR.** Uygulama genelinde önceden var olan
+bir **UX / hata gösterimi** problemidir; tüm ekranlardaki tüm hata kodlarını (400/403/409/500)
+etkiler. Mesajın **içeriği doğru ve görünür** — yalnız teknik gövdeyle sarılı.
+
+**Neden ayrı iş:** düzeltme `ApiClient`'ın ortak metotlarına dokunur → **bütün web ekranlarını**
+etkiler; `KLT-01`'in dar kapsamına sığmaz.
+**Kapsam:** 7 çağrı noktası + tek ortak ayrıştırma yardımcısı · **Migration:** yok ·
+**Masaüstü:** etkilenmiyor (servisleri doğrudan çağırır, HTTP gövdesi görmez).
+**Yanına iliştirilebilecek düşük öncelikli gözlem:** başarılı kayıttan sonra "Güncellendi."
+mesajı `ClearForm()` tarafından hemen siliniyor → hiç görünmüyor (kayıt yine de yapılıyor).
+Tek başına iş açılması **önerilmiyor**.
 
 ### 🔍 `TMZ-02` — İki `BranchService` ve ulaşılamayan çoklu-şube kapsamı
 *(2026-08-10 doğrulaması — yalnız İNCELEME, kod değiştirilmedi)*
@@ -838,9 +916,10 @@ KLT-01 (eksik kilitler) ──────── bağımsız
           ├─► KLT-03 (web)
           └─► KLT-04 (masaüstü + çevrimdışı)
 
-SNK-01, SNK-02 ───────────────── bağımsız
-   └─► SNK-03 (backoff)
-SNK-04 ───────────────────────── bağımsız
+SNK-01 ❌ İPTAL (koruma zaten vardı)
+SNK-02 ✅ UYGULANDI (seçici kadans 2a)
+   └─► SNK-03 (backoff)  ◄ sıradaki aday
+SNK-04 ───────────────────────── bağımsız (varsayımı doğrulanacak)
 
 PRT-01 (parite denetimi) ─────── bağımsız
    └─► PRT-02 (ad eşleme)
@@ -886,11 +965,11 @@ GNL-01 (mükerrer uyarı) ──────── bağımsız (LOG-01'e hazır 
 |---|---|---|---|
 | 1 | `GUV-01` | Süper admin parolası ⚠️ | 0 |
 | 2 | `DOG-01` | Web giriş doğrulaması | 0 |
-| 3 | **`MLZ-01`** | **Malzeme silme koruması** ◄ AKTİF | 0 |
-| 4 | `KLT-01` | Eksik düzenleme kilitleri | 0 |
-| 5 | `SNK-01` | Değişiklik yoksa push yapma | 1 |
-| 6 | `SNK-02` | Boştayken seyrelme | 1 |
-| 7 | `SNK-03` | Exponential backoff | 1 |
+| 3 | ~~`MLZ-01`~~ | Malzeme silme koruması — ✅ **TAMAMLANDI** `b932f75` | 0 |
+| 4 | ~~`KLT-01`~~ | Eksik düzenleme kilitleri — ✅ **TAMAMLANDI** (3 commit, 2 alt iş iptal) | 0 |
+| 5 | ~~`SNK-01`~~ | Değişiklik yoksa push yapma — ❌ **İPTAL** (koruma zaten vardı) | 1 |
+| 6 | ~~`SNK-02`~~ | Seçici senkron kadansı (2a) — ✅ **TAMAMLANDI** | 1 |
+| 7 | **`SNK-03`** | **Exponential backoff** ◄ SIRADAKİ (onay bekliyor) | 1 |
 | 8 | `SNK-04` | Günlük yedeği ayır | 1 |
 | 9 | `PRT-01` | Tam parite denetimi | 1 |
 | 10 | `PRT-02` | Ekran adı eşleme | 1 |
@@ -987,14 +1066,46 @@ birlikte koruyor. UI'da düğme gizlense bile koruma devrede.
 
 ## 12. AKTİF İŞ
 
-**`KLT-01` — Eksik düzenleme kilitleri (yakıt, stok belgeleri, muayene, kullanıcılar)**
-**DURUM:** `BEKLEMEDE` → geliştirmeye hazır
+**AKTİF KOD İŞİ YOK.** `KLT-01` 2026-08-10'da kapandı; sıradaki iş **kullanıcı onayı** bekliyor.
 
-Detay §5'te. Kullanıcı "sıradaki iş" dediğinde bu iş için önce kısa analiz sunulacak,
-sonra geliştirmeye geçilecek.
+### ✅ `KLT-01` — KAPANDI (2026-08-10)
 
-**Not:** MLZ-01 kodu dalda **commit edilmemiş** durumda duruyor (kullanıcı commit istemedi).
-Bir sonraki işe geçmeden önce commit kararı verilmeli.
+| Alt iş | Durum |
+|---|---|
+| `KLT-01c` PermissionService.SaveForUser | ✅ TAMAMLANDI — `18a21f8` |
+| `KLT-01a` RequestOperationsService | ✅ TAMAMLANDI — `ef905d6` |
+| `KLT-01d` `MaterialTemplateService.Update` *(daraltıldı)* | ✅ TAMAMLANDI — `4f3524a` |
+| `KLT-01e` Yakıt/stok regresyon testleri | ❌ **İPTAL** (2026-08-10) — gerekçesi çürütüldü, §15'e bakınız |
+| `KLT-01b` LookupService.Rename | ❌ **İPTAL** (2026-08-10) — LWW mimari politika |
+| Web + masaüstü 409 davranış kontrolü | ✅ TAMAMLANDI — gerçek HTTP + tarayıcı QA |
+
+**Kapanış ölçümü:** Build **0 hata** · Test **1057 / 1024 başarılı / 0 başarısız / 33 atlanan**
+(`MLZ-01` öncesi 1017'den toplam **+40 test**, sıfır kırılma). Üç alt işte de **migration yok**.
+
+**409 doğrulaması kod okumasıyla yetinmedi:** temiz QA veritabanıyla yerel API + web açıldı,
+tarayıcıdan gerçek çakışma üretildi. Stale kayıtta **HTTP 409**, çakışan veri **ezilmedi**,
+web formundaki kullanıcı girdisi **korundu**, güncel sürümle **tekrar kaydetme başarılı**,
+sürüm göndermeyen eski istemci **etkilenmedi**. Canlı veriye dokunulmadı.
+Masaüstü servis yolu + 11 concurrency testiyle doğrulandı; **canlı Avalonia arayüz koşusu
+yapılmadı** (araç sınırı + kullanıcının gerçek yerel veritabanına yazma riski).
+
+**Yan bulgu:** `WEB-01` (§6) — `KLT-01`'in parçası **değil**, ayrı iş olarak kaydedildi.
+
+> **Güncel ilerleme kaydı:** [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md)
+
+### ⏭️ Sıradaki iş — ÖNERİ (onay bekliyor)
+
+**`SNK-03` — Hata halinde exponential backoff (FAZ 1).** Bağımlılığı (`SNK-02`) karşılandı.
+Sunucu hata verirken istemcilerin aralığı kademeli açması → sunucu zorlanırken daha da zorlanmaması.
+**Başlamadan önce:** kullanıcı onayı + `SNK-03` detay analizi (kapsam koddan yeniden çıkarılmalı —
+plan kapsamı `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı).
+
+**`SNK-02` ✅ TAMAMLANDI (2026-08-10)** — seçici kadans (2a); §5'e bakınız.
+⚠️ Açık doğrulama: gerçek HTTP kadans ölçümü GUI oturumu sınırı nedeniyle yapılamadı.
+
+**`SNK-01` ❌ İPTAL (2026-08-10)** — koruma kodda zaten vardı (`c8d3dc7`); §5'e bakınız.
+
+**FAZ 0'dan kalanlar kullanıcı aksiyonudur:** `GUV-01` ⚠️ acil · `DOG-01`.
 
 ---
 
@@ -1024,13 +1135,15 @@ Bir sonraki işe geçmeden önce commit kararı verilmeli.
 | 2 | Stok firma geneli — çok şubeli çalışılamıyor | **Yüksek** | FAZ 4 |
 | 3 | ~~Malzeme silmede koruma yok~~ | ~~Yüksek~~ | ✅ **`MLZ-01` ile kapatıldı (2026-08-10)** |
 | 3b | İki `BranchService` + `user_scopes` yazanı yok | Orta | `TMZ-02` — §6'da |
-| 4 | Yakıt/stok belgeleri/muayenede LWW koruması yok (kendi kuralımıza aykırı) | **Yüksek** | `KLT-01` |
+| 4 | ~~Yakıt/stok belgeleri/muayenede LWW koruması yok~~ | ~~Yüksek~~ | ❌ **VARSAYIM YANLIŞTI** (2026-08-10): bu kayıtların düzenleme yolu hiç yok; iptal/ters kayıt korumaları **var ve test edilmiş**. Gerçek açıklar `KLT-01c` ✅ ve `KLT-01a` ✅ ile kapatıldı; `KLT-01e` iptal edildi |
 | 5 | Bakımda negatif stok ↔ onay çelişkisi | Orta | KARAR-4 |
 | 6 | `ListColumns` iki kopya — biri unutulursa ekran sessizce bozulur | Orta | `TMZ-01` |
 | 7 | 33 test neden atlanıyor bilinmiyor | Orta | `TST-01` |
 | 8 | Tam ekran paritesi denetlenmedi | Orta | `PRT-01` |
 | 9 | Masaüstü vektör ikonları görsel doğrulama bekliyor | Düşük | Kullanıcı bakacak |
 | 10 | **`MLZ-01-DEPO`** — aşağıya bakınız | **Orta** (gelecekte yüksek) | `STK-05` |
+| 11 | **Web hata mesajlarında ham JSON** (`{"error":...}` kullanıcıya görünüyor) | Düşük-Orta (kozmetik; mesaj doğru ama teknik görünüyor) | **`WEB-01`** — §6'da |
+| 12 | `KLT-01d` masaüstü tarafının **canlı Avalonia arayüz koşusu yapılmadı** (servis yolu + 11 test ile doğrulandı) | Düşük | İstenirse izole QA veritabanıyla ayrı koşu |
 
 ### ⚠️ `MLZ-01-DEPO` — Depo mimarisi geldiğinde MLZ-01'de yapılacak zorunlu düzeltme
 
@@ -1055,10 +1168,19 @@ kapsamında yapılacak ve `MaterialDeleteGuardTests`'e depo senaryosu eklenecek.
 
 ## 16. TEST DURUMU
 
-**Son ölçüm (2026-08-10, `feature/mlz-01-malzeme-silme-korumasi`):**
+**Son ölçüm (2026-08-10, `KLT-01` kapanışı, `feature/mlz-01-malzeme-silme-korumasi`):**
 - Build: **0 hata**
-- Test: **1025 toplam — 992 geçti, 0 başarısız, 33 atlandı**
-- Önceki ölçüm (2026-08-09, `master`): 1017 — 984 / 0 / 33 → **+8 test, sıfır kırılma**
+- Test: **1057 toplam — 1024 geçti, 0 başarısız, 33 atlandı**
+
+| Aşama | Toplam | Geçti | Yeni test |
+|---|---|---|---|
+| 2026-08-09 `master` (başlangıç) | 1017 | 984 | — |
+| `MLZ-01` (`b932f75`) | 1025 | 992 | +8 |
+| `KLT-01c` (`18a21f8`) | 1033 | 1000 | +8 |
+| `KLT-01a` (`ef905d6`) | 1046 | 1013 | +13 |
+| `KLT-01d` (`4f3524a`) | **1057** | **1024** | +11 |
+
+**Toplam +40 test, sıfır kırılma.** Atlanan 33 test her ölçümde aynı (`Postgres*`, ortam eksikliği).
 
 **`TST-01` cevaplandı (2026-08-10):** Atlanan 33 testin **tamamı `Postgres*` sınıflarındandır**
 (`PostgresStockConcurrencyTests`, `PostgresStockMovementOrderingTests`, `PostgresSyncRecoveryTests`,
@@ -1077,15 +1199,28 @@ idempotent retry · çevrimdışı kalıcılık · update rollback
 
 ## 17. SONRAKİ ADIM
 
-**`KLT-01` — Eksik düzenleme kilitleri (yakıt, stok belgeleri, muayene, kullanıcılar).**
+**`SNK-03` — Hata halinde exponential backoff (FAZ 1).** ⚠️ **ÖNERİ — onay alınmadan başlanmaz.**
 
-⚠️ **Önce karar:** MLZ-01 kodu dalda commit edilmemiş duruyor. Yeni işe geçmeden önce
-commit edilmeli (aksi halde iki işin değişikliği birbirine karışır).
+FAZ 0'ın kod tarafı bitti (`MLZ-01` ✅, `KLT-01` ✅). FAZ 1'de `SNK-01` **İPTAL** (koruma zaten
+mevcuttu), `SNK-02` **TAMAMLANDI** (seçici kadans 2a) → sıradaki aday **`SNK-03`**'tür;
+bağımlılığı (`SNK-02`) karşılandı ve `YET-01` kararını beklemez.
+
+**`SNK-02`'den devreden açık doğrulama:** gerçek HTTP kadans ölçümü GUI/etkileşimli oturum sınırı
+nedeniyle yapılamadı. Ayrı bir tur olarak (kullanıcının kendi oturumunda) tamamlanabilir.
+
+> Kalıcı analiz kuralı: bkz. [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §12.5
+> — `version++` + `expectedVersion` yokluğu TEK BAŞINA concurrency açığı demek DEĞİLDİR.
+> Aynı disiplin `SNK-03`'te de uygulanır: **plandaki kapsam varsayımları koddan yeniden doğrulanır.**
+> Plan kapsamı `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı; `SNK-02`'de plan kapsamı
+> **kullanıcı kararıyla daraltıldı** (ADR-099 ile çelişiyordu). `SNK-01`'in özel dersi:
+> **bir madde "zaten yapılmış" olabilir** — çağrı akışını uçtan uca izle ve `git log -S` ile
+> kodun geçmişine bak (§13).
 
 Kullanıcı **"sıradaki iş"** dediğinde:
-1. Bu dosya okunur, aktif iş ve son tamamlanan iş kontrol edilir.
-2. `KLT-01` için kısa analiz sunulur (hangi servisler, `version` kolonu var mı, migration gerekir mi).
-3. Onay alınırsa geliştirmeye geçilir.
+1. Önce [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) okunur, sonra `git status`/`git log`
+   ile gerçek durum karşılaştırılır (fark varsa **gerçek durum esastır**).
+2. Seçilen iş için **detay analiz promptu** beklenir — genel analiz tekrarlanmaz.
+3. Analiz raporlanır, onay alınırsa geliştirmeye geçilir.
 4. Geliştirme döngüsü: ANALİZ → KARAR → PLAN → GELİŞTİRME → TEST → WEB DOĞRULAMA →
    MASAÜSTÜ DOĞRULAMA → SENKRON DOĞRULAMA → SONUÇ RAPORU → **bu dosya güncellenir** → SONRAKİ İŞ.
 
