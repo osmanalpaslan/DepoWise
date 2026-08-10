@@ -103,6 +103,13 @@ public sealed class VehicleService
         if (!string.IsNullOrWhiteSpace(applied.Plate) && PlateExists(conn, tx, s.CompanyId, applied.Plate!, excludeId: null))
             throw new InvalidOperationException($"Bu plaka zaten kayıtlı: {applied.Plate}");
 
+        // B-7 (PRT-01 Grup 5, 2026-08-11): şube ve sürücü id'leri İSTEMCİDEN gelir → firmaya ait oldukları
+        // doğrulanır. Aksi halde başka firmanın şubesine/personeline bağlı araç oluşturulabiliyordu ve
+        // liste JOIN'leri o kaydın ADINI gösteriyordu. Emsal: PersonnelService (ScopeResolver) ve
+        // B-2/B-3'teki EnsureVehicleOwned deseni.
+        EnsureBranchOwned(conn, tx, s.CompanyId, applied.BranchId);
+        EnsurePersonnelOwned(conn, tx, s.CompanyId, applied.DriverPersonnelId);
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -239,12 +246,12 @@ SELECT v.id AS id, v.internal_code AS internal_code, v.plate AS plate, v.product
        COALESCE(vm.name,'') AS model, COALESCE(br.name,'') AS branch, COALESCE(p.full_name,'') AS driver,
        COALESCE(v.chassis_no,'') AS chassis_no, COALESCE(v.engine_no,'') AS engine_no
 FROM vehicles v
-LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-LEFT JOIN vehicle_categories vc ON vc.id = v.category_id
+LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id AND vt.company_id = v.company_id
+LEFT JOIN vehicle_categories vc ON vc.id = v.category_id AND vc.company_id = v.company_id
 LEFT JOIN brands b ON b.id = v.brand_id
 LEFT JOIN vehicle_models vm ON vm.id = v.vehicle_model_id
-LEFT JOIN branches br ON br.id = v.branch_id
-LEFT JOIN personnel p ON p.id = v.driver_personnel_id
+LEFT JOIN branches br ON br.id = v.branch_id AND br.company_id = v.company_id
+LEFT JOIN personnel p ON p.id = v.driver_personnel_id AND p.company_id = v.company_id
 WHERE v.company_id = @c AND v.is_deleted = 0";
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17) — bkz.
@@ -356,12 +363,12 @@ SELECT v.id, v.internal_code, v.plate, v.production_year, v.current_meter, v.met
        v.vehicle_type_id, v.category_id, v.brand_id, v.vehicle_model_id, v.branch_id, v.driver_personnel_id,
        vt.name, vc.name, b.name, vm.name, br.name, p.full_name, v.version, v.template_id
 FROM vehicles v
-LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id
-LEFT JOIN vehicle_categories vc ON vc.id = v.category_id
+LEFT JOIN vehicle_types vt ON vt.id = v.vehicle_type_id AND vt.company_id = v.company_id
+LEFT JOIN vehicle_categories vc ON vc.id = v.category_id AND vc.company_id = v.company_id
 LEFT JOIN brands b ON b.id = v.brand_id
 LEFT JOIN vehicle_models vm ON vm.id = v.vehicle_model_id
-LEFT JOIN branches br ON br.id = v.branch_id
-LEFT JOIN personnel p ON p.id = v.driver_personnel_id
+LEFT JOIN branches br ON br.id = v.branch_id AND br.company_id = v.company_id
+LEFT JOIN personnel p ON p.id = v.driver_personnel_id AND p.company_id = v.company_id
 WHERE v.id=@id AND v.company_id=@c AND v.is_deleted=0;";
         cmd.AddWithValue("@id", vehicleId);
         cmd.AddWithValue("@c", s.CompanyId);
@@ -393,6 +400,10 @@ WHERE v.id=@id AND v.company_id=@c AND v.is_deleted=0;";
 
         // İşlem Geçmişi (madde 4/1, 2026-08-06): şube DEĞİŞİYORSA (transfer) audit kaydına isim bilgisiyle
         // yazılır → geçmiş listesinde "X Şubesinden Y Şubesine transfer edildi." Değişmiyorsa normal güncelleme.
+        // B-7: düzenlemede de şube/sürücü firmaya ait olmalı (bkz. Create).
+        EnsureBranchOwned(conn, tx, s.CompanyId, dto.BranchId);
+        EnsurePersonnelOwned(conn, tx, s.CompanyId, dto.DriverPersonnelId);
+
         string? oldBranchId;
         using (var read = conn.CreateCommand())
         {
@@ -707,5 +718,27 @@ FROM vehicle_templates WHERE id=@id AND company_id=@c AND is_deleted=0;";
         cmd.AddWithValue("@p", plate.Trim());
         if (excludeId is not null) cmd.AddWithValue("@ex", excludeId);
         return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
+    /// <summary>B-7: şube bu firmaya ait mi? null = şubesiz kayıt (serbest).</summary>
+    private static void EnsureBranchOwned(DbConnection conn, DbTransaction? tx, string companyId, string? branchId)
+        => EnsureOwned(conn, tx, "branches", companyId, branchId, "Şube bulunamadı veya başka firmaya ait.");
+
+    /// <summary>B-7: personel bu firmaya ait mi? null = sürücü atanmamış (serbest).</summary>
+    private static void EnsurePersonnelOwned(DbConnection conn, DbTransaction? tx, string companyId, string? personnelId)
+        => EnsureOwned(conn, tx, "personnel", companyId, personnelId, "Personel bulunamadı veya başka firmaya ait.");
+
+    /// <summary>B-7: istemciden gelen bir id'nin firmaya ait olduğunu doğrular (B-2/B-3 deseni).
+    /// Tablo adı YALNIZ bu sınıftaki sabitlerden gelir — dışarıdan parametre alınmaz.</summary>
+    private static void EnsureOwned(DbConnection conn, DbTransaction? tx, string table,
+        string companyId, string? id, string error)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", id);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0) throw new ForbiddenException(error);
     }
 }
