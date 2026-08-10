@@ -71,7 +71,7 @@
     else
     {
         <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="55vh">
-            <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>BELGE</MudTh><MudTh>SON</MudTh><MudTh>SONRAKİ</MudTh><MudTh>YER</MudTh><MudTh>DURUM</MudTh></HeaderContent>
+            <HeaderContent><MudTh>ARAÇ</MudTh><MudTh>BELGE</MudTh><MudTh>SON</MudTh><MudTh>SONRAKİ</MudTh><MudTh>YER</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh></HeaderContent>
             <RowTemplate>
                 <MudTd>@Str(context, "vehicleText")</MudTd>
                 <MudTd>@Str(context, "docTypeText")</MudTd>
@@ -79,6 +79,15 @@
                 <MudTd>@Str(context, "nextText")</MudTd>
                 <MudTd>@Str(context, "place")</MudTd>
                 <MudTd>@Str(context, "statusText")</MudTd>
+                @* B-5: belge iptali — fiziksel silme YOK. Gerekçe ortak AskReason penceresiyle alınır
+                   (Grup 3/4'te eklenen bileşen; yeni dialog sistemi kurulmadı). *@
+                <MudTd Style="text-align:right">
+                    @if (Auth.CanEdit("inspection"))
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                   OnClick="@(() => CancelDoc(Str(context, "id"), Long(context, "version")))">İptal Et</MudButton>
+                    }
+                </MudTd>
             </RowTemplate>
         </MudTable>
     }
@@ -95,6 +104,28 @@
     protected override async Task OnInitializedAsync() => await LoadList();
 
     private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/inspection"); } catch { _rows = Array.Empty<JsonElement>(); } }
+
+    /// <summary>
+    /// B-5: belge iptali. Kayıt SİLİNMEZ — sunucuda <c>is_deleted=1</c> olur, gerekçe denetim kaydına yazılır,
+    /// geçmiş korunur. Gerekçe boş bırakılırsa pencere kapanmaz ve HİÇBİR istek gönderilmez; sunucu da boş
+    /// gerekçeyi 400 ile reddeder (çift kapı). Ortak <c>AskReason</c> yeniden kullanıldı.
+    /// </summary>
+    private async Task CancelDoc(string id, long version)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+        var reason = await Dialog.AskReason(
+            "Bu belge iptal edilecek. İptal edilen belge listede görünmez ve araç uyarılarında dikkate " +
+            "alınmaz. Kayıt geçmişte saklanır. İşlem geri alınamaz.");
+        if (reason is null) return;
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/inspection/{id}/cancel", new { reason, version });
+            _ok = err is null; _msg = err ?? "Belge iptal edildi.";
+            if (_ok) await LoadList();
+        }
+        finally { _busy = false; }
+    }
 
     private async Task<IEnumerable<ApiClient.Opt>> SearchVehicle(string? t, CancellationToken ct)
     {
@@ -143,6 +174,10 @@
     }
 
     private static string? Empty(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+    /// <summary>B-5: düzenleme kilidi jetonu. Eksikse 0 → sunucu kilit kontrolü yapmaz (geriye uyumlu).</summary>
+    private static long Long(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+
     private static string Str(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v)
             ? (v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : v.ValueKind is JsonValueKind.Null ? "" : v.ToString()) : "";

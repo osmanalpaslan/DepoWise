@@ -20,6 +20,8 @@ public sealed partial class InspectionViewModel : ViewModelBase
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "inspection", PermissionAction.Create);
+    /// <summary>B-5: belge iptali Edit yetkisi ister (kayıt silinmez, iptal edilir).</summary>
+    public bool CanEdit => AccessControl.Can(_session, "inspection", PermissionAction.Edit);
 
     public ObservableCollection<InspectionRow> Items { get; } = new();
     public ObservableCollection<VehicleListRow> Vehicles { get; } = new();
@@ -81,6 +83,31 @@ public sealed partial class InspectionViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasError));
+    }
+
+    /// <summary>
+    /// B-5: belge iptali — web ile AYNI davranış. Kayıt SİLİNMEZ (<c>is_deleted=1</c>), gerekçe denetim
+    /// kaydına yazılır, geçmiş korunur. Gerekçe ortak <see cref="ConfirmService.AskReasonAsync"/> ile alınır
+    /// (Grup 3/4'te eklenen pencere; yeni dialog sistemi kurulmadı). Vazgeçilirse hiçbir şey yapılmaz.
+    /// </summary>
+    [RelayCommand]
+    private async System.Threading.Tasks.Task CancelDoc(InspectionRow? row)
+    {
+        if (row is null) return;
+        if (!CanEdit) { Status = "Yetki yok."; return; }
+        var reason = await ConfirmService.AskReasonAsync(
+            $"{row.VehicleText} — {row.DocTypeText} belgesi iptal edilecek.\n\n" +
+            "İptal edilen belge listede görünmez ve araç uyarılarında dikkate alınmaz. " +
+            "Kayıt geçmişte saklanır. İşlem geri alınamaz.",
+            "Belge İptali");
+        if (reason is null) return;
+        try
+        {
+            DesktopServices.Inspection.Cancel(_session, row.Id, reason, row.Version > 0 ? row.Version : null);
+            Load();
+            Status = "Belge iptal edildi.";
+        }
+        catch (Exception ex) { Status = "İptal edilemedi: " + ex.Message; }
     }
 
     [RelayCommand]

@@ -2054,6 +2054,10 @@ app.MapGet("/api/maintenance/alerts", (HttpContext c) =>
 app.MapPost("/api/inspection", (HttpContext c, InspectionDto d) =>
     S(c) is { } s ? Results.Ok(new { id = svc.Inspection.Save(s, new DepoWise.Infrastructure.Maintenance.NewInspection(
         d.VehicleId, d.DocType, d.LastDate, d.NextDate, Doc(d.Result), Doc(d.Place), Doc(d.Note))) }) : Results.Unauthorized()).RequireAuthorization();
+// B-5 (PRT-01 Grup 5): muayene/sigorta belgesi İPTALİ — fiziksel silme YOK (is_deleted=1 + gerekçe + audit).
+// Gerekçe boşsa servis ArgumentException atar → ortak middleware 400 döndürür (yakıt/talep iptali deseni).
+app.MapPost("/api/inspection/{id}/cancel", (HttpContext c, string id, InspectionCancelDto d) =>
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Inspection.Cancel(s, id, d?.Reason ?? "", d?.Version is > 0 ? d.Version : null)) }) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Yakıt ──
 app.MapGet("/api/fuel/depot", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDepotEntries(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();
@@ -2721,6 +2725,9 @@ record StockReverseDto(string DocumentId, string? Reason);
 record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);
+// B-5: muayene iptali — gerekçe + düzenleme kilidi jetonu. IdReasonDto ÇOK çağıranı olduğu için
+// değiştirilmedi; iptale özel bu DTO eklendi. Version gönderilmezse (0/null) kilit kontrolü yapılmaz.
+record InspectionCancelDto(string? Reason, long? Version);
 record MaintenanceMetaDto(string? Description, string? SubDefinitionNote, string? TechnicianId, long? Version);
 record DailyMetaDto(string? Description, string? OperatorId, int? DurationDays, long? Version);
 /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer, merkez depodan düşmez.

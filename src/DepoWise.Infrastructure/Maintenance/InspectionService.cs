@@ -12,8 +12,12 @@ public enum DateAlertLevel { Normal, Approaching, Expired }
 
 public sealed record InspectionAlert(string VehicleId, string DocType, long? NextDate, DateAlertLevel Level);
 
+/// <param name="Id">B-5: kaydın kimliği — iptal edebilmek için gerekli. Liste bunu döndürmüyordu,
+/// bu yüzden hiçbir arayüz belirli bir belgeyi hedefleyemiyordu. Sona eklendi → geriye uyumlu.</param>
+/// <param name="Version">B-5: DÜZENLEME KİLİDİ jetonu; iptal ederken geri gönderilir. 0 = bilinmiyor → kontrol yok.</param>
 public sealed record InspectionRow(string VehicleCode, string Plate, string DocType,
-    long? LastDate, long? NextDate, string Place, string Result, DateAlertLevel Level)
+    long? LastDate, long? NextDate, string Place, string Result, DateAlertLevel Level,
+    string Id = "", long Version = 0)
 {
     private static string D(long? ms) => ms is null ? "—" : DateTimeOffset.FromUnixTimeMilliseconds(ms.Value).LocalDateTime.ToString("dd.MM.yyyy");
     public string VehicleText => string.IsNullOrEmpty(Plate) ? VehicleCode : $"{VehicleCode} - {Plate}";
@@ -84,7 +88,7 @@ VALUES(@id,@c,@v,@dt,@ld,@nd,@res,@pl,@note,@now,@now,1,0);";
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
 SELECT v.internal_code, COALESCE(v.plate,''), vi.doc_type, vi.last_date, vi.next_date,
-       COALESCE(vi.place,''), COALESCE(vi.result,'')
+       COALESCE(vi.place,''), COALESCE(vi.result,''), vi.id, vi.version
 FROM vehicle_inspections vi JOIN vehicles v ON v.id = vi.vehicle_id AND v.company_id = vi.company_id
 WHERE vi.company_id=@c AND vi.is_deleted=0
 ORDER BY (vi.next_date IS NULL), vi.next_date;";
@@ -99,7 +103,8 @@ ORDER BY (vi.next_date IS NULL), vi.next_date;";
                 : next.Value - nowMs <= (long)ApproachingDays * 86_400_000 ? DateAlertLevel.Approaching
                 : DateAlertLevel.Normal;
             list.Add(new InspectionRow(r.GetString(0), r.GetString(1), r.GetString(2),
-                r.IsDBNull(3) ? null : r.GetInt64(3), next, r.GetString(5), r.GetString(6), level));
+                r.IsDBNull(3) ? null : r.GetInt64(3), next, r.GetString(5), r.GetString(6), level,
+                r.GetString(7), r.GetInt64(8)));   // B-5: iptal için id + düzenleme kilidi jetonu
         }
         return list;
     }
@@ -131,6 +136,66 @@ AND created_at = (SELECT MAX(created_at) FROM vehicle_inspections x
         }
         return list;
     }
+
+    /// <summary>
+    /// B-5 (PRT-01 Grup 5, 2026-08-11) — muayene/sigorta belgesi İPTALİ (kullanıcı kararı: SEÇENEK B).
+    ///
+    /// Fiziksel silme veya geçmişi kaybettiren UPDATE YOKTUR: kayıt <c>is_deleted=1</c> ile iptal edilir,
+    /// satır veritabanında KALIR (CLAUDE.md §4 "operasyonel kaydı fiziksel silme"). Gerekçe ZORUNLUDUR ve
+    /// denetim kaydına yazılır — <c>vehicle_inspections</c>'ta gerekçe kolonu yoktur ve yalnız bunun için
+    /// migration açılmadı; yakıt iptalinin (Grup 3) birebir aynı deseni kullanıldı.
+    ///
+    /// Kolonlar Migration008'de ZATEN mevcut (<c>is_deleted</c>, <c>version</c>) → MIGRATION GEREKMEZ.
+    /// </summary>
+    /// <param name="expectedVersion">DÜZENLEME KİLİDİ: ekranın açıldığı andaki <c>version</c>. Verilirse ve
+    /// kayıt o andan beri değiştiyse <see cref="ConcurrencyException"/> atılır. null = kontrol yok.</param>
+    public void Cancel(SessionContext s, string id, string reason, long? expectedVersion = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("İptal gerekçesi zorunlu.");
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        // Tenant + "zaten iptal edilmiş mi" kontrolü tek okumada (transaction içinde).
+        bool alreadyCancelled;
+        using (var chk = conn.CreateCommand())
+        {
+            chk.Transaction = tx;
+            chk.CommandText = "SELECT is_deleted FROM vehicle_inspections WHERE id=@id AND company_id=@c;";
+            chk.AddWithValue("@id", id);
+            chk.AddWithValue("@c", s.CompanyId);
+            var found = chk.ExecuteScalar();
+            if (found is null) throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
+            alreadyCancelled = Convert.ToInt64(found) != 0;
+        }
+        if (alreadyCancelled) throw new InvalidOperationException("Bu belge zaten iptal edilmiş.");
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText =
+                "UPDATE vehicle_inspections SET is_deleted=1, version=version+1, updated_at=@now " +
+                "WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expectedVersion) + ";";
+            EditLockGuard.Bind(cmd, expectedVersion);
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                EditLockGuard.ThrowIfStale(conn, tx, "vehicle_inspections", id, s.CompanyId, expectedVersion);
+                throw new ForbiddenException("Belge bulunamadı veya başka firmaya ait.");
+            }
+        }
+
+        // Gerekçe denetim kaydında saklanır (yakıt iptali deseni). Geçmiş HİÇ silinmez.
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "vehicle_inspection", id, AuditActions.Reverse,
+            s.UserId, AfterJson: $"{{\"reason\":\"{Escape(reason)}\"}}"), _clock);
+        tx.Commit();
+    }
+
+    private static string Escape(string s) => s.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
     /// <summary>B-2: araç bu firmaya ait mi? (MaintenanceService/MaintenanceDefinitionService ile aynı desen.)</summary>
     private static void EnsureVehicleOwned(DbConnection conn, DbTransaction? tx, string companyId, string vehicleId)

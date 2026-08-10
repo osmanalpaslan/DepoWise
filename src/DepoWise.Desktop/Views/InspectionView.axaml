@@ -75,13 +75,18 @@
                     <ListBox Classes="Table" ItemsSource="{Binding Items}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="inf:InspectionRow">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,*,Auto">
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,*,Auto,Auto">
                                     <SelectableTextBlock Grid.Column="0" Text="{Binding VehicleText}" MinWidth="150" VerticalAlignment="Center"/>
                                     <SelectableTextBlock Grid.Column="1" Text="{Binding DocTypeText}" MinWidth="100" VerticalAlignment="Center"/>
                                     <SelectableTextBlock Grid.Column="2" Text="{Binding LastText}" MinWidth="100" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <SelectableTextBlock Grid.Column="3" Text="{Binding NextText}" MinWidth="100" VerticalAlignment="Center"/>
                                     <SelectableTextBlock Grid.Column="4" Text="{Binding Place}" MinWidth="120" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="110" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <!-- B-5: belge iptali (fiziksel silme YOK). Web ile aynı davranış. -->
+                                    <Button Grid.Column="6" Classes="Ghost" Content="İptal Et"
+                                            Command="{Binding $parent[ListBox].((vm:InspectionViewModel)DataContext).CancelDocCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsVisible="{Binding $parent[ListBox].((vm:InspectionViewModel)DataContext).CanEdit}"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
