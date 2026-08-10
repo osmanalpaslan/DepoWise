@@ -77,7 +77,8 @@ VALUES(@id,@c,@n,@code,@t,@cat,@u,@br,@sup,@min,@up,@cur,@desc,@cv,@by,@g,@now,@
             cmd.AddWithValue("@up", D(dto.UnitPrice));
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@desc", (object?)Norm(dto.Description) ?? DBNull.Value);
-            cmd.AddWithValue("@cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
+            // B-4: yabancı/silinmiş araç id'leri süzülür (firma izolasyonu) — bkz. SanitizeVehicleIds.
+            cmd.AddWithValue("@cv", (object?)SanitizeVehicleIds(conn, tx, s.CompanyId, dto.CompatibleVehicleIds) ?? DBNull.Value);
             cmd.AddWithValue("@by", s.UserId);
             cmd.AddWithValue("@g", isGlobal ? 1 : 0);
             cmd.AddWithValue("@now", now);
@@ -179,7 +180,8 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
             cmd.AddWithValue("@up", D(dto.UnitPrice));
             cmd.AddWithValue("@cur", dto.Currency);
             cmd.AddWithValue("@desc", (object?)Norm(dto.Description) ?? DBNull.Value);
-            cmd.AddWithValue("@cv", (object?)Norm(dto.CompatibleVehicleIds) ?? DBNull.Value);
+            // B-4: yabancı/silinmiş araç id'leri süzülür (firma izolasyonu) — bkz. SanitizeVehicleIds.
+            cmd.AddWithValue("@cv", (object?)SanitizeVehicleIds(conn, tx, s.CompanyId, dto.CompatibleVehicleIds) ?? DBNull.Value);
             cmd.AddWithValue("@now", now);
             cmd.AddWithValue("@id", templateId);
             cmd.AddWithValue("@c", s.CompanyId);
@@ -212,6 +214,30 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
             cmd.AddWithValue("@c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new ForbiddenException("Şablon bulunamadı veya başka firmaya ait.");
         }
+
+        // B-3 (PRT-01 Grup 2b, 2026-08-10) — ŞABLON SİLİNİNCE BAĞLI MALZEMELERİN BAĞI DA TEMİZLENİR.
+        //
+        // Eskiden yalnız şablon is_deleted=1 yapılıyordu; malzemelerin materials.template_id'si kalıyordu.
+        // Sonuç (koddan doğrulandı): ReportService.MaterialsByTemplate sorgusunda t.is_deleted FİLTRESİ YOK
+        // → SİLİNMİŞ şablon, bağlı malzemeleriyle birlikte raporda görünmeye DEVAM ediyordu. Aynı malzemeler
+        // MaterialsNonTemplate'e de (template_id IS NULL) giremediği için "şablonsuz" sayılmıyordu.
+        //
+        // Bağı temizleyince: INNER JOIN eşleşme bulamaz → silinen şablon rapordan düşer; malzemeler
+        // "şablon-dışı" raporuna geri döner. ReportService'e DOKUNULMADI (rapor mantığı değişmiyor).
+        //
+        // version+updated_at ARTIRILIR: materials senkron kapsamındadır (BusinessSyncService), değişikliğin
+        // diğer makinelere gitmesi gerekir. company_id süzmesi tenant izolasyonunu korur.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE materials SET template_id=NULL, version=version+1, updated_at=@now " +
+                              "WHERE template_id=@id AND company_id=@c;";
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@id", templateId);
+            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.ExecuteNonQuery();   // 0 satır normaldir (şablona bağlı malzeme olmayabilir)
+        }
+
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "material_template", templateId, AuditActions.Delete, s.UserId), _clock);
         tx.Commit();
     }
@@ -234,4 +260,36 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
     }
 
     private static string? Norm(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+    /// <summary>
+    /// B-4 (PRT-01 Grup 2b, 2026-08-10) — FİRMA İZOLASYONU: <c>compatible_vehicle_ids</c> virgülle ayrık
+    /// SERBEST METİNDİR; eskiden istemciden geleni hiçbir doğrulama yapmadan yazıyorduk → bir firmanın
+    /// kullanıcısı başka firmanın araç id'sini kendi şablonuna yazabilirdi.
+    ///
+    /// Malzeme tarafındaki emsal <see cref="MaterialService"/>.<c>EnsureVehicleOwned</c> yabancı id'de
+    /// İSTİSNA atar. Burada bilerek <b>SÜZME</b> tercih edildi: bu kolon serbest metindir, FK'si yoktur ve
+    /// eski kayıtlarda silinmiş araçların id'leri kalmış olabilir. İstisna atmak, eski bir şablonu
+    /// düzenlemeyi tamamen ENGELLERDİ (işlevsel gerileme). Süzme aynı garantiyi verir — yabancı id ASLA
+    /// yazılamaz — ve eski veriyi kendiliğinden temizler.
+    ///
+    /// Sıra korunur, tekrarlar atılır. Firma dışı / silinmiş / var olmayan id'ler DÜŞÜRÜLÜR.
+    /// </summary>
+    private static string? SanitizeVehicleIds(DbConnection conn, DbTransaction tx, string companyId, string? raw)
+    {
+        var ids = (raw ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal).ToList();
+        if (ids.Count == 0) return null;
+
+        var kept = new List<string>();
+        foreach (var id in ids)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT COUNT(*) FROM vehicles WHERE id=@id AND company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@id", id);
+            cmd.AddWithValue("@c", companyId);
+            if (Convert.ToInt64(cmd.ExecuteScalar()) > 0) kept.Add(id);
+        }
+        return kept.Count == 0 ? null : string.Join(",", kept);
+    }
 }
