@@ -1211,7 +1211,9 @@ app.MapPost("/api/stock/count", (HttpContext c, StockCountDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var lines = (d.Lines ?? new()).Select(l => new DepoWise.Infrastructure.Materials.CountLine(l.MaterialId, l.CountedQuantity)).ToList();
-    svc.Stock.Count(s, lines, string.IsNullOrWhiteSpace(d.Reason) ? "Sayım" : d.Reason!, Guid.NewGuid().ToString("N"), d.BranchId);
+    // G1-05(a): istemcinin jetonu varsa kullanılır (tekrar gönderimde çift belge olmaz); yoksa eski davranış.
+    svc.Stock.Count(s, lines, string.IsNullOrWhiteSpace(d.Reason) ? "Sayım" : d.Reason!,
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, d.BranchId);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -1539,7 +1541,9 @@ app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
     if (d.Quantity > 0)
         svc.Stock.ReceiveIn(s,
             new[] { new DepoWise.Infrastructure.Materials.StockLine(materialId, d.Quantity, d.UnitPrice > 0 ? d.UnitPrice : null) },
-            Guid.NewGuid().ToString("N"), d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
+            // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
+            string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!,
+            d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
             invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { id = materialId });
 }).RequireAuthorization();
@@ -1567,7 +1571,9 @@ app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
     if (string.IsNullOrWhiteSpace(d.PersonnelId)) throw new ArgumentException("Personel (işlemi yapan) zorunludur."); // madde 8
     var lines = StockLines(d.Lines, d.MaterialId, d.Quantity);
     svc.Stock.IssueOut(s, lines,
-        Guid.NewGuid().ToString("N"), d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
+        // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!,
+        d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -1577,7 +1583,9 @@ app.MapPost("/api/stock/transfer", (HttpContext c, StockTransferDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.FromBranchId) || string.IsNullOrWhiteSpace(d.ToBranchId)) throw new ArgumentException("Kaynak ve hedef şube seçin.");
     var lines = StockLines(d.Lines, d.MaterialId, d.Quantity);
-    svc.Stock.Transfer(s, lines, d.FromBranchId, d.ToBranchId, Guid.NewGuid().ToString("N"), Doc(d.Note),
+    // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
+    svc.Stock.Transfer(s, lines, d.FromBranchId, d.ToBranchId,
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note),
         personnelId: d.PersonnelId, vehicleId: d.VehicleId,
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { ok = true });
@@ -2638,7 +2646,9 @@ record VehicleModelDto(string BrandId, string Name);
 record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId, List<string>? VehicleTypeIds, List<string>? MaintenanceDefIds, List<string>? TechnicianIds, List<string>? SupplierIds, List<string>? RequesterIds, List<string>? Statuses);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
-record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines);
+// G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin
+// tekrarında ikinci belge oluşmaz) devreye girer; göndermezse eski davranış aynen sürer (yeni GUID).
+record StockCountDto(string? Reason, string? BranchId, List<CountLineDto>? Lines, string? OperationId = null);
 record DeveloperDto(string? Code, bool Active);
 record VehicleTemplateDto(string Name, string? InternalCode, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, int? ProductionYear, List<string>? MaterialIds);
 // KLT-01d: Version = düzenleme kilidi jetonu (material_templates.version); 0/eksik → kontrol yok.
@@ -2647,12 +2657,14 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
     decimal Quantity, decimal UnitPrice, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo,
     // madde 1.1 (kullanıcı isteği 2026-08-06): dolu ise mevcut malzemeye giriş — Code/Name/... yok sayılır,
     // yalnız SupplierId (kart güncellemesi için) kullanılır. Boşsa eski davranış (kod ile upsert) değişmez.
-    string? MaterialId = null);
+    string? MaterialId = null,
+    // G1-05(a): opsiyonel idempotency jetonu — yoksa eski davranış (yeni GUID).
+    string? OperationId = null);
 /// <summary>İş #8: <c>Lines</c> ÇOK malzemeli işlem içindir. Verilmezse eski tek malzemeli alanlar
 /// (MaterialId + Quantity) kullanılır → mevcut istemciler bozulmaz.</summary>
 record StockLineDto(string MaterialId, decimal Quantity);
-record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null);
-record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null);
+record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null);
+record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null);
 record StockReverseDto(string DocumentId, string? Reason);
 record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);

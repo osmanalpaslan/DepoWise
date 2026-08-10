@@ -51,6 +51,48 @@
                         <TextBox Classes="Field" Text="{Binding Reason}"/>
                     </ctrl:FormField>
                 </StackPanel>
+                <!-- G1-02: ÇOK MALZEMELİ SAYIM SEPETİ. Sepet boşken ekran eskisi gibi görünür (tablo gizli);
+                     tek malzeme sayımı aynen çalışır. Desen: StockEntryView "Listeye Ekle" sepeti. -->
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button Classes="Ghost" Content="+ Listeye Ekle" Command="{Binding AddCountLineCommand}"
+                                ToolTip.Tip="Seçili malzemeyi ve sayılan miktarı listeye ekler; sonra başka malzeme sayabilirsiniz."/>
+                        <SelectableTextBlock Classes="Helper" VerticalAlignment="Center" Text="{Binding CountLinesSummary}"/>
+                    </StackPanel>
+                    <Border Classes="Table" MaxHeight="180" IsVisible="{Binding HasCountLines}">
+                        <DockPanel>
+                            <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,0">
+                                    <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="90"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="MALZEME" MinWidth="160"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="SİSTEM" MinWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="SAYILAN" MinWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="FARK" MinWidth="70"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="" MinWidth="70"/>
+                                </Grid>
+                            </Border>
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding CountLines}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StockCountViewModel+CountLineVm">
+                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="8,4">
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
+                                                <SelectableTextBlock Grid.Column="1" Text="{Binding Name}" MinWidth="160" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                <SelectableTextBlock Grid.Column="2" Text="{Binding SystemText}" MinWidth="80" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                                <SelectableTextBlock Grid.Column="3" Text="{Binding CountedText}" MinWidth="80" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <SelectableTextBlock Grid.Column="4" Text="{Binding DiffText}" MinWidth="70" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                <Button Grid.Column="5" Classes="Ghost" Content="Çıkar" MinWidth="70"
+                                                        Command="{Binding $parent[ItemsControl].((vm:StockCountViewModel)DataContext).RemoveCountLineCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+
                 <SelectableTextBlock Text="{Binding FormError}" Classes="Body" Foreground="{DynamicResource DangerBrush}"
                            IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">

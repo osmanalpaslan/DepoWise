@@ -33,6 +33,8 @@
 
 <MudPaper Class="pa-4" Elevation="2">
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    @* G1-07: yükleme hatası ile "gerçekten boş sonuç" birbirinden ayrılır — eskiden hata da boş liste görünüyordu. *@
+    else if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert> }
     else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Seçilen ölçütlerde hareket yok.</MudText> }
     else
     {
@@ -63,6 +65,8 @@
     private DateTime? _from, _to;
     private string _search = "";
     private bool _busy;
+    /// <summary>G1-07: yükleme hatası mesajı. null = hata yok (boş liste gerçekten boş demektir).</summary>
+    private string? _error;
 
     // İşlem Geçmişi "Kaydı Görüntüle" köprüsü (madde 5, 2026-08-06): /stock/movements?q=<kod> ile gelince
     // arama kutusu otomatik doldurulur.
@@ -85,8 +89,14 @@
             if (!string.IsNullOrWhiteSpace(_search)) qs.Add($"q={Uri.EscapeDataString(_search.Trim())}");
             var url = "/api/stock/movements" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
             _rows = await Api.GetArrayAsync(url);
+            _error = null;
         }
-        catch { _rows = Array.Empty<JsonElement>(); }
+        // G1-07: hata SESSİZCE boş listeye dönüşmez — kullanıcı "hareket yok" ile "yüklenemedi"yi ayırt edebilmeli.
+        catch
+        {
+            _rows = Array.Empty<JsonElement>();
+            _error = "Stok hareketleri yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.";
+        }
         finally { _busy = false; }
     }
 

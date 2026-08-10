@@ -59,8 +59,12 @@
                 </MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_unit" Label="Birim *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("units")'>@Opts(_units)</MudSelect></MudItem>
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
+                @* G1-04: Kategori → Alt Kategori kaskadı (masaüstü paritesi). Kategori kutusu artık YALNIZ
+                   üst seviyeyi listeler (/api/materials/subcategories); alt kategoriler ayrı kutuda gelir. *@
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_cat" @bind-Value:after="OnCatChanged" Label="Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("material_categories")'>@Opts(_cats)</MudSelect></MudItem>
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_subCat" Label="Alt Kategori" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                                  Disabled="@(_existingMaterial is not null || string.IsNullOrEmpty(_cat))">@Opts(_subCats)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_brand" Label="Marka" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Disabled="@(_existingMaterial is not null)"
                                                   Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" AdornmentColor="Color.Primary" OnAdornmentClick='() => AddLk("brands")'>@Opts(_brands)</MudSelect></MudItem>
                 <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_sup" Label="Tedarikçi" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
@@ -70,7 +74,8 @@
             else
             {
                 <MudItem xs="12" md="7">
-                    <MudAutocomplete T="MaterialItem" Label="Malzeme *" @bind-Value="_material" SearchFunc="SearchMaterials"
+                    @* G1-04/G1-01: seçim sonrası mevcut bakiye gösterilir (masaüstü paritesi). *@
+                    <MudAutocomplete T="MaterialItem" Label="Malzeme *" @bind-Value="_material" @bind-Value:after="OnExitMaterialPicked" SearchFunc="SearchMaterials"
                                      ToStringFunc="@(m => m is null ? "" : m.Display)" Margin="Margin.Dense" Variant="Variant.Outlined"
                                      ResetValueOnEmptyText="true" CoerceText="true" MinCharacters="0" />
                 </MudItem>
@@ -210,6 +215,9 @@
 
     // Yeni Kayıt alanları
     private string _code = "", _name = "", _type = "Yedek Parça", _unit = "", _cat = "", _brand = "", _sup = "";
+    // G1-04: alt kategori (masaüstü paritesi). Kaydederken categoryId = alt ?? üst.
+    private string _subCat = "";
+    private List<(string Id, string Name)> _subCats = new();
     private decimal _price;
     // Ortak
     private decimal _qty;
@@ -238,7 +246,9 @@
     {
         if (Auth.CanCreate("stock"))
         {
-            _units = await Lk("units"); _cats = await Lk("material_categories");
+            _units = await Lk("units");
+            // G1-04: yalnız ÜST-SEVİYE kategoriler (eskiden /api/lookups düz listeyi — üst+alt karışık — veriyordu).
+            _cats = await LoadList("/api/materials/subcategories", "id", "name");
             _brands = await Lk("brands"); _sups = await Lk("suppliers");
             _branches = await LoadList("/api/branches", "id", "name");
             _personnelList = await LoadList("/api/personnel", "id", "fullName");
@@ -292,16 +302,61 @@
             var d = await Api.GetObjectAsync($"/api/materials/{_existingMaterial.Id}");
             _code = Str(d, "code"); _name = Str(d, "name");
             var t = Str(d, "type"); _type = string.IsNullOrEmpty(t) ? "Diğer" : t;
-            _unit = NullId(d, "unitId") ?? ""; _cat = NullId(d, "categoryId") ?? ""; _brand = NullId(d, "brandId") ?? "";
+            _unit = NullId(d, "unitId") ?? ""; _brand = NullId(d, "brandId") ?? "";
             _sup = NullId(d, "supplierId") ?? "";   // öneri — Tedarikçi düzenlenebilir kalır
+            await ResolveCategoryAsync(NullId(d, "categoryId"));   // G1-04: yaprak kategori üst/alt kutulara dağıtılır
         }
         catch { }
+    }
+
+    /// <summary>G1-04 — Kategori değişince alt kategori listesi yenilenir (MaterialEditDialog ile aynı desen).</summary>
+    private async Task OnCatChanged()
+    {
+        _subCat = "";
+        _subCats = string.IsNullOrEmpty(_cat)
+            ? new()
+            : await LoadList($"/api/materials/subcategories?parentId={_cat}", "id", "name");
+    }
+
+    /// <summary>G1-04 — Malzemenin <c>category_id</c>'si YAPRAK tutar: üst seviye mi alt kategori mi olduğunu
+    /// bulup iki kutuya doğru dağıtır (MaterialEditDialog.ResolveCategoryAsync ile aynı mantık).</summary>
+    private async Task ResolveCategoryAsync(string? catId)
+    {
+        _cat = ""; _subCat = ""; _subCats = new();
+        if (string.IsNullOrEmpty(catId)) return;
+        if (_cats.Any(o => o.Id == catId))
+        {
+            _cat = catId;
+            _subCats = await LoadList($"/api/materials/subcategories?parentId={catId}", "id", "name");
+            return;
+        }
+        foreach (var top in _cats)
+        {
+            List<(string Id, string Name)> subs = await LoadList($"/api/materials/subcategories?parentId={top.Id}", "id", "name");
+            if (subs.Any(s => s.Id == catId)) { _cat = top.Id; _subCats = subs; _subCat = catId; return; }
+        }
+    }
+
+    /// <summary>G1-01 — Çıkış/transferde malzeme seçilince mevcut bakiyeyi gösterir (masaüstü paritesi:
+    /// StockEntryViewModel.PickMaterial). Hazır uç kullanılır: GET /api/stock/balance/{materialId}.</summary>
+    private async Task OnExitMaterialPicked()
+    {
+        _balance = "";
+        if (_material is null) return;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/stock/balance/{_material.Id}");
+            if (d.TryGetProperty("balance", out var b) && b.TryGetDecimal(out var q))
+                _balance = $"Mevcut stok: {q:0.##}";
+        }
+        catch { /* bakiye gösterimi bilgilendirmedir; alınamazsa çip gizli kalır */ }
     }
 
     private void ClearExistingMaterial()
     {
         _existingMaterial = null;
         _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = "";
+        _subCat = ""; _subCats = new();   // G1-04
     }
 
     private async Task AddLk(string table)
@@ -314,7 +369,10 @@
         switch (table)
         {
             case "units": _units = await Lk(table); _unit = IdOf(_units, name); break;
-            case "material_categories": _cats = await Lk(table); _cat = IdOf(_cats, name); break;
+            // G1-04: kategori listesi üst-seviye ucundan gelir (düz lookups listesinden DEĞİL).
+            case "material_categories":
+                _cats = await LoadList("/api/materials/subcategories", "id", "name");
+                _cat = IdOf(_cats, name); await OnCatChanged(); break;
             case "brands": _brands = await Lk(table); _brand = IdOf(_brands, name); break;
             case "suppliers": _sups = await Lk(table); _sup = IdOf(_sups, name); break;
         }
@@ -381,6 +439,9 @@
         }
 
         _busy = true;
+        // G1-05(a): bu KAYIT işlemi için TEK jeton — istek zaman aşımına uğrayıp yeniden gönderilse bile
+        // sunucudaki mevcut idempotency mekanizması ikinci belge/hareket oluşturmaz.
+        var operationId = Guid.NewGuid().ToString("N");
         try
         {
             string? err;
@@ -388,8 +449,10 @@
             {
                 err = await Api.PostAsync("/api/stock/receive", new
                 {
+                    operationId,
                     materialId = Empty(_existingMaterial?.Id),   // madde 1.1: doluysa mevcut malzeme kullanılır
-                    code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_cat),
+                    // G1-04: yaprak kategori gönderilir — alt seçiliyse o, değilse üst (masaüstü ile aynı kural).
+                    code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_subCat) ?? Empty(_cat),
                     unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                     quantity = _qty, unitPrice = _price, branchId = Auth.BranchId, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
@@ -400,6 +463,7 @@
             {
                 err = await Api.PostAsync("/api/stock/issue", new
                 {
+                    operationId,
                     lines = _saveLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity }),
                     materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
                     branchId = Auth.BranchId, personnelId = Empty(_personnel),
@@ -411,6 +475,7 @@
             {
                 err = await Api.PostAsync("/api/stock/transfer", new
                 {
+                    operationId,
                     lines = _saveLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity }),
                     materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
                     fromBranchId = Auth.BranchId, toBranchId = _toBranch,
@@ -479,6 +544,7 @@
     private void ClearForm()
     {
         _code = _name = ""; _type = "Yedek Parça"; _unit = _cat = _brand = _sup = ""; _price = 0;
+        _subCat = ""; _subCats = new();   // G1-04
         _exitLines.Clear(); _saveLines = new();   // İş #8: sepet de temizlenir
         _qty = 0; _note = _invoiceNo = _orderSlipNo = _creditSlipNo = "";
         _branch = _fromBranch = _toBranch = _personnel = _vehicle = "";

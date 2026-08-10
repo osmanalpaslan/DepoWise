@@ -84,16 +84,24 @@ else
         _msg = null;
         if (!await Dialog.RequireBranchAsync(Auth, "Stok Sayım")) return;   // "Tüm Şubeler" modunda işlem yok
         if (string.IsNullOrWhiteSpace(_reason)) { _msg = "Sayım gerekçesi zorunlu."; _ok = false; return; }
-        var changed = (_rows ?? new()).Where(r => r.Counted != r.SystemStock).ToList();
-        if (changed.Count == 0) { _msg = "Farklı sayılan malzeme yok."; _ok = false; return; }
-        if (!await Dialog.Confirm($"{changed.Count} malzemede fark var. Sayım tamamlansın mı? (fark kadar düzeltme hareketi oluşur)")) return;
+        // G1-03: EKRANDAKİ TÜM satırlar gönderilir — fark=0 olanlar da. Servis (StockService.Count) her satır
+        // için sayım satırı yazar, stok hareketini yalnız fark≠0'da üretir. Fark=0 kayıtları "sayıldı, doğruydu"
+        // denetim izidir ve Stok Sayım Raporu bunları içerecek şekilde tasarlanmıştır. Eskiden bu satırlar
+        // gönderilmediği için web'den yapılan sayımlar raporda eksik kalıyordu.
+        var lines = (_rows ?? new()).ToList();
+        if (lines.Count == 0) { _msg = "Kaydedilecek sayım satırı yok."; _ok = false; return; }
+        var diffCount = lines.Count(r => r.Counted != r.SystemStock);
+        if (!await Dialog.Confirm($"{lines.Count} malzeme sayıldı ({diffCount} malzemede fark var). Sayım tamamlansın mı? (fark kadar düzeltme hareketi oluşur)")) return;
         _busy = true;
+        // G1-05(a): işlem başına TEK jeton — aynı Save'in tekrar gönderiminde sunucu ikinci belge oluşturmaz.
+        var operationId = Guid.NewGuid().ToString("N");
         try
         {
             var err = await Api.PostAsync("/api/stock/count", new
             {
                 reason = _reason.Trim(),
-                lines = changed.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList()
+                operationId,
+                lines = lines.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList()
             });
             _ok = err is null; _msg = err ?? "Sayım tamamlandı, stok güncellendi.";
             if (_ok) await Load();
