@@ -182,6 +182,60 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// G2-03 (2026-08-10) — Malzemenin muadil listesini TEK transaction içinde değiştirir.
+    /// <see cref="SetCompatibleVehicles"/>'ın SİMETRİĞİDİR (yeni mekanizma değil, aynı desen):
+    /// önce tüm hedefler doğrulanır, sonra eski bağlar silinip yeni liste yazılır, sonra commit.
+    /// Bir hedef bile yabancı/geçersizse <b>HİÇBİRİ</b> yazılmaz (yarım liste oluşmaz).
+    ///
+    /// ⚠️ <b>null ≠ boş liste.</b> "Dokunma" kararı ÇAĞIRANA aittir: <c>null</c> geldiğinde bu metot
+    /// hiç çağrılmaz (bkz. PUT /api/materials/{id}). Boş liste = TÜM muadilleri kaldır.
+    /// Hızlı düzenleme pencereleri muadil göndermez → mevcut muadiller korunur.
+    ///
+    /// Çift yönlülük: bu malzemeye dokunan bağlar HER İKİ YÖNDE silinir, yeni çiftler
+    /// <see cref="AddEquivalent"/> ile AYNI kuralla iki yönlü yazılır.
+    ///
+    /// ⚠️ BİLİNEN SINIR (davranış bilerek DEĞİŞTİRİLMEDİ): <see cref="GetEquivalentGroup"/> TRANSİTİF
+    /// çalışır, bu metot ise DOĞRUDAN bağları yazar. A↔B ve B↔C varken A'nın listesinden C çıkarılırsa
+    /// C, B üzerinden hâlâ grupta görünür. Aynı sınır masaüstü uzlaştırmasında da vardır; ürün kararı
+    /// alınana kadar korunuyor (bkz. plan §5 G2-03 notu / §12 teknik borç kaydı).
+    /// </summary>
+    public void SetEquivalents(SessionContext s, string materialId, IEnumerable<string> equivalentIds)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Edit);
+        var ids = equivalentIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)      // aynı id iki kez gelirse tek satır
+            .ToList();
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        EnsureOwned(conn, tx, s.CompanyId, materialId);
+
+        // ÖNCE hepsi doğrulanır → tek geçersiz id varsa hiçbir şey yazılmadan istisna (atomiklik).
+        foreach (var eq in ids)
+        {
+            if (eq == materialId) throw new InvalidOperationException("Malzeme kendisine muadil olamaz.");
+            EnsureOwned(conn, tx, s.CompanyId, eq);
+        }
+
+        // Bu malzemeye dokunan TÜM doğrudan bağlar (iki yön) temizlenir...
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM material_equivalents WHERE material_id=@m OR equivalent_material_id=@m;";
+            del.AddWithValue("@m", materialId);
+            del.ExecuteNonQuery();
+        }
+        // ...ardından istenen liste simetrik olarak yazılır.
+        foreach (var eq in ids)
+        {
+            InsertPair(conn, tx, materialId, eq);
+            InsertPair(conn, tx, eq, materialId);
+        }
+        tx.Commit();
+    }
+
     /// <summary>Muadil grubunu döngü-güvenli BFS ile çözer (transitive; visited set ile sonsuz döngü yok).</summary>
     public IReadOnlyCollection<string> GetEquivalentGroup(string materialId)
     {

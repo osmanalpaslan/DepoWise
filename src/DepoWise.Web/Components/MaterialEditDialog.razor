@@ -145,6 +145,10 @@
     private decimal _stockValue, _originalStock;   // madde 1.2: düzenlenebilir mevcut stok
     private bool CanEditStock => Auth.CanCreate("stock");
     private long _version; // düzenleme kilidi (bkz. SaveRecord)
+    // G2-04: malzemenin ŞABLON BAĞI. Bu pencerede DEĞİŞTİRİLMEZ ama kaydederken geri gönderilmek ZORUNDA:
+    // MaterialService.Update "template_id=@tpl" ile koşulsuz yazar → gönderilmezse bağ NULL'a düşerdi
+    // (şablonlu/şablon-dışı raporları bu kolondan beslenir). Fotoğraf/muadil/uyumlu araç gibi KORUNUR.
+    private string? _templateId;
     private string? _cat, _subCat, _unit, _brand, _sup;
     private decimal _min, _price;
     private List<ApiClient.Opt> _cats = new(), _subCats = new(), _units = new(), _brands = new(), _sups = new();
@@ -166,6 +170,7 @@
             _stock = Str(d, "stock");
             _originalStock = Dec(d, "stock"); _stockValue = _originalStock;
             _version = Long(d, "version"); // düzenleme kilidi: formun açıldığı andaki sürüm
+            _templateId = NullId(d, "templateId");   // G2-04: mevcut şablon bağı (kaydederken aynen geri gönderilir)
         }
         catch { _notFound = true; }
         finally { _loading = false; }
@@ -196,6 +201,9 @@
                 unitId = _unit, brandId = _brand, supplierId = _sup,
                 minStock = _min, unitPrice = _price, description = string.IsNullOrEmpty(_desc) ? null : _desc,
                 vehicleIds = (List<string>?)null,
+                // G2-04: yüklenen şablon bağı AYNEN geri gönderilir (bu pencerede değiştirilmez, ama
+                // gönderilmezse sunucu template_id'yi NULL yapardı → sessiz veri kaybı).
+                templateId = _templateId,
                 // DÜZENLEME KİLİDİ: kayıt biz açtıktan sonra değiştiyse sunucu 409 döner, üzerine yazılmaz.
                 version = _version > 0 ? (long?)_version : null
             };

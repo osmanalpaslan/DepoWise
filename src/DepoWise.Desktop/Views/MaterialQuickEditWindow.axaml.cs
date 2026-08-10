@@ -276,7 +276,12 @@ public partial class MaterialQuickEditWindow : Window
                     SupplierId: (supBox.SelectedItem as Opt)?.Id,
                     MinStock: (decimal)(minBox.Value ?? 0),
                     UnitPrice: (decimal)(priceBox.Value ?? 0),
-                    Description: string.IsNullOrWhiteSpace(descBox.Text) ? null : descBox.Text!.Trim()),
+                    Description: string.IsNullOrWhiteSpace(descBox.Text) ? null : descBox.Text!.Trim(),
+                    // G2-04: mevcut ŞABLON BAĞI aynen geri gönderilir. Bu pencerede değiştirilmez, ama
+                    // MaterialService.Update "template_id=@tpl" ile koşulsuz yazdığı için gönderilmezse
+                    // bağ NULL'a düşerdi (şablonlu/şablon-dışı raporları bu kolondan beslenir).
+                    // Aynı koruma StockEntryViewModel'deki malzeme güncellemesinde de uygulanır.
+                    TemplateId: d.TemplateId),
                     // DÜZENLEME KİLİDİ: pencere açıldığındaki sürüm — kayıt arada değiştiyse üzerine yazma.
                     expectedVersion: d.Version);
                 // Uyumlu araçlar / muadiller / fotoğraflar DEĞİŞTİRİLMEZ (korunur).

@@ -80,5 +80,52 @@ public class TemplateReportTests : IDisposable
         Assert.Equal("V-N", vNon.Rows[0][0]);
     }
 
+    /// <summary>
+    /// G2-04 (PRT-01 Grup 2, 2026-08-10) — HIZLI DÜZENLEME ŞABLON BAĞINI SİLMEMELİ.
+    ///
+    /// Kök neden: <see cref="MaterialService.Update"/> "template_id=@tpl" ile KOŞULSUZ yazar ve
+    /// <see cref="UpdateMaterial.TemplateId"/> varsayılanı <c>null</c>'dır. Web hızlı düzenleme penceresi
+    /// (MaterialEditDialog) ve masaüstü hızlı düzenleme penceresi (MaterialQuickEditWindow) şablonu
+    /// DEĞİŞTİRMEZ — ama bağı geri göndermedikleri için her kaydetmede sessizce NULL'a düşürüyorlardı.
+    /// Kolon gerçek rapor besliyor (MaterialsByTemplate / MaterialsNonTemplate) → sessiz veri kaybıydı.
+    ///
+    /// Test iki yönü birlikte kanıtlar: (1) bağ geri gönderilirse KORUNUR — hızlı düzenlemenin bugünkü
+    /// davranışı; (2) gönderilmezse KAYBOLUR — bulgunun kök nedeni, regresyon nöbetçisi olarak sabitlenir.
+    /// Doğrulama yalnız kolonda değil, sonucun göründüğü RAPORDA da yapılır.
+    /// </summary>
+    [Fact]
+    public void HizliDuzenleme_SablonBagi_GeriGonderilirse_KORUNUR_gonderilmezse_KAYBOLUR()
+    {
+        var a = Admin("G204");
+        var mats = new MaterialService(_f, _clock);
+        var matTpl = new MaterialTemplateService(_f, _clock);
+        var reports = new ReportService(_f);
+        var req = new ReportRequest(Executed: true);
+
+        var tpl = matTpl.Create(a, new NewMaterialTemplate("Hidrolik Hortum Şb", Code: "HH-T"));
+        var id = mats.Create(a, new NewMaterial("M-HQ", "Hidrolik Hortum", TemplateId: tpl));
+        Assert.Equal(tpl, mats.GetDetail(a, id).TemplateId);   // başlangıç: şablona bağlı
+
+        // (1) HIZLI DÜZENLEME — pencerenin bugün gönderdiği çağrı: yüklenen alanlar + ŞABLON BAĞI + sürüm.
+        var d = mats.GetDetail(a, id);
+        mats.Update(a, id, new UpdateMaterial(
+            Code: d.Code, Name: "Hidrolik Hortum 2", Type: d.Type,
+            CategoryId: d.CategoryId, UnitId: d.UnitId, BrandId: d.BrandId, SupplierId: d.SupplierId,
+            MinStock: d.MinStock, UnitPrice: d.UnitPrice, Description: d.Description,
+            TemplateId: d.TemplateId), expectedVersion: d.Version);
+
+        var after = mats.GetDetail(a, id);
+        Assert.Equal("Hidrolik Hortum 2", after.Name);   // düzenleme gerçekten uygulandı
+        Assert.Equal(tpl, after.TemplateId);             // ŞABLON BAĞI KORUNDU
+        Assert.Empty(reports.MaterialsNonTemplate(a, req).Rows);                          // "şablon-dışı"na düşmedi
+        Assert.Equal(1, Convert.ToInt32(reports.MaterialsByTemplate(a, req).Rows[0][2])); // şablonda hâlâ 1 kayıt
+
+        // (2) REGRESYON NÖBETÇİSİ — bağ gönderilmezse kolon NULL'a düşer (düzeltilen davranışın kanıtı).
+        var d2 = mats.GetDetail(a, id);
+        mats.Update(a, id, new UpdateMaterial(Code: d2.Code, Name: d2.Name), expectedVersion: d2.Version);
+        Assert.Null(mats.GetDetail(a, id).TemplateId);
+        Assert.Single(reports.MaterialsNonTemplate(a, req).Rows);   // rapora "şablon-dışı" olarak düştü
+    }
+
     public void Dispose() { try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(_db); } catch { } }
 }

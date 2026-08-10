@@ -19,10 +19,26 @@
 | 7 | **Bağımsız güvenlik testi (pentest)** | Uzman biri sistemi dışarıdan zorlayıp açık arar | İ | Değişken (yüksek) | Temel güvenlik + kendi güvenlik taramalarımız ücretsiz yapılır |
 | 8 | **Sunucu yedeği (dış depolama)** | Sunucu verisinin başka bir yerde otomatik yedeği | G | Ücretsiz katman var; sonra kullanım kadar | Yerel/sunucu yedeği kodda var; dış depolama sağlayıcısı sonra bağlanır |
 
+| 9 | **Yük / dayanıklılık testi** (eşzamanlı kullanıcı simülasyonu) | "Kaç kullanıcıda çöker?" sorusunu **tahminle değil ölçümle** cevaplamak; sunucu yükseltmesine para harcamadan önce doğrulama | G | Değişken — bilinmiyor (araç/ortam kirası; küçük ölçekte ücretsiz araçlarla yapılabilir) | **`PRF-01` (plan §6) ücretsizdir:** koddaki darboğazlar okunarak haritalanır. Ücretli yük testi ancak yatırım sonrası, kararı *doğrulamak* için |
+| 10 | **Denetim (audit) kaydı uzun süreli saklama / arşiv** | Kurumsal müşteride "kim ne zaman ne değiştirdi" kaydının yıllarca saklanması + arşivden sorgulanabilmesi | G | Ücretsiz katman var; hacim büyüyünce depolama kadar | Şema hazır (`audit_logs.before_json/after_json`); `LOG-01`+`LOG-02` veriyi üretir, saklama aynı veritabanında başlar |
+
 ## Canlıya geçerken minimum "şart" kalemler
 - **Code-signing (#3)** — kullanıcı güveni için (istersen imzasız da yayınlanabilir, uyarı çıkar).
+  ⚠️ **Otomatik güncellemeyle doğrudan ilgili:** `GNC-01` "izin sormadan indir/kur" hedefi imzasız
+  pakette Windows/SmartScreen uyarısıyla karşılaşabilir → sessiz kurulum deneyimi için #3 gerekir.
 - 200-300 eşzamanlı hedefi varsa: **Sunucu yükseltme (#1) + PostgreSQL (#2)**.
+  *(2026-07-24: PostgreSQL **zaten canlıda** — Neon ücretsiz katman. #2 artık "ölçek için yükseltme".)*
+
+## Bilinçli olarak maliyet kalemi OLMAYANLAR
+- **Sürekli bağlantı (WebSocket/SignalR)** — `KARAR-5` + plan §7 `Y-5`: gereksiz olduğu **analizle**
+  gösterildi. Masaüstü periyodik senkron `SNK-02`/`SNK-03` ile akıllandırıldı (seçici kadans +
+  hata halinde geri çekilme). Sunucuya kalıcı bağlantı yükü **bilerek** eklenmiyor.
+- **Kuyruk / Redis / harici monitoring** — `KARAR-5` + `Y-1`, `Y-4`: mevcut yük buna uzak.
 
 ## Notlar
 - Bu kalemlerin **hiçbiri** geliştirmeyi durdurmaz; hepsi ücretsiz karşılıklarıyla ilerler.
 - Yeni bir maddi ihtiyaç çıktıkça bu tabloya eklenir.
+- **Fiyat uydurulmaz.** Kesin bilinmeyen kalem "değişken / bilinmiyor" yazılır.
+- Bu dosya, ana planın **§7 YATIRIM SONRASI İŞLER** bölümünün *para* karşılığıdır; ikisi birlikte okunur.
+- **Son güncelleme: 2026-08-10** — #9, #10 eklendi; code-signing ↔ otomatik güncelleme bağı ve
+  "bilinçli olarak maliyet olmayanlar" bölümü yazıldı (kullanıcının uzun vadeli gereksinim listesi).

@@ -98,6 +98,55 @@ public class ApiEditLockTests : IAsyncLifetime
             password = (string?)null, companyId = (string?)null, version
         });
 
+    /// <summary>G2-02 — malzeme kartının sürümü + adı (web tam düzenleme formu sürümü BURADAN okur).</summary>
+    private async Task<(long Version, string Name)> ReadMaterialAsync()
+    {
+        var r = await _client.GetAsync($"/api/materials/{_materialId}");
+        r.EnsureSuccessStatusCode();
+        var j = await ApiTestHost.JsonAsync(r);
+        return (j.GetProperty("version").GetInt64(), j.GetProperty("name").GetString() ?? "");
+    }
+
+    /// <summary>Web tam düzenleme formunun (Materials.razor) gönderdiği gövdenin AYNISI.
+    /// <c>vehicleIds = null</c> → sunucu uyumlu araç listesini korur (bkz. PUT /api/materials/{id}).</summary>
+    private Task<HttpResponseMessage> PutMaterialAsync(string name, long? version) =>
+        _client.PutAsJsonAsync($"/api/materials/{_materialId}", new
+        {
+            code = "MAT-KILIT", name, type = (string?)null, categoryId = (string?)null, unitId = (string?)null,
+            brandId = (string?)null, supplierId = (string?)null, minStock = 0m, unitPrice = 0m,
+            description = (string?)null, openingStock = 0m,
+            vehicleIds = (string[]?)null, equivalentIds = (string[]?)null, templateId = (string?)null, version
+        });
+
+    // ── MALZEME (G2-02, 2026-08-10) ───────────────────────────────────────────────────────
+    // Servis katmanı zaten kapsanmış (MaterialTests.DuzenlemeKilidi_*). Burada kanıtlanan şey
+    // ZİNCİRİN TAMAMI: web'in gönderdiği JSON gövdedeki `version` alanı NewMaterialDto'ya bağlanıyor
+    // mu, servis kilidi tetikliyor mu, hata **409** olarak dönüyor mu, kayıt korunuyor mu.
+
+    [Fact]
+    public async Task Malzeme_ESKI_surumle_PUT_409_doner_ve_kayit_korunur()
+    {
+        var (eskiSurum, _) = await ReadMaterialAsync();                              // A formu açtı
+        (await PutMaterialAsync("A kaydetti", null)).EnsureSuccessStatusCode();      // B araya girdi
+
+        var r = await PutMaterialAsync("A'nin eski verisi", eskiSurum);
+        Assert.Equal(HttpStatusCode.Conflict, r.StatusCode);   // 409 — sessiz üzerine YAZILMADI
+
+        var (_, name) = await ReadMaterialAsync();
+        Assert.Equal("A kaydetti", name);                      // araya girenin verisi duruyor
+    }
+
+    [Fact]
+    public async Task Malzeme_DOGRU_surumle_PUT_basarili_ve_surum_artar()
+    {
+        var (surum, _) = await ReadMaterialAsync();
+        (await PutMaterialAsync("guncel ad", surum)).EnsureSuccessStatusCode();
+
+        var (yeniSurum, name) = await ReadMaterialAsync();
+        Assert.Equal("guncel ad", name);
+        Assert.True(yeniSurum > surum);
+    }
+
     // ── TALEPLER ──────────────────────────────────────────────────────────────────────────
 
     [Fact]

@@ -4,6 +4,19 @@
 > "Şu anda nerede kaldık?" sorusunun cevabı en üstteki durum bloğundadır.
 > Mevcut durum fotoğrafı için: [PROJE_GENEL_DURUM_ANALIZI.md](PROJE_GENEL_DURUM_ANALIZI.md)
 
+> ### 🧭 NEREYE BAKMALI — dört kova (2026-08-10, kullanıcı kuralı)
+> | Soru | Bölüm |
+> |---|---|
+> | **Şimdi yapılacaklar** — mevcut aşamada kodlanacak işler | **§5** + §9 sırası + §12 aktif iş |
+> | **Gelecek fazlar** — henüz kodlanmayacak, mimari olarak planlanmış | **§6** (ertelenen) + §5'teki `BEKLEMEDE` işler |
+> | **Yatırım / canlıya geçiş öncesi** — para veya profesyonel altyapı isteyen | **§7** (iş) + [docs/MALIYET_KALEMLERI.md](docs/MALIYET_KALEMLERI.md) (**para**) |
+> | **Kullanıcı kararı gerekenler** — ürün kararı olmadan uygulanmaz | **§14 KARARLAR** (`KARAR-4`, **`KARAR-7`**, `YET-01`) |
+>
+> **Her yeni geliştirmeden ÖNCE:** bu planı oku → uzun vadeli hedeflerle (§3, §3.1) çelişiyor mu bak →
+> eksik faz varsa tespit et → yeni özellik gerekiyorsa **önce öner, onay al** → maliyetli işi §7'ye
+> yaz → çalışan yapıyı gereksiz yeniden tasarlama → en minimal ve düşük riskli çözümü seç →
+> kurumsal kullanımı engelleyecek teknik borç bırakma → önemli mimari kararı buraya **kalıcı** yaz.
+
 ---
 
 ```
@@ -14,15 +27,23 @@ DURUM:               ✅ FAZ 1 SENKRON OPTİMİZASYONU (SNK-01…04) TAMAMLANDI 
                      SNK-01 ❌ · SNK-02 ✅ · SNK-03 ✅ · SNK-04 ❌
                      ✅ KLT-01 KAPANDI · ✅ MLZ-01
 SON TAMAMLANAN İŞ:   SNK-04 — analiz sonucu ZATEN YAPILMIŞ (2026-08-10)
-SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 2 (Malzemeler) — Grup 1 (stok) TAMAM, commit 8bf27cb
-                     ⚠️ ONAY + DETAY ANALİZ gerekli; kendiliğinden başlanmaz
+SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 2a — G2-01 (önkoşulları TAMAM) → sonra G2-05
+                     G2-04 ✅ · G2-02 ✅ · G2-03 ✅ UYGULANDI (üçü de commit EDİLMEDİ)
+                     ⚠️ Her aşama için ayrı ONAY gerekir; kendiliğinden başlanmaz
+YENİ TEKNİK BORÇ:    MUA-01 (muadil transitif↔doğrudan uyuşmazlığı — ÜRÜN KARARI)
+                     MUA-02 (EnsureOwned silinmiş malzemeyi kabul ediyor — yalnız kayıt)
 İPTAL (2026-08-10):  SNK-01 — koruma kodda zaten vardı (c8d3dc7, 2026-07-19)
                      SNK-04 — koruma kodda zaten vardı (b2604de, 2026-07-11)
 AÇIK DOĞRULAMA:      SNK-02 + SNK-03 çalışma zamanı/HTTP davranışı — GUI oturumu sınırı (§5)
+                     G1-02 + G2-04 masaüstü GUI davranışı — Avalonia GUI otomasyon sınırı
 BEKLEYEN KARAR:      KARAR-4 (bakımda negatif stok ↔ onay) — FAZ 5'e kadar beklenebilir
+                     KARAR-7 (malzeme silme şube bazlı mı?) — FAZ 4 KAPISINDA gerekli 🆕
+                     G2-07 (düzenlemede boş "Tür" varsayılanı) — küçük ürün kararı
                      YET-01 (yetki modeli) — FAZ 2'ye girmeden ÖNCE gerekli
 YENİ BULGU:          WEB-01 — web hata mesajlarında ham JSON (§6, ayrı iş, fazlanmadı)
-SON GÜNCELLEME:      2026-08-10 (KLT-01 kapanışı + 409 QA doğrulaması + WEB-01 kaydı)
+                     GNL-03 · LOG-02 · PRF-01 — 2026-08-10 ikinci gözden geçirmede eklendi
+SON GÜNCELLEME:      2026-08-10 (PRT-01 Grup 2a analizi + G2-04 + uzun vadeli gereksinim
+                     gözden geçirmesi: §3.1, GNL-03, LOG-02, PRF-01, KARAR-7, Y-6, Y-7)
 ```
 
 **Kullanıcı tarafında paralel yürüyen görevler (kod işi değil):**
@@ -89,6 +110,39 @@ Bunlar **karar verilmiş** hedeflerdir; yeniden tartışılmaz.
 | H-10 | Senkron: WebSocket YOK, periyodik sistem akıllandırılacak | Analizle uyumlu |
 | H-11 | Otomatik güncelleme: izin sormadan indir/kur, yalnız yeniden başlatmayı sor | Analizle uyumlu |
 | H-12 | Kod temizliği yalnız gerçek risk/borç için | Analizle uyumlu |
+
+### 3.1 Hedeflerin yeniden teyidi + ÜRÜN VİZYONU (2026-08-10, ikinci gözden geçirme)
+
+**Kullanıcının ürün vizyonu (kalıcı kayıt):** Proje tek kişilik (babasının kullandığı) minimalist bir
+depo uygulaması olarak başladı; artık hedef **web + masaüstü, çok kullanıcılı, çok birimli, çok rollü,
+çok şubeli, büyük firmalara SATILABİLİR ticari ürün**. Bundan sonraki her geliştirme yalnız mevcut
+bulguyu kapatmakla yetinmez; **mevcut mimarinin bu hedefi engellememesi** gözetilir.
+
+**Maliyet politikası (bağlayıcı):** Yatırım/finansman bulunana kadar **maliyetli profesyonel altyapı
+ertelenir**; önce mevcut teknolojiyle mümkün olan **en düşük maliyetli** çözüm. Gereksiz ücretli servis /
+SaaS / üçüncü parti altyapı / sunucu maliyeti / lisans **eklenmez**. Ancak ertelenen her maliyetli iş
+**§7 + [docs/MALIYET_KALEMLERI.md](docs/MALIYET_KALEMLERI.md)** içinde kayıt altında tutulur; kullanıcı
+"yatırım buldum, canlıya almadan önce neleri parayla yapmamız gerekiyordu?" diye sorduğunda cevap
+**proje dosyalarından** çıkarılabilmelidir.
+
+**Gözden geçirme sonucu:** Kullanıcının 2026-08-10'da ayrıntılandırdığı 17 uzun vadeli gereksinim
+madde madde bu planla karşılaştırıldı. **Çoğu zaten H-1…H-12 altında kayıtlıydı ve iş kalemine
+bağlanmıştı** (mükerrer iş açılmadı). Yalnız aşağıdaki **dört konu gerçekten eksikti** ve bu turda
+eklendi; ayrıca **bir konu önceki bir kullanıcı kararıyla çelişiyor** ve karara bağlanmayı bekliyor:
+
+| Yeni/eksik | Nereye eklendi |
+|---|---|
+| Kayıt tipi **kataloğu yok** (bugün `activity_type` sabit metin) → `YTK-02` ve `GNL-02`'nin **önkoşulu** | §5 `GNL-03` (yeni) |
+| `audit_logs.before_json/after_json` **var ama doldurulmuyor** → "önceki/yeni değer" denetimi bugün imkânsız | §5 `LOG-02` (yeni) |
+| **Ölçek darboğaz haritası** yazılı değil (H-9 hedef var, ölçüm yok) | §5 `PRF-01` (yeni) |
+| `PRT-01` **Grup 2'nin Şablonlar yarısı** ayrı analiz aşaması olarak işaretli değildi | §5 `PRT-01` altına eklendi |
+| ⚠️ **Şube bazlı malzeme silme** isteği, 2026-07-26 "malzeme kataloğu firma-geneli" kararıyla **çelişiyor** | §15 `KARAR-7` (kullanıcı kararı bekliyor) |
+
+**Mimari not (yetki genişletmesini ucuzlatır):** `PermissionAction` yalnız **View/Create/Edit/Delete**
+içerir; `Approve`/`Report` **yoktur**. Ama projenin kendi çözdüğü desen bellidir: Talep Onaylama, buton
+yetkisinden (`btn-approve`, LEGACY) **ayrı bir MODÜLE** taşınmıştır (`request_approval`, Migration035).
+→ **Yeni işlem yetkileri için enum genişletilmez; modül eklenir** veya `user_button_permissions`
+kullanılır. `YTK-01`/`YTK-02` bu yüzden düşük maliyetlidir. **Yetki sistemi baştan YAZILMAYACAK.**
 
 ---
 
@@ -563,9 +617,38 @@ Sonucu yeni iş kalemleri doğurur.
 > | — | **Hareketsiz belge idempotency boşluğu:** tamamı fark=0 olan sayım `stock_movements` üretmediği için `FindDocumentByOperation` belgeyi bulamaz → aynı jetonla tekrar gönderilirse ikinci belge oluşur | ⏳ **AÇIK** — `StockService` değişikliği ister, kapsam dışı bırakıldı |
 > | — | **G1-02 GUI QA** — 6 senaryo (tek satır, çoklu, aynı malzeme tekrar, satır silme, fark=0, boş sepet) | ⏳ **AÇIK** |
 >
+> ### 🔵 GRUP 2 — Malzemeler + Şablonlar (2026-08-10: analiz YAPILDI, kısmen uygulandı)
+> **Grup 2 iki yarıdan oluşur; yalnız birincisi analiz edildi:**
+>
+> | Yarı | Durum |
+> |---|---|
+> | **2a — Malzemeler** (`Materials.razor` · `MaterialEditDialog.razor` · `MaterialsView.axaml` + VM · `MaterialQuickEditWindow`) | ✅ **Analiz TAMAM** — 8 bulgu (G2-01…G2-08). `G2-04` uygulandı *(commit edilmedi)*. `G2-01/02/03/05/07` onay bekliyor, `G2-06` değişiklik önerilmedi, `G2-08` yalnız kayıt |
+> | **2b — Şablonlar** (`MaterialTemplates.razor` · `MaterialTemplatesView.axaml` + VM) | ⏳ **ANALİZ YAPILMADI** — Grup 2'nin ikinci yarısı. **Ayrı bir analiz aşaması olarak yürütülecek**; Malzemeler yarısının uygulaması bitince sırası gelir. Bilinen ilgili iş: `KLT-01d` ✅ (şablon güncellemede düzenleme kilidi) |
+>
+> **Grup 2a bulguları (özet):** `G2-01` web'de tam düzenleme formuna giriş yolu yok (muadil/uyumlu
+> araç/fotoğraf web'den değiştirilemiyor) · `G2-02` web ana formu düzenleme kilidi göndermiyor ·
+> `G2-03` ✅ `PUT /api/materials/{id}` `equivalentIds`'i yok sayıyordu — **yalnız `Program.cs` yetmedi**,
+> `SetCompatibleVehicles`'ın simetriği olan **`MaterialService.SetEquivalents`** (tek transaction,
+> `null`≠`[]`, çift yönlü) eklendi · `G2-02` ✅ web tam formunda düzenleme kilidi (ölü `_v` alanı
+> amacına uygun kullanıldı, `CS0169` giderildi) · `G2-04` ✅ hızlı düzenleme şablon
+> bağını siliyordu (iki platformda da) · `G2-05` masaüstünde "Yalnız kritik" filtresi yok ·
+> `G2-06` kritik stok paneli çapraz eksik (P3, değişiklik önerilmedi) · `G2-07` düzenlemede boş "Tür"
+> varsayılanı platformlar arası farklı (**ürün kararı gerekir**) · `G2-08` `Materials.razor`'da ölü kod
+> (**yalnız kayıt** — `_v`, `DeleteSelected`, `DeletePhoto`, `OpenDetail`, `ApplyTemplate`; derleyici
+> `CS0169` ile `_v`'yi zaten uyarıyor).
+>
+> **Silme derin denetimi (Grup 2a):** Malzeme silme koruması **gerçek ve tek noktalıdır** —
+> `MaterialService.Delete` dışında `materials` tablosuna silme yazan kod **yoktur**; web HTTP'den,
+> masaüstü doğrudan **aynı metoda** gider → UI butonu gizleme değil, **veri katmanında** koruma.
+> Yetkili kullanıcının elle API çağırması korumayı atlatmaz. Yakıt tabloları (`fuel_depot_entries`,
+> `fuel_distributions`) ve `daily_activities` **`material_id` taşımaz** → o taraf için kontrol
+> gerekmiyor. ⚠️ **Önemli:** silme SOFT olduğu için **FK hiç devreye girmez**; tek güvence
+> `GuardDeletable`'dır (bkz. §15 `MLZ-01-DEPO`).
+>
 > ### Kalan gruplar (henüz başlanmadı)
-> 2 Malzemeler+Şablonlar · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/Günlük ·
-> 6 Yönetim ekranları
+> **2b Şablonlar** · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/Günlük ·
+> 6 Yönetim ekranları *(Grup 6'da ayrıca: masaüstünde **Audit görüntüleme ekranı yok**, web'de var —
+> bkz. §6 `LOG-02`)*
 
 **ID:** `PRT-02`
 **Başlık:** Ekran adı eşleme tablosu
@@ -844,8 +927,28 @@ tekrar engellemiyor · **istemci bayrağı göndermeden sunucu koruması çalı�
 **ID:** `GNL-02`
 **Başlık:** Birim bazlı kayıt tipleri
 **Açıklama:** Kayıt tipleri personel birimine göre filtrelenebilir.
-**Öncelik:** P2 · **Bağımlılık:** BRM-01, YTK-02 · **Maliyet:** Orta
+**Öncelik:** P2 · **Bağımlılık:** BRM-01, YTK-02, **GNL-03** · **Maliyet:** Orta
 **DURUM:** `BEKLEMEDE`
+
+**ID:** `GNL-03` ◄ 🆕 **2026-08-10'da EKLENDİ — `YTK-02` ve `GNL-02`'nin ÖNKOŞULU**
+**Başlık:** Günlük Faaliyet — kayıt tipi kataloğu (yönetilebilir liste)
+**Açıklama:** Bugün kayıt tipi **yönetilebilir bir varlık değil**: `daily_activities.activity_type`
+serbest metin kolonudur ve şemada yalnız iki değer belgelenmiştir (`maintenance | movement`,
+Migration009). Yeni bir tip (Arıza, Sevkiyat, Nakliye…) eklemek **kod değişikliği** gerektirir.
+**Neden gerekli:** H-7. `YTK-02` "her kayıt tipine ayrı yetki" diyor, `GNL-02` "tipleri birime göre
+filtrele" diyor — **ikisi de var olmayan bir listeye yetki/filtre bağlamaya çalışıyor.** Satır olmayan
+bir tipe yetki verilemez. Ayrıca kullanıcının hedefi Günlük Faaliyet'in *"her iş için ilgili modüle
+gitmeden günlük işleri hızlıca kaydeden merkezi faaliyet alanı"* olmasıdır → tip listesi büyüyecektir.
+**Önerilen minimum çözüm:** Mevcut **lookup deseninin aynısı** (`units`/`brands`/`suppliers` gibi):
+firma bazlı `activity_types` tanım tablosu + `daily_activities.activity_type_id`. Eski iki değer
+tohumlanır, **eski metin kolonu KALIR** (geriye uyumluluk, sync bozulmaz). Yeni mekanizma tasarlanmaz.
+**Öncelik:** P1 (YTK-02'den ÖNCE) · **Bağımlılık:** Yok · **Migration:** ✅ **additive** (1 tanım tablosu
++ 1 nullable kolon) · **API:** mevcut `/api/lookups/{table}` deseni · **Canlı veri riski:** Yok
+· **Maliyet:** Düşük-orta
+**⚠️ Sıra uyarısı:** `YTK-02` bugünkü hâliyle (`btn-daily-<kayittipi>`) sabit iki tip için çalışır;
+tip listesi dinamikleşince buton anahtarı **tip id'sinden üretilmelidir**. `YTK-02` GNL-03'ten sonra
+uygulanırsa ek iş çıkmaz.
+**DURUM:** `BEKLEMEDE` — *analiz yapıldı, kod yazılmadı*
 
 **ID:** `BKM-01`
 **Başlık:** Bakım onay durumu
@@ -876,6 +979,9 @@ idempotent (çift onay çift düşürmüyor) · audit kaydı oluşuyor
 |---|---|---|---|
 | `GNC-01` | Otomatik güncelleme davranışı (izin sorma, ertele seçeneği, boştayken yeniden başlat) | P0/P1 işler önce; kullanıcı deneyimi iyileştirmesi | P2 |
 | `LOG-01` | Kullanıcı karar logu (ayrı tablo, `audit_logs` kirletilmeden) | Bugün zorunlu değil. **Mimari buna kapatılmıyor** — GNL-01'deki `allowDuplicate` bayrağı ileride bu loga yazılacak şekilde tasarlanacak | P2 |
+| **`LOG-02`** | **Audit içeriğinin zenginleştirilmesi (önceki/yeni değer)** — aşağıda | 🆕 2026-08-10. Şema HAZIR, yazanlar kullanmıyor → bugün "ne değişti" sorusu cevaplanamıyor | P2 |
+| **`PRF-01`** | **Ölçek darboğaz haritası (yalnız ölçüm/analiz, kod yok)** — aşağıda | 🆕 2026-08-10. H-9 hedefi var ama **hangi noktanın darboğaz olduğu yazılı değil**; yatırım kararı ölçümsüz verilemez | P2 |
+| `GNL-02` | Birim bazlı kayıt tipleri | BRM-01, YTK-02 **ve GNL-03**'e bağımlı *(2026-08-10: bu satır tablonun dışına düşmüştü, geri alındı)* | P2 |
 | `RPR-01` | Rapor envanteri + standart denetimi | Analizde çıkarılamadı; P0'lardan sonra | P2 |
 | `TST-01` | 33 atlanan testin neden atlandığının doğrulanması | Geliştirmeleri durdurmaz ama bilinmeli | P2 |
 | `TMZ-01` | `ListColumns` çift kopya tekilleştirme | Gerçek teknik borç (biri güncellenip diğeri unutulursa ekran sessizce bozulur) ama acil değil | P2 |
@@ -967,7 +1073,48 @@ Yanlış temele inşa etmemek için **önce karar, sonra kod.**
 
 **TMZ-02 tek başına kod işi olarak açılmayacak;** `YET-01` kapsamında karara bağlanacak.
 **KLT-01'i engellemez** — KLT-01 kapsam mekanizmasına dokunmuyor.
-| `GNL-02` | Birim bazlı kayıt tipleri | BRM-01 ve YTK-02'ye bağımlı | P2 |
+
+### 🔍 `LOG-02` — Audit içeriğinin zenginleştirilmesi (önceki değer / yeni değer)
+*(2026-08-10 koddan doğrulandı — yalnız İNCELEME, kod değiştirilmedi)*
+
+**Kullanıcı hedefi:** İleride şu sorular cevaplanabilmeli — *"Bu personel hangi işlemlerde uyarı aldı?
+Hangi gün/saatte? Uyarıya rağmen devam etti mi? Hangi kayıt yüzünden uyarı çıktı?"* ve genel olarak
+**kim / ne zaman / hangi ekran / hangi kayıt / önceki değer / yeni değer**.
+
+**Koddan gerçek durum — şema HAZIR, yazanlar KULLANMIYOR:**
+
+| Katman | Durum |
+|---|---|
+| `audit_logs` şeması (Migration001) | `user_id`, `entity_type`, `entity_id`, `action`, **`before_json`**, **`after_json`**, `correlation_id`, `created_at` → **gerekli kolonlar zaten var** |
+| `AuditWriter` | `BeforeJson`/`AfterJson` parametrelerini **destekliyor** (satır 27-28) |
+| Çağıranlar | Neredeyse tamamı **null geçiyor**. `AfterJson` dolduran yalnız `FileService` ve `MaintenanceService`; **`BeforeJson` dolduran hiçbir yer yok** |
+| Görüntüleme | Web'de **`Audit.razor` VAR** · masaüstünde **YOK** (parite farkı — `PRT-01` Grup 6'da denetlenecek) |
+
+**Sonuç:** Denetim altyapısı **baştan yazılmayacak** — yalnız mevcut çağrılara önceki/sonraki değer
+eklenecek. Bu, "büyük log sistemi kurmak"tan çok daha ucuzdur ve kullanıcının istediği soruların
+çoğunu karşılar. Uyarı/karar tarafı (`allowDuplicate`, "Yine de devam et") **`LOG-01`**'in konusudur;
+ikisi birlikte planlanır.
+**Öncelik:** P2 · **Bağımlılık:** Yok (LOG-01 ile birlikte yapılması önerilir) · **Migration:** ❌
+(kolonlar mevcut) · **Maliyet:** Düşük-orta (çağrı noktası sayısına bağlı) · **DURUM:** `BEKLEMEDE`
+
+### 🔍 `PRF-01` — Ölçek darboğaz haritası (yalnız ölçüm + belge, KOD YOK)
+*(2026-08-10 — H-9'un ölçülebilir hâli)*
+
+**Neden:** H-9 *"sunucu yoğunlukta çökmesin ama gereksiz altyapı kurulmasın"* diyor. Bugün **hangi
+noktanın önce kırılacağı yazılı değil** → yatırım kararı (sunucu yükseltme, kuyruk, önbellek) ölçüm
+olmadan verilemez. Bu iş **kod değiştirmez**; ölçer ve belgeler. **Maliyeti yoktur.**
+
+**Bu oturumda kod okunurken görülen aday darboğazlar (doğrulanmadı, ölçülecek):**
+- Sunucu **tek Fly makinesi / 256 MB** (bkz. [docs/MALIYET_KALEMLERI.md](docs/MALIYET_KALEMLERI.md) #1).
+- `MaterialService.SearchGridAll` — dışa aktarım **tüm** sonuç kümesini 500'lük sayfalarla **belleğe**
+  toplar; çok kayıtlı firmada bellek tepe noktası yapar.
+- `MaterialService.GetDetail` — muadil grubu BFS'i **malzeme başına ayrı sorgu** açar.
+- Fotoğraf uçları dosyayı **tamamen belleğe** okuyup döner (`Storage.Read`), akış (stream) kullanılmaz.
+- İstek sınırlama (rate limit) yalnız **login** için var (`loginLimiter`); diğer uçlarda yok.
+
+**Kapsam:** ölçüm + rapor (`docs/` altında mevcut bir rapor dosyası kullanılır, yeni dosya açılmaz).
+**Öncelik:** P2 · **Bağımlılık:** Yok · **Migration:** ❌ · **Maliyet:** **Sıfır (ücretsiz)**
+**DURUM:** `BEKLEMEDE` — *yatırım kararından ÖNCE yapılması önerilir (ölçümsüz para harcanmasın)*
 
 ---
 
@@ -980,6 +1127,16 @@ Yanlış temele inşa etmemek için **önce karar, sonra kod.**
 | `Y-3` | Platform / Ekran görünürlüğü yönetimi | P3. **Uyarı:** eklenirse görünürlük yalnız menüyü etkilemeli, API'de hiçbir şey değişmemeli |
 | `Y-4` | Gelişmiş izleme (monitoring/alerting) | Ücretli servis; mevcut "Canlı Sunucu" ekranı + Fly.io metrikleri yeterli |
 | `Y-5` | Sürekli bağlantı (WebSocket/SignalR) | Analizde gereksiz olduğu gösterildi (KARAR-5) |
+| **`Y-6`** | **Yük / dayanıklılık testi** (eşzamanlı kullanıcı simülasyonu) | 🆕 2026-08-10. `PRF-01` ölçümü **ücretsiz** yapılır; gerçek yük testi araç/ortam ister. Yatırım kararını *doğrulamak* için, *vermek* için değil |
+| **`Y-7`** | **Audit/denetim kaydı uzun süreli saklama + arşiv** | 🆕 2026-08-10. `LOG-01`+`LOG-02` veriyi üretir; yıllarca saklama ve arşivleme **depolama maliyeti** doğurur. Kurumsal müşteri gelince gerekir |
+
+### 💰 Yatırım / canlıya geçiş öncesi MALİYETLİ İŞLER — tek liste nerede?
+
+**Ücretli kalemlerin tek ve güncel listesi: [docs/MALIYET_KALEMLERI.md](docs/MALIYET_KALEMLERI.md).**
+Yukarıdaki `Y-1…Y-7` **iş** kalemleridir; o dosya **para** kalemleridir (ne işe yarar, öncelik,
+yaklaşık maliyet, ücretsiz karşılığı). Kullanıcı *"yatırım buldum, canlıya almadan önce parayla neleri
+yapmamız gerekiyordu?"* diye sorduğunda **önce o dosya, sonra bu bölüm** okunur.
+⚠️ **Fiyat uydurulmaz** — kesin bilinmeyen maliyet "değişken/bilinmiyor" olarak yazılır.
 
 ---
 
@@ -1056,7 +1213,8 @@ GNL-01 (mükerrer uyarı) ──────── bağımsız (LOG-01'e hazır 
 | 10b | **`YET-01`** | **Yetki modeli KARARI (TMZ-02 dahil)** ← FAZ 2'nin kapısı | 2 |
 | 11 | `BRM-01` | Personel birimi | 2 |
 | 12 | `YTK-01` | Approve/Cancel | 2 |
-| 13 | `YTK-02` | Kayıt tipi yetkisi | 2 |
+| 12b | **`GNL-03`** | **Kayıt tipi kataloğu** 🆕 ← `YTK-02`'nin ÖNKOŞULU | 2 |
+| 13 | `YTK-02` | Kayıt tipi yetkisi *(GNL-03'ten sonra)* | 2 |
 | 14 | `YTK-03` | Stok kritik yetkiler | 2 |
 | 15 | `YTK-04` | Yetki ağacı UI | 2 |
 | 16 | `KLT-02` | Kilit altyapısı (sunucu) | 3 |
@@ -1077,11 +1235,14 @@ GNL-01 (mükerrer uyarı) ──────── bağımsız (LOG-01'e hazır 
 | 29 | `GNL-02` | Birim bazlı kayıt tipleri | 5 |
 | 30 | `GNC-01` | Otomatik güncelleme | 6 |
 | 31 | `LOG-01` | Kullanıcı karar logu | 6 |
+| 31b | **`LOG-02`** | **Audit içeriği: önceki/yeni değer** 🆕 *(LOG-01 ile birlikte)* | 6 |
+| 31c | **`PRF-01`** | **Ölçek darboğaz haritası** 🆕 *(ölçüm+belge, KOD YOK, ücretsiz)* | 6 |
 | 32 | `RPR-01` | Rapor envanteri | 6 |
 | 33 | `TST-01` | 33 atlanan test | 6 |
 | 34 | `TMZ-01` | ListColumns tekilleştirme | 6 |
 
-**Toplam: 36 ana iş** (5'i yatırım sonrasına ertelenmiş `Y-1…Y-5` hariç).
+**Toplam: 39 ana iş** (7'si yatırım sonrasına ertelenmiş `Y-1…Y-7` hariç).
+*(2026-08-10 ikinci gözden geçirme: `GNL-03`, `LOG-02`, `PRF-01` eklendi → 36 → 39.)*
 *(2026-08-10: depo mimarisi nedeniyle FAZ 4 altı faza değil **yedi** faza bölündü ve
 `TRF-01` eklendi → 34 → 36.)*
 
@@ -1213,6 +1374,39 @@ metodun oluşturulduğu commit'ten beri mevcut; §5'e bakınız. Kod değişikli
 | KARAR-3 | Kayıt kilidi: kiralama (lease) tabanlı gerçek kilit; çevrimdışı sınırı kabul edilir | ✅ VERİLDİ |
 | KARAR-4 | Bakımda negatif stok ↔ onay akışı çelişkisi | ⏳ **BEKLİYOR** (FAZ 5) |
 | KARAR-5 | Queue/Redis/WebSocket/monitoring şimdilik kurulmayacak | ✅ VERİLDİ |
+| KARAR-6 | Depo = ayrı `warehouses` tablosu; `branches` genişletilmez *(ayrıntı §4'te; 2026-08-10'da bu tabloya da işlendi)* | ✅ VERİLDİ |
+| **KARAR-7** | **Malzeme SİLME şube bazlı mı olsun?** — aşağıda | ⏳ **BEKLİYOR — kullanıcı kararı** |
+
+### ⚖️ KARAR-7 — Malzeme silme şube bazlı mı olmalı? *(2026-08-10, kullanıcı isteğiyle açıldı)*
+
+**Kullanıcının senaryosu:** *"Şube A'da bir malzeme oluşturdum, aynı malzeme Şube B'de de oluşturuldu.
+İkisinde de stok 0. Şube B'deki kullanıcı sildi → Şube A'daki malzeme SİLİNMEMELİ."*
+
+**⚠️ Bu istek `KARAR-1` ile ÇELİŞİYOR** — `KARAR-1` (✅ verilmiş, kullanıcı kararı 2026-07-26):
+*"Malzeme kataloğu firma genelinde kalır, stok şube bazlı olur."*
+
+**Koddan gerçek durum (doğrulandı, 2026-08-10):**
+
+| Nokta | Bulgu |
+|---|---|
+| `materials.branch_id` | Kolon **VAR**; `Create` sırasında oturumun çalışma şubesi yazılıyor (`BranchScope.Active`, "Tüm Şubeler" → NULL) |
+| `MaterialService.List` / `SearchGrid` | `branch_id`'yi **bilerek SÜZMÜYOR** — kod yorumu: *"Malzeme listesi FİRMA-GENELİdir (ortak katalog); şube ayrımı STOK'tadır"* |
+| `MaterialService.Delete` | Firma bazlı: `WHERE id=@id AND company_id=@c` → **şube bakılmıyor** |
+| `GuardDeletable` | Kontroller **bilinçli olarak firma geneli** (kod yorumunda yazılı) |
+
+Yani bugün **aynı malzemenin iki şubede iki ayrı kaydı normalde OLUŞMAZ** — katalog ortaktır, iki şube
+aynı kartı paylaşır. Kullanıcının senaryosu ancak **iki ayrı kart** (farklı kod) açılırsa oluşur; o
+durumda B'nin sildiği kart zaten A'nınkinden farklı bir kayıttır ve **A etkilenmez**.
+
+**Karara bağlanacak soru:** Katalog gerçekten ortak mı kalsın (KARAR-1), yoksa malzeme kartı da şube
+bazlı mı olsun? İkincisi seçilirse **aynı malzemenin firmada birden çok kartı** oluşur; bu, raporlamayı,
+muadil ilişkisini, talep/bakım eşleşmesini ve stok toplamlarını **kökten etkiler**.
+
+**Yapılmayacaklar (karar gelene kadar):** migration yazılmayacak · `List`/`SearchGrid`/`Delete`
+şube süzmesi eklenmeyecek · büyük refactor yapılmayacak.
+**İlişki:** `MLZ-01-DEPO` (§15) ve `STK-05` — depo mimarisi geldiğinde bu soru **zaten** yeniden
+gündeme gelecek. **Öneri: KARAR-7, `STK-01` başlamadan ÖNCE FAZ 4'ün kapısında karara bağlansın**
+(sonradan verilirse depo şemasının üstüne ikinci bir dönüşüm biner).
 
 ---
 

@@ -371,17 +371,66 @@ P3) · `G1-09` (Yön kolonu, P3 — değişiklik **önerilmedi**) · **hareketsi
 (tamamı fark=0 sayım `stock_movements` üretmediği için aynı jetonla ikinci belge oluşabilir —
 `StockService` değişikliği ister, kapsam dışı) · **G1-02 GUI QA'nın 6 senaryosu**.
 
-**Kalan gruplar:** 2 Malzemeler+Şablonlar · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/
+**Kalan gruplar:** 2b Şablonlar · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/
 Günlük · 6 Yönetim ekranları.
+
+### 🔵 `PRT-01` GRUP 2a — Malzemeler (2026-08-10): analiz TAMAM, `G2-04` uygulandı
+
+**8 bulgu** çıkarıldı. Uygulama **aşama aşama** ve **her aşama ayrı onayla** yürüyor.
+
+| Bulgu | Konu | Durum |
+|---|---|---|
+| `G2-04` | Hızlı düzenleme malzemenin **şablon bağını siliyordu** (web **ve** masaüstü) | ✅ **UYGULANDI** — ⚠️ **commit EDİLMEDİ**, çalışma ağacında duruyor |
+| `G2-02` | Web ana düzenleme formu **düzenleme kilidi göndermiyor** | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
+| `G2-03` | `PUT /api/materials/{id}` **`equivalentIds`'i yok sayıyor** | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
+| `G2-01` | Web'de **tam düzenleme formuna giriş yolu yok** (muadil/uyumlu araç/foto web'den değiştirilemiyor) | ⏳ onay bekliyor — önkoşulları (`G2-02`+`G2-03`) **TAMAM**, sıradaki aday |
+| `G2-05` | Masaüstünde **"Yalnız kritik"** filtresi yok (servis + testi hazır) | ⏳ onay bekliyor |
+| `G2-06` | Kritik stok paneli çapraz eksik (P3) | ⏸️ **değişiklik önerilmedi** |
+| `G2-07` | Düzenlemede boş "Tür" varsayılanı platformlar arası farklı | ⏳ **ürün kararı** (§11) |
+| `G2-08` | `Materials.razor`'da ölü kod | 📝 **yalnız kayıt** (§12) — `_v`/`CS0169` kısmı `G2-02` ile **kapandı** |
+
+**`G2-04` doğrulaması:** Build 0 hata · **1058 test / 1025 başarılı / 0 başarısız / 33 atlanan**
+(önceki taban 1057/1024/0/33 → **+1 test, sıfır kırılma**) · yeni uyarı yok.
+
+### ✅ `G2-02` — web tam düzenleme formunda düzenleme kilidi (2026-08-10)
+`Materials.razor`: ölü `_v` alanı (`CS0169`) **amacına uygun** kullanıldı (`int`→`long`), sürüm
+`BeginEdit`'te okunup `PUT` gövdesinde gönderiliyor; **yeni kayıtta gönderilmiyor**. 409'da masaüstünün
+kanıtlanmış deseni: **"Kaydı yenile" / "Formda kal"** — `Clear()` ve yönlendirme **çalışmıyor**.
+`ApiClient`'a **dokunulmadı** (ham JSON `WEB-01`'in konusu, Seçenek A).
+**+2 HTTP testi** (`ApiEditLockTests`) · **1060/1027/0/33** · uyarı **14 → 13** (`CS0169` giderildi).
+**Tarayıcı QA:** A/B çakışması gerçek tarayıcıda koşuldu — 409 çıktı, A'nın yazdıkları korundu,
+"Formda kal" formu kapatmadı, "Kaydı yenile" alanları güncel değerlerle doldurdu, sonrasında kaydetme
+başarılı oldu. Sunucudaki kayıt hiçbir aşamada bayat veriyle **ezilmedi**.
+
+### ✅ `G2-03` — `PUT` muadil uzlaştırması (2026-08-10)
+**Yalnız `Program.cs` yetmedi:** `SetCompatibleVehicles`'ın **simetriği olan servis metodu eksikti**.
+Eklenen `MaterialService.SetEquivalents` **tek transaction**: tüm hedefler önce doğrulanır (bir tanesi
+bile yabancıysa **hiçbiri** yazılmaz), sonra bu malzemeye dokunan bağlar **iki yönde** silinip yeni
+liste simetrik yazılır. `Program.cs`'e `is not null` koşullu tek çağrı — **`Update`'ten SONRA**, böylece
+409'da muadillere hiç dokunulmaz (`G2-02` korunur).
+**`null` ≠ `[]` semantiği** `VehicleIds` ile birebir aynı: `null` = dokunma (hızlı düzenleme pencereleri
+bu alanı göndermez), `[]` = hepsini kaldır.
+**+6 HTTP testi** (yeni `ApiMaterialEquivalentTests.cs`) · **1066/1033/0/33** · yeni uyarı yok.
+**İzole gerçek HTTP QA (web):** aynı `PUT` iki gövde şekliyle koşuldu — `templateId` **gönderilince
+bağ korundu**, gönderilmeyince `null`'a düştü (kusur birebir üretildi). 18 isteğin tamamı
+`127.0.0.1`'e gitti, **canlıya tek istek gitmedi**.
+⚠️ **Masaüstü:** *"Kod + servis/test doğrulandı; masaüstü GUI davranışı gözlenemedi"* — `G1-02`'deki
+Avalonia GUI otomasyon sınırı sürüyor.
+
+**Silme derin denetimi:** malzeme silme koruması **gerçek ve tek noktalı** (`MaterialService.Delete`);
+UI gizleme değil **veri katmanı** koruması; elle API çağrısı atlatamaz. Yakıt tabloları ve
+`daily_activities` `material_id` **taşımıyor** → o taraf için kontrol gerekmiyor.
+⚠️ Silme SOFT olduğu için **FK hiç devreye girmez** → tek güvence `GuardDeletable` (bkz. `MLZ-01-DEPO`).
 
 ---
 
-**Sıradaki aday: `PRT-01` Grup 2 (Malzemeler + Şablonlar).**
-FAZ 1'in kalan işi. 43 web + 38 masaüstü ekranın alan/işlev/validasyon/yetki düzeyinde
-karşılaştırılması; genel analizde yalnız **ad düzeyinde** yapılabilmişti.
+**Sıradaki aday: `G2-01` (web tam düzenleme formuna giriş yolu) — önkoşulları TAMAM, sonra `G2-05`.**
+Sıra gerekçesi: `G2-01` (formun kapısını açmak) **en sonda**, çünkü `G2-02` ve `G2-03` çözülmeden
+form açılırsa bugün gizli olan iki sessiz hata kullanıcıya açılır.
+Ardından **Grup 2b (Şablonlar)** — **henüz analiz edilmedi**, ayrı analiz aşaması olarak yürütülecek.
 
-**Başlamadan önce gereken:** kullanıcı onayı + `PRT-01` için **detay analiz** (kapsam koddan
-çıkarılmalı — plan varsayımları `KLT-01`'de üç, `SNK-01` ve `SNK-04`'te birer kez yanlış çıktı;
+**Başlamadan önce gereken:** her aşama için ayrı kullanıcı onayı (kapsam koddan doğrulanır —
+plan varsayımları `KLT-01`'de üç, `SNK-01` ve `SNK-04`'te birer kez yanlış çıktı;
 bkz. §12.5 ve §13'ün altındaki kalıcı ders).
 
 ---
@@ -440,6 +489,28 @@ uygulanmayacak.
   Depo mimarisinde **kullanılmayacak**.
 - ❌ **Kuyruk / WebSocket / harici altyapı** — KARAR-5.
 
+### 🗂️ Uzun vadeli gereksinimler — "şimdi DEĞİL, ama kayıtta" (2026-08-10 gözden geçirmesi)
+
+Kullanıcının 2026-08-10'da ayrıntılandırdığı ürün hedefleri **tek tek plana bağlandı**. Hiçbiri bu
+turda kodlanmadı. Aşağıdaki tablo *"bu konu unutuldu mu?"* sorusunun kalıcı cevabıdır:
+
+| Kullanıcı gereksinimi | Nerede kayıtlı | Faz | Durum |
+|---|---|---|---|
+| Masaüstü **sürekli aktif bağlantı** | `KARAR-5` + plan §7 `Y-5` | — | ❌ **Bilinçli olarak YAPILMAYACAK** — analizde gereksiz bulundu; yerine `SNK-02`/`SNK-03` (seçici kadans + backoff) ✅ uygulandı |
+| **Kayıt kilitleme** (A düzenlerken B giremesin, kilit sahibinin adı görünsün) | plan §5 `KLT-02` / `KLT-03` / `KLT-04` | 3 | ⏳ Şema hazır tasarlandı: `record_locks` + `acquire`/`heartbeat`/`release`; **süresi geçen kilit otomatik düşer** (logout/çökme/bağlantı kopması senaryosu KARŞILANIYOR) |
+| **Kapsamlı yetki ağacı** (ekran + işlem bazlı) | `YET-01` (kapı) → `YTK-01…04` | 2 | ⏳ **Baştan yazılmayacak** — `Approve`/`Report` için enum değil **modül** eklenir (`request_approval` deseni, Migration035) |
+| **Tüm kullanıcılar web'e login** | H-3 + `DOG-01` | 0 | ⏳ **Kodda rol kısıtı BULUNAMADI** → muhtemelen "giriş engeli" değil, deny-by-default yüzünden **boş menü**. `DOG-01` bunu gerçek kullanıcıyla doğrulayacak; **yetki açığı oluşturacak değişiklik YAPILMADI** |
+| **Birim / personel yapısı** (`Firma→Şube→Birim→Kullanıcı`) | `BRM-01` | 2 | ⏳ Bugün `personnel.title` var, **birim yok** |
+| **Bakım → onay → stok düşümü** | `BKM-01` / `BKM-02` / `BKM-03` + `KARAR-4` | 5 | ⏳ Bugün bakımda onay **yok**. Hazır desen: `material_requests` durum makinesi (Draft→Pending→…) aynı şekilde kullanılabilir |
+| **Günlük Faaliyet kayıt tipleri** (yönetilebilir + yetkilendirilebilir) | **`GNL-03` 🆕** → `YTK-02` → `GNL-02` | 2 | ⏳ **YENİ EKSİK BULUNDU:** `activity_type` bugün **sabit metin** (`maintenance\|movement`); tip listesi olmadan yetki verilemez |
+| **Mükerrer kayıt uyarısı** ("Kaydı Görüntüle" / "Yine de Devam Et" + tekrar tetiklememe + log) | `GNL-01` | 5 | ⏳ Zaten ayrıntılı planlı: **sunucu taraflı** kontrol, `allowDuplicate` bayrağı, UNIQUE kısıtı KONULMAZ |
+| **Ayrıntılı audit log** (önceki/yeni değer, uyarı, verilen cevap) | `LOG-01` + **`LOG-02` 🆕** | 6 | ⏳ **YENİ:** `audit_logs.before_json/after_json` **şemada var ama doldurulmuyor** → ucuz kazanım |
+| **Şube bazlı malzeme silme izolasyonu** | **`KARAR-7` 🆕** (plan §14) + `MLZ-01-DEPO`/`STK-05` | 4 kapısı | ⏳ **KULLANICI KARARI GEREKİYOR** — `KARAR-1` ("katalog firma geneli") ile **çelişiyor** |
+| **Otomatik güncelleme** (sormadan indir/kur, yalnız yeniden başlatmayı sor + Ertele) | `GNC-01` + [UPDATE_CONTRACT.md](UPDATE_CONTRACT.md) | 6 | ⏳ Altyapı büyük ölçüde **var** (indirme+checksum+yedek+rollback+yüzde). Eksik: çalışan ikilinin fiziksel değişimi + "Ertele/hatırlat" akışı. **Code-signing** ücretli kalem (#3) |
+| **Performans / ölçeklenme** | H-9 + **`PRF-01` 🆕** + `Y-1`, `Y-6` | 6 | ⏳ **YENİ:** darboğaz haritası yazılı değildi. `PRF-01` **ücretsizdir** (ölçüm+belge, kod yok) |
+| **Yatırım sonrası profesyonel altyapı** | plan §7 `Y-1…Y-7` + [MALIYET_KALEMLERI.md](MALIYET_KALEMLERI.md) | — | ⏳ Para kalemleri tek dosyada; **fiyat uydurulmuyor** |
+| **Çöp/ölü kod temizliği** | H-12 · `TMZ-01`/`TMZ-02`/`TMZ-03` · `G2-08` | 6 | ⏳ **Refactor uğruna çalışan sistem bozulmaz.** Riskliyse dokunulmaz, **kayıt altına alınır** |
+
 ---
 
 ## 11. BEKLEYEN KULLANICI KARARLARI
@@ -448,6 +519,8 @@ uygulanmayacak.
 | Konu | Soru |
 |---|---|
 | KARAR-4 | Bakımda "negatif stok serbest" kuralı, "stok düşümü onaya bağlı" akışıyla çelişiyor. Onay beklerken stok düşmeyecekse negatif stok serbestliği ne anlama gelecek? |
+| **KARAR-7** 🆕 | **Malzeme KARTI firma geneli mi kalsın (bugünkü `KARAR-1`), yoksa şube bazlı mı olsun?** Şube bazlı olursa aynı malzemenin firmada birden çok kartı oluşur → rapor, muadil, talep/bakım eşleşmesi ve stok toplamları kökten etkilenir. **`STK-01` başlamadan önce karara bağlanmalı.** |
+| **G2-07** 🆕 | Düzenlemede türü boş olan eski kayıt açılınca varsayılan ne olsun — masaüstündeki **"Diğer"** mi, web'deki **"Yedek Parça"** mı? (İkisi bugün farklı; kaydedilince veriye yazılıyor.) |
 | YET-01 | Rol değiştiğinde o roldeki herkesin yetkisi otomatik değişsin mi, yoksa yetkiler kişiye özel mi kalsın? |
 
 **Kullanıcı aksiyonu bekleyenler (kod işi değil):**
@@ -471,6 +544,10 @@ uygulanmayacak.
 | **TNM-02** | **`LookupService.Rename` ve `Delete` etkilenen satır sayısını kontrol etmiyor** — `ExecuteNonQuery()` dönüşü atılıyor. Olmayan / başka firmaya ait / silinmiş id gönderilirse işlem **sessizce başarılı** dönüyor ve **audit kaydı yine yazılıyor** → yanıltıcı denetim izi. Güvenlik açığı değil (tenant filtresi veriyi koruyor). | ⏳ İleride değerlendirilecek — **KLT-01 kapsamı DIŞI**, kodla dokunulmadı |
 | — | `users.version` artık yetki değişiminde artıyor; ileride kullanıcı düzenlemesine kilit eklenirse **aynı jetonu paylaşacaklar** (doğru davranış ama YET-01'de teyit edilmeli) | YET-01 |
 | **WEB-01** | **Web hata mesajlarında ham JSON gösteriliyor** — aşağıda ayrıntı | ⏳ **AYRI İŞ** — henüz fazlanmadı |
+| **G2-08** | **`Materials.razor`'da ölü kod** (2026-08-10, PRT-01 Grup 2a): `_v` alanı (derleyici **`CS0169`** ile zaten uyarıyor), `DeleteSelected`, `DeletePhoto`, `OpenDetail`/`_detailPhotos`, `ApplyTemplate`/`_templates` — hiçbiri markup'tan çağrılmıyor (yan detay paneli ve şablon seçici kaldırılınca kalmışlar). **Kullanılmama nedeni doğrulandı.** ⚠️ `OpenDetail` **`OpenQuickEdit` içinden çağrılıyor** → tamamen ölü DEĞİL; kör silme yapılmamalı | 📝 **YALNIZ KAYIT** — `G2-01` bu dosyaya zaten dokunacak; temizlik o iş sırasında **aynı dosyada** değerlendirilir. Tek başına refactor açılmayacak (H-12) |
+| **MUA-01** | **Muadil: TRANSİTİF gösterim ↔ DOĞRUDAN yazım uyuşmazlığı** (2026-08-10, `G2-03` analizinde bulundu). `GetEquivalentGroup` **BFS ile transitif** çalışır (A↔B, B↔C ⇒ grup(A)={B,C}), `GetDetail` bu transitif grubu "Muadiller" olarak gösterir. Yazma tarafı ise **doğrudan** çift üzerinde çalışır. Sonuç: A'nın listesinden **yalnızca transitif bağlı** bir malzeme çıkarılırsa silinecek doğrudan satır yoktur → **kullanıcıya "silinmiyor" gibi görünür**. Aynı sınır **masaüstü uzlaştırmasında da vardır** (yeni değil). Ayrıca web tam formu transitif grubu geri gönderdiği için kaydetme, transitif bağları **doğrudan satıra dönüştürür** (graf yoğunlaşır — zararsız ama davranış değişikliği) | ⏳ **ÜRÜN KARARI GEREKİR:** "muadil" bir **grup (transitif)** mu, malzeme başına **liste** mi? `G2-03`'te davranış **bilerek DEĞİŞTİRİLMEDİ**, yalnız kayda alındı |
+| **MUA-02** | **`EnsureOwned` silinmiş malzemeyi kabul ediyor** — `SELECT COUNT(*) FROM materials WHERE id=@id AND company_id=@c` (**`is_deleted` filtresi YOK**). Aynı dosyadaki `EnsureVehicleOwned` ise `is_deleted=0` kontrol ediyor → **asimetri**. Etki: soft-silinmiş bir malzeme muadil olarak eklenebilir; `GetDetail` gösterirken siliyor ama BFS silinmiş kaydın **üzerinden geçmeye devam ediyor** | 📝 **YALNIZ KAYIT** — `G2-03`'te davranış **değiştirilmedi** (yeni davranış icat edilmedi). Düzeltilecekse muadil/silme davranışıyla birlikte ele alınmalı (`MLZ-01` ailesi) |
+| **AUD-01** | **`audit_logs.before_json` / `after_json` kolonları var ama neredeyse hiç doldurulmuyor** — `AuditWriter` destekliyor, çağıranların hemen hepsi `null` geçiyor (`AfterJson` yalnız `FileService` + `MaintenanceService`; `BeforeJson` **hiçbir yerde**). Sonuç: bugün "bu kayıtta ne değişti?" sorusu **cevaplanamıyor**. Ayrıca **Audit görüntüleme ekranı yalnız web'de var** (`Audit.razor`), masaüstünde yok | ⏳ **`LOG-02`** olarak plana eklendi (§6) · masaüstü eksiği `PRT-01` **Grup 6**'da denetlenecek |
 | — | **Senkron analiz gözlemleri B / C / D / E** (aynı-ms kaybı · saat geri alınması · masaüstü testsizliği · transaction'sız snapshot) — aşağıda ayrıntı. **İş açılmadı**, yalnız kayıt | ⏳ B ve C **veri kaybı** içeriyor → ileride ayrıca analiz |
 | — | *(düşük öncelikli gözlem)* Web'de başarılı kayıttan sonra "Güncellendi." mesajı **hiç görünmüyor**: `ClearForm()` mesajı hemen siliyor. Kayıt gerçekten yapılıyor ve liste tazeleniyor, yani kullanıcı sonucu dolaylı görüyor. **KLT-01 öncesinden var, KLT-01d'nin sebep olduğu bir durum değil.** Ayrı iş açılması **önerilmiyor**; `WEB-01` ele alınırsa aynı dosyalara dokunulacağı için oraya iliştirilebilir | ⏳ gözlem — iş açılmadı |
 
@@ -656,3 +733,7 @@ veriyor.
 |---|---|
 | 2026-08-10 | Dosya oluşturuldu ve tam yapıya genişletildi. MLZ-01 (tamamlandı), KLT-01c (test geçti, commit bekliyor), A-1…A-4 analizleri, KARAR-1…7, teknik borçlar ve yanlış çıkan varsayımlar kaydedildi. Eski üç takip dosyası işaretçi yapıldı. |
 | 2026-08-10 | `TMZ-03` kaydedildi (seed'de olmayan rol sabitleri) — kullanıcı talimatıyla **dokunulmadan** YET-01'e bırakıldı; `Warehouse` rolü için "depo ile otomatik ilişkilendirme yasağı" uyarısı eklendi. Kod değişikliği yok. |
+| 2026-08-10 | **`PRT-01` Grup 1 (stok) kapandı** (`8bf27cb`) — 6 bulgu giderildi; `G1-02` masaüstü GUI QA yapılamadı, açıkça öyle kaydedildi. Doküman kapanışı `7bf4afa`. |
+| 2026-08-10 | **`PRT-01` Grup 2a (Malzemeler) analizi** — 8 bulgu (`G2-01…G2-08`). Silme koruması derinlemesine denetlendi: **tek noktalı, veri katmanında, elle API çağrısı atlatamaz**; yakıt tabloları `material_id` taşımıyor. **`G2-04` uygulandı** (şablon bağı korunuyor), izole gerçek HTTP QA ile doğrulandı; masaüstü GUI gözlenemedi. **Commit edilmedi.** |
+| 2026-08-10 | **`G2-02` + `G2-03` uygulandı.** `G2-02`: web tam formu artık `version` gönderiyor, 409'da "Kaydı yenile/Formda kal" (masaüstü deseni), ölü `_v` alanı amacına uygun kullanıldı → `CS0169` giderildi. `G2-03`: **yalnız `Program.cs` yetmedi** — `MaterialService.SetEquivalents` (tek transaction, `null`≠`[]`, çift yönlü, hepsi-veya-hiçbiri) eklendi. **1066/1033/0/33** (+8 test). İkisi de izole gerçek HTTP + tarayıcı QA ile doğrulandı. **Commit edilmedi.** Yeni teknik borç: **`MUA-01`** (muadil transitif↔doğrudan uyuşmazlığı — ürün kararı), **`MUA-02`** (`EnsureOwned` silinmiş malzemeyi kabul ediyor). İkisinde de **davranış bilerek değiştirilmedi**. |
+| 2026-08-10 | **Uzun vadeli gereksinim gözden geçirmesi (kullanıcının 17 maddesi).** Çoğunun **zaten `H-1…H-12` altında planlı** olduğu doğrulandı → mükerrer iş açılmadı. Gerçekten eksik çıkan **dört** konu eklendi: **`GNL-03`** (kayıt tipi kataloğu — `YTK-02`'nin önkoşulu), **`LOG-02`** (audit önceki/yeni değer), **`PRF-01`** (ölçek darboğaz haritası, ücretsiz), **`PRT-01` Grup 2b (Şablonlar)** ayrı analiz aşaması olarak işaretlendi. **`KARAR-7`** açıldı: şube bazlı malzeme silme isteği **`KARAR-1` ile çelişiyor** → kullanıcı kararı bekliyor. `Y-6`/`Y-7` ve maliyet kalemleri #9/#10 eklendi. **Hiç kod yazılmadı.** |

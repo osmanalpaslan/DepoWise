@@ -855,6 +855,10 @@ app.MapPut("/api/materials/{id}", (HttpContext c, string id, NewMaterialDto d) =
         TemplateId: d.TemplateId),
         expectedVersion: d.Version); // düzenleme kilidi
     if (d.VehicleIds is not null) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
+    // G2-03: muadil listesi. VehicleIds ile AYNI semantik — `null` = "dokunma" (hızlı düzenleme
+    // pencereleri bu alanı göndermez, mevcut muadiller korunur), boş liste = "hepsini kaldır".
+    // Update'ten SONRA çağrılır: düzenleme kilidi 409 verirse buraya hiç gelinmez (G2-02 korunur).
+    if (d.EquivalentIds is not null) svc.Materials.SetEquivalents(s, id, d.EquivalentIds);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 app.MapDelete("/api/materials/{id}", (HttpContext c, string id) =>

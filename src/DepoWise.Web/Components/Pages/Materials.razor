@@ -309,7 +309,12 @@
     private List<ApiClient.Opt> _cats = new(), _subCats = new(), _units = new(), _brands = new(), _sups = new();
     private JsonElement[]? _rows;
     private JsonElement? _detail;
-    private string? _msg; private bool _ok; private bool _busy; private bool _err; private int _v;
+    private string? _msg; private bool _ok; private bool _busy; private bool _err;
+    // G2-02: DÜZENLEME KİLİDİ — formun açıldığı andaki kayıt sürümü. Kaydederken geri gönderilir;
+    // kayıt arada başkası tarafından değiştiyse sunucu 409 döner ve sessiz üzerine yazma OLMAZ.
+    // (Alan zaten vardı ama hiç kullanılmıyordu — CS0169. Tip `version` BIGINT olduğu için long.)
+    // 0 = sürüm bilinmiyor → gönderilmez → eski davranış (geriye uyumlu, bkz. NewMaterialDto.Version).
+    private long _v;
 
     // ── Malzeme Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-17/18) ──
     private static readonly int[] PageSizes = { 25, 50, 100, 200 };
@@ -564,6 +569,7 @@
         if (_detail is null) return;
         var d = _detail.Value;
         _editId = Str(d, "id");
+        _v = Long(d, "version");   // G2-02: düzenleme kilidi — formun açıldığı andaki sürüm
         await LoadMovementsAsync(_editId);   // Son Hareketler paneli (A3)
         _templateId = NullId(d, "templateId");   // mevcut şablon bağını yükle → normal düzenleme bağı korur, değiştirilebilir
         _code = Str(d, "code"); _name = Str(d, "name"); _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
@@ -625,7 +631,10 @@
                 unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                 minStock = _min, unitPrice = _price, description = Empty(_desc), openingStock = _opening,
                 vehicleIds = _vehicleSel.ToList(), equivalentIds = _equivalents.Select(e => e.Id).ToList(),
-                templateId = _templateId   // seçilen şablon → şablonlu/şablon-dışı rapor ayrımı (create'te bağlanır)
+                templateId = _templateId,   // seçilen şablon → şablonlu/şablon-dışı rapor ayrımı (create'te bağlanır)
+                // G2-02: DÜZENLEME KİLİDİ. Yeni kayıtta _v = 0 → null gider (POST zaten sürüm kullanmaz),
+                // düzenlemede formun açıldığı andaki sürüm gider → kayıt arada değiştiyse sunucu 409 döner.
+                version = _v > 0 ? (long?)_v : null
             };
             string? err; string? savedId;
             if (_editId is null)
@@ -637,6 +646,34 @@
                 err = await Api.PutAsync($"/api/materials/{_editId}", body);
                 savedId = _editId;
             }
+            // ── G2-02: DÜZENLEME KİLİDİ — kayıt biz düzenlerken değişti (409) ──────────────────────
+            // Yazdıklarını KAYBETME: karar kullanıcınındır. Masaüstündeki kanıtlanmış desenin AYNISI
+            // (MaterialsViewModel.Add → ConcurrencyException): "Kaydı yenile" / "Formda kal".
+            // NOT (WEB-01, Seçenek A): mesaj bugün ham JSON gövdesiyle geliyor. Ortak ayrıştırma
+            // WEB-01'in konusudur — burada İKİNCİ bir ayrıştırma mekanizması KURULMAZ; yalnız
+            // ApiClient'ın ürettiği "Hata {kod}: ..." önekinden durum kodu okunur.
+            if (err is not null && _editId is not null && err.StartsWith("Hata 409", StringComparison.Ordinal))
+            {
+                _ok = false; _msg = err;
+                if (await Dialog.Confirm(
+                        err + "\n\nKaydın güncel hâlini yüklemek ister misiniz? " +
+                        "(\"Formda kal\" derseniz yazdıklarınız durur, kopyalayıp tekrar uygulayabilirsiniz.)",
+                        okText: "Kaydı yenile", cancelText: "Formda kal"))
+                {
+                    // Kullanıcı AÇIKÇA istedi → kaydı sunucudan tazele ve forma yeniden yükle.
+                    // Clear() çağrılmaz; form açık kalır, alanlar güncel değerlerle dolar (yeni sürüm dahil).
+                    try
+                    {
+                        _detail = await Api.GetObjectAsync($"/api/materials/{_editId}");
+                        await BeginEdit();
+                        _ok = true; _msg = "Kayıt güncel hâliyle yeniden yüklendi.";
+                    }
+                    catch { }
+                }
+                // "Formda kal" → hiçbir şey yapılmaz: form AÇIK, alanlar DOKUNULMAMIŞ, hata mesajı görünür.
+                return;   // fotoğraf yükleme ve Clear()/yönlendirme ÇALIŞMAZ
+            }
+
             // Bekleyen fotoğrafları oluşan/güncellenen kayda yükle
             if (err is null && savedId is not null && _staged.Count > 0)
                 await Api.UploadFilesAsync($"/api/materials/{savedId}/photos", _staged.Select(p => (p.Name, p.Bytes, p.Mime)));
@@ -654,6 +691,7 @@
         _cat = _subCat = _unit = _brand = _sup = null; _min = _price = _opening = 0; _desc = "";
         _vehicleSel = new HashSet<string>(); _equivalents.Clear(); _eqPick = null; _staged.Clear();
         _movements = null; _snap = null; _stock = 0;
+        _v = 0;   // G2-02: sürüm de sıfırlanır → yeni kayıtta düzenleme kilidi gönderilmez
     }
 
     // ── Değişiklik sayacı (S2) — kaydedilmemiş alan sayısı + iptalde uyarı ─────
@@ -754,6 +792,10 @@
     private static string? NullId(JsonElement row, string key) { var s = Str(row, key); return string.IsNullOrEmpty(s) ? null : s; }
     private static decimal Dec(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetDecimal() : 0;
+    /// <summary>G2-02 — DÜZENLEME KİLİDİ: kaydın sürümü. 0/eksik → kontrol yapılmaz (geriye uyumlu).
+    /// MaterialEditDialog'daki aynı yardımcının eşi.</summary>
+    private static long Long(JsonElement row, string key)
+        => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
     private static IEnumerable<JsonElement> Arr(JsonElement row, string key)
         => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Array
             ? v.EnumerateArray() : Enumerable.Empty<JsonElement>();
