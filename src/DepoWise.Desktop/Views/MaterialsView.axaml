@@ -25,6 +25,10 @@
                     <ComboBox ItemsSource="{Binding PageSizes}" SelectedItem="{Binding PageSize, Mode=TwoWay}" Width="80"/>
                     <Button Classes="Primary" Content="Filtrele" Command="{Binding ApplyFiltersCommand}"/>
                     <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearFiltersCommand}"/>
+                    <!-- G2-05: "Yalnız kritik" — web'deki (Materials.razor) düğmenin masaüstü karşılığı.
+                         Aynı tanım: stok <= min stok (min stok > 0). Liste VE Excel bu duruma uyar. -->
+                    <CheckBox Content="Yalnız kritik" IsChecked="{Binding CriticalOnly}" VerticalAlignment="Center" Margin="4,0"
+                              ToolTip.Tip="Yalnız stok, minimum stoğun altına düşmüş (kritik) malzemeleri gösterir"/>
                     <Button Classes="Secondary" Content="Excel'e Aktar" Command="{Binding ExportExcelCommand}" IsEnabled="{Binding !IsExporting}"
                             ToolTip.Tip="Aktif filtrelerle eşleşen TÜM malzemeleri (yalnız bu sayfayı değil) Excel dosyası olarak indirir"/>
                 </StackPanel>

@@ -161,7 +161,9 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         IsExporting = true;
         try
         {
-            var rows = DesktopServices.Materials.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc);
+            // G2-05: dışa aktarım ekrandaki filtreyle AYNI kümeyi verir → "Yalnız kritik" açıkken
+            // Excel de yalnız kritik satırları içerir (web'deki davranışın aynısı).
+            var rows = DesktopServices.Materials.SearchGridAll(_session, BuildFilter(), _sortColumn, _sortDesc, CriticalOnly);
             var path = await FilePickerService.SaveExcelAsync("Malzemeler.xlsx");
             if (path is null) return;
             var bytes = DesktopServices.Excel.Export(MaterialService.ToTableModel(rows));
@@ -185,6 +187,20 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
             V(MaterialListColumns.MinStock), V(MaterialListColumns.Stock), V(MaterialListColumns.Status),
             V(MaterialListColumns.Description), V(MaterialListColumns.CompatibleVehicles), V(MaterialListColumns.Equivalents));
     }
+
+    // ── G2-05 (PRT-01 Grup 2a, 2026-08-10): "Yalnız kritik" — WEB'DE VARDI, MASAÜSTÜNDE YOKTU ──
+    // Servis desteği ZATEN HAZIRDI (MaterialService.SearchGrid/SearchGridAll içindeki criticalOnly
+    // parametresi + MaterialGridTests.YalnizKritik_StokMinAltinda_Olanlari_Getirir testi); masaüstü
+    // yalnız bu parametreyi hiç geçirmiyordu. Yeni servis/sorgu YAZILMADI.
+    // Tanım web ile BİREBİR aynı: stok <= min stok (min stok > 0) — bkz. Materials.razor "Yalnız kritik".
+    // Liste ile Excel AYNI durumu paylaşır (web'de de öyle).
+    // Kontrol biçimi: araç çubuğunda ONAY KUTUSU — projenin KENDİ deseni (bkz. DailyActivityView
+    // "İptal edilenleri göster" + DailyActivityViewModel.OnShowCancelledChanged). Yeni bir toggle
+    // mekanizması ya da converter GEREKMEZ.
+    [ObservableProperty] private bool _criticalOnly;
+
+    /// <summary>Filtre değişince ilk sayfaya dönülür (web'de de öyle: _page = 1; Load()).</summary>
+    partial void OnCriticalOnlyChanged(bool value) { Page = 1; Load(); }
 
     [RelayCommand]
     private void ApplyFilters() { Page = 1; Load(); }
@@ -403,7 +419,7 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         {
             LoadError = null;
             Items.Clear();
-            var grid = DesktopServices.Materials.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc);
+            var grid = DesktopServices.Materials.SearchGrid(_session, BuildFilter(), Page, PageSize, _sortColumn, _sortDesc, CriticalOnly);   // G2-05
             foreach (var m in grid.Items)
                 Items.Add(new MaterialRow(m.Id, m.Code, m.Name, m.Type, m.UnitPrice, m.Currency, m.MinStock, m.Stock,
                     m.Category ?? "", m.Unit ?? "", m.Brand ?? "", m.Supplier ?? "", m.Status,
