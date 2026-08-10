@@ -26,6 +26,18 @@
                 <MudGrid Spacing="2">
                     <MudItem xs="12" md="6"><LookupSelect Label="Şube / Şantiye *" @bind-Value="_branch" Items="_branches" OnAdded="ReloadBranches" /></MudItem>
                     <MudItem xs="6" md="3"><MudDatePicker @bind-Date="_date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    @* B-2: öncelik listede zaten gösteriliyordu ama hiçbir ekrandan SEÇİLEMİYORDU (tüm talepler
+                       kalıcı olarak "Normal" kalıyordu). Etiketler ortak RequestPriorityInfo'dan gelir → masaüstüyle aynı. *@
+                    <MudItem xs="6" md="3">
+                        <MudSelect T="string" @bind-Value="_priority" Label="Öncelik" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                            @foreach (var p in DepoWise.Application.Requests.RequestPriorityInfo.All)
+                            {
+                                <MudSelectItem T="string" Value="@DepoWise.Application.Requests.RequestPriorityInfo.ToDb(p)">
+                                    @DepoWise.Application.Requests.RequestPriorityInfo.Label(p)
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
                     <MudItem xs="12" md="4"><LookupSelect Label="Talep Eden" @bind-Value="_requester" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
                     <MudItem xs="12" md="4"><LookupSelect Label="Depo Sorumlusu" @bind-Value="_warehouse" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
                     <MudItem xs="12" md="4"><LookupSelect Label="Onay Veren" @bind-Value="_approver" Items="_personnel" SearchPath="/api/personnel" NameField="fullName" CreatePath="/api/personnel" CreateField="fullName" OnAdded="ReloadPersonnel" /></MudItem>
@@ -69,8 +81,12 @@
                 <MudPaper Class="pa-4" Elevation="0">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
                         <MudText Typo="Typo.h6">Talepler</MudText><MudSpacer />
-                        <MudTextField @bind-Value="_search" Placeholder="Belge no / açıklama ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" OnKeyUp="OnSearchKey" />
-                        <MudSelect T="string" @bind-Value="_filter" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px" Dense="true">
+                        @* B-1: Immediate zorunlu — MudTextField varsayılanı "change/blur"da bağlar, bu yüzden
+                           yazıp doğrudan Enter'a basıldığında arama metni sunucuya HİÇ ulaşmıyordu (tarayıcı
+                           QA'sinde görüldü: kutu dolu, liste eski). Her tuşta bağlanır, Enter güncel değeri gönderir. *@
+                        <MudTextField @bind-Value="_search" Immediate="true" Placeholder="Belge no / açıklama ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:200px" OnKeyUp="OnSearchKey" />
+                        @* B-1: durum değişince listeyi SUNUCUDAN yeniden çek (istemci tarafı süzme kaldırıldı). *@
+                        <MudSelect T="string" Value="_filter" ValueChanged="OnFilterChanged" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:150px" Dense="true">
                             @foreach (var f in _filters) { <MudSelectItem T="string" Value="@f">@f</MudSelectItem> }
                         </MudSelect>
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="LoadList">Yenile</MudButton>
@@ -186,12 +202,17 @@
     private string SecTitle => _sec == "approve" ? "Talep Onaylama" : "Talep Formu";
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
-    private static readonly string[] _filters = { "Tümü", "Taslak", "Beklemede", "Onaylı", "Reddedildi", "İptal" };
+    // B-6: "Taslak" seçeneği kaldırıldı — hiçbir zaman sonuç üretemiyordu (talepler daima
+    // submitImmediately ile oluşturulur). Taslak DURUMU kaldırılmadı: eski/dış kaynaklı bir taslak
+    // kaydı varsa "Tümü"de görünmeye ve StatusTr ile "Taslak" olarak etiketlenmeye devam eder.
+    private static readonly string[] _filters = { "Tümü", "Beklemede", "Onaylı", "Reddedildi", "İptal" };
 
     private string? _editId, _branch, _requester, _warehouse, _approver;
     /// <summary>DÜZENLEME KİLİDİ: formun açıldığı andaki talep sürümü; kaydederken geri gönderilir (0 = yeni kayıt).</summary>
     private long _editVersion;
     private DateTime? _date;
+    /// <summary>B-2: talep önceliği (db anahtarı). Varsayılan "normal" → mevcut davranış korunur.</summary>
+    private string _priority = "normal";
     private string _desc = "";
     private ApiClient.Opt? _matSel, _matVehicle;
     private decimal _matQty;
@@ -216,23 +237,38 @@
         await LoadList();
     }
 
-    private async Task LoadList() { _rows = null; try { _rows = await Api.GetArrayAsync("/api/requests"); } catch { _rows = Array.Empty<JsonElement>(); } }
+    /// <summary>B-1: durum ve arama artık SUNUCUYA gönderilir. Eskiden parametresiz çağrılıyor, en yeni 200
+    /// kayıt geliyor ve süzme istemcide yapılıyordu → 200'den eski talepler hiç bulunamıyordu.</summary>
+    private async Task LoadList()
+    {
+        _rows = null;
+        var q = new List<string>();
+        if (_sec == "approve")
+        {
+            // ONAYLAMA sekmesi HER ZAMAN bekleyenleri ister; formdaki durum seçimi buraya sızmamalı.
+            // (Yan fayda: bekleyen talepler artık "en yeni 200" penceresiyle sınırlı değil.)
+            q.Add("status=pending");
+        }
+        else if (StatusKey(_filter) is { } st) q.Add("status=" + st);
+        if (!string.IsNullOrWhiteSpace(_search)) q.Add("search=" + Uri.EscapeDataString(_search.Trim()));
+        var url = "/api/requests" + (q.Count == 0 ? "" : "?" + string.Join("&", q));
+        try { _rows = await Api.GetArrayAsync(url); } catch { _rows = Array.Empty<JsonElement>(); }
+    }
+
+    /// <summary>Ekrandaki Türkçe durum adı → API'nin beklediği db anahtarı ("Tümü" → null = filtre yok).</summary>
+    private static string? StatusKey(string filter) => filter switch
+    {
+        "Taslak" => "draft", "Beklemede" => "pending", "Onaylı" => "approved",
+        "Reddedildi" => "rejected", "İptal" => "cancelled", _ => null,
+    };
+
+    private async Task OnFilterChanged(string v) { _filter = v; await LoadList(); }
     private async Task ReloadBranches(string _) => _branches = await Api.OptionsAsync("/api/branches", "id", "name");
     private async Task ReloadPersonnel(string _) => _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
 
-    private List<JsonElement> Filtered()
-    {
-        if (_rows is null) return new();
-        IEnumerable<JsonElement> q = _rows;
-        int? sf = _filter switch { "Taslak" => 0, "Beklemede" => 1, "Onaylı" => 2, "Reddedildi" => 3, "İptal" => 4, _ => null };
-        if (sf is not null) q = q.Where(r => Int(r, "status") == sf);
-        if (!string.IsNullOrWhiteSpace(_search))
-        {
-            var t = _search.Trim().ToLowerInvariant();
-            q = q.Where(r => Str(r, "docNo").ToLowerInvariant().Contains(t) || Str(r, "description").ToLowerInvariant().Contains(t));
-        }
-        return q.ToList();
-    }
+    /// <summary>B-1: süzme artık SUNUCUDA yapılıyor; burada yeniden süzmek eksik sonuç üretirdi
+    /// (sunucu tüm veriyi tarar, istemci yalnız gelen sayfayı görürdü).</summary>
+    private List<JsonElement> Filtered() => _rows is null ? new() : _rows.ToList();
 
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { await LoadList(); } }
 
@@ -277,6 +313,8 @@
                 items = _items.Select(i => new { materialId = i.MaterialId, quantity = i.Qty, vehicleId = i.VehicleId, note = (string?)null }).ToList(),
                 branchId = _branch, requesterId = _requester, warehouseId = _warehouse, approverId = _approver,
                 description = Empty(_desc), requestDate = Ms(_date), submitImmediately = _editId is null,
+                priority = _priority,   // B-2: DTO'da zaten vardı, web göndermiyordu
+
                 // version: DÜZENLEME KİLİDİ — düzenlemede geri gönderilir; talep arada değiştiyse sunucu 409 döner.
                 version = _editId is not null && _editVersion > 0 ? (long?)_editVersion : null
             };
@@ -295,6 +333,7 @@
             var d = await Api.GetObjectAsync($"/api/requests/{id}/edit");
             _editVersion = d.TryGetProperty("version", out var rv) && rv.ValueKind == JsonValueKind.Number ? rv.GetInt64() : 0; // düzenleme kilidi
             _editId = id; _branch = NullS(d, "branchId"); _requester = NullS(d, "requesterId"); _warehouse = NullS(d, "warehouseId"); _approver = NullS(d, "approverId");
+            var pr = Str(d, "priorityDb"); _priority = string.IsNullOrWhiteSpace(pr) ? "normal" : pr;   // B-2
             _desc = Str(d, "description");
             _items.Clear();
             if (d.TryGetProperty("items", out var its) && its.ValueKind == JsonValueKind.Array)
@@ -314,8 +353,13 @@
     }
     private async Task CancelReq(string id)
     {
-        if (!await Dialog.Confirm("Talep iptal edilsin mi?", "Evet, İptal", danger: true)) return;
-        var e = await Api.PostAsync($"/api/requests/{id}/cancel", new { id, reason = "Kullanıcı iptali" }); _msg = e ?? "İptal edildi."; _ok = e is null; _detail = null; await LoadList();
+        // B-4: gerekçe artık sabit "Kullanıcı iptali" DEĞİL — kullanıcıdan alınır ve denetim kaydına yazılır.
+        // Grup 3'te eklenen ortak ReasonInputDialog/AskReason yeniden kullanılıyor; boş bırakılırsa diyalog
+        // kapanmaz ve HİÇBİR istek gönderilmez (vazgeçildiğinde null döner).
+        var reason = await Dialog.AskReason(
+            "Talep iptal edilecek. İptal edilen talep işleme alınamaz ve bu işlem geri alınamaz.");
+        if (reason is null) return;
+        var e = await Api.PostAsync($"/api/requests/{id}/cancel", new { id, reason }); _msg = e ?? "İptal edildi."; _ok = e is null; _detail = null; await LoadList();
     }
 
     private async Task DownloadPdf(string id, bool economic)
@@ -328,6 +372,7 @@
     private void Clear()
     {
         _editId = null; _editVersion = 0; _branch = _requester = _warehouse = _approver = null; _date = null; _desc = "";
+        _priority = "normal";   // B-2: yeni talep varsayılanı
         _items.Clear(); _matSel = null; _matVehicle = null; _matQty = 0;
     }
 

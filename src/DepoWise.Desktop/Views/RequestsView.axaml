@@ -48,6 +48,12 @@
                                 <ctrl:FormField Label="Tarih" Width="180">
                                     <DatePicker Classes="Field" SelectedDate="{Binding FormDate}"/>
                                 </ctrl:FormField>
+                                <!-- B-2 (PRT-01 Grup 4): öncelik listede zaten gösteriliyordu ama hiçbir ekrandan
+                                     SEÇİLEMİYORDU. Etiketler ortak RequestPriorityInfo'dan gelir → web ile aynı. -->
+                                <ctrl:FormField Label="Öncelik" Width="160">
+                                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding PriorityOptions}" SelectedItem="{Binding FormPriority}"/>
+                                </ctrl:FormField>
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Spacing="14">

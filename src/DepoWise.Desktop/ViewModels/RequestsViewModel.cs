@@ -34,7 +34,9 @@ public sealed partial class RequestsViewModel : ViewModelBase
     public ObservableCollection<RequestRow> PendingItems { get; } = new();
     public ObservableCollection<RequestItemRow> DetailItems { get; } = new();
     public ObservableCollection<string> History { get; } = new();
-    public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Taslak", "Beklemede", "Onaylı", "Reddedildi", "İptal" };
+    // B-6: "Taslak" seçeneği kaldırıldı (web ile aynı gerekçe — talepler daima doğrudan gönderilir,
+    // taslak üretilmiyor). Taslak DURUMU korunuyor: varsa "Tümü"de görünür ve "Taslak" olarak etiketlenir.
+    public ObservableCollection<string> Filters { get; } = new() { "Tümü", "Beklemede", "Onaylı", "Reddedildi", "İptal" };
 
     // Lookup'lar (form)
     public ObservableCollection<LookupItem> Sites { get; } = new();
@@ -89,7 +91,6 @@ public sealed partial class RequestsViewModel : ViewModelBase
 
     private RequestStatus? FilterStatus => SelectedFilter switch
     {
-        "Taslak" => RequestStatus.Draft,
         "Beklemede" => RequestStatus.Pending,
         "Onaylı" => RequestStatus.Approved,
         "Reddedildi" => RequestStatus.Rejected,
@@ -168,6 +169,12 @@ public sealed partial class RequestsViewModel : ViewModelBase
     [ObservableProperty] private LookupItem? _formWarehouse;   // Depo Sorumlusu
     [ObservableProperty] private LookupItem? _formApprover;    // Onay Veren
     [ObservableProperty] private DateTimeOffset? _formDate = DateTimeOffset.Now;
+    /// <summary>B-2: talep önceliği — ekranda Türkçe etiket ("Normal/Yüksek/Acil/Kritik"), db değerine
+    /// <see cref="RequestPriorityInfo"/> ile çevrilir. Web ile AYNI kaynaktan gelir.</summary>
+    [ObservableProperty] private string _formPriority = RequestPriorityInfo.Label(RequestPriority.Normal);
+    /// <summary>Öncelik seçenekleri (ortak katalogdan; sıra ve etiketler web ile birebir aynı).</summary>
+    public IReadOnlyList<string> PriorityOptions { get; } =
+        RequestPriorityInfo.All.Select(RequestPriorityInfo.Label).ToList();
     [ObservableProperty] private string _formDescription = "";
     [ObservableProperty] private string? _formError;
 
@@ -214,6 +221,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
         EditId = null; _editVersion = null;   // düzenleme kilidi: yeni kayıtta sürüm yok
         FormSite = null; FormRequester = null; FormWarehouse = null; FormApprover = null;
         FormDate = DateTimeOffset.Now; FormDescription = ""; FormError = null;
+        FormPriority = RequestPriorityInfo.Label(RequestPriority.Normal);   // B-2: yeni talep varsayılanı
         FormItems.Clear();
         MaterialSearch = ""; PickedMaterial = null; NewItemQty = 1; NewItemVehicle = null; ItemError = null;
         IsAddingPersonnel = false; IsAddingSite = false;
@@ -244,6 +252,7 @@ public sealed partial class RequestsViewModel : ViewModelBase
             FormWarehouse = Personnel.FirstOrDefault(x => x.Id == d.WarehouseId);
             FormApprover = Personnel.FirstOrDefault(x => x.Id == d.ApproverId);
             FormDescription = d.Description ?? "";
+            FormPriority = RequestPriorityInfo.LabelOf(d.PriorityDb);   // B-2: mevcut öncelik korunur
             FormDate = DateTimeOffset.FromUnixTimeMilliseconds(d.RequestDate);
             FormItems.Clear();
             foreach (var it in d.Items)
@@ -341,7 +350,10 @@ public sealed partial class RequestsViewModel : ViewModelBase
                 ApproverId: FormApprover?.Id,
                 Description: string.IsNullOrWhiteSpace(FormDescription) ? null : FormDescription.Trim(),
                 RequestDate: FormDate?.ToUnixTimeMilliseconds(),
-                SubmitImmediately: true);
+                SubmitImmediately: true,
+                // B-2: seçilen öncelik artık servise TAŞINIYOR (eskiden parametre hiç verilmiyor,
+                // varsayılan Normal yazılıyordu). Etiket → db değeri ortak katalogla çevrilir.
+                Priority: RequestPriorityInfo.All.FirstOrDefault(p => RequestPriorityInfo.Label(p) == FormPriority));
 
             if (editing) DesktopServices.Requests.Update(_session, EditId!, dto, _editVersion);
             else DesktopServices.Requests.Create(_session, dto);
@@ -366,9 +378,11 @@ public sealed partial class RequestsViewModel : ViewModelBase
     }
 
     // ════════════════════ ONAY / DURUM ════════════════════
-    [RelayCommand]
-    private async System.Threading.Tasks.Task Submit() => await Act(id => DesktopServices.Requests.Submit(_session, id), "Talep gönderildi.", null);
-
+    // B-6 (PRT-01 Grup 4, 2026-08-10): "Submit" (Taslak→Beklemede) KOMUTU kaldırıldı — ÖLÜ koddu:
+    // RequestsView.axaml'de hiçbir butona bağlı DEĞİLDİ ve iki platform da talebi doğrudan
+    // SubmitImmediately: true ile oluşturduğu için taslak zaten üretilmiyordu.
+    // RequestService.Submit metodu KALDIRILMADI — EditFlowTests hâlâ kullanıyor ve taslak durumu
+    // veri modelinde/durum makinesinde korunuyor (kullanıcı kararı K5).
     [RelayCommand]
     private async System.Threading.Tasks.Task Approve()
         => await Act(id => DesktopServices.Requests.Approve(_session, id), "Talep onaylandı.",
@@ -383,11 +397,23 @@ public sealed partial class RequestsViewModel : ViewModelBase
             $"\"{Selected.DocNo}\" talebini REDDETMEK istiyor musunuz?");
     }
 
+    /// <summary>
+    /// B-4 (PRT-01 Grup 4): iptal gerekçesi artık RET gerekçesi alanından ÖDÜNÇ ALINMIYOR.
+    /// Eski davranışta kullanıcı ret kutusuna bir şey yazmadıysa gerekçe <c>null</c> gidiyordu (sessiz iptal),
+    /// yazdıysa da RET için yazdığı metin iptale geçiyordu. Artık iptale özel gerekçe penceresi açılır
+    /// (Grup 3'te eklenen ortak <see cref="ConfirmService.AskReasonAsync"/>); vazgeçilirse hiçbir şey yapılmaz.
+    /// </summary>
     [RelayCommand]
     private async System.Threading.Tasks.Task Cancel()
-        => await Act(id => DesktopServices.Requests.Cancel(_session,
-            id, string.IsNullOrWhiteSpace(RejectReason) ? null : RejectReason.Trim()), "Talep iptal edildi.",
-            "Bu talep iptal edilsin mi?");
+    {
+        if (Selected is null) { Status = "Talep seçin."; return; }
+        var reason = await ConfirmService.AskReasonAsync(
+            $"\"{Selected.DocNo}\" talebi iptal edilecek.\n\n" +
+            "İptal edilen talep işleme alınamaz ve bu işlem geri alınamaz.",
+            "Talep İptali");
+        if (reason is null) return;
+        await Act(id => DesktopServices.Requests.Cancel(_session, id, reason), "Talep iptal edildi.", null);
+    }
 
     // ════════════════════ FİRMA LOGOSU ════════════════════
     /// <summary>Firma logosu seçtirir, app klasörüne kopyalar ve ayarda kalıcı saklar (değişmedikçe seçili kalır).</summary>

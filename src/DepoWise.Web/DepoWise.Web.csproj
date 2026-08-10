@@ -25,6 +25,15 @@
   -->
   <ItemGroup>
     <Compile Include="..\DepoWise.Application\Ui\ListColumns.cs" Link="Services\ListColumns.cs" />
+    <!--
+      B-2 (PRT-01 Grup 4, 2026-08-10): talep ÖNCELİĞİ kataloğu (RequestPriorityInfo) — yukarıdaki
+      ListColumns ile AYNI gerekçe. Öncelik seçicisinin web ve masaüstünde aynı seçenekleri, aynı
+      sırayı ve aynı Türkçe etiketleri göstermesi gerekir; Razor'da metinleri elle tekrarlamak
+      kataloğu ikinci bir doğruluk kaynağına bölerdi.
+      Dosya SAF katalogdur: yalnız enum + static eşleme içerir, hiçbir dış bağımlılığı yoktur
+      (using satırı yok) → web'in "her şeyi API'den al" sınırını gevşetmez, veri çekmez.
+    -->
+    <Compile Include="..\DepoWise.Application\Requests\RequestOperationStatus.cs" Link="Services\RequestPriorityInfo.cs" />
   </ItemGroup>
 
 </Project>

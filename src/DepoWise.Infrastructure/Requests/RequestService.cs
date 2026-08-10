@@ -41,9 +41,14 @@ public sealed record RequestEditItem(string MaterialId, string Code, string Name
 
 /// <summary><paramref name="Version"/> = DÜZENLEME KİLİDİ için formun açıldığı andaki sürüm; kaydederken
 /// geri gönderilir. Sona eklendi → mevcut çağrılar bozulmaz (geriye uyumlu).</summary>
+/// <param name="PriorityDb">
+/// B-2 (PRT-01 Grup 4, 2026-08-10) — talep önceliğinin HAM db değeri. Sürüm gibi bu da taşınmıyordu:
+/// düzenleme formu önceliği okuyamadığı için, kaydederken varsayılanı ("normal") geri yazıyor ve
+/// kullanıcının seçtiği önceliği SESSİZCE sıfırlıyordu. Sona eklendi → mevcut çağrılar bozulmaz.
+/// </param>
 public sealed record RequestEditData(string? BranchId, string? RequesterId, string? WarehouseId, string? ApproverId,
     string? Description, long RequestDate, RequestStatus Status, IReadOnlyList<RequestEditItem> Items,
-    long Version = 0);
+    long Version = 0, string PriorityDb = "normal");
 
 public sealed record RequestPdfData(
     string DocNo, long RequestDate, RequestStatus Status, string? BranchName,
@@ -201,15 +206,16 @@ WHERE id=@id AND company_id=@c" + EditLockGuard.Clause(expectedVersion) + ";";
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
 
-        string? br, rq, wh, ap, desc; long date; string status; long version;
+        string? br, rq, wh, ap, desc; long date; string status; long version; string priority;
         using (var hc = conn.CreateCommand())
         {
-            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id, version FROM material_requests WHERE id=@id;";
+            hc.CommandText = "SELECT branch_id, requester_id, warehouse_id, approver_id, description, request_date, status, company_id, version, COALESCE(priority,'normal') FROM material_requests WHERE id=@id;";
             hc.AddWithValue("@id", requestId);
             using var hr = hc.ExecuteReader();
             if (!hr.Read()) throw new ForbiddenException("Talep bulunamadı.");
             if (hr.GetString(7) != s.CompanyId) throw new ForbiddenException("Talep başka firmaya ait.");
             version = hr.GetInt64(8);   // düzenleme kilidi: formun açıldığı andaki sürüm
+            priority = hr.GetString(9); // B-2: öncelik formda korunmalı, aksi halde kaydederken sıfırlanır
             br = hr.IsDBNull(0) ? null : hr.GetString(0);
             rq = hr.IsDBNull(1) ? null : hr.GetString(1);
             wh = hr.IsDBNull(2) ? null : hr.GetString(2);
@@ -237,7 +243,7 @@ WHERE i.request_id=@r AND i.company_id=@c ORDER BY m.code;";   // M-S1a: firma i
                     ir.IsDBNull(5) ? null : ir.GetString(5),
                     ir.IsDBNull(6) ? null : ir.GetString(6)));
         }
-        return new RequestEditData(br, rq, wh, ap, desc, date, RequestStatusMachine.FromDb(status), items, version);
+        return new RequestEditData(br, rq, wh, ap, desc, date, RequestStatusMachine.FromDb(status), items, version, priority);
     }
 
     public void Submit(SessionContext s, string requestId)

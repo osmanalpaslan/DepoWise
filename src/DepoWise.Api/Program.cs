@@ -1007,7 +1007,38 @@ app.MapGet("/api/daily/grid/export", (HttpContext c,
     var bytes = svc.Excel.Export(DepoWise.Infrastructure.Operations.DailyActivityService.ToTableModel(rows));
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "GunlukFaaliyet.xlsx");
 }).RequireAuthorization();
-app.MapGet("/api/requests", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Requests.List(s)) : Results.Unauthorized()).RequireAuthorization();
+// B-1 (PRT-01 Grup 4, 2026-08-10): durum/arama/limit artık SUNUCUYA ulaşıyor.
+// Eskiden uç parametresizdi (List(s)) → en yeni 200 kayıt dönüyor, web bunun İÇİNDE istemci tarafında
+// süzüyordu; 200'den fazla talebi olan firmada eski talepler web'de hiç bulunamıyordu. Masaüstü bu
+// parametreleri servise zaten geçiyordu, o yüzden yalnız HTTP hattı eksikti.
+// GERİYE UYUMLU: üç parametre de opsiyonel; hiçbiri verilmezse davranış AYNEN eskisi gibidir (limit 200).
+// Servis sorgusu parametreli (@st/@like/@lim) — enjeksiyon yüzeyi açılmaz.
+app.MapGet("/api/requests", (HttpContext c, string? status, string? search, int? limit) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+
+    // Bilinmeyen durum SESSİZCE "draft"a düşmemeli (RequestStatusMachine.FromDb öyle yapar) → açık 400.
+    DepoWise.Application.Requests.RequestStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status))
+    {
+        st = status!.Trim().ToLowerInvariant() switch
+        {
+            "draft" => DepoWise.Application.Requests.RequestStatus.Draft,
+            "pending" => DepoWise.Application.Requests.RequestStatus.Pending,
+            "approved" => DepoWise.Application.Requests.RequestStatus.Approved,
+            "rejected" => DepoWise.Application.Requests.RequestStatus.Rejected,
+            "cancelled" => DepoWise.Application.Requests.RequestStatus.Cancelled,
+            _ => null,
+        };
+        if (st is null) return Results.Json(new { error = "Geçersiz talep durumu." }, statusCode: 400);
+    }
+
+    // İstemci sınırsız veri isteyemez: üst sınır 1000, geçersiz/eksik değer varsayılana (200) düşer.
+    const int DefaultLimit = 200, MaxLimit = 1000;
+    var lim = limit is > 0 ? Math.Min(limit.Value, MaxLimit) : DefaultLimit;
+
+    return Results.Ok(svc.Requests.List(s, st, string.IsNullOrWhiteSpace(search) ? null : search!.Trim(), lim));
+}).RequireAuthorization();
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
 // Araç markaları (brand_type=vehicle) — malzeme markalarından ayrı
 app.MapGet("/api/lookups/vehicle_brands", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Lookups.ListBrands(s, "vehicle")) : Results.Unauthorized()).RequireAuthorization();
@@ -2236,10 +2267,22 @@ app.MapPut("/api/requests/{id}", (HttpContext c, string id, RequestDto d) =>
 }).RequireAuthorization();
 app.MapPost("/api/requests/{id}/approve", (HttpContext c, string id) =>
     S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Approve(s, id)) }) : Results.Unauthorized()).RequireAuthorization();
+// B-3 (PRT-01 Grup 4, 2026-08-10): sabit "Reddedildi" yedeği KALDIRILDI. RequestService.Reject gerekçeyi
+// ZATEN zorunlu tutuyor; yedek o kuralı eziyor ve denetim kaydına kullanıcının YAZMADIĞI bir gerekçe
+// yazıyordu (gerçek gerekçeden ayırt edilemez). Boş gelirse servis ArgumentException atar → 400.
 app.MapPost("/api/requests/{id}/reject", (HttpContext c, string id, IdReasonDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Reject(s, id, string.IsNullOrWhiteSpace(d?.Reason) ? "Reddedildi" : d!.Reason!)) }) : Results.Unauthorized()).RequireAuthorization();
+    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Reject(s, id, d?.Reason ?? "")) }) : Results.Unauthorized()).RequireAuthorization();
+// B-4 (PRT-01 Grup 4): iptal gerekçesi artık BOŞ olamaz. Kontrol BURADA yapılır, servis imzası
+// DEĞİŞTİRİLMEZ — Cancel(reason = null) hâlâ geçerli (masaüstü ve testler doğrudan çağırıyor,
+// kullanıcı kararı: "servis seviyesinde zorunlu hale getirme"). Ret ucunun aksine servis tarafında
+// kural olmadığı için 400'ü uç üretir (aynı dosyadaki /request-ops/{id}/status deseni).
 app.MapPost("/api/requests/{id}/cancel", (HttpContext c, string id, IdReasonDto d) =>
-    S(c) is { } s ? Results.Ok(new { ok = Void(() => svc.Requests.Cancel(s, id, d?.Reason)) }) : Results.Unauthorized()).RequireAuthorization();
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d?.Reason)) return Results.Json(new { error = "İptal gerekçesi zorunlu." }, statusCode: 400);
+    svc.Requests.Cancel(s, id, d!.Reason!.Trim());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
 // ── Talep Operasyonları (Faz 2) — onaylı taleplerin operasyon süreci. Stok DEĞİŞTİRİLMEZ. ──
 app.MapGet("/api/request-ops", (HttpContext c, string? status) =>
     S(c) is { } s ? Results.Ok(svc.RequestOps.List(s, string.IsNullOrWhiteSpace(status) ? null : status)) : Results.Unauthorized()).RequireAuthorization();
