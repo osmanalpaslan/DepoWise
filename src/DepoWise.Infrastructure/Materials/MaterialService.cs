@@ -383,12 +383,102 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
     }
 
     /// <summary>Malzeme soft-delete (is_deleted=1).</summary>
+    /// <summary>
+    /// MLZ-01 — Silme öncesi KULLANIM KORUMASI (2026-08-10).
+    ///
+    /// Sorun: silme yalnız yetki ve firma kontrolü yapıyordu. Malzeme kataloğu FİRMA-GENELİ ortak liste
+    /// olduğu için (bkz. List() yorumu, kullanıcı kararı 2026-07-26), silme yetkisi olan HERHANGİ bir
+    /// şubedeki kullanıcı, tüm firmanın kullandığı bir malzemeyi listeden düşürebiliyordu. Kayıt soft-delete
+    /// olduğu için geri alınabiliyordu ama operasyon o an duruyordu.
+    ///
+    /// Kural: malzeme HİÇ kullanılmamışsa silinebilir; stoğu varsa veya operasyonel geçmişi varsa SİLİNEMEZ.
+    /// İlişki/tanım bağları (muadil, uyumlu araç, araç şablonu satırı) silmeyi ENGELLEMEZ — bunlar geçmiş
+    /// değil, düzenlenebilir bağlardır.
+    ///
+    /// Bu metot Delete()'in transaction'ı İÇİNDE çalışır: kontrol ile güncelleme arasında araya kayıt girmesi
+    /// zorlaşır. Silme zaten soft-delete ve geri alınabilir olduğundan bundan daha ağır bir kilit gerekmez.
+    ///
+    /// Şube notu: kontroller BİLİNÇLİ olarak firma genelindedir. Şube bazlı stok mimarisi geldiğinde
+    /// (plan: STK-01…STK-06) bu kontrol "hiçbir şubede stok yoksa" haline gelecek; bugünkü davranış
+    /// zaten o kuralın firma-geneli hâlidir, yani ileride ÇELİŞMEZ.
+    /// </summary>
+    private static void GuardDeletable(DbConnection conn, DbTransaction tx, string companyId, string materialId)
+    {
+        // Malzemenin kendisi (mesajda kullanmak + firma doğrulaması için)
+        string code = "", name = "";
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT code, name FROM materials WHERE id=@id AND company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@id", materialId);
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return;   // yok/başka firmaya ait → mevcut UPDATE zaten 0 satır etkileyip hata verecek
+            code = r.IsDBNull(0) ? "" : r.GetString(0);
+            name = r.IsDBNull(1) ? "" : r.GetString(1);
+        }
+
+        var reasons = new List<string>();
+
+        // 1) Stok bakiyesi — sıfırdan farklıysa silinemez (fiziksel olarak elde olan mal silinemez).
+        decimal qty = 0m;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m AND company_id=@c;";
+            cmd.AddWithValue("@m", materialId);
+            cmd.AddWithValue("@c", companyId);
+            qty = Money.Parse(cmd.ExecuteScalar() as string);
+        }
+        if (qty != 0m)
+            reasons.Add($"stokta {qty.ToString("0.####", TrCulture)} birim var");
+
+        // 2) Operasyonel geçmiş. Tablo yoksa (eski şema) sessizce atlanır — kontrol uygulamayı KIRMAZ.
+        var used = new (string Table, string Label)[]
+        {
+            ("stock_movements",       "stok hareketi"),
+            ("maintenance_materials", "bakım kaydı"),
+            ("material_request_items","talep kalemi"),
+            ("stock_count_lines",     "sayım satırı"),
+        };
+        foreach (var (table, label) in used)
+        {
+            var n = CountByMaterial(conn, tx, table, materialId);
+            if (n > 0) reasons.Add($"{n} {label}");
+        }
+
+        if (reasons.Count == 0) return;   // hiç kullanılmamış → silinebilir
+
+        var title = string.IsNullOrWhiteSpace(code) ? name : $"{code} - {name}";
+        // Yalnız stok varsa yapılacak iş nettir → farklı yönlendirme ver.
+        var tail = reasons.Count == 1 && qty != 0m
+            ? "Önce stok çıkışı yapın."
+            : "Geçmiş kayıtların bozulmaması için kullanılmış malzemeler silinemez.";
+        throw new InvalidOperationException($"'{title}' silinemez: {string.Join(", ", reasons)}. {tail}");
+    }
+
+    private static readonly CultureInfo TrCulture = CultureInfo.GetCultureInfo("tr-TR");
+
+    /// <summary>Verilen tabloda bu malzemeye ait satır sayısı. Tablo yoksa 0 döner (eski şemada kırılmasın).
+    /// material_id genel-benzersiz olduğundan firma süzmesi GEREKMEZ — malzeme zaten firma doğrulamasından geçti.</summary>
+    private static long CountByMaterial(DbConnection conn, DbTransaction tx, string table, string materialId)
+    {
+        if (!DbIntrospect.TableExists(conn, tx, table)) return 0;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE material_id=@m;";
+        cmd.AddWithValue("@m", materialId);
+        return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+    }
+
     public void Delete(SessionContext s, string materialId)
     {
         AccessControl.Require(s, Module, PermissionAction.Delete);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
+        // MLZ-01: kullanılmış malzeme silinemez. AYNI transaction içinde kontrol edilir.
+        GuardDeletable(conn, tx, s.CompanyId, materialId);
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
