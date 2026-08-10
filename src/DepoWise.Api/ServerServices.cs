@@ -180,7 +180,9 @@ public sealed class ServerServices
         if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
         {
             var pw = SeedPassword("DEPOWISE_SEED_ADMIN_PASSWORD", "admin");
-            Users.EnsureInitialAdmin("DEPOWISE", "admin", pw, RoleKeys.CompanyAdmin);
+            // GUV-01: tohum parolası geçicidir (env verilmediyse rastgele üretilip konsola yazılır) →
+            // hesap ilk girişte parolasını değiştirmek ZORUNDA. Kolon Migration042'de mevcut.
+            Users.EnsureInitialAdmin("DEPOWISE", "admin", pw, RoleKeys.CompanyAdmin, mustChangePassword: true);
         }
 
         using var cmd2 = conn.CreateCommand();
@@ -189,7 +191,7 @@ public sealed class ServerServices
         if (Convert.ToInt64(cmd2.ExecuteScalar()) == 0)
         {
             var pw = SeedPassword("DEPOWISE_SEED_SUPERADMIN_PASSWORD", "superadmin");
-            Users.EnsureInitialAdmin("DEPOWISE", "superadmin", pw, RoleKeys.SuperAdmin);
+            Users.EnsureInitialAdmin("DEPOWISE", "superadmin", pw, RoleKeys.SuperAdmin, mustChangePassword: true);   // GUV-01
         }
 
         // SELF-HEAL (kilit kurtarma): pasife düşmüş süper admin(ler)i her açılışta yeniden aktifleştir. Süper admin

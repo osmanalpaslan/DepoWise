@@ -732,7 +732,22 @@ ORDER BY c.name;";
     }
 
     /// <summary>İlk kurulum: sistem düzeyinde Süper Admin/Firma Admini oluşturur (actor yok).</summary>
-    public string EnsureInitialAdmin(string companyId, string username, string password, string roleKey)
+    /// <param name="mustChangePassword">
+    /// GUV-01 (2026-08-10): <c>true</c> ise hesap ilk girişte parolasını DEĞİŞTİRMEK ZORUNDA kalır
+    /// (<c>users.must_change_password=1</c>; kolon Migration042'de mevcut — yeni migration GEREKMEZ).
+    ///
+    /// Neden gerekli: sunucu tohumlaması (<c>ServerServices.EnsureSeedAdmins</c>) ortam değişkeni verilmezse
+    /// RASTGELE bir geçici parola üretip konsola yazıyor. Bu parola değiştirilmezse kurulumda kalıcı hâle
+    /// geliyordu — mekanizma projede zaten vardı (<see cref="ResetPassword"/>) ama tohuma uygulanmamıştı.
+    ///
+    /// Varsayılan <c>false</c>: bu metot 90'dan fazla testte doğrudan çağrılıyor; varsayılanı değiştirmek
+    /// test semantiğini topluca değiştirirdi. Zorunluluk YALNIZ üretim tohumlamasında açılır.
+    ///
+    /// Not: bayrak API uçlarını KİLİTLEMEZ; giriş yanıtındaki <c>mustChangePassword</c> ile iki arayüz de
+    /// ilk giriş şifre ekranını gösterir (Login.razor · LoginViewModel). Projenin mevcut deseni budur.
+    /// </param>
+    public string EnsureInitialAdmin(string companyId, string username, string password, string roleKey,
+        bool mustChangePassword = false)
     {
         TenantGuard.Require(companyId);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -746,8 +761,8 @@ ORDER BY c.name;";
             cmd => { cmd.AddWithValue("@id", companyId); cmd.AddWithValue("@n", companyId); cmd.AddWithValue("@now", now); });
 
         Insert(conn, tx,
-            "INSERT INTO users(id, company_id, username, password_hash, full_name, is_active, created_at, updated_at, version, is_deleted) " +
-            "VALUES(@id,@c,@u,@h,@f,1,@now,@now,1,0);",
+            "INSERT INTO users(id, company_id, username, password_hash, full_name, is_active, must_change_password, created_at, updated_at, version, is_deleted) " +
+            "VALUES(@id,@c,@u,@h,@f,1,@mcp,@now,@now,1,0);",
             cmd =>
             {
                 cmd.AddWithValue("@id", userId);
@@ -755,6 +770,7 @@ ORDER BY c.name;";
                 cmd.AddWithValue("@u", username);
                 cmd.AddWithValue("@h", PasswordHasher.Hash(password));
                 cmd.AddWithValue("@f", DBNull.Value);
+                cmd.AddWithValue("@mcp", mustChangePassword ? 1 : 0);   // GUV-01
                 cmd.AddWithValue("@now", now);
             });
 
