@@ -308,19 +308,48 @@ her iki platformda aynı mesaj · yetki kontrolü bozulmadı
 ---
 
 **ID:** `KLT-01` ◄ **AKTİF İŞ**
-**Başlık:** Eksik düzenleme kilitleri (optimistic) — yakıt, stok belgeleri, muayene, kullanıcılar
-**Açıklama:** `EditLockGuard` 8 serviste var; yakıt, stok belgeleri, muayene ve kullanıcılarda yok.
-**Neden gerekli:** CLAUDE.md §4 "stok, sayaç, yakıt, bakım ve onayda LWW yasaktır" kuralı
-şu an **ihlal ediliyor**. İki kullanıcı aynı yakıt kaydını düzenlerse ikincisi birincisini sessizce eziyor.
-**Öncelik:** **P0** · **Bağımlılık:** **YOK** — yetki yeniden tasarımına (`YET-01`) bağlı DEĞİL
+**Başlık:** Eksik iyimser (optimistic) düzenleme kilitleri
+**DURUM:** `GELİŞTİRMEYE HAZIR` — ⚠️ **KAPSAM 2026-08-10'da DÜZELTİLDİ**
+
+> ### ⚠️ ÖNEMLİ KAPSAM DÜZELTMESİ
+> Planın ilk hâli hedefleri **yakıt, stok belgeleri, muayene, kullanıcılar** diye yazıyordu.
+> Bu, *"bu servisler `EditLockGuard` kullanmıyor"* sinyaline dayanıyordu. **Sinyal yanıltıcıymış:**
+> bu servislerin çoğunun **düzenleme yolu hiç yok**. Kod incelemesi sonucu (2026-08-10):
+>
+> | Eski hedef | Gerçek durum | Yapılacak |
+> |---|---|---|
+> | **Yakıt** | `FuelService`'te **Update metodu YOK** — yalnız `AddDepotEntry`, `Distribute` (ekleme) ve `CancelDepotEntry`/`CancelDistribution` (iptal). İptal `BeginImmediate` + transaction içi durum kontrolü + *"zaten iptal edilmiş"* engeliyle **KORUMALI**. | ❌ **İŞ YOK** |
+> | **Stok belgeleri** | `StockService`'te **Update metodu YOK** — oluşturma (`ReceiveIn`/`IssueOut`/`Transfer`) + `ReverseDocument` (ters kayıt). Ters kayıt `BeginImmediate` ile korumalı. | ❌ **İŞ YOK** (ters kayıtta çift-tersleme testi eklenmeli) |
+> | **Muayene** | `InspectionService.Save` **yalnız INSERT** — her çağrıda yeni id üretiyor, güncelleme yolu yok. Kayıtlar ekleme-yalnız. | ❌ **İŞ YOK** |
+> | **Kullanıcılar** | **GERÇEK RİSK VAR — ama beklenen yerde değil.** Aşağıda `KLT-01c`. | ✅ **İŞ VAR** |
+>
+> **Sonuç:** CLAUDE.md §4'ün "yakıt/stokta LWW yasak" kuralı **ihlal edilmiyordu** —
+> o kayıtlar zaten düzenlenemiyor. Plan bu noktada yanlıştı, düzeltildi.
+
+**Yeni kapsam — gerçek boşluklar (ölçüt: `version=version+1` yapıyor AMA `expectedVersion`
+kontrolü yok, ve gerçek bir düzenleme yolu var):**
+
+| Alt iş | Servis / metot | Risk | Öncelik |
+|---|---|---|---|
+| **`KLT-01a`** | `RequestOperationsService.ChangeStatus` + `UpdateShipmentInfo` | Talep operasyon durumu ve sevkiyat bilgisi — iki kullanıcı aynı talebi işlerken **sessiz eziyor** | **P1** |
+| **`KLT-01b`** | `LookupService.Rename` (birim, marka, tedarikçi, kategori…) | Tanım yeniden adlandırma çakışması | P2 |
+| **`KLT-01c`** | `PermissionService.SaveForUser` | 🔴 **En ciddi.** `DELETE hepsi + INSERT hepsi` deseni, version kontrolü yok → iki admin aynı kullanıcının yetkisini düzenlerse **ikincisi birincisinin verdiği yetkiyi tamamen siler**, uyarı yok. Güvenlik etkisi var. | **P1** |
+| **`KLT-01d`** | `MaterialTemplateService`, `PersonnelTitleService`, `CompanyService` | Tanım/şablon düzenleme | P2 |
+
+**Ayrıca doğrulanan bir tuhaflık:** `users` tablosunda `version` kolonu **var ama hiç
+artırılmıyor** (`UserService`'te 8 UPDATE, `version=version+1` sıfır). Kullanıcı düzenlemesi
+alan-alan ayrı metotlara bölünmüş (`SetActive`, `ChangePassword`, `LinkPersonnel`,
+`SetViewAllBranches`) → farklı kolonlara yazdıkları için **birbirlerini ezmiyorlar**.
+Yani *"Admin A şubeyi, Admin B yetkiyi değiştiriyor"* senaryosu **yapı gereği güvenli**;
+gerçek risk `KLT-01c`'deki toplu yetki değişimidir.
+
+**Öncelik:** **P1** (P0 değil — düzeltildi) · **Bağımlılık:** **YOK** — `YET-01`'e bağlı değil
 **Web:** ✅ · **Masaüstü:** ✅ · **API:** ✅
-**Migration:** ❌ **GEREKMİYOR** — 2026-08-10'da doğrulandı: `fuel_distributions`,
-`fuel_depot_entries`, `stock_documents`, `vehicle_inspections`, `users` tablolarının
-**hepsinde `version` kolonu ZATEN VAR**.
-**Canlı veri riski:** Yok · **Maliyet:** Düşük (desen 8 serviste kanıtlı)
-**Şimdi/Ertelenmiş:** **ŞİMDİ** · **Sonraki adım:** SNK-01
-**Test gereksinimi:** Her ekran için "iki sekmeden kaydet → ikincisi 409" testi
-**DURUM:** `GELİŞTİRMEYE HAZIR`
+**Migration:** ❌ **GEREKMİYOR** — ilgili tablolarda `version` kolonu mevcut
+**Canlı veri riski:** Yok (yalnız koruma ekliyor) · **Maliyet:** Düşük-Orta
+**Test gereksinimi:** Her alt iş için "aynı version ile iki kayıt → ikincisi 409" ·
+farklı kayıtlar birbirini engellemiyor · conflict'te yarım veri yazılmıyor (transaction) ·
+`KLT-01c` için "iki admin aynı kullanıcının yetkisini düzenler → ikincisi uyarı alır"
 
 > **KLT-01 ≠ gerçek kayıt kilidi.** KLT-01 mevcut **iyimser** korumayı (kaydederken 409)
 > eksik 4 servise yayar. Kullanıcının istediği *"ikinci kişi kayda giremesin, adı görünsün"*
