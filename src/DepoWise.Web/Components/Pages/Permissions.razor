@@ -49,6 +49,8 @@
 
     private PermMatrix? _matrix;
     private string? _msg; private bool _ok; private bool _busy;
+    /// <summary>KLT-01c DÜZENLEME KİLİDİ: ekran açılırken okunan yetki sürümü (0 = bilinmiyor → kontrol yok).</summary>
+    private long _permVersion;
     private bool _loadPending;   // kullanıcı seçildi → matrix render edilince yetkileri otomatik yükle
 
     protected override async Task OnInitializedAsync()
@@ -126,6 +128,8 @@
                 foreach (var b in btns.EnumerateArray())
                     if (b.ValueKind == JsonValueKind.String) btnKeys.Add(b.GetString() ?? "");
             _matrix.LoadButtons(btnKeys);
+            // KLT-01c DÜZENLEME KİLİDİ: kaydederken geri gönderilir; arada başkası kaydettiyse sunucu 409 döner.
+            _permVersion = doc.TryGetProperty("version", out var pv) && pv.TryGetInt64(out var pvv) ? pvv : 0;
         }
         catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
     }
@@ -163,8 +167,18 @@
             }
             else
             {
-                var err = await Api.PostAsync($"/api/permissions/{_userId}", new { modules = _matrix.Collect(), buttons = _matrix.CollectButtons() });
-                _ok = err is null; _msg = err ?? "Yetkiler kaydedildi.";
+                var err = await Api.PostAsync($"/api/permissions/{_userId}",
+                    new { modules = _matrix.Collect(), buttons = _matrix.CollectButtons(), version = _permVersion });
+                if (err is not null)
+                {
+                    // KLT-01c: arada başka bir yönetici kaydetmiş → değişiklik YAZILMADI.
+                    // Ekranı yenilemiyoruz ki yöneticinin işaretledikleri kaybolmasın; kararı kendisi versin.
+                    _ok = false;
+                    _msg = err;
+                    return;
+                }
+                _ok = true; _msg = "Yetkiler kaydedildi.";
+                _permVersion++;   // sunucu sürümü artırdı; ekranı kapatmadan ikinci kayıt yapılabilsin
             }
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }

@@ -5,7 +5,13 @@ using System.Data.Common;
 
 namespace DepoWise.Infrastructure.Security;
 
-public sealed record UserPermissionData(IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons);
+/// <param name="Version">
+/// KLT-01c — yetki kümesinin DÜZENLEME KİLİDİ jetonu (<c>users.version</c>).
+/// Ekran bu değeri okur, kaydederken geri gönderir; arada başkası kaydettiyse sürüm artmış olur
+/// ve kayıt reddedilir. 0 = sürüm bilinmiyor (eski istemci) → kontrol yapılmaz.
+/// </param>
+public sealed record UserPermissionData(IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons,
+    long Version = 0);
 
 /// <summary>
 /// Kullanıcı yetkilerini (modül View/Create/Edit/Delete + özel "+"/buton izinleri) yükler/kaydeder.
@@ -48,7 +54,17 @@ public sealed class PermissionService
             using var r = cmd.ExecuteReader();
             while (r.Read()) buttons.Add(r.GetString(0));
         }
-        return new UserPermissionData(mods, buttons);
+
+        // KLT-01c: yetki kümesinin sürüm jetonu. Kaydederken geri gönderilir (bkz. SaveForUser).
+        long version = 0;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT version FROM users WHERE id=@u AND is_deleted=0;";
+            cmd.AddWithValue("@u", userId);
+            var v = cmd.ExecuteScalar();
+            if (v is not null and not DBNull) version = Convert.ToInt64(v);
+        }
+        return new UserPermissionData(mods, buttons, version);
     }
 
     /// <summary>Yetki ağacı için: hedef kullanıcının ROLÜNE kapatılmış modüller (Rol Yetki Kontrol).
@@ -61,7 +77,25 @@ public sealed class PermissionService
         return Organization.RoleGrantService.BlockedForUser(conn, null, userId);
     }
 
-    public void SaveForUser(SessionContext actor, string userId, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
+    /// <summary>
+    /// Yetkileri TAM DEĞİŞTİRİR (önce sil, sonra yaz) — tek transaction.
+    /// </summary>
+    /// <param name="expectedVersion">
+    /// KLT-01c — DÜZENLEME KİLİDİ. <see cref="GetForUser"/>'ın döndürdüğü <c>Version</c> geri gönderilir.
+    /// Arada başka bir yönetici kaydettiyse sürüm artmıştır → <see cref="ConcurrencyException"/> (409) atılır
+    /// ve <b>hiçbir değişiklik yazılmaz</b> (transaction geri alınır).
+    ///
+    /// Neden bu tablo: kayıt "sil + yeniden yaz" olduğu için <c>user_permissions</c> SATIR sürümü kümeyi
+    /// koruyamaz (satırlar zaten yok ediliyor). Yetki kümesinin sahibi KULLANICI kaydıdır; bu yüzden jeton
+    /// <c>users.version</c>'dır. Bu kolon şemada zaten VARDI ama hiç artırılmıyordu; hiçbir okuyucusu ve
+    /// senkron bağımlılığı olmadığı için (senkron upsert'i <c>version</c>'a dokunmaz) benimsenmesi
+    /// <b>migration gerektirmedi</b>.
+    ///
+    /// <c>null</c> → kontrol yok (geriye uyumlu: sürüm taşımayan eski çağrılar ve YENİ KULLANICI oluşturma
+    /// akışı bozulmaz — yeni kullanıcıda çakışacak bir önceki kayıt zaten yoktur).
+    /// </param>
+    public void SaveForUser(SessionContext actor, string userId, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons,
+        long? expectedVersion = null)
     {
         AccessControl.Require(actor, Module, PermissionAction.Edit);
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
@@ -118,6 +152,28 @@ public sealed class PermissionService
         // Yetki YÜKSELTME engeli: Süper Admin dışındaki bir aktör, KENDİ sahip olmadığı yetkiyi başkasına VEREMEZ.
         // (Firmaya ilk açılan sınırlı admin, kendi yetkisi dışındaki alanları başkasına atayamaz.)
         var (clampMods, clampBtns) = GrantableLimit(conn, tx, actor);
+
+        // ── KLT-01c: DÜZENLEME KİLİDİ ────────────────────────────────────────────────────────────
+        // Sürüm ARTIRMA + kontrol, silme/yazmadan HEMEN ÖNCE ve AYNI transaction içinde yapılır:
+        // çakışma varsa hiçbir DELETE/INSERT çalışmaz, transaction geri alınır → kısmi yazma olmaz.
+        // (Geç konumlandırıldı ki users satırındaki yazma kilidi mümkün olan en kısa süre tutulsun.)
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE users SET version=version+1, updated_at=@now WHERE id=@u AND company_id=@c AND is_deleted=0"
+                + EditLockGuard.Clause(expectedVersion) + ";";
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@u", userId);
+            cmd.AddWithValue("@c", companyId);
+            EditLockGuard.Bind(cmd, expectedVersion);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                // Kayıt duruyorsa sebep sürüm uyuşmazlığıdır → ConcurrencyException (409).
+                EditLockGuard.ThrowIfStale(conn, tx, "users", userId, companyId, expectedVersion);
+                // Buraya düşmek EnsureUserOwned'dan sonra beklenmez; yine de sessiz geçilmez.
+                throw new ForbiddenException("Kullanıcı bulunamadı veya başka firmaya ait.");
+            }
+        }
 
         Exec(conn, tx, "DELETE FROM user_permissions WHERE user_id=@u;", c => c.AddWithValue("@u", userId));
         Exec(conn, tx, "DELETE FROM user_button_permissions WHERE user_id=@u;", c => c.AddWithValue("@u", userId));

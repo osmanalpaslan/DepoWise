@@ -2332,13 +2332,15 @@ app.MapGet("/api/permissions/{userId}", (HttpContext c, string userId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var data = svc.Permissions.GetForUser(s, userId);
-    return Results.Ok(new { modules = data.Modules, buttons = data.Buttons });
+    // version: KLT-01c düzenleme kilidi jetonu — istemci kaydederken geri gönderir.
+    return Results.Ok(new { modules = data.Modules, buttons = data.Buttons, version = data.Version });
 }).RequireAuthorization();
 app.MapPost("/api/permissions/{userId}", (HttpContext c, string userId, PermSaveDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var mods = (d.Modules ?? new()).Select(m => new ModulePermission(m.ModuleKey, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete));
-    svc.Permissions.SaveForUser(s, userId, mods, d.Buttons ?? new());
+    // KLT-01c: sürüm gönderilmediyse (eski istemci) kontrol yapılmaz — geriye uyumlu.
+    svc.Permissions.SaveForUser(s, userId, mods, d.Buttons ?? new(), d.Version > 0 ? d.Version : null);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -2679,7 +2681,7 @@ record PasswordDto(string Password);
 record ChangeInitialPwDto(string? NewPassword);
 record SubCategoryDto(string Name, string? ParentId);
 record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
-record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons);
+record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons, long Version = 0);
 record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons, string? CompanyId = null, bool ScopeAll = false);
 
 /// <summary>#19 — Canlı sunucu durumu sayaçları (süreç boyunca).</summary>

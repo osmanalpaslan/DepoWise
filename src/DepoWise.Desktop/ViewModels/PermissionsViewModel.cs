@@ -20,6 +20,11 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 {
     private readonly SessionContext _session;
 
+    /// <summary>KLT-01c DÜZENLEME KİLİDİ: ekran açılırken sunucudan okunan yetki sürümü.
+    /// Kaydederken geri gönderilir; arada başka yönetici kaydettiyse sunucu 409 döner ve üzerine yazılmaz.
+    /// 0 = sürüm bilinmiyor (yerel yedekten yüklendi) → kontrol yapılmaz.</summary>
+    private long _permVersion;
+
     public bool CanManage => AccessControl.Can(_session, "permissions", PermissionAction.Edit);
 
     public ObservableCollection<UserRow> Users { get; } = new();
@@ -121,6 +126,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             // Yetkiler: çevrimiçiyken SUNUCUDAN (server kullanıcının yerel kaydı olmayabilir), yoksa yerel best-effort.
             var server = await OrgServerClient.GetPermissionsAsync(value.Id);
             var (mods, btns) = server is { } s ? (s.Modules, s.Buttons) : SafeLocalPerms(value.Id);
+            // KLT-01c: düzenleme kilidi jetonu. Yerel yedekten yüklendiyse 0 kalır → kontrol yapılmaz
+            // (yerel yedek zaten sunucuya yazmaz; kaydetme çevrimiçi olmayı gerektirir).
+            _permVersion = server is { } sv ? sv.Version : 0;
             foreach (var m in Modules)
             {
                 var p = mods.FirstOrDefault(x => x.ModuleKey == m.Key);
@@ -182,10 +190,28 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             }
             var mods = Modules.Select(m => new ModulePermission(m.Key, m.CanView, m.CanCreate, m.CanEdit, m.CanDelete)).ToList();
             var btns = Buttons.Where(b => b.Granted).Select(b => b.Key).ToList();
-            var res = await OrgServerClient.SavePermissionsAsync(SelectedUser.Id, mods, btns);
+            var res = await OrgServerClient.SavePermissionsAsync(SelectedUser.Id, mods, btns, _permVersion);
             if (res.Offline) { Status = "Yetki kaydı çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur). İnternet bağlantısıyla tekrar deneyin."; return; }
+            if (res.Status == 409)
+            {
+                // KLT-01c DÜZENLEME KİLİDİ: arada başka bir yönetici bu kullanıcının yetkilerini kaydetmiş.
+                // Yazdıklarını KAYBETME — karar kullanıcının (Şube ekranındaki kanıtlanmış desenin aynısı).
+                Status = res.Error ?? "Yetkiler değişti.";
+                if (await ConfirmService.AskAsync(
+                        "Bu kullanıcının yetkileri siz ekranı açtıktan sonra başka bir yönetici tarafından değiştirildi.\n"
+                        + "Değişiklikleriniz KAYDEDİLMEDİ.\n\n"
+                        + "Güncel yetkileri yüklemek ister misiniz? (\"Ekranda kal\" derseniz işaretledikleriniz durur.)",
+                        "Yetkiler değişti", okText: "Güncel yetkileri yükle", cancelText: "Ekranda kal"))
+                {
+                    var reload = SelectedUser;
+                    SelectedUser = null;
+                    SelectedUser = reload;   // OnSelectedUserChanged → sunucudan taze yükleme + yeni sürüm
+                }
+                return;
+            }
             if (!res.Ok) { Status = res.Error ?? "Kaydedilemedi."; return; }
             Status = "Yetkiler kaydedildi. (Kullanıcı yeniden giriş yapınca tam etkin olur.)";
+            _permVersion++;   // sunucu sürümü artırdı; ekranı kapatmadan ikinci kayıt yapılabilsin
         }
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
     }

@@ -79,7 +79,9 @@ public static class OrgServerClient
     }
 
     /// <summary>Kullanıcının kayıtlı yetkilerini SUNUCUDAN çeker (Yetkiler ekranı matrisini doldurur). null = çevrimdışı.</summary>
-    public static async Task<(List<ModulePermission> Modules, List<string> Buttons)?> GetPermissionsAsync(string userId)
+    /// <summary>Yetkileri sunucudan okur. <c>Version</c> = KLT-01c düzenleme kilidi jetonu;
+    /// kaydederken <see cref="SavePermissionsAsync"/>'e geri verilmelidir.</summary>
+    public static async Task<(List<ModulePermission> Modules, List<string> Buttons, long Version)?> GetPermissionsAsync(string userId)
     {
         using var doc = await GetJsonAsync($"/api/permissions/{userId}");
         if (doc is null) return null;
@@ -90,15 +92,20 @@ public static class OrgServerClient
         var btns = new List<string>();
         if (doc.RootElement.TryGetProperty("buttons", out var b) && b.ValueKind == JsonValueKind.Array)
             foreach (var e in b.EnumerateArray()) if (e.ValueKind == JsonValueKind.String) btns.Add(e.GetString() ?? "");
-        return (mods, btns);
+        long version = 0;
+        if (doc.RootElement.TryGetProperty("version", out var v) && v.TryGetInt64(out var vv)) version = vv;
+        return (mods, btns, version);
     }
 
-    /// <summary>Yetkileri SUNUCUYA kaydeder (kullanıcı-otoriteli → hedef kullanıcı bir sonraki girişte alır).</summary>
-    public static Task<Result> SavePermissionsAsync(string userId, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons)
+    /// <summary>Yetkileri SUNUCUYA kaydeder (kullanıcı-otoriteli → hedef kullanıcı bir sonraki girişte alır).
+    /// <paramref name="version"/> okunan sürümdür (KLT-01c); arada başkası kaydettiyse sunucu 409 döner.</summary>
+    public static Task<Result> SavePermissionsAsync(string userId, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons,
+        long version = 0)
         => SendOkAsync(HttpMethod.Post, $"/api/permissions/{userId}", new
         {
             modules = modules.Select(x => new { moduleKey = x.ModuleKey, canView = x.CanView, canCreate = x.CanCreate, canEdit = x.CanEdit, canDelete = x.CanDelete }),
-            buttons
+            buttons,
+            version
         });
 
     public static Task<Result> SetRolesAsync(string userId, IEnumerable<string> roles)
