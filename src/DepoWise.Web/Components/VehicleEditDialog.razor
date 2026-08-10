@@ -133,6 +133,14 @@
             }
             @if (!_edit && Auth.CanEdit("vehicles"))
             {
+                @* ARC-01 (PRT-01 Grup 5): tam düzenleme formuna GİRİŞ YOLU. Şablon bağlama, birim,
+                   fotoğraflar ve araç geçmişi yalnız orada değiştirilebilir; bu pencere onları korur.
+                   G2-01'de (malzeme) kanıtlanan desenin aynısı. Yalnız SALT-OKUNUR modda gösterilir —
+                   düzenleme moduna geçilmişken çıkmak yazılanları kaybettirirdi. *@
+                <MudTooltip Text="Şablon, birim, fotoğraflar ve araç geçmişi dahil tüm alanları düzenle">
+                    <MudButton Color="Color.Primary" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.OpenInNew"
+                               OnClick="@(() => MudDialog.Close(DialogResult.Ok("fulledit")))">Tam Düzenleme</MudButton>
+                </MudTooltip>
                 <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => _edit = true)">Düzelt</MudButton>
             }
             @if (_edit)

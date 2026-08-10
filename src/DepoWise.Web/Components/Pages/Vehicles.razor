@@ -273,10 +273,21 @@
 @code {
     [Parameter] public string? Section { get; set; }
     private bool _isNew => string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase);
-    private async Task EditNav(string id)
+    /// <summary>
+    /// ARC-01 (PRT-01 Grup 5): araç TAM düzenleme formuna geçiş. Hızlı düzenleme penceresindeki
+    /// "Tam Düzenleme" düğmesinden çağrılır — eskiden bu metodun HİÇBİR çağıranı yoktu, dolayısıyla
+    /// şablon bağlama, birim, fotoğraflar ve araç geçmişi web'den erişilemiyordu (masaüstünde çalışıyordu).
+    ///
+    /// Ekstra onay YOK: kullanıcı zaten açıkça "Tam Düzenleme" dedi (G2-01'de alınan karar).
+    ///
+    /// ⚠️ <c>forceLoad: true</c> ZORUNLU: <c>/vehicles</c> ile <c>/vehicles/new</c> AYNI bileşene
+    /// yönlendiği için Blazor bileşeni yeniden oluşturmaz — <c>OnInitializedAsync</c> çalışmaz ve
+    /// <c>?edit=</c> okunmadan boş form açılırdı (malzemede birebir aynı tuzağa düşülmüştü).
+    /// </summary>
+    private Task EditNav(string id)
     {
-        if (!await Dialog.Confirm("Bu kaydı düzenlemek istiyor musunuz?", okText: "Evet, Düzenle")) return;
-        Nav.NavigateTo($"/vehicles/new?edit={id}");
+        Nav.NavigateTo($"/vehicles/new?edit={id}", forceLoad: true);
+        return Task.CompletedTask;
     }
 
     private static readonly Dictionary<string, object?> _noAuto = new() { ["autocomplete"] = "off" };
@@ -537,6 +548,9 @@
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true });
         var res = await dlg.Result;
         if (res is null || res.Canceled) return;
+        // ARC-01: "Tam Düzenleme" seçildi → şablon/birim/fotoğraf/geçmiş dahil tam forma git.
+        // Kayıt değişmediği için listeyi tazelemeye gerek yok (form dönüşünde zaten yenilenir).
+        if (res.Data as string == "fulledit") { await EditNav(id); return; }
         await Load();
         if (res.Data as string == "deleted") _detail = null;
         else if (_detail is not null && Str(_detail.Value, "id") == id) await OpenDetail(id);
