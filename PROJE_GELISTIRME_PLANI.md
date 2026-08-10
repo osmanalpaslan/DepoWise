@@ -27,25 +27,27 @@ DURUM:               ✅ FAZ 1 SENKRON OPTİMİZASYONU (SNK-01…04) TAMAMLANDI 
                      SNK-01 ❌ · SNK-02 ✅ · SNK-03 ✅ · SNK-04 ❌
                      ✅ KLT-01 KAPANDI · ✅ MLZ-01
 SON TAMAMLANAN İŞ:   SNK-04 — analiz sonucu ZATEN YAPILMIŞ (2026-08-10)
-SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 2a — G2-05 (son kod işi) → sonra G2-07 karar kapısı
-                     G2-04 · G2-02 · G2-03 ✅ commit ffbb995 · G2-01 ✅ commit EDİLMEDİ
+SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 3 (Bakım + Yakıt) — önce ANALİZ
+                     ✅ GRUP 2 TAMAM: 2a (G2-01…G2-05, G2-07) + 2b (Şablonlar)
                      ⚠️ Her aşama için ayrı ONAY gerekir; kendiliğinden başlanmaz
 YENİ TEKNİK BORÇ:    MUA-01 (muadil transitif↔doğrudan uyuşmazlığı — ÜRÜN KARARI)
                      MUA-02 (EnsureOwned silinmiş malzemeyi kabul ediyor — yalnız kayıt)
                      ARC-01 (Vehicles.razor'da EditNav ölü — araç tam formu web'den
                              ulaşılamıyor; G2-01'in aynısı, Grup 5 kapsamı)
+                     B-6/B-7/B-9 (şablon: virgüllü TEXT · FK yok · sayfalama yok)
 İPTAL (2026-08-10):  SNK-01 — koruma kodda zaten vardı (c8d3dc7, 2026-07-19)
                      SNK-04 — koruma kodda zaten vardı (b2604de, 2026-07-11)
 AÇIK DOĞRULAMA:      SNK-02 + SNK-03 çalışma zamanı/HTTP davranışı — GUI oturumu sınırı (§5)
-                     G1-02 + G2-04 masaüstü GUI davranışı — Avalonia GUI otomasyon sınırı
+                     G1-02 · G2-04 · G2-05 · G2-07 · Grup 2b masaüstü GUI davranışı —
+                     Avalonia GUI otomasyon sınırı (kod+test doğrulandı, GUI gözlenmedi)
 BEKLEYEN KARAR:      KARAR-4 (bakımda negatif stok ↔ onay) — FAZ 5'e kadar beklenebilir
                      KARAR-7 (malzeme silme şube bazlı mı?) — FAZ 4 KAPISINDA gerekli 🆕
-                     G2-07 (düzenlemede boş "Tür" varsayılanı) — küçük ürün kararı
                      YET-01 (yetki modeli) — FAZ 2'ye girmeden ÖNCE gerekli
 YENİ BULGU:          WEB-01 — web hata mesajlarında ham JSON (§6, ayrı iş, fazlanmadı)
                      GNL-03 · LOG-02 · PRF-01 — 2026-08-10 ikinci gözden geçirmede eklendi
-SON GÜNCELLEME:      2026-08-10 (PRT-01 Grup 2a analizi + G2-04 + uzun vadeli gereksinim
-                     gözden geçirmesi: §3.1, GNL-03, LOG-02, PRF-01, KARAR-7, Y-6, Y-7)
+SON GÜNCELLEME:      2026-08-10 (PRT-01 GRUP 2 tamamlandı: 2a G2-01…G2-05+G2-07 ve
+                     2b Şablonlar. YET-01 kararları A1-A6 + F0 PermissionSnapshot.
+                     Güncel ölçüm: Build 0 hata · Test 1080/1047/0/33)
 ```
 
 **Kullanıcı tarafında paralel yürüyen görevler (kod işi değil):**
@@ -625,7 +627,7 @@ Sonucu yeni iş kalemleri doğurur.
 > | Yarı | Durum |
 > |---|---|
 > | **2a — Malzemeler** (`Materials.razor` · `MaterialEditDialog.razor` · `MaterialsView.axaml` + VM · `MaterialQuickEditWindow`) | 🔵 **Analiz TAMAM, uygulama SÜRÜYOR** — 8 bulgu (G2-01…G2-08). ✅ `G2-04` + `G2-02` + `G2-03` (**commit `ffbb995`**) · ✅ `G2-01` *(commit edilmedi)* · ⏳ `G2-05` **son kod işi** · `G2-07` ürün kararı · `G2-06` değişiklik önerilmedi · `G2-08` yalnız kayıt (`_v`/`CS0169` kısmı `G2-02` ile kapandı) |
-> | **2b — Şablonlar** (`MaterialTemplates.razor` · `MaterialTemplatesView.axaml` + VM) | ⏳ **ANALİZ YAPILMADI** — Grup 2'nin ikinci yarısı. **Ayrı bir analiz aşaması olarak yürütülecek**; Malzemeler yarısının uygulaması bitince sırası gelir. Bilinen ilgili iş: `KLT-01d` ✅ (şablon güncellemede düzenleme kilidi) |
+> | **2b — Şablonlar** (`MaterialTemplates.razor` · `MaterialTemplatesView.axaml` + VM · `MaterialTemplateService` · `/api/material-templates`) | ✅ **ANALİZ + UYGULAMA TAMAM** — commit `305619d` + `ae11e02`. **B-3** şablon silinince `template_id` temizliği · **K2** web'de para birimi kaybı bitti · **B-4** masaüstünde uyumlu araç yönetimi + firma izolasyonu · **B-5** masaüstünde şablon fotoğrafı. **Kararlar: K1** web'e şablon seçici **geri eklenmedi** (2026-08-05 kararı korundu) · **K3** senkronizasyon **açılmadı**. Kalan borç: `B-6` virgüllü TEXT · `B-7` FK yokluğu · `B-9` sayfalama |
 >
 > **Grup 2a bulguları (özet):** `G2-01` ✅ web'de tam düzenleme formuna **giriş yolu yoktu** (muadil/
 > uyumlu araç/fotoğraf web'den hiç değiştirilemiyordu) — hızlı düzenleme penceresine "Tam Düzenleme"
@@ -651,7 +653,7 @@ Sonucu yeni iş kalemleri doğurur.
 > `GuardDeletable`'dır (bkz. §15 `MLZ-01-DEPO`).
 >
 > ### Kalan gruplar (henüz başlanmadı)
-> **2b Şablonlar** · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/Günlük ·
+> 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/Günlük ·
 > 6 Yönetim ekranları *(Grup 6'da ayrıca: masaüstünde **Audit görüntüleme ekranı yok**, web'de var —
 > bkz. §6 `LOG-02`)*
 

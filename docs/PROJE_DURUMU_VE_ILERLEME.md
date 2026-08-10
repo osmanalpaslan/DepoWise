@@ -384,9 +384,9 @@ Günlük · 6 Yönetim ekranları.
 | `G2-02` | Web ana düzenleme formu **düzenleme kilidi göndermiyor** | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
 | `G2-03` | `PUT /api/materials/{id}` **`equivalentIds`'i yok sayıyor** | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
 | `G2-01` | Web'de **tam düzenleme formuna giriş yolu yok** (muadil/uyumlu araç/foto web'den değiştirilemiyor) | ✅ **UYGULANDI** — ⚠️ commit edilmedi |
-| `G2-05` | Masaüstünde **"Yalnız kritik"** filtresi yok (servis + testi hazır) | ⏳ onay bekliyor |
+| `G2-05` | Masaüstünde **"Yalnız kritik"** filtresi yok (servis + testi hazır) | ✅ **UYGULANDI** `0de1e5a` |
 | `G2-06` | Kritik stok paneli çapraz eksik (P3) | ⏸️ **değişiklik önerilmedi** |
-| `G2-07` | Düzenlemede boş "Tür" varsayılanı platformlar arası farklı | ⏳ **ürün kararı** (§11) |
+| `G2-07` | Düzenlemede boş "Tür" varsayılanı platformlar arası farklı | ✅ **UYGULANDI** `4222b44` — karar: `"Diğer"` |
 | `G2-08` | `Materials.razor`'da ölü kod | 📝 **yalnız kayıt** (§12) — `_v`/`CS0169` kısmı `G2-02` ile **kapandı** |
 
 **`G2-04` doğrulaması:** Build 0 hata · **1058 test / 1025 başarılı / 0 başarısız / 33 atlanan**
@@ -452,8 +452,62 @@ UI gizleme değil **veri katmanı** koruması; elle API çağrısı atlatamaz. Y
 
 ---
 
-**Sıradaki aday: `G2-05` (masaüstüne "Yalnız kritik" filtresi) — sonra `G2-07` karar kapısı.**
-*(`G2-01` ✅ tamamlandı; Grup 2a'nın kalan tek kod işi `G2-05`.)*
+### ✅ `G2-05` + `G2-07` — Grup 2a KAPANDI (2026-08-10)
+- **`G2-05`** (`0de1e5a`): masaüstüne **"Yalnız kritik"** filtresi. Servis (`criticalOnly`) ve testi
+  hazırdı; masaüstü parametreyi hiç geçirmiyordu. Liste **ve** Excel aynı filtreyi paylaşır.
+  Kontrol biçimi **onay kutusu** — projenin kendi deseni (`DailyActivityView` "İptal edilenleri göster").
+- **`G2-07`** (`4222b44`): **boş tür fallback'i → `"Diğer"`**, dört malzeme kartı düzenleme ekranının
+  tamamında. Gerekçe: `"Yedek Parça"` gerçek bir türdür; kullanıcı hiçbir şey değiştirmeden
+  kaydettiğinde boş veri sessizce o sınıfa yazılıyordu. **Yeni kayıt varsayılanı `"Yedek Parça"`
+  KALDI**; stok ekranları, servis/API/DB **değişmedi**. Masaüstü hızlı pencerede **dirty karşılaştırma
+  tabanı da** aynı değere çekildi (aksi hâlde kayıt açılır açılmaz "1 değişiklik" gösterirdi).
+  ⚠️ Analiz düzeltmesi: fark "web ↔ masaüstü" değil, **"tür bilinmiyorken veriye ne yazılsın"**dı;
+  yeni kayıt varsayılanı iki platformda **zaten aynıydı**.
+
+### ✅ `PRT-01 GRUP 2b — ŞABLONLAR` (2026-08-10)
+
+**Kapsam (koddan):** doküman yalnız 3 ekran dosyası diyordu; gerçek kapsam **servis + API + malzeme
+formundaki kullanım**ı da içeriyor. `vehicle_templates` ve `permission_templates` **Grup 2b değildir**.
+
+**Ürün kararları (kullanıcı):**
+
+| Karar | Sonuç |
+|---|---|
+| **K1** — web malzeme formuna şablon seçici | ❌ **GERİ EKLENMEDİ** — 2026-08-05 kararı korunuyor. Masaüstündeki seçici de **kaldırılmadı**. Web'deki ölü kod (`_templates`, `ApplyTemplate`) **G2-08/teknik temizliğe** bırakıldı |
+| **K2** — web şablon düzenlemesinde para birimi | ✅ **Mevcut değer korunuyor** (sessiz TRY dönüşü bitti). Web'e **alan eklenmedi** — ayrı ürün/UI işi |
+| **K3** — şablon senkronizasyonu | ❌ **AÇILMADI** — `material_templates` senkron kapsamı dışında kalıyor; LWW ↔ `KLT-01d` düzenleme kilidi çatışması yaratılmadı |
+
+**Uygulananlar** — `305619d` (servis/veri) + `ae11e02` (masaüstü UI):
+
+| # | İş | Sonuç |
+|---|---|---|
+| **B-3** | Şablon silinince bağlı malzemelerin `template_id`'si **aynı transaction'da temizleniyor** | ✅ |
+| **K2** | Web şablon düzenlemesinde `currency` korunuyor | ✅ |
+| **B-4** | Masaüstünde **Uyumlu Araçlar yönetimi** + servis tarafında **firma izolasyonu** (`SanitizeVehicleIds`) | ✅ |
+| **B-5** | Masaüstünde **şablon fotoğrafları** (aynı `FileService`/`Storage`, aynı `material_template` varlık adı) | ✅ |
+
+> ⚠️ **B-3'te analiz düzeltmesi:** İlk raporda *"malzemeler iki raporun hiçbirinde görünmez"* denmişti.
+> Koddan doğrulandı, **gerçek durum farklı**: `ReportService.MaterialsByTemplate` sorgusunda
+> **`t.is_deleted` filtresi yok** → **silinmiş şablon raporda görünmeye devam ediyordu**. Uygulanan
+> çözüm bu gerçek kusuru da giderir (INNER JOIN eşleşme bulamaz). `ReportService` **değiştirilmedi**.
+
+> **B-4 tasarım notu:** Malzeme tarafındaki emsal (`EnsureVehicleOwned`) yabancı id'de **istisna atar**;
+> şablonda bilerek **süzme** seçildi — kolon serbest metin, FK yok ve eski kayıtlarda silinmiş araç
+> id'leri olabilir; istisna atmak eski şablonu düzenlemeyi **tamamen engellerdi**.
+
+**Testler:** `MaterialTemplateTests` **+5** (silme→bağ temizliği · silmede tenant · ad+kod araması ·
+uyumlu araç yuvarlak yolculuğu · **yabancı araç id'si süzülüyor**). Toplam **1080 / 1047 / 0 / 33**.
+⚠️ Masaüstü GUI etkileşimi **gözlemlenmedi** (Avalonia otomasyon sınırı) — doğrulama kod + derleme +
+regresyonsuz test paketi düzeyinde.
+
+**Grup 2b'de KAPSAM DIŞI bırakılanlar (teknik borç):** `B-6` `compatible_vehicle_ids` virgüllü TEXT
+normalizasyonu · `B-7` `material_templates` tablosunda FK olmaması · `B-9` `List` 200 sabit limiti /
+sayfalama yokluğu · `ReportService`'e `t.is_deleted` filtresi eklenmesi (gerek kalmadı).
+
+---
+
+**Sıradaki aday: PRT-01 Grup 3 (Bakım + Yakıt) — önce ANALİZ.**
+*(Grup 2 — Malzemeler **ve** Şablonlar — tamamlandı.)*
 Sıra gerekçesi: `G2-01` (formun kapısını açmak) **en sonda**, çünkü `G2-02` ve `G2-03` çözülmeden
 form açılırsa bugün gizli olan iki sessiz hata kullanıcıya açılır.
 Ardından **Grup 2b (Şablonlar)** — **henüz analiz edilmedi**, ayrı analiz aşaması olarak yürütülecek.
@@ -766,5 +820,6 @@ veriyor.
 | 2026-08-10 | **`PRT-01` Grup 1 (stok) kapandı** (`8bf27cb`) — 6 bulgu giderildi; `G1-02` masaüstü GUI QA yapılamadı, açıkça öyle kaydedildi. Doküman kapanışı `7bf4afa`. |
 | 2026-08-10 | **`PRT-01` Grup 2a (Malzemeler) analizi** — 8 bulgu (`G2-01…G2-08`). Silme koruması derinlemesine denetlendi: **tek noktalı, veri katmanında, elle API çağrısı atlatamaz**; yakıt tabloları `material_id` taşımıyor. **`G2-04` uygulandı** (şablon bağı korunuyor), izole gerçek HTTP QA ile doğrulandı; masaüstü GUI gözlenemedi. **Commit edilmedi.** |
 | 2026-08-10 | **`G2-02` + `G2-03` uygulandı.** `G2-02`: web tam formu artık `version` gönderiyor, 409'da "Kaydı yenile/Formda kal" (masaüstü deseni), ölü `_v` alanı amacına uygun kullanıldı → `CS0169` giderildi. `G2-03`: **yalnız `Program.cs` yetmedi** — `MaterialService.SetEquivalents` (tek transaction, `null`≠`[]`, çift yönlü, hepsi-veya-hiçbiri) eklendi. **1066/1033/0/33** (+8 test). İkisi de izole gerçek HTTP + tarayıcı QA ile doğrulandı. **Commit edilmedi.** Yeni teknik borç: **`MUA-01`** (muadil transitif↔doğrudan uyuşmazlığı — ürün kararı), **`MUA-02`** (`EnsureOwned` silinmiş malzemeyi kabul ediyor). İkisinde de **davranış bilerek değiştirilmedi**. |
+| 2026-08-10 | **PRT-01 GRUP 2 TAMAMLANDI.** `G2-05` (`0de1e5a`) masaüstü "Yalnız kritik" · `G2-07` (`4222b44`) boş tür fallback'i **"Diğer"** (dört malzeme kartı ekranında; yeni kayıt varsayılanı "Yedek Parça" KALDI). **Grup 2b (Şablonlar)** analiz edildi ve uygulandı: `305619d` (B-3 şablon silme→`template_id` temizliği, K2 currency kaybının önlenmesi, B-4 `compatible_vehicle_ids` firma izolasyonu) + `ae11e02` (masaüstüne uyumlu araç + fotoğraf yönetimi). **Kullanıcı kararları: K1 web'e şablon seçici GERİ EKLENMEDİ · K2 currency korunuyor, alan eklenmedi · K3 şablon senkronizasyonu AÇILMADI.** Test **1080/1047/0/33** (+5). Migration ve dependency YOK. ⚠️ B-3 teşhisi düzeltildi: `MaterialsByTemplate` sorgusunda `t.is_deleted` filtresi yok → silinmiş şablon raporda görünmeye devam ediyordu. Kalan teknik borç: B-6, B-7, B-9. |
 | 2026-08-10 | **Grup 2a kod commit'i `ffbb995`** (G2-04 + G2-02 + G2-03, 11 dosya). Ardından **`G2-01` uygulandı** (commit edilmedi): "Tam Düzenleme" giriş yolu + **yetki kapısı düzeltmesi** (yeni kayıt=Create, düzenleme=Edit) + başlık. Uygulamada planda olmayan **zorunlu** bir düzeltme çıktı: `/materials` ↔ `/materials/new` aynı bileşen olduğu için `OnInitializedAsync` tekrar çalışmıyordu → `forceLoad` gerekti (kayıt sonrası liste dönüşündeki gizli kusuru da kapattı). Yetki ayrımı **gerçek kullanıcı yetkileriyle** tarayıcıda doğrulandı (admin / edit-only / view-only). Yeni teknik borç: **`ARC-01`** — `Vehicles.razor`'da **aynı ölü `EditNav`**, Grup 5'e bırakıldı. |
 | 2026-08-10 | **Uzun vadeli gereksinim gözden geçirmesi (kullanıcının 17 maddesi).** Çoğunun **zaten `H-1…H-12` altında planlı** olduğu doğrulandı → mükerrer iş açılmadı. Gerçekten eksik çıkan **dört** konu eklendi: **`GNL-03`** (kayıt tipi kataloğu — `YTK-02`'nin önkoşulu), **`LOG-02`** (audit önceki/yeni değer), **`PRF-01`** (ölçek darboğaz haritası, ücretsiz), **`PRT-01` Grup 2b (Şablonlar)** ayrı analiz aşaması olarak işaretlendi. **`KARAR-7`** açıldı: şube bazlı malzeme silme isteği **`KARAR-1` ile çelişiyor** → kullanıcı kararı bekliyor. `Y-6`/`Y-7` ve maliyet kalemleri #9/#10 eklendi. **Hiç kod yazılmadı.** |
