@@ -10,12 +10,14 @@
 AKTİF AŞAMA:         FAZ 1 — Senkron optimizasyonu (FAZ 0 kod tarafı BİTTİ)
 AKTİF İŞ ID:         YOK — aktif kod işi yok
 AKTİF İŞ:            —
-DURUM:               ✅ SNK-03 KAPANDI (2026-08-10) — kod doğrulandı, çalışma zamanı QA yapılamadı
-                     ✅ SNK-02 KAPANDI · ✅ KLT-01 KAPANDI · ✅ MLZ-01 · ❌ SNK-01 İPTAL
-SON TAMAMLANAN İŞ:   SNK-03 — Hata halinde exponential backoff (2026-08-10)
-SONRAKİ İŞ (ÖNERİ):  SNK-04 — Günlük yedeği senkron turundan ayırma (FAZ 1)
-                     ⚠️ ONAY + DETAY ANALİZ gerekli; varsayımı DOĞRULANMAMIŞ
+DURUM:               ✅ FAZ 1 SENKRON OPTİMİZASYONU (SNK-01…04) TAMAMLANDI (2026-08-10)
+                     SNK-01 ❌ · SNK-02 ✅ · SNK-03 ✅ · SNK-04 ❌
+                     ✅ KLT-01 KAPANDI · ✅ MLZ-01
+SON TAMAMLANAN İŞ:   SNK-04 — analiz sonucu ZATEN YAPILMIŞ (2026-08-10)
+SONRAKİ İŞ (ÖNERİ):  PRT-01 Grup 2 (Malzemeler) — Grup 1 (stok) TAMAM, commit 8bf27cb
+                     ⚠️ ONAY + DETAY ANALİZ gerekli; kendiliğinden başlanmaz
 İPTAL (2026-08-10):  SNK-01 — koruma kodda zaten vardı (c8d3dc7, 2026-07-19)
+                     SNK-04 — koruma kodda zaten vardı (b2604de, 2026-07-11)
 AÇIK DOĞRULAMA:      SNK-02 + SNK-03 çalışma zamanı/HTTP davranışı — GUI oturumu sınırı (§5)
 BEKLEYEN KARAR:      KARAR-4 (bakımda negatif stok ↔ onay) — FAZ 5'e kadar beklenebilir
                      YET-01 (yetki modeli) — FAZ 2'ye girmeden ÖNCE gerekli
@@ -492,15 +494,31 @@ tabi değil · `authsig`, `machines/register`, `/health`, `conflicts` kadanslar�
 > test projesinde referanslı değil.) Ayrıntı:
 > [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §6.2.
 
-**ID:** `SNK-04`
-**Başlık:** Günlük yedek kontrolünü senkron turundan ayırma
-**Açıklama:** `MaybeDailyBackupAsync` her 15 sn'de çalışıyor; saatte bir yeterli.
-**Öncelik:** P2 · **Bağımlılık:** Yok · **Masaüstü:** ✅ · **Migration:** ❌ · **Maliyet:** Çok düşük
-**DURUM:** `BEKLEMEDE` — ⚠️ **VARSAYIM DOĞRULANACAK.** `SNK-01` analizi sırasında yolun üstünde
-görüldü: `MaybeDailyBackupAsync` içinde **zaten saatlik kısıt var** görünüyor
-(`if ((DateTime.UtcNow - _lastBackupCheck).TotalHours < 1) return;`). Bu madde `SNK-01` gibi
-"zaten yapılmış" çıkabilir. **Bu turda karar verilmedi, kodla dokunulmadı** — sırası gelince
-kendi detay analizinde kesinleştirilecek.
+**ID:** ~~`SNK-04`~~ ◄ ❌ **ZATEN YAPILMIŞ / İPTAL (2026-08-10)**
+**Başlık:** ~~Günlük yedek kontrolünü senkron turundan ayırma~~
+**DURUM:** ❌ `ZATEN YAPILMIŞ / İPTAL` — **yapılacak iş yok, koruma kodda zaten mevcut**
+
+> **İptal gerekçesi (koddan doğrulandı, 2026-08-10 detay analizi):**
+>
+> | Kanıt | Bulgu |
+> |---|---|
+> | `ShellViewModel.cs:410` | Metodun **İLK** satırı: `if ((DateTime.UtcNow - _lastBackupCheck).TotalHours < 1) return;` → saatlik kısıt |
+> | `git log -S "_lastBackupCheck"` | **`b2604de` · 2026-07-11** |
+> | `git log -S "MaybeDailyBackupAsync"` | **`b2604de` · 2026-07-11** — **aynı** commit |
+> | Sonuç | Koruma, metodun **oluşturulduğu commit'ten beri** var; plan (2026-08-10) **bir ay geriden** geliyordu |
+>
+> **Plan ne diyordu:** *"`MaybeDailyBackupAsync` her 15 sn'de çalışıyor; saatte bir yeterli."*
+> **Gerçek:** metot her tick'te **çağrılıyor** ama ilk satırında dönüyor — *"çağrılıyor"* ile
+> *"iş yapıyor"* karıştırılmış. İki katmanlı koruma var: **saatlik kısıt** + **günlük kısıt**
+> (`hasToday`). 15 sn'de gerçekten çalışan iş bir `DateTime` çıkarma+karşılaştırmadır; pahalı
+> işler (yetki kontrolü, `ListBackups()` disk taraması, yedekleme, buluta yükleme) **zaten
+> saatlik kısıtın arkasındadır**.
+>
+> **Kod değişikliği yapılmadı · yeni test gerekmedi · `SNK-02` ve `SNK-03` davranışları
+> değiştirilmedi · migration/API/`.csproj`/yeni bağımlılık yok.**
+>
+> Ayrıntılı kayıt + yanlış varsayım dersi:
+> [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §6.3 ve §13.
 
 **ID:** `PRT-01`
 **Başlık:** Tam ekran parite denetimi (alan/işlev düzeyinde)
@@ -510,7 +528,44 @@ Analizde yalnız **ad düzeyinde** yapılabildi.
 Sonucu yeni iş kalemleri doğurur.
 **Öncelik:** P1 · **Bağımlılık:** Yok · **Migration:** ❌ · **Maliyet:** Orta
 **Çıktı:** `PROJE_GENEL_DURUM_ANALIZI.md` §4-5 güncellenir + yeni işler bu dosyaya eklenir
-**DURUM:** `ANALİZ BEKLİYOR`
+**DURUM:** 🔵 `DEVAM EDİYOR` — envanter + **Grup 1 (stok) tamamlandı**, kalan 5 grup bekliyor
+
+> ### Envanter sonucu (2026-08-10, koddan)
+> Web **43 sayfa / 47 route** · Masaüstü **38 menü hedefi** (+5 menü dışı).
+> Web'de olup masaüstünde olmayan **7 ekran** — yedisi de `IsSuperAdmin` kapılı sunucu yönetim
+> ekranı → **kasıtlı**, parite kusuru değil. Masaüstünde olup web'de olmayan: "Hakkında" (P3),
+> Eşitleme penceresi (doğası gereği masaüstü).
+> **Kolon paritesi yapısal olarak garantili:** web `<Compile Include="…Application/Ui/ListColumns.cs">`
+> ile masaüstüyle **aynı dosyayı** derliyor (İş #10, 2026-08-09).
+> Yetki modülleri 12 ana ekranın **11'inde birebir aynı**.
+>
+> ### ✅ GRUP 1 — Stok ekranları (Giriş-Çıkış · Hareketler · Sayım) — commit `8bf27cb`
+> 18 kategorilik derin karşılaştırma yapıldı; 9 fark bulundu, **6'sı giderildi**.
+>
+> | Bulgu | Durum | Doğrulama |
+> |---|---|---|
+> | **G1-01** Web'de mevcut bakiye gösterilmiyordu | ✅ **TAMAMLANDI** | Gerçek tarayıcı QA: "Mevcut stok: 137.5" = API değeri |
+> | **G1-03** Sayımda fark=0 satırları gönderilmiyordu | ✅ **TAMAMLANDI** | Gerçek HTTP QA: fark=0 satırı raporda, adjustment üretmedi |
+> | **G1-04** Web'de alt kategori alanı yoktu | ✅ **TAMAMLANDI** | Gerçek tarayıcı QA: kaskad + kayıtta alt kategori ID'si |
+> | **G1-05(a)** Web `operationId` göndermiyordu | ✅ **TAMAMLANDI** | Gerçek HTTP QA: aynı jetonla 2 istek → bakiye **bir kez** düştü |
+> | **G1-07** Hareketlerde hata sessizce boş liste görünüyordu | ✅ **TAMAMLANDI** | Gerçek tarayıcı QA: API kapalıyken uyarı, açılınca temizlendi |
+> | **G1-02** Masaüstünde toplu sayım yoktu | ⚠️ **KOD TAMAM — GUI QA YAPILAMADI** | Kod + servis/veri katmanı doğrulandı (build + 1057 test + gerçek HTTP); **masaüstü sepet UI davranışı çalışırken GÖZLENEMEDİ** |
+>
+> **Uygulamada `StockService` / `ReportService` DEĞİŞMEDİ**; migration, `.csproj`, yeni bağımlılık
+> ve `tests/` değişikliği yok. API sözleşmesi yalnız **genişledi** (opsiyonel `OperationId`).
+>
+> ### ⏳ Grup 1'den AÇIK KALANLAR (tamamlanmadı)
+> | # | Konu | Durum |
+> |---|---|---|
+> | **G1-06** | Web başarı mesajları masaüstüne göre az ayrıntılı (P3) | ⏳ **AÇIK** |
+> | **G1-08** | Web sayım ekranında "son düzeltmeler" listesi yok (P3) | ⏳ **AÇIK** |
+> | **G1-09** | Hareketlerde "Yön" ayrı kolon değil (P3) | ⏳ **AÇIK** — değişiklik **önerilmedi** (işlevsel eşdeğer) |
+> | — | **Hareketsiz belge idempotency boşluğu:** tamamı fark=0 olan sayım `stock_movements` üretmediği için `FindDocumentByOperation` belgeyi bulamaz → aynı jetonla tekrar gönderilirse ikinci belge oluşur | ⏳ **AÇIK** — `StockService` değişikliği ister, kapsam dışı bırakıldı |
+> | — | **G1-02 GUI QA** — 6 senaryo (tek satır, çoklu, aynı malzeme tekrar, satır silme, fark=0, boş sepet) | ⏳ **AÇIK** |
+>
+> ### Kalan gruplar (henüz başlanmadı)
+> 2 Malzemeler+Şablonlar · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/Günlük ·
+> 6 Yönetim ekranları
 
 **ID:** `PRT-02`
 **Başlık:** Ekran adı eşleme tablosu
@@ -943,7 +998,8 @@ KLT-01 (eksik kilitler) ──────── bağımsız
 SNK-01 ❌ İPTAL (koruma zaten vardı)
 SNK-02 ✅ UYGULANDI (seçici kadans 2a)
    └─► SNK-03 ✅ UYGULANDI (sınıflandırmalı backoff)
-SNK-04 ───────────────────────── bağımsız  ◄ sıradaki aday (varsayımı doğrulanacak)
+SNK-04 ❌ ZATEN YAPILMIŞ (koruma b2604de ile mevcut)
+   ► FAZ 1 senkron optimizasyonu (SNK-01…04) TAMAMLANDI
 
 PRT-01 (parite denetimi) ─────── bağımsız
    └─► PRT-02 (ad eşleme)
@@ -994,8 +1050,8 @@ GNL-01 (mükerrer uyarı) ──────── bağımsız (LOG-01'e hazır 
 | 5 | ~~`SNK-01`~~ | Değişiklik yoksa push yapma — ❌ **İPTAL** (koruma zaten vardı) | 1 |
 | 6 | ~~`SNK-02`~~ | Seçici senkron kadansı (2a) — ✅ **TAMAMLANDI** | 1 |
 | 7 | ~~`SNK-03`~~ | Exponential backoff — ✅ **TAMAMLANDI** | 1 |
-| 8 | **`SNK-04`** | **Günlük yedeği ayır** ◄ SIRADAKİ (onay bekliyor) | 1 |
-| 9 | `PRT-01` | Tam parite denetimi | 1 |
+| 8 | ~~`SNK-04`~~ | Günlük yedeği ayır — ❌ **ZATEN YAPILMIŞ** (koruma mevcut) | 1 |
+| 9 | **`PRT-01`** | **Tam parite denetimi** — 🔵 Grup 1 (stok) ✅ `8bf27cb`, kalan 5 grup | 1 |
 | 10 | `PRT-02` | Ekran adı eşleme | 1 |
 | 10b | **`YET-01`** | **Yetki modeli KARARI (TMZ-02 dahil)** ← FAZ 2'nin kapısı | 2 |
 | 11 | `BRM-01` | Personel birimi | 2 |
@@ -1119,11 +1175,16 @@ yapılmadı** (araç sınırı + kullanıcının gerçek yerel veritabanına yaz
 
 ### ⏭️ Sıradaki iş — ÖNERİ (onay bekliyor)
 
-**`SNK-04` — Günlük yedeği senkron turundan ayırma (FAZ 1).** FAZ 1'in kalan son maddesi.
-⚠️ **Varsayımı DOĞRULANMAMIŞ:** `SNK-01` analizi sırasında `MaybeDailyBackupAsync` içinde zaten
-saatlik kısıt göründü → `SNK-01` gibi "zaten yapılmış" çıkabilir.
-**Başlamadan önce:** kullanıcı onayı + `SNK-04` detay analizi (kapsam koddan yeniden çıkarılmalı —
-plan kapsamı `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı).
+**✅ FAZ 1 — senkron optimizasyonu (SNK-01…04) TAMAMLANDI (2026-08-10).**
+
+**`PRT-01` — Tam ekran parite denetimi (FAZ 1).** FAZ 1'in kalan işi: 43 web + 38 masaüstü
+ekranın alan/işlev/validasyon/yetki düzeyinde karşılaştırılması (genel analizde yalnız **ad
+düzeyinde** yapılabilmişti).
+**Başlamadan önce:** kullanıcı onayı + `PRT-01` detay analizi (kapsam koddan çıkarılmalı —
+plan kapsamı `KLT-01`'de üç, `SNK-01` ve `SNK-04`'te birer kez yanlış çıktı).
+
+**`SNK-04` ❌ ZATEN YAPILMIŞ / İPTAL (2026-08-10)** — saatlik koruma `b2604de` (2026-07-11) ile
+metodun oluşturulduğu commit'ten beri mevcut; §5'e bakınız. Kod değişikliği yapılmadı.
 
 **`SNK-03` ✅ TAMAMLANDI (2026-08-10)** — sınıflandırmalı backoff (B2); §5'e bakınız.
 ⚠️ Açık doğrulama: çalışma zamanı/HTTP davranışı GUI/QA ortamı sınırı nedeniyle gözlenmedi.
@@ -1229,10 +1290,10 @@ idempotent retry · çevrimdışı kalıcılık · update rollback
 
 **`SNK-04` — Günlük yedeği senkron turundan ayırma (FAZ 1).** ⚠️ **ÖNERİ — onay alınmadan başlanmaz.**
 
-FAZ 0'ın kod tarafı bitti (`MLZ-01` ✅, `KLT-01` ✅). FAZ 1'de `SNK-01` **İPTAL** (koruma zaten
-mevcuttu), `SNK-02` **TAMAMLANDI** (seçici kadans 2a), `SNK-03` **TAMAMLANDI** (sınıflandırmalı
-backoff) → FAZ 1'in kalan son maddesi **`SNK-04`**'tür; `YET-01` kararını beklemez.
-⚠️ `SNK-04`'ün varsayımı doğrulanmamıştır (saatlik koruma zaten mevcut olabilir).
+FAZ 0'ın kod tarafı bitti (`MLZ-01` ✅, `KLT-01` ✅). **FAZ 1'in senkron optimizasyonu bölümü
+(SNK-01…04) TAMAMLANDI:** `SNK-01` ❌ İPTAL (koruma zaten mevcuttu) · `SNK-02` ✅ (seçici kadans 2a) ·
+`SNK-03` ✅ (sınıflandırmalı backoff) · `SNK-04` ❌ ZATEN YAPILMIŞ (koruma zaten mevcuttu) →
+FAZ 1'in kalan işi **`PRT-01`**'dir; `YET-01` kararını beklemez.
 
 **`SNK-02` ve `SNK-03`'ten devreden açık doğrulama:** çalışma zamanı/HTTP davranışı
 GUI/etkileşimli oturum sınırı nedeniyle gözlenmedi. Ayrı bir tur olarak (kullanıcının kendi
@@ -1240,11 +1301,11 @@ oturumunda) tamamlanabilir.
 
 > Kalıcı analiz kuralı: bkz. [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) §12.5
 > — `version++` + `expectedVersion` yokluğu TEK BAŞINA concurrency açığı demek DEĞİLDİR.
-> Aynı disiplin `SNK-04`'te de uygulanır: **plandaki kapsam varsayımları koddan yeniden doğrulanır.**
-> Plan kapsamı `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı; `SNK-02`'de plan kapsamı
-> **kullanıcı kararıyla daraltıldı** (ADR-099 ile çelişiyordu). `SNK-01`'in özel dersi:
-> **bir madde "zaten yapılmış" olabilir** — çağrı akışını uçtan uca izle ve `git log -S` ile
-> kodun geçmişine bak (§13).
+> Aynı disiplin `PRT-01`'de de uygulanır: **plandaki kapsam varsayımları koddan yeniden doğrulanır.**
+> Plan kapsamı `KLT-01`'de üç kez yanlış çıktı; `SNK-02`'de **kullanıcı kararıyla daraltıldı**
+> (ADR-099 ile çelişiyordu); **`SNK-01` ve `SNK-04`'te ise madde ZATEN YAPILMIŞ çıktı.**
+> Özel ders: **bir madde "zaten yapılmış" olabilir** — çağrı akışını uçtan uca izle ve
+> `git log -S` ile kodun geçmişine bak (§13). Bu iki kez tekrarlandı.
 
 Kullanıcı **"sıradaki iş"** dediğinde:
 1. Önce [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md) okunur, sonra `git status`/`git log`

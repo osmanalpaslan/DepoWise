@@ -75,7 +75,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | Faz | İçerik | Durum |
 |---|---|---|
 | **FAZ 0** | Canlıya geçiş öncesi zorunlu düzeltmeler (GUV-01, DOG-01, MLZ-01, KLT-01) | 🔵 **AKTİF** — kod işleri (MLZ-01 ✅, KLT-01 ✅) **bitti**; kalan iki madde **kullanıcı aksiyonu** (GUV-01, DOG-01) |
-| FAZ 1 | Senkron optimizasyonu + parite (SNK-01…04, PRT-01, PRT-02) | 🔵 **AKTİF** — SNK-01 ❌ iptal · SNK-02 ✅ · SNK-03 ✅ · sırada SNK-04 |
+| FAZ 1 | Senkron optimizasyonu + parite (SNK-01…04, PRT-01, PRT-02) | 🔵 **AKTİF** — senkron (SNK-01…04) BİTTİ · **PRT-01 Grup 1 (stok) ✅** `8bf27cb` · sırada PRT-01 Grup 2 |
 | FAZ 2 | Yetki ağacı (YET-01 kapı → BRM-01, YTK-01…04) | BEKLEMEDE |
 | FAZ 3 | Gerçek kayıt kilidi (KLT-02, KLT-03, KLT-04) | BEKLEMEDE |
 | FAZ 4 | Depo bazlı stok (STK-01…07) | BEKLEMEDE |
@@ -104,8 +104,8 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | ~~SNK-01~~ | ~~Değişiklik yoksa push yapma~~ | 1 | ❌ **İPTAL** *(2026-08-10)* — koruma zaten mevcut (`c8d3dc7`) | — | — | ✅ | — | — | — |
 | **SNK-02** | Seçici kadans *(daraltıldı — 2a)* | 1 | ✅ **UYGULANDI / KOD DOĞRULANDI** — ⚠️ gerçek HTTP QA yapılamadı | P1 | — | ✅ | ✅ | ✅ 1057/1024/0/33 · ⚠️ kadans **ölçülmedi** | `0501729` |
 | **SNK-03** | Hata halinde exponential backoff | 1 | ✅ **TAMAMLANDI / UYGULANDI** — ⚠️ çalışma zamanı QA yapılamadı | P1 | SNK-02 ✅ | ✅ | ✅ | ✅ 1057/1024/0/33 | *(bu commit)* |
-| SNK-04 | Günlük yedeği senkron turundan ayırma | 1 | BEKLEMEDE — ⚠️ varsayım **doğrulanacak** (saatlik koruma zaten var olabilir) | P2 | — | kısmi | ❌ | ❌ | — |
-| PRT-01 | Tam ekran parite denetimi | 1 | ANALİZ BEKLİYOR | P1 | — | ❌ | ❌ | ❌ | — |
+| ~~SNK-04~~ | ~~Günlük yedeği senkron turundan ayırma~~ | 1 | ❌ **ZATEN YAPILMIŞ / İPTAL** *(2026-08-10)* — saatlik koruma `b2604de` ile mevcut | — | — | ✅ | — | — | — |
+| **PRT-01** | Tam ekran parite denetimi | 1 | 🔵 **DEVAM EDİYOR** — envanter + Grup 1 (stok) ✅, kalan 5 grup | P1 | — | ✅ | kısmi | ✅ 1057/1024/0/33 | `8bf27cb` |
 | PRT-02 | Ekran adı eşleme | 1 | BEKLEMEDE | P2 | PRT-01 | ❌ | ❌ | ❌ | — |
 | **YET-01** | **Yetki modeli KARARI** | 2 | **KARAR BEKLİYOR** | P1 | — | ✅ | ❌ | ❌ | — |
 | TMZ-02 | BranchService + user_scopes | 2 | ERTELENDİ→YET-01 | P1 | YET-01 | ✅ | ❌ | ❌ | — |
@@ -293,6 +293,41 @@ görüntülenemiyor; ayrıca `DepoWise.Desktop` test projesinde referanslı değ
 
 ---
 
+## 6.3 ❌ `SNK-04` — ZATEN YAPILMIŞ / İPTAL (2026-08-10)
+
+**Durum: `ZATEN YAPILMIŞ / İPTAL`** — planın istediği koruma kodda **zaten mevcuttu**.
+
+**Plan ne diyordu:** *"`MaybeDailyBackupAsync` her 15 sn'de çalışıyor; saatte bir yeterli."*
+
+**Koddan kanıt:**
+
+| Kanıt | İçerik |
+|---|---|
+| `ShellViewModel.cs:410` | Metodun **İLK** satırı: `if ((DateTime.UtcNow - _lastBackupCheck).TotalHours < 1) return;` |
+| `git log -S "_lastBackupCheck"` | **`b2604de` · 2026-07-11** — tek commit |
+| `git log -S "MaybeDailyBackupAsync"` | **`b2604de` · 2026-07-11** — **aynı** commit |
+
+Saatlik koruma, `MaybeDailyBackupAsync` metodunun **oluşturulduğu commit'ten beri** mevcut;
+sonradan kaldırılıp geri konmamış. Plan **2026-08-10**'da yazıldı → **plan yazılmadan önce
+zaten karşılanmıştı** (bir ay geriden geliyordu).
+
+**Gerçek çalışma akışı — iki katmanlı koruma:**
+1. **Saatlik kısıt** (satır 410): saatteki 240 tick'in **239'u** anında dönüyor.
+2. **Günlük kısıt** (`hasToday`): bugün yedek varsa iş yapılmıyor.
+
+15 sn'de gerçekten çalışan iş: **bir `DateTime` çıkarma + karşılaştırma**. Pahalı işler
+(yetki kontrolü, `ListBackups()` disk taraması, yedekleme, buluta yükleme) **zaten saatlik
+kısıtın arkasında**.
+
+**Sonuç:** Kod değişikliği **yapılmadı** · yeni test **gerekmedi** ·
+**`SNK-02` ve `SNK-03` davranışları değiştirilmedi** · migration/API/`.csproj`/bağımlılık yok.
+
+*(Kapsam dışı, `SNK-04`'ün sonucu DEĞİL — analiz sırasında yolun üstünde görüldü, iş açılmadı:
+bulut yüklemesi başarısız olursa istisna sessizce yutuluyor ve `hasToday` **yerel** yedeğe
+baktığı için o gün tekrar denenmiyor.)*
+
+---
+
 ## 7. SIRADAKİ İŞ
 
 **⏳ KULLANICI KARARI BEKLİYOR — kod işi başlatılmadı.**
@@ -304,13 +339,50 @@ kullanıcı aksiyonudur, Claude tamamlayamaz.
 **`SNK-02` uygulandı ve kapandı (2026-08-10)** — bkz. §6.1 (HTTP QA doğrulama sınırı dahil).
 **`SNK-03` uygulandı ve kapandı (2026-08-10)** — bkz. §6.2.
 
-**Sıradaki aday: `SNK-04` — günlük yedeği senkron turundan ayırma.**
-⚠️ Bu maddenin varsayımı **doğrulanmamıştır**: `SNK-01` analizi sırasında `MaybeDailyBackupAsync`
-içinde **zaten saatlik kısıt** göründü — `SNK-01` gibi "zaten yapılmış" çıkabilir.
+**`SNK-04` analiz edildi ve ZATEN YAPILMIŞ / İPTAL olarak kapatıldı (2026-08-10)** — bkz. §6.3.
 
-**Başlamadan önce gereken:** kullanıcı onayı + `SNK-04` için **detay analiz** (kapsam koddan
-yeniden çıkarılmalı — plan varsayımları `KLT-01`'de üç, `SNK-01`'de bir kez yanlış çıktı; bkz.
-§12.5 ve §13'ün altındaki kalıcı ders).
+### ✅ FAZ 1 — senkron optimizasyonu (SNK-01…04) TAMAMLANDI
+`SNK-01` ❌ · `SNK-02` ✅ · `SNK-03` ✅ · `SNK-04` ❌ — dört maddenin tamamı sonuçlandı.
+
+### 🔵 `PRT-01` DEVAM EDİYOR — Grup 1 (stok) tamamlandı, commit **`8bf27cb`** (2026-08-10)
+
+**Envanter (koddan):** Web 43 sayfa / 47 route · Masaüstü 38 menü hedefi. Web'de olup masaüstünde
+olmayan **7 ekranın yedisi de `IsSuperAdmin`** kapılı → **kasıtlı**, kusur değil. Kolon kataloğu
+**tek dosya** (web aynı dosyayı `Compile Include` ile derliyor) → kolon paritesi yapısal garanti.
+Yetki modülleri 12 ekranın 11'inde birebir aynı.
+
+**Grup 1 — Stok Giriş-Çıkış · Hareketler · Sayım:** 18 kategori karşılaştırıldı, 9 fark bulundu,
+**6'sı giderildi** (`8bf27cb`, 6 dosya, +257/−27).
+
+| Bulgu | Durum | Doğrulama düzeyi |
+|---|---|---|
+| **G1-01** web'de bakiye gösterilmiyordu | ✅ | **gerçek tarayıcı QA** — "Mevcut stok: 137.5" = API |
+| **G1-03** sayımda fark=0 gönderilmiyordu | ✅ | **gerçek HTTP QA** — fark=0 raporda, adjustment yok |
+| **G1-04** web'de alt kategori yoktu | ✅ | **gerçek tarayıcı QA** — kaskad + kayıtta alt ID |
+| **G1-05(a)** web `operationId` göndermiyordu | ✅ | **gerçek HTTP QA** — aynı jeton, bakiye 1 kez düştü |
+| **G1-07** hata sessizce boş liste görünüyordu | ✅ | **gerçek tarayıcı QA** — uyarı çıktı, sonra temizlendi |
+| **G1-02** masaüstünde toplu sayım yoktu | ⚠️ | **Kod + servis/veri katmanı doğrulandı; masaüstü sepet UI davranışı GUI üzerinde GÖZLENEMEDİ** |
+
+`StockService` / `ReportService` **değişmedi** · migration/`.csproj`/dependency/`tests` **yok** ·
+API sözleşmesi yalnız **genişledi** (opsiyonel `OperationId`).
+
+**⏳ Grup 1'den AÇIK KALANLAR:** `G1-06` (başarı mesajları, P3) · `G1-08` (son düzeltmeler listesi,
+P3) · `G1-09` (Yön kolonu, P3 — değişiklik **önerilmedi**) · **hareketsiz belge idempotency boşluğu**
+(tamamı fark=0 sayım `stock_movements` üretmediği için aynı jetonla ikinci belge oluşabilir —
+`StockService` değişikliği ister, kapsam dışı) · **G1-02 GUI QA'nın 6 senaryosu**.
+
+**Kalan gruplar:** 2 Malzemeler+Şablonlar · 3 Bakım+Yakıt · 4 Talepler · 5 Araç/Muayene/Personel/
+Günlük · 6 Yönetim ekranları.
+
+---
+
+**Sıradaki aday: `PRT-01` Grup 2 (Malzemeler + Şablonlar).**
+FAZ 1'in kalan işi. 43 web + 38 masaüstü ekranın alan/işlev/validasyon/yetki düzeyinde
+karşılaştırılması; genel analizde yalnız **ad düzeyinde** yapılabilmişti.
+
+**Başlamadan önce gereken:** kullanıcı onayı + `PRT-01` için **detay analiz** (kapsam koddan
+çıkarılmalı — plan varsayımları `KLT-01`'de üç, `SNK-01` ve `SNK-04`'te birer kez yanlış çıktı;
+bkz. §12.5 ve §13'ün altındaki kalıcı ders).
 
 ---
 
@@ -325,9 +397,11 @@ yeniden çıkarılmalı — plan varsayımları `KLT-01`'de üç, `SNK-01`'de bi
    ↓
 ✅ SNK-03 UYGULANDI (sınıflandırmalı backoff) — ⚠️ çalışma zamanı QA yapılamadı (§6.2)
    ↓
-SNK-04  (senkron optimizasyonu)  ◄ SIRADAKİ ADAY: SNK-04 (varsayımı doğrulanacak)
+❌ SNK-04 ZATEN YAPILMIŞ (saatlik koruma b2604de ile mevcut, 2026-07-11)
    ↓
-PRT-01/02  (parite denetimi)
+✅ FAZ 1 — SENKRON OPTİMİZASYONU (SNK-01…04) TAMAMLANDI
+   ↓
+🔵 PRT-01 Grup 1 (stok) ✅ 8bf27cb — kalan 5 grup  ◄ SIRADAKİ: Grup 2 (Malzemeler)
    ↓
 YET-01     (yetki modeli KARARI — FAZ 2'nin kapısı, TMZ-02 dahil)
 ```
@@ -521,6 +595,7 @@ Bundan sonra her concurrency adayı **şu sırayla** değerlendirilecek:
 | 2026-08-10 | **KLT-01e** | Yakıt ve stok iptal/ters kayıt korumaları **zaten kapsamlı test ediliyor**: `FuelCancelTests` (14 test, çift iptal + yetki + tenant + negatif bakiye dahil), `StockConcurrencyTests` (11 test, CAS + retry + iptal), `StockOperationTests` (idempotent ikinci iptal, transfer geri alınamaz, eşzamanlı çıkış). **KLT-01e'nin gerekçesi ortadan kalktı → İPTAL EDİLDİ** | ❌ *"Yakıt/stok korumaları çalışıyor ama TEST EDİLMİYOR"* — **YANLIŞTI.** Sebep: tarama mekanikti (`grep "Concurrency\|version"`); testler Türkçe adlandırıldığı için (`Iptal_edilen_kayit_TEKRAR_IPTAL_EDILEMEZ`) aramaya takılmadı. **Ders: dosya adlarına değil, TEST ADLARINA bakılmalı.** |
 
 | 2026-08-10 | **SNK-01** | **Planlanan koruma KODDA ZATEN VAR.** `BusinessSyncPushService.cs:55` → `if (localV <= pushWm) return;` — yerel değişiklik yoksa snapshot hiç üretilmiyor, push HTTP isteği hiç atılmıyor. Mekanizma **`c8d3dc7` commit'i ile 2026-07-19'da** eklenmiş; plan ise 2026-08-10'da yazıldı → plan **22 gün geriden** geliyordu. Yapılacak kod değişikliği **yok**, performans kazancı **sıfır**. Boştaki gerçek trafik (tick başına **5** istek: `/health`, `/api/machines/register`, `/api/me/authsig`, `/api/sync/business-version`, `/api/sync/conflicts/unseen`) push'tan değil **aralığın kendisinden** kaynaklanıyor → bu **`SNK-02`**'nin konusu. → **İPTAL** | ⚠️ *"Yerel değişiklik yoksa push HTTP isteği hiç yapılmasın"* (DURUM: BEKLEMEDE) — **ZATEN YAPILMIYORDU.** Planın *"15 sn'de ~5-6 istek, çoğu boşa"* tespiti **doğru**; ama önerdiği çare (push'u atla) **zaten uygulanmıştı** ve o 5 isteğin **hiçbirine** dokunmuyor. **Ders: bir plan maddesi, kodun mekanik olarak aranmasıyla değil, GERÇEK DAVRANIŞ ve ÇAĞRI AKIŞI (timer → hangi metotlar → hangi HTTP istekleri) baştan sona izlenerek değerlendirilmelidir.** Bu kez hata "koruma yok" sanmaktı; oysa koruma vardı ve `git log -S` ile tarihi bile bulunabiliyordu |
+| 2026-08-10 | **SNK-04** | **Planlanan koruma KODDA ZATEN VAR — ikinci kez.** `ShellViewModel.cs:410` → `if ((DateTime.UtcNow - _lastBackupCheck).TotalHours < 1) return;` metodun **İLK** satırı. Saatlik kısıt, `MaybeDailyBackupAsync`'in **oluşturulduğu commit'te** eklenmiş: **`b2604de` · 2026-07-11**; plan 2026-08-10'da yazıldı → plan **bir ay geriden** geliyordu. 15 sn'de gerçekten çalışan iş yalnız bir `DateTime` çıkarma+karşılaştırma; pahalı işler (yetki kontrolü, `ListBackups()` disk taraması, yedekleme, buluta yükleme) **zaten saatlik kısıtın arkasında**. Ayrıca ikinci katman günlük kısıt (`hasToday`) var. **Kod değişikliği yapılmadı, yeni test gerekmedi, SNK-02 ve SNK-03 davranışları değiştirilmedi.** → **ZATEN YAPILMIŞ / İPTAL** | ⚠️ *"`MaybeDailyBackupAsync` her 15 sn'de çalışıyor; saatte bir yeterli"* (DURUM: BEKLEMEDE) — **ZATEN SAATTE BİR ÇALIŞIYORDU.** Metot her tick'te **çağrılıyor** ama ilk satırında dönüyor; "çağrılıyor" ile "iş yapıyor" karıştırılmış. **Ders (SNK-01 ile aynı, ikinci kez doğrulandı): bir plan maddesi, çağrı akışı uçtan uca izlenerek ve `git log -S` ile kod geçmişine bakılarak değerlendirilmelidir.** |
 
 > **Kural:** Plan yanlış çıkarsa **sessizce düzeltilmez** — "önceki varsayım yanlıştı → kod
 > incelemesi sonucu gerçek durum budur" biçiminde kaydedilir. Yukarıdaki tablo bunun kaydıdır.
