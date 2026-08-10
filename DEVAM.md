@@ -1,4 +1,20 @@
-﻿# DEVAM — Nerede Kaldım? (Sıfır PC İçin Giriş Dosyası)
+﻿> # ⤴ GÜNCEL DURUM BURADA DEĞİL
+>
+> **2026-08-10'dan itibaren projenin güncel durumu ve ilerleme kaydı
+> → [docs/PROJE_DURUMU_VE_ILERLEME.md](docs/PROJE_DURUMU_VE_ILERLEME.md)** dosyasındadır.
+>
+> "Nerede kaldık, ne bitti, sırada ne var, hangi kararlar alındı" sorularının cevabı **orada**.
+> İş ayrıntıları ve bağımlılıklar ise **[PROJE_GELISTIRME_PLANI.md](PROJE_GELISTIRME_PLANI.md)**
+> dosyasındadır (bağlayıcı olan odur).
+>
+> **Bu dosya neden duruyor?** Aşağıdaki içerik projenin **geçmiş kaydıdır** ve başka hiçbir yerde
+> yoktur; silinmedi. Ancak **artık güncellenmiyor** — aşağıdaki bilgiler
+> **tasarım paketi dönemine (2026-08-09 ve öncesi) aittir** ve MLZ-01 / KLT-01 çalışmalarını
+> **içermez**. Güncel bilgi için yukarıdaki dosyaya bakınız.
+
+---
+
+# DEVAM — Nerede Kaldım? (Sıfır PC İçin Giriş Dosyası) — *arşiv*
 
 > **Bu dosya, hangi bilgisayarda olursam olayım açtığımda ilk okuduğum yerdir.**
 > Amaç: format atsam, PC değiştirsem, aylar sonra dönsem bile "ne yaptık, sırada ne var"

@@ -8,11 +8,11 @@
 
 ```
 AKTİF AŞAMA:         FAZ 0 — Canlıya geçiş öncesi zorunlu düzeltmeler
-AKTİF İŞ ID:         KLT-01
-AKTİF İŞ:            Eksik düzenleme kilitleri (yakıt, stok belgeleri, muayene, kullanıcılar)
-DURUM:               BEKLEMEDE — geliştirmeye hazır
-SON TAMAMLANAN İŞ:   MLZ-01 — Malzeme silmede stok/kullanım koruması (2026-08-10)
-SONRAKİ İŞ:          SNK-01 — Değişiklik yoksa push yapma
+AKTİF İŞ ID:         KLT-01 (alt iş: KLT-01a sırada)
+AKTİF İŞ:            Eksik iyimser düzenleme kilitleri
+DURUM:               KLT-01c TAMAMLANDI (commit EDİLMEDİ) — sırada KLT-01a
+SON TAMAMLANAN İŞ:   KLT-01c — Yetki kaydetmede düzenleme kilidi (2026-08-10)
+SONRAKİ İŞ:          KLT-01a — RequestOperationsService (ChangeStatus, UpdateShipmentInfo)
 BEKLEYEN KARAR:      KARAR-4 (bakımda negatif stok ↔ onay) — FAZ 5'e kadar beklenebilir
                      YET-01 (yetki modeli) — FAZ 2'ye girmeden ÖNCE gerekli
 SON GÜNCELLEME:      2026-08-10 (yetki mimarisi analizi; TMZ-02 → YET-01'e bağlandı)
@@ -333,7 +333,7 @@ kontrolü yok, ve gerçek bir düzenleme yolu var):**
 |---|---|---|---|
 | **`KLT-01a`** | `RequestOperationsService.ChangeStatus` + `UpdateShipmentInfo` | Talep operasyon durumu ve sevkiyat bilgisi — iki kullanıcı aynı talebi işlerken **sessiz eziyor** | **P1** |
 | **`KLT-01b`** | `LookupService.Rename` (birim, marka, tedarikçi, kategori…) | Tanım yeniden adlandırma çakışması | P2 |
-| **`KLT-01c`** | `PermissionService.SaveForUser` | 🔴 **En ciddi.** `DELETE hepsi + INSERT hepsi` deseni, version kontrolü yok → iki admin aynı kullanıcının yetkisini düzenlerse **ikincisi birincisinin verdiği yetkiyi tamamen siler**, uyarı yok. Güvenlik etkisi var. | **P1** |
+| **`KLT-01c`** | `PermissionService.SaveForUser` | ✅ **TAMAMLANDI (2026-08-10)** — aşağıya bakınız | **P1** |
 | **`KLT-01d`** | `MaterialTemplateService`, `PersonnelTitleService`, `CompanyService` | Tanım/şablon düzenleme | P2 |
 
 **Ayrıca doğrulanan bir tuhaflık:** `users` tablosunda `version` kolonu **var ama hiç
@@ -350,6 +350,40 @@ gerçek risk `KLT-01c`'deki toplu yetki değişimidir.
 **Test gereksinimi:** Her alt iş için "aynı version ile iki kayıt → ikincisi 409" ·
 farklı kayıtlar birbirini engellemiyor · conflict'te yarım veri yazılmıyor (transaction) ·
 `KLT-01c` için "iki admin aynı kullanıcının yetkisini düzenler → ikincisi uyarı alır"
+
+---
+
+#### ✅ `KLT-01c` TAMAMLANDI (2026-08-10) — commit EDİLMEDİ
+
+**Seçilen çözüm:** Yetki kümesinin eşzamanlılık jetonu **`users.version`**.
+
+**Neden bu (üç seçenek değerlendirildi):**
+| Seçenek | Değerlendirme |
+|---|---|
+| `user_permissions` satır sürümü | ❌ **İşe yaramaz** — kayıt "sil + yeniden yaz" olduğu için satırlar zaten yok ediliyor; satır sürümü KÜMEYİ koruyamaz. |
+| Mevcut kümeden parmak izi/hash | ❌ Şema değişikliği istemez ama kırılgan ve projenin `EditLockGuard` desenine yabancı. |
+| **`users.version`** | ✅ **Seçildi.** Kolon şemada **zaten vardı**, iki lehçede de mevcut → **migration YOK**. Yetki kümesinin sahibi kullanıcı kaydıdır (doğru sahiplik noktası). Koddan doğrulandı: kolonun **hiçbir okuyucusu yok**, hiç artırılmıyordu ve senkron upsert'i (`ImportServerUser` `ON CONFLICT DO UPDATE`) `version`'a **dokunmuyor** → jeton geri gitmiyor, hiçbir mevcut davranış bozulmuyor. |
+
+**Uygulama:** `GetForUser` sürümü döndürür → API `version` alanıyla taşır → web/masaüstü ekranı
+tutar → `SaveForUser`'a geri gönderilir. Sürüm artırma + kontrol, **silme/yazmadan hemen önce ve
+aynı transaction içinde**; çakışmada hiçbir DELETE/INSERT çalışmaz (kısmi yazma imkânsız).
+`expectedVersion = null` → kontrol yok (yeni kullanıcı oluşturma akışı ve eski istemciler bozulmaz).
+
+**Değişen dosyalar (5 + 1 test):** `PermissionService.cs` · `Program.cs` (API GET/POST + DTO) ·
+`OrgServerClient.cs` · `PermissionsViewModel.cs` · `Permissions.razor` ·
+`tests/PermissionConcurrencyTests.cs` (yeni, 8 test)
+
+**Testler:** 1033 toplam — **1000 geçti, 0 başarısız, 33 atlandı** (+8 yeni, regresyon yok).
+
+**UI davranışı:** Masaüstü, Şube ekranındaki kanıtlanmış deseni kullanır
+(*"Güncel yetkileri yükle / Ekranda kal"*) — yöneticinin işaretledikleri sorulmadan silinmez.
+Web'de değişiklik korunur, mesaj gösterilir.
+
+**Teknik bulgu (kapsam dışı, kaydedildi):** `RoleKeys` içinde `Warehouse`, `Manager`,
+`Operation`, `ReadOnly` sabitleri **tanımlı ama `RoleKeys.Seed`'de YOK** → veritabanında
+karşılıkları oluşmuyor, bu rollerle kullanıcı oluşturulamıyor (*"Rol bulunamadı"*).
+Kullanılan roller: SuperAdmin, RestrictedSuperAdmin, CompanyAdmin, Staff.
+**`YET-01` kapsamına aittir** (rol modeli kararı) — burada düzeltilmedi.
 
 > **KLT-01 ≠ gerçek kayıt kilidi.** KLT-01 mevcut **iyimser** korumayı (kaydederken 409)
 > eksik 4 servise yayar. Kullanıcının istediği *"ikinci kişi kayda giremesin, adı görünsün"*

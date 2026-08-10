@@ -1,4 +1,16 @@
-# Yarım Kalan İşler ve Testleri (Canlı Liste)
+> # ⤴ GÜNCEL BEKLEYEN İŞLER BURADA DEĞİL
+>
+> **2026-08-10'dan itibaren "sırada ne var" sorusunun cevabı
+> → [PROJE_DURUMU_VE_ILERLEME.md](PROJE_DURUMU_VE_ILERLEME.md)** (§4 İş Durum Tablosu, §7 Sıradaki İş).
+> İş ayrıntıları ve bağımlılıklar **[../PROJE_GELISTIRME_PLANI.md](../PROJE_GELISTIRME_PLANI.md)** dosyasında.
+>
+> **Bu dosya neden duruyor?** Aşağıdaki liste projenin **geçmiş kaydıdır**; silinmedi.
+> Ancak **artık güncellenmiyor** — 2026-08-09 ve öncesine aittir, MLZ-01 / KLT-01 çalışmalarını
+> **içermez**.
+
+---
+
+# Yarım Kalan İşler ve Testleri (Canlı Liste) — *arşiv*
 
 > **Bu dosya nedir?** "Yarıda kalan işlemler ne?" / "sırada ne var?" dediğinde bakılacak **tek liste**.
 > Her işin **hangi aşamaları** kaldığını ve **hangi testlerin** yapılacağını gösterir. Teknik bilgi gerektirmez.

@@ -1,4 +1,14 @@
-# 🗂️ Görev Panosu — Nerede Kaldık? (Çok Görevli Takip)
+> # ⤴ GÜNCEL GÖREV DURUMU BURADA DEĞİL
+>
+> **2026-08-10'dan itibaren aktif iş ve görev durumu
+> → [PROJE_DURUMU_VE_ILERLEME.md](PROJE_DURUMU_VE_ILERLEME.md)** (§4 İş Durum Tablosu, §6 Aktif İş).
+>
+> **Bu dosya neden duruyor?** Aşağıdaki pano **geçmiş kaydıdır** (PostgreSQL geçişi dönemi);
+> silinmedi ama **artık güncellenmiyor**.
+
+---
+
+# 🗂️ Görev Panosu — Nerede Kaldık? (Çok Görevli Takip) — *arşiv*
 
 > **Bu dosya ne işe yarar?** Aynı anda birden fazla bağımsız işi yürütürken, her işin **nerede kaldığını**
 > ve **sıradaki adımını** tek yerde tutar. "X işinde nerede kalmıştık?" / "Y'ye devam edelim" dediğinde
