@@ -41,11 +41,15 @@ public sealed class AuthService
 
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
+    /// <summary>F0 (YET-01): yetki fotoğrafı önbelleği. <c>null</c> → önbellek YOK, her çağrı veritabanından
+    /// okur (F0 öncesi davranışın birebir aynısı). Sunucu/masaüstü host'ları paylaşılan tek örnek verir.</summary>
+    private readonly PermissionSnapshotCache? _snapshots;
 
-    public AuthService(IDbConnectionFactory factory, IClock? clock = null)
+    public AuthService(IDbConnectionFactory factory, IClock? clock = null, PermissionSnapshotCache? snapshots = null)
     {
         _factory = factory;
         _clock = clock ?? new SystemClock();
+        _snapshots = snapshots;
     }
 
     public LoginResult Login(string companyId, string username, string password)
@@ -153,6 +157,17 @@ public sealed class AuthService
     public SessionContext? CreateSessionForUser(string companyId, string userId)
     {
         TenantGuard.Require(companyId);
+        // F0 (YET-01): fotoğraf önbellekten gelir; yoksa veritabanından okunup saklanır. Önbellek verilmemişse
+        // (null) doğrudan okunur → F0 öncesi davranış. Oturum nesnesi HER ÇAĞRIDA yeniden kurulur:
+        // OperatingBranchId isteğe özeldir, paylaşılamaz (bkz. PermissionSnapshot.ToSession).
+        if (_snapshots is null) return LoadSnapshot(companyId, userId)?.ToSession();
+        return _snapshots.GetOrLoad(companyId, userId, () => LoadSnapshot(companyId, userId))?.ToSession();
+    }
+
+    /// <summary>F0: oturum kurmak için gereken TÜM yetki verisini tek okumada toplar.
+    /// İçerik ve sıra <b>bilerek değiştirilmedi</b> — F0'ın amacı davranışı taşımak, değiştirmek değil.</summary>
+    private PermissionSnapshot? LoadSnapshot(string companyId, string userId)
+    {
         using var conn = _factory.Create();
 
         // Kullanıcının kendi (home) firmasını ve aktif olup olmadığını bul.
@@ -185,10 +200,14 @@ public sealed class AuthService
         }
 
         var perms = LoadPermissions(conn, userId);
-        return new SessionContext(userId, companyId, roles, perms, LoadViewAllBranches(conn, userId))
-        {
-            BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
-        };
+        return new PermissionSnapshot(
+            CompanyId: companyId,
+            UserId: userId,
+            RoleKeys: roles,
+            Permissions: perms,
+            CanViewAllBranches: LoadViewAllBranches(conn, userId),
+            BlockedModules: Organization.RoleGrantService.BlockedForRoles(conn, null, roles)); // Rol Yetki Kontrol
+        // ScopeBranchIds / ScopeUnitIds / AllowedRecordTypes: F4 ve F5'e AYRILMIŞ, F0'da doldurulmaz.
     }
 
     /// <summary>Verilen firma id'si var (ve silinmemiş) mi?</summary>

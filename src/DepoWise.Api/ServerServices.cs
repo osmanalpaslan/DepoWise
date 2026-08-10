@@ -16,6 +16,9 @@ namespace DepoWise.Api;
 public sealed class ServerServices
 {
     public IDbConnectionFactory Factory { get; }
+    /// <summary>F0 (YET-01) — yetki fotoğrafı önbelleği. Auth okur; Users/Permissions/RoleGrants geçersiz kılar.
+    /// TEK örnek olmak zorundadır, aksi halde yetki değişikliği yansımaz.</summary>
+    public DepoWise.Application.Security.PermissionSnapshotCache PermissionSnapshots { get; }
     public AuthService Auth { get; }
     public UserService Users { get; }
     public DepoWise.Infrastructure.Organization.CompanyService Companies { get; }
@@ -103,15 +106,19 @@ public sealed class ServerServices
         new MigrationRunner(Factory).Run();
 
         var clock = new SystemClock();
-        Auth = new AuthService(Factory, clock);
-        Users = new UserService(Factory, clock);
+        // F0 (YET-01): yetki fotoğrafı önbelleği — okuyan (Auth) ve geçersiz kılan (Users, Permissions,
+        // RoleGrants) servisler AYNI örneği paylaşmalıdır; aksi halde yetki değişimi yansımaz.
+        // Sunucuda en kritik yer burasıdır: Session() HER API isteğinde çalışıyor.
+        PermissionSnapshots = new DepoWise.Application.Security.PermissionSnapshotCache();
+        Auth = new AuthService(Factory, clock, PermissionSnapshots);
+        Users = new UserService(Factory, clock, PermissionSnapshots);
         Companies = new DepoWise.Infrastructure.Organization.CompanyService(Factory, clock);
         CompanyPurge = new DepoWise.Infrastructure.Organization.CompanyPurgeService(Factory, clock);
         CompanyLocalReset = new DepoWise.Infrastructure.Organization.CompanyLocalResetService(Factory, clock);
         MachineReset = new DepoWise.Infrastructure.Sync.MachineResetService(Factory, clock);
         SpecialCode = new SpecialCodeService(Factory, clock);
         CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
-        RoleGrants = new DepoWise.Infrastructure.Organization.RoleGrantService(Factory, clock);
+        RoleGrants = new DepoWise.Infrastructure.Organization.RoleGrantService(Factory, clock, PermissionSnapshots);
         Sync = new SyncServer(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
         Enrollment = new EnrollmentService(Factory, clock);
@@ -138,7 +145,7 @@ public sealed class ServerServices
         Scopes = new DepoWise.Infrastructure.Org.ScopeResolver(Factory);
         Personnel = new DepoWise.Infrastructure.Org.PersonnelService(Factory, Scopes, clock);
         PersonnelTitles = new DepoWise.Infrastructure.Org.PersonnelTitleService(Factory, clock);
-        Permissions = new DepoWise.Infrastructure.Security.PermissionService(Factory, clock);
+        Permissions = new DepoWise.Infrastructure.Security.PermissionService(Factory, clock, PermissionSnapshots);
         PermissionTemplates = new DepoWise.Infrastructure.Security.PermissionTemplateService(Factory, clock);
         AuditLog = new DepoWise.Infrastructure.Database.AuditLogService(Factory);
         Storage = new DepoWise.Infrastructure.Files.LocalFileStorageProvider(Path.Combine(dataDir, "files"));

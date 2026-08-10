@@ -63,11 +63,15 @@ public sealed class UserService
 {
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
+    /// <summary>F0 (YET-01): rol/aktiflik değişince o kullanıcının yetki fotoğrafı ANINDA düşürülür.
+    /// <c>null</c> → önbellek yok (F0 öncesi davranış).</summary>
+    private readonly PermissionSnapshotCache? _snapshots;
 
-    public UserService(IDbConnectionFactory factory, IClock? clock = null)
+    public UserService(IDbConnectionFactory factory, IClock? clock = null, PermissionSnapshotCache? snapshots = null)
     {
         _factory = factory;
         _clock = clock ?? new SystemClock();
+        _snapshots = snapshots;
     }
 
     /// <summary>Kullanıcı listesi (tenant: Süper Admin tümünü, diğerleri kendi firmasını görür).</summary>
@@ -128,6 +132,7 @@ ORDER BY u.username;");
             "UPDATE users SET is_deleted=1, updated_at=@now WHERE id=@u AND is_deleted=0 AND (@all=1 OR company_id=@c);", now);
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Delete, actor.UserId), _clock);
         tx.Commit();
+        _snapshots?.InvalidateUser(userId);   // F0: silinen kullanıcının oturumu beklemeden geçersizleşsin
     }
 
     /// <summary>Kullanıcının şifresini değiştirir. YALNIZ Admin / Süper Admin. Min 4 karakter.</summary>
@@ -264,6 +269,7 @@ ORDER BY u.username;");
             now, cmd => cmd.AddWithValue("@a", active ? 1 : 0));
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+        _snapshots?.InvalidateUser(userId);   // F0: pasife alma ANINDA etkili olmalı (yetki kaybı gecikmez)
     }
 
     /// <summary>
@@ -389,6 +395,7 @@ ORDER BY u.username;");
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+        _snapshots?.InvalidateUser(userId);   // F0: rol değişimi admin bypass'ını etkiler → ANINDA düşür
     }
 
     public string CreateUser(SessionContext actor, NewUser dto)

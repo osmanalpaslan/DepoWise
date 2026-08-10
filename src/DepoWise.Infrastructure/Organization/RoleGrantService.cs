@@ -32,11 +32,16 @@ public sealed class RoleGrantService
 
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
+    /// <summary>F0 (YET-01): rol kısıtı ROL seviyesindedir → değişince o role sahip HERKES etkilenir.
+    /// Kimlerin etkilendiğini ayrıca sorgulamak yerine tüm fotoğraflar düşürülür (güvenli taraf).
+    /// <c>null</c> → önbellek yok (F0 öncesi davranış).</summary>
+    private readonly PermissionSnapshotCache? _snapshots;
 
-    public RoleGrantService(IDbConnectionFactory factory, IClock? clock = null)
+    public RoleGrantService(IDbConnectionFactory factory, IClock? clock = null, PermissionSnapshotCache? snapshots = null)
     {
         _factory = factory;
         _clock = clock ?? new SystemClock();
+        _snapshots = snapshots;
     }
 
     /// <summary>Yapısal (değiştirilemez) kilit: mevcut kurallar gereği bu modül bu role zaten verilemez.</summary>
@@ -99,6 +104,7 @@ public sealed class RoleGrantService
             }
         }
         tx.Commit();
+        _snapshots?.InvalidateAll();   // F0: rol kısıtı herkesi etkileyebilir → tüm fotoğraflar düşürülür
     }
 
     /// <summary>Bir kullanıcının rollerine göre KAPALI modüller (yetki ağacı + grant kontrolü için).

@@ -23,11 +23,15 @@ public sealed class PermissionService
     private const string Module = "permissions";
     private readonly IDbConnectionFactory _factory;
     private readonly IClock _clock;
+    /// <summary>F0 (YET-01): yetki kaydedilince o kullanıcının fotoğrafı ANINDA düşürülür — yetki kaybı
+    /// TTL kadar gecikmemelidir. <c>null</c> → önbellek yok (F0 öncesi davranış).</summary>
+    private readonly PermissionSnapshotCache? _snapshots;
 
-    public PermissionService(IDbConnectionFactory factory, IClock? clock = null)
+    public PermissionService(IDbConnectionFactory factory, IClock? clock = null, PermissionSnapshotCache? snapshots = null)
     {
         _factory = factory;
         _clock = clock ?? new SystemClock();
+        _snapshots = snapshots;
     }
 
     public UserPermissionData GetForUser(SessionContext actor, string userId)
@@ -215,6 +219,9 @@ public sealed class PermissionService
         }
         AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user", userId, AuditActions.Update, actor.UserId), _clock);
         tx.Commit();
+        // F0 (YET-01): commit'ten SONRA düşür — yeni yetki bir sonraki istekte GEÇERLİ olur, TTL beklenmez.
+        // (Commit'ten önce düşürmek, geri alınan bir transaction'da eski değeri yeniden yükletirdi.)
+        _snapshots?.InvalidateUser(userId);
     }
 
     /// <summary>Aktörün başkasına VEREBİLECEĞİ üst sınır. null = sınırsız (Süper Admin, ya da hiç açık izni olmayan

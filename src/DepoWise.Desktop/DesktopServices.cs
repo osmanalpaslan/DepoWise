@@ -30,6 +30,8 @@ public static class DesktopServices
     public const string DefaultCompanyId = "DEPOWISE";
 
     public static IDbConnectionFactory Factory { get; private set; } = null!;
+    /// <summary>F0 (YET-01) — yetki fotoğrafı önbelleği; Auth okur, Users/Permissions geçersiz kılar.</summary>
+    public static DepoWise.Application.Security.PermissionSnapshotCache PermissionSnapshots { get; private set; } = null!;
     public static AuthService Auth { get; private set; } = null!;
     public static UserService Users { get; private set; } = null!;
     public static BranchService Branches { get; private set; } = null!;
@@ -125,8 +127,12 @@ public static class DesktopServices
     {
         var clock = new SystemClock();
         Factory = SqliteConnectionFactory.ForEnvironment(DesktopBootstrap.Environment);
-        Auth = new AuthService(Factory, clock);
-        Users = new UserService(Factory, clock);
+        // F0 (YET-01): yetki fotoğrafı önbelleği — okuyan ve geçersiz kılan servisler AYNI örneği paylaşır.
+        // Masaüstünde oturum girişte bir kez kurulur (sunucudaki gibi istek başına değil); önbellek burada
+        // performanstan çok TUTARLILIK sağlar: yetki değişince fotoğraf hemen düşer.
+        PermissionSnapshots = new DepoWise.Application.Security.PermissionSnapshotCache();
+        Auth = new AuthService(Factory, clock, PermissionSnapshots);
+        Users = new UserService(Factory, clock, PermissionSnapshots);
         Materials = new MaterialService(Factory, clock);
         OpeningStock = new OpeningStockService(Factory, clock);
         Stock = new StockService(Factory, clock);
@@ -147,7 +153,7 @@ public static class DesktopServices
         RequestOps = new RequestOperationsService(Factory, clock);
         RequestPdf = new RequestPdfService();
         Branches = new BranchService(Factory, clock);
-        Permissions = new PermissionService(Factory, clock);
+        Permissions = new PermissionService(Factory, clock, PermissionSnapshots);
         PermissionTemplates = new PermissionTemplateService(Factory, clock);
         Companies = new CompanyService(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
