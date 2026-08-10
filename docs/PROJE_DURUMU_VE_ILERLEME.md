@@ -96,7 +96,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | DOG-01 | Normal kullanıcı web girişi testi | 0 | BEKLEMEDE | P1 | — | ✅ | kullanıcı | — | — |
 | **MLZ-01** | Malzeme silme koruması | 0 | **TAMAMLANDI** | P0 | — | ✅ | ✅ | ✅ 1025/992/0/33 | `b932f75` |
 | **KLT-01c** | PermissionService concurrency | 0 | **TAMAMLANDI** | P1 | — | ✅ | ✅ | ✅ 1033/1000/0/33 | `18a21f8` |
-| KLT-01a | RequestOperationsService | 0 | **ANALİZ BEKLİYOR** | P1 | — | ❌ | ❌ | ❌ | — |
+| **KLT-01a** | RequestOperationsService | 0 | **TAMAMLANDI** | P1 | — | ✅ | ✅ | ✅ 1046/1013/0/33 | `ef905d6` |
 | KLT-01e | Yakıt/stok regresyon testleri | 0 | BEKLEMEDE | P2 | — | ✅ | ❌ | ❌ | — |
 | KLT-01b | LookupService.Rename | 0 | BEKLEMEDE | P2 | — | ✅ | ❌ | ❌ | — |
 | KLT-01d | Şablon/Unvan/Firma servisleri | 0 | BEKLEMEDE | P2 | — | ✅ | ❌ | ❌ | — |
@@ -128,6 +128,7 @@ Sıra **plan dosyasından** alınmıştır; burada yeni sıra üretilmez.
 | MLZ-01 plan/analiz dokümantasyonu | **`2ab4c71`** | Depo + yetki mimarisi analizi, KARAR-6, FAZ 4 yeniden yazımı | ❌ |
 | KLT-01 kapsam analizi | **`d974e70`** | Planın 4 hedefinden 3'ünün yanlış olduğu tespiti | ❌ |
 | **KLT-01c** — Yetki kaydetmede düzenleme kilidi | **`18a21f8`** | `users.version` jetonuyla koruma. İki yönetici çakışırsa ikincisi **409** alıyor, birincinin verdiği yetki silinmiyor, kısmi yazma olmuyor. 5 dosya + 1 yeni test (8 test). Migration yok. | ❌ |
+| **KLT-01a** — Gönderim bilgilerinde düzenleme kilidi | **`ef905d6`** | `UpdateShipmentInfo` üç alanı körlemesine yazıyordu → `material_requests.version` jetonu eklendi. `ChangeStatus` durum geçişine kontrol EKLENMEDİ (durum makinesi zaten koruyor; regresyon testi eklendi). `updateBranches:true` tek UPDATE olduğu için tamamı kontrole tabi. 4 dosya + 1 yeni test (13 test). Migration yok. | ❌ |
 
 **Bu plandan önce tamamlananlar:** Tasarım paketi (FAZ 1-9 web + M1-M5 masaüstü) — yayınlandı,
 web canlı + masaüstü **1.0.136**. · Masaüstü vektör ikonları (M2.5) — ayrı dalda commit'li,
@@ -138,8 +139,8 @@ web canlı + masaüstü **1.0.136**. · Masaüstü vektör ikonları (M2.5) — 
 ## 6. AKTİF İŞ
 
 **ANA İŞ:** `KLT-01` — Eksik iyimser (optimistic) düzenleme kilitleri · FAZ 0
-**BİTEN ALT İŞ:** `KLT-01c` ✅ **TAMAMLANDI ve COMMIT EDİLDİ** — `18a21f8` (2026-08-10)
-**SIRADAKİ ALT İŞ:** `KLT-01a` — `RequestOperationsService` · ⏳ **DETAY ANALİZ AŞAMASINDA**
+**BİTEN ALT İŞLER:** `KLT-01c` ✅ `18a21f8` · `KLT-01a` ✅ `ef905d6` (2026-08-10)
+**SIRADAKİ ALT İŞ:** `KLT-01e` — Yakıt/stok regresyon testleri · ⏳ **DETAY ANALİZ AŞAMASINDA**
 
 **Git dalı:** `feature/mlz-01-malzeme-silme-korumasi` · **Push:** ❌ (dal yerelde)
 
@@ -147,8 +148,8 @@ web canlı + masaüstü **1.0.136**. · Masaüstü vektör ikonları (M2.5) — 
 | Alt iş | Durum |
 |---|---|
 | `KLT-01c` PermissionService | ✅ TAMAMLANDI (`18a21f8`) |
-| `KLT-01a` RequestOperationsService | ⏳ detay analiz |
-| `KLT-01e` Yakıt/stok regresyon testleri | BEKLEMEDE |
+| `KLT-01a` RequestOperationsService | ✅ TAMAMLANDI (`ef905d6`) |
+| `KLT-01e` Yakıt/stok regresyon testleri | ⏳ detay analiz |
 | `KLT-01b` LookupService.Rename | BEKLEMEDE |
 | `KLT-01d` Şablon/Unvan/Firma | BEKLEMEDE |
 | Web+masaüstü 409 kontrolü | BEKLEMEDE |
@@ -284,6 +285,8 @@ uygulanmayacak.
 | 2026-08-10 | KLT-01 | Yakıt, stok belgeleri, muayenede **düzenleme yolu hiç yok**; mevcut iptal/ters kayıt korumaları çalışıyor. Gerçek açık `PermissionService.SaveForUser`'daydı | ❌ *"4 serviste edit-lock eksik"* — **3'Ü YANLIŞTI** |
 | 2026-08-10 | KLT-01c | `users.version` şemada var, **hiç artırılmıyor**, okuyucusu yok, senkron upsert'i dokunmuyor → jeton olarak güvenle benimsendi | — |
 | 2026-08-10 | TMZ-03 | `RoleKeys`'te 8 sabit var, `RoleKeys.Seed`'de yalnız 4'ü → `Warehouse`/`Manager`/`Operation`/`ReadOnly` veritabanında yok. **Kullanıcı kararı: olduğu gibi bırakılacak, YET-01'de analiz edilecek.** `Warehouse` rolü depo mimarisiyle **otomatik ilişkilendirilmeyecek** | — |
+| 2026-08-10 | **KLT-01a** | **`ChangeStatus` zaten korumalı** — `BeginImmediate` + durumu transaction İÇİNDE okuma + durum makinesi (`CanTransition`, `from==to` → **false**). İki kullanıcı aynı geçişi yaparsa ikincisi reddediliyor. Gerçek açık **`UpdateShipmentInfo`**'da: durum makinesi yok, 3 alan **körlemesine** yazılıyor | ❌ *"RequestOperationsService'te ChangeStatus ve UpdateShipmentInfo sessizce eziyor"* — **ChangeStatus için YANLIŞTI** |
+| 2026-08-10 | KLT-01a | Masaüstü bu ekranda servisi **DOĞRUDAN** çağırıyor (yerel SQLite, çevrimdışı çalışır) — KLT-01c'deki sunucu-otoriteli yetki ekranından **farklı**. Sürüm jetonu yerel kayıttan gelmeli | ❌ *"tüm ekranlar aynı yoldan geçer"* varsayımı — bu ekranda **farklı** |
 
 > **Kural:** Plan yanlış çıkarsa **sessizce düzeltilmez** — "önceki varsayım yanlıştı → kod
 > incelemesi sonucu gerçek durum budur" biçiminde kaydedilir. Yukarıdaki tablo bunun kaydıdır.
