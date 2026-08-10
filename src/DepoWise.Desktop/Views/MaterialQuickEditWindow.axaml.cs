@@ -104,7 +104,11 @@ public partial class MaterialQuickEditWindow : Window
 
         titleText.Text = $"{d.Code} — {d.Name}";
         code.Text = d.Code; name.Text = d.Name;
-        typeBox.SelectedItem = string.IsNullOrWhiteSpace(d.Type) ? "Yedek Parça" : d.Type;
+        // G2-07 (2026-08-10): kaydın türü BOŞ ise "Diğer" gösterilir — "Yedek Parça" GERÇEK bir türdür ve
+        // kullanıcı hiçbir şey değiştirmeden kaydettiğinde boş veri sessizce o sınıfa yazılırdı.
+        // "Diğer" kanonik listede zaten var (MaterialType.Canonical) ve doğal "sınıflandırılmamış" kovasıdır.
+        // Aynı kural dört malzeme kartı düzenleme ekranında da uygulanır. YENİ KAYIT varsayılanı DEĞİŞMEDİ.
+        typeBox.SelectedItem = string.IsNullOrWhiteSpace(d.Type) ? "Diğer" : d.Type;
         // Mevcut category_id üst-seviye mi alt kategori mi? (parent'ı tara) — kutulara doğru dağıt.
         var topMatch = topCats.FirstOrDefault(o => o.Id == d.CategoryId);
         if (topMatch is not null)
@@ -207,7 +211,9 @@ public partial class MaterialQuickEditWindow : Window
             int n = 0;
             if ((code.Text ?? "") != d.Code) n++;
             if ((name.Text ?? "") != d.Name) n++;
-            if ((typeBox.SelectedItem as string ?? "") != (string.IsNullOrWhiteSpace(d.Type) ? "Yedek Parça" : d.Type)) n++;
+            // G2-07: karşılaştırma tabanı EKRANA YÜKLENEN değerle AYNI olmalı (yukarıdaki "Diğer" fallback'i).
+            // Aksi halde boş türlü kayıt açılır açılmaz "1 kaydedilmemiş değişiklik" gösterirdi.
+            if ((typeBox.SelectedItem as string ?? "") != (string.IsNullOrWhiteSpace(d.Type) ? "Diğer" : d.Type)) n++;
             if (((subCatBox.SelectedItem as Opt)?.Id ?? (catBox.SelectedItem as Opt)?.Id) != d.CategoryId) n++;
             if ((unitBox.SelectedItem as Opt)?.Id != d.UnitId) n++;
             if ((brandBox.SelectedItem as Opt)?.Id != d.BrandId) n++;

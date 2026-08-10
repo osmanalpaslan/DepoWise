@@ -172,7 +172,9 @@
             _sups = await Api.OptionsAsync("/api/lookups/suppliers", "id", "name");
             var d = await Api.GetObjectAsync($"/api/materials/{Id}");
             _code = Str(d, "code"); _name = Str(d, "name");
-            _type = string.IsNullOrEmpty(Str(d, "type")) ? "Yedek Parça" : Str(d, "type");
+            // G2-07 (2026-08-10): MEVCUT kaydın türü BOŞ ise "Diğer" (dört malzeme kartı ekranında aynı kural).
+            // Kaydetmede bu değer gider → boş tür sessizce "Yedek Parça"ya dönüşmez.
+            _type = string.IsNullOrEmpty(Str(d, "type")) ? "Diğer" : Str(d, "type");
             _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
             await ResolveCategoryAsync(NullId(d, "categoryId"));   // kategori/alt kategori kutulara dağıt (madde 6)
             _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
