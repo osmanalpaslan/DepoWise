@@ -25,8 +25,62 @@ public sealed class ApiClient
 {
     private readonly HttpClient _http;
     private readonly AuthState _auth;
+    private readonly ILogger<ApiClient>? _log;
 
-    public ApiClient(HttpClient http, AuthState auth) { _http = http; _auth = auth; }
+    public ApiClient(HttpClient http, AuthState auth, ILogger<ApiClient>? log = null)
+    { _http = http; _auth = auth; _log = log; }
+
+    /// <summary>
+    /// WEB-01 (2026-08-10) — SUNUCU HATASINI KULLANICI DİLİNE ÇEVİRİR.
+    ///
+    /// Sorun: bu sınıf hata gövdesini AYRIŞTIRMADAN kullanıcı mesajına yapıştırıyordu; ekranda
+    /// <c>Hata 409: {"error":"..."}</c> gibi süslü parantezli teknik metin görünüyordu. Yazılım bilgisi
+    /// olmayan son kullanıcı için okunamaz.
+    ///
+    /// API sözleşmesi DEĞİŞMEDİ: sunucu zaten her hata kodunda <c>{"error":"&lt;Türkçe mesaj&gt;"}</c>
+    /// döndürüyor (Program.cs ortak middleware) ve 500'de ham exception'ı SIZDIRMIYOR (loga yazıyor).
+    /// Burada yapılan tek şey o alanı çıkarmaktır — desen zaten projede vardı
+    /// (<see cref="UploadImportAsync"/>), yalnız 5 çağrı noktasında uygulanmamıştı.
+    ///
+    /// Gövde ayrıştırılamazsa (ağ katmanı hatası, HTML proxy sayfası vb.) duruma göre anlaşılır bir
+    /// Türkçe karşılık üretilir. Teknik ayrıntı KAYBOLMAZ: durum kodu + ham gövde sunucu loguna yazılır.
+    /// </summary>
+    private async Task<string> ErrorMessageAsync(HttpResponseMessage r, string path)
+    {
+        var code = (int)r.StatusCode;
+        string body = "";
+        try { body = await r.Content.ReadAsStringAsync(); } catch { }
+
+        // Teknik ayrıntı geliştirici tarafında kalır (kullanıcıya gösterilmez).
+        _log?.LogWarning("API hata: {Status} {Path} → {Body}", code, path, body);
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(body);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                    doc.RootElement.TryGetProperty("error", out var e) &&
+                    e.ValueKind == System.Text.Json.JsonValueKind.String &&
+                    !string.IsNullOrWhiteSpace(e.GetString()))
+                    return e.GetString()!;
+            }
+            catch { /* JSON değil → aşağıdaki duruma göre karşılık */ }
+        }
+
+        return code switch
+        {
+            400 => "İstek geçersiz. Girdiğiniz bilgileri kontrol edip tekrar deneyin.",
+            401 => "Oturumunuz sona ermiş görünüyor. Lütfen yeniden giriş yapın.",
+            403 => "Bu işlem için yetkiniz yok.",
+            404 => "Kayıt bulunamadı. Başka biri silmiş olabilir; listeyi yenileyin.",
+            409 => "Bu kayıt siz işlem yaparken değişti. Listeyi yenileyip tekrar deneyin.",
+            413 => "Gönderilen dosya çok büyük.",
+            429 => "Çok fazla deneme yapıldı. Lütfen biraz bekleyip tekrar deneyin.",
+            >= 500 => "Sunucuda beklenmeyen bir hata oluştu. Sorun devam ederse yöneticinize bildirin.",
+            _ => "İşlem tamamlanamadı. Lütfen tekrar deneyin.",
+        };
+    }
 
     /// <summary>Masaüstü kurulum aracının indirme adresi (API'den servis edilir).</summary>
     public string SetupDownloadUrl => new Uri(_http.BaseAddress!, "api/setup/download").ToString();
@@ -164,7 +218,7 @@ public sealed class ApiClient
         var req = Req(HttpMethod.Post, path);
         req.Content = JsonContent.Create(body);
         var r = await _http.SendAsync(req);
-        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
+        return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01
     }
 
     /// <summary>POST edip dönen {id}'yi de verir (fotoğraf yükleme için oluşan kaydın id'si gerekir).</summary>
@@ -173,7 +227,7 @@ public sealed class ApiClient
         var req = Req(HttpMethod.Post, path);
         req.Content = JsonContent.Create(body);
         var r = await _http.SendAsync(req);
-        if (!r.IsSuccessStatusCode) return ($"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}", null);
+        if (!r.IsSuccessStatusCode) return (await ErrorMessageAsync(r, path), null);   // WEB-01
         try { var doc = await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(); return (null, doc.TryGetProperty("id", out var v) ? v.GetString() : null); }
         catch { return (null, null); }
     }
@@ -190,7 +244,7 @@ public sealed class ApiClient
         var req = Req(HttpMethod.Post, path);
         req.Content = form;
         var r = await _http.SendAsync(req);
-        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}";
+        return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01 (eskiden yalnız kod)
     }
 
     /// <summary>
@@ -209,18 +263,9 @@ public sealed class ApiClient
         var req = Req(HttpMethod.Post, path);
         req.Content = form;
         var r = await _http.SendAsync(req);
+        // WEB-01: ayrıştırma buradaki yerel kopyadan ORTAK yardımcıya taşındı (tek kaynak).
+        if (!r.IsSuccessStatusCode) return (await ErrorMessageAsync(r, path), null);
         var text = await r.Content.ReadAsStringAsync();
-        if (!r.IsSuccessStatusCode)
-        {
-            try
-            {
-                using var doc = System.Text.Json.JsonDocument.Parse(text);
-                if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.String)
-                    return (e.GetString(), null);
-            }
-            catch { }
-            return ($"İşlem başarısız (sunucu kodu {(int)r.StatusCode}).", null);
-        }
         try { return (null, System.Text.Json.JsonDocument.Parse(text).RootElement.Clone()); }
         catch { return ("Sunucu yanıtı okunamadı.", null); }
     }
@@ -267,7 +312,7 @@ public sealed class ApiClient
         var req = Req(HttpMethod.Put, path);
         req.Content = JsonContent.Create(body);
         var r = await _http.SendAsync(req);
-        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
+        return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01
     }
 
     /// <summary>POST edip dönen JSON gövdesini verir (rapor tablosu vb.).</summary>
@@ -283,7 +328,7 @@ public sealed class ApiClient
     public async Task<string?> DeleteAsync(string path)
     {
         var r = await _http.SendAsync(Req(HttpMethod.Delete, path));
-        return r.IsSuccessStatusCode ? null : $"Hata {(int)r.StatusCode}: {await r.Content.ReadAsStringAsync()}";
+        return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01
     }
 
     public async Task<List<RoleDto>> GetRolesAsync()
