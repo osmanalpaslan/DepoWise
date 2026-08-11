@@ -29,7 +29,16 @@ public class StockOperationTests : IDisposable
         var users = new UserService(_factory, _clock);
         var id = users.EnsureInitialAdmin("A", "admin", "admin123", RoleKeys.CompanyAdmin);
         _admin = new SessionContext(id, "A", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+
+        // STK-03: stok lokasyonu artık DOĞRULANIYOR (firmaya ait olmayan şube reddedilir) → testler
+        // uydurma kimlik ("b1"/"b2") yerine GERÇEK şube kullanır. Üretim kuralı gevşetilmedi.
+        var branches = new BranchService(_factory, _clock);
+        _b1 = branches.Create(_admin, new NewBranch("Depo 1"));
+        _b2 = branches.Create(_admin, new NewBranch("Depo 2"));
     }
+
+    private readonly string _b1;
+    private readonly string _b2;
 
     private sealed class TestClock : IClock
     {
@@ -151,8 +160,8 @@ public class StockOperationTests : IDisposable
     public void Transfer_KaynakCikisHedefGiris_AtomikVeGrupli()
     {
         var m = Mat("M-1");
-        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "branch-1");   // kaynak şubeye stok (per-branch 8b)
-        var res = _stock.Transfer(_admin, m, 4m, "branch-1", "branch-2", "op-trf");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: _b1);   // kaynak şubeye stok (per-branch 8b)
+        var res = _stock.Transfer(_admin, m, 4m, _b1, _b2, "op-trf");
         Assert.StartsWith("TRF-", res.DocNo);
         Assert.Equal(10m, _stock.GetBalance(_admin, m)); // transfer toplam stoğu değiştirmez
 
@@ -168,7 +177,7 @@ public class StockOperationTests : IDisposable
     {
         var m = Mat("M-1");
         _stock.ReceiveIn(_admin, new[] { new StockLine(m, 2m) }, "in");
-        Assert.Throws<NegativeStockException>(() => _stock.Transfer(_admin, m, 5m, "b1", "b2", "op-trf"));
+        Assert.Throws<NegativeStockException>(() => _stock.Transfer(_admin, m, 5m, _b1, _b2, "op-trf"));
         Assert.Equal(2m, _stock.GetBalance(_admin, m));
     }
 
@@ -177,10 +186,10 @@ public class StockOperationTests : IDisposable
     public void Transfer_KaynakSubeDuser_HedefArtar_PerBranch()
     {
         var m = Mat("M-TRB");
-        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "b1");   // b1:10
-        _stock.Transfer(_admin, m, 4m, "b1", "b2", "op-trb");                                // b1-4, b2+4
-        Assert.Equal(6m, BranchBal(m, "b1"));   // kaynak 10-4
-        Assert.Equal(4m, BranchBal(m, "b2"));   // hedef +4
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: _b1);   // b1:10
+        _stock.Transfer(_admin, m, 4m, _b1, _b2, "op-trb");                                // b1-4, b2+4
+        Assert.Equal(6m, BranchBal(m, _b1));   // kaynak 10-4
+        Assert.Equal(4m, BranchBal(m, _b2));   // hedef +4
         Assert.Equal(10m, _stock.GetBalance(_admin, m)); // firma-geneli değişmez
     }
 
@@ -189,14 +198,14 @@ public class StockOperationTests : IDisposable
     public void Transfer_GeriAlinamaz_Reddedilir()
     {
         var m = Mat("M-TRX");
-        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: "b1");
-        var res = _stock.Transfer(_admin, m, 3m, "b1", "b2", "op-trx");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, "in", branchId: _b1);
+        var res = _stock.Transfer(_admin, m, 3m, _b1, _b2, "op-trx");
         var admin = AdminWithReverse();
         var ex = Assert.Throws<ForbiddenException>(() => _stock.ReverseDocument(admin, res.DocumentId, "x"));
         Assert.Contains("Transfer geri alınamaz", ex.Message);
         Assert.Equal(10m, _stock.GetBalance(_admin, m));            // firma-geneli bakiye değişmedi
-        Assert.Equal(7m, BranchBal(m, "b1"));               // transfer etkisi korunur: kaynak 10-3
-        Assert.Equal(3m, BranchBal(m, "b2"));               // hedef +3
+        Assert.Equal(7m, BranchBal(m, _b1));               // transfer etkisi korunur: kaynak 10-3
+        Assert.Equal(3m, BranchBal(m, _b2));               // hedef +3
     }
 
     // Test yardımcısı: bir (malzeme, şube) için hareket defteri toplamı (giriş +, çıkış −).

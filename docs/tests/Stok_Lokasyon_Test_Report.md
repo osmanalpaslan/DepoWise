@@ -137,3 +137,85 @@ Başka bulgu **yok**. Başarısız test gizlenmedi; üretim kodu test geçirmek 
 
 **Tahmini kapsam:** değiştirilen 16 çağrı noktasının tamamı doğrudan veya dolaylı olarak test edildi.
 **Çalıştırılan senaryo sayısı:** 1223 otomatik test + 4 elle yürütülen migration/veritabanı provası.
+
+---
+
+# EK — `STK-03` API Lokasyon Sözleşmesi (2026-08-11)
+
+> Kapsam: stok API uçları + lokasyon sahiplik doğrulaması. Ekran değişikliği YOK (STK-04/05).
+
+## 1. Bulunan hata — 🔴 lokasyon sahiplik kontrolü YOKTU
+
+| Alan | İçerik |
+|---|---|
+| **Bulgu** | `StockService` (giriş/çıkış/transfer/sayım) ve `OpeningStockService` gönderilen `branchId`'nin oturumun **firmasına ait** olduğunu kontrol etmiyordu. |
+| **Öncelik / risk** | 🔴 Yüksek — STK-02'den beri lokasyon `stock_balances`'ın **birincil anahtar** kolonu. Yabancı kimlik yazılsaydı o bakiye satırı **hiçbir firmanın ekranında düzeltilemezdi**. |
+| **Tekrar üretme** | `POST /api/stock/receive` gövdesine **başka firmanın** şube kimliğini koy. |
+| **Beklenen** | 403 — hiçbir kayıt oluşmaz. |
+| **Gerçek (düzeltmeden önce)** | 200 — hareket + bakiye yabancı lokasyon kimliğiyle yazılırdı. |
+| **Muhtemel neden** | Desen projede vardı (`RequestOperationsService` → `EnsureBranchOwned`), stok yoluna bağlanmamıştı. |
+| **Çözüm** | `EnsureLocationOwned` — **servis katmanında** (API'de değil), `RunDocumentOnce`'ın tek geçiş noktasında + açılış stoğunda. |
+| **Neden serviste** | Masaüstü bu servisi **çevrimdışı**, API'ye uğramadan çağırır; API'ye konsaydı çevrimdışı yol korumasız kalırdı. |
+| **Doğrulama** | Senaryo 8, 9, 10 (API) + 18 (çevrimdışı) — geçti. |
+
+## 2. Çalıştırılan doğrulamalar
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1240 · 1207 geçti · 0 kaldı · 33 atlandı** (STK-02 tabanı 1223'tü; **17 yeni senaryo**) |
+| `ApiStockLocationTests` (gerçek HTTP) | **15 / 15** |
+| `StockLocationTests` (servis + çevrimdışı) | **19 / 19** |
+
+## 3. 17 senaryonun karşılığı
+
+| # | Senaryo | Test |
+|---|---|---|
+| 1 | Giriş + lokasyon | `Giris_GovdedekiDepoya_Yazilir` |
+| 2 | Çıkış + lokasyon | `Cikis_YalnizKendiDeposunu_Dusurur` |
+| 3 | Sayım + lokasyon | `Sayim_SayilanDeponun_Miktarini_Kullanir` |
+| 4 | Transfer kaynak/hedef | `Transfer_KaynakVeHedefi_AyriTasir` |
+| 5 | `GetBalanceAt` | `Tek_Lokasyon_Ucu_Depo_Ve_Adini_Doner` |
+| 6 | `GetBalancesByLocation` | `Kirilim_Ucu_Her_Depoyu_Tek_Satir_Doner_Ve_Toplamla_Kopmaz` |
+| 7 | Genel toplam | `Genel_Toplam_Ucu_Degismedi` |
+| 8 | Yanlış firma lokasyonu | `Yabanci_Firmanin_Deposu_Yazmada_Reddedilir` + `…_Okumada_Reddedilir` |
+| 9 | Yetkisiz lokasyon | `Stok_Yetkisi_Olmayan_Kullanici_Lokasyon_Uclarini_Cagiramaz` |
+| 10 | Bilinmeyen lokasyon | `Bilinmeyen_Lokasyon_Reddedilir` |
+| 11 | ATANMAMIŞ | `Lokasyonsuz_Eski_Istek_ATANMAMIS_Kovasina_Yazilir` |
+| 12 | Çift transfer (idempotency) | `Transfer_AyniOperationId_Ikinci_Kez_Uygulanmaz` |
+| 13 | Negatif kalkan | `Baska_Depodaki_Stok_Bu_Deponun_Cikisini_Karsilamaz` |
+| 14 | Eski istek davranışı | (11 ile aynı test — eski istemci lokasyon göndermez) |
+| 15 | Web istemci sözleşmesi | `Hareket_Listesi_Lokasyon_Alanlarini_Doner` |
+| 16 | Masaüstü istemci sözleşmesi | `Masaustu_Cevrimdisi_Yolda_Da_Yabanci_Depo_Reddedilir` |
+| 17 | Çevrimdışı → sync sonrası uyum | `Cevrimdisi_Yazilan_Lokasyonlu_Hareketler_Sunucuda_Ayni_Kirilimi_Uretir` |
+
+## 4. Performans
+
+| Kural | Uygulama |
+|---|---|
+| N+1 yok | Lokasyon **adları** hareket listesinde aynı sorguda `LEFT JOIN branches` ile gelir |
+| Toplu ihtiyaç tek sorgu | `GetLocationBalances` tek `SELECT` + `JOIN` (100 malzeme × 5 depo = 500 sorgu senaryosu **oluşmaz**) |
+| Tekrar hesaplama yok | `/locations` yanıtındaki `total` aynı satırlardan C#'ta toplanır; ikinci sorgu atılmaz |
+| Yeni JOIN maliyeti | Hareket listesinde 2 `LEFT JOIN` (`branches`, birincil anahtar üzerinden) |
+
+## 5. İstemci envanteri
+
+| İstemci | Stok uçları | STK-03 etkisi |
+|---|---|---|
+| **Web** | `Stock.razor` · `StockCount.razor` · `StockMovements.razor` · `Daily.razor` · `StockChangeLog.razor` | Yanıtları `JsonElement`+`TryGetProperty` ile okur → **eklenen alanlar bozmaz**. İstek alanları değişmedi |
+| **Masaüstü** | **HİÇBİRİ** — stok işlemleri yerel `StockService` + `business-push/pull` | Uç değişikliğinden **etkilenmez**; koruma servise konduğu için çevrimdışı da geçerli |
+
+## 6. Coverage Matrix — STK-03
+
+| Madde | Durum | Not |
+|---|---|---|
+| Yeni Kayıt / Düzenleme / Silme | ✅ | Giriş · çıkış · sayım · transfer · ters kayıt (HTTP) |
+| Doğrulamalar | ✅ | Yabancı / bilinmeyen lokasyon · negatif stok · idempotency |
+| Yetki | ✅ | Deny-by-default: stok yetkisi olmayan yeni uçları çağıramaz |
+| Hata Mesajları | ✅ | 403 (lokasyon) · 400 (iş kuralı) — **mevcut** hata modeli, yenisi icat edilmedi |
+| Database | ✅ | Bakiye anahtarına yabancı kimlik yazılamıyor |
+| Offline | ✅ | Çevrimdışı yol da korunuyor (senaryo 18) |
+| Sync | ✅ | Sync kodu **değiştirilmedi**; senaryo 19 hâlâ doğru olduğunu kanıtlıyor |
+| Performans | ✅ | N+1 yok (§4) |
+| UI / UX | ⚪ | Ekran işi STK-04 / STK-05 |
+| Security | ✅ | Çapraz-tenant lokasyon referansı kapatıldı |

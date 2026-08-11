@@ -93,6 +93,28 @@ neredeyse tamamı **"ATANMAMIŞ"** görünecek (8953,3 birim). Dağıtım **KARA
 durur** (sessiz bozulma yerine açık hata). Böyle bir masaüstü veritabanı varsa güncelleme başlatılamaz →
 önce sunucu-otoriteli yeniden hesaplama (`RecomputeBalances`) gerekir. Üretim PG kopyasında uyuşmazlık YOK.
 
+### `STK-03` — API lokasyon boyutu · ✅ **TAMAMLANDI** (2026-08-11)
+Envanter + sözleşme: [`STK_03_API_LOKASYON_PLANI.md`](STK_03_API_LOKASYON_PLANI.md)
+
+**🔴 Asıl bulgu — lokasyon sahiplik doğrulaması YOKTU.** Stok yazma yolları gönderilen `branchId`'nin
+firmaya ait olduğunu kontrol etmiyordu. STK-02'den beri lokasyon `stock_balances`'ın **birincil anahtar**
+kolonu → yabancı kimlik yazılsaydı o satır hiçbir firmanın ekranında düzeltilemezdi.
+**Çözüm:** `EnsureLocationOwned` — `RunDocumentOnce`'ın tek geçiş noktasında (4 yazma yolu birden) +
+açılış stoğunda. **Servis katmanında**, API'de değil: masaüstü bu servisi çevrimdışı çağırıyor.
+
+**Sözleşme:** 3 farklı anlam = 3 ayrı uç. `/balance/{id}` (firma toplamı) **hiç değişmedi** →
+eski Web aynen çalışır. **YENİ:** `/balance/{id}/locations` (kırılım + `total`) ve
+`/balance/{id}/location?locationId=` (tek lokasyon). Hareket listesine 4 lokasyon alanı eklendi (sona).
+
+**İstemci envanteri:** Web 5 sayfada stok uçlarını kullanıyor (`JsonElement`+`TryGetProperty` → eklenen
+alanlar bozmaz). **Masaüstü hiçbir stok ucunu kullanmıyor** — yerel servis + `business-push/pull`.
+
+**Kanıt:** **1240/1207/0/33** (taban 1223) · 15 HTTP + 2 çevrimdışı senaryo · build 0 hata ·
+sync kodu **değiştirilmedi** (senaryo 19 hâlâ doğru olduğunu kanıtlıyor) · N+1 yok.
+
+➡️ **STK-04'e devredilen bağımlılık:** `receive`/`issue` için lokasyonu **zorunlu** yapmak bir UI kararıdır
+(bugün "Tüm Şubeler" oturumu `branchId=null` gönderiyor); API sözleşmesi hazır, dayatma STK-04'te.
+
 ---
 
 ## FAZ D — Ön muhasebe alan hazırlığı

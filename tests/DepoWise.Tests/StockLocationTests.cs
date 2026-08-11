@@ -373,6 +373,74 @@ public class StockLocationTests : IDisposable
         Assert.Contains("stokta", ex.Message);
     }
 
+    // ── 6. STK-03 — MASAÜSTÜ (ÇEVRİMDIŞI) SÖZLEŞMESİ ───────────────────────────────────────
+
+    /// <summary>18 — MASAÜSTÜ SÖZLEŞMESİ: masaüstü stok uçlarını KULLANMAZ; bu servisi çevrimdışı,
+    /// API'ye hiç uğramadan çağırır. Lokasyon sahiplik kontrolü bu yüzden API'ye değil SERVİSE kondu —
+    /// aksi hâlde çevrimdışı yol korumasız kalır ve yabancı depo kimliği bakiyenin BİRİNCİL ANAHTARINA
+    /// yazılırdı. Burada internet YOK; koruma yine de çalışmalı.</summary>
+    [Fact]
+    public void Masaustu_Cevrimdisi_Yolda_Da_Yabanci_Depo_Reddedilir()
+    {
+        // Başka firmanın gerçek deposu (aynı yerel veritabanında; sync ile inmiş olabilir).
+        var users = new UserService(_factory, _clock);
+        var otherId = users.EnsureInitialAdmin("B", "admin_b", "admin123", RoleKeys.CompanyAdmin);
+        var otherAdmin = new SessionContext(otherId, "B", new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty);
+        var yabanciDepo = new BranchService(_factory, _clock).Create(otherAdmin, new NewBranch("B Deposu"));
+
+        var m = Mat("L-18");
+        Assert.Throws<ForbiddenException>(() =>
+            _stock.ReceiveIn(_admin, new[] { new StockLine(m, 5m) }, Op(), branchId: yabanciDepo));
+        Assert.Throws<ForbiddenException>(() =>
+            _opening.RecordOpening(_admin, m, 5m, Op(), branchId: yabanciDepo));
+
+        Assert.Empty(RawRows(m));   // hiçbir bakiye satırı oluşmadı
+    }
+
+    /// <summary>19 — ÇEVRİMDIŞI → SENKRON: masaüstünde internetsiz yazılan lokasyonlu hareketler
+    /// sunucuya taşındığında sunucu, hareket defterinden AYNI lokasyon kırılımını üretir.
+    /// Bakiye türetilmiş veridir; sync'te ayrı bir doğruluk kaynağı olarak taşınmaz (ADR-102).
+    /// Sync kodu STK-02/03'te DEĞİŞTİRİLMEDİ — bu test onun hâlâ doğru olduğunun kanıtıdır.</summary>
+    [Fact]
+    public void Cevrimdisi_Yazilan_Lokasyonlu_Hareketler_Sunucuda_Ayni_Kirilimi_Uretir()
+    {
+        var m = Mat("L-19");
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 10m) }, Op(), branchId: _depoA);
+        _stock.ReceiveIn(_admin, new[] { new StockLine(m, 4m) }, Op(), branchId: _depoB);
+        _stock.Transfer(_admin, m, 3m, _depoA, _depoB, Op());   // A:7 · B:7
+
+        // "Sunucu" = ayrı veritabanı. Masaüstünün snapshot'ı uygulanır (gerçek push yolunun aynısı).
+        var serverPath = Path.Combine(Path.GetTempPath(), "depowise_loc_srv_" + Guid.NewGuid().ToString("N") + ".db");
+        var server = new SqliteConnectionFactory(serverPath);
+        try
+        {
+            new MigrationRunner(server).Run();
+            using (var conn = server.Create())
+            using (var seed = conn.CreateCommand())
+            {
+                seed.CommandText = "INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('A','A',1,1,1,0);";
+                seed.ExecuteNonQuery();
+            }
+            var snapshot = new DepoWise.Infrastructure.Sync.BusinessSyncService(_factory, _clock).BuildSnapshot("A");
+            using (var doc = System.Text.Json.JsonDocument.Parse(snapshot))
+                new DepoWise.Infrastructure.Sync.BusinessSyncService(server, _clock).Apply("A", doc.RootElement);
+
+            // Sunucu-otoriteli yeniden hesaplama: bakiye DEFTERDEN kurulur.
+            new StockService(server, _clock).RecomputeBalances("A");
+
+            var srvStock = new StockService(server, _clock);
+            Assert.Equal(7m, srvStock.GetBalanceAt(_admin, m, _depoA));
+            Assert.Equal(7m, srvStock.GetBalanceAt(_admin, m, _depoB));
+            Assert.Equal(14m, srvStock.GetBalance(_admin, m));
+            Assert.Equal(_stock.GetBalance(_admin, m), srvStock.GetBalance(_admin, m));   // iki taraf KOPMAZ
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try { File.Delete(serverPath); } catch { }
+        }
+    }
+
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

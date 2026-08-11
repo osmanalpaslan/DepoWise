@@ -51,6 +51,9 @@ public sealed class OpeningStockService
 
         EnsureOwned(conn, tx, s.CompanyId, materialId);
         if (OperationApplied(conn, tx, operationId)) { tx.Commit(); return; } // idempotent
+        // STK-03: açılış da bir stok yazma yoludur → lokasyon sahipliği burada da doğrulanır
+        // (StockService.EnsureLocationOwned ile aynı kural; iki yol arasında boşluk bırakılmaz).
+        EnsureLocationOwned(conn, tx, s.CompanyId, branchId);
 
         using (var cmd = conn.CreateCommand())
         {
@@ -107,6 +110,20 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
     private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         string locationId, decimal delta, long now)
         => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, locationId, delta, now, allowNegative: true);
+
+    /// <summary>STK-03 — lokasyon (şube) firmaya ait mi? null/boş = ATANMAMIŞ, doğrulanacak kimlik yok.
+    /// <see cref="StockService"/>'teki eşiyle aynı desen (bkz. BranchService.EnsureBranchOwned).</summary>
+    private static void EnsureLocationOwned(DbConnection conn, DbTransaction tx, string companyId, string? locationId)
+    {
+        if (string.IsNullOrEmpty(locationId)) return;
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", locationId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+    }
 
     private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {

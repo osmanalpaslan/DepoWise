@@ -374,3 +374,20 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   (satır çoğaltma yok) · detay = liste = servis = lokasyon kırılımı toplamı (tutarlı) ·
   Stok Durumu 2459 · Şablon Dışı 2459 · dashboard 2459 malzeme / 2136 düşük stok.
 - **Rapor:** `docs/tests/Stok_Lokasyon_Test_Report.md` · **Karar:** ADR-102
+
+## 2026-08-11 - FAZ C / STK-03 — API lokasyon boyutu
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Sonuç:** Build **0 hata**. Test **1240 toplam · 1207 geçti · 0 kaldı · 33 atlandı**
+  (STK-02 tabanı 1223'tü; **17 yeni senaryo** — 15'i GERÇEK HTTP hattında, 2'si çevrimdışı yolda).
+- **Yeni test dosyası:** `tests/DepoWise.Tests/ApiStockLocationTests.cs` (15/15) ·
+  `StockLocationTests` 17 → 19 (masaüstü çevrimdışı + sync sonrası uyum senaryoları).
+- **Bulgu (düzeltildi):** stok yazma yolları lokasyonun firmaya ait olduğunu doğrulamıyordu →
+  `EnsureLocationOwned` (StockService `RunDocumentOnce` + OpeningStockService). Yabancı/bilinmeyen
+  lokasyon artık **403** ve hiçbir kayıt oluşmuyor (senaryo 8/9/10/18).
+- **Regresyon:** `StockOperationTests` uydurma şube kimliği ("b1"/"b2") kullanıyordu → GERÇEK şube
+  oluşturacak şekilde güncellendi. **Üretim kuralı gevşetilmedi.**
+- **Sync:** kod **değiştirilmedi**; çevrimdışı→snapshot→sunucu yeniden hesaplama senaryosu (19) ile
+  lokasyon kırılımının iki tarafta aynı çıktığı kanıtlandı.
+- **Rapor:** `docs/tests/Stok_Lokasyon_Test_Report.md` (EK bölümü) ·
+  **Sözleşme:** `docs/project-control/STK_03_API_LOKASYON_PLANI.md`

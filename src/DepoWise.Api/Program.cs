@@ -1552,8 +1552,34 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
 }).RequireAuthorization();
 
 // ── Stok İşlemleri (Yeni Kayıt / Transfer / Depo Çıkışı + hareket iptali) — masaüstüyle birebir ──
+// STK-03 — BAKİYE UÇLARI. Üç FARKLI anlam, üç AYRI uç (aynı ucu üç anlamda kullanmak sözleşmeyi
+// belirsizleştirirdi). Aşağıdaki uç FİRMA GENELİ toplamı döner ve BİLİNÇLİ olarak DEĞİŞTİRİLMEMİŞTİR —
+// mevcut web sürümü (Stock.razor) bunu kullanıyor, geriye dönük uyum korunur.
 app.MapGet("/api/stock/balance/{materialId}", (HttpContext c, string materialId) =>
     S(c) is { } s ? Results.Ok(new { balance = svc.Stock.GetBalance(s, materialId) }) : Results.Unauthorized()).RequireAuthorization();
+
+// STK-03 — LOKASYON KIRILIMI: malzeme hangi depoda ne kadar? Tek sorgu + JOIN ile ad (N+1 yok).
+// total, kırılımın C#/decimal toplamıdır → ekranda "genel toplam" ile "depolar toplamı" ASLA kopmaz.
+app.MapGet("/api/stock/balance/{materialId}/locations", (HttpContext c, string materialId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var rows = svc.Stock.GetLocationBalances(s, materialId);
+    return Results.Ok(new
+    {
+        materialId,
+        total = rows.Sum(x => x.Quantity),
+        locations = rows.Select(x => new { locationId = x.LocationId, locationName = x.LocationName, quantity = x.Quantity }),
+    });
+}).RequireAuthorization();
+
+// STK-03 — TEK LOKASYON bakiyesi. locationId verilmezse ATANMAMIŞ kovası okunur (uydurma yok).
+// Lokasyon başka firmaya aitse 403 (mevcut hata standardı; yeni model icat edilmedi).
+app.MapGet("/api/stock/balance/{materialId}/location", (HttpContext c, string materialId, string? locationId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var b = svc.Stock.GetLocationBalance(s, materialId, locationId ?? "");
+    return Results.Ok(new { materialId, locationId = b.LocationId, locationName = b.LocationName, balance = b.Quantity });
+}).RequireAuthorization();
 
 app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
 {

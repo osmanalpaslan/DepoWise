@@ -22,11 +22,25 @@ public sealed record MaterialMovementRow(long Date, string Kind, decimal Quantit
     public string QtyText => (Quantity >= 0 ? "+" : "") + Quantity.ToString("0.##");
 }
 
+/// <summary>STK-03 — bir malzemenin TEK lokasyondaki bakiyesi (API kırılım sözleşmesi).
+/// <paramref name="LocationId"/> boş metin = ATANMAMIŞ (lokasyonu bilinmeyen geçmiş stok).</summary>
+public sealed record StockLocationBalance(string LocationId, string LocationName, decimal Quantity);
+
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
     string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null,
-    string? DocumentId = null, bool IsReversed = false)
+    string? DocumentId = null, bool IsReversed = false,
+    // STK-03: hareketin LOKASYONU. Depo bazlı stokta "hangi depodan/depoya" bilgisi olmadan hareket
+    // defteri okunamaz. Alanlar SONA eklendi (opsiyonel) → mevcut çağıranlar etkilenmez.
+    // FromLocation yalnız TRANSFER'de doludur (kaynak depo); diğer türlerde null.
+    string? LocationId = null, string? LocationName = null,
+    string? FromLocationId = null, string? FromLocationName = null)
 {
+    /// <summary>Ekranda gösterilecek lokasyon adı. Lokasyon yoksa (geçmiş kayıt) "Atanmamış".</summary>
+    public string LocationText => string.IsNullOrEmpty(LocationId) ? "Atanmamış" : (LocationName ?? LocationId!);
+    /// <summary>Transferde kaynak depo; diğer hareketlerde boş (tire).</summary>
+    public string FromLocationText => string.IsNullOrEmpty(FromLocationId) ? "—" : (FromLocationName ?? FromLocationId!);
+
     public string InvoiceText => string.IsNullOrWhiteSpace(InvoiceNo) ? "—" : InvoiceNo!;
     // Transfer geri ALINAMAZ (kullanıcı isteği 2026-08-06): iki şubenin stoğunu etkiler; doğrusu hedeften
     // kaynağa yeni bir ters transfer. Açılış da geri alınmaz. Sunucu ReverseDocument da ayrıca reddeder.
@@ -264,6 +278,73 @@ public sealed class StockService
         return StockBalanceWriter.ReadBalance(conn, null, s.CompanyId, materialId, locationId);
     }
 
+    /// <summary>
+    /// STK-03 — malzemenin lokasyon kırılımı, LOKASYON ADLARIYLA (API/ekran sözleşmesi).
+    ///
+    /// <see cref="GetBalancesByLocation"/> yalnız kimlik→miktar döndürür; ekran ad göstermek zorunda.
+    /// Adları çağıranın satır satır sorması N+1 üretirdi (100 malzeme × 5 depo = 500 sorgu) → ad
+    /// AYNI sorguda <c>JOIN branches</c> ile gelir. Şube JOIN'i firmaya bağlıdır (çapraz-tenant ad sızmaz).
+    ///
+    /// Sıra: adı olan lokasyonlar ada göre, ATANMAMIŞ ('') en SONA (kullanıcı önce gerçek depolarını görür).
+    /// Yetki: stok OKUMA — hareket listesiyle aynı kapı (deny-by-default).
+    /// </summary>
+    public IReadOnlyList<StockLocationBalance> GetLocationBalances(SessionContext s, string materialId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        var list = new List<StockLocationBalance>();
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT sb.location_id, b.name, sb.quantity
+FROM stock_balances sb
+LEFT JOIN branches b ON b.id = sb.location_id AND b.company_id = sb.company_id
+WHERE sb.company_id=@c AND sb.material_id=@m;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@m", materialId);
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var loc = r.GetString(0);
+                list.Add(new StockLocationBalance(
+                    loc,
+                    r.IsDBNull(1) ? (loc.Length == 0 ? "Atanmamış" : loc) : r.GetString(1),
+                    Money.Parse(r.IsDBNull(2) ? null : r.GetString(2))));
+            }
+        // Sıralama C#'ta: lehçe farkı (Türkçe collation) sonucu değiştirmesin.
+        list.Sort((x, y) => x.LocationId.Length == 0 ? 1
+                          : y.LocationId.Length == 0 ? -1
+                          : string.Compare(x.LocationName, y.LocationName, StringComparison.OrdinalIgnoreCase));
+        return list;
+    }
+
+    /// <summary>
+    /// STK-03 — TEK lokasyonun bakiyesi + adı (API sözleşmesi). <see cref="GetBalanceAt"/> yalnız sayı
+    /// döndürür; bu, ekranın ihtiyaç duyduğu adı da verir ve lokasyonu DOĞRULAR.
+    ///
+    /// Boş <paramref name="locationId"/> = ATANMAMIŞ → doğrulanacak kimlik yoktur (uydurma yapılmaz).
+    /// Dolu ama firmaya ait değilse <see cref="ForbiddenException"/> (403) — yazma yolundaki
+    /// <c>EnsureLocationOwned</c> ile AYNI kural; okuma yolu daha gevşek bırakılmadı.
+    /// </summary>
+    public StockLocationBalance GetLocationBalance(SessionContext s, string materialId, string locationId)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        locationId ??= StockBalanceWriter.Unassigned;
+        using var conn = _factory.Create();
+        var name = "Atanmamış";
+        if (locationId.Length > 0)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT name FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@id", locationId);
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (cmd.ExecuteScalar() is not string found)
+                throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+            name = found;
+        }
+        return new StockLocationBalance(locationId, name,
+            StockBalanceWriter.ReadBalance(conn, null, s.CompanyId, materialId, locationId));
+    }
+
     /// <summary>STK-02 — malzemenin lokasyon kırılımı (rapor/ekran için; toplama YAPILMAZ).</summary>
     public IReadOnlyDictionary<string, decimal> GetBalancesByLocation(SessionContext s, string materialId)
     {
@@ -332,14 +413,19 @@ public sealed class StockService
         if (limit < 1) limit = 1; if (limit > 5000) limit = 5000;
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // STK-03: lokasyon ADLARI aynı sorguda JOIN ile gelir — satır başına ayrı sorgu (N+1) YASAK.
+        // Şube filtresi JOIN koşulunda: başka firmanın şubesi adıyla sızmasın (savunma derinliği).
         var sb = new System.Text.StringBuilder(@"
 SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
-       d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed
+       d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed,
+       sm.branch_id, bl.name, sm.branch_from_id, bf.name
 FROM stock_movements sm
 JOIN materials m ON m.id = sm.material_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c");
         sb.Append(DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id"));
         if (fromMs is not null) sb.Append(" AND sm.created_at >= @from");
@@ -363,7 +449,8 @@ WHERE sm.company_id = @c");
                 r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4),
                 r.GetInt32(5), Money.Parse(r.GetString(6)),
                 r.IsDBNull(7) ? (decimal?)null : Money.Parse(r.GetString(7)),
-                S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1));
+                S(r, 8), S(r, 9), S(r, 10), S(r, 11), S(r, 12), r.GetInt32(13) == 1,
+                S(r, 14), S(r, 15), S(r, 16), S(r, 17)));
         return list;
     }
 
@@ -446,6 +533,14 @@ LIMIT @take;";
         // Idempotency: bu operationId daha önce işlendiyse mevcut belgeyi döndür (çift yazma yok)
         var existing = FindDocumentByOperation(conn, tx, operationId);
         if (existing is not null) { tx.Commit(); return existing; }
+
+        // STK-03: LOKASYON SAHİPLİĞİ — belgeye giren her şube oturumun FİRMASINA ait olmalı.
+        // Burası tüm yazma yollarının (giriş/çıkış/transfer/sayım) tek geçiş noktasıdır → kontrol
+        // bir kez yazılır, dördü birden korunur. Idempotency'den SONRA: zaten işlenmiş bir işlemi
+        // yeniden doğrulayıp reddetmek, tekrar denemede sonucu değiştirirdi.
+        EnsureLocationOwned(conn, tx, s.CompanyId, toBranch);
+        EnsureLocationOwned(conn, tx, s.CompanyId, fromBranch);
+        EnsureLocationOwned(conn, tx, s.CompanyId, primaryBranch);
 
         var docId = Guid.NewGuid().ToString("N");
         var docNo = NextDocNo(conn, tx, s.CompanyId, docType, date);
@@ -758,6 +853,31 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         cmd.AddWithValue("@s", status);
         cmd.AddWithValue("@id", documentId);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// STK-03 — Stok lokasyonunun (şube/şantiye) oturumun FİRMASINA ait olduğunu doğrular.
+    ///
+    /// NEDEN GEREKLİ: STK-02'den beri lokasyon <c>stock_balances</c>'ın BİRİNCİL ANAHTAR kolonudur.
+    /// Doğrulanmazsa başka firmanın şube kimliği hem hareket defterine hem de bakiye anahtarına yazılır
+    /// ve o satır hiçbir firmanın ekranında düzeltilemez. Kontrol <see cref="BranchService"/>'teki
+    /// <c>EnsureBranchOwned</c> ile BİREBİR aynı desendir (yeni yetki mimarisi kurulmadı).
+    ///
+    /// NEDEN SERVİSTE (API'de değil): masaüstü bu servisi ÇEVRİMDIŞI, API'ye uğramadan çağırır.
+    /// API katmanına konsaydı çevrimdışı yol korumasız kalırdı.
+    ///
+    /// null/boş = ATANMAMIŞ (lokasyon bilinmiyor) → doğrulanacak bir şey yoktur, geçerlidir.
+    /// </summary>
+    private static void EnsureLocationOwned(DbConnection conn, DbTransaction tx, string companyId, string? locationId)
+    {
+        if (string.IsNullOrEmpty(locationId)) return;   // ATANMAMIŞ — uydurma yok, kontrol edilecek kimlik yok
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", locationId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
     }
 
     private static void EnsureMaterialOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
