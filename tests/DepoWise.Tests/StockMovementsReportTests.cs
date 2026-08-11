@@ -149,23 +149,32 @@ public class StockMovementsReportTests : IDisposable
 
     // ══════════════ 1. KATALOG VE KOLONLAR ══════════════
 
-    /// <summary>1 — Rapor katalogda ve `Run` tanıyor; filtreleri YALNIZ Date + Location.</summary>
+    /// <summary>1 — Rapor katalogda ve `Run` tanıyor; filtre kümesi TAM olarak beklenendir.
+    ///
+    /// ⚠️ BEKLENTİ GÜNCELLENDİ (STK-10b-1, 2026-08-11): `MovementType` **bilinçli** olarak eklendi.
+    /// Bu bir gevşetme DEĞİLDİR — küme hâlâ TAM EŞİTLİKLE sınanıyor ve STK-10b-2/3'ün filtreleri
+    /// (Search, Material) hâlâ KAPALI olmalı; nöbetçi korunuyor.</summary>
     [Fact]
-    public void Rapor_Katalogda_ve_Yalniz_Date_Location_Filtreleri_Var()
+    public void Rapor_Katalogda_ve_Filtre_Kumesi_Tam_Beklenen()
     {
         var d = ReportCatalog.ByKey(Rapor);
         Assert.NotNull(d);
         Assert.Equal("Stok Hareketleri", d!.Name);
         Assert.True(d.UsesDate);
         Assert.True(d.UsesLocation);
+        Assert.True(d.UsesMovementType);       // STK-10b-1
         Assert.True(d.RequiresDate);           // defter büyür → tarihsiz tam tarama yok
 
-        // STK-10b'nin filtreleri bu artımda AÇILMADI (kapsam sızmasının nöbetçisi).
+        // Bu rapora AİT OLMAYAN filtreler açılmadı.
         Assert.False(d.UsesBranch);
         Assert.False(d.UsesVehicle);
         Assert.False(d.UsesMaintenanceDef);
         Assert.False(d.UsesStatus);
-        Assert.Equal(ReportFilters.Date | ReportFilters.Location, d.Filters);
+        Assert.Equal(ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType, d.Filters);
+
+        // STK-10b-2 (Search) ve 10b-3 (Material) HENÜZ YOK — kapsam sızmasının nöbetçisi.
+        Assert.False(d.Filters.HasFlag((ReportFilters)2048));
+        Assert.False(d.Filters.HasFlag((ReportFilters)4096));
     }
 
     /// <summary>2 — Kolonlar: Kaynak ve Hedef AYRI; defterin okunabilmesi için gerekli alanlar var.</summary>

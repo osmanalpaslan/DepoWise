@@ -94,6 +94,17 @@ public class PostgresStockMovementsReportTests
         // ── 3. LIMIT SQL tarafında ──
         Assert.Equal(5, reports.Run(s, "stock-movements", genis, maxRows: 5).Rows.Count);
 
+        // ── 3b. STK-10b-1: HAREKET TÜRÜ filtresi PostgreSQL'de ──
+        var girisler = reports.Run(s, "stock-movements", genis with { MovementTypes = new[] { "in" } });
+        Assert.Equal(20, girisler.Rows.Count);
+        var transferler = reports.Run(s, "stock-movements", genis with { MovementTypes = new[] { "transfer" } });
+        Assert.Equal(2, transferler.Rows.Count);   // iki bacak
+        // Bilinmeyen tür → fail-closed (PG'de de veri sızmıyor).
+        Assert.Empty(reports.Run(s, "stock-movements", genis with { MovementTypes = new[] { "uydurma" } }).Rows);
+        // Tür + lokasyon birlikte.
+        Assert.Single(reports.Run(s, "stock-movements",
+            genis with { MovementTypes = new[] { "transfer" }, LocationIds = new[] { depoB } }).Rows);
+
         // ── 4. 🔴 SORGU PLANI: filtre + sıralama + LIMIT SQL'de mi? ──
         var plan = Plan(factory, depoA);
         Assert.Contains("Limit", plan, StringComparison.OrdinalIgnoreCase);
@@ -125,11 +136,13 @@ LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.compan
 LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c AND sm.created_at >= @from AND sm.created_at <= @to
   AND (sm.branch_id IN (@loc0) OR sm.branch_from_id IN (@loc0))
+  AND sm.movement_type IN (@mtype0)
 ORDER BY sm.created_at DESC, sm.id DESC LIMIT @lim;";
         cmd.AddWithValue("@c", "A");
         cmd.AddWithValue("@from", 0L);
         cmd.AddWithValue("@to", 4_102_444_800_000L);
         cmd.AddWithValue("@loc0", depoA);
+        cmd.AddWithValue("@mtype0", "in");
         cmd.AddWithValue("@lim", 50);
 
         var sb = new System.Text.StringBuilder();

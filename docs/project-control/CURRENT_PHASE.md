@@ -426,11 +426,39 @@ bölünebilir: **10b-1** `MovementType` (seçenek kaynağı zaten var) → **10b
 kalan kapasiteyle güvenilir biçimde bitirilemez. Yarıda kalsa sonuç "eksik ama yeşil" değil
 **KIRMIZI** olurdu (bayrak eklenip 6 katmanı bitirilmezse RPR-01 kırılır).
 
+## ✅ SON TAMAMLANAN — `STK-10b-1` Hareket Türü filtresi (2026-08-11)
+
+Sonuç kaydı: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §19
+
+`MovementType` filtresi **6/6 katmanda** bağlandı; **RPR-01 gevşetilmeden yeşil** (14/14) ve artık
+yeni bayrağı **kendi denetliyor**. Seçenekler yalnız `MovementTypeOptions`'tan (STK-B1) →
+**`/api/reports/scope`'a yeni alan eklenmedi**, ikinci harita oluşmadı.
+
+**🔴 Uygulama sırasında kendi hatamı yakaladım:** `MovementTypes`'ı önce `LocationIds`'ten **önce**
+eklemiştim. Bu kayıt API'de **pozisyonel** de kuruluyor → `LocationIds` argümanı sessizce kayar,
+lokasyon filtresi çalışmayı bırakırdı. Sona taşındı, alanın yanına kalıcı uyarı yorumu kondu.
+
+**Semantik:** kanonik anahtarla sorgulanıyor (etiketle değil) · bilinmeyen anahtar **fail-closed**
+(veri sızdırmıyor) · boş liste = filtre yok · **`BranchScope` genişlemiyor** (Depo A oturumu, Depo B'deki
+`usage` hareketini türle isteyince bile göremiyor) · transfer **iki satır** kalıyor.
+
+**⚡ Sorgu planı:** `movement_type` filtresi **SQL'e indi**; Limit/Sort yerinde; **yeni indeks yok**.
+Testle ayrıca kanıtlandı: tavan **filtrelenmiş küme** üzerine iniyor (bellekte süzülmüyor).
+
+**Kanıt:** **1480 / 1445 geçti / 0 kaldı / 35 atlandı** (taban 1452; **+28 senaryo**) · build 0 hata ·
+23 çevrimdışı + 5 yeni HTTP + izole PG (sorgu planı dahil) · **9 XLSX kombinasyonu** hücre hücre.
+
+⚠️ **2 mevcut test güncellendi** — ikisi de **STK-10a'da benim koyduğum kapsam nöbetçileriydi** ve
+yeni filtreyi doğru yakaladılar. Gevşetilmediler: tam-eşitlik korundu, üstüne **Search (2048) ve
+Material (4096) hâlâ kapalı** nöbetçileri eklendi. Ayrıntı §19.7.
+⚠️ **Görsel render kontrolü YAPILMADI** — aynı engel (§19.8).
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10b-1` — `MovementType` filtresi** (6 kablolama noktası). En küçük ve en düşük riskli artım:
-seçenek kaynağı `MovementTypeOptions` **zaten var** (STK-B1), yeni altyapı gerekmiyor.
-Sonra 10b-2 (`Search`) → 10b-3 (`Material`) → 10b-4 (ekranlar + B-1).
-Kabul kriterleri planın §10'unda; `Search` sözleşmesi ADR-104 / KARAR-10'da.
+**`STK-10b-2` — `Search` filtresi** (6 kablolama noktası). Sorgu parçası mevcut
+`StockService.SearchMovements`'tan **olduğu gibi** taşınır (ADR-104 / KARAR-10, K-0b):
+`kod OR ad OR not OR fatura no OR belge no`. `Search` skaler (`string?`) olduğu için RPR-01 `Map`
+satırında `RequestProps = ["SearchText"]` yeterli — yeni tarama kuralı gerekmez.
+Sonra **10b-3** (`Material` + autocomplete) → **10b-4** (iki ekranın bağlanması + **B-1 düzeltmesi**).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -443,7 +471,7 @@ Kabul kriterleri planın §10'unda; `Search` sözleşmesi ADR-104 / KARAR-10'da.
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1452/1417/0/35 · Build 0 hata
+667 stok hareketi · Test 1480/1445/0/35 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

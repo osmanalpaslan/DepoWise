@@ -157,6 +157,22 @@
                         </ScrollViewer>
                     </Border>
                 </ctrl:FormField>
+                <!-- STK-10b-1: STOK HAREKET TÜRÜ filtresi (Stok Hareketleri Raporu). Sabit liste, TEK
+                     kaynak: MovementTypeOptions (STK-B1) → web ile AYNI seçenekler ve AYNI Türkçe
+                     etiketler. Boş = tüm türler. Sorgu/ağ yok → çevrimdışı çalışır. -->
+                <ctrl:FormField Label="Hareket Türü (çoklu; boş=tümü)" Width="200" IsVisible="{Binding ShowMovementType}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding MovementTypes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
                 <!-- Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar. -->
                 <ctrl:FormField Label="Durum (çoklu; boş=tümü)" Width="180" IsVisible="{Binding ShowStatus}">
                     <Border Classes="Field" MaxHeight="110" Padding="8,4">

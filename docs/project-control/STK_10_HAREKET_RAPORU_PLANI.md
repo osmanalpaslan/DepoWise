@@ -608,3 +608,108 @@ autocomplete + ~40 senaryo + 10 XLSX kombinasyonu + PG + çoklu tam-takım koşu
 **Kritik olan:** yarıda kalırsa sonuç "eksik ama yeşil" değil, **KIRMIZI** olurdu — bir bayrak
 eklenip 6 katmanı bitirilmezse RPR-01 kırılır. Bu yüzden hiçbir üretim koduna dokunulmadı.
 §18.3'teki bölünmeyle her adım yeşil biter.
+
+---
+
+## 19. ✅ STK-10b-1 TAMAMLANDI — Hareket Türü filtresi (2026-08-11)
+
+`MovementType` filtresi **6/6 katmanda** bağlandı. `Search` (10b-2), `Material` (10b-3) ve ekran
+bağlantıları (10b-4) **bu artımda YOK**.
+
+### 19.1 MOVEMENTTYPE 6/6 KABLOLAMA
+
+| # | Katman | Ne yapıldı | RPR-01 nasıl doğruluyor |
+|---|---|---|---|
+| 1 | Katalog / descriptor | `ReportFilters.MovementType = 1024` + `UsesMovementType` + `stock-movements` bayrağı | `ReportDescriptor.UsesMovementType` özelliği (reflection) |
+| 2 | İstek modeli | `ReportRequest.MovementTypes` — **SONA** eklendi | `ReportRequest.MovementTypes` özelliği (reflection) |
+| 3 | API sorgu | `usesMovementType = d.UsesMovementType` + `ReportReqDto.MovementTypes` + `/api/reports/{type}` | `usesMovementType = d.UsesMovementType` metni + `d.MovementTypes` ≥ 2 |
+| 4 | API export | `/api/reports/{type}/export` aynı gövde | aynı `d.MovementTypes` sayımı (2 = sorgu + export) |
+| 5 | Web | `@if (_sel?.UsesMovementType == true)` bloğu + `CatItem` alanı + `Bool(e,"usesMovementType")` + **iki gövde** + "Hareket Türü" etiketi | `@if (…` · `Bool(e, …)` · `movementTypes = ` ≥ 2 · etiket |
+| 6 | Masaüstü | `ShowMovementType` + `[NotifyPropertyChangedFor]` + `MovementTypes` koleksiyonu + `LoadMovementTypes()` + `BuildTable` + XAML bloğu | `public bool ShowMovementType` · `SelectedReport?.UsesMovementType ==` · `nameof(...)` · ≥3 geçiş · `IsVisible="{Binding ShowMovementType}"` · etiket |
+
+**+ `ReportFilterParityTests.Map`'e satır eklendi** → koruma testi bu bayrağı artık **kendi** denetliyor.
+**RPR-01 gevşetilmedi, istisna eklenmedi** — 14/14 yeşil.
+
+### 19.2 🔴 UYGULAMA SIRASINDA YAKALANAN KENDİ HATAM
+
+`ReportRequest.MovementTypes`'ı önce **`LocationIds`'ten ÖNCE** eklemiştim. Bu kayıt API uçlarında
+**POZİSYONEL** olarak da kuruluyor (`new ReportRequest(true, d.FromDate, …, d.LocationIds)`) →
+araya eklemek `LocationIds` argümanını **sessizce** `MovementTypes`'a kaydırırdı: lokasyon filtresi
+çalışmayı bırakır, kimse fark etmezdi. Derlemeden önce görüp **sona** taşıdım ve kayda geçirdim
+(alanın yanında kalıcı uyarı yorumu var).
+
+### 19.3 Tek kaynak korundu (STK-B1)
+
+Seçenekler **yalnız** `MovementTypeOptions.All`'dan geliyor — Web bu dosyayı zaten derliyor
+(paylaşılan dosya, STK-B1). ➡️ **`/api/reports/scope`'a yeni alan EKLENMEDİ**; iki platform aynı
+sabitten besleniyor, ikinci harita/kopya oluşmadı. Kaynak taramalı test bunu kilitliyor.
+
+### 19.4 Semantik
+
+- Filtre **KANONİK `movement_type` anahtarıyla** çalışır; kullanıcıya gösterilen ETİKET gönderilirse
+  eşleşmez (testle kanıtlı).
+- **Fail-closed:** bilinmeyen anahtar veri sızdırmaz (boş sonuç), "filtre yok" gibi davranmaz.
+- Boş liste = filtre yok (tüm türler).
+- Çoklu seçim = birleşim (mevcut çoklu-filtre sözleşmesi).
+- **`BranchScope` GENİŞLEMEZ:** `WHERE kapsam AND lokasyon AND tür`. Depo A oturumu, Depo B'de üretilmiş
+  `usage` hareketini türle isteyince bile **göremez**.
+- **Transfer iki satır** kalmaya devam ediyor (tür filtresi `transfer` → 2 satır).
+
+### 19.5 Doğrulamalar
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1480 · 1445 geçti · 0 kaldı · 35 atlandı** (taban 1452; **+28 senaryo**) |
+| RPR-01 | ✅ **14/14** — gevşetilmedi, istisna yok, yeni bayrağı denetliyor |
+| Çevrimdışı / SQLite | 23 senaryo (`StockMovementsTypeFilterTests`), HTTP yok |
+| Gerçek HTTP | 16 senaryo (5 yeni: katalog bayrağı · filtre · fail-closed · 3× export XLSX) |
+| İzole PostgreSQL | Tür filtresi doğru (20 giriş / 2 transfer bacağı) · fail-closed · tür+lokasyon · **sorgu planı** |
+| Gerçek XLSX | 6 kombinasyon (servis) + 3 kombinasyon (HTTP) — hücre hücre |
+| Görsel render | ❌ **YAPILMADI** (§19.8) |
+
+### 19.6 ⚡ Sorgu planı (izole PG, tür filtresiyle)
+
+```
+Limit → Sort (created_at DESC, id DESC)
+  → Nested Loop
+      → Index Scan using ix_materials_company on materials
+      → Index Scan using ix_stock_movements_material on stock_movements
+           Index Cond: (material_id) AND (created_at >= …) AND (created_at <= …)
+           Filter: (company_id) AND (movement_type = 'in') AND ((branch_id=…) OR (branch_from_id=…))
+```
+➡️ **`movement_type` filtresi SQL'e indi**; Limit/Sort yerinde. **Yeni indeks EKLENMEDİ** — plan
+gerektirmiyor. Ayrıca testle kanıtlandı: tavan **filtrelenmiş küme** üzerine iniyor (bellekte süzülmüyor).
+
+### 19.7 ⚠️ Güncellenen 2 mevcut test (gevşetme DEĞİL — nöbetçiler görevini yaptı)
+
+Her ikisi de **STK-10a'da benim koyduğum kapsam nöbetçileriydi** ve yeni filtreyi doğru şekilde yakaladılar:
+
+| Test | Neden değişti | Nasıl GÜÇLENDİ |
+|---|---|---|
+| `StockMovementsReportTests.Rapor_Katalogda_…` | `Filters == Date\|Location` → `…\|MovementType` | Küme hâlâ **tam eşitlikle** sınanıyor; ayrıca **Search (2048) ve Material (4096) hâlâ kapalı** olmalı diye iki yeni nöbetçi eklendi |
+| `StockReportLocationTests.Lokasyon_Filtresi_…` | 1024 artık meşru kullanımda | Yerine **"tür filtresi YALNIZ `stock-movements`'ta açık"** tam-eşleşme kontrolü + 2048/4096 nöbetçileri kondu |
+
+### 19.8 Görsel kontrol — YAPILMADI (dürüst kayıt)
+
+Engel değişmedi (BKM-04 · STK-B1 · STK-10a ile aynı): yerel API veritabanında hesap yok,
+`launch.json` env değişkeni desteklemiyor, canlıya bağlanmak ve parola girmek yasak, CLI
+test-kullanıcı mekanizması yok. **Kontrol edilemeyenler:** filtrenin ekrandaki yeri/hizası ·
+8 seçeneğin görünümü · uzun etiketlerin ("Bakım Tüketimi İptali", "İptal (Ters Kayıt)") taşması ·
+dar pencere · Web/masaüstü görünüm paritesi.
+*(Etiket **içerikleri** ve seçenek kaynağı testlerle doğrulandı; doğrulanmayan yalnız görsel sunum.)*
+
+### 19.9 Kapsam dışı bırakılanlar (bilinçli)
+
+- **"MovementType + Search" XLSX kombinasyonu ÜRETİLMEDİ** — `Search` filtresi STK-10b-2'nindir
+  (talimatın açık isteği). Test dosyasında da bu not düşüldü.
+- `Material` filtresi ve autocomplete · iki hareket ekranının rapora bağlanması · **B-1 düzeltmesi**
+  → 10b-3 / 10b-4.
+
+## 20. ▶️ KALAN ARTIMLAR
+
+| Artım | Kapsam | Durum |
+|---|---|---|
+| **10b-2** | `Search` bayrağı (6 nokta) — sorgu parçası `SearchMovements`'tan taşınır (ADR-104 K-0b) | ⏳ bekliyor |
+| **10b-3** | `Material` bayrağı (6 nokta) + autocomplete deseni (scope'a 2461 malzeme EKLENMEZ, K-1) | ⏳ bekliyor |
+| **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | ⏳ bekliyor |

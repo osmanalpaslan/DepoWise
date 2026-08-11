@@ -19,6 +19,11 @@ public enum ReportFilters
     // Branch = kaydı İŞLEYEN şube (op_branch_id) · Location = stoğun FİZİKSEL yeri (stock_balances.location_id).
     // İkisi bilinçli olarak ayrı bayraktır; birleştirilirse iki kavram karışır.
     Location = 512,
+    // STK-10b-1: STOK HAREKET TÜRÜ (giriş/çıkış/transfer/sayım/bakım/iptal) çoklu filtre.
+    // Seçenekler SABİT listedir ve TEK doğru kaynaktan gelir: DepoWise.Application.Ui.MovementTypeOptions
+    // (STK-B1). Web bu dosyayı derliyor (paylaşılan dosya, bkz. DepoWise.Web.csproj) → seçenekler için
+    // /api/reports/scope'a YENİ ALAN EKLENMEDİ; iki platform aynı sabitten besleniyor.
+    MovementType = 1024,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -77,6 +82,7 @@ public sealed record ReportDescriptor(
     public bool UsesRequester => Filters.HasFlag(ReportFilters.Requester);
     public bool UsesStatus => Filters.HasFlag(ReportFilters.Status);
     public bool UsesLocation => Filters.HasFlag(ReportFilters.Location);   // STK-06: stok deposu/şantiyesi
+    public bool UsesMovementType => Filters.HasFlag(ReportFilters.MovementType);   // STK-10b-1: hareket türü
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -103,10 +109,11 @@ public static class ReportCatalog
             InfoNote: "Depo seçilmezse TÜM depoların toplamı gösterilir (0022Atanmamış0022 stok dahil). Depo seçilirse yalnız o depodaki kalemler listelenir. 0022Atanmamış0022 bir depo değildir: geçmişte deposu girilmemiş stoktur."),
         // STK-10a (2026-08-11): hareket defterinin kataloglanmış dökümü. Daha önce yalnız bir EKRAN vardı
         // (katalogda rapor olmadığı için Excel'e aktarımı yoktu). Bu artımda YALNIZ Date + Location
-        // filtreleri açıktır — Search/Malzeme/Hareket Türü filtreleri STK-10b'nin kapsamıdır.
+        // filtreleri açıktı; STK-10b-1 ile HAREKET TÜRÜ eklendi. Search + Malzeme hâlâ STK-10b-2/3 kapsamındadır.
         // RequiresDate: defter sürekli büyür, tarihsiz tam tarama yapılmaz (ağır rapor kuralı).
         new ReportDescriptor("stock-movements", "Stok Hareketleri", "Giriş/çıkış/transfer/sayım/bakım hareketleri — Kaynak → Hedef",
-            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
+            ReportCategory.Stock, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType, true, ExportStandard,
             InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. 0022Atanmamış0022 bir depo değildir: lokasyonu girilmemiş harekettir."),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,

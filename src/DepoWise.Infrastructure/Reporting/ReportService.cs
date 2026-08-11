@@ -839,8 +839,23 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
             locSql = " AND (" + string.Join(" OR ", parcalar) + ")";
         }
 
+        // ── STK-10b-1: HAREKET TÜRÜ filtresi ───────────────────────────────────────────────────
+        // Boş/null = TÜM türler. Değerler KANONİK `movement_type` anahtarlarıdır; etiketle sorgulanmaz.
+        // Bilinmeyen/uydurma anahtar SESSİZCE eşleşmez (veri sızmaz) — katalog dışı değer atılır ve
+        // hepsi atılırsa "hiçbiri" anlamına gelir, "hepsi" DEĞİL (fail-closed).
+        var istenenTurler = req.MovementTypes is null
+            ? Array.Empty<string>()
+            : req.MovementTypes.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToArray();
+        var typeSql = "";
+        if (istenenTurler.Length > 0)
+        {
+            var ps = string.Join(",", Enumerable.Range(0, istenenTurler.Length).Select(i => "@mtype" + i));
+            typeSql = $" AND sm.movement_type IN ({ps})";
+        }
+
         // ── Sorgu: filtre → sıralama → LIMIT (hepsi SQL'de) ────────────────────────────────────
-        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon filtresi AND ile içeride daraltır.
+        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon ve tür filtreleri AND ile
+        // İÇERİDE daraltır — hiçbiri kapsamı genişletemez.
         cmd.CommandText = @"
 SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
        m.code, m.name, COALESCE(u.name,'') AS unit,
@@ -857,12 +872,14 @@ WHERE sm.company_id = @c"
             + ReportScope.BranchSql(s, req, "sm.branch_id")
             + DateFilter(req, "sm.created_at")
             + locSql
+            + typeSql
             + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
 
         cmd.AddWithValue("@c", companyId);
         ReportScope.BindBranch(cmd, s, req);
         BindDates(cmd, req);
         for (int i = 0; i < gercekDepolar.Count; i++) cmd.AddWithValue("@loc" + i, gercekDepolar[i]);
+        for (int i = 0; i < istenenTurler.Length; i++) cmd.AddWithValue("@mtype" + i, istenenTurler[i]);
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();

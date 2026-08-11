@@ -679,3 +679,50 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   veritabanında hesap yok, `launch.json` env desteklemiyor, canlıya bağlanmak ve parola girmek yasak.
   XLSX'in İÇERİĞİ hücre hücre doğrulandı; doğrulanmayan yalnız görsel sunum.
 - **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §16
+
+## 2026-08-11 - STK-10b-1 — Stok Hareketleri raporu: Hareket Türü filtresi
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1452 · 1417 geçti · 0 kaldı · 35 atlandı
+- **Bitiş:** **1480 toplam · 1445 geçti · 0 kaldı · 35 atlandı** (**+28 yeni senaryo**:
+  `StockMovementsTypeFilterTests` 23 · `ApiStockMovementsReportTests` +5 (3'ü Theory)).
+- **Kapsam:** YALNIZ `MovementType`. `Search` (10b-2), `Material` (10b-3), ekran bağlantıları +
+  B-1 (10b-4) bu artımda YOK.
+- **6/6 KABLOLAMA:** katalog/descriptor (`ReportFilters.MovementType = 1024` + `UsesMovementType`) ·
+  istek modeli (`ReportRequest.MovementTypes`, SONA) · API sorgu · API export · Web (`@if` bloğu +
+  `CatItem` + `Bool` + iki gövde + etiket) · Masaüstü (`ShowMovementType` + Notify + koleksiyon +
+  loader + `BuildTable` + XAML). **+ RPR-01 `Map`'e satır** → koruma testi bayrağı kendi denetliyor.
+- **RPR-01: 14/14 YEŞİL** — gevşetilmedi, istisna eklenmedi, tarama kuralı değiştirilmedi.
+- **🔴 Uygulama sırasında yakalanan KENDİ HATAM:** `MovementTypes` önce `LocationIds`'ten ÖNCE
+  eklenmişti. Bu kayıt API uçlarında POZİSYONEL kuruluyor → `LocationIds` argümanı sessizce
+  `MovementTypes`'a kayardı ve lokasyon filtresi çalışmayı bırakırdı. Derlemeden önce görüldü, alan
+  SONA taşındı, yanına kalıcı uyarı yorumu eklendi.
+- **Tek kaynak (STK-B1) korundu:** seçenekler yalnız `MovementTypeOptions.All`'dan. Web bu dosyayı
+  zaten derliyor (paylaşılan dosya) → **`/api/reports/scope`'a yeni alan EKLENMEDİ**, ikinci
+  harita/kopya oluşmadı. Kaynak taramalı testle kilitli.
+- **Kanıtlananlar (çevrimdışı, 23):** 8 türün 8'i tek tek filtrelenebiliyor (Theory) · seçilmeyen tür
+  gelmiyor · çoklu seçim birleşim · **bilinmeyen anahtar fail-closed** (veri sızmıyor) · filtre
+  KANONİK anahtarla çalışıyor (etiket gönderilirse eşleşmiyor) · boş liste = filtre yok · etiketler
+  katalogdan · Web/masaüstü aynı seçenek kaynağı (kaynak taraması) · **tür+lokasyon** · **tür+tarih** ·
+  **tür+BranchScope yetki aşmıyor** · tür+lokasyon+BranchScope üçlüsü · **tavan filtrelenmiş küme
+  üzerine iniyor** (SQL'de) · export'a uygulanıyor · çevrimdışı rapor+export.
+- **Gerçek HTTP (+5):** katalog ucu `usesMovementType` yayınlıyor (ve diğer raporlarda kapalı) ·
+  filtre HTTP'de uygulanıyor · fail-closed · **3 türde export XLSX ekranla hücre hücre aynı**.
+- **Gerçek XLSX:** 6 kombinasyon (servis: filtresiz · tek tür · çoklu tür · tür+lokasyon · tür+tarih ·
+  boş sonuç) + 3 kombinasyon (HTTP). Filtresiz XLSX > filtreli XLSX satır sayısı (filtre gerçekten
+  export'a iniyor). **"MovementType + Search" kombinasyonu ÜRETİLMEDİ** — Search 10b-2 kapsamında.
+- **İzole PostgreSQL:** tür filtresi doğru (20 `in` / 2 `transfer` bacağı) · fail-closed ·
+  tür+lokasyon · **sorgu planı**: `Filter: (company_id) AND (movement_type='in') AND ((branch_id=…)
+  OR (branch_from_id=…))` + `Limit`/`Sort` → filtre SQL'e indi. **Yeni indeks EKLENMEDİ.**
+  Test DB (`stk10b1_test`) silindi, PG durduruldu.
+  ⚠️ Not: ilk denemede DB adı `stk10b1` idi → `PostgresTestGuard` "adında 'test' geçmiyor" diyerek
+  yıkıcı testi ENGELLEDİ. Koruma doğru çalıştı; ad düzeltilerek koşuldu.
+- **⚠️ 2 mevcut test güncellendi (gevşetme DEĞİL):** ikisi de STK-10a'da eklediğim kapsam
+  nöbetçileriydi ve yeni filtreyi doğru yakaladılar. `Rapor_Katalogda_…` filtre kümesi tam eşitlikle
+  sınanmaya devam ediyor; `Lokasyon_Filtresi_…` yerine "tür filtresi YALNIZ stock-movements'ta açık"
+  tam-eşleşmesi kondu. **İkisine de Search (2048) / Material (4096) hâlâ kapalı nöbetçisi eklendi.**
+- **Dokunulmayanlar:** migration YOK · şema YOK · senkron YOK · `MovementTypeOptions` 8 tür aynen ·
+  BKM-04 lokasyon semantiği aynen · STK-10a SQL LIMIT düzeltmesi aynen · hareket ekranları DEĞİŞMEDİ.
+- **Yapılmayan (dürüst kayıt):** **görsel render kontrolü YAPILMADI** — yerel API veritabanında hesap
+  yok, `launch.json` env desteklemiyor, canlıya bağlanmak/parola girmek yasak.
+- **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §19

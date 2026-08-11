@@ -54,6 +54,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowRequester))]
     [NotifyPropertyChangedFor(nameof(ShowStatus))]
     [NotifyPropertyChangedFor(nameof(ShowLocation))]
+    [NotifyPropertyChangedFor(nameof(ShowMovementType))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -70,6 +71,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// <summary>STK-06 — stok lokasyonu (depo/şantiye) filtresi. Şube seçici özel butonuna BAĞLI DEĞİLDİR:
     /// o filtre "kaydı işleyen şube", bu ise "stoğun fiziksel yeri". Rapor yetkisi zaten kapıda.</summary>
     public bool ShowLocation => SelectedReport?.UsesLocation == true;
+
+    /// <summary>STK-10b-1 — stok HAREKET TÜRÜ filtresi. Seçenekler STK-B1'in TEK kaynağından
+    /// (<see cref="MovementTypeOptions"/>) gelir; masaüstünde ayrı bir liste TUTULMAZ ve ağ gerekmez.</summary>
+    public bool ShowMovementType => SelectedReport?.UsesMovementType == true;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -93,6 +98,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public ObservableCollection<BranchPick> Requesters { get; } = new();
     /// <summary>Durum filtresi (Talep Raporu) — sabit liste (RequestStatusOptions); Id = DB değeri.</summary>
     public ObservableCollection<BranchPick> Statuses { get; } = new();
+    /// <summary>STK-10b-1 — stok hareket türü filtresi (Stok Hareketleri Raporu). Sabit liste;
+    /// TEK doğru kaynak <see cref="MovementTypeOptions"/> (STK-B1). Id = KANONİK `movement_type`
+    /// anahtarı, gösterilen ad ise katalogdaki Türkçe etiket → web ile birebir aynı seçenekler.</summary>
+    public ObservableCollection<BranchPick> MovementTypes { get; } = new();
     [ObservableProperty] private string _vehicleSearch = "";
     partial void OnVehicleSearchChanged(string value) => RebuildFilteredVehicles();
 
@@ -156,6 +165,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         LoadSuppliers();
         LoadRequesters();
         LoadStatuses();
+        LoadMovementTypes();
         ApplyDateDefault();
     }
 
@@ -216,6 +226,14 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private void LoadStatuses()
     {
         foreach (var (key, label) in RequestStatusOptions.All) Statuses.Add(new BranchPick(key, label));
+    }
+
+    /// <summary>STK-10b-1 — hareket türleri: sabit liste, TEK kaynak (MovementTypeOptions, STK-B1).
+    /// Web de AYNI sabitten beslenir (paylaşılan dosya) → iki platformda aynı seçenek ve aynı etiket.
+    /// Sorgu YOK, ağ YOK → çevrimdışı çalışır.</summary>
+    private void LoadMovementTypes()
+    {
+        foreach (var (key, label) in MovementTypeOptions.All) MovementTypes.Add(new BranchPick(key, label));
     }
 
     private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
@@ -327,6 +345,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var locationIds = ShowLocation
             ? Locations.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        // STK-10b-1: seçili hareket türleri (KANONİK anahtar). Hiçbiri seçili değilse null → TÜM türler.
+        var movementTypes = ShowMovementType
+            ? MovementTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
@@ -339,7 +361,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             SupplierIds: supplierIds,
             RequesterIds: requesterIds,
             Statuses: statuses,
-            LocationIds: locationIds is { Count: > 0 } ? locationIds : null);
+            LocationIds: locationIds is { Count: > 0 } ? locationIds : null,
+            MovementTypes: movementTypes is { Count: > 0 } ? movementTypes : null);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

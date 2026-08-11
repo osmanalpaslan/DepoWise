@@ -39,7 +39,14 @@ public sealed record ReportRequest(
     // STK-06: STOK LOKASYONU filtresi (depo/şantiye). Boş/null = TÜM ŞUBELER (firma toplamı, ATANMAMIŞ dahil).
     // Boş METİN ("") = 📦 ATANMAMIŞ (lokasyonu bilinmeyen geçmiş stok) — gerçek bir depo DEĞİLDİR.
     // ⚠️ BranchIds ile karıştırılmaz: o, kaydı işleyen şubedir; bu, stoğun fiziksel yeridir.
-    IReadOnlyList<string>? LocationIds = null);
+    IReadOnlyList<string>? LocationIds = null,
+
+    // STK-10b-1: STOK HAREKET TÜRÜ filtresi. Boş/null = TÜM türler. Değerler KANONİK `movement_type`
+    // anahtarlarıdır (kullanıcıya gösterilen ETİKET DEĞİL) — seçenekler
+    // `DepoWise.Application.Ui.MovementTypeOptions`'tan gelir (STK-B1 tek kaynak).
+    // ⚠️ ALAN SONA EKLENDİ: bu kayıt POZİSYONEL olarak da kuruluyor (API uçları) — araya eklemek
+    // mevcut çağrıların argümanlarını sessizce kaydırırdı (ör. LocationIds → MovementTypes).
+    IReadOnlyList<string>? MovementTypes = null);
 
 public static class ReportGate
 {

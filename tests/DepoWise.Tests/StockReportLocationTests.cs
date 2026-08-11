@@ -326,8 +326,13 @@ public class StockReportLocationTests : IDisposable
         Assert.False(ReportCatalog.ByKey("stock-count")!.UsesBranch);
         Assert.False(ReportCatalog.ByKey("stock-movements")!.UsesBranch);
 
-        // STK-10b'nin filtreleri bu artımda HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi.
-        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)1024)));
+        // STK-10b-1: hareket türü filtresi YALNIZ hareket raporunda açıldı (körlemesine yayılmadı).
+        var turluler = ReportCatalog.All.Where(d => d.UsesMovementType).Select(d => d.Key).ToList();
+        Assert.Equal(new[] { "stock-movements" }, turluler);
+
+        // STK-10b-2 (Search=2048) ve 10b-3 (Material=4096) HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi.
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)2048)));
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)4096)));
     }
 
     /// <summary>16 — REGRESYON: lokasyon boyutu diğer stok kullanan raporları bozmadı.

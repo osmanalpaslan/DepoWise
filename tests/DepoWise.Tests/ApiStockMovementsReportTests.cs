@@ -216,6 +216,81 @@ public class ApiStockMovementsReportTests : IAsyncLifetime
 
     // ── 3. Güvenlik ────────────────────────────────────────────────────────────────────────
 
+    // ── STK-10b-1: HAREKET TÜRÜ FİLTRESİ (gerçek HTTP) ─────────────────────────────────────
+
+    private object TurGovde(params string[] turler) => new
+    {
+        fromDate = Gunes, toDate = Batis,
+        locationIds = new List<string>(),
+        movementTypes = turler.ToList(),
+    };
+
+    /// <summary>STK-10b-1 — katalog ucu yeni bayrağı yayınlıyor (Web bunu sürer).</summary>
+    [Fact]
+    public async Task Katalog_Ucu_usesMovementType_Yayinliyor()
+    {
+        var arr = (await ApiTestHost.JsonAsync(await _client.GetAsync("/api/reports/catalog"))).EnumerateArray().ToList();
+        var rapor = arr.Single(e => e.GetProperty("key").GetString() == "stock-movements");
+        Assert.True(rapor.GetProperty("usesMovementType").GetBoolean());
+        // Diğer raporlarda AÇILMADI (kapsam sızmasının nöbetçisi).
+        Assert.False(arr.Single(e => e.GetProperty("key").GetString() == "stock").GetProperty("usesMovementType").GetBoolean());
+    }
+
+    /// <summary>STK-10b-1 — tür filtresi HTTP hattında uygulanıyor; seçilmeyen tür gelmiyor.</summary>
+    [Fact]
+    public async Task Tur_Filtresi_HTTP_Hattinda_Uygulaniyor()
+    {
+        var hepsi = await ApiTestHost.JsonAsync(await _client.PostAsJsonAsync("/api/reports/stock-movements", TurGovde()));
+        Assert.Equal(5, hepsi.GetProperty("rows").GetArrayLength());
+
+        var r = await _client.PostAsJsonAsync("/api/reports/stock-movements", TurGovde("transfer"));
+        r.EnsureSuccessStatusCode();
+        var transfer = await ApiTestHost.JsonAsync(r);
+        Assert.Equal(2, transfer.GetProperty("rows").GetArrayLength());   // iki bacak
+
+        // Bilinmeyen tür → fail-closed (boş), "filtre yok" gibi davranmıyor.
+        var yok = await ApiTestHost.JsonAsync(
+            await _client.PostAsJsonAsync("/api/reports/stock-movements", TurGovde("uydurma_tur")));
+        Assert.Equal(0, yok.GetProperty("rows").GetArrayLength());
+    }
+
+    /// <summary>STK-10b-1 — 🔴 tür filtresi EXPORT ucuna da uygulanıyor; XLSX ekranla BİREBİR aynı.</summary>
+    [Theory]
+    [InlineData("transfer")]
+    [InlineData("opening")]
+    [InlineData("in")]
+    public async Task Tur_Filtresi_Export_Ucuna_da_Uygulaniyor(string tur)
+    {
+        var r = await _client.PostAsJsonAsync("/api/reports/stock-movements", TurGovde(tur));
+        r.EnsureSuccessStatusCode();
+        var doc = await ApiTestHost.JsonAsync(r);
+
+        var e = await _client.PostAsJsonAsync("/api/reports/stock-movements/export", TurGovde(tur));
+        e.EnsureSuccessStatusCode();
+        var bytes = await e.Content.ReadAsByteArrayAsync();
+
+        var headers = doc.GetProperty("headers").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+        var numeric = doc.GetProperty("numeric").EnumerateArray().Select(x => x.GetBoolean()).ToList();
+        var ekranRows = doc.GetProperty("rows").EnumerateArray()
+            .Select(row => row.EnumerateArray().Select(HucreMetni).ToList()).ToList();
+
+        using var ms = new MemoryStream(bytes);
+        using var wb = new XLWorkbook(ms);
+        var ws = wb.Worksheets.First();
+        for (int i = 0; i < ekranRows.Count; i++)
+            for (int c = 0; c < headers.Count; c++)
+            {
+                var cell = ws.Cell(i + 2, c + 1);
+                var xlsx = c < numeric.Count && numeric[c]
+                    ? (cell.IsEmpty() ? "" : cell.GetDouble().ToString("0.####"))
+                    : cell.GetString();
+                Assert.Equal(ekranRows[i][c], xlsx);
+            }
+        // Export'ta fazladan satır yok.
+        var fazla = ekranRows.Count + 2 + (ekranRows.Count > 0 ? 1 : 0);
+        Assert.True(string.IsNullOrEmpty(ws.Cell(fazla, 1).GetString()));
+    }
+
     /// <summary>5 — Export özel buton yetkisi ister; yetkisiz kullanıcı 403 alır (mevcut standart).</summary>
     [Fact]
     public async Task Export_Yetkisiz_Kullaniciya_403()

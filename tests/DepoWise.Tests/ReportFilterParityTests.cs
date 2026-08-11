@@ -96,6 +96,9 @@ public class ReportFilterParityTests
         new Wiring(ReportFilters.Status,         "ShowStatus",         new[] { "Statuses" },           "Durum"),
         // STK-06 — stok lokasyonu. Branch ile AYNI ŞEY DEĞİLDİR (kaydı işleyen şube ≠ stoğun fiziksel yeri).
         new Wiring(ReportFilters.Location,       "ShowLocation",       new[] { "LocationIds" },        "Depo / Şantiye"),
+        // STK-10b-1 — stok hareket türü. Seçenekler SABİT listedir ve TEK kaynaktan gelir
+        // (MovementTypeOptions, STK-B1); Web bu dosyayı derlediği için /api/reports/scope'a alan eklenmedi.
+        new Wiring(ReportFilters.MovementType,   "ShowMovementType",   new[] { "MovementTypes" },      "Hareket Türü"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);
