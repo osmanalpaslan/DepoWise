@@ -238,9 +238,22 @@ public sealed partial class UsersViewModel : ViewModelBase
         FormPersonnel = null; LoadLinkablePersonnel();
         foreach (var r in AssignableRoles) r.IsSelected = false;
         SelectedTemplate = null;
-        if (CanUseTemplates && Templates.Count == 0)
-            try { foreach (var t in DesktopServices.PermissionTemplates.ListForUserCreation(_session)) Templates.Add(t); } catch { }
+        // G6-01: şablonlar SUNUCUDAN gelir (yerel kopya artık otorite değil). Çevrimdışıysa liste boş kalır
+        // ve şablonsuz kullanıcı oluşturma çalışmaya devam eder.
+        if (CanUseTemplates && Templates.Count == 0) _ = LoadTemplatesAsync();
         ShowAdd = true;
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        try
+        {
+            var rows = await OrgServerClient.ListTemplatesForUserAsync();
+            if (rows is null) return;   // çevrimdışı → şablon seçimi yok; uyarı kaydetme anında verilir
+            Templates.Clear();
+            foreach (var t in rows) Templates.Add(t);
+        }
+        catch { }
     }
 
     [RelayCommand]
@@ -257,11 +270,18 @@ public sealed partial class UsersViewModel : ViewModelBase
 
         var roles = AssignableRoles.Where(r => r.IsSelected).Select(r => r.Key).ToList();
 
-        // Şablon seçildiyse verisini al; şablonun rolü de kullanıcıya atanır
+        // Şablon seçildiyse verisini al; şablonun rolü de kullanıcıya atanır.
+        // G6-01: şablon SUNUCUDAN okunur (yerel kopya otorite değil). Okunamazsa kullanıcı HİÇ oluşturulmaz —
+        // aksi halde yetkisiz bir hesap açılır ve şablon uygulandı sanılırdı.
         DepoWise.Infrastructure.Security.PermissionTemplateData? tplData = null;
         if (CanUseTemplates && SelectedTemplate is not null)
         {
-            tplData = DesktopServices.PermissionTemplates.GetData(_session, SelectedTemplate.Id);
+            tplData = await OrgServerClient.GetTemplateDataAsync(SelectedTemplate.Id);
+            if (tplData is null)
+            {
+                FormError = "Yetki şablonu sunucudan okunamadı (çevrimdışı olabilirsiniz). Kullanıcı OLUŞTURULMADI.";
+                return;
+            }
             if (!string.IsNullOrWhiteSpace(tplData.RoleKey) && !roles.Contains(tplData.RoleKey))
                 roles.Add(tplData.RoleKey!);
         }
@@ -289,18 +309,22 @@ public sealed partial class UsersViewModel : ViewModelBase
             DesktopServices.Users.ImportServerUser(newUserId, TargetCompanyId, NewUsername.Trim(), NewPassword,
                 fullName, FormBranch?.Id, IsSuperAdmin && NewViewAllBranches, mustChangePassword: true, roles);
 
-            // Yetki şablonu → yerele yaz (yetkiler senkronda değil; Yetkiler ekranından düzenlenir).
-            // G6-07: yetki yazımı başarısız olursa "kullanıcı oluşturuldu" DEMEYİZ ama "oluşturulamadı" da
-            // demeyiz — kullanıcı sunucuda GERÇEKTEN oluştu. Ne olduğu ve ne yapılacağı açıkça yazılır.
+            // G6-01: şablon yetkileri SUNUCUYA yazılır. Önceden yerele yazılıyordu; kullanıcı sunucuda
+            // oluştuğu için yetkiler hedefe HİÇ ULAŞMIYOR, web'de ve diğer makinelerde kullanıcı yetkisiz
+            // kalıyordu — üstelik ekran "yetkiler şablondan uygulandı" diyordu. Yazma, delegasyon tavanını
+            // uygulayan PermissionService'ten (aynı uç: /api/permissions/{id}) geçer.
+            // G6-07: başarısızsa "kullanıcı oluşturuldu" DEMEYİZ ama "oluşturulamadı" da demeyiz —
+            // kullanıcı sunucuda GERÇEKTEN oluştu. Ne olduğu ve ne yapılacağı açıkça yazılır.
             if (tplData is not null)
             {
-                try { DesktopServices.Permissions.SaveForUser(_session, newUserId, tplData.Modules, tplData.Buttons); }
-                catch (Exception ex)
+                var permRes = await OrgServerClient.SavePermissionsAsync(newUserId, tplData.Modules, tplData.Buttons);
+                if (!permRes.Ok)
                 {
                     ShowAdd = false;
                     NewViewAllBranches = false;
                     await Load();
-                    Status = "Kullanıcı oluşturuldu ANCAK yetki şablonu uygulanamadı: " + ex.Message
+                    Status = "Kullanıcı oluşturuldu ANCAK yetki şablonu uygulanamadı: "
+                           + (permRes.Offline ? "sunucuya ulaşılamadı." : permRes.Error ?? "bilinmeyen hata.")
                            + " Kullanıcı şu an hiçbir ekranı göremez; yetkileri 'Yetkiler' ekranından verin.";
                     return;
                 }

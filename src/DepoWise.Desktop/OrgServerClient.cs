@@ -108,6 +108,65 @@ public static class OrgServerClient
             version
         });
 
+    // ── Yetki Şablonları (G6-01, 2026-08-11) — SUNUCU-OTORİTELİ ────────────────────────────────
+    // Şablonlar da tıpkı kullanıcı/yetki gibi masaüstü iş senkronuna DAHİL DEĞİLDİR
+    // (BusinessSyncService.Tables listesinde yok). Masaüstü YERELE yazdığı için web'de ve diğer
+    // makinelerde görünmüyordu; üstelik şablonla oluşturulan kullanıcının yetkileri sunucuya hiç
+    // ulaşmıyordu. Çözüm kullanıcı/yetkideki KANITLANMIŞ desendir: çevrimiçiyken doğrudan aynı API
+    // ucuna git; çevrimdışıysa çağıran uyarır, yerele yazılmaz. Yeni senkron mekanizması KURULMADI.
+
+    /// <summary>Şablon YÖNETİM listesi (süper admin — tüm firmalar). null = çevrimdışı.</summary>
+    public static Task<List<PermissionTemplateRow>?> ListTemplatesAsync()
+        => TemplateRowsAsync("/api/permission-templates");
+
+    /// <summary>Kullanıcı OLUŞTURMA için görünür şablonlar (kendi firması + tüm-firma). null = çevrimdışı.</summary>
+    public static Task<List<PermissionTemplateRow>?> ListTemplatesForUserAsync()
+        => TemplateRowsAsync("/api/permission-templates/for-user");
+
+    private static async Task<List<PermissionTemplateRow>?> TemplateRowsAsync(string path)
+    {
+        using var doc = await GetJsonAsync(path);
+        if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<PermissionTemplateRow>();
+        foreach (var e in doc.RootElement.EnumerateArray())
+        {
+            if (e.ValueKind != JsonValueKind.Object) continue;
+            list.Add(new PermissionTemplateRow(Str(e, "id"), Str(e, "name"), Str(e, "companyId"),
+                NullS(e, "companyName"), Bool(e, "scopeAll")));
+        }
+        return list;
+    }
+
+    /// <summary>Şablon içeriği (modüller + butonlar + rol). null = çevrimdışı ya da erişim reddedildi.</summary>
+    public static async Task<PermissionTemplateData?> GetTemplateDataAsync(string templateId)
+    {
+        using var doc = await GetJsonAsync($"/api/permission-templates/{templateId}");
+        if (doc is null) return null;
+        var mods = new List<ModulePermission>();
+        if (doc.RootElement.TryGetProperty("modules", out var m) && m.ValueKind == JsonValueKind.Array)
+            foreach (var e in m.EnumerateArray())
+                mods.Add(new ModulePermission(Str(e, "moduleKey"), Bool(e, "canView"), Bool(e, "canCreate"),
+                    Bool(e, "canEdit"), Bool(e, "canDelete")));
+        var btns = new List<string>();
+        if (doc.RootElement.TryGetProperty("buttons", out var b) && b.ValueKind == JsonValueKind.Array)
+            foreach (var e in b.EnumerateArray()) if (e.ValueKind == JsonValueKind.String) btns.Add(e.GetString() ?? "");
+        string? role = doc.RootElement.TryGetProperty("roleKey", out var rk) && rk.ValueKind == JsonValueKind.String
+            ? rk.GetString() : null;
+        return new PermissionTemplateData(mods, btns, role);
+    }
+
+    public static Task<Result> CreateTemplateAsync(string name, string? roleKey,
+        IEnumerable<ModulePermission> modules, IEnumerable<string> buttons, string? companyId, bool scopeAll)
+        => PostIdAsync("/api/permission-templates", new
+        {
+            name, roleKey,
+            modules = modules.Select(x => new { moduleKey = x.ModuleKey, canView = x.CanView, canCreate = x.CanCreate, canEdit = x.CanEdit, canDelete = x.CanDelete }),
+            buttons, companyId, scopeAll,
+        });
+
+    public static Task<Result> DeleteTemplateAsync(string templateId)
+        => SendOkAsync(HttpMethod.Delete, $"/api/permission-templates/{templateId}", null);
+
     public static Task<Result> SetRolesAsync(string userId, IEnumerable<string> roles)
         => SendOkAsync(HttpMethod.Post, $"/api/users/{userId}/roles", new { roles });
 
