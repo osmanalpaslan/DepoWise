@@ -57,7 +57,19 @@
                     }
                 </MudSelect>
             </MudItem>
-            <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_meter" Label="Sayaç" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            @* V-1 (PRT-01 Grup 5, 2026-08-11): DÜZENLEMEDE sayaç SALT-OKUNUR.
+               Sunucuda güncelleme yolu (UpdateVehicle / PUT) sayaca BİLEREK dokunmaz — sayaç yalnız
+               ayrı SetMeter mekanizmasından değişir (geriye alma koruması: MeterBackwardException).
+               Alan düzenlenebilir kaldığında kullanıcı değeri değiştirip "Araç güncellendi." mesajı
+               alıyor ama sayaç DEĞİŞMİYORDU (sessiz yok sayma + yanlış başarı mesajı).
+               VehicleEditDialog sayacı zaten salt-okunur gösteriyor; tam form ona hizalandı.
+               YENİ KAYITTA düzenlenebilir kalır — orada Create sayacı gerçekten yazar. *@
+            <MudItem xs="6" md="4">
+                <MudNumericField T="decimal" @bind-Value="_meter" Label="Sayaç" Min="0" Format="0.##"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined"
+                                 ReadOnly="@(_editId is not null)" Disabled="@(_editId is not null)"
+                                 HelperText="@(_editId is null ? null : "Sayaç bu formdan değiştirilemez; yakıt/bakım kayıtlarıyla veya masaüstü araç formundan güncellenir.")" />
+            </MudItem>
             <MudItem xs="6" md="4">
                 <MudSelect T="string" @bind-Value="_meterUnit" Label="Birim" Margin="Margin.Dense" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@("km")">km</MudSelectItem>

@@ -204,6 +204,36 @@ public class VehicleTests : IDisposable
         Assert.Equal((1000m, 1500m, "vehicle_form"), history[1]);
     }
 
+    /// <summary>
+    /// V-1 (PRT-01 Grup 5, 2026-08-11) — ARAÇ GÜNCELLEME SAYACA DOKUNMAZ.
+    ///
+    /// <see cref="UpdateVehicle"/> record'unda sayaç alanı BİLEREK yoktur; sayaç yalnız
+    /// <see cref="VehicleService.SetMeter"/> / <c>AdvanceMeter</c> yolundan (geriye alma koruması ile)
+    /// değişir. Web tam formu sayacı düzenlenebilir gösterdiği için kullanıcı değeri değiştirip
+    /// "Araç güncellendi." mesajı alıyor ama sayaç DEĞİŞMİYORDU; alan salt-okunur yapıldı.
+    ///
+    /// Bu test o değişmezi kilitler: ileride <c>Update</c>'e sayaç eklenirse burası kırılır ve
+    /// UI kararının yeniden gözden geçirilmesi gerektiği görülür.
+    /// </summary>
+    [Fact]
+    public void Guncelleme_Sayaci_DEGISTIRMEZ_VeGecmisEklemez()
+    {
+        var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 1000m));
+        var historyBefore = _vehicles.MeterHistory(v).Count;
+
+        // Araç kartındaki diğer alanlar güncellenir — sayaç bu yoldan DEĞİŞMEZ.
+        _vehicles.Update(_admin, v, new UpdateVehicle("34ABC01", 2021, "active", null));
+
+        Assert.Equal(1000m, _vehicles.GetMeter(_admin, v));
+        Assert.Equal(historyBefore, _vehicles.MeterHistory(v).Count);   // sahte sayaç logu oluşmaz
+
+        // Sayaç yalnız kendi mekanizmasından değişir ve geriye alma koruması KORUNUR.
+        _vehicles.SetMeter(_admin, v, 1500m, "vehicle_form");
+        Assert.Equal(1500m, _vehicles.GetMeter(_admin, v));
+        Assert.Throws<MeterBackwardException>(() => _vehicles.SetMeter(_admin, v, 900m, "vehicle_form"));
+        Assert.Equal(1500m, _vehicles.GetMeter(_admin, v));
+    }
+
     [Fact]
     public void Sayac_Advance_KucukDeger_NoOp_GecmisKaydiEngellemez()
     {
