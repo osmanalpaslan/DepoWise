@@ -321,3 +321,13 @@ yolu yanlış depodan doğru depoya **yeni transfer**. İlk yazılan ekran metin
 **🔴 B-2 (bulgu):** Üretimde **`DEPOWISE` firmasının hiç deposu yok** (0 şube; diğer iki firmada 1 ve 5).
 8951,3 birim atanmamış stok var ama dağıtacak hedef yok → kullanıcı önce **Şubeler** ekranından depo
 oluşturmalı. Her iki arayüz de depo yoksa bunu açıkça söylüyor.
+
+### `SNK-11` — Bakiye senkron yükünden arındırıldı · ✅ **TAMAMLANDI** (2026-08-11)
+Kayıt: [`SNK_11_BAKIYE_SENKRON_YUKU.md`](SNK_11_BAKIYE_SENKRON_YUKU.md)
+
+`BusinessSyncService.Tables`'tan `stock_balances` çıkarıldı (+ gereksiz yetki eşlemesi kaldırıldı).
+**Tablo kaldırılmadı**; yerel SQLite ve sunucu sorguları aynen duruyor. Taşınan bakiye zaten
+kullanılmıyordu (sunucu defterden yeniden hesaplıyor, masaüstü pull'u hariç tutuyordu).
+**Fayda (üretim kopyasında ölçüldü):** her turda **663 satır / ~86 KB** taşınmıyor.
+**1317 → 1325/1292/0/33** · build 0 hata. 3 mevcut test gerekçeli yeniden yazıldı (kayıtta §4).
+**Bulgu:** `stock_balances` senkrondaki tek bileşik-PK'lı tabloydu → yetenek ayrı testle kilitlendi.

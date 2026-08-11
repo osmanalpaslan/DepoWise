@@ -492,3 +492,18 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
 - **Bulgular:** B-1 transferler geri alınmaz (dağıtım da öyle; düzeltme = yeni transfer) ·
   B-2 DEPOWISE firmasında hiç depo yok (kullanıcı önce depo oluşturmalı).
 - **Kayıt:** `docs/project-control/STK_08_UYGULAMA_PLANI.md`
+
+## 2026-08-11 - SNK-11 — Türetilmiş bakiye senkron paketinden çıkarıldı
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1317 · 1284 geçti · 0 kaldı · 33 atlandı
+- **Bitiş:** **1325 toplam · 1292 geçti · 0 kaldı · 33 atlandı** (**+7 yeni**; 3 mevcut test gerekçeli
+  olarak yeniden yazıldı — bkz. `SNK_11_BAKIYE_SENKRON_YUKU.md` §4, gevşetme değil sözleşme değişikliği).
+- **Değişiklik:** `BusinessSyncService.Tables`'tan `stock_balances` çıkarıldı + yetki eşlemesi kaldırıldı.
+  Tablo KALDIRILMADI; yerel SQLite ve sunucu sorguları aynen duruyor.
+- **İzole PostgreSQL (üretim kopyası):** paket **1807,1 KB** · 663 hareket taşınıyor ·
+  **663 bakiye satırı taşınmıyor** · taşınmayan veri **~86 KB/tur**.
+- **Kanıtlananlar:** kasten bozuk bakiye (999) sunucuya bulaşmıyor · yalnız bakiye değişirse paket
+  taşımıyor ama **yerel okuma çalışıyor** · çevrimdışı giriş/çıkış/ters kayıt/transfer/sayım/STK-08
+  dağıtımı/kırılım görüntüleme **çalışmaya devam ediyor** · offline→online döngüsünde kopya yok.
+- **Kayıt:** `docs/project-control/SNK_11_BAKIYE_SENKRON_YUKU.md`

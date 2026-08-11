@@ -178,7 +178,7 @@ Yeni depo aynalandıktan sonra **çevrimdışı** giriş/transfer/sayım çalı�
 yansıyor · silinen depo **pasife alınıyor, fiziksel silinmiyor** (geçmiş stok korunuyor) · **firma
 izolasyonu** korunuyor · çevrimdışıyken yerel liste dokunulmadan kalıyor.
 
-## ✅ SON TAMAMLANAN — `STK-08` Atanmamış stok toplu dağıtımı (2026-08-11)
+## ✅ TAMAMLANAN — `STK-08` Atanmamış stok toplu dağıtımı (2026-08-11)
 
 Plan + sonuçlar: [`STK_08_UYGULAMA_PLANI.md`](STK_08_UYGULAMA_PLANI.md)
 
@@ -202,10 +202,32 @@ depolara dağıtabiliyor — sistem hiçbir tahmin yapmıyor (KARAR-8).
 **Kanıt:** **1317 / 1284 geçti / 0 kaldı / 33 atlandı** (taban 1300; **17 yeni senaryo**) · build 0 hata ·
 izole üretim kopyasında doğrulandı: aşım **reddedildi**, **rollback** çalıştı, **firma toplamı korundu**.
 
+## ✅ SON TAMAMLANAN — `SNK-11` Bakiye senkron yükünden arındırıldı (2026-08-11)
+
+Kayıt: [`SNK_11_BAKIYE_SENKRON_YUKU.md`](SNK_11_BAKIYE_SENKRON_YUKU.md)
+
+**Değişiklik TEK dosyada, iki satır:** `BusinessSyncService.Tables` listesinden `stock_balances`
+çıkarıldı + gereksiz yetki eşlemesi kaldırıldı. **Tablo KALDIRILMADI** — yerel SQLite'ta ve sunucuda
+aynen duruyor; masaüstü çevrimdışı stok işlemleri ve bakiye görüntüleme etkilenmedi.
+
+**Neden güvenliydi:** taşınan bakiye zaten KULLANILMIYORDU — sunucu push sonrası defterden yeniden
+hesaplıyor, masaüstü pull'u zaten hariç tutuyordu. STK-07 bunu kanıtlamıştı.
+
+**Ölçülen fayda (üretim kopyası):** her senkron turunda **663 bakiye satırı / ~86 KB** artık taşınmıyor.
+Paket 1807,1 KB · defter (663 hareket) yerinde.
+
+**Kanıt:** **1325 / 1292 geçti / 0 kaldı / 33 atlandı** (taban 1317; +7 yeni senaryo) · build 0 hata ·
+kasten bozuk bakiye sunucuya bulaşmıyor · çevrimdışı akışların TAMAMI çalışıyor · kopya yok.
+
+⚠️ **3 mevcut test gerekçeli olarak yeniden yazıldı** (gevşetme değil — kilitledikleri davranış bilinçli
+olarak kaldırıldı). Ayrıntı kayıtta §4.
+
 ## ▶️ SIRADAKİ İŞ
-**`SNK-11` — `stock_balances` push paketinden çıkarılsın.** Bakiye türetilmiş veridir; sunucu zaten
-defterden yeniden hesaplıyor (STK-07'de kanıtlandı) → paketle taşınması **saf gereksiz yük**.
-Önce ölçüm (kaç bayt / kaç satır), sonra çıkarma + senkron sertifikasyon testlerinin tekrarı.
+**`RPR-01` — Rapor filtre paritesi testi.** Rapor filtreleri "katalogdan otomatik gelir" diye
+belgelenmiş ama gerçekte Web (`Reports.razor`) ve masaüstü (`ReportsViewModel`+XAML) blokları ELLE
+yazılıyor → yeni filtre eklenirken biri unutulursa **sessiz parite kaybı** olur (STK-06'da yaşandı,
+elle önlendi). `ReportDescriptor.Uses*` bayraklarını iki platformun filtre bloklarıyla karşılaştıran
+bir test eklenecek.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -218,7 +240,7 @@ defterden yeniden hesaplıyor (STK-07'de kanıtlandı) → paketle taşınması 
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1317/1284/0/33 · Build 0 hata
+667 stok hareketi · Test 1325/1292/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

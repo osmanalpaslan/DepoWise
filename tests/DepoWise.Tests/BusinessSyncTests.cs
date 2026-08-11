@@ -223,21 +223,28 @@ public class BusinessSyncTests : IDisposable
         finally { try { SqliteConnection.ClearAllPools(); File.Delete(bPath); } catch { } }
     }
 
+    /// <summary>
+    /// Geri-çekmede HARİÇ TUTMA mekanizması: <c>excludeTables</c> verilen tabloyu uygulamaz, diğerlerini uygular.
+    ///
+    /// ⚠️ SNK-11 NOTU: bu test eskiden <c>stock_balances</c> ile yazılmıştı. Bakiye artık senkron paketine
+    /// HİÇ girmediği için o kurulum testi ANLAMSIZ hâle gelirdi (olmayan tabloyu hariç tutmak her zaman
+    /// "geçer"). Mekanizmanın kendisi hâlâ kullanılıyor (masaüstü pull'u) → test, senkronda GERÇEKTEN
+    /// taşınan bir tabloyla (<c>personnel</c>) yeniden kuruldu.
+    /// </summary>
     [Fact]
     public void GeriCekme_HaricTutulanTablo_Uygulanmaz()
     {
         SeedCompany(_src, "ACME"); SeedCompany(_dst, "ACME");
-        // Sunucuda bir stock_balances satırı (türetilmiş) olsun
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,unit_price,currency_code,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme',0,'TRY',1,100,1,0);");
-        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,location_id,quantity,updated_at) VALUES('ACME','m1','',5,100);");
+        InsertPersonnel(_src, "P-EX", "ACME", "Hariç Tutulan", updatedAt: 100);
 
         using var snap = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME"));
         new BusinessSyncService(_dst, _clock).ApplyPull("ACME", snap.RootElement,
-            new HashSet<string>(StringComparer.Ordinal) { "stock_balances" });
+            new HashSet<string>(StringComparer.Ordinal) { "personnel" });
 
-        Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';")); // malzeme uygulandı
-        Assert.Null(Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';")); // stock_balances HARİÇ
+        Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));   // malzeme uygulandı
+        Assert.Null(Scalar(_dst, "SELECT full_name FROM personnel WHERE id='P-EX';"));        // personnel HARİÇ
     }
 
     [Fact]
@@ -288,25 +295,55 @@ public class BusinessSyncTests : IDisposable
         Assert.Equal("Yeni İsim", Scalar(_dst, "SELECT full_name FROM personnel WHERE id='p2';"));
     }
 
+    /// <summary>
+    /// SNK-11 (2026-08-11) — TÜRETİLMİŞ BAKİYE SENKRONDA TAŞINMAZ.
+    ///
+    /// ⚠️ BU TEST, ESKİ <c>Apply_IdOlmayanPk_StockBalances_Calisir</c> TESTİNİN YERİNİ ALDI.
+    /// Eski test "bakiye senkronda taşınıyor ve uygulanıyor" davranışını kilitliyordu; SNK-11 ile o
+    /// davranış BİLİNÇLİ OLARAK KALDIRILDI (gevşetme değil, sözleşme değişikliği):
+    /// bakiye türetilmiş veridir, otoriter kaynak <c>stock_movements</c>'tır ve sunucu push sonrası
+    /// bakiyeyi zaten defterden yeniden hesaplar → paketle taşınması saf yüktü.
+    ///
+    /// Yerel <c>stock_balances</c> tablosu KALDIRILMADI; yalnız senkron paketinden çıktı.
+    /// </summary>
     [Fact]
-    public void Apply_IdOlmayanPk_StockBalances_Calisir()
+    public void SNK11_Bakiye_Senkron_Paketinde_TASINMAZ_Hareketler_Tasinir()
     {
-        // stock_balances PK'si 'id' DEĞİL, üç kolonlu BİLEŞİK anahtardır (company_id, material_id, location_id)
-        // → generic upsert PK'yi DbIntrospect'ten okuyup ON CONFLICT hedefini üç kolonla kurmalı (STK-02).
         SeedCompany(_src, "ACME");
         SeedCompany(_dst, "ACME");
-        // Ebeveyn malzeme + bakiye (Tables sırası: materials önce, stock_balances sonra → FK çözülür).
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme','0','0',1,50,1,0);");
         Exec(_src, "INSERT INTO stock_balances(company_id,material_id,location_id,quantity,updated_at) VALUES('ACME','m1','','5',50);");
+        Exec(_src, "INSERT INTO stock_movements(id,company_id,material_id,movement_type,direction,quantity,operation_id,created_at) " +
+                   "VALUES('mv1','ACME','m1','in',1,'5','op-1',50);");
 
         var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
         using var doc = JsonDocument.Parse(snap);
-        var res = new BusinessSyncService(_dst, _clock).Apply("ACME", doc.RootElement);
+        var tables = doc.RootElement.GetProperty("tables");
 
-        Assert.True(res.Upserted >= 2);
-        Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
-        Assert.Equal("5", Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
+        // Paket: DEFTER var, BAKİYE yok.
+        Assert.True(tables.TryGetProperty("stock_movements", out _), "Hareket defteri senkronda TAŞINMALI.");
+        Assert.False(tables.TryGetProperty("stock_balances", out _), "Türetilmiş bakiye senkronda TAŞINMAMALI (SNK-11).");
+
+        new BusinessSyncService(_dst, _clock).Apply("ACME", doc.RootElement);
+
+        // Hedefte hareket var; bakiye satırı senkronla GELMEDİ (sunucu defterden hesaplar).
+        Assert.Equal("mv1", Scalar(_dst, "SELECT id FROM stock_movements WHERE company_id='ACME';"));
+        Assert.Null(Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
+    }
+
+    /// <summary>
+    /// SNK-11 — BİLEŞİK PK YETENEĞİ KORUNUYOR. <c>stock_balances</c> senkron listesinden çıkınca
+    /// generic upsert'in "PK 'id' değilse DbIntrospect'ten oku" yolu artık senkronda kullanılmıyor;
+    /// ama YETENEK duruyor ve yerel yazıcı (<c>StockBalanceWriter</c>) aynı PK'ya dayanıyor.
+    /// Bu test o kabiliyeti (üç kolonlu PK doğru okunuyor mu) doğrudan kilitler.
+    /// </summary>
+    [Fact]
+    public void SNK11_Bilesik_PK_Tespiti_Calismaya_Devam_Ediyor()
+    {
+        using var conn = _src.Create();
+        var pk = DepoWise.Infrastructure.Database.DbIntrospect.PrimaryKey(conn, "stock_balances");
+        Assert.Equal(new[] { "company_id", "material_id", "location_id" }, pk);
     }
 
     [Fact]
@@ -403,18 +440,25 @@ public class BusinessSyncTests : IDisposable
         Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
     }
 
-    /// <summary>ADR-086: açılış stoğu negatif olabildiğinden türetilmiş BAKİYE de negatif olabilir →
-    /// stock_balances negatif değeri artık REDDEDİLMEZ (senkronda uygulanır). Ledger kalkanı hareket
-    /// düzeyinde korunur (bkz. Apply_NegatifHareketMiktari_Reddedilir).</summary>
+    /// <summary>
+    /// ADR-086 + SNK-11 — NEGATİF BAKİYE HÂLÂ MÜMKÜN, ama artık bakiye satırıyla değil DEFTERLE taşınır.
+    ///
+    /// ⚠️ BU TEST, ESKİ <c>Apply_NegatifStokBakiyesi_Uygulanir</c> TESTİNİN YERİNİ ALDI. Eski test
+    /// "negatif BAKİYE satırı senkronda uygulanır" diyordu; SNK-11 ile bakiye artık taşınmıyor.
+    /// Korunması gereken asıl garanti değişmedi: <b>devralınan eksik stok (negatif açılış) senkronda
+    /// kaybolmaz</b> — ama bu, defterdeki <c>direction=-1</c> hareketiyle sağlanır (ADR-086 sözleşmesi:
+    /// quantity DAİMA pozitif saklanır, işaret direction'dadır → negatif-değer kalkanına takılmaz).
+    /// </summary>
     [Fact]
-    public void Apply_NegatifStokBakiyesi_Uygulanir()
+    public void SNK11_Negatif_Acilis_Defter_Uzerinden_Tasinir()
     {
         SeedCompany(_src, "ACME");
         SeedCompany(_dst, "ACME");
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme','0','0',1,100,1,0);");
-        // Negatif açılış → negatif bakiye (devralınan eksik stok). Artık geçerli bir durumdur.
-        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,location_id,quantity,updated_at) VALUES('ACME','m1','','-9',50);");
+        // Negatif açılış: miktar POZİTİF, işaret direction=-1 (ADR-086).
+        Exec(_src, "INSERT INTO stock_movements(id,company_id,material_id,movement_type,direction,quantity,operation_id,created_at) " +
+                   "VALUES('mv-neg','ACME','m1','opening',-1,'9','op-neg',50);");
 
         var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
         using var doc = JsonDocument.Parse(snap);
@@ -422,8 +466,12 @@ public class BusinessSyncTests : IDisposable
         var res = new BusinessSyncService(_dst, _clock).Apply(admin, doc.RootElement);
 
         Assert.Equal("Malzeme", Scalar(_dst, "SELECT name FROM materials WHERE id='m1';"));
-        Assert.Equal("-9", Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
+        Assert.Equal("-1", Scalar(_dst, "SELECT direction FROM stock_movements WHERE id='mv-neg';"));
         Assert.DoesNotContain(res.Errors, e => e.Contains("negatif"));
+
+        // Defterden yeniden hesaplama NEGATİF bakiyeyi üretir (kayıp yok).
+        new DepoWise.Infrastructure.Materials.StockService(_dst, _clock).RecomputeBalances("ACME");
+        Assert.Equal("-9", Scalar(_dst, "SELECT quantity FROM stock_balances WHERE material_id='m1';"));
     }
 
     /// <summary>Ledger kalkanı KORUNUR: stock_movements.quantity negatif snapshot'ı REDDEDİLİR — negatif açılış

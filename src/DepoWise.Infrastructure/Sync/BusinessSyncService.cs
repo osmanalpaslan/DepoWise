@@ -9,8 +9,10 @@ namespace DepoWise.Infrastructure.Sync;
 /// <summary>
 /// İş verisi SNAPSHOT senkronu (Faz 2 — güvenli "web görünürlüğü" yolu). Masaüstü kendi firmasının iş
 /// tablolarını snapshot olarak sunucuya gönderir; sunucu entity-aware generic upsert eder → web adminleri
-/// tüm şube verisini (salt-okunur) görür. DepoWise FTS kullanmaz; türetilmiş stock_balances de client-otoriteli
-/// snapshot olarak taşınır. Generic upsert: satırın verdiği kolonlar ∩ tablo kolonları; company_id sunucuda
+/// tüm şube verisini (salt-okunur) görür. DepoWise FTS kullanmaz.
+/// ⚠️ SNK-11 (2026-08-11): türetilmiş <c>stock_balances</c> ARTIK TAŞINMAZ — otoriter kaynak
+/// <c>stock_movements</c> defteridir, sunucu bakiyeyi push sonrası defterden yeniden hesaplar.
+/// Generic upsert: satırın verdiği kolonlar ∩ tablo kolonları; company_id sunucuda
 /// zorlanır; updated_at varsa LWW (yalnız daha yeni/eşit yazma uygulanır). FK sırası: ebeveyn tablolar önce.
 /// </summary>
 public sealed class BusinessSyncService
@@ -42,7 +44,14 @@ public sealed class BusinessSyncService
         // iş kayıtları
         "personnel",
         "materials",
-        "stock_balances",
+        // SNK-11 (2026-08-11): `stock_balances` BU LİSTEDEN ÇIKARILDI — senkronda TAŞINMAZ.
+        // NEDEN: bakiye TÜRETİLMİŞ veridir; otoriter kaynak `stock_movements` defteridir. Sunucu
+        // push sonrası bakiyeyi zaten defterden yeniden hesaplıyor (Program.cs → RecomputeBalances) ve
+        // masaüstü pull'u bakiyeyi zaten HARİÇ tutuyordu (BusinessSyncPullService). Yani paketle taşınan
+        // değer HİÇBİR ZAMAN kullanılmıyordu → saf yük. STK-07'de kanıtlandı: kasten bozulmuş bir bakiye
+        // senkron sonrası defterin değerine dönüyordu.
+        // ⚠️ TABLO KALDIRILMADI: yerel SQLite'ta ve sunucuda aynen duruyor; masaüstü çevrimdışı stok
+        // işlemleri ve bakiye görüntüleme bundan ETKİLENMEZ (SNK-11 yalnız senkron paketini ilgilendirir).
         "vehicles",
         "vehicle_maintenances",
         "maintenance_materials",
@@ -70,7 +79,7 @@ public sealed class BusinessSyncService
         ["personnel_titles"] = "personnel",   // unvan tanımları personel modülüne bağlı
         ["personnel"] = "personnel",
         ["materials"] = "materials",
-        ["stock_balances"] = "stock",
+        // SNK-11: `stock_balances` artık senkronda taşınmıyor → yetki eşlemesi de gereksizdi, kaldırıldı.
         ["stock_movements"] = "stock",
         ["stock_documents"] = "stock",
         ["vehicles"] = "vehicles",
