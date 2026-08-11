@@ -820,7 +820,7 @@ metninin görünümü · diğer filtrelerle hizası · dar pencere · Web/masaü
 | Artım | Kapsam | Durum |
 |---|---|---|
 | **10b-3** | `Material` bayrağı (6 nokta) + autocomplete (scope'a 2461 malzeme EKLENMEZ, K-1) | ✅ **TAMAM** (§23) |
-| **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | ⏳ bekliyor |
+| **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | ✅ **TAMAM** (§24) |
 | **`STK-B2`** | Arama `stock_documents.note`'u da kapsasın mı? **Davranış değişikliği → kullanıcı kararı** (§21.2) | ⛔ karar bekliyor |
 | **`RPR-02`** 🆕 | HTTP hattında rapor isteği **oturumun şubesini taşımıyor** (§23.5) | ⛔ karar/yeni iş bekliyor |
 
@@ -894,3 +894,101 @@ gerekiyor. **Parolayı ben bir alana yazmam** (güvenlik kuralı) ve canlı sist
 **Kontrol edilemeyenler:** autocomplete genişliği · uzun malzeme adlarının taşması · seçim sonrası
 görünüm · seçimin temizlenmesi · Search + Malzeme'nin aynı satırdaki hizası · dar pencere ·
 Web/masaüstü görsel paritesi.
+
+---
+
+## 24. ✅ STK-10b-4 — Ekranların rapora bağlanması + B-1 (2026-08-12) · **STK-10 TAMAMLANDI**
+
+Karar kaydı: **ADR-105**. Kapsam: iki Stok Hareketleri ekranının rapor altyapısıyla aynı sözleşmeye
+bağlanması ve Web'deki **B-1** hatasının kapatılması.
+
+### 24.1 Yaklaşım — ekran rapora "çevrilmedi", filtreler BİRLEŞTİRİLDİ
+
+Ekranı `TableModel`'e çevirmek gereksiz bir yeniden tasarım olurdu (ekranın kolonları rapordan
+zengin: yön · birim fiyat · belge alanları · iptal durumu). Bunun yerine **filtre mantığı tek
+kaynağa** indirildi:
+
+```
+StockMovementFilterSql.Build(locationIds, movementTypes, search, materialIds)
+        ▲                                   ▲
+        │                                   │
+ReportService.StockMovements        StockService.SearchMovements
+   (rapor + XLSX)                    (web ekranı + masaüstü ekranı)
+```
+
+➡️ İkinci bir hareket sorgulama mimarisi **yok**. Ekran ile rapor aynı satır kümesini vermek
+**zorunda** (testle kilitlendi, §24.4).
+
+### 24.2 🔴 B-1 — önce / sonra
+
+| | ÖNCE (hatalı) | SONRA |
+|---|---|---|
+| Filtre nerede | Web'de **istemcide**, gelen listenin üzerinde | **SQL'de**, `WHERE` içinde |
+| Sıra | LIMIT → (istemci) filtre | **filtre → sıralama → LIMIT** |
+| 501./1001. sıradaki depo kaydı | **Sessizce kaybolurdu** | Gelir |
+| Masaüstü | Lokasyon filtresi **hiç yoktu** | Var (parite) |
+
+Kesin sıra: `firma → BranchScope → tarih → lokasyon → tür → arama → malzeme →
+ORDER BY created_at DESC, tie DESC → LIMIT`.
+
+Uç sözleşmesi: `/api/stock/movements?location=…&type=…&material=…&q=…` — **tekrarlanabilir**
+parametreler; **yok** = filtre yok, **boş değer** (`?location=`) = 📦 **Atanmamış**
+(rapor sözleşmesindeki `""` ile birebir aynı anlam).
+
+### 24.3 🔒 BranchScope × Location (değişmedi, artık EKRANDA da testli)
+
+| Oturum | Filtre | Sonuç |
+|---|---|---|
+| Tüm Şubeler | Depo A | A'yı ilgilendiren **iki bacak** da görünür |
+| Depo A kapsamı | Depo A | Yalnız kapsam içindeki bacaklar |
+| Depo A kapsamı | Depo B | **BOŞ** (yetki aşılamaz) |
+
+### 24.4 Doğrulamalar
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1589 · 1554 geçti · 0 kaldı · 35 atlandı** (taban 1553; **+36 senaryo**) |
+| RPR-01 | ✅ **14/14** — gevşetilmedi, istisna yok |
+| Çevrimdışı / SQLite | 31 senaryo (`StockMovementsScreenReportParityTests`), HTTP yok |
+| Gerçek HTTP | `WebStockLocationContractTests` 14 → **19** (+5, B-1 dahil) |
+| İzole PostgreSQL | Ekran yolu + rapor yolu aynı sonucu veriyor · LIMIT filtre sonrası · **sorgu planı** |
+| Ekran = Rapor | **9 filtre kombinasyonu** — satır SAYISI ve SIRASI birebir |
+| Rapor = XLSX | **6 kombinasyon** hücre hücre |
+| Görsel render | ❌ **YAPILMADI** (§24.6) |
+
+### 24.5 ⚡ Sorgu planı (izole PG, ekran sorgusu + lokasyon filtresi)
+
+```
+Limit → Sort (created_at DESC, id DESC)
+  → Nested Loop
+      → Index Scan using ix_materials_company on materials
+      → Index Scan using ix_stock_movements_material on stock_movements
+            Index Cond: (material_id = m.id) AND (created_at >= …) AND (created_at <= …)
+            Filter: (company_id = …) AND ((branch_id = …) OR (branch_from_id = …))
+```
+➡️ Lokasyon koşulu **SQL'e indi** ve `Limit`'in **altında** — yani tavan filtrelenmiş kümeye
+uygulanıyor. **Yeni indeks EKLENMEDİ** (mevcut indeksler yetti). Test DB (`stk10b4_test`) silindi,
+PG durduruldu.
+
+### 24.6 Görsel kontrol — YAPILMADI
+
+Stok Hareketleri ekranı **giriş (login) formunun arkasında**; açmak için parola alanı doldurmak
+gerekir. Parolayı bir alana **yazmam** (güvenlik kuralı) ve canlıya bağlanmam (talimat).
+Yapılmış gibi gösterilmedi. **Kontrol edilemeyenler:** lokasyon filtresinin diğer alanlarla hizası ·
+uzun depo/malzeme adlarının taşması · dar pencere · boş sonuç görünümü · filtre temizleme ·
+Web/masaüstü görsel paritesi.
+
+### 24.7 🔴 Yol üstünde bulunan KARARSIZ TEST — kök neden bulundu, düzeltildi
+
+Tam takımın bazı koşularında **1** test kırılıyordu. Peşine düşüldü ve yakalandı:
+`SyncBalancePayloadTests.Yalniz_Bakiye_Degisirse_Sunucu_Etkilenmez_Yerel_Calismaya_Devam_Eder`.
+
+**Neden üretim kodu değil, testin kendisiydi:** `Assert.DoesNotContain("777", Snapshot())` senkron
+paketinin TAMAMINDA ham `"777"` metnini arıyordu. Paketteki **rastgele GUID'lerden** biri `777`
+dizisini içerdiğinde test sebepsiz kırılıyordu (yakalanan örnek: `…0077788757fd6`).
+
+**Düzeltme gevşetme DEĞİL, keskinleştirme:** artık paketin `tables` bölümünde `stock_balances`
+tablosunun **hiç olmadığı** (asıl sözleşme) + `"quantity":"777"` alanının bulunmadığı doğrulanıyor.
+**Retry/skip kullanılmadı.** Bu kırılganlık STK-10b-4'ten ÖNCE de vardı; ilgisizdi.
+Son durum: tam takım **1589 · 1554 geçti · 0 kaldı** (`KNOWN_ISSUES` R34 kapatıldı).

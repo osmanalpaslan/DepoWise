@@ -40,6 +40,14 @@
   silmeyi diriltiyordu. İkisi de kapatıldı.
 
 ## Açık
+- **R34 (12.08.2026) — ✅ KÖK NEDEN BULUNDU VE DÜZELTİLDİ (kapatıldı):** tam test takımında ara sıra
+  `SyncBalancePayloadTests.Yalniz_Bakiye_Degisirse_Sunucu_Etkilenmez_Yerel_Calismaya_Devam_Eder`
+  kırılıyordu. Neden **üretim kodu değil, TESTİN KENDİSİYDİ**: `Assert.DoesNotContain("777", Snapshot())`
+  senkron paketinin TAMAMINDA ham `"777"` metnini arıyordu; pakette rastgele üretilen GUID'lerden biri
+  `777` dizisini içerdiğinde test sebepsiz kırılıyordu (yakalanan örnek: `…0077788757fd6`).
+  **Düzeltme gevşetme DEĞİL, keskinleştirme:** artık paketin `tables` bölümünde `stock_balances`
+  tablosunun HİÇ olmadığı (asıl sözleşme) + `"quantity":"777"` alanının bulunmadığı doğrulanıyor.
+  Retry/skip **kullanılmadı** (proje kuralı). Bu kırılganlık STK-10b-4 ile ilgisizdi, önceden vardı.
 - **R33 (YENİ 12.08.2026, `RPR-02`):** **Web'de rapor isteği, giriş ekranında seçilen ŞUBEYİ taşımıyor.**
   JWT yalnız kullanıcı+firma bilgisini taşır; `AuthService.CreateSessionForUser` oturuma
   `OperatingBranchId` **atamaz** (tek istisna: içe-aktarma ucu, formdan `branchId` alır). Sonuç:

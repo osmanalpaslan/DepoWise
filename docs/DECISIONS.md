@@ -12,6 +12,31 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-105 — Hareket filtrelerinin TEK SQL kaynağı + B-1 sunucuya indi (12.08.2026)
+- **Bağlam:** Stok hareket defteri İKİ yerden sorgulanıyordu: `ReportService.StockMovements`
+  (rapor + XLSX) ve `StockService.SearchMovements` (Stok Hareketleri EKRANI, web + masaüstü).
+  Filtre mantığı iki yerde ayrı yazılıydı → ekran ile raporun **sessizce farklı sonuç** vermesi
+  mümkündü. Üstelik web ekranı lokasyon süzmesini, sunucudan gelen **limitli** listenin üzerinde
+  **istemcide** yapıyordu (**B-1**): seçilen depoya ait hareket ilk N kaydın dışındaysa kullanıcı
+  onu hiç göremiyor ve eksikliği fark edemiyordu.
+- **Karar:** Lokasyon · hareket türü · arama · malzeme filtrelerinin WHERE'i **tek** üreteçten gelir:
+  `DepoWise.Infrastructure.Materials.StockMovementFilterSql`. Rapor ve ekran bu sınıfı çağırır;
+  ikinci bir hareket sorgulama mimarisi kurulmaz. Ekran ucu (`/api/stock/movements`) filtreleri
+  **tekrarlanabilir sorgu parametresi** olarak alır (`?location=…&type=…&material=…`); rapor
+  sözleşmesiyle aynı anlam: parametre yoksa filtre yok, **boş değer** (`?location=`) 📦 Atanmamış.
+  Masaüstü ekranına da (parite eksiğiydi) lokasyon filtresi eklendi.
+- **Sıra (her iki çağıranda aynı):** firma → `BranchScope` (kapsam, DIŞ SINIR) → tarih →
+  lokasyon/tür/arama/malzeme → `ORDER BY created_at DESC, tie DESC` → `LIMIT`.
+  Hiçbir filtre `OR` ile kapsamı genişletemez.
+- **Alternatifler:** (a) ekranı doğrudan rapor tablosuna (`TableModel`) çevirmek — reddedildi:
+  ekranın kolonları/UX'i (yön, birim fiyat, iptal durumu, belge alanları) rapordan zengin, gereksiz
+  yeniden tasarım olurdu. (b) İstemci süzmesini korumak ve limiti büyütmek — reddedildi: hatayı
+  gizler, ölçekle geri döner.
+- **Sonuç:** Ekran = rapor = XLSX aynı satır kümesini üretir (testle kilitlendi). B-1'in eski
+  davranışı, aynı veri üzerinde kaydı KAYBETTİĞİ gösterilerek regresyon testine dönüştürüldü.
+- **Kapsam dışı (bilinçli):** `STK-B2` (aramanın `stock_documents.note`'u kapsaması) ve
+  `RPR-02`/R33 (web isteğinin oturum şubesini taşımaması) bu ADR'de **çözülmedi**.
+
 ### ADR-104 — STK-10 arama filtresi kataloğa girer (KARAR-10) (11.08.2026)
 
 - **Bağlam:** "Stok Hareketleri" ekranındaki **"Ara (kod, malzeme, not, belge no)"** kutusunun rapor

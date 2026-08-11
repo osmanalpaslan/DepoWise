@@ -553,9 +553,30 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
     public IReadOnlyList<StockMovementRow> RecentMovements(SessionContext s, int limit = 200)
         => SearchMovements(s, null, null, null, limit);
 
-    /// <summary>Stok Hareketleri ekranı (kullanıcı isteği 2026-08-05): tarih aralığı (fromMs/toMs, Unix ms) +
-    /// metin araması (malzeme kodu/adı, not, belge/fatura no). Şube kapsamı ve yetki RecentMovements ile aynı.</summary>
+    /// <summary>Stok Hareketleri ekranı (kullanıcı isteği 2026-08-05) — ESKİ İMZA, aynen korundu.
+    /// Yeni filtreler (lokasyon/tür/malzeme) olmadan çağırır; mevcut çağıranlar değişmez.</summary>
     public IReadOnlyList<StockMovementRow> SearchMovements(SessionContext s, long? fromMs, long? toMs, string? search, int limit = 500)
+        => SearchMovements(s, fromMs, toMs, search, null, null, null, limit);
+
+    /// <summary>
+    /// Stok Hareketleri EKRANI (web + masaüstü) — tarih aralığı + arama + <b>STK-10b-4 ile eklenen</b>
+    /// lokasyon · hareket türü · malzeme filtreleri. Şube kapsamı ve yetki RecentMovements ile aynı.
+    ///
+    /// <b>🔴 B-1 KAPATILDI.</b> Lokasyon filtresi eskiden yalnız WEB'de, üstelik sunucudan gelen
+    /// <b>limitli</b> liste üzerinde İSTEMCİDE uygulanıyordu → seçilen depoya ait hareket ilk N kaydın
+    /// dışındaysa SESSİZCE kayboluyordu. Filtre artık burada, SQL'de ve <b>LIMIT'ten ÖNCE</b> çalışır.
+    ///
+    /// <b>Tek filtre kaynağı:</b> WHERE parçası <see cref="StockMovementFilterSql"/>'den gelir —
+    /// Stok Hareketleri RAPORU (<c>ReportService.StockMovements</c>) ile <b>aynı</b> üreteç.
+    /// Ekran ile rapor bu yüzden aynı satır kümesini vermek zorundadır (ikinci mantık yok).
+    ///
+    /// <b>Sıra:</b> firma → BranchScope(kapsam) → tarih → lokasyon/tür/arama/malzeme →
+    /// ORDER BY created_at DESC, tie DESC → LIMIT.
+    /// </summary>
+    public IReadOnlyList<StockMovementRow> SearchMovements(
+        SessionContext s, long? fromMs, long? toMs, string? search,
+        IReadOnlyList<string>? locationIds, IReadOnlyList<string>? movementTypes,
+        IReadOnlyList<string>? materialIds, int limit = 500)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         if (limit < 1) limit = 1; if (limit > 5000) limit = 5000;
@@ -563,13 +584,15 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         using var cmd = conn.CreateCommand();
         // STK-03: lokasyon ADLARI aynı sorguda JOIN ile gelir — satır başına ayrı sorgu (N+1) YASAK.
         // Şube filtresi JOIN koşulunda: başka firmanın şubesi adıyla sızmasın (savunma derinliği).
+        // STK-10b-4: malzeme JOIN'ine de company_id koşulu eklendi → rapor sorgusuyla BİREBİR aynı
+        // (yalnız daraltır; savunma derinliği).
         var sb = new System.Text.StringBuilder(@"
 SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
        d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed,
        sm.branch_id, bl.name, sm.branch_from_id, bf.name
 FROM stock_movements sm
-JOIN materials m ON m.id = sm.material_id
+JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN stock_documents d ON d.id = sm.document_id
 LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
@@ -578,8 +601,9 @@ WHERE sm.company_id = @c");
         sb.Append(DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id"));
         if (fromMs is not null) sb.Append(" AND sm.created_at >= @from");
         if (toMs is not null) sb.Append(" AND sm.created_at <= @to");
-        if (!string.IsNullOrWhiteSpace(search))
-            sb.Append(" AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)");
+        // 🔴 Lokasyon · tür · arama · malzeme — RAPORLA ORTAK üreteç (STK-10b-4).
+        var filtre = StockMovementFilterSql.Build(locationIds, movementTypes, search, materialIds);
+        sb.Append(filtre.Sql);
         // KD-1: rowid SQLite'a özeldir, PostgreSQL'de 42703 verir → lehçeye göre kararlı anahtar.
         sb.Append($" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;");
         cmd.CommandText = sb.ToString();
@@ -587,7 +611,7 @@ WHERE sm.company_id = @c");
         if (DepoWise.Application.Security.BranchScope.Active(s) is { } b) cmd.AddWithValue("@opb", b);
         if (fromMs is not null) cmd.AddWithValue("@from", fromMs.Value);
         if (toMs is not null) cmd.AddWithValue("@to", toMs.Value);
-        if (!string.IsNullOrWhiteSpace(search)) cmd.AddWithValue("@q", "%" + search.Trim() + "%");
+        filtre.Bind(cmd);
         cmd.AddWithValue("@lim", limit);
         string? S(DbDataReader rr, int i) => rr.IsDBNull(i) ? null : rr.GetString(i);
         var list = new List<StockMovementRow>();

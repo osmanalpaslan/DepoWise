@@ -27,9 +27,12 @@
         </MudItem>
         @* STK-04 — LOKASYON FİLTRESİ. "Tüm Şubeler" ≠ "Atanmamış":
            Tüm Şubeler = filtre yok (hepsi) · Atanmamış = yalnız lokasyonu bilinmeyen geçmiş hareketler.
-           Filtre istemci tarafında uygulanır: liste zaten yüklü, sunucuya ikinci istek atılmaz. *@
+           🔴 STK-10b-4 (B-1): filtre artık SUNUCUDA uygulanıyor. Eskiden burada, sunucudan gelen
+           LİMİTLİ listenin üzerinde istemcide süzülüyordu → seçilen depoya ait hareket ilk N kaydın
+           dışındaysa kullanıcı onu HİÇ göremiyordu (ve eksikliği fark edemiyordu). Seçim değişince
+           listeyi yeniden yüklüyoruz: doğruluk, tek bir gidiş-dönüşten önemlidir. *@
         <MudItem xs="6" md="3">
-            <MudSelect T="string" @bind-Value="_location" Label="Depo / Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="string" @bind-Value="_location" @bind-Value:after="Load" Label="Depo / Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined">
                 @foreach (var o in _locationOptions) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
             </MudSelect>
         </MudItem>
@@ -103,22 +106,19 @@
     }
 
     /// <summary>
-    /// STK-04 — lokasyon süzgeci. Liste zaten bellekte olduğu için süzme İSTEMCİDE yapılır
-    /// (her filtre değişiminde sunucuya gitmek gereksiz gidiş-dönüş olurdu).
+    /// 🔴 STK-10b-4 (B-1 DÜZELTMESİ): burada artık SÜZME YOK. Lokasyon filtresi sunucuya gider ve
+    /// SQL'de, <b>LIMIT'ten önce</b> uygulanır (bkz. <c>StockMovementFilterSql</c> — Stok Hareketleri
+    /// raporuyla AYNI üreteç). Eskiden bu özellik, sunucudan gelen limitli listeyi istemcide süzüyordu:
+    /// seçilen depoya ait hareket ilk N kaydın dışındaysa listeye HİÇ girmemiş oluyordu ve kullanıcı
+    /// eksik sonuç gördüğünü anlayamıyordu. Özellik, ekranın geri kalanını değiştirmemek için
+    /// (satır sayısı/başlık/tablo) yerinde bırakıldı ama artık gelen satırları olduğu gibi döndürür.
     ///
     /// ⚠️ "Tüm Şubeler" (<see cref="LocationOptions.AllId"/>) ile "Atanmamış" (boş kimlik) FARKLI:
-    /// ilki süzme yapmaz (Atanmamış dahil HEPSİ), ikincisi yalnız lokasyonu bilinmeyenleri gösterir.
-    /// Transferde kaynak VEYA hedef eşleşirse satır görünür (hareket o depoyu ilgilendiriyor).
+    /// ilki filtre GÖNDERMEZ (Atanmamış dahil HEPSİ), ikincisi yalnız lokasyonu bilinmeyenleri getirir.
+    /// Transferde kaynak VEYA hedef eşleşirse satır görünür (hareket o depoyu ilgilendiriyor) —
+    /// bu karar artık sunucudadır.
     /// </summary>
-    private IEnumerable<JsonElement> Filtered
-    {
-        get
-        {
-            var rows = (IEnumerable<JsonElement>)(_rows ?? System.Array.Empty<JsonElement>());
-            if (_location == LocationOptions.AllId) return rows;
-            return rows.Where(r => Str(r, "locationId") == _location || Str(r, "fromLocationId") == _location);
-        }
-    }
+    private IEnumerable<JsonElement> Filtered => _rows ?? System.Array.Empty<JsonElement>();
 
     /// <summary>Transferde "Kaynak → Hedef", diğer hareketlerde tek depo adı. Boşsa "Atanmamış".</summary>
     private static string LocationCell(JsonElement r)
@@ -139,6 +139,9 @@
             if (_from is { } f) qs.Add($"from={new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()}");
             if (_to is { } t) qs.Add($"to={new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds()}");
             if (!string.IsNullOrWhiteSpace(_search)) qs.Add($"q={Uri.EscapeDataString(_search.Trim())}");
+            // 🔴 B-1: lokasyon SUNUCUYA gider. "Tüm Şubeler" GÖNDERİLMEZ (= filtre yok);
+            // "Atanmamış" boş değerle gider (?location=) — rapor sözleşmesindeki "" ile aynı anlam.
+            if (_location != LocationOptions.AllId) qs.Add($"location={Uri.EscapeDataString(_location)}");
             var url = "/api/stock/movements" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
             _rows = await Api.GetArrayAsync(url);
             _error = null;

@@ -824,3 +824,57 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
 - **Yapılmayan:** **görsel render kontrolü YAPILMADI** — Raporlar ekranı giriş formunun arkasında;
   parolayı bir alana yazmam (güvenlik kuralı) ve canlıya bağlanmam (talimat §13).
 - **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §23
+
+## 2026-08-12 - STK-10b-4 — Hareket ekranlarının rapora bağlanması + B-1 düzeltmesi (STK-10 BİTTİ)
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1553 · 1518 geçti · 0 kaldı · 35 atlandı
+- **Bitiş:** **1589 toplam · 1554 geçti · 0 kaldı · 35 atlandı** (**+36 yeni senaryo**:
+  `StockMovementsScreenReportParityTests` 31 · `WebStockLocationContractTests` +5).
+- **Karar:** ADR-105 — lokasyon/tür/arama/malzeme WHERE'i TEK üreteçten
+  (`StockMovementFilterSql`); rapor ve ekran onu çağırır. İkinci hareket sorgulama mimarisi YOK.
+- **🔴 B-1 (kapatıldı):** Web ekranı lokasyonu, sunucudan gelen LİMİTLİ listenin üzerinde
+  İSTEMCİDE süzüyordu → seçilen depoya ait hareket ilk N kaydın dışındaysa SESSİZCE kayboluyordu.
+  Filtre artık SQL'de ve LIMIT'ten ÖNCE. Sıra: firma → BranchScope → tarih → lokasyon → tür →
+  arama → malzeme → ORDER BY created_at DESC, tie DESC → LIMIT.
+- **B-1 REGRESYON TESTİ (iki katmanda):**
+  · Çevrimdışı: 520 yeni hareket Depo B'de, Depo A'nın kaydı en eski → `limit 500` ile lokasyon
+    filtresi kaydı GETİRİYOR; ESKİ yöntem (önce 500 çek, sonra istemcide süz) aynı veride
+    KAYBEDİYOR (test ikisini yan yana koyup farkı kanıtlıyor).
+  · Gerçek HTTP: 1010 hareket + uç tavanı 1000 → filtresiz yanıtta işaret kayıt YOK,
+    `?location=A` ile VAR.
+- **Uç sözleşmesi:** `/api/stock/movements?location=…&type=…&material=…&q=…` — tekrarlanabilir
+  parametreler; YOK = filtre yok, BOŞ değer (`?location=`) = 📦 Atanmamış (rapordaki `""` ile aynı).
+- **Kanıtlananlar (çevrimdışı, 31):** lokasyon · Atanmamış · lokasyon+tür · lokasyon+arama ·
+  lokasyon+malzeme · TÜM filtreler (AND, biri bozulunca boş) · boş filtre = eski davranış ·
+  eski imza geriye dönük uyumlu · **BranchScope × Location ekranda da aşılamıyor** (Tüm Şubeler+A
+  iki bacak · A kapsamı+A yalnız kapsam içi · A kapsamı+B BOŞ) · firma izolasyonu ·
+  **tavan filtrelenmiş küme üzerine iniyor** · **ekran = rapor 9 kombinasyonda (satır sayısı VE
+  sırası)** · **rapor = XLSX 6 kombinasyonda hücre hücre** · kaynak taraması (web'de istemci
+  süzmesi YOK, masaüstünde de yok, iki taraf da aynı üreteci çağırıyor, arama SQL'i yalnız
+  üreteçte) · Search semantiği DEĞİŞMEDİ (STK-B2 kapsam dışı) · `RecentMovements` bozulmadı.
+- **Gerçek HTTP (+5):** lokasyon filtresi sunucuda (A=3 · B=1 · Atanmamış=1 · filtresiz=4) ·
+  **B-1 (1010 hareket)** · lokasyon+tür/malzeme/arama birlikte + bilinmeyen tür fail-closed ·
+  şube kapsamı aşılmıyor · **ekran ucu = rapor ucu** (satır sayısı + malzeme kodları).
+- **İzole PostgreSQL:** ekran yolu (SearchMovements) PG'de çalışıyor · ekran = rapor (A ve B) ·
+  tavan filtrelenmiş kümeye iniyor · tür/malzeme/arama ekran yolunda da doğru ·
+  **sorgu planı:** `Limit → Sort → Nested Loop`, `Filter: ((branch_id = …) OR (branch_from_id = …))`
+  `Limit`'in ALTINDA → lokasyon SQL'e indi. **YENİ İNDEKS EKLENMEDİ** (mevcutlar yetti).
+  Test DB (`stk10b4_test`) silindi, PG durduruldu.
+- **Masaüstü paritesi:** hareket ekranına lokasyon filtresi EKLENDİ (web'de vardı, masaüstünde
+  yoktu). Yerel şube listesinden beslenir, HTTP YOK → çevrimdışı çalışır.
+- **Mevcut testler:** hiçbiri silinmedi/gevşetilmedi/skip edilmedi. `WebStockLocationContractTests`
+  #13'ün yalnız AÇIKLAMASI güncellendi (artık istemci süzmesi yok); assertion'lara dokunulmadı.
+  RPR-01 14/14 · STK-10a/10b-1/10b-2/10b-3 nöbetçileri aynen geçiyor.
+- **🔴 KARARSIZ TEST BULUNDU VE DÜZELTİLDİ (R34):**
+  `SyncBalancePayloadTests.Yalniz_Bakiye_Degisirse_Sunucu_Etkilenmez_Yerel_Calismaya_Devam_Eder`
+  `Assert.DoesNotContain("777", Snapshot())` ile paketin TAMAMINDA ham metin arıyordu; rastgele bir GUID
+  "777" içerince kırılıyordu (örnek: …0077788757fd6). Assertion GEVŞETİLMEDİ, KESKİNLEŞTİRİLDİ:
+  paketin tables bölümünde stock_balances HİÇ yok + "quantity":"777" yok. Retry/skip kullanılmadı.
+  STK-10b-4 ile ilgisiz, önceden vardı.
+- **Dokunulmayanlar:** migration YOK · şema YOK · senkron YOK · Search semantiği (STK-B2) ·
+  RPR-02/R33 · production'a bağlanılmadı · canlı veriye yazılmadı · Migration064 çalıştırılmadı ·
+  master'a merge yok · yeni indeks yok.
+- **Yapılmayan:** **görsel render kontrolü YAPILMADI** — ekran giriş formunun arkasında; parolayı
+  bir alana yazmam (güvenlik kuralı) ve canlıya bağlanmam.
+- **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §24 · `docs/DECISIONS.md` ADR-105

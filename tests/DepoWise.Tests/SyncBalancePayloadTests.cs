@@ -175,7 +175,15 @@ public class SyncBalancePayloadTests : IDisposable
             bad.ExecuteNonQuery();
         }
 
-        Assert.DoesNotContain("777", Snapshot());                          // paket taşımıyor
+        // Paket bakiyeyi TAŞIMIYOR. ⚠️ Burada ham "777" metnini aramak KARARSIZDI: paketteki
+        // rastgele GUID'lerden biri "777" dizisini içerdiğinde test sebepsiz kırılıyordu
+        // (2026-08-12'de gerçekleşti). Kontrol GEVŞETİLMEDİ, TAM TERSİNE keskinleştirildi:
+        // bakiye TABLOSUNUN pakette hiç olmadığı doğrulanıyor (asıl sözleşme bu).
+        using (var paket = JsonDocument.Parse(Snapshot()))
+        {
+            Assert.False(paket.RootElement.GetProperty("tables").TryGetProperty("stock_balances", out _));
+            Assert.DoesNotContain("\"quantity\":\"777\"", Snapshot());
+        }
         Assert.Equal(777m, _stock.GetBalanceAt(_oturum, _mat, _depoA));    // yerel okuma çalışıyor
         Assert.Equal(10m, SyncToServer().GetBalanceAt(_oturum, _mat, _depoA));   // sunucu defterin doğrusunda
     }

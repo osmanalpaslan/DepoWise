@@ -139,6 +139,24 @@ public class PostgresStockMovementsReportTests
         // LIMIT, MALZEMEYLE FİLTRELENMİŞ küme üzerine iniyor (bellekte değil).
         Assert.Equal(3, reports.Run(s, "stock-movements", genis with { MaterialIds = new[] { mat } }, maxRows: 3).Rows.Count);
 
+        // ── 3e. STK-10b-4: EKRAN yolu (SearchMovements) PostgreSQL'de + EKRAN = RAPOR ──
+        // 🔴 B-1: lokasyon filtresi ekranda da SQL'de ve LIMIT'ten ÖNCE uygulanır.
+        var ekranB = stock.SearchMovements(s, 0, 4_102_444_800_000L, null, new[] { depoB }, null, null, 1000);
+        Assert.Equal(2, ekranB.Count);   // transferin giriş bacağı + 3d'de eklenen mat2 girişi
+        var raporB = reports.Run(s, "stock-movements", genis with { LocationIds = new[] { depoB } });
+        Assert.Equal(raporB.Rows.Count, ekranB.Count);
+
+        var ekranA = stock.SearchMovements(s, 0, 4_102_444_800_000L, null, new[] { depoA }, null, null, 1000);
+        var raporA = reports.Run(s, "stock-movements", genis with { LocationIds = new[] { depoA } });
+        Assert.Equal(raporA.Rows.Count, ekranA.Count);
+
+        // Tavan FİLTRELENMİŞ küme üzerine iniyor (ekran yolunda da).
+        Assert.Equal(3, stock.SearchMovements(s, 0, 4_102_444_800_000L, null, new[] { depoA }, null, null, 3).Count);
+        // Diğer filtreler ekran yolunda da PG'de çalışıyor.
+        Assert.Equal(21, stock.SearchMovements(s, 0, 4_102_444_800_000L, null, null, new[] { "in" }, null, 1000).Count);   // 20 + mat2
+        Assert.Single(stock.SearchMovements(s, 0, 4_102_444_800_000L, null, null, null, new[] { mat2 }, 1000));
+        Assert.Empty(stock.SearchMovements(s, 0, 4_102_444_800_000L, "yok-boyle-kayit", null, null, null, 1000));
+
         // ── 4. 🔴 SORGU PLANI: filtre + sıralama + LIMIT SQL'de mi? ──
         var plan = Plan(factory, depoA, mat);
         // STK-10b-3: malzeme koşulu planda görünmeli → SQL'e indi, bellekte süzülmüyor.

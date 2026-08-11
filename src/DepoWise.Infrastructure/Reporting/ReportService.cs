@@ -3,6 +3,7 @@ using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Application.Ui;   // STK-B1: MovementTypeOptions — hareket türü etiketi TEK kaynak
 using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Materials;   // STK-10b-4: StockMovementFilterSql — ekran+rapor ORTAK filtre üreteci
 using System;
 using System.Data.Common;
 using System.Globalization;
@@ -815,71 +816,12 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
 
-        // ── Lokasyon filtresi (STK-06 semantiği) ───────────────────────────────────────────────
-        // Boş liste = 🌐 Tüm Şubeler → filtre YOK (Atanmamış dahil hepsi).
-        // Gerçek depo X → hareket X'i İLGİLENDİRİYORSA görünür: branch_id=X VEYA branch_from_id=X
-        //   (transfer A→B: çıkış bacağı branch_id=A, giriş bacağı branch_from_id=A → ikisi de A'da görünür).
-        // 📦 Atanmamış ("") → İKİ tarafı da boş/NULL olan hareketler.
-        var locations = req.LocationIds is null ? Array.Empty<string>() : req.LocationIds.Where(x => x is not null).Distinct().ToArray();
-        var gercekDepolar = locations.Where(x => x.Length > 0).ToList();
-        var atanmamisIstendi = locations.Any(x => x.Length == 0);
-
-        var locSql = "";
-        if (locations.Length > 0)
-        {
-            var parcalar = new List<string>();
-            if (gercekDepolar.Count > 0)
-            {
-                var ps = string.Join(",", Enumerable.Range(0, gercekDepolar.Count).Select(i => "@loc" + i));
-                parcalar.Add($"sm.branch_id IN ({ps})");
-                parcalar.Add($"sm.branch_from_id IN ({ps})");
-            }
-            if (atanmamisIstendi)
-                parcalar.Add("((sm.branch_id IS NULL OR sm.branch_id = '') AND (sm.branch_from_id IS NULL OR sm.branch_from_id = ''))");
-            locSql = " AND (" + string.Join(" OR ", parcalar) + ")";
-        }
-
-        // ── STK-10b-1: HAREKET TÜRÜ filtresi ───────────────────────────────────────────────────
-        // Boş/null = TÜM türler. Değerler KANONİK `movement_type` anahtarlarıdır; etiketle sorgulanmaz.
-        // Bilinmeyen/uydurma anahtar SESSİZCE eşleşmez (veri sızmaz) — katalog dışı değer atılır ve
-        // hepsi atılırsa "hiçbiri" anlamına gelir, "hepsi" DEĞİL (fail-closed).
-        var istenenTurler = req.MovementTypes is null
-            ? Array.Empty<string>()
-            : req.MovementTypes.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToArray();
-        var typeSql = "";
-        if (istenenTurler.Length > 0)
-        {
-            var ps = string.Join(",", Enumerable.Range(0, istenenTurler.Length).Select(i => "@mtype" + i));
-            typeSql = $" AND sm.movement_type IN ({ps})";
-        }
-
-        // ── STK-10b-2: SERBEST METİN ARAMA (ADR-104 / KARAR-10) ────────────────────────────────
-        // Semantik mevcut `StockService.SearchMovements`'tan BİREBİR taşındı — yeniden tasarlanmadı:
-        //   (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)
-        // • Kalıp: "%" + Trim() + "%"   • Boş/yalnız-boşluk → FİLTRE YOK
-        // • NULL alan LIKE'ta eşleşmez (NULL döner) ama diğer OR dalları eşleşebilir — mevcut davranış.
-        // ⚠️ Tüm dallar TEK parantez içinde ve dış WHERE'e AND ile bağlanır → arama, şube kapsamını
-        //    veya lokasyon/tür filtrelerini GENİŞLETEMEZ (yalnız daraltır).
-        var arama = string.IsNullOrWhiteSpace(req.SearchText) ? null : req.SearchText!.Trim();
-        var searchSql = arama is null
-            ? ""
-            : " AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)";
-
-        // ── STK-10b-3: MALZEME filtresi ────────────────────────────────────────────────────────
-        // Boş/null = TÜM malzemeler. Değer `materials.id`'dir; arayüzde ARAMA ile seçilir (liste
-        // önceden indirilmez). Filtre SQL'de `sm.material_id IN (…)` olarak uygulanır — bellekte
-        // süzme YOK, satır başına malzeme sorgusu (N+1) YOK (malzeme zaten aynı sorguda JOIN'li).
-        // ⚠️ Yabancı firmanın malzeme kimliği verilse bile sorgu `sm.company_id = @c`'ye kilitli
-        //    olduğu için hiçbir satır dönmez (fail-closed) — filtre kapsamı GENİŞLETEMEZ.
-        var istenenMalzemeler = req.MaterialIds is null
-            ? Array.Empty<string>()
-            : req.MaterialIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToArray();
-        var matSql = "";
-        if (istenenMalzemeler.Length > 0)
-        {
-            var ps = string.Join(",", Enumerable.Range(0, istenenMalzemeler.Length).Select(i => "@mat" + i));
-            matSql = $" AND sm.material_id IN ({ps})";
-        }
+        // ── Filtreler: lokasyon (STK-06) · tür (10b-1) · arama (10b-2) · malzeme (10b-3) ────────
+        // 🔴 STK-10b-4: bu dört filtrenin SQL'i artık TEK KAYNAKTAN gelir
+        // (<see cref="StockMovementFilterSql"/>) — Stok Hareketleri EKRANI da (web + masaüstü)
+        // aynı üreteci kullanır. Böylece ekran ile rapor aynı satır kümesini vermek ZORUNDADIR;
+        // ikinci bir hareket sorgulama mantığı YOKTUR.
+        var filtre = StockMovementFilterSql.Build(req.LocationIds, req.MovementTypes, req.SearchText, req.MaterialIds);
 
         // ── Sorgu: filtre → sıralama → LIMIT (hepsi SQL'de) ────────────────────────────────────
         // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon, tür, arama ve malzeme filtreleri
@@ -899,19 +841,13 @@ LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.compan
 WHERE sm.company_id = @c"
             + ReportScope.BranchSql(s, req, "sm.branch_id")
             + DateFilter(req, "sm.created_at")
-            + locSql
-            + typeSql
-            + searchSql
-            + matSql
+            + filtre.Sql
             + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
 
         cmd.AddWithValue("@c", companyId);
         ReportScope.BindBranch(cmd, s, req);
         BindDates(cmd, req);
-        for (int i = 0; i < gercekDepolar.Count; i++) cmd.AddWithValue("@loc" + i, gercekDepolar[i]);
-        for (int i = 0; i < istenenTurler.Length; i++) cmd.AddWithValue("@mtype" + i, istenenTurler[i]);
-        if (arama is not null) cmd.AddWithValue("@q", "%" + arama + "%");
-        for (int i = 0; i < istenenMalzemeler.Length; i++) cmd.AddWithValue("@mat" + i, istenenMalzemeler[i]);
+        filtre.Bind(cmd);
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();

@@ -513,10 +513,36 @@ tam-eşleşmesi eklendi.
 ⚠️ **Görsel render kontrolü YAPILMADI** — Raporlar ekranı giriş formunun arkasında; parolayı bir alana
 yazmam (güvenlik kuralı) ve canlıya bağlanmam. Yapılmış gibi gösterilmedi (§23.6).
 
+## ✅ SON TAMAMLANAN — `STK-10b-4` Ekranlar + B-1 · **STK-10 BİTTİ** (2026-08-12)
+
+Sonuç kaydı: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §24 · Karar: **ADR-105**
+
+**🔴 B-1 KAPATILDI.** Web ekranı lokasyonu, sunucudan gelen **limitli** listenin üzerinde
+**istemcide** süzüyordu → seçilen depoya ait hareket ilk N kaydın dışındaysa **sessizce
+kayboluyordu**. Filtre artık **SQL'de ve LIMIT'ten önce**. Eski davranışın aynı veride kaydı
+kaybettiği, regresyon testine dönüştürüldü (hem çevrimdışı hem gerçek HTTP).
+
+**Ekran = Rapor = XLSX.** Lokasyon/tür/arama/malzeme filtrelerinin WHERE'i tek üreteçten geliyor
+(`StockMovementFilterSql`) → rapor ve ekran aynı satır kümesini vermek **zorunda**. Ekran `TableModel`'e
+çevrilmedi (gereksiz yeniden tasarım olurdu); yalnız filtre mantığı birleştirildi.
+
+**Masaüstü paritesi:** masaüstü hareket ekranına da **lokasyon filtresi** eklendi (web'de vardı,
+masaüstünde yoktu — STK-10 envanterindeki parite eksiği). Ağ gerekmiyor, çevrimdışı çalışıyor.
+
+**Kanıt:** **1589 / 1554 geçti / 0 kaldı / 35 atlandı** (taban 1553; **+36 senaryo**) · build 0 hata ·
+31 çevrimdışı + 5 yeni HTTP + izole PG · 9 "ekran = rapor" + 6 "rapor = XLSX" kombinasyonu.
+**Yeni indeks yok, migration yok.**
+
+⚠️ **Görsel render kontrolü YAPILMADI** — ekran giriş formunun arkasında (§24.6).
+🔎 **Yol üstünde kararsız bir test bulundu ve KÖK NEDENİ DÜZELTİLDİ** (R34): `SyncBalancePayloadTests`
+senkron paketinin TAMAMINDA ham "777" metnini arıyordu; rastgele bir GUID "777" içerdiğinde kırılıyordu.
+Assertion **gevşetilmedi, keskinleştirildi** (bakiye TABLOSUNUN pakette olmadığı doğrulanıyor). Retry/skip yok.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10b-4` — iki hareket ekranının rapora bağlanması + Web lokasyon `B-1` hatasının kapatılması.**
-⛔ Ayrıca karar bekleyenler: **`STK-B2`** (arama `stock_documents.note`'u kapsasın mı) ve
-**`RPR-02`** (web raporunda oturum şubesi daralması).
+**STK-10 bitti.** Sıradaki en doğru iş: **`STK-08` (KARAR-8)** — Migration064 canlıya alınmadan önce
+"Atanmamış" stoğun nasıl dağıtılacağının kararı; deploy'un önündeki tek iş kuralı engeli budur.
+⛔ Karar bekleyenler: **`STK-B2`** (arama `stock_documents.note`'u kapsasın mı) ·
+**`RPR-02`/R33** (web isteği oturum şubesini taşımıyor) · **`KARAR-8`**.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |

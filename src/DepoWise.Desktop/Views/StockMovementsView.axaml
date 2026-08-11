@@ -27,6 +27,19 @@
                         </TextBox.KeyBindings>
                     </TextBox>
                 </ctrl:FormField>
+                <!-- STK-10b-4: LOKASYON filtresi (web'de vardı, masaüstünde yoktu — parite eksiği).
+                     "🌐 Tüm Şubeler" = filtre yok · "📦 Atanmamış" = lokasyonu bilinmeyen hareketler
+                     (gerçek bir depo DEĞİLDİR). Filtre SUNUCU/SQL tarafında, LIMIT'ten önce uygulanır. -->
+                <ctrl:FormField Label="Depo / Şantiye" Width="200">
+                    <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MovementLocationPick">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ctrl:FormField>
                 <Button Classes="Primary" Content="Filtrele" Command="{Binding LoadCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 <Button Classes="Secondary" Content="Temizle" Command="{Binding ClearCommand}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
             </StackPanel>

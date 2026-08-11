@@ -978,8 +978,15 @@ app.MapGet("/api/vehicles/options", (HttpContext c) =>
 }).RequireAuthorization();
 app.MapGet("/api/stock", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Stock.RecentMovements(s)) : Results.Unauthorized()).RequireAuthorization();
 // Stok Hareketleri ekranı (kullanıcı isteği 2026-08-05): tarih aralığı (from/to Unix ms) + metin araması (q).
-app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string? q) =>
-    S(c) is { } s ? Results.Ok(svc.Stock.SearchMovements(s, from, to, q, 1000)) : Results.Unauthorized()).RequireAuthorization();
+// STK-10b-4 (B-1 düzeltmesi): lokasyon/tür/malzeme filtreleri artık SUNUCUDA uygulanır. Eskiden web
+// ekranı lokasyonu, limitli listenin üzerinde İSTEMCİDE süzüyordu → ilk N kaydın dışındaki hareketler
+// sessizce kayboluyordu. Parametreler TEKRARLANABİLİR (?location=A&location=B) ve rapor sözleşmesiyle
+// AYNI anlamı taşır: gönderilmemesi = filtre yok · boş değer (?location=) = 📦 ATANMAMIŞ.
+app.MapGet("/api/stock/movements", (HttpContext c, long? from, long? to, string? q,
+                                    string[]? location, string[]? type, string[]? material) =>
+    S(c) is { } s
+        ? Results.Ok(svc.Stock.SearchMovements(s, from, to, q, location, type, material, 1000))
+        : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/maintenance", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Maintenance.ListMaintenances(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/inspection", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Inspection.List(s)) : Results.Unauthorized()).RequireAuthorization();
 app.MapGet("/api/fuel", (HttpContext c, bool? includeCancelled) => S(c) is { } s ? Results.Ok(svc.Fuel.ListDistributions(s, 200, includeCancelled == true)) : Results.Unauthorized()).RequireAuthorization();

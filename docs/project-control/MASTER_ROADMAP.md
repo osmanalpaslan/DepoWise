@@ -87,7 +87,7 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `STK-10b-1` | **Hareket Türü filtresi** — 6/6 katman · seçenekler MovementTypeOptions'tan · fail-closed | ✅ **TAMAM** (28 senaryo · RPR-01 yeşil · izole PG) |
 | `STK-10b-2` | **Serbest metin arama** — 6/6 katman · semantik mevcut ekrandan birebir | ✅ **TAMAM** (41 senaryo · RPR-01 yeşil · izole PG) |
 | `STK-10b-3` | **Malzeme filtresi + autocomplete** — 6/6 katman · scope BÜYÜMEDİ · mevcut indeks yetti | ✅ **TAMAM** (32 senaryo · RPR-01 yeşil · izole PG) |
-| `STK-10b-4` | 2 hareket ekranının rapora bağlanması + **B-1** düzeltmesi | ⏳ **BEKLİYOR** |
+| `STK-10b-4` | **2 hareket ekranı + B-1** — filtreler tek SQL kaynağına bağlandı, lokasyon süzmesi sunucuya indi (ADR-105) | ✅ **TAMAM** (36 senaryo · ekran=rapor=XLSX · izole PG) → **STK-10 BİTTİ** |
 | `STK-B2` | Arama `stock_documents.note`'u da kapsasın mı? Davranış değişikliği | ⛔ **KARAR BEKLİYOR** |
 | `RPR-02` | Web rapor isteği oturumun ŞUBESİNİ taşımıyor (JWT'de yok) — tüm raporları etkiler | ⛔ **KARAR BEKLİYOR** |
 | `STK-09` · `STK-11` | Lokasyon bazlı dashboard · eski float artığı temizliği | BEKLEMEDE |

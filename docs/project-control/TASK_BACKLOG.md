@@ -314,11 +314,11 @@ geçti · izole PostgreSQL'de doğrulandı.
 ### `STK-10a` — "Stok Hareketleri" raporu · ✅ **TAMAMLANDI** (2026-08-11) · `STK-10b` ⏳ SON ARTIM KALDI
 Plan + envanter: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md)
 
-> **Durum (2026-08-12):** `STK-10b-1` (Hareket Türü) · `STK-10b-2` (Arama) · `STK-10b-3` (Malzeme)
-> **TAMAM** — üçü de 6/6 katman, RPR-01 gevşetilmeden yeşil. Kalan tek artım **`STK-10b-4`**:
-> iki hareket ekranının rapora bağlanması + Web lokasyon **`B-1`** hatasının kapatılması.
-> Ayrıca karar bekleyen iki iş: **`STK-B2`** (arama `stock_documents.note`'u kapsasın mı) ve
-> **`RPR-02`** (web rapor isteği oturumun şubesini taşımıyor — tüm raporları etkiler, §23.5).
+> **Durum (2026-08-12): ✅ STK-10 TAMAMEN BİTTİ.** `STK-10a` · `10b-1` (Hareket Türü) ·
+> `10b-2` (Arama) · `10b-3` (Malzeme) · `10b-4` (ekranlar + **B-1**) — hepsi tamam, RPR-01
+> gevşetilmeden yeşil. Ekran = rapor = XLSX yapısal olarak garanti (tek filtre üreteci, ADR-105).
+> Karar bekleyen iki iş: **`STK-B2`** (arama `stock_documents.note`'u kapsasın mı) ve
+> **`RPR-02`**/R33 (web isteği oturumun şubesini taşımıyor — tüm raporları etkiler, §23.5).
 
 Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e aktarımı yok. Depo bazlı stokta
 `Kaynak → Hedef` kolonlu, tarih + depo + malzeme + tür filtreli hareket dökümü doğal ihtiyaç.
