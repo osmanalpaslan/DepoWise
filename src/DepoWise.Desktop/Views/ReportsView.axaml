@@ -157,6 +157,13 @@
                         </ScrollViewer>
                     </Border>
                 </ctrl:FormField>
+                <!-- STK-10b-2 (ADR-104 / KARAR-10): SERBEST METİN ARAMA. Semantiği mevcut Stok
+                     Hareketleri ekranından AYNEN taşındı: kod · malzeme adı · not · fatura no ·
+                     belge no. SKALER alan; filtre SUNUCU/SQL tarafında uygulanır. -->
+                <ctrl:FormField Label="Ara (kod, malzeme, not, belge)" Width="230" IsVisible="{Binding ShowSearch}"
+                                HelpText="Kod, malzeme adı, not, fatura no ve belge no içinde arar.">
+                    <TextBox Classes="Search" Text="{Binding SearchText}" PlaceholderText="Ara..."/>
+                </ctrl:FormField>
                 <!-- STK-10b-1: STOK HAREKET TÜRÜ filtresi (Stok Hareketleri Raporu). Sabit liste, TEK
                      kaynak: MovementTypeOptions (STK-B1) → web ile AYNI seçenekler ve AYNI Türkçe
                      etiketler. Boş = tüm türler. Sorgu/ağ yok → çevrimdışı çalışır. -->

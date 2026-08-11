@@ -726,3 +726,49 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
 - **Yapılmayan (dürüst kayıt):** **görsel render kontrolü YAPILMADI** — yerel API veritabanında hesap
   yok, `launch.json` env desteklemiyor, canlıya bağlanmak/parola girmek yasak.
 - **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §19
+
+## 2026-08-11 - STK-10b-2 — Stok Hareketleri raporu: Serbest metin arama
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1480 · 1445 geçti · 0 kaldı · 35 atlandı
+- **Bitiş:** **1521 toplam · 1486 geçti · 0 kaldı · 35 atlandı** (**+41 yeni senaryo**:
+  `StockMovementsSearchFilterTests` 36 · `ApiStockMovementsReportTests` +5).
+- **Kapsam:** YALNIZ `Search`. `Material` (10b-3), ekran bağlantıları + B-1 (10b-4) bu artımda YOK.
+- **6/6 KABLOLAMA:** katalog (`ReportFilters.Search = 2048` + `UsesSearch`) · istek modeli
+  (`ReportRequest.SearchText`, **skaler `string?`**, SONA) · API sorgu · API export · Web (`@if` +
+  `MudTextField` + `CatItem` + `Bool` + iki gövde) · Masaüstü (`ShowSearch` + Notify + `SearchText` +
+  `BuildTable` + XAML). **+ RPR-01 `Map` satırı** (`RequestProps = ["SearchText"]`) → **14/14 yeşil**.
+- **Etiket parçası bilinçli uzun** (`"Ara (kod, malzeme, not, belge)"`): kısa "Ara" yazılsaydı RPR-01'in
+  etiket kontrolü mevcut "Araç"/"Araç ara" metinlerine takılıp blok silinse bile geçerdi.
+- **🔴 BULGU — belge notu aramada YOK (mevcut davranış, DEĞİŞTİRİLMEDİ):** `ApplyLine` hareket satırının
+  `note`'unu NULL yazıyor; kullanıcının belge notu `stock_documents.note`'a gidiyor, arama ise
+  `sm.note`'a bakıyor. "Not" araması bugün yalnız TERS KAYIT GEREKÇESİ ve BAKIM TÜKETİMİ kayıtlarını
+  buluyor. Semantik birebir taşındı; mevcut davranış testle kilitlendi
+  (`Belge_Notu_Aramada_YOK_Mevcut_Davranis` — rapor ve mevcut ekran AYNI sonucu veriyor → kayma yok).
+  ⛔ Arama `d.note`'u da kapsasın mı? → davranış değişikliği, ayrı iş **STK-B2**, kullanıcı kararı.
+- **Kanıtlananlar (çevrimdışı, 36):** kod · malzeme adı · **hareket notu** · fatura no · belge no ile
+  arama · beş alan aynı OR grubunda · eşleşme yok → boş · null/boş/boşluk/tab → filtre yok ·
+  Trim uygulanıyor · kısmi eşleşme · **büyük-küçük harf davranışı mevcut ekranla AYNI** (5 varyant) ·
+  **rapor ve mevcut ekran aynı kümeyi döndürüyor** (5 varyant) · Search+Date · Search+Location ·
+  Search+MovementType · üçlü kombinasyon · **BranchScope aşılmıyor** · yetkisiz depo → boş ·
+  **firma izolasyonu** · **tavan filtrelenmiş küme üzerine iniyor** · export'a uygulanıyor ·
+  çevrimdışı rapor+export · **önceki filtreler bozulmadı** (regresyon nöbetçisi).
+- **Gerçek HTTP (+5):** katalog ucu `usesSearch` yayınlıyor (diğer raporlarda kapalı) · arama
+  SUNUCUDA uygulanıyor · eşleşmeyen → boş · yalnız boşluk → filtre yok · **3 aramada export XLSX
+  ekranla hücre hücre aynı**.
+- **Gerçek XLSX:** 7 kombinasyon (servis: filtresiz · kod · hareket notu · fatura no · arama+lokasyon ·
+  arama+tür · boş sonuç) + 3 (HTTP). Filtresiz XLSX > aramalı XLSX satır sayısı.
+- **İzole PostgreSQL:** arama doğru · boşluk = filtre yok · arama+tür+lokasyon üçlüsü ·
+  **sorgu planı**: `Filter: (m.code ~~ '%PG%') OR (m.name ~~ …) OR (sm.note ~~ …) OR (d.invoice_no ~~ …)
+  OR (d.doc_no ~~ …)` + `Limit`/`Sort` → arama SQL'e indi. **YENİ İNDEKS EKLENMEDİ** — `LIKE '%…%'`
+  baştan joker içerdiği için B-tree kullanılamaz (trigram gerekirdi; hacim gerektirmiyor).
+  Test DB (`stk10b2_test`) silindi, PG durduruldu.
+- **⚠️ 2 mevcut test güncellendi (gevşetme DEĞİL):** STK-10a/10b-1'de eklediğim kapsam nöbetçileri
+  `Search`'ü de doğru yakaladı. Filtre kümesi tam eşitlikle sınanmaya devam ediyor; "arama filtresi
+  YALNIZ stock-movements'ta açık" tam-eşleşmesi eklendi; **Material (4096) hâlâ kapalı** nöbetçisi kaldı.
+- **Testler yazılırken 7 senaryo kırıldı** → nedeni koddan doğrulandı (belge notu bulgusu, yukarıda);
+  üretim değiştirilmedi, **testler gerçeğe uyduruldu**.
+- **Dokunulmayanlar:** migration YOK · şema YOK · senkron YOK · Date/Location/MovementType davranışı
+  aynen · STK-10a SQL LIMIT düzeltmesi aynen · hareket ekranları DEĞİŞMEDİ.
+- **Yapılmayan:** **görsel render kontrolü YAPILMADI** — aynı engel.
+- **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §21

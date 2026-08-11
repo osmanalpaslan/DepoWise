@@ -46,7 +46,14 @@ public sealed record ReportRequest(
     // `DepoWise.Application.Ui.MovementTypeOptions`'tan gelir (STK-B1 tek kaynak).
     // ⚠️ ALAN SONA EKLENDİ: bu kayıt POZİSYONEL olarak da kuruluyor (API uçları) — araya eklemek
     // mevcut çağrıların argümanlarını sessizce kaydırırdı (ör. LocationIds → MovementTypes).
-    IReadOnlyList<string>? MovementTypes = null);
+    IReadOnlyList<string>? MovementTypes = null,
+
+    // STK-10b-2 (ADR-104 / KARAR-10): SERBEST METİN ARAMA — Stok Hareketleri raporunda
+    // malzeme kodu · malzeme adı · not · fatura no · belge no üzerinde OR araması.
+    // ⚠️ SKALER (tek metin), liste DEĞİL — diğer filtrelerden farkı budur.
+    // Boş/yalnız-boşluk = FİLTRE YOK (mevcut `SearchMovements` semantiği birebir korundu).
+    // ⚠️ ALAN SONA EKLENDİ (aynı gerekçe: kayıt API uçlarında POZİSYONEL de kuruluyor).
+    string? SearchText = null);
 
 public static class ReportGate
 {

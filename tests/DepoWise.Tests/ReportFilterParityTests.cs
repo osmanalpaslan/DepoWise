@@ -99,6 +99,11 @@ public class ReportFilterParityTests
         // STK-10b-1 — stok hareket türü. Seçenekler SABİT listedir ve TEK kaynaktan gelir
         // (MovementTypeOptions, STK-B1); Web bu dosyayı derlediği için /api/reports/scope'a alan eklenmedi.
         new Wiring(ReportFilters.MovementType,   "ShowMovementType",   new[] { "MovementTypes" },      "Hareket Türü"),
+        // STK-10b-2 (ADR-104) — serbest metin arama. TEK alanı SKALER olan filtre (`string?`, liste değil):
+        // tarama alan ADINA göre çalıştığı için bu fark ek kural GEREKTİRMEZ.
+        // ⚠️ Etiket parçası bilinçli olarak UZUN: yalnız "Ara" yazsaydık "Araç"/"Araç ara" metinlerine
+        // takılıp blok silinse bile testi geçirirdi (RPR-01'in daha önce yakaladığı zayıflığın aynısı).
+        new Wiring(ReportFilters.Search,         "ShowSearch",         new[] { "SearchText" },         "Ara (kod, malzeme, not, belge)"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);

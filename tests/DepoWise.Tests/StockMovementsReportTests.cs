@@ -163,6 +163,7 @@ public class StockMovementsReportTests : IDisposable
         Assert.True(d.UsesDate);
         Assert.True(d.UsesLocation);
         Assert.True(d.UsesMovementType);       // STK-10b-1
+        Assert.True(d.UsesSearch);             // STK-10b-2
         Assert.True(d.RequiresDate);           // defter büyür → tarihsiz tam tarama yok
 
         // Bu rapora AİT OLMAYAN filtreler açılmadı.
@@ -170,10 +171,9 @@ public class StockMovementsReportTests : IDisposable
         Assert.False(d.UsesVehicle);
         Assert.False(d.UsesMaintenanceDef);
         Assert.False(d.UsesStatus);
-        Assert.Equal(ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType, d.Filters);
+        Assert.Equal(ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search, d.Filters);
 
-        // STK-10b-2 (Search) ve 10b-3 (Material) HENÜZ YOK — kapsam sızmasının nöbetçisi.
-        Assert.False(d.Filters.HasFlag((ReportFilters)2048));
+        // STK-10b-3 (Material) HENÜZ YOK — kapsam sızmasının nöbetçisi.
         Assert.False(d.Filters.HasFlag((ReportFilters)4096));
     }
 

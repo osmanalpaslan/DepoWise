@@ -105,6 +105,14 @@ public class PostgresStockMovementsReportTests
         Assert.Single(reports.Run(s, "stock-movements",
             genis with { MovementTypes = new[] { "transfer" }, LocationIds = new[] { depoB } }).Rows);
 
+        // ── 3c. STK-10b-2: SERBEST METİN ARAMA PostgreSQL'de ──
+        Assert.Equal(23, reports.Run(s, "stock-movements", genis with { SearchText = "PG-HRK" }).Rows.Count);
+        Assert.Empty(reports.Run(s, "stock-movements", genis with { SearchText = "yok-boyle-kayit" }).Rows);
+        Assert.Equal(23, reports.Run(s, "stock-movements", genis with { SearchText = "   " }).Rows.Count);   // boşluk = filtre yok
+        // Arama + tür + lokasyon birlikte (hepsi AND).
+        Assert.Single(reports.Run(s, "stock-movements",
+            genis with { SearchText = "PG-HRK", MovementTypes = new[] { "transfer" }, LocationIds = new[] { depoB } }).Rows);
+
         // ── 4. 🔴 SORGU PLANI: filtre + sıralama + LIMIT SQL'de mi? ──
         var plan = Plan(factory, depoA);
         Assert.Contains("Limit", plan, StringComparison.OrdinalIgnoreCase);
@@ -137,12 +145,14 @@ LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.compan
 WHERE sm.company_id = @c AND sm.created_at >= @from AND sm.created_at <= @to
   AND (sm.branch_id IN (@loc0) OR sm.branch_from_id IN (@loc0))
   AND sm.movement_type IN (@mtype0)
+  AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)
 ORDER BY sm.created_at DESC, sm.id DESC LIMIT @lim;";
         cmd.AddWithValue("@c", "A");
         cmd.AddWithValue("@from", 0L);
         cmd.AddWithValue("@to", 4_102_444_800_000L);
         cmd.AddWithValue("@loc0", depoA);
         cmd.AddWithValue("@mtype0", "in");
+        cmd.AddWithValue("@q", "%PG-HRK%");
         cmd.AddWithValue("@lim", 50);
 
         var sb = new System.Text.StringBuilder();

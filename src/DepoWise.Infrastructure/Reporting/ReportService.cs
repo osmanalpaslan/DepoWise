@@ -853,8 +853,20 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
             typeSql = $" AND sm.movement_type IN ({ps})";
         }
 
+        // ── STK-10b-2: SERBEST METİN ARAMA (ADR-104 / KARAR-10) ────────────────────────────────
+        // Semantik mevcut `StockService.SearchMovements`'tan BİREBİR taşındı — yeniden tasarlanmadı:
+        //   (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)
+        // • Kalıp: "%" + Trim() + "%"   • Boş/yalnız-boşluk → FİLTRE YOK
+        // • NULL alan LIKE'ta eşleşmez (NULL döner) ama diğer OR dalları eşleşebilir — mevcut davranış.
+        // ⚠️ Tüm dallar TEK parantez içinde ve dış WHERE'e AND ile bağlanır → arama, şube kapsamını
+        //    veya lokasyon/tür filtrelerini GENİŞLETEMEZ (yalnız daraltır).
+        var arama = string.IsNullOrWhiteSpace(req.SearchText) ? null : req.SearchText!.Trim();
+        var searchSql = arama is null
+            ? ""
+            : " AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)";
+
         // ── Sorgu: filtre → sıralama → LIMIT (hepsi SQL'de) ────────────────────────────────────
-        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon ve tür filtreleri AND ile
+        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon, tür ve arama filtreleri AND ile
         // İÇERİDE daraltır — hiçbiri kapsamı genişletemez.
         cmd.CommandText = @"
 SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
@@ -873,6 +885,7 @@ WHERE sm.company_id = @c"
             + DateFilter(req, "sm.created_at")
             + locSql
             + typeSql
+            + searchSql
             + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
 
         cmd.AddWithValue("@c", companyId);
@@ -880,6 +893,7 @@ WHERE sm.company_id = @c"
         BindDates(cmd, req);
         for (int i = 0; i < gercekDepolar.Count; i++) cmd.AddWithValue("@loc" + i, gercekDepolar[i]);
         for (int i = 0; i < istenenTurler.Length; i++) cmd.AddWithValue("@mtype" + i, istenenTurler[i]);
+        if (arama is not null) cmd.AddWithValue("@q", "%" + arama + "%");
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();

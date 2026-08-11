@@ -24,6 +24,10 @@ public enum ReportFilters
     // (STK-B1). Web bu dosyayı derliyor (paylaşılan dosya, bkz. DepoWise.Web.csproj) → seçenekler için
     // /api/reports/scope'a YENİ ALAN EKLENMEDİ; iki platform aynı sabitten besleniyor.
     MovementType = 1024,
+    // STK-10b-2 (ADR-104 / KARAR-10): SERBEST METİN ARAMA. Diğer filtrelerden farklı olarak SKALER
+    // (tek metin), liste değil. Semantiği mevcut Stok Hareketleri ekranından AYNEN taşınır:
+    // malzeme kodu · malzeme adı · not · fatura no · belge no üzerinde OR araması.
+    Search = 2048,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -83,6 +87,7 @@ public sealed record ReportDescriptor(
     public bool UsesStatus => Filters.HasFlag(ReportFilters.Status);
     public bool UsesLocation => Filters.HasFlag(ReportFilters.Location);   // STK-06: stok deposu/şantiyesi
     public bool UsesMovementType => Filters.HasFlag(ReportFilters.MovementType);   // STK-10b-1: hareket türü
+    public bool UsesSearch => Filters.HasFlag(ReportFilters.Search);   // STK-10b-2: serbest metin arama
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -113,7 +118,7 @@ public static class ReportCatalog
         // RequiresDate: defter sürekli büyür, tarihsiz tam tarama yapılmaz (ağır rapor kuralı).
         new ReportDescriptor("stock-movements", "Stok Hareketleri", "Giriş/çıkış/transfer/sayım/bakım hareketleri — Kaynak → Hedef",
             ReportCategory.Stock, ReportGroup.Standard,
-            ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType, true, ExportStandard,
+            ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search, true, ExportStandard,
             InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. 0022Atanmamış0022 bir depo değildir: lokasyonu girilmemiş harekettir."),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,

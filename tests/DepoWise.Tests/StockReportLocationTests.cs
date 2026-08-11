@@ -330,8 +330,11 @@ public class StockReportLocationTests : IDisposable
         var turluler = ReportCatalog.All.Where(d => d.UsesMovementType).Select(d => d.Key).ToList();
         Assert.Equal(new[] { "stock-movements" }, turluler);
 
-        // STK-10b-2 (Search=2048) ve 10b-3 (Material=4096) HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi.
-        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)2048)));
+        // STK-10b-2: arama filtresi de YALNIZ hareket raporunda açıldı.
+        var aramalilar = ReportCatalog.All.Where(d => d.UsesSearch).Select(d => d.Key).ToList();
+        Assert.Equal(new[] { "stock-movements" }, aramalilar);
+
+        // STK-10b-3 (Material=4096) HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi.
         Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)4096)));
     }
 

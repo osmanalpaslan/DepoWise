@@ -713,3 +713,112 @@ dar pencere · Web/masaüstü görünüm paritesi.
 | **10b-2** | `Search` bayrağı (6 nokta) — sorgu parçası `SearchMovements`'tan taşınır (ADR-104 K-0b) | ⏳ bekliyor |
 | **10b-3** | `Material` bayrağı (6 nokta) + autocomplete deseni (scope'a 2461 malzeme EKLENMEZ, K-1) | ⏳ bekliyor |
 | **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | ⏳ bekliyor |
+
+---
+
+## 21. ✅ STK-10b-2 TAMAMLANDI — Serbest metin arama (2026-08-11)
+
+`Search` filtresi **6/6 katmanda** bağlandı. `Material` (10b-3) ve ekran bağlantıları + B-1 (10b-4)
+**bu artımda YOK**.
+
+### 21.1 SEARCH 6/6 KABLOLAMA
+
+| # | Katman | Ne yapıldı |
+|---|---|---|
+| 1 | Katalog / descriptor | `ReportFilters.Search = 2048` + `UsesSearch` + rapora bayrak |
+| 2 | İstek modeli | `ReportRequest.SearchText` — **SKALER `string?`**, SONA eklendi |
+| 3 | API sorgu | `usesSearch = d.UsesSearch` + `ReportReqDto.SearchText` + `/api/reports/{type}` |
+| 4 | API export | `/api/reports/{type}/export` aynı gövde |
+| 5 | Web | `@if (_sel?.UsesSearch == true)` + `MudTextField` + `CatItem` + `Bool` + **iki gövde** |
+| 6 | Masaüstü | `ShowSearch` + `[NotifyPropertyChangedFor]` + `SearchText` + `BuildTable` + XAML `TextBox` |
+
+**+ RPR-01 `Map` satırı** (`RequestProps = ["SearchText"]`) → **14/14 yeşil**, gevşetilmedi.
+
+⚠️ **Etiket parçası bilinçli olarak uzun seçildi** (`"Ara (kod, malzeme, not, belge)"`). Kısa "Ara"
+yazılsaydı RPR-01'in etiket kontrolü mevcut **"Araç"/"Araç ara"** metinlerine takılıp blok silinse
+bile geçerdi — RPR-01'de daha önce yakalanan zayıflığın aynısı.
+
+### 21.2 🔴 BULGU: belge notu aramada YOK (mevcut davranış, DEĞİŞTİRİLMEDİ)
+
+Testleri yazarken 7 senaryo kırıldı ve nedeni koddan doğrulandı:
+
+> `StockService.ApplyLine` hareket satırının `note`'unu **NULL** yazar. Kullanıcının giriş/çıkış/
+> transfer/sayım belgesine yazdığı not **`stock_documents.note`**'a gider. Mevcut arama ise
+> **`sm.note`**'a bakar — `d.note`'a **DEĞİL**.
+
+➡️ Yani bugün "not" araması **yalnız** hareket satırında not bulunan yolları buluyor:
+**ters kayıt gerekçesi** ve **bakım tüketimi**. Kullanıcının stok giriş belgesine yazdığı not
+aranabilir **değil** — ekranın etiketi ("not") bunu vaat etse de.
+
+**STK-10b-2 bu davranışı DEĞİŞTİRMEDİ** — talimat "yeni arama semantiği icat etme, mevcut davranışı
+taşı" diyor. Semantik birebir taşındı ve **mevcut davranış testle kilitlendi**
+(`Belge_Notu_Aramada_YOK_Mevcut_Davranis`: hem rapor hem mevcut ekran boş dönüyor → kayma yok).
+
+⛔ **KULLANICI KARARI GEREKİR:** arama `d.note`'u da kapsasın mı? Kapsarsa kullanıcı beklentisine
+uyar ama **davranış değişikliğidir** (bugün bulunmayan kayıtlar bulunmaya başlar). Ayrı iş olarak
+kaydedilmeli. → `STK-B2` (aşağıda).
+
+### 21.3 Semantik (mevcut ekrandan birebir)
+
+`(m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)`
+· kalıp `"%" + Trim() + "%"` · boş/yalnız-boşluk → **filtre yok** · kısmi eşleşme (içerir).
+
+**Büyük/küçük harf:** mutlak iddia edilmiyor — `LIKE` davranışı **lehçeye bağlıdır** (SQLite ASCII'de
+duyarsız, PostgreSQL duyarlı). Test, davranışın ne olduğunu değil **rapor ile mevcut ekranın AYNI
+sonucu verdiğini** kilitliyor → semantik taşındı, değiştirilmedi.
+
+**🔒 `BranchScope` genişlemiyor:** `WHERE kapsam AND lokasyon AND tür AND arama` — arama tüm dalları
+tek parantezde toplar ve dış WHERE'e `AND` ile bağlanır. Depo A oturumu, Depo B bacağını arayarak da
+göremiyor; yabancı firma kaydı aramayla da çıkmıyor.
+
+### 21.4 Doğrulamalar
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1521 · 1486 geçti · 0 kaldı · 35 atlandı** (taban 1480; **+41 senaryo**) |
+| RPR-01 | ✅ **14/14** — gevşetilmedi, istisna yok |
+| Çevrimdışı / SQLite | 36 senaryo (`StockMovementsSearchFilterTests`), HTTP yok |
+| Gerçek HTTP | 21 senaryo (5 yeni: katalog bayrağı · sunucu-taraflı arama · 3× export XLSX) |
+| İzole PostgreSQL | Arama doğru · boşluk = filtre yok · arama+tür+lokasyon üçlüsü · **sorgu planı** |
+| Gerçek XLSX | 7 kombinasyon (servis) + 3 (HTTP) — hücre hücre |
+| Görsel render | ❌ **YAPILMADI** (§21.7) |
+
+### 21.5 ⚡ Sorgu planı (izole PG, arama + tür ile)
+
+```
+Limit → Sort (created_at DESC, id DESC)
+  → Nested Loop Left Join
+      Filter: ((m.code ~~ '%PG%') OR (m.name ~~ '%PG%') OR (sm.note ~~ '%PG%')
+               OR (d.invoice_no ~~ '%PG%') OR (d.doc_no ~~ '%PG%'))
+      → Nested Loop
+          → Index Scan using ix_materials_company on materials
+          → Index Scan using ix_stock_movements_material on stock_movements
+               Index Cond: (material_id) AND (created_at >= …) AND (created_at <= …)
+               Filter: (company_id) AND (movement_type = 'in')
+      → Index Scan using stock_documents_pkey on stock_documents
+```
+➡️ Arama **SQL'e indi** (`~~` = `LIKE`), `Limit`/`Sort` yerinde. **Yeni indeks EKLENMEDİ** —
+`LIKE '%…%'` baştan joker içerdiği için B-tree indeksi zaten kullanılamaz; trigram (`pg_trgm`)
+gerektirirdi ve mevcut veri hacmi bunu gerektirmiyor. Testle ayrıca kanıtlandı: tavan
+**filtrelenmiş küme** üzerine iniyor.
+
+### 21.6 ⚠️ Güncellenen 2 mevcut test (yine kapsam nöbetçileri)
+
+STK-10a/10b-1'de **benim eklediğim** nöbetçiler `Search`'ü de doğru yakaladı. Gevşetilmediler:
+`Rapor_Katalogda_…` filtre kümesi **tam eşitlikle** sınanmaya devam ediyor; `Lokasyon_Filtresi_…`
+içine **"arama filtresi YALNIZ `stock-movements`'ta açık"** tam-eşleşmesi eklendi.
+**`Material` (4096) hâlâ kapalı** nöbetçisi ikisinde de duruyor.
+
+### 21.7 Görsel kontrol — YAPILMADI
+
+Engel değişmedi. **Kontrol edilemeyenler:** Search kutusunun filtreler arasındaki konumu · uzun arama
+metninin görünümü · diğer filtrelerle hizası · dar pencere · Web/masaüstü görsel paritesi.
+
+## 22. ▶️ KALAN ARTIMLAR
+
+| Artım | Kapsam | Durum |
+|---|---|---|
+| **10b-3** | `Material` bayrağı (6 nokta) + autocomplete (scope'a 2461 malzeme EKLENMEZ, K-1) | ⏳ bekliyor |
+| **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | ⏳ bekliyor |
+| **`STK-B2`** 🆕 | Arama `stock_documents.note`'u da kapsasın mı? **Davranış değişikliği → kullanıcı kararı** (§21.2) | ⛔ karar bekliyor |

@@ -55,6 +55,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowStatus))]
     [NotifyPropertyChangedFor(nameof(ShowLocation))]
     [NotifyPropertyChangedFor(nameof(ShowMovementType))]
+    [NotifyPropertyChangedFor(nameof(ShowSearch))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -75,6 +76,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// <summary>STK-10b-1 — stok HAREKET TÜRÜ filtresi. Seçenekler STK-B1'in TEK kaynağından
     /// (<see cref="MovementTypeOptions"/>) gelir; masaüstünde ayrı bir liste TUTULMAZ ve ağ gerekmez.</summary>
     public bool ShowMovementType => SelectedReport?.UsesMovementType == true;
+
+    /// <summary>STK-10b-2 (ADR-104) — serbest metin arama. SKALER alan (liste değil); semantiği
+    /// mevcut Stok Hareketleri ekranından aynen taşındı ve SUNUCU/SQL tarafında uygulanır.</summary>
+    public bool ShowSearch => SelectedReport?.UsesSearch == true;
+
+    /// <summary>Arama metni. Boş/yalnız-boşluk → filtre yok (mevcut semantik).</summary>
+    [ObservableProperty] private string _searchText = "";
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -349,6 +357,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var movementTypes = ShowMovementType
             ? MovementTypes.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        // STK-10b-2: serbest metin arama (skaler). Bayrak kapalıysa GÖNDERİLMEZ.
+        var searchText = ShowSearch ? SearchText : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
@@ -362,7 +372,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             RequesterIds: requesterIds,
             Statuses: statuses,
             LocationIds: locationIds is { Count: > 0 } ? locationIds : null,
-            MovementTypes: movementTypes is { Count: > 0 } ? movementTypes : null);
+            MovementTypes: movementTypes is { Count: > 0 } ? movementTypes : null,
+            SearchText: string.IsNullOrWhiteSpace(searchText) ? null : searchText);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

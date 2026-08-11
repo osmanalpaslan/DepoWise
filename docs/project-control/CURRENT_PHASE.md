@@ -453,12 +453,42 @@ yeni filtreyi doğru yakaladılar. Gevşetilmediler: tam-eşitlik korundu, üst�
 Material (4096) hâlâ kapalı** nöbetçileri eklendi. Ayrıntı §19.7.
 ⚠️ **Görsel render kontrolü YAPILMADI** — aynı engel (§19.8).
 
+## ✅ SON TAMAMLANAN — `STK-10b-2` Serbest metin arama (2026-08-11)
+
+Sonuç kaydı: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §21
+
+`Search` filtresi **6/6 katmanda** bağlandı; **RPR-01 gevşetilmeden yeşil** (14/14). Semantik mevcut
+`SearchMovements`'tan **birebir** taşındı — yeni arama mimarisi icat edilmedi.
+
+**🔴 BULGU — belge notu aramada YOK (mevcut davranış, değiştirilmedi):**
+`ApplyLine` hareket satırının `note`'unu **NULL** yazıyor; kullanıcının giriş/çıkış belgesine yazdığı
+not `stock_documents.note`'a gidiyor. Mevcut arama ise **`sm.note`**'a bakıyor. Yani "not" araması
+bugün yalnız **ters kayıt gerekçesi** ve **bakım tüketimi** kayıtlarını buluyor — kullanıcının stok
+belgesine yazdığı notu **bulmuyor**, ekran etiketi bunu vaat etse de.
+Semantiği taşıdım, **değiştirmedim**; mevcut davranışı testle kilitledim (rapor ve ekran aynı sonucu
+veriyor → kayma yok). ⛔ **Kararı senin:** arama `d.note`'u da kapsasın mı? → yeni iş **`STK-B2`**.
+
+**Büyük/küçük harf:** mutlak iddia edilmedi — `LIKE` davranışı **lehçeye bağlı** (SQLite duyarsız,
+PG duyarlı). Test, **rapor ile mevcut ekranın AYNI sonucu verdiğini** kilitliyor.
+
+**🔒 `BranchScope` genişlemiyor:** Depo A oturumu Depo B bacağını arayarak da göremiyor; yabancı firma
+kaydı aramayla da çıkmıyor.
+
+**Kanıt:** **1521 / 1486 geçti / 0 kaldı / 35 atlandı** (taban 1480; **+41 senaryo**) · build 0 hata ·
+36 çevrimdışı + 5 yeni HTTP + izole PG (sorgu planı: arama `~~` ile SQL'de) · **10 XLSX kombinasyonu**.
+**Yeni indeks eklenmedi** — `LIKE '%…%'` baştan joker içerdiği için B-tree kullanılamaz; trigram
+gerekirdi, mevcut hacim gerektirmiyor.
+
+⚠️ **2 mevcut test yine güncellendi** — aynı kapsam nöbetçileri, `Search`'ü de doğru yakaladılar.
+Gevşetilmediler; **`Material` (4096) hâlâ kapalı** nöbetçisi duruyor.
+⚠️ **Görsel render kontrolü YAPILMADI** (§21.7).
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10b-2` — `Search` filtresi** (6 kablolama noktası). Sorgu parçası mevcut
-`StockService.SearchMovements`'tan **olduğu gibi** taşınır (ADR-104 / KARAR-10, K-0b):
-`kod OR ad OR not OR fatura no OR belge no`. `Search` skaler (`string?`) olduğu için RPR-01 `Map`
-satırında `RequestProps = ["SearchText"]` yeterli — yeni tarama kuralı gerekmez.
-Sonra **10b-3** (`Material` + autocomplete) → **10b-4** (iki ekranın bağlanması + **B-1 düzeltmesi**).
+**`STK-10b-3` — `Material` filtresi + autocomplete** (6 kablolama noktası).
+⚠️ `/api/reports/scope`'a **2461 malzeme EKLENMEYECEK** (plan K-1) — mevcut arama/autocomplete deseni
+kullanılacak (Web `MudAutocomplete` + `/api/materials?search=`, masaüstü yerel `Materials.List(search)`).
+Sonra **10b-4** (iki ekranın rapora bağlanması + **B-1 düzeltmesi**).
+⛔ Ayrıca **`STK-B2`** kararı bekliyor (yukarıdaki belge-notu bulgusu).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -471,7 +501,7 @@ Sonra **10b-3** (`Material` + autocomplete) → **10b-4** (iki ekranın bağlanm
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1480/1445/0/35 · Build 0 hata
+667 stok hareketi · Test 1521/1486/0/35 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

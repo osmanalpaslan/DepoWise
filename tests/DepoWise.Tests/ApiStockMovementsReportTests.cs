@@ -291,6 +291,83 @@ public class ApiStockMovementsReportTests : IAsyncLifetime
         Assert.True(string.IsNullOrEmpty(ws.Cell(fazla, 1).GetString()));
     }
 
+    // ── STK-10b-2: SERBEST METİN ARAMA (gerçek HTTP) ───────────────────────────────────────
+
+    private object AramaGovde(string? arama) => new
+    {
+        fromDate = Gunes, toDate = Batis,
+        locationIds = new List<string>(),
+        movementTypes = new List<string>(),
+        searchText = arama,
+    };
+
+    /// <summary>STK-10b-2 — katalog ucu `usesSearch` yayınlıyor (Web bunu sürer).</summary>
+    [Fact]
+    public async Task Katalog_Ucu_usesSearch_Yayinliyor()
+    {
+        var arr = (await ApiTestHost.JsonAsync(await _client.GetAsync("/api/reports/catalog"))).EnumerateArray().ToList();
+        Assert.True(arr.Single(e => e.GetProperty("key").GetString() == "stock-movements").GetProperty("usesSearch").GetBoolean());
+        Assert.False(arr.Single(e => e.GetProperty("key").GetString() == "stock").GetProperty("usesSearch").GetBoolean());
+    }
+
+    /// <summary>STK-10b-2 — arama HTTP hattında SUNUCU tarafında uygulanıyor.</summary>
+    [Fact]
+    public async Task Arama_HTTP_Hattinda_Sunucuda_Uygulaniyor()
+    {
+        var hepsi = await ApiTestHost.JsonAsync(await _client.PostAsJsonAsync("/api/reports/stock-movements", AramaGovde(null)));
+        Assert.Equal(5, hepsi.GetProperty("rows").GetArrayLength());
+
+        // Malzeme koduyla arama → yalnız o malzemenin hareketleri.
+        var kodlu = await ApiTestHost.JsonAsync(
+            await _client.PostAsJsonAsync("/api/reports/stock-movements", AramaGovde("HRK-API")));
+        Assert.Equal(5, kodlu.GetProperty("rows").GetArrayLength());   // tek malzeme var
+
+        // Eşleşmeyen arama → boş.
+        var bos = await ApiTestHost.JsonAsync(
+            await _client.PostAsJsonAsync("/api/reports/stock-movements", AramaGovde("yok-boyle-kayit-999")));
+        Assert.Equal(0, bos.GetProperty("rows").GetArrayLength());
+
+        // Yalnız boşluk → filtre yok (mevcut semantik).
+        var bosluk = await ApiTestHost.JsonAsync(
+            await _client.PostAsJsonAsync("/api/reports/stock-movements", AramaGovde("   ")));
+        Assert.Equal(5, bosluk.GetProperty("rows").GetArrayLength());
+    }
+
+    /// <summary>STK-10b-2 — 🔴 arama EXPORT ucuna da uygulanıyor; XLSX ekranla BİREBİR aynı.</summary>
+    [Theory]
+    [InlineData("HRK-API")]
+    [InlineData("Hareket malzemesi")]
+    [InlineData("yok-boyle-kayit-999")]
+    public async Task Arama_Export_Ucuna_da_Uygulaniyor(string arama)
+    {
+        var r = await _client.PostAsJsonAsync("/api/reports/stock-movements", AramaGovde(arama));
+        r.EnsureSuccessStatusCode();
+        var doc = await ApiTestHost.JsonAsync(r);
+
+        var e = await _client.PostAsJsonAsync("/api/reports/stock-movements/export", AramaGovde(arama));
+        e.EnsureSuccessStatusCode();
+
+        var headers = doc.GetProperty("headers").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+        var numeric = doc.GetProperty("numeric").EnumerateArray().Select(x => x.GetBoolean()).ToList();
+        var ekranRows = doc.GetProperty("rows").EnumerateArray()
+            .Select(row => row.EnumerateArray().Select(HucreMetni).ToList()).ToList();
+
+        using var ms = new MemoryStream(await e.Content.ReadAsByteArrayAsync());
+        using var wb = new XLWorkbook(ms);
+        var ws = wb.Worksheets.First();
+        for (int i = 0; i < ekranRows.Count; i++)
+            for (int c = 0; c < headers.Count; c++)
+            {
+                var cell = ws.Cell(i + 2, c + 1);
+                var xlsx = c < numeric.Count && numeric[c]
+                    ? (cell.IsEmpty() ? "" : cell.GetDouble().ToString("0.####"))
+                    : cell.GetString();
+                Assert.Equal(ekranRows[i][c], xlsx);
+            }
+        var fazla = ekranRows.Count + 2 + (ekranRows.Count > 0 ? 1 : 0);
+        Assert.True(string.IsNullOrEmpty(ws.Cell(fazla, 1).GetString()));
+    }
+
     /// <summary>5 — Export özel buton yetkisi ister; yetkisiz kullanıcı 403 alır (mevcut standart).</summary>
     [Fact]
     public async Task Export_Yetkisiz_Kullaniciya_403()
