@@ -293,3 +293,17 @@ yapılan şube işlemlerinden sonra çalışıyordu → oturum açıkken web'de 
 israf olurdu). **Yeni protokol/tablo/uç YOK.** Saf aynalama mantığı `BranchMirrorApply`'a taşındı
 (Infrastructure) — Avalonia bağımlılığı olmadan test edilebilsin diye. **8 yeni senaryo.**
 Çevrimdışıysa aynalama hiç çalışmaz, yerel liste korunur → çevrimdışı stok işlemi sürer.
+
+### `STK-08` — Atanmamış stok toplu dağıtımı · 🟡 **PLAN TAMAM, KOD BAŞLAMADI** (2026-08-11)
+Plan: [`STK_08_UYGULAMA_PLANI.md`](STK_08_UYGULAMA_PLANI.md)
+
+**🔴 Analiz bulgusu:** mevcut `Transfer` servisi ATANMAMIŞ'ı kaynak kabul etmiyor — üç ayrı engel:
+boş kaynak reddediliyor · `EnforceOwnBranch` boş kaynağı **sessizce kullanıcının şubesine çeviriyor**
+(sessiz veri bozulması riski) · şube-bazlı negatif kalkanı boş lokasyonda çalışmıyor (aşım engellenmezdi).
+
+**Karar (T-1):** `Transfer` **gevşetilmeyecek**. Ayrı ve dar giriş noktası `DistributeUnassigned` —
+aynı belge/hareket makinesi, hareket türü `transfer` kalır (yeni tür yok), kendi yeterlilik kontrolü,
+`EnforceOwnBranch` çağrılmaz, hedef `EnsureLocationOwned`'dan geçer, ATANMAMIŞ hedef olamaz.
+
+**Kapsam:** servis + 2 API ucu + Web ekranı + masaüstü ekranı (çevrimdışı) + 30 test senaryosu.
+Yeni yetki düğümü **açılmayacak** (mevcut `stock` + `Create` yeterli).

@@ -76,7 +76,7 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `STK-05` | Masaüstü: lokasyonlu giriş/çıkış/sayım/açılış + kart kırılımı + hareket lokasyonu · **çevrimdışı korundu** | ✅ **TAMAM** (13 yeni senaryo · 4 hata düzeltildi) |
 | `STK-06` | Rapor lokasyon boyutu: Stok Durumu (kırılım+filtre) · Stok Sayım (sayılan depo) | ✅ **TAMAM** (14 yeni senaryo) |
 | `STK-07` | Senkron sertifikasyonu — 11 senaryo, gerçek HTTP senkron uçları · **kod değiştirilmedi** | ✅ **TAMAM** |
-| `STK-08` | "Atanmamış → depo" toplu dağıtım yardımcısı | ⛔ **KARAR-8** |
+| `STK-08` | "Atanmamış → depo" toplu dağıtım ekranı (Web + masaüstü + çevrimdışı) | 🟡 **PLAN TAMAM, KOD BAŞLAMADI** |
 | `STK-B1` | `movement_type` kataloğu `usage`/`usage_reverse` ile tutarsız | BEKLEMEDE |
 | `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | BEKLEMEDE |
 

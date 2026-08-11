@@ -178,13 +178,28 @@ Yeni depo aynalandıktan sonra **çevrimdışı** giriş/transfer/sayım çalı�
 yansıyor · silinen depo **pasife alınıyor, fiziksel silinmiyor** (geçmiş stok korunuyor) · **firma
 izolasyonu** korunuyor · çevrimdışıyken yerel liste dokunulmadan kalıyor.
 
+## 🟡 DEVAM EDEN — `STK-08` Atanmamış stok dağıtımı · PLAN TAMAM, KOD BAŞLAMADI
+
+Plan: [`STK_08_UYGULAMA_PLANI.md`](STK_08_UYGULAMA_PLANI.md) — sonraki oturum **doğrudan §1 KARAR (T-1)'den**
+koda başlayabilir. **Çalışma ağacında yarım kod YOK.**
+
+**🔴 Analizde bulunan kritik engel:** mevcut `Transfer` servisi ATANMAMIŞ'ı kaynak olarak **kabul etmiyor**
+— üstelik üç ayrı yerde:
+1. Boş kaynak `ArgumentException` ile reddediliyor.
+2. `EnforceOwnBranch` şubeye bağlı kullanıcıda boş kaynağı **sessizce kendi şubesine çeviriyor**
+   → dağıtım yanlış depodan düşerdi (**sessiz veri bozulması**).
+3. Şube-bazlı negatif kalkanı boş lokasyonda **çalışmıyor** → "10 varken 11 dağıt" engellenmezdi.
+
+**Karar (T-1):** `Transfer` gevşetilmeyecek (herhangi bir istemcinin kazara lokasyonsuz transfer üretmesine
+kapı açardı). Bunun yerine AYRI ve DAR bir giriş noktası: `DistributeUnassigned` — **aynı** belge/hareket
+makinesini kullanır, hareket türü **`transfer`** kalır (yeni tür yok), kendi yeterlilik kontrolünü yapar.
+
+**KARAR-8 (kalıcı):** otomatik dağıtım YOK; kullanıcı gerçek transfer hareketleriyle dağıtır.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-08` — "Atanmamış" stoğun kullanıcı tarafından depolara dağıtılması.**
-**KARAR-8 KARARA BAĞLANDI:** otomatik dağıtım YOK; kullanıcı **gerçek transfer hareketleriyle** dağıtacak.
-Yapılacak: ATANMAMIŞ stoğu listeleyen **toplu dağıtım ekranı** (malzeme · atanmamış miktar · dağıtılacak
-miktar · hedef depo) → gerçek `transfer` hareketi (kaynak = ATANMAMIŞ) · miktar aşımı/negatif/sıfır
-reddedilir · ters kayıtla geri alınabilir · Web **ve** masaüstü (çevrimdışı destekli) · ATANMAMIŞ hedef
-olarak **seçilemez**.
+**`STK-08` — plan §1 KARAR (T-1)'den başla:** `StockService.DistributeUnassigned` → 2 API ucu
+(`GET /api/stock/unassigned`, `POST /api/stock/distribute`) → Web ekranı → masaüstü ekranı (çevrimdışı)
+→ 30 senaryo → tam doğrulama → kontrol dosyaları.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
