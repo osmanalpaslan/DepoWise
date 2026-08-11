@@ -289,9 +289,22 @@ public sealed partial class UsersViewModel : ViewModelBase
             DesktopServices.Users.ImportServerUser(newUserId, TargetCompanyId, NewUsername.Trim(), NewPassword,
                 fullName, FormBranch?.Id, IsSuperAdmin && NewViewAllBranches, mustChangePassword: true, roles);
 
-            // Yetki şablonu (yalnız süper admin) → yerele yaz (yetkiler senkronda değil; Yetkiler ekranından düzenlenir).
+            // Yetki şablonu → yerele yaz (yetkiler senkronda değil; Yetkiler ekranından düzenlenir).
+            // G6-07: yetki yazımı başarısız olursa "kullanıcı oluşturuldu" DEMEYİZ ama "oluşturulamadı" da
+            // demeyiz — kullanıcı sunucuda GERÇEKTEN oluştu. Ne olduğu ve ne yapılacağı açıkça yazılır.
             if (tplData is not null)
-                DesktopServices.Permissions.SaveForUser(_session, newUserId, tplData.Modules, tplData.Buttons);
+            {
+                try { DesktopServices.Permissions.SaveForUser(_session, newUserId, tplData.Modules, tplData.Buttons); }
+                catch (Exception ex)
+                {
+                    ShowAdd = false;
+                    NewViewAllBranches = false;
+                    await Load();
+                    Status = "Kullanıcı oluşturuldu ANCAK yetki şablonu uygulanamadı: " + ex.Message
+                           + " Kullanıcı şu an hiçbir ekranı göremez; yetkileri 'Yetkiler' ekranından verin.";
+                    return;
+                }
+            }
 
             ShowAdd = false;
             NewViewAllBranches = false;

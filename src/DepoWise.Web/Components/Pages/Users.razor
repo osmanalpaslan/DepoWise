@@ -73,9 +73,15 @@
                                  Color="Color.Primary" />
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Bu kullanıcı tüm şube verisiyle çalışabilir (yalnız Süper Admin verir).</MudText>
                 </MudItem>
+            }
+            @* G6-09: şablon seçici artık kullanıcı OLUŞTURMA yetkisi olan herkese açık (masaüstüyle aynı).
+               Servis zaten users/Create istiyor ve şablonu firmaya göre süzüyor; web'de süper adminle
+               sınırlı olması iki platformun farklı sonuç üretmesine yol açıyordu. *@
+            @if (_templates.Length > 0)
+            {
                 <MudItem xs="12" md="6">
                     <MudSelect T="string" @bind-Value="_templateId" Label="Yetki Şablonu" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
-                               HelperText="Firmanıza özel + tüm-firma şablonları. Seçilirse yetkiler bu şablona göre yazılır.">
+                               HelperText="Firmanıza özel + tüm-firma şablonları. Seçilirse yetkiler bu şablona göre yazılır; şablonun rolü varsa o rol de atanır.">
                         @foreach (var t in _templates) { <MudSelectItem T="string" Value="@Str(t, "id")">@Str(t, "name")@(B(t, "scopeAll") ? " (tüm firmalar)" : "")</MudSelectItem> }
                     </MudSelect>
                 </MudItem>
@@ -195,6 +201,11 @@
         {
             _companies = await Api.OptionsAsync("/api/companies/options", "id", "name");
             _companyId = Auth.CompanyId;   // varsayılan: kendi firması (şube listesiyle uyumlu başlar)
+        }
+        // G6-09: şablonlar kullanıcı oluşturma yetkisi olan HERKES için yüklenir (uç zaten users/Create
+        // ister ve yalnız kendi firması + tüm-firma şablonlarını döndürür → tenant izolasyonu serviste).
+        if (Auth.CanCreate("users"))
+        {
             try { _templates = await Api.GetArrayAsync("/api/permission-templates/for-user"); } catch { }
         }
         await LoadBranches();
@@ -256,28 +267,67 @@
         _busy = true;
         try
         {
+            var roleKeys = string.IsNullOrEmpty(_role) ? new List<string>() : new List<string> { _role };
+
+            // ── G6-07 adım 1: şablon KULLANICI OLUŞTURULMADAN ÖNCE okunur ────────────────────────
+            // Böylece bozuk/erişilemeyen şablonda hiç kullanıcı açılmaz (eskiden kullanıcı açılıyor,
+            // şablon hatası sessizce yutuluyor ve ekranda yine "Oluşturuldu." yazıyordu).
+            System.Text.Json.JsonElement tpl = default;
+            bool hasTemplate = !string.IsNullOrEmpty(_templateId);
+            if (hasTemplate)
+            {
+                try { tpl = await Api.GetObjectAsync($"/api/permission-templates/{_templateId}"); }
+                catch (Exception ex)
+                {
+                    _ok = false;
+                    _msg = "Yetki şablonu okunamadı, kullanıcı OLUŞTURULMADI: " + ex.Message;
+                    return;
+                }
+                // G6-B: şablonun rolü de kullanıcıya atanır (masaüstündeki davranış). Yetki yükseltme
+                // kanalı DEĞİLDİR: rol, kullanıcı oluşturma isteğiyle birlikte gider ve sunucudaki
+                // RoleAssignmentGuard onu doğrular — aktörün atayamayacağı bir rolse istek 403 ile
+                // reddedilir ve kullanıcı hiç oluşturulmaz.
+                if (tpl.TryGetProperty("roleKey", out var rk) && rk.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var tplRole = rk.GetString();
+                    if (!string.IsNullOrWhiteSpace(tplRole) && !roleKeys.Contains(tplRole!)) roleKeys.Add(tplRole!);
+                }
+            }
+
+            // ── adım 2: kullanıcı + roller (tek sunucu çağrısı, tek transaction) ─────────────────
             var (err, id) = await Api.CreateAsync("/api/users", new
             {
                 username = _u.Trim(), password = _p, fullName = _f,
-                roleKeys = string.IsNullOrEmpty(_role) ? new List<string>() : new List<string> { _role },
+                roleKeys,
                 companyId = Auth.IsSuperAdmin ? _companyId : null, branchId = _branch,
                 canViewAllBranches = Auth.IsSuperAdmin && _viewAll,
                 personnelId = _personnelId          // Fikir B: hesabı personele bağla
             });
-            // Yetki şablonu seçildiyse yeni kullanıcının yetkilerini şablona göre yaz
-            if (err is null && id is not null && !string.IsNullOrEmpty(_templateId))
+            if (err is not null || id is null) { _ok = false; _msg = err ?? "Kullanıcı oluşturulamadı."; return; }
+
+            // ── adım 3: şablon yetkileri (ayrı çağrı — yetki yazımı delegasyon tavanını uygulayan
+            // PermissionService'ten geçmek ZORUNDA; CreateUser'ın içindeki yol bu kontrolleri yapmaz).
+            // Başarısız olursa SESSİZ GEÇİLMEZ: kullanıcı oluştu ama yetkisiz kaldı, bu açıkça söylenir.
+            if (hasTemplate)
             {
-                try
+                var mods = tpl.TryGetProperty("modules", out var m) ? m : default;
+                var btns = tpl.TryGetProperty("buttons", out var b) ? b : default;
+                string? permErr;
+                try { permErr = await Api.PostAsync($"/api/permissions/{id}", new { modules = mods, buttons = btns }); }
+                catch (Exception ex) { permErr = ex.Message; }
+                if (permErr is not null)
                 {
-                    var t = await Api.GetObjectAsync($"/api/permission-templates/{_templateId}");
-                    var mods = t.TryGetProperty("modules", out var m) ? m : default;
-                    var btns = t.TryGetProperty("buttons", out var b) ? b : default;
-                    await Api.PostAsync($"/api/permissions/{id}", new { modules = mods, buttons = btns });
+                    _ok = false;
+                    _msg = $"Kullanıcı oluşturuldu ANCAK yetki şablonu uygulanamadı: {permErr} "
+                         + "Kullanıcı şu an hiçbir ekranı göremez; yetkileri 'Yetkiler' ekranından verin.";
+                    await ClearForm(); await Load(); await LoadPersonnel();
+                    return;
                 }
-                catch { }
             }
-            _ok = err is null; _msg = err ?? "Oluşturuldu.";
-            if (_ok) { await ClearForm(); await Load(); await LoadPersonnel(); }   // bağlanan personel listeden düşer
+
+            _ok = true;
+            _msg = hasTemplate ? "Oluşturuldu (yetkiler şablondan uygulandı)." : "Oluşturuldu.";
+            await ClearForm(); await Load(); await LoadPersonnel();   // bağlanan personel listeden düşer
         }
         catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
         finally { _busy = false; }
