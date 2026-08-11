@@ -308,17 +308,26 @@ public class StockReportLocationTests : IDisposable
 
     // ── 15-16. Katalog sözleşmesi + regresyon ─────────────────────────────────────────────
 
-    /// <summary>15 — KATALOG: lokasyon filtresi YALNIZ iki stok raporunda açık. Başka raporlara
-    /// körlemesine eklenmedi; `Branch` (kaydı işleyen şube) bayrağı ile karıştırılmadı.</summary>
+    /// <summary>15 — KATALOG: lokasyon filtresi YALNIZ stok raporlarında açık. Başka raporlara
+    /// körlemesine eklenmedi; `Branch` (kaydı işleyen şube) bayrağı ile karıştırılmadı.
+    ///
+    /// ⚠️ BEKLENEN LİSTE GÜNCELLENDİ (STK-10a, 2026-08-11): <c>stock-movements</c> eklendi.
+    /// Bu bir GEVŞETME DEĞİLDİR — liste hâlâ TAM EŞLEŞME ile sınanıyor ve kalan 10 raporun lokasyon
+    /// filtresi olmadığını kanıtlamaya devam ediyor. Yeni rapor lokasyon filtresini <b>bilinçli</b>
+    /// kullanır: hareket defteri depo bazlıdır (STK-06 K-2 kararının aynı gerekçesi).</summary>
     [Fact]
-    public void Lokasyon_Filtresi_Yalniz_Iki_Stok_Raporunda_Acik()
+    public void Lokasyon_Filtresi_Yalniz_Stok_Raporlarinda_Acik()
     {
         var lokasyonlu = ReportCatalog.All.Where(d => d.UsesLocation).Select(d => d.Key).OrderBy(x => x).ToList();
-        Assert.Equal(new[] { "stock", "stock-count" }, lokasyonlu);
+        Assert.Equal(new[] { "stock", "stock-count", "stock-movements" }, lokasyonlu);
 
         // Branch ve Location AYRI bayraklardır: stok raporlarında Branch AÇILMADI.
         Assert.False(ReportCatalog.ByKey("stock")!.UsesBranch);
         Assert.False(ReportCatalog.ByKey("stock-count")!.UsesBranch);
+        Assert.False(ReportCatalog.ByKey("stock-movements")!.UsesBranch);
+
+        // STK-10b'nin filtreleri bu artımda HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi.
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)1024)));
     }
 
     /// <summary>16 — REGRESYON: lokasyon boyutu diğer stok kullanan raporları bozmadı.

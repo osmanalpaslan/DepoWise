@@ -634,3 +634,48 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   ve parola girmek yasak; CLI test-kullanıcı mekanizması yok). Statik risk: masaüstünde tür kolonları
   `Auto` genişlikli ve `TextTrimming` yok → uzun etiket kırpılmaz ama kolonu genişletir.
 - **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §12
+
+## 2026-08-11 - STK-10a — Stok Hareketleri raporu (katalog + Date/Location + gerçek XLSX)
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1411 · 1377 geçti · 0 kaldı · 34 atlandı
+- **Bitiş:** **1452 toplam · 1417 geçti · 0 kaldı · 35 atlandı** (**+41 yeni senaryo**:
+  `StockMovementsReportTests` 29 · `ApiStockMovementsReportTests` 11 · `PostgresStockMovementsReportTests` 1).
+  (Atlanan 34→35: yeni PG testi DEPOWISE_PG_URL yokken atlanır.)
+- **Kapsam:** YALNIZ `Date` + `Location`. `Search`/`Material`/`MovementType` **eklenmedi** (STK-10b).
+- **🔴 Web ve masaüstünde HİÇ KOD DEĞİŞMEDİ:** rapor katalog-güdümlü olduğu için iki platformun
+  Raporlar ekranında kendiliğinden göründü; Date+Location filtreleri STK-06'dan 6 katmanda bağlıydı.
+  **RPR-01 koruma testi hiç değiştirilmeden yeşil kaldı.**
+- **Kanıtlananlar (çevrimdışı/SQLite, 29):** katalogda ve `Run` tanıyor · yalnız Date+Location açık ·
+  Kaynak/Hedef ayrı kolonlar · `direction>0` → hedef, `direction<0` → kaynak · **transfer İKİ satır**
+  (giriş bacağı `Depo A → Depo B`) · Atanmamış etiketi · tarih filtresi · Tüm Şubeler · Depo A → iki
+  bacak · Depo B → giriş bacağı · ilgisiz depo → boş · Atanmamış filtresi · çoklu lokasyon birleşimi ·
+  **BranchScope × Location** (Depo A oturumu + A → yalnız kapsam içi; **Depo A + Depo B → BOŞ**) ·
+  kapsam filtresiz de uygulanıyor · 8 hareket türü doğru Türkçe (STK-B1 tek kaynağından) ·
+  bakım tüketimi seçilen depoda · ters bakım kaydı orijinal depoda · **tavan SQL'de** + sıralama korunuyor ·
+  sıralama (en yeni üstte) · boş sonuç · firma izolasyonu · **çevrimdışı rapor + export** · Web/masaüstü
+  aynı katalogdan aynı sonuç.
+- **Gerçek HTTP (11):** katalog ucu · rapor ucu (Kaynak/Hedef) · lokasyon filtresi · **6 kombinasyonda
+  rapor ucu ↔ export ucu XLSX satır-satır** · export yetkisiz → **403** · kimliksiz istek reddediliyor.
+- **🔴 GERÇEK XLSX (RPR-01'in açık boşluğu KAPANDI):** ClosedXML ile XLSX **açılıp okunuyor** ve
+  **hücre hücre** rapor sonucuyla karşılaştırılıyor — 6 kombinasyon × 2 hat (servis + HTTP):
+  filtresiz · Depo A · Depo B · Atanmamış · iki depo · dar tarih. Ayrıca: XLSX'te Kaynak/Hedef ve
+  "Atanmamış" doğru · ekran ve export **aynı tavana** tabi · boş sonuçta da XLSX üretiliyor.
+- **İzole PostgreSQL + SORGU PLANI:** rapor çalıştı (23 satır) · lokasyon filtresi doğru · LIMIT etkili.
+  Gerçek plan: `Limit → Sort (created_at DESC, id DESC) → Index Scan using ix_stock_movements_material
+  (Index Cond: material_id, created_at >= / <=) Filter: (company_id) AND (branch_id OR branch_from_id)`.
+  ➡️ **filtre + sıralama + LIMIT SQL'de**; tarih filtresi MEVCUT indeksi kullanıyor →
+  **YENİ İNDEKS EKLENMEDİ** (plan kuralı: yalnız ölçüm gerekçelendirirse). Test DB silindi, PG durduruldu.
+- **Performans düzeltmesi (D-2 uygulandı):** `Dispatch`'e `maxRows` geçirildi; `stock-movements` sorgusu
+  kendi `LIMIT`'ini uyguluyor. `Run`'ın bellekteki `Take` kesmesi ikinci emniyet ağı olarak duruyor.
+  Diğer raporların davranışı DEĞİŞMEDİ.
+- **⚠️ 2 mevcut test gerekçeli güncellendi (gevşetme DEĞİL):** katalog sayısı 12→13
+  (`ReportArchitectureTests`) · lokasyonlu rapor listesi 2→3 (`StockReportLocationTests`). İkisi de
+  TAM EŞLEŞME ile sınanmaya devam ediyor; ikinciye **yeni bir nöbetçi** eklendi (STK-10b'nin 1024
+  bayrağı hiçbir raporda açık olmamalı). Ayrıntı: plan §16.1.
+- **Dokunulmayanlar:** migration YOK · şema YOK · senkron protokolü YOK · mevcut Stok Hareketleri
+  ekranlarının davranışı DEĞİŞMEDİ (STK-10b'de bağlanacak) · STK-11 (float artığı) çözülmedi.
+- **Yapılmayan (dürüst kayıt):** **görsel tarayıcı/XAML render kontrolü YAPILMADI** — yerel API
+  veritabanında hesap yok, `launch.json` env desteklemiyor, canlıya bağlanmak ve parola girmek yasak.
+  XLSX'in İÇERİĞİ hücre hücre doğrulandı; doğrulanmayan yalnız görsel sunum.
+- **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §16

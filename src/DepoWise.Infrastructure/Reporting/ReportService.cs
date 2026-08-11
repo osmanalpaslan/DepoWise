@@ -1,6 +1,7 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;   // STK-B1: MovementTypeOptions — hareket türü etiketi TEK kaynak
 using DepoWise.Infrastructure.Database;
 using System;
 using System.Data.Common;
@@ -774,6 +775,165 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
         }, rows, numeric, totalRow);
     }
 
+    // ═══════════════ STK-10a — STOK HAREKETLERİ RAPORU (2026-08-11) ═══════════════
+
+    /// <summary>
+    /// STOK HAREKETLERİ RAPORU (`STK-10a`) — hareket defterinin kataloglanmış, filtrelenebilir ve
+    /// Excel'e aktarılabilir dökümü. Daha önce yalnız bir EKRAN vardı; katalogda rapor olmadığı için
+    /// dışa aktarımı yoktu.
+    ///
+    /// <b>Bu artımın filtreleri:</b> <c>Date</c> + <c>Location</c> (ikisi de STK-06'dan beri var ve
+    /// RPR-01 tarafından 6 katmanda güvence altında). <c>Search</c>/<c>Material</c>/<c>MovementType</c>
+    /// **STK-10b'nindir** ve burada BİLİNÇLİ olarak eklenmemiştir.
+    ///
+    /// <b>KAYNAK / HEDEF semantiği</b> (yeni anlam icat edilmedi — defterden okundu):
+    /// <list type="bullet">
+    ///   <item><c>direction &gt; 0</c> → <c>branch_id</c> = <b>HEDEF</b>; kaynak = <c>branch_from_id</c>
+    ///         (farklıysa; transferin giriş bacağında kaynak depo buradadır)</item>
+    ///   <item><c>direction &lt; 0</c> → <c>branch_id</c> = <b>KAYNAK</b>; hedef yok</item>
+    /// </list>
+    /// Transfer defterde <b>İKİ AYRI SATIR</b>dır ve öyle kalır — tek satıra indirgenmez.
+    ///
+    /// <b>🔒 BranchScope × Location kesişimi (plan §14):</b> kapsam <b>DIŞ SINIRDIR</b>, lokasyon
+    /// filtresi onun <b>İÇİNDE</b> daraltır — ikisi <c>AND</c>'lenir, asla <c>OR</c>'lanmaz. Sonuç:
+    /// Depo A oturumundaki kullanıcı Depo B filtresiyle <b>BOŞ</b> sonuç alır; lokasyon filtresi
+    /// hiçbir koşulda yetki sınırını genişletemez.
+    ///
+    /// <b>⚡ Performans (plan §13/D-2):</b> <see cref="Run"/> satır tavanını <b>bellekte</b>, Dispatch'ten
+    /// SONRA uygular. Bu yüzden burada <b>filtre → sıralama → LIMIT sırası SQL İÇİNDE</b> kurulur;
+    /// tüm defterin belleğe çekilmesi engellenir. <c>Run</c>'ın kesmesi ikinci bir emniyet ağıdır.
+    /// Lokasyon ve malzeme adları AYNI sorguda JOIN ile gelir → satır başına sorgu (N+1) YOKTUR.
+    /// </summary>
+    /// <param name="maxRows">SQL'e inen satır tavanı (<see cref="ReportLimits"/>). Ekran ve export
+    /// AYNI değeri kullanır (plan §13/D-1) → ikisi aynı kümeyi üretir.</param>
+    public TableModel StockMovements(SessionContext s, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+
+        // ── Lokasyon filtresi (STK-06 semantiği) ───────────────────────────────────────────────
+        // Boş liste = 🌐 Tüm Şubeler → filtre YOK (Atanmamış dahil hepsi).
+        // Gerçek depo X → hareket X'i İLGİLENDİRİYORSA görünür: branch_id=X VEYA branch_from_id=X
+        //   (transfer A→B: çıkış bacağı branch_id=A, giriş bacağı branch_from_id=A → ikisi de A'da görünür).
+        // 📦 Atanmamış ("") → İKİ tarafı da boş/NULL olan hareketler.
+        var locations = req.LocationIds is null ? Array.Empty<string>() : req.LocationIds.Where(x => x is not null).Distinct().ToArray();
+        var gercekDepolar = locations.Where(x => x.Length > 0).ToList();
+        var atanmamisIstendi = locations.Any(x => x.Length == 0);
+
+        var locSql = "";
+        if (locations.Length > 0)
+        {
+            var parcalar = new List<string>();
+            if (gercekDepolar.Count > 0)
+            {
+                var ps = string.Join(",", Enumerable.Range(0, gercekDepolar.Count).Select(i => "@loc" + i));
+                parcalar.Add($"sm.branch_id IN ({ps})");
+                parcalar.Add($"sm.branch_from_id IN ({ps})");
+            }
+            if (atanmamisIstendi)
+                parcalar.Add("((sm.branch_id IS NULL OR sm.branch_id = '') AND (sm.branch_from_id IS NULL OR sm.branch_from_id = ''))");
+            locSql = " AND (" + string.Join(" OR ", parcalar) + ")";
+        }
+
+        // ── Sorgu: filtre → sıralama → LIMIT (hepsi SQL'de) ────────────────────────────────────
+        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon filtresi AND ile içeride daraltır.
+        cmd.CommandText = @"
+SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
+       m.code, m.name, COALESCE(u.name,'') AS unit,
+       sm.branch_id, bl.name AS loc_name, sm.branch_from_id, bf.name AS from_name,
+       COALESCE(d.doc_no,'') AS doc_no, COALESCE(d.invoice_no,'') AS invoice_no,
+       sm.is_reversed, COALESCE(sm.note,'') AS note
+FROM stock_movements sm
+JOIN materials m ON m.id = sm.material_id AND m.company_id = sm.company_id
+LEFT JOIN units u ON u.id = m.unit_id
+LEFT JOIN stock_documents d ON d.id = sm.document_id
+LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.company_id
+LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
+WHERE sm.company_id = @c"
+            + ReportScope.BranchSql(s, req, "sm.branch_id")
+            + DateFilter(req, "sm.created_at")
+            + locSql
+            + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
+
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindDates(cmd, req);
+        for (int i = 0; i < gercekDepolar.Count; i++) cmd.AddWithValue("@loc" + i, gercekDepolar[i]);
+        cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        decimal toplamGiris = 0m, toplamCikis = 0m;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var type = r.GetString(1);
+                var direction = r.GetInt32(2);
+                var qty = Money.Parse(r.GetString(3));
+                var locId = r.IsDBNull(7) ? null : r.GetString(7);
+                var locName = r.IsDBNull(8) ? null : r.GetString(8);
+                var fromId = r.IsDBNull(9) ? null : r.GetString(9);
+                var fromName = r.IsDBNull(10) ? null : r.GetString(10);
+
+                // KAYNAK/HEDEF türetimi — yönden okunur, uydurulmaz.
+                string kaynak, hedef;
+                if (direction > 0)
+                {
+                    hedef = LocName(locId, locName);
+                    kaynak = string.IsNullOrEmpty(fromId) || fromId == locId ? Bos : LocName(fromId, fromName);
+                }
+                else
+                {
+                    kaynak = LocName(locId, locName);
+                    hedef = Bos;
+                }
+
+                // Miktar İŞARETLİ: giriş +, çıkış −. Ham değer korunur (STK-11 kapsamı değil).
+                var signed = direction > 0 ? qty : -qty;
+                if (direction > 0) toplamGiris += qty; else toplamCikis += qty;
+
+                rows.Add(new object?[]
+                {
+                    DateTimeOffset.FromUnixTimeMilliseconds(r.GetInt64(0)).LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
+                    // STK-B1: hareket türü etiketi TEK KAYNAKTAN. İkinci bir harita KURULMAZ.
+                    MovementTypeOptions.Label(type),
+                    r.GetString(4), r.GetString(5),
+                    new NumCell((double)signed, (signed >= 0 ? "+" : "") + signed.ToString("0.##")),
+                    r.GetString(6),
+                    kaynak, hedef,
+                    r.GetString(11), r.GetString(12),
+                    Convert.ToInt64(r.GetValue(13)) == 1 ? "İptal edildi" : "",
+                    r.GetString(14),
+                });
+            }
+
+        var numeric = new[] { false, false, false, false, true, false, false, false, false, false, false, false };
+        var totalRow = rows.Count == 0 ? null : new object?[]
+        {
+            "TOPLAM", "", "", "",
+            new NumCell((double)(toplamGiris - toplamCikis),
+                $"+{toplamGiris:0.##} / -{toplamCikis:0.##}"),
+            "", "", "", "", "", "", "",
+        };
+
+        return new TableModel("Stok Hareketleri Raporu", new[]
+        {
+            "Tarih", "Tür", "Kod", "Malzeme", "Miktar", "Birim",
+            "Kaynak", "Hedef", "Belge No", "Fatura No", "Durum", "Açıklama",
+        }, rows, numeric, totalRow);
+    }
+
+    /// <summary>Lokasyon adı: boş kimlik → "Atanmamış" (gerçek depo gibi gösterilmez, STK-06 standardı);
+    /// adı okunamayan kimlik → kimliğin kendisi (sessizce gizlenmez).</summary>
+    private static string LocName(string? id, string? name)
+        => string.IsNullOrEmpty(id) ? "Atanmamış" : (string.IsNullOrEmpty(name) ? id! : name!);
+
+    /// <summary>Kaynak/Hedef boş hücresi — kullanıcı "veri yok" ile "Atanmamış"ı karıştırmasın.</summary>
+    private const string Bos = "—";
+
     /// <summary>Stok Sayım Raporu — her sayım satırı: sistem/sayılan/fark (fark 0 olanlar dahil).</summary>
     public TableModel StockCount(SessionContext s, ReportRequest req)
     {
@@ -966,17 +1126,23 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
             req = req with { FromDate = req.FromDate ?? from, ToDate = req.ToDate ?? to };
         }
 
-        var table = Dispatch(s, key, req);
+        var table = Dispatch(s, key, req, maxRows);
 
         // Maksimum kayıt koruması: patholojik sonuçta üstten kes (normal raporlar sınırın çok altında).
+        // ⚠️ STK-10a/D-2: bu kesme BELLEKTE yapılır — sorgu zaten tüm eşleşen satırları getirmiş olur.
+        // Defter gibi BÜYÜYEN tablolarda tavanın SQL'e inmesi gerekir; `stock-movements` bunu kendi
+        // sorgusunda yapar (LIMIT @lim) ve buradaki kesme onun için ikinci bir emniyet ağıdır.
         if (maxRows > 0 && table.Rows.Count > maxRows)
             table = table with { Rows = table.Rows.Take(maxRows).ToList() };
         return table;
     }
 
-    /// <summary>Katalog anahtarı → hesaplama metodu (tek switch — hem masaüstü hem API aynı eşleme).</summary>
-    private TableModel Dispatch(SessionContext s, string key, ReportRequest req) => key switch
+    /// <summary>Katalog anahtarı → hesaplama metodu (tek switch — hem masaüstü hem API aynı eşleme).
+    /// <paramref name="maxRows"/> yalnız tavanı SQL'e indiren raporlara geçirilir (bkz. StockMovements);
+    /// diğerlerinin davranışı DEĞİŞMEDİ.</summary>
+    private TableModel Dispatch(SessionContext s, string key, ReportRequest req, int maxRows) => key switch
     {
+        "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
         "stock" => StockStatus(s, req),
         "vehicle" => VehicleReport(s, req),
         "maintenance" => Maintenance(s, req),

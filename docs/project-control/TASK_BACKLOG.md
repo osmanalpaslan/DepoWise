@@ -311,7 +311,7 @@ satırlarının atlanması da bayrakla değil **yapısal** oldu. Ters kayda `rev
 geçti · izole PostgreSQL'de doğrulandı.
 ⚠️ **Görsel (tarayıcı render) kontrolü YAPILMADI** — gerekçesi kayıtta §9.
 
-### `STK-10` — "Stok Hareketleri" raporu · A · 📋 **PLAN HAZIR, KOD BAŞLAMADI** (2026-08-11)
+### `STK-10a` — "Stok Hareketleri" raporu · ✅ **TAMAMLANDI** (2026-08-11) · `STK-10b` ⏳ BEKLİYOR
 Plan + envanter: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md)
 
 Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e aktarımı yok. Depo bazlı stokta

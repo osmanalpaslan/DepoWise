@@ -83,7 +83,8 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `SNK-12` | Masaüstünde depo listesi senkron turunda tazeleniyor | ✅ **TAMAM** (8 senaryo) |
 | `STK-B1` | `movement_type` gösterim kataloğu — 8 tür tek kaynağa bağlandı, ham İngilizce kaçağı ve Web↔masaüstü ıraksaması kapatıldı | ✅ **TAMAM** (24 senaryo · STK-10 adım 0) |
 | `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | BEKLEMEDE |
-| `STK-10` | **"Stok Hareketleri" raporu** — katalog + Kaynak/Hedef + `Date|Location|Search|Material|MovementType` + Excel export | 📋 **PLAN HAZIR · KARAR B ALINDI** (kod başlamadı) |
+| `STK-10a` | **"Stok Hareketleri" raporu** — katalog + Kaynak/Hedef + `Date`+`Location` + **gerçek XLSX doğrulaması** | ✅ **TAMAM** (41 senaryo · izole PG sorgu planı · Web/masaüstünde kod değişmedi) |
+| `STK-10b` | `Search`+`Material`+`MovementType` bayrakları (18 kablolama) + 2 ekranın rapora bağlanması + B-1 düzeltmesi | ⏳ **BEKLİYOR** (KARAR-10/ADR-104 alınmış) |
 | `STK-09` · `STK-11` | Lokasyon bazlı dashboard · eski float artığı temizliği | BEKLEMEDE |
 
 > **Önemli:** `StockService.Transfer` çok malzemeli, tek transaction, idempotent ve negatif-guard'lı olarak

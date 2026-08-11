@@ -1,7 +1,7 @@
 # STK-10 — "Stok Hareketleri" Raporu · Envanter + Uygulama Planı
 
 > Oluşturuldu: **2026-08-11** · Kaynak: `STK-06` §5 bulgusu (R-1)
-> **DURUM: 📋 PLAN HAZIR — ADIM 0 (`STK-B1`) ✅ TAMAMLANDI, kalanı KOD BAŞLAMADI** (gerekçe §9, sonuç §12)
+> **DURUM: `STK-B1` ✅ (§12) · `STK-10a` ✅ TAMAMLANDI (§16) · `STK-10b` ⏳ BEKLİYOR (§17)**
 > Ön koşul: STK-01…08 ✅ · RPR-01 ✅ · BKM-04 ✅
 
 ---
@@ -450,3 +450,106 @@ ekranı bugünkü hâliyle çalışmaya devam eder (hiçbir davranış bozulmaz)
 ⚠️ Kullanıcı "tek seferde tamamı" derse, iş **iki oturuma yayılacağı** baştan kabul edilmeli ve ara
 oturumda kod **derlenebilir + testleri yeşil** bırakılmalıdır (RPR-01 yüzünden bu ancak 18 kablolama
 noktasının tamamı bittiğinde mümkündür).
+
+---
+
+## 16. ✅ STK-10a TAMAMLANDI — 2026-08-11
+
+Katalog + `Date`/`Location` filtreleri + Kaynak/Hedef + **gerçek XLSX satır-satır doğrulaması**.
+`Search` / `Material` / `MovementType` **eklenmedi** — onlar STK-10b'nindir.
+
+### Değişen dosyalar (4 üretim + 4 test)
+
+| Dosya | Değişiklik | Neden |
+|---|---|---|
+| `Reporting/ReportService.cs` | **`StockMovements` metodu** (yeni) + `Dispatch`'e `maxRows` parametresi + `stock-movements` dispatch | Rapor gövdesi; tavanın SQL'e inebilmesi için Dispatch imzası genişletildi (diğer raporların davranışı değişmedi) |
+| `Application/Reports/ReportCatalog.cs` | `stock-movements` descriptor'ı (`Date \| Location`, `RequiresDate`, `ExportStandard`) | Raporu kataloğa alır |
+| `tests/StockMovementsReportTests.cs` | **YENİ** — 29 senaryo (çevrimdışı + XLSX) | |
+| `tests/ApiStockMovementsReportTests.cs` | **YENİ** — 11 senaryo (gerçek HTTP + XLSX) | |
+| `tests/PostgresStockMovementsReportTests.cs` | **YENİ** — 1 senaryo (PG + sorgu planı) | |
+| `tests/ReportArchitectureTests.cs` · `tests/StockReportLocationTests.cs` | Katalog sayısı 12→13 · lokasyonlu rapor listesi 2→3 | Bilinçli katalog eklemesi; **gevşetme değil** (tam eşleşme korundu, §16.1) |
+
+### 🔴 EN ÖNEMLİ BULGU: Web ve masaüstünde **HİÇ KOD DEĞİŞMEDİ**
+
+Rapor katalog-güdümlü olduğu için yeni rapor iki platformun Raporlar ekranında **kendiliğinden**
+göründü ve `Date` + `Location` filtreleri **zaten bağlıydı** (STK-06'dan, RPR-01'in 6 katman
+güvencesiyle). Bu, "yeni bayrak eklemeyen artım" seçiminin doğrudan getirisidir:
+**RPR-01 hiç değiştirilmeden yeşil kaldı**, arayüz kablolaması gerekmedi.
+
+### 16.1 Değiştirilen iki mevcut test (gerekçeli — gevşetme DEĞİL)
+
+| Test | Neden değişti |
+|---|---|
+| `ReportArchitectureTests.Katalog_TumAnahtarlar_RunTarafindanTaninir` | `Assert.Equal(12, …Count)` → **13**. Sayı, "sessizce rapor eklendi/silindi" nöbetçisidir; kataloğa **bilinçli** bir rapor eklendi. Testin asıl gövdesi (her rapor için ad/açıklama/kategori/`RequiresDate ⊆ UsesDate`/`ByKey`) **13 raporun hepsinde** koşmaya devam ediyor. |
+| `StockReportLocationTests.Lokasyon_Filtresi_Yalniz_…` | Beklenen liste `["stock","stock-count"]` → **`[…,"stock-movements"]`**. Hâlâ **TAM EŞLEŞME** ile sınanıyor → kalan 10 raporun lokasyon filtresi olmadığını kanıtlamaya devam ediyor. Ayrıca **yeni bir nöbetçi eklendi**: STK-10b'nin bayrağı (1024) hiçbir raporda açık olmamalı. |
+
+### 16.2 Doğrulamalar
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1452 · 1417 geçti · 0 kaldı · 35 atlandı** (taban 1411; **+41 senaryo**) |
+| RPR-01 koruma testi | ✅ **Değiştirilmedi ve yeşil** (yeni bayrak eklenmediği için hiç dokunulmadı) |
+| SQLite / çevrimdışı | 29 senaryo, HTTP yok; masaüstü istek deseni (`ReportsViewModel.BuildTable`) ayrıca sınandı |
+| Gerçek HTTP | 11 senaryo — katalog ucu · rapor ucu · export ucu · yetki (403) · kimliksiz istek |
+| **Gerçek XLSX** | **6 kombinasyon × 2 hat (servis + HTTP)** — XLSX açılıp **hücre hücre** karşılaştırıldı |
+| İzole PostgreSQL | Rapor çalıştı (23 satır) · lokasyon filtresi doğru · LIMIT etkili · **sorgu planı incelendi** |
+| Firma izolasyonu | Yabancı firma hareketi sızmıyor; yabancı depo filtre olarak gönderilse bile boş döner |
+| Görsel render | ❌ **YAPILMADI** (§16.5) |
+
+### 16.3 ⚡ Sorgu planı (izole PostgreSQL, gerçek çıktı)
+
+```
+Limit
+  -> Sort  (Sort Key: sm.created_at DESC, sm.id DESC)
+       -> Nested Loop
+            -> Index Scan using ix_materials_company on materials m
+                 Index Cond: (company_id = 'A')
+            -> Index Scan using ix_stock_movements_material on stock_movements sm
+                 Index Cond: (material_id = m.id) AND (created_at >= 0) AND (created_at <= …)
+                 Filter: (company_id = 'A') AND ((branch_id = 'x') OR (branch_from_id = 'x'))
+```
+
+➡️ **`Limit` ve `Sort` SQL'de** · tarih filtresi **mevcut indeksi** (`ix_stock_movements_material`)
+kullanıyor · lokasyon filtresi SQL'e inmiş.
+➡️ **YENİ İNDEKS EKLENMEDİ** — gerçek plan gerektirmiyor (plan §7 kuralı: indeks yalnız ölçüm
+gerekçelendirirse). Mevcut indeksler: `stock_movements_pkey`, `ix_stock_movements_material`,
+`ux_stock_movements_operation`.
+⚠️ Sınır: plan **küçük test verisiyle** alındı; üretim ölçeğinde planlayıcı farklı bir birleşim
+seçebilir. Yapısal gerçekler (Limit/Sort/Filter SQL'de) ölçekten bağımsızdır.
+
+### 16.4 Kilitlenen davranışlar
+
+**Kaynak/Hedef:** `direction>0` → hedef dolu/kaynak "—" · `direction<0` → kaynak dolu/hedef "—" ·
+transfer **iki satır** (giriş bacağı `Depo A → Depo B`, çıkış bacağı `Depo A → —`).
+
+**Lokasyon filtresi:** Tüm Şubeler (Atanmamış dahil hepsi) · Depo A → transferin **iki bacağı** ·
+Depo B → **giriş bacağı** · Depo C → **boş** · 📦 Atanmamış → yalnız iki tarafı da boş olanlar ·
+çoklu seçim = birleşim (kesişen bacaklar iki kez sayılmaz).
+
+**🔒 BranchScope × Location:** Depo A oturumu + A → yalnız kapsam içindeki bacak (Tüm Şubeler aynı
+filtreyle **iki** bacak görüyor → fark kapsamdan) · **Depo A oturumu + Depo B → BOŞ** (yetki aşılmaz) ·
+lokasyon filtresi verilmese de kapsam uygulanıyor.
+
+**STK-B1 korundu:** 8 hareket türü raporda doğru Türkçe etiketle; hiçbiri ham İngilizce değil;
+etiketler `MovementTypeOptions`'tan — **ikinci harita kurulmadı**.
+
+**BKM-04 korundu:** bakım tüketimi seçilen depoda (kaynak) · ters kaydı orijinal hareketin deposunda.
+
+**Sınırlar:** tavan SQL'de (`maxRows` → `LIMIT`) ve sıralama korunuyor · ekran ile export **aynı
+tavana** tabi · boş sonuçta XLSX yine üretiliyor (başlıklı, satırsız).
+
+### 16.5 Görsel kontrol — YAPILMADI (dürüst kayıt)
+
+Engel değişmedi (BKM-04 · STK-B1 ile aynı): yerel API veritabanında hesap yok, `launch.json` env
+değişkeni desteklemiyor, canlıya bağlanmak ve parola girmek yasak, CLI test-kullanıcı mekanizması yok.
+**Kontrol edilemeyenler:** filtrelerin hizası · kolon genişlikleri · uzun malzeme/depo adları ·
+dar pencere · boş sonuç görünümü · XLSX'in Excel'de göründüğü hâli.
+*(XLSX'in **içeriği** ClosedXML ile hücre hücre doğrulandı; doğrulanmayan yalnız görsel sunumdur.)*
+
+## 17. ▶️ STK-10b — BEKLEYEN SONRAKİ ARTIM
+
+Kapsam (bu oturumda **başlanmadı**): `Search` + `Material` + `MovementType` bayrakları
+(**18 kablolama noktası**, RPR-01 gereği atomik) · iki hareket ekranının rapora bağlanması ·
+**B-1 düzeltmesi** (Web'de istemci tarafı lokasyon süzmesinin kaldırılması) · kalan senaryolar.
+Kabul kriterleri §10'da; `Search` sözleşmesi §4'te (ADR-104 / KARAR-10).

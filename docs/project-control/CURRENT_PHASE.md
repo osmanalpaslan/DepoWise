@@ -377,16 +377,40 @@ daraltır, asla genişletmez* (`WHERE kapsam AND lokasyon`). Sonuç: Depo A otur
 BOŞ** sonuç alır → yetki aşılmaz. §3'teki "A→B hem A hem B'de görünür" kuralı **kapsamı yeten**
 kullanıcı için geçerlidir. Tam tablo planın §14'ünde; testle kilitlenecek.
 
+## ✅ SON TAMAMLANAN — `STK-10a` Stok Hareketleri raporu (2026-08-11)
+
+Sonuç kaydı: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §16
+
+Hareket defteri artık **kataloglanmış bir rapor**: `Date` + `Location` filtreli, **Kaynak → Hedef**
+kolonlu ve **Excel'e aktarılabilir**. (`Search`/`Material`/`MovementType` **STK-10b'nindir**.)
+
+**🔴 En önemli bulgu: Web ve masaüstünde HİÇ KOD DEĞİŞMEDİ.** Rapor katalog-güdümlü olduğu için iki
+platformun Raporlar ekranında **kendiliğinden** göründü; `Date` ve `Location` filtreleri STK-06'dan
+zaten 6 katmanda bağlıydı. **RPR-01 hiç değiştirilmeden yeşil kaldı** — "yeni bayrak eklemeyen artım"
+seçiminin doğrudan getirisi.
+
+**⚡ Sorgu planı (izole PG, gerçek çıktı):** `Limit → Sort → Index Scan` — tarih filtresi mevcut
+`ix_stock_movements_material` indeksini kullanıyor, lokasyon filtresi SQL'e inmiş.
+➡️ **Yeni indeks EKLENMEDİ** (plan kuralı: yalnız ölçüm gerekçelendirirse). Tavan artık **SQL'de**
+(`LIMIT`) — `Run`'ın bellekte kesmesi ikinci emniyet ağı (D-2 düzeltmesi uygulandı).
+
+**🔴 XLSX boşluğu KAPANDI:** RPR-01'de "yalnız aynı servis çağrılıyor" dolaylı ispatıyla bırakılmıştı.
+Artık **6 filtre kombinasyonu × 2 hat** (servis + gerçek HTTP) için XLSX **açılıp hücre hücre**
+rapor sonucuyla karşılaştırılıyor.
+
+**Kanıt:** **1452 / 1417 geçti / 0 kaldı / 35 atlandı** (taban 1411; **+41 senaryo**) · build 0 hata ·
+29 çevrimdışı + 11 gerçek HTTP + 1 izole PG senaryosu · firma izolasyonu · **BranchScope × Location**
+sınırı testli (Depo A oturumu + Depo B filtresi → **BOŞ**).
+
+⚠️ **2 mevcut test gerekçeli güncellendi** (gevşetme değil — katalog sayısı 12→13, lokasyonlu rapor
+listesi 2→3; ikisi de TAM EŞLEŞME ile sınanmaya devam ediyor + yeni nöbetçi eklendi). Ayrıntı §16.1.
+⚠️ **Görsel render kontrolü YAPILMADI** — aynı engel (§16.5).
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10` kalanı — ama önce BÖLÜNME KARARI gerekiyor** (planın §15).
-
-🔒 **İş bölünemez durumda:** RPR-01'in koruma testi bir filtre bayrağının **6 katmanın hepsinde**
-bağlı olmasını zorunlu kılar → `Search`/`Material`/`MovementType`'ın **18 kablolama noktası atomiktir**.
-"Önce sözleşme, sonra arayüz" diye dilimlenemez.
-
-Önerilen: **STK-10a** (rapor + `Date`+`Location` + XLSX doğrulaması — **yeni bayrak yok**, RPR-01
-dokunulmadan yeşil kalır, kullanıcı hareket defterini ilk kez Excel'e aktarır) → **STK-10b**
-(3 bayrak + 2 ekranın bağlanması + B-1). Kendi başıma daraltmadım; onay bekliyor.
+**`STK-10b`** — planın §17'si. Kapsam: `Search` + `Material` + `MovementType` bayrakları
+(**18 kablolama noktası**, RPR-01 gereği **atomik**) · iki hareket ekranının rapora bağlanması ·
+**B-1 düzeltmesi** (Web'de istemci tarafı lokasyon süzmesinin kaldırılması).
+`Search` sözleşmesi ADR-104 / KARAR-10'da; kabul kriterleri planın §10'unda.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -399,7 +423,7 @@ dokunulmadan yeşil kalır, kullanıcı hareket defterini ilk kez Excel'e aktar�
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1411/1377/0/34 · Build 0 hata
+667 stok hareketi · Test 1452/1417/0/35 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya
