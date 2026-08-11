@@ -34,6 +34,14 @@
       (using satırı yok) → web'in "her şeyi API'den al" sınırını gevşetmez, veri çekmez.
     -->
     <Compile Include="..\DepoWise.Application\Requests\RequestOperationStatus.cs" Link="Services\RequestPriorityInfo.cs" />
+    <!--
+      STK-B1 (2026-08-11): stok HAREKET TÜRÜ kataloğu (MovementTypeOptions) — yukarıdakilerle AYNI
+      gerekçe. Aynı movement_type değeri web'de ve masaüstünde AYNI Türkçe adla görünmeli; etiketler
+      Razor'da elle tekrarlandığı için üç ayrı yerde ıraksamıştı (adjustment/reverse farklı, usage ve
+      usage_reverse ham İngilizce sızıyordu). Dosya SAF katalogdur (using yok, bağımlılık yok) →
+      web'in "her şeyi API'den al" sınırını gevşetmez.
+    -->
+    <Compile Include="..\DepoWise.Application\Ui\MovementTypeOptions.cs" Link="Services\MovementTypeOptions.cs" />
   </ItemGroup>
 
 </Project>

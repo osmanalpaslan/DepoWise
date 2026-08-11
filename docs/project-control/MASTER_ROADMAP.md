@@ -81,7 +81,7 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `RPR-01` | Web ↔ masaüstü rapor filtre paritesi (koruma testi) | ✅ **TAMAM** (18 senaryo) |
 | `SNK-11` | Türetilmiş bakiye senkron paketinden çıkarıldı (~86 KB/tur) | ✅ **TAMAM** |
 | `SNK-12` | Masaüstünde depo listesi senkron turunda tazeleniyor | ✅ **TAMAM** (8 senaryo) |
-| `STK-B1` | `movement_type` kataloğu tutarsız: **8 tür**, 3.ü ham İngilizce görünüyor (`reverse`·`usage`·`usage_reverse`) + Web ile masaüstü etiketleri **ıraksamış** | ⛓️ **STK-10 ADIM 0** (tek başına tamamlanabilir) |
+| `STK-B1` | `movement_type` gösterim kataloğu — 8 tür tek kaynağa bağlandı, ham İngilizce kaçağı ve Web↔masaüstü ıraksaması kapatıldı | ✅ **TAMAM** (24 senaryo · STK-10 adım 0) |
 | `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | BEKLEMEDE |
 | `STK-10` | **"Stok Hareketleri" raporu** — katalog + Kaynak/Hedef + `Date|Location|Search|Material|MovementType` + Excel export | 📋 **PLAN HAZIR · KARAR B ALINDI** (kod başlamadı) |
 | `STK-09` · `STK-11` | Lokasyon bazlı dashboard · eski float artığı temizliği | BEKLEMEDE |

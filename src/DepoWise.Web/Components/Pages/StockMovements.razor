@@ -165,11 +165,11 @@
     private static string DateText(JsonElement e)
         => e.TryGetProperty("createdAt", out var v) && v.TryGetInt64(out var ms)
             ? DateTimeOffset.FromUnixTimeMilliseconds(ms).LocalDateTime.ToString("dd.MM.yyyy HH:mm") : "";
-    private static string TypeText(string t) => t switch
-    {
-        "in" => "Giriş", "out" => "Çıkış", "transfer" => "Transfer",
-        "adjustment" => "Sayım Düzeltme", "opening" => "Açılış", "reverse" => "İptal (ters)", "count" => "Sayım", _ => t
-    };
+    // STK-B1: hareket türü etiketi TEK KAYNAKTAN (MovementTypeOptions — Application'dan paylaşılan
+    // dosya, bkz. DepoWise.Web.csproj). Eskiden burada ayrı bir switch vardı: `usage`/`usage_reverse`
+    // HAM İngilizce sızıyordu, `adjustment`/`reverse` masaüstünden farklı adlanıyordu ve `count` için
+    // ÖLÜ bir dal vardı (o bir doc_type'tır, movement_type değil — hiç eşleşmezdi).
+    private static string TypeText(string t) => DepoWise.Application.Ui.MovementTypeOptions.Label(t);
     private static string NoteDoc(JsonElement e)
     {
         var note = Str(e, "note");

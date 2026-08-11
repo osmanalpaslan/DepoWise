@@ -117,6 +117,15 @@ public class MaintenanceStockLocationTests : IDisposable
 
     private decimal FirmaToplami(string materialId) => _stock.GetBalance(_depoAOturum, materialId);
 
+    /// <summary>Bir malzemenin TERS KAYIT (usage_reverse) hareketleri.
+    ///
+    /// ⚠️ Sıra indeksiyle (<c>[1]</c>) seçmek FLAKY'dir: test saati dondurulmuş olduğu için orijinal
+    /// hareket ile ters kaydın <c>created_at</c> değeri AYNI olur ve <c>ORDER BY created_at, id</c>
+    /// rastgele GUID'e düşer. Tür üzerinden seçmek deterministiktir. (Üretim etkilenmez: iptal her
+    /// hareketi KENDİ deposuna geri yazar, sıradan bağımsızdır — aşağıdaki testlerden biri bunu kanıtlar.)</summary>
+    private List<(string Type, string? Branch, decimal Qty)> TersKayitlar(string materialId)
+        => Hareketler(materialId).Where(x => x.Type == "usage_reverse").ToList();
+
     /// <summary>Defterdeki tüketim hareketlerinin (tip, lokasyon, miktar) listesi — kronolojik.</summary>
     private List<(string Type, string? Branch, decimal Qty)> Hareketler(string materialId)
     {
@@ -288,8 +297,8 @@ public class MaintenanceStockLocationTests : IDisposable
         Assert.Equal(10m, Bakiye(_mat, _depoB));   // geri döndü
         var mvs = Hareketler(_mat);
         Assert.Equal(2, mvs.Count);
-        Assert.Equal("usage_reverse", mvs[1].Type);
-        Assert.Equal(_depoB, mvs[1].Branch);       // ters kayıt AYNI depoda
+        var ters = Assert.Single(TersKayitlar(_mat));
+        Assert.Equal(_depoB, ters.Branch);         // ters kayıt AYNI depoda
     }
 
     /// <summary>14 — 🔴 EN KRİTİK: iptal anında kullanıcı BAŞKA şubeyle giriş yapmış olsa bile
@@ -313,7 +322,7 @@ public class MaintenanceStockLocationTests : IDisposable
 
         Assert.Equal(5m, Bakiye(_mat, _depoA));   // ORİJİNAL depoya döndü
         Assert.Equal(5m, Bakiye(_mat, _depoB));   // Depo B ŞİŞMEDİ
-        Assert.Equal(_depoA, Hareketler(_mat)[1].Branch);
+        Assert.Equal(_depoA, Assert.Single(TersKayitlar(_mat)).Branch);
     }
 
     /// <summary>Aynı bakımda FARKLI depolardan düşülmüş satırlar (art arda kayıtlar) iptalde
@@ -329,8 +338,8 @@ public class MaintenanceStockLocationTests : IDisposable
 
         Assert.Equal(10m, Bakiye(_mat, _depoA));
         Assert.Equal(10m, Bakiye(_mat2, _depoA));
-        Assert.Equal(_depoA, Hareketler(_mat)[1].Branch);
-        Assert.Equal(_depoA, Hareketler(_mat2)[1].Branch);
+        Assert.Equal(_depoA, Assert.Single(TersKayitlar(_mat)).Branch);
+        Assert.Equal(_depoA, Assert.Single(TersKayitlar(_mat2)).Branch);
     }
 
     /// <summary>Lokasyonsuz (eski) bakım iptalinde ters kayıt da ATANMAMIŞ'a döner — simetri korunur.</summary>
@@ -343,7 +352,7 @@ public class MaintenanceStockLocationTests : IDisposable
         _maintenance.Cancel(_depoAOturum, id, "iptal");
 
         Assert.Equal(10m, Bakiye(_mat, StockBalanceWriter.Unassigned));
-        Assert.Null(Hareketler(_mat)[1].Branch);
+        Assert.Null(Assert.Single(TersKayitlar(_mat)).Branch);
     }
 
     /// <summary>İptal İKİ KEZ çağrılırsa stok İKİNCİ KEZ geri eklenmez (mevcut idempotency korundu).</summary>

@@ -1,5 +1,6 @@
 using DepoWise.Application.Common;
 using DepoWise.Application.Security;
+using DepoWise.Application.Ui;   // STK-B1: MovementTypeOptions (hareket türü etiketi tek kaynak)
 using DepoWise.Infrastructure.Database;
 using System.Data.Common;
 
@@ -55,11 +56,10 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     public string StatusText => IsReversed ? "İptal edildi" : "";
     public string DateText => DateTimeOffset.FromUnixTimeMilliseconds(CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm");
     public string DirectionText => Direction > 0 ? "Giriş" : "Çıkış";
-    public string TypeText => MovementType switch
-    {
-        "opening" => "Açılış", "in" => "Giriş", "out" => "Çıkış",
-        "transfer" => "Transfer", "adjustment" => "Düzeltme", _ => MovementType
-    };
+    /// <summary>STK-B1: hareket türü etiketi TEK KAYNAKTAN gelir (<see cref="MovementTypeOptions"/>).
+    /// Eskiden burada 5 türlük ayrı bir switch vardı → <c>usage</c>/<c>usage_reverse</c>/<c>reverse</c>
+    /// kullanıcıya HAM İNGİLİZCE görünüyor, <c>adjustment</c> ise web'den farklı adlanıyordu.</summary>
+    public string TypeText => MovementTypeOptions.Label(MovementType);
     public string QtyText => $"{Quantity:0.##} {Unit}".Trim();
     public string PriceText => UnitPrice is null ? "—" : $"{UnitPrice:0.##}";
     public string NoteText => string.IsNullOrWhiteSpace(Note) ? "—" : Note!;
@@ -635,15 +635,18 @@ LIMIT @take;";
             var qty = Money.Parse(r.GetString(3));
             var branch = r.GetString(4);
             var doc = r.GetString(5);
-            var typeText = type switch
-            {
-                "in" => "Giriş", "out" => "Çıkış", "transfer" => "Transfer",
-                "adjustment" => "Sayım Düzeltme", "opening" => "Açılış", "reverse" => "İptal", _ => type
-            };
+            // STK-B1: etiket TEK KAYNAKTAN (MovementTypeOptions). Eskiden burada 6 türlük AYRI bir
+            // switch vardı; `reverse` burada "İptal", web'de "İptal (ters)", masaüstünde HAM görünüyordu.
+            var typeText = MovementTypeOptions.Label(type);
+            // `kind` kullanıcıya dönük DEĞİLDİR — ikon/renk grubudur (giriş mi çıkış mı düzeltme mi).
+            // Etiket kataloğundan ayrı tutulur; bakım hareketleri de akış yönüne göre gruplanır.
             var kind = type switch
             {
-                "in" or "opening" => "in", "out" => "out", "transfer" => "transfer",
-                "adjustment" or "count" => "adjust", "reverse" => "adjust", _ => type
+                MovementTypeOptions.In or MovementTypeOptions.Opening or MovementTypeOptions.UsageReverse => "in",
+                MovementTypeOptions.Out or MovementTypeOptions.Usage => "out",
+                MovementTypeOptions.Transfer => "transfer",
+                MovementTypeOptions.Adjustment or MovementTypeOptions.Reverse => "adjust",
+                _ => type
             };
             var label = string.IsNullOrEmpty(branch) ? typeText : $"{typeText} · {branch}";
             list.Add(new MaterialMovementRow(r.GetInt64(0), kind, dir * qty, label,

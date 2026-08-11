@@ -587,3 +587,50 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   üretilmedi ve giriş yapılamadı; veritabanını sıfırlamak kullanıcının yerel verisine dokunmak,
   canlıdan bakmak ise canlıya yazma riski olurdu. Ayrıntı: `BKM_04_LOKASYON_ANALIZI.md` §9.
 - **Kayıt:** `docs/DECISIONS.md` → ADR-103 · `docs/project-control/BKM_04_LOKASYON_ANALIZI.md`
+
+## 2026-08-11 - STK-B1 — Stok hareket türü kataloğu / gösterim paritesi (STK-10 adım 0)
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1387 · 1353 geçti · 0 kaldı · 34 atlandı
+- **Bitiş:** **1411 toplam · 1377 geçti · 0 kaldı · 34 atlandı** (**+24 yeni senaryo** —
+  `MovementTypeCatalogTests` 10 + `MovementTypeRealPathTests` 7 + 7 Theory örneği).
+  Mevcut testlerin hiçbiri silinmedi/gevşetilmedi/atlanmadı.
+- **Envanter (koddan doğrulandı):** üretimde **8** `movement_type` değeri var —
+  `opening` (OpeningStockService) · `in`/`out`/`transfer`/`adjustment` (StockService.ApplyLine) ·
+  `reverse` (StockService.ReverseDocument) · `usage`/`usage_reverse` (MaintenanceService).
+  `count` bir **`doc_type`**'tır, movement_type DEĞİL — kataloğa alınmadı, web'deki ölü dal kaldırıldı.
+- **Bulunan kusur (planda 2 harita yazıyordu, gerçekte ÜÇ):**
+  `StockMovementRow.TypeText` (masaüstü) · `StockService.RecentForMaterial` (malzeme kartı, İKİ platform) ·
+  `Web/StockMovements.razor`. `adjustment` → "Düzeltme" / "Sayım Düzeltme" / "Sayım Düzeltme";
+  `reverse` → HAM / "İptal (ters)" / "İptal"; `usage` ve `usage_reverse` → **üçünde de HAM İngilizce**.
+- **Nihai etiketler (Web = Masaüstü):** Açılış · Giriş · Çıkış · Transfer · **Sayım Düzeltme** ·
+  **Bakım Tüketimi** · **Bakım Tüketimi İptali** · **İptal (Ters Kayıt)**.
+  Terminoloji projeden alındı (`AuditLogService: "reverse" => "Ters Kayıt"`), uydurulmadı.
+- **Paylaşım yöntemi:** Web, Application'a proje referansı VERMEZ. Projenin mevcut deseni kullanıldı
+  (`ListColumns`, `RequestOperationStatus`): **tek dosya, iki projede derlenir**
+  (`<Compile Include="..\DepoWise.Application\Ui\MovementTypeOptions.cs">`). Ayna dosya YOK.
+- **Kanıtlananlar:** katalog 8/8 kapsıyor · her türün dolu, anahtardan farklı Türkçe etiketi var ·
+  8 türün 8'i **gerçek servislerle üretildi** ve defterde tam 8 tür çıktı · hareket listesinde ve
+  malzeme kartında **hiçbir satır** ham İngilizce göstermiyor · `adjustment` ve `reverse` iki yüzeyde
+  AYNI · `usage` ≠ `usage_reverse` ≠ `reverse` ≠ `adjustment` · `count` katalogda yok ·
+  bilinmeyen değer sessizce gizlenmiyor · üç yüzey de kendi switch'ini taşımıyor ·
+  web'de ayrı kopya yok.
+- **Gelecek koruması:** kaynak taraması üretimdeki hareket türü literallerini çıkarıp katalogla
+  karşılaştırır → yeni bir tür eklenip kataloğa girmezse test KIRILIR ve değeri söyler. Ayrıca
+  `stock_movements`'a yazan ifade sayısı (3) kilitlendi → dördüncü bir yazma yolu da testi kırar.
+- **🔴 Yan bulgu — KENDİ testimi düzelttim:** `MaintenanceStockLocationTests`'teki 4 iptal testi ters
+  kaydı **sıra indeksiyle** (`[1]`) seçiyordu. Test saati dondurulmuş olduğu için orijinal hareket ile
+  ters kaydın `created_at`'i AYNI oluyor, `ORDER BY created_at, id` **rastgele GUID'e** düşüyordu →
+  testler **flaky**'ydi (3 koşuda 1 kırılma; BKM-04'te şans eseri geçmişler). Tür üzerinden seçime
+  çevrildi → **5 ardışık koşuda 27/27** kararlı. **Üretim etkilenmedi** (iptal her hareketi kendi
+  deposuna geri yazar, sıradan bağımsızdır — ayrı bir test bunu zaten kanıtlıyor).
+- **Şube kapsamı notu (STK-10'a devredildi):** `SearchMovements`, `BranchScope.Sql(s, "sm.branch_id")`
+  uygular → Depo A oturumu transferin yalnız KAYNAK bacağını görür. Mevcut ve doğru davranış,
+  değiştirilmedi; STK-10'un lokasyon filtresi tasarlanırken hesaba katılmalı. Testle belgelendi.
+- **Dokunulmayanlar:** migration YOK · `stock_movements` şeması ve VERİSİ değişmedi · senkron protokolü
+  değişmedi · hareket üretim iş mantığı değişmedi · STK-10'un rapor/filtre/export kısmı YAPILMADI.
+- **Yapılmayan (dürüst kayıt):** **görsel tarayıcı/XAML render kontrolü YAPILMADI** — BKM-04'teki aynı
+  engel (yerel API veritabanında hesap yok; `launch.json` env değişkeni desteklemiyor; canlıya bağlanmak
+  ve parola girmek yasak; CLI test-kullanıcı mekanizması yok). Statik risk: masaüstünde tür kolonları
+  `Auto` genişlikli ve `TextTrimming` yok → uzun etiket kırpılmaz ama kolonu genişletir.
+- **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §12

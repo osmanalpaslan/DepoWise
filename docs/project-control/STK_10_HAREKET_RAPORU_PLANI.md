@@ -1,7 +1,7 @@
 # STK-10 — "Stok Hareketleri" Raporu · Envanter + Uygulama Planı
 
 > Oluşturuldu: **2026-08-11** · Kaynak: `STK-06` §5 bulgusu (R-1)
-> **DURUM: 📋 PLAN HAZIR — KOD BAŞLAMADI** (gerekçe §9)
+> **DURUM: 📋 PLAN HAZIR — ADIM 0 (`STK-B1`) ✅ TAMAMLANDI, kalanı KOD BAŞLAMADI** (gerekçe §9, sonuç §12)
 > Ön koşul: STK-01…08 ✅ · RPR-01 ✅ · BKM-04 ✅
 
 ---
@@ -124,7 +124,7 @@ Yeni arama mimarisi **icat edilmez**; sorgu parçası olduğu gibi rapora taşı
 Her bayrak için dokunulacak **6 yer** (RPR-01 `Checklist`): katalog · istek modeli · API (katalog alanı
 + DTO + **sorgu ve export** uçları) · Web (`@if` bloğu + `CatItem` + `Bool` + **iki gövde**) ·
 Masaüstü VM (`ShowX` + `NotifyPropertyChangedFor` + `BuildTable`) · Masaüstü XAML.
-**+ `ReportFilterParityTests.Map`'e iki satır.**
+**+ `ReportFilterParityTests.Map`'e ÜÇ satır.**
 
 ### K-1 · Malzeme filtresi `/api/reports/scope`'a EKLENMEYECEK
 Üretimde **2461 malzeme** var; scope yanıtına eklemek her rapor ekranı açılışında 2461 satır indirmek
@@ -190,7 +190,7 @@ sonra "İptal Edilen Belge" kolonu eklenir; şimdilik gürültü.)*
 
 | # | İş | Dosya | Bağımsız mı? |
 |---|---|---|---|
-| **0** | **STK-B1**: `MovementTypeOptions` (tek doğru kaynak, 8 tür) → `TypeText` + Web haritası + ölü `count` dalı kaldırılır | `Application/Reports/MovementTypeOptions.cs` (yeni) · `StockService` · `StockMovements.razor` | ✅ **EVET** — tek başına tamamlanabilir |
+| **0** | ✅ **STK-B1 TAMAMLANDI (2026-08-11)** — `MovementTypeOptions` tek doğru kaynak (8 tür); **üç** gösterim yüzeyi de ona bağlandı; ölü `count` dalı kaldırıldı | `Application/Ui/MovementTypeOptions.cs` (yeni) · `StockService` (2 yüzey) · `StockMovements.razor` · `DepoWise.Web.csproj` | ✅ tamamlandı |
 | 1 | `ReportFilters.Search` + `Material` + `MovementType` + `UsesX` | `ReportCatalog.cs` | 0'a bağlı |
 | 2 | `ReportRequest.SearchText` + `MaterialIds` + `MovementTypes` (sona) | `ReportModels.cs` | |
 | 3 | `ReportService.StockMovements` — **tek sorgu**, Kaynak/Hedef, lokasyon semantiği, **filtre→sırala→limit** | `ReportService.cs` | |
@@ -277,3 +277,85 @@ Aşağıdakilerin **tamamı** sağlanmadan STK-10 "tamamlandı" sayılmaz:
 |---|---|---|
 | — | **B-1 ve B-3 STK-10 içinde çözülecek** (ayrı iş açılmadı) | §2 |
 | `STK-B1` | Artık **bağımsız değil** — STK-10 adım 0 | §2 (B-2) |
+
+---
+
+## 12. ✅ ADIM 0 (`STK-B1`) TAMAMLANDI — 2026-08-11
+
+### Kesinleşen 8 tür ve NİHAİ etiketler (iki platformda AYNI)
+
+| # | `movement_type` | Üreten | **Etiket (Web = Masaüstü)** | Önceki durum |
+|---|---|---|---|---|
+| 1 | `opening` | `OpeningStockService` | **Açılış** | üçünde de aynıydı ✅ |
+| 2 | `in` | `StockService.ApplyLine` ← ReceiveIn | **Giriş** | aynıydı ✅ |
+| 3 | `out` | `StockService.ApplyLine` ← IssueOut | **Çıkış** | aynıydı ✅ |
+| 4 | `transfer` | `StockService.ApplyLine` ← Transfer/Dağıtım | **Transfer** | aynıydı ✅ |
+| 5 | `adjustment` | `StockService.ApplyLine` ← Count | **Sayım Düzeltme** | 🔴 masaüstü "Düzeltme" ↔ diğer ikisi "Sayım Düzeltme" |
+| 6 | `usage` | `MaintenanceService` (BKM-04) | **Bakım Tüketimi** | 🔴 **üçünde de HAM** |
+| 7 | `usage_reverse` | `MaintenanceService` (BKM-04) | **Bakım Tüketimi İptali** | 🔴 **üçünde de HAM** |
+| 8 | `reverse` | `StockService.ReverseDocument` | **İptal (Ters Kayıt)** | 🔴 masaüstü HAM · web "İptal (ters)" · malzeme kartı "İptal" |
+
+**Etiket gerekçeleri (terminoloji uydurulmadı, mevcut projeden alındı):**
+- `adjustment` → "Sayım Düzeltme": bu hareketi **yalnız** `StockService.Count` üretir; üç haritanın
+  ikisi zaten böyle diyordu.
+- `reverse` → "İptal (Ters Kayıt)": projenin kanonik terimi **"Ters Kayıt"**tır
+  (`AuditLogService: "reverse" => "Ters Kayıt"`, `AppModules.Reverse`, Migration006 yorumu); kullanıcının
+  butonda gördüğü eylem ise "İptal". Etiket ikisini birleştirir → mevcut web/malzeme-kartı adlarının üst kümesi.
+- `usage` / `usage_reverse` → BKM-04 belgelerinin tutarlı terimi "bakım tüketimi". İkisi **ayrı**
+  adlandırıldı; `reverse` ve `adjustment` ile de karışmıyor (testle kilitli).
+
+### Düzeltilen üç gösterim yüzeyi
+| Yüzey | Kullanan ekranlar |
+|---|---|
+| `StockMovementRow.TypeText` | masaüstü **Stok Hareketleri** + **Stok Giriş/Çıkış** |
+| `StockService.RecentForMaterial` | malzeme kartı "Son Hareketler" — **Web ve masaüstü ORTAK** |
+| `Web/StockMovements.razor` | web **Stok Hareketleri** |
+
+### Nasıl paylaşıldı (yeni mimari kurulmadı)
+Web, Application'a **proje referansı vermez** (bilinçli sınır: her şeyi API'den alır). Proje bu sorunu
+daha önce `ListColumns` ve `RequestOperationStatus` için çözmüş: **tek dosya, iki projede derlenir**
+(`<Compile Include="..\DepoWise.Application\...">`). `MovementTypeOptions` da aynı desene bağlandı →
+**ayna dosya yok**, iki liste ıraksayamaz.
+
+### 🔴 STK-10'a devreden not: şube kapsamı × lokasyon filtresi
+`SearchMovements`, `BranchScope.Sql(s, "sm.branch_id")` uygular. **Depo A ile giriş yapmış bir oturum
+transferin yalnız KAYNAK bacağını görür** (hedef bacağın `branch_id`'si Depo B'dir). Bu mevcut ve doğru
+davranıştır; STK-B1'de değiştirilmedi. **STK-10'un lokasyon filtresi tasarlanırken bu etkileşim hesaba
+katılmalıdır:** §3'teki "A→B hem A hem B filtresinde görünür" kuralı, şube kapsamlı oturumda kapsam
+filtresiyle kesişir. Testle belgelendi (`Transferin_Iki_Bacagi_da_Transfer_Etiketli`).
+
+### Doğrulamalar
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1411 · 1377 geçti · 0 kaldı · 34 atlandı** (taban 1387; **+24 senaryo**) |
+| Gerçek kod yolu | 8 türün 8'i gerçek servislerle üretildi; defterde **tam 8 tür**, hepsi katalogda |
+| Ham değer kaçağı | Hareket listesi ve malzeme kartında **hiçbir satır** ham İngilizce göstermiyor |
+| Gelecek koruması | Kaynak taraması: üretimde katalogda olmayan tür bulunursa test **kırılır** |
+| Migration / senkron / veri | **Dokunulmadı** — yalnız gösterim katmanı |
+| Görsel (tarayıcı/XAML render) | ❌ **YAPILMADI** — aşağıda |
+
+### ⚠️ Bu iş sırasında DÜZELTİLEN kendi test hatam
+`MaintenanceStockLocationTests`'teki 4 iptal testi ters kaydı **sıra indeksiyle** (`[1]`) seçiyordu.
+Test saati dondurulmuş olduğu için orijinal hareket ile ters kaydın `created_at` değeri AYNI oluyor ve
+`ORDER BY created_at, id` **rastgele GUID'e** düşüyordu → testler **flaky**'ydi (5 koşuda ~1 kırılma).
+BKM-04'te şans eseri geçmişlerdi. Tür üzerinden seçime çevrildi; 5 ardışık koşuda **27/27** kararlı.
+**Üretim etkilenmedi:** iptal her hareketi kendi deposuna geri yazar, sıradan bağımsızdır.
+
+### Görsel kontrol — YAPILMADI (dürüst kayıt)
+BKM-04'teki **aynı engel**: yerel API veritabanında (`src/DepoWise.Api/data/depowise-server.db`) zaten
+kullanıcılar var → tohum parolası üretilmiyor ve giriş yapılamıyor. Denenen ve elenen yollar:
+1. `DEPOWISE_SERVER_DATA` ile ayrı veri dizini — `launch.json` şeması **env değişkeni desteklemiyor**,
+   dev sunucusu Bash ile başlatılamıyor.
+2. Mevcut veritabanını sıfırlamak/yeniden adlandırmak → **kullanıcının yerel verisine dokunmak** olurdu.
+3. Canlıdan bakmak → **canlıya bağlanma yasağı**.
+4. CLI ile geçici test kullanıcısı → **böyle bir mekanizma yok** (`SeedPassword` yalnız `users` tablosu
+   BOŞken çalışıyor; tüm API uçları kimlik doğrulaması istiyor).
+
+**Statik risk değerlendirmesi (render yerine geçmez):** masaüstünde tür kolonları `Auto` genişlikli
+(`MinWidth` 80–90) ve `TextTrimming` **yok** → uzun etiket (`"Bakım Tüketimi İptali"`, 21 karakter)
+**kırpılmaz ama kolonu genişletir**; dar pencerede diğer kolonları sıkıştırabilir. Web'de `MudTd`
+sarmaladığı için kırpılma riski yok. Bu ancak gerçek render ile kesinleşir.
+
+**Kapatmanın yolu:** yerel API için bir hesap/parola sağlanması **ya da** `src/DepoWise.Api/data`
+dizininin geçici olarak yenilenmesine izin verilmesi.

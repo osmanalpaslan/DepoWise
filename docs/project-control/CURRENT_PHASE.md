@@ -314,33 +314,54 @@ doğrulanamayacak iş kodlanmaz).
 **🔴 Üç bulgu:**
 1. **Web'de lokasyon filtresi sessizce eksik sonuç verebilir** — süzme `limit` ile kesilmiş liste
    üzerinde **istemcide** yapılıyor. Filtre sunucuya taşınınca kapanır (STK-10 içinde).
-2. **`STK-B1` artık STK-10'un ÖN KOŞULU.** `movement_type` üretimde 7 değer, `TypeText` yalnız 5'ini
-   çeviriyor → kullanıcı ham **"usage" / "usage_reverse"** görüyor. BKM-04 bunu görünür hâle getirdi.
-   "Hareket türü" filtresi bu katalog düzeltilmeden yazılamaz.
+2. **`STK-B1` STK-10'un ön koşuluydu** → ✅ **2026-08-11'de tamamlandı** (aşağıdaki bölüm).
 3. **Masaüstünde lokasyon filtresi hiç yok** (Web'de var) — parite eksiği, STK-10 içinde kapanır.
-
-**Boyut:** 2 yeni filtre bayrağı × RPR-01'in **6 katmanı** = 12 kablolama noktası · + STK-B1 ·
-+ 2 ekranın rapora bağlanması · + ~30 senaryo · + ilk kez **gerçek XLSX satır-satır karşılaştırması**.
 
 **✅ KARAR (kullanıcı, 2026-08-11): SEÇENEK B.** Arama kutusu kataloğa **gerçek `Search` filtresi**
 olarak girer; ekranda kalıp export dışında bırakılmaz. Ekran ve XLSX aynı filtrelenmiş kümeyi üretir.
-Malzeme filtresi Search'ün yerine geçmez — ikisi birlikte bulunur.
+Malzeme filtresi Search'ün yerine geçmez — ikisi birlikte bulunur. (ADR-104)
 
-**🔴 İkinci envanterde plan DÜZELTİLDİ — `STK-B1` sandığımdan kötü:**
-`movement_type` **7 değil 8 değer** üretiyor (`reverse` atlanmıştı). Üstelik iki platformun etiket
-haritası **ıraksamış**: aynı hareket masaüstünde "Düzeltme", Web'de "Sayım Düzeltme"; `reverse`
-masaüstünde **ham** görünüyor, Web'de çevriliyor; `usage`/`usage_reverse` **ikisinde de ham**;
-Web'de bir de **ölü dal** var (`count` bir `doc_type`, movement_type değil).
+**Kalan boyut (adım 1'den itibaren):** **3** filtre bayrağı × RPR-01'in **6 katmanı** =
+**18 kablolama noktası** · + 2 ekranın rapora bağlanması · + B-1 davranış düzeltmesi · + ~30 senaryo ·
++ ilk kez **6 kombinasyonda gerçek XLSX satır-satır karşılaştırması** · + izole PG sorgu planı.
+
+## ✅ SON TAMAMLANAN — `STK-B1` Hareket türü kataloğu (STK-10 adım 0, 2026-08-11)
+
+Sonuç kaydı: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §12
+
+**8 hareket türünün 8'i artık iki platformda AYNI Türkçe adla görünüyor.** Önceden aynı hareket
+**üç** ayrı yerde, **üç farklı** biçimde gösteriliyordu ve üçü de eksikti.
+
+| `movement_type` | **Nihai etiket (Web = Masaüstü)** | Önceki |
+|---|---|---|
+| `opening` · `in` · `out` · `transfer` | Açılış · Giriş · Çıkış · Transfer | zaten aynıydı |
+| `adjustment` | **Sayım Düzeltme** | 🔴 masaüstü "Düzeltme" ↔ diğerleri "Sayım Düzeltme" |
+| `usage` | **Bakım Tüketimi** | 🔴 üçünde de **ham İngilizce** |
+| `usage_reverse` | **Bakım Tüketimi İptali** | 🔴 üçünde de **ham İngilizce** |
+| `reverse` | **İptal (Ters Kayıt)** | 🔴 masaüstü ham · web "İptal (ters)" · kart "İptal" |
+
+**Çözüm:** `MovementTypeOptions` tek doğru kaynak. Web Application'a referans vermediği için proje
+zaten kullandığı deseni izledik: **tek dosya, iki projede derlenir** (`ListColumns` gibi) → ayna yok,
+ıraksama imkânsız. Ölü `count` dalı kaldırıldı (o bir `doc_type`).
+
+**Kanıt:** **1411 / 1377 geçti / 0 kaldı / 34 atlandı** (taban 1387; **+24 senaryo**) · build 0 hata ·
+8 türün 8'i **gerçek servislerle üretilip** ekranda ne göründüğü doğrulandı · kaynak taraması yeni bir
+tür kataloğa girmezse testi **kırıyor** · migration/senkron/veri **dokunulmadı**.
+
+⚠️ **Yan bulgu — kendi testimi düzelttim:** BKM-04'ün 4 iptal testi ters kaydı sıra indeksiyle
+seçiyordu; dondurulmuş saatte `created_at` eşit olunca sıralama GUID'e düşüyor → **flaky**'ydiler
+(5 koşuda ~1 kırılma, BKM-04'te şans eseri geçmişler). Tür üzerinden seçime çevrildi, 5/5 kararlı.
+Üretim etkilenmedi.
+
+⚠️ **Görsel kontrol YAPILMADI** — BKM-04'teki aynı engel (yerel API veritabanında hesap yok, canlıya
+bağlanmak yasak, parola giremem). Ayrıntı ve statik risk değerlendirmesi planın §12'sinde.
 
 ## ▶️ SIRADAKİ İŞ
-**`STK-10` uygulaması — planın §8 adım 0'ından başla.**
-Karar B ile iş **büyüdü**: 3 filtre bayrağı × RPR-01'in 6 katmanı = **18 kablolama noktası** + STK-B1
-+ 2 ekranın bağlanması + B-1 davranış düzeltmesi + ~30 senaryo + **6 kombinasyonda gerçek XLSX
-satır-satır karşılaştırması** + izole PG sorgu planı + tarayıcı render.
-
-⚠️ **Adım 0 (`STK-B1`) tek başına tamamlanabilir** ve yarım iş bırakmaz — kapasitesi dar bir oturumda
-yalnız o yapılabilir (ham "usage/reverse" metinleri ekranlardan kalkar, kullanıcıya doğrudan değer).
-Kabul kriterleri kalıcı olarak planın §10'unda.
+**`STK-10`'un kalanı — planın §8 adım 1'inden başla** (adım 0 bitti).
+Karar B ile: 3 filtre bayrağı × RPR-01'in 6 katmanı = **18 kablolama noktası** + 2 ekranın rapora
+bağlanması + **B-1 davranış düzeltmesi** (sunucu tarafı lokasyon filtresi) + ~30 senaryo +
+**6 kombinasyonda gerçek XLSX satır-satır karşılaştırması** + izole PG sorgu planı + tarayıcı render.
+Kabul kriterleri kalıcı olarak planın **§10**'unda.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -353,7 +374,7 @@ Kabul kriterleri kalıcı olarak planın §10'unda.
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1387/1353/0/34 · Build 0 hata
+667 stok hareketi · Test 1411/1377/0/34 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya
