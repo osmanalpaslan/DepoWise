@@ -53,7 +53,15 @@ public sealed record ReportRequest(
     // ⚠️ SKALER (tek metin), liste DEĞİL — diğer filtrelerden farkı budur.
     // Boş/yalnız-boşluk = FİLTRE YOK (mevcut `SearchMovements` semantiği birebir korundu).
     // ⚠️ ALAN SONA EKLENDİ (aynı gerekçe: kayıt API uçlarında POZİSYONEL de kuruluyor).
-    string? SearchText = null);
+    string? SearchText = null,
+
+    // STK-10b-3: MALZEME filtresi. Boş/null = TÜM malzemeler. Değerler `materials.id`'dir
+    // (kullanıcıya gösterilen kod/ad DEĞİL) — arayüzde arama ile seçilir, listeler ÖNCEDEN İNDİRİLMEZ.
+    // ⚠️ LİSTE olması bilinçlidir: diğer kimlik filtreleriyle (BranchIds/VehicleIds/…) aynı sözleşme;
+    // arayüz bugün TEK malzeme seçtirir → 0 veya 1 elemanlı gelir. Yabancı firmanın malzeme kimliği
+    // eşleşmez (sorgu zaten company_id'ye kilitli) → fail-closed.
+    // ⚠️ ALAN SONA EKLENDİ (aynı gerekçe: kayıt API uçlarında POZİSYONEL de kuruluyor).
+    IReadOnlyList<string>? MaterialIds = null);
 
 public static class ReportGate
 {

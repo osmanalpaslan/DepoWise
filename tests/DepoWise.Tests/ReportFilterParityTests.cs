@@ -104,6 +104,11 @@ public class ReportFilterParityTests
         // ⚠️ Etiket parçası bilinçli olarak UZUN: yalnız "Ara" yazsaydık "Araç"/"Araç ara" metinlerine
         // takılıp blok silinse bile testi geçirirdi (RPR-01'in daha önce yakaladığı zayıflığın aynısı).
         new Wiring(ReportFilters.Search,         "ShowSearch",         new[] { "SearchText" },         "Ara (kod, malzeme, not, belge)"),
+        // STK-10b-3 — MALZEME. Seçenekler ÖNCEDEN YÜKLENMEZ: iki platform da kendi MEVCUT malzeme arama
+        // desenini kullanır (web: /api/materials?search=… · masaüstü: yerel Materials.List(term)). Bu
+        // yüzden /api/reports/scope'a malzeme listesi eklenmedi — parite "aynı ID sözleşmesi" üzerinden
+        // kurulur (MaterialIds), aynı seçenek listesi üzerinden DEĞİL.
+        new Wiring(ReportFilters.Material,       "ShowMaterial",       new[] { "MaterialIds" },        "Malzeme (kod/ad ile ara)"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);

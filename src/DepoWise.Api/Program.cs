@@ -1887,6 +1887,7 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
         usesLocation = d.UsesLocation,   // STK-06: stok deposu/şantiyesi filtresi
         usesMovementType = d.UsesMovementType,   // STK-10b-1: stok hareket türü filtresi
         usesSearch = d.UsesSearch,   // STK-10b-2: serbest metin arama
+        usesMaterial = d.UsesMaterial,   // STK-10b-3: malzeme filtresi (arama ile seçilir)
         requiresDate = d.RequiresDate, manager = d.IsManager,
         infoNote = d.InfoNote
     }))).RequireAuthorization();
@@ -1898,7 +1899,7 @@ static object? ReportCell(object? cell)
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText);   // STK-06 lokasyon + STK-10b-1 tür + STK-10b-2 arama
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds);   // STK-06 lokasyon + STK-10b-1 tür + STK-10b-2 arama + STK-10b-3 malzeme
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
     {
@@ -1916,7 +1917,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = S(c); if (s is null) return Results.Unauthorized();
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText);   // STK-06 lokasyon + STK-10b-1 tür + STK-10b-2 arama
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds);   // STK-06 lokasyon + STK-10b-1 tür + STK-10b-2 arama + STK-10b-3 malzeme
     var tbl = BuildReport(s, type, req);
     var bytes = svc.Excel.Export(tbl);
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
@@ -2802,7 +2803,10 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     // STK-10b-1: stok hareket türü filtresi (kanonik movement_type anahtarları). Opsiyonel, SONA eklendi.
     List<string>? MovementTypes = null,
     // STK-10b-2: serbest metin arama (skaler). Opsiyonel, SONA eklendi.
-    string? SearchText = null);
+    string? SearchText = null,
+    // STK-10b-3: malzeme filtresi (materials.id). Arayüzde ARAMA ile seçilir; liste indirilmez.
+    // Opsiyonel, SONA eklendi (pozisyonel kurulumda argüman kaymasını önlemek için).
+    List<string>? MaterialIds = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 // G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin

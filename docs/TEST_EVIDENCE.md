@@ -772,3 +772,55 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   aynen · STK-10a SQL LIMIT düzeltmesi aynen · hareket ekranları DEĞİŞMEDİ.
 - **Yapılmayan:** **görsel render kontrolü YAPILMADI** — aynı engel.
 - **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §21
+
+## 2026-08-12 - STK-10b-3 — Stok Hareketleri raporu: Malzeme filtresi + autocomplete
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1521 · 1486 geçti · 0 kaldı · 35 atlandı
+- **Bitiş:** **1553 toplam · 1518 geçti · 0 kaldı · 35 atlandı** (**+32 yeni senaryo**:
+  `StockMovementsMaterialFilterTests` 25 · `ApiStockMovementsReportTests` +7).
+- **Kapsam:** YALNIZ `Material`. Ekran bağlantıları + B-1 (10b-4) ve **STK-B2** bu artımda YOK —
+  `Search` semantiğine (kod · ad · `sm.note` · fatura no · belge no) **dokunulmadı**.
+- **6/6 KABLOLAMA:** katalog (`ReportFilters.Material = 4096` + `UsesMaterial`) · istek modeli
+  (`ReportRequest.MaterialIds`, **liste**, kaydın **SON** alanı) · API sorgu · API export ·
+  Web (`@if` + `MudAutocomplete` + `CatItem` + `Bool(e,"usesMaterial")` + iki gövde) ·
+  Masaüstü (`ShowMaterial` + Notify + `MaterialSearch`/`MaterialResults`/`PickedMaterial` +
+  `BuildTable` + XAML). **+ RPR-01 `Map` satırı** (`RequestProps = ["MaterialIds"]`) → **14/14 yeşil**.
+- **⚡ 2461 malzeme İNDİRİLMİYOR:** iki platform da MEVCUT arama desenini kullanıyor
+  (Web `/api/materials?search=` + autocomplete · masaüstü yerel `Materials.List(term)`, ilk 30).
+  Yeni uç açılmadı; `/api/reports/scope` **büyümedi** — kaynak taramasıyla kilitlendi
+  (`Rapor_Kapsamina_Malzeme_Listesi_Eklenmedi`).
+- **🔴 Pozisyonel argüman kayması:** kodlamadan ÖNCE tüm `new ReportRequest(` çağrıları tarandı
+  (pozisyonel olan yalnız 2 API ucu). Alan SONA eklendi ve kural artık `MaterialIds_Kaydin_SON_Alani`
+  testiyle kalıcı korunuyor (son 4 alanın sırası sabit).
+- **Kanıtlananlar (çevrimdışı, 25):** doğru hareketler · yanlış kimlik → boş (fail-closed) ·
+  boş/boşluk elemanlar atılıyor → filtresiz davranış · çoklu kimlik · **başka firmanın malzemesi
+  erişilemez (AYNI kod+ad ile)** · **BranchScope aşılmıyor** · kapsam dışı deponun malzemesi görünmüyor ·
+  Material+Date · +Location · +MovementType · +Search · üçlü ve **beşli** kombinasyon ·
+  sonuçsuz filtre temiz boş · **tavan filtrelenmiş küme üzerine iniyor** · export'a uygulanıyor ·
+  çevrimdışı arama+rapor+export · UI kaynak taraması (scope büyümedi, iki platform aynı kimlik alanı,
+  masaüstünde `HttpClient` yok) · **önceki filtreler bozulmadı** · **Search semantiği değişmedi**.
+- **Gerçek HTTP (+7):** katalog ucu `usesMaterial` yayınlıyor (diğer raporlarda kapalı) · filtre
+  sunucuda · fail-closed · malzeme+lokasyon/tür/arama kombinasyonları · **3 senaryoda export XLSX
+  ekranla hücre hücre aynı** · açık şube seçimi malzemeyle genişlemiyor.
+- **Gerçek XLSX:** **10 kombinasyon** (servis: filtresiz · yalnız Material · +Date · +Location ·
+  +MovementType · +Search · +Location+Tür · +Search+Tür · +Date+Location · sonuçsuz) + 3 (HTTP).
+  Satır sayısı karşılaştırması TEK BAŞINA yeterli sayılmadı: filtreli XLSX'in her satırı beklenen
+  malzemeye ait ve filtresiz XLSX'te birebir bulunuyor.
+- **İzole PostgreSQL:** malzeme filtresi doğru · fail-closed · 4'lü kombinasyon · LIMIT filtre
+  SONRASINDA · **sorgu planı**: `Index Scan Backward using ix_stock_movements_material` +
+  `Index Cond: (material_id = …)` → filtre SQL'e indi ve **zaten var olan indeksi** kullanıyor.
+  **YENİ İNDEKS EKLENMEDİ.** Test DB (`stk10b3_test`) silindi, PG durduruldu.
+- **⚠️ 2 mevcut test güncellendi (gevşetme DEĞİL):** aynı kapsam nöbetçileri `Material`'ı doğru
+  yakaladı. Filtre kümesi **tam eşitlikle** sınanmaya devam ediyor; "malzeme filtresi YALNIZ
+  stock-movements'ta açık" tam-eşleşmesi eklendi; nöbetçi **bir sonraki bite (8192) kaydırıldı**.
+- **🔴 BULGU (kapsam dışı → yeni iş `RPR-02`):** HTTP hattında oturumun `OperatingBranchId`'si HİÇ
+  kurulmuyor (JWT yalnız kullanıcı+firma; `AuthService.CreateSessionForUser` şube atamıyor; tek
+  istisna içe-aktarma ucu). Web'de rapor şube daralması yalnız açık `branchIds` ile oluyor.
+  Tüm raporları etkileyen MEVCUT mimari; masaüstü (çevrimdışı) etkilenmiyor. **Düzeltilmedi.**
+- **Dokunulmayanlar:** migration YOK · şema YOK · senkron YOK · Date/Location/MovementType/Search
+  davranışı aynen · STK-10a SQL LIMIT düzeltmesi aynen · hareket ekranları DEĞİŞMEDİ ·
+  production'a bağlanılmadı · canlı veriye yazılmadı · Migration064 çalıştırılmadı · master'a merge yok.
+- **Yapılmayan:** **görsel render kontrolü YAPILMADI** — Raporlar ekranı giriş formunun arkasında;
+  parolayı bir alana yazmam (güvenlik kuralı) ve canlıya bağlanmam (talimat §13).
+- **Kayıt:** `docs/project-control/STK_10_HAREKET_RAPORU_PLANI.md` §23

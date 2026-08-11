@@ -334,8 +334,12 @@ public class StockReportLocationTests : IDisposable
         var aramalilar = ReportCatalog.All.Where(d => d.UsesSearch).Select(d => d.Key).ToList();
         Assert.Equal(new[] { "stock-movements" }, aramalilar);
 
-        // STK-10b-3 (Material=4096) HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi.
-        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)4096)));
+        // STK-10b-3: malzeme filtresi de YALNIZ hareket raporunda açıldı (körlemesine yayılmadı).
+        var malzemeliler = ReportCatalog.All.Where(d => d.UsesMaterial).Select(d => d.Key).ToList();
+        Assert.Equal(new[] { "stock-movements" }, malzemeliler);
+
+        // SIRADAKİ bayrak (8192) HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi (gevşetilmedi, kaydırıldı).
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)8192)));
     }
 
     /// <summary>16 — REGRESYON: lokasyon boyutu diğer stok kullanan raporları bozmadı.

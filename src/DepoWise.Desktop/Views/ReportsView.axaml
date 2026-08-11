@@ -3,6 +3,7 @@
              xmlns:vm="using:DepoWise.Desktop.ViewModels"
              xmlns:ctrl="using:DepoWise.Desktop.Controls"
              xmlns:rep="using:DepoWise.Application.Reports"
+             xmlns:m="using:DepoWise.Infrastructure.Materials"
              xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -179,6 +180,34 @@
                             </ItemsControl>
                         </ScrollViewer>
                     </Border>
+                </ctrl:FormField>
+                <!-- STK-10b-3: MALZEME filtresi (Stok Hareketleri Raporu). Liste ÖN YÜKLENMEZ — mevcut
+                     yerel arama deseni (Materials.List(term), ilk 30) kullanılır: ağ YOK, çevrimdışı
+                     çalışır. Seçilen malzemenin ADI kutuda görünür; isteğe materials.id gider.
+                     "Temizle" seçimi kaldırır → filtre kalkar (web'deki Clearable ile aynı). -->
+                <ctrl:FormField Label="Malzeme (kod/ad ile ara)" Width="230" IsVisible="{Binding ShowMaterial}"
+                                HelpText="Boş = tüm malzemeler">
+                    <StackPanel Spacing="4">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding MaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
+                            <Button Grid.Column="1" Classes="Ghost" Content="Temizle" Margin="4,0,0,0"
+                                    Command="{Binding ClearMaterialCommand}"/>
+                        </Grid>
+                        <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MaterialResults.Count}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding MaterialResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="m:MaterialRefRow">
+                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Content="{Binding Name}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ReportsViewModel)DataContext).PickMaterialCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
                 </ctrl:FormField>
                 <!-- Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar. -->
                 <ctrl:FormField Label="Durum (çoklu; boş=tümü)" Width="180" IsVisible="{Binding ShowStatus}">

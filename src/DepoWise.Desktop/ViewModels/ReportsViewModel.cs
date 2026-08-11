@@ -5,9 +5,11 @@ using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DepoWise.Application.Common;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Application.Ui;
+using DepoWise.Infrastructure.Materials;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
@@ -56,6 +58,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowLocation))]
     [NotifyPropertyChangedFor(nameof(ShowMovementType))]
     [NotifyPropertyChangedFor(nameof(ShowSearch))]
+    [NotifyPropertyChangedFor(nameof(ShowMaterial))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -83,6 +86,22 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
     /// <summary>Arama metni. Boş/yalnız-boşluk → filtre yok (mevcut semantik).</summary>
     [ObservableProperty] private string _searchText = "";
+
+    /// <summary>STK-10b-3 — MALZEME filtresi. Seçenekler ÖNCEDEN YÜKLENMEZ: mevcut yerel malzeme
+    /// ARAMA deseni kullanılır (Talep/Bakım/Stok ekranlarıyla aynı: <c>Materials.List(session, page, term)</c>).
+    /// Ağ YOK → çevrimdışı çalışır; rapor açılışında binlerce malzeme belleğe alınmaz.</summary>
+    public bool ShowMaterial => SelectedReport?.UsesMaterial == true;
+
+    /// <summary>Malzeme arama metni (yalnız SEÇİCİ içindir — rapor isteğine GİTMEZ; giden şey seçilen
+    /// malzemenin kimliğidir). STK-10b-2'nin serbest metin aramasıyla KARIŞTIRILMAMALIDIR.</summary>
+    [ObservableProperty] private string _materialSearch = "";
+    partial void OnMaterialSearchChanged(string value) => RefreshMaterials();
+
+    /// <summary>Arama sonucu malzemeler (mevcut desen: ilk 30 kayıt). Seçim yapılınca liste temizlenir.</summary>
+    public ObservableCollection<MaterialRefRow> MaterialResults { get; } = new();
+
+    /// <summary>Seçili malzeme — null = TÜM malzemeler (filtre yok). Rapor isteğine <c>Id</c>'si gider.</summary>
+    [ObservableProperty] private MaterialRefRow? _pickedMaterial;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
@@ -244,6 +263,41 @@ public sealed partial class ReportsViewModel : ViewModelBase
         foreach (var (key, label) in MovementTypeOptions.All) MovementTypes.Add(new BranchPick(key, label));
     }
 
+    /// <summary>STK-10b-3 — malzeme ARAMA (yerel). Mevcut desenin aynısı (Talep/Bakım/Stok ekranları):
+    /// <c>Materials.List(session, PageRequest{Limit=30}, term)</c>. Rapor açılışında ÖN YÜKLEME YOK;
+    /// yalnız kullanıcı yazdıkça ilk 30 sonuç gelir. Sorgu YEREL SQLite'tadır → çevrimdışı çalışır.</summary>
+    private void RefreshMaterials()
+    {
+        MaterialResults.Clear();
+        var term = MaterialSearch?.Trim();
+        try
+        {
+            var page = DesktopServices.Materials.List(_session, new PageRequest { Limit = 30 },
+                string.IsNullOrEmpty(term) ? null : term);
+            foreach (var m in page.Items) MaterialResults.Add(new MaterialRefRow(m.Id, m.Code, m.Name));
+        }
+        catch { }
+    }
+
+    /// <summary>Listeden malzeme seç → filtre bu malzemeye daralır; arama kutusu seçileni gösterir.</summary>
+    [RelayCommand]
+    private void PickMaterial(MaterialRefRow? m)
+    {
+        if (m is null) return;
+        PickedMaterial = m;
+        MaterialSearch = $"{m.Code} - {m.Name}";
+        MaterialResults.Clear();
+    }
+
+    /// <summary>Seçimi kaldır → filtre kalkar (TÜM malzemeler). Web'deki "Clearable" ile aynı davranış.</summary>
+    [RelayCommand]
+    private void ClearMaterial()
+    {
+        PickedMaterial = null;
+        MaterialSearch = "";
+        MaterialResults.Clear();
+    }
+
     private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
     private static bool TrContains(string s, string sub) => TrCmp.IndexOf(s ?? "", sub, System.Globalization.CompareOptions.IgnoreCase) >= 0;
 
@@ -359,6 +413,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
             : null;
         // STK-10b-2: serbest metin arama (skaler). Bayrak kapalıysa GÖNDERİLMEZ.
         var searchText = ShowSearch ? SearchText : null;
+        // STK-10b-3: seçili malzeme → TEK elemanlı liste. Seçim yoksa null → TÜM malzemeler.
+        var materialIds = ShowMaterial && PickedMaterial is not null
+            ? new List<string> { PickedMaterial.Id }
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
@@ -373,7 +431,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             Statuses: statuses,
             LocationIds: locationIds is { Count: > 0 } ? locationIds : null,
             MovementTypes: movementTypes is { Count: > 0 } ? movementTypes : null,
-            SearchText: string.IsNullOrWhiteSpace(searchText) ? null : searchText);
+            SearchText: string.IsNullOrWhiteSpace(searchText) ? null : searchText,
+            MaterialIds: materialIds);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

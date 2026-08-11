@@ -865,9 +865,25 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
             ? ""
             : " AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)";
 
+        // ── STK-10b-3: MALZEME filtresi ────────────────────────────────────────────────────────
+        // Boş/null = TÜM malzemeler. Değer `materials.id`'dir; arayüzde ARAMA ile seçilir (liste
+        // önceden indirilmez). Filtre SQL'de `sm.material_id IN (…)` olarak uygulanır — bellekte
+        // süzme YOK, satır başına malzeme sorgusu (N+1) YOK (malzeme zaten aynı sorguda JOIN'li).
+        // ⚠️ Yabancı firmanın malzeme kimliği verilse bile sorgu `sm.company_id = @c`'ye kilitli
+        //    olduğu için hiçbir satır dönmez (fail-closed) — filtre kapsamı GENİŞLETEMEZ.
+        var istenenMalzemeler = req.MaterialIds is null
+            ? Array.Empty<string>()
+            : req.MaterialIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToArray();
+        var matSql = "";
+        if (istenenMalzemeler.Length > 0)
+        {
+            var ps = string.Join(",", Enumerable.Range(0, istenenMalzemeler.Length).Select(i => "@mat" + i));
+            matSql = $" AND sm.material_id IN ({ps})";
+        }
+
         // ── Sorgu: filtre → sıralama → LIMIT (hepsi SQL'de) ────────────────────────────────────
-        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon, tür ve arama filtreleri AND ile
-        // İÇERİDE daraltır — hiçbiri kapsamı genişletemez.
+        // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon, tür, arama ve malzeme filtreleri
+        // AND ile İÇERİDE daraltır — hiçbiri kapsamı genişletemez.
         cmd.CommandText = @"
 SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
        m.code, m.name, COALESCE(u.name,'') AS unit,
@@ -886,6 +902,7 @@ WHERE sm.company_id = @c"
             + locSql
             + typeSql
             + searchSql
+            + matSql
             + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
 
         cmd.AddWithValue("@c", companyId);
@@ -894,6 +911,7 @@ WHERE sm.company_id = @c"
         for (int i = 0; i < gercekDepolar.Count; i++) cmd.AddWithValue("@loc" + i, gercekDepolar[i]);
         for (int i = 0; i < istenenTurler.Length; i++) cmd.AddWithValue("@mtype" + i, istenenTurler[i]);
         if (arama is not null) cmd.AddWithValue("@q", "%" + arama + "%");
+        for (int i = 0; i < istenenMalzemeler.Length; i++) cmd.AddWithValue("@mat" + i, istenenMalzemeler[i]);
         cmd.AddWithValue("@lim", maxRows > 0 ? maxRows : ReportLimits.DefaultMaxRows);
 
         var rows = new List<IReadOnlyList<object?>>();

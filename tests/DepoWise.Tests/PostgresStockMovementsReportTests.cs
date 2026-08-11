@@ -113,8 +113,36 @@ public class PostgresStockMovementsReportTests
         Assert.Single(reports.Run(s, "stock-movements",
             genis with { SearchText = "PG-HRK", MovementTypes = new[] { "transfer" }, LocationIds = new[] { depoB } }).Rows);
 
+        // ── 3d. STK-10b-3: MALZEME filtresi PostgreSQL'de ──
+        var mat2 = materials.Create(s, new NewMaterial("PG-HRK-2", "PG ikinci malzeme"));
+        clock.Advance(60_000);
+        stock.ReceiveIn(s, new[] { new StockLine(mat2, 4m) }, "pg-in-mat2", branchId: depoB);
+
+        Assert.Equal(24, reports.Run(s, "stock-movements", genis).Rows.Count);   // 23 + yeni giriş
+        Assert.Equal(23, reports.Run(s, "stock-movements", genis with { MaterialIds = new[] { mat } }).Rows.Count);
+        Assert.Single(reports.Run(s, "stock-movements", genis with { MaterialIds = new[] { mat2 } }).Rows);
+        Assert.Equal(24, reports.Run(s, "stock-movements", genis with { MaterialIds = new[] { mat, mat2 } }).Rows.Count);
+        // Var olmayan kimlik → fail-closed (PG'de de veri sızmıyor / "filtre yok"a düşmüyor).
+        Assert.Empty(reports.Run(s, "stock-movements", genis with { MaterialIds = new[] { "yok-boyle" } }).Rows);
+        // Malzeme + lokasyon + tür + arama birlikte (hepsi AND).
+        Assert.Single(reports.Run(s, "stock-movements", genis with
+        {
+            MaterialIds = new[] { mat }, MovementTypes = new[] { "transfer" },
+            LocationIds = new[] { depoB }, SearchText = "PG-HRK",
+        }).Rows);
+        // Aynı üçlü + YANLIŞ malzeme → boş: malzeme filtresi gerçekten daraltıyor.
+        Assert.Empty(reports.Run(s, "stock-movements", genis with
+        {
+            MaterialIds = new[] { mat2 }, MovementTypes = new[] { "transfer" },
+            LocationIds = new[] { depoB }, SearchText = "PG-HRK",
+        }).Rows);
+        // LIMIT, MALZEMEYLE FİLTRELENMİŞ küme üzerine iniyor (bellekte değil).
+        Assert.Equal(3, reports.Run(s, "stock-movements", genis with { MaterialIds = new[] { mat } }, maxRows: 3).Rows.Count);
+
         // ── 4. 🔴 SORGU PLANI: filtre + sıralama + LIMIT SQL'de mi? ──
-        var plan = Plan(factory, depoA);
+        var plan = Plan(factory, depoA, mat);
+        // STK-10b-3: malzeme koşulu planda görünmeli → SQL'e indi, bellekte süzülmüyor.
+        Assert.Contains("material_id", plan, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Limit", plan, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Sort", plan, StringComparison.OrdinalIgnoreCase);
         // Filtre gerçekten SQL'e inmiş olmalı (WHERE koşulu planda görünür).
@@ -125,7 +153,7 @@ public class PostgresStockMovementsReportTests
     }
 
     /// <summary>Rapor sorgusunun PostgreSQL planını döndürür (rapor metodunun kurduğu SQL'in aynısı).</summary>
-    private static string Plan(IDbConnectionFactory factory, string depoA)
+    private static string Plan(IDbConnectionFactory factory, string depoA, string materialId)
     {
         using var conn = factory.Create();
         using var cmd = conn.CreateCommand();
@@ -146,6 +174,7 @@ WHERE sm.company_id = @c AND sm.created_at >= @from AND sm.created_at <= @to
   AND (sm.branch_id IN (@loc0) OR sm.branch_from_id IN (@loc0))
   AND sm.movement_type IN (@mtype0)
   AND (m.code LIKE @q OR m.name LIKE @q OR sm.note LIKE @q OR d.invoice_no LIKE @q OR d.doc_no LIKE @q)
+  AND sm.material_id IN (@mat0)
 ORDER BY sm.created_at DESC, sm.id DESC LIMIT @lim;";
         cmd.AddWithValue("@c", "A");
         cmd.AddWithValue("@from", 0L);
@@ -153,6 +182,7 @@ ORDER BY sm.created_at DESC, sm.id DESC LIMIT @lim;";
         cmd.AddWithValue("@loc0", depoA);
         cmd.AddWithValue("@mtype0", "in");
         cmd.AddWithValue("@q", "%PG-HRK%");
+        cmd.AddWithValue("@mat0", materialId);
         cmd.AddWithValue("@lim", 50);
 
         var sb = new System.Text.StringBuilder();

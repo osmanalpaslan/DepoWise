@@ -819,6 +819,78 @@ metninin görünümü · diğer filtrelerle hizası · dar pencere · Web/masaü
 
 | Artım | Kapsam | Durum |
 |---|---|---|
-| **10b-3** | `Material` bayrağı (6 nokta) + autocomplete (scope'a 2461 malzeme EKLENMEZ, K-1) | ⏳ bekliyor |
+| **10b-3** | `Material` bayrağı (6 nokta) + autocomplete (scope'a 2461 malzeme EKLENMEZ, K-1) | ✅ **TAMAM** (§23) |
 | **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | ⏳ bekliyor |
-| **`STK-B2`** 🆕 | Arama `stock_documents.note`'u da kapsasın mı? **Davranış değişikliği → kullanıcı kararı** (§21.2) | ⛔ karar bekliyor |
+| **`STK-B2`** | Arama `stock_documents.note`'u da kapsasın mı? **Davranış değişikliği → kullanıcı kararı** (§21.2) | ⛔ karar bekliyor |
+| **`RPR-02`** 🆕 | HTTP hattında rapor isteği **oturumun şubesini taşımıyor** (§23.5) | ⛔ karar/yeni iş bekliyor |
+
+---
+
+## 23. ✅ STK-10b-3 — `Material` filtresi + autocomplete (2026-08-12)
+
+`ReportFilters.Material = 4096` · `ReportRequest.MaterialIds` (**liste**, kaydın **SON** alanı) ·
+`sm.material_id IN (…)`. **6/6 katman** bağlı, **RPR-01 gevşetilmeden yeşil (14/14)**.
+
+### 23.1 Neden `Material` de LİSTE (skaler değil)
+
+`Search` skalerdir (tek metin); `Material` ise diğer **kimlik** filtreleriyle (`BranchIds`,
+`VehicleIds`, `LocationIds`, `MovementTypes`) aynı sözleşmeyi izler. Arayüz bugün **tek** malzeme
+seçtirir → 0/1 elemanlı gelir; sunucu tarafı ileride çoklu seçime hazırdır ve SQL tek biçimde kalır.
+
+### 23.2 ⚡ Seçenekler ÖN YÜKLENMİYOR (talimat §2/§12 — K-1)
+
+| Platform | Kaynak | Yeni uç? |
+|---|---|---|
+| Web | **mevcut** `/api/materials?search=…` + `MudAutocomplete` (Talep/Bakım/Stok ekranlarıyla aynı çağrı) | ❌ yok |
+| Masaüstü | **mevcut** yerel `Materials.List(session, PageRequest{Limit=30}, term)` | ❌ yok (ağ da yok) |
+
+`/api/reports/scope` **büyümedi** — testle kilitlendi (`Rapor_Kapsamina_Malzeme_Listesi_Eklenmedi`:
+scope gövdesinde `FROM materials` yok, Web'de `Read(doc,"materials")` yok).
+
+### 23.3 🔴 Pozisyonel argüman kayması — önce tarandı
+
+`new ReportRequest(` çağrılarının **tamamı** kodlamadan önce tarandı: pozisyonel olan yalnız **2** uç
+(`/api/reports/{type}` ve `.../export`). `MaterialIds` **sona** eklendi ve bu kural artık
+`MaterialIds_Kaydin_SON_Alani` testiyle **kalıcı olarak** korunuyor (son 4 alanın sırası sabitlendi).
+
+### 23.4 Doğrulamalar
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1553 · 1518 geçti · 0 kaldı · 35 atlandı** (taban 1521; **+32 senaryo**) |
+| RPR-01 | ✅ **14/14** — gevşetilmedi, istisna yok |
+| Çevrimdışı / SQLite | 25 senaryo (`StockMovementsMaterialFilterTests`), HTTP yok |
+| Gerçek HTTP | 28 senaryo (7 yeni: katalog · filtre · kombinasyon · 3× export XLSX · açık şube kapsamı) |
+| İzole PostgreSQL | Malzeme filtresi · fail-closed · 4'lü kombinasyon · LIMIT filtre sonrası · **sorgu planı** |
+| Gerçek XLSX | **10 kombinasyon** (servis) + 3 (HTTP) — hücre hücre |
+| Görsel render | ❌ **YAPILMADI** (§23.6) |
+
+### 23.5 ⚡ Sorgu planı — **mevcut indeks kullanılıyor, yeni indeks EKLENMEDİ**
+
+```
+Limit → Incremental Sort (created_at DESC, id DESC)
+  → Nested Loop
+      → Index Scan Backward using ix_stock_movements_material on stock_movements sm
+            Index Cond: (material_id = …)          ← filtre SQL'e indi, İNDEKS KULLANILIYOR
+            Filter: (company_id = …)
+      → Index Scan using ix_materials_company on materials m
+```
+Malzeme filtresi **zaten var olan** `ix_stock_movements_material` indeksini kullanıyor →
+**yeni indeks gerekmedi** (talimat §12: varsayılan olarak eklenmez).
+
+**🔴 BULGU (kapsam dışı, yeni iş `RPR-02`):** HTTP hattında oturumun `OperatingBranchId`'si
+**hiç kurulmuyor** — JWT yalnız kullanıcı+firma taşır, `AuthService.CreateSessionForUser` şube
+atamaz (kodda doğrulandı; tek istisna içe-aktarma ucudur). Sonuç: **web'de** rapor şube daralması
+YALNIZ açık `branchIds` seçimiyle olur; giriş ekranında seçilen şube rapora **yansımaz**. Bu
+STK-10b-3'ün getirdiği bir şey **değil** — tüm raporlarda mevcut mimari. Masaüstü (çevrimdışı) yolu
+etkilenmiyor: orada oturum şubesi gerçekten dolu ve daraltma testli. **Bu artımda düzeltilmedi.**
+
+### 23.6 Görsel kontrol — YAPILMADI (gerekçe netleştirildi)
+
+Raporlar ekranı **giriş (login) formunun arkasında**; ekranı açmak için parola alanı doldurmak
+gerekiyor. **Parolayı ben bir alana yazmam** (güvenlik kuralı) ve canlı sisteme bağlanmam (talimat
+§13). Bu yüzden render kontrolü **yapılamadı** — yapılmış gibi de gösterilmedi.
+**Kontrol edilemeyenler:** autocomplete genişliği · uzun malzeme adlarının taşması · seçim sonrası
+görünüm · seçimin temizlenmesi · Search + Malzeme'nin aynı satırdaki hizası · dar pencere ·
+Web/masaüstü görsel paritesi.

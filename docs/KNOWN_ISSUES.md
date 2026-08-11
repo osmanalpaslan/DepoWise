@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-11
+> Son güncelleme: 2026-08-12
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -40,6 +40,15 @@
   silmeyi diriltiyordu. İkisi de kapatıldı.
 
 ## Açık
+- **R33 (YENİ 12.08.2026, `RPR-02`):** **Web'de rapor isteği, giriş ekranında seçilen ŞUBEYİ taşımıyor.**
+  JWT yalnız kullanıcı+firma bilgisini taşır; `AuthService.CreateSessionForUser` oturuma
+  `OperatingBranchId` **atamaz** (tek istisna: içe-aktarma ucu, formdan `branchId` alır). Sonuç:
+  `ReportScope.Effective` → `BranchScope.Active(s)` **null** döner ve web raporları **firma geneli**
+  çalışır; şube daralması yalnız kullanıcı **açıkça** şube seçtiğinde (`branchIds`) olur.
+  **Masaüstü etkilenmiyor** — orada oturum şubesi gerçekten dolu ve daraltma testli.
+  **Etki:** orta — bu bir tenant (firma) sızıntısı DEĞİL; firma içi şube görünürlüğü beklenenden geniş.
+  Tüm raporları etkileyen **mevcut** mimari; STK-10a/10b artımları getirmedi. STK-10b-3'te tespit
+  edildi ve kasten düzeltilmedi (kapsam dışı). Kayıt: `STK_10_HAREKET_RAPORU_PLANI.md` §23.5.
 - **R5:** Web ve masaüstü health şu an DB'ye fiilen bağlanmıyor (web config-kontrolü, masaüstü yerel SQLite write/read). Gerçek PostgreSQL bağlantı health'i Faz 02'de eklenecek. Etki: düşük.
 - **R6:** `dotnet test` çıktısında MSBuild "MSB4011 Directory.Build.props ikinci kez içe aktarıldı" benzeri bilgi mesajı görülebilir; build/test sonucunu etkilemiyor. Etki: kozmetik.
 - **R2:** Üretim hosting, object storage, e-posta ve code-signing sağlayıcıları maliyet değerlendirmesi yapılmadan seçilmeyecek. Etki: yayın (Faz 15-17) öncesi.

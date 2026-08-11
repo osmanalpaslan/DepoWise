@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-11** · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-12** · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -483,12 +483,40 @@ gerekirdi, mevcut hacim gerektirmiyor.
 Gevşetilmediler; **`Material` (4096) hâlâ kapalı** nöbetçisi duruyor.
 ⚠️ **Görsel render kontrolü YAPILMADI** (§21.7).
 
+## ✅ SON TAMAMLANAN — `STK-10b-3` Malzeme filtresi + autocomplete (2026-08-12)
+
+Sonuç kaydı: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §23
+
+`Material` filtresi **6/6 katmanda** bağlandı; **RPR-01 gevşetilmeden yeşil** (14/14).
+`MaterialIds` bir **liste**tir (diğer kimlik filtreleriyle aynı sözleşme) ve kaydın **SON** alanına
+eklendi — pozisyonel argüman kayması artık kalıcı testle korunuyor.
+
+**⚡ 2461 malzeme İNDİRİLMİYOR:** iki platform da **mevcut** arama desenini kullanıyor
+(Web `/api/materials?search=` + `MudAutocomplete` · masaüstü yerel `Materials.List(term)`).
+`/api/reports/scope` **büyümedi** — kaynak taramasıyla kilitlendi. Yeni uç açılmadı.
+
+**⚡ Yeni indeks EKLENMEDİ:** izole PG planı, filtrenin **zaten var olan**
+`ix_stock_movements_material` indeksini kullandığını gösteriyor (`Index Cond: material_id`).
+
+**🔴 BULGU — kapsam dışı, yeni iş `RPR-02`:** HTTP hattında rapor isteği oturumun şubesini
+**taşımıyor** (JWT yalnız kullanıcı+firma; `CreateSessionForUser` şube atamıyor). Yani **web'de**
+şube daralması yalnız açık `branchIds` seçimiyle oluyor; giriş ekranındaki şube rapora yansımıyor.
+Bu STK-10b-3'ün getirdiği bir durum **değil**, tüm raporlarda mevcut mimari — masaüstü etkilenmiyor.
+**Düzeltilmedi**, karar/iş olarak ayrıldı.
+
+**Kanıt:** **1553 / 1518 geçti / 0 kaldı / 35 atlandı** (taban 1521; **+32 senaryo**) · build 0 hata ·
+25 çevrimdışı + 7 yeni HTTP + izole PG · **10 XLSX kombinasyonu** hücre hücre.
+
+⚠️ **2 mevcut test yine güncellendi** — aynı kapsam nöbetçileri, `Material`'ı doğru yakaladılar.
+Gevşetilmediler; nöbetçi **bir sonraki bite (8192) kaydırıldı** ve "yalnız `stock-movements`'ta açık"
+tam-eşleşmesi eklendi.
+⚠️ **Görsel render kontrolü YAPILMADI** — Raporlar ekranı giriş formunun arkasında; parolayı bir alana
+yazmam (güvenlik kuralı) ve canlıya bağlanmam. Yapılmış gibi gösterilmedi (§23.6).
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10b-3` — `Material` filtresi + autocomplete** (6 kablolama noktası).
-⚠️ `/api/reports/scope`'a **2461 malzeme EKLENMEYECEK** (plan K-1) — mevcut arama/autocomplete deseni
-kullanılacak (Web `MudAutocomplete` + `/api/materials?search=`, masaüstü yerel `Materials.List(search)`).
-Sonra **10b-4** (iki ekranın rapora bağlanması + **B-1 düzeltmesi**).
-⛔ Ayrıca **`STK-B2`** kararı bekliyor (yukarıdaki belge-notu bulgusu).
+**`STK-10b-4` — iki hareket ekranının rapora bağlanması + Web lokasyon `B-1` hatasının kapatılması.**
+⛔ Ayrıca karar bekleyenler: **`STK-B2`** (arama `stock_documents.note`'u kapsasın mı) ve
+**`RPR-02`** (web raporunda oturum şubesi daralması).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |

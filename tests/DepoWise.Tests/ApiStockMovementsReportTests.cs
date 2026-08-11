@@ -30,6 +30,10 @@ public class ApiStockMovementsReportTests : IAsyncLifetime
 
     private HttpClient _client = null!;
     private string _mat = "", _depoA = "", _depoB = "";
+    /// <summary>STK-10b-3: ikinci malzeme YALNIZ malzeme filtresi testlerinde eklenir (bkz.
+    /// <see cref="IkinciMalzemeEkle"/>) — mevcut testlerin 5 satır beklentisi bozulmasın diye.
+    /// Her test kendi API sunucusunu/veritabanını kurar, bu yüzden yan etki yoktur.</summary>
+    private SessionContext _sunucuOturumu = null!;
 
     // API sunucusu GERÇEK saati kullanır (masaüstü testlerindeki dondurulmuş saat değil) → pencere
     // tüm zamanları kapsayacak kadar geniş tutulur; dar aralık senaryosu ayrıca Gunes..Gunes+1 ile sınanır.
@@ -60,6 +64,7 @@ public class ApiStockMovementsReportTests : IAsyncLifetime
         svc.Stock.Transfer(s, _mat, 10m, _depoA, _depoB, "op-trf");
         svc.OpeningStock.RecordOpening(s, _mat, 5m, "op-unassigned");   // ATANMAMIŞ
 
+        _sunucuOturumu = s;
         _client = await _host.LoginAsync(User, Pass, Company);
     }
 
@@ -366,6 +371,159 @@ public class ApiStockMovementsReportTests : IAsyncLifetime
             }
         var fazla = ekranRows.Count + 2 + (ekranRows.Count > 0 ? 1 : 0);
         Assert.True(string.IsNullOrEmpty(ws.Cell(fazla, 1).GetString()));
+    }
+
+    // ── STK-10b-3: MALZEME FİLTRESİ (gerçek HTTP) ──────────────────────────────────────────
+
+    /// <summary>Malzeme testleri için İKİNCİ malzeme + hareketleri ekler (Depo B'de bir giriş).
+    /// Yalnız bu testlerde çağrılır → mevcut testlerin satır beklentileri değişmez.</summary>
+    private string IkinciMalzemeEkle()
+    {
+        var svc = _host.Services.GetRequiredService<ServerServices>();
+        var mat2 = svc.Materials.Create(_sunucuOturumu, new NewMaterial("HRK-API-2", "Ikinci malzeme"));
+        svc.Stock.ReceiveIn(_sunucuOturumu, new[] { new StockLine(mat2, 9m) }, "op-in-2",
+            branchId: _depoB, invoiceNo: "FTR-API-2");
+        return mat2;
+    }
+
+    private object MalzemeGovde(string[]? malzemeler = null, string[]? lokasyonlar = null,
+                                string[]? turler = null, string? arama = null) => new
+    {
+        fromDate = Gunes, toDate = Batis,
+        locationIds = lokasyonlar?.ToList() ?? new List<string>(),
+        movementTypes = turler?.ToList() ?? new List<string>(),
+        searchText = arama,
+        materialIds = malzemeler?.ToList() ?? new List<string>(),
+    };
+
+    private async Task<JsonElement> MalzemeRaporAsync(string[]? malzemeler = null, string[]? lokasyonlar = null,
+                                                     string[]? turler = null, string? arama = null)
+    {
+        var r = await _client.PostAsJsonAsync("/api/reports/stock-movements",
+            MalzemeGovde(malzemeler, lokasyonlar, turler, arama));
+        r.EnsureSuccessStatusCode();
+        return await ApiTestHost.JsonAsync(r);
+    }
+
+    /// <summary>STK-10b-3 — katalog ucu `usesMaterial` yayınlıyor (Web bunu sürer).</summary>
+    [Fact]
+    public async Task Katalog_Ucu_usesMaterial_Yayinliyor()
+    {
+        var arr = (await ApiTestHost.JsonAsync(await _client.GetAsync("/api/reports/catalog"))).EnumerateArray().ToList();
+        Assert.True(arr.Single(e => e.GetProperty("key").GetString() == "stock-movements").GetProperty("usesMaterial").GetBoolean());
+        // Diğer raporlarda AÇILMADI (kapsam sızmasının nöbetçisi).
+        Assert.False(arr.Single(e => e.GetProperty("key").GetString() == "stock").GetProperty("usesMaterial").GetBoolean());
+    }
+
+    /// <summary>STK-10b-3 — 🔴 malzeme filtresi HTTP hattında SUNUCU tarafında uygulanıyor;
+    /// pozisyonel argüman kayması olsaydı burada lokasyon/tür/arama yanlış alana düşerdi.</summary>
+    [Fact]
+    public async Task Malzeme_Filtresi_HTTP_Hattinda_Uygulaniyor()
+    {
+        var mat2 = IkinciMalzemeEkle();
+
+        Assert.Equal(6, (await MalzemeRaporAsync()).GetProperty("rows").GetArrayLength());              // filtresiz
+        Assert.Equal(5, (await MalzemeRaporAsync(new[] { _mat })).GetProperty("rows").GetArrayLength());
+        Assert.Equal(1, (await MalzemeRaporAsync(new[] { mat2 })).GetProperty("rows").GetArrayLength());
+        Assert.Equal(6, (await MalzemeRaporAsync(new[] { _mat, mat2 })).GetProperty("rows").GetArrayLength());
+        // Var olmayan kimlik → fail-closed (boş), "filtre yok" gibi davranmıyor.
+        Assert.Equal(0, (await MalzemeRaporAsync(new[] { "yok-boyle-malzeme" })).GetProperty("rows").GetArrayLength());
+    }
+
+    /// <summary>STK-10b-3 — malzeme, DİĞER filtrelerle birlikte (AND) çalışıyor: lokasyon · tür · arama.
+    /// Hiçbiri malzemeyi genişletmiyor.</summary>
+    [Fact]
+    public async Task Malzeme_Diger_Filtrelerle_Birlikte_HTTP()
+    {
+        var mat2 = IkinciMalzemeEkle();
+
+        // Malzeme + Lokasyon: mat2 yalnız Depo B'de.
+        Assert.Equal(1, (await MalzemeRaporAsync(new[] { mat2 }, lokasyonlar: new[] { _depoB })).GetProperty("rows").GetArrayLength());
+        Assert.Equal(0, (await MalzemeRaporAsync(new[] { mat2 }, lokasyonlar: new[] { _depoA })).GetProperty("rows").GetArrayLength());
+
+        // Malzeme + Tür: transfer yalnız birinci malzemede.
+        Assert.Equal(2, (await MalzemeRaporAsync(new[] { _mat }, turler: new[] { "transfer" })).GetProperty("rows").GetArrayLength());
+        Assert.Equal(0, (await MalzemeRaporAsync(new[] { mat2 }, turler: new[] { "transfer" })).GetProperty("rows").GetArrayLength());
+
+        // Malzeme + Arama: fatura no mat2 belgesinde → başka malzemeyle boş.
+        Assert.Equal(1, (await MalzemeRaporAsync(new[] { mat2 }, arama: "FTR-API-2")).GetProperty("rows").GetArrayLength());
+        Assert.Equal(0, (await MalzemeRaporAsync(new[] { _mat }, arama: "FTR-API-2")).GetProperty("rows").GetArrayLength());
+    }
+
+    /// <summary>STK-10b-3 — 🔴 malzeme filtresi EXPORT ucuna da uygulanıyor; XLSX ekranla BİREBİR aynı.</summary>
+    [Theory]
+    [InlineData("birinci")]
+    [InlineData("ikinci")]
+    [InlineData("yok")]
+    public async Task Malzeme_Filtresi_Export_Ucuna_da_Uygulaniyor(string senaryo)
+    {
+        var mat2 = IkinciMalzemeEkle();
+        var malzemeler = senaryo switch
+        {
+            "birinci" => new[] { _mat },
+            "ikinci" => new[] { mat2 },
+            _ => new[] { "yok-boyle-malzeme" },
+        };
+        var govde = MalzemeGovde(malzemeler);
+
+        var r = await _client.PostAsJsonAsync("/api/reports/stock-movements", govde);
+        r.EnsureSuccessStatusCode();
+        var doc = await ApiTestHost.JsonAsync(r);
+
+        var e = await _client.PostAsJsonAsync("/api/reports/stock-movements/export", govde);
+        e.EnsureSuccessStatusCode();
+
+        var headers = doc.GetProperty("headers").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+        var numeric = doc.GetProperty("numeric").EnumerateArray().Select(x => x.GetBoolean()).ToList();
+        var ekranRows = doc.GetProperty("rows").EnumerateArray()
+            .Select(row => row.EnumerateArray().Select(HucreMetni).ToList()).ToList();
+
+        using var ms = new MemoryStream(await e.Content.ReadAsByteArrayAsync());
+        using var wb = new XLWorkbook(ms);
+        var ws = wb.Worksheets.First();
+        for (int i = 0; i < ekranRows.Count; i++)
+            for (int c = 0; c < headers.Count; c++)
+            {
+                var cell = ws.Cell(i + 2, c + 1);
+                var xlsx = c < numeric.Count && numeric[c]
+                    ? (cell.IsEmpty() ? "" : cell.GetDouble().ToString("0.####"))
+                    : cell.GetString();
+                Assert.Equal(ekranRows[i][c], xlsx);
+            }
+        var fazla = ekranRows.Count + 2 + (ekranRows.Count > 0 ? 1 : 0);
+        Assert.True(string.IsNullOrEmpty(ws.Cell(fazla, 1).GetString()));
+    }
+
+    /// <summary>STK-10b-3 — 🔒 malzeme seçimi ŞUBE KAPSAMINI genişletmiyor: açıkça Depo A seçilmişken
+    /// yalnız Depo B'de bulunan malzeme SEÇİLSE BİLE hiçbir satır dönmez (filtreler AND'lenir).
+    ///
+    /// ⚠️ NOT (kodda doğrulandı, bu artımda DEĞİŞTİRİLMEDİ): HTTP hattında oturumun
+    /// <c>OperatingBranchId</c>'si HİÇ kurulmaz — JWT yalnız kullanıcı+firma taşır ve
+    /// <c>AuthService.CreateSessionForUser</c> şube atamaz. Bu yüzden HTTP'de şube daralması
+    /// YALNIZ açık <c>branchIds</c> seçimiyle olur; oturum-şubesi daralması masaüstünün
+    /// (çevrimdışı) yolunda geçerlidir ve orada ayrıca test edilir. Bu, STK-10b-3'ün getirdiği
+    /// bir durum değildir — tüm raporlarda mevcut mimaridir (rapora bulgu olarak yazıldı).</summary>
+    [Fact]
+    public async Task Malzeme_Filtresi_Acik_Sube_Kapsamini_Asmiyor()
+    {
+        var mat2 = IkinciMalzemeEkle();   // yalnız Depo B'de
+
+        object Govde2(string[] malzemeler, string[] subeler) => new
+        {
+            fromDate = Gunes, toDate = Batis,
+            branchIds = subeler.ToList(),
+            locationIds = new List<string>(),
+            movementTypes = new List<string>(),
+            searchText = (string?)null,
+            materialIds = malzemeler.ToList(),
+        };
+
+        var kisitli = await _client.PostAsJsonAsync("/api/reports/stock-movements", Govde2(new[] { mat2 }, new[] { _depoA }));
+        kisitli.EnsureSuccessStatusCode();
+        Assert.Equal(0, (await ApiTestHost.JsonAsync(kisitli)).GetProperty("rows").GetArrayLength());
+
+        // Aynı malzeme, şube kısıtı olmadan GÖRÜNÜYOR → boşluk kapsamdan geliyor, kayıt eksikliğinden değil.
+        Assert.Equal(1, (await MalzemeRaporAsync(new[] { mat2 })).GetProperty("rows").GetArrayLength());
     }
 
     /// <summary>5 — Export özel buton yetkisi ister; yetkisiz kullanıcı 403 alır (mevcut standart).</summary>

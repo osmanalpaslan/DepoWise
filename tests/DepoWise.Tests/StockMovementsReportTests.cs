@@ -171,10 +171,13 @@ public class StockMovementsReportTests : IDisposable
         Assert.False(d.UsesVehicle);
         Assert.False(d.UsesMaintenanceDef);
         Assert.False(d.UsesStatus);
-        Assert.Equal(ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search, d.Filters);
+        Assert.True(d.UsesMaterial);           // STK-10b-3
+        Assert.Equal(ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType
+                     | ReportFilters.Search | ReportFilters.Material, d.Filters);
 
-        // STK-10b-3 (Material) HENÜZ YOK — kapsam sızmasının nöbetçisi.
-        Assert.False(d.Filters.HasFlag((ReportFilters)4096));
+        // SIRADAKİ bayrak (8192) HENÜZ YOK — kapsam sızmasının nöbetçisi (nöbetçi gevşetilmedi,
+        // yalnız STK-10b-3 ile birlikte bir sonraki bite kaydırıldı).
+        Assert.False(d.Filters.HasFlag((ReportFilters)8192));
     }
 
     /// <summary>2 — Kolonlar: Kaynak ve Hedef AYRI; defterin okunabilmesi için gerekli alanlar var.</summary>
