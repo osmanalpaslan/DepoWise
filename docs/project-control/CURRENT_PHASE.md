@@ -116,7 +116,7 @@ lokasyon listesi yerel veriden · `EnsureLocationOwned` serviste olduğu için �
 çevrimdışı→senkron lokasyonu **koruyor** · online→offline→online döngüsünde **kopya hareket yok** ·
 şirket izolasyonu çevrimdışı da geçerli · dolu SQLite v63→v64 ve rollback kapısı **yeniden doğrulandı**.
 
-## ✅ SON TAMAMLANAN — `STK-06` Rapor lokasyon boyutu (2026-08-11)
+## ✅ TAMAMLANAN — `STK-06` Rapor lokasyon boyutu (2026-08-11)
 
 Plan + sonuçlar: [`STK_06_UYGULAMA_PLANI.md`](STK_06_UYGULAMA_PLANI.md)
 
@@ -136,9 +136,36 @@ stok lokasyonu değil; ikisi birleştirilmedi (testle kilitli).
 **Kanıt:** **1281 / 1248 geçti / 0 kaldı / 33 atlandı** (taban 1267; **14 yeni senaryo**) · build 0 hata ·
 izole PG üretim kopyasında doğrulandı · çevrimdışı ↔ sunucu rapor paritesi test edildi.
 
+## ✅ SON TAMAMLANAN — `STK-07` Senkron sertifikasyonu (2026-08-11)
+
+Kayıt: [`STK_07_SENKRON_SERTIFIKASYONU.md`](STK_07_SENKRON_SERTIFIKASYONU.md)
+
+**11 senaryo GERÇEK HTTP senkron uçlarıyla koşturuldu** (masaüstü ayrı yerel SQLite ile temsil edildi;
+stok işlemleri API'ye uğramadan çevrimdışı yazıldı, yalnız "bağlantı gelince" push edildi).
+
+| Kanıtlanan | Sonuç |
+|---|---|
+| Çevrimdışı giriş/çıkış/transfer/sayım | Lokasyon senkronda **kaybolmuyor** |
+| Transfer | **İki bacak da** taşınıyor; kaynak/hedef alanları birebir |
+| Idempotency | Aynı paket **3 kez** gönderildi → kopya hareket ve bakiye değişimi **yok** |
+| offline→online→offline→online | Yerel ve sunucu hareket sayısı **eşit** |
+| Yakınsama | **Hareket kimlikleri dahil** iki taraf aynı |
+| **Bakiyenin otoritesi** | Yerel bakiye kasten **999** yapıldı → senkron sonrası **10** = **defter kazandı** |
+| **Delta pull** | Güncel sürümden sonrası **boş paket**; eski kayıt tekrar inmiyor; sürüm ilerliyor |
+| Şirket izolasyonu | Yabancı depoya yazma **çevrimdışı da** reddediliyor |
+| Bakiye tablosu | (malzeme, lokasyon) başına tek satır; **hayalet satır yok** |
+
+🔒 **Senkron kodu DEĞİŞTİRİLMEDİ · offline mimariye dokunulmadı.**
+**Kanıt:** 1281 → **1292 / 1259 geçti / 0 kaldı / 33 atlandı** · build 0 hata.
+
+**Yeni bulgu `SNK-12`:** `branches` iş-senkronunda **yok** (web-otoriteli, ayrı org uçlarından geliyor).
+Depo bazlı stokta sonucu: web'de açılan yeni depo, masaüstüne org senkronu inmeden stok işleminde
+kullanılamıyor. **Hata değil** (çevrimdışı bilinemeyen depo uydurulmamalı) ama görünürlük işi.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-07` — Senkron doğrulaması.** 6 çevrimdışı senaryo + idempotency + bakiye yakınsaması uçtan uca
-koşturulur (STK-05'te temel doğrulama yapıldı; STK-07 kapsamlı senkron sertifikasyonudur).
+**`STK-08` — "Atanmamış" stoğun depolara dağıtılması.** ⛔ **KARAR-8 bekliyor** (kullanıcı kararı:
+toplu transfer yardımcı ekranı mı, yoksa başka bir yol mu). Karar gelmeden kod yazılmayacak.
+Karar beklerken alternatif sıradaki iş: `SNK-12` (masaüstünde depo listesi tazeleme).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -151,7 +178,7 @@ koşturulur (STK-05'te temel doğrulama yapıldı; STK-07 kapsamlı senkron sert
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1281/1248/0/33 · Build 0 hata
+667 stok hareketi · Test 1292/1259/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

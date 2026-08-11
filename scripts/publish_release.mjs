@@ -62,3 +62,56 @@ console.log(`YAYINLANDI: surum=${version} checksum=${checksum.slice(0,12)}... bo
 // 4) Dogrulama: latest artik bu surum mu?
 const latest = await (await fetch(`${API}/api/releases/latest`)).json();
 console.log(`DOGRULAMA: sunucudaki en guncel surum = ${latest?.version ?? "(yok)"}`);
+
+// ── 5) YEREL ARŞİV TEMİZLİĞİ (kullanıcı isteği 2026-08-11) ──────────────────────────────────
+// SORUN: her yayında artifacts/rc altında bir .zip (~85 MB) + açılmış klasör (~240 MB) kalıyordu.
+// Bir ayda 88 sürüm birikip 28 GB disk yemişti. Sunucuda zaten bir koruma var (ADR-070:
+// ReleaseStore.PruneOld en yeni 3 paketi tutar) ama YERELDE yoktu.
+//
+// KURAL: paket sunucuya BAŞARIYLA yüklendikten SONRA, yerelde yalnız EN YENİ 3 sürüm tutulur.
+// Yükleme başarısızsa buraya hiç gelinmez → elde paket kalmadan silme riski yok.
+// Silinenler yeniden üretilebilir (paketleme komutu) ve git'te değildir (.gitignore: artifacts/).
+const KEEP = 3;
+try {
+  const rcDir = path.dirname(path.resolve(zipPath));
+  // "DepoWise-desktop-1.2.3.zip" / "desktop-1.2.3" → 1.2.3 · sürüm çıkaramadığımız ada DOKUNULMAZ.
+  const verOf = (name) => (name.match(/(\d+)\.(\d+)\.(\d+)/) || []).slice(1).map(Number);
+  const cmp = (a, b) => (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]);
+
+  const entries = fs.readdirSync(rcDir, { withFileTypes: true })
+    .map((e) => ({ name: e.name, dir: e.isDirectory(), v: verOf(e.name) }))
+    .filter((e) => e.v.length === 3);
+
+  // Sürüm bazında grupla: bir sürümün hem .zip'i hem klasörü aynı anda silinir/kalır.
+  const versions = [...new Set(entries.map((e) => e.v.join(".")))]
+    .map((s) => s.split(".").map(Number))
+    .sort(cmp)
+    .reverse();
+  const keep = new Set(versions.slice(0, KEEP).map((v) => v.join(".")));
+
+  let freed = 0, removed = 0;
+  for (const e of entries) {
+    if (keep.has(e.v.join("."))) continue;
+    const full = path.join(rcDir, e.name);
+    try {
+      freed += e.dir ? dirSize(full) : fs.statSync(full).size;
+      fs.rmSync(full, { recursive: true, force: true });
+      removed++;
+    } catch { /* kilitli dosya → atla; bir sonraki yayında tekrar denenir */ }
+  }
+  console.log(removed > 0
+    ? `TEMIZLIK: ${removed} eski oge silindi (~${(freed / 1073741824).toFixed(2)} GB). Yerelde tutulan surum: ${[...keep].join(", ")}`
+    : `TEMIZLIK: silinecek eski surum yok (en fazla ${KEEP} surum tutuluyor).`);
+} catch (err) {
+  // Temizlik ASLA yayını başarısız saymaz — paket zaten sunucuda.
+  console.warn("UYARI: yerel arsiv temizligi yapilamadi: " + (err?.message ?? err));
+}
+
+function dirSize(p) {
+  let total = 0;
+  for (const e of fs.readdirSync(p, { withFileTypes: true })) {
+    const f = path.join(p, e.name);
+    try { total += e.isDirectory() ? dirSize(f) : fs.statSync(f).size; } catch { /* atla */ }
+  }
+  return total;
+}

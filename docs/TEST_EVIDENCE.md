@@ -440,3 +440,22 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   (`0.31999999999999995` gibi). STK-06'nın getirdiği bir şey değil → `STK-11` olarak kaydedildi.
 - **Çevrimdışı ↔ sunucu paritesi:** senkron sonrası sunucu raporu masaüstü raporuyla birebir aynı (test 14).
 - **Plan/kayıt:** `docs/project-control/STK_06_UYGULAMA_PLANI.md`
+
+## 2026-08-11 - FAZ C / STK-07 — Senkron sertifikasyonu
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1281 · 1248 geçti · 0 kaldı · 33 atlandı
+- **Bitiş:** **1292 toplam · 1259 geçti · 0 kaldı · 33 atlandı** (**11 yeni senaryo**)
+- **Yeni dosya:** `tests/DepoWise.Tests/SyncStockLocationCertificationTests.cs` — GERÇEK HTTP senkron
+  uçları (`business-push` / `business-pull?since=` / `business-version`) + ayrı yerel SQLite (masaüstü).
+- **Kanıtlananlar:** çevrimdışı giriş/çıkış/transfer/sayım senkronda lokasyonunu koruyor · transferin
+  **iki bacağı** da taşınıyor (`branch_id`/`branch_from_id` birebir) · aynı paket 3 kez gönderildi,
+  kopya hareket ve bakiye değişimi **yok** · offline→online döngüsünde yerel ve sunucu hareket sayısı
+  **eşit** · yakınsama **hareket kimlikleri dahil** · şirket izolasyonu çevrimdışı da geçerli ·
+  bakiye tablosunda **hayalet lokasyon satırı yok**.
+- **Bakiyenin otoritesi DEFTER:** yerel bakiye kasten 999 yapıldı → senkron sonrası **10** (defter kazandı).
+- **Delta pull:** güncel sürümden sonrası **boş paket**; eski kayıt tekrar inmiyor; sürüm ilerliyor.
+- **Senkron kodu DEĞİŞTİRİLMEDİ.** Offline mimariye dokunulmadı.
+- **Yeni bulgu `SNK-12`:** `branches` iş-senkronunda yok (web-otoriteli) → web'de açılan yeni depo
+  masaüstüne org senkronu inmeden kullanılamıyor. Hata değil, görünürlük işi.
+- **Kayıt:** `docs/project-control/STK_07_SENKRON_SERTIFIKASYONU.md`

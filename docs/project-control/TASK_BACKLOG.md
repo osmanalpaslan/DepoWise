@@ -264,3 +264,24 @@ Dashboard'a dokunulmadı. **1281/1248/0/33** · build 0 hata · izole PG üretim
 var. Firma geneli rapor 6 ondalıkta kesip gürültüyü temizliyor, lokasyon kırılımı ham değeri taşıyor →
 iki yol arasında **2×10⁻¹⁷** fark. Stok için anlamsız büyüklük ama defterden yeniden hesaplama ile
 normalize edilebilir. **Veri dokunuşu** olduğu için ayrı iş.
+
+### `STK-07` — Senkron sertifikasyonu · ✅ **TAMAMLANDI** (2026-08-11)
+Kayıt: [`STK_07_SENKRON_SERTIFIKASYONU.md`](STK_07_SENKRON_SERTIFIKASYONU.md)
+
+11 senaryo **gerçek HTTP senkron uçlarıyla** koşturuldu (masaüstü ayrı yerel SQLite ile temsil edildi).
+Kanıtlanan: lokasyon senkronda kaybolmuyor · transferin iki bacağı da taşınıyor · idempotency (aynı paket
+3 kez → kopya yok) · offline→online döngüsü temiz · yakınsama hareket kimlikleri dahil · şirket izolasyonu
+çevrimdışı da geçerli · **bakiyenin otoritesi defter** (kasten bozulan bakiye senkronla düzeldi) ·
+**delta pull gerçekten delta** (güncel sürümden sonrası boş) · hayalet lokasyon satırı yok.
+**Senkron kodu DEĞİŞTİRİLMEDİ.** 1281 → **1292/1259/0/33** · build 0 hata.
+
+### `SNK-12` — Masaüstünde depo listesi tazeleme · A · **YENİ** (STK-07 bulgusu)
+`branches` iş-senkronu (business-push/pull) kapsamında **değil** — web-otoriteli, ayrı org uçlarından
+geliyor. Depo bazlı stokta sonucu: web'de açılan yeni depo, masaüstüne org senkronu inmeden **stok
+işleminde kullanılamıyor** (`EnsureLocationOwned` reddeder). Hata değil ama kullanıcıya "depo listem
+eksik" dedirtir. Org senkronu sonrası liste tazelensin + kullanıcıya görünür olsun.
+
+### `ARV-01` — Yayın betiği yerel arşiv temizliği · ✅ **TAMAMLANDI** (2026-08-11)
+`scripts/publish_release.mjs` artık paketi sunucuya **başarıyla yükledikten sonra** yerelde yalnız
+**en yeni 3 sürümü** tutuyor (zip + açılmış klasör birlikte). Sunucudaki eşi ADR-070'te zaten vardı;
+yerelde yoktu ve 88 sürüm birikip **28 GB** yemişti. Temizlik yayını asla başarısız saymaz.
