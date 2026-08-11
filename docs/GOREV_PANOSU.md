@@ -1,7 +1,9 @@
 > # ⤴ GÜNCEL GÖREV DURUMU BURADA DEĞİL
 >
-> **2026-08-10'dan itibaren aktif iş ve görev durumu
-> → [PROJE_DURUMU_VE_ILERLEME.md](PROJE_DURUMU_VE_ILERLEME.md)** (§4 İş Durum Tablosu, §6 Aktif İş).
+> **2026-08-11'den itibaren → [project-control/CURRENT_PHASE.md](project-control/CURRENT_PHASE.md)**
+> (aktif faz + sıradaki iş) · [project-control/TASK_BACKLOG.md](project-control/TASK_BACKLOG.md) (görev ayrıntısı).
+>
+> 2026-08-10 dönemi (PRT-01 ve öncesi) → [PROJE_DURUMU_VE_ILERLEME.md](PROJE_DURUMU_VE_ILERLEME.md).
 >
 > **Bu dosya neden duruyor?** Aşağıdaki pano **geçmiş kaydıdır** (PostgreSQL geçişi dönemi);
 > silinmedi ama **artık güncellenmiyor**.

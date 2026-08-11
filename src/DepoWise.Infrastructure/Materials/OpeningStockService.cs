@@ -74,19 +74,19 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
             cmd.ExecuteNonQuery();
         }
 
-        UpsertBalance(conn, tx, s.CompanyId, materialId, quantity, now);
+        // STK-02: bakiye, açılış hareketinin lokasyonuna yazılır (defterle birebir).
+        UpsertBalance(conn, tx, s.CompanyId, materialId, branchId ?? StockBalanceWriter.Unassigned, quantity, now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_movement", materialId, AuditActions.Create, s.UserId,
             AfterJson: $"{{\"type\":\"opening\",\"qty\":\"{Money.Serialize(quantity)}\"}}"), _clock);
         tx.Commit();
     }
 
+    /// <summary>Malzemenin FİRMA GENELİ bakiyesi (tüm depoların toplamı).
+    /// STK-02: bakiye depo bazlı olduğu için eski tek-satır okuması yalnız ilk depoyu görürdü.</summary>
     public decimal GetBalance(SessionContext s, string materialId)
     {
         using var conn = _factory.Create();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
-        cmd.AddWithValue("@m", materialId);
-        return Money.Parse(cmd.ExecuteScalar() as string);
+        return StockBalanceWriter.ReadTotal(conn, null, s.CompanyId, materialId);
     }
 
     private static bool OperationApplied(DbConnection conn, DbTransaction tx, string operationId)
@@ -101,8 +101,12 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
     /// <summary>Faz 3-Ön (kullanıcı kararı 3): açılış stoğunun AYRI bakiye yazımı KALDIRILDI — stok bakiyesi
     /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer. Açılış NEGATİF olabildiği için
     /// (ADR-086) negatif kalkanı burada KAPALI kalır — eski davranışla birebir aynı.</summary>
-    private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId, decimal delta, long now)
-        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, delta, now, allowNegative: true);
+    /// <param name="locationId">STK-02 — açılış hareketiyle AYNI lokasyon (<c>stock_movements.branch_id</c>).
+    /// Kullanıcı lokasyon seçmediyse ATANMAMIŞ kovasıdır; tahmin edilerek bir şubeye yazılmaz.
+    /// Açılışta lokasyon SEÇTİRİLMESİ bir UX gereksinimidir → STK-03/04/05.</param>
+    private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId,
+        string locationId, decimal delta, long now)
+        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, locationId, delta, now, allowNegative: true);
 
     private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
     {

@@ -293,11 +293,14 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
+        // STK-02: bakiye artık (malzeme + lokasyon) anahtarlı. Doğrudan JOIN malzeme satırlarını
+        // ÇOĞALTIRDI (aracın uyumlu malzemesi her depo için tekrar listelenirdi). Amaç FİRMA GENELİ
+        // stok olduğu için lokasyonlar toplayan alt sorguda tek satıra indirilir.
+        cmd.CommandText = $@"
 SELECT m.id, m.code, m.name, COALESCE(b.quantity,'0')
 FROM material_compatible_vehicles mcv
 JOIN materials m ON m.id = mcv.material_id AND m.company_id = @c AND m.is_deleted = 0
-LEFT JOIN stock_balances b ON b.material_id = m.id
+LEFT JOIN {SqlDialect.StockTotalSubquery(conn)} b ON b.material_id = m.id AND b.company_id = m.company_id
 WHERE mcv.vehicle_id = @v;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@v", vehicleId);
@@ -329,7 +332,9 @@ LEFT JOIN material_categories mc ON mc.id = m.category_id
 LEFT JOIN units u   ON u.id = m.unit_id
 LEFT JOIN brands b  ON b.id = m.brand_id
 LEFT JOIN suppliers sup ON sup.id = m.supplier_id
-LEFT JOIN stock_balances sb ON sb.material_id = m.id
+-- STK-02: bakiye depo bazlı → düz JOIN detay satırını depo sayısı kadar çoğaltırdı (ilk satır okunur,
+-- kart YANLIŞ stok gösterirdi). Malzeme kartı firma-geneli olduğu için lokasyonlar toplanır.
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" sb ON sb.material_id = m.id AND sb.company_id = m.company_id
 WHERE m.id=@id AND m.company_id=@c AND m.is_deleted=0;";
             cmd.AddWithValue("@id", materialId);
             cmd.AddWithValue("@c", s.CompanyId);
@@ -475,15 +480,10 @@ WHERE id=@id AND company_id=@c AND is_deleted=0" + EditLockGuard.Clause(expected
         var reasons = new List<string>();
 
         // 1) Stok bakiyesi — sıfırdan farklıysa silinemez (fiziksel olarak elde olan mal silinemez).
-        decimal qty = 0m;
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.Transaction = tx;
-            cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m AND company_id=@c;";
-            cmd.AddWithValue("@m", materialId);
-            cmd.AddWithValue("@c", companyId);
-            qty = Money.Parse(cmd.ExecuteScalar() as string);
-        }
+        // STK-02: bakiye artık depo bazlı. Eski tek satır okuması yalnız İLK deponun bakiyesini
+        // görürdü → başka depoda malı olan malzeme "stoğu yok" sanılıp silinebilirdi. ReadTotal
+        // firmanın TÜM depolarını C# decimal ile toplar (SQL SUM float'a düşerdi).
+        decimal qty = StockBalanceWriter.ReadTotal(conn, tx, companyId, materialId);
         if (qty != 0m)
             reasons.Add($"stokta {qty.ToString("0.####", TrCulture)} birim var");
 
@@ -618,7 +618,7 @@ LEFT JOIN material_categories mc ON mc.id = m.category_id
 LEFT JOIN units u ON u.id = m.unit_id
 LEFT JOIN brands b ON b.id = m.brand_id
 LEFT JOIN suppliers sup ON sup.id = m.supplier_id
-LEFT JOIN stock_balances sb ON sb.material_id = m.id
+LEFT JOIN {STOCK_TOTALS} sb ON sb.material_id = m.id AND sb.company_id = m.company_id
 WHERE m.company_id = @c AND m.is_deleted = 0";
 
     /// <summary>Kolon bazlı filtre + numaralı sayfalama (kullanıcı isteği 2026-07-17). Her filtre alanı

@@ -12,6 +12,43 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-102 — Stok bakiyesi DEPO BAZLI oldu (KARAR-7=A) (11.08.2026, TAMAM — KRİTİK)
+
+- **Bağlam:** `stock_movements` baştan beri lokasyon taşıyordu (`branch_id`, transferde `branch_from_id`),
+  ama `stock_balances` birincil anahtarı `(material_id)` idi → firma başına TEK bakiye. Sonuç: transfer
+  bakiyede **görünmüyordu** ("net bakiye değişmez") ve "hangi depoda ne kadar var?" sorusunun cevabı yoktu.
+  Bu, projenin 1 numaralı mimari borcuydu; ön muhasebe ve şantiye maliyeti buna bağlı.
+- **Karar (KARAR-7 = A, kullanıcı):** **Malzeme kartı FİRMA GENELİ kalır** (ortak katalog), **stok DEPO
+  BAZLI** olur. `stock_balances` anahtarı `(company_id, material_id, location_id)`; `location_id` =
+  `branches.id`, **`''` = ATANMAMIŞ** (PostgreSQL'de PK kolonu NULL olamaz; boş metin açık, sorgulanabilir
+  ve ekranda gösterilebilir bir kovadır). Ayrı bir "depo" tablosu AÇILMADI — lokasyon = şube/şantiye.
+- **Veri:** Yeni bakiyeler **hareket defterinden** yeniden hesaplanır (`Migration064`). Eski tek-satır
+  bakiyeler lokasyonlara **dağıtılmaz/tahmin edilmez** — veri uydurmak yasak (kullanıcı kuralı). Lokasyonu
+  bilinmeyen geçmiş ATANMAMIŞ kovasında kalır; kullanıcı sonradan transferle taşır (KARAR-8 / `STK-08`).
+- **Hassasiyet:** Toplama **C#'ta `decimal`** ile yapılır; SQL `SUM` yazma yollarında KULLANILMAZ
+  (miktar TEXT içinde decimal tutulur, SQLite'ta sayısal toplama kayan noktaya düşer).
+  Görüntüleme toplamı için `SqlDialect.StockTotalSubquery` **kanonik metin** üretir (iki lehçede aynı çıktı).
+- **Fail-closed migration:** Yazmadan önce her malzeme için `Σ(yeni lokasyon bakiyeleri) == eski bakiye`
+  karşılaştırılır; tek bir fark bile varsa istisna fırlatılır ve runner transaction'ı geri alır.
+  Sessiz bozulma yerine açık durma tercih edildi. **Sonuç:** bakiyesi defterle uyuşmayan bir veritabanında
+  güncelleme başlamaz — önce `RecomputeBalances` gerekir. Üretim kopyasında uyuşmazlık YOK.
+- **Atomiklik:** Migration ve 16 çağrı noktasının dönüşümü **aynı iş biriminde** verildi. Yalnız migration
+  açılsaydı stok değerleri **sessizce yanlış** görünürdü — en tehlikeli hata türü.
+- **Senkron:** **0 değişiklik** gerekti. `DbIntrospect.PrimaryKey` bileşik anahtarı sırayla okuyor,
+  `BusinessSyncService` `ON CONFLICT` hedefini ondan kuruyor → üç kolonlu anahtar otomatik üretiliyor.
+  `stock_movements` şeması değişmedi → push/pull/idempotency aynen çalışır.
+  **Masaüstü çevrimdışı mimarisi korundu** (SQLite kalır; aynı migration kataloğu yürür).
+- **Alternatifler:** (a) ayrı `stock_locations` tablosu — gereksiz ikinci kavram, şube zaten var;
+  (b) bakiyeyi kaldırıp her okumada defteri toplamak — 667 hareketle bugün ucuz ama büyümede yavaş,
+  ayrıca CAS koruması kaybolurdu; (c) `DISTINCT` ile satır çoğaltmayı gizlemek — **reddedildi**
+  (hatayı gizler, toplamı bozardı).
+- **Kanıt:** İzole PG kopyası 667 hareket · 664 → 665 bakiye · **uyuşmayan 0** · toplam korundu ·
+  dolu SQLite v63→v64 kayıpsız · doğrulama kapısı durdurup geri aldı · liste 2459 satır = malzeme sayısı
+  (çoğaltma yok) · test 1223/1190/0/33. Rapor: `docs/tests/Stok_Lokasyon_Test_Report.md`.
+- **Yan bulgu (düzeltildi):** Sayım, sistem miktarını firma genelinden okuyup düzeltmeyi şubeye yazıyordu.
+
+---
+
 ### ADR-101 — Delta eşitleme: yalnız değişen kayıtlar (zaman aşımı çözümü) (19.07.2026, TAMAM — KRİTİK)
 
 - **Bağlam:** Kullanıcı: "DESKTOP-SIKIB3U makinede eşitleme zaman aşımına uğruyor." Tanı: firmada 2508 malzeme

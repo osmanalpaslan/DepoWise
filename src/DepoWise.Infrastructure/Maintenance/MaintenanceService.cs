@@ -457,10 +457,17 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now
     /// <summary>Faz 3-Ön (kullanıcı kararı 3): bakım tarafının AYRI bakiye kopyası KALDIRILDI. Stok bakiyesi
     /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer → aynı stok için iki farklı
     /// güvenlik mantığı yok. Negatife izin verme davranışı (allowNegative: true) DEĞİŞMEDİ.</summary>
+    /// <remarks>
+    /// STK-02 — LOKASYON: bakım tüketim hareketi (<see cref="InsertUsageMovement"/>) <c>branch_id</c>'yi
+    /// <b>NULL</b> yazar (bakımın deposu bugün tutulmuyor). Bakiye ile defterin BİREBİR aynı kalması için
+    /// bakiye de ATANMAMIŞ kovasına yazılır. Bakım malzemesinin hangi depodan düştüğünün seçilmesi bir
+    /// ürün/UX gereksinimidir ve STK-03/04/05'e devredilmiştir; burada tahmin edilerek bir şube SEÇİLMEZ.
+    /// </remarks>
     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
         decimal signedQty, long now, bool allowNegative = false)
     {
-        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, signedQty, now, allowNegative);
+        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, StockBalanceWriter.Unassigned,
+            signedQty, now, allowNegative);
     }
 
     private static void InsertUsageMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,

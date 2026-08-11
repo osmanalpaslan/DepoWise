@@ -70,8 +70,45 @@ internal static class SqlDialect
     ///     (sayıyı 2 ondalıklı metne çevirir — liste/grid'de sayısal kolonun "içerir" araması için).
     ///   • <c>GROUP_CONCAT(&lt;expr&gt;, '&lt;ayraç&gt;')</c> → <c>string_agg(&lt;expr&gt;, '&lt;ayraç&gt;')</c> (aynı imza).
     /// Liste/grid sorgularının komut metnini bununla sarmalayın (SQLite'ta güvenli no-op).</summary>
+    /// <summary>
+    /// STK-02 — Bir malzemenin TÜM lokasyon bakiyelerini tek satıra toplayan alt sorgu.
+    /// <c>stock_balances</c> artık <c>(company_id, material_id, location_id)</c> anahtarlı olduğu için
+    /// doğrudan JOIN yapılırsa malzeme satırları ÇOĞALIR (liste/rapor/dashboard yanlış olur).
+    /// Bu alt sorgu <c>material_id</c> başına TEK satır garanti eder.
+    ///
+    /// ⚠️ YALNIZ GÖRÜNTÜLEME/RAPOR TOPLAMI İÇİNDİR. Yazma yollarında (CAS, recompute) SQL toplaması
+    /// KULLANILMAZ — orada toplama C#'ta <c>decimal</c> ile yapılır, çünkü <c>quantity</c> TEXT içinde
+    /// decimal tutulur ve SQLite'ta sayısal toplama kayan noktaya düşer (PostgreSQL'de <c>numeric</c> tamdır).
+    ///
+    /// <b>Çıktı tipi METİNDİR</b> — tıpkı <c>stock_balances.quantity</c> gibi. Bu bilinçlidir: çağıran
+    /// sorguların hepsi bugün <c>COALESCE(b.quantity,'0')</c> yazıp C# tarafında <c>Money.Parse</c> /
+    /// <c>GetString</c> ile okuyor. Sayısal döndürseydik 8 çağrı noktasının HEPSİNDE okuma kodu da
+    /// değişmek zorunda kalırdı (sessiz <c>InvalidCastException</c> riski). Metin biçimi kanoniktir:
+    /// en çok 6 ondalık, sondaki sıfırlar ve gereksiz nokta kırpılır → <c>15.50</c>+<c>0.00</c> = "15.5",
+    /// <c>100</c> = "100", toplam 0 = "0". İki lehçe AYNI metni üretir.
+    /// (6 ondalık sınırı yalnız GÖRÜNTÜLENEN toplamı ilgilendirir; defter ve bakiye satırları tam kalır.)
+    /// </summary>
+    public static string StockTotalSubquery(DbConnection conn)
+    {
+        // Kırpma güvenli çünkü her iki biçim de HER ZAMAN ondalık nokta içerir ('%.6f' / 'FM….000000').
+        // Nokta olmasaydı rtrim(...,'0') tam sayıyı bozardı ("100" → "1").
+        var sum = IsSqlite(conn)
+            ? "printf('%.6f', SUM(CAST(quantity AS REAL)))"
+            : "to_char(SUM(CAST(quantity AS numeric)), 'FM999999999999990.000000')";
+        return $"(SELECT material_id, company_id, rtrim(rtrim({sum}, '0'), '.') AS quantity " +
+               "FROM stock_balances GROUP BY material_id, company_id)";
+    }
+
+    /// <summary>STK-02 — <c>const</c> SQL metinlerinde kullanılan yer tutucu. <see cref="PortableSql"/>
+    /// bunu <see cref="StockTotalSubquery"/> ile değiştirir (const'ta bağlantı bilinemez).</summary>
+    public const string StockTotalsToken = "{STOCK_TOTALS}";
+
     public static string PortableSql(DbConnection conn, string sql)
     {
+        // Lehçeden BAĞIMSIZ ilk adım: stok toplamı yer tutucusu her iki veritabanında da açılır.
+        if (sql.Contains(StockTotalsToken, StringComparison.Ordinal))
+            sql = sql.Replace(StockTotalsToken, StockTotalSubquery(conn), StringComparison.Ordinal);
+
         if (IsSqlite(conn)) return sql;
         sql = System.Text.RegularExpressions.Regex.Replace(
             sql,

@@ -1,8 +1,21 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-07-12
+> Son güncelleme: 2026-08-11
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
+
+- **R31 — Depo bazlı stok (Migration064) deploy edilince stoğun neredeyse tamamı "ATANMAMIŞ" görünecek**
+  (ADR-102, 11.08.2026 — **henüz deploy EDİLMEDİ**, dalda duruyor). Mevcut 667 stok hareketinin **666'sı
+  lokasyonsuz** olduğu için bakiye **8953,3 birim** ATANMAMIŞ kovasına düşer. Bu bir **veri kaybı değildir**
+  (toplam korunur, kanıtlandı) ama kullanıcı "stoğum kayboldu / hepsi boşta" diye algılayabilir.
+  **Önlem:** deploy öncesi kullanıcıya anlatılmalı; dağıtım **KARAR-8** (`STK-08`) ile yapılacak.
+  Veri uydurulmadı — hangi malın hangi depoda olduğu defterde yazmıyor, tahmin edilmeyecek.
+
+- **R32 — Migration064 bakiyesi defterle uyuşmayan veritabanında BİLİNÇLİ olarak durur** (ADR-102).
+  Fail-closed: sessizce yanlış stok göstermek yerine açık hata verir ve transaction geri alınır
+  (kanıtlandı). **Sonuç:** böyle bir **masaüstü** veritabanı varsa uygulama güncellemesi başlamaz.
+  **Çözüm yolu:** o makinede önce sunucu-otoriteli yeniden hesaplama (`RecomputeBalances`) çalıştırılmalı.
+  Üretim PostgreSQL kopyasında uyuşmazlık **yok** (664 malzemede uyuşmayan 0).
 
 - **R30 — Sunucu diski dolarsa TÜM API 500 döner** (ADR-070, 12.07'de **yaşandı**). Fly.io kalıcı diski
   `/data` ~**974 MB**; her masaüstü paketi ~**85 MB** → **~11 sürümlük tavan**. Disk dolunca SQLite hiçbir şey

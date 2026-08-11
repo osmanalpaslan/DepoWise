@@ -29,9 +29,12 @@ public sealed class ReportService
         using var cmd = conn.CreateCommand();
         // Malzeme FİRMA-GENELİ katalog (ortak liste) → stok durumu firma-geneli listelenir. Şube-bazlı stok
         // ayrımı geldiğinde bu rapor şube stoğuna göre revize edilecek (kullanıcı kararı 2026-07-26).
+        // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN her malzemeyi depo sayısı kadar
+        // TEKRARLARDI. Bu rapor firma-geneli olduğu için lokasyonlar toplanarak tek satıra indirilir.
         cmd.CommandText = @"
 SELECT m.code, m.name, COALESCE(b.quantity,'0') AS qty, m.min_stock
-FROM materials m LEFT JOIN stock_balances b ON b.material_id=m.id
+FROM materials m LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b
+     ON b.material_id=m.id AND b.company_id=m.company_id
 WHERE m.company_id=@c AND m.is_deleted=0
 ORDER BY m.code;";
         cmd.AddWithValue("@c", companyId);
@@ -59,7 +62,7 @@ SELECT COALESCE(t.code,''), t.name, CAST(COUNT(m.id) AS INTEGER),
        COALESCE(SUM(CAST(COALESCE(b.quantity,'0') AS REAL)),0)
 FROM material_templates t
 JOIN materials m ON m.template_id=t.id AND m.is_deleted=0
-LEFT JOIN stock_balances b ON b.material_id=m.id
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id=m.id AND b.company_id=m.company_id
 WHERE t.company_id=@c
 GROUP BY t.id ORDER BY t.name;";   // t.id = PK → t.code/t.name bare-kolonu PG'de de geçerli (fonksiyonel bağımlılık)
         cmd.AddWithValue("@c", companyId);
@@ -89,7 +92,7 @@ GROUP BY t.id ORDER BY t.name;";   // t.id = PK → t.code/t.name bare-kolonu PG
 SELECT m.code, m.name, COALESCE(mc.name,''), COALESCE(b.quantity,'0'), m.min_stock
 FROM materials m
 LEFT JOIN material_categories mc ON mc.id=m.category_id
-LEFT JOIN stock_balances b ON b.material_id=m.id
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id=m.id AND b.company_id=m.company_id
 WHERE m.company_id=@c AND m.is_deleted=0 AND m.template_id IS NULL
 ORDER BY m.code;";
         cmd.AddWithValue("@c", companyId);

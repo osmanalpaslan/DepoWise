@@ -141,9 +141,12 @@ ON CONFLICT(user_id, alert_key) DO UPDATE SET signature=@sig, created_at=@now;";
     private static IReadOnlyList<(string Id, string Name)> LowStockList(DbConnection conn, string companyId, string? branch = null)
     {
         using var cmd = conn.CreateCommand();
+        // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN malzemeyi depo sayısı kadar TEKRARLARDI
+        // (aynı malzeme düşük-stok listesinde birden çok kez çıkardı). Düşük stok uyarısı FİRMA GENELİ
+        // toplama bakar (kullanıcı bir depoda azalmayı değil, elindeki toplamı görmek ister) → toplayan alt sorgu.
         cmd.CommandText = @"
 SELECT m.id, m.name FROM materials m
-LEFT JOIN stock_balances b ON b.material_id = m.id
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
 WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
   AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0
 ORDER BY m.name LIMIT 20;";
@@ -172,9 +175,10 @@ SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE 
     private static int LowStockCount(DbConnection conn, string companyId, string? branch = null)
     {
         using var cmd = conn.CreateCommand();
+        // STK-02: LowStockList ile AYNI tanım (sayı ile liste kopmamalı) → aynı toplayan alt sorgu.
         cmd.CommandText = @"
 SELECT COUNT(*) FROM materials m
-LEFT JOIN stock_balances b ON b.material_id = m.id
+LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id = m.id AND b.company_id = m.company_id
 WHERE m.company_id=@c AND m.is_deleted=0" + BranchAnd(branch, "m.branch_id") + @"
 AND CAST(COALESCE(b.quantity,'0') AS REAL) <= CAST(m.min_stock AS REAL) AND CAST(m.min_stock AS REAL) > 0;";
         cmd.AddWithValue("@c", companyId);

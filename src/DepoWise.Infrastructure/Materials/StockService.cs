@@ -180,7 +180,11 @@ public sealed class StockService
                 for (int i = 0; i < lines.Count; i++)
                 {
                     var ln = lines[i];
-                    var system = ReadBalance(conn, tx, ln.MaterialId);
+                    // STK-02: sayım, SAYILAN LOKASYONUN bakiyesiyle karşılaştırılır. Fark hareketi zaten
+                    // aşağıda branchId'ye yazılıyor; sistem miktarını firma geneli okumak "genelden oku,
+                    // lokasyona yaz" tutarsızlığı üretirdi. branchId yoksa ATANMAMIŞ kovası okunur/yazılır.
+                    var system = StockBalanceWriter.ReadBalance(conn, tx, s.CompanyId, ln.MaterialId,
+                        branchId ?? StockBalanceWriter.Unassigned);
                     var diff = ln.CountedQuantity - system;
                     InsertCountLine(conn, tx, docId, ln.MaterialId, system, ln.CountedQuantity, diff, reason);
                     if (diff != 0)
@@ -219,8 +223,10 @@ public sealed class StockService
 
         foreach (var mv in ActiveMovements(conn, tx, documentId))
         {
-            // Ters yön uygula (negatif guard ters kayıtta da geçerli)
-            ApplyDelta(conn, tx, s.CompanyId, mv.MaterialId, -mv.Direction * mv.Quantity, now, allowNegative: false);
+            // Ters yön uygula (negatif guard ters kayıtta da geçerli).
+            // STK-02: ters kayıt, ORİJİNAL hareketin lokasyonuna uygulanır — başka bir depoyu etkilemez.
+            ApplyDelta(conn, tx, s.CompanyId, mv.MaterialId, mv.BranchId ?? StockBalanceWriter.Unassigned,
+                -mv.Direction * mv.Quantity, now, allowNegative: false);
             var revId = InsertMovement(conn, tx, s.CompanyId, mv.MaterialId, documentId, "reverse",
                 -mv.Direction, mv.Quantity, null, null, null, $"{mv.OperationId}:rev", reason, now, mv.BranchId, mv.BranchFromId, mv.GroupId, reversesId: mv.Id, opBranchId: s.OperatingBranchId);
             MarkReversed(conn, tx, mv.Id);
@@ -241,12 +247,36 @@ public sealed class StockService
     /// </summary>
     public decimal GetBalance(SessionContext s, string materialId)
     {
+        // STK-02: FİRMA GENELİ toplam = malzemenin TÜM lokasyon bakiyelerinin toplamı.
+        // Toplama C#'ta decimal ile (SQL SUM'ı SQLite'ta float'a düşerdi — Money kuralı: float yasak).
+        using var conn = _factory.Create();
+        return StockBalanceWriter.ReadTotal(conn, null, s.CompanyId, materialId);
+    }
+
+    /// <summary>
+    /// STK-02 — TEK LOKASYONUN bakiyesi (<c>branches.id</c>; bilinmiyorsa
+    /// <see cref="StockBalanceWriter.Unassigned"/>). <see cref="GetBalance"/> firma genelini döndürür;
+    /// bu ikisi bilinçli olarak AYRI metotlardır (aynı ad altında iki farklı anlam bırakılmadı).
+    /// </summary>
+    public decimal GetBalanceAt(SessionContext s, string materialId, string locationId)
+    {
+        using var conn = _factory.Create();
+        return StockBalanceWriter.ReadBalance(conn, null, s.CompanyId, materialId, locationId);
+    }
+
+    /// <summary>STK-02 — malzemenin lokasyon kırılımı (rapor/ekran için; toplama YAPILMAZ).</summary>
+    public IReadOnlyDictionary<string, decimal> GetBalancesByLocation(SessionContext s, string materialId)
+    {
+        var map = new Dictionary<string, decimal>(StringComparer.Ordinal);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m AND company_id=@c;";
-        cmd.AddWithValue("@m", materialId);
+        cmd.CommandText =
+            "SELECT location_id, quantity FROM stock_balances WHERE company_id=@c AND material_id=@m;";
         cmd.AddWithValue("@c", s.CompanyId);
-        return Money.Parse(cmd.ExecuteScalar() as string);
+        cmd.AddWithValue("@m", materialId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) map[r.GetString(0)] = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+        return map;
     }
 
     /// <summary>
@@ -279,8 +309,14 @@ public sealed class StockService
             $"SELECT material_id, quantity FROM stock_balances WHERE company_id=@c AND material_id IN ({string.Join(",", names)});";
         cmd.AddWithValue("@c", s.CompanyId);
         using var r = cmd.ExecuteReader();
+        // STK-02: artık malzeme başına LOKASYON SAYISI KADAR satır gelir → C#'ta decimal ile TOPLANIR.
+        // (Tek sorgu korunur; N+1 üretilmez. SQL SUM kullanılmaz — SQLite'ta float hatası verirdi.)
         while (r.Read())
-            result[r.GetString(0)] = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+        {
+            var mat = r.GetString(0);
+            result.TryGetValue(mat, out var cur);
+            result[mat] = cur + Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+        }
         return result;
     }
 
@@ -441,7 +477,10 @@ LIMIT @take;";
                 throw new NegativeStockException($"Bu şubede yeterli stok yok. Mevcut: {branchBal:0.##}, çıkış istenen: {line.Quantity:0.##}.");
         }
 
-        ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
+        // STK-02: bakiye ARTIK LOKASYON BAZLI. Hareketin lokasyonu (branchId) bakiyeye de yazılır;
+        // bilinmiyorsa ATANMAMIŞ kovası kullanılır — asla rastgele şube seçilmez.
+        ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, branchId ?? StockBalanceWriter.Unassigned,
+            direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
         InsertMovement(conn, tx, s.CompanyId, line.MaterialId, docId, movementType, direction, line.Quantity,
             line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
     }
@@ -450,11 +489,12 @@ LIMIT @take;";
     /// Faz 3-Ön: gerçek yazma TEK ORTAK yazıcıdadır (<see cref="StockBalanceWriter"/>) — bakım tarafı da
     /// aynı sınıfı kullanır, böylece aynı stok için iki farklı güvenlik mantığı kalmaz (kullanıcı kararı 3).</summary>
     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
-        decimal signedQty, long now, bool allowNegative)
-        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, signedQty, now, allowNegative);
+        string locationId, decimal signedQty, long now, bool allowNegative)
+        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, locationId, signedQty, now, allowNegative);
 
-    private static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string materialId)
-        => StockBalanceWriter.ReadBalance(conn, tx, materialId);
+    /// <summary>Firma geneli toplam (tüm lokasyonlar) — ters kayıt/sayım gibi genel kontroller için.</summary>
+    private static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
+        => StockBalanceWriter.ReadTotal(conn, tx, companyId, materialId);
 
     /// <summary>
     /// SUNUCU-OTORİTELİ bakiye (Senkron 2b): firmanın TÜM stok bakiyelerini hareket defterinden yeniden hesaplar.
@@ -484,20 +524,23 @@ LIMIT @take;";
 
             var before = LedgerSignature(conn, tx, companyId);
 
-            var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            // STK-02: artık (malzeme + LOKASYON) bazında hesaplanır. Toplama C#'ta decimal ile yapılır —
+            // quantity TEXT içinde decimal olduğu için SQL SUM'ı SQLite'ta float hatası üretirdi.
+            var totals = new Dictionary<(string Material, string Location), decimal>();
             using (var read = conn.CreateCommand())
             {
                 read.Transaction = tx;
-                read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
+                read.CommandText =
+                    "SELECT material_id, branch_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
                 read.AddWithValue("@c", companyId);
                 using var r = read.ExecuteReader();
                 while (r.Read())
                 {
-                    var mat = r.GetString(0);
-                    long dir = r.GetInt64(1);
-                    var qty = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
-                    totals.TryGetValue(mat, out var cur);
-                    totals[mat] = cur + dir * qty;
+                    var key = (r.GetString(0), r.IsDBNull(1) ? StockBalanceWriter.Unassigned : r.GetString(1));
+                    long dir = r.GetInt64(2);
+                    var qty = Money.Parse(r.IsDBNull(3) ? null : r.GetString(3));
+                    totals.TryGetValue(key, out var cur);
+                    totals[key] = cur + dir * qty;
                 }
             }
 
@@ -512,14 +555,27 @@ LIMIT @take;";
             }
 
             var now = _clock.UtcNow.ToUnixTimeMilliseconds();
-            foreach (var (mat, total) in totals)
+
+            // Defterde artık bulunmayan (malzeme+lokasyon) bakiye satırları KALMAMALI — aksi halde
+            // hayalet bakiye oluşur (ör. tüm hareketleri ters kaydedilmiş bir lokasyon).
+            using (var del = conn.CreateCommand())
+            {
+                del.Transaction = tx;
+                del.CommandText = "DELETE FROM stock_balances WHERE company_id=@c;";
+                del.AddWithValue("@c", companyId);
+                del.ExecuteNonQuery();
+            }
+
+            foreach (var ((mat, loc), total) in totals)
             {
                 using var up = conn.CreateCommand();
                 up.Transaction = tx;
-                up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now) " +
-                    "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
+                up.CommandText =
+                    "INSERT INTO stock_balances(company_id, material_id, location_id, quantity, updated_at) VALUES(@c,@m,@l,@q,@now) " +
+                    "ON CONFLICT(company_id, material_id, location_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
                 up.AddWithValue("@c", companyId);
                 up.AddWithValue("@m", mat);
+                up.AddWithValue("@l", loc);
                 up.AddWithValue("@q", Money.Serialize(total));
                 up.AddWithValue("@now", now);
                 up.ExecuteNonQuery();

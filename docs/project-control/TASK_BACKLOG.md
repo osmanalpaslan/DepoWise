@@ -68,14 +68,30 @@ ile üretilen lokasyon bazlı bakiyelerin **mevcut tek bakiyelerle toplamının 
 migration'ın ürettiği yeni negatif **1** (66 negatif zaten mevcut, ADR-086).
 **Sonuç: veri kaybı riski YOK, veri uydurma gerekmiyor.**
 
-### `STK-01` — `stock_balances` şema değişimi · ▶️ **SIRADA**
-`(company_id, material_id, location_id)` birincil anahtar · `location_id TEXT NOT NULL` (`''` = ATANMAMIŞ,
-çünkü PG'de PK kolonu NULL olamaz) · defterden yeniden hesaplama · **migration içi doğrulama adımı**
-(toplam eşleşmezse transaction geri alınır) · SQLite'ta tablo yeniden kurulur (PK değişimi ALTER ile olmaz).
-**Ön koşul:** güncel `pg_dump` yedeği ✅ mevcut.
+### `STK-01` — `stock_balances` şema değişimi · ✅ **TAMAMLANDI** (2026-08-11)
+`Migration064_StockBalanceLocation`: `(company_id, material_id, location_id)` birincil anahtar ·
+`location_id TEXT NOT NULL` (`''` = ATANMAMIŞ, çünkü PG'de PK kolonu NULL olamaz) · defterden C#/decimal
+ile yeniden hesaplama · **migration içi doğrulama adımı** (toplam eşleşmezse transaction geri alınır) ·
+SQLite'ta tablo yeniden kurulur (PK değişimi ALTER ile olmaz).
+**`STK-02` ile AYNI iş biriminde etkinleştirildi** (tek başına etkinleştirmek stoğu sessizce yanlış gösterirdi).
+
+### `STK-02` — Tüm okuma/yazma yolları lokasyon farkında · ✅ **TAMAMLANDI** (2026-08-11)
+16 üretim çağrı noktası dönüştürüldü: **4 yazma** (CAS artık `ON CONFLICT(company_id, material_id, location_id)`) ·
+**3 skaler + 1 toplu okuma** (C#'ta `decimal` toplama; SQL `SUM` kullanılmaz — SQLite'ta float hatası verir) ·
+**8 JOIN** → `SqlDialect.StockTotalSubquery` (malzeme başına TEK satır; `DISTINCT` ile gizleme YOK).
+Yanında bulunan **gerçek hata**: sayım sistem miktarını firma genelinden okuyup düzeltmeyi şubeye yazıyordu → düzeltildi.
+
+**Kanıtlar:** 17 yeni senaryo (`tests/DepoWise.Tests/StockLocationTests.cs`) · tam takım **1223/1190/0/33** ·
+izole PG kopyasında migration provası (667 hareket · 664→665 bakiye · **uyuşmayan 0** · toplam korundu) ·
+dolu SQLite v63→v64 yükseltmesi kayıpsız · doğrulama kapısının gerçekten durdurup geri aldığı kanıtlandı ·
+dönüştürülen sorgular PG'de çalıştırıldı (liste 2459 satır = malzeme sayısı → **satır çoğaltma yok**).
 
 ⚠️ **Kullanıcının bileceği sonuç:** 666/667 hareket lokasyonsuz olduğu için migration sonrası stoğun
-neredeyse tamamı **"ATANMAMIŞ"** görünecek (8953 birim). Dağıtım **KARAR-8** ile ele alınacak; veri uydurulmayacak.
+neredeyse tamamı **"ATANMAMIŞ"** görünecek (8953,3 birim). Dağıtım **KARAR-8** ile ele alınacak; veri uydurulmayacak.
+
+⚠️ **Yeni risk (masaüstü):** migration, bakiyesi defterle uyuşmayan bir veritabanında **bilinçli olarak
+durur** (sessiz bozulma yerine açık hata). Böyle bir masaüstü veritabanı varsa güncelleme başlatılamaz →
+önce sunucu-otoriteli yeniden hesaplama (`RecomputeBalances`) gerekir. Üretim PG kopyasında uyuşmazlık YOK.
 
 ---
 

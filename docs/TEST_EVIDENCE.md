@@ -356,3 +356,21 @@ Her kayıt aşağıdaki şablonla eklenir.
 
 **Bilinen flake:** Tam suit ilk koşuda `OrgPersonnelTests` bir kez SQLite "disk/prepare" hatası verdi (paralel
 dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatası değil, ortam kaynaklı.
+
+## 2026-08-11 - FAZ C / STK-01 + STK-02 — Depo bazlı stok bakiyesi
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Sonuç:** Build **0 hata**. Test **1223 toplam · 1190 geçti · 0 kaldı · 33 atlandı**
+  (taban 1206'ydı; `StockLocationTests` ile **17 yeni senaryo**).
+- **Ek prova 1 — izole PostgreSQL migration provası** (üretim yedeğinin yerel kopyası, canlıya bağlanılmadı):
+  şema 62 → 64 · 667 hareket (666'sı lokasyonsuz) · bakiye 664 → **665** satır ·
+  **uyuşmayan malzeme 0** · toplam **8952,3 → 8952,3** (korundu) · ATANMAMIŞ 8953,3 ·
+  negatif 66 → 67 (defterin söylediği +1) · süre **173 ms**. Prova sonrası kopya veritabanı silindi.
+- **Ek prova 2 — dolu SQLite v63 → v64 yükseltmesi:** 3 bakiye satırı → 5 lokasyon satırı ·
+  toplam **8,3** korundu · ondalıklar tam (0.1 / 0.2 ayrı depolarda) · lokasyonsuz negatif ATANMAMIŞ'ta.
+- **Ek prova 3 — doğrulama kapısı:** defterle uyuşmayan bakiye bırakıldı → migration **durdu**,
+  şema **63'te kaldı**, bakiye **değişmedi** (transaction geri alındı).
+- **Ek prova 4 — dönüştürülen sorgular PostgreSQL'de:** malzeme listesi **2459 satır = malzeme sayısı**
+  (satır çoğaltma yok) · detay = liste = servis = lokasyon kırılımı toplamı (tutarlı) ·
+  Stok Durumu 2459 · Şablon Dışı 2459 · dashboard 2459 malzeme / 2136 düşük stok.
+- **Rapor:** `docs/tests/Stok_Lokasyon_Test_Report.md` · **Karar:** ADR-102

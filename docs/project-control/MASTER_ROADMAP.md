@@ -11,7 +11,7 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 
 | Faz | Ad | Neden bu sırada | Durum |
 |---|---|---|---|
-| **FAZ C** | **Depo bazlı stok** (`STK-00…08`, `TRF-01`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı. **KARAR-7=A ile açıldı** | 🔵 **AKTİF** — `STK-00` ✅ |
+| **FAZ C** | **Depo bazlı stok** (`STK-00…08`, `TRF-01`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı. **KARAR-7=A ile açıldı** | 🔵 **AKTİF** — `STK-00` ✅ `STK-01` ✅ `STK-02` ✅ |
 | **FAZ A** | Kullanıcı bug'ları + yetki tamamlama (`YTK-05`, `UIX-01`, `YTK-06`, `YTK-08`) | Küçük, bağımsız, düşük riskli. **Silinmedi** — stok altyapısı mimari öncelik olduğu için sonraya alındı; FAZ C içinde uygun boşlukta veya FAZ C sonrası yapılır | BEKLEMEDE |
 | **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; yeni stok ekranları doğduğunda hazır olması iyi olur | BEKLEMEDE |
 | **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile **aynı migration ailesinde** yapılmalı; sonra eklenirse geçmiş veri boş kalır | FAZ C'ye bağlı |
@@ -69,8 +69,8 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | ID | İş | Durum |
 |---|---|---|
 | `STK-00` | Migration güvenlik kanıtı — production kopyasında toplam korunumu | ✅ **TAMAM** (uyuşmayan 0) |
-| `STK-01` | `stock_balances` → `(company_id, material_id, location_id)` + defterden yeniden hesaplama + **migration içi doğrulama** (iki lehçe) | ▶️ **SIRADA** |
-| `STK-02` | `StockService` giriş/çıkış/sayım/düzeltme/transfer yollarını lokasyon bazlı yap | BEKLEMEDE |
+| `STK-01` | `stock_balances` → `(company_id, material_id, location_id)` + defterden yeniden hesaplama + **migration içi doğrulama** (iki lehçe) | ✅ **TAMAM** (Migration064 etkin) |
+| `STK-02` | Tüm okuma/yazma yollarını (16 nokta) lokasyon bazlı yap — giriş/çıkış/sayım/transfer/ters kayıt + liste/rapor/dashboard | ✅ **TAMAM** (17 yeni test · PG+SQLite provası) |
 | `STK-03` | API uçları + DTO (lokasyon parametresi) | BEKLEMEDE |
 | `STK-04` | Web: liste, kart, giriş/çıkış, sayım, transfer, uyarı | BEKLEMEDE |
 | `STK-05` | Masaüstü: aynı ekranlar + **offline yollar** (+ `WEB-02` şube kapsamı) | BEKLEMEDE |

@@ -59,6 +59,9 @@ public static class StockBalanceWriter
     /// kendi kanalını takabilir. Yarış tespiti ile SİSTEM hatası burada AYRI etiketlerle yazılır.</summary>
     public static Action<string> Log { get; set; } = static m => Console.Error.WriteLine(m);
 
+    /// <summary>STK-02 — lokasyonu bilinmeyen (geçmiş) stok kovası. Boş metin; NULL DEĞİL (PK kolonu).</summary>
+    public const string Unassigned = "";
+
     // Kısa ve SINIRLI bekleme (agresif polling değil): çakışmada 10-40 ms. En kötü durumda toplam ~120 ms.
     private static readonly Random _jitter = new();
 
@@ -66,10 +69,17 @@ public static class StockBalanceWriter
     /// Bakiyeye işaretli miktarı uygular (CAS). Düşüşte negatif olursa fail-closed —
     /// <see cref="NegativeStockException"/>. Bu davranış ESKİSİYLE BİREBİR AYNIDIR; yalnız yazma koşulu eklendi.
     /// </summary>
+    /// <param name="locationId">
+    /// STK-02 — stok LOKASYONU (<c>branches.id</c>). Lokasyon bilinmiyorsa <see cref="Unassigned"/> (boş metin)
+    /// geçilir. <b>Varsayılan değer YOKTUR ve konulmayacaktır:</b> çağıranın hangi lokasyona yazdığını
+    /// bilinçli olarak belirtmesi gerekir; aksi halde stok sessizce yanlış kovaya yazılır.
+    /// Bilinmeyen lokasyon ASLA rastgele bir şubeye yazılmaz.
+    /// </param>
     public static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
-        decimal signedQty, long now, bool allowNegative)
+        string locationId, decimal signedQty, long now, bool allowNegative)
     {
-        var raw = ReadRaw(conn, tx, materialId);          // HAM METİN (satır yoksa null)
+        locationId ??= Unassigned;
+        var raw = ReadRaw(conn, tx, companyId, materialId, locationId);   // HAM METİN (satır yoksa null)
         var current = Money.Parse(raw);
         var updated = current + signedQty;
         if (!allowNegative && updated < 0)
@@ -82,19 +92,22 @@ public static class StockBalanceWriter
             if (raw is null)
             {
                 // Bakiye satırı henüz yok → oluştur. Araya biri girip oluşturduysa 0 satır → yarış.
+                // STK-02: çakışma hedefi artık BİLEŞİK birincil anahtardır.
                 cmd.CommandText = @"
-INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now)
-ON CONFLICT(material_id) DO NOTHING;";
-                cmd.AddWithValue("@c", companyId);
+INSERT INTO stock_balances(company_id, material_id, location_id, quantity, updated_at) VALUES(@c,@m,@l,@q,@now)
+ON CONFLICT(company_id, material_id, location_id) DO NOTHING;";
             }
             else
             {
                 // CAS: okuduğumuz HAM METİN hâlâ yerinde mi? Değiştiyse 0 satır → yarış.
                 cmd.CommandText = @"
-UPDATE stock_balances SET quantity=@q, updated_at=@now WHERE material_id=@m AND quantity=@expected;";
+UPDATE stock_balances SET quantity=@q, updated_at=@now
+WHERE company_id=@c AND material_id=@m AND location_id=@l AND quantity=@expected;";
                 cmd.AddWithValue("@expected", raw);
             }
+            cmd.AddWithValue("@c", companyId);
             cmd.AddWithValue("@m", materialId);
+            cmd.AddWithValue("@l", locationId);
             cmd.AddWithValue("@q", Money.Serialize(updated));
             cmd.AddWithValue("@now", now);
             affected = cmd.ExecuteNonQuery();
@@ -102,21 +115,44 @@ UPDATE stock_balances SET quantity=@q, updated_at=@now WHERE material_id=@m AND 
 
         if (affected == 0)
             throw new StockConcurrencyException(
-                $"stock_balances yarışı: material={materialId} expected='{raw ?? "(yok)"}' delta={signedQty}");
+                $"stock_balances yarışı: material={materialId} location='{locationId}' expected='{raw ?? "(yok)"}' delta={signedQty}");
     }
 
-    /// <summary>Bakiyeyi okur (decimal). Ham metne ihtiyaç duyan CAS için <see cref="ReadRaw"/> kullanılır.</summary>
-    public static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string materialId)
-        => Money.Parse(ReadRaw(conn, tx, materialId));
+    /// <summary>Lokasyon bakiyesini okur (decimal). CAS için ham metin: <see cref="ReadRaw"/>.</summary>
+    public static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string companyId, string materialId,
+        string locationId)
+        => Money.Parse(ReadRaw(conn, tx, companyId, materialId, locationId));
 
-    /// <summary>Bakiyenin veritabanındaki HAM metni (satır yoksa null). CAS koşulu bunu kullanır.</summary>
-    public static string? ReadRaw(DbConnection conn, DbTransaction? tx, string materialId)
+    /// <summary>TEK LOKASYONUN ham bakiye metni (satır yoksa null). CAS koşulu bunu kullanır.</summary>
+    public static string? ReadRaw(DbConnection conn, DbTransaction? tx, string companyId, string materialId,
+        string locationId)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
+        cmd.CommandText =
+            "SELECT quantity FROM stock_balances WHERE company_id=@c AND material_id=@m AND location_id=@l;";
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@m", materialId);
+        cmd.AddWithValue("@l", locationId ?? Unassigned);
         return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>
+    /// STK-02 — FİRMA GENELİ toplam bakiye: malzemenin TÜM lokasyonlarının toplamı.
+    /// Toplama <b>C#'ta decimal</b> ile yapılır: <c>quantity</c> TEXT içinde decimal tutulur ve
+    /// SQLite'ta <c>SUM(CAST(... AS REAL))</c> kayan nokta hatası üretir (Money kuralı: float yasak).
+    /// </summary>
+    public static decimal ReadTotal(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE company_id=@c AND material_id=@m;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@m", materialId);
+        decimal total = 0m;
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) total += Money.Parse(r.IsDBNull(0) ? null : r.GetString(0));
+        return total;
     }
 
     /// <summary>

@@ -230,7 +230,7 @@ public class BusinessSyncTests : IDisposable
         // Sunucuda bir stock_balances satırı (türetilmiş) olsun
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,unit_price,currency_code,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme',0,'TRY',1,100,1,0);");
-        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,quantity,updated_at) VALUES('ACME','m1',5,100);");
+        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,location_id,quantity,updated_at) VALUES('ACME','m1','',5,100);");
 
         using var snap = JsonDocument.Parse(new BusinessSyncService(_src, _clock).BuildSnapshot("ACME"));
         new BusinessSyncService(_dst, _clock).ApplyPull("ACME", snap.RootElement,
@@ -291,13 +291,14 @@ public class BusinessSyncTests : IDisposable
     [Fact]
     public void Apply_IdOlmayanPk_StockBalances_Calisir()
     {
-        // stock_balances PK'si material_id (id değil) → generic upsert PK'yi doğru bulmalı.
+        // stock_balances PK'si 'id' DEĞİL, üç kolonlu BİLEŞİK anahtardır (company_id, material_id, location_id)
+        // → generic upsert PK'yi DbIntrospect'ten okuyup ON CONFLICT hedefini üç kolonla kurmalı (STK-02).
         SeedCompany(_src, "ACME");
         SeedCompany(_dst, "ACME");
         // Ebeveyn malzeme + bakiye (Tables sırası: materials önce, stock_balances sonra → FK çözülür).
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme','0','0',1,50,1,0);");
-        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,quantity,updated_at) VALUES('ACME','m1','5',50);");
+        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,location_id,quantity,updated_at) VALUES('ACME','m1','','5',50);");
 
         var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
         using var doc = JsonDocument.Parse(snap);
@@ -413,7 +414,7 @@ public class BusinessSyncTests : IDisposable
         Exec(_src, "INSERT INTO materials(id,company_id,code,name,min_stock,unit_price,created_at,updated_at,version,is_deleted) " +
                    "VALUES('m1','ACME','K1','Malzeme','0','0',1,100,1,0);");
         // Negatif açılış → negatif bakiye (devralınan eksik stok). Artık geçerli bir durumdur.
-        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,quantity,updated_at) VALUES('ACME','m1','-9',50);");
+        Exec(_src, "INSERT INTO stock_balances(company_id,material_id,location_id,quantity,updated_at) VALUES('ACME','m1','','-9',50);");
 
         var snap = new BusinessSyncService(_src, _clock).BuildSnapshot("ACME");
         using var doc = JsonDocument.Parse(snap);

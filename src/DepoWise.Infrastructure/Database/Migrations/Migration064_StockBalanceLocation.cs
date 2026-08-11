@@ -48,18 +48,19 @@ namespace DepoWise.Infrastructure.Database.Migrations;
 ///     DELETE FROM schema_migrations WHERE version = 64;
 /// </summary>
 /// <remarks>
-/// ⚠️ <b>BU MIGRATION HENÜZ ETKİN DEĞİLDİR — <see cref="MigrationCatalog"/>'A KAYITLI DEĞİLDİR.</b>
+/// ✅ <b>ETKİN</b> — <see cref="MigrationCatalog"/>'a <c>STK-02</c> ile AYNI iş biriminde eklendi (2026-08-11).
 ///
-/// NEDEN: şema değişince <c>stock_balances</c> malzeme başına ÇOK SATIR döndürür. Bugün 15 üretim
-/// çağrı noktası eski (tek satır) varsayımına dayanıyor:
-///   • 4 × <c>SELECT quantity ... WHERE material_id=@m</c> → <c>ExecuteScalar</c> İLK lokasyonu alır (toplam DEĞİL)
-///   • 8 × <c>LEFT JOIN stock_balances</c> → satır çoğaltır (malzeme listesi/rapor/dashboard YANLIŞ)
-///   • 3 × CAS yazma (<c>ON CONFLICT(material_id)</c> / <c>WHERE material_id=@m AND quantity=@expected</c>)
-/// Ayrıca 5 test dosyası eski şemayla satır yazıyor.
+/// Tek başına etkinleştirilmesi YASAKTI: şema değişince <c>stock_balances</c> malzeme başına ÇOK SATIR
+/// döndürür ve eski tek-satır varsayımına dayanan 16 üretim çağrı noktası stok değerlerini <b>sessizce
+/// yanlış</b> gösterirdi. STK-02'de hepsi lokasyon farkında hale getirildi:
+///   • skaler okumalar → <see cref="Materials.StockBalanceWriter.ReadTotal"/> (C#'ta decimal toplama)
+///   • 8 × <c>LEFT JOIN stock_balances</c> → <c>SqlDialect.StockTotalSubquery</c> (malzeme başına tek satır)
+///   • CAS yazma → <c>ON CONFLICT(company_id, material_id, location_id)</c>
 ///
-/// Bu yüzden migration TEK BAŞINA etkinleştirilirse stok değerleri <b>sessizce yanlış</b> görünür.
-/// Etkinleştirme, <c>STK-02</c> (tüm çağrı noktalarının lokasyon farkında hale getirilmesi) ile
-/// AYNI iş biriminde yapılacaktır. Kayıt: <c>docs/project-control/FAZ_C_DEPO_BAZLI_STOK_TASARIM.md</c>.
+/// PROVA (2026-08-11): üretim yedeğinin izole PostgreSQL kopyasında 667 hareket / 664 bakiye → 665 bakiye,
+/// uyuşmayan <b>0</b>, toplam korundu; SQLite'ta dolu v63→v64 yükseltmesi de kayıpsız. Doğrulama kapısının
+/// gerçekten durdurduğu ve geri aldığı ayrıca kanıtlandı.
+/// Kayıt: <c>docs/project-control/FAZ_C_DEPO_BAZLI_STOK_TASARIM.md</c>.
 /// </remarks>
 public sealed class Migration064_StockBalanceLocation : IMigration
 {

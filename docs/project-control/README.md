@@ -29,6 +29,8 @@
 | [`PARITY_MATRIX.md`](PARITY_MATRIX.md) | Web ↔ Masaüstü ekran ve özellik paritesi |
 | [`AUDIT_2026-08-11.md`](AUDIT_2026-08-11.md) | Kapsamlı denetim bulguları (sync, update, yetki, DB, API, sektör, ön muhasebe) |
 | [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md) | Kullanıcı kararı bekleyen konular |
+| [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZLI_STOK_TASARIM.md) | FAZ C tasarımı: depo bazlı stok (KARAR-7=A), migration planı |
+| [`STK_02_UYGULAMA_PLANI.md`](STK_02_UYGULAMA_PLANI.md) | STK-02 envanteri: lokasyon farkına dönüştürülen 16 üretim noktası |
 
 ## Bu klasörün DIŞINDAKİ bağlayıcı kayıtlar
 

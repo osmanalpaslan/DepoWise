@@ -1,5 +1,14 @@
 # PROJE GELİŞTİRME DURUMU — DepoWise / Alpnex
 
+> ## ⤴ 2026-08-11'den itibaren AKTİF DURUM burada değil
+>
+> **"Neredeyiz, sıradaki iş ne?" → [`project-control/CURRENT_PHASE.md`](project-control/CURRENT_PHASE.md)**
+> Faz sırası → [`project-control/MASTER_ROADMAP.md`](project-control/MASTER_ROADMAP.md) ·
+> Görev ayrıntısı → [`project-control/TASK_BACKLOG.md`](project-control/TASK_BACKLOG.md)
+>
+> Bu dosya **PRT-01 ve öncesinin geçmiş kaydıdır**; FAZ C (depo bazlı stok) çalışmalarını içermez.
+> Silinmedi çünkü içindeki karar geçmişi başka yerde yok.
+
 > **Bu dosya nedir?** Projenin **kalıcı geliştirme hafızası**. Yeni bir oturum açıldığında
 > *"neredeyiz, ne bitti, sırada ne var, hangi kararlar alındı"* sorularının cevabı buradadır.
 >
