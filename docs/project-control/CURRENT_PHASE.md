@@ -43,12 +43,29 @@ defterden C#/decimal ile yeniden hesaplama (SQL CAST hassasiyeti bozmasın) ·
 Tek başına etkinleştirilirse stok değerleri **sessizce yanlış** görünür — en tehlikeli hata türü.
 Bu yüzden etkinleştirme `STK-02` ile **aynı iş biriminde** yapılacaktır.
 
+## 🟡 `STK-02` — ENVANTER + PLAN HAZIR, **KOD DEĞİŞİKLİĞİ BAŞLAMADI**
+
+Tam repo taraması yapıldı. Plan: [`STK_02_UYGULAMA_PLANI.md`](STK_02_UYGULAMA_PLANI.md)
+
+**Gerçek envanter: 16 üretim noktası** (tahmin 15'ti; `StockService:279` toplu okuma ayrı çıktı):
+4 yazma (CAS + recompute) · 3 skaler okuma · 1 toplu okuma · **8 JOIN** (satır çoğaltma riski).
+
+✅ **De-risk bulgusu — senkron 0 değişiklik gerektiriyor:** `DbIntrospect.PrimaryKey` PK kolonlarını
+sırayla okuyor ve `BusinessSyncService:571` `conflictTarget`'ı ondan kuruyor →
+`ON CONFLICT(company_id, material_id, location_id)` **otomatik** üretilecek. Generic upsert bileşik
+PK'yi zaten destekliyor. `stock_movements` şeması değişmediği için push/pull/idempotency aynen çalışır.
+
+⚠️ **Kod değişikliği bilinçli olarak başlatılmadı.** STK-02 **atomiktir**: writer değişip JOIN'ler
+değişmemiş bir ara durum hem 1206 testi kırar hem de stok değerlerini **sessizce yanlış** gösterir.
+Tek oturumda kesintisiz yapılmalı.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-02` — 15 çağrı noktasını lokasyon farkında hale getir + Migration064'ü katalogda etkinleştir.**
-Sıra: `StockBalanceWriter` (CAS → lokasyon anahtarlı) → `StockService` (toplam = SUM, recompute lokasyonlu)
-→ `MaterialService`/`DashboardService`/`ReportService`/`OpeningStockService` (JOIN'ler toplam alacak şekilde)
-→ 5 test dosyası → katalog kaydı → tam test.
-**Kural:** Genel toplam ile lokasyon toplamı asla kopmayacak.
+**`STK-02` kod bloğu — `STK_02_UYGULAMA_PLANI.md` §5'teki 11 adımı sırayla, tek oturumda uygula.**
+1) StockBalanceWriter → 2) StockService → 3) MaterialService → 4) Dashboard → 5) Report →
+6) OpeningStock → 7) testler → 8) Migration064'ü katalogda etkinleştir → 9) tam test →
+10) SQLite doğrulaması → 11) izole PostgreSQL provası.
+**Kural:** Genel toplam ile lokasyon toplamı asla kopmayacak · `DISTINCT` ile düzeltme yasak ·
+lokasyon bilinmiyorsa `''` (ATANMAMIŞ), asla rastgele şube.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
