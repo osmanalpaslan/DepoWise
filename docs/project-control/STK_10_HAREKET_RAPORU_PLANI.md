@@ -242,6 +242,8 @@ Aşağıdakilerin **tamamı** sağlanmadan STK-10 "tamamlandı" sayılmaz:
 - [ ] Kaynak/Hedef kolonları §1 kuralına uyuyor; `direction>0` hedef, `direction<0` kaynak
 - [ ] Transfer **iki satır** kalıyor (tek satıra indirgenmedi)
 - [ ] Lokasyon filtresi `branch_id=X OR branch_from_id=X`; A→B hem A hem B'de, C'de **yok**
+- [ ] **`BranchScope` × `Location` kesişimi §14'e uyuyor**: kapsam DIŞ SINIR, lokasyon içeride daraltır;
+      Depo A oturumu Depo B filtresiyle **BOŞ** sonuç alır (yetki aşılmaz) — ayrı testle kilitli
 - [ ] 🌐 Tüm Şubeler ≠ 📦 Atanmamış; Atanmamış gerçek depo gibi gösterilmiyor
 - [ ] "Şube" (`op_branch_id`) ile "stok lokasyonu" **birleştirilmedi**
 - [ ] 8 `movement_type` değerinin **tamamı** Türkçe; `usage`/`usage_reverse`/`reverse` **ham görünmüyor**
@@ -258,7 +260,9 @@ Aşağıdakilerin **tamamı** sağlanmadan STK-10 "tamamlandı" sayılmaz:
 - [ ] Ekran ve XLSX **aynı** `ReportRequest`'ten üretiliyor; export **ayrı sorgu kullanmıyor**
 - [ ] **6 kombinasyonda** üretilen XLSX gerçekten **açılıp satır/sütun bazında** rapor sonucuyla
       karşılaştırıldı (filtresiz · lokasyon · Search · tür · lokasyon+Search · tarih+lokasyon+Search+tür)
-- [ ] Export'ta ekran limiti yüzünden **veri kaybı yok**
+- [ ] Ekran ve export **AYNI** satır tavanına tabi (§13/D-1 — ikisi de `maxRows`, varsayılan 50.000);
+      export'un ekrandan farklı bir küme üretmediği testle kanıtlandı
+- [ ] SQL'de sıra **filtre → sırala → LIMIT** (§13/D-2: `Run`'ın kesmesi bellekte, ikinci emniyet ağı)
 - [ ] XLSX'te Kaynak/Hedef kolonları ve "Atanmamış" doğru
 
 **Platform / ortam**
@@ -359,3 +363,90 @@ sarmaladığı için kırpılma riski yok. Bu ancak gerçek render ile kesinleş
 
 **Kapatmanın yolu:** yerel API için bir hesap/parola sağlanması **ya da** `src/DepoWise.Api/data`
 dizininin geçici olarak yenilenmesine izin verilmesi.
+
+---
+
+## 13. 🔴 PLAN DÜZELTMELERİ (2026-08-11, adım 1 öncesi doğrulama)
+
+Adım 1'e geçmeden önce planın dayandığı üç varsayım koddan sınandı. **İkisi yanlıştı.**
+
+### D-1 · ❌ "Export limit uygulamaz" — YANLIŞ
+Plan §6 şöyle diyordu: *"Export ise limit uygulamadan tüm filtrelenmiş kümeyi alır."*
+**Gerçek:** `/api/reports/{type}` ve `/api/reports/{type}/export` **AYNI** `BuildReport`'u çağırır ve
+**aynı** `max` değerini geçirir (`ReportLimits.Resolve` → varsayılan **50.000**, ayarla değişebilir,
+1000'in altına düşmez). Yani ekran ve export **aynı tavana** tabidir.
+
+➡️ **Sonuç (iyi haber):** "ekran = export" hedefi için bu doğru davranıştır; ayrı bir export yolu
+kurmaya gerek YOK.
+➡️ **Ama kabul kriteri düzeltilmeli:** "Export'ta ekran limiti yüzünden veri kaybı yok" maddesi,
+*"export ekranla AYNI tavana tabidir ve tavan 50.000'dir"* olarak yeniden yazılmalı. 50.000'i aşan
+bir filtre sonucunda **ikisi de** kesilir — bu bilinçli bir koruma, sessiz kayıp değil. Kullanıcıya
+tavana ulaşıldığını söyleyip söylemeyeceğimiz **ayrı bir ürün kararıdır** (§15).
+
+### D-2 · ❌ "Run'ın limiti SQL'e iner" — YANLIŞ
+`ReportService.Run` önce `Dispatch` çağırır, **sonra bellekte** `table.Rows.Take(maxRows)` uygular.
+Yani tavan **sorgudan sonra** işler; sorgu tüm eşleşen satırları materyalize eder.
+
+➡️ **Sonuç:** `StockMovements` sorgusu **kendi SQL LIMIT'ini** taşımalı ve
+**filtre → sıralama → LIMIT sırası SQL içinde** kurulmalıdır. `Run`'ın kesmesi yalnız ikinci bir
+emniyet ağıdır. (Mevcut `SearchMovements` zaten SQL'de `ORDER BY … LIMIT @lim` yapıyor — desen oradan
+alınacak.) Bu, B-1 düzeltmesinin (§2) teknik karşılığıdır.
+
+### D-3 · ✅ ClosedXML test projesinden erişilebilir — DOĞRULANDI
+`tests/DepoWise.Tests/bin/.../ClosedXML.dll` mevcut (Infrastructure üzerinden geliyor).
+Gerçek XLSX'i açıp **satır satır** karşılaştırma teknik olarak mümkün → RPR-01'in açık bıraktığı
+boşluk STK-10'da kapatılabilir.
+
+## 14. ✅ KARAR: `BranchScope` × `Location` KESİŞİMİ (kodlamadan önce netleştirildi)
+
+Kullanıcının açıkça sorduğu nokta. Koddan türetilen kesin tanım:
+
+`BranchScope.Sql(s, "sm.branch_id")` → `AND (sm.branch_id = @opb OR sm.branch_id IS NULL)`
+(NULL satırlar bilinçli olarak gizlenmez — geçmiş/atanmamış kayıt kaybolmasın diye.)
+
+**KURAL: Kapsam DIŞ SINIRDIR; lokasyon filtresi onun İÇİNDE daraltır, asla genişletmez.**
+Sorgu `WHERE kapsam AND lokasyonFiltresi` biçiminde kurulur — ikisi `OR`'lanmaz.
+
+Sonuçları (A→B transferi, iki bacak):
+
+| Oturum | Lokasyon filtresi | Görünen | Gerekçe |
+|---|---|---|---|
+| Tüm Şubeler | (yok) | **iki bacak** | kapsam sınırsız |
+| Tüm Şubeler | **A** | **iki bacak** | çıkış bacağı `branch_id=A`, giriş bacağı `branch_from_id=A` |
+| Tüm Şubeler | **B** | **giriş bacağı** | `branch_id=B` |
+| Tüm Şubeler | **C** | **hiçbiri** | eşleşme yok |
+| **Depo A** | (yok) | **yalnız çıkış bacağı** | giriş bacağının `branch_id`'si B → kapsam dışı |
+| **Depo A** | **A** | **yalnız çıkış bacağı** | kapsam zaten B'yi eliyor |
+| **Depo A** | **B** | **BOŞ** | 🔒 kullanıcı Depo B hareketini göremez — **yetki aşılmaz** |
+
+➡️ §3'teki "A→B hem A hem B filtresinde görünür" kuralı **kapsamı yeten kullanıcı için** geçerlidir.
+Şubeye bağlı kullanıcıda kapsam kazanır. Bu **bilinçli** bir güvenlik sınırıdır ve testle kilitlenecek
+(`Depo_A_Oturumu_Depo_B_Filtresiyle_BOS_Sonuc_Alir`).
+
+## 15. ⏸️ NEDEN ADIM 1'E GEÇİLMEDİ — VE ÖNERİLEN BÖLÜNME
+
+Talimat: *"Kalan kapasiten kabul kriterlerinin tamamını güvenilir biçimde doğrulamaya yetmeyecekse
+KOD YAZMA."*
+
+Bu oturumda tamamlanan ve gönderilen işler: **RPR-01** (18 senaryo) · **BKM-04** (analiz + karar +
+tam uygulama + 44 senaryo + izole PG) · **STK-B1** (24 senaryo + flaky test düzeltmesi).
+STK-10'un kalanı bunların **hepsinden büyük** tek parçadır ve **bölünemez**:
+
+> 🔒 **Neden bölünemez:** RPR-01'in koruma testi, bir `ReportFilters` bayrağının **6 katmanın
+> hepsinde** bağlı olmasını zorunlu kılar. `Search`/`Material`/`MovementType` bayraklarından birini
+> ekleyip katmanlarını tamamlamamak **RPR-01'i kırar**. Yani "önce sözleşme, sonra arayüz" gibi bir
+> dilimleme mümkün değildir — 18 kablolama noktası **atomiktir**.
+
+### Önerilen bölünme (kullanıcı onayı gerekir — kendi başıma daraltmadım)
+
+| Artım | Kapsam | Neden bütün bir iş |
+|---|---|---|
+| **STK-10a** | Raporu katalogda `Date + Location` ile aç · `ReportService.StockMovements` (Kaynak/Hedef + §14 kesişimi + SQL'de filtre→sırala→limit) · **gerçek XLSX satır-satır doğrulama (6 kombinasyon)** · izole PG sorgu planı | **Yeni bayrak YOK** → RPR-01 hiç değişmeden yeşil kalır. `Date` ve `Location` bloklarının **altı katmanı da zaten bağlı** (STK-06). Rapor Raporlar ekranında filtreleriyle **kendiliğinden** görünür. Kullanıcı ilk kez hareket defterini Excel'e aktarabilir. |
+| **STK-10b** | `Search` + `Material` + `MovementType` bayrakları (18 kablolama) · iki hareket ekranının rapora bağlanması · **B-1 düzeltmesi** · kalan senaryolar | Bayraklar atomik; ekran bağlama ve B-1 onlarla birlikte anlamlı. |
+
+**Önerim: STK-10a → STK-10b.** 10a tek başına yarım iş değildir; 10b'ye kadar mevcut Stok Hareketleri
+ekranı bugünkü hâliyle çalışmaya devam eder (hiçbir davranış bozulmaz).
+
+⚠️ Kullanıcı "tek seferde tamamı" derse, iş **iki oturuma yayılacağı** baştan kabul edilmeli ve ara
+oturumda kod **derlenebilir + testleri yeşil** bırakılmalıdır (RPR-01 yüzünden bu ancak 18 kablolama
+noktasının tamamı bittiğinde mümkündür).

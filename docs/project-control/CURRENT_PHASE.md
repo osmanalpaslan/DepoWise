@@ -356,12 +356,37 @@ seçiyordu; dondurulmuş saatte `created_at` eşit olunca sıralama GUID'e düş
 ⚠️ **Görsel kontrol YAPILMADI** — BKM-04'teki aynı engel (yerel API veritabanında hesap yok, canlıya
 bağlanmak yasak, parola giremem). Ayrıntı ve statik risk değerlendirmesi planın §12'sinde.
 
+## ⏸️ `STK-10` kalanı — adım 1'e GEÇİLMEDİ, iki karar netleşti (2026-08-11)
+
+Adım 1 öncesi planın dayandığı varsayımlar koddan sınandı → **iki plan hatam çıktı** (§13) ve
+kullanıcının sorduğu kesişim **karara bağlandı** (§14). Kod yazılmadı (gerekçe §15).
+
+**🔴 D-1 — "Export limit uygulamaz" YANLIŞTI.** Sorgu ve export ucu **AYNI** `BuildReport`'u aynı
+tavanla (`maxRows`, varsayılan **50.000**) çağırıyor. "Ekran = export" hedefi için bu doğru davranış;
+ama kabul kriteri düzeltildi: export ekranla **aynı** tavana tabidir.
+
+**🔴 D-2 — "Run'ın limiti SQL'e iner" YANLIŞTI.** `Run` kesmeyi **bellekte**, `Dispatch`'ten SONRA
+yapıyor. Yani `StockMovements` sorgusu **kendi SQL LIMIT'ini** taşımalı ve **filtre → sırala → LIMIT**
+sırası **SQL içinde** kurulmalı. (B-1 düzeltmesinin teknik karşılığı.)
+
+**✅ D-3 — ClosedXML test projesinden erişilebilir.** RPR-01'in açık bıraktığı gerçek XLSX satır-satır
+karşılaştırması STK-10'da yapılabilir.
+
+**✅ KARAR — `BranchScope` × `Location` kesişimi:** *kapsam DIŞ SINIRDIR, lokasyon filtresi içeride
+daraltır, asla genişletmez* (`WHERE kapsam AND lokasyon`). Sonuç: Depo A oturumu **Depo B filtresiyle
+BOŞ** sonuç alır → yetki aşılmaz. §3'teki "A→B hem A hem B'de görünür" kuralı **kapsamı yeten**
+kullanıcı için geçerlidir. Tam tablo planın §14'ünde; testle kilitlenecek.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10`'un kalanı — planın §8 adım 1'inden başla** (adım 0 bitti).
-Karar B ile: 3 filtre bayrağı × RPR-01'in 6 katmanı = **18 kablolama noktası** + 2 ekranın rapora
-bağlanması + **B-1 davranış düzeltmesi** (sunucu tarafı lokasyon filtresi) + ~30 senaryo +
-**6 kombinasyonda gerçek XLSX satır-satır karşılaştırması** + izole PG sorgu planı + tarayıcı render.
-Kabul kriterleri kalıcı olarak planın **§10**'unda.
+**`STK-10` kalanı — ama önce BÖLÜNME KARARI gerekiyor** (planın §15).
+
+🔒 **İş bölünemez durumda:** RPR-01'in koruma testi bir filtre bayrağının **6 katmanın hepsinde**
+bağlı olmasını zorunlu kılar → `Search`/`Material`/`MovementType`'ın **18 kablolama noktası atomiktir**.
+"Önce sözleşme, sonra arayüz" diye dilimlenemez.
+
+Önerilen: **STK-10a** (rapor + `Date`+`Location` + XLSX doğrulaması — **yeni bayrak yok**, RPR-01
+dokunulmadan yeşil kalır, kullanıcı hareket defterini ilk kez Excel'e aktarır) → **STK-10b**
+(3 bayrak + 2 ekranın bağlanması + B-1). Kendi başıma daraltmadım; onay bekliyor.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |

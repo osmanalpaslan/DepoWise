@@ -340,6 +340,19 @@ RPR-01'in 6 katmanı = **18 kablolama noktası**.
 **Kabul kriterleri:** planın **§10**'unda kalıcı olarak kayıtlı (katalog/sözleşme · veri-semantik ·
 filtre-arama · export · platform-ortam başlıkları altında madde madde).
 
+**✅ Adım 0 (`STK-B1`) TAMAMLANDI** (2026-08-11) — 8 hareket türü tek kaynağa bağlandı, ham İngilizce
+kaçağı ve Web↔masaüstü ıraksaması kapandı. Kayıt: planın §12'si.
+
+**⏸️ Adım 1'e geçilmedi (2026-08-11).** Öncesinde doğrulama yapıldı ve **iki plan hatası** düzeltildi
+(§13): export ekranla **AYNI** satır tavanına tabi (ayrı yol yok) · `Run`'ın limiti **bellekte**
+uygulanıyor → sorgu kendi SQL LIMIT'ini taşımalı, **filtre→sırala→LIMIT SQL içinde**.
+Ayrıca **`BranchScope` × `Location` kesişimi karara bağlandı** (§14): kapsam DIŞ SINIR, lokasyon
+içeride daraltır → Depo A oturumu Depo B filtresiyle **BOŞ** alır, yetki aşılmaz.
+
+🔒 **İş bölünemez:** RPR-01, filtre bayrağının 6 katmanda birden bağlı olmasını zorunlu kılıyor →
+18 kablolama noktası **atomik**. Önerilen bölünme (onay bekliyor): **STK-10a** (rapor + Date/Location
++ gerçek XLSX doğrulaması, **yeni bayrak yok**) → **STK-10b** (3 bayrak + 2 ekran + B-1).
+
 ### `STK-09` — Lokasyon bazlı dashboard · B · **YENİ** (ihtiyaç doğarsa)
 Bugünkü dashboard firma toplamıyla doğru çalışıyor. "Depo seçip o deponun KPI'larını görme" ayrı bir üründür.
 
