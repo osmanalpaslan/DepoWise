@@ -2089,7 +2089,8 @@ app.MapPost("/api/maintenance", (HttpContext c, MaintenanceDto d) =>
     var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
     var id = svc.Maintenance.Save(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
-        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
+        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04: istemcinin seçtiği depo (serviste doğrulanır)
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // İş #5 (2026-08-09): bakım kaydının YAN ETKİSİZ alanları (açıklama/not/teknisyen). Malzeme ve sayaç
@@ -2205,7 +2206,8 @@ app.MapPost("/api/daily/maintenance", (HttpContext c, MaintenanceDto d) =>
     var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
     var id = svc.DailyActivity.SaveMaintenanceActivity(s, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, d.DefinitionId, d.SubDefinitionId, d.TechnicianId, Doc(d.Description), Doc(d.SubDefinitionNote),
-        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
+        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // "İlave Yağ/İlave Filtre/Tamir" (kullanıcı isteği 2026-07-19, ADR-091) — Bakım ile AYNI mekanizma, Bakım
@@ -2218,7 +2220,8 @@ app.MapPost("/api/daily/extra", (HttpContext c, ExtraActivityDto d) =>
     var mats = d.Materials?.Select(m => new DepoWise.Infrastructure.Maintenance.MaintenanceMaterialLine(m.MaterialId, m.Quantity, m.FromTeamStock)).ToList();
     var id = svc.DailyActivity.SaveExtraActivity(s, d.Type, new DepoWise.Infrastructure.Maintenance.NewMaintenance(
         d.VehicleId, "", null, d.TechnicianId, Doc(d.Description), null,
-        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats), Guid.NewGuid().ToString("N"));
+        d.PerformedKm, d.PerformedHour, d.PerformedDate, mats,
+        StockLocationId: d.BranchId), Guid.NewGuid().ToString("N"));   // BKM-04
     return Results.Ok(new { id });
 }).RequireAuthorization();
 // İptal ONAYI için etki özeti (bağlı bakım + malzeme satırı) — salt-okuma.
@@ -2830,8 +2833,13 @@ record DailyMetaDto(string? Description, string? OperatorId, int? DurationDays, 
 /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer, merkez depodan düşmez.
 /// Varsayılan false → eski istemciler (alanı göndermeyen) bugünkü davranışı aynen alır (geriye uyumlu).</summary>
 record MaintLineDto(string MaterialId, decimal Quantity, bool FromTeamStock = false);
+// BKM-04 / KARAR-9 (2026-08-11): `BranchId` = MALZEMENİN ÇEKİLDİĞİ DEPO. SONA eklendi ve OPSİYONELDİR →
+// göndermeyen eski istemci kırılmaz (davranışı ATANMAMIŞ olarak kalır). Sunucu bu kimliği doğrular
+// (servis katmanında `EnsureLocationOwned`); yabancı/bilinmeyen/pasif depo → 403.
+// ⚠️ `op_branch_id` DEĞİLDİR: o kaydı işleyen şube; bu stoğun fiziksel çıktığı yer.
 record MaintenanceDto(string VehicleId, string DefinitionId, string? SubDefinitionId, string? TechnicianId, string? Description, string? SubDefinitionNote,
-    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
+    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
+    string? BranchId = null);
 // B-1 (2026-08-10): Version = düzenleme kilidi jetonu. Gönderilmezse (eski istemci) null gelir → kontrol yok.
 record MaintDefDto(string Name, decimal IntervalValue, string IntervalUnit, string? ParentDefId, string? Description, List<string>? VehicleIds, long? Version = null);
 record InspectionDto(string VehicleId, string DocType, long? LastDate, long? NextDate, string? Result, string? Place, string? Note);
@@ -2840,7 +2848,8 @@ record DistributionDto(string VehicleId, decimal Liters, decimal CurrentMeter, d
 record MovementDto(string MovementKind, string? VehicleId, string? FromLocationId, string? ToLocationId, string? OperatorId, int? DurationDays, string? Description, long? ActivityDate);
 // ADR-091: "İlave Yağ/İlave Filtre/Tamir" — Bakım ile AYNI alanlar, yalnız DefinitionId/SubDefinitionId YOK.
 record ExtraActivityDto(string Type, string VehicleId, string? TechnicianId, string? Description,
-    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials);
+    decimal? PerformedKm, decimal? PerformedHour, long? PerformedDate, List<MaintLineDto>? Materials,
+    string? BranchId = null);   // BKM-04: malzemenin çekildiği depo (opsiyonel, sona)
 record NewVehicleDto(string InternalCode, string? Plate, int? ProductionYear, decimal CurrentMeter, string? MeterUnit, string? BranchId, string? DriverPersonnelId,
     string? ChassisNo, string? EngineNo, string? Status, string? StatusNote, string? VehicleTypeId, string? CategoryId, string? BrandId, string? VehicleModelId, string? TemplateId,
     long? Version = null); // DÜZENLEME KİLİDİ: null = kontrol yok (geriye uyumlu)

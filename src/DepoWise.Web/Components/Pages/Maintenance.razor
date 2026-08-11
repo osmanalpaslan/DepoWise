@@ -4,6 +4,8 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@* BKM-04: malzemenin çekildiği depo seçenekleri (oturumda tek indirme, önbellekli) *@
+@inject LocationOptions Locations
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
@@ -157,6 +159,30 @@
                 </MudGrid>
 
                 <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">Malzemeler (stoktan düşülür)</MudText>
+                @* ── BKM-04 / KARAR-9: MALZEMENİN ÇEKİLDİĞİ DEPO ────────────────────────────────────
+                   Varsayılan giriş yapılan şubedir, kullanıcı değiştirebilir ve değiştirdiği seçim
+                   KORUNUR (hiçbir yerde Auth.BranchId ile yeniden ezilmez). Seçenekler yalnız gerçek
+                   depolardır — "Atanmamış" yeni stok yazma hedefi olarak SUNULMAZ (WriteTargets). *@
+                <MudGrid Spacing="2" Class="align-center mb-1">
+                    @if (_mLocations.Count > 0)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="string" @bind-Value="_mLocationId" Label="Malzemenin çekildiği depo" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                       HelperText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir; gerekirse değiştirin.">
+                                @foreach (var lo in _mLocations) { <MudSelectItem T="string" Value="@lo.Id">@lo.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                    }
+                    else
+                    {
+                        <MudItem xs="12">
+                            <MudAlert Severity="Severity.Warning" Dense="true">
+                                Firmanızda tanımlı depo/şantiye yok. Bakım kaydı yine de oluşturulur; malzemeler
+                                <b>"Atanmamış"</b> olarak düşülür. Şubeler ekranından depo ekleyip sonra dağıtabilirsiniz.
+                            </MudAlert>
+                        </MudItem>
+                    }
+                </MudGrid>
                 <MudGrid Spacing="2" Class="align-center">
                     <MudItem xs="12" md="6"><MudAutocomplete T="ApiClient.Opt" Label="Malzeme ara (kod/ad)" @bind-Value="_matSel" SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
                     <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -338,6 +364,12 @@
     // Bakım ekranından araç durumu değiştirme (boş = dokunma).
     private string? _mVehStatus; private string _mVehStatusNote = "";
     private decimal _matQty;
+    // ── BKM-04 / KARAR-9: malzemenin çekildiği depo ──────────────────────────────────────────────
+    /// <summary>Yazma hedefleri — YALNIZ gerçek depolar; "Atanmamış" ve "Tüm Şubeler" burada YOKTUR.</summary>
+    private IReadOnlyList<LocationOption> _mLocations = Array.Empty<LocationOption>();
+    /// <summary>Kullanıcının seçtiği depo. Varsayılan olarak oturum şubesiyle DOLDURULUR; sonrasında
+    /// kullanıcının seçimi KORUNUR — <c>Auth.BranchId</c> ile bir daha ezilmez (KARAR-9 kırmızı çizgisi).</summary>
+    private string? _mLocationId;
     private readonly List<Line> _lines = new();
     /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): kayda girer + maliyete dâhil,
     /// merkez depodan düşülmez. Masaüstündeki MntMaterialLine ile AYNI davranış.</summary>
@@ -357,8 +389,23 @@
     {
         _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
         _technicians = await Api.OptionsAsync("/api/personnel", "id", "fullName");
+        await LoadLocations();
         await LoadDefs(); await LoadMaint(); await LoadAlerts();
     }
+
+    /// <summary>BKM-04: depo seçenekleri (oturumda TEK indirme — LocationOptions önbellekli, N+1 yok)
+    /// + varsayılanın oturum şubesine ayarlanması. Varsayılan YALNIZ burada, bir kez atanır.</summary>
+    private async Task LoadLocations()
+    {
+        try { _mLocations = await Locations.WriteTargets(); } catch { _mLocations = Array.Empty<LocationOption>(); }
+        // Oturum şubesi listede varsa varsayılan olur; yoksa sistem rastgele bir depo TAHMİN ETMEZ.
+        _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null;
+    }
+
+    /// <summary>Onay/uyarı metinlerinde gösterilecek depo adı.</summary>
+    private string LocationText => string.IsNullOrEmpty(_mLocationId)
+        ? "Atanmamış (depo seçilmedi)"
+        : _mLocations.FirstOrDefault(x => x.Id == _mLocationId)?.Name ?? _mLocationId!;
 
     // ── Tanımlar ──
     private async Task LoadDefs() { _defs = null; try { _defs = await Api.GetArrayAsync("/api/maintenance/definitions"); } catch { _defs = Array.Empty<JsonElement>(); } _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name"); }
@@ -495,12 +542,20 @@
         // durumda da bakım kaydı DEVAM eder. Bakiye API'den okunur (web'in doğrudan stok erişimi yok).
         // "Bakım ekibi stoğu" işaretli satırlar merkez depodan DÜŞÜLMEYECEĞİ için stok yetersizliği
         // kontrolüne de GİRMEZ (2026-08-08) — aksi halde gereksiz "stok yetersiz" uyarısı çıkardı.
+        // BKM-04: uyarı SEÇİLEN DEPONUN stoğuna bakar (firma geneline değil). Aksi hâlde "yeterli var"
+        // deyip o depodan eksiye düşerdik — STK-04'te düzeltilen aynı hata sınıfı.
         var shortfalls = new List<(string Id, string Name, decimal Shortfall)>();
         foreach (var l in _lines)
         {
             if (l.FromTeamStock) continue;
             decimal bal = 0m;
-            try { bal = Dec(await Api.GetObjectAsync($"/api/materials/{l.Id}"), "stock"); } catch { }
+            try
+            {
+                var d = await Api.GetObjectAsync(
+                    $"/api/stock/balance/{l.Id}/location?locationId={Uri.EscapeDataString(_mLocationId ?? "")}");
+                bal = Dec(d, "balance");
+            }
+            catch { }
             if (l.Qty > bal) shortfalls.Add((l.Id, l.Name, l.Qty - bal));
         }
         if (shortfalls.Count > 0)
@@ -530,7 +585,8 @@
             else if (!await Dialog.Confirm(baseMsg, okText: "Devam Et", cancelText: "Vazgeç", danger: true))
                 return;
         }
-        else if (!await Dialog.Confirm("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)")) return;
+        else if (!await Dialog.Confirm(_lines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                     : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) return;
         _busy = true;
         try
         {
@@ -539,7 +595,10 @@
                 vehicleId = _mVehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                 description = Empty(_mDesc), performedKm = _mKm, performedHour = _mHour,
                 performedDate = _mDate is null ? (long?)null : new DateTimeOffset(_mDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
-                materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList()
+                materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
+                // BKM-04: KULLANICININ SEÇTİĞİ depo. Auth.BranchId yalnız VARSAYILANI belirledi;
+                // burada tekrar okunmaz — kullanıcının değişikliği sessizce ezilemez (KARAR-9).
+                branchId = _mLocationId
             });
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI olduysa yapılır; durum
             // güncellenemezse bakım kaydı GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
@@ -619,7 +678,8 @@
         _selMaint = null; await LoadMaint();
     }
 
-    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; }
+    // BKM-04: YENİ kayıt varsayılan depoyla açılır (bir önceki kaydın seçimi taşınmaz).
+    private void ClearMnt() { _mVehicle = null; _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _mDate = null; _mDesc = ""; _matSel = null; _matQty = 0; _lines.Clear(); _mVehStatus = null; _mVehStatusNote = ""; _mLocationId = _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null; }
 
     // ── Uyarılar ──
     private async Task LoadAlerts() { _alerts = null; try { _alerts = await Api.GetArrayAsync("/api/maintenance/alerts"); } catch { _alerts = Array.Empty<JsonElement>(); } }

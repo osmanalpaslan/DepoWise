@@ -5,6 +5,7 @@
              xmlns:inf="using:DepoWise.Infrastructure.Maintenance"
              xmlns:m="using:DepoWise.Infrastructure.Materials"
              xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
+             xmlns:org="using:DepoWise.Infrastructure.Organization"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
@@ -236,8 +237,27 @@
                                 </ctrl:FormField>
                             </StackPanel>
 
+                            <!-- BKM-04 / KARAR-9: MALZEMENİN ÇEKİLDİĞİ DEPO. Varsayılan oturum şubesidir,
+                                 kullanıcı değiştirebilir. "Atanmamış" seçenek olarak SUNULMAZ (yeni stok
+                                 yazma hedefi olamaz). Liste yereldendir → çevrimdışı çalışır. -->
+                            <ctrl:FormField Label="Malzemenin çekildiği depo" Width="320"
+                                            HelpText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir; gerekirse değiştirin."
+                                            IsVisible="{Binding !MntHasNoLocation}">
+                                <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding MntLocations}" SelectedItem="{Binding MntLocation}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </ctrl:FormField>
+                            <SelectableTextBlock IsVisible="{Binding MntHasNoLocation}" TextWrapping="Wrap" Classes="Helper"
+                                                 Foreground="{DynamicResource WarningBrush}"
+                                                 Text="Firmanızda tanımlı depo/şantiye yok. Bakım kaydı yine de oluşturulur; malzemeler &quot;Atanmamış&quot; olarak düşülür. Şubeler ekranından depo ekleyip sonra dağıtabilirsiniz."/>
+
                             <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
                                 <StackPanel Spacing="6">
+                                    <SelectableTextBlock Text="{Binding MntLocationText, StringFormat='Düşülecek depo: {0}'}"
+                                                         Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
                                     <Border Classes="Table" MaxHeight="120">
                                         <ScrollViewer>

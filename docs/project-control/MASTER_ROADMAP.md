@@ -77,8 +77,13 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 | `STK-06` | Rapor lokasyon boyutu: Stok Durumu (kırılım+filtre) · Stok Sayım (sayılan depo) | ✅ **TAMAM** (14 yeni senaryo) |
 | `STK-07` | Senkron sertifikasyonu — 11 senaryo, gerçek HTTP senkron uçları · **kod değiştirilmedi** | ✅ **TAMAM** |
 | `STK-08` | "Atanmamış → depo" toplu dağıtım ekranı (Web + masaüstü + çevrimdışı) | ✅ **TAMAM** (17 senaryo · gerçek veriyle doğrulandı) |
+| `BKM-04` | **Bakım malzemesinin çıktığı depo** — oturum şubesi varsayılan + kullanıcı seçebilir (**KARAR-9 / ADR-103**) | ✅ **TAMAM** (44 senaryo · izole PG · iptal simetrisi kilitli) |
+| `RPR-01` | Web ↔ masaüstü rapor filtre paritesi (koruma testi) | ✅ **TAMAM** (18 senaryo) |
+| `SNK-11` | Türetilmiş bakiye senkron paketinden çıkarıldı (~86 KB/tur) | ✅ **TAMAM** |
+| `SNK-12` | Masaüstünde depo listesi senkron turunda tazeleniyor | ✅ **TAMAM** (8 senaryo) |
 | `STK-B1` | `movement_type` kataloğu `usage`/`usage_reverse` ile tutarsız | BEKLEMEDE |
 | `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | BEKLEMEDE |
+| `STK-09` · `STK-10` · `STK-11` | Lokasyon dashboard'u · hareket raporu (Excel) · eski float artığı temizliği | BEKLEMEDE |
 
 > **Önemli:** `StockService.Transfer` çok malzemeli, tek transaction, idempotent ve negatif-guard'lı olarak
 > **zaten uygulanmış**; hareketler kaynak/hedef lokasyonla yazılıyor. Bugün yalnız **bakiyeye yansımıyor**

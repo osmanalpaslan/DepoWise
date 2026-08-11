@@ -17,7 +17,21 @@ public sealed record NewMaintenance(
     string VehicleId, string DefinitionId, string? SubDefinitionId = null, string? TechnicianId = null,
     string? Description = null, string? SubDefinitionNote = null,
     decimal? PerformedKm = null, decimal? PerformedHour = null, long? PerformedDate = null,
-    IReadOnlyList<MaintenanceMaterialLine>? Materials = null);
+    IReadOnlyList<MaintenanceMaterialLine>? Materials = null,
+    // ── BKM-04 / KARAR-9 (2026-08-11) ────────────────────────────────────────────────────────────
+    /// <summary>
+    /// MALZEMENİN ÇEKİLDİĞİ DEPO — stok hangi lokasyondan düşecek. Kullanıcının AÇIK seçimidir.
+    ///
+    /// ⚠️ Bu alan <c>op_branch_id</c> DEĞİLDİR: o, kaydı İŞLEYEN şubedir (bakım raporundaki "Şube");
+    /// bu ise stoğun FİZİKSEL çıktığı yerdir. İkisi bilinçli olarak ayrıdır (KARAR-9 md. 11).
+    /// ⚠️ Aracın şubesi (<c>vehicles.branch_id</c>) bu amaçla KULLANILMAZ (KARAR-9 md. 10): araç
+    /// şantiyede olabilir ama parça merkez depodan gelmiş olabilir → sessiz yanlış stok.
+    ///
+    /// <c>null</c> → ATANMAMIŞ (geriye dönük davranış; <c>branchId</c> göndermeyen eski istemci kırılmaz).
+    /// Verilmişse serviste <see cref="MaintenanceService"/> içinde firma sahipliği doğrulanır (403).
+    /// Kullanıcının seçimi hiçbir yerde sessizce BAŞKA bir lokasyona çevrilmez.
+    /// </summary>
+    string? StockLocationId = null);
 
 public sealed record MaintenanceAlert(
     string VehicleId, string DefinitionId, string DefinitionName, AlertLevel Level, double Progress, decimal Consumed, decimal Interval,
@@ -110,6 +124,14 @@ public sealed class MaintenanceService
         // kaydına YAZILIR (maliyete dâhil) ama merkez depo stoğuna HİÇ dokunulmaz — ne bakiye (ApplyDelta) ne de
         // hareket defteri (InsertUsageMovement). Defter ile bakiye böylece tutarlı kalır (yeni paralel stok
         // mantığı YOK). İptalde de ters hareket üretilmez (aşağıda Cancel).
+        // BKM-04 / KARAR-9: malzemenin çekildiği depo. Kullanıcının AÇIK seçimi; sessizce oturum şubesine,
+        // aracın şubesine ya da op_branch_id'ye ÇEVRİLMEZ. Verilmemişse ATANMAMIŞ (eski davranış).
+        // Doğrulama BURADA (servis katmanında) — masaüstü bu servisi ÇEVRİMDIŞI çağırıyor; API'de olsaydı
+        // o yol korumasız kalırdı (STK-03'te alınan aynı karar).
+        var stockLocation = string.IsNullOrWhiteSpace(dto.StockLocationId) ? null : dto.StockLocationId!.Trim();
+        EnsureLocationOwned(conn, tx, s.CompanyId, stockLocation);
+        var locationKey = stockLocation ?? StockBalanceWriter.Unassigned;
+
         var teamStockUsed = new List<string>();
         for (int i = 0; i < (dto.Materials?.Count ?? 0); i++)
         {
@@ -119,8 +141,9 @@ public sealed class MaintenanceService
             var price = ReadMaterialPrice(conn, tx, line.MaterialId);
             if (!line.FromTeamStock)
             {
-                ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, -line.Quantity, now, allowNegative: true);
-                InsertUsageMovement(conn, tx, s.CompanyId, line.MaterialId, id, line.Quantity, price, $"{operationId}:mat:{i}", now);
+                // Defter ve bakiye AYNI lokasyonu kullanır — ikisi ayrışırsa stok sessizce tutarsızlaşır.
+                ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, locationKey, -line.Quantity, now, allowNegative: true);
+                InsertUsageMovement(conn, tx, s.CompanyId, line.MaterialId, id, line.Quantity, price, $"{operationId}:mat:{i}", now, stockLocation);
             }
             else teamStockUsed.Add(line.MaterialId);
             InsertMaintenanceMaterial(conn, tx, s.CompanyId, id, line.MaterialId, line.Quantity, price, line.FromTeamStock);
@@ -180,15 +203,24 @@ public sealed class MaintenanceService
             ?? throw new ForbiddenException("Bakım kaydı bulunamadı veya başka firmaya ait.");
         if (status) return; // zaten iptal — idempotent (stok İKİNCİ KEZ geri eklenmez)
 
-        // Malzemeleri geri ekle (ters hareket). "Bakım ekibi stoğu" işaretli satırlar ATLANIR: kayıt sırasında
-        // merkez depodan hiç düşülmemişlerdi → geri eklemek stoğu ŞİŞİRİRDİ (kullanıcı isteği 2026-08-08).
-        int i = 0;
-        foreach (var (materialId, qty, price, fromTeamStock) in LoadMaintenanceMaterials(conn, tx, s.CompanyId, maintenanceId))
+        // ── Malzemeleri geri ekle (ters hareket) ──────────────────────────────────────────────────
+        // BKM-04 / KARAR-9 — İPTAL SİMETRİSİ (en kritik kabul kriteri):
+        // Ters hareketin lokasyonu iptal anındaki OTURUMDAN YENİDEN HESAPLANMAZ. ORİJİNAL stok
+        // hareketinin `branch_id` değeri okunur ve geri ekleme AYNI depoya yapılır.
+        //   Depo A'dan 5 düşmüşse, kullanıcı sonradan Depo B ile giriş yapmış olsa bile +5 DEPO A'ya döner.
+        // Aksi hâlde bir depo sessizce şişer, diğeri eksik kalır — defterle bakiye ayrışır.
+        //
+        // Kaynak artık `maintenance_materials` DEĞİL, DEFTERİN KENDİSİ (`stock_movements`):
+        //  • lokasyon yalnız defterde tutuluyor (malzeme satırında depo kolonu yok, migration da açılmadı),
+        //  • "bakım ekibi stoğu" satırları zaten hiç hareket üretmediği için doğal olarak dışarıda kalır
+        //    (eskiden bayrakla atlanıyordu — artık YAPISAL),
+        //  • aynı malzeme iki satırda geçse bile her hareket kendi lokasyonuna geri döner.
+        foreach (var mv in LoadUsageMovements(conn, tx, s.CompanyId, maintenanceId))
         {
-            i++;
-            if (fromTeamStock) continue;
-            ApplyDelta(conn, tx, s.CompanyId, materialId, +qty, now, allowNegative: true);
-            InsertUsageMovement(conn, tx, s.CompanyId, materialId, maintenanceId, qty, price, $"cancel:{maintenanceId}:{i - 1}", now, reverse: true);
+            ApplyDelta(conn, tx, s.CompanyId, mv.MaterialId, mv.BranchId ?? StockBalanceWriter.Unassigned,
+                +mv.Quantity, now, allowNegative: true);
+            InsertUsageMovement(conn, tx, s.CompanyId, mv.MaterialId, maintenanceId, mv.Quantity, mv.Price,
+                $"cancel:{maintenanceId}:{mv.Id}", now, mv.BranchId, reverse: true, reversesMovementId: mv.Id);
         }
         using (var cmd = conn.CreateCommand())
         {
@@ -458,27 +490,33 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now
     /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer → aynı stok için iki farklı
     /// güvenlik mantığı yok. Negatife izin verme davranışı (allowNegative: true) DEĞİŞMEDİ.</summary>
     /// <remarks>
-    /// STK-02 — LOKASYON: bakım tüketim hareketi (<see cref="InsertUsageMovement"/>) <c>branch_id</c>'yi
-    /// <b>NULL</b> yazar (bakımın deposu bugün tutulmuyor). Bakiye ile defterin BİREBİR aynı kalması için
-    /// bakiye de ATANMAMIŞ kovasına yazılır. Bakım malzemesinin hangi depodan düştüğünün seçilmesi bir
-    /// ürün/UX gereksinimidir ve STK-03/04/05'e devredilmiştir; burada tahmin edilerek bir şube SEÇİLMEZ.
+    /// BKM-04 / KARAR-9 (2026-08-11) — LOKASYON ARTIK ÇAĞIRANDAN GELİR. Eskiden burada sabit
+    /// <c>Unassigned</c> yazılıyordu; her bakım tüketimi ATANMAMIŞ kovasına düşüyordu.
+    /// Defter (<see cref="InsertUsageMovement"/>) ve bakiye <b>AYNI</b> lokasyonu kullanır — ayrışırlarsa
+    /// stok sessizce tutarsızlaşır. Lokasyon verilmezse ATANMAMIŞ (geriye dönük davranış korunur).
     /// </remarks>
     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
-        decimal signedQty, long now, bool allowNegative = false)
+        string locationId, decimal signedQty, long now, bool allowNegative = false)
     {
-        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, StockBalanceWriter.Unassigned,
+        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, locationId ?? StockBalanceWriter.Unassigned,
             signedQty, now, allowNegative);
     }
 
+    /// <param name="branchId">BKM-04: malzemenin çekildiği depo. <c>null</c> → ATANMAMIŞ.
+    /// İptalde bu değer ORİJİNAL hareketten okunur, yeniden hesaplanmaz.</param>
+    /// <param name="reversesMovementId">Geri izlenebilirlik: ters kaydın hangi hareketi geri aldığı.</param>
     private static void InsertUsageMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,
-        string maintenanceId, decimal qty, decimal? price, string operationId, long now, bool reverse = false)
+        string maintenanceId, decimal qty, decimal? price, string operationId, long now, string? branchId,
+        bool reverse = false, string? reversesMovementId = null)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, movement_type, direction, quantity,
     unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id)
-VALUES(@id,@c,@m,NULL,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,NULL);";
+VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev);";
+        cmd.AddWithValue("@br", (object?)branchId ?? DBNull.Value);
+        cmd.AddWithValue("@rev", (object?)reversesMovementId ?? DBNull.Value);
         cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
         cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@m", materialId);
@@ -576,23 +614,56 @@ VALUES(@id,@c,@m,NULL,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,NULL
         return v is null ? null : Convert.ToInt64(v) == 1;
     }
 
-    /// <summary>İptalde kullanılır: ekip stoğu işaretli satırlar ters harekete GİRMEZ (hiç düşülmemişlerdi).</summary>
-    private static IEnumerable<(string MaterialId, decimal Qty, decimal? Price, bool FromTeamStock)> LoadMaintenanceMaterials(
+    /// <summary>BKM-04 — İPTALİN KAYNAĞI: bu bakımın ürettiği ORİJİNAL tüketim hareketleri (defter).
+    ///
+    /// Lokasyon yalnız defterde tutulur (<c>maintenance_materials</c>'ta depo kolonu yok ve BKM-04
+    /// migration açmadı) → ters kayıt lokasyonunu buradan okumak, "orijinal hareketin deposuna geri yaz"
+    /// kuralının TEK doğru uygulamasıdır. "Bakım ekibi stoğu" satırları hiç hareket üretmediği için
+    /// bu listede DOĞAL OLARAK yer almaz (eskiden bayrakla atlanıyordu — artık yapısal).
+    ///
+    /// Yalnız <c>usage</c> okunur; <c>usage_reverse</c> zaten ters kayıttır (tekrar ters alınmaz).
+    /// Sıra kararlıdır (<c>created_at, id</c>) → iki lehçede de aynı sonuç.</summary>
+    private static IReadOnlyList<UsageMovementRow> LoadUsageMovements(
         DbConnection conn, DbTransaction tx, string companyId, string maintenanceId)
     {
-        var list = new List<(string, decimal, decimal?, bool)>();
+        var list = new List<UsageMovementRow>();
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        // M-S1a: firma izolasyonu — üst kayıt zaten doğrulanmış olsa da çocuk satır da firmaya bağlı okunur.
-        cmd.CommandText = "SELECT material_id, quantity, unit_price, COALESCE(from_team_stock,0) FROM maintenance_materials WHERE maintenance_id=@mt AND company_id=@c;";
-        cmd.AddWithValue("@mt", maintenanceId);
+        cmd.CommandText =
+            "SELECT id, material_id, branch_id, quantity, unit_price FROM stock_movements " +
+            "WHERE company_id=@c AND note=@mt AND movement_type='usage' ORDER BY created_at, id;";
         cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@mt", maintenanceId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add((r.GetString(0), Money.Parse(r.GetString(1)), r.IsDBNull(2) ? null : Money.Parse(r.GetString(2)),
-                Convert.ToInt64(r.GetValue(3)) == 1));
+            list.Add(new UsageMovementRow(r.GetString(0), r.GetString(1),
+                r.IsDBNull(2) ? null : r.GetString(2),
+                Money.Parse(r.GetString(3)),
+                r.IsDBNull(4) ? null : Money.Parse(r.GetString(4))));
         return list;
     }
+
+    private sealed record UsageMovementRow(string Id, string MaterialId, string? BranchId, decimal Quantity, decimal? Price);
+
+    /// <summary>BKM-04 — malzemenin çekildiği depo bu firmaya ait ve aktif mi?
+    /// <see cref="Materials.StockService"/> ve <see cref="Materials.OpeningStockService"/>'teki eşleriyle
+    /// BİREBİR aynı desen (yeni yetki mimarisi kurulmadı; <c>is_deleted=1</c> = pasif/silinmiş depo).
+    /// İstemciden gelen kimliğe körü körüne güvenilmez — UI doğrulaması tek başına yeterli değildir.</summary>
+    private static void EnsureLocationOwned(DbConnection conn, DbTransaction tx, string companyId, string? locationId)
+    {
+        if (string.IsNullOrEmpty(locationId)) return;   // ATANMAMIŞ — uydurma yok, kontrol edilecek kimlik yok
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", locationId);
+        cmd.AddWithValue("@c", companyId);
+        if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
+            throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+    }
+
+    // BKM-04: `LoadMaintenanceMaterials` KALDIRILDI. İptal artık malzeme satırlarından değil DEFTERDEN
+    // (`LoadUsageMovements`) besleniyor — lokasyon yalnız orada tutuluyor. Ekip-stoğu satırlarının
+    // atlanması da bayrak kontrolüyle değil, hiç hareket üretmemeleriyle yapısal olarak sağlanıyor.
 
     private static void EnsureVehicleOwned(DbConnection conn, DbTransaction tx, string companyId, string vehicleId)
     {

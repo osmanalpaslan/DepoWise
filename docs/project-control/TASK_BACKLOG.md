@@ -262,6 +262,55 @@ Test projesi Web/Desktop'a referans vermez → iki arayüzün **kaynak metni** o
 gövdelerindeki metne takılıyor, ekran bloğu silinse bile geçiyordu. Sıkılaştırıldı.
 ⚠️ Görsel (browser/XAML render) kontrolü **yapılmadı**; doğrulama kod/kaynak düzeyindedir.
 
+### `BKM-04` — Bakım malzemesinin çıktığı depo · ✅ **TAMAMLANDI** (2026-08-11)
+Karar: [`DECISIONS.md` → ADR-103](../DECISIONS.md) · Analiz: [`BKM_04_LOKASYON_ANALIZI.md`](BKM_04_LOKASYON_ANALIZI.md)
+
+**Sorun:** `MaintenanceService` stok yazarken lokasyonu **sabit boş** yazıyor (`branch_id=NULL` +
+`Unassigned`) → her bakım tüketimi ATANMAMIŞ'a düşüyor. STK-08 geçmişi temizleme aracını verdi ama
+bu yol **yenisini üretmeye devam ediyor**. Üretim kodunda lokasyonu dışarıdan almayan **tek** stok yazarı.
+
+**Analizin belirleyici bulguları:** `op_branch_id` bağımsız alan değil, `OperatingBranchId`'nin kopyası
+(A ≡ B) · **API oturumu `OperatingBranchId`'yi hiç set etmiyor** → Web'de o alan her zaman NULL ·
+buna karşılık **iki bakım ekranı da "Tüm Şubeler"de kaydetmeyi zaten engelliyor** → kaydet anında
+somut şube her platformda garanti.
+
+**Karar (KARAR-9):** oturum şubesi **varsayılan**, kullanıcı **"Malzemenin çekildiği depo"** alanından
+kendi firmasına ait aktif başka bir depo seçebilir. Atanmamış hedef olarak sunulmaz. Depo yoksa bakım
+engellenmez (ATANMAMIŞ'a düşer). `vehicles.branch_id` KULLANILMAZ; `op_branch_id` ile karıştırılmaz.
+
+#### Kabul kriterleri
+- [x] `NewMaintenance`'a lokasyon **opsiyonel** olarak (sona) eklendi; mevcut çağrılar kırılmadı
+- [x] Lokasyon verilmişse `EnsureLocationOwned` ile doğrulanıyor (yabancı/bilinmeyen/pasif → **403**)
+- [x] Lokasyon verilmemişse **ATANMAMIŞ** (geriye dönük davranış birebir korunuyor)
+- [x] `stock_movements.branch_id` **ve** `stock_balances.location_id` **aynı** seçilen lokasyonu kullanıyor
+- [x] Aynı bakımın tüm stok yazımları **tek transaction**
+- [x] **Kullanıcı seçimi sessizce ezilmiyor** — oturum şubesine/araç şubesine/`op_branch_id`'ye dönülmüyor
+- [x] **İPTAL: ters hareket ORİJİNAL hareketin `branch_id`'sine yazıyor** (oturum şubesinden yeniden
+      hesaplanmıyor) — özel regresyon testiyle kilitli
+- [x] Masaüstü: varsayılan + değiştirilebilir seçici, **çevrimdışı çalışıyor**, yeni API bağımlılığı yok
+- [x] Web: `RequireBranchAsync` korunuyor · seçici var · `Auth.BranchId` yalnız **varsayılan** için ·
+      kullanıcı seçimi tekrar ezilmiyor · POST gövdesinde `branchId`
+- [x] Günlük Faaliyet bakım + ilave işlem yolları **aynı** lokasyon semantiğini kullanıyor
+- [x] Excel içe aktarım yeni sözleşmeye doğru bağlı (oturum şubesi taşıma davranışı korunuyor)
+- [x] `from_team_stock=1` satırları **hiçbir** stok hareketi üretmiyor (değişmedi)
+- [x] Negatif stok kuralı, idempotency, metadata düzenleme davranışı **değişmedi**
+- [x] **Migration yok · yeni senkron protokolü yok · yeni tablo yok** · SNK-11 geri alınmadı
+- [x] Mevcut test grupları korunuyor (gevşetme/silme yok) + 23 yeni senaryo
+- [x] Web/masaüstü paritesi kanıtlandı · çevrimdışı→senkron→PG'de lokasyon korunuyor
+
+**Kapsam dışı:** geçmiş ATANMAMIŞ bakım tüketimleri **taşınmaz/tahmin edilmez** · mevcut stoklar
+yeniden dağıtılmaz · KARAR-8 kapsamındaki stoklara dokunulmaz. Yalnız **yeni** tüketim akışı.
+
+**SONUÇ (2026-08-11):** 8 üretim dosyası (1 yeni: `StockLocationPicker`). `DailyActivityService` ve
+`MaintenanceImportService` **değişmedi** — kayıt modelini olduğu gibi geçirdikleri için yeni alan
+kendiliğinden aktı. **İptal artık DEFTERDEN besleniyor** (`LoadUsageMovements`): lokasyon yalnız orada
+tutulduğu için "orijinal hareketin deposuna geri yaz" kuralının tek doğru uygulaması bu; ekip-stoğu
+satırlarının atlanması da bayrakla değil **yapısal** oldu. Ters kayda `reverses_movement_id` yazılıyor
+(geri izlenebilirlik; yeni kolon değil).
+**1343 → 1387/1353/0/34** (+44 senaryo) · build 0 hata · mevcut 115 bakım/faaliyet testi dokunulmadan
+geçti · izole PostgreSQL'de doğrulandı.
+⚠️ **Görsel (tarayıcı render) kontrolü YAPILMADI** — gerekçesi kayıtta §9.
+
 ### `STK-10` — "Stok Hareketleri" raporu · A · **YENİ** (STK-06 envanterinden)
 Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e aktarımı yok. Depo bazlı stokta
 `Kaynak → Hedef` kolonlu, tarih + depo + malzeme filtreli bir hareket dökümü doğal ihtiyaç.

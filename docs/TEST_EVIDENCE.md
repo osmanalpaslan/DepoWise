@@ -540,3 +540,50 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   + aynı gövde → aynı tablo yoluyla kanıtlandı) · PostgreSQL provası gerekmedi (SQL/lehçeye
   dokunulmadı; 33 atlanan PG testi tabanla aynı).
 - **Kayıt:** `docs/project-control/RPR_01_FILTRE_PARITESI.md`
+
+## 2026-08-11 - BKM-04 / KARAR-9 — Bakım malzemesinin çıktığı depo
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1343 · 1310 geçti · 0 kaldı · 33 atlandı
+- **Bitiş:** **1387 toplam · 1353 geçti · 0 kaldı · 34 atlandı** (**+44 yeni senaryo**:
+  `MaintenanceStockLocationTests` 27 · `ApiMaintenanceLocationTests` 9 · `MaintenanceLocationUiParityTests` 7 ·
+  `PostgresMaintenanceLocationTests` 1). Mevcut testlerin hiçbiri değiştirilmedi/silinmedi/gevşetilmedi.
+- **Regresyon kapısı:** mevcut `MaintenanceTests` + `MaintenanceTeamStockTests` + `ActivityMaintenanceEditTests` +
+  `DailyActivity*` grubu (**115 test**) kod değişikliğinden SONRA ayrıca koşuldu → **115/115 geçti**.
+- **Değişiklik:** `MaintenanceService` lokasyonu artık ÇAĞIRANDAN alıyor (eskiden sabit `Unassigned`);
+  defter (`stock_movements.branch_id`) ve bakiye (`stock_balances.location_id`) AYNI depoyu kullanıyor.
+- **İptal simetrisi:** `LoadMaintenanceMaterials` kaldırıldı, yerine `LoadUsageMovements` geldi →
+  ters kayıt ORİJİNAL hareketin `branch_id`'sine yazılıyor, iptal anındaki oturumdan hesaplanmıyor.
+  Ekip-stoğu satırları hiç hareket üretmediği için doğal olarak dışarıda kalıyor (yapısal).
+  Ters kayda `reverses_movement_id` yazılıyor (geri izlenebilirlik; yeni kolon DEĞİL).
+- **Kanıtlananlar (çevrimdışı, HTTP yok):** seçilen depodan düşüyor (defter+bakiye) · farklı depo
+  seçilince oturum şubesi EZMİYOR · aracın şubesi lokasyonu belirlemiyor · lokasyon yoksa ATANMAMIŞ ·
+  firma toplamı değişmiyor, yalnız kırılım taşınıyor · yabancı/pasif/bilinmeyen depo reddediliyor ve
+  ROLLBACK oluyor · depo yoksa bakım engellenmiyor · negatif stok kuralı değişmedi ve eksik ATANMAMIŞ'a
+  KAYMIYOR · **iptal orijinal depoya dönüyor (oturum şubesi değişse bile)** · çift iptal ikinci kez geri
+  eklemiyor · ekip stoğu hiç düşmüyor · karışık satırlarda yalnız işaretsiz olan düşüyor · aynı
+  operationId çift hareket üretmiyor · Günlük Faaliyet bakım + 3 ilave işlem türü aynı lokasyonu
+  kullanıyor · Stok Durumu raporu seçilen depoda gösteriyor · **bakım raporundaki `op_branch_id`
+  (Şube) ile stok lokasyonu karışmıyor** · içe aktarım oturum şubesini taşıyor ·
+  **çevrimdışı→senkron→sunucu lokasyonu koruyor, aynı paket tekrarında kopya yok**.
+- **Web gerçek HTTP hattı (9):** gönderilen depo uygulanıyor · `branchId` göndermeyen ESKİ istemci
+  ATANMAMIŞ davranışını koruyor (kırılmıyor) · yabancı depo **403** · bilinmeyen depo **403** ·
+  Günlük Faaliyet bakım + ilave işlem uçları lokasyonu uyguluyor · Günlük Faaliyet'te yabancı depo 403 ·
+  iptal HTTP hattında da orijinal depoya dönüyor · ekip stoğu HTTP'de de düşmüyor.
+- **Arayüz paritesi (kaynak taraması, 7):** varsayılan = oturum şubesi (iki arayüz) ·
+  **"Atanmamış" yeni yazma hedefi olarak SUNULMUYOR** (Web `WriteTargets`, masaüstü listesinde yok) ·
+  Web `_mLocationId` gönderiyor, `Auth.BranchId` ile EZMİYOR · masaüstü `MntLocation?.Id` gönderiyor ·
+  aynı etiket ("Malzemenin çekildiği depo") dört arayüzde de bağlı · depo yoksa dört arayüz de uyarıyor ·
+  "Tüm Şubeler" kapısı korunuyor.
+- **İzole PostgreSQL (boş yerel test DB, port 5433):** `PostgresMaintenanceLocationTests` koştu.
+  Gerçek satırlar: `usage` → Depo B, `usage_reverse` → **AYNI** Depo B + `reverses_movement_id` dolu.
+  Test veritabanı sonra **silindi**, PG sunucusu durduruldu. Canlıya HİÇ bağlanılmadı.
+- **Migration:** GEREKMEDİ — `stock_movements.branch_id` ve `stock_balances.location_id` zaten vardı.
+  Yeni tablo/kolon/indeks/senkron protokolü açılmadı; SNK-11 geri alınmadı.
+- **Yan düzeltme:** eksik-stok uyarısı iki arayüzde de FİRMA GENELİNE bakıyordu → artık SEÇİLEN
+  deponun stoğuna bakıyor (STK-04/05'te düzeltilen hata sınıfının bakımdaki ikizi).
+- **Yapılmayan (dürüst kayıt):** **görsel tarayıcı render kontrolü YAPILMADI**. Yerel API + yerel Web
+  ayağa kaldırıldı ama yerel sunucu veritabanında zaten kullanıcılar olduğu için tohum parolası
+  üretilmedi ve giriş yapılamadı; veritabanını sıfırlamak kullanıcının yerel verisine dokunmak,
+  canlıdan bakmak ise canlıya yazma riski olurdu. Ayrıntı: `BKM_04_LOKASYON_ANALIZI.md` §9.
+- **Kayıt:** `docs/DECISIONS.md` → ADR-103 · `docs/project-control/BKM_04_LOKASYON_ANALIZI.md`

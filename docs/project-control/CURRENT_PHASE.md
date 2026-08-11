@@ -255,12 +255,59 @@ Mevcut 10 bayrağın **tamamı** her iki platformda tam bağlı çıktı (gerçe
 5 simüle hatanın 5'i yakalandı · çevrimdışı rapor filtreleri HTTP'siz doğrulandı.
 ⚠️ **Görsel (browser/XAML render) kontrolü YAPILMADI** — doğrulama kod/kaynak düzeyindedir.
 
+## ✅ SON TAMAMLANAN — `BKM-04` Bakım malzemesinin çıktığı depo (KARAR-9, 2026-08-11)
+
+Karar: [`DECISIONS.md` → ADR-103](../DECISIONS.md) · Analiz: [`BKM_04_LOKASYON_ANALIZI.md`](BKM_04_LOKASYON_ANALIZI.md)
+Kabul kriterleri: [`TASK_BACKLOG.md` → BKM-04](TASK_BACKLOG.md)
+
+**Sorun:** `MaintenanceService` stok yazarken lokasyonu **sabit boş** yazıyor → her bakım tüketimi
+ATANMAMIŞ'a düşüyor. Üretim kodunda lokasyonu dışarıdan almayan **tek** stok yazarı.
+
+**Analizin belirleyici bulguları:**
+- `op_branch_id` bağımsız alan **değil** — `OperatingBranchId`'nin kopyası → A ≡ B.
+- **API oturumu `OperatingBranchId`'yi hiç set etmiyor** → Web'de o alan **her zaman NULL**
+  (`WEB-02`'nin bakım karşılığı). Oradan lokasyon türetmek Web'de hiçbir şeyi düzeltmezdi.
+- Buna karşılık **iki bakım ekranı da "Tüm Şubeler"de kaydetmeyi zaten engelliyor** → kaydet anında
+  somut şube her platformda garanti (masaüstünde oturumda, Web'de `Auth.BranchId`).
+
+**KARAR-9:** oturum şubesi **varsayılan**; kullanıcı **"Malzemenin çekildiği depo"** alanından kendi
+firmasına ait aktif başka bir depo seçebilir. Atanmamış hedef olarak **sunulmaz**. Depo yoksa bakım
+engellenmez (ATANMAMIŞ'a düşer, 2026-08-06 korunur). `vehicles.branch_id` **kullanılmaz**;
+`op_branch_id` ile **karıştırılmaz**.
+
+⚠️ **İki kırmızı çizgi:** (1) kullanıcının depo seçimi **sessizce ezilemez**;
+(2) **iptal, orijinal hareketin lokasyonuna** geri yazar — oturum şubesinden yeniden hesaplanmaz.
+
+**Migration GEREKMEZ** · yeni senkron protokolü/tablo YOK · SNK-11 geri alınmaz.
+
+### Uygulandı — 8 üretim dosyası (1 yeni)
+
+| Katman | Yapılan |
+|---|---|
+| Servis | `NewMaintenance.StockLocationId` (opsiyonel, sona) · `EnsureLocationOwned` · defter **ve** bakiye aynı depoyu kullanır |
+| **İptal** | Artık **defterden** besleniyor (`LoadUsageMovements`) → ters kayıt ORİJİNAL hareketin deposuna yazar; ekip-stoğu satırları **yapısal** olarak dışarıda; `reverses_movement_id` ile izlenebilir |
+| API | 3 uçta opsiyonel `branchId` (eski istemci kırılmaz) |
+| Masaüstü | Bakım + Günlük Faaliyet ekranlarına depo seçici; kural tek yerde (`StockLocationPicker`) |
+| Web | Aynı seçici; liste `WriteTargets()` (Atanmamış YOK); POST'ta kullanıcının seçimi |
+
+**`DailyActivityService` ve `MaintenanceImportService` DEĞİŞMEDİ** — kayıt modelini olduğu gibi
+geçirdikleri için yeni alan kendiliğinden aktı (testle doğrulandı).
+
+**Yanında düzeltilen:** eksik-stok uyarısı iki arayüzde de **firma geneline** bakıyordu → artık
+**seçilen deponun** stoğuna bakıyor (STK-04/05'te düzeltilen aynı hata sınıfının bakımdaki ikizi).
+
+**Kanıt:** **1387 / 1353 geçti / 0 kaldı / 34 atlandı** (taban 1343; **+44 senaryo**) · build 0 hata ·
+mevcut 115 bakım/faaliyet testi **dokunulmadan** geçti · izole PostgreSQL'de doğrulandı (ters kayıt
+aynı depoda + `reverses_movement_id` dolu) · çevrimdışı→senkron lokasyonu koruyor, kopya yok.
+
+⚠️ **Görsel (tarayıcı render) kontrolü YAPILMADI.** Yerel API veritabanında hesap bilgisi olmadığı,
+canlıya yazmak yasak olduğu ve parola girmem mümkün olmadığı için kapatılamadı — ayrıntı kayıtta §9.
+
 ## ▶️ SIRADAKİ İŞ
-**`BKM-04` — Bakım malzeme tüketiminde depo seçimi.** Bakım kaydı malzeme tüketirken
-`branch_id = NULL` yazıyor → tüketilen malzeme **ATANMAMIŞ** kovasına düşüyor. STK-08 geçmiş atanmamış
-stoğu temizleme aracını verdi, ama bu yol **yenisini üretmeye devam ediyor**. Bakımda deponun nasıl
-belirleneceği bir **iş kuralı kararıdır** (aracın şubesi mi, kullanıcının şubesi mi, açık seçim mi) —
-uydurulmayacak; önce karar, sonra kod.
+**`STK-10` — "Stok Hareketleri" raporu.** Stok Hareketleri bugün yalnız bir **ekran**; katalogda rapor
+olmadığı için **Excel'e aktarımı yok**. Depo bazlı stokta `Kaynak → Hedef` kolonlu, tarih + depo +
+malzeme filtreli bir hareket dökümü doğal ihtiyaç — BKM-04'ten sonra bakım tüketimleri de artık gerçek
+depolarıyla görünecek.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -273,7 +320,7 @@ uydurulmayacak; önce karar, sonra kod.
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1343/1310/0/33 · Build 0 hata
+667 stok hareketi · Test 1387/1353/0/34 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

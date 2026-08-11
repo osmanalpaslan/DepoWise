@@ -71,6 +71,17 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
     public ObservableCollection<MntMaterialLine> MntLines { get; } = new();
     public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
 
+    // ── BKM-04 / KARAR-9: MALZEMENİN ÇEKİLDİĞİ DEPO (bakım + İlave Yağ/Filtre/Tamir yolları) ─────
+    /// <summary>Seçenekler mevcut <see cref="Branches"/> listesidir (yerelden yüklendi → çevrimdışı,
+    /// ek sorgu YOK). "Atanmamış" bilinçli olarak sunulmaz: yeni stok yazma hedefi olamaz.
+    /// Varsayılan oturum şubesidir; kullanıcı değiştirirse seçimi olduğu gibi servise gider.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MntLocationText))]
+    private BranchRow? _mntLocation;
+    private BranchRow? _mntLocationDefault;
+    public bool MntHasNoLocation => Branches.Count == 0;
+    public string MntLocationText => MntLocation?.Name ?? "Atanmamış (depo seçilmedi)";
+
     [ObservableProperty] private string? _status;
 
     // ── Faaliyet Listesi — kolon bazlı filtre + sayfalama (kullanıcı isteği 2026-07-19, ADR-087/088/089
@@ -349,6 +360,9 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(b); } catch { }
         try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Personnel.Add(p); } catch { }
         try { foreach (var d in DesktopServices.MaintenanceDefs.List(_session)) MaintDefs.Add(d); } catch { }
+        // BKM-04: varsayılan depo = oturum şubesi. Liste yukarıda zaten yüklendi → ek sorgu yok.
+        _mntLocationDefault = StockLocationPicker.DefaultFor(_session, Branches);
+        OnPropertyChanged(nameof(MntHasNoLocation));
         _pickersLoaded = true;
     }
 
@@ -363,6 +377,7 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         MDef = null; MSubDef = null; MTechnician = null; MKm = 0; MHour = 0;
         MntMaterialSearch = ""; IsAddingSub = false; NewSubName = "";
         MntLines.Clear(); RefreshMntMaterials();
+        MntLocation = _mntLocationDefault;   // BKM-04: yeni kayıt varsayılan depoyla açılır
         ExitScope = "Şube İçi"; ExitMaterial = null; ExitMaterialSearch = ""; ExitBalanceText = "";
         ExitQuantity = 0; ExitToBranch = null; ExitPersonnel = null; RefreshExitMaterials();
         ShowForm = true;
@@ -501,7 +516,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         {
             if (MDef is null) { FormError = "Bakım tanımı seçin."; return; }
             if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
-            if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Yeni Kayıt")) return;
+            if (!await ConfirmService.AskAsync(MntLines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                    : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", "Yeni Kayıt")) return;
             try
             {
                 var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
@@ -512,7 +528,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     PerformedKm: MKm > 0 ? MKm : (decimal?)null,
                     PerformedHour: MHour > 0 ? MHour : (decimal?)null,
                     PerformedDate: FormDate?.ToUnixTimeMilliseconds(),
-                    Materials: materials), Guid.NewGuid().ToString("N"));
+                    Materials: materials,
+                    StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));   // BKM-04: kullanıcının seçtiği depo
                 ShowForm = false; Load();
                 Status = "Bakım kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
             }
@@ -524,7 +541,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
         if (IsMaintenance)
         {
             if (MntLines.Any(l => l.Quantity <= 0)) { FormError = "Malzeme miktarı pozitif olmalı."; return; }
-            if (!await ConfirmService.AskAsync($"{FormKind} kaydı eklensin mi? (malzemeler stoktan düşülür)", "Yeni Kayıt")) return;
+            if (!await ConfirmService.AskAsync(MntLines.Count == 0 ? $"{FormKind} kaydı eklensin mi?"
+                    : $"{FormKind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}", "Yeni Kayıt")) return;
             try
             {
                 var extraType = FormKind switch
@@ -540,7 +558,8 @@ public sealed partial class DailyActivityViewModel : ViewModelBase, IListGridVie
                     PerformedKm: MKm > 0 ? MKm : (decimal?)null,
                     PerformedHour: MHour > 0 ? MHour : (decimal?)null,
                     PerformedDate: FormDate?.ToUnixTimeMilliseconds(),
-                    Materials: materials), Guid.NewGuid().ToString("N"));
+                    Materials: materials,
+                    StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));   // BKM-04: kullanıcının seçtiği depo
                 ShowForm = false; Load();
                 Status = $"{FormKind} kaydı eklendi (Günlük Faaliyet + Bakım Takibi).";
             }

@@ -12,6 +12,53 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-103 — Bakım malzemesinin çıktığı depo (KARAR-9) (11.08.2026, KRİTİK)
+
+- **Bağlam:** `MaintenanceService` stok yazarken lokasyonu **sabit** olarak boş yazıyordu:
+  hareket defterine `branch_id = NULL`, bakiyeye `StockBalanceWriter.Unassigned`. Sonuç: her bakım
+  tüketimi **ATANMAMIŞ** kovasına düşüyordu. `STK-08` geçmiş atanmamış stoğu temizleme aracını verdi,
+  ama bu yol **yenisini üretmeye devam ediyordu**.
+  Analiz: [`project-control/BKM_04_LOKASYON_ANALIZI.md`](project-control/BKM_04_LOKASYON_ANALIZI.md)
+- **Analizin belirleyici bulguları:**
+  - `vehicle_maintenances.op_branch_id` bağımsız bir alan **değil** — `s.OperatingBranchId`'nin kopyası.
+    Yani "bakımın şubesi" ile "kullanıcının şubesi" **aynı veridir**; ayrı seçenek olarak değerlendirilemez.
+  - **API oturumu `OperatingBranchId`'yi HİÇ set etmiyor** (tek istisna Excel içe aktarım) → bugün
+    Web'den girilen her bakımın `op_branch_id`'si NULL. Web'de bu alandan lokasyon türetmek hiçbir
+    şeyi düzeltmezdi.
+  - **İki bakım ekranı da "Tüm Şubeler" modunda kaydetmeyi zaten engelliyor** (`RequireBranchAsync`)
+    → kaydet anında somut bir şube her zaman var (masaüstünde oturumda, Web'de `Auth.BranchId`).
+- **Karar (KARAR-9, kullanıcı):** Bakımda kullanılan malzemenin hangi depodan çıktığı **işleme göre
+  değişir**. Bu yüzden:
+  1. Bakım formunda **"Malzemenin çekildiği depo"** alanı bulunur.
+  2. Varsayılan = kullanıcının aktif/oturum şubesi.
+  3. Kullanıcı **kendi firmasına ait aktif** başka bir depo/şantiye seçebilir.
+  4. Seçim yapılmazsa varsayılan depodan düşer; açıkça farklı depo seçilirse **o depodan** düşer.
+  5. **"Atanmamış" yeni yazma hedefi olarak seçim listesinde SUNULMAZ.**
+  6. Firmada hiç uygun depo yoksa bakım kaydı stok yüzünden **engellenmez** — hareket ATANMAMIŞ
+     olarak devam eder (2026-08-06 kararı korunur).
+  7. Yabancı firma / bilinmeyen / pasif lokasyon **kabul edilmez** → mevcut `EnsureLocationOwned`
+     deseni, **servis katmanında** (masaüstü çevrimdışı yolu da korunsun diye).
+- **Kullanılmayacaklar (açık yasak):** `vehicles.branch_id` stok lokasyonu belirlemek için
+  KULLANILMAZ (araç şantiyede olabilir ama parça merkez depodan gelmiş olabilir → sessiz yanlış stok).
+  `op_branch_id` ile stok lokasyonu **karıştırılmaz**; bakım raporundaki "Şube" mevcut anlamını korur
+  (kaydı işleyen şube), stok lokasyonu ayrı kavram kalır (STK-06 ile kurulan ayrım).
+- **⚠️ En kritik kural — sessiz yönlendirme YASAK:** Kullanıcı depo seçimini değiştirdiğinde bu
+  gerçekten stok hareketine yansımalıdır. Sessizce kullanıcının şubesine dönmek, aracın şubesini
+  kullanmak, `op_branch_id` üzerinden yeniden hesaplamak veya başka lokasyona yönlendirmek yasaktır.
+  (Aynı hata sınıfı `STK-08`'de bulunmuştu: `EnforceOwnBranch` boş kaynağı sessizce kullanıcının
+  şubesine çeviriyordu.)
+- **⚠️ İPTAL SİMETRİSİ:** Ters hareketin lokasyonu iptal anındaki oturumdan **yeniden hesaplanmaz**;
+  **orijinal stok hareketinin `branch_id` değeri okunur** ve ters kayıt aynı lokasyona uygulanır.
+  (Depo A'dan düşen 5, kullanıcı Depo B ile giriş yapmış olsa bile Depo A'ya döner.)
+- **Kapsam dışı:** Geçmişte oluşmuş ATANMAMIŞ bakım tüketimleri **taşınmaz/tahmin edilmez**; mevcut
+  stoklar yeniden dağıtılmaz; KARAR-8 kapsamındaki stoklara dokunulmaz. BKM-04 yalnız **yeni** bakım
+  tüketim akışını ele alır.
+- **Migration:** GEREKMEZ — `stock_movements.branch_id` ve `stock_balances.location_id` zaten var.
+  Yeni tablo/kolon/senkron protokolü açılmaz; `stock_movements` senkronda olduğu için lokasyon
+  kolon-kesişimiyle kendiliğinden taşınır. SNK-11'de çıkarılan `stock_balances` senkronu geri gelmez.
+- **Geriye dönük uyum:** `branchId` API'de **opsiyonel**; göndermeyen eski istemci bugünkü davranışta
+  (ATANMAMIŞ) kalır ve kırılmaz. Yeni Web ve yeni masaüstü lokasyonu gönderir.
+
 ### ADR-102 — Stok bakiyesi DEPO BAZLI oldu (KARAR-7=A) (11.08.2026, TAMAM — KRİTİK)
 
 - **Bağlam:** `stock_movements` baştan beri lokasyon taşıyordu (`branch_id`, transferde `branch_from_id`),

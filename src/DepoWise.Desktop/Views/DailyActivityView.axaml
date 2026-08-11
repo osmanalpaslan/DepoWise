@@ -138,8 +138,26 @@
                             <NumericUpDown Classes="Field" Value="{Binding MHour}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
                         </ctrl:FormField>
                     </StackPanel>
+                    <!-- BKM-04 / KARAR-9: malzemenin çekildiği depo. Varsayılan oturum şubesi, kullanıcı
+                         değiştirebilir. "Atanmamış" seçenek olarak sunulmaz. Liste yereldendir (çevrimdışı). -->
+                    <ctrl:FormField Label="Malzemenin çekildiği depo" Width="280"
+                                    HelpText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir."
+                                    IsVisible="{Binding !MntHasNoLocation}">
+                        <ComboBox Classes="Field" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding Branches}" SelectedItem="{Binding MntLocation}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="org:BranchRow"><TextBlock Text="{Binding Name}"/></DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrl:FormField>
+                    <SelectableTextBlock IsVisible="{Binding MntHasNoLocation}" TextWrapping="Wrap" Classes="Helper"
+                                         Foreground="{DynamicResource WarningBrush}"
+                                         Text="Firmanızda tanımlı depo/şantiye yok. Kayıt yine de oluşturulur; malzemeler &quot;Atanmamış&quot; olarak düşülür."/>
+
                     <ctrl:FormField Label="Malzemeler (stoktan düşülür)">
                         <StackPanel Spacing="6">
+                            <SelectableTextBlock Text="{Binding MntLocationText, StringFormat='Düşülecek depo: {0}'}"
+                                                 Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <TextBox Classes="Search" Text="{Binding MntMaterialSearch}" PlaceholderText="Malzeme ara (kod/ad)"/>
                             <Border Classes="Table" MaxHeight="110" IsVisible="{Binding MntMaterialResults.Count}">
                                 <ScrollViewer>

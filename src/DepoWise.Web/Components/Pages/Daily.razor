@@ -3,6 +3,8 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@* BKM-04: malzemenin çekildiği depo seçenekleri *@
+@inject LocationOptions Locations
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 
@@ -80,6 +82,27 @@
                 <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_mHour" Label="Yapılma Saat" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             </MudGrid>
             <MudText Typo="Typo.subtitle2" Class="mt-2 mb-1">Malzemeler (varsayılan: merkez depo stoğundan düşülür)</MudText>
+            @* BKM-04 / KARAR-9: malzemenin çekildiği depo. Varsayılan giriş şubesi, kullanıcı değiştirebilir
+               ve seçimi korunur. "Atanmamış" yeni yazma hedefi olarak SUNULMAZ. *@
+            <MudGrid Spacing="2" Class="align-center mb-1">
+                @if (_mLocations.Count > 0)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="string" @bind-Value="_mLocationId" Label="Malzemenin çekildiği depo" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                   HelperText="Stok bu depodan düşülür. Varsayılan, giriş yaptığınız şubedir.">
+                            @foreach (var lo in _mLocations) { <MudSelectItem T="string" Value="@lo.Id">@lo.Name</MudSelectItem> }
+                        </MudSelect>
+                    </MudItem>
+                }
+                else
+                {
+                    <MudItem xs="12">
+                        <MudAlert Severity="Severity.Warning" Dense="true">
+                            Firmanızda tanımlı depo/şantiye yok. Kayıt yine de oluşturulur; malzemeler <b>"Atanmamış"</b> olarak düşülür.
+                        </MudAlert>
+                    </MudItem>
+                }
+            </MudGrid>
             <MudGrid Spacing="2" Class="align-center">
                 <MudItem xs="12" md="6"><MudAutocomplete T="ApiClient.Opt" Label="Malzeme ara (kod/ad)" @bind-Value="_matSel" SearchFunc="SearchMaterial" ToStringFunc="@(o => o?.Name ?? "")" Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0" CoerceText="true" /></MudItem>
                 <MudItem xs="6" md="3"><MudNumericField T="decimal" @bind-Value="_matQty" Label="Miktar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
@@ -267,6 +290,16 @@
     private decimal? _mKm, _mHour;
     private ApiClient.Opt? _matSel; private decimal _matQty;
     private readonly List<Line> _lines = new();
+    // ── BKM-04 / KARAR-9: malzemenin çekildiği depo (bakım + İlave Yağ/Filtre/Tamir) ─────────────
+    /// <summary>Yazma hedefleri — YALNIZ gerçek depolar ("Atanmamış"/"Tüm Şubeler" burada YOK).</summary>
+    private IReadOnlyList<LocationOption> _mLocations = Array.Empty<LocationOption>();
+    /// <summary>Kullanıcının seçtiği depo; varsayılan oturum şubesidir ama sonradan <c>Auth.BranchId</c>
+    /// ile EZİLMEZ — kullanıcının değişikliği olduğu gibi sunucuya gider (KARAR-9).</summary>
+    private string? _mLocationId;
+    private string? DefaultLocationId() => _mLocations.Any(x => x.Id == Auth.BranchId) ? Auth.BranchId : null;
+    private string LocationText => string.IsNullOrEmpty(_mLocationId)
+        ? "Atanmamış (depo seçilmedi)"
+        : _mLocations.FirstOrDefault(x => x.Id == _mLocationId)?.Name ?? _mLocationId!;
     /// <summary>FromTeamStock = "Bakım Ekibi Stoğundan Kullanıldı" (2026-08-08): Bakım ekranıyla AYNI davranış —
     /// kayda girer + maliyete dâhil olur, merkez depodan düşülmez.</summary>
     private sealed record Line(string Id, string Name, decimal Qty) { public bool FromTeamStock { get; set; } }
@@ -386,6 +419,9 @@
             _branches = await Api.OptionsAsync("/api/branches", "id", "name");
             _personnel = await Api.OptionsAsync("/api/personnel", "id", "fullName");
             _defOpts = await Api.OptionsAsync("/api/maintenance/definitions", "id", "name");
+            // BKM-04: yazma hedefleri (yalnız gerçek depolar) + varsayılan oturum şubesi. Tek indirme.
+            try { _mLocations = await Locations.WriteTargets(); } catch { _mLocations = Array.Empty<LocationOption>(); }
+            _mLocationId = DefaultLocationId();
         }
         var saved = await Api.GetListColumnsAsync("daily_activity");
         // İş #10: kaydedilmiş tercih KATALOĞA göre süzülür — masaüstüyle aynı kural (hayalet kolon çizilmesin).
@@ -473,23 +509,27 @@
             {
                 if (string.IsNullOrEmpty(_mDefId)) { _msg = "Bakım tanımı seçin."; _ok = false; _busy = false; return; }
                 // Masaüstüyle (DailyActivityViewModel) birebir aynı metin — parite.
-                if (!await Dialog.Confirm("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)")) { _busy = false; return; }
+                if (!await Dialog.Confirm(_lines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                        : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
                 err = await Api.PostAsync("/api/daily/maintenance", new
                 {
                     vehicleId = _vehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                     description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
-                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList()
+                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
+                    branchId = _mLocationId   // BKM-04: kullanıcının seçtiği depo
                 });
             }
             else if (_kind is "İlave Yağ" or "İlave Filtre" or "Tamir")
             {
                 // Masaüstüyle birebir aynı metin — parite.
-                if (!await Dialog.Confirm($"{_kind} kaydı eklensin mi? (malzemeler stoktan düşülür)")) { _busy = false; return; }
+                if (!await Dialog.Confirm(_lines.Count == 0 ? $"{_kind} kaydı eklensin mi?"
+                        : $"{_kind} kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {LocationText}")) { _busy = false; return; }
                 err = await Api.PostAsync("/api/daily/extra", new
                 {
                     type = ExtraTypeCode(_kind), vehicleId = _vehicle.Id, technicianId = _mTech,
                     description = Empty(_desc), performedKm = _mKm, performedHour = _mHour, performedDate = Ms(_date),
-                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList()
+                    materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
+                    branchId = _mLocationId   // BKM-04: kullanıcının seçtiği depo
                 });
             }
             else
@@ -571,6 +611,7 @@
         _vehicle = null; _date = null; _desc = "";
         _from = _to = _operator = null; _duration = null;
         _mDefId = _mSubId = _mTech = null; _mKm = _mHour = null; _matSel = null; _matQty = 0; _lines.Clear();
+        _mLocationId = DefaultLocationId();   // BKM-04: yeni kayıt varsayılan depoyla açılır
         _exitScope = "Şube İçi"; _exitMaterial = null; _exitQty = 0; _exitTo = _exitPersonnel = null;
     }
 

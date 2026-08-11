@@ -13,6 +13,7 @@ using DepoWise.Desktop.Controls;
 using DepoWise.Infrastructure.Maintenance;
 using DepoWise.Infrastructure.Materials;
 using DepoWise.Infrastructure.Org;
+using DepoWise.Infrastructure.Organization;   // BKM-04: BranchRow (malzemenin çekildiği depo)
 using DepoWise.Infrastructure.Requests;
 using DepoWise.Infrastructure.Vehicles;
 
@@ -335,6 +336,21 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
     public ObservableCollection<MaterialRefRow> MntMaterialResults { get; } = new();
     private bool _mntPickersLoaded;
 
+    // ── BKM-04 / KARAR-9: MALZEMENİN ÇEKİLDİĞİ DEPO ──────────────────────────────────────────────
+    /// <summary>Seçilebilir depolar — YEREL veritabanından (çevrimdışı çalışır, API çağrısı YOK).
+    /// "Atanmamış" bilinçli olarak listede YOKTUR: yeni stok yazma hedefi olamaz.</summary>
+    public ObservableCollection<BranchRow> MntLocations { get; } = new();
+    /// <summary>Kullanıcının seçtiği depo. Varsayılan oturum şubesidir ama kullanıcı değiştirebilir;
+    /// değiştirdiği değer olduğu gibi servise gider (sessizce oturum şubesine ÇEVRİLMEZ).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MntLocationText))]
+    private BranchRow? _mntLocation;
+    private BranchRow? _mntLocationDefault;
+    public bool MntHasNoLocation => MntLocations.Count == 0;
+    /// <summary>Onay penceresinde ve ekranda gösterilen açık metin — kullanıcı stoğun nereden
+    /// düşeceğini tahmin etmek zorunda kalmasın.</summary>
+    public string MntLocationText => MntLocation?.Name ?? "Atanmamış (depo seçilmedi)";
+
     [ObservableProperty] private VehicleListRow? _mntVehicle;
     [ObservableProperty] private MaintenanceDefinitionRow? _mntDef;
     [ObservableProperty] private MaintenanceDefinitionRow? _mntSubDef;
@@ -482,6 +498,12 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             try { foreach (var v in DesktopServices.Vehicles.List(_session)) MntVehicles.Add(v); } catch { }
             try { foreach (var d in DesktopServices.MaintenanceDefs.List(_session)) MntDefs.Add(d); } catch { }
             try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Technicians.Add(p); } catch { }
+            // BKM-04: depo listesi + varsayılan (oturum şubesi). Yerelden okunur → çevrimdışı çalışır.
+            var (locs, def) = StockLocationPicker.Load(_session);
+            foreach (var b in locs) MntLocations.Add(b);
+            _mntLocationDefault = def;
+            MntLocation ??= def;
+            OnPropertyChanged(nameof(MntHasNoLocation));
             _mntPickersLoaded = true;
         }
         RefreshMntMaterials();
@@ -495,6 +517,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
         MntVehStatus = null; MntVehStatusNote = "";
         IsAddingMntSub = false; NewMntSubName = "";
         MntLines.Clear(); MntMaterialResults.Clear(); ShowMntAdd = false;
+        MntLocation = _mntLocationDefault;   // BKM-04: YENİ kayıt için varsayılana dön (kaydedilen seçim taşınmaz)
     }
 
     [RelayCommand]
@@ -523,11 +546,15 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
 
         // madde 5.3: yetersiz stok ENGELLENMEZ. Eksik varsa uyarı + opsiyonel "Taslak Talep Oluştur";
         // her iki durumda da bakım kaydı DEVAM eder (iş akışı kesilmez).
+        // BKM-04: uyarı SEÇİLEN DEPONUN stoğuna bakar — firma geneline değil. Aksi hâlde "15 var" deyip
+        // o depodan eksiye düşerdik (STK-04/05'te düzeltilen aynı hata sınıfı).
+        var checkLocation = MntLocation?.Id ?? StockBalanceWriter.Unassigned;
         var shortfalls = new List<(string MaterialId, string Label, decimal Shortfall)>();
         foreach (var l in MntLines)
         {
+            if (l.FromTeamStock) continue;   // ekip stoğu merkez depodan düşmez → eksik uyarısı anlamsız
             decimal bal;
-            try { bal = DesktopServices.Stock.GetBalance(_session, l.MaterialId); } catch { bal = 0m; }
+            try { bal = DesktopServices.Stock.GetBalanceAt(_session, l.MaterialId, checkLocation); } catch { bal = 0m; }
             if (l.Quantity > bal) shortfalls.Add((l.MaterialId, $"{l.Code} — {l.Name}", l.Quantity - bal));
         }
 
@@ -557,7 +584,10 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
             else if (!await ConfirmService.AskAsync(baseMsg, "Yetersiz Stok", okText: "Devam Et", cancelText: "Vazgeç", danger: true))
                 return;   // talep yetkisi olmayan kullanıcıya bilgilendirme + geri çıkış imkânı
         }
-        else if (!await ConfirmService.AskAsync("Bakım kaydı eklensin mi? (malzemeler stoktan düşülür)", "Kaydet")) return;
+        else if (!await ConfirmService.AskAsync(
+                     MntLines.Count == 0 ? "Bakım kaydı eklensin mi?"
+                     : $"Bakım kaydı eklensin mi?\n\nMalzemeler şu depodan düşülecek: {MntLocationText}",
+                     "Kaydet")) return;
         try
         {
             var materials = MntLines.Select(l => new MaintenanceMaterialLine(l.MaterialId, l.Quantity, l.FromTeamStock)).ToList();
@@ -568,7 +598,10 @@ public sealed partial class MaintenanceViewModel : ViewModelBase, IDeepLinkTarge
                 PerformedKm: MntKm > 0 ? MntKm : (decimal?)null,
                 PerformedHour: MntHour > 0 ? MntHour : (decimal?)null,
                 PerformedDate: MntDate?.ToUnixTimeMilliseconds(),
-                Materials: materials), Guid.NewGuid().ToString("N"));
+                Materials: materials,
+                // BKM-04: KULLANICININ SEÇTİĞİ depo — olduğu gibi gider. Depo yoksa null → ATANMAMIŞ
+                // (bakım stok yüzünden engellenmez, KARAR-9 md. 8).
+                StockLocationId: MntLocation?.Id), Guid.NewGuid().ToString("N"));
 
             // Araç durumu seçildiyse aracı da güncelle. Bakım kaydı BAŞARILI oldu; durum güncellenemezse
             // bakım GERİ ALINMAZ (ayrı işlem) — kullanıcıya açıkça söylenir.
