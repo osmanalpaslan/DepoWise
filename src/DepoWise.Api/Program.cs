@@ -1049,6 +1049,14 @@ app.MapGet("/api/requests", (HttpContext c, string? status, string? search, int?
 app.MapGet("/api/lookups/{table}", (HttpContext c, string table) => S(c) is { } s ? Results.Ok(svc.Lookups.List(s, table)) : Results.Unauthorized()).RequireAuthorization();
 // Araç markaları (brand_type=vehicle) — malzeme markalarından ayrı
 app.MapGet("/api/lookups/vehicle_brands", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Lookups.ListBrands(s, "vehicle")) : Results.Unauthorized()).RequireAuthorization();
+// G6-20 (2026-08-11): MALZEME markaları (brand_type=material) — yukarıdaki araç rotasının simetriği.
+// Önceden bu istek genel "/api/lookups/{table}" rotasına düşüyor ve LookupService.List türü SÜZMEDİĞİ için
+// ARAÇ markalarını da döndürüyordu; masaüstü ise aynı ekranda ListBrands(s, "material") kullanıyordu
+// → web/masaüstü paritesi kırıktı (malzeme marka listesinde araç markaları görünüyordu).
+// Bu ucun TÜM tüketicileri malzeme tarafıdır (Tanım Düzenle → Malzemeler/Marka, Malzeme formu,
+// Malzeme hızlı düzenleme, Malzeme şablonları); araç ekranlarının hepsi vehicle_brands rotasını kullanır
+// → araç tarafı ETKİLENMEZ. Yazma uçları zaten "material" ile ekliyordu (POST /api/lookups/brands).
+app.MapGet("/api/lookups/brands", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.Lookups.ListBrands(s, "material")) : Results.Unauthorized()).RequireAuthorization();
 // Malzeme alt kategorileri (seçili kategorinin çocukları)
 app.MapGet("/api/materials/subcategories", (HttpContext c, string? parentId) =>
     S(c) is { } s ? Results.Ok(svc.Lookups.ListCategories(s, string.IsNullOrWhiteSpace(parentId) ? null : parentId)) : Results.Unauthorized()).RequireAuthorization();
