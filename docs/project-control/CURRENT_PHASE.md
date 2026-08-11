@@ -92,7 +92,7 @@ kırılım yalnız **malzeme kartı** açılınca çekilir (liste satırlarında
 **Kanıt:** **1254 / 1221 geçti / 0 kaldı / 33 atlandı** (taban 1240; **14 yeni senaryo**) · build 0 hata ·
 gerçek üretim kopyasında doğrulandı.
 
-## ✅ SON TAMAMLANAN — `STK-05` Masaüstü + çevrimdışı lokasyon (2026-08-11)
+## ✅ TAMAMLANAN — `STK-05` Masaüstü + çevrimdışı lokasyon (2026-08-11)
 
 Plan: [`STK_05_DESKTOP_OFFLINE_PLANI.md`](STK_05_DESKTOP_OFFLINE_PLANI.md)
 
@@ -116,29 +116,29 @@ lokasyon listesi yerel veriden · `EnsureLocationOwned` serviste olduğu için �
 çevrimdışı→senkron lokasyonu **koruyor** · online→offline→online döngüsünde **kopya hareket yok** ·
 şirket izolasyonu çevrimdışı da geçerli · dolu SQLite v63→v64 ve rollback kapısı **yeniden doğrulandı**.
 
-## 🟡 DEVAM EDEN — `STK-06` Rapor lokasyon boyutu · ENVANTER+PLAN TAMAM, KOD BAŞLAMADI
+## ✅ SON TAMAMLANAN — `STK-06` Rapor lokasyon boyutu (2026-08-11)
 
-Plan: [`STK_06_UYGULAMA_PLANI.md`](STK_06_UYGULAMA_PLANI.md) — sonraki oturum **doğrudan §8'den** başlar.
+Plan + sonuçlar: [`STK_06_UYGULAMA_PLANI.md`](STK_06_UYGULAMA_PLANI.md)
 
-**Envanter sonucu:** 11 raporun **2'si** lokasyon boyutu gerektiriyor (**Stok Durumu**, **Stok Sayım**);
-2 malzeme raporu firma toplamıyla **zaten doğru**; kalan 7 rapor stok miktarı kullanmıyor.
-**Dashboard'da düzeltme GEREKMİYOR** — STK-02'deki `StockTotalSubquery` tek uygulama, kopyası yok;
-STK-04'te gerçek üretim kopyasıyla doğrulandı.
+**11 rapor tarandı; yalnız 2'si lokasyon gerektiriyordu ve ikisi de tamamlandı:**
 
-**Kararlar (plan §4):** `ReportFilters.Location` **ayrı bayrak** olacak — mevcut `Branch` filtresi
-`op_branch_id` (kaydı işleyen şube) demek, stok lokasyonu DEĞİL, ikisi birleştirilmeyecek ·
-filtre boşken **bugünkü davranış birebir** korunacak (regresyon yok) · export ayrı sorgu kullanmıyor,
-filtreyi otomatik alacak · yeni indeks gerekmiyor (Migration064'te var).
+| Rapor | Yapılan |
+|---|---|
+| **Stok Durumu** | Filtre boşken **eski davranış birebir** (regresyon yok) · depo seçilince **kırılım + "Depo / Şantiye" kolonu + decimal toplam satırı** · 📦 Atanmamış ayrı seçenek |
+| **Stok Sayım** | 🔴 **"Sayılan Depo" kolonu** eklendi — hangi deponun sayıldığı raporda HİÇ görünmüyordu · lokasyon filtresi |
 
-⚠️ **Kod neden başlamadı:** Talimat "kapasite tüm işi DOĞRULAMAYA yetmeyecekse kodlamaya başlama" diyor.
-Bu oturumda STK-02…05 tamamlandı; STK-06'nın kabul ölçütü tam doğrulama (build + 1267 test + yeni testler +
-iki lehçe + parite + çevrimdışı + gerçek veri) ve kalan kapasite bunu garanti etmiyordu. Yarım bırakılmış
-stok değişikliği değerleri **sessizce yanlış** gösterir → başlanmadı.
+**Dashboard'da değişiklik gerekmedi** (STK-02 alt sorgusunun kopyası yok; üretim verisiyle doğrulandı).
+**Export ayrı sorgu kullanmıyor** → filtreyi otomatik aldı. Diğer 9 rapora dokunulmadı.
+
+`ReportFilters.Location` **ayrı bayrak** oldu — mevcut `Branch` filtresi "kaydı işleyen şube" demek,
+stok lokasyonu değil; ikisi birleştirilmedi (testle kilitli).
+
+**Kanıt:** **1281 / 1248 geçti / 0 kaldı / 33 atlandı** (taban 1267; **14 yeni senaryo**) · build 0 hata ·
+izole PG üretim kopyasında doğrulandı · çevrimdışı ↔ sunucu rapor paritesi test edildi.
 
 ## ▶️ SIRADAKİ İŞ
-**`STK-06` — plan §8 adım 1'den başla:** `ReportFilters.Location` bayrağı → `ReportRequest.LocationIds` →
-`ReportService.StockStatus` + `StockCount` → API → Web `Reports.razor` → masaüstü `ReportsViewModel`+XAML →
-16 senaryo → tam doğrulama → kontrol dosyaları.
+**`STK-07` — Senkron doğrulaması.** 6 çevrimdışı senaryo + idempotency + bakiye yakınsaması uçtan uca
+koşturulur (STK-05'te temel doğrulama yapıldı; STK-07 kapsamlı senkron sertifikasyonudur).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -151,7 +151,7 @@ stok değişikliği değerleri **sessizce yanlış** gösterir → başlanmadı.
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1267/1234/0/33 · Build 0 hata
+667 stok hareketi · Test 1281/1248/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

@@ -230,7 +230,7 @@ v63→v64 + rollback kapısı yeniden doğrulandı.
 ➡️ **Devredildi:** `SNK-11` (`stock_balances` push paketinden çıkarılsın — gereksiz yük, zararsız) ·
 `BKM-04` (bakım tüketimine depo seçimi).
 
-### `STK-06` — Rapor + Dashboard lokasyon boyutu · 🟡 **ENVANTER+PLAN TAMAM, KOD BAŞLAMADI** (2026-08-11)
+### `STK-06` — Rapor lokasyon boyutu · ✅ **TAMAMLANDI** (2026-08-11)
 Plan: [`STK_06_UYGULAMA_PLANI.md`](STK_06_UYGULAMA_PLANI.md) — sonraki oturum **doğrudan §8'den** başlar.
 
 **Envanter:** 11 raporun **2'si** lokasyon gerektiriyor (**Stok Durumu** · **Stok Sayım**) ·
@@ -252,3 +252,15 @@ Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e ak
 
 ### `STK-09` — Lokasyon bazlı dashboard · B · **YENİ** (ihtiyaç doğarsa)
 Bugünkü dashboard firma toplamıyla doğru çalışıyor. "Depo seçip o deponun KPI'larını görme" ayrı bir üründür.
+
+**STK-06 SONUÇ (2026-08-11):** `ReportFilters.Location` + `ReportRequest.LocationIds` eklendi.
+**Stok Durumu** iki modlu (filtre boş → eski davranış birebir; depo seçili → kırılım + Depo kolonu +
+decimal toplam). **Stok Sayım**'a "Sayılan Depo" kolonu + filtre. Web + masaüstü birlikte; masaüstü
+lokasyon listesi **yerelden** (çevrimdışı). Export ayrı sorgu kullanmadığı için filtreyi otomatik aldı.
+Dashboard'a dokunulmadı. **1281/1248/0/33** · build 0 hata · izole PG üretim kopyasında doğrulandı.
+
+### `STK-11` — Eski float artığı miktarlar · B · **YENİ** (STK-06 ölçümünden)
+Üretim verisinde `0.31999999999999995` / `-0.21999999999999997` gibi **eski float artığı** bakiye değerleri
+var. Firma geneli rapor 6 ondalıkta kesip gürültüyü temizliyor, lokasyon kırılımı ham değeri taşıyor →
+iki yol arasında **2×10⁻¹⁷** fark. Stok için anlamsız büyüklük ama defterden yeniden hesaplama ile
+normalize edilebilir. **Veri dokunuşu** olduğu için ayrı iş.

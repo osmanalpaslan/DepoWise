@@ -1,3 +1,4 @@
+using DepoWise.Application.Common;
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -26,11 +27,30 @@ public sealed class ReportService
         var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
 
         using var conn = _factory.Create();
+
+        // STK-06 — İKİ MOD (kullanıcı kararı: eski davranış korunur):
+        //  • Depo seçilmemişse → FİRMA GENELİ toplam, malzeme başına TEK satır. Sorgu ve kolonlar
+        //    STK-02'deki hâliyle BİREBİR aynıdır → mevcut rapor davranışı hiç değişmez (regresyon yok).
+        //  • Depo seçilmişse → yalnız o depo(lar)daki kalemler + "Depo" kolonu (kırılım).
+        // Her iki modda da TEK sorgu vardır; malzeme × depo döngüsü (N+1) kurulmaz ve satır çoğaltan
+        // JOIN yapılmaz. DISTINCT ile gizleme YOK — mod ayrımı sorgunun kendisinde.
+        var locations = NormalizeLocations(req.LocationIds);
+        return locations.Count == 0
+            ? StockStatusCompanyTotal(conn, companyId)
+            : StockStatusByLocation(conn, companyId, locations);
+    }
+
+    /// <summary>STK-06 — lokasyon filtresini normalleştirir. Boş liste = "Tüm Şubeler" (filtre yok).
+    /// Listedeki boş metin ("") = ATANMAMIŞ kovası ve GEÇERLİ bir seçimdir (gerçek depo değildir ama
+    /// gösterilebilir/filtrelenebilir olmalıdır — KARAR-8 çözülene kadar veri orada duruyor).</summary>
+    private static IReadOnlyList<string> NormalizeLocations(IReadOnlyList<string>? ids)
+        => ids is null ? Array.Empty<string>() : ids.Where(x => x is not null).Distinct().ToList();
+
+    private static TableModel StockStatusCompanyTotal(DbConnection conn, string companyId)
+    {
         using var cmd = conn.CreateCommand();
-        // Malzeme FİRMA-GENELİ katalog (ortak liste) → stok durumu firma-geneli listelenir. Şube-bazlı stok
-        // ayrımı geldiğinde bu rapor şube stoğuna göre revize edilecek (kullanıcı kararı 2026-07-26).
         // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN her malzemeyi depo sayısı kadar
-        // TEKRARLARDI. Bu rapor firma-geneli olduğu için lokasyonlar toplanarak tek satıra indirilir.
+        // TEKRARLARDI. Firma geneli modda lokasyonlar toplanarak tek satıra indirilir.
         cmd.CommandText = @"
 SELECT m.code, m.name, COALESCE(b.quantity,'0') AS qty, m.min_stock
 FROM materials m LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b
@@ -43,6 +63,55 @@ ORDER BY m.code;";
         while (r.Read())
             rows.Add(new object?[] { r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3) });
         return new TableModel("Stok Durumu", new[] { "Kod", "Malzeme", "Stok", "Min Stok" }, rows);
+    }
+
+    /// <summary>
+    /// STK-06 — SEÇİLİ DEPO(LAR)IN kırılımı. Satır = (malzeme × o depodaki bakiye satırı).
+    /// Bakiye satırı OLMAYAN malzeme listelenmez: "Depo A'da ne var?" sorusunun cevabı, o depoda hiç
+    /// bulunmamış 2400 malzemeyi 0 ile listelemek değildir.
+    ///
+    /// Toplam satırı C#'ta <c>decimal</c> ile hesaplanır (SQL SUM/REAL kullanılmaz — Money kuralı).
+    /// Böylece "seçili depoların toplamı" ile firma toplamı arasındaki ilişki kesin kalır.
+    /// </summary>
+    private static TableModel StockStatusByLocation(DbConnection conn, string companyId, IReadOnlyList<string> locations)
+    {
+        using var cmd = conn.CreateCommand();
+        var names = new List<string>(locations.Count);
+        for (int i = 0; i < locations.Count; i++)
+        {
+            var p = "@loc" + i;
+            names.Add(p);
+            cmd.AddWithValue(p, locations[i]);
+        }
+        // Doğrudan stock_balances: satır zaten (malzeme, lokasyon) anahtarlı → ÇOĞALMA YOK.
+        // Depo adı AYNI sorguda JOIN ile gelir (satır başına ad sorgusu yasak).
+        cmd.CommandText = $@"
+SELECT m.code, m.name, COALESCE(br.name, ''), sb.quantity, m.min_stock
+FROM stock_balances sb
+JOIN materials m ON m.id = sb.material_id AND m.company_id = sb.company_id AND m.is_deleted = 0
+LEFT JOIN branches br ON br.id = sb.location_id AND br.company_id = sb.company_id
+WHERE sb.company_id=@c AND sb.location_id IN ({string.Join(",", names)})
+ORDER BY m.code;";
+        cmd.AddWithValue("@c", companyId);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        decimal total = 0m;
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var qty = r.GetString(3);
+                total += Money.Parse(qty);
+                // Adı boş olan tek durum ATANMAMIŞ'tır (gerçek şubenin adı vardır) → gerçek depo gibi
+                // değil, açıklayıcı etiketle gösterilir.
+                var loc = r.GetString(2);
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1),
+                    loc.Length == 0 ? "Atanmamış (depo girilmemiş)" : loc, qty, r.GetString(4) });
+            }
+
+        return new TableModel("Stok Durumu — Depo Bazlı",
+            new[] { "Kod", "Malzeme", "Depo / Şantiye", "Stok", "Min Stok" }, rows,
+            TotalRow: rows.Count == 0 ? null
+                : new object?[] { "TOPLAM", "", "", Money.Serialize(total), "" });
     }
 
     // ===== ŞABLONLU / ŞABLON-DIŞI YÖNETİCİ RAPORLARI (2026-07-24) =====
@@ -714,15 +783,34 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // STK-06: SAYIM ARTIK BİR DEPOYA AİTTİR (STK-04/05). Rapor bunu göstermezse "Sistem 10, Sayılan 12"
+        // satırı hangi depoya ait belli olmaz — farklı depolarda yapılan sayımlar okunamaz hâle gelir.
+        // Sayılan depo, sayım belgesinin to_branch_id'sidir (StockService.Count → RunDocument(..., branchId)).
+        // Depo adı AYNI sorguda JOIN ile gelir (satır başına ad sorgusu yasak).
+        var locations = NormalizeLocations(req.LocationIds);
+        var locFilter = "";
+        if (locations.Count > 0)
+        {
+            var names = new List<string>(locations.Count);
+            for (int i = 0; i < locations.Count; i++)
+            {
+                var p = "@cloc" + i;
+                names.Add(p);
+                // ATANMAMIŞ ("") sayım belgesinde to_branch_id = NULL olarak durur → COALESCE ile eşlenir.
+                cmd.AddWithValue(p, locations[i]);
+            }
+            locFilter = $" AND COALESCE(d.to_branch_id,'') IN ({string.Join(",", names)})";
+        }
         cmd.CommandText = @"
 SELECT d.doc_date, m.code, m.name,
        CAST(scl.system_qty AS REAL), CAST(scl.counted_qty AS REAL), CAST(scl.diff_qty AS REAL),
-       COALESCE(scl.reason,'')
+       COALESCE(scl.reason,''), COALESCE(br.name,'')
 FROM stock_count_lines scl
 JOIN stock_documents d ON d.id = scl.document_id
 JOIN materials m ON m.id = scl.material_id
+LEFT JOIN branches br ON br.id = d.to_branch_id AND br.company_id = d.company_id
 WHERE d.company_id=@c AND d.is_deleted=0 AND d.doc_type='count'
-" + DateFilter(req, "d.doc_date") + @"
+" + DateFilter(req, "d.doc_date") + locFilter + @"
 ORDER BY d.doc_date DESC, m.code;";
         cmd.AddWithValue("@c", companyId);
         BindDates(cmd, req);
@@ -731,11 +819,14 @@ ORDER BY d.doc_date DESC, m.code;";
         while (r.Read())
         {
             var diff = r.GetDouble(5);
-            rows.Add(new object?[] { D(r.GetInt64(0)), r.GetString(1), r.GetString(2),
+            var loc = r.GetString(7);
+            rows.Add(new object?[] { D(r.GetInt64(0)),
+                loc.Length == 0 ? "Atanmamış (depo girilmemiş)" : loc,
+                r.GetString(1), r.GetString(2),
                 r.GetDouble(3), r.GetDouble(4), diff, diff == 0 ? "Fark yok" : (diff > 0 ? "Fazla" : "Eksik"), r.GetString(6) });
         }
         return new TableModel("Stok Sayım Raporu",
-            new[] { "Tarih", "Kod", "Malzeme", "Sistem", "Sayılan", "Fark", "Durum", "Gerekçe" }, rows);
+            new[] { "Tarih", "Sayılan Depo", "Kod", "Malzeme", "Sistem", "Sayılan", "Fark", "Durum", "Gerekçe" }, rows);
     }
 
     /// <summary>

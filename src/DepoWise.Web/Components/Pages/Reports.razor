@@ -145,6 +145,20 @@ else
                 </MudSelect>
             </MudItem>
         }
+        @* STK-06 — STOK LOKASYONU filtresi (Stok Durumu + Stok Sayım). Boş = 🌐 Tüm Şubeler (firma toplamı,
+           Atanmamış DAHİL). "📦 Atanmamış" AYRI bir seçenektir: lokasyonu bilinmeyen geçmiş stok — gerçek
+           bir depo DEĞİLDİR. İki kavram bilinçli olarak ayrı gösterilir. *@
+        @if (_sel?.UsesLocation == true)
+        {
+            <MudItem xs="12" md="2">
+                <MudSelect T="string" @bind-SelectedValues="_locationSel" Label="Depo / Şantiye" MultiSelection="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                           HelperText="Boş = tüm depoların toplamı"
+                           MultiSelectionTextFunc="@(v => v.Count == 0 ? "Tüm Şubeler" : $"{v.Count} depo")">
+                    @foreach (var lo in _branches) { <MudSelectItem T="string" Value="@lo.Id">@lo.Name</MudSelectItem> }
+                    <MudSelectItem T="string" Value="@("")">📦 Atanmamış</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        }
         @* Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar (iptal/reddedilen dâhil). *@
         @if (_sel?.UsesStatus == true)
         {
@@ -288,7 +302,7 @@ else
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
         bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool UsesMaintenanceDef, bool UsesTechnician,
-        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool RequiresDate, bool Manager, string? InfoNote);
+        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -334,6 +348,8 @@ else
     private IReadOnlyCollection<string> _supplierSel = new HashSet<string>();
     private IReadOnlyCollection<string> _requesterSel = new HashSet<string>();
     private IReadOnlyCollection<string> _statusSel = new HashSet<string>();
+    /// <summary>STK-06 — seçili stok lokasyonları. Boş = Tüm Şubeler (firma toplamı). "" = Atanmamış.</summary>
+    private IReadOnlyCollection<string> _locationSel = new HashSet<string>();
     private string? _vehSearch;
     private bool _showBranchSelect;   // btn-branch-select yetkisi (yoksa şube seçici gizli — sunucu da zorlar)
 
@@ -483,7 +499,7 @@ else
                 Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
                 Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "usesVehicleType"),
                 Bool(e, "usesMaintenanceDef"), Bool(e, "usesTechnician"), Bool(e, "usesSupplier"),
-                Bool(e, "usesRequester"), Bool(e, "usesStatus"),
+                Bool(e, "usesRequester"), Bool(e, "usesStatus"), Bool(e, "usesLocation"),
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
         }
@@ -516,6 +532,7 @@ else
             _branchSel = new HashSet<string>(); _vehicleSel = new HashSet<string>(); _vehTypeSel = new HashSet<string>();
             _maintDefSel = new HashSet<string>(); _techSel = new HashSet<string>(); _supplierSel = new HashSet<string>();
             _requesterSel = new HashSet<string>(); _statusSel = new HashSet<string>(); _vehSearch = null;
+            _locationSel = new HashSet<string>();   // STK-06: rapor değişince lokasyon seçimi sıfırlanır
         }
         catch { }
     }
@@ -548,6 +565,8 @@ else
                 supplierIds = _sel?.UsesSupplier == true ? _supplierSel.ToList() : new List<string>(),
                 requesterIds = _sel?.UsesRequester == true ? _requesterSel.ToList() : new List<string>(),
                 statuses = _sel?.UsesStatus == true ? _statusSel.ToList() : new List<string>(),
+                // STK-06: EXPORT ile ekran AYNI gövdeyi kullanır → filtre otomatik olarak export'a da geçer.
+                locationIds = _sel?.UsesLocation == true ? _locationSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var doc = await Api.PostJsonAsync($"/api/reports/{_selKey}", body);
@@ -589,6 +608,8 @@ else
                 supplierIds = _sel?.UsesSupplier == true ? _supplierSel.ToList() : new List<string>(),
                 requesterIds = _sel?.UsesRequester == true ? _requesterSel.ToList() : new List<string>(),
                 statuses = _sel?.UsesStatus == true ? _statusSel.ToList() : new List<string>(),
+                // STK-06: EXPORT ile ekran AYNI gövdeyi kullanır → filtre otomatik olarak export'a da geçer.
+                locationIds = _sel?.UsesLocation == true ? _locationSel.ToList() : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");

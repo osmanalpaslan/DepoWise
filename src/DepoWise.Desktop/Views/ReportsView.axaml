@@ -141,6 +141,22 @@
                         </ScrollViewer>
                     </Border>
                 </ctrl:FormField>
+                <!-- STK-06: STOK LOKASYONU filtresi (Stok Durumu + Stok Sayım). Boş = tüm depoların toplamı
+                     (Atanmamış dahil). "📦 Atanmamış" AYRI seçenektir: lokasyonu bilinmeyen geçmiş stok —
+                     gerçek bir depo değildir. Liste YEREL veriden gelir → çevrimdışı çalışır. -->
+                <ctrl:FormField Label="Depo / Şantiye (boş=tümü)" Width="190" IsVisible="{Binding ShowLocation}">
+                    <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding Locations}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BranchPick">
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </ctrl:FormField>
                 <!-- Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar. -->
                 <ctrl:FormField Label="Durum (çoklu; boş=tümü)" Width="180" IsVisible="{Binding ShowStatus}">
                     <Border Classes="Field" MaxHeight="110" Padding="8,4">

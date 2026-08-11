@@ -424,3 +424,19 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
 - **Migration (tekrar doğrulama):** dolu SQLite v63→v64 → 3 bakiye satırı 5 lokasyon satırına, toplam
   **8,3** korundu, ondalıklar tam · doğrulama kapısı uyuşmayan bakiyede **durdu**, şema 63'te kaldı.
 - **Plan/kayıt:** `docs/project-control/STK_05_DESKTOP_OFFLINE_PLANI.md`
+
+## 2026-08-11 - FAZ C / STK-06 — Rapor lokasyon boyutu
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Sonuç:** Build **0 hata**. Test **1281 toplam · 1248 geçti · 0 kaldı · 33 atlandı**
+  (STK-05 tabanı 1267'ydi; **14 yeni senaryo** — `StockReportLocationTests`).
+- **Stok Durumu:** filtre boşken eski sorgu **birebir** (regresyon yok); depo seçilince kırılım +
+  "Depo / Şantiye" kolonu + **C# decimal** toplam satırı. Lokasyon toplamı = firma toplamı (test 3).
+- **Stok Sayım:** **"Sayılan Depo" kolonu** eklendi; "Sistem" sütunu firma toplamı değil, sayılan deponun
+  miktarı. Farklı depolarda yapılan sayımlar birbirine karışmıyor (test 11).
+- **İzole PostgreSQL (üretim kopyası):** firma geneli 2459 satır / **8951,30** · ATANMAMIŞ 663 satır /
+  **8951,3** · sayım raporu yeni kolonlarla çalışıyor. Kopya veritabanı silindi, sunucu durduruldu.
+- **Ölçüm notu:** iki yol arasında **2×10⁻¹⁷** fark var — sebebi üretim verisindeki eski float artıkları
+  (`0.31999999999999995` gibi). STK-06'nın getirdiği bir şey değil → `STK-11` olarak kaydedildi.
+- **Çevrimdışı ↔ sunucu paritesi:** senkron sonrası sunucu raporu masaüstü raporuyla birebir aynı (test 14).
+- **Plan/kayıt:** `docs/project-control/STK_06_UYGULAMA_PLANI.md`

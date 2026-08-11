@@ -15,6 +15,10 @@ public enum ReportFilters
     Supplier = 64,         // Depo Girişi: tedarikçi çoklu filtre
     Requester = 128,       // Talep Raporu: talep eden (personel) çoklu filtre
     Status = 256,          // Talep Raporu: durum çoklu filtre (sabit liste — DB tanımı değil)
+    // STK-06: STOK LOKASYONU (depo/şantiye) çoklu filtre. ⚠️ Branch ile AYNI ŞEY DEĞİLDİR:
+    // Branch = kaydı İŞLEYEN şube (op_branch_id) · Location = stoğun FİZİKSEL yeri (stock_balances.location_id).
+    // İkisi bilinçli olarak ayrı bayraktır; birleştirilirse iki kavram karışır.
+    Location = 512,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -72,6 +76,7 @@ public sealed record ReportDescriptor(
     public bool UsesSupplier => Filters.HasFlag(ReportFilters.Supplier);
     public bool UsesRequester => Filters.HasFlag(ReportFilters.Requester);
     public bool UsesStatus => Filters.HasFlag(ReportFilters.Status);
+    public bool UsesLocation => Filters.HasFlag(ReportFilters.Location);   // STK-06: stok deposu/şantiyesi
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -91,10 +96,14 @@ public static class ReportCatalog
             ReportCategory.Vehicle, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
             InfoNote: "Yakıt tüketimi ve mesafe, yakıt fişleri arasındaki sayaç farkına göre hesaplanır. Tutarlar seçili tarih aralığındaki maliyetleri kapsar."),
+        // STK-06: depo bazlı stoktan sonra bu raporun iki modu var — filtre BOŞken firma geneli toplam
+        // (eski davranış birebir), depo seçilince o deponun kırılımı + "Depo" kolonu.
         new ReportDescriptor("stock", "Stok Durumu", "Mevcut / minimum / kritik kalemler",
-            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.None, false, ExportStandard),
+            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Location, false, ExportStandard,
+            InfoNote: "Depo seçilmezse TÜM depoların toplamı gösterilir (0022Atanmamış0022 stok dahil). Depo seçilirse yalnız o depodaki kalemler listelenir. 0022Atanmamış0022 bir depo değildir: geçmişte deposu girilmemiş stoktur."),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
-            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date, true, ExportStandard),
+            ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
+            InfoNote: "Sayım tek bir depoya/şantiyeye aittir. 0022Sistem0022 sütunu firma toplamını değil, SAYILAN DEPONUN o andaki miktarını gösterir."),
         // Yakıt Tüketim — Araç Raporu standardına taşındı (kullanıcı isteği 2026-08-08): araç başına işlem/mesafe/
         // litre/ortalama tüketim/ağırlıklı ort. fiyat/toplam maliyet/birim maliyet; sayaç birimine (km/saat) duyarlı,
         // tek-geçiş (N+1 yok), tam filo. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.

@@ -1,7 +1,8 @@
 # STK-06 — Rapor + Dashboard Lokasyon Boyutu · Envanter + Uygulama Planı
 
 > Oluşturuldu: **2026-08-11** · FAZ C · Ön koşul: `STK-01…05` ✅ (`07d77e0`, `cd5c4da`, `3d1996f`, `b053fde`)
-> **DURUM: ENVANTER + PLAN TAMAM · KOD UYGULAMASI BAŞLAMADI** (gerekçe §9)
+> **DURUM: ✅ TAMAMLANDI (2026-08-11)** — §11-12 uygulama ve doğrulama sonuçları.
+> (§9'daki "kod başlamadı" notu ARTIK GEÇERSİZDİR; tarihsel kayıt olarak duruyor.)
 
 ---
 
@@ -143,3 +144,52 @@ gereği kodlamaya **başlanmadı**. Envanter, kararlar ve adım listesi yukarıd
 
 **Silinmeyen açık işler:** `BKM-04` (bakım deposu) · `SNK-11` (`stock_balances` push yükü) ·
 `STK-08` / **KARAR-8** (ATANMAMIŞ dağıtımı) · `STK-07` (senkron doğrulaması).
+
+---
+
+## 11. UYGULANDI (2026-08-11) — §8 adımlarının tamamı
+
+| Adım | Dosya | Yapılan |
+|---|---|---|
+| 1 | `ReportCatalog.cs` | `ReportFilters.Location = 512` · `UsesLocation` · `stock` ve `stock-count`'a bayrak + kullanıcıya dönük `InfoNote` |
+| 2 | `ReportModels.cs` | `ReportRequest.LocationIds` (sona eklendi → eski çağrılar bozulmadı) |
+| 3 | `ReportService.StockStatus` | **İki mod**: filtre boş → eski sorgu **birebir**; depo seçili → kırılım + "Depo / Şantiye" kolonu + **decimal toplam satırı** |
+| 4 | `ReportService.StockCount` | **"Sayılan Depo" kolonu** (`stock_documents.to_branch_id` → `branches`) + lokasyon filtresi |
+| 5 | `Program.cs` | `ReportReqDto.LocationIds` → sorgu **ve export** aynı gövdeden · katalog yanıtına `usesLocation` |
+| 6 | `Reports.razor` (Web) | Lokasyon çoklu seçim (depolar + **📦 Atanmamış**) · boş = "Tüm Şubeler" · rapor değişince sıfırlanır |
+| 7-8 | `ReportsViewModel` + `ReportsView.axaml` | Masaüstü karşılığı — liste **yerel SQLite**'tan (`DesktopServices.Branches.List`) → **çevrimdışı çalışır** |
+| 9 | — | Export **ayrı sorgu kullanmıyor**; aynı `ReportRequest` gövdesi gidiyor → filtre otomatik |
+| 10 | `StockReportLocationTests` | **14 yeni senaryo** (16 maddelik liste; bazıları tek testte birleşti) |
+
+### Tasarım notları
+- **Lokasyon modunda satır = (malzeme × o depodaki bakiye satırı).** O depoda hiç bulunmamış malzeme
+  listelenmez — "Depo A'da ne var?" sorusunun cevabı 2400 sıfır satırı değildir. `InfoNote` ile anlatıldı.
+- **ATANMAMIŞ** raporda `"Atanmamış (depo girilmemiş)"` etiketiyle görünür — gerçek şube adı gibi değil.
+- Toplam satırı **C# `decimal`** ile hesaplanır; SQL `SUM`/`REAL` kullanılmaz.
+- `DISTINCT` **yok**: iki mod ayrı sorgudur, satır çoğaltan JOIN kurulmaz.
+
+## 12. DOĞRULAMALAR
+
+| Doğrulama | Sonuç |
+|---|---|
+| Çözüm derlemesi | **0 hata** |
+| Tam test takımı | **1281 · 1248 geçti · 0 kaldı · 33 atlandı** (taban 1267; **14 yeni senaryo**) |
+| SQLite | Tüm STK-06 senaryoları yerel SQLite'ta koşuyor (çevrimdışı yol) |
+| İzole PostgreSQL (üretim kopyası) | Firma geneli **2459 satır / 8951,30** · ATANMAMIŞ **663 satır / 8951,3** · Sayım raporu yeni kolonlarla çalışıyor |
+| Çevrimdışı ↔ sunucu paritesi | Senkron sonrası sunucu raporu masaüstü raporuyla **birebir aynı** (senaryo 14) |
+| Regresyon | Malzeme yönetici raporları firma toplamıyla **bozulmadan** çalışıyor (senaryo 16) |
+
+### ⚠️ Ölçüm notu — hassasiyet (yeni bulgu, STK-06'nın sebebi DEĞİL)
+İzole PG kopyasında firma geneli toplam **8951,30**, ATANMAMIŞ kırılımı **8951,29999999999999998** çıktı.
+Fark **2×10⁻¹⁷** — sebebi ÜRETİM VERİSİNİN KENDİSİDİR: bazı bakiyeler `-0.21999999999999997`,
+`0.31999999999999995` gibi **eski float artıkları** içeriyor. Firma geneli yol (STK-02'nin
+`StockTotalSubquery`) 6 ondalıkta keserek bu gürültüyü **temizliyor**; lokasyon yolu ham değeri
+gösterdiği için taşıyor. Stok için anlamsız bir büyüklüktür ve bu fazın getirdiği bir şey değildir.
+➡️ `STK-11` olarak kaydedildi (eski float artığı taşıyan bakiye değerlerinin temizliği).
+
+## 13. YENİ DEVREDİLEN İŞ
+| Kod | İş |
+|---|---|
+| `STK-11` | Üretim verisindeki eski float artığı miktarlar (`0.31999999999999995` gibi) — defterden yeniden hesaplama ile normalize edilebilir; veri dokunuşu olduğu için ayrı iş |
+
+**Silinmeyen açık işler:** `BKM-04` · `SNK-11` · `RPR-01` · `STK-09` · `STK-10` · `STK-07` · **KARAR-8 / STK-08**.

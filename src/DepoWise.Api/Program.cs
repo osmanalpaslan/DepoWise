@@ -1863,6 +1863,7 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
         usesDate = d.UsesDate, usesBranch = d.UsesBranch, usesVehicle = d.UsesVehicle,
         usesVehicleType = d.UsesVehicleType, usesMaintenanceDef = d.UsesMaintenanceDef, usesTechnician = d.UsesTechnician,
         usesSupplier = d.UsesSupplier, usesRequester = d.UsesRequester, usesStatus = d.UsesStatus,
+        usesLocation = d.UsesLocation,   // STK-06: stok deposu/şantiyesi filtresi
         requiresDate = d.RequiresDate, manager = d.IsManager,
         infoNote = d.InfoNote
     }))).RequireAuthorization();
@@ -1874,7 +1875,7 @@ static object? ReportCell(object? cell)
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses);
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds);   // STK-06: stok lokasyonu filtresi
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
     {
@@ -1892,7 +1893,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = S(c); if (s is null) return Results.Unauthorized();
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses);
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds);   // STK-06: stok lokasyonu filtresi
     var tbl = BuildReport(s, type, req);
     var bytes = svc.Excel.Export(tbl);
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
@@ -2768,7 +2769,10 @@ record SortPrefDto(string? Key, bool Desc);        // Birim 4 (kişisel varsayı
 record VehicleStatusDto(string? Status, string? StatusNote);   // bakım ekranından araç durumu
 record TrashRestoreDto(string? Table, string? Id, string? Password);
 record VehicleModelDto(string BrandId, string Name);
-record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId, List<string>? VehicleTypeIds, List<string>? MaintenanceDefIds, List<string>? TechnicianIds, List<string>? SupplierIds, List<string>? RequesterIds, List<string>? Statuses);
+record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<string>? VehicleIds, string? CompanyId, List<string>? VehicleTypeIds, List<string>? MaintenanceDefIds, List<string>? TechnicianIds, List<string>? SupplierIds, List<string>? RequesterIds, List<string>? Statuses,
+    // STK-06: STOK LOKASYONU filtresi (Stok Durumu + Stok Sayım). Gönderilmezse eski davranış (firma geneli).
+    // ⚠️ BranchIds ile AYNI ŞEY DEĞİL: o kaydı işleyen şube, bu stoğun fiziksel yeri.
+    List<string>? LocationIds = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 // G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin

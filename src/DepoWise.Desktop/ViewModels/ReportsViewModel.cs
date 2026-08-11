@@ -53,6 +53,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowSupplier))]
     [NotifyPropertyChangedFor(nameof(ShowRequester))]
     [NotifyPropertyChangedFor(nameof(ShowStatus))]
+    [NotifyPropertyChangedFor(nameof(ShowLocation))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -66,9 +67,16 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool ShowSupplier => SelectedReport?.UsesSupplier == true;
     public bool ShowRequester => SelectedReport?.UsesRequester == true;
     public bool ShowStatus => SelectedReport?.UsesStatus == true;
+    /// <summary>STK-06 — stok lokasyonu (depo/şantiye) filtresi. Şube seçici özel butonuna BAĞLI DEĞİLDİR:
+    /// o filtre "kaydı işleyen şube", bu ise "stoğun fiziksel yeri". Rapor yetkisi zaten kapıda.</summary>
+    public bool ShowLocation => SelectedReport?.UsesLocation == true;
 
     /// <summary>Yetkili kullanıcıya gösterilen şube listesi (çoklu işaret). İşaretsiz = oturum şubesi (non-breaking).</summary>
     public ObservableCollection<BranchPick> Branches { get; } = new();
+
+    /// <summary>STK-06 — stok lokasyonları. Kaynak YEREL SQLite'tır (çevrimdışı rapor için API çağrısı YOK).
+    /// Son satır "📦 Atanmamış" (boş kimlik): lokasyonu bilinmeyen geçmiş stok — gerçek bir depo DEĞİLDİR.</summary>
+    public ObservableCollection<BranchPick> Locations { get; } = new();
 
     /// <summary>Araç seçimi (Araç Raporu) — tümü + arama-filtreli; çoklu işaret. Boş = tüm araçlar (sunucu).</summary>
     public ObservableCollection<VehiclePick> VehiclePicks { get; } = new();
@@ -140,6 +148,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
         Grid.PersistWidths = null;
         Grid.PersistSort = (k, d) => { try { DesktopServices.ListPrefs.SaveSort(_session, GridKey, k, d); } catch { } };
         LoadBranches();
+        LoadLocations();   // STK-06: stok lokasyonları (yerel veriden — çevrimdışı çalışır)
         LoadVehiclePicks();
         LoadVehicleTypes();
         LoadMaintenanceDefs();
@@ -155,6 +164,14 @@ public sealed partial class ReportsViewModel : ViewModelBase
         if (!CanSelectBranches) return;
         try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(new BranchPick(b.Id, b.Name)); }
         catch { }
+    }
+
+    /// <summary>STK-06 — lokasyon listesi YEREL veritabanından (internet gerekmez). Sonda ATANMAMIŞ kovası.</summary>
+    private void LoadLocations()
+    {
+        try { foreach (var b in DesktopServices.Branches.List(_session)) Locations.Add(new BranchPick(b.Id, b.Name)); }
+        catch { }
+        Locations.Add(new BranchPick("", "📦 Atanmamış"));
     }
 
     private void LoadVehiclePicks()
@@ -306,6 +323,10 @@ public sealed partial class ReportsViewModel : ViewModelBase
         var statuses = ShowStatus
             ? Statuses.Where(t => t.IsChecked).Select(t => t.Id).ToList()
             : null;
+        // STK-06: seçili stok lokasyonları. Hiçbiri seçili değilse null → "Tüm Şubeler" (firma toplamı).
+        var locationIds = ShowLocation
+            ? Locations.Where(t => t.IsChecked).Select(t => t.Id).ToList()
+            : null;
         var req = new ReportRequest(
             Executed: true,
             FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
@@ -317,7 +338,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
             TechnicianIds: techIds,
             SupplierIds: supplierIds,
             RequesterIds: requesterIds,
-            Statuses: statuses);
+            Statuses: statuses,
+            LocationIds: locationIds is { Count: > 0 } ? locationIds : null);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

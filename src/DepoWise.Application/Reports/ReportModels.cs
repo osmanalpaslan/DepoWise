@@ -35,7 +35,11 @@ public sealed record ReportRequest(
     IReadOnlyList<string>? TechnicianIds = null,       // Bakım Raporu: teknisyen (personel) filtresi
     IReadOnlyList<string>? SupplierIds = null,         // Depo Girişi: tedarikçi filtresi
     IReadOnlyList<string>? RequesterIds = null,        // Talep Raporu: talep eden (personel) filtresi
-    IReadOnlyList<string>? Statuses = null);           // Talep Raporu: durum (draft|pending|approved|rejected|cancelled)
+    IReadOnlyList<string>? Statuses = null,            // Talep Raporu: durum (draft|pending|approved|rejected|cancelled)
+    // STK-06: STOK LOKASYONU filtresi (depo/şantiye). Boş/null = TÜM ŞUBELER (firma toplamı, ATANMAMIŞ dahil).
+    // Boş METİN ("") = 📦 ATANMAMIŞ (lokasyonu bilinmeyen geçmiş stok) — gerçek bir depo DEĞİLDİR.
+    // ⚠️ BranchIds ile karıştırılmaz: o, kaydı işleyen şubedir; bu, stoğun fiziksel yeridir.
+    IReadOnlyList<string>? LocationIds = null);
 
 public static class ReportGate
 {
