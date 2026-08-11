@@ -187,3 +187,25 @@ Güvenlik sertleştirme · API sürümleme kararı · yük testi
 | `500→400` | Zorunlu query parametresi eksikken 500 | ⚪ |
 | `WEB-01b` · `GUV-01b` · `TLP-B5` · `MUA-01/02` · `G2-08` · `TMZ-01/03` | muhtelif | ⚪ |
 | `WEB-02` | Web'de şube kapsamı çalışmıyor → `STK-05` ile birleşti | 🟠 |
+
+### `STK-04` — Web lokasyon desteği · ✅ **TAMAMLANDI** (2026-08-11)
+Plan/envanter: [`STK_04_WEB_LOKASYON_PLANI.md`](STK_04_WEB_LOKASYON_PLANI.md)
+
+**🔴 Üç gerçek hata (hepsi Web'de) bulundu ve düzeltildi:** sayım `branchId` göndermiyordu (fark
+ATANMAMIŞ'a yazılıyordu) · sayım ekranı firma geneli toplamı "sistem stoğu" diye gösteriyordu ·
+açılış stoğu deposuz gönderiliyordu (canlıdaki 663 lokasyonsuz açılışın sebebi).
+
+**Yapılan:** `LocationOptions` servisi (oturumda tek indirme) · `Stock` ("Tüm Şubeler"de zorunlu depo
+seçici — eskiden hiç işlem yapılamıyordu; bakiye çipi seçili depo) · `StockCount` (sayılan depo açık +
+`/count-sheet`) · `StockMovements` (depo kolonu `Kaynak → Hedef` + lokasyon filtresi) ·
+`Materials` (kartta Toplam + kırılım, açılış deposu). `Daily`/`Dashboard`/diğerleri bilinçli olarak
+değiştirilmedi veya doğrulandı.
+
+**Yeni uç:** `GET /api/stock/count-sheet` · `POST /api/materials` → `openingLocationId` (opsiyonel,
+eski istemciler bozulmaz).
+
+**Kanıt:** **1254/1221/0/33** (taban 1240; 14 yeni senaryo) · build 0 hata · gerçek üretim kopyasında
+doğrulandı (DEPOWISE ATANMAMIŞ **8951,3**; üç firma toplamı 8953,3 — değer değiştirilmedi).
+
+➡️ **Devredilen bulgu `B-1`:** bakım malzeme tüketimi `branch_id=NULL` yazıyor → ATANMAMIŞ'a düşüyor.
+UI'da bakım deposu seçimi yok; **uydurulmadı**. Ayrı iş: `BKM-04` (STK-05 sonrası).

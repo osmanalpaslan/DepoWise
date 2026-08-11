@@ -96,6 +96,24 @@
             @if (_editId is null)
             {
                 <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_opening" Label="Açılış Stok" HelperText="0 dışında ise stok hareketi (eksi olabilir)." Margin="Margin.Dense" Variant="Variant.Outlined" Format="0.##" /></MudItem>
+                @* STK-04: açılış stoğu bir DEPOYA aittir. Eskiden hiç sorulmuyordu → tüm açılışlar
+                   "Atanmamış" kovasına düşüyordu (canlıdaki 664 lokasyonsuz açılışın sebebi budur). *@
+                @if (_opening != 0)
+                {
+                    <MudItem xs="6" md="4">
+                        @if (Auth.IsAllBranches())
+                        {
+                            <MudSelect T="string" @bind-Value="_openingLocation" Label="Açılış Deposu *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                       HelperText="Bu stok hangi depoda duruyor?">
+                                @foreach (var b in _openingBranches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                            </MudSelect>
+                        }
+                        else
+                        {
+                            <MudTextField Value="@_openingLocationName" Label="Açılış Deposu (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+                        }
+                    </MudItem>
+                }
             }
             <MudItem xs="12"><MudTextField @bind-Value="_desc" Label="Açıklama" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
         </MudGrid>
@@ -115,6 +133,38 @@
                     </div>
                 }
             </MudStack>
+        }
+
+        @* STK-04 — LOKASYON KIRILIMI: malzeme kartı FİRMA GENELİdir, stok DEPO BAZLIdır.
+           "Toplam" tüm depoların toplamıdır; altındaki satırlar hangi depoda ne kadar olduğunu gösterir.
+           Kart açılırken TEK istek atılır (liste satırlarında kırılım çağrılmaz → N+1 yok). *@
+        @if (_editId is not null && _locations is { Count: > 0 })
+        {
+            <MudPaper Class="pa-3 mt-3" Elevation="0" Outlined="true">
+                <div class="d-flex align-center justify-space-between flex-wrap" style="gap:8px;">
+                    <MudText Typo="Typo.subtitle2">Stok — depo kırılımı</MudText>
+                    <MudText Typo="Typo.subtitle2"><b>Toplam: @_stock.ToString("0.##")</b></MudText>
+                </div>
+                <MudSimpleTable Dense="true" Striped="true" Class="mt-1" Style="overflow-x:auto;">
+                    <tbody>
+                        @foreach (var l in _locations)
+                        {
+                            <tr>
+                                <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@l.Name">
+                                    @if (l.Id.Length == 0)
+                                    {
+                                        <MudTooltip Text="@DepoWise.Web.Services.LocationOptions.UnassignedHelp">
+                                            <span class="mud-text-secondary">@l.Name</span>
+                                        </MudTooltip>
+                                    }
+                                    else { @l.Name }
+                                </td>
+                                <td style="text-align:right;width:120px;font-weight:600;">@l.Quantity.ToString("0.##")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
         }
 
         @* Kritik stok paneli (S3) — stok minimum altında/eşitse uyarı + Talep Oluştur (taslak). *@
@@ -308,6 +358,13 @@
     private string _code = "", _name = "", _type = "Yedek Parça";
     private string? _cat, _subCat, _unit, _brand, _sup;
     private decimal _min, _price, _opening;
+
+    // STK-04 — AÇILIŞ DEPOSU. Şubeye bağlı kullanıcıda oturum şubesi; "Tüm Şubeler"de zorunlu seçim.
+    private string _openingLocation = "";
+    private string? _openingLocationName;
+    private IReadOnlyList<LocationOption> _openingBranches = System.Array.Empty<LocationOption>();
+    private string? EffectiveOpeningLocation
+        => Auth.IsAllBranches() ? (string.IsNullOrWhiteSpace(_openingLocation) ? null : _openingLocation) : Auth.BranchId;
     private string _desc = "";
     private IReadOnlyCollection<string> _vehicleSel = new HashSet<string>();
     private ApiClient.Opt? _eqPick;
@@ -604,7 +661,8 @@
         _unit = NullId(d, "unitId"); _brand = NullId(d, "brandId"); _sup = NullId(d, "supplierId");
         await ResolveEditCategory(NullId(d, "categoryId"));   // alt-kategorili malzemede kategori+alt kutulara dağıt (madde 6)
         _min = Dec(d, "minStock"); _price = Dec(d, "unitPrice"); _desc = Str(d, "description");
-        _stock = Dec(d, "stock");   // Kritik stok paneli (S3) için mevcut bakiye
+        _stock = Dec(d, "stock");   // Kritik stok paneli (S3) için mevcut bakiye (FİRMA GENELİ toplam)
+        await LoadLocationBreakdown();   // STK-04: hangi depoda ne kadar (tek istek)
         _snap = (_code, _name, _type, _cat, _unit, _brand, _sup, _min, _price, _desc ?? "", _templateId);   // S2: değişiklik sayacı referansı
         _vehicleSel = new HashSet<string>(Arr(d, "compatibleVehicles").Select(v => Str(v, "id")).Where(x => x != ""));
         _equivalents.Clear();
@@ -658,6 +716,7 @@
                 categoryId = string.IsNullOrEmpty(_subCat) ? Empty(_cat) : _subCat,
                 unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                 minStock = _min, unitPrice = _price, description = Empty(_desc), openingStock = _opening,
+                openingLocationId = EffectiveOpeningLocation,   // STK-04: açılış stoğunun deposu
                 vehicleIds = _vehicleSel.ToList(), equivalentIds = _equivalents.Select(e => e.Id).ToList(),
                 templateId = _templateId,   // seçilen şablon → şablonlu/şablon-dışı rapor ayrımı (create'te bağlanır)
                 // G2-02: DÜZENLEME KİLİDİ. Yeni kayıtta _v = 0 → null gider (POST zaten sürüm kullanmaz),
@@ -721,7 +780,7 @@
         _err = false; _editId = null; _code = _name = ""; _type = "Yedek Parça";
         _cat = _subCat = _unit = _brand = _sup = null; _min = _price = _opening = 0; _desc = "";
         _vehicleSel = new HashSet<string>(); _equivalents.Clear(); _eqPick = null; _staged.Clear();
-        _movements = null; _snap = null; _stock = 0;
+        _movements = null; _snap = null; _stock = 0; _locations = null;
         _v = 0;   // G2-02: sürüm de sıfırlanır → yeni kayıtta düzenleme kilidi gönderilmez
     }
 
@@ -758,6 +817,27 @@
 
     // ── Kritik stok paneli (S3) — mevcut bakiye + onaylı TASLAK talep ──────────
     private decimal _stock;
+
+    /// <summary>STK-04 — malzemenin depo kırılımı (kart açılınca TEK istekle gelir; null = henüz yüklenmedi).</summary>
+    private List<LocRow>? _locations;
+    private sealed record LocRow(string Id, string Name, decimal Quantity);
+
+    /// <summary>Kırılım YALNIZ kart açılırken çekilir. Liste satırlarında çağrılmaz — 100 malzeme x 5 depo
+    /// = 500 istek yapısı oluşmasın (STK-04 performans kuralı). Hata olursa panel gizlenir, kart açılır.</summary>
+    private async Task LoadLocationBreakdown()
+    {
+        _locations = null;
+        if (_editId is null) return;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/stock/balance/{_editId}/locations");
+            if (d.TryGetProperty("locations", out var arr) && arr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                _locations = arr.EnumerateArray()
+                    .Select(x => new LocRow(Str(x, "locationId"), Str(x, "locationName"), Dec(x, "quantity")))
+                    .ToList();
+        }
+        catch { _locations = null; }
+    }
     private bool _reqBusy;
     private async Task CreateRequestForMaterial()
     {

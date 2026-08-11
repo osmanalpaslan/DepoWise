@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IDialogService Dialog
+@inject LocationOptions Locations
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
@@ -11,10 +12,13 @@
     </div>
 </div>
 
-@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@* STK-04: sayım FİZİKSEL bir depoya aittir. "Tüm Şubeler" ile sayım YAPILAMAZ (hangi rafı saydığı
+   belirsiz olurdu) — ama depo seçilirse yapılabilir. Sayılan depo ekranda her zaman görünür. *@
 @if (Auth.IsAllBranches())
 {
-    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">
+        Sayım tek bir fiziksel depoya aittir. Aşağıdan <b>sayılacak depoyu</b> seçin — "Tüm Şubeler" ile sayım yapılamaz.
+    </MudAlert>
 }
 
 @if (!Auth.CanCreate("stock"))
@@ -25,6 +29,18 @@ else
 {
     <MudPaper Class="pa-4 mb-3" Elevation="2">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+            @* STK-04: SAYILAN DEPO. Şubeye bağlı kullanıcıda kendi deposu (değiştirilemez);
+               "Tüm Şubeler" ile girende zorunlu seçim. Liste ve karşılaştırma HEP bu depoya göredir. *@
+            @if (Auth.IsAllBranches())
+            {
+                <MudSelect T="string" @bind-Value="_location" @bind-Value:after="Load" Label="Sayılan Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:260px" Clearable="true">
+                    @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+                </MudSelect>
+            }
+            else
+            {
+                <MudTextField Value="@_locationName" Label="Sayılan Depo (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:260px" />
+            }
             <MudTextField @bind-Value="_reason" Label="Sayım Gerekçesi *" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:320px" />
             <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:220px" OnKeyUp="OnSearchKey" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load">Ara</MudButton>
@@ -32,7 +48,10 @@ else
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Sayımı Tamamla</MudButton>
         </MudStack>
         @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
-        <MudText Typo="Typo.caption" Class="mud-text-secondary">Sayılan miktarı girin; sistem stoğundan farkı kadar "düzeltme (adjustment)" stok hareketi oluşur.</MudText>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+            Sayılan miktarı girin; <b>@(_locationName ?? "seçili depo")</b> stoğundan farkı kadar "düzeltme (adjustment)"
+            hareketi oluşur. Karşılaştırma firma toplamıyla değil, <b>bu deponun</b> miktarıyla yapılır.
+        </MudText>
     </MudPaper>
 
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
@@ -60,19 +79,43 @@ else
     private string _reason = "", _search = "";
     private string? _msg; private bool _ok; private bool _busy;
 
-    protected override async Task OnInitializedAsync() { if (Auth.CanCreate("stock")) await Load(); }
+    // STK-04 — sayılan depo. Şubeye bağlı kullanıcıda oturum şubesi; "Tüm Şubeler"de kullanıcının seçimi.
+    private string _location = "";
+    private string? _locationName;
+    private IReadOnlyList<LocationOption> _branches = System.Array.Empty<LocationOption>();
+    private string? EffectiveLocation
+        => Auth.IsAllBranches() ? (string.IsNullOrWhiteSpace(_location) ? null : _location) : Auth.BranchId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.CanCreate("stock")) return;
+        // Lokasyon listesi ORTAK önbellekten (her ekran kendi /api/branches çağrısını yapmaz).
+        if (Auth.IsAllBranches()) _branches = await Locations.WriteTargets();
+        else _locationName = await Locations.NameAsync(Auth.BranchId);
+        await Load();
+    }
 
     private async Task Load()
     {
         _rows = null;
+        var loc = EffectiveLocation;
+        if (loc is null) { _rows = new(); _locationName = null; return; }   // depo seçilmeden liste gösterilmez
         try
         {
-            var arr = await Api.GetArrayAsync("/api/materials" + (string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search)}"));
-            _rows = arr.Where(e => e.ValueKind == JsonValueKind.Object).Select(e =>
-            {
-                var stock = Dec(e, "stock");
-                return new Row { Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), SystemStock = stock, Counted = stock };
-            }).ToList();
+            // STK-04: sistem miktarı SAYILAN DEPODAN gelir. Eskiden /api/materials'ın FİRMA GENELİ toplamı
+            // "sistem stoğu" diye gösteriliyordu → kullanıcı yanlış farkı görürdü (sunucu doğru hesaplıyordu).
+            var url = $"/api/stock/count-sheet?locationId={Uri.EscapeDataString(loc)}"
+                      + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}");
+            var d = await Api.GetObjectAsync(url);
+            _locationName = d.TryGetProperty("locationName", out var n) ? n.GetString() : null;
+            _rows = (d.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array
+                        ? items.EnumerateArray()
+                        : Enumerable.Empty<JsonElement>())
+                .Select(e =>
+                {
+                    var stock = Dec(e, "systemStock");
+                    return new Row { Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), SystemStock = stock, Counted = stock };
+                }).ToList();
         }
         catch { _rows = new(); }
     }
@@ -82,7 +125,8 @@ else
     private async Task Save()
     {
         _msg = null;
-        if (!await Dialog.RequireBranchAsync(Auth, "Stok Sayım")) return;   // "Tüm Şubeler" modunda işlem yok
+        // STK-04: sayım fiziksel bir depoya aittir → depo seçilmeden kaydedilemez.
+        if (EffectiveLocation is null) { _msg = "Önce sayılacak depoyu/şantiyeyi seçin."; _ok = false; return; }
         if (string.IsNullOrWhiteSpace(_reason)) { _msg = "Sayım gerekçesi zorunlu."; _ok = false; return; }
         // G1-03: EKRANDAKİ TÜM satırlar gönderilir — fark=0 olanlar da. Servis (StockService.Count) her satır
         // için sayım satırı yazar, stok hareketini yalnız fark≠0'da üretir. Fark=0 kayıtları "sayıldı, doğruydu"
@@ -101,6 +145,9 @@ else
             {
                 reason = _reason.Trim(),
                 operationId,
+                // 🔴 STK-04 DÜZELTMESİ: branchId eskiden HİÇ gönderilmiyordu → sayım farkı ATANMAMIŞ kovasına
+                // yazılıyor, kullanıcının saydığı depo hiç düzelmiyordu. Artık sayılan depo açıkça gider.
+                branchId = EffectiveLocation,
                 lines = lines.Select(r => new { materialId = r.Id, countedQuantity = r.Counted }).ToList()
             });
             _ok = err is null; _msg = err ?? "Sayım tamamlandı, stok güncellendi.";

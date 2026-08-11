@@ -45,7 +45,7 @@ QA raporu: [`docs/tests/Stok_Lokasyon_Test_Report.md`](../tests/Stok_Lokasyon_Te
 > `DbIntrospect.PrimaryKey` bileşik anahtarı okuyor, `BusinessSyncService` `ON CONFLICT` hedefini
 > ondan kuruyor → üç kolonlu anahtar **otomatik** üretiliyor. `stock_movements` şeması değişmedi.
 
-## ✅ SON TAMAMLANAN — `STK-03` API lokasyon boyutu (2026-08-11)
+## ✅ TAMAMLANAN — `STK-03` API lokasyon boyutu (2026-08-11)
 
 Envanter + sözleşme: [`STK_03_API_LOKASYON_PLANI.md`](STK_03_API_LOKASYON_PLANI.md)
 
@@ -68,11 +68,34 @@ alanlar bozmaz) · **Masaüstü hiçbir stok ucunu kullanmıyor** (yerel servis 
 **Kanıt:** **1240 / 1207 geçti / 0 kaldı / 33 atlandı** (taban 1223; **17 yeni senaryo** — 15 gerçek HTTP +
 2 çevrimdışı) · build 0 hata · **sync kodu değiştirilmedi** · N+1 yok (lokasyon adları aynı sorguda JOIN).
 
+## ✅ SON TAMAMLANAN — `STK-04` Web lokasyon desteği (2026-08-11)
+
+Plan: [`STK_04_WEB_LOKASYON_PLANI.md`](STK_04_WEB_LOKASYON_PLANI.md)
+
+**🔴 Üç gerçek hata bulundu ve düzeltildi (hepsi Web tarafında):**
+1. **Sayım `branchId` göndermiyordu** → fark ATANMAMIŞ'a yazılıyor, kullanıcının saydığı depo hiç düzelmiyordu.
+2. **Sayım ekranı firma geneli toplamı** "sistem stoğu" diye gösteriyordu → kullanıcı yanlış farkı görürdü.
+3. **Açılış stoğu deposuz** gönderiliyordu → her açılış ATANMAMIŞ'a düşüyordu (canlıdaki 663 kaydın sebebi).
+
+| Ekran | Yapılan |
+|---|---|
+| `Stock` | "Tüm Şubeler"de **zorunlu depo seçici** (eskiden hiç işlem yapılamıyordu) · bakiye çipi **seçili deponun** stoğu |
+| `StockCount` | Sayılan depo **ekranda açık** · sistem stoğu **o deponun** (`/count-sheet`) · POST'a `branchId` |
+| `StockMovements` | **Depo kolonu** (`Kaynak → Hedef`) · lokasyon **filtresi** (Tüm Şubeler / depo / Atanmamış) |
+| `Materials` | Kartta **Toplam + depo kırılımı** (tek istek) · **açılış deposu** zorunlu |
+| `Daily` · `Dashboard` · diğerleri | Bilinçli olarak **değiştirilmedi** / doğrulandı |
+
+**🌐 Tüm Şubeler ≠ 📦 Atanmamış** ayrımı arayüzde, filtrelerde ve testlerde kilitlendi.
+Yeni `LocationOptions` servisi lokasyon listesini **oturumda bir kez** indirir (N+1 yok);
+kırılım yalnız **malzeme kartı** açılınca çekilir (liste satırlarında değil).
+
+**Kanıt:** **1254 / 1221 geçti / 0 kaldı / 33 atlandı** (taban 1240; **14 yeni senaryo**) · build 0 hata ·
+gerçek üretim kopyasında doğrulandı.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-04` — Web lokasyon desteği.** Stok ekranlarında depo seçimi + kırılım gösterimi
-(`/api/stock/balance/{id}/locations` ve `/location` hazır) · hareket listesinde lokasyon kolonu
-(alanlar API'de hazır) · "Tüm Şubeler" oturumunda lokasyon **zorunluluğu** kararı (STK-03'ten devredildi).
-Ardından `STK-05` (Masaüstü + offline).
+**`STK-05` — Masaüstü + çevrimdışı lokasyon desteği.** Web'de kurulan AYNI iş kuralları masaüstüne
+uyarlanır (yazmada zorunlu depo · sayımda sayılan depo · açılış deposu · kart kırılımı · hareket lokasyonu).
+⚠️ Çevrimdışı mimari korunur: masaüstü stok işlemleri API'ye DEĞİL yerel servise gider.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -85,11 +108,13 @@ Ardından `STK-05` (Masaüstü + offline).
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1240/1207/0/33 · Build 0 hata
+667 stok hareketi · Test 1254/1221/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
-- **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek (666/667 hareket lokasyonsuz;
-  8953,3 birim) → KARAR-8 alınmadan kullanıcıya sürpriz olur.
+- **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya
+  sürpriz olur. Gerçek rakamlar (üretim kopyasında ölçüldü): **DEPOWISE firması 8951,3** (663 satır,
+  gerçek depo stoğu 0) · üç firma toplamı **8953,3**. Web artık bunu "Atanmamış" olarak AÇIKÇA gösteriyor
+  ve "Tüm Şubeler" ile karıştırmıyor; dağıtım yine de KARAR-8 bekliyor.
 - Migration, bakiyesi defterle **uyuşmayan** bir veritabanında **bilinçli olarak durur** (sessiz bozulma
   yerine açık hata). Böyle bir **masaüstü** veritabanı varsa güncelleme başlamaz → önce yeniden hesaplama
   gerekir. Üretim PG kopyasında uyuşmazlık **yok**.

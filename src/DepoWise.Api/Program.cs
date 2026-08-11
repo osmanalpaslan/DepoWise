@@ -1105,7 +1105,8 @@ app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
     if (d.VehicleIds is { Count: > 0 }) svc.Materials.SetCompatibleVehicles(s, id, d.VehicleIds);
     if (d.EquivalentIds is not null) foreach (var eq in d.EquivalentIds) svc.Materials.AddEquivalent(s, id, eq);
     if (d.OpeningStock != 0)   // ADR-086: negatif açılış (devralınan eksik stok) de kaydedilir
-        svc.OpeningStock.RecordOpening(s, id, d.OpeningStock, Guid.NewGuid().ToString("N"), d.UnitPrice > 0 ? d.UnitPrice : null);
+        svc.OpeningStock.RecordOpening(s, id, d.OpeningStock, Guid.NewGuid().ToString("N"), d.UnitPrice > 0 ? d.UnitPrice : null,
+            branchId: string.IsNullOrWhiteSpace(d.OpeningLocationId) ? null : d.OpeningLocationId);   // STK-04: açılış deposu
     return Results.Ok(new { id });
 }).RequireAuthorization();
 
@@ -1254,6 +1255,23 @@ app.MapPost("/api/admin/reset-data", (HttpContext c) =>
     tx.Commit();
     using (var pragma = conn.CreateCommand()) { pragma.CommandText = "PRAGMA foreign_keys=ON;"; pragma.ExecuteNonQuery(); }
     return Results.Ok(new { ok = true, cleared });
+}).RequireAuthorization();
+
+// STK-04 — SAYIM LİSTESİ: malzemeler + SAYILAN LOKASYONUN sistem miktarı (tek sorgu, N+1 yok).
+// Ayrı uçtur çünkü /api/materials FİRMA GENELİ toplamı döndürür; sayımda o rakam YANLIŞ olur.
+app.MapGet("/api/stock/count-sheet", (HttpContext c, string? locationId, string? search, int? limit) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var loc = locationId ?? "";
+    // Lokasyon adı + sahiplik doğrulaması aynı yerden (yabancı depo → 403).
+    var head = svc.Stock.GetLocationBalance(s, "", loc);
+    var rows = svc.Stock.GetCountSheet(s, loc, search, limit is > 0 ? limit.Value : 500);
+    return Results.Ok(new
+    {
+        locationId = head.LocationId,
+        locationName = head.LocationName,
+        items = rows.Select(x => new { id = x.MaterialId, code = x.Code, name = x.Name, systemStock = x.Quantity }),
+    });
 }).RequireAuthorization();
 
 // Stok Sayım — fark kadar 'adjustment' hareketi
@@ -2728,7 +2746,10 @@ record VerifyBranchDto(string? CompanyId, string BranchId, string? BranchPasswor
 record ConflictSeenDto(string? BranchId);
 record UserThemeDto(string? Mode, string? Color, string? Style);
 // Version: DÜZENLEME KİLİDİ — formun açıldığı andaki sürüm. Gönderilmezse (null) kontrol yapılmaz (geriye uyumlu).
-record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds, long? Version = null, string? TemplateId = null);
+record NewMaterialDto(string Code, string Name, string? Type, string? CategoryId, string? UnitId, string? BrandId, string? SupplierId, decimal MinStock, decimal UnitPrice, string? Description, decimal OpeningStock, List<string>? VehicleIds, List<string>? EquivalentIds, long? Version = null, string? TemplateId = null,
+    // STK-04: açılış stoğunun DEPOSU. Verilmezse ATANMAMIŞ kovasına düşer (eski istemciler bozulmaz);
+    // web arayüzü açılış girildiğinde bunu ZORUNLU kılar — geçmişteki 664 lokasyonsuz açılış böyle oluştu.
+    string? OpeningLocationId = null);
 record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);

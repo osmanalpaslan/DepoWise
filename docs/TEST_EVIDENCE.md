@@ -391,3 +391,19 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   lokasyon kırılımının iki tarafta aynı çıktığı kanıtlandı.
 - **Rapor:** `docs/tests/Stok_Lokasyon_Test_Report.md` (EK bölümü) ·
   **Sözleşme:** `docs/project-control/STK_03_API_LOKASYON_PLANI.md`
+
+## 2026-08-11 - FAZ C / STK-04 — Web lokasyon desteği
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Sonuç:** Build **0 hata**. Test **1254 toplam · 1221 geçti · 0 kaldı · 33 atlandı**
+  (STK-03 tabanı 1240'tı; **14 yeni senaryo** — `WebStockLocationContractTests`).
+- **Düzeltilen 3 hata (Web):**
+  1. Sayım POST'u `branchId` **hiç göndermiyordu** → fark ATANMAMIŞ'a yazılıyor, sayılan depo düzelmiyordu.
+  2. Sayım ekranı "sistem stoğu" olarak **firma geneli toplamı** gösteriyordu → kullanıcı yanlış fark görürdü.
+  3. Açılış stoğu **deposuz** gönderiliyordu → her açılış ATANMAMIŞ'a düşüyordu (canlıdaki 663 kaydın sebebi).
+- **Gerçek veri kontrolü** (üretim yedeğinin izole kopyası, migration sonrası):
+  DEPOWISE firması Tüm Şubeler **8951,3** · ATANMAMIŞ **8951,3** (663 satır) · gerçek depo **0** ·
+  üç firma toplamı **8953,3**. Değer **değiştirilmedi**; 8953,3'ün üç firmanın toplamı olduğu netleşti.
+  Bakiye 664 → 665, uyuşmayan 0, toplam korundu. Kopya veritabanı silindi, sunucu durduruldu.
+- **Yeni uç:** `GET /api/stock/count-sheet` · `POST /api/materials` → `openingLocationId` (opsiyonel).
+- **Plan/kayıt:** `docs/project-control/STK_04_WEB_LOKASYON_PLANI.md`

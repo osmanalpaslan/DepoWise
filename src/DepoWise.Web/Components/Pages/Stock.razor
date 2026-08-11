@@ -11,10 +11,14 @@
     </div>
 </div>
 
-@* "Tüm Şubeler" modunda bu ekranda İŞLEM yapılamaz (kayıt hangi şubeye yazılacağı belli değil) — okuma serbest. *@
+@* STK-04: "Tüm Şubeler" modunda artık İŞLEM YAPILABİLİR — ama depo AÇIKÇA seçilmek zorunda.
+   (Eskiden tümden engelleniyordu; çok depolu firmada yönetici hiç stok işlemi yapamıyordu.) *@
 @if (Auth.IsAllBranches())
 {
-    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">@DepoWise.Web.Services.BranchGuard.Banner</MudAlert>
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">
+        "Tüm Şubeler" modundasınız. Stok bir depoya ait olmalıdır — işlem yapmadan önce aşağıdan
+        <b>Depo / Şantiye</b> seçin.
+    </MudAlert>
 }
 
 @if (Auth.CanCreate("stock"))
@@ -121,14 +125,29 @@
 
             @* İşlem şubesi = login (çalışma) şube — salt-okunur; kullanıcı seçmez (kullanıcı isteği 2026-08-06).
                Giriş/çıkışta İŞLEM şubesi, transferde KAYNAK şube budur. Yalnız transfer HEDEFİ seçilir. *@
+            @* STK-04: STOK LOKASYONU. Şubeye bağlı kullanıcıda salt-okunur kalır (2026-08-06 kararı; sunucu
+               zaten başka şubeye yazdırmaz → seçim kutusu SAHTE seçim olurdu). "Tüm Şubeler" ile giren
+               yöneticide ise ZORUNLU seçim olur; eskiden bu kullanıcı hiç stok işlemi yapamıyordu. *@
             @if (IsOutBranch)
             {
-                <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Kaynak Şube (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
-                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Şube / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+                @if (Auth.IsAllBranches())
+                {
+                    <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_workLocation" @bind-Value:after="OnExitMaterialPicked" Label="Kaynak Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(_branches)</MudSelect></MudItem>
+                }
+                else
+                {
+                    <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Kaynak Depo (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                }
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_toBranch" Label="Hedef Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true">@Opts(TargetBranches)</MudSelect></MudItem>
+            }
+            else if (Auth.IsAllBranches())
+            {
+                <MudItem xs="6" md="3"><MudSelect T="string" @bind-Value="_workLocation" @bind-Value:after="OnExitMaterialPicked" Label="Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                                                  HelperText="İşlem bu depoya yazılır. Seçilmeden kayıt yapılamaz.">@Opts(_branches)</MudSelect></MudItem>
             }
             else
             {
-                <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Şube (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3"><MudTextField Value="@LoginBranchName" Label="Depo (Şubeniz)" ReadOnly="true" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
             }
 
             @* Personel (teslim eden/alan): Yeni Kayıt + Şube İçi'nde görünür/zorunlu; Şube Dışı'nda GİZLİ (madde 6). *@
@@ -223,6 +242,20 @@
     private decimal _qty;
     private string _note = "", _invoiceNo = "", _orderSlipNo = "", _creditSlipNo = "";
     private string _branch = "", _fromBranch = "", _toBranch = "", _personnel = "", _vehicle = "";
+
+    /// <summary>STK-04 — işlemin yazılacağı STOK LOKASYONU. Şubeye bağlı kullanıcıda oturum şubesidir
+    /// (değiştirilemez); "Tüm Şubeler" ile girende kullanıcının seçtiği depodur (zorunlu).
+    /// ⚠️ Burada ASLA boş metin ("Atanmamış") gönderilmez — yeni kayıt belirsiz olamaz.</summary>
+    private string _workLocation = "";
+
+    /// <summary>Sunucuya gidecek etkin lokasyon. Boşsa kaydetme aşamasında engellenir.</summary>
+    private string? EffectiveLocation => Auth.IsAllBranches() ? NullIfEmpty(_workLocation) : Auth.BranchId;
+
+    /// <summary>Transferde hedef listesi kaynağı DIŞLAR (aynı depoya transfer anlamsız).</summary>
+    private List<(string Id, string Name)> TargetBranches
+        => _branches.Where(b => b.Id != EffectiveLocation).ToList();
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
     // Seçici (Transfer/Çıkış)
     private MaterialItem? _material;
     private string _balance = "";
@@ -345,9 +378,16 @@
         if (_material is null) return;
         try
         {
-            var d = await Api.GetObjectAsync($"/api/stock/balance/{_material.Id}");
+            // STK-04: çıkış YALNIZ seçili depodan yapılır → gösterilen bakiye de O DEPONUN bakiyesidir.
+            // Firma toplamını göstermek kullanıcıyı yanıltırdı ("15 var" deyip çıkış reddedilirdi).
+            var loc = EffectiveLocation;
+            if (loc is null) { _balance = "Bakiye için önce depo seçin."; return; }
+            var d = await Api.GetObjectAsync($"/api/stock/balance/{_material.Id}/location?locationId={Uri.EscapeDataString(loc)}");
             if (d.TryGetProperty("balance", out var b) && b.TryGetDecimal(out var q))
-                _balance = $"Mevcut stok: {q:0.##}";
+            {
+                var name = d.TryGetProperty("locationName", out var n) ? n.GetString() : null;
+                _balance = $"{name ?? "Depo"} stoğu: {q:0.##}";
+            }
         }
         catch { /* bakiye gösterimi bilgilendirmedir; alınamazsa çip gizli kalır */ }
     }
@@ -397,7 +437,13 @@
     private async Task Save()
     {
         _msg = null;
-        if (!await Dialog.RequireBranchAsync(Auth, "Malzeme Giriş-Çıkış")) return;   // "Tüm Şubeler" modunda işlem yok
+        // STK-04: "Tüm Şubeler" modunda artık işlem YAPILABİLİR — ama yalnız depo AÇIKÇA seçilirse.
+        // (Eskiden BranchGuard tümden engelliyordu; belirsiz stok işlemi yine oluşamaz.)
+        if (EffectiveLocation is null)
+        {
+            _msg = "Önce işlemin yapılacağı depoyu/şantiyeyi seçin. Stok bir depoya ait olmalıdır.";
+            _ok = false; return;
+        }
         // madde 8: personel Yeni Kayıt + Şube İçi'nde zorunlu; Şube Dışı (transfer) alanı gizli → zorunlu değil.
         if ((IsNew || IsInBranch) && string.IsNullOrWhiteSpace(_personnel)) { _msg = "Personel (işlemi yapan) zorunludur."; _ok = false; return; }
         // madde 7 — İş #8: sepetteki satırlar da denetlenir (formdaki miktar 0 olduğunda eski kontrol hiç tetiklenmezdi).
@@ -434,7 +480,7 @@
             if (_saveLines.Count == 0) { _msg = "Malzeme seçin (ya da listeye ekleyin)."; _ok = false; return; }
             // Kaynak = login şube (otomatik); kullanıcı yalnız HEDEFİ seçer.
             if (string.IsNullOrWhiteSpace(_toBranch)) { _msg = "Hedef şube seçin."; _ok = false; return; }
-            if (Auth.BranchId == _toBranch) { _msg = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; _ok = false; return; }
+            if (EffectiveLocation == _toBranch) { _msg = "Hedef depo, kaynak depodan farklı olmalı."; _ok = false; return; }
             if (!await Dialog.Confirm($"{LoginBranchName} → hedef şubeye şube dışı çıkış (transfer) kaydedilsin mi?{LineText(_saveLines)}", "Evet, Kaydet")) return;
         }
 
@@ -454,7 +500,7 @@
                     // G1-04: yaprak kategori gönderilir — alt seçiliyse o, değilse üst (masaüstü ile aynı kural).
                     code = _code.Trim(), name = _name.Trim(), type = Empty(_type), categoryId = Empty(_subCat) ?? Empty(_cat),
                     unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
-                    quantity = _qty, unitPrice = _price, branchId = Auth.BranchId, personnelId = Empty(_personnel),
+                    quantity = _qty, unitPrice = _price, branchId = EffectiveLocation, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
@@ -466,7 +512,7 @@
                     operationId,
                     lines = _saveLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity }),
                     materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
-                    branchId = Auth.BranchId, personnelId = Empty(_personnel),
+                    branchId = EffectiveLocation, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
                     orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });
@@ -478,7 +524,7 @@
                     operationId,
                     lines = _saveLines.Select(l => new { materialId = l.MaterialId, quantity = l.Quantity }),
                     materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
-                    fromBranchId = Auth.BranchId, toBranchId = _toBranch,
+                    fromBranchId = EffectiveLocation, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
                     invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
                 });

@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject ApiClient Api
 @inject AuthState Auth
+@inject LocationOptions Locations
 
 @* Stok Hareketleri — ayrı ekran (kullanıcı isteği 2026-08-05): tüm giriş/çıkış/transfer/sayım hareketleri,
    tarih aralığı filtresi + metin araması. Salt-okunur. Şube kapsamı ve yetki API'de (/api/stock/movements). *@
@@ -11,7 +12,7 @@
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
         <MudText Typo="Typo.h5">Stok Hareketleri</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")@(_rows is { Length: > 0 } ? $" · {_rows.Length} hareket" : "")</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")@(Filtered.Any() ? $" · {Filtered.Count()} hareket" : "")</MudText>
     </div>
 </div>
 
@@ -24,10 +25,24 @@
                           Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search" Immediate="false"
                           OnKeyDown="@(async (e) => { if (e.Key == "Enter") await Load(); })" />
         </MudItem>
+        @* STK-04 — LOKASYON FİLTRESİ. "Tüm Şubeler" ≠ "Atanmamış":
+           Tüm Şubeler = filtre yok (hepsi) · Atanmamış = yalnız lokasyonu bilinmeyen geçmiş hareketler.
+           Filtre istemci tarafında uygulanır: liste zaten yüklü, sunucuya ikinci istek atılmaz. *@
+        <MudItem xs="6" md="3">
+            <MudSelect T="string" @bind-Value="_location" Label="Depo / Şantiye" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var o in _locationOptions) { <MudSelectItem T="string" Value="@o.Id">@o.Name</MudSelectItem> }
+            </MudSelect>
+        </MudItem>
         <MudItem xs="4" md="2" Class="d-flex" Style="gap:6px;">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Load" Disabled="_busy">Filtrele</MudButton>
             <MudButton Variant="Variant.Text" OnClick="Clear" Disabled="_busy">Temizle</MudButton>
         </MudItem>
+        @if (_location == LocationOptions.UnassignedId)
+        {
+            <MudItem xs="12">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@LocationOptions.UnassignedHelp</MudText>
+            </MudItem>
+        }
     </MudGrid>
 </MudPaper>
 
@@ -35,13 +50,16 @@
     @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     @* G1-07: yükleme hatası ile "gerçekten boş sonuç" birbirinden ayrılır — eskiden hata da boş liste görünüyordu. *@
     else if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert> }
-    else if (_rows.Length == 0) { <MudText Class="mud-text-secondary">Seçilen ölçütlerde hareket yok.</MudText> }
+    else if (!Filtered.Any()) { <MudText Class="mud-text-secondary">Seçilen ölçütlerde hareket yok.</MudText> }
     else
     {
-        <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh">
+        <MudTable Items="Filtered" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="62vh">
             <HeaderContent>
                 <MudTh>Tarih</MudTh><MudTh>Tip</MudTh><MudTh>Kod</MudTh><MudTh>Malzeme</MudTh>
-                <MudTh Style="text-align:right;">Miktar</MudTh><MudTh>Birim</MudTh><MudTh>Not / Belge</MudTh><MudTh>Durum</MudTh>
+                <MudTh Style="text-align:right;">Miktar</MudTh><MudTh>Birim</MudTh>
+                @* STK-04: depo bazlı stokta "hangi depo" bilgisi olmadan hareket defteri okunamaz. *@
+                <MudTh>Depo / Şantiye</MudTh>
+                <MudTh>Not / Belge</MudTh><MudTh>Durum</MudTh>
             </HeaderContent>
             <RowTemplate>
                 @{ var qty = Dec(context, "quantity"); var dir = Int(context, "direction"); var signed = dir < 0 ? -Math.Abs(qty) : Math.Abs(qty); }
@@ -53,6 +71,7 @@
                     <span style="color:@(signed < 0 ? "var(--mud-palette-error)" : "var(--mud-palette-success)");">@(signed >= 0 ? "+" : "")@signed.ToString("0.##")</span>
                 </MudTd>
                 <MudTd DataLabel="Birim">@Str(context, "unit")</MudTd>
+                <MudTd DataLabel="Depo / Şantiye" Style="white-space:nowrap;">@LocationCell(context)</MudTd>
                 <MudTd DataLabel="Not / Belge">@NoteDoc(context)</MudTd>
                 <MudTd DataLabel="Durum">@(Bool(context, "isReversed") ? "İptal edildi" : "")</MudTd>
             </RowTemplate>
@@ -72,10 +91,43 @@
     // arama kutusu otomatik doldurulur.
     [SupplyParameterFromQuery(Name = "q")] private string? Q { get; set; }
 
+    // STK-04 — lokasyon filtresi. Varsayılan "Tüm Şubeler" = filtre YOK (Atanmamış dahil hepsi).
+    private string _location = LocationOptions.AllId;
+    private IReadOnlyList<LocationOption> _locationOptions = new[] { new LocationOption(LocationOptions.AllId, LocationOptions.AllLabel) };
+
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrWhiteSpace(Q)) _search = Q;
+        _locationOptions = await Locations.FilterOptionsAsync();   // ortak önbellek — ekran başına tekrar indirme yok
         await Load();
+    }
+
+    /// <summary>
+    /// STK-04 — lokasyon süzgeci. Liste zaten bellekte olduğu için süzme İSTEMCİDE yapılır
+    /// (her filtre değişiminde sunucuya gitmek gereksiz gidiş-dönüş olurdu).
+    ///
+    /// ⚠️ "Tüm Şubeler" (<see cref="LocationOptions.AllId"/>) ile "Atanmamış" (boş kimlik) FARKLI:
+    /// ilki süzme yapmaz (Atanmamış dahil HEPSİ), ikincisi yalnız lokasyonu bilinmeyenleri gösterir.
+    /// Transferde kaynak VEYA hedef eşleşirse satır görünür (hareket o depoyu ilgilendiriyor).
+    /// </summary>
+    private IEnumerable<JsonElement> Filtered
+    {
+        get
+        {
+            var rows = (IEnumerable<JsonElement>)(_rows ?? System.Array.Empty<JsonElement>());
+            if (_location == LocationOptions.AllId) return rows;
+            return rows.Where(r => Str(r, "locationId") == _location || Str(r, "fromLocationId") == _location);
+        }
+    }
+
+    /// <summary>Transferde "Kaynak → Hedef", diğer hareketlerde tek depo adı. Boşsa "Atanmamış".</summary>
+    private static string LocationCell(JsonElement r)
+    {
+        var to = Str(r, "locationName");
+        if (string.IsNullOrEmpty(to)) to = string.IsNullOrEmpty(Str(r, "locationId")) ? "Atanmamış" : Str(r, "locationId");
+        var from = Str(r, "fromLocationName");
+        if (string.IsNullOrEmpty(from) || from == to) return to;
+        return $"{from} → {to}";
     }
 
     private async Task Load()
@@ -100,7 +152,7 @@
         finally { _busy = false; }
     }
 
-    private async Task Clear() { _from = _to = null; _search = ""; await Load(); }
+    private async Task Clear() { _from = _to = null; _search = ""; _location = LocationOptions.AllId; await Load(); }
 
     private static string Str(JsonElement e, string k)
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";

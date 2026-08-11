@@ -345,6 +345,45 @@ WHERE sb.company_id=@c AND sb.material_id=@m;";
             StockBalanceWriter.ReadBalance(conn, null, s.CompanyId, materialId, locationId));
     }
 
+    /// <summary>
+    /// STK-04 — SAYIM LİSTESİ: malzemeler + <b>SAYILAN LOKASYONUN</b> sistem miktarı, TEK sorguda.
+    ///
+    /// ⚠️ NEDEN AYRI METOT: sayım ekranı eskiden malzeme listesinden gelen <b>firma geneli</b> toplamı
+    /// "sistem stoğu" diye gösteriyordu. Depo bazlı stokta bu YANLIŞTIR — kullanıcı 10 birimlik depoyu
+    /// sayarken ekranda firma toplamı 15 görünür, farkı −3 sanır. Sunucu (STK-02) zaten sayılan lokasyonla
+    /// karşılaştırıyor; ekranın de aynı sayıyı göstermesi gerekir, yoksa kullanıcı yanlış rakama bakar.
+    ///
+    /// Satır başına ayrı sorgu (N+1) YOKTUR: bakiye tek <c>LEFT JOIN</c> ile lokasyona bağlı gelir.
+    /// </summary>
+    public IReadOnlyList<MaterialStock> GetCountSheet(SessionContext s, string locationId, string? search = null, int limit = 500)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        if (limit < 1) limit = 1; if (limit > 2000) limit = 2000;
+        locationId ??= StockBalanceWriter.Unassigned;
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var sql = @"
+SELECT m.id, m.code, m.name, COALESCE(sb.quantity,'0')
+FROM materials m
+LEFT JOIN stock_balances sb ON sb.material_id = m.id AND sb.company_id = m.company_id AND sb.location_id = @loc
+WHERE m.company_id = @c AND m.is_deleted = 0";
+        if (!string.IsNullOrWhiteSpace(search))
+            sql += $" AND ({SqlDialect.LikeTr(conn, "m.code", "@q")} OR {SqlDialect.LikeTr(conn, "m.name", "@q")})";
+        sql += " ORDER BY m.code LIMIT @lim;";
+        cmd.CommandText = sql;
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@loc", locationId);
+        if (!string.IsNullOrWhiteSpace(search)) cmd.AddWithValue("@q", "%" + search.Trim() + "%");
+        cmd.AddWithValue("@lim", limit);
+
+        var list = new List<MaterialStock>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), Money.Parse(r.GetString(3))));
+        return list;
+    }
+
     /// <summary>STK-02 — malzemenin lokasyon kırılımı (rapor/ekran için; toplama YAPILMAZ).</summary>
     public IReadOnlyDictionary<string, decimal> GetBalancesByLocation(SessionContext s, string materialId)
     {

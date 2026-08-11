@@ -34,6 +34,8 @@ builder.Services.AddScoped<AuthState>();
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBase), Timeout = TimeSpan.FromSeconds(30) });
 builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<DepoWise.Web.Services.ThemeState>();
+// STK-04: stok lokasyonu seçenekleri — oturumda BİR KEZ indirilir, tüm stok ekranları paylaşır (N+1 yok).
+builder.Services.AddScoped<DepoWise.Web.Services.LocationOptions>();
 
 var app = builder.Build();
 
