@@ -67,5 +67,6 @@ public static class MigrationCatalog
         new Migration060_RequestOperations(),
         new Migration061_RequestOperationFields(),
         new Migration062_ChildTableCompanyId(),
+        new Migration063_UserUsernameActiveUnique(),
     };
 }

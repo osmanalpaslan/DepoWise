@@ -430,6 +430,20 @@ ORDER BY u.username;");
                 throw new InvalidOperationException($"Firma kullanıcı kotası dolu (maks {maxUsers} personel). Yeni kullanıcı eklenemez.");
         }
 
+        // G6-03: kullanıcı adı ÇAKIŞMASI anlaşılır hata versin. Benzersizlik indeksi artık YALNIZ aktif
+        // kullanıcıları kapsıyor (Migration063) → silinmiş bir adın yeniden kullanılması SERBEST. Aktif bir
+        // kullanıcı aynı adı taşıyorsa istek burada reddedilir; aksi halde ham UNIQUE ihlali jenerik 500'e
+        // düşüyordu ve kullanıcı sebebi göremiyordu.
+        using (var dup = conn.CreateCommand())
+        {
+            dup.Transaction = tx;
+            dup.CommandText = "SELECT COUNT(*) FROM users WHERE company_id=@c AND username=@u AND is_deleted=0;";
+            dup.AddWithValue("@c", companyId);
+            dup.AddWithValue("@u", dto.Username);
+            if (Convert.ToInt64(dup.ExecuteScalar()) > 0)
+                throw new InvalidOperationException($"'{dto.Username}' kullanıcı adı bu firmada zaten kullanılıyor. Başka bir ad seçin.");
+        }
+
         // "Tüm Şubeler" yetkisi YALNIZ Süper Admin tarafından verilebilir (fail-closed).
         int viewAll = (dto.CanViewAllBranches && actor.IsSuperAdmin) ? 1 : 0;
 

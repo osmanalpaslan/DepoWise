@@ -120,6 +120,7 @@ public sealed class TrashRowVm
         TableText = t.Table switch
         {
             "materials" => "Malzeme", "vehicles" => "Araç", "personnel" => "Personel", "branches" => "Şube",
+            "users" => "Kullanıcı",   // G6-03
             "suppliers" => "Tedarikçi", "brands" => "Marka", "units" => "Birim",
             "material_categories" => "Kategori", "vehicle_templates" => "Araç Şablonu",
             "vehicle_types" => "Makine Tipi", "vehicle_categories" => "Araç Kategorisi",
