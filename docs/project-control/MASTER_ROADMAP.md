@@ -1,0 +1,126 @@
+# Alpnex — MASTER ROADMAP
+
+> Son güncelleme: **2026-08-11** · Kaynak: [`AUDIT_2026-08-11.md`](AUDIT_2026-08-11.md)
+> **Hedef:** satılabilir ilk sürüm (MVP+). "Güzel olur" fikirleri FAZ 9+'a.
+
+---
+
+## Faz sırası ve gerekçesi
+
+Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin çıktısına dayanır.
+
+| Faz | Ad | Neden bu sırada | Durum |
+|---|---|---|---|
+| **FAZ A** | Kullanıcı bug'ları + yetki tamamlama | Küçük, bağımsız, kullanıcıyı bugün rahatsız ediyor | 🔵 **SIRADA** |
+| **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; STK'dan önce bitmeli ki yeni ekranlar doğru doğsun | BEKLEMEDE |
+| **FAZ C** | **Depo bazlı stok** (`STK-01…07`, `TRF-01`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı | ⛔ **KARAR-7 bekliyor** |
+| **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile **aynı migration ailesinde** yapılmalı; sonra eklenirse geçmiş veri boş kalır | FAZ C'ye bağlı |
+| **FAZ E** | Senkron ölçeklenme (`SNK-06…10`) | FAZ C şemayı büyütür; senkron optimizasyonu ondan sonra anlamlı | FAZ C'ye bağlı |
+| **FAZ F** | Güncelleme + sürüm uyumu (`GNC-01…03`) | Çok makineli kullanım öncesi | BEKLEMEDE |
+| **FAZ G** | Kalan parite + rapor envanteri (`PRT-02`, `RPR-01`, `P-1`) | Çekirdek oturduktan sonra | BEKLEMEDE |
+| **FAZ H** | Ön muhasebe **modülü** (`MUH-02…05`) | Alan hazırlığı + depo stoku bitmeden başlanmaz | BEKLEMEDE |
+| **FAZ I** | Test/veri bütünlüğü + performans (`TST-01`, index, N+1) | Özellikler bitince | BEKLEMEDE |
+| **FAZ J** | Canlıya geçiş: güvenlik sertleştirme, API sürümleme | En son | BEKLEMEDE |
+| FAZ 9+ | Backlog: mobil, BI, e-Fatura, lastik ömrü, puantaj | Gelir sonrası | ERTELENDİ |
+
+---
+
+## Bağımlılık ağacı
+
+```
+KARAR-7 (malzeme kartı: firma geneli mi şube bazlı mı?)
+   │
+   ▼
+FAZ C — STK-01 (stock_balances'a depo boyutu) ──┬──▶ STK-02..07 (UI/API/rapor)
+                                                 ├──▶ TRF-01 (depo→depo transfer)
+                                                 └──▶ MUH-01 (cari + maliyet merkezi alanları)
+                                                            │
+FAZ A (YTK-05, YTK-06, YTK-08, UIX-01) ── bağımsız ─────────┤
+FAZ B (GRN-01) ── yetki sistemine dokunur ──────────────────┤
+                                                            ▼
+                                        FAZ E (SNK-06..10)  →  FAZ H (MUH-02..05)
+                                                            →  FAZ I (test/perf)
+                                                            →  FAZ J (deploy/güvenlik)
+```
+
+**Kural:** Aynı özelliğin web ve masaüstü tarafı **aynı faz içinde** bitirilir. Biri diğerini bekleyemez.
+
+---
+
+## FAZ A — Kullanıcı bug'ları + yetki tamamlama *(A sınıfı, maliyetsiz)*
+
+| ID | İş | Ortam | Bağımlılık |
+|---|---|---|---|
+| `YTK-05` | Yetkiler ekranına **"Tümünü Temizle / Sıfırla"** + seçili kullanıcının yetkisini toptan güncelleme | Web + Masaüstü | — |
+| `UIX-01` | **Tablo satır seçimi** — yazıya tıklayınca seçilmeme sorunu; ortak bileşen düzeyinde çöz | Web + Masaüstü | — |
+| `YTK-06` | Yeni ekranın **yetki kataloğuna otomatik dâhil olması** — kaçırmayı imkânsız kılan mekanizma (rota/menü ↔ `AppModules.All` eşleşmesini doğrulayan test) | Ortak | — |
+| `YTK-08` | Delegasyon tavanı **regresyon testi** (kendinde olmayan yetkiyi verememe — zaten çalışıyor, kilitlenecek) | API testi | — |
+
+## FAZ B — Ekran görünürlük yönetimi
+
+| ID | İş |
+|---|---|
+| `GRN-01` | Ekranın **web/masaüstü görünürlüğünü** yönetim ekranından açıp kapatma. Yetki sisteminden **ayrı** eksen: yetki "kim görebilir", görünürlük "nerede görünür". `AppModules` yanına `screen_platforms` tablosu; menü kurucu ikisini birden uygular |
+
+## FAZ C — Depo bazlı stok ⛔ *(KARAR-7 bekliyor)*
+
+| ID | İş |
+|---|---|
+| `STK-01` | `stock_balances` birincil anahtarına **depo/şube boyutu** ekle (migration, iki lehçe, geçmiş veri taşıma planı) |
+| `STK-02` | `StockService` giriş/çıkış/sayım/düzeltme yollarını depo bazlı yap |
+| `STK-03` | Malzeme kartı ve listelerde depo bazlı bakiye gösterimi (web + masaüstü) |
+| `STK-04` | Kritik stok/uyarı mantığını depo bazlı yap |
+| `STK-05` | Depo/şube seçimi olan ekranlarda tutarlı kapsam (BranchScope ile birleştir → `WEB-02`) |
+| `STK-06` | Raporları depo boyutuyla güncelle |
+| `STK-07` | Senkron ve çakışma davranışını depo boyutuyla doğrula |
+| `TRF-01` | **Depo → depo transferi** (tek işlem, iki hareket, transaction) |
+
+## FAZ D — Ön muhasebe alan hazırlığı
+
+| ID | İş |
+|---|---|
+| `MUH-01` | Para hareketi doğuran her kayda **cari + maliyet merkezi (şantiye) + belge** alanları (malzeme alışı, yakıt, bakım, şantiye gideri). FAZ C migration'ları ile **birlikte** |
+
+## FAZ E — Senkron ölçeklenme
+
+| ID | İş |
+|---|---|
+| `SNK-06` | Girişte tam pull yerine **kalıcı imleçle delta pull** |
+| `SNK-07` | Snapshot'ı **sayfala** (batch/chunk) |
+| `SNK-08` | Yanıt **sıkıştırma** (gzip) |
+| `SNK-09` | Delta ölçütünü **monoton sunucu sırasına** taşı (saat kaymasına karşı) |
+| `SNK-10` | Silinen kayıtların delta ile taşındığını **test et** |
+
+## FAZ F — Güncelleme + sürüm uyumu
+
+| ID | İş |
+|---|---|
+| `GNC-01` | Otomatik güncelleme davranış denetimi (mevcut plandan devir) |
+| `GNC-02` | **API ↔ istemci sürüm uyumu** (eski masaüstü / yeni API) |
+| `GNC-03` | Sunucu disk politikası — paket saklama tavanı, `/data` doluluk uyarısı |
+
+## FAZ G — Kalan parite + rapor
+
+`PRT-02` (ekran adı eşleme) · `RPR-01` (rapor envanteri) · `P-1` (masaüstü "Bağı Kaldır") · Personel/Muayene filtre+export
+
+## FAZ H — Ön muhasebe modülü
+
+`MUH-02` cari hesap · `MUH-03` kasa/banka + tahsilat/ödeme · `MUH-04` gider dağıtımı (şantiye maliyeti) · `MUH-05` ön muhasebe raporları
+
+## FAZ I — Test / performans
+
+`TST-01` (33 atlanan test) · index denetimi · N+1 taraması · büyük liste sayfalama
+
+## FAZ J — Canlıya geçiş
+
+Güvenlik sertleştirme · API sürümleme kararı · yük testi
+
+---
+
+## Devredilen teknik borçlar (fazlanmamış, kapanmadı)
+
+`G6-10…G6-19` · `G6-21/22/24` · `H-6` (masaüstü sunucu adresi 7 dosyada tekrar) · `H-7` · `GRP3-JOIN` ·
+`brands/vehicle_models JOIN` · `500→400` · `WEB-01b` · `GUV-01b` · `TLP-B5` · `MUA-01/02` · `G2-08` ·
+`TMZ-01/03` · Personel 200 kayıt tavanı · `SNK-05` (karar bekliyor) · `WEB-02` · `YET-01` (karar bekliyor)
+
+Ayrıntı: [`TASK_BACKLOG.md`](TASK_BACKLOG.md).
