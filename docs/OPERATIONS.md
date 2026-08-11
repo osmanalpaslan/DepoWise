@@ -10,9 +10,28 @@
 - [ ] Rate limit aktif (login/sync/admin).
 
 ## Migration / rollback
-- **Masaüstü (SQLite):** `MigrationRunner` açılışta bekleyen migration'ları sıralı + tek transaction uygular (idempotent). Geri alma: yedekten geri yükleme (BackupService).
-- **Web (PostgreSQL):** `apps/web/drizzle/*.sql` sürümlü; `drizzle-kit migrate` ile uygula. Rollback: hedef sürüm yedeğinden restore + bir önceki migration setine dönüş (forward-fix tercih edilir).
-- Migration öncesi **tam DB yedeği** zorunlu.
+> Düzeltildi 2026-08-11 (FAZ H · H-3): bu bölüm PostgreSQL migration yolu olarak `apps/web/drizzle` +
+> `drizzle-kit migrate` gösteriyordu. O yol **terk edilmiş Next.js uygulamasına** aittir (2026-06-27'den
+> beri donmuş, ADR-057) ve **üretimde kullanılmaz**. Gerçek akış aşağıdadır (koddan doğrulandı).
+
+- **Tek migration mekanizması — her iki lehçe için aynı:** `MigrationRunner` + `MigrationCatalog`
+  (`src/DepoWise.Infrastructure/Database/Migrations/`). Sunucu (PostgreSQL) ve masaüstü (SQLite)
+  **aynı sürümlü kataloğu** yürütür; lehçe farkları `SqlDialect` / `DbIntrospect` / `DialectPurge`
+  içinde toplanmıştır.
+- **Sunucu (PostgreSQL):** migration **API açılışında OTOMATİK** çalışır —
+  `ServerServices` yapıcısı `new MigrationRunner(Factory).Run()` çağırır (`ServerServices.cs:106`).
+  Ayrı bir migration komutu/adımı **yoktur**: **deploy = migration**.
+- **Masaüstü (SQLite):** aynı runner uygulama açılışında çalışır (`DesktopBootstrap.Run`).
+- **Runner davranışı** (`MigrationRunner.cs`): yalnız **uygulanmamış** sürümleri **artan sırada**,
+  her birini **tek transaction** içinde uygular; başarılı olanı `schema_migrations` tablosuna yazar.
+  Bir migration hata verirse **yalnız o migration geri alınır** ve uygulama açılmaz. Tekrar çalıştırma
+  zararsızdır (**idempotent**).
+- **Rollback:** otomatik geri alma **yoktur** ve `schema_migrations`'tan satır silmek **yapılmaz**.
+  Tercih **ileri düzeltme** (forward-fix). Gerekiyorsa: yedekten **YENİ** bir veritabanına dönülür ve
+  bağlantı oraya yönlendirilir — bkz. `POSTGRES_BACKUP_RESTORE.md` §4.4.
+- **Migration öncesi tam DB yedeği ZORUNLU:** PostgreSQL için `pg_dump -Fc`
+  (`POSTGRES_BACKUP_RESTORE.md`); masaüstü SQLite için `BackupService` (`VACUUM INTO`).
+  ⚠️ `BackupService` **yalnız SQLite** içindir, sunucu PostgreSQL'ini yedeklemez.
 
 ## İzleme (monitoring)
 - Sağlık: web `GET /api/v1/health` (config/200-503); masaüstü açılış `startup.log` (host/DB yolu/WAL/write-read).
