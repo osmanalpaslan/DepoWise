@@ -12,6 +12,28 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-104 — STK-10 arama filtresi kataloğa girer (KARAR-10) (11.08.2026)
+
+- **Bağlam:** "Stok Hareketleri" ekranındaki **"Ara (kod, malzeme, not, belge no)"** kutusunun rapor
+  kataloğunda karşılığı yoktu. STK-10 ekranı rapor altyapısına bağlarken üç seçenek vardı:
+  (A) arama ekranda kalsın raporda olmasın · (B) kataloğa `Search` filtresi olarak girsin ·
+  (C) kaldırılıp yerine Malzeme filtresi geçsin.
+- **Karar (KARAR-10 = B, kullanıcı):** Arama **kataloğa gerçek bir `ReportFilters.Search` filtresi**
+  olarak girer. Ekranda kalıp export dışında bırakılmaz → **ekran ve XLSX aynı filtrelenmiş kümeyi**
+  üretir. Mevcut arama anlamı (kod + ad + not + belge no) **korunur**; Malzeme filtresi Search'ün
+  YERİNE geçmez, ikisi birlikte bulunur. Yeni arama mimarisi icat edilmez — mevcut SQL koşulu taşınır.
+- **Gerekçe:** (A) STK-10'un asıl amacını (ekran = export) kırardı. (C) kullanıcıdan mevcut bir
+  yeteneği (not/belge no araması) alırdı. (B) 6 katman daha kablolama maliyeti getirir ama RPR-01
+  koruma testi bunu zaten zorunlu kılıyor ve katman atlamayı imkânsızlaştırıyor.
+- **Sonuç:** STK-10 filtreleri `Date | Location | Search | Material | MovementType`.
+  `Search` **skaler** (`string?`), diğerleri liste. Plan + kabul kriterleri:
+  [`project-control/STK_10_HAREKET_RAPORU_PLANI.md`](project-control/STK_10_HAREKET_RAPORU_PLANI.md).
+- **Bağlı bulgu:** `STK-B1` STK-10'un **adım 0**'ı oldu — `movement_type` üretimde **8 değer** üretiyor,
+  3'ü kullanıcıya ham İngilizce görünüyor (`reverse`, `usage`, `usage_reverse`) ve Web ile masaüstünün
+  etiket haritaları **ıraksamış** (`adjustment`: "Düzeltme" ↔ "Sayım Düzeltme"). Tek doğru kaynak
+  (`MovementTypeOptions`) kurulacak; mevcut kayıtların `movement_type` DEĞERLERİ değişmeyecek.
+- **Kapsam dışı:** STK-11 (float artığı) bu işte çözülmez · migration açılmaz · senkron protokolü değişmez.
+
 ### ADR-103 — Bakım malzemesinin çıktığı depo (KARAR-9) (11.08.2026, KRİTİK)
 
 - **Bağlam:** `MaintenanceService` stok yazarken lokasyonu **sabit** olarak boş yazıyordu:

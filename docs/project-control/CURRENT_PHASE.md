@@ -322,12 +322,25 @@ doğrulanamayacak iş kodlanmaz).
 **Boyut:** 2 yeni filtre bayrağı × RPR-01'in **6 katmanı** = 12 kablolama noktası · + STK-B1 ·
 + 2 ekranın rapora bağlanması · + ~30 senaryo · + ilk kez **gerçek XLSX satır-satır karşılaştırması**.
 
+**✅ KARAR (kullanıcı, 2026-08-11): SEÇENEK B.** Arama kutusu kataloğa **gerçek `Search` filtresi**
+olarak girer; ekranda kalıp export dışında bırakılmaz. Ekran ve XLSX aynı filtrelenmiş kümeyi üretir.
+Malzeme filtresi Search'ün yerine geçmez — ikisi birlikte bulunur.
+
+**🔴 İkinci envanterde plan DÜZELTİLDİ — `STK-B1` sandığımdan kötü:**
+`movement_type` **7 değil 8 değer** üretiyor (`reverse` atlanmıştı). Üstelik iki platformun etiket
+haritası **ıraksamış**: aynı hareket masaüstünde "Düzeltme", Web'de "Sayım Düzeltme"; `reverse`
+masaüstünde **ham** görünüyor, Web'de çevriliyor; `usage`/`usage_reverse` **ikisinde de ham**;
+Web'de bir de **ölü dal** var (`count` bir `doc_type`, movement_type değil).
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10` uygulaması — ama önce TEK KARAR gerekiyor** (planın §10):
-mevcut ekrandaki **"Ara (kod, malzeme, not, belge no)"** kutusu ne olsun?
-**A)** ekranda kalsın (ekran ≠ export riski) · **B)** kataloğa `Search` filtresi olarak eklensin
-(6 katman daha, **önerilen**) · **C)** kaldırılsın (not/belge araması kaybolur).
-Karar verilmeden §8 adım 1'e geçilmemeli; adım 0 (STK-B1) karardan bağımsız başlatılabilir.
+**`STK-10` uygulaması — planın §8 adım 0'ından başla.**
+Karar B ile iş **büyüdü**: 3 filtre bayrağı × RPR-01'in 6 katmanı = **18 kablolama noktası** + STK-B1
++ 2 ekranın bağlanması + B-1 davranış düzeltmesi + ~30 senaryo + **6 kombinasyonda gerçek XLSX
+satır-satır karşılaştırması** + izole PG sorgu planı + tarayıcı render.
+
+⚠️ **Adım 0 (`STK-B1`) tek başına tamamlanabilir** ve yarım iş bırakmaz — kapasitesi dar bir oturumda
+yalnız o yapılabilir (ham "usage/reverse" metinleri ekranlardan kalkar, kullanıcıya doğrudan değer).
+Kabul kriterleri kalıcı olarak planın §10'unda.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |

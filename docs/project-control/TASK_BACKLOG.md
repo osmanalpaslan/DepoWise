@@ -326,13 +326,19 @@ Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e ak
 `direction<0` → `branch_id` KAYNAK · transfer **iki ayrı satır** kalır. Filtre: `branch_id=X OR
 branch_from_id=X` → A→B transferi hem A hem B filtresinde görünür.
 
-⛔ **Karar bekliyor (planın §10):** mevcut ekrandaki "Ara (kod/malzeme/not/belge no)" kutusu ne olsun —
-ekranda mı kalsın, kataloğa `Search` filtresi olarak mı eklensin (önerilen), yoksa kaldırılsın mı?
+✅ **KARAR VERİLDİ (kullanıcı, 2026-08-11): SEÇENEK B** — arama kutusu kataloğa **gerçek `Search`
+filtresi** olarak girer; ekran ve XLSX aynı filtrelenmiş kümeyi üretir. Malzeme filtresi Search'ün
+yerine geçmez.
 
-**Kabul kriterleri:** katalogda gerçek rapor · `Date|Location|Material|MovementType` filtreleri
-**RPR-01'in 6 katmanında** bağlı (Map'e 2 satır) · Kaynak/Hedef kolonları · Tüm Şubeler ≠ Atanmamış ·
-export **aynı** rapor isteğini kullanıyor ve **gerçek XLSX satır-satır** karşılaştırıldı ·
-Web + masaüstü aynı sonuç · masaüstü **çevrimdışı** · N+1 yok · migration YOK · firma izolasyonu.
+**🔴 İkinci envanter düzeltmesi:** `movement_type` **8 değer** (7 değil — `reverse` atlanmıştı) ve
+Web ile masaüstünün etiket haritaları **ıraksamış** (`adjustment`/`reverse` farklı, `usage`/
+`usage_reverse` ikisinde de ham, Web'de ölü `count` dalı). `STK-B1` bunu tek kaynağa bağlar.
+
+**Filtreler:** `Date | Location | Search | Material | MovementType` → 3 yeni bayrak ×
+RPR-01'in 6 katmanı = **18 kablolama noktası**.
+
+**Kabul kriterleri:** planın **§10**'unda kalıcı olarak kayıtlı (katalog/sözleşme · veri-semantik ·
+filtre-arama · export · platform-ortam başlıkları altında madde madde).
 
 ### `STK-09` — Lokasyon bazlı dashboard · B · **YENİ** (ihtiyaç doğarsa)
 Bugünkü dashboard firma toplamıyla doğru çalışıyor. "Depo seçip o deponun KPI'larını görme" ayrı bir üründür.
