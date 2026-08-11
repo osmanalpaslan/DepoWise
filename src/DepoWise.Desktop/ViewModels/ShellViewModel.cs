@@ -306,6 +306,12 @@ public sealed partial class ShellViewModel : ViewModelBase
             // bu makinenin KENDİ "son gönderilen watermark"ına göre belirlenir (sunucu global max'ına BAKILMAZ —
             // Z4 kök neden: başka tablo/makinenin zaman damgası artık bu makinenin kaydını atlatamaz).
             await BusinessSyncPushService.PushAsync();
+            // SNK-12: ŞUBE/DEPO listesini de tazele. Şubeler iş-senkronunda TAŞINMAZ (web-otoriteli) —
+            // eskiden yalnız girişte aynalanıyordu, bu yüzden oturum açıkken web'de açılan yeni depo
+            // masaüstünde görünmüyor ve o depoya stok işlemi YAPILAMIYORDU (EnsureLocationOwned reddeder).
+            // force:false → BranchMirror.MinInterval ile kısılır; 15 sn'lik senkron kadansı sunucuyu yormaz.
+            // Çevrimdışıysa çağrı sessizce döner; yerelde inmiş depolarla çalışma sürer.
+            if (companyId is not null) await BranchMirror.RefreshAsync(companyId, force: false);
             // Z2: push sonucunda sunucu kayıt atladıysa uyarı rozetini güncelle (UI thread).
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(RefreshSyncWarning);
             // SNK-03: turun GEÇİCİ hata gördüğü an. (Z3'ün "skipped satır" durumu buraya GİRMEZ —

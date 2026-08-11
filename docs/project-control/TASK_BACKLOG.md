@@ -275,7 +275,7 @@ Kanıtlanan: lokasyon senkronda kaybolmuyor · transferin iki bacağı da taşı
 **delta pull gerçekten delta** (güncel sürümden sonrası boş) · hayalet lokasyon satırı yok.
 **Senkron kodu DEĞİŞTİRİLMEDİ.** 1281 → **1292/1259/0/33** · build 0 hata.
 
-### `SNK-12` — Masaüstünde depo listesi tazeleme · A · **YENİ** (STK-07 bulgusu)
+### `SNK-12` — Masaüstünde depo listesi tazeleme · ✅ **TAMAMLANDI** (2026-08-11)
 `branches` iş-senkronu (business-push/pull) kapsamında **değil** — web-otoriteli, ayrı org uçlarından
 geliyor. Depo bazlı stokta sonucu: web'de açılan yeni depo, masaüstüne org senkronu inmeden **stok
 işleminde kullanılamıyor** (`EnsureLocationOwned` reddeder). Hata değil ama kullanıcıya "depo listem
@@ -285,3 +285,11 @@ eksik" dedirtir. Org senkronu sonrası liste tazelensin + kullanıcıya görün�
 `scripts/publish_release.mjs` artık paketi sunucuya **başarıyla yükledikten sonra** yerelde yalnız
 **en yeni 3 sürümü** tutuyor (zip + açılmış klasör birlikte). Sunucudaki eşi ADR-070'te zaten vardı;
 yerelde yoktu ve 88 sürüm birikip **28 GB** yemişti. Temizlik yayını asla başarısız saymaz.
+
+**SNK-12 SONUÇ (2026-08-11):** Mekanizma (`BranchMirror`) **zaten vardı** ama yalnız GİRİŞTE ve masaüstünden
+yapılan şube işlemlerinden sonra çalışıyordu → oturum açıkken web'de açılan depo masaüstüne inmiyordu.
+**Çözüm:** aynı mekanizma normal senkron turunda da çağrılıyor (`ShellViewModel` senkron döngüsü),
+**2 dakikalık kısıtlama** ile (şube listesi küçük ve nadir değişir; 15 sn'lik kadansta her tur indirmek
+israf olurdu). **Yeni protokol/tablo/uç YOK.** Saf aynalama mantığı `BranchMirrorApply`'a taşındı
+(Infrastructure) — Avalonia bağımlılığı olmadan test edilebilsin diye. **8 yeni senaryo.**
+Çevrimdışıysa aynalama hiç çalışmaz, yerel liste korunur → çevrimdışı stok işlemi sürer.

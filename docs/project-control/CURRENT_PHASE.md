@@ -136,7 +136,7 @@ stok lokasyonu değil; ikisi birleştirilmedi (testle kilitli).
 **Kanıt:** **1281 / 1248 geçti / 0 kaldı / 33 atlandı** (taban 1267; **14 yeni senaryo**) · build 0 hata ·
 izole PG üretim kopyasında doğrulandı · çevrimdışı ↔ sunucu rapor paritesi test edildi.
 
-## ✅ SON TAMAMLANAN — `STK-07` Senkron sertifikasyonu (2026-08-11)
+## ✅ TAMAMLANAN — `STK-07` Senkron sertifikasyonu (2026-08-11)
 
 Kayıt: [`STK_07_SENKRON_SERTIFIKASYONU.md`](STK_07_SENKRON_SERTIFIKASYONU.md)
 
@@ -162,10 +162,29 @@ stok işlemleri API'ye uğramadan çevrimdışı yazıldı, yalnız "bağlantı 
 Depo bazlı stokta sonucu: web'de açılan yeni depo, masaüstüne org senkronu inmeden stok işleminde
 kullanılamıyor. **Hata değil** (çevrimdışı bilinemeyen depo uydurulmamalı) ama görünürlük işi.
 
+## ✅ SON TAMAMLANAN — `SNK-12` Masaüstünde depo listesi tazeleme (2026-08-11)
+
+**Sorun:** Şubeler iş-senkronunda taşınmaz (web-otoriteli, ayrı yoldan iner). Aynalama YALNIZ girişte
+çalıştığı için, oturum açıkken web'de açılan yeni depo masaüstüne inmiyordu → o depoya stok işlemi
+yapılamıyordu.
+
+**Çözüm (en küçük):** Mevcut `BranchMirror` mekanizması **normal senkron turunda da** çağrılıyor,
+**2 dakikalık kısıtlama** ile (şube listesi küçük ve nadir değişir; 15 sn'lik kadansta her tur indirmek
+israf olurdu). **Yeni protokol / tablo / uç YOK · `stock_movements` senkronuna DOKUNULMADI.**
+Saf aynalama mantığı `BranchMirrorApply`'a (Infrastructure) taşındı — test edilebilir olsun diye.
+
+**Kanıt:** **1300 / 1267 geçti / 0 kaldı / 33 atlandı** (taban 1292; **8 yeni senaryo**) · build 0 hata.
+Yeni depo aynalandıktan sonra **çevrimdışı** giriş/transfer/sayım çalışıyor · kopya yok · isim güncellemesi
+yansıyor · silinen depo **pasife alınıyor, fiziksel silinmiyor** (geçmiş stok korunuyor) · **firma
+izolasyonu** korunuyor · çevrimdışıyken yerel liste dokunulmadan kalıyor.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-08` — "Atanmamış" stoğun depolara dağıtılması.** ⛔ **KARAR-8 bekliyor** (kullanıcı kararı:
-toplu transfer yardımcı ekranı mı, yoksa başka bir yol mu). Karar gelmeden kod yazılmayacak.
-Karar beklerken alternatif sıradaki iş: `SNK-12` (masaüstünde depo listesi tazeleme).
+**`STK-08` — "Atanmamış" stoğun kullanıcı tarafından depolara dağıtılması.**
+**KARAR-8 KARARA BAĞLANDI:** otomatik dağıtım YOK; kullanıcı **gerçek transfer hareketleriyle** dağıtacak.
+Yapılacak: ATANMAMIŞ stoğu listeleyen **toplu dağıtım ekranı** (malzeme · atanmamış miktar · dağıtılacak
+miktar · hedef depo) → gerçek `transfer` hareketi (kaynak = ATANMAMIŞ) · miktar aşımı/negatif/sıfır
+reddedilir · ters kayıtla geri alınabilir · Web **ve** masaüstü (çevrimdışı destekli) · ATANMAMIŞ hedef
+olarak **seçilemez**.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -178,7 +197,7 @@ Karar beklerken alternatif sıradaki iş: `SNK-12` (masaüstünde depo listesi t
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1292/1259/0/33 · Build 0 hata
+667 stok hareketi · Test 1300/1267/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

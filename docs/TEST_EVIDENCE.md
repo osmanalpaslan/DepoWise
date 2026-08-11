@@ -459,3 +459,18 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
 - **Yeni bulgu `SNK-12`:** `branches` iş-senkronunda yok (web-otoriteli) → web'de açılan yeni depo
   masaüstüne org senkronu inmeden kullanılamıyor. Hata değil, görünürlük işi.
 - **Kayıt:** `docs/project-control/STK_07_SENKRON_SERTIFIKASYONU.md`
+
+## 2026-08-11 - SNK-12 — Masaüstünde depo listesi tazeleme
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1292 · 1259 geçti · 0 kaldı · 33 atlandı
+- **Bitiş:** **1300 toplam · 1267 geçti · 0 kaldı · 33 atlandı** (**8 yeni senaryo** — `BranchMirrorTests`)
+- **Kök neden:** `BranchMirror` yalnız girişte çağrılıyordu; oturum açıkken web'de açılan depo masaüstüne
+  inmiyor, o depoya stok işlemi yapılamıyordu (`EnsureLocationOwned` reddeder).
+- **Çözüm:** mevcut aynalama normal senkron turunda da çağrılıyor, **2 dakikalık kısıtlama** ile.
+  Yeni protokol/tablo/uç **yok**; `stock_movements` senkronuna **dokunulmadı**.
+- **Kanıtlananlar:** yeni depo aynalanmadan kullanılamıyor → aynalandıktan sonra **çevrimdışı** giriş/
+  transfer/sayım çalışıyor · tekrarlanan aynalama **kopya üretmiyor** · isim/kod güncellemesi yansıyor ·
+  sunucuda olmayan depo **pasife alınıyor, fiziksel silinmiyor** (geçmiş stok korunuyor), yeniden açılınca
+  aktifleşiyor · **firma izolasyonu**: A'nın aynalaması B'nin depolarına dokunmuyor · sahiplik kontrolü
+  bypass edilmiyor · çevrimdışıyken yerel liste korunuyor.
