@@ -710,6 +710,13 @@ static string? ClientIp(HttpContext c)
     return c.Connection.RemoteIpAddress?.ToString();
 }
 static bool Void(Action a) { a(); return true; }
+/// G6-02 (2026-08-11): "vehicle_brands" API düzeyinde bir TAKMA ADdır — araç markaları malzeme markalarıyla
+/// AYNI fiziksel tabloda (brands) durur, yalnız brand_type sütunuyla ayrılır. Listeleme (özel GET rotası) ve
+/// ekleme (POST switch) bu takma adı zaten çeviriyordu; yeniden adlandır/sil/kilitle uçları çevirmediği için
+/// LookupService "Bilinmeyen tanım tablosu: vehicle_brands" diyerek 400 dönüyordu (web'de araç markası
+/// düzeltilemiyor/silinemiyordu; masaüstü doğrudan "brands" kullandığı için çalışıyordu).
+/// Beyaz liste GEVŞETİLMEZ: çeviriden sonra tablo adı yine LookupService'in whitelist'inden geçer.
+static string LookupTable(string table) => table == "vehicle_brands" ? "brands" : table;
 // Araç sınır kuralları (madde 8+1): şantiye/şube zorunlu + makul üretim yılı.
 static void RequireVehicleFields(string? branchId, int? productionYear)
 {
@@ -1113,7 +1120,7 @@ app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
 app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string id) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    try { svc.Lookups.Delete(s, table, id); return Results.Ok(new { ok = true }); }
+    try { svc.Lookups.Delete(s, LookupTable(table), id); return Results.Ok(new { ok = true }); }
     catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
     catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
@@ -1121,7 +1128,7 @@ app.MapDelete("/api/lookups/{table}/{id}", (HttpContext c, string table, string 
 app.MapPut("/api/lookups/{table}/{id}/lock", (HttpContext c, string table, string id, LockDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    try { svc.Lookups.SetLocked(s, table, id, d.Locked); return Results.Ok(new { ok = true }); }
+    try { svc.Lookups.SetLocked(s, LookupTable(table), id, d.Locked); return Results.Ok(new { ok = true }); }
     catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
     catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();
@@ -1131,7 +1138,7 @@ app.MapPut("/api/lookups/{table}/{id}/lock", (HttpContext c, string table, strin
 app.MapPut("/api/lookups/{table}/{id}", (HttpContext c, string table, string id, NameDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    try { svc.Lookups.Rename(s, table, id, d.Name); return Results.Ok(new { ok = true }); }
+    try { svc.Lookups.Rename(s, LookupTable(table), id, d.Name); return Results.Ok(new { ok = true }); }
     catch (ForbiddenException ex) { return Results.Json(new { error = ex.Message }, statusCode: 403); }
     catch (ArgumentException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
 }).RequireAuthorization();

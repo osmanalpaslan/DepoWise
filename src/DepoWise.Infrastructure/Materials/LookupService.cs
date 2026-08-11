@@ -136,15 +136,18 @@ ORDER BY name;";
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // G6-02: is_locked BURADA DA okunur. Aksi halde "sabit tanım" bayrağı marka listelerinde daima
+        // false görünüyor, arayüz kilitli markayı düzenlenebilir gösteriyor ve kaydetme servis katmanında
+        // "Sabit tanım düzenlenemez." ile reddediliyordu (List(s, table) bu sütunu zaten okuyor).
         cmd.CommandText = @"
-SELECT id, name FROM brands
+SELECT id, name, is_locked FROM brands
 WHERE company_id=@c AND is_deleted=0 AND (brand_type=@t OR brand_type IS NULL)
 ORDER BY name;";
         cmd.AddWithValue("@c", s.CompanyId);
         cmd.AddWithValue("@t", brandType);
         var list = new List<LookupItem>();
         using var r = cmd.ExecuteReader();
-        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1), r.GetInt64(2) != 0));
         return list;
     }
 
