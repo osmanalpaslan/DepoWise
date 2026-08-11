@@ -406,11 +406,31 @@ sınırı testli (Depo A oturumu + Depo B filtresi → **BOŞ**).
 listesi 2→3; ikisi de TAM EŞLEŞME ile sınanmaya devam ediyor + yeni nöbetçi eklendi). Ayrıntı §16.1.
 ⚠️ **Görsel render kontrolü YAPILMADI** — aynı engel (§16.5).
 
+## ⏸️ `STK-10b` — doğrulama yapıldı, KOD BAŞLAMADI (2026-08-11)
+
+Kayıt: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md) §18
+
+**Zorunlu 7 doğrulamanın tamamı yapıldı → plan ile kod arasında ENGELLEYİCİ FARK YOK.**
+STK-10a yerinde · ADR-104 kayıtlı · RPR-01 `Map` 10 satır · `MovementTypeOptions` 8 tür ·
+`BranchScope` `AND`'leniyor · rapor iki platformda katalogdan görünüyor · testler yeşil.
+
+**🔴 Kendi iddiamı düzelttim:** §15'te "18 kablolama noktası atomik, dilimlenemez" demiştim —
+**fazla katıymış**. RPR-01 her bayrağı **kendi içinde** denetliyor; bir bayrağı tam bağlayıp
+diğerlerine dokunmamak testi **yeşil** bırakıyor.
+➡️ Atomik birim **1 bayrak × 6 katman = 6 nokta**. STK-10b, her adımı yeşil biten **dört** artıma
+bölünebilir: **10b-1** `MovementType` (seçenek kaynağı zaten var) → **10b-2** `Search` →
+**10b-3** `Material` + autocomplete → **10b-4** iki ekranın bağlanması + **B-1 düzeltmesi**.
+
+**Neden kodlanmadı:** bu oturumda RPR-01 + BKM-04 + STK-B1 + STK-10a tamamlandı; STK-10b'nin tamamı
+(18 kablolama + 2 ekran + autocomplete + ~40 senaryo + 10 XLSX kombinasyonu + PG + çoklu tam-takım)
+kalan kapasiteyle güvenilir biçimde bitirilemez. Yarıda kalsa sonuç "eksik ama yeşil" değil
+**KIRMIZI** olurdu (bayrak eklenip 6 katmanı bitirilmezse RPR-01 kırılır).
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10b`** — planın §17'si. Kapsam: `Search` + `Material` + `MovementType` bayrakları
-(**18 kablolama noktası**, RPR-01 gereği **atomik**) · iki hareket ekranının rapora bağlanması ·
-**B-1 düzeltmesi** (Web'de istemci tarafı lokasyon süzmesinin kaldırılması).
-`Search` sözleşmesi ADR-104 / KARAR-10'da; kabul kriterleri planın §10'unda.
+**`STK-10b-1` — `MovementType` filtresi** (6 kablolama noktası). En küçük ve en düşük riskli artım:
+seçenek kaynağı `MovementTypeOptions` **zaten var** (STK-B1), yeni altyapı gerekmiyor.
+Sonra 10b-2 (`Search`) → 10b-3 (`Material`) → 10b-4 (ekranlar + B-1).
+Kabul kriterleri planın §10'unda; `Search` sözleşmesi ADR-104 / KARAR-10'da.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |

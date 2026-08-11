@@ -553,3 +553,58 @@ Kapsam (bu oturumda **başlanmadı**): `Search` + `Material` + `MovementType` ba
 (**18 kablolama noktası**, RPR-01 gereği atomik) · iki hareket ekranının rapora bağlanması ·
 **B-1 düzeltmesi** (Web'de istemci tarafı lokasyon süzmesinin kaldırılması) · kalan senaryolar.
 Kabul kriterleri §10'da; `Search` sözleşmesi §4'te (ADR-104 / KARAR-10).
+
+---
+
+## 18. STK-10b — KODLAMA ÖNCESİ DOĞRULAMA (2026-08-11) · KOD BAŞLAMADI
+
+### 18.1 Zorunlu 7 doğrulama — plan ile kod arasında **FARK YOK**
+
+| # | Doğrulanan | Sonuç |
+|---|---|---|
+| 1 | STK-10a kod durumu | ✅ `ReportService.StockMovements` (satır 809) · `Dispatch` → `"stock-movements"` · katalog kaydı yerinde |
+| 2 | KARAR-10 / ADR-104 | ✅ `DECISIONS.md`'de kayıtlı — `Search` kataloğa girer, mevcut 5 alan semantiği korunur |
+| 3 | RPR-01 kuralları | ✅ `Map` **10 satır** (mevcut 10 bayrak) · 6 katman taraması yürürlükte |
+| 4 | STK-B1 `MovementTypeOptions` | ✅ **8 tür**, tek kaynak, üç yüzey ona bağlı |
+| 5 | `BranchScope` uygulaması | ✅ `ReportScope.BranchSql` → `AND (col IN (…) OR col IS NULL)`; STK-10a'da `AND`'lenerek kullanılıyor |
+| 6 | Raporun Web/Desktop bağlantısı | ✅ Masaüstü `ReportItems = ReportCatalog.All` · Web `/api/reports/catalog` · **kod değişikliği gerekmemişti** |
+| 7 | Mevcut testler | ✅ 1452/1417/0/35 yeşil · `Reports.razor`'da 10 filtre bloğu mevcut |
+
+➡️ **Engelleyici fark yok.** STK-10b güvenle uygulanabilir; tek sınır **kapasite**.
+
+### 18.2 🔴 KENDİ İDDİAMI DÜZELTİYORUM: atomiklik **bayrak başınadır**, 18'in tamamı değil
+
+§15'te *"18 kablolama noktası ATOMİK, dilimlenemez"* demiştim. Doğrulama sırasında bunun
+**fazla katı** olduğunu gördüm:
+
+> RPR-01'in koruma testi **her bayrağı KENDİ içinde** denetler (`Map` satırı + o bayrağın 6 katmanı).
+> Bir bayrağı **tam** bağlayıp diğer ikisine hiç dokunmamak testi **YEŞİL** bırakır.
+
+➡️ Atomik birim **1 bayrak × 6 katman = 6 nokta**'dır. Yani STK-10b, her adımı **yeşil** biten
+**üç** artıma bölünebilir. Bu, "yarım kalırsa testler kırmızı kalır" riskini ortadan kaldırır.
+
+### 18.3 Önerilen yeşil-güvenli bölünme (onay bekliyor)
+
+| Artım | Kapsam | Neden tek başına bütün |
+|---|---|---|
+| **10b-1** | `MovementType` bayrağı (6 nokta) | Seçenek kaynağı **zaten var** (`MovementTypeOptions`, STK-B1) → yeni altyapı yok. En küçük ve en düşük riskli. |
+| **10b-2** | `Search` bayrağı (6 nokta) | Sorgu parçası mevcut `SearchMovements`'tan olduğu gibi taşınır (ADR-104 K-0b). |
+| **10b-3** | `Material` bayrağı (6 nokta) + autocomplete deseni | Tek yeni UI deseni burada; scope'a 2461 malzeme **eklenmeyecek** (K-1). |
+| **10b-4** | İki hareket ekranının rapora bağlanması + **B-1 düzeltmesi** | Bayraklardan bağımsız; ekran davranışı değişikliği. |
+
+Sıra önerisi: **10b-1 → 10b-2 → 10b-3 → 10b-4**.
+
+### 18.4 ⏸️ NEDEN BU OTURUMDA KODLANMADI
+
+Talimat: *"bu oturumda güvenli biçimde tamamlayıp doğrulayamayacağın ortaya çıkarsa kodlamaya
+başlamadan önce DUR… Kod yazıp testleri kırmızı bırakarak oturumu kapatma."*
+
+Bu oturumda tamamlanan ve gönderilen işler: **RPR-01** · **BKM-04** (analiz + karar + uygulama + 44
+senaryo + izole PG) · **STK-B1** (24 senaryo) · **STK-10a** (41 senaryo + gerçek XLSX + PG sorgu planı)
+— artı üç planlama turu. STK-10b'nin tamamı (18 kablolama + 2 ekran yeniden bağlama + malzeme
+autocomplete + ~40 senaryo + 10 XLSX kombinasyonu + PG + çoklu tam-takım koşusu) kalan kapasiteyle
+**güvenilir biçimde bitirilemez**.
+
+**Kritik olan:** yarıda kalırsa sonuç "eksik ama yeşil" değil, **KIRMIZI** olurdu — bir bayrak
+eklenip 6 katmanı bitirilmezse RPR-01 kırılır. Bu yüzden hiçbir üretim koduna dokunulmadı.
+§18.3'teki bölünmeyle her adım yeşil biter.
