@@ -85,6 +85,7 @@ public sealed class RoleGrantService
             del.CommandText = "DELETE FROM role_grant_limits;";
             del.ExecuteNonQuery();
         }
+        var written = new SortedDictionary<string, int>(StringComparer.Ordinal);
         foreach (var (roleKey, modules) in blockedByRole)
         {
             if (!ManagedRoles.Any(r => r.Key == roleKey)) continue; // Süper Admin / bilinmeyen rol yazılmaz
@@ -101,8 +102,17 @@ public sealed class RoleGrantService
                 ins.AddWithValue("@m", moduleKey);
                 ins.AddWithValue("@now", now);
                 ins.ExecuteNonQuery();
+                written[roleKey] = written.TryGetValue(roleKey, out var c) ? c + 1 : 1;
             }
         }
+
+        // G6-06 (2026-08-11): AUDIT. Bu, platformdaki en yetkili işlemlerden biridir (bir ekranı bir role
+        // tamamen kapatır) ama iz bırakmıyordu; oysa Şube/Kullanıcı/Yetki/Kalıcı Silme hepsi yazıyor.
+        // Kayıt AKTÖRÜN firmasına yazılır (CompanyPurgeService ile aynı desen — matris firma-üstüdür).
+        // Aynı transaction içinde: işlem geri alınırsa audit de geri alınır (sahte iz oluşmaz).
+        // Özet YALNIZ rol başına kapatılan ekran SAYISIdır — hassas veri taşımaz.
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "role_permissions", "matrix",
+            AuditActions.Update, s.UserId, AfterJson: CountsJson(written)), _clock);
         tx.Commit();
         _snapshots?.InvalidateAll();   // F0: rol kısıtı herkesi etkileyebilir → tüm fotoğraflar düşürülür
     }
@@ -148,6 +158,10 @@ public sealed class RoleGrantService
         }
         return BlockedForRoles(conn, tx, roles);
     }
+
+    /// <summary>Audit özeti: {"rol":kapatılanEkranSayısı}. Boş matris → {}. Yalnız sayı taşır.</summary>
+    private static string CountsJson(SortedDictionary<string, int> counts)
+        => "{" + string.Join(",", counts.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
 
     private Dictionary<string, HashSet<string>> LoadAll()
     {

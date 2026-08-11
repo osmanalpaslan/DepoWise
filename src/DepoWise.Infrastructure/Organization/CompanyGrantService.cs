@@ -91,6 +91,16 @@ public sealed class CompanyGrantService
             ins.AddWithValue("@now", now);
             ins.ExecuteNonQuery();
         }
+
+        // G6-06 (2026-08-11): AUDIT. Bir firmadaki ekranların erişim düzeyini değiştirmek en yetkili
+        // işlemlerden biridir ama iz bırakmıyordu. Kayıt AKTÖRÜN firmasına yazılır ve HEDEF firma
+        // entity_id olarak durur (CompanyPurgeService ile aynı desen). Aynı transaction içinde →
+        // işlem geri alınırsa audit de geri alınır (sahte iz oluşmaz).
+        // Özet YALNIZ düzey başına ekran SAYISIdır — hassas veri taşımaz.
+        int adminCount = clean.Count(kv => kv.Value == LevelAdmin);
+        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "company_permissions", companyId,
+            AuditActions.Update, s.UserId,
+            AfterJson: $"{{\"admin\":{adminCount},\"superadmin\":{clean.Count - adminCount}}}"), _clock);
         tx.Commit();
     }
 
