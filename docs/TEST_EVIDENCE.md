@@ -474,3 +474,21 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   sunucuda olmayan depo **pasife alınıyor, fiziksel silinmiyor** (geçmiş stok korunuyor), yeniden açılınca
   aktifleşiyor · **firma izolasyonu**: A'nın aynalaması B'nin depolarına dokunmuyor · sahiplik kontrolü
   bypass edilmiyor · çevrimdışıyken yerel liste korunuyor.
+
+## 2026-08-11 - FAZ C / STK-08 — Atanmamış stok toplu dağıtımı
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1300 · 1267 geçti · 0 kaldı · 33 atlandı
+- **Bitiş:** **1317 toplam · 1284 geçti · 0 kaldı · 33 atlandı** (**17 yeni senaryo** — `StockDistributeTests`)
+- **Kanıtlananlar:** kaynak DAİMA ATANMAMIŞ (şubeye bağlı kullanıcıda sessizce kendi şubesine çevrilmiyor —
+  eski hatanın nöbetçisi) · ATANMAMIŞ/yabancı/bilinmeyen/pasif depo hedef olamaz · sıfır/negatif/aşım
+  reddediliyor · aynı malzeme iki satırdaysa TOPLAM kontrol ediliyor · kısmi ve tam dağıtım · farklı
+  hedeflere bölme · çoklu malzeme tek belgede · **bir satır yetersizse tamamı rollback** · ondalık korunuyor ·
+  **firma toplamı değişmiyor** · gerçek transfer hareketi (iki bacak) · audit izi · yetkisiz reddediliyor ·
+  çevrimdışı dağıtım senkronda korunuyor ve **kopya üretmiyor** · liste kalan miktarı doğru gösteriyor.
+- **Gerçek veri (izole üretim kopyası):** 663 atanmamış malzeme / 8951,3 birim → kısmi dağıtım ✅ ·
+  aşım denemesi **reddedildi** ✅ · **rollback** doğrulandı (hedef bakiyesi değişmedi) ✅ · tam dağıtım ✅ ·
+  **firma toplamı 9 → 9,0 KORUNDU** ✅. Prova için kopyaya geçici depo eklendi (canlıya DEĞİL), kopya silindi.
+- **Bulgular:** B-1 transferler geri alınmaz (dağıtım da öyle; düzeltme = yeni transfer) ·
+  B-2 DEPOWISE firmasında hiç depo yok (kullanıcı önce depo oluşturmalı).
+- **Kayıt:** `docs/project-control/STK_08_UYGULAMA_PLANI.md`

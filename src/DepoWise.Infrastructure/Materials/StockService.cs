@@ -157,6 +157,108 @@ public sealed class StockService
             }, groupId, invoiceNo, orderSlipNo, creditSlipNo);
     }
 
+    // ---- STK-08: ATANMAMIŞ stoğun kullanıcı tarafından depolara dağıtımı ----
+
+    /// <summary>STK-08 — dağıtım belgesinin varsayılan notu. Kullanıcı hareket listesinde nedeni görsün.</summary>
+    public const string DistributeNote = "Atanmamış stok dağıtımı";
+
+    /// <summary>
+    /// STK-08 — ATANMAMIŞ stoğu GERÇEK TRANSFER hareketiyle seçilen depoya aktarır.
+    ///
+    /// <b>NEDEN AYRI GİRİŞ NOKTASI (KARAR T-1):</b> <see cref="Transfer"/> boş kaynağı bilinçli olarak
+    /// REDDEDER ve şubeye bağlı kullanıcıda boş kaynağı <see cref="EnforceOwnBranch"/> ile SESSİZCE
+    /// kullanıcının şubesine çevirir. O davranış doğrudur (kazara lokasyonsuz transfer üretilmesin diye),
+    /// ama dağıtımda YANLIŞ DEPODAN düşerdi — sessiz veri bozulması. Bu yüzden <see cref="Transfer"/>
+    /// GEVŞETİLMEDİ; dağıtım kendi DAR kapısından geçer:
+    ///   • kaynak DAİMA ATANMAMIŞ'tır (istemci kaynak gönderemez),
+    ///   • <see cref="EnforceOwnBranch"/> ÇAĞRILMAZ,
+    ///   • hedef boş olamaz ("Atanmamış"a dağıtım anlamsızdır).
+    ///
+    /// Hareket türü <b>"transfer"</b> KALIR (yeni tür açılmadı) → rapor, ters kayıt, audit, senkron ve
+    /// idempotency mekanizmaları kendiliğinden çalışır. Belge/hareket makinesi de aynıdır
+    /// (<see cref="RunDocument"/>) → yeni paralel stok mantığı YOKTUR.
+    ///
+    /// <b>ATOMİK:</b> tek belge + tek transaction. Bir satır bile yetersizse TAMAMI geri alınır
+    /// (kısmi dağıtım kalmaz). Miktarlar <see cref="Money"/>/<c>decimal</c>'dir; float kullanılmaz.
+    /// </summary>
+    public StockDocResult DistributeUnassigned(SessionContext s, IReadOnlyList<StockLine> lines,
+        string toLocationId, string operationId, string? note = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        if (lines.Count == 0) throw new ArgumentException("En az bir malzeme seçin.");
+        if (lines.Any(l => l.Quantity <= 0)) throw new ArgumentException("Dağıtılacak miktar sıfırdan büyük olmalı.");
+        // Hedef ATANMAMIŞ OLAMAZ: "atanmamıştan atanmamışa" dağıtım anlamsızdır ve yeni belirsizlik üretir.
+        if (string.IsNullOrWhiteSpace(toLocationId))
+            throw new ArgumentException("Hedef depo/şantiye seçin. \"Atanmamış\" hedef olarak seçilemez.");
+        // Aynı malzeme iki satırda geldiyse TEK satırda toplanır — yeterlilik kontrolü toplam üzerinden
+        // yapılmalı (aksi halde 6+6 ile 10 birimlik stoktan 12 dağıtılabilirdi).
+        var merged = lines.GroupBy(l => l.MaterialId, StringComparer.Ordinal)
+            .Select(g => new StockLine(g.Key, g.Sum(x => x.Quantity)))
+            .ToList();
+
+        var groupId = Guid.NewGuid().ToString("N");
+        // fromBranch = null → belge/hareket ATANMAMIŞ kaynağı taşır (NULL = lokasyon bilinmiyor).
+        return RunDocument(s, "transfer", operationId, toLocationId, null, toLocationId, null, null,
+            string.IsNullOrWhiteSpace(note) ? DistributeNote : note, null,
+            (conn, tx, docId) =>
+            {
+                for (int i = 0; i < merged.Count; i++)
+                {
+                    var line = merged[i];
+                    // YETERLİLİK: ATANMAMIŞ kovasında gerçekten var mı? StockBalanceWriter'ın kendi
+                    // negatif kalkanı da var (allowNegative:false) ama mesajı geneldir — kullanıcı hangi
+                    // malzemede ne kadar olduğunu görmeli. Kontrol transaction İÇİNDE, aynı okumayla.
+                    var mevcut = StockBalanceWriter.ReadBalance(conn, tx, s.CompanyId, line.MaterialId,
+                        StockBalanceWriter.Unassigned);
+                    if (mevcut < line.Quantity)
+                        throw new NegativeStockException(
+                            $"Atanmamış stok yetersiz. Mevcut: {mevcut:0.##}, dağıtılmak istenen: {line.Quantity:0.##}.");
+
+                    var suffix = merged.Count == 1 ? "" : $":{i}";
+                    // Kaynak çıkışı: branchId = null → ATANMAMIŞ kovasından düşer.
+                    ApplyLine(conn, tx, s, docId, line, -1, $"{operationId}{suffix}:out", "transfer", null, null, groupId);
+                    // Hedef girişi: seçilen gerçek depoya.
+                    ApplyLine(conn, tx, s, docId, line, +1, $"{operationId}{suffix}:in", "transfer", toLocationId, null, groupId);
+                }
+            }, groupId);
+    }
+
+    /// <summary>
+    /// STK-08 — ATANMAMIŞ stoğu olan malzemeler (dağıtım ekranının listesi). TEK sorgu; malzeme başına
+    /// ayrı okuma YAPILMAZ. Miktarı sıfır olan satırlar gösterilmez (dağıtacak bir şey yok).
+    /// Negatif kalanlar GÖSTERİLİR (ADR-086 devralınan eksik stok) ama dağıtılamaz — kullanıcı görmeli.
+    /// </summary>
+    public IReadOnlyList<MaterialStock> ListUnassigned(SessionContext s, string? search = null, int limit = 500)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        if (limit < 1) limit = 1; if (limit > 2000) limit = 2000;
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var sql = @"
+SELECT m.id, m.code, m.name, sb.quantity
+FROM stock_balances sb
+JOIN materials m ON m.id = sb.material_id AND m.company_id = sb.company_id AND m.is_deleted = 0
+WHERE sb.company_id=@c AND sb.location_id=''";
+        if (!string.IsNullOrWhiteSpace(search))
+            sql += $" AND ({SqlDialect.LikeTr(conn, "m.code", "@q")} OR {SqlDialect.LikeTr(conn, "m.name", "@q")})";
+        sql += " ORDER BY m.code LIMIT @lim;";
+        cmd.CommandText = sql;
+        cmd.AddWithValue("@c", s.CompanyId);
+        if (!string.IsNullOrWhiteSpace(search)) cmd.AddWithValue("@q", "%" + search.Trim() + "%");
+        cmd.AddWithValue("@lim", limit);
+
+        var list = new List<MaterialStock>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var qty = Money.Parse(r.GetString(3));
+            if (qty == 0m) continue;   // dağıtacak bir şey yok
+            list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), qty));
+        }
+        return list;
+    }
+
     // Şube-yetki (kullanıcı isteği 2026-08-05): şubeye bağlı kullanıcı (BranchScope.Active != null) yalnız
     // KENDİ şubesinden çıkış/transfer başlatabilir; "Tüm Şubeler"/admin (null) her şubeden. Yalnız interaktif
     // create yolunda çağrılır — sync ve idari ters kayıt bu kontrole girmez (offline/onarım bozulmaz).

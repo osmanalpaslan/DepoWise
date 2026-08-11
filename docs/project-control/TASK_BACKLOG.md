@@ -294,7 +294,7 @@ israf olurdu). **Yeni protokol/tablo/uç YOK.** Saf aynalama mantığı `BranchM
 (Infrastructure) — Avalonia bağımlılığı olmadan test edilebilsin diye. **8 yeni senaryo.**
 Çevrimdışıysa aynalama hiç çalışmaz, yerel liste korunur → çevrimdışı stok işlemi sürer.
 
-### `STK-08` — Atanmamış stok toplu dağıtımı · 🟡 **PLAN TAMAM, KOD BAŞLAMADI** (2026-08-11)
+### `STK-08` — Atanmamış stok toplu dağıtımı · ✅ **TAMAMLANDI** (2026-08-11)
 Plan: [`STK_08_UYGULAMA_PLANI.md`](STK_08_UYGULAMA_PLANI.md)
 
 **🔴 Analiz bulgusu:** mevcut `Transfer` servisi ATANMAMIŞ'ı kaynak kabul etmiyor — üç ayrı engel:
@@ -307,3 +307,17 @@ aynı belge/hareket makinesi, hareket türü `transfer` kalır (yeni tür yok), 
 
 **Kapsam:** servis + 2 API ucu + Web ekranı + masaüstü ekranı (çevrimdışı) + 30 test senaryosu.
 Yeni yetki düğümü **açılmayacak** (mevcut `stock` + `Create` yeterli).
+
+**STK-08 SONUÇ (2026-08-11):** `DistributeUnassigned` (dar giriş noktası) + `ListUnassigned` (tek sorgu) +
+2 API ucu + Web ekranı (`/stock/distribute`) + masaüstü ekranı (çevrimdışı) + **17 senaryo**.
+`Transfer` gevşetilmedi; hareket türü `transfer` kaldı; yeni yetki düğümü/migration/senkron değişikliği yok.
+**1300 → 1317/1284/0/33** · build 0 hata · izole üretim kopyasında doğrulandı (toplam korundu, aşım
+reddedildi, rollback çalıştı).
+
+**🔴 B-1 (bulgu):** Transferler **geri alınmaz** (2026-08-06 kararı) — dağıtım da transfer olduğu için
+geri alınamaz. Planın "ters kayıtla geri alınır" varsayımı yanlıştı. STK-08 istisna **açmadı**; düzeltme
+yolu yanlış depodan doğru depoya **yeni transfer**. İlk yazılan ekran metinleri yanıltıcıydı, düzeltildi.
+
+**🔴 B-2 (bulgu):** Üretimde **`DEPOWISE` firmasının hiç deposu yok** (0 şube; diğer iki firmada 1 ve 5).
+8951,3 birim atanmamış stok var ama dağıtacak hedef yok → kullanıcı önce **Şubeler** ekranından depo
+oluşturmalı. Her iki arayüz de depo yoksa bunu açıkça söylüyor.

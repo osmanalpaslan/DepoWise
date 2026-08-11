@@ -9,6 +9,12 @@
         <MudText Typo="Typo.h5">Stok İşlemleri</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
+    @* STK-08: Atanmamış stok dağıtımı — ayrı menü/yetki düğümü açılmadı, buradan erişilir. *@
+    @if (Auth.CanCreate("stock"))
+    {
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CallSplit" Href="/stock/distribute"
+                   title="Geçmişte deposu girilmemiş (Atanmamış) stoğu depolara dağıtın.">Atanmamış Stok Dağıtımı</MudButton>
+    }
 </div>
 
 @* STK-04: "Tüm Şubeler" modunda artık İŞLEM YAPILABİLİR — ama depo AÇIKÇA seçilmek zorunda.

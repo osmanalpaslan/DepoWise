@@ -1,0 +1,203 @@
+@page "/stock/distribute"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject LocationOptions Locations
+@inject IDialogService Dialog
+@inject NavigationManager Nav
+
+@* STK-08 — ATANMAMIŞ STOK DAĞITIMI (KARAR-8).
+   Geçmiş hareketlerde depo bilgisi girilmediği için stok "Atanmamış" kovasında duruyor. Sistem hangi
+   malzemenin hangi depoda olduğunu BİLMEZ ve TAHMİN ETMEZ — kullanıcı açıkça dağıtır.
+   Dağıtım GERÇEK transfer hareketi üretir: audit'e yazılır, raporlarda görünür. Transferler geri ALINMAZ
+   (2026-08-06 kararı) — yanlış dağıtımın düzeltmesi, o depodan doğru depoya yeni bir transferdir.
+   Ayrı menü/yetki düğümü açılmadı: bu bir stok işlemidir, Stok İşlemleri ekranından erişilir. *@
+
+<PageTitle>Atanmamış Stok Dağıtımı — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Atanmamış Stok Dağıtımı</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
+    </div>
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/stock"))">Stok İşlemleri</MudButton>
+</div>
+
+@if (!Auth.CanCreate("stock"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">
+        <b>"Atanmamış" bir depo değildir</b> — geçmişte hangi depoya girildiği yazılmamış stoktur.
+        Aşağıdan hangi malzemeden ne kadarını hangi depoya aktaracağınızı siz belirlersiniz;
+        sistem <b>tahmin yapmaz</b>. Her aktarım gerçek bir transfer hareketi olarak kaydedilir.
+        Yanlış depoya dağıtırsanız düzeltme yolu, o depodan doğru depoya <b>yeni bir transfer</b> yapmaktır
+        (transferler geri alınmaz — iki deponun stoğunu etkiler).
+    </MudAlert>
+
+    @* STK-08 bulgusu: firmada hiç depo tanımlı olmayabilir (üretim verisinde DEPOWISE firmasında YOK).
+       O durumda hedef listesi boş kalır ve kullanıcı ne yapacağını bilemez → açıkça yönlendiriyoruz. *@
+    @if (_branches.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+            Firmanızda tanımlı <b>depo/şantiye yok</b>. Dağıtım yapabilmek için önce
+            <b>Şubeler</b> ekranından en az bir depo/şantiye oluşturun.
+        </MudAlert>
+    }
+
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+            <MudSelect T="string" @bind-Value="_target" Label="Hedef Depo / Şantiye *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Style="max-width:260px" Clearable="true"
+                       HelperText="Seçilen malzemeler bu depoya aktarılır.">
+                @* Yalnız GERÇEK depolar: "Atanmamış" hedef olarak SUNULMAZ (yeni belirsizlik üretmemek için). *@
+                @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
+            </MudSelect>
+            <MudTextField @bind-Value="_search" Placeholder="Kod / ad ara..." Margin="Margin.Dense" Variant="Variant.Outlined"
+                          Style="max-width:220px" OnKeyUp="OnSearchKey" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            <MudSpacer />
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@SummaryText</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="_busy">Dağıtımı Kaydet</MudButton>
+        </MudStack>
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
+    </MudPaper>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0)
+    {
+        <MudAlert Severity="Severity.Success" Dense="true">
+            Dağıtılacak "Atanmamış" stok yok — tüm stok bir depoya bağlı görünüyor.
+        </MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="60vh" T="Row">
+                <HeaderContent>
+                    <MudTh>KOD</MudTh><MudTh>MALZEME</MudTh>
+                    <MudTh Style="text-align:right">ATANMAMIŞ</MudTh>
+                    <MudTh Style="text-align:right">DAĞITILACAK</MudTh>
+                    <MudTh Style="text-align:right">KALAN</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Kod">@context.Code</MudTd>
+                    <MudTd DataLabel="Malzeme" Style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@context.Name</MudTd>
+                    <MudTd DataLabel="Atanmamış" Style="text-align:right">@context.Available.ToString("0.##")</MudTd>
+                    <MudTd DataLabel="Dağıtılacak" Style="text-align:right;width:150px">
+                        @* Negatif kalan (ADR-086 devralınan eksik stok) dağıtılamaz → alan kapalı. *@
+                        <MudNumericField T="decimal" @bind-Value="context.Amount" Min="0" Max="@(context.Available > 0 ? context.Available : 0)"
+                                         Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined"
+                                         Disabled="@(context.Available <= 0)" />
+                    </MudTd>
+                    <MudTd DataLabel="Kalan" Style="text-align:right">@((context.Available - context.Amount).ToString("0.##"))</MudTd>
+                    <MudTd Style="width:90px">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@(context.Available <= 0)"
+                                   OnClick="@(() => context.Amount = context.Available)"
+                                   title="Bu malzemenin tamamını dağıtılacak miktara yazar (kaydetmez).">Tümü</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+}
+
+@code {
+    private sealed class Row
+    {
+        public string Id = "", Code = "", Name = "";
+        public decimal Available;
+        public decimal Amount;
+    }
+
+    private List<Row>? _rows;
+    private IReadOnlyList<LocationOption> _branches = System.Array.Empty<LocationOption>();
+    private string _target = "", _search = "";
+    private string? _msg; private bool _ok; private bool _busy;
+
+    private List<Row> Selected => (_rows ?? new()).Where(r => r.Amount > 0).ToList();
+
+    private string SummaryText
+    {
+        get
+        {
+            var sel = Selected;
+            return sel.Count == 0 ? "Miktar girilmedi." : $"{sel.Count} malzeme · toplam {sel.Sum(r => r.Amount):0.##}";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.CanCreate("stock")) return;
+        // Hedef listesi ORTAK önbellekten (oturumda bir kez indirilir) ve YALNIZ gerçek depolar.
+        _branches = await Locations.WriteTargets();
+        await Load();
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try
+        {
+            // TEK istek: atanmamış stoğu olan malzemeler. Malzeme başına ayrı çağrı YOK.
+            var url = "/api/stock/unassigned" + (string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search)}");
+            var arr = await Api.GetArrayAsync(url);
+            _rows = arr.Where(e => e.ValueKind == JsonValueKind.Object).Select(e => new Row
+            {
+                Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), Available = Dec(e, "quantity"),
+            }).ToList();
+        }
+        catch { _rows = new(); }
+    }
+
+    private async Task Save()
+    {
+        _msg = null;
+        if (string.IsNullOrWhiteSpace(_target)) { _msg = "Hedef depo/şantiye seçin."; _ok = false; return; }
+        var sel = Selected;
+        if (sel.Count == 0) { _msg = "En az bir malzeme için dağıtılacak miktar girin."; _ok = false; return; }
+        // Ekranda da engelle (sunucu zaten reddeder) — kullanıcı kaydete basmadan uyarılsın.
+        var asan = sel.FirstOrDefault(r => r.Amount > r.Available);
+        if (asan is not null)
+        {
+            _msg = $"{asan.Code}: dağıtılacak miktar ({asan.Amount:0.##}) atanmamış stoktan ({asan.Available:0.##}) fazla olamaz.";
+            _ok = false; return;
+        }
+
+        var hedef = _branches.FirstOrDefault(b => b.Id == _target)?.Name ?? "seçilen depo";
+        if (!await Dialog.Confirm(
+            $"{sel.Count} malzeme, toplam {sel.Sum(r => r.Amount):0.##} birim \"{hedef}\" deposuna aktarılacak.\n\n" +
+            "Bu işlem gerçek bir transfer hareketi oluşturur. Yanlış depoya dağıtırsanız düzeltme yolu, " +
+            "o depodan doğru depoya YENİ bir transfer yapmaktır (transferler geri alınmaz — " +
+            "iki deponun stoğunu etkiler).\n\nDevam edilsin mi?",
+            "Evet, Dağıt")) return;
+
+        _busy = true;
+        // Tek jeton: istek zaman aşımına uğrayıp tekrar gönderilse bile sunucu ikinci belge oluşturmaz.
+        var operationId = Guid.NewGuid().ToString("N");
+        try
+        {
+            var err = await Api.PostAsync("/api/stock/distribute", new
+            {
+                operationId,
+                toLocationId = _target,
+                lines = sel.Select(r => new { materialId = r.Id, quantity = r.Amount }).ToList(),
+            });
+            _ok = err is null;
+            _msg = err ?? $"Dağıtım kaydedildi: {sel.Count} malzeme → {hedef}.";
+            if (_ok) await Load();   // kalan atanmamış miktarlar tazelensin
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string Str(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static decimal Dec(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+}

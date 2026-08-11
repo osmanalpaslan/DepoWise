@@ -1,7 +1,8 @@
 # STK-08 — "Atanmamış" Stoğun Toplu Dağıtımı · Uygulama Planı
 
 > Oluşturuldu: **2026-08-11** · FAZ C · Ön koşul: `STK-00…07` ✅ · `SNK-12` ✅
-> **DURUM: ANALİZ + PLAN TAMAM · KOD BAŞLAMADI** (gerekçe §10)
+> **DURUM: ✅ TAMAMLANDI (2026-08-11)** — §12-15 uygulama, bulgular ve doğrulama sonuçları.
+> (§10'daki "kod başlamadı" notu ARTIK GEÇERSİZDİR; tarihsel kayıt olarak duruyor.)
 > **KARAR-8 (kalıcı):** otomatik dağıtım YOK — kullanıcı **gerçek transfer hareketleriyle** dağıtır.
 
 ---
@@ -46,7 +47,7 @@ istemcinin kazara lokasyonsuz transfer üretmesine kapı açar (STK-02…07'de k
 | Hedef ATANMAMIŞ olamaz | `if (string.IsNullOrEmpty(toLocationId)) throw` |
 | Ondalık | `decimal` + `Money`; SQL toplama/float **yok** |
 | Toplam korunur | Çıkış(−) + giriş(+) aynı miktarda → firma toplamı **değişmez** (testle kilitlenecek) |
-| Geri alınabilir | Normal `transfer` belgesi → mevcut `ReverseDocument` çalışır (ayrı mekanizma yok) |
+| ~~Geri alınabilir~~ | ⚠️ **BU VARSAYIM YANLIŞTI** — transferler geri ALINMAZ (2026-08-06 kararı). Düzeltme = yeni transfer. Bkz. §13 B-1 |
 | Audit | `RunDocument` zaten `AuditWriter` yazıyor + hareketler defterde → yeni audit sistemi YOK |
 
 ## 3. API (yeni 2 uç)
@@ -120,3 +121,52 @@ sonraki oturum **doğrudan §1'in KARAR (T-1) maddesinden** koda başlayabilir.
 
 ## 11. AÇIK KALAN İŞLER (silinmedi)
 `SNK-11` · `BKM-04` · `RPR-01` · `STK-09` · `STK-10` · `STK-11`
+
+---
+
+## 12. UYGULANDI (2026-08-11) — ✅ TAMAMLANDI
+
+| Katman | Dosya | İş |
+|---|---|---|
+| Servis | `StockService.DistributeUnassigned` | Kaynak DAİMA ATANMAMIŞ · `EnforceOwnBranch` çağrılmaz · satır bazında yeterlilik · aynı malzeme iki satırdaysa TOPLAM üzerinden kontrol · hareket türü **transfer** |
+| Servis | `StockService.ListUnassigned` | ATANMAMIŞ stoğu olan malzemeler — **tek sorgu** (N+1 yok) |
+| API | `GET /api/stock/unassigned` · `POST /api/stock/distribute` | Kaynak alanı **YOK** (istemci kaynak gönderemez) |
+| Web | `StockDistribute.razor` (`/stock/distribute`) | Liste + hedef + miktar + kalan + "Tümü" + onay · Stok ekranından buton |
+| Masaüstü | `StockDistributeViewModel` + `StockDistributeView.axaml` | Aynı ekran, **API'siz** (yerel SQLite) · menüde "Atanmamış Stok Dağıtımı" |
+| Test | `StockDistributeTests` | **17 senaryo** |
+
+**Yeni yetki düğümü açılmadı** (mevcut `stock` + `Create`), **yeni migration yok**, **senkron kodu değişmedi**.
+
+## 13. 🔴 BULGULAR
+
+### B-1 — Transferler GERİ ALINMAZ; dağıtım da bir transferdir
+`ReverseDocument` transfer belgelerini bilinçli reddediyor (2026-08-06 kullanıcı kararı: iki deponun
+stoğunu etkiler). Dağıtım da transfer olduğu için **geri alınamaz**. Planın §2.5'teki "ters kayıtla geri
+alınabilir" varsayımı **yanlıştı**.
+**Sonuç:** STK-08 bu kurala **istisna AÇMADI**. Düzeltme yolu: yanlış depodan doğru depoya **YENİ transfer**.
+Her iki hareket de defterde kalır (geçmiş silinmez).
+⚠️ İlk yazdığım ekran metinleri "gerekirse iptal edilebilir" diyordu — **yanıltıcıydı, düzeltildi**.
+Web ve masaüstü artık düzeltme yolunu açıkça anlatıyor.
+
+### B-2 — Üretimde `DEPOWISE` firmasının HİÇ DEPOSU YOK
+İzole üretim kopyasında ölçüldü: `DEPOWISE` **0 şube** · diğer iki firma 1 ve 5 şube.
+Yani babanın firmasında 8951,3 birim atanmamış stok var ama **dağıtacak hedef yok**.
+**Sonuç:** kullanıcı önce **Şubeler** ekranından en az bir depo/şantiye oluşturmalı. Her iki arayüz de
+depo yoksa bunu **açıkça söylüyor** (boş liste bırakılmadı).
+
+## 14. GERÇEK VERİ DOĞRULAMASI (izole üretim kopyası)
+
+| Adım | Sonuç |
+|---|---|
+| Başlangıç | 663 atanmamış malzeme · **8951,3** birim |
+| Kısmi dağıtım (3 malzeme, 4,5 birim) | ✅ uygulandı |
+| **Aşım denemesi** (mevcut + 1) | ✅ **reddedildi** |
+| **Rollback** | ✅ hedef bakiyesi **hiç değişmedi** |
+| Tam dağıtım (kalan) | ✅ ATANMAMIŞ 0'a indi |
+| **Firma toplamı** | **9 → 9,0** ✅ KORUNDU |
+| Genel ATANMAMIŞ | 8951,3 → 8942,3 (tam olarak dağıtılan 9 birim kadar) |
+
+Prova için izole kopyaya geçici bir depo eklendi (**canlıya değil**); kopya sonra **silindi**.
+
+## 15. DOĞRULAMALAR
+Build **0 hata** · Test **1317 · 1284 geçti · 0 kaldı · 33 atlandı** (taban 1300; **17 yeni senaryo**).

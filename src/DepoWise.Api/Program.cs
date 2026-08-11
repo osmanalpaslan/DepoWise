@@ -1257,6 +1257,27 @@ app.MapPost("/api/admin/reset-data", (HttpContext c) =>
     return Results.Ok(new { ok = true, cleared });
 }).RequireAuthorization();
 
+// ── STK-08: ATANMAMIŞ stok dağıtımı ────────────────────────────────────────────────────────
+// ATANMAMIŞ stoğu olan malzemeler (dağıtım ekranının listesi). TEK sorgu; malzeme başına okuma YOK.
+app.MapGet("/api/stock/unassigned", (HttpContext c, string? search, int? limit) =>
+    S(c) is { } s
+        ? Results.Ok(svc.Stock.ListUnassigned(s, search, limit is > 0 ? limit.Value : 500)
+            .Select(x => new { id = x.MaterialId, code = x.Code, name = x.Name, quantity = x.Quantity }))
+        : Results.Unauthorized()).RequireAuthorization();
+
+// Dağıtım: ATANMAMIŞ → seçilen depo. GERÇEK transfer hareketi üretir (yeni hareket türü YOK).
+// Kaynak istemciden ALINMAZ — daima ATANMAMIŞ'tır (bkz. StockService.DistributeUnassigned / KARAR T-1).
+// Tek belge + tek transaction: bir satır yetersizse TAMAMI geri alınır.
+app.MapPost("/api/stock/distribute", (HttpContext c, StockDistributeDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var lines = (d.Lines ?? new()).Select(l =>
+        new DepoWise.Infrastructure.Materials.StockLine(l.MaterialId, l.Quantity)).ToList();
+    var res = svc.Stock.DistributeUnassigned(s, lines, d.ToLocationId ?? "",
+        string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note));
+    return Results.Ok(new { ok = true, documentId = res.DocumentId, documentNo = res.DocNo });
+}).RequireAuthorization();
+
 // STK-04 — SAYIM LİSTESİ: malzemeler + SAYILAN LOKASYONUN sistem miktarı (tek sorgu, N+1 yok).
 // Ayrı uçtur çünkü /api/materials FİRMA GENELİ toplamı döndürür; sayımda o rakam YANLIŞ olur.
 app.MapGet("/api/stock/count-sheet", (HttpContext c, string? locationId, string? search, int? limit) =>
@@ -2795,6 +2816,9 @@ record StockLineDto(string MaterialId, decimal Quantity);
 record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null);
 record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null);
 record StockReverseDto(string DocumentId, string? Reason);
+/// <summary>STK-08 — ATANMAMIŞ stok dağıtımı. KAYNAK ALANI YOKTUR: kaynak daima ATANMAMIŞ'tır
+/// (istemcinin kaynak göndermesine izin verilmez — KARAR T-1).</summary>
+record StockDistributeDto(string? ToLocationId, List<StockLineDto>? Lines, string? OperationId, string? Note);
 record FuelCancelDto(string? Reason);
 record StockChangeLogDto(string MaterialId, decimal NewQuantity, bool Continued, string? WarningText);
 record IdReasonDto(string Id, string? Reason);

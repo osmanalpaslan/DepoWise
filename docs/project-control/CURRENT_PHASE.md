@@ -162,7 +162,7 @@ stok işlemleri API'ye uğramadan çevrimdışı yazıldı, yalnız "bağlantı 
 Depo bazlı stokta sonucu: web'de açılan yeni depo, masaüstüne org senkronu inmeden stok işleminde
 kullanılamıyor. **Hata değil** (çevrimdışı bilinemeyen depo uydurulmamalı) ama görünürlük işi.
 
-## ✅ SON TAMAMLANAN — `SNK-12` Masaüstünde depo listesi tazeleme (2026-08-11)
+## ✅ TAMAMLANAN — `SNK-12` Masaüstünde depo listesi tazeleme (2026-08-11)
 
 **Sorun:** Şubeler iş-senkronunda taşınmaz (web-otoriteli, ayrı yoldan iner). Aynalama YALNIZ girişte
 çalıştığı için, oturum açıkken web'de açılan yeni depo masaüstüne inmiyordu → o depoya stok işlemi
@@ -178,28 +178,34 @@ Yeni depo aynalandıktan sonra **çevrimdışı** giriş/transfer/sayım çalı�
 yansıyor · silinen depo **pasife alınıyor, fiziksel silinmiyor** (geçmiş stok korunuyor) · **firma
 izolasyonu** korunuyor · çevrimdışıyken yerel liste dokunulmadan kalıyor.
 
-## 🟡 DEVAM EDEN — `STK-08` Atanmamış stok dağıtımı · PLAN TAMAM, KOD BAŞLAMADI
+## ✅ SON TAMAMLANAN — `STK-08` Atanmamış stok toplu dağıtımı (2026-08-11)
 
-Plan: [`STK_08_UYGULAMA_PLANI.md`](STK_08_UYGULAMA_PLANI.md) — sonraki oturum **doğrudan §1 KARAR (T-1)'den**
-koda başlayabilir. **Çalışma ağacında yarım kod YOK.**
+Plan + sonuçlar: [`STK_08_UYGULAMA_PLANI.md`](STK_08_UYGULAMA_PLANI.md)
 
-**🔴 Analizde bulunan kritik engel:** mevcut `Transfer` servisi ATANMAMIŞ'ı kaynak olarak **kabul etmiyor**
-— üstelik üç ayrı yerde:
-1. Boş kaynak `ArgumentException` ile reddediliyor.
-2. `EnforceOwnBranch` şubeye bağlı kullanıcıda boş kaynağı **sessizce kendi şubesine çeviriyor**
-   → dağıtım yanlış depodan düşerdi (**sessiz veri bozulması**).
-3. Şube-bazlı negatif kalkanı boş lokasyonda **çalışmıyor** → "10 varken 11 dağıt" engellenmezdi.
+**FAZ C'nin son parçası tamamlandı.** Kullanıcı artık geçmişten kalan "Atanmamış" stoğu **kendi seçerek**
+depolara dağıtabiliyor — sistem hiçbir tahmin yapmıyor (KARAR-8).
 
-**Karar (T-1):** `Transfer` gevşetilmeyecek (herhangi bir istemcinin kazara lokasyonsuz transfer üretmesine
-kapı açardı). Bunun yerine AYRI ve DAR bir giriş noktası: `DistributeUnassigned` — **aynı** belge/hareket
-makinesini kullanır, hareket türü **`transfer`** kalır (yeni tür yok), kendi yeterlilik kontrolünü yapar.
+| Katman | Yapılan |
+|---|---|
+| Servis | `DistributeUnassigned` — **dar giriş noktası**; kaynak DAİMA ATANMAMIŞ, hareket türü `transfer` kalır |
+| API | `GET /api/stock/unassigned` · `POST /api/stock/distribute` (kaynak alanı **yok**) |
+| Web | `/stock/distribute` — liste + hedef + miktar + kalan + "Tümü" + onay |
+| Masaüstü | Aynı ekran, **API'siz** (yerel SQLite) → **çevrimdışı çalışır** |
 
-**KARAR-8 (kalıcı):** otomatik dağıtım YOK; kullanıcı gerçek transfer hareketleriyle dağıtır.
+**🔴 İki gerçek bulgu:**
+1. **Transferler geri alınmaz** (2026-08-06 kararı) — dağıtım da transfer olduğu için geri alınamaz.
+   Planın "ters kayıtla geri alınır" varsayımı yanlıştı. İstisna **açılmadı**; düzeltme yolu yanlış
+   depodan doğru depoya **yeni transfer**. İlk yazdığım ekran metinleri yanıltıcıydı → **düzeltildi**.
+2. **Üretimde `DEPOWISE` firmasının hiç deposu yok** (0 şube). 8951,3 birim atanmamış stok var ama
+   dağıtacak hedef yok → kullanıcı önce **Şubeler** ekranından depo oluşturmalı. İki arayüz de söylüyor.
+
+**Kanıt:** **1317 / 1284 geçti / 0 kaldı / 33 atlandı** (taban 1300; **17 yeni senaryo**) · build 0 hata ·
+izole üretim kopyasında doğrulandı: aşım **reddedildi**, **rollback** çalıştı, **firma toplamı korundu**.
 
 ## ▶️ SIRADAKİ İŞ
-**`STK-08` — plan §1 KARAR (T-1)'den başla:** `StockService.DistributeUnassigned` → 2 API ucu
-(`GET /api/stock/unassigned`, `POST /api/stock/distribute`) → Web ekranı → masaüstü ekranı (çevrimdışı)
-→ 30 senaryo → tam doğrulama → kontrol dosyaları.
+**`SNK-11` — `stock_balances` push paketinden çıkarılsın.** Bakiye türetilmiş veridir; sunucu zaten
+defterden yeniden hesaplıyor (STK-07'de kanıtlandı) → paketle taşınması **saf gereksiz yük**.
+Önce ölçüm (kaç bayt / kaç satır), sonra çıkarma + senkron sertifikasyon testlerinin tekrarı.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -212,7 +218,7 @@ makinesini kullanır, hareket türü **`transfer`** kalır (yeni tür yok), kend
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1300/1267/0/33 · Build 0 hata
+667 stok hareketi · Test 1317/1284/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

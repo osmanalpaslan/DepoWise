@@ -693,6 +693,7 @@ public sealed partial class ShellViewModel : ViewModelBase
                 new NavLinkVm("Giriş-Çıkış", "stock"),
                 new NavLinkVm("Stok Hareketleri", "stock:movements"),
                 new NavLinkVm("Stok Sayım", "stock:count"),
+                new NavLinkVm("Atanmamış Stok Dağıtımı", "stock:distribute"),   // STK-08 (ayrı yetki düğümü YOK)
             }),
             new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
             {
@@ -839,6 +840,13 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new StockCountViewModel(_session);
                 CurrentTitle = "Stok Sayım";
                 CurrentContext = "Sayım ve fark düzeltmesi";
+                break;
+            // STK-08: geçmişte deposu girilmemiş ("Atanmamış") stoğun kullanıcı tarafından dağıtımı.
+            // ÇEVRİMDIŞI çalışır — ekran API'ye gitmez, yerel SQLite üzerinden yazar.
+            case "stock:distribute":
+                CurrentPage = new StockDistributeViewModel(_session);
+                CurrentTitle = "Atanmamış Stok Dağıtımı";
+                CurrentContext = "Geçmişte deposu girilmemiş stoğu depolara dağıtın";
                 break;
             case "inspection":
                 CurrentPage = new InspectionViewModel(_session);
