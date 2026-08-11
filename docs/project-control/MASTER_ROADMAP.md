@@ -17,7 +17,7 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 | **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile **aynı migration ailesinde** yapılmalı; sonra eklenirse geçmiş veri boş kalır | FAZ C'ye bağlı |
 | **FAZ E** | Senkron ölçeklenme (`SNK-06…10`) | FAZ C şemayı büyütür; senkron optimizasyonu ondan sonra anlamlı | FAZ C'ye bağlı |
 | **FAZ F** | Güncelleme + sürüm uyumu (`GNC-01…03`) | Çok makineli kullanım öncesi | BEKLEMEDE |
-| **FAZ G** | Kalan parite + rapor envanteri (`PRT-02`, `RPR-01`, `P-1`) | Çekirdek oturduktan sonra | BEKLEMEDE |
+| **FAZ G** | Kalan parite + rapor envanteri (`PRT-02`, `P-1`) — **`RPR-01` ✅ erken tamamlandı** | Çekirdek oturduktan sonra | BEKLEMEDE |
 | **FAZ H** | Ön muhasebe **modülü** (`MUH-02…05`) | Alan hazırlığı + depo stoku bitmeden başlanmaz | BEKLEMEDE |
 | **FAZ I** | Test/veri bütünlüğü + performans (`TST-01`, index, N+1) | Özellikler bitince | BEKLEMEDE |
 | **FAZ J** | Canlıya geçiş: güvenlik sertleştirme, API sürümleme | En son | BEKLEMEDE |
@@ -113,7 +113,10 @@ Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZ
 
 ## FAZ G — Kalan parite + rapor
 
-`PRT-02` (ekran adı eşleme) · `RPR-01` (rapor envanteri) · `P-1` (masaüstü "Bağı Kaldır") · Personel/Muayene filtre+export
+`PRT-02` (ekran adı eşleme) · `P-1` (masaüstü "Bağı Kaldır") · Personel/Muayene filtre+export
+
+✅ `RPR-01` (rapor filtre paritesi) **2026-08-11'de tamamlandı** — FAZ C içinde erken alındı, çünkü
+STK-06 aynı riski canlı olarak gösterdi. Kayıt: [`RPR_01_FILTRE_PARITESI.md`](RPR_01_FILTRE_PARITESI.md)
 
 ## FAZ H — Ön muhasebe modülü
 

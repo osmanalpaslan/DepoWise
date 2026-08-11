@@ -222,12 +222,45 @@ kasten bozuk bakiye sunucuya bulaşmıyor · çevrimdışı akışların TAMAMI 
 ⚠️ **3 mevcut test gerekçeli olarak yeniden yazıldı** (gevşetme değil — kilitledikleri davranış bilinçli
 olarak kaldırıldı). Ayrıntı kayıtta §4.
 
+## ✅ SON TAMAMLANAN — `RPR-01` Rapor filtre paritesi (2026-08-11)
+
+Kayıt: [`RPR_01_FILTRE_PARITESI.md`](RPR_01_FILTRE_PARITESI.md)
+
+**Üretim davranışı DEĞİŞMEDİ** — bu bir *koruma* işidir. Rapor verisi zaten ortak (`ReportService`),
+ama filtre ARAYÜZLERİ iki tarafta elle yazılıyor: yeni filtre eklenirken biri unutulursa hiçbir şey
+patlamaz, filtre o platformda **sessizce yok** olur.
+
+**Çözüm (en küçük):** Tek doğru kaynak `ReportFilters` enum'u. Test, enum'un HER değeri için bir
+kablolama satırı ister ve o satırı **4 katmanda** (Application · API · Web · Masaüstü) doğrular.
+Ortak UI katmanı **kurulmadı**, üretim kodu **değişmedi** — test projesi Web/Desktop'a referans
+vermediği için iki arayüzün **kaynak metni** okunur.
+
+| Yakalanan hata türü | Durum |
+|---|---|
+| Filtre yalnız Web'e / yalnız masaüstüne eklenmiş | ✅ |
+| Ekranda var ama **EXPORT gövdesinde** gönderilmiyor | ✅ |
+| `[NotifyPropertyChangedFor]` unutulmuş (filtre yanlış raporda takılı kalır) | ✅ |
+| API katalog yanıtından alan düşmüş (Web filtreyi hiç göremez) | ✅ |
+| Kataloğa yeni bayrak eklenip parite tablosuna girmemiş | ✅ |
+
+**🔴 Negatif ispat kendi testimdeki gerçek zayıflığı buldu:** ilk Web kontrolü `_sel?.UsesLocation == true`
+arıyordu; bu metin istek gövdelerinde de geçtiği için **ekran bloğu silinse bile test geçiyordu**.
+Token `@if (_sel?.UsesLocation ==` olarak sıkılaştırıldı. Negatif ispat olmasaydı RPR-01
+**çalışmayan bir koruma** olarak "tamamlandı" sayılacaktı.
+
+**Envanter:** 12 rapor · 10 filtre bayrağı · bir filtrenin tam bağlanması için **6 dosyada** iş var.
+Mevcut 10 bayrağın **tamamı** her iki platformda tam bağlı çıktı (gerçek parite eksiği bulunmadı).
+
+**Kanıt:** **1343 / 1310 geçti / 0 kaldı / 33 atlandı** (taban 1325; **+18 senaryo**) · build 0 hata ·
+5 simüle hatanın 5'i yakalandı · çevrimdışı rapor filtreleri HTTP'siz doğrulandı.
+⚠️ **Görsel (browser/XAML render) kontrolü YAPILMADI** — doğrulama kod/kaynak düzeyindedir.
+
 ## ▶️ SIRADAKİ İŞ
-**`RPR-01` — Rapor filtre paritesi testi.** Rapor filtreleri "katalogdan otomatik gelir" diye
-belgelenmiş ama gerçekte Web (`Reports.razor`) ve masaüstü (`ReportsViewModel`+XAML) blokları ELLE
-yazılıyor → yeni filtre eklenirken biri unutulursa **sessiz parite kaybı** olur (STK-06'da yaşandı,
-elle önlendi). `ReportDescriptor.Uses*` bayraklarını iki platformun filtre bloklarıyla karşılaştıran
-bir test eklenecek.
+**`BKM-04` — Bakım malzeme tüketiminde depo seçimi.** Bakım kaydı malzeme tüketirken
+`branch_id = NULL` yazıyor → tüketilen malzeme **ATANMAMIŞ** kovasına düşüyor. STK-08 geçmiş atanmamış
+stoğu temizleme aracını verdi, ama bu yol **yenisini üretmeye devam ediyor**. Bakımda deponun nasıl
+belirleneceği bir **iş kuralı kararıdır** (aracın şubesi mi, kullanıcının şubesi mi, açık seçim mi) —
+uydurulmayacak; önce karar, sonra kod.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -240,7 +273,7 @@ bir test eklenecek.
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1325/1292/0/33 · Build 0 hata
+667 stok hareketi · Test 1343/1310/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

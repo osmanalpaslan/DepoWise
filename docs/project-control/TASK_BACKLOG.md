@@ -241,10 +241,26 @@ export ayrı sorgu kullanmıyor → filtreyi otomatik alır.
 **Karar:** `ReportFilters.Location` **ayrı bayrak** — mevcut `Branch` filtresi `op_branch_id` demek
 (stok lokasyonu değil); ikisi birleştirilmeyecek. Filtre boşken bugünkü davranış birebir korunacak.
 
-### `RPR-01` — Rapor filtre UI'si parite testi · A · **YENİ** (STK-06 envanterinden)
+### `RPR-01` — Rapor filtre UI'si parite testi · ✅ **TAMAMLANDI** (2026-08-11)
+Kayıt: [`RPR_01_FILTRE_PARITESI.md`](RPR_01_FILTRE_PARITESI.md)
+
 Filtre UI'si "katalogdan otomatik gelir" diye belgelenmiş ama gerçekte Web (`Reports.razor`) ve masaüstü
 (`ReportsViewModel`+XAML) blokları **elle** yazılıyor → yeni filtre eklenirken biri unutulursa **sessiz
-parite kaybı**. `ReportDescriptor.Uses*` bayraklarını iki platformun filtre bloklarıyla karşılaştıran test.
+parite kaybı**.
+
+**Çözüm:** `ReportFilters` enum'undan sürülen parite testi — her bayrak için bir kablolama satırı
+zorunlu, satır 4 katmanda (Application · API · Web · Masaüstü) doğrulanıyor. **Ortak UI katmanı
+kurulmadı, üretim davranışı değişmedi** (yalnız bir yanlış yorum satırı düzeltildi).
+Test projesi Web/Desktop'a referans vermez → iki arayüzün **kaynak metni** okunur.
+
+**Envanter:** 12 rapor · 10 filtre bayrağı · bir filtre 6 dosyada bağlanıyor. Mevcut 10 bayrağın
+**tamamı** iki platformda tam bağlı çıktı — gerçek parite eksiği bulunmadı.
+
+**1325 → 1343/1310/0/33** · build 0 hata · 5 simüle hatanın 5'i yakalandı · çevrimdışı HTTP'siz doğrulandı.
+
+**🔴 Bulgu:** Negatif ispat testi **kendi tarayıcımdaki** zayıflığı buldu — ilk Web kontrolü istek
+gövdelerindeki metne takılıyor, ekran bloğu silinse bile geçiyordu. Sıkılaştırıldı.
+⚠️ Görsel (browser/XAML render) kontrolü **yapılmadı**; doğrulama kod/kaynak düzeyindedir.
 
 ### `STK-10` — "Stok Hareketleri" raporu · A · **YENİ** (STK-06 envanterinden)
 Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e aktarımı yok. Depo bazlı stokta

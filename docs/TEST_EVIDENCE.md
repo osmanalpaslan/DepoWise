@@ -507,3 +507,36 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   taşımıyor ama **yerel okuma çalışıyor** · çevrimdışı giriş/çıkış/ters kayıt/transfer/sayım/STK-08
   dağıtımı/kırılım görüntüleme **çalışmaya devam ediyor** · offline→online döngüsünde kopya yok.
 - **Kayıt:** `docs/project-control/SNK_11_BAKIYE_SENKRON_YUKU.md`
+
+## 2026-08-11 - RPR-01 — Web ↔ masaüstü rapor filtre paritesi (koruma testi)
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Başlangıç:** 1325 · 1292 geçti · 0 kaldı · 33 atlandı
+- **Bitiş:** **1343 toplam · 1310 geçti · 0 kaldı · 33 atlandı** (**+18 yeni senaryo** —
+  `ReportFilterParityTests` + `ReportFilterBehaviourParityTests`). Mevcut testlerin hiçbiri
+  değiştirilmedi, silinmedi, gevşetilmedi.
+- **Üretim davranışı DEĞİŞMEDİ.** Tek üretim dokunuşu: `Reports.razor` içinde yanlış bir yorum satırı
+  düzeltildi (davranış açıklaması gerçeğe uydu). Yeni servis/uç/migration/senkron değişikliği YOK.
+- **Envanter:** 12 rapor · 10 filtre bayrağı · bir filtre 6 dosyada bağlanıyor
+  (`ReportCatalog` · `ReportModels` · `Api/Program.cs` · `Web/Reports.razor` ·
+  `Desktop/ReportsViewModel.cs` · `Desktop/ReportsView.axaml`). Mevcut 10 bayrağın **tamamı**
+  iki platformda tam bağlı çıktı → **gerçek parite eksiği bulunmadı**.
+- **Kanıtlananlar:** her bayrağın 4 katmanda bağlı olduğu · kataloğa eklenip parite tablosuna
+  girmeyen bayrağın yakalandığı · arayüzde katalogsuz "başıboş" bayrak olmadığı · sorgu ve export
+  uçlarının **aynı** `ReportRequest`'i kurduğu · "📦 Atanmamış" seçeneğinin İKİ arayüzde de sunulduğu ·
+  tarih varsayılanının (Bu Ay) iki arayüzde de uygulandığı · talep durumlarının tek kaynaktan geldiği.
+- **Negatif ispat (üretim koduna sahte hata bırakmadan, kopya metinle):** 5 simüle hatanın **5'i**
+  yakalandı — Web bloğu eksik · export gövdesi eksik · masaüstü XAML bloğu eksik ·
+  `[NotifyPropertyChangedFor]` eksik · API katalog alanı eksik.
+- **🔴 Negatif ispatın bulduğu gerçek zayıflık:** ilk yazdığım Web kontrolü `_sel?.UsesLocation == true`
+  arıyordu; bu metin istek gövdelerinde de geçtiği için **ekran bloğu silinse bile test geçiyordu**.
+  Token `@if (_sel?.UsesLocation ==` olarak sıkılaştırıldı.
+- **Çevrimdışı:** masaüstü rapor filtreleri yerel SQLite üzerinde, **HTTP kullanılmadan** koşturuldu
+  (`ApiTestHost` yok). Lokasyon listesi yerel `BranchService`'ten. API bağımlılığı eklenmedi.
+- **STK-06 semantiği korundu:** Tüm Şubeler (20) ≠ tek depo (10) ≠ Atanmamış (6); kırılım toplamı =
+  firma toplamı; Stok Sayım "Sayılan Depo" kolonu + filtre çalışıyor.
+- **Yapılmayanlar (dürüst kayıt):** görsel browser/XAML render kontrolü **yapılmadı** (doğrulama
+  kod/kaynak düzeyinde) · export çıktısı XLSX olarak açılıp karşılaştırılmadı (parite kaynak eşitliği
+  + aynı gövde → aynı tablo yoluyla kanıtlandı) · PostgreSQL provası gerekmedi (SQL/lehçeye
+  dokunulmadı; 33 atlanan PG testi tabanla aynı).
+- **Kayıt:** `docs/project-control/RPR_01_FILTRE_PARITESI.md`

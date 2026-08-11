@@ -532,7 +532,9 @@ else
             _branchSel = new HashSet<string>(); _vehicleSel = new HashSet<string>(); _vehTypeSel = new HashSet<string>();
             _maintDefSel = new HashSet<string>(); _techSel = new HashSet<string>(); _supplierSel = new HashSet<string>();
             _requesterSel = new HashSet<string>(); _statusSel = new HashSet<string>(); _vehSearch = null;
-            _locationSel = new HashSet<string>();   // STK-06: rapor değişince lokasyon seçimi sıfırlanır
+            // STK-06: lokasyon seçimi kapsam yenilenince sıfırlanır (açılışta ve süper adminde firma
+            // değişince). Rapor DEĞİŞTİRİLDİĞİNDE seçim korunur — masaüstü de aynı şekilde davranır (RPR-01).
+            _locationSel = new HashSet<string>();
         }
         catch { }
     }

@@ -25,7 +25,7 @@ Sınıflar: ✅ **Her ikisinde** · 🌐 **Bilinçli web-only** · 🖥️ **Bil
 | Bakım Takibi | ✅ | ✅ | ✅ | Grup 3 |
 | Yakıt | ✅ | ✅ | ✅ | Grup 3 |
 | Talepler / Onay / Operasyon | ✅ | ✅ | ✅ | Grup 4 |
-| Raporlar | ✅ | ✅ | ✅ | içerik denetimi `RPR-01` |
+| Raporlar | ✅ | ✅ | ✅ | `RPR-01` ✅ — 10 filtrenin tamamı iki tarafta bağlı; parite **testle kilitli** |
 | Şube / Şantiye | ✅ | ✅ | ✅ | Grup 6 |
 | Kullanıcılar | ✅ | ✅ | ✅ | Grup 6 |
 | Yetkiler | ✅ | ✅ | ✅ | `YTK-05` eksik (iki tarafta da) |
