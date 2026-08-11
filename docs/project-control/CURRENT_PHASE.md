@@ -116,10 +116,29 @@ lokasyon listesi yerel veriden · `EnsureLocationOwned` serviste olduğu için �
 çevrimdışı→senkron lokasyonu **koruyor** · online→offline→online döngüsünde **kopya hareket yok** ·
 şirket izolasyonu çevrimdışı da geçerli · dolu SQLite v63→v64 ve rollback kapısı **yeniden doğrulandı**.
 
+## 🟡 DEVAM EDEN — `STK-06` Rapor lokasyon boyutu · ENVANTER+PLAN TAMAM, KOD BAŞLAMADI
+
+Plan: [`STK_06_UYGULAMA_PLANI.md`](STK_06_UYGULAMA_PLANI.md) — sonraki oturum **doğrudan §8'den** başlar.
+
+**Envanter sonucu:** 11 raporun **2'si** lokasyon boyutu gerektiriyor (**Stok Durumu**, **Stok Sayım**);
+2 malzeme raporu firma toplamıyla **zaten doğru**; kalan 7 rapor stok miktarı kullanmıyor.
+**Dashboard'da düzeltme GEREKMİYOR** — STK-02'deki `StockTotalSubquery` tek uygulama, kopyası yok;
+STK-04'te gerçek üretim kopyasıyla doğrulandı.
+
+**Kararlar (plan §4):** `ReportFilters.Location` **ayrı bayrak** olacak — mevcut `Branch` filtresi
+`op_branch_id` (kaydı işleyen şube) demek, stok lokasyonu DEĞİL, ikisi birleştirilmeyecek ·
+filtre boşken **bugünkü davranış birebir** korunacak (regresyon yok) · export ayrı sorgu kullanmıyor,
+filtreyi otomatik alacak · yeni indeks gerekmiyor (Migration064'te var).
+
+⚠️ **Kod neden başlamadı:** Talimat "kapasite tüm işi DOĞRULAMAYA yetmeyecekse kodlamaya başlama" diyor.
+Bu oturumda STK-02…05 tamamlandı; STK-06'nın kabul ölçütü tam doğrulama (build + 1267 test + yeni testler +
+iki lehçe + parite + çevrimdışı + gerçek veri) ve kalan kapasite bunu garanti etmiyordu. Yarım bırakılmış
+stok değişikliği değerleri **sessizce yanlış** gösterir → başlanmadı.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-06` — Rapor + Dashboard lokasyon boyutu.** Stok raporlarına depo kırılımı/filtresi
-(bugün hepsi firma geneli) · dashboard'da lokasyon bazlı görünüm ihtiyacı değerlendirilir.
-Ardından `STK-07` (senkron doğrulaması — 6 çevrimdışı senaryo).
+**`STK-06` — plan §8 adım 1'den başla:** `ReportFilters.Location` bayrağı → `ReportRequest.LocationIds` →
+`ReportService.StockStatus` + `StockCount` → API → Web `Reports.razor` → masaüstü `ReportsViewModel`+XAML →
+16 senaryo → tam doğrulama → kontrol dosyaları.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |

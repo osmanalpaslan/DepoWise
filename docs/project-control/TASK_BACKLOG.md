@@ -229,3 +229,26 @@ v63→v64 + rollback kapısı yeniden doğrulandı.
 
 ➡️ **Devredildi:** `SNK-11` (`stock_balances` push paketinden çıkarılsın — gereksiz yük, zararsız) ·
 `BKM-04` (bakım tüketimine depo seçimi).
+
+### `STK-06` — Rapor + Dashboard lokasyon boyutu · 🟡 **ENVANTER+PLAN TAMAM, KOD BAŞLAMADI** (2026-08-11)
+Plan: [`STK_06_UYGULAMA_PLANI.md`](STK_06_UYGULAMA_PLANI.md) — sonraki oturum **doğrudan §8'den** başlar.
+
+**Envanter:** 11 raporun **2'si** lokasyon gerektiriyor (**Stok Durumu** · **Stok Sayım**) ·
+2 malzeme raporu firma toplamıyla zaten doğru · 7 rapor stok miktarı kullanmıyor ·
+**dashboard'da düzeltme gerekmiyor** (STK-02 alt sorgusunun kopyası yok, üretim verisiyle doğrulandı) ·
+export ayrı sorgu kullanmıyor → filtreyi otomatik alır.
+
+**Karar:** `ReportFilters.Location` **ayrı bayrak** — mevcut `Branch` filtresi `op_branch_id` demek
+(stok lokasyonu değil); ikisi birleştirilmeyecek. Filtre boşken bugünkü davranış birebir korunacak.
+
+### `RPR-01` — Rapor filtre UI'si parite testi · A · **YENİ** (STK-06 envanterinden)
+Filtre UI'si "katalogdan otomatik gelir" diye belgelenmiş ama gerçekte Web (`Reports.razor`) ve masaüstü
+(`ReportsViewModel`+XAML) blokları **elle** yazılıyor → yeni filtre eklenirken biri unutulursa **sessiz
+parite kaybı**. `ReportDescriptor.Uses*` bayraklarını iki platformun filtre bloklarıyla karşılaştıran test.
+
+### `STK-10` — "Stok Hareketleri" raporu · A · **YENİ** (STK-06 envanterinden)
+Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e aktarımı yok. Depo bazlı stokta
+`Kaynak → Hedef` kolonlu, tarih + depo + malzeme filtreli bir hareket dökümü doğal ihtiyaç.
+
+### `STK-09` — Lokasyon bazlı dashboard · B · **YENİ** (ihtiyaç doğarsa)
+Bugünkü dashboard firma toplamıyla doğru çalışıyor. "Depo seçip o deponun KPI'larını görme" ayrı bir üründür.
