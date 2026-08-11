@@ -157,6 +157,14 @@ ORDER BY b.name;";
         tx.Commit();
     }
 
+    /// <summary>
+    /// Şubeyi soft-delete eder. G6-08 (KARAR-G6-C, 2026-08-11): şubeye bağlı ARAÇ veya PERSONEL varsa
+    /// silme REDDEDİLİR. Gerekçe: araçta <c>branch_id</c> ZORUNLUDUR (API'deki RequireVehicleFields) —
+    /// kayıtları NULL'lamak onları kaydedilemez hâle getirir, dokunmamak ise silinmiş şubeye bakan bozuk
+    /// referans bırakır. Kullanıcılar bunun İSTİSNASIdır: şubesiz kullanıcı geçerli bir durumdur ve mevcut
+    /// davranış (branch_id boşaltma) korunur.
+    /// Sayım ve silme AYNI transaction içindedir → kontrol ile silme arasında araç/personel eklenemez.
+    /// </summary>
     public void Delete(SessionContext s, string id)
     {
         AccessControl.Require(s, Module, PermissionAction.Delete);
@@ -164,6 +172,7 @@ ORDER BY b.name;";
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         EnsureBranchOwned(conn, tx, s.CompanyId, id);
+        EnsureNoDependents(conn, tx, s.CompanyId, id);
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -274,6 +283,33 @@ ORDER BY u.username;");
             list.Add(new BranchRow(r.GetString(0), r.GetString(1), r.GetString(2), null, null, 0,
                 r.IsDBNull(3) ? null : r.GetString(3), r.GetInt64(4) == 1));
         return list;
+    }
+
+    /// <summary>G6-08 — şubeye bağlı (silinmemiş) araç/personel varsa silmeyi engeller. Sayılar YALNIZ
+    /// şubenin firmasından alınır: başka firmanın kaydı sayılmaz, sayı sızdırmaz.</summary>
+    private static void EnsureNoDependents(DbConnection conn, DbTransaction tx, string companyId, string branchId)
+    {
+        int vehicles = CountBound(conn, tx, "vehicles", companyId, branchId);
+        int personnel = CountBound(conn, tx, "personnel", companyId, branchId);
+        if (vehicles == 0 && personnel == 0) return;
+
+        var parts = new List<string>();
+        if (vehicles > 0) parts.Add($"{vehicles} araç");
+        if (personnel > 0) parts.Add($"{personnel} personel");
+        throw new InvalidOperationException(
+            $"Bu şube silinemez. Şubeye bağlı {string.Join(" ve ", parts)} bulunmaktadır. " +
+            "Önce bu kayıtları başka bir şubeye taşıyın.");
+    }
+
+    /// <summary>Tablo adı YALNIZ bu sınıftaki sabitlerden gelir — dışarıdan parametre değildir.</summary>
+    private static int CountBound(DbConnection conn, DbTransaction tx, string table, string companyId, string branchId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table} WHERE branch_id=@b AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@b", branchId);
+        cmd.AddWithValue("@c", companyId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
     private static void EnsureBranchOwned(DbConnection conn, DbTransaction tx, string companyId, string branchId)
