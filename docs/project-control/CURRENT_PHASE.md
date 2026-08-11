@@ -23,11 +23,32 @@ defterden lokasyon bazlı bakiye üretiminin **toplamları koruduğu kanıtland�
 
 → Migration **kayıpsız ve deterministik**. Veri uydurma gerekmiyor.
 
+## 🟡 `STK-01` — MIGRATION YAZILDI, **ETKİNLEŞTİRİLMEDİ** (2026-08-11)
+
+`Migration064_StockBalanceLocation` yazıldı: `(company_id, material_id, location_id)` PK ·
+defterden C#/decimal ile yeniden hesaplama (SQL CAST hassasiyeti bozmasın) ·
+**migration içi doğrulama** (malzeme toplamı eşleşmezse istisna → runner transaction'ı geri alır) ·
+`location_id=''` = ATANMAMIŞ · tablo yeniden kurma (iki lehçede de çalışır) · lokasyon indeksi.
+
+⚠️ **`MigrationCatalog`'a KAYITLI DEĞİL — bilinçli.** Şema değişince `stock_balances` malzeme başına
+çok satır döner ve bugünkü **15 üretim çağrı noktası** eski tek-satır varsayımına dayanıyor:
+
+| Sorun | Adet | Etkisi |
+|---|---|---|
+| `SELECT quantity ... WHERE material_id=@m` (`ExecuteScalar`) | 4 | **İlk** lokasyonu alır, toplamı değil |
+| `LEFT JOIN stock_balances` | 8 | Satır çoğaltır → malzeme listesi / rapor / dashboard **yanlış** |
+| CAS yazma (`ON CONFLICT(material_id)`) | 3 | Yazma hedefi belirsiz |
+| Eski şemayla satır yazan test dosyası | 5 | Test kırılır |
+
+Tek başına etkinleştirilirse stok değerleri **sessizce yanlış** görünür — en tehlikeli hata türü.
+Bu yüzden etkinleştirme `STK-02` ile **aynı iş biriminde** yapılacaktır.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-01` — `stock_balances` şema değişimi.**
-`(company_id, material_id, location_id)` birincil anahtarı + defterden yeniden hesaplama +
-**migration içi doğrulama adımı** (toplam eşleşmezse transaction geri alınır). İki lehçe (SQLite + PostgreSQL).
-Ön koşul: güncel `pg_dump` yedeği (mevcut: `Desktop\backups\depowise_prod_2026-08-11_124449.dump`).
+**`STK-02` — 15 çağrı noktasını lokasyon farkında hale getir + Migration064'ü katalogda etkinleştir.**
+Sıra: `StockBalanceWriter` (CAS → lokasyon anahtarlı) → `StockService` (toplam = SUM, recompute lokasyonlu)
+→ `MaterialService`/`DashboardService`/`ReportService`/`OpeningStockService` (JOIN'ler toplam alacak şekilde)
+→ 5 test dosyası → katalog kaydı → tam test.
+**Kural:** Genel toplam ile lokasyon toplamı asla kopmayacak.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
