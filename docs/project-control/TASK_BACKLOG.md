@@ -311,9 +311,28 @@ satırlarının atlanması da bayrakla değil **yapısal** oldu. Ters kayda `rev
 geçti · izole PostgreSQL'de doğrulandı.
 ⚠️ **Görsel (tarayıcı render) kontrolü YAPILMADI** — gerekçesi kayıtta §9.
 
-### `STK-10` — "Stok Hareketleri" raporu · A · **YENİ** (STK-06 envanterinden)
+### `STK-10` — "Stok Hareketleri" raporu · A · 📋 **PLAN HAZIR, KOD BAŞLAMADI** (2026-08-11)
+Plan + envanter: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md)
+
 Stok Hareketleri bugün yalnız **ekran**; katalogda rapor değil → Excel'e aktarımı yok. Depo bazlı stokta
-`Kaynak → Hedef` kolonlu, tarih + depo + malzeme filtreli bir hareket dökümü doğal ihtiyaç.
+`Kaynak → Hedef` kolonlu, tarih + depo + malzeme + tür filtreli hareket dökümü doğal ihtiyaç.
+
+**Envanterden çıkan 3 bulgu:** (1) Web'de lokasyon filtresi `limit`'le kesilmiş liste üzerinde
+**istemcide** çalışıyor → sessizce eksik sonuç verebilir · (2) **`STK-B1` ön koşul oldu**: `movement_type`
+7 değer üretiyor, `TypeText` 5'ini çeviriyor → kullanıcı ham "usage" görüyor (BKM-04 görünür yaptı) ·
+(3) masaüstünde lokasyon filtresi **hiç yok** (parite eksiği). Üçü de STK-10 içinde kapanacak.
+
+**Lokasyon semantiği koddan doğrulandı** (planda tablo): `direction>0` → `branch_id` HEDEF ·
+`direction<0` → `branch_id` KAYNAK · transfer **iki ayrı satır** kalır. Filtre: `branch_id=X OR
+branch_from_id=X` → A→B transferi hem A hem B filtresinde görünür.
+
+⛔ **Karar bekliyor (planın §10):** mevcut ekrandaki "Ara (kod/malzeme/not/belge no)" kutusu ne olsun —
+ekranda mı kalsın, kataloğa `Search` filtresi olarak mı eklensin (önerilen), yoksa kaldırılsın mı?
+
+**Kabul kriterleri:** katalogda gerçek rapor · `Date|Location|Material|MovementType` filtreleri
+**RPR-01'in 6 katmanında** bağlı (Map'e 2 satır) · Kaynak/Hedef kolonları · Tüm Şubeler ≠ Atanmamış ·
+export **aynı** rapor isteğini kullanıyor ve **gerçek XLSX satır-satır** karşılaştırıldı ·
+Web + masaüstü aynı sonuç · masaüstü **çevrimdışı** · N+1 yok · migration YOK · firma izolasyonu.
 
 ### `STK-09` — Lokasyon bazlı dashboard · B · **YENİ** (ihtiyaç doğarsa)
 Bugünkü dashboard firma toplamıyla doğru çalışıyor. "Depo seçip o deponun KPI'larını görme" ayrı bir üründür.

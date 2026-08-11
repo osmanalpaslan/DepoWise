@@ -303,11 +303,31 @@ aynı depoda + `reverses_movement_id` dolu) · çevrimdışı→senkron lokasyon
 ⚠️ **Görsel (tarayıcı render) kontrolü YAPILMADI.** Yerel API veritabanında hesap bilgisi olmadığı,
 canlıya yazmak yasak olduğu ve parola girmem mümkün olmadığı için kapatılamadı — ayrıntı kayıtta §9.
 
+## 📋 `STK-10` — Hareket raporu · **PLAN HAZIR, KOD BAŞLAMADI** (2026-08-11)
+
+Plan + envanter: [`STK_10_HAREKET_RAPORU_PLANI.md`](STK_10_HAREKET_RAPORU_PLANI.md)
+
+Envanter çıkarıldı, lokasyon semantiği koddan **doğrulandı** (tahmin yok), tasarım kararları alındı.
+**Kod bilinçli olarak başlatılmadı** — gerekçe planın §9'unda (talimat §19: tek oturumda tam
+doğrulanamayacak iş kodlanmaz).
+
+**🔴 Üç bulgu:**
+1. **Web'de lokasyon filtresi sessizce eksik sonuç verebilir** — süzme `limit` ile kesilmiş liste
+   üzerinde **istemcide** yapılıyor. Filtre sunucuya taşınınca kapanır (STK-10 içinde).
+2. **`STK-B1` artık STK-10'un ÖN KOŞULU.** `movement_type` üretimde 7 değer, `TypeText` yalnız 5'ini
+   çeviriyor → kullanıcı ham **"usage" / "usage_reverse"** görüyor. BKM-04 bunu görünür hâle getirdi.
+   "Hareket türü" filtresi bu katalog düzeltilmeden yazılamaz.
+3. **Masaüstünde lokasyon filtresi hiç yok** (Web'de var) — parite eksiği, STK-10 içinde kapanır.
+
+**Boyut:** 2 yeni filtre bayrağı × RPR-01'in **6 katmanı** = 12 kablolama noktası · + STK-B1 ·
++ 2 ekranın rapora bağlanması · + ~30 senaryo · + ilk kez **gerçek XLSX satır-satır karşılaştırması**.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-10` — "Stok Hareketleri" raporu.** Stok Hareketleri bugün yalnız bir **ekran**; katalogda rapor
-olmadığı için **Excel'e aktarımı yok**. Depo bazlı stokta `Kaynak → Hedef` kolonlu, tarih + depo +
-malzeme filtreli bir hareket dökümü doğal ihtiyaç — BKM-04'ten sonra bakım tüketimleri de artık gerçek
-depolarıyla görünecek.
+**`STK-10` uygulaması — ama önce TEK KARAR gerekiyor** (planın §10):
+mevcut ekrandaki **"Ara (kod, malzeme, not, belge no)"** kutusu ne olsun?
+**A)** ekranda kalsın (ekran ≠ export riski) · **B)** kataloğa `Search` filtresi olarak eklensin
+(6 katman daha, **önerilen**) · **C)** kaldırılsın (not/belge araması kaybolur).
+Karar verilmeden §8 adım 1'e geçilmemeli; adım 0 (STK-B1) karardan bağımsız başlatılabilir.
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
