@@ -5,7 +5,11 @@
 
 ---
 
-## FAZ A — Kullanıcı bug'ları + yetki tamamlama
+> ⚠️ **SIRA DEĞİŞİKLİĞİ (2026-08-11, KARAR-7=A):** Mimari bağımlılık nedeniyle **FAZ C (depo bazlı stok)
+> öne alındı**. FAZ A ve FAZ B görevleri **silinmedi** — aşağıda aynen duruyor ve FAZ C içindeki uygun
+> boşlukta ya da FAZ C sonrasında yapılacak. Hiçbiri iptal değildir.
+
+## FAZ A — Kullanıcı bug'ları + yetki tamamlama *(sırası ertelendi, iptal DEĞİL)*
 
 ### `YTK-05` — Yetki sıfırlama/toplu güncelleme butonu · A · **SIRADA**
 **Sorun:** Yetkiler ekranında yalnız "Kaydet" var (`Permissions.razor:36`, `PermissionsView.axaml:25`).
@@ -52,21 +56,26 @@ kapalı** olarak taşınır → bugün koda gömülü olan fark **veriye** taş�
 
 ---
 
-## FAZ C — Depo bazlı stok ⛔ **KARAR-7 bekliyor**
+## FAZ C — Depo bazlı stok 🔵 **AKTİF** *(KARAR-7 = A)*
 
-| ID | İş | Maliyet |
-|---|---|---|
-| `STK-01` | `stock_balances` → depo/şube boyutu (migration + geçmiş veri taşıma) | A |
-| `STK-02` | `StockService` tüm yolları depo bazlı | A |
-| `STK-03` | Malzeme kartı/liste bakiye gösterimi (web+masaüstü) | A |
-| `STK-04` | Kritik stok uyarısı depo bazlı | A |
-| `STK-05` | Kapsam birleştirme (`WEB-02` şube kapsamı dâhil) | A |
-| `STK-06` | Raporlara depo boyutu | A |
-| `STK-07` | Senkron/çakışma doğrulaması | A |
-| `TRF-01` | Depo → depo transferi (tek transaction, iki hareket) | A |
+Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZLI_STOK_TASARIM.md)
+Görev tablosu: [`MASTER_ROADMAP.md`](MASTER_ROADMAP.md) → FAZ C (STK-00…08, STK-B1, TRF-01) · hepsi **A** sınıfı
 
-⚠️ **Veri kaybı riski:** `STK-01` mevcut bakiyeleri böler/taşır. Otomatik uygulanmayacak — önce
-geçiş planı + yedek + izole prova (FAZ H'deki yöntemle) yapılacak.
+### `STK-00` — Migration güvenlik kanıtı · ✅ **TAMAMLANDI** (2026-08-11)
+Gerçek production yedeğinin izole kopyası üzerinde, defterden `GROUP BY (material_id, COALESCE(branch_id,''))`
+ile üretilen lokasyon bazlı bakiyelerin **mevcut tek bakiyelerle toplamının birebir eşleştiği** kanıtlandı:
+664 eski satır → 665 yeni satır · **uyuşmayan 0** · defterde/bakiyede eksik 0 ·
+migration'ın ürettiği yeni negatif **1** (66 negatif zaten mevcut, ADR-086).
+**Sonuç: veri kaybı riski YOK, veri uydurma gerekmiyor.**
+
+### `STK-01` — `stock_balances` şema değişimi · ▶️ **SIRADA**
+`(company_id, material_id, location_id)` birincil anahtar · `location_id TEXT NOT NULL` (`''` = ATANMAMIŞ,
+çünkü PG'de PK kolonu NULL olamaz) · defterden yeniden hesaplama · **migration içi doğrulama adımı**
+(toplam eşleşmezse transaction geri alınır) · SQLite'ta tablo yeniden kurulur (PK değişimi ALTER ile olmaz).
+**Ön koşul:** güncel `pg_dump` yedeği ✅ mevcut.
+
+⚠️ **Kullanıcının bileceği sonuç:** 666/667 hareket lokasyonsuz olduğu için migration sonrası stoğun
+neredeyse tamamı **"ATANMAMIŞ"** görünecek (8953 birim). Dağıtım **KARAR-8** ile ele alınacak; veri uydurulmayacak.
 
 ---
 

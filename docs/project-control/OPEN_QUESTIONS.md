@@ -5,20 +5,41 @@
 
 ---
 
-## 🔴 KARAR-7 — Malzeme kartı: firma geneli mi, şube bazlı mı? *(EN KRİTİK)*
+## ✅ KARAR-7 — **KARARA BAĞLANDI: A** *(2026-08-11, kullanıcı)*
 
-**Neyi engelliyor:** FAZ C'nin tamamı (`STK-01…07`, `TRF-01`) → dolayısıyla FAZ D (ön muhasebe altyapısı)
-ve şantiye maliyeti. **Projenin en büyük mimari borcunun önündeki tek engel budur.**
+> **Malzeme kartı firma geneli, stok depo/lokasyon bazlı.**
 
-**Bugünkü karışık durum:** `materials.branch_id` var (malzeme kartının şubesi) ama `stock_balances`
-firma başına **tek bakiye** tutuyor. Yani "malzeme bir şubeye ait" ile "stok depoda tutulur" karışmış.
+**Gerekçe:** Ürünün hedef sektörü (çok şantiye/şube/depo) bunu gerektirir. Tek malzeme kartı +
+lokasyon bazlı bakiye; depolar arası transfer, şantiye maliyeti, stok raporları, ön muhasebe ve
+gelecekteki maliyet hesapları ancak bu temelle doğru çalışır. B seçeneği (şube bazlı malzeme kartı)
+aynı malzemenin her şubede yeniden tanımlanmasına, transferin anlamsızlaşmasına ve raporların
+bölünmesine yol açardı.
 
-| Seçenek | Ne demek | Artı | Eksi |
-|---|---|---|---|
-| **A — Malzeme firma geneli, stok depo bazlı** *(önerilen)* | Malzeme kartı tek; aynı malzemenin her depoda ayrı bakiyesi olur | Sektör standardı · transfer doğal · maliyet çıkar · SaaS'a uygun | `stock_balances` migration'ı (veri taşıma) |
-| B — Malzeme şube bazlı | Her şube kendi malzeme kartını açar | Basit | Aynı vida 6 kez tanımlanır · transfer anlamsız · rapor bölünür |
+**Sonuçları:**
+- `stock_balances` birincil anahtarı `(company_id, material_id, location_id)` olur.
+- Stok lokasyonu = `branches` (yeni kavram üretilmez); ileride çoklu depo gerekirse `stock_locations`
+  eklenir ve tasarım bunu kırmadan taşır.
+- `materials.branch_id` **stok lokasyonu DEĞİLDİR**; malzeme kartının organizasyonel şubesidir
+  (bugün 2461 kayıttan yalnız 2'sinde dolu — fiilen kullanılmıyor).
 
-**Öneri: A.** Ürünün hedef sektörü (çok şantiye/depo) bunu gerektiriyor.
+**Açan görevler:** FAZ C (`STK-00…08`, `TRF-01`) → ardından FAZ D (`MUH-01`).
+**Ayrıntılı tasarım:** [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZLI_STOK_TASARIM.md)
+
+---
+
+## 🟠 KARAR-8 — "Atanmamış" stok kovası nasıl dağıtılacak? *(YENİ — FAZ C'den doğdu)*
+
+Canlı veride **667 hareketin 666'sı lokasyonsuz** (664'ü açılış). Bu yüzden migration sonrası
+stoğun **neredeyse tamamı "ATANMAMIŞ"** kovasında görünecek (8953 birim / 664 malzeme satırı).
+
+Bu bir hata değil, geçmişte lokasyon girilmemiş olmasının dürüst yansımasıdır. Veri **uydurulmayacak**.
+
+| Seçenek | Ne demek |
+|---|---|
+| **A — Kullanıcı transferle dağıtır** *(önerilen)* | Migration sonrası "Atanmamış → Depo/Şantiye" transferi yapılır. Gerçek iş işlemi: audit'e yazılır, geri alınabilir, geçmiş bozulmaz |
+| B — Tümü tek bir varsayılan depoya yazılsın | Hızlı ama **varsayım**; yanlış depoya yazarsa düzeltmesi daha zor |
+
+**Öneri: A** + `STK-08` (toplu dağıtım yardımcı ekranı) ile kolaylaştırma.
 
 ---
 

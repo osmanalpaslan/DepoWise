@@ -4,40 +4,46 @@
 
 ---
 
-## 🔵 MEVCUT FAZ: **FAZ A — Kullanıcı bug'ları + yetki tamamlama**
+## 🔵 MEVCUT FAZ: **FAZ C — Depo bazlı stok altyapısı**
+
+**KARAR-7 = A** (malzeme kartı firma geneli, stok depo bazlı) — 2026-08-11 kesinleşti.
+Tasarım: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZLI_STOK_TASARIM.md)
 
 ## ✅ SON TAMAMLANAN
-**PRT-01 Grup 6 + G6-20 + FAZ H (deploy).** 32 commit push edildi (`5813424`) ve
-**production'a deploy edildi** (API + Web, 2026-08-11). Migration 63 canlıda uygulandı, veri kaybı yok.
-Production yedeği alındı ve doğrulandı.
+**`STK-00` — Migration güvenlik kanıtı.** Gerçek production yedeğinin izole kopyası üzerinde,
+defterden lokasyon bazlı bakiye üretiminin **toplamları koruduğu kanıtlandı**:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Mevcut bakiye satırı | 664 |
+| Lokasyona bölünmüş satır | 665 |
+| **Toplamı uyuşmayan malzeme** | **0** ✅ |
+| Defterde olmayan / bakiyede olmayan | 0 / 0 ✅ |
+| Migration'ın ürettiği YENİ negatif | **1** (66 negatif zaten bugün de var) |
+
+→ Migration **kayıpsız ve deterministik**. Veri uydurma gerekmiyor.
 
 ## ▶️ SIRADAKİ İŞ
-**`YTK-05` — Yetkiler ekranına "Tümünü Temizle / Sıfırla" butonu (web + masaüstü).**
-Kullanıcı NOT 1. Küçük, bağımsız, maliyetsiz. Ardından `UIX-01` → `YTK-06` → `YTK-08`.
+**`STK-01` — `stock_balances` şema değişimi.**
+`(company_id, material_id, location_id)` birincil anahtarı + defterden yeniden hesaplama +
+**migration içi doğrulama adımı** (toplam eşleşmezse transaction geri alınır). İki lehçe (SQLite + PostgreSQL).
+Ön koşul: güncel `pg_dump` yedeği (mevcut: `Desktop\backups\depowise_prod_2026-08-11_124449.dump`).
 
-## ⛔ ENGELLENEN İŞLER (karar bekliyor)
+## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
 |---|---|
-| **FAZ C — Depo bazlı stok** (`STK-01…07`, `TRF-01`) | **KARAR-7**: malzeme kartı firma geneli mi, şube bazlı mı? |
-| `FAZ D — MUH-01` | FAZ C |
-| `SNK-05` | Çevrimdışı onay sunucuya yansısın mı? |
-| `YET-01` | Rol değişince yetkiler ne olsun? |
-| `KARAR-4` | Bakımda negatif stok mu, onay kapılı stok mu? |
+| `STK-08` | **KARAR-8** — "Atanmamış" stok nasıl dağıtılacak (öneri: kullanıcı transferle) |
+| `BKM-01…03` | KARAR-4 (bakımda negatif stok mu, onay kapısı mı) |
+| `TMZ-02`, `BRM-01`, `YTK-01…04` | YET-01 (rol değişince yetkiler) |
+| `SNK-05` | Çevrimdışı onay çakışması |
 
-## 📌 Canlı ortam durumu
-| | |
-|---|---|
-| API | `depowise-erp.fly.dev` · v149 · `/health` 200 |
-| Web | `depowise-web.fly.dev` · v175 |
-| DB | Neon PostgreSQL **17.10** · `depowise_prod` · şema **63** |
-| Veri | 3 firma · 8 kullanıcı · 6 şube · 2463 malzeme · 94 araç · 667 stok hareketi |
-| Disk | `/data` %31 |
-| Yedek | `Desktop\backups\depowise_prod_2026-08-11_124449.dump` (doğrulandı) |
-| Git | `feature/mlz-01-malzeme-silme-korumasi` · `5813424` · remote ile senkron |
-| Test | 1206 / 1173 ✅ / 0 ❌ / 33 atlanan · PG paketi 43/43 ✅ |
-| Build | 0 hata |
+## 📌 Canlı ortam
+API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · şema **63** ·
+3 firma · 8 kullanıcı · 6 lokasyon (1 şube + 5 şantiye) · 2461 malzeme · **667 stok hareketi** ·
+disk %31 · Git `5813424` senkron · Test 1206/1173/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
-- Masaüstü **paket yayınlanmadı** — Grup 6'nın masaüstü düzeltmeleri kullanıcılara ulaşmadı.
-- Branch **`master`'a birleştirilmedi** (32 commit feature dalında).
-- Depo bazlı stok yok → çok şubeli kullanım eksik (bkz. AUDIT §1).
+- Migration sonrası stoğun **neredeyse tamamı "ATANMAMIŞ"** görünecek (666/667 hareket lokasyonsuz) → KARAR-8.
+- Masaüstü **paketi yayınlanmadı** — Grup 6 masaüstü düzeltmeleri kullanıcıya ulaşmadı.
+- Branch **`master`'a birleştirilmedi** (33 commit feature dalında).
+- **66 malzemede negatif stok** zaten mevcut (ADR-086 devralınan eksik stok) — migration bunu değiştirmiyor.

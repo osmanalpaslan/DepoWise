@@ -11,9 +11,9 @@ Sıra **bağımlılığa** göredir, isteğe göre değil. Bir faz, öncekinin �
 
 | Faz | Ad | Neden bu sırada | Durum |
 |---|---|---|---|
-| **FAZ A** | Kullanıcı bug'ları + yetki tamamlama | Küçük, bağımsız, kullanıcıyı bugün rahatsız ediyor | 🔵 **SIRADA** |
-| **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; STK'dan önce bitmeli ki yeni ekranlar doğru doğsun | BEKLEMEDE |
-| **FAZ C** | **Depo bazlı stok** (`STK-01…07`, `TRF-01`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı | ⛔ **KARAR-7 bekliyor** |
+| **FAZ C** | **Depo bazlı stok** (`STK-00…08`, `TRF-01`) | **Projenin 1 numaralı mimari borcu**; ön muhasebe ve şantiye maliyeti buna bağlı. **KARAR-7=A ile açıldı** | 🔵 **AKTİF** — `STK-00` ✅ |
+| **FAZ A** | Kullanıcı bug'ları + yetki tamamlama (`YTK-05`, `UIX-01`, `YTK-06`, `YTK-08`) | Küçük, bağımsız, düşük riskli. **Silinmedi** — stok altyapısı mimari öncelik olduğu için sonraya alındı; FAZ C içinde uygun boşlukta veya FAZ C sonrası yapılır | BEKLEMEDE |
+| **FAZ B** | Ekran görünürlük yönetimi (`GRN-01`) | Yetki sistemine dokunur; yeni stok ekranları doğduğunda hazır olması iyi olur | BEKLEMEDE |
 | **FAZ D** | Ön muhasebe **alan hazırlığı** (`MUH-01`) | FAZ C ile **aynı migration ailesinde** yapılmalı; sonra eklenirse geçmiş veri boş kalır | FAZ C'ye bağlı |
 | **FAZ E** | Senkron ölçeklenme (`SNK-06…10`) | FAZ C şemayı büyütür; senkron optimizasyonu ondan sonra anlamlı | FAZ C'ye bağlı |
 | **FAZ F** | Güncelleme + sürüm uyumu (`GNC-01…03`) | Çok makineli kullanım öncesi | BEKLEMEDE |
@@ -62,18 +62,30 @@ FAZ B (GRN-01) ── yetki sistemine dokunur ───────────�
 |---|---|
 | `GRN-01` | Ekranın **web/masaüstü görünürlüğünü** yönetim ekranından açıp kapatma. Yetki sisteminden **ayrı** eksen: yetki "kim görebilir", görünürlük "nerede görünür". `AppModules` yanına `screen_platforms` tablosu; menü kurucu ikisini birden uygular |
 
-## FAZ C — Depo bazlı stok ⛔ *(KARAR-7 bekliyor)*
+## FAZ C — Depo bazlı stok 🔵 **AKTİF** *(KARAR-7 = A)*
 
-| ID | İş |
-|---|---|
-| `STK-01` | `stock_balances` birincil anahtarına **depo/şube boyutu** ekle (migration, iki lehçe, geçmiş veri taşıma planı) |
-| `STK-02` | `StockService` giriş/çıkış/sayım/düzeltme yollarını depo bazlı yap |
-| `STK-03` | Malzeme kartı ve listelerde depo bazlı bakiye gösterimi (web + masaüstü) |
-| `STK-04` | Kritik stok/uyarı mantığını depo bazlı yap |
-| `STK-05` | Depo/şube seçimi olan ekranlarda tutarlı kapsam (BranchScope ile birleştir → `WEB-02`) |
-| `STK-06` | Raporları depo boyutuyla güncelle |
-| `STK-07` | Senkron ve çakışma davranışını depo boyutuyla doğrula |
-| `TRF-01` | **Depo → depo transferi** (tek işlem, iki hareket, transaction) |
+Tasarım + migration planı: [`FAZ_C_DEPO_BAZLI_STOK_TASARIM.md`](FAZ_C_DEPO_BAZLI_STOK_TASARIM.md)
+
+| ID | İş | Durum |
+|---|---|---|
+| `STK-00` | Migration güvenlik kanıtı — production kopyasında toplam korunumu | ✅ **TAMAM** (uyuşmayan 0) |
+| `STK-01` | `stock_balances` → `(company_id, material_id, location_id)` + defterden yeniden hesaplama + **migration içi doğrulama** (iki lehçe) | ▶️ **SIRADA** |
+| `STK-02` | `StockService` giriş/çıkış/sayım/düzeltme/transfer yollarını lokasyon bazlı yap | BEKLEMEDE |
+| `STK-03` | API uçları + DTO (lokasyon parametresi) | BEKLEMEDE |
+| `STK-04` | Web: liste, kart, giriş/çıkış, sayım, transfer, uyarı | BEKLEMEDE |
+| `STK-05` | Masaüstü: aynı ekranlar + **offline yollar** (+ `WEB-02` şube kapsamı) | BEKLEMEDE |
+| `STK-06` | Rapor + Dashboard lokasyon boyutu | BEKLEMEDE |
+| `STK-07` | Senkron doğrulaması (6 offline senaryo + idempotency + bakiye yakınsaması) | BEKLEMEDE |
+| `STK-08` | "Atanmamış → depo" toplu dağıtım yardımcısı | ⛔ **KARAR-8** |
+| `STK-B1` | `movement_type` kataloğu `usage`/`usage_reverse` ile tutarsız | BEKLEMEDE |
+| `TRF-01` | Transfer **kodu zaten var** — UI paritesi + bakiyeye yansıma doğrulaması | BEKLEMEDE |
+
+> **Önemli:** `StockService.Transfer` çok malzemeli, tek transaction, idempotent ve negatif-guard'lı olarak
+> **zaten uygulanmış**; hareketler kaynak/hedef lokasyonla yazılıyor. Bugün yalnız **bakiyeye yansımıyor**
+> çünkü bakiye lokasyonsuz. `STK-01` bunu kökten çözer.
+>
+> **Offline kısıtı (değişmez):** Bakiye türetilmiş bir önbellektir ve **LWW ile senkronlanmaz**;
+> iki tarafta da defterden yeniden hesaplanır (CLAUDE.md §4 — stokta LWW yasak).
 
 ## FAZ D — Ön muhasebe alan hazırlığı
 
