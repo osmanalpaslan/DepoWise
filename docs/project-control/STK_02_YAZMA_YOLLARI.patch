@@ -1,0 +1,372 @@
+diff --git a/src/DepoWise.Infrastructure/Database/SqlDialect.cs b/src/DepoWise.Infrastructure/Database/SqlDialect.cs
+index 3f8c83d..ed09003 100644
+--- a/src/DepoWise.Infrastructure/Database/SqlDialect.cs
++++ b/src/DepoWise.Infrastructure/Database/SqlDialect.cs
+@@ -70,6 +70,23 @@ internal static class SqlDialect
+     ///     (sayıyı 2 ondalıklı metne çevirir — liste/grid'de sayısal kolonun "içerir" araması için).
+     ///   • <c>GROUP_CONCAT(&lt;expr&gt;, '&lt;ayraç&gt;')</c> → <c>string_agg(&lt;expr&gt;, '&lt;ayraç&gt;')</c> (aynı imza).
+     /// Liste/grid sorgularının komut metnini bununla sarmalayın (SQLite'ta güvenli no-op).</summary>
++    /// <summary>
++    /// STK-02 — Bir malzemenin TÜM lokasyon bakiyelerini tek satıra toplayan alt sorgu.
++    /// <c>stock_balances</c> artık <c>(company_id, material_id, location_id)</c> anahtarlı olduğu için
++    /// doğrudan JOIN yapılırsa malzeme satırları ÇOĞALIR (liste/rapor/dashboard yanlış olur).
++    /// Bu alt sorgu <c>material_id</c> başına TEK satır garanti eder.
++    ///
++    /// ⚠️ YALNIZ GÖRÜNTÜLEME/RAPOR TOPLAMI İÇİNDİR. Yazma yollarında (CAS, recompute) SQL toplaması
++    /// KULLANILMAZ — orada toplama C#'ta <c>decimal</c> ile yapılır, çünkü <c>quantity</c> TEXT içinde
++    /// decimal tutulur ve SQLite'ta sayısal toplama kayan noktaya düşer (PostgreSQL'de <c>numeric</c> tamdır).
++    /// </summary>
++    public static string StockTotalSubquery(DbConnection conn)
++    {
++        var num = IsSqlite(conn) ? "REAL" : "numeric";
++        return $"(SELECT material_id, company_id, SUM(CAST(quantity AS {num})) AS quantity " +
++               "FROM stock_balances GROUP BY material_id, company_id)";
++    }
++
+     public static string PortableSql(DbConnection conn, string sql)
+     {
+         if (IsSqlite(conn)) return sql;
+diff --git a/src/DepoWise.Infrastructure/Maintenance/MaintenanceService.cs b/src/DepoWise.Infrastructure/Maintenance/MaintenanceService.cs
+index 4bad241..c389375 100644
+--- a/src/DepoWise.Infrastructure/Maintenance/MaintenanceService.cs
++++ b/src/DepoWise.Infrastructure/Maintenance/MaintenanceService.cs
+@@ -457,10 +457,17 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now
+     /// <summary>Faz 3-Ön (kullanıcı kararı 3): bakım tarafının AYRI bakiye kopyası KALDIRILDI. Stok bakiyesi
+     /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer → aynı stok için iki farklı
+     /// güvenlik mantığı yok. Negatife izin verme davranışı (allowNegative: true) DEĞİŞMEDİ.</summary>
++    /// <remarks>
++    /// STK-02 — LOKASYON: bakım tüketim hareketi (<see cref="InsertUsageMovement"/>) <c>branch_id</c>'yi
++    /// <b>NULL</b> yazar (bakımın deposu bugün tutulmuyor). Bakiye ile defterin BİREBİR aynı kalması için
++    /// bakiye de ATANMAMIŞ kovasına yazılır. Bakım malzemesinin hangi depodan düştüğünün seçilmesi bir
++    /// ürün/UX gereksinimidir ve STK-03/04/05'e devredilmiştir; burada tahmin edilerek bir şube SEÇİLMEZ.
++    /// </remarks>
+     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
+         decimal signedQty, long now, bool allowNegative = false)
+     {
+-        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, signedQty, now, allowNegative);
++        StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, StockBalanceWriter.Unassigned,
++            signedQty, now, allowNegative);
+     }
+ 
+     private static void InsertUsageMovement(DbConnection conn, DbTransaction tx, string companyId, string materialId,
+diff --git a/src/DepoWise.Infrastructure/Materials/OpeningStockService.cs b/src/DepoWise.Infrastructure/Materials/OpeningStockService.cs
+index ae12383..0eba3b2 100644
+--- a/src/DepoWise.Infrastructure/Materials/OpeningStockService.cs
++++ b/src/DepoWise.Infrastructure/Materials/OpeningStockService.cs
+@@ -74,7 +74,8 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
+             cmd.ExecuteNonQuery();
+         }
+ 
+-        UpsertBalance(conn, tx, s.CompanyId, materialId, quantity, now);
++        // STK-02: bakiye, açılış hareketinin lokasyonuna yazılır (defterle birebir).
++        UpsertBalance(conn, tx, s.CompanyId, materialId, branchId ?? StockBalanceWriter.Unassigned, quantity, now);
+         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_movement", materialId, AuditActions.Create, s.UserId,
+             AfterJson: $"{{\"type\":\"opening\",\"qty\":\"{Money.Serialize(quantity)}\"}}"), _clock);
+         tx.Commit();
+@@ -101,8 +102,12 @@ VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
+     /// <summary>Faz 3-Ön (kullanıcı kararı 3): açılış stoğunun AYRI bakiye yazımı KALDIRILDI — stok bakiyesi
+     /// artık tek ortak yazıcıdan (<see cref="StockBalanceWriter"/>) geçer. Açılış NEGATİF olabildiği için
+     /// (ADR-086) negatif kalkanı burada KAPALI kalır — eski davranışla birebir aynı.</summary>
+-    private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId, decimal delta, long now)
+-        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, delta, now, allowNegative: true);
++    /// <param name="locationId">STK-02 — açılış hareketiyle AYNI lokasyon (<c>stock_movements.branch_id</c>).
++    /// Kullanıcı lokasyon seçmediyse ATANMAMIŞ kovasıdır; tahmin edilerek bir şubeye yazılmaz.
++    /// Açılışta lokasyon SEÇTİRİLMESİ bir UX gereksinimidir → STK-03/04/05.</param>
++    private static void UpsertBalance(DbConnection conn, DbTransaction tx, string companyId, string materialId,
++        string locationId, decimal delta, long now)
++        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, locationId, delta, now, allowNegative: true);
+ 
+     private static void EnsureOwned(DbConnection conn, DbTransaction tx, string companyId, string materialId)
+     {
+diff --git a/src/DepoWise.Infrastructure/Materials/StockBalanceWriter.cs b/src/DepoWise.Infrastructure/Materials/StockBalanceWriter.cs
+index 3fc202a..979b6fa 100644
+--- a/src/DepoWise.Infrastructure/Materials/StockBalanceWriter.cs
++++ b/src/DepoWise.Infrastructure/Materials/StockBalanceWriter.cs
+@@ -59,6 +59,9 @@ public static class StockBalanceWriter
+     /// kendi kanalını takabilir. Yarış tespiti ile SİSTEM hatası burada AYRI etiketlerle yazılır.</summary>
+     public static Action<string> Log { get; set; } = static m => Console.Error.WriteLine(m);
+ 
++    /// <summary>STK-02 — lokasyonu bilinmeyen (geçmiş) stok kovası. Boş metin; NULL DEĞİL (PK kolonu).</summary>
++    public const string Unassigned = "";
++
+     // Kısa ve SINIRLI bekleme (agresif polling değil): çakışmada 10-40 ms. En kötü durumda toplam ~120 ms.
+     private static readonly Random _jitter = new();
+ 
+@@ -66,10 +69,17 @@ public static class StockBalanceWriter
+     /// Bakiyeye işaretli miktarı uygular (CAS). Düşüşte negatif olursa fail-closed —
+     /// <see cref="NegativeStockException"/>. Bu davranış ESKİSİYLE BİREBİR AYNIDIR; yalnız yazma koşulu eklendi.
+     /// </summary>
++    /// <param name="locationId">
++    /// STK-02 — stok LOKASYONU (<c>branches.id</c>). Lokasyon bilinmiyorsa <see cref="Unassigned"/> (boş metin)
++    /// geçilir. <b>Varsayılan değer YOKTUR ve konulmayacaktır:</b> çağıranın hangi lokasyona yazdığını
++    /// bilinçli olarak belirtmesi gerekir; aksi halde stok sessizce yanlış kovaya yazılır.
++    /// Bilinmeyen lokasyon ASLA rastgele bir şubeye yazılmaz.
++    /// </param>
+     public static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
+-        decimal signedQty, long now, bool allowNegative)
++        string locationId, decimal signedQty, long now, bool allowNegative)
+     {
+-        var raw = ReadRaw(conn, tx, materialId);          // HAM METİN (satır yoksa null)
++        locationId ??= Unassigned;
++        var raw = ReadRaw(conn, tx, companyId, materialId, locationId);   // HAM METİN (satır yoksa null)
+         var current = Money.Parse(raw);
+         var updated = current + signedQty;
+         if (!allowNegative && updated < 0)
+@@ -82,19 +92,22 @@ public static class StockBalanceWriter
+             if (raw is null)
+             {
+                 // Bakiye satırı henüz yok → oluştur. Araya biri girip oluşturduysa 0 satır → yarış.
++                // STK-02: çakışma hedefi artık BİLEŞİK birincil anahtardır.
+                 cmd.CommandText = @"
+-INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now)
+-ON CONFLICT(material_id) DO NOTHING;";
+-                cmd.AddWithValue("@c", companyId);
++INSERT INTO stock_balances(company_id, material_id, location_id, quantity, updated_at) VALUES(@c,@m,@l,@q,@now)
++ON CONFLICT(company_id, material_id, location_id) DO NOTHING;";
+             }
+             else
+             {
+                 // CAS: okuduğumuz HAM METİN hâlâ yerinde mi? Değiştiyse 0 satır → yarış.
+                 cmd.CommandText = @"
+-UPDATE stock_balances SET quantity=@q, updated_at=@now WHERE material_id=@m AND quantity=@expected;";
++UPDATE stock_balances SET quantity=@q, updated_at=@now
++WHERE company_id=@c AND material_id=@m AND location_id=@l AND quantity=@expected;";
+                 cmd.AddWithValue("@expected", raw);
+             }
++            cmd.AddWithValue("@c", companyId);
+             cmd.AddWithValue("@m", materialId);
++            cmd.AddWithValue("@l", locationId);
+             cmd.AddWithValue("@q", Money.Serialize(updated));
+             cmd.AddWithValue("@now", now);
+             affected = cmd.ExecuteNonQuery();
+@@ -102,23 +115,46 @@ UPDATE stock_balances SET quantity=@q, updated_at=@now WHERE material_id=@m AND
+ 
+         if (affected == 0)
+             throw new StockConcurrencyException(
+-                $"stock_balances yarışı: material={materialId} expected='{raw ?? "(yok)"}' delta={signedQty}");
++                $"stock_balances yarışı: material={materialId} location='{locationId}' expected='{raw ?? "(yok)"}' delta={signedQty}");
+     }
+ 
+-    /// <summary>Bakiyeyi okur (decimal). Ham metne ihtiyaç duyan CAS için <see cref="ReadRaw"/> kullanılır.</summary>
+-    public static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string materialId)
+-        => Money.Parse(ReadRaw(conn, tx, materialId));
++    /// <summary>Lokasyon bakiyesini okur (decimal). CAS için ham metin: <see cref="ReadRaw"/>.</summary>
++    public static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string companyId, string materialId,
++        string locationId)
++        => Money.Parse(ReadRaw(conn, tx, companyId, materialId, locationId));
+ 
+-    /// <summary>Bakiyenin veritabanındaki HAM metni (satır yoksa null). CAS koşulu bunu kullanır.</summary>
+-    public static string? ReadRaw(DbConnection conn, DbTransaction? tx, string materialId)
++    /// <summary>TEK LOKASYONUN ham bakiye metni (satır yoksa null). CAS koşulu bunu kullanır.</summary>
++    public static string? ReadRaw(DbConnection conn, DbTransaction? tx, string companyId, string materialId,
++        string locationId)
+     {
+         using var cmd = conn.CreateCommand();
+         cmd.Transaction = tx;
+-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m;";
++        cmd.CommandText =
++            "SELECT quantity FROM stock_balances WHERE company_id=@c AND material_id=@m AND location_id=@l;";
++        cmd.AddWithValue("@c", companyId);
+         cmd.AddWithValue("@m", materialId);
++        cmd.AddWithValue("@l", locationId ?? Unassigned);
+         return cmd.ExecuteScalar() as string;
+     }
+ 
++    /// <summary>
++    /// STK-02 — FİRMA GENELİ toplam bakiye: malzemenin TÜM lokasyonlarının toplamı.
++    /// Toplama <b>C#'ta decimal</b> ile yapılır: <c>quantity</c> TEXT içinde decimal tutulur ve
++    /// SQLite'ta <c>SUM(CAST(... AS REAL))</c> kayan nokta hatası üretir (Money kuralı: float yasak).
++    /// </summary>
++    public static decimal ReadTotal(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
++    {
++        using var cmd = conn.CreateCommand();
++        cmd.Transaction = tx;
++        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE company_id=@c AND material_id=@m;";
++        cmd.AddWithValue("@c", companyId);
++        cmd.AddWithValue("@m", materialId);
++        decimal total = 0m;
++        using var r = cmd.ExecuteReader();
++        while (r.Read()) total += Money.Parse(r.IsDBNull(0) ? null : r.GetString(0));
++        return total;
++    }
++
+     /// <summary>
+     /// TEKRAR SARMALAYICISI — transaction sınırında kullanılır. İşlem YALNIZ
+     /// <see cref="StockConcurrencyException"/> için tekrarlanır; başka HİÇBİR hata tekrarlanmaz
+diff --git a/src/DepoWise.Infrastructure/Materials/StockService.cs b/src/DepoWise.Infrastructure/Materials/StockService.cs
+index bcd1142..a220660 100644
+--- a/src/DepoWise.Infrastructure/Materials/StockService.cs
++++ b/src/DepoWise.Infrastructure/Materials/StockService.cs
+@@ -180,7 +180,11 @@ public sealed class StockService
+                 for (int i = 0; i < lines.Count; i++)
+                 {
+                     var ln = lines[i];
+-                    var system = ReadBalance(conn, tx, ln.MaterialId);
++                    // STK-02: sayım, SAYILAN LOKASYONUN bakiyesiyle karşılaştırılır. Fark hareketi zaten
++                    // aşağıda branchId'ye yazılıyor; sistem miktarını firma geneli okumak "genelden oku,
++                    // lokasyona yaz" tutarsızlığı üretirdi. branchId yoksa ATANMAMIŞ kovası okunur/yazılır.
++                    var system = StockBalanceWriter.ReadBalance(conn, tx, s.CompanyId, ln.MaterialId,
++                        branchId ?? StockBalanceWriter.Unassigned);
+                     var diff = ln.CountedQuantity - system;
+                     InsertCountLine(conn, tx, docId, ln.MaterialId, system, ln.CountedQuantity, diff, reason);
+                     if (diff != 0)
+@@ -219,8 +223,10 @@ public sealed class StockService
+ 
+         foreach (var mv in ActiveMovements(conn, tx, documentId))
+         {
+-            // Ters yön uygula (negatif guard ters kayıtta da geçerli)
+-            ApplyDelta(conn, tx, s.CompanyId, mv.MaterialId, -mv.Direction * mv.Quantity, now, allowNegative: false);
++            // Ters yön uygula (negatif guard ters kayıtta da geçerli).
++            // STK-02: ters kayıt, ORİJİNAL hareketin lokasyonuna uygulanır — başka bir depoyu etkilemez.
++            ApplyDelta(conn, tx, s.CompanyId, mv.MaterialId, mv.BranchId ?? StockBalanceWriter.Unassigned,
++                -mv.Direction * mv.Quantity, now, allowNegative: false);
+             var revId = InsertMovement(conn, tx, s.CompanyId, mv.MaterialId, documentId, "reverse",
+                 -mv.Direction, mv.Quantity, null, null, null, $"{mv.OperationId}:rev", reason, now, mv.BranchId, mv.BranchFromId, mv.GroupId, reversesId: mv.Id, opBranchId: s.OperatingBranchId);
+             MarkReversed(conn, tx, mv.Id);
+@@ -241,12 +247,36 @@ public sealed class StockService
+     /// </summary>
+     public decimal GetBalance(SessionContext s, string materialId)
+     {
++        // STK-02: FİRMA GENELİ toplam = malzemenin TÜM lokasyon bakiyelerinin toplamı.
++        // Toplama C#'ta decimal ile (SQL SUM'ı SQLite'ta float'a düşerdi — Money kuralı: float yasak).
++        using var conn = _factory.Create();
++        return StockBalanceWriter.ReadTotal(conn, null, s.CompanyId, materialId);
++    }
++
++    /// <summary>
++    /// STK-02 — TEK LOKASYONUN bakiyesi (<c>branches.id</c>; bilinmiyorsa
++    /// <see cref="StockBalanceWriter.Unassigned"/>). <see cref="GetBalance"/> firma genelini döndürür;
++    /// bu ikisi bilinçli olarak AYRI metotlardır (aynı ad altında iki farklı anlam bırakılmadı).
++    /// </summary>
++    public decimal GetBalanceAt(SessionContext s, string materialId, string locationId)
++    {
++        using var conn = _factory.Create();
++        return StockBalanceWriter.ReadBalance(conn, null, s.CompanyId, materialId, locationId);
++    }
++
++    /// <summary>STK-02 — malzemenin lokasyon kırılımı (rapor/ekran için; toplama YAPILMAZ).</summary>
++    public IReadOnlyDictionary<string, decimal> GetBalancesByLocation(SessionContext s, string materialId)
++    {
++        var map = new Dictionary<string, decimal>(StringComparer.Ordinal);
+         using var conn = _factory.Create();
+         using var cmd = conn.CreateCommand();
+-        cmd.CommandText = "SELECT quantity FROM stock_balances WHERE material_id=@m AND company_id=@c;";
+-        cmd.AddWithValue("@m", materialId);
++        cmd.CommandText =
++            "SELECT location_id, quantity FROM stock_balances WHERE company_id=@c AND material_id=@m;";
+         cmd.AddWithValue("@c", s.CompanyId);
+-        return Money.Parse(cmd.ExecuteScalar() as string);
++        cmd.AddWithValue("@m", materialId);
++        using var r = cmd.ExecuteReader();
++        while (r.Read()) map[r.GetString(0)] = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
++        return map;
+     }
+ 
+     /// <summary>
+@@ -279,8 +309,14 @@ public sealed class StockService
+             $"SELECT material_id, quantity FROM stock_balances WHERE company_id=@c AND material_id IN ({string.Join(",", names)});";
+         cmd.AddWithValue("@c", s.CompanyId);
+         using var r = cmd.ExecuteReader();
++        // STK-02: artık malzeme başına LOKASYON SAYISI KADAR satır gelir → C#'ta decimal ile TOPLANIR.
++        // (Tek sorgu korunur; N+1 üretilmez. SQL SUM kullanılmaz — SQLite'ta float hatası verirdi.)
+         while (r.Read())
+-            result[r.GetString(0)] = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
++        {
++            var mat = r.GetString(0);
++            result.TryGetValue(mat, out var cur);
++            result[mat] = cur + Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
++        }
+         return result;
+     }
+ 
+@@ -441,7 +477,10 @@ LIMIT @take;";
+                 throw new NegativeStockException($"Bu şubede yeterli stok yok. Mevcut: {branchBal:0.##}, çıkış istenen: {line.Quantity:0.##}.");
+         }
+ 
+-        ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
++        // STK-02: bakiye ARTIK LOKASYON BAZLI. Hareketin lokasyonu (branchId) bakiyeye de yazılır;
++        // bilinmiyorsa ATANMAMIŞ kovası kullanılır — asla rastgele şube seçilmez.
++        ApplyDelta(conn, tx, s.CompanyId, line.MaterialId, branchId ?? StockBalanceWriter.Unassigned,
++            direction * line.Quantity, _clock.UtcNow.ToUnixTimeMilliseconds(), allowNegative: false);
+         InsertMovement(conn, tx, s.CompanyId, line.MaterialId, docId, movementType, direction, line.Quantity,
+             line.UnitPrice, line.Currency, null, operationId, null, _clock.UtcNow.ToUnixTimeMilliseconds(), branchId, branchFromId, groupId, null, s.OperatingBranchId);
+     }
+@@ -450,11 +489,12 @@ LIMIT @take;";
+     /// Faz 3-Ön: gerçek yazma TEK ORTAK yazıcıdadır (<see cref="StockBalanceWriter"/>) — bakım tarafı da
+     /// aynı sınıfı kullanır, böylece aynı stok için iki farklı güvenlik mantığı kalmaz (kullanıcı kararı 3).</summary>
+     private static void ApplyDelta(DbConnection conn, DbTransaction tx, string companyId, string materialId,
+-        decimal signedQty, long now, bool allowNegative)
+-        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, signedQty, now, allowNegative);
++        string locationId, decimal signedQty, long now, bool allowNegative)
++        => StockBalanceWriter.ApplyDelta(conn, tx, companyId, materialId, locationId, signedQty, now, allowNegative);
+ 
+-    private static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string materialId)
+-        => StockBalanceWriter.ReadBalance(conn, tx, materialId);
++    /// <summary>Firma geneli toplam (tüm lokasyonlar) — ters kayıt/sayım gibi genel kontroller için.</summary>
++    private static decimal ReadBalance(DbConnection conn, DbTransaction? tx, string companyId, string materialId)
++        => StockBalanceWriter.ReadTotal(conn, tx, companyId, materialId);
+ 
+     /// <summary>
+     /// SUNUCU-OTORİTELİ bakiye (Senkron 2b): firmanın TÜM stok bakiyelerini hareket defterinden yeniden hesaplar.
+@@ -484,20 +524,23 @@ LIMIT @take;";
+ 
+             var before = LedgerSignature(conn, tx, companyId);
+ 
+-            var totals = new Dictionary<string, decimal>(StringComparer.Ordinal);
++            // STK-02: artık (malzeme + LOKASYON) bazında hesaplanır. Toplama C#'ta decimal ile yapılır —
++            // quantity TEXT içinde decimal olduğu için SQL SUM'ı SQLite'ta float hatası üretirdi.
++            var totals = new Dictionary<(string Material, string Location), decimal>();
+             using (var read = conn.CreateCommand())
+             {
+                 read.Transaction = tx;
+-                read.CommandText = "SELECT material_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
++                read.CommandText =
++                    "SELECT material_id, branch_id, direction, quantity FROM stock_movements WHERE company_id=@c;";
+                 read.AddWithValue("@c", companyId);
+                 using var r = read.ExecuteReader();
+                 while (r.Read())
+                 {
+-                    var mat = r.GetString(0);
+-                    long dir = r.GetInt64(1);
+-                    var qty = Money.Parse(r.IsDBNull(2) ? null : r.GetString(2));
+-                    totals.TryGetValue(mat, out var cur);
+-                    totals[mat] = cur + dir * qty;
++                    var key = (r.GetString(0), r.IsDBNull(1) ? StockBalanceWriter.Unassigned : r.GetString(1));
++                    long dir = r.GetInt64(2);
++                    var qty = Money.Parse(r.IsDBNull(3) ? null : r.GetString(3));
++                    totals.TryGetValue(key, out var cur);
++                    totals[key] = cur + dir * qty;
+                 }
+             }
+ 
+@@ -512,14 +555,27 @@ LIMIT @take;";
+             }
+ 
+             var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+-            foreach (var (mat, total) in totals)
++
++            // Defterde artık bulunmayan (malzeme+lokasyon) bakiye satırları KALMAMALI — aksi halde
++            // hayalet bakiye oluşur (ör. tüm hareketleri ters kaydedilmiş bir lokasyon).
++            using (var del = conn.CreateCommand())
++            {
++                del.Transaction = tx;
++                del.CommandText = "DELETE FROM stock_balances WHERE company_id=@c;";
++                del.AddWithValue("@c", companyId);
++                del.ExecuteNonQuery();
++            }
++
++            foreach (var ((mat, loc), total) in totals)
+             {
+                 using var up = conn.CreateCommand();
+                 up.Transaction = tx;
+-                up.CommandText = "INSERT INTO stock_balances(company_id, material_id, quantity, updated_at) VALUES(@c,@m,@q,@now) " +
+-                    "ON CONFLICT(material_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
++                up.CommandText =
++                    "INSERT INTO stock_balances(company_id, material_id, location_id, quantity, updated_at) VALUES(@c,@m,@l,@q,@now) " +
++                    "ON CONFLICT(company_id, material_id, location_id) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at;";
+                 up.AddWithValue("@c", companyId);
+                 up.AddWithValue("@m", mat);
++                up.AddWithValue("@l", loc);
+                 up.AddWithValue("@q", Money.Serialize(total));
+                 up.AddWithValue("@now", now);
+                 up.ExecuteNonQuery();

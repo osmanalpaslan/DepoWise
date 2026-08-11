@@ -59,13 +59,38 @@ PK'yi zaten destekliyor. `stock_movements` şeması değişmediği için push/pu
 değişmemiş bir ara durum hem 1206 testi kırar hem de stok değerlerini **sessizce yanlış** gösterir.
 Tek oturumda kesintisiz yapılmalı.
 
+## 🟠 STK-02 KOD DENEMESİ — YAZMA YOLLARI BİTTİ, GERİ ALINDI (2026-08-11)
+
+Adım 1-2 (yazma yolları) **tamamlandı ve derlendi**, ancak 8 JOIN'e sıra gelmeden oturum kapasitesi
+doldu. Yarım hâlde **çalışma ağacı tutarsızdı** (yazma yolları `location_id` bekliyor, migration inert
+→ çalışma zamanı SQL hatası). Bu yüzden `src/` son sağlam commit'e **geri alındı**.
+
+**Yapılan iş KAYBOLMADI** → [`STK_02_YAZMA_YOLLARI.patch`](STK_02_YAZMA_YOLLARI.patch) (372 satır).
+Uygulamak için: `git apply docs/project-control/STK_02_YAZMA_YOLLARI.patch`
+
+### Yamanın içeriği (bitmiş kısım)
+| Dosya | Ne yapıldı |
+|---|---|
+| `StockBalanceWriter` | `Unassigned` sabiti · `ApplyDelta`/`ReadRaw`/`ReadBalance` **zorunlu `locationId`** (varsayılan YOK — çağıran bilinçli seçsin) · CAS `ON CONFLICT(company_id, material_id, location_id)` · yeni `ReadTotal` (C#'ta decimal toplama) |
+| `StockService` | `GetBalance` = firma toplamı · **yeni** `GetBalanceAt` (lokasyon) · **yeni** `GetBalancesByLocation` · `GetBalances` C#'ta toplama (N+1 yok) · `ApplyLine` bakiyeyi `branchId`'ye yazıyor · ters kayıt **orijinal lokasyona** · sayım **sayılan lokasyonla** karşılaştırıyor · `RecomputeBalances` (malzeme+lokasyon) + hayalet satır temizliği |
+| `OpeningStockService` | Bakiye açılış hareketinin lokasyonuna |
+| `MaintenanceService` | Tüketim hareketi `branch_id=NULL` yazdığı için bakiye de ATANMAMIŞ'a (defterle birebir) |
+| `SqlDialect` | **yeni** `StockTotalSubquery(conn)` — JOIN'lerde satır çoğaltmayı önleyen, lehçe-güvenli toplayan alt sorgu |
+
+### Kalan (sıradaki oturumun işi)
+1. Yamayı uygula (`git apply`)
+2. **8 JOIN'i dönüştür** — `StockTotalSubquery` ile: `MaterialService` :300/:332/:621 · `DashboardService` :146/:177 · `ReportService` :34/:62/:92
+3. `OpeningStockService.GetBalance` (:87) → toplam
+4. `MaterialService` :482 → toplam
+5. 5 test dosyası + 16 yeni senaryo
+6. `MigrationCatalog`'a **Migration064**'ü ekle
+7. Tam test → SQLite doğrulaması → izole PostgreSQL provası
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-02` kod bloğu — `STK_02_UYGULAMA_PLANI.md` §5'teki 11 adımı sırayla, tek oturumda uygula.**
-1) StockBalanceWriter → 2) StockService → 3) MaterialService → 4) Dashboard → 5) Report →
-6) OpeningStock → 7) testler → 8) Migration064'ü katalogda etkinleştir → 9) tam test →
-10) SQLite doğrulaması → 11) izole PostgreSQL provası.
+**`STK-02` — yamayı uygula, 8 JOIN'i `SqlDialect.StockTotalSubquery` ile dönüştür, testleri güncelle,
+Migration064'ü etkinleştir, doğrula.**
 **Kural:** Genel toplam ile lokasyon toplamı asla kopmayacak · `DISTINCT` ile düzeltme yasak ·
-lokasyon bilinmiyorsa `''` (ATANMAMIŞ), asla rastgele şube.
+lokasyon bilinmiyorsa `''` (ATANMAMIŞ), asla rastgele şube · yarım bırakma (tutarsız ağaç).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
