@@ -41,7 +41,12 @@
                     </StackPanel>
                 </ctrl:FormField>
                 <StackPanel Orientation="Horizontal" Spacing="14">
-                    <ctrl:FormField Label="Sistem Stoğu" Width="140">
+                    <!-- STK-05: SAYILAN DEPO her zaman görünür. Sayım fiziksel bir depoya aittir;
+                         sistem stoğu da firma toplamı değil BU DEPONUN miktarıdır. -->
+                    <ctrl:FormField Label="Sayılan Depo" Width="200">
+                        <TextBox Classes="Field" Text="{Binding CountLocationName}" IsReadOnly="True"/>
+                    </ctrl:FormField>
+                    <ctrl:FormField Label="Sistem Stoğu (bu depo)" Width="160">
                         <NumericUpDown Classes="Field" Value="{Binding SystemBalance}" IsEnabled="False" FormatString="0.##" ShowButtonSpinner="False"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="Sayılan Miktar" IsRequired="True" Width="140">

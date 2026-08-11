@@ -68,7 +68,7 @@ alanlar bozmaz) · **Masaüstü hiçbir stok ucunu kullanmıyor** (yerel servis 
 **Kanıt:** **1240 / 1207 geçti / 0 kaldı / 33 atlandı** (taban 1223; **17 yeni senaryo** — 15 gerçek HTTP +
 2 çevrimdışı) · build 0 hata · **sync kodu değiştirilmedi** · N+1 yok (lokasyon adları aynı sorguda JOIN).
 
-## ✅ SON TAMAMLANAN — `STK-04` Web lokasyon desteği (2026-08-11)
+## ✅ TAMAMLANAN — `STK-04` Web lokasyon desteği (2026-08-11)
 
 Plan: [`STK_04_WEB_LOKASYON_PLANI.md`](STK_04_WEB_LOKASYON_PLANI.md)
 
@@ -92,10 +92,34 @@ kırılım yalnız **malzeme kartı** açılınca çekilir (liste satırlarında
 **Kanıt:** **1254 / 1221 geçti / 0 kaldı / 33 atlandı** (taban 1240; **14 yeni senaryo**) · build 0 hata ·
 gerçek üretim kopyasında doğrulandı.
 
+## ✅ SON TAMAMLANAN — `STK-05` Masaüstü + çevrimdışı lokasyon (2026-08-11)
+
+Plan: [`STK_05_DESKTOP_OFFLINE_PLANI.md`](STK_05_DESKTOP_OFFLINE_PLANI.md)
+
+**Yapısal bulgu:** Masaüstünde stok için AYRI veri katmanı YOK — doğrudan ortak `StockService`'i çağırıyor.
+Bu yüzden STK-01…03'ün tamamı masaüstünde zaten yürürlükteydi; STK-05 **arayüz + eksik parametre** işiydi.
+
+**🔴 Dört gerçek hata (Web'dekilerin masaüstü ikizleri) düzeltildi:**
+1. Sayım `branchId` göndermiyordu → fark ATANMAMIŞ'a yazılıyordu.
+2. Sayımda sistem miktarı **firma geneli** okunuyordu → kullanıcı yanlış farkı görürdü.
+3. Açılış stoğu **deposuz** yazılıyordu → ATANMAMIŞ'a düşüyordu.
+4. Giriş/çıkış bakiye çipi **firma geneli** gösteriyordu → "15 var" deyip çıkış reddedilirdi.
+
+**Eklenenler:** Sayım ekranında **"Sayılan Depo"** · malzeme kartında **DEPO KIRILIMI** (tek sorgu) ·
+hareket listesinde **DEPO / ŞANTİYE** kolonu (`Kaynak → Hedef`, Web ile **aynı metin**).
+
+**🔒 Çevrimdışı mimariye DOKUNULMADI:** stok yazma yerel SQLite transaction'ı, API çağrısı yok ·
+lokasyon listesi yerel veriden · `EnsureLocationOwned` serviste olduğu için çevrimdışı da koruyor ·
+**senkron kodu değiştirilmedi**.
+
+**Kanıt:** **1267 / 1234 geçti / 0 kaldı / 33 atlandı** (taban 1254; **13 yeni senaryo**) · build 0 hata ·
+çevrimdışı→senkron lokasyonu **koruyor** · online→offline→online döngüsünde **kopya hareket yok** ·
+şirket izolasyonu çevrimdışı da geçerli · dolu SQLite v63→v64 ve rollback kapısı **yeniden doğrulandı**.
+
 ## ▶️ SIRADAKİ İŞ
-**`STK-05` — Masaüstü + çevrimdışı lokasyon desteği.** Web'de kurulan AYNI iş kuralları masaüstüne
-uyarlanır (yazmada zorunlu depo · sayımda sayılan depo · açılış deposu · kart kırılımı · hareket lokasyonu).
-⚠️ Çevrimdışı mimari korunur: masaüstü stok işlemleri API'ye DEĞİL yerel servise gider.
+**`STK-06` — Rapor + Dashboard lokasyon boyutu.** Stok raporlarına depo kırılımı/filtresi
+(bugün hepsi firma geneli) · dashboard'da lokasyon bazlı görünüm ihtiyacı değerlendirilir.
+Ardından `STK-07` (senkron doğrulaması — 6 çevrimdışı senaryo).
 
 ## ⛔ Karar bekleyenler
 | İş | Neyi bekliyor |
@@ -108,7 +132,7 @@ uyarlanır (yazmada zorunlu depo · sayımda sayılan depo · açılış deposu 
 ## 📌 Canlı ortam
 API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
 (64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1254/1221/0/33 · Build 0 hata
+667 stok hareketi · Test 1267/1234/0/33 · Build 0 hata
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya

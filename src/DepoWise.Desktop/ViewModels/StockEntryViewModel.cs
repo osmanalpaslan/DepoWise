@@ -241,7 +241,14 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         SelectedMaterial = m;
         MaterialSearch = $"{m.Code} - {m.Name}";
         MaterialResults.Clear();
-        try { BalanceText = $"Mevcut stok: {DesktopServices.Stock.GetBalance(_session, m.Id):0.##}"; }
+        // 🔴 STK-05 (D-4): giriş/çıkış YALNIZ oturumun deposunda yapılır → gösterilen bakiye de O DEPONUN
+        // bakiyesidir. Firma toplamı gösterilseydi kullanıcı "15 var" görüp çıkışın reddedilmesine şaşırırdı
+        // (o depoda 10 varken). Firma geneli toplam artık malzeme kartındaki kırılımda görünüyor.
+        try
+        {
+            var loc = _session.OperatingBranchId ?? StockBalanceWriter.Unassigned;
+            BalanceText = $"{LoginBranchName} stoğu: {DesktopServices.Stock.GetBalanceAt(_session, m.Id, loc):0.##}";
+        }
         catch { BalanceText = ""; }
 
         _pickedDetail = null;

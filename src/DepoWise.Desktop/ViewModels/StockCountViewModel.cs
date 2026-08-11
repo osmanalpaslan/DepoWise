@@ -39,6 +39,28 @@ public sealed partial class StockCountViewModel : ViewModelBase
     public bool IsEmpty => Adjustments.Count == 0;
     public string DiffText => HasMaterial ? $"Fark: {(CountedQty - SystemBalance):0.##}" : "";
 
+    /// <summary>
+    /// STK-05 — SAYILAN DEPO. Sayım fiziksel bir depoya aittir; oturumun çalışma şubesidir.
+    /// ("Tüm Şubeler" modunda <see cref="BranchGuard"/> zaten yazmayı engelliyor → burada daima doludur.)
+    /// ⚠️ Firma geneli toplam sayımda ASLA kullanılmaz — hem okuma hem yazma bu depoya bağlıdır.
+    /// </summary>
+    public string CountLocationId => _session.OperatingBranchId ?? StockBalanceWriter.Unassigned;
+
+    /// <summary>Ekranda gösterilen depo adı — kullanıcı neyi saydığını her zaman görmeli.</summary>
+    public string CountLocationName
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(_session.OperatingBranchId)) return "Atanmamış (depo seçilmedi)";
+            try
+            {
+                var b = DesktopServices.Branches.List(_session).FirstOrDefault(x => x.Id == _session.OperatingBranchId);
+                return b?.Name ?? _session.OperatingBranchId!;
+            }
+            catch { return _session.OperatingBranchId!; }
+        }
+    }
+
     // ══════════════ G1-02: ÇOK MALZEMELİ SAYIM SEPETİ (2026-08-10) ══════════════
     // Eskiden bir sayım belgesinde YALNIZ BİR malzeme olabiliyordu; 200 kalemlik sayım yapan depocu
     // 200 ayrı belge açmak zorundaydı. Servis (StockService.Count) ZATEN çok satırlıydı ve hepsini
@@ -156,7 +178,10 @@ public sealed partial class StockCountViewModel : ViewModelBase
         SelectedMaterial = m;
         MaterialSearch = $"{m.Code} - {m.Name}";
         MaterialResults.Clear();
-        try { SystemBalance = DesktopServices.Stock.GetBalance(_session, m.Id); } catch { SystemBalance = 0; }
+        // 🔴 STK-05 (D-2): sistem miktarı SAYILAN DEPONUN bakiyesidir. Eskiden firma geneli toplam okunuyordu
+        // → kullanıcı 10'luk depoyu sayarken ekranda 15 görüp farkı yanlış hesaplardı (servis doğru yazıyordu).
+        try { SystemBalance = DesktopServices.Stock.GetBalanceAt(_session, m.Id, CountLocationId); }
+        catch { SystemBalance = 0; }
         CountedQty = SystemBalance;
         OnPropertyChanged(nameof(DiffText));
     }
@@ -192,7 +217,10 @@ public sealed partial class StockCountViewModel : ViewModelBase
         try
         {
             // TEK çağrı → TEK transaction → TEK belge → TEK operationId (satır başına ayrı belge YOK).
-            DesktopServices.Stock.Count(_session, lines, Reason.Trim(), Guid.NewGuid().ToString("N"));
+            // 🔴 STK-05 (D-1): branchId eskiden HİÇ gönderilmiyordu → fark ATANMAMIŞ kovasına yazılıyor,
+            // kullanıcının saydığı depo hiç düzelmiyordu. Artık sayılan depo açıkça gider.
+            DesktopServices.Stock.Count(_session, lines, Reason.Trim(), Guid.NewGuid().ToString("N"),
+                branchId: CountLocationId);
             Status = lines.Count == 1
                 ? "Sayım kaydedildi (fark stoğa yansıdı)."
                 : $"Sayım kaydedildi ({lines.Count} malzeme, tek belge).";

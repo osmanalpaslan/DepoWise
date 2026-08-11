@@ -41,6 +41,13 @@ public sealed record StockMovementRow(long CreatedAt, string MovementType, strin
     /// <summary>Transferde kaynak depo; diğer hareketlerde boş (tire).</summary>
     public string FromLocationText => string.IsNullOrEmpty(FromLocationId) ? "—" : (FromLocationName ?? FromLocationId!);
 
+    /// <summary>STK-05 — ekranda tek hücrede gösterilecek lokasyon akışı: transferde
+    /// <c>Kaynak → Hedef</c>, diğer hareketlerde tek depo adı. Web ve masaüstü AYNI metni gösterir.</summary>
+    public string LocationFlowText
+        => string.IsNullOrEmpty(FromLocationId) || FromLocationId == LocationId
+            ? LocationText
+            : $"{FromLocationText} → {LocationText}";
+
     public string InvoiceText => string.IsNullOrWhiteSpace(InvoiceNo) ? "—" : InvoiceNo!;
     // Transfer geri ALINAMAZ (kullanıcı isteği 2026-08-06): iki şubenin stoğunu etkiler; doğrusu hedeften
     // kaynağa yeni bir ters transfer. Açılış da geri alınmaz. Sunucu ReverseDocument da ayrıca reddeder.

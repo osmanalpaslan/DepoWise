@@ -209,3 +209,23 @@ doğrulandı (DEPOWISE ATANMAMIŞ **8951,3**; üç firma toplamı 8953,3 — de�
 
 ➡️ **Devredilen bulgu `B-1`:** bakım malzeme tüketimi `branch_id=NULL` yazıyor → ATANMAMIŞ'a düşüyor.
 UI'da bakım deposu seçimi yok; **uydurulmadı**. Ayrı iş: `BKM-04` (STK-05 sonrası).
+
+### `STK-05` — Masaüstü + çevrimdışı lokasyon desteği · ✅ **TAMAMLANDI** (2026-08-11)
+Plan/envanter: [`STK_05_DESKTOP_OFFLINE_PLANI.md`](STK_05_DESKTOP_OFFLINE_PLANI.md)
+
+**Yapısal bulgu:** masaüstünde stok için ayrı veri katmanı **yok** — ortak `StockService` çağrılıyor.
+STK-01…03 masaüstünde zaten yürürlükteydi; bu faz **arayüz + eksik parametre** işiydi.
+
+**🔴 4 hata düzeltildi** (Web'dekilerin masaüstü ikizleri): sayım `branchId` göndermiyordu ·
+sayımda sistem miktarı firma genelindendi · açılış stoğu deposuzdu · bakiye çipi firma geneliydi.
+
+**Eklendi:** "Sayılan Depo" alanı · malzeme kartında DEPO KIRILIMI (tek sorgu) · hareket listesinde
+DEPO/ŞANTİYE kolonu (`Kaynak → Hedef`; ortak `LocationFlowText` → Web ile aynı metin).
+
+**🔒 Çevrimdışı mimari korundu · senkron kodu değiştirilmedi.**
+**Kanıt:** 1267/1234/0/33 (taban 1254; 13 yeni senaryo) · çevrimdışı→senkron lokasyonu koruyor ·
+online→offline→online döngüsünde kopya yok · şirket izolasyonu çevrimdışı da geçerli ·
+v63→v64 + rollback kapısı yeniden doğrulandı.
+
+➡️ **Devredildi:** `SNK-11` (`stock_balances` push paketinden çıkarılsın — gereksiz yük, zararsız) ·
+`BKM-04` (bakım tüketimine depo seçimi).

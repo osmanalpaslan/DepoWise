@@ -800,6 +800,26 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!-- STK-05: DEPO KIRILIMI — malzeme kartı FİRMA GENELİdir, stok DEPO BAZLIdır.
+                     Üstteki "Stok" alanı tüm depoların TOPLAMIdır; buradaki satırlar hangi depoda ne kadar
+                     olduğunu gösterir. "Atanmamış" bir depo DEĞİLDİR: geçmişte lokasyonu girilmemiş stoktur. -->
+                <SelectableTextBlock Text="DEPO KIRILIMI" Classes="SectionTitle"
+                                     IsVisible="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).HasLocationBalances}"/>
+                <ItemsControl ItemsSource="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).LocationBalances}"
+                              IsVisible="{Binding $parent[UserControl].((vm:MaterialsViewModel)DataContext).HasLocationBalances}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:StockLocationBalance">
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                <SelectableTextBlock Grid.Column="0" Text="{Binding LocationName}" VerticalAlignment="Center"
+                                                     TextTrimming="CharacterEllipsis"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat='{}{0:0.##}'}"
+                                                     FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="80"
+                                                     HorizontalAlignment="Right"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
                 <!-- İşlem Geçmişi (madde 4, kullanıcı isteği 2026-08-06): TÜM stok hareketleri, kronolojik.
                      Çift tık → salt-okunur detay + "Kaydı Görüntüle" (madde 5). -->
                 <SelectableTextBlock Text="İŞLEM GEÇMİŞİ" Classes="SectionTitle"/>

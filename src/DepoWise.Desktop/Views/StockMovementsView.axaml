@@ -36,7 +36,7 @@
         <Border Grid.Row="1" Classes="Table" Margin="0,16,0,0" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
             <DockPanel>
                 <Border Classes="TableHeader" DockPanel.Dock="Top">
-                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,*,Auto">
                         <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="130"/>
                         <SelectableTextBlock Grid.Column="1" Text="TİP" MinWidth="90"/>
                         <SelectableTextBlock Grid.Column="2" Text="KOD" MinWidth="90"/>
@@ -44,14 +44,15 @@
                         <SelectableTextBlock Grid.Column="4" Text="YÖN" MinWidth="60"/>
                         <SelectableTextBlock Grid.Column="5" Text="MİKTAR" MinWidth="100"/>
                         <SelectableTextBlock Grid.Column="6" Text="BİRİM" MinWidth="70"/>
-                        <SelectableTextBlock Grid.Column="7" Text="NOT / BELGE" MinWidth="120"/>
-                        <SelectableTextBlock Grid.Column="8" Text="DURUM" MinWidth="90"/>
+                        <SelectableTextBlock Grid.Column="7" Text="DEPO / ŞANTİYE" MinWidth="150"/>
+                        <SelectableTextBlock Grid.Column="8" Text="NOT / BELGE" MinWidth="120"/>
+                        <SelectableTextBlock Grid.Column="9" Text="DURUM" MinWidth="90"/>
                     </Grid>
                 </Border>
                 <ListBox Classes="Table" ItemsSource="{Binding Movements}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="m:StockMovementRow">
-                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,*,Auto">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,*,Auto">
                                 <SelectableTextBlock Grid.Column="0" Text="{Binding DateText}" MinWidth="130" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <SelectableTextBlock Grid.Column="1" Text="{Binding TypeText}" MinWidth="90" VerticalAlignment="Center"/>
                                 <SelectableTextBlock Grid.Column="2" Text="{Binding Code}" MinWidth="90" VerticalAlignment="Center"/>
@@ -59,8 +60,9 @@
                                 <SelectableTextBlock Grid.Column="4" Text="{Binding DirectionText}" MinWidth="60" VerticalAlignment="Center"/>
                                 <SelectableTextBlock Grid.Column="5" Text="{Binding QtyText}" MinWidth="100" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 <SelectableTextBlock Grid.Column="6" Text="{Binding Unit}" MinWidth="70" VerticalAlignment="Center"/>
-                                <SelectableTextBlock Grid.Column="7" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <SelectableTextBlock Grid.Column="8" Text="{Binding StatusText}" MinWidth="90" VerticalAlignment="Center" Classes="Helper" IsVisible="{Binding IsReversed}"/>
+                                <SelectableTextBlock Grid.Column="7" Text="{Binding LocationFlowText}" MinWidth="150" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <SelectableTextBlock Grid.Column="8" Text="{Binding NoteText}" MinWidth="120" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <SelectableTextBlock Grid.Column="9" Text="{Binding StatusText}" MinWidth="90" VerticalAlignment="Center" Classes="Helper" IsVisible="{Binding IsReversed}"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

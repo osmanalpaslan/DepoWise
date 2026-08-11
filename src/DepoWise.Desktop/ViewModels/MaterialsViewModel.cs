@@ -536,7 +536,10 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
 
             // Açılış stoğu 0 dışında ise stok hareketi. ADR-086: negatif de olur (devralınan eksik stok).
             if (NewOpeningStock != 0)
-                DesktopServices.OpeningStock.RecordOpening(_session, id, NewOpeningStock, Guid.NewGuid().ToString("N"));
+                // 🔴 STK-05 (D-3): açılış stoğu eskiden DEPOSUZ yazılıyordu → hepsi ATANMAMIŞ kovasına
+                // düşüyordu (canlıdaki 663 lokasyonsuz açılışın sebebi). Artık oturumun deposuna yazılır.
+                DesktopServices.OpeningStock.RecordOpening(_session, id, NewOpeningStock, Guid.NewGuid().ToString("N"),
+                    branchId: _session.OperatingBranchId);
 
             // Uyumlu araçlar (seçiliyse)
             var compatIds = VehiclePicks.Where(p => p.IsSelected).Select(p => p.Id).ToList();
@@ -666,6 +669,13 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
     [NotifyPropertyChangedFor(nameof(HasSelection))]
     private MaterialRow? _selected;
     [ObservableProperty] private MaterialDetail? _detail;
+
+    /// <summary>STK-05 — malzeme kartındaki DEPO KIRILIMI (hangi depoda ne kadar). Kart açılınca TEK sorgu
+    /// (liste satırlarında çağrılmaz → "100 malzeme × 5 depo = 500 sorgu" yapısı oluşmaz).
+    /// ⚠️ "Atanmamış" burada gerçek bir depo gibi DEĞİL, geçmişin bilinmezliği olarak ve EN SONDA listelenir.
+    /// Toplam (<c>Detail.Stock</c>) FİRMA GENELİdir ve bu satırların toplamına eşittir — ikisi asla kopmaz.</summary>
+    public ObservableCollection<StockLocationBalance> LocationBalances { get; } = new();
+    public bool HasLocationBalances => LocationBalances.Count > 0;
     public bool HasSelection => Selected != null;
 
     /// <summary>Köprü: malzemeyi seçip detayını açar (Ana Ekran düşük stok uyarısı; salt görüntü).</summary>
@@ -686,7 +696,8 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         ConfirmDelete = false;
         if (value is null)
         {
-            Detail = null; DetailPhotos.Clear(); MaterialHistory.Clear();
+            Detail = null; DetailPhotos.Clear(); MaterialHistory.Clear(); LocationBalances.Clear();
+            OnPropertyChanged(nameof(HasLocationBalances));
             FlushPendingRefresh();   // detay kapandı → bekletilen eşitleme yenilemesi şimdi uygulanır
             return;
         }
@@ -694,6 +705,12 @@ public sealed partial class MaterialsViewModel : ViewModelBase, IDeepLinkTarget,
         catch (Exception ex) { Status = "Detay yüklenemedi: " + ex.Message; }
         MaterialHistory.Clear();
         try { foreach (var m in DesktopServices.Stock.RecentForMaterial(_session, value.Id, 100)) MaterialHistory.Add(m); } catch { }
+
+        // STK-05: DEPO KIRILIMI — kart açılınca TEK sorgu. Liste satırlarında çağrılmaz.
+        LocationBalances.Clear();
+        try { foreach (var l in DesktopServices.Stock.GetLocationBalances(_session, value.Id)) LocationBalances.Add(l); }
+        catch { }
+        OnPropertyChanged(nameof(HasLocationBalances));
     }
 
     /// <summary>Çift tık: ayrı pencerede Düzelt/Kaydet/Sil (kullanıcı isteği 2026-07-19). Tek tık mevcut detay

@@ -407,3 +407,20 @@ dosya kilidi). İzole koşuda ve sonraki tam koşularda geçti — mantık hatas
   Bakiye 664 → 665, uyuşmayan 0, toplam korundu. Kopya veritabanı silindi, sunucu durduruldu.
 - **Yeni uç:** `GET /api/stock/count-sheet` · `POST /api/materials` → `openingLocationId` (opsiyonel).
 - **Plan/kayıt:** `docs/project-control/STK_04_WEB_LOKASYON_PLANI.md`
+
+## 2026-08-11 - FAZ C / STK-05 — Masaüstü + çevrimdışı lokasyon
+- **Komut:** `dotnet build DepoWise.sln` · `dotnet test tests/DepoWise.Tests`
+- **Exit code:** 0 / 0
+- **Sonuç:** Build **0 hata**. Test **1267 toplam · 1234 geçti · 0 kaldı · 33 atlandı**
+  (STK-04 tabanı 1254'tü; **13 yeni senaryo** — `DesktopOfflineLocationTests`, HTTP kullanmaz).
+- **Düzeltilen 4 hata (masaüstü):** sayım `branchId` göndermiyordu · sayımda sistem miktarı firma
+  genelindendi · açılış stoğu deposuzdu · giriş/çıkış bakiye çipi firma geneliydi.
+- **Çevrimdışı → senkron:** yerel hareketler sunucuya taşındığında lokasyon **korunuyor**; sunucunun
+  defterden kurduğu kırılım masaüstüyle birebir aynı. Online→offline→online→offline→online döngüsünde
+  **kopya hareket yok** (yerel ve sunucu hareket sayısı eşit).
+- **Senkron sözleşmesi:** `stock_balances` push paketinde taşınıyor ama **otoriter değil** — kasten
+  bozulmuş bakiye (999) senkron sonrası defterin değerine (10) düzeldi. Sync kodu **değiştirilmedi**.
+- **Şirket izolasyonu:** başka firmanın deposu **çevrimdışı yolda da** reddediliyor (3 yazma yolunda).
+- **Migration (tekrar doğrulama):** dolu SQLite v63→v64 → 3 bakiye satırı 5 lokasyon satırına, toplam
+  **8,3** korundu, ondalıklar tam · doğrulama kapısı uyuşmayan bakiyede **durdu**, şema 63'te kaldı.
+- **Plan/kayıt:** `docs/project-control/STK_05_DESKTOP_OFFLINE_PLANI.md`
