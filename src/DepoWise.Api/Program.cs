@@ -1285,7 +1285,8 @@ app.MapPost("/api/auth/special-code", (HttpContext c, SpecialCodeDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (!s.IsSuperAdmin) return Results.Json(new { error = "Özel kod yalnız süper adminde bulunur." }, statusCode: 403);
     var exists = svc.SpecialCode.HasCode(s.UserId);
-    if (exists && !svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+    // G6-05: firma-filtresiz doğrulama (bkz. /api/admin/purge-company yanındaki açıklama).
+    if (exists && !svc.Auth.VerifyUserPassword(s.UserId, d.Password ?? ""))
         return Results.Json(new { error = "Özel kodu değiştirmek için şifrenizi doğru girin." }, statusCode: 403);
     svc.SpecialCode.SetCode(s, d.Code ?? "");
     return Results.Ok(new { ok = true, replaced = exists });
@@ -1326,7 +1327,10 @@ app.MapPost("/api/admin/purge-company", (HttpContext c, PurgeCompanyDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
-    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+    // G6-05: parola YALNIZ userId ile doğrulanır (firma filtresiz) — süper admin başka firma bağlamındayken
+    // ("Firma Seç" → başka firma) kendi kullanıcı kaydı EV firmasındadır; firma-filtreli sürüm doğru parolayı
+    // da "Parola hatalı" sayardı. Aynı düzeltme /api/admin/reset-company-business'ta zaten uygulanmıştı.
+    if (!svc.Auth.VerifyUserPassword(s.UserId, d.Password ?? ""))
         return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
     if (!svc.SpecialCode.Verify(s, d.SpecialCode ?? ""))
         return Results.Json(new { error = "Özel kod hatalı." }, statusCode: 403);
@@ -1461,7 +1465,8 @@ app.MapPost("/api/admin/reset-test-data", (HttpContext c, ReauthDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız süper admin." }, statusCode: 403);
-    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+    // G6-05: firma-filtresiz doğrulama (bkz. /api/admin/purge-company yanındaki açıklama).
+    if (!svc.Auth.VerifyUserPassword(s.UserId, d.Password ?? ""))
         return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
 
     // Korunan tablolar: migration geçmişi, sqlite iç tabloları, sistem rolleri. Özel işlenenler: users/companies/user_roles.
@@ -1671,14 +1676,16 @@ app.MapGet("/api/buttons", (HttpContext c) =>
 app.MapPost("/api/trash", (HttpContext c, ReauthDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+    // G6-05: firma-filtresiz doğrulama (bkz. /api/admin/purge-company yanındaki açıklama).
+    if (!svc.Auth.VerifyUserPassword(s.UserId, d.Password ?? ""))
         return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
     return Results.Ok(svc.Trash.List(s, reauthenticated: true));
 }).RequireAuthorization();
 app.MapPost("/api/trash/restore", (HttpContext c, TrashRestoreDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (!svc.Auth.VerifyUserPassword(s.CompanyId, s.UserId, d.Password ?? ""))
+    // G6-05: firma-filtresiz doğrulama (bkz. /api/admin/purge-company yanındaki açıklama).
+    if (!svc.Auth.VerifyUserPassword(s.UserId, d.Password ?? ""))
         return Results.Json(new { error = "Parola hatalı." }, statusCode: 403);
     return Results.Ok(new { ok = Void(() => svc.Trash.Restore(s, d.Table ?? "", d.Id ?? "", reauthenticated: true)) });
 }).RequireAuthorization();
