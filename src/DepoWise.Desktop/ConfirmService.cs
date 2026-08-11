@@ -42,4 +42,23 @@ public static class ConfirmService
         var win = new ReasonWindow(title, message, label, okText, cancelText);
         return await win.ShowDialog<string?>(desktop.MainWindow);
     }
+
+    /// <summary>
+    /// G6-04: PAROLA soran pencere (yeniden kimlik doğrulama). Çöp Kutusu gibi ikinci bir kapı isteyen
+    /// ekranlar kullanır — web'deki "Parolanız → Çöp Kutusunu Aç" adımının masaüstü karşılığıdır.
+    /// Dönüş: vazgeçildiyse <c>null</c>, aksi halde girilen parola (KIRPILMAZ).
+    /// Parola burada yalnız taşınır; doğrulama çağıran taraftadır (<c>AuthService.VerifyUserPassword</c>).
+    /// </summary>
+    public static async Task<string?> AskPasswordAsync(string message, string title = "Parola Doğrulama",
+        string label = "Parolanız", string okText = "Devam", string cancelText = "Vazgeç")
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+            || desktop.MainWindow is null)
+            return null;
+
+        var win = new ReasonWindow(title, message, label, okText, cancelText,
+            isPassword: true, errorText: "Parola boş olamaz.",
+            helperText: "Parolanız yalnız bu işlemi doğrulamak için kullanılır, hiçbir yere kaydedilmez.");
+        return await win.ShowDialog<string?>(desktop.MainWindow);
+    }
 }

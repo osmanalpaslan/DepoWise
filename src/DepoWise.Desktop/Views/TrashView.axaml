@@ -16,6 +16,19 @@
         </ctrl:Toolbar>
 
         <Panel Grid.Row="1" Margin="0,16,0,0">
+            <!-- G6-04: kilit ekranı — parola doğrulanana kadar liste hiç yüklenmez (web ile aynı akış). -->
+            <Border Classes="Card" IsVisible="{Binding IsLocked}" MaxWidth="460" HorizontalAlignment="Center"
+                    VerticalAlignment="Top" Padding="24">
+                <StackPanel Spacing="12">
+                    <SelectableTextBlock Classes="SectionTitle" Text="🔒 Çöp Kutusu kilitli"/>
+                    <SelectableTextBlock Classes="Body" TextWrapping="Wrap"
+                                         Text="Bu ekran silinmiş kayıtları gösterir ve geri yükleme yapar. Güvenlik için parolanızı yeniden girmeniz gerekir."/>
+                    <SelectableTextBlock Classes="Helper" Foreground="{DynamicResource DangerBrush}"
+                                         Text="{Binding UnlockError}" IsVisible="{Binding UnlockError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <Button Classes="Primary" Content="Çöp Kutusunu Aç" HorizontalAlignment="Left"
+                            Command="{Binding UnlockCommand}"/>
+                </StackPanel>
+            </Border>
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">

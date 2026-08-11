@@ -127,6 +127,24 @@ public class FileTrashBackupTests : IDisposable
         Assert.Throws<ForbiddenException>(() => _trash.List(_admin, reauthenticated: false));
     }
 
+    /// <summary>
+    /// G6-04 (PRT-01 Grup 6, 2026-08-11) — GERİ YÜKLEME de yeniden doğrulama ister.
+    /// Listeleme için kural zaten kilitliydi; GERİ YÜKLEME için değildi. Masaüstü Çöp Kutusu bu bayrağı
+    /// <c>true</c> SABİT geçiyordu (parola hiç sorulmuyordu); artık gerçek doğrulama sonucunu geçiyor.
+    /// Bu test, sınır katmanı yeniden yanlış yaparsa servisin fail-closed kaldığını kilitler.
+    /// </summary>
+    [Fact]
+    public void CopKutusu_GeriYukleme_YenidenDogrulamaYok_Reddedilir()
+    {
+        var m = _materials.Create(_admin, new NewMaterial("M-1", "Silinecek"));
+        SoftDeleteMaterial(m);
+
+        Assert.Throws<ForbiddenException>(() => _trash.Restore(_admin, "materials", m, reauthenticated: false));
+
+        // Reddedilen istek kaydı GERİ YÜKLEMEMELİ (yan etki yok).
+        Assert.Contains(_trash.List(_admin, reauthenticated: true), t => t.Id == m);
+    }
+
     [Fact]
     public void CopKutusu_YetkisizKullanici_Reddedilir()
     {
