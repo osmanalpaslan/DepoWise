@@ -594,7 +594,7 @@
             {
                 vehicleId = _mVehicle.Id, definitionId = _mDefId, subDefinitionId = _mSubId, technicianId = _mTech,
                 description = Empty(_mDesc), performedKm = _mKm, performedHour = _mHour,
-                performedDate = _mDate is null ? (long?)null : new DateTimeOffset(_mDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
+                performedDate = DepoWise.Web.Services.FieldChecks.ToUnixMs(_mDate),
                 materials = _lines.Select(l => new { materialId = l.Id, quantity = l.Qty, fromTeamStock = l.FromTeamStock }).ToList(),
                 // BKM-04: KULLANICININ SEÇTİĞİ depo. Auth.BranchId yalnız VARSAYILANI belirledi;
                 // burada tekrar okunmaz — kullanıcının değişikliği sessizce ezilemez (KARAR-9).

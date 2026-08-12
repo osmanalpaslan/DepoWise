@@ -136,8 +136,8 @@
         try
         {
             var qs = new List<string>();
-            if (_from is { } f) qs.Add($"from={new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()}");
-            if (_to is { } t) qs.Add($"to={new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            if (_from is { } f) qs.Add($"from={DepoWise.Web.Services.FieldChecks.ToUnixMs(f)}");
+            if (_to is { } t) qs.Add($"to={DepoWise.Web.Services.FieldChecks.ToUnixMs(t, endOfDay: true)}");
             if (!string.IsNullOrWhiteSpace(_search)) qs.Add($"q={Uri.EscapeDataString(_search.Trim())}");
             // 🔴 B-1: lokasyon SUNUCUYA gider. "Tüm Şubeler" GÖNDERİLMEZ (= filtre yok);
             // "Atanmamış" boş değerle gider (?location=) — rapor sözleşmesindeki "" ile aynı anlam.

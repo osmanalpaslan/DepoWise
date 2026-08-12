@@ -488,9 +488,7 @@ else
     /// <b>Neden <c>new DateTimeOffset(d)</c> değil:</b> o, yerel saat dilimini uygular (TR = UTC+3) →
     /// 00:00 yerel = 21:00 UTC ÖNCEKİ GÜN olur ve tarih BİR GÜN KAYARDI.
     /// </summary>
-    private static long? Ms(DateTime? d) => d is null ? null
-        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Unspecified), TimeSpan.Zero)
-            .ToUnixTimeMilliseconds();
+    private static long? Ms(DateTime? d) => DepoWise.Web.Services.FieldChecks.ToUnixMs(d);
 
     // ── JSON yardımcıları ─────────────────────────────────────────────────────────
 

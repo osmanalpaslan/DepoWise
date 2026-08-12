@@ -510,8 +510,11 @@ else
             var err = await Api.PostAsync($"/api/parties/{_card.Id}/ledger", new
             {
                 docType = _e.DocType, amount = _e.Amount, isDebit = _e.IsDebit,
-                entryDate = _e.Date is null ? (long?)null : new DateTimeOffset(_e.Date.Value).ToUnixTimeMilliseconds(),
-                dueDate = _e.DueDate is null ? (long?)null : new DateTimeOffset(_e.DueDate.Value).ToUnixTimeMilliseconds(),
+                // 🔴 GÜN KAYMASI DÜZELTMESİ (2026-08-12): eski hâli offset VERMİYORDU → tarih YEREL
+                // yorumlanıyordu (TR = UTC+3) → 00:00 yerel = 21:00 UTC ÖNCEKİ GÜN. Cari hareket
+                // tarihi bir gün geriye kayıyordu. Artık diğer ekranlarla AYNI tek kaynaktan geçer.
+                entryDate = DepoWise.Web.Services.FieldChecks.ToUnixMs(_e.Date),
+                dueDate = DepoWise.Web.Services.FieldChecks.ToUnixMs(_e.DueDate),
                 docNo = _e.DocNo, description = _e.Description, currency = "TRY",
                 // Tek jeton: istek tekrarlansa bile ikinci hareket oluşmaz (idempotency).
                 operationId = Guid.NewGuid().ToString("N"),

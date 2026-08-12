@@ -74,8 +74,8 @@ else
         try
         {
             var qs = new List<string> { $"limit={_limit}" };
-            if (_from is { } f) qs.Add($"from={new DateTimeOffset(f.Date, TimeSpan.Zero).ToUnixTimeMilliseconds()}");
-            if (_to is { } t) qs.Add($"to={new DateTimeOffset(t.Date.AddDays(1).AddMilliseconds(-1), TimeSpan.Zero).ToUnixTimeMilliseconds()}");
+            if (_from is { } f) qs.Add($"from={DepoWise.Web.Services.FieldChecks.ToUnixMs(f)}");
+            if (_to is { } t) qs.Add($"to={DepoWise.Web.Services.FieldChecks.ToUnixMs(t, endOfDay: true)}");
             _rows = await Api.GetArrayAsync("/api/audit?" + string.Join("&", qs));
         }
         catch { _rows = Array.Empty<JsonElement>(); }

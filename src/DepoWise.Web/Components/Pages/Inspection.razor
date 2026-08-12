@@ -133,7 +133,9 @@
         return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
     }
 
-    private static long? Ms(DateTime? d) => d is null ? null : new DateTimeOffset(d.Value, TimeSpan.Zero).ToUnixTimeMilliseconds();
+    // 🔴 GUI hatası (2026-08-12): Kind=Local tarihte eski desen istisna atıyordu (Reports'ta
+    // "tarih seçmeden Sorgula" akışında gerçekten patladı). TEK kaynağa taşındı.
+    private static long? Ms(DateTime? d) => DepoWise.Web.Services.FieldChecks.ToUnixMs(d);
     private string DocLabel => _docType switch { "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => _docType };
 
     private async Task Save()

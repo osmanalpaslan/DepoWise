@@ -14,6 +14,30 @@ public static class FieldChecks
     /// DOĞRU eşlemez — arama/tekrar-kontrolü yapan TÜM ekranlar bu TEK kaynağı kullanır.</summary>
     public static readonly System.Globalization.CompareInfo TrCompare = new System.Globalization.CultureInfo("tr-TR").CompareInfo;
 
+    /// <summary>
+    /// 🔴 GERÇEK GUI HATASININ TEK KAYNAKTAN ÇÖZÜMÜ (2026-08-12) — TARİH → UNIX MS.
+    ///
+    /// <b>Sorun:</b> ekranlar tarih alanını <c>DateTime.Today</c>/<c>DateTime.Now</c> ile başlattığında
+    /// <c>Kind=Local</c> olur. <c>new DateTimeOffset(local, TimeSpan.Zero)</c> .NET'te
+    /// <see cref="ArgumentException"/> atar ("UTC Offset ... does not match the offset argument") ve
+    /// KAYIT/SORGU DÜŞER. GUI testinde önce Tahsilat/Ödeme'de, sonra RAPORLARDA bulundu
+    /// (<c>Reports.ApplyDateDefault</c> içinde <c>_to = DateTime.Now</c> → tarih seçmeden "Sorgula"
+    /// denen her RequiresDate raporu patlıyordu).
+    ///
+    /// <b>Çözüm:</b> gün bileşeni alınır, Kind NÖTRLENİR, UTC 00:00 olarak yorumlanır.
+    /// <b>Neden <c>new DateTimeOffset(d)</c> değil:</b> o, yerel saat dilimini uygular (TR = UTC+3) →
+    /// 00:00 yerel = 21:00 UTC ÖNCEKİ GÜN; tarih BİR GÜN KAYARDI.
+    ///
+    /// <paramref name="endOfDay"/>: bitiş tarihlerinde günün SONUNU (23:59:59.999) verir.
+    /// </summary>
+    public static long? ToUnixMs(DateTime? d, bool endOfDay = false)
+    {
+        if (d is null) return null;
+        var gun = DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Unspecified);
+        var an = endOfDay ? gun.AddDays(1).AddMilliseconds(-1) : gun;
+        return new DateTimeOffset(an, TimeSpan.Zero).ToUnixTimeMilliseconds();
+    }
+
     /// <summary>Ortak seçim alanı davranışı (madde 3, kullanıcı isteği 2026-08-06): sunucu-taramalı (server
     /// search) alanlar (SearchVehicle/SearchMaterial vb.) arama boşken bu kadarla sınırlanır; arama başlayınca
     /// sınır kalkar (çağıran zaten yalnız arama BOŞKEN bu sınırı uygular).</summary>
