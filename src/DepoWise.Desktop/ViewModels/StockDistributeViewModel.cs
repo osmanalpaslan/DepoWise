@@ -76,17 +76,32 @@ public sealed partial class StockDistributeViewModel : ViewModelBase
         catch { }
     }
 
+    /// <summary>H-1 — "kaç kayıt var / kaç kayıt gösteriliyor". Metin SERVİSTEN gelir
+    /// (<see cref="UnassignedPage.CountText"/>) → web ile masaüstü AYNI cümleyi gösterir.</summary>
+    [ObservableProperty] private string _countText = "";
+
+    /// <summary>Sayfaya sığmayan kayıt var mı? Ekran bunu vurgulu gösterir (gözden kaçmasın).</summary>
+    [ObservableProperty] private bool _truncated;
+
     [RelayCommand]
     private void Load()
     {
         Lines.Clear();
         try
         {
-            // TEK sorgu (StockService.ListUnassigned) — malzeme başına ayrı okuma YOK.
-            foreach (var m in DesktopServices.Stock.ListUnassigned(_session, string.IsNullOrWhiteSpace(Search) ? null : Search))
+            // TEK sorgu (StockService.ListUnassignedPage) — malzeme başına ayrı okuma YOK.
+            // H-1: varsayılan ÜST SINIR (2000) istenir; canlıdaki 676 satır tek sayfaya sığar. Yine de
+            // aşılırsa CountText kullanıcıya kaç kaydın ekranda OLMADIĞINI açıkça söyler.
+            var page = DesktopServices.Stock.ListUnassignedPage(_session,
+                string.IsNullOrWhiteSpace(Search) ? null : Search);
+            foreach (var m in page.Items)
                 Lines.Add(new UnassignedLineVm(m.MaterialId, m.Code, m.Name, m.Quantity, this));
+            CountText = page.Truncated
+                ? page.CountText + " Listeyi kod/ad ile arayarak daraltabilirsiniz; dağıtılan kalemler listeden düşer."
+                : page.CountText;
+            Truncated = page.Truncated;
         }
-        catch (Exception ex) { FormError = "Liste yüklenemedi: " + ex.Message; }
+        catch (Exception ex) { FormError = "Liste yüklenemedi: " + ex.Message; CountText = ""; Truncated = false; }
         Notify();
     }
 

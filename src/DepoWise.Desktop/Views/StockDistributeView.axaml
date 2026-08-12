@@ -11,7 +11,7 @@
 
     <!-- STK-08: ATANMAMIŞ stok dağıtımı. Bu ekran ÇEVRİMDIŞI çalışır — API çağrısı yoktur;
          liste ve dağıtım doğrudan yerel SQLite üzerinden yapılır. -->
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Atanmamış Stok Dağıtımı">
             <ctrl:Toolbar.FilterContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
@@ -45,7 +45,18 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="3" Classes="Table" Margin="0,16,0,0" IsVisible="{Binding HasRows}">
+        <!-- H-1: kaç kayıt VAR / kaç kayıt GÖSTERİLİYOR. Sığmayan kayıt varsa vurgulu (Warning) gösterilir
+             ki kullanıcı listeyi "hepsi bu" sanıp dağıtılmamış stoğu gözden kaçırmasın. -->
+        <StackPanel Grid.Row="3" Margin="0,12,0,0" IsVisible="{Binding HasRows}">
+            <!-- Kesilme YOKSA sade bilgi; VARSA aynı metin uyarı rengiyle (ayrı öğe — dönüştürücü gerekmez). -->
+            <SelectableTextBlock Classes="Helper" TextWrapping="Wrap" Text="{Binding CountText}"
+                                 IsVisible="{Binding !Truncated}"/>
+            <SelectableTextBlock TextWrapping="Wrap" Text="{Binding CountText}"
+                                 Foreground="{DynamicResource DangerBrush}" FontWeight="SemiBold"
+                                 IsVisible="{Binding Truncated}"/>
+        </StackPanel>
+
+        <Border Grid.Row="4" Classes="Table" Margin="0,8,0,0" IsVisible="{Binding HasRows}">
             <DockPanel>
                 <Border Classes="TableHeader" DockPanel.Dock="Top">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
@@ -81,10 +92,10 @@
             </DockPanel>
         </Border>
 
-        <SelectableTextBlock Grid.Row="3" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center"
+        <SelectableTextBlock Grid.Row="4" IsVisible="{Binding IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center"
                              Classes="Helper" Text="Dağıtılacak &quot;Atanmamış&quot; stok yok — tüm stok bir depoya bağlı görünüyor."/>
 
-        <StackPanel Grid.Row="4" Margin="0,10,0,0" Spacing="4">
+        <StackPanel Grid.Row="5" Margin="0,10,0,0" Spacing="4">
             <SelectableTextBlock Text="{Binding FormError}" IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}" Foreground="{DynamicResource DangerBrush}"/>
             <SelectableTextBlock Text="{Binding Status}" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}" Classes="Helper"/>
         </StackPanel>

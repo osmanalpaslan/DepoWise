@@ -43,6 +43,18 @@ internal static class SqlDialect
     public static string RowTieBreaker(DbConnection conn, string alias)
         => IsSqlite(conn) ? $"{alias}.rowid" : $"{alias}.id";
 
+    /// <summary>
+    /// STK-08 (H-1) — TEXT içinde tutulan miktarın SAYISAL karşılığı; <b>yalnız KARŞILAŞTIRMA/FİLTRE</b>
+    /// içindir (<c>&lt;&gt; 0</c>, <c>&gt; 0</c>, <c>COUNT</c>). Değer OKUMA yolu DEĞİŞMEZ: miktar her zaman
+    /// ham metin olarak çekilip <c>Money.Parse</c> ile decimal'e çevrilir (kayan nokta hatası girmesin).
+    ///
+    /// NEDEN GEREKLİ: <c>quantity</c> TEXT'tir ve <c>Money.Serialize</c> ölçeği korur — sıfır değeri
+    /// "0", "0.00" ya da "0.000" olarak yazılabilir. Metin karşılaştırması (<c>quantity='0'</c>) bu yüzden
+    /// GÜVENİLMEZDİR; sayısal karşılaştırma üç biçimi de doğru eler.
+    /// </summary>
+    public static string NumericValue(DbConnection conn, string colExpr)
+        => IsSqlite(conn) ? $"CAST({colExpr} AS REAL)" : $"CAST({colExpr} AS numeric)";
+
     /// <summary>Otomatik artan BIGINT birincil anahtar kolon tanımı (sıra numarası tabloları için).
     /// SQLite: INTEGER PRIMARY KEY AUTOINCREMENT; PostgreSQL: GENERATED ALWAYS AS IDENTITY.</summary>
     public static string AutoIncPk(DbConnection conn)

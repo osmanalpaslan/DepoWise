@@ -74,6 +74,20 @@ else
     }
     else
     {
+        @* H-1: kaç kayıt VAR / kaç kayıt GÖSTERİLİYOR — sessiz kesilme yasak. Sığmayan kayıt varsa
+           bilgi kutusu UYARIYA döner ve ne yapılacağı yazılır (arama ile daraltma). *@
+        @if (_countText is not null)
+        {
+            <MudAlert Severity="@(_truncated ? Severity.Warning : Severity.Info)" Dense="true" Class="mb-2"
+                      Icon="@(_truncated ? Icons.Material.Filled.Warning : Icons.Material.Filled.List)">
+                @_countText
+                @if (_truncated)
+                {
+                    <text> Tüm kayıtları görmek için <b>kod veya ad ile arayarak</b> listeyi daraltın; dağıtımı
+                    birden çok turda tamamlayabilirsiniz. Dağıtılan kalemler listeden düşer.</text>
+                }
+            </MudAlert>
+        }
         <MudPaper Class="pa-2" Elevation="2">
             <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="60vh" T="Row">
                 <HeaderContent>
@@ -141,19 +155,32 @@ else
 
     private async Task Load()
     {
-        _rows = null;
+        _rows = null; _countText = null; _truncated = false;
         try
         {
-            // TEK istek: atanmamış stoğu olan malzemeler. Malzeme başına ayrı çağrı YOK.
+            // TEK istek: atanmamış stoğu olan malzemeler + sayım bilgisi. Malzeme başına ayrı çağrı YOK.
+            // H-1: yanıt artık nesne (items + total/shown/truncated). Sunucu limiti üst sınıra (2000)
+            // çektiği için canlıdaki 676 satır tek sayfada gelir; yine de aşılırsa kullanıcı UYARILIR.
             var url = "/api/stock/unassigned" + (string.IsNullOrWhiteSpace(_search) ? "" : $"?search={Uri.EscapeDataString(_search)}");
-            var arr = await Api.GetArrayAsync(url);
-            _rows = arr.Where(e => e.ValueKind == JsonValueKind.Object).Select(e => new Row
-            {
-                Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), Available = Dec(e, "quantity"),
-            }).ToList();
+            var d = await Api.GetObjectAsync(url);
+            _countText = Str(d, "countText");
+            _truncated = d.TryGetProperty("truncated", out var t) && t.ValueKind == JsonValueKind.True;
+            _rows = d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.Object).Select(e => new Row
+                {
+                    Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"), Available = Dec(e, "quantity"),
+                }).ToList()
+                : new();
         }
         catch { _rows = new(); }
     }
+
+    /// <summary>Sunucudan gelen sayım cümlesi ("676 kayıt bulundu." gibi). TEK KAYNAK: masaüstü de
+    /// aynı metni gösterir, iki platform farklı sayı söyleyemez.</summary>
+    private string? _countText;
+
+    /// <summary>Sayfaya sığmayan kayıt var mı? Varsa bilgi kutusu UYARIYA döner (gözden kaçmasın).</summary>
+    private bool _truncated;
 
     private async Task Save()
     {

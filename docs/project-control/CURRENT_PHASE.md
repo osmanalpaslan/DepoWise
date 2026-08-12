@@ -569,3 +569,45 @@ API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **can
 - Branch **`master`'a birleştirilmedi**.
 - **66 malzemede negatif stok** zaten mevcut (ADR-086 devralınan eksik stok); migration **1 yeni** negatif
   üretir (defterin söylediği) — toplam 67.
+
+---
+
+## ✅ SON TAMAMLANAN — `STK-MB` Çok şubeli stok doğrulaması + `D-1` / `H-1` (2026-08-12)
+
+Gerçek kullanıcı testine geçmeden önce çok lokasyonlu stok modeli uçtan uca izole ortamda doğrulandı
+(`MultiBranchStockScenarioTests`, 22 test). Denetimde **iki gerçek kod açığı** bulundu ve kapatıldı.
+
+### D-1 — `Transfer` hedefi boş bırakılabiliyordu
+`StockService.Transfer` kaynağın boşluğunu reddediyor, **hedefin** boşluğunu kontrol etmiyordu. Boş hedef
+`ApplyDelta` yolunda sessizce `""` (ATANMAMIŞ) kovasına çevriliyordu → transfer, stoğu depodan çıkarıp
+**"lokasyonu bilinmiyor" durumuna geri atabiliyordu** (STK-08'in çözdüğü belirsizliğin yeniden üretimi).
+API ve masaüstü hedefi zaten zorunlu tutuyordu → kullanıcıdan tetiklenemiyordu; eksik olan **servis
+katmanındaki savunma katmanıydı** (masaüstü bu servisi çevrimdışı doğrudan çağırır).
+`DistributeUnassigned` ile **aynı** kural/mesaj eklendi.
+
+### H-1 — Dağıtım listesi sessizce kesiliyordu (+ sıfır-satır tuzağı)
+1. `ListUnassigned` varsayılan 500 satır döndürüyordu; web/masaüstü limiti yükseltmiyor ve **kaç kaydın
+   gizlendiğini söyleyen bilgi taşımıyordu**. Canlıda ATANMAMIŞ'ta 676 listelenebilir satır var.
+2. **Asıl tehlike:** `qty == 0` elemesi `LIMIT`'ten **sonra** C#'ta yapılıyordu → sıfırlar limitten yer
+   kapıyordu. Dağıtılan kalem ATANMAMIŞ'ta 0 satırı olarak kaldığı için **ikinci turda liste sıfırlarla
+   dolup gerçek kalemleri dışarı itebilirdi**. İzole testte kanıtlandı: 500 sıfır + 10 pozitif kalemde
+   eski yol **hiçbir pozitif kalem** döndürmüyor.
+
+Çözüm: sıfır filtresi `LIMIT`'ten **önce SQL'e** indi (`SqlDialect.NumericValue`, iki lehçe) · yeni
+`UnassignedPage` (toplam / dağıtılabilir / gizli / kullanıcı metni) · ekran varsayılanı **2000** ·
+web ve masaüstü **aynı** cümleyi gösteriyor. Eski `ListUnassigned` imzası ve varsayılanı **korundu**.
+
+**Ölçülen (izole, canlı dağılımın birebir kopyası):** 677 ham satır → 676 listelenebilir · **görünen 676** ·
+**dağıtılabilir 610** · **gizli 0** · arama ile erişilebilen pozitif **610** · negatif 66 (görünür,
+dağıtılamaz) · silinmiş 1 (hiç görünmez).
+
+**Test:** `UnassignedListLimitTests` (15 test) — A/B/C/D sınırları (499·500·501·676), F arama, çok turlu
+dağıtım, geriye uyum, yetki, ölçekli sıfır ("0.000"), web/masaüstü sözleşme taraması.
+Rapor: [`docs/tests/CokSubeliStok_Test_Report.md`](../tests/CokSubeliStok_Test_Report.md).
+
+**Tüm paket: 1591 geçti · 0 başarısız · 35 atlandı (hepsi PostgreSQL — ortamda PG sunucusu yok).**
+
+## ▶️ SIRADAKİ İŞ
+**Yayın turu:** Web deploy + **masaüstü publish/update paketi** (kullanıcı kararı 2026-08-12 —
+geliştirme turu kapatıldı, gerçek kullanıcı testine geçiliyor). Migration **gerekmiyor**: kod kataloğu
+ve canlı şema **ikisi de 64**. STK-08 gerçek dağıtımı **yapılmayacak** — kullanıcı canlıda kendi test edecek.

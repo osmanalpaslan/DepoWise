@@ -27,6 +27,30 @@ public sealed record MaterialMovementRow(long Date, string Kind, decimal Quantit
 /// <paramref name="LocationId"/> boş metin = ATANMAMIŞ (lokasyonu bilinmeyen geçmiş stok).</summary>
 public sealed record StockLocationBalance(string LocationId, string LocationName, decimal Quantity);
 
+/// <summary>
+/// STK-08 / H-1 — dağıtım listesinin bir SAYFASI + kullanıcıya gösterilecek sayım bilgisi.
+/// <paramref name="Items"/> ekranda görünen satırlar; <paramref name="TotalCount"/> aramaya uyan
+/// TÜM satırlar (sıfır olmayanlar); <paramref name="DistributableCount"/> bunların POZİTİF olanları
+/// (negatifler ADR-086 gereği listede görünür ama dağıtılamaz).
+/// </summary>
+public sealed record UnassignedPage(
+    IReadOnlyList<MaterialStock> Items, int TotalCount, int DistributableCount, int Limit)
+{
+    /// <summary>Sayfaya sığmayan satır var mı? Varsa ekran bunu AÇIKÇA yazmak zorundadır.</summary>
+    public bool Truncated => TotalCount > Items.Count;
+
+    /// <summary>Gösterilmeyen satır sayısı (0 = hepsi ekranda).</summary>
+    public int HiddenCount => TotalCount - Items.Count;
+
+    /// <summary>Ekranda gösterilecek teknik-olmayan bilgi metni (CLAUDE.md §2 — terim yok).
+    /// Web ve masaüstü AYNI metni kullanır → iki platform aynı şeyi söyler.</summary>
+    public string CountText => TotalCount == 0
+        ? "Dağıtılacak atanmamış stok yok."
+        : Truncated
+            ? $"{TotalCount} kayıt bulundu. {Items.Count} kayıt gösteriliyor ({HiddenCount} kayıt ekranda değil)."
+            : $"{TotalCount} kayıt bulundu.";
+}
+
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
     string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null,
@@ -139,6 +163,14 @@ public sealed class StockService
         // istemcinin gönderdiği kaynak korunur.
         fromBranchId = EnforceOwnBranch(s, fromBranchId, "transfer") ?? fromBranchId;
         if (string.IsNullOrEmpty(fromBranchId)) throw new ArgumentException("Kaynak şube belirlenemedi.");
+        // ⚠️ HEDEF BOŞ OLAMAZ (STK-MB bulgusu, 2026-08-12). Boş hedef `ApplyLine` → `ApplyDelta` yolunda
+        // sessizce ATANMAMIŞ kovasına ("") çevriliyordu: yani transfer, stoğu depodan ÇIKARIP "lokasyonu
+        // bilinmiyor" durumuna GERİ atabiliyordu. Bu, <see cref="DistributeUnassigned"/>'ın açıkça
+        // reddettiği durumun (aynı kural) transfer kapısındaki karşılığıdır ve STK-08'in çözmeye
+        // çalıştığı belirsizliği yeniden üretirdi. API ve masaüstü zaten hedefi zorunlu tutuyor;
+        // bu, servis katmanındaki EKSİK savunma katmanıdır (deny-by-default).
+        if (string.IsNullOrEmpty(toBranchId))
+            throw new ArgumentException("Hedef depo/şantiye seçin. \"Atanmamış\" hedef olarak seçilemez.");
         if (fromBranchId == toBranchId) throw new ArgumentException("Kaynak ve hedef şube aynı olamaz.");
         var groupId = Guid.NewGuid().ToString("N");
         return RunDocument(s, "transfer", operationId, toBranchId, fromBranchId, toBranchId, personnelId, vehicleId, note, docDate,
@@ -228,35 +260,83 @@ public sealed class StockService
     /// ayrı okuma YAPILMAZ. Miktarı sıfır olan satırlar gösterilmez (dağıtacak bir şey yok).
     /// Negatif kalanlar GÖSTERİLİR (ADR-086 devralınan eksik stok) ama dağıtılamaz — kullanıcı görmeli.
     /// </summary>
-    public IReadOnlyList<MaterialStock> ListUnassigned(SessionContext s, string? search = null, int limit = 500)
+    public IReadOnlyList<MaterialStock> ListUnassigned(SessionContext s, string? search = null, int limit = DefaultUnassignedLimit)
+        => ListUnassignedPage(s, search, limit).Items;
+
+    /// <summary>Dağıtım listesinin varsayılan sayfa boyutu (eski davranış — geriye uyumluluk).</summary>
+    public const int DefaultUnassignedLimit = 500;
+
+    /// <summary>Dağıtım listesinin ÜST SINIRI. Ekranlar bunu ister; canlıdaki 676 satır rahatça sığar.</summary>
+    public const int MaxUnassignedLimit = 2000;
+
+    /// <summary>
+    /// STK-08 / H-1 — dağıtım listesi + <b>SAYIM BİLGİSİ</b> (kullanıcı isteği 2026-08-12).
+    ///
+    /// <b>NEDEN AYRI DÖNÜŞ TİPİ:</b> eski <see cref="ListUnassigned"/> yalnız satırları döndürüyordu;
+    /// ekran "gösterilen = var olan" sanıyordu. 500'lük sınır aşıldığında kullanıcı, kalan kalemlerin
+    /// VARLIĞINDAN habersiz kalıyordu — STK-08'de bu, dağıtılmamış stoğun "dağıtıldı" sanılması demektir.
+    /// Artık toplam ve dağıtılabilir sayılar da döner; ekran farkı açıkça yazar.
+    ///
+    /// <b>⚠️ SIFIR FİLTRESİ ARTIK SQL'DE (asıl hata buydu):</b> önceden satırlar çekilip LIMIT uygulandıktan
+    /// SONRA C#'ta <c>qty == 0</c> elenirdi. Yani sıfır bakiyeli satırlar limitten YER KAPIYORDU. Dağıtım
+    /// ilerledikçe tükenen kalemler ATANMAMIŞ'ta 0 satırı olarak KALDIĞI için (bilinçli davranış), ikinci
+    /// turda liste sıfırlarla dolup gerçek kalemleri dışarı itebilirdi — çok turlu dağıtımda sessiz kayıp.
+    /// Filtre LIMIT'ten ÖNCEye alındı; C#'taki kontrol savunma katmanı olarak KALDI.
+    ///
+    /// Arama SQL'de uygulanır → <b>tüm veri kümesinde</b> arar, "ilk 500 içinde" değil. Sayımlar da
+    /// aynı aramayı kullanır (gösterilen/toplam aynı kümeyi anlatır).
+    ///
+    /// Negatif kalanlar GÖSTERİLİR (ADR-086) ama <see cref="UnassignedPage.DistributableCount"/>'a
+    /// GİRMEZ; silinmiş malzeme JOIN'de zaten elenir. Liste sırf büyüsün diye hiçbir kural gevşetilmedi.
+    /// </summary>
+    public UnassignedPage ListUnassignedPage(SessionContext s, string? search = null, int limit = MaxUnassignedLimit)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
-        if (limit < 1) limit = 1; if (limit > 2000) limit = 2000;
+        if (limit < 1) limit = 1; if (limit > MaxUnassignedLimit) limit = MaxUnassignedLimit;
 
         using var conn = _factory.Create();
-        using var cmd = conn.CreateCommand();
-        var sql = @"
-SELECT m.id, m.code, m.name, sb.quantity
+        var nonZero = SqlDialect.NumericValue(conn, "sb.quantity") + " <> 0";
+        var positive = SqlDialect.NumericValue(conn, "sb.quantity") + " > 0";
+
+        // Ortak kaynak: liste ve sayımlar AYNI WHERE'i kullanır (biri diğerini yalanlayamaz).
+        var from = @"
 FROM stock_balances sb
 JOIN materials m ON m.id = sb.material_id AND m.company_id = sb.company_id AND m.is_deleted = 0
-WHERE sb.company_id=@c AND sb.location_id=''";
-        if (!string.IsNullOrWhiteSpace(search))
-            sql += $" AND ({SqlDialect.LikeTr(conn, "m.code", "@q")} OR {SqlDialect.LikeTr(conn, "m.name", "@q")})";
-        sql += " ORDER BY m.code LIMIT @lim;";
-        cmd.CommandText = sql;
-        cmd.AddWithValue("@c", s.CompanyId);
-        if (!string.IsNullOrWhiteSpace(search)) cmd.AddWithValue("@q", "%" + search.Trim() + "%");
-        cmd.AddWithValue("@lim", limit);
+WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
+        var q = string.IsNullOrWhiteSpace(search) ? null : "%" + search.Trim() + "%";
+        if (q is not null)
+            from += $" AND ({SqlDialect.LikeTr(conn, "m.code", "@q")} OR {SqlDialect.LikeTr(conn, "m.name", "@q")})";
 
-        var list = new List<MaterialStock>();
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
+        // (1) SAYIMLAR — LIMIT'siz, tek sorgu (iki ayrı gidiş-dönüş yapılmaz).
+        int total, distributable;
+        using (var cnt = conn.CreateCommand())
         {
-            var qty = Money.Parse(r.GetString(3));
-            if (qty == 0m) continue;   // dağıtacak bir şey yok
-            list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), qty));
+            cnt.CommandText = $"SELECT COUNT(*), COALESCE(SUM(CASE WHEN {positive} THEN 1 ELSE 0 END),0) {from};";
+            cnt.AddWithValue("@c", s.CompanyId);
+            if (q is not null) cnt.AddWithValue("@q", q);
+            using var cr = cnt.ExecuteReader();
+            cr.Read();
+            total = Convert.ToInt32(cr.GetValue(0));
+            distributable = Convert.ToInt32(cr.GetValue(1));
         }
-        return list;
+
+        // (2) SATIRLAR — sıfırlar zaten elendiği için LIMIT gerçek kalemlere harcanır.
+        var list = new List<MaterialStock>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = $"SELECT m.id, m.code, m.name, sb.quantity {from} ORDER BY m.code LIMIT @lim;";
+            cmd.AddWithValue("@c", s.CompanyId);
+            if (q is not null) cmd.AddWithValue("@q", q);
+            cmd.AddWithValue("@lim", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var qty = Money.Parse(r.GetString(3));
+                if (qty == 0m) continue;   // savunma katmanı (SQL zaten eledi)
+                list.Add(new MaterialStock(r.GetString(0), r.GetString(1), r.GetString(2), qty));
+            }
+        }
+        return new UnassignedPage(list, total, distributable, limit);
     }
 
     // Şube-yetki (kullanıcı isteği 2026-08-05): şubeye bağlı kullanıcı (BranchScope.Active != null) yalnız

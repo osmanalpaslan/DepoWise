@@ -1266,11 +1266,27 @@ app.MapPost("/api/admin/reset-data", (HttpContext c) =>
 
 // ── STK-08: ATANMAMIŞ stok dağıtımı ────────────────────────────────────────────────────────
 // ATANMAMIŞ stoğu olan malzemeler (dağıtım ekranının listesi). TEK sorgu; malzeme başına okuma YOK.
+// H-1 (2026-08-12): yanıt artık SAYIM BİLGİSİ de taşır. Eskiden düz dizi dönüyordu ve istemci
+// "gösterilen = var olan" sanıyordu; 500'lük sınır aşıldığında kullanıcı kalan kalemlerin varlığından
+// habersiz kalıyordu. Varsayılan limit ekranlar için ÜST SINIRA çekildi (2000) — canlıdaki 676 satır
+// tek sayfaya sığar; yine de aşılırsa `truncated` ile açıkça bildirilir.
 app.MapGet("/api/stock/unassigned", (HttpContext c, string? search, int? limit) =>
-    S(c) is { } s
-        ? Results.Ok(svc.Stock.ListUnassigned(s, search, limit is > 0 ? limit.Value : 500)
-            .Select(x => new { id = x.MaterialId, code = x.Code, name = x.Name, quantity = x.Quantity }))
-        : Results.Unauthorized()).RequireAuthorization();
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var page = svc.Stock.ListUnassignedPage(s, search,
+        limit is > 0 ? limit.Value : DepoWise.Infrastructure.Materials.StockService.MaxUnassignedLimit);
+    return Results.Ok(new
+    {
+        items = page.Items.Select(x => new { id = x.MaterialId, code = x.Code, name = x.Name, quantity = x.Quantity }),
+        total = page.TotalCount,
+        distributable = page.DistributableCount,
+        shown = page.Items.Count,
+        hidden = page.HiddenCount,
+        truncated = page.Truncated,
+        limit = page.Limit,
+        countText = page.CountText,   // metin TEK KAYNAKTAN → web ve masaüstü aynı cümleyi gösterir
+    });
+}).RequireAuthorization();
 
 // Dağıtım: ATANMAMIŞ → seçilen depo. GERÇEK transfer hareketi üretir (yeni hareket türü YOK).
 // Kaynak istemciden ALINMAZ — daima ATANMAMIŞ'tır (bkz. StockService.DistributeUnassigned / KARAR T-1).
