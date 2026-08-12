@@ -43,6 +43,8 @@ public static class DesktopServices
     public static DepoWise.Infrastructure.Accounting.PartyLedgerService PartyLedger { get; private set; } = null!;
     public static DepoWise.Infrastructure.Accounting.InvoiceService Invoices { get; private set; } = null!;
     public static DepoWise.Infrastructure.Accounting.InvoiceQueryService InvoiceQueries { get; private set; } = null!;
+    public static DepoWise.Infrastructure.Accounting.FinanceService Finance { get; private set; } = null!;
+    public static DepoWise.Infrastructure.Accounting.FinanceQueryService FinanceQueries { get; private set; } = null!;
     public static PermissionTemplateService PermissionTemplates { get; private set; } = null!;
     public static CompanyService Companies { get; private set; } = null!;
     public static ReleaseService Releases { get; private set; } = null!;
@@ -167,6 +169,9 @@ public static class DesktopServices
         // G4-2: fatura stok+cari servislerini KULLANIR (paralel defter yok) - onlardan SONRA kurulur.
         Invoices = new DepoWise.Infrastructure.Accounting.InvoiceService(Factory, Stock, PartyLedger, clock);
         InvoiceQueries = new DepoWise.Infrastructure.Accounting.InvoiceQueryService(Factory, clock);
+        // G4-3: kasa/banka cari servisini KULLANIR (paralel cari defteri yok) - ondan SONRA kurulur.
+        Finance = new DepoWise.Infrastructure.Accounting.FinanceService(Factory, PartyLedger, clock);
+        FinanceQueries = new DepoWise.Infrastructure.Accounting.FinanceQueryService(Factory);
         PermissionTemplates = new PermissionTemplateService(Factory, clock);
         Companies = new CompanyService(Factory, clock);
         Releases = new ReleaseService(Factory, clock);

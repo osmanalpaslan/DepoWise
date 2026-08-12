@@ -72,5 +72,6 @@ public static class MigrationCatalog
         new Migration065_ScreenPlatformVisibility(),
         new Migration066_Parties(),
         new Migration067_Invoices(),
+        new Migration068_Finance(),
     };
 }

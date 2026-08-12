@@ -22,26 +22,30 @@ public static class ReportScope
     /// null → filtre yok (Tüm Şubeler / atanmamış oturum).</summary>
     public static IReadOnlyList<string>? Effective(SessionContext s, ReportRequest req)
     {
-        if (CanSelectBranches(s) && req.BranchIds is { Count: > 0 })
-            return req.BranchIds;   // yetkili + açık seçim → honor
-        return BranchScope.Active(s) is { } b ? new[] { b } : null;   // yetkisiz/boş → oturum şubesi (değişmez)
+        // ⭐ G4-3b GÜVENLİK DÜZELTMESİ: seçilen şubeler artık KULLANICININ İZİNLİ KÜMESİYLE
+        // KESİŞTİRİLİR. Önceden "şube seçme yetkisi varsa istediğini gönder" deniyordu; kullanıcı
+        // rapor isteğine elle branch_id yazarak YETKİSİZ şubenin verisini okuyabiliyordu.
+        // BranchAccess tek otoritedir (izinli ∩ istenen ∩ oturum) — ikinci bir kural yok.
+        var istenen = CanSelectBranches(s) && req.BranchIds is { Count: > 0 } ? req.BranchIds : null;
+        return BranchAccess.Effective(s, istenen);
     }
 
     /// <summary>WHERE parçası. Boş/null → ""; aksi halde "AND (col IN (@rb0,...) OR col IS NULL)".
     /// NULL kayıtlar korunur (eski, şubesiz kayıtlar gizlenmez — BranchScope ile aynı ilke).</summary>
     public static string BranchSql(SessionContext s, ReportRequest req, string col)
     {
-        var b = Effective(s, req);
-        if (b is null || b.Count == 0) return "";
-        var ps = string.Join(",", System.Linq.Enumerable.Range(0, b.Count).Select(i => "@rb" + i));
-        return $" AND ({col} IN ({ps}) OR {col} IS NULL)";
+        // ⭐ G4-4 GÜVENLİK DÜZELTMESİ (fail-open kapatıldı): önceden boş kesişimde '' dönülüyordu,
+        // yani kullanıcı YETKİSİZ bir şube istediğinde filtre TAMAMEN KALKIYOR ve rapor kapsamsız
+        // çalışıyordu. Artık üretim BranchAccess.Sql'e devredilir; o, boş kesişimde
+        // "AND col IS NULL" yazar (yalnız şubesiz kayıtlar) — fail-closed.
+        var istenen = CanSelectBranches(s) && req.BranchIds is { Count: > 0 } ? req.BranchIds : null;
+        return BranchAccess.Sql(s, col, istenen, "@rb");
     }
 
     /// <summary>Etkin şube parametrelerini (@rb0..) bağlar. BranchSql ile AYNI kaynağı kullanır (deterministik).</summary>
     public static void BindBranch(DbCommand cmd, SessionContext s, ReportRequest req)
     {
-        var b = Effective(s, req);
-        if (b is null) return;
-        for (int i = 0; i < b.Count; i++) cmd.AddWithValue("@rb" + i, b[i]);
+        var istenen = CanSelectBranches(s) && req.BranchIds is { Count: > 0 } ? req.BranchIds : null;
+        BranchAccess.Bind(cmd, s, istenen, "@rb");
     }
 }

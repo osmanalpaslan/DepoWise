@@ -206,8 +206,34 @@ public sealed class AuthService
             RoleKeys: roles,
             Permissions: perms,
             CanViewAllBranches: LoadViewAllBranches(conn, userId),
-            BlockedModules: Organization.RoleGrantService.BlockedForRoles(conn, null, roles)); // Rol Yetki Kontrol
-        // ScopeBranchIds / ScopeUnitIds / AllowedRecordTypes: F4 ve F5'e AYRILMIŞ, F0'da doldurulmaz.
+            BlockedModules: Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
+            // ⭐ G4-3b: ŞUBE KAPSAMI ARTIK DOLDURULUYOR. Önceden bu iki alan boş kaldığı için
+            // web/API tarafında hiçbir şube bilgisi oturuma girmiyordu → ön muhasebede şube filtresi
+            // FİİLEN ÇALIŞMIYORDU (her kullanıcı her şubenin verisini görebiliyordu).
+            // Tek yorumlayıcı BranchAccess'tir; burası yalnız HAM veriyi taşır.
+            ScopeBranchIds: LoadUserScopes(conn, companyId, userId),
+            HomeBranchId: LoadHomeBranch(conn, userId));
+    }
+
+    /// <summary>Kullanıcıya AÇIKÇA atanmış şube kapsamı (user_scopes). Satır yoksa null.</summary>
+    private static IReadOnlyList<string>? LoadUserScopes(DbConnection conn, string companyId, string userId)
+    {
+        var list = new List<string>();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT branch_id FROM user_scopes WHERE user_id=@u AND company_id=@c;";
+        cmd.AddWithValue("@u", userId); cmd.AddWithValue("@c", companyId);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(r.GetString(0));
+        return list.Count == 0 ? null : list;
+    }
+
+    /// <summary>Kullanıcının kendi (ana) şubesi — users.branch_id.</summary>
+    private static string? LoadHomeBranch(DbConnection conn, string userId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT branch_id FROM users WHERE id=@id;";
+        cmd.AddWithValue("@id", userId);
+        return cmd.ExecuteScalar() as string;
     }
 
     /// <summary>Verilen firma id'si var (ve silinmemiş) mi?</summary>

@@ -393,7 +393,8 @@ app.MapGet("/api/sync/business-pull", (HttpContext c, long? since) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     // DELTA: since>0 ise yalnız updated_at>since satırlar döner (rutin eşitleme küçük olsun — 2508 kayıtta
     // tam snapshot zaman aşımına uğruyordu). since yok/0 → tam snapshot (ilk kurulum / manuel tam eşitleme).
-    var snapshot = svc.BusinessSync.BuildSnapshot(s.CompanyId, "server", since ?? 0);
+    // ⭐ GAP-6: oturum GEÇİLİR → yalnız kullanıcının izinli şubelerinin ön muhasebe verisi iner.
+    var snapshot = svc.BusinessSync.BuildSnapshot(s.CompanyId, "server", since ?? 0, s);
     return Results.Content(snapshot, "application/json");
 }).RequireAuthorization();
 
@@ -711,6 +712,11 @@ static string? ClientIp(HttpContext c)
     return c.Connection.RemoteIpAddress?.ToString();
 }
 static bool Void(Action a) { a(); return true; }
+/// <summary>G4-3b — "a,b,c" biçimindeki şube listesini ayrıştırır. Boş → null (kapsam filtresi yok).
+/// ⚠️ Burada DOĞRULAMA YAPILMAZ: yetki kesişimini <c>BranchAccess</c> yapar (tek otorite).</summary>
+static IReadOnlyList<string>? Branches(string? csv)
+    => string.IsNullOrWhiteSpace(csv) ? null
+     : csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 /// G6-02 (2026-08-11): "vehicle_brands" API düzeyinde bir TAKMA ADdır — araç markaları malzeme markalarıyla
 /// AYNI fiziksel tabloda (brands) durur, yalnız brand_type sütunuyla ayrılır. Listeleme (özel GET rotası) ve
 /// ekleme (POST switch) bu takma adı zaten çeviriyordu; yeniden adlandır/sil/kilitle uçları çevirmediği için
@@ -1749,10 +1755,11 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
 // yalnız taşıyıcıdır; doğrudan servis çağrısı da aynı kapıdan geçer.
 // ⚠️ Bu uçlar stok tablolarına DOKUNMAZ; stok defterinin tek yazıcısı StockService'tir.
 
-app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? onlyActive, int? page, int? pageSize) =>
+// branchIds: virgüllü çoklu şube — OKUMA kapsamı. BranchAccess izinli kümeyle KESİŞTİRİR.
+app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? onlyActive, int? page, int? pageSize, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var res = svc.Parties.List(s, search, type, onlyActive, page ?? 1, pageSize ?? 50);
+    var res = svc.Parties.List(s, search, type, onlyActive, page ?? 1, pageSize ?? 50, Branches(branchIds));
     return Results.Ok(new
     {
         items = res.Items.Select(x => new
@@ -1768,11 +1775,11 @@ app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? o
     });
 }).RequireAuthorization();
 
-app.MapGet("/api/parties/{id}", (HttpContext c, string id) =>
+app.MapGet("/api/parties/{id}", (HttpContext c, string id, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
     var p = svc.Parties.Get(s, id);
-    var b = svc.PartyLedger.Balance(s, id);
+    var b = svc.PartyLedger.Balance(s, id, Branches(branchIds));
     return Results.Ok(new
     {
         id = p.Id, code = p.Code, title = p.Title, partyType = p.PartyType, isPerson = p.IsPerson,
@@ -1816,10 +1823,10 @@ app.MapDelete("/api/parties/{id}", (HttpContext c, string id) =>
 }).RequireAuthorization();
 
 // Cari ekstresi — yürüyen bakiye SUNUCUDA hesaplanır (web ve masaüstü aynı sayıyı görür).
-app.MapGet("/api/parties/{id}/ledger", (HttpContext c, string id, long? from, long? to, int? limit) =>
+app.MapGet("/api/parties/{id}/ledger", (HttpContext c, string id, long? from, long? to, int? limit, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var rows = svc.PartyLedger.Statement(s, id, from, to, limit ?? 500);
+    var rows = svc.PartyLedger.Statement(s, id, from, to, limit ?? 500, true, Branches(branchIds));
     return Results.Ok(rows.Select(x => new
     {
         id = x.Entry.Id, dateText = x.Entry.DateText, entryDate = x.Entry.EntryDate,
@@ -1861,10 +1868,10 @@ app.MapGet("/api/parties/meta", (HttpContext c) =>
 // ⚠️ SİLME UCU YOKTUR — fatura fiziksel silinmez; /cancel ters kayıt üretir.
 
 app.MapGet("/api/invoices", (HttpContext c, string? search, string? direction, string? status,
-    string? partyId, long? from, long? to, int? page, int? pageSize) =>
+    string? partyId, long? from, long? to, int? page, int? pageSize, string? branchIds) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var res = svc.InvoiceQueries.List(s, search, direction, status, partyId, from, to, page ?? 1, pageSize ?? 50);
+    var res = svc.InvoiceQueries.List(s, search, direction, status, partyId, from, to, page ?? 1, pageSize ?? 50, Branches(branchIds));
     return Results.Ok(new
     {
         items = res.Items.Select(x => new
@@ -1980,6 +1987,175 @@ app.MapGet("/api/invoices/meta", (HttpContext c) =>
     S(c) is null ? Results.Unauthorized() : Results.Ok(new
     {
         directions = InvoiceDirections.All.Select(x => new { key = x.Key, label = x.Label }),
+    })).RequireAuthorization();
+
+// ═══ G4-3 — ÖN MUHASEBE / KASA — BANKA (2026-08-12) ═════════════════════════════════════════
+// Yetki: "finance" modülü. Kapı SERVİSTEDİR (AccessControl.Require) → bu uçlar yalnız taşıyıcıdır.
+// ⚠️ Bu uçlar stok tablolarına DOKUNMAZ ve ikinci bir cari defteri açmaz: FinanceService,
+//    PartyLedgerService'i çağırır; para + cari + fatura kapaması TEK transaction'da yazılır.
+// ⚠️ SİLME UCU YOKTUR — finansal hareket silinmez; /reverse gerekçeli ters kayıt üretir.
+
+// branchIds: virgülle ayrılmış çoklu şube. ⚠️ KAPSAM GENİŞLETMEZ — BranchAccess izinli kümeyle
+// KESİŞTİRİR; yetkisiz şube gönderilirse sessizce düşer (fail-closed).
+app.MapGet("/api/finance/accounts", (HttpContext c, string? kind, bool? all, string? search, string? branchIds) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.FinanceQueries.Accounts(s, kind, !(all ?? false), search, Branches(branchIds)).Select(x => new
+    {
+        id = x.Account.Id, code = x.Account.Code, name = x.Account.Name,
+        accountKind = x.Account.AccountKind, kindText = x.Account.KindText,
+        currency = x.Account.Currency, branchId = x.Account.BranchId, branchName = x.Account.BranchName,
+        bankName = x.Account.BankName, iban = x.Account.Iban,
+        isDefault = x.Account.IsDefault, isActive = x.Account.IsActive, statusText = x.Account.StatusText,
+        inflow = x.Inflow, outflow = x.Outflow, balance = x.Balance, balanceText = x.BalanceText,
+    }));
+}).RequireAuthorization();
+
+app.MapGet("/api/finance/accounts/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var a = svc.FinanceQueries.Account(s, id);
+    return Results.Ok(new
+    {
+        id = a.Id, code = a.Code, name = a.Name, accountKind = a.AccountKind, kindText = a.KindText,
+        currency = a.Currency, branchId = a.BranchId, branchName = a.BranchName,
+        bankName = a.BankName, bankBranch = a.BankBranch, accountNo = a.AccountNo, iban = a.Iban,
+        note = a.Note, isDefault = a.IsDefault, isActive = a.IsActive, version = a.Version,
+        balance = svc.FinanceQueries.Balance(s, id),
+    });
+}).RequireAuthorization();
+
+app.MapPost("/api/finance/accounts", (HttpContext c, FinanceAccountDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.Finance.CreateAccount(s, new NewFinanceAccount(d.Code, d.Name, d.AccountKind,
+        d.Currency ?? "TRY", d.BranchId, d.BankName, d.BankBranch, d.AccountNo, d.Iban, d.Note, d.IsDefault ?? false));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+
+app.MapPut("/api/finance/accounts/{id}", (HttpContext c, string id, FinanceAccountDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Finance.UpdateAccount(s, id, new UpdateFinanceAccount(d.Code, d.Name, d.AccountKind,
+        d.Currency ?? "TRY", d.BranchId, d.BankName, d.BankBranch, d.AccountNo, d.Iban, d.Note,
+        d.IsDefault ?? false, d.IsActive ?? true, d.Version));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPost("/api/finance/accounts/{id}/active", (HttpContext c, string id, FinanceActiveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Finance.SetAccountActive(s, id, d.Active);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Hareketi olan hesap silinemez → servis 400 ile açık mesaj döner (ortak hata modeli).
+app.MapDelete("/api/finance/accounts/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Finance.DeleteAccount(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Hesap ekstresi — yürüyen bakiye SUNUCUDA hesaplanır (web ve masaüstü aynı sayıyı görür).
+app.MapGet("/api/finance/accounts/{id}/statement", (HttpContext c, string id, long? from, long? to, int? limit) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.FinanceQueries.Statement(s, id, from, to, limit ?? 500).Select(x => new
+    {
+        id = x.Txn.Id, dateText = x.Txn.DateText, txnDate = x.Txn.TxnDate,
+        txnType = x.Txn.TxnType, typeText = x.Txn.TypeText,
+        inAmount = x.Txn.In, outAmount = x.Txn.Out, amount = x.Txn.Amount,
+        partyId = x.Txn.PartyId, partyTitle = x.Txn.PartyTitle,
+        description = x.Txn.Description, docNo = x.Txn.DocNo,
+        paymentMethod = x.Txn.PaymentMethod, referenceNo = x.Txn.ReferenceNo,
+        isReversed = x.Txn.IsReversed, isReversalEntry = x.Txn.IsReversalEntry,
+        reversalReason = x.Txn.ReversalReason, isTransfer = x.Txn.IsTransfer,
+        runningBalance = x.RunningBalance,
+    }));
+}).RequireAuthorization();
+
+app.MapGet("/api/finance/transactions", (HttpContext c, string? accountId, string? txnType, string? partyId,
+    string? search, long? from, long? to, int? page, int? pageSize, string? branchIds) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.FinanceQueries.Transactions(s, accountId, txnType, partyId, search, from, to, page ?? 1, pageSize ?? 50, Branches(branchIds));
+    return Results.Ok(new
+    {
+        items = res.Items.Select(x => new
+        {
+            id = x.Id, accountId = x.AccountId, accountName = x.AccountName,
+            txnType = x.TxnType, typeText = x.TypeText, dateText = x.DateText, txnDate = x.TxnDate,
+            inAmount = x.In, outAmount = x.Out, amount = x.Amount, currency = x.Currency,
+            partyId = x.PartyId, partyTitle = x.PartyTitle, description = x.Description,
+            docNo = x.DocNo, paymentMethod = x.PaymentMethod, referenceNo = x.ReferenceNo,
+            branchId = x.BranchId, branchName = x.BranchName,
+            isReversed = x.IsReversed, isReversalEntry = x.IsReversalEntry, isTransfer = x.IsTransfer,
+        }),
+        total = res.TotalCount, page = res.Page, pageSize = res.PageSize,
+    });
+}).RequireAuthorization();
+
+// ── TAHSİLAT / ÖDEME (+ isteğe bağlı fatura kapama) ──
+app.MapPost("/api/finance/entries", (HttpContext c, FinanceEntryDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var allocations = (d.Allocations ?? Array.Empty<AllocationDto>())
+        .Select(a => new InvoiceAllocationInput(a.InvoiceId, a.Amount)).ToList();
+    var r = svc.Finance.Add(s, new NewFinanceEntry(d.AccountId, d.TxnType, d.Amount, d.OperationId,
+        d.PartyId, d.TxnDate, d.BranchId, d.Description, d.DocNo, d.PaymentMethod, d.ReferenceNo,
+        d.Currency ?? "TRY", allocations));
+    // alreadyExisted: istemci aynı işlemi tekrar gönderdiyse YENİ kayıt oluşmadığını bilir.
+    return Results.Ok(new { id = r.TransactionId, ledgerEntryId = r.LedgerEntryId,
+                            allocationIds = r.AllocationIds, alreadyExisted = r.AlreadyExisted });
+}).RequireAuthorization();
+
+// ── İÇ TRANSFER (kasa↔banka) — cari ETKİLENMEZ, net 0 ──
+app.MapPost("/api/finance/transfers", (HttpContext c, FinanceTransferDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var r = svc.Finance.Transfer(s, new NewFinanceTransfer(d.FromAccountId, d.ToAccountId, d.Amount,
+        d.OperationId, d.TxnDate, d.Description, d.Currency ?? "TRY"));
+    return Results.Ok(new { groupId = r.GroupId, outId = r.OutTransactionId, inId = r.InTransactionId,
+                            alreadyExisted = r.AlreadyExisted });
+}).RequireAuthorization();
+
+app.MapPost("/api/finance/transactions/{id}/reverse", (HttpContext c, string id, FinanceReverseDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var newId = svc.Finance.Reverse(s, id, d.Reason);
+    return Results.Ok(new { id = newId });
+}).RequireAuthorization();
+
+// ── Kapatılmayı bekleyen faturalar (tahsilat/ödeme ekranı) ──
+// Kalan tutar SAKLANMAZ; grand_total − Σ(iptal edilmemiş tahsisler) ile hesaplanır.
+app.MapGet("/api/finance/open-invoices", (HttpContext c, string partyId, string? direction, int? limit) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.FinanceQueries.OpenInvoices(s, partyId, direction, limit ?? 200).Select(x => new
+    {
+        id = x.Id, invoiceNo = x.InvoiceNo, direction = x.Direction, directionText = x.DirectionText,
+        partyId = x.PartyId, partyTitle = x.PartyTitle, dateText = x.DateText, dueText = x.DueText,
+        currency = x.Currency, grandTotal = x.GrandTotal, paid = x.Paid, remaining = x.Remaining,
+        settlesWith = x.SettlesWith,
+    }));
+}).RequireAuthorization();
+
+// Fatura kartında "kalan" göstermek için — G4-2 fatura ucunu değiştirmeden ek bilgi.
+app.MapGet("/api/finance/invoice-paid/{invoiceId}", (HttpContext c, string invoiceId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(new { paid = svc.FinanceQueries.PaidOf(s, invoiceId) });
+}).RequireAuthorization();
+
+// Hesap türü ve işlem türü katalogları — iki platform AYNI etiketleri göstersin.
+app.MapGet("/api/finance/meta", (HttpContext c) =>
+    S(c) is null ? Results.Unauthorized() : Results.Ok(new
+    {
+        kinds = FinanceAccountKinds.All.Select(x => new { key = x.Key, label = x.Label }),
+        txnTypes = FinanceTxnTypes.All.Select(x => new { key = x.Key, label = x.Label }),
+        partyAffecting = FinanceTxnTypes.PartyAffecting,
+        manualTxnTypes = FinanceTxnTypes.ManualEntry,
     })).RequireAuthorization();
 
 // ═══ G5 — EKRAN PLATFORM GÖRÜNÜRLÜĞÜ (2026-08-12) ═══════════════════════════════════════════
@@ -2199,6 +2375,7 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
         usesMovementType = d.UsesMovementType,   // STK-10b-1: stok hareket türü filtresi
         usesSearch = d.UsesSearch,   // STK-10b-2: serbest metin arama
         usesMaterial = d.UsesMaterial,   // STK-10b-3: malzeme filtresi (arama ile seçilir)
+        usesParty = d.UsesParty,   // G4-4b: cari filtresi (arama ile seçilir)
         requiresDate = d.RequiresDate, manager = d.IsManager,
         infoNote = d.InfoNote
     }))).RequireAuthorization();
@@ -2210,7 +2387,7 @@ static object? ReportCell(object? cell)
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds);   // STK-06 lokasyon + STK-10b-1 tür + STK-10b-2 arama + STK-10b-3 malzeme
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
     {
@@ -2228,7 +2405,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = S(c); if (s is null) return Results.Unauthorized();
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds);   // STK-06 lokasyon + STK-10b-1 tür + STK-10b-2 arama + STK-10b-3 malzeme
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
     var tbl = BuildReport(s, type, req);
     var bytes = svc.Excel.Export(tbl);
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";
@@ -2803,6 +2980,52 @@ app.MapGet("/api/quota-monitor", (HttpContext c) =>
 }).RequireAuthorization();
 
 // ── Yetkiler (kullanıcı bazlı modül matrisi) ──
+
+// ═══ G4-3c — ŞUBE KAPSAMI YÖNETİMİ (GAP-7, 2026-08-12) ═════════════════════════════════════
+// Yetkiler ekranının parçasıdır: "permissions" modülü. İKİNCİ bir yetki ağacı DEĞİLDİR —
+// modül yetkileri kendi ucunda kalır, burada yalnız "hangi şubelerde" sorusu yönetilir.
+// ⚠️ Atanabilir şube listesi AKTÖRÜN kapsamıyla kırpılır; yazma yolunda ayrıca
+//    BranchAccess.RequireGrantable çalışır (kendinde olmayan şube devredilemez).
+
+app.MapGet("/api/permissions/{userId}/branch-scope", (HttpContext c, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var v = svc.Permissions.GetBranchScope(s, userId);
+    return Results.Ok(new
+    {
+        mode = v.Mode, modeText = v.ModeText,
+        scopeBranchIds = v.ScopeBranchIds,
+        homeBranchId = v.HomeBranchId,
+        canViewAllBranches = v.CanViewAllBranches,
+        assignable = v.AssignableBranches.Select(b => new { id = b.Id, name = b.Name }),
+    });
+}).RequireAuthorization();
+
+app.MapPut("/api/permissions/{userId}/branch-scope", (HttpContext c, string userId, BranchScopeDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Permissions.SaveBranchScope(s, userId, d.BranchIds ?? Array.Empty<string>());
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Oturumdaki kullanıcının KENDİ etkin şube kapsamı — ekranlardaki şube seçicisi bunu kullanır.
+// UI'ın gösterdiği liste ile servisin uyguladığı kapsam AYNI kaynaktan gelsin diye vardır.
+app.MapGet("/api/branch-scope/mine", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var allowed = DepoWise.Application.Security.BranchAccess.Allowed(s);
+    var list = svc.Branches.List(s, null)
+        .Where(b => allowed is null || allowed.Contains(b.Id, StringComparer.Ordinal))
+        .Select(b => new { id = b.Id, name = b.Name })
+        .ToList();
+    return Results.Ok(new
+    {
+        unrestricted = allowed is null,          // true → "Tüm şubeler" seçeneği sunulabilir
+        operatingBranchId = s.OperatingBranchId, // oturumun çalışma şubesi (varsayılan seçim)
+        homeBranchId = s.HomeBranchId,
+        branches = list,
+    });
+}).RequireAuthorization();
 app.MapGet("/api/permissions/{userId}", (HttpContext c, string userId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -3152,7 +3375,9 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     string? SearchText = null,
     // STK-10b-3: malzeme filtresi (materials.id). Arayüzde ARAMA ile seçilir; liste indirilmez.
     // Opsiyonel, SONA eklendi (pozisyonel kurulumda argüman kaymasını önlemek için).
-    List<string>? MaterialIds = null);
+    List<string>? MaterialIds = null,
+    // G4-4: ön muhasebe raporlarında CARİ filtresi. ⚠️ SONA EKLENDİ (kayıt pozisyonel de kuruluyor).
+    List<string>? PartyIds = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 // G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin
@@ -3338,3 +3563,19 @@ record InvoiceSeriesDto(string Code, string Direction, string? Id = null, string
     string? Prefix = null, long? NextNumber = null, int? Padding = null, bool? IsDefault = null, bool? IsActive = null);
 record VatRateDto(decimal Rate, string? Id = null, string? Label = null, bool? IsDefault = null,
     bool? IsActive = null, int? SortOrder = null);
+
+// ═══ G4-3 — KASA / BANKA DTO'ları ══════════════════════════════════════════════════════════
+record FinanceAccountDto(string Code, string Name, string AccountKind, string? Currency = null,
+    string? BranchId = null, string? BankName = null, string? BankBranch = null, string? AccountNo = null,
+    string? Iban = null, string? Note = null, bool? IsDefault = null, bool? IsActive = null, long? Version = null);
+record FinanceActiveDto(bool Active);
+record AllocationDto(string InvoiceId, decimal Amount);
+record FinanceEntryDto(string AccountId, string TxnType, decimal Amount, string OperationId,
+    string? PartyId = null, long? TxnDate = null, string? BranchId = null, string? Description = null,
+    string? DocNo = null, string? PaymentMethod = null, string? ReferenceNo = null, string? Currency = null,
+    AllocationDto[]? Allocations = null);
+record FinanceTransferDto(string FromAccountId, string ToAccountId, decimal Amount, string OperationId,
+    long? TxnDate = null, string? Description = null, string? Currency = null);
+record FinanceReverseDto(string Reason);
+
+record BranchScopeDto(string[]? BranchIds);

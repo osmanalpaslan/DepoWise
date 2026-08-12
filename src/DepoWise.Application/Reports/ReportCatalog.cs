@@ -33,6 +33,10 @@ public enum ReportFilters
     // yerel MaterialService.List(search)). Bu yüzden /api/reports/scope'a malzeme listesi
     // EKLENMEDİ: 2461 malzemeyi rapor açılışında indirmek performans kuralına aykırı olurdu.
     Material = 4096,
+    // G4-4b: CARİ filtresi (ön muhasebe raporları). Değerler `parties.id`. Seçenekler ÖNCEDEN
+    // YÜKLENMEZ — Material (STK-10b-3) ile AYNI desen: yaz → sunucu tarafı arama → seç.
+    // Binlerce cariyi rapor açılışında indirmek performans kuralına aykırı olurdu.
+    Party = 8192,
 }
 
 /// <summary>Talep DURUMLARI — TEK doğru kaynak (kullanıcı isteği 2026-08-08). Filtre listesi (web scope + masaüstü
@@ -62,7 +66,7 @@ public enum ReportGroup { Standard, Manager }
 /// <summary>Rapor KATEGORİSİ (kullanıcı isteği 2026-08-07): ileride çok sayıda rapor eklendiğinde temaya göre
 /// gruplamak için (UI'da alt-başlık/klasör olarak kullanılabilir — mimari şimdiden hazır). Yeni kategori
 /// eklemek için buraya değer + <see cref="ReportCatalog.CategoryLabel"/>'a etiket eklenir.</summary>
-public enum ReportCategory { Vehicle, Material, Fuel, Maintenance, Requests, Purchasing, Stock, Management }
+public enum ReportCategory { Vehicle, Material, Fuel, Maintenance, Requests, Purchasing, Stock, Management, Accounting }
 
 /// <summary>
 /// TEK doğru kaynak rapor tanımı (kullanıcı isteği 2026-08-07 — ortak rapor mimarisi). Hem masaüstü hem web
@@ -94,6 +98,7 @@ public sealed record ReportDescriptor(
     public bool UsesMovementType => Filters.HasFlag(ReportFilters.MovementType);   // STK-10b-1: hareket türü
     public bool UsesSearch => Filters.HasFlag(ReportFilters.Search);   // STK-10b-2: serbest metin arama
     public bool UsesMaterial => Filters.HasFlag(ReportFilters.Material);   // STK-10b-3: malzeme (arama ile seçilir)
+    public bool UsesParty => Filters.HasFlag(ReportFilters.Party);   // G4-4b: cari (arama ile seçilir)
     public bool IsManager => Group == ReportGroup.Manager;
 }
 
@@ -168,6 +173,48 @@ public static class ReportCatalog
             ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
         new ReportDescriptor("status", "Durum Rapor", "Şube bazlı sayısal özet (modül başına kayıt)",
             ReportCategory.Management, ReportGroup.Manager, ReportFilters.Date, true, ExportManager),
+
+        // ═══ G4-4 — ÖN MUHASEBE RAPORLARI (kullanıcı isteği 2026-08-12) ═══════════════════════
+        // Hepsi ŞUBE KAPSAMLIDIR: ReportScope.BranchSql → BranchAccess (izinli ∩ istenen).
+        // ⚠️ İKİNCİ FİNANSAL GERÇEKLİK YOK: raporlar mevcut defterlerden OKUR (party_ledger,
+        //    invoices, finance_transactions, invoice_allocations). Özet/bakiye tablosu SAKLANMAZ.
+        // ⚠️ "Firma toplamı" = kullanıcının ERİŞEBİLDİĞİ şubelerin toplamı; erişemediği şube GİRMEZ.
+
+        new ReportDescriptor("acc-statement", "Cari Ekstre",
+            "Seçili carinin hareket dökümü ve yürüyen bakiyesi (şube kapsamlı)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, true, ExportStandard,
+            InfoNote: "Yürüyen bakiye seçili ŞUBE KAPSAMINA göre hesaplanır: yalnız seçtiğiniz (ve yetkili olduğunuz) şubelerin hareketleri toplanır. İptal edilen hareketler listede görünür ama bakiyeye girmez. Cari kartı firma genelinde tekildir; ayrışma HAREKET düzeyindedir."),
+
+        new ReportDescriptor("acc-balances", "Cari Bakiye Özeti",
+            "Cari başına borç / alacak / bakiye (şube kapsamlı)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, false, ExportStandard,
+            InfoNote: "Bakiye = Borç − Alacak. Pozitif: cari size borçlu. Negatif: siz cariye borçlusunuz. Bakiye SAKLANMAZ, her seferinde hareketlerden hesaplanır. Şube seçilirse yalnız o şubelerin hareketleri toplanır."),
+
+        new ReportDescriptor("acc-invoices", "Fatura Özeti",
+            "Alış / satış faturaları, tutar ve kalan (şube kapsamlı)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, true, ExportStandard,
+            InfoNote: "Kalan tutar SAKLANMAZ: genel toplamdan iptal edilmemiş tahsilat/ödeme tahsisleri düşülerek hesaplanır. İptal edilmiş faturalar 'İptal' olarak görünür ve kalan hesabına girmez."),
+
+        new ReportDescriptor("acc-open-invoices", "Açık Faturalar / Vade",
+            "Kapanmamış faturalar, kalan tutar ve vade durumu (şube kapsamlı)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Branch | ReportFilters.Party, false, ExportStandard,
+            InfoNote: "Yalnız YÜRÜRLÜKTEKİ ve kalanı sıfırdan büyük faturalar listelenir. 'Gecikme' vadesi geçmiş gün sayısıdır; vadesiz faturada boştur."),
+
+        new ReportDescriptor("acc-payments", "Tahsilat / Ödeme Özeti",
+            "Cari tahsilat ve ödemeleri, yöntem ve hesap kırılımı (şube kapsamlı)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, true, ExportStandard,
+            InfoNote: "Yalnız cari etkileyen hareketler (tahsilat/ödeme) listelenir; iç transfer ve açılış hareketleri Kasa/Banka raporundadır. İptal edilen işlemler görünür ama toplama girmez."),
+
+        new ReportDescriptor("acc-cash", "Kasa / Banka Özeti",
+            "Hesap başına giriş / çıkış / bakiye (şube kapsamlı)",
+            ReportCategory.Accounting, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch, false, ExportStandard,
+            InfoNote: "Bakiye = Σ giriş − Σ çıkış; SAKLANMAZ. Tarih aralığı verilirse giriş/çıkış o aralıktan, bakiye ise TÜM hareketlerden hesaplanır (dönem hareketi ile güncel bakiye ayrı okunur). İptal edilen hareketler hiçbirine girmez."),
     };
 
     public static ReportDescriptor? ByKey(string key) => All.FirstOrDefault(d => d.Key == key);
@@ -183,6 +230,7 @@ public static class ReportCatalog
         ReportCategory.Purchasing => "Satın Alma",
         ReportCategory.Stock => "Stok",
         ReportCategory.Management => "Yönetim",
+        ReportCategory.Accounting => "Ön Muhasebe",
         _ => c.ToString(),
     };
 

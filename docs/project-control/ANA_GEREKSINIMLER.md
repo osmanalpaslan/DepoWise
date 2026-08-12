@@ -752,3 +752,469 @@ Etkiler kendi tablolarıyla taşınır (`party_ledger`, `stock_movements`); senk
 - GUI tıklama testi **yapılmadı** — masaüstü ve web ekranları derlendi ve servis katmanı testlerle
   doğrulandı, ancak elle ekran testi yapılmadığı için **yapılmış gibi raporlanmıyor**.
 - Belge serisi / KDV oranı **yönetim ekranı** yazılmadı (yukarıda not edildi).
+
+---
+
+# TUR 2026-08-12/9 — G4-3: KASA / BANKA
+
+Ön muhasebenin üçüncü ayağı. Cari (G4-1) ve fatura (G4-2) ile **para** arasındaki bağ burada kuruldu.
+
+## Mimari kararlar
+| Karar | Seçim | Gerekçe |
+|---|---|---|
+| Kasa/banka modeli | **TEK** `finance_accounts` + `account_kind` | Defter mantığı aynı; ayrı tablo = iki paralel para sistemi. POS/çek ileride aynı tabloya yeni tür olarak girer. |
+| Hareket defteri | `finance_transactions`, `direction` ±1, `amount` TEXT | `party_ledger` deseninin aynısı. |
+| Hesap bakiyesi | **SAKLANMAZ** — `Σ(direction × amount)` | `stock_balances` ve cari bakiyesi kararının aynısı. |
+| Fatura kalanı | **SAKLANMAZ** — `invoice_allocations` tablosundan hesaplanır | `invoices`'a `paid_total` eklenseydi tahsilat iptalinde defterle sessiz fark oluşabilirdi. |
+| Cari yazımı | `PartyLedgerService.AddFromDocumentTx` | İkinci cari defteri YOK. |
+| Transaction | Ambient (tek `conn`/`tx`) | G4-2 kararının devamı. |
+| Şube kapsamı | `BranchScope` + `EnforceOwnBranch` (StockService ile **aynı kural**) | G1 alan/scope yetkisi geldiğinde tek noktadan taşınır; ayrı sistem kurulmadı. |
+
+## Yön kuralı (repodan DOĞRULANDI, varsayılmadı)
+Cari bakiyesi = **Borç − Alacak**; pozitif = cari BİZE borçlu.
+- **TAHSİLAT**: kasa **+1**, cari **alacak (−1)** → müşterinin borcu azalır.
+- **ÖDEME**: kasa **−1**, cari **borç (+1)** → bizim borcumuz azalır.
+- **Açılış / Düzeltme / Transfer**: cari **ETKİLENMEZ**.
+
+## Veri modeli — Migration068 (şema 68)
+`finance_accounts` · `finance_transactions` · `invoice_allocations`.
+Tevkifat/KDV/belge serisi BURADA TEKRAR TANIMLANMADI — G4-2'nin sorumluluğunda kaldı.
+Ödeme yöntemi serbest alandır (nakit/havale/kredi kartı/çek/senet); ileride POS ve çek/senet
+modülleri aynı alana veri olarak girer.
+
+## İç transfer
+İki bacak (`transfer_out` −X, `transfer_in` +X), `transfer_group_id` ile bağlı → **net 0**.
+`party_id` NULL — iç transferde kimseye borç doğmaz/kapanmaz. İptal İKİ BACAĞI birlikte geri alır.
+
+## Idempotency
+Tek `operation_id` dallara ayrılır: para `op`, cari `op:ledger`, tahsisler `op:alloc:{i}`,
+transfer `op:out` / `op:in`. Kısmi tekil indeksler: `ux_finance_txn_op`, `ux_invoice_alloc_op`.
+
+## Silme yok
+Finansal hareket fiziksel silinmez: `is_reversed=1` + karşı yönde yeni kayıt (`reversal_of`).
+Çift ters kayıt engellenir; ters kaydın kendisi ayrıca iptal edilemez.
+Hesap TANIMI silinebilir ama **yalnız hareketi yoksa** — aksi halde pasif yapılır.
+
+## Katman katman durum
+| Özellik | Web | Desktop | API | Servis | DB | Sync | Test |
+|---|---|---|---|---|---|---|---|
+| Kasa/banka hesapları (CRUD) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Hesap ekstresi + yürüyen bakiye | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Tahsilat / Ödeme | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Kısmi / tam fatura kapama | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Bağımsız cari tahsilatı | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| İç transfer | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Gerekçeli ters kayıt | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Açılış / düzeltme hareketi | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+## Yetki
+Yeni modül **`finance`** ("Kasa / Banka") — cari ve faturadan AYRI. Dört aksiyon;
+`Delete` yalnız **hesap tanımı** için kullanılır, finansal hareket için karşılığı YOKTUR.
+AppScreens'e üç ekran eklendi: `accounting.finance`, `accounting.finance.new`, `accounting.payments`.
+Menüler bu katalogdan **türetildiği** için ayrıca menü kodu yazılmadı; platform görünürlüğü
+`/screen-visibility` üzerinden yönetilebilir.
+
+## Senkron
+`finance_accounts` → `finance_transactions` → `invoice_allocations` sırasıyla eklendi.
+`parties` ve `party_ledger` ikisinden de ÖNCE (referans sırası). `ModuleOf` → `finance`.
+
+## Test
+- `FinanceTests` — **45 test**. Kullanıcının istediği TEST 1–7'nin tamamı karşılandı:
+  - **K01/K02** 10.000 → 4.000 tahsilat → kalan 6.000 → 6.000 tahsilat → kalan 0.
+  - **I01** aynı `operation_id` iki kez → kasa 1, cari 1, kapama 1 (hiçbir değer iki katına çıkmıyor).
+  - **I02/I03** ortada hata → kasa, cari, fatura kalanı DEĞİŞMEDİ; kısmi kayıt yok.
+  - **B2/K09** ödeme → kasa azalır, borcumuz azalır, alış faturası kapanır.
+  - **T01** iç transfer → kaynak −X, hedef +X, **net 0**, cari etkilenmez.
+  - **G1/G2** yetkisiz ve salt-okunur kullanıcı reddedilir.
+  - Ayrıca: fazla kapama engeli, ters eşleşme engeli (satış faturası ödemeyle kapanmaz),
+    başka carinin faturası, iptal edilmiş fatura, çift ters kayıt, firma ve **şube** izolasyonu,
+    para birimi uyumu, IBAN doğrulaması, hareketi olan hesabın silinememesi.
+- `FinanceSyncTests` — 6 test: kapsam · FK sırası · kapama en son · kaynak sırası · yetki bağı ·
+  türetilmiş veri taşınmaması.
+- Menü taban çizgileri (S13/S14) üç yeni ekranla güncellendi — **gevşetilmedi** (44→47 masaüstü, 51→54 web).
+
+**Tüm paket: 1808 geçti / 0 başarısız / 35 atlandı (PostgreSQL).**
+**Release derlemesi: 0 hata.**
+
+## Bu turda YAPILMAYANLAR (bilinçli)
+- **GUI tıklama testi yapılmadı** — ekranlar derlendi ve iş kuralları servis katmanında test edildi;
+  elle ekran testi yapılmadığı için "kanıtlandı" sayılmıyor. Kontrol listesi:
+  `docs/tests/KasaBanka_GUI_Checklist.md`.
+- **Commit/push yapılmadı** — kullanıcı bu turda açıkça istemedi (§21). ⚠️ Bu, `CLAUDE.md` §0
+  ("her değişiklikten sonra commit+push") ile çelişir; kullanıcının son açık talebi öncelikli
+  olduğu için değişiklikler çalışma ağacında bırakıldı.
+- Production'a hiçbir yazma yapılmadı (INSERT/UPDATE/DELETE/DDL/Migration/deploy/publish = 0).
+- Çek/senet takibi, POS, banka ekstresi içe aktarımı, döviz kuru dönüşümü **kapsam dışı** —
+  model bunları engellemiyor ama bu turda yazılmadı.
+
+## ⚠️ AÇIK KALAN ANA GEREKSİNİMLER (kaybolmasın)
+| Madde | Durum |
+|---|---|
+| G1 — yetki güncelleme/sıfırlama/özet/escalation | ✅ TAMAM |
+| G1 — **alan/scope bazlı yetki** | 🔴 BEKLİYOR (G4-3'te `BranchScope` ile uyumlu tutuldu, ayrı sistem kurulmadı) |
+| G2/G6 — AppScreens tek kaynak | ✅ TAMAM |
+| G3 — grid satır seçimi | ✅ TAMAM |
+| G4-1 — Cari | ✅ TAMAM |
+| G4-2 — Fatura | ✅ TAMAM |
+| G4-2 — belge serisi yönetim ekranı | 🔴 BEKLİYOR (G4-4) |
+| G4-2 — KDV oranı yönetim ekranı | 🔴 BEKLİYOR (G4-4) |
+| G4-2 — ambient transaction retry değerlendirmesi | 🔴 BEKLİYOR |
+| G4-3 — Kasa/Banka | ✅ TAMAM (GUI testi hariç) |
+| G4-4 — ön muhasebe raporları | 🔴 BEKLİYOR |
+| G5 — platform görünürlüğü | ✅ TAMAM |
+| STK-08 dağıtımı | ⏸ KULLANICI KARARI BEKLİYOR (plan Excel'i boş) |
+| H-2 (silinen TEST malzemesi farkı) | ⏸ DOKUNULMAYACAK |
+| 35 PostgreSQL testi | 🔴 İZOLE PG ORTAMI YOK |
+| GUI kullanıcı testleri (G4-1/2/3) | 🔴 BEKLİYOR |
+| Final yayın (API+Web+Desktop+update paketi) | 🔴 BEKLİYOR |
+
+---
+
+# TUR 2026-08-12/10 — G4-3b: ŞUBE BAZLI ÖN MUHASEBE (KAPSAM ALTYAPISI)
+
+Bu tur **G4-4 raporlarını YAZMADI**. Kullanıcının talimatı gereği önce şube kapsamı analiz edildi;
+analiz **üç gerçek güvenlik açığı** ortaya çıkardı ve bu tur onları kapatmaya ayrıldı.
+
+## 🔴 KAPATILAN ÜÇ AÇIK
+1. **Web/API'de şube kapsamı HİÇ uygulanmıyordu.** `PermissionSnapshot.ToSession()` şube bilgisi
+   taşımıyordu → `BranchScope.Active(s)` web tarafında DAİMA `null` → her kullanıcı her şubenin
+   cari/fatura/kasa verisini görüyordu. Masaüstünde çalışan filtre webde yoktu.
+2. **`user_scopes` izinli-şube listesi ön muhasebede hiç sorulmuyordu.** `ScopeResolver` yalnız Şube
+   ve Personel ekranlarında kullanılıyordu. `EnforceOwnBranch` yalnız oturumun ÇALIŞMA şubesine
+   bakıyordu — bu bir görünüm tercihidir, güvenlik kapısı değil.
+3. **Rapor `BranchIds` doğrulanmıyordu.** Şube seçme yetkisi olan kullanıcı isteğe elle yetkisiz bir
+   `branch_id` yazarak o şubenin verisini okuyabiliyordu (`ReportScope.Effective` kesişim almıyordu).
+
+## Mimari karar — TEK OTORİTE: `BranchAccess`
+İkinci bir şube tablosu, ikinci bir yetki ağacı veya ayrı bir `ScopePermissionService` **kurulmadı**.
+Mevcut parçalar tek formülde birleştirildi:
+
+```
+ETKİN KAPSAM = İZİNLİ ŞUBELER ∩ (İSTENEN ŞUBELER ?? OTURUM ŞUBESİ ?? İZİNLİ ŞUBELER)
+```
+
+**İzinli şubeler (öncelik):** `user_scopes` (admin bypass'ını da bağlar) → admin/`CanViewAllBranches`
+sınırsız → `users.branch_id` tek şube → hiçbiri yoksa sınırsız.
+
+**Migration YAPILMADI** — gerek yoktu: `user_scopes` tablosu Migration004'ten, `users.branch_id`
+Migration014'ten beri vardı; `PermissionSnapshot.ScopeBranchIds` alanı da F4 için AYRILMIŞTI.
+Bu tur o ayrılmış alanı **kullanıma aldı**.
+
+## Uygulanan noktalar
+| Katman | Değişiklik |
+|---|---|
+| Oturum | `AuthService.LoadSnapshot` artık `user_scopes` + `users.branch_id` okuyor |
+| Cari | `Balance`/`Statement` şube kapsamlı; `Add`/`AddFromDocumentTx` kapsam kapısı |
+| Fatura | `Create` şubeyi `Resolve` ile çözüp doğruluyor; `Cancel`/`UpdateInfo`/`Get`/`List` kapsam kapısı |
+| Kasa/Banka | `Accounts`/`Transactions`/`Account`/`Balance`/`Statement` kapsamlı; yazma yolu `Resolve` |
+| Rapor | `ReportScope.Effective` artık `BranchAccess` ile KESİŞİM alıyor |
+| API | `/api/finance/accounts`, `/api/finance/transactions`, `/api/invoices` → `branchIds` (çoklu) |
+| Yetki devri | `BranchAccess.GrantCeiling` / `RequireGrantable` — sahip olunmayan şube devredilemez |
+
+## Cari modeli kararı (kullanıcı §7'nin cevabı)
+**Her şubeye ayrı cari kaydı AÇILMADI** (veri tekrarı olurdu). Model:
+**firma içinde TEK cari kartı + şube bazlı cari HAREKET** (`party_ledger.branch_id` zaten vardı).
+Bakiye kullanıcının izinli şubeleriyle hesaplanır → *firma toplamı = yetkili şube toplamları*,
+sessiz fark yok. Test: `D1_Tek_Cari_Sube_Bazli_Bakiye`.
+
+## Davranış değişikliği (bilinçli)
+Oturumun ÇALIŞMA şubesi artık **yazma yolunda da daraltır**: "ŞUBE A ile giren" bir yönetici,
+yetkisi olsa bile o oturumda ŞUBE B'ye yazamaz. Firma geneli çalışmak isteyen "Tüm Şubeler" ile girer.
+(G4-3'ün `G5_Sube_Izolasyonu` testi bu gerilemeyi yakaladı ve kural netleştirildi.)
+
+## Test
+- `BranchScopeAccountingTests` — **23 test**: kapsam formülü, admin bypass'ının açık kapsamla
+  bağlanması, ana şube yolu, **kesişim (elle branch_id ile kapsam genişletilemez)**, "Tümü = yetkili
+  şubeler", **yetki devri tavanı**, kasa/fatura/cari kapsam kapıları, gerileme koruması.
+- **Tüm paket: 1831 geçti / 0 başarısız / 35 atlandı.** Release: 0 hata.
+
+## Bu turda BİLİNÇLİ YAPILMAYANLAR
+- **G4-4 raporları yazılmadı** (kullanıcı talimatı: önce kapsam altyapısı).
+- **Sync şube filtresi eklenmedi** 🔴 — `BusinessSyncService` pull'u hâlâ şube süzmüyor; offline
+  masaüstü başka şubenin ön muhasebe verisini indirebilir. **AÇIK KALAN EN BÜYÜK EKSİK.**
+- **Şube kapsamı yönetim EKRANI yok** — `user_scopes` bugün yalnız `BranchService` üzerinden
+  dolduruluyor; Yetkiler ekranında şube seçimi UI'ı yazılmadı.
+- Web/Desktop ekranlarına **çoklu şube seçici** eklenmedi (API hazır, UI yok).
+- GUI testi yapılmadı.
+- Commit/push yapılmadı (önceki turun talimatı sürüyor).
+
+---
+
+# TUR 2026-08-12/11 — G4-3c: GAP-6 (SENKRON ŞUBE İZOLASYONU) + GAP-7 (ŞUBE KAPSAMI YÖNETİMİ)
+
+## ⚠️ Promptta mevcut sayılan ama REPODA OLMAYAN sınıflar
+Kullanıcının promptu `BranchAccessService`, `BranchScopedQuery`, `BranchScopePolicy` ve bir
+`Own/Explicit/All` enum'unu mevcut sayıyordu. **Bunların hiçbiri repoda yok.** Geçen turda yalnız
+`BranchAccess` (Application/Security) oluşturuldu. Yeni tip/enum UYDURULMADI; kapsam kipi gerçek
+modelden TÜRETİLİYOR (`explicit` / `all` / `own` / `none`) ve yalnız görüntüleme amaçlı bir metin.
+
+## GAP-6 — SENKRON ŞUBE İZOLASYONU
+**Kök neden:** `BuildSnapshot(companyId, …)` oturum almıyordu → cihaz TÜM şubelerin finansal
+verisini indiriyordu. `Apply` modül yetkisine bakıyor ama satırın şubesine bakmıyordu.
+
+**Çözüm:**
+- `BuildSnapshot(..., SessionContext? session)` — oturum verilirse ön muhasebe tabloları
+  `BranchAccess.Effective` ile süzülür. Oturum yoksa davranış AYNEN eskisi gibi (geriye dönük uyum).
+- Doğrudan kapsanan: `party_ledger`, `invoices`, `finance_accounts`, `finance_transactions`.
+- Ebeveyni üzerinden kapsanan (kendi şube kolonu yok): `invoice_lines`, `invoice_allocations`
+  → `EXISTS` alt sorgusuyla faturasının şubesine bakar.
+- **`parties` BİLİNÇLİ olarak süzülmez** — cari kartı firma genelinde tekildir; süzülseydi izinli
+  şubedeki hareket sahipsiz kalır, FK/görünürlük bozulurdu. Aynı gerekçeyle `materials`,
+  `vat_rates`, `invoice_series` de süzülmez.
+- Push: `ApplyCore` artık oturumu taşıyor; `RowBranchAllowed` kapsam dışı satırı UYGULAMAZ ve
+  hataya "şube kapsam dışı (atlandı)" yazar. Manipüle edilmiş `branch_id` ile geçilemez.
+- **Stok/araç/personel senkronuna DOKUNULMADI** — oraya filtre eklemek bugün çalışan çok-makineli
+  görünürlüğü sessizce daraltırdı; ayrı karar konusudur.
+
+## GAP-7 — ŞUBE KAPSAMI YÖNETİMİ
+`PermissionService`'e eklendi (ayrı servis/ayrı yetki ağacı AÇILMADI):
+- `GetBranchScope(actor, userId)` → kip + mevcut kapsam + **aktörün kapsamıyla KIRPILMIŞ** atanabilir liste.
+- `SaveBranchScope(actor, userId, branchIds)` → tek transaction (sil+ekle), firma izolasyonu,
+  `EnsureManageableTarget`, audit, snapshot önbelleği tazeleme.
+- **Devir tavanı:** `BranchAccess.RequireGrantable` — kendisinde olmayan şube devredilemez, sessizce
+  kırpılmaz, hata verir.
+- **Kendi kapsamını değiştiremez** (yetki sıfırlamadaki kuralın aynısı).
+- API: `GET/PUT /api/permissions/{userId}/branch-scope` + `GET /api/branch-scope/mine`
+  (ekranlardaki şube seçicisi bu tek kaynaktan beslensin diye).
+
+## ETKİN ERİŞİM FORMÜLÜ (kalıcı)
+```
+MODÜL YETKİSİ ∧ ŞUBE KAPSAMI ∧ PLATFORM AKTİF ∧ diğer AccessControl kuralları
+```
+Kapsam vermek yetki vermek değildir; yetki vermek de kapsam vermek değildir.
+
+## MIGRATION
+**YAPILMADI** — gerekmedi. `user_scopes` (Migration004), `users.branch_id` (Migration014) ve
+`PermissionSnapshot.ScopeBranchIds` (F4 için ayrılmış) zaten vardı. Şema **68**'de kaldı.
+
+## Test
+- `BranchScopeSyncGrantTests` — **19 test**: pull izolasyonu, çocuk tabloların ebeveynle süzülmesi,
+  cari kartının süzülmemesi, ortak katalogların süzülmemesi, geriye dönük uyum, FK sırası,
+  **push kapısı (manipüle edilmiş branch_id reddi)**, şubesiz satır kabulü, tekrar push'ta
+  mükerrer olmaması; kapsam yaz/oku, boş listeyle kaldırma, **devir tavanı**, atanabilir listenin
+  kırpılması, kendi kapsamını değiştirememe, firma izolasyonu, yetkisiz erişim, audit,
+  **uçtan uca: kapsam yazımı oturumu gerçekten kısıtlıyor**.
+- **Tüm paket: 1850 geçti / 0 başarısız / 35 atlandı (PostgreSQL — izole PG ortamı yok).**
+- **Release: 0 hata.**
+
+## BU TURDA BİLİNÇLİ YAPILMAYANLAR
+- **Web/Desktop şube seçici UI'ı yazılmadı** 🔴 — API (`/api/branch-scope/mine`) ve servis hazır,
+  ekran bileşeni yok.
+- **Yetkiler ekranına şube kapsamı UI'ı yazılmadı** 🔴 — servis + API hazır, Web/Desktop ekranı yok.
+- G4-4 raporları yazılmadı.
+- GUI testi yapılmadı.
+- Stok/araç/personel senkronuna şube filtresi eklenmedi (kapsam dışı karar).
+- Commit/push yapılmadı.
+
+---
+
+# TUR 2026-08-12/12 — G4-3d: ŞUBE KAPSAMI UI + ORTAK ŞUBE SEÇİCİ
+
+## Kapatılan iki UI açığı
+1. **Yetkiler ekranında şube kapsamı yönetimi** — web `Permissions.razor`'a "Şube Kapsamı" bölümü.
+   Liste AKTÖRÜN kapsamıyla kırpılmış gelir; kaydetme `PermissionService.SaveBranchScope` üzerinden
+   (devir tavanı, firma izolasyonu, audit, tek transaction). Kendi kapsamını değiştirme engelli.
+2. **Ortak şube seçici** — web `BranchPicker.razor`, masaüstü `BranchScopeSelector`.
+   Cari / Fatura / Kasa-Banka / Tahsilat-Ödeme **aynı** bileşeni kullanır; her ekrana kopyalanmadı.
+
+## Kapatılan bir GERÇEK açık (bu turda bulundu)
+**Cari uçlarında şube kapsamı yoktu:** `/api/parties`, `/api/parties/{id}`, `/api/parties/{id}/ledger`
+`branchIds` almıyordu ve `PartyService.LedgerTotals` şube süzmüyordu → **liste bakiyesi firma geneli,
+kart bakiyesi şube kapsamlı** olabiliyordu (sessiz fark). Düzeltildi; `U15` testi kilitliyor.
+
+## OKUMA ≠ YAZMA (kalıcı kural)
+- **Okuma/rapor:** tek şube · çoklu şube · tüm yetkili şubeler.
+- **Yazma:** her zaman TEKİL `ActiveWriteBranchId`
+  (tek seçim → oturum çalışma şubesi → ana şube → tek izinli şube → null).
+  Çoklu seçim yazmaya GEÇMEZ — kayıt "hangi şubeye?" belirsizliğiyle yazılmaz (`U9`).
+- UI'nın belirlediği şube serviste `BranchAccess.Resolve` ile TEKRAR doğrulanır (`U11`).
+
+## "Tümü" tanımı
+"Tüm yetkili şubeler" = kullanıcının erişebildiği şubeler. **Tüm firma şubeleri DEĞİL.**
+Tek şubeli kullanıcıda "Tümü" yine kendi şubesidir.
+
+## Fail-closed davranışlar
+- Yetkisiz şube seçici listesinde **hiç görünmez**.
+- Yetki değişirse eski seçim **düşürülür** (`U14`) ve servis kesişimle korur.
+- UI atlanıp API'ye yetkisiz `branchId` gönderilirse servis **reddeder** (`U12`).
+
+## Test
+- `BranchScopeUiContractTests` — **16 test**: seçici listesi, varsayılan seçim, çalışma şubesi
+  önceliği, çoklu seçimin yazmaya geçmemesi, UI-servis tutarlılığı, seçim değişince verinin
+  gerçekten değişmesi, yetki değişince eski seçimin geçersizleşmesi, **liste ile kart bakiyesinin
+  aynı kapsamda olması**, çoklu şube bakiyesi.
+- Şube kapsamı test toplamı: **66** (`BranchScopeAccountingTests` 23 + `BranchScopeSyncGrantTests` 19
+  + `BranchScopeUiContractTests` 16 + diğer).
+- **Tüm paket: 1866 geçti / 0 başarısız / 35 atlandı (izole PostgreSQL ortamı yok).**
+- **Release: 0 hata.**
+
+## MIGRATION
+**YAPILMADI** — gerekmedi. Şema **68**.
+
+## Bilinen tutarsızlık (raporlandı, düzeltilmedi)
+`ScopeResolver` (Şube/Personel ekranları) kapsamsız personele **boş** liste döner;
+`BranchAccess` (ön muhasebe) **sınırsız** sayar. `ScopeResolver` daha katı olduğu için güvenlik
+açığı değildir, ama iki farklı fallback vardır. Birleştirme ayrı bir karar konusudur.
+
+## Bu turda YAPILMAYANLAR
+- Masaüstü Yetkiler ekranında şube kapsamı UI'ı 🔴 (web'de var; API/servis eksiksiz).
+- Web'de çoklu şube seçimi `MudSelect MultiSelection` ile yapıldı; masaüstünde **tekil** seçici
+  (çoklu seçim masaüstünde yok) 🟡.
+- G4-4 raporları · GUI tıklama testi · commit/push.
+
+---
+
+# TUR 2026-08-12/13 — G4-3e: MASAÜSTÜ ÇOKLU ŞUBE + MASAÜSTÜ KAPSAM YÖNETİMİ
+
+## Kapatılan iki eksik (son raporun açıkları)
+1. **Masaüstünde çoklu şube seçimi** — `BranchScopeSelector` genişletildi (`Pick`, `Picks`,
+   `SelectAll`, `ClearSelection`, `SelectionText`). Dört ekranda (Cari/Fatura/Kasa-Banka/
+   Tahsilat-Ödeme) işaret kutulu liste. **Yeni bileşen uydurulmadı** — Raporlar ekranındaki
+   mevcut `ItemsControl + CheckBox` deseni kullanıldı.
+2. **Masaüstü Yetkiler ekranında şube kapsamı** — `PermissionsViewModel` + `PermissionsView`.
+   Web'deki bölümün birebir karşılığı; aynı `PermissionService.GetBranchScope/SaveBranchScope`
+   kapısından geçer (devir tavanı, firma izolasyonu, audit, snapshot tazeleme).
+
+## Bulunan GERÇEK bug (bu turda)
+**Çoklu seçim geri besleme döngüsü:** `OnPickChanged` içinde `Single` güncelleniyordu;
+`OnSingleChanged` de `Selected`'ı temizliyordu → **iki şube işaretlendiğinde seçim siliniyordu**.
+`_suppress` koruması + `SyncPicks()` ile düzeltildi. (Kod yazılırken yakalandı, teste düşmeden.)
+
+## Semantik (web ve masaüstünde AYNI)
+- **Hiçbiri seçili değil = TÜM YETKİLİ ŞUBELER** — firmanın tümü DEĞİL.
+- **Çoklu seçim yazmaya GEÇMEZ**: yazma hedefi `ActiveWriteBranchId` (tekil).
+- Yetkisiz şube listede **hiç görünmez**; API'ye gönderilse **kesişimle düşer / reddedilir**.
+
+## Test
+- `BranchScopeParityTests` — **12 test**: çoklu seçim kesişimi, "boş = tüm yetkili",
+  çoklu seçimin yazmaya geçmemesi, kapsam ekranı verisi, atanabilir listenin kırpılması,
+  devir tavanı, kendi kapsamını değiştirememe, çoklu şube devri, firma izolasyonu,
+  **uçtan uca oturum kısıtı**, kapsamın kaldırılabilmesi.
+- Şube kapsamı test toplamı: **78**.
+- **Tüm paket: 1878 geçti / 0 başarısız / 35 atlandı (izole PostgreSQL ortamı yok).**
+- **Release: 0 hata.**
+
+## MIGRATION
+**YAPILMADI** — gerekmedi. Şema **68**. AppScreens'e yeni ekran EKLENMEDİ; G5/G3 bozulmadı.
+
+## Bu turda YAPILMAYANLAR
+- G4-4 raporları (talimat gereği).
+- GUI tıklama testi 🔴.
+- Commit/push (kullanıcı onayı bekleniyor).
+
+---
+
+# TUR 2026-08-12/14 — G4-4: ÖN MUHASEBE RAPORLARI (ŞUBE KAPSAMLI)
+
+## Altı rapor — mevcut mimarinin üzerine
+Yeni framework YOK: her rapor = **katalog satırı + `Dispatch` case + metot** (mevcut desen).
+Hesaplama `AccountingReports.cs`'te; `ReportService` yalnız yönlendirir.
+
+| Anahtar | Rapor | Filtre |
+|---|---|---|
+| `acc-statement` | Cari Ekstre (yürüyen bakiye) | Tarih + Şube |
+| `acc-balances` | Cari Bakiye Özeti | Tarih + Şube |
+| `acc-invoices` | Fatura Özeti (tutar/ödenen/kalan) | Tarih + Şube |
+| `acc-open-invoices` | Açık Faturalar / Vade (gecikme günü) | Şube |
+| `acc-payments` | Tahsilat / Ödeme Özeti | Tarih + Şube |
+| `acc-cash` | Kasa / Banka Özeti (dönem + bakiye) | Tarih + Şube |
+
+Yeni kategori: `ReportCategory.Accounting` → "Ön Muhasebe".
+
+## 🔴 BULUNAN GERÇEK GÜVENLİK AÇIĞI — `ReportScope.BranchSql` FAIL-OPEN
+Eski kod boş kesişimde `return ""` yapıyordu: kullanıcı **yetkisiz bir şube istediğinde şube
+filtresi TAMAMEN KALKIYOR** ve rapor kapsamsız çalışıyordu. Artık üretim `BranchAccess.Sql`'e
+devredilir; boş kesişimde `AND col IS NULL` yazılır (fail-closed). **Bu açık G4-4'e özgü değildi —
+tüm mevcut raporları etkiliyordu.**
+
+## İkinci finansal gerçeklik YOK
+Raporlar yalnız mevcut defterlerden okur (`party_ledger`, `invoices`, `invoice_allocations`,
+`finance_transactions`). Özet/bakiye tablosu **oluşturulmadı**. Testler rapor toplamının ekran
+servisiyle **aynı** olduğunu kilitler (`R8`, `R16`).
+
+## Cari filtresi — bilinçli olarak YARIM bırakıldı
+`ReportRequest.PartyIds` eklendi; **servis ve API cari filtresini uygular**. Ancak
+`ReportFilters.Party` bayrağı **AÇILMADI**: Web/masaüstü rapor ekranlarına cari seçicisi
+bağlanmadığı için bayrağı açmak `ReportFilterParityTests`'in "her bayrak dört katmanda da bağlı"
+güvencesini gevşetmek olurdu. Seçici bağlanınca bayrak + parite satırı eklenecek.
+
+## Güncellenen taban çizgileri (gevşetme değil, kaydırma)
+- `ReportArchitectureTests`: katalog sayısı 13 → **19** (6 bilinçli rapor).
+- `StockMovementsMaterialFilterTests`: pozisyonel nöbetçi son alanı `MaterialIds` → **`PartyIds`**;
+  test tüm mevcut alanların göreli sırasını kilitlemeye devam ediyor (bir assert EKLENDİ).
+
+## Test
+- `AccountingReportTests` — **20 test**: katalog, tek şube, çoklu şube, normal kullanıcının kendi
+  şubesi, **yetkisiz şubenin karışık istekte düşmesi**, cari filtresi, rapor=ekran tutarlılığı
+  (cari + kasa), fatura kalanı, açık faturalar, iptal davranışı, ters kaydın rapora yansıması,
+  yetki kapısı, **firma toplamı = erişilebilir şubeler**.
+- **Tüm paket: 1898 geçti / 0 başarısız / 35 atlandı (izole PostgreSQL ortamı yok).**
+- **Release: 0 hata.**
+
+## MIGRATION
+**YAPILMADI** — gerekmedi. Şema **68**. AppScreens'e yeni ekran EKLENMEDİ (raporlar mevcut
+Raporlar ekranından katalog üzerinden gelir); G5/G3 bozulmadı.
+
+## Bu turda YAPILMAYANLAR
+- Rapor ekranlarına **cari seçicisi** (yukarıda gerekçesi).
+- GUI tıklama testi 🔴.
+- Commit/push (kullanıcı onayı bekleniyor).
+
+---
+
+# TUR 2026-08-12/15 — G4-4b: CARİ SEÇİCİSİ (G4-4'ün son eksiği)
+
+## Altı katmanın tamamına bağlandı
+`ReportFilterParityTests`'in dayattığı kontrol listesinin **tamamı**:
+
+| # | Katman | Yapılan |
+|---|---|---|
+| 1 | `ReportCatalog.cs` | `ReportFilters.Party = 8192` + `ReportDescriptor.UsesParty` |
+| 2 | `ReportModels.cs` | `ReportRequest.PartyIds` (önceki turda eklenmişti) |
+| 3 | `Api/Program.cs` | katalog yanıtında `usesParty` + DTO alanı + sorgu/export aktarımı |
+| 4 | `Web/Reports.razor` | `MudAutocomplete` + `SearchParty` + `CatItem.UsesParty` + iki gövde |
+| 5 | `Desktop/ReportsViewModel.cs` | `ShowParty` + `[NotifyPropertyChangedFor]` + `PartyIds` aktarımı |
+| 6 | `Desktop/ReportsView.axaml` | `IsVisible="{Binding ShowParty}"` bloğu + etiket |
+
+**Emsal: Malzeme (STK-10b-3).** Seçenekler ÖNCEDEN YÜKLENMEZ — web `/api/parties?search=…`,
+masaüstü yerel `Parties.List(term)` (çevrimdışı çalışır). Yeni bileşen/framework yok.
+
+## Hangi raporlarda açık
+`acc-statement` · `acc-balances` · `acc-invoices` · `acc-open-invoices` · `acc-payments`.
+**`acc-cash` HARİÇ** — hesap özeti cariye bağlı değildir; körlemesine yayılmadı (`P1` kilitler).
+
+## Cari × Şube birlikte
+```
+SONUÇ = (İZİNLİ ŞUBELER ∩ İSTENEN ŞUBELER) × (İSTENEN CARİ ?? TÜM CARİLER)
+```
+İki filtre de **daraltır**; cari seçimi şube kapsamını **bypass etmez** (`P7`).
+
+## Fail-open nöbetçisi
+`P8` — yetkisiz şube istendiğinde kesişim boş kalır ve filtre **kalkmaz**; sonuç boştur.
+Bir önceki turda kapatılan `ReportScope.BranchSql` hatasının tekrar etmemesi için kalıcı nöbetçi.
+
+## Güncellenen nöbetçiler (gevşetme değil)
+- `StockReportLocationTests`: "sıradaki bayrak açılmadı" nöbetçisi 8192 → **16384**'e kaydırıldı;
+  ayrıca cari filtresinin **hangi raporlarda açık olduğu** yeni bir assert ile kilitlendi (koruma ARTTI).
+- `ReportFilterParityTests.Map`: `Party` satırı eklendi → altı katman denetimi otomatik çalışıyor.
+
+## Test
+- `AccountingReportPartyTests` — **15 test**: katalog yayılımı, cari tek başına, seçim temizleme,
+  cari+tek şube, cari+çoklu şube, **kapsam bypass edilemez**, **fail-open olmaz**, karışık istekte
+  yetkisizin düşmesi, yönetici çoklu şube, fatura/açık fatura/tahsilat raporlarında cari,
+  **rapor = ekran tutarlılığı**, geçersiz cari kimliği.
+- **Tüm paket: 1913 geçti / 0 başarısız / 35 atlandı (izole PostgreSQL ortamı yok).**
+- **Release: 0 hata.**
+
+## ⚠️ FLAKY TEST TESPİT EDİLDİ (gizlenmedi)
+`DesktopOfflineLocationTests.Ayni_Depoya_Transfer_Engellenir` bir tam koşuda kırıldı, izole
+koşuda ve sonraki tam koşuda geçti. **Retry ile gizlenmedi** — muhtemel neden paralel koşuda
+SQLite dosya/havuz çakışması. Bu turun değişiklikleriyle ilgisi yok (stok transferi testi).
+Ayrı bir iş olarak incelenmeli.
+
+## MIGRATION
+**YAPILMADI** — gerekmedi. Şema **68**.
+
+## Bu turda YAPILMAYANLAR
+- GUI tıklama testi 🔴.
+- Commit/push (kullanıcı onayı bekleniyor).

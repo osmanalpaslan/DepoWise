@@ -209,6 +209,33 @@
                         </Border>
                     </StackPanel>
                 </ctrl:FormField>
+                <!-- G4-4b — CARİ filtresi (ön muhasebe raporları). Malzeme seçicisinin AYNI deseni:
+                     yaz → yerel arama → seç. Seçenekler ÖN YÜKLENMEZ; çevrimdışı çalışır.
+                     Boş = tüm cariler (web'deki "Clearable" ile aynı semantik). -->
+                <ctrl:FormField Label="Cari (kod/ünvan ile ara)" Width="230" IsVisible="{Binding ShowParty}"
+                                HelpText="Boş = tüm cariler">
+                    <StackPanel Spacing="4">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Classes="Search" Text="{Binding PartySearch}" PlaceholderText="Cari ara (kod/ünvan)"/>
+                            <Button Grid.Column="1" Classes="Ghost" Content="Temizle" Margin="4,0,0,0"
+                                    Command="{Binding ClearPartyCommand}"/>
+                        </Grid>
+                        <Border Classes="Table" MaxHeight="110" IsVisible="{Binding PartyResults.Count}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding PartyResults}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ReportsViewModel+PartyRefRow">
+                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                    Content="{Binding Display}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ReportsViewModel)DataContext).PickPartyCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </ctrl:FormField>
                 <!-- Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar. -->
                 <ctrl:FormField Label="Durum (çoklu; boş=tümü)" Width="180" IsVisible="{Binding ShowStatus}">
                     <Border Classes="Field" MaxHeight="110" Padding="8,4">

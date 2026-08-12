@@ -200,6 +200,20 @@ else
                                  HelperText="Boş = tüm malzemeler" />
             </MudItem>
         }
+        @* G4-4b — CARİ filtresi (ön muhasebe raporları). Malzeme (STK-10b-3) ile AYNI desen:
+           tüm cariler ÖNCEDEN İNDİRİLMEZ; /api/parties?search=… ile sunucu tarafı arama yapılır ve
+           /api/reports/scope BÜYÜMEZ. Kullanıcıya "KOD — ÜNVAN" gösterilir, isteğe parties.id gider.
+           Clearable → seçim kaldırılınca filtre kalkar ("tüm cariler" davranışına döner). *@
+        @if (_sel?.UsesParty == true)
+        {
+            <MudItem xs="12" md="3">
+                <MudAutocomplete T="ApiClient.Opt" @bind-Value="_partySel" Label="Cari (kod/ünvan/vergi no ile ara)"
+                                 SearchFunc="SearchParty" ToStringFunc="@(o => o?.Name ?? "")"
+                                 Margin="Margin.Dense" Variant="Variant.Outlined" MinCharacters="0"
+                                 CoerceText="true" Clearable="true"
+                                 HelperText="Boş = tüm cariler" />
+            </MudItem>
+        }
         @* Durum filtresi (Talep Raporu) — sabit liste; boş = tüm durumlar (iptal/reddedilen dâhil). *@
         @if (_sel?.UsesStatus == true)
         {
@@ -343,7 +357,7 @@ else
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──
     private sealed record CatItem(string Key, string Name, string Description, string Category, string CategoryLabel,
         bool UsesDate, bool UsesBranch, bool UsesVehicle, bool UsesVehicleType, bool UsesMaintenanceDef, bool UsesTechnician,
-        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool UsesMovementType, bool UsesSearch, bool UsesMaterial, bool RequiresDate, bool Manager, string? InfoNote);
+        bool UsesSupplier, bool UsesRequester, bool UsesStatus, bool UsesLocation, bool UsesMovementType, bool UsesSearch, bool UsesMaterial, bool UsesParty, bool RequiresDate, bool Manager, string? InfoNote);
     private List<CatItem> _catalog = new();
     private string _selKey = "general";
     private CatItem? _sel => _catalog.FirstOrDefault(x => x.Key == _selKey);
@@ -398,10 +412,35 @@ else
     /// <summary>STK-10b-3 — seçili malzeme (autocomplete ile ARAMA sonucundan seçilir; liste indirilmez).
     /// null = tüm malzemeler. İsteğe <c>materials.id</c> gider, kullanıcı malzeme ADINI görür.</summary>
     private ApiClient.Opt? _materialSel;
+    /// <summary>G4-4b: seçili cari (null = tüm cariler). Malzeme ile aynı desen.</summary>
+    private ApiClient.Opt? _partySel;
 
     /// <summary>Malzeme arama — MEVCUT desen (Talep/Bakım/Stok ekranlarıyla AYNI uç ve aynı çağrı):
     /// <c>/api/materials?search=…</c>. Arama boşken tüm katalog akmasın diye ilk N sonuç gösterilir
     /// (FieldChecks.MaxUnfilteredOptions) — yeni bir arama mimarisi kurulmadı.</summary>
+    /// <summary>
+    /// G4-4b — CARİ ARAMA. Sunucu tarafında arar (kod / ünvan / vergi no / telefon — PartyService.List
+    /// zaten bu alanlarda "içerir" araması yapar). Tüm cariler tarayıcıya İNDİRİLMEZ.
+    /// ⚠️ Sonuçlar kullanıcının ŞUBE KAPSAMINDAN bağımsız DEĞİLDİR: /api/parties zaten kapsam
+    /// uygular; ayrıca rapor sorgusu şube kesişimini kendi başına yeniden uygular (çift kapı).
+    /// </summary>
+    private async Task<IEnumerable<ApiClient.Opt>> SearchParty(string? t, CancellationToken ct)
+    {
+        var url = "/api/parties?onlyActive=true&pageSize=30"
+                + (string.IsNullOrWhiteSpace(t) ? "" : $"&search={Uri.EscapeDataString(t)}");
+        try
+        {
+            var d = await Api.GetObjectAsync(url);
+            if (!d.TryGetProperty("items", out var arr) || arr.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return Array.Empty<ApiClient.Opt>();
+            return arr.EnumerateArray().Select(e => new ApiClient.Opt(
+                e.TryGetProperty("id", out var i) ? (i.GetString() ?? "") : "",
+                (e.TryGetProperty("code", out var c) ? c.GetString() : "") + " — " +
+                (e.TryGetProperty("title", out var n) ? n.GetString() : ""))).ToList();
+        }
+        catch { return Array.Empty<ApiClient.Opt>(); }
+    }
+
     private async Task<IEnumerable<ApiClient.Opt>> SearchMaterial(string? t, CancellationToken ct)
     {
         var r = await Api.OptionsAsync("/api/materials" + (string.IsNullOrWhiteSpace(t) ? "" : $"?search={Uri.EscapeDataString(t)}"), "id", "name");
@@ -556,7 +595,7 @@ else
                 Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
                 Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "usesVehicleType"),
                 Bool(e, "usesMaintenanceDef"), Bool(e, "usesTechnician"), Bool(e, "usesSupplier"),
-                Bool(e, "usesRequester"), Bool(e, "usesStatus"), Bool(e, "usesLocation"), Bool(e, "usesMovementType"), Bool(e, "usesSearch"), Bool(e, "usesMaterial"),
+                Bool(e, "usesRequester"), Bool(e, "usesStatus"), Bool(e, "usesLocation"), Bool(e, "usesMovementType"), Bool(e, "usesSearch"), Bool(e, "usesMaterial"), Bool(e, "usesParty"),
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
         }
@@ -595,6 +634,7 @@ else
             _movTypeSel = new HashSet<string>();
             _searchText = null;
             _materialSel = null;   // STK-10b-3: kapsam değişince (ör. süper adminde firma) malzeme seçimi düşer
+            _partySel = null;      // G4-4b: kapsam değişince cari seçimi de DÜŞER (yabancı kapsam taşınmasın)
         }
         catch { }
     }
@@ -634,6 +674,8 @@ else
                 // STK-10b-3: seçili malzeme TEK elemanlı liste olarak gider (sözleşme liste; arayüz tek seçtirir).
                 materialIds = _sel?.UsesMaterial == true && _materialSel is not null
                     ? new List<string> { _materialSel.Id } : new List<string>(),
+                partyIds = _sel?.UsesParty == true && _partySel is not null
+                    ? new List<string> { _partySel.Id } : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var doc = await Api.PostJsonAsync($"/api/reports/{_selKey}", body);
@@ -682,6 +724,8 @@ else
                 // STK-10b-3: seçili malzeme TEK elemanlı liste olarak gider (sözleşme liste; arayüz tek seçtirir).
                 materialIds = _sel?.UsesMaterial == true && _materialSel is not null
                     ? new List<string> { _materialSel.Id } : new List<string>(),
+                partyIds = _sel?.UsesParty == true && _partySel is not null
+                    ? new List<string> { _partySel.Id } : new List<string>(),
                 companyId = Auth.IsSuperAdmin ? _companyId : null
             };
             var (bytes, fileName, status) = await Api.PostFileAsync($"/api/reports/{_selKey}/export", body, "Rapor.xlsx");

@@ -48,7 +48,7 @@ public class ReportArchitectureTests : IDisposable
         // Sayı, kataloğa BİLİNÇLİ eklemelerle birlikte güncellenir (12 → 13: STK-10a `stock-movements`).
         // Gevşetme değil: aşağıdaki döngü HER rapor için ad/açıklama/kategori/RequiresDate ve `ByKey`
         // çözümlemesini sınamaya devam ediyor; sayı yalnız "sessizce rapor eklendi/silindi" nöbetçisidir.
-        Assert.Equal(13, ReportCatalog.All.Count);
+        Assert.Equal(19, ReportCatalog.All.Count);
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));

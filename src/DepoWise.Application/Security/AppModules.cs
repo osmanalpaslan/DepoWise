@@ -96,6 +96,10 @@ public static class AppModules
         // karti gorme yetkisi ayri verilebilsin (depo gorevlisi fatura kesmez, cari listesi gorebilir).
         // Delete AKSIYONU KULLANILMAZ: fatura fiziksel silinmez, Edit yetkisiyle IPTAL edilir (CLAUDE.md 4).
         ("invoices", "Faturalar"),
+        // G4-3 (2026-08-12): ON MUHASEBE - KASA / BANKA. Tek modul + dort aksiyon.
+        // Kasa ve banka AYRI modul DEGIL: ayni defter mantigi, ayni ekran, ayni yetki.
+        // Delete AKSIYONU KULLANILMAZ: finansal hareket silinmez, Edit yetkisiyle TERS KAYIT yazilir.
+        ("finance", "Kasa / Banka"),
         // G2-B1 DÜZELTMESİ (2026-08-12): "Çöp Kutusu" ekranı bu katalogda YOKTU. Masaüstünde menü grubu ve
         // Navigate kaydı, web'de "@admin" sözde-anahtarı vardı; ama yetki ağacında görünmediği için süper
         // admin bu ekranı belirli bir kullanıcıya DEVREDEMİYOR, Rol Yetki Kontrol ile kısıtlayamıyordu.

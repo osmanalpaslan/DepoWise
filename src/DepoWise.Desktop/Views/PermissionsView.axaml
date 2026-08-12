@@ -35,6 +35,41 @@
         <!-- Yetki ağacı (yalnız kullanıcı seçilince) -->
         <ScrollViewer Grid.Row="2" Margin="0,16,0,0" IsVisible="{Binding HasUser}">
             <StackPanel Spacing="16">
+                <!-- ── ŞUBE KAPSAMI (G4-3e) ────────────────────────────────────────────────
+                     İKİNCİ BİR YETKİ AĞACI DEĞİLDİR: modül yetkileri aşağıdaki ağaçta kalır.
+                     Burada yalnız "hangi şubelerde" sorusu yönetilir.
+                     ETKİN ERİŞİM = MODÜL YETKİSİ ∧ ŞUBE KAPSAMI ∧ PLATFORM ∧ diğer kurallar.
+                     ⚠️ Liste AKTÖRÜN kapsamıyla kırpılmış gelir; asıl kapı serviste
+                        (BranchAccess.RequireGrantable) — yetkisiz şube gönderilirse HATA verir. -->
+                <Border Classes="Panel" IsVisible="{Binding ScopeLoaded}">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="Şube Kapsamı" Classes="SectionTitle"/>
+                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap">
+                            <Run Text="Mevcut kapsam:"/>
+                            <Run Text="{Binding ScopeModeText}" FontWeight="Bold"/>
+                        </SelectableTextBlock>
+                        <SelectableTextBlock Text="{Binding ScopeHint}" Classes="Helper" TextWrapping="Wrap"/>
+
+                        <Border Classes="Field" MaxHeight="160" Padding="8,4"
+                                IsVisible="{Binding CanEditScope}">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding ScopeBranches}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PermissionsViewModel+ScopePick">
+                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+
+                        <Button Classes="Primary" Content="Şube Kapsamını Kaydet"
+                                Command="{Binding SaveBranchScopeCommand}"
+                                IsVisible="{Binding CanEditScope}"
+                                HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Admin/Süper Admin hedef: tam yetkili, salt-okunur bilgi -->
                 <Border Classes="Panel" IsVisible="{Binding IsTargetAdmin}">
                     <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"

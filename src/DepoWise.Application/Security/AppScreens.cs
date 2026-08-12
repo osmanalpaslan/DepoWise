@@ -177,6 +177,13 @@ public static class AppScreens
         new AppScreen("accounting.invoices", "invoices", "Ön Muhasebe", "Fatura Listesi", Both, "invoices", "invoices"),
         new AppScreen("accounting.invoices.new", "invoices", "Ön Muhasebe", "Yeni Fatura", Both, "invoices/new", "invoices:new"),
 
+        // ── Ön Muhasebe / Kasa-Banka (G4-3) ────────────────────────────────────────────────
+        // Kasa ve banka AYRI ekran DEĞİL: aynı defter, aynı ekran, tür filtresiyle ayrılır.
+        // Tahsilat/ödeme kendi ekranındadır — para hareketi hesap tanımından ayrı bir iştir.
+        new AppScreen("accounting.finance", "finance", "Ön Muhasebe", "Kasa / Banka", Both, "finance", "finance"),
+        new AppScreen("accounting.finance.new", "finance", "Ön Muhasebe", "Yeni Hesap", Both, "finance/new", "finance:new"),
+        new AppScreen("accounting.payments", "finance", "Ön Muhasebe", "Tahsilat / Ödeme", Both, "payments", "payments"),
+
         // ── Kullanıcı ───────────────────────────────────────────────────────────────────────
         new AppScreen("users", "users", "Kullanıcı", "Kullanıcı Tanım", Both, "users", "users"),
         new AppScreen("permissions", "permissions", "Kullanıcı", "Yetkiler", Both, "permissions", "permissions"),

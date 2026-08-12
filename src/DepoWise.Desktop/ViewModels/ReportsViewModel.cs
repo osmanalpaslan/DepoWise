@@ -59,6 +59,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowMovementType))]
     [NotifyPropertyChangedFor(nameof(ShowSearch))]
     [NotifyPropertyChangedFor(nameof(ShowMaterial))]
+    [NotifyPropertyChangedFor(nameof(ShowParty))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
     /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
@@ -298,6 +299,63 @@ public sealed partial class ReportsViewModel : ViewModelBase
         MaterialResults.Clear();
     }
 
+    /// <summary>
+    /// G4-4b — CARİ filtresi (ön muhasebe raporları). Seçenekler ÖNCEDEN YÜKLENMEZ: Malzeme
+    /// (STK-10b-3) ile AYNI yerel arama deseni kullanılır — <c>Parties.List(session, term, …)</c>.
+    /// Ağ YOK → çevrimdışı çalışır; rapor açılışında binlerce cari belleğe alınmaz.
+    /// </summary>
+    public bool ShowParty => SelectedReport?.UsesParty == true;
+
+    /// <summary>Cari arama metni (yalnız SEÇİCİ içindir — rapor isteğine GİTMEZ; giden şey seçilen
+    /// carinin kimliğidir).</summary>
+    [ObservableProperty] private string _partySearch = "";
+    partial void OnPartySearchChanged(string value) => RefreshParties();
+
+    /// <summary>Arama sonucu cariler (ilk 30). Seçim yapılınca liste temizlenir.</summary>
+    public ObservableCollection<PartyRefRow> PartyResults { get; } = new();
+
+    /// <summary>Seçili cari. null = TÜM cariler (filtre yok) — web'deki "Clearable" ile aynı.</summary>
+    [ObservableProperty] private PartyRefRow? _pickedParty;
+
+    /// <summary>Cari arama satırı (kod + ünvan).</summary>
+    public sealed record PartyRefRow(string Id, string Code, string Title)
+    {
+        public string Display => $"{Code} — {Title}";
+    }
+
+    /// <summary>Yerel cari araması — kod / ünvan / vergi no / telefon (PartyService.List semantiği).</summary>
+    private void RefreshParties()
+    {
+        PartyResults.Clear();
+        var term = PartySearch?.Trim();
+        try
+        {
+            var res = DesktopServices.Parties.List(_session,
+                string.IsNullOrEmpty(term) ? null : term, null, true, 1, 30);
+            foreach (var p in res.Items) PartyResults.Add(new PartyRefRow(p.Party.Id, p.Party.Code, p.Party.Title));
+        }
+        catch { }
+    }
+
+    /// <summary>Listeden cari seç → filtre bu cariye daralır.</summary>
+    [RelayCommand]
+    private void PickParty(PartyRefRow? p)
+    {
+        if (p is null) return;
+        PickedParty = p;
+        PartySearch = p.Display;
+        PartyResults.Clear();
+    }
+
+    /// <summary>Seçimi kaldır → filtre kalkar (TÜM cariler). Web'deki "Clearable" ile aynı davranış.</summary>
+    [RelayCommand]
+    private void ClearParty()
+    {
+        PickedParty = null;
+        PartySearch = "";
+        PartyResults.Clear();
+    }
+
     private static readonly System.Globalization.CompareInfo TrCmp = System.Globalization.CultureInfo.GetCultureInfo("tr-TR").CompareInfo;
     private static bool TrContains(string s, string sub) => TrCmp.IndexOf(s ?? "", sub, System.Globalization.CompareOptions.IgnoreCase) >= 0;
 
@@ -432,7 +490,9 @@ public sealed partial class ReportsViewModel : ViewModelBase
             LocationIds: locationIds is { Count: > 0 } ? locationIds : null,
             MovementTypes: movementTypes is { Count: > 0 } ? movementTypes : null,
             SearchText: string.IsNullOrWhiteSpace(searchText) ? null : searchText,
-            MaterialIds: materialIds);
+            MaterialIds: materialIds,
+            // G4-4b: seçili cari → TEK elemanlı liste. Seçim yoksa null → TÜM cariler.
+            PartyIds: ShowParty && PickedParty is not null ? new List<string> { PickedParty.Id } : null);
         var maxRows = ReportLimits.Resolve(k => DesktopServices.Settings.Get(_session.CompanyId, k));
         return DesktopServices.Reports.Run(_session, SelectedReport.Key, req, maxRows);
     }

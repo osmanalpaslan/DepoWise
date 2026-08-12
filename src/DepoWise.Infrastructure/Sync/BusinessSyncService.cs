@@ -80,6 +80,16 @@ public sealed class BusinessSyncService
         "invoice_series",
         "invoices",
         "invoice_lines",
+        // G4-3 (2026-08-12): KASA / BANKA. Masaustu cevrimdisi tahsilat/odeme yapabildigi icin
+        // senkronda TASINIR - G4-1c'de cari icin kapatilan acigin ayni tekrarlanmasin.
+        // SIRA ONEMLI (yabanci anahtar): once hesap tanimlari, sonra hareketler, EN SON fatura
+        // kapamalari (invoice_allocations hem invoices'a hem finance_transactions'a baglidir).
+        // finance_transactions ayrica parties ve party_ledger'a referans verir - ikisi de YUKARIDA.
+        // Cift kayit riski YOK: operation_id uzerinde tekil indeks var; ayni tahsilat ikinci kez
+        // uygulanamaz, cari ikinci kez etkilenmez, fatura ikinci kez kapanmaz.
+        "finance_accounts",
+        "finance_transactions",
+        "invoice_allocations",
     };
 
     /// <summary>Her iş tablosunun ait olduğu yetki modülü (business-push yetki kontrolü için).
@@ -118,6 +128,11 @@ public sealed class BusinessSyncService
         ["invoice_lines"] = "invoices",
         ["invoice_series"] = "invoices",
         ["vat_rates"] = "invoices",
+        // G4-3: kasa/banka tablolari "finance" modulune bagli - kullanici ancak kasa/banka
+        // Create/Edit yetkisi varsa push edebilir. Fatura yetkisi TEK BASINA yetmez.
+        ["finance_accounts"] = "finance",
+        ["finance_transactions"] = "finance",
+        ["invoice_allocations"] = "finance",
     };
 
     /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).
@@ -143,13 +158,100 @@ public sealed class BusinessSyncService
 
     /// <summary>Yerel DB'den firmanın iş tablolarını JSON snapshot olarak üretir (masaüstü push / sunucu pull).
     /// machineId: bu cihazın adı (çakışma baseline'ı için sunucuda kullanılır).
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //  G4-3c — SENKRONDA ŞUBE İZOLASYONU (GAP-6, kullanıcı isteği 2026-08-12)
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Şube kapsamının UYGULANACAĞI ön muhasebe tabloları ve hangi kolon üzerinden.
+    ///
+    /// <b>NEDEN YALNIZ BUNLAR:</b> kullanıcı isteği ön muhasebenin şube bazlı olmasıdır. Stok/araç/
+    /// personel gibi mevcut çalışan senkron akışlarına DOKUNULMADI — oraya filtre eklemek bugün
+    /// çalışan çok-makineli görünürlüğü sessizce daraltırdı (ayrı bir karar konusudur).
+    ///
+    /// <b>⚠️ parties BU LİSTEDE YOK — BİLİNÇLİ.</b> Cari KARTI firma genelinde tekildir (şubeye
+    /// kopyalanmaz); kart süzülseydi, o carinin izinli şubedeki HAREKETİ sahipsiz kalır ve yabancı
+    /// anahtar/görünürlük bozulurdu. Şube izolasyonu <c>party_ledger</c> HAREKETLERİNDE yapılır.
+    /// Aynı gerekçeyle <c>materials</c>, <c>vat_rates</c>, <c>invoice_series</c> de süzülmez
+    /// (ortak tanım/katalog kayıtlarıdır).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> BranchScopedTables =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["party_ledger"] = "branch_id",
+            ["invoices"] = "branch_id",
+            ["finance_accounts"] = "branch_id",
+            ["finance_transactions"] = "branch_id",
+        };
+
+    /// <summary>
+    /// Kendi <c>branch_id</c>'si OLMAYAN ama ebeveyni üzerinden kapsanan çocuk tablolar.
+    /// (tablo → (ebeveyn tablo, çocuktaki yabancı anahtar kolonu))
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Parent, string Fk)> BranchScopedChildren =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["invoice_lines"] = ("invoices", "invoice_id"),
+            ["invoice_allocations"] = ("invoices", "invoice_id"),
+        };
+
+    /// <summary>Bu tablo şube kapsamına tabi mi (doğrudan ya da ebeveyni üzerinden)?</summary>
+    public static bool IsBranchScoped(string table)
+        => BranchScopedTables.ContainsKey(table) || BranchScopedChildren.ContainsKey(table);
+
+    /// <summary>
+    /// Snapshot sorgusuna eklenecek şube koşulu. Kapsam sınırsızsa <c>""</c> döner (mevcut davranış).
+    /// Doğrudan kolonu olan tabloda <c>branch_id IN (…) OR IS NULL</c>; çocuk tabloda ebeveynin
+    /// şubesine bakan <c>EXISTS</c> alt sorgusu.
+    /// </summary>
+    private static string BranchWhere(SessionContext? session, string table, IReadOnlyList<string>? eff)
+    {
+        if (session is null || eff is null) return "";     // kapsam yok → filtre yok (geriye dönük davranış)
+        var ps = eff.Count == 0 ? null : string.Join(",", Enumerable.Range(0, eff.Count).Select(i => "@bs" + i));
+
+        if (BranchScopedTables.TryGetValue(table, out var col))
+            return ps is null ? $"{col} IS NULL" : $"({col} IN ({ps}) OR {col} IS NULL)";
+
+        if (BranchScopedChildren.TryGetValue(table, out var link))
+        {
+            var cond = ps is null ? "p.branch_id IS NULL" : $"(p.branch_id IN ({ps}) OR p.branch_id IS NULL)";
+            return $"EXISTS (SELECT 1 FROM {link.Parent} p WHERE p.id = {table}.{link.Fk} AND {cond})";
+        }
+        return "";
+    }
+
+    private static void BindBranch(DbCommand cmd, IReadOnlyList<string>? eff)
+    {
+        if (eff is null) return;
+        for (int i = 0; i < eff.Count; i++) cmd.AddWithValue("@bs" + i, eff[i]);
+    }
+
+    /// <summary>
+    /// PUSH kapısı: gelen satırın şubesi kullanıcının kapsamında mı?
+    /// Kapsam dışıysa satır UYGULANMAZ (sessizce atlanır ve sayılır) — kısmi/yetkisiz finansal veri
+    /// sunucuya yazılamaz. Manipüle edilmiş <c>branch_id</c> ile de geçilemez.
+    /// </summary>
+    private static bool RowBranchAllowed(SessionContext? session, string table, JsonElement row)
+    {
+        if (session is null) return true;
+        if (!BranchScopedTables.TryGetValue(table, out var col)) return true;   // çocuk tablolar ebeveynle gelir
+        if (!row.TryGetProperty(col, out var v) || v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return true;                                                        // şubesiz (firma geneli) kayıt
+        var branchId = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+        return BranchAccess.CanAccess(session, branchId);
+    }
     ///
     /// DELTA (kullanıcı bulgusu 2026-07-19: 2508 malzemeli firmada tam snapshot 120sn'yi aşıp zaman aşımına
     /// uğruyordu): <paramref name="sinceVersion"/> > 0 ise YALNIZ updated_at &gt; sinceVersion satırlar alınır
     /// (değişenler). 0 ise tam snapshot (ilk kurulum / manuel tam eşitleme). updated_at kolonu olmayan tabloda
     /// (yoksa) filtre uygulanmaz — tümü alınır. Böylece rutin eşitleme küçük ve hızlıdır.</summary>
-    public string BuildSnapshot(string companyId, string? machineId = null, long sinceVersion = 0)
+    public string BuildSnapshot(string companyId, string? machineId = null, long sinceVersion = 0,
+        SessionContext? session = null)
     {
+        // ⭐ GAP-6: oturum verilirse ön muhasebe tabloları KULLANICININ İZİNLİ ŞUBELERİYLE süzülür.
+        // Yetkisiz şubenin finansal verisi cihaza HİÇ İNMEZ (yanıta bile girmez).
+        var eff = session is null ? null : BranchAccess.Effective(session);
         using var conn = _factory.Create();
         var tables = new Dictionary<string, List<Dictionary<string, object?>>>();
         foreach (var table in Tables)
@@ -163,9 +265,12 @@ public sealed class BusinessSyncService
             var where = new List<string>();
             if (hasCompany) where.Add("company_id=@c");
             if (sinceVersion > 0 && stamp is not null) where.Add($"{stamp} > @since");
+            var branchWhere = BranchWhere(session, table, eff);
+            if (branchWhere.Length > 0) where.Add(branchWhere);
             cmd.CommandText = $"SELECT * FROM {table}" + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "") + ";";
             if (hasCompany) cmd.AddWithValue("@c", companyId);
             if (sinceVersion > 0 && stamp is not null) cmd.AddWithValue("@since", sinceVersion);
+            if (branchWhere.Length > 0) BindBranch(cmd, eff);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -322,7 +427,9 @@ public sealed class BusinessSyncService
             return AccessControl.Can(session, moduleKey, PermissionAction.Create)
                 || AccessControl.Can(session, moduleKey, PermissionAction.Edit);
         }
-        return ApplyCore(session.CompanyId, payload, CanWrite, protectServerDeletes: true);
+        // ⭐ GAP-6 PUSH KAPISI: session verilir → ApplyCore her satırın şubesini de denetler.
+        // Kapsam dışı satır UYGULANMAZ; manipüle edilmiş branch_id ile de geçilemez.
+        return ApplyCore(session.CompanyId, payload, CanWrite, protectServerDeletes: true, session: session);
     }
 
     public ApplyResult Apply(string companyId, JsonElement payload)
@@ -339,7 +446,8 @@ public sealed class BusinessSyncService
         => ApplyCore(companyId, payload, null, excludeTables, serverAuthoritativeDeletes: true);
 
     private ApplyResult ApplyCore(string companyId, JsonElement payload, Func<string, bool>? canWriteTable,
-        ISet<string>? excludeTables = null, bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
+        ISet<string>? excludeTables = null, bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false,
+        SessionContext? session = null)
     {
         if (payload.ValueKind != JsonValueKind.Object || !payload.TryGetProperty("tables", out var tablesEl) ||
             tablesEl.ValueKind != JsonValueKind.Object)
@@ -386,7 +494,7 @@ public sealed class BusinessSyncService
             bool trackConflict = hasUpdated && ConflictTracked.Contains(table) && pk.Count == 1 && pk[0] == "id";
 
             var (tUp, tSk) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
-                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors);
+                companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session);
             upserted += tUp; skipped += tSk;
         }
 
@@ -418,7 +526,7 @@ public sealed class BusinessSyncService
     private (int Up, int Sk) ApplyTableRows(DbConnection conn, bool isPg, string table, HashSet<string> cols,
         List<string> pk, bool hasCompany, bool hasUpdated, bool trackConflict, string companyId,
         JsonElement rowsEl, long now, string? deviceBranchId, long lastPush,
-        bool serverAuth, bool protectDeletes, List<string> errors)
+        bool serverAuth, bool protectDeletes, List<string> errors, SessionContext? session = null)
     {
         int up = 0, sk = 0;
 
@@ -427,6 +535,13 @@ public sealed class BusinessSyncService
         bool? ApplyOne(JsonElement rowEl, List<string> errSink)
         {
             if (rowEl.ValueKind != JsonValueKind.Object) return null;
+            // ⭐ GAP-6 PUSH KAPISI: kapsam dışı şubenin satırı UYGULANMAZ. Cihaz manipüle edilmiş bir
+            // branch_id gönderse bile yetkisiz şubeye finansal veri yazılamaz.
+            if (!RowBranchAllowed(session, table, rowEl))
+            {
+                if (errSink.Count < 20) errSink.Add($"{table}: şube kapsam dışı (atlandı).");
+                return null;
+            }
             var (okRow, reason) = ValidateRow(table, rowEl, companyId);
             if (!okRow) { if (errSink.Count < 20) errSink.Add($"{table}: {reason}"); return null; }
             if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);

@@ -32,6 +32,18 @@ public sealed class SessionContext : ITenantContext
     /// Oturum kurulurken AuthService doldurur.</summary>
     public IReadOnlySet<string> BlockedModules { get; set; } = new HashSet<string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// G4-3b — Kullanıcının ERİŞMEYE YETKİLİ olduğu şubeler (user_scopes). null/boş = açık kapsam YOK.
+    /// <b>OperatingBranchId ile karıştırılmaz:</b> o oturumun ÇALIŞMA şubesidir (görünüm tercihi),
+    /// bu ise GÜVENLİK kapısıdır. Tek yorumlayıcısı BranchAccess'tir.
+    /// Oturum kurulurken AuthService doldurur.
+    /// </summary>
+    public IReadOnlyList<string>? ScopeBranchIds { get; set; }
+
+    /// <summary>Kullanıcının kendi (ana) şubesi — users.branch_id. Açık kapsam yoksa
+    /// BranchAccess bunu tek izinli şube olarak kullanır.</summary>
+    public string? HomeBranchId { get; set; }
+
     public SessionContext(string userId, string companyId, IEnumerable<string> roleKeys, PermissionSet permissions,
         bool canViewAllBranches = false)
     {

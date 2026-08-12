@@ -83,7 +83,7 @@ public sealed partial class InvoiceQueryService
     /// </summary>
     public GridResult<InvoiceListRow> List(SessionContext s, string? search = null, string? direction = null,
         string? status = null, string? partyId = null, long? from = null, long? to = null,
-        int page = 1, int pageSize = 50)
+        int page = 1, int pageSize = 50, IReadOnlyList<string>? branchIds = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -101,6 +101,8 @@ public sealed partial class InvoiceQueryService
         if (!string.IsNullOrWhiteSpace(partyId)) where += " AND i.party_id=@pid";
         if (from is not null) where += " AND i.invoice_date>=@from";
         if (to is not null) where += " AND i.invoice_date<=@to";
+        // ⭐ G4-3b: şube kapsamı (izinli ∩ istenen). Elle branchIds ile kapsam genişletilemez.
+        where += BranchAccess.Sql(s, "i.branch_id", branchIds);
 
         void Bind(DbCommand cmd)
         {
@@ -111,6 +113,7 @@ public sealed partial class InvoiceQueryService
             if (!string.IsNullOrWhiteSpace(partyId)) cmd.AddWithValue("@pid", partyId!);
             if (from is not null) cmd.AddWithValue("@from", from.Value);
             if (to is not null) cmd.AddWithValue("@to", to.Value);
+            BranchAccess.Bind(cmd, s, branchIds);
         }
 
         const string Join = " FROM invoices i LEFT JOIN parties p ON p.id=i.party_id";
@@ -184,6 +187,9 @@ WHERE i.id=@id AND i.company_id=@c;";
                 r.IsDBNull(22) ? null : r.GetString(22), r.IsDBNull(23) ? null : Convert.ToInt64(r.GetValue(23)),
                 Convert.ToInt64(r.GetValue(24)), Array.Empty<InvoiceLineRecord>());
         }
+
+        // ⭐ Kapsam kapısı: id bilinse bile kapsam dışı şubenin faturası OKUNAMAZ.
+        BranchAccess.Require(s, head.BranchId, "fatura görüntüleme");
 
         var lines = new List<InvoiceLineRecord>();
         using (var cmd = conn.CreateCommand())

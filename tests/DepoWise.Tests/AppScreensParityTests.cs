@@ -268,8 +268,10 @@ public class AppScreensParityTests
             ("Raporlar", new[] { "reports" }),
             ("Yönetici Raporları", new[] { "reports" }),
             ("İmport / Export", new[] { "import_export" }),
-            // G4-1 cari + G4-2 fatura. Fatura EKLENDİ: modülü ayrıdır ("invoices"), menüde cariden sonra gelir.
-            ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new" }),
+            // G4-1 cari + G4-2 fatura + G4-3 kasa/banka. Her biri AYRI modüldür ("parties",
+            // "invoices", "finance") ve menüde eklendikleri sırayla görünür.
+            ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new",
+                                    "finance", "finance:new", "payments" }),
             ("Kullanıcı", new[] { "users", "permissions", "permission_templates" }),
             ("Ayarlar", new[] { "definitions", "settings:developer", "theme", "about" }),
             ("Web Yönetimi", new[] { "companies", "releases", "machines", "server_backups" }),
@@ -284,8 +286,9 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // Taşımadan önce 40'tı; G4-1 Cari (+2) ve G4-2 Fatura (+2) ekranları bilinçli olarak eklendi → 44.
-        Assert.Equal(44, gercek.Sum(x => x.Item2.Length));
+        // Taşımadan önce 40'tı; G4-1 Cari (+2), G4-2 Fatura (+2), G4-3 Kasa/Banka (+3) bilinçli
+        // olarak eklendi → 47.
+        Assert.Equal(47, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>14 — WEB menüsü taşımadan ÖNCEKİ hâliyle birebir aynı olmalı: grup sırası +
@@ -307,7 +310,9 @@ public class AppScreensParityTests
             ("Raporlar", new[] { ("reports", "reports") }),
             ("Yönetici Raporları", new[] { ("@admin", "reports") }),
             ("Ön Muhasebe", new[] { ("parties", "parties"), ("parties", "parties/new"),
-                                    ("invoices", "invoices"), ("invoices", "invoices/new") }),   // G4-1 + G4-2
+                                    ("invoices", "invoices"), ("invoices", "invoices/new"),
+                                    ("finance", "finance"), ("finance", "finance/new"),
+                                    ("finance", "payments") }),   // G4-1 + G4-2 + G4-3
             ("Kullanıcı", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("settings", "developer"), ("", "theme"), ("", "soon/about") }),
             ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("role_permissions", "role-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("screen_visibility", "screen-visibility") }),
@@ -323,8 +328,8 @@ public class AppScreensParityTests
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Baglantilar, gercek[i].Item2);
         // Taşımadan önce ölçülen 46 bağlantı KORUNDU; G5 yönetim ekranı bilinçli olarak eklendi (+1).
-        // 46 (taşıma) + 1 (G5 yönetim) + 2 (G4-1 Cari) + 2 (G4-2 Fatura) = 51.
-        Assert.Equal(51, gercek.Sum(x => x.Item2.Length));
+        // 46 (taşıma) + 1 (G5 yönetim) + 2 (G4-1 Cari) + 2 (G4-2 Fatura) + 3 (G4-3 Kasa/Banka) = 54.
+        Assert.Equal(54, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>15 — Çöp Kutusu'nun web yetki anahtarı artık sözde <c>@admin</c> DEĞİL, gerçek

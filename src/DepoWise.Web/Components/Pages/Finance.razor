@@ -1,0 +1,572 @@
+@page "/finance"
+@page "/finance/{Section}"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* G4-3 — KASA / BANKA (web). Masaüstüyle AYNI API/servis sözleşmesini kullanır: doğrulama,
+   bakiye hesabı, yetki, şube kapsamı ve ters kayıt kuralı SUNUCUDADIR.
+
+   ⚠️ PARALEL DEFTER YOK: bu ekran cari veya stok tablosuna yazmaz.
+   ⚠️ BAKİYE SAKLANMAZ: görünen her bakiye hareketlerden hesaplanır.
+   ⚠️ SİLME YOK (hareket için): hareketlerde yalnız gerekçeli TERS KAYIT vardır. Hesap tanımı
+      silinebilir ama YALNIZ hareketi yoksa. *@
+
+<PageTitle>Kasa / Banka — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Kasa / Banka</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
+    </div>
+    @if (Auth.CanCreate("finance"))
+    {
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.SwapHoriz"
+                       OnClick="OpenTransfer">İç Transfer</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => OpenAccount(null))">Yeni Hesap</MudButton>
+        </MudStack>
+    }
+</div>
+
+@if (!Auth.CanView("finance"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_search" Placeholder="Kod / hesap adı / banka" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" Style="max-width:280px" OnKeyUp="OnSearchKey" />
+            <MudSelect T="string" @bind-Value="_kind" Label="Tür" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Style="max-width:180px" Clearable="true">
+                @foreach (var k in _kinds) { <MudSelectItem T="string" Value="@k.Key">@k.Label</MudSelectItem> }
+            </MudSelect>
+            <MudCheckBox T="bool" @bind-Value="_onlyActive" Label="Yalnız aktif" Dense="true" />
+            <!-- ORTAK ŞUBE SEÇİCİ: yalnız kullanıcının YETKİLİ olduğu şubeleri gösterir.
+                 Güvenlik kapısı serviste (BranchAccess) — bu yalnız kullanım kolaylığıdır. -->
+            <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
+                          HelperText="Boş = tüm yetkili şubeler" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            <MudSpacer />
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@_totalText</MudText>
+        </MudStack>
+    </MudPaper>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">Hesap bulunamadı.</MudAlert> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="Row"
+                      OnRowClick="@(e => Select(e.Item))" RowClass="cursor-pointer">
+                <HeaderContent>
+                    <MudTh>KOD</MudTh><MudTh>HESAP ADI</MudTh><MudTh>TÜR</MudTh><MudTh>ŞUBE</MudTh>
+                    <MudTh Style="text-align:right">BAKİYE</MudTh><MudTh>DURUM</MudTh><MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Code</MudTd>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>@context.KindText</MudTd>
+                    <MudTd>@(context.BranchName ?? "Firma geneli")</MudTd>
+                    <MudTd Style="text-align:right">@context.Balance.ToString("0.00")</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                            @(context.IsActive ? "Aktif" : "Pasif")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>
+                        @if (Auth.CanEdit("finance"))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                           OnClick="@(() => OpenAccount(context.Id))" Title="Düzenle" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+
+    @* ── HESAP EKSTRESİ ────────────────────────────────────────────────────────── *@
+    @if (_selected is not null)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.h6">@_selected.Name</MudText>
+                <MudChip T="string" Size="Size.Small">@_selected.KindText</MudChip>
+                <MudSpacer />
+                <MudText Typo="Typo.h6">@_selected.Balance.ToString("0.00") @_selected.Currency</MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                Bakiye hareketlerden hesaplanır; saklanmaz. İptal edilen hareketler listede görünür ama bakiyeye girmez.
+            </MudText>
+
+            @if (_statement is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_statement.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">Hareket yok.</MudAlert> }
+            else
+            {
+                <MudTable Items="_statement" Dense="true" Hover="true" T="StatementRow" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>TARİH</MudTh><MudTh>TÜR</MudTh><MudTh>AÇIKLAMA</MudTh><MudTh>CARİ</MudTh>
+                        <MudTh Style="text-align:right">GİRİŞ</MudTh>
+                        <MudTh Style="text-align:right">ÇIKIŞ</MudTh>
+                        <MudTh Style="text-align:right">BAKİYE</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.DateText</MudTd>
+                        <MudTd>@context.TypeText</MudTd>
+                        <MudTd>
+                            @context.Description
+                            @if (context.IsReversed)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Class="ml-1">İPTAL</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd>@context.PartyTitle</MudTd>
+                        <MudTd Style="text-align:right">@(context.InAmount > 0 ? context.InAmount.ToString("0.00") : "")</MudTd>
+                        <MudTd Style="text-align:right">@(context.OutAmount > 0 ? context.OutAmount.ToString("0.00") : "")</MudTd>
+                        <MudTd Style="text-align:right">@context.RunningBalance.ToString("0.00")</MudTd>
+                        <MudTd>
+                            @if (!context.IsReversed && !context.IsReversalEntry && Auth.CanEdit("finance"))
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Undo" Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(() => Reverse(context))"
+                                               Title="Ters kayıt — hareket silinmez, karşı kayıt yazılır" />
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                @if (Auth.CanEdit("finance"))
+                {
+                    <MudTextField @bind-Value="_reverseReason" Label="Ters kayıt gerekçesi" Class="mt-3"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Geri alma düğmesine basmadan önce doldurun — gerekçe zorunludur." />
+                }
+            }
+        </MudPaper>
+    }
+
+    @* ── HESAP FORMU ───────────────────────────────────────────────────────────── *@
+    <MudDialog @bind-Visible="_accountOpen" Options="_dlg">
+        <TitleContent><MudText Typo="Typo.h6">@(_editId is null ? "Yeni Hesap" : "Hesabı Düzenle")</MudText></TitleContent>
+        <DialogContent>
+            @if (_formError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_formError</MudAlert> }
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_fCode" Label="Hesap kodu" Required="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_fName" Label="Hesap adı" Required="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fKind" Label="Hesap türü" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var k in _kinds) { <MudSelectItem T="string" Value="@k.Key">@k.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fBranchId" Label="Şube" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               HelperText="Boş = firma geneli (her şubede görünür)">
+                        @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Key">@b.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+
+                @if (_fKind == "bank")
+                {
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_fBankName" Label="Banka adı" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_fBankBranch" Label="Banka şubesi" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_fAccountNo" Label="Hesap no" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_fIban" Label="IBAN" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      HelperText="TR ile başlar, 26 karakter — zorunlu değil" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_fNote" Label="Not" Lines="2" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudCheckBox T="bool" @bind-Value="_fIsDefault" Label="Varsayılan hesap" Dense="true" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudCheckBox T="bool" @bind-Value="_fIsActive" Label="Aktif" Dense="true" />
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            @if (_editId is not null && Auth.CanDelete("finance"))
+            {
+                <MudButton Color="Color.Error" OnClick="DeleteAccount">Sil</MudButton>
+            }
+            <MudSpacer />
+            <MudButton OnClick="@(() => _accountOpen = false)">Vazgeç</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAccount">Kaydet</MudButton>
+        </DialogActions>
+    </MudDialog>
+
+    @* ── İÇ TRANSFER ───────────────────────────────────────────────────────────── *@
+    <MudDialog @bind-Visible="_transferOpen" Options="_dlg">
+        <TitleContent><MudText Typo="Typo.h6">İç Transfer</MudText></TitleContent>
+        <DialogContent>
+            @if (_formError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_formError</MudAlert> }
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                Para bir hesaptan çıkar, diğerine girer. <b>Toplam para değişmez</b> ve hiçbir cari etkilenmez.
+            </MudAlert>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_tFrom" Label="Kaynak hesap" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var a in _accountOptions) { <MudSelectItem T="string" Value="@a.Key">@a.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_tTo" Label="Hedef hesap" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var a in _accountOptions) { <MudSelectItem T="string" Value="@a.Key">@a.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudNumericField T="decimal" @bind-Value="_tAmount" Label="Tutar" Min="0"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="_tDate" Label="Tarih" Variant="Variant.Outlined"
+                                   Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_tDescription" Label="Açıklama" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => _transferOpen = false)">Vazgeç</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveTransfer">Transferi Kaydet</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    // ── ORTAK ŞUBE KAPSAMI (G4-3d) ───────────────────────────────────────────────
+    // Seçim yalnız OKUMA filtresidir; yazma tarafında tekil "aktif çalışma şubesi" kullanılır.
+    private BranchPicker? _branchPicker;
+    private IReadOnlyList<string> _branchIds = Array.Empty<string>();
+
+    /// <summary>Seçim değişince veri YENİDEN yüklenir (kullanıcı Ara demek zorunda kalmasın).</summary>
+    private async Task OnBranchesChanged(IReadOnlyList<string> ids)
+    {
+        _branchIds = ids;
+        await Load();
+    }
+
+    /// <summary>API sorgu eki: &branchIds=a,b. Boş → ek yok (tüm yetkili şubeler).</summary>
+    private string BranchQuery => _branchIds.Count == 0 ? "" : "&branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
+
+    [Parameter] public string? Section { get; set; }
+
+    private sealed class Opt { public string Key = "", Label = ""; }
+
+    private sealed class Row
+    {
+        public string Id = "", Code = "", Name = "", AccountKind = "", KindText = "", Currency = "TRY";
+        public string? BranchName;
+        public decimal Balance;
+        public bool IsActive;
+    }
+
+    private sealed class StatementRow
+    {
+        public string Id = "", DateText = "", TypeText = "";
+        public string? Description, PartyTitle;
+        public decimal InAmount, OutAmount, RunningBalance;
+        public bool IsReversed, IsReversalEntry;
+    }
+
+    private readonly DialogOptions _dlg = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+    private List<Row>? _rows;
+    private Row? _selected;
+    private List<StatementRow>? _statement;
+    private List<(string Key, string Label)> _kinds = new();
+    private List<Opt> _branches = new(), _accountOptions = new();
+
+    private string _search = "", _kind = "", _totalText = "";
+    private bool _onlyActive = true, _busy, _saving, _ok;
+    private string? _msg, _formError;
+    private string _reverseReason = "";
+
+    // ── Hesap formu ──
+    private bool _accountOpen;
+    private string? _editId;
+    private long? _editVersion;
+    private string _fCode = "", _fName = "", _fKind = "cash", _fBranchId = "",
+                   _fBankName = "", _fBankBranch = "", _fAccountNo = "", _fIban = "", _fNote = "";
+    private bool _fIsDefault, _fIsActive = true;
+
+    // ── Transfer ──
+    private bool _transferOpen;
+    private string _tFrom = "", _tTo = "", _tDescription = "";
+    private decimal _tAmount;
+    private DateTime? _tDate = DateTime.Today;
+    private string _transferOp = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var m = await Api.GetObjectAsync("/api/finance/meta");
+            if (m.TryGetProperty("kinds", out var k) && k.ValueKind == JsonValueKind.Array)
+                _kinds = k.EnumerateArray().Select(x => (Str(x, "key"), Str(x, "label"))).ToList();
+        }
+        catch { }
+        await Load();
+        if (string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase)) await OpenAccount(null);
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }
+
+    private async Task Load()
+    {
+        _busy = true; _rows = null; _selected = null; _statement = null;
+        try
+        {
+            var url = $"/api/finance/accounts?all={(_onlyActive ? "false" : "true")}"
+                    + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
+                    + (string.IsNullOrWhiteSpace(_kind) ? "" : $"&kind={Uri.EscapeDataString(_kind)}")
+                    + BranchQuery;
+            _rows = (await Api.GetArrayAsync(url)).Select(e => new Row
+            {
+                Id = Str(e, "id"), Code = Str(e, "code"), Name = Str(e, "name"),
+                AccountKind = Str(e, "accountKind"), KindText = Str(e, "kindText"),
+                Currency = Str(e, "currency"), BranchName = Nz(Str(e, "branchName")),
+                Balance = Dec(e, "balance"), IsActive = Bool(e, "isActive"),
+            }).ToList();
+            var toplam = _rows.Sum(x => x.Balance);
+            _totalText = _rows.Count == 0 ? "" : $"Toplam: {toplam:0.00} TL · {_rows.Count} hesap";
+        }
+        catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
+        finally { _busy = false; }
+    }
+
+    private async Task Select(Row r)
+    {
+        _selected = r; _statement = null; _reverseReason = "";
+        try
+        {
+            _statement = (await Api.GetArrayAsync($"/api/finance/accounts/{r.Id}/statement"))
+                .Select(e => new StatementRow
+                {
+                    Id = Str(e, "id"), DateText = Str(e, "dateText"), TypeText = Str(e, "typeText"),
+                    Description = Str(e, "description"), PartyTitle = Str(e, "partyTitle"),
+                    InAmount = Dec(e, "inAmount"), OutAmount = Dec(e, "outAmount"),
+                    RunningBalance = Dec(e, "runningBalance"),
+                    IsReversed = Bool(e, "isReversed"), IsReversalEntry = Bool(e, "isReversalEntry"),
+                }).ToList();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ekstre alınamadı: " + ex.Message; _statement = new(); }
+    }
+
+    // ── HESAP ─────────────────────────────────────────────────────────────────────
+
+    private async Task OpenAccount(string? id)
+    {
+        _formError = null;
+        _editId = id; _editVersion = null;
+        _fCode = ""; _fName = ""; _fKind = "cash";
+        // Yeni hesap varsayılan olarak AKTİF ÇALIŞMA ŞUBESİNE açılır.
+        _fBranchId = id is null ? (_branchPicker?.ActiveWriteBranchId ?? "") : "";
+        _fBankName = ""; _fBankBranch = ""; _fAccountNo = ""; _fIban = ""; _fNote = "";
+        _fIsDefault = false; _fIsActive = true;
+
+        // ⭐ G4-3d: yalnız kullanıcının YETKİLİ olduğu şubeler (tüm firma şubeleri DEĞİL).
+        _branches = (_branchPicker?.Branches ?? Array.Empty<BranchPicker.BranchItem>())
+            .Select(b => new Opt { Key = b.Id, Label = b.Name }).ToList();
+
+        if (id is not null)
+        {
+            try
+            {
+                var d = await Api.GetObjectAsync($"/api/finance/accounts/{id}");
+                _fCode = Str(d, "code"); _fName = Str(d, "name"); _fKind = Str(d, "accountKind");
+                _fBranchId = Str(d, "branchId"); _fBankName = Str(d, "bankName");
+                _fBankBranch = Str(d, "bankBranch"); _fAccountNo = Str(d, "accountNo");
+                _fIban = Str(d, "iban"); _fNote = Str(d, "note");
+                _fIsDefault = Bool(d, "isDefault"); _fIsActive = Bool(d, "isActive");
+                _editVersion = d.TryGetProperty("version", out var v) && v.TryGetInt64(out var vl) ? vl : null;
+            }
+            catch (Exception ex) { _formError = "Hesap alınamadı: " + ex.Message; }
+        }
+        _accountOpen = true;
+    }
+
+    private async Task SaveAccount()
+    {
+        if (_saving) return;
+        _formError = null;
+        _saving = true;
+        try
+        {
+            var body = new
+            {
+                code = _fCode, name = _fName, accountKind = _fKind, currency = "TRY",
+                branchId = Nz(_fBranchId), bankName = Nz(_fBankName), bankBranch = Nz(_fBankBranch),
+                accountNo = Nz(_fAccountNo), iban = Nz(_fIban), note = Nz(_fNote),
+                isDefault = _fIsDefault, isActive = _fIsActive, version = _editVersion,
+            };
+            var err = _editId is null
+                ? await Api.PostAsync("/api/finance/accounts", body)
+                : await Api.PutAsync($"/api/finance/accounts/{_editId}", body);
+            if (err is not null) { _formError = err; return; }
+
+            _accountOpen = false;
+            _ok = true; _msg = _editId is null ? "Hesap oluşturuldu." : "Hesap güncellendi.";
+            await Load();
+        }
+        catch (Exception ex) { _formError = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task DeleteAccount()
+    {
+        if (_editId is null) return;
+        if (!await Dialog.Confirm(
+                $"'{_fName}' hesabı silinsin mi?\n\n" +
+                "Hareketi olan hesap SİLİNEMEZ — bu durumda hesabı pasif yapın.", "Evet, Sil")) return;
+        try
+        {
+            var err = await Api.DeleteAsync($"/api/finance/accounts/{_editId}");
+            if (err is not null) { _formError = err; return; }
+            _accountOpen = false;
+            _ok = true; _msg = "Hesap silindi.";
+            await Load();
+        }
+        catch (Exception ex) { _formError = "Silinemedi: " + ex.Message; }
+    }
+
+    // ── TRANSFER ──────────────────────────────────────────────────────────────────
+
+    private void OpenTransfer()
+    {
+        _formError = null;
+        _transferOp = "trf-" + Guid.NewGuid().ToString("N");   // kayıt bitene kadar SABİT
+        _tFrom = ""; _tTo = ""; _tAmount = 0m; _tDate = DateTime.Today; _tDescription = "";
+        _accountOptions = (_rows ?? new()).Select(r => new Opt
+        {
+            Key = r.Id,
+            Label = $"{r.Code} — {r.Name} ({r.Balance:0.00})",
+        }).ToList();
+        _transferOpen = true;
+    }
+
+    private async Task SaveTransfer()
+    {
+        if (_saving) return;
+        _formError = null;
+        if (string.IsNullOrWhiteSpace(_tFrom) || string.IsNullOrWhiteSpace(_tTo))
+        { _formError = "Kaynak ve hedef hesap seçin."; return; }
+
+        _saving = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/finance/transfers", new
+            {
+                fromAccountId = _tFrom,
+                toAccountId = _tTo,
+                amount = _tAmount,
+                operationId = _transferOp,
+                txnDate = Ms(_tDate),
+                description = Nz(_tDescription),
+                currency = "TRY",
+            });
+            if (err is not null) { _formError = err; return; }
+
+            _transferOpen = false;
+            _ok = true; _msg = "Transfer kaydedildi. (Toplam para değişmedi.)";
+            await Load();
+        }
+        catch (Exception ex) { _formError = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    // ── TERS KAYIT ────────────────────────────────────────────────────────────────
+
+    private async Task Reverse(StatementRow t)
+    {
+        if (_saving) return;
+        if (string.IsNullOrWhiteSpace(_reverseReason))
+        {
+            _ok = false;
+            _msg = "Ters kayıt gerekçesi zorunlu — tablonun altındaki 'gerekçe' alanını doldurun.";
+            return;
+        }
+        var gerekce = _reverseReason.Trim();
+        if (!await Dialog.Confirm(
+                $"{t.DateText} · {t.TypeText}\n\n" +
+                "Hareket SİLİNMEZ; karşı kayıt yazılır ve etkisi sıfırlanır:\n" +
+                "• Hesap bakiyesi eski hâline döner.\n" +
+                "• Varsa cari hareketi ters yönde yazılır.\n" +
+                "• Bu işlemle kapatılan faturaların kalanı geri artar.\n" +
+                "• Transferse İKİ BACAK birlikte geri alınır.\n\n" +
+                $"Gerekçe: {gerekce}\n\nDevam edilsin mi?", "Evet, Ters Çevir")) return;
+
+        _saving = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/finance/transactions/{t.Id}/reverse", new { reason = gerekce });
+            _ok = err is null;
+            _msg = err ?? "Hareket ters kayıtla iptal edildi.";
+            if (_ok)
+            {
+                _reverseReason = "";
+                var id = _selected?.Id;
+                await Load();
+                var row = _rows?.FirstOrDefault(r => r.Id == id);
+                if (row is not null) await Select(row);
+            }
+        }
+        catch (Exception ex) { _ok = false; _msg = "İptal edilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    /// <summary>
+    /// 🔴 GUI TESTİNDE BULUNAN HATA (2026-08-12): tarih alanları <c>DateTime.Today</c> ile
+    /// başlatılıyor → <c>Kind=Local</c>. <c>new DateTimeOffset(local, TimeSpan.Zero)</c> .NET'te
+    /// ArgumentException atar ("UTC Offset ... does not match the offset argument") ve KAYIT DÜŞER.
+    /// Servis testleri bunu yakalayamazdı: dönüşüm yalnız UI katmanındadır.
+    ///
+    /// Çözüm: gün bileşeni alınır ve Kind NÖTRLENİR, sonra UTC 00:00 olarak yorumlanır.
+    /// <b>Neden <c>new DateTimeOffset(d)</c> değil:</b> o, yerel saat dilimini uygular (TR = UTC+3) →
+    /// 00:00 yerel = 21:00 UTC ÖNCEKİ GÜN olur ve tarih BİR GÜN KAYARDI.
+    /// </summary>
+    private static long? Ms(DateTime? d) => d is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Unspecified), TimeSpan.Zero)
+            .ToUnixTimeMilliseconds();
+
+    // ── JSON yardımcıları (Parties/Invoices ile aynı desen) ───────────────────────
+
+    private static string? Nz(string? v) => string.IsNullOrWhiteSpace(v) ? null : v;
+
+    private static string Str(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : "";
+
+    private static bool Bool(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static decimal Dec(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+}

@@ -33,6 +33,27 @@
                             <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+                    <!-- ORTAK ŞUBE SEÇİCİ (G4-3e): ÇOKLU seçim — Raporlar ekranındaki desenin aynısı
+                         (yeni bileşen uydurulmadı). Yalnız YETKİLİ şubeler listelenir.
+                         "Hiçbiri seçili değil" = TÜM YETKİLİ ŞUBELER (firmanın tümü DEĞİL).
+                         ⚠️ Güvenlik kapısı serviste (BranchAccess); bu yalnız kullanım kolaylığıdır. -->
+                    <ctrl:FormField Label="Şube (çoklu; boş=tüm yetkili)" Width="210"
+                                    IsVisible="{Binding BranchScope.IsVisible}">
+                        <StackPanel Spacing="4">
+                            <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding BranchScope.Picks}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:BranchScopeSelector+Pick">
+                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding Selected, Mode=TwoWay}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <SelectableTextBlock Text="{Binding BranchScope.SelectionText}" Classes="Helper"/>
+                        </StackPanel>
+                    </ctrl:FormField>
                     <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
                 </StackPanel>
             </ctrl:Toolbar.FilterContent>

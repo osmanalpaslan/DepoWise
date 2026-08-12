@@ -23,7 +23,8 @@ namespace DepoWise.Application.Security;
 /// <param name="Permissions">Modül izinleri + özel buton izinleri (bugün YALNIZ kullanıcı seviyesi).</param>
 /// <param name="CanViewAllBranches">Tüm şube verisini görme bayrağı.</param>
 /// <param name="BlockedModules">Rol Yetki Kontrol ile kullanıcının ROLÜNE kapatılmış modüller.</param>
-/// <param name="ScopeBranchIds">F4 (BRM-01) için AYRILMIŞ — bugün daima null, okuyucusu yok.</param>
+/// <param name="ScopeBranchIds">G4-3b ile KULLANIMA ALINDI: user_scopes satırları. null/boş = açık kapsam yok.</param>
+/// <param name="HomeBranchId">G4-3b ile eklendi: users.branch_id (kullanıcının ana şubesi).</param>
 /// <param name="ScopeUnitIds">F4 (BRM-01) için AYRILMIŞ — bugün daima null, okuyucusu yok.</param>
 /// <param name="AllowedRecordTypes">F5 (GNL-03) için AYRILMIŞ — bugün daima null, okuyucusu yok.</param>
 public sealed record PermissionSnapshot(
@@ -34,6 +35,7 @@ public sealed record PermissionSnapshot(
     bool CanViewAllBranches,
     IReadOnlySet<string> BlockedModules,
     IReadOnlyList<string>? ScopeBranchIds = null,
+    string? HomeBranchId = null,
     IReadOnlyList<string>? ScopeUnitIds = null,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? AllowedRecordTypes = null)
 {
@@ -43,5 +45,7 @@ public sealed record PermissionSnapshot(
         new(UserId, CompanyId, RoleKeys, Permissions, CanViewAllBranches)
         {
             BlockedModules = BlockedModules,
+            ScopeBranchIds = ScopeBranchIds,
+            HomeBranchId = HomeBranchId,
         };
 }

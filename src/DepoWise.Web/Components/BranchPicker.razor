@@ -1,0 +1,184 @@
+@using System.Text.Json
+@inject ApiClient Api
+
+@* ═══════════════════════════════════════════════════════════════════════════════════════════
+   G4-3d — ORTAK ŞUBE SEÇİCİ (kullanıcı isteği 2026-08-12)
+
+   Cari / Fatura / Kasa-Banka / Tahsilat-Ödeme ve ileride G4-4 raporları AYNI bileşeni kullanır —
+   şube seçme mantığı her ekrana kopyalanmaz.
+
+   ⚠️ BU BİR GÜVENLİK KONTROLÜ DEĞİLDİR. Yalnız kullanıcıya YETKİLİ olduğu şubeleri gösterir ve
+      seçimi API'ye taşır. Asıl kapı servistedir (BranchAccess): kullanıcı bu bileşeni atlayıp
+      API'ye yetkisiz bir branchId gönderse bile kesişim alınır / işlem reddedilir.
+
+   KAYNAK: /api/branch-scope/mine — UI'ın gösterdiği liste ile servisin uyguladığı kapsam AYNI
+   kaynaktan gelsin diye ayrı bir uç kullanılır (ikinci bir kapsam mantığı yazılmaz).
+
+   OKUMA vs YAZMA: bu bileşen OKUMA/filtre içindir ve çoklu seçime izin verir.
+   YAZMA tarafında tekil "aktif çalışma şubesi" kullanılır (bkz. ActiveWriteBranchId).
+   ══════════════════════════════════════════════════════════════════════════════════════════ *@
+
+@if (_loaded && _branches.Count > 0)
+{
+    @if (Multi)
+    {
+        <MudSelect T="string" MultiSelection="true" SelectedValues="_selected"
+                   SelectedValuesChanged="OnMultiChanged"
+                   Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
+                   Style="@Style" Dense="true"
+                   MultiSelectionTextFunc="@(v => SelectionText(v))"
+                   HelperText="@HelperText">
+            @foreach (var b in _branches)
+            {
+                <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+    else
+    {
+        <MudSelect T="string" Value="_single" ValueChanged="OnSingleChanged"
+                   Label="@Label" Margin="Margin.Dense" Variant="Variant.Outlined"
+                   Style="@Style" Dense="true" Clearable="@Unrestricted"
+                   HelperText="@HelperText">
+            @if (Unrestricted || _branches.Count > 1)
+            {
+                @* "Tüm yetkili şubeler" — kullanıcının TÜM FİRMA ŞUBELERİ demek DEĞİLDİR;
+                   yalnız erişebildiği şubeler demektir. Tek şubeli kullanıcıda gösterilmez. *@
+                <MudSelectItem T="string" Value="@("")">Tüm yetkili şubeler</MudSelectItem>
+            }
+            @foreach (var b in _branches)
+            {
+                <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+}
+
+@code {
+    public sealed record BranchItem(string Id, string Name);
+
+    /// <summary>Çoklu seçim (okuma/rapor) mi, tekil mi?</summary>
+    [Parameter] public bool Multi { get; set; }
+    [Parameter] public string Label { get; set; } = "Şube";
+    [Parameter] public string Style { get; set; } = "max-width:260px";
+    [Parameter] public string? HelperText { get; set; }
+
+    /// <summary>Seçim değiştiğinde çağrılır. Boş liste = "tüm yetkili şubeler" (filtre yok).</summary>
+    [Parameter] public EventCallback<IReadOnlyList<string>> SelectionChanged { get; set; }
+
+    /// <summary>Bileşen ilk yüklendiğinde de bir kez tetiklensin mi (varsayılan: evet).</summary>
+    [Parameter] public bool NotifyOnLoad { get; set; } = true;
+
+    private List<BranchItem> _branches = new();
+    private HashSet<string> _selected = new();
+    private string _single = "";
+    private bool _loaded;
+
+    /// <summary>Kullanıcı kapsamı sınırsız mı (admin / tüm şubeler)?</summary>
+    public bool Unrestricted { get; private set; }
+
+    /// <summary>Oturumun çalışma şubesi (varsa) — varsayılan seçim buradan gelir.</summary>
+    public string? OperatingBranchId { get; private set; }
+
+    /// <summary>Kullanıcının ana şubesi (users.branch_id).</summary>
+    public string? HomeBranchId { get; private set; }
+
+    /// <summary>Kullanıcının erişebildiği şubeler (salt okunur).</summary>
+    public IReadOnlyList<BranchItem> Branches => _branches;
+
+    /// <summary>Seçili şubeler. Boş = "tüm yetkili şubeler".</summary>
+    public IReadOnlyList<string> Selected => Multi ? _selected.ToList()
+        : (string.IsNullOrEmpty(_single) ? Array.Empty<string>() : new[] { _single });
+
+    /// <summary>API'ye gönderilecek "a,b,c" biçimi. Boş → null (filtre yok).</summary>
+    public string? Csv => Selected.Count == 0 ? null : string.Join(",", Selected);
+
+    /// <summary>
+    /// YAZMA için AKTİF ÇALIŞMA ŞUBESİ — <b>tekil</b>. Çoklu seçim yazma için KULLANILMAZ:
+    /// birden çok şube seçiliyken yeni kayıt hangi şubeye yazılacağı belirsiz olurdu.
+    /// Sıra: tekil seçim → oturumun çalışma şubesi → ana şube → tek izinli şube → null (servis çözer).
+    /// null dönerse servis <c>BranchAccess.Resolve</c> ile kendisi karar verir (ve doğrular).
+    /// </summary>
+    public string? ActiveWriteBranchId
+    {
+        get
+        {
+            if (!Multi && !string.IsNullOrEmpty(_single)) return _single;
+            if (Multi && _selected.Count == 1) return _selected.First();
+            if (!string.IsNullOrEmpty(OperatingBranchId)) return OperatingBranchId;
+            if (!string.IsNullOrEmpty(HomeBranchId)) return HomeBranchId;
+            if (_branches.Count == 1) return _branches[0].Id;
+            return null;
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    /// <summary>
+    /// Kapsamı sunucudan tazeler. Yetki değişirse eski seçim GEÇERSİZ sayılır ve düşürülür
+    /// (fail-closed): yetkisiz hale gelen şube kullanılmaya devam etmez.
+    /// </summary>
+    public async Task Reload()
+    {
+        try
+        {
+            var d = await Api.GetObjectAsync("/api/branch-scope/mine");
+            Unrestricted = d.TryGetProperty("unrestricted", out var u) && u.ValueKind == JsonValueKind.True;
+            OperatingBranchId = Str(d, "operatingBranchId");
+            HomeBranchId = Str(d, "homeBranchId");
+            _branches = d.TryGetProperty("branches", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new BranchItem(Str(e, "id") ?? "", Str(e, "name") ?? "")).ToList()
+                : new();
+
+            var gecerli = _branches.Select(b => b.Id).ToHashSet(StringComparer.Ordinal);
+
+            // Yetkisi kalmayan eski seçimleri DÜŞÜR.
+            _selected.RemoveWhere(x => !gecerli.Contains(x));
+            if (!string.IsNullOrEmpty(_single) && !gecerli.Contains(_single)) _single = "";
+
+            // Varsayılan: kullanıcının çalışma şubesi (yoksa ana şubesi). Normal kullanıcı ekranı
+            // açtığında KENDİ ŞUBESİNİ görür — "firma geneli" varsayılan DEĞİLDİR.
+            if (_selected.Count == 0 && string.IsNullOrEmpty(_single))
+            {
+                var varsayilan = OperatingBranchId ?? HomeBranchId;
+                if (varsayilan is not null && gecerli.Contains(varsayilan))
+                {
+                    if (Multi) _selected.Add(varsayilan); else _single = varsayilan;
+                }
+                else if (!Unrestricted && _branches.Count == 1)
+                {
+                    if (Multi) _selected.Add(_branches[0].Id); else _single = _branches[0].Id;
+                }
+            }
+        }
+        catch { _branches = new(); }   // kapsam alınamazsa seçici gizlenir; servis filtresi yine çalışır
+        finally
+        {
+            _loaded = true;
+            StateHasChanged();
+            if (NotifyOnLoad) await SelectionChanged.InvokeAsync(Selected);
+        }
+    }
+
+    private async Task OnSingleChanged(string v)
+    {
+        _single = v ?? "";
+        await SelectionChanged.InvokeAsync(Selected);
+    }
+
+    private async Task OnMultiChanged(IEnumerable<string> v)
+    {
+        _selected = v?.ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
+        await SelectionChanged.InvokeAsync(Selected);
+    }
+
+    private string SelectionText(IReadOnlyList<string>? v)
+    {
+        if (v is null || v.Count == 0) return "Tüm yetkili şubeler";
+        if (v.Count == 1) return _branches.FirstOrDefault(b => b.Id == v[0])?.Name ?? "1 şube";
+        return $"{v.Count} şube seçili";
+    }
+
+    private static string? Str(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+}

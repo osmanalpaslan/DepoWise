@@ -30,6 +30,10 @@ public sealed partial class PartiesViewModel : ViewModelBase
     private readonly SessionContext _session;
     private const int PageSize = 50;
 
+    /// <summary>G4-3d — ORTAK ŞUBE KAPSAMI. Seçim OKUMA filtresidir; yazmada tekil
+    /// <see cref="BranchScopeSelector.ActiveWriteBranchId"/> kullanılır.</summary>
+    public BranchScopeSelector BranchScope { get; }
+
     public bool CanCreate => AccessControl.Can(_session, PartyService.Module, PermissionAction.Create);
     public bool CanEdit => AccessControl.Can(_session, PartyService.Module, PermissionAction.Edit);
     public bool CanDelete => AccessControl.Can(_session, PartyService.Module, PermissionAction.Delete);
@@ -81,6 +85,8 @@ public sealed partial class PartiesViewModel : ViewModelBase
     public PartiesViewModel(SessionContext session)
     {
         _session = session;
+        // Ortak şube kapsamı — seçim değişince liste yenilenir (kullanıcı Ara demek zorunda kalmasın).
+        BranchScope = new BranchScopeSelector(session, () => _ = Load());
         _ = Load();
     }
 
@@ -97,7 +103,7 @@ public sealed partial class PartiesViewModel : ViewModelBase
                 var res = DesktopServices.Parties.List(_session,
                     string.IsNullOrWhiteSpace(Search) ? null : Search,
                     string.IsNullOrWhiteSpace(TypeFilter) ? null : TypeFilter,
-                    OnlyActive ? true : null, Page, PageSize);
+                    OnlyActive ? true : null, Page, PageSize, BranchScope.Filter);
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     Rows.Clear();
@@ -139,8 +145,9 @@ public sealed partial class PartiesViewModel : ViewModelBase
         {
             await Task.Run(() =>
             {
-                var b = DesktopServices.PartyLedger.Balance(_session, row.Party.Id);
-                var st = DesktopServices.PartyLedger.Statement(_session, row.Party.Id);
+                // ⭐ G4-3d: kart bakiyesi ve ekstre de ŞUBE KAPSAMINDA (liste ile sessiz fark olmasın).
+                var b = DesktopServices.PartyLedger.Balance(_session, row.Party.Id, BranchScope.Filter);
+                var st = DesktopServices.PartyLedger.Statement(_session, row.Party.Id, branchIds: BranchScope.Filter);
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     Debit = b.Debit; Credit = b.Credit;

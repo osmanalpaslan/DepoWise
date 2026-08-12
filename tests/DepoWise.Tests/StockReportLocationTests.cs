@@ -338,8 +338,11 @@ public class StockReportLocationTests : IDisposable
         var malzemeliler = ReportCatalog.All.Where(d => d.UsesMaterial).Select(d => d.Key).ToList();
         Assert.Equal(new[] { "stock-movements" }, malzemeliler);
 
-        // SIRADAKİ bayrak (8192) HENÜZ AÇILMADI — kapsam sızmasının nöbetçisi (gevşetilmedi, kaydırıldı).
-        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)8192)));
+        // G4-4b: CARİ filtresi (8192) BİLİNÇLİ olarak açıldı — yalnız ön muhasebe raporlarında.
+        // Nöbetçi KALDIRILMADI: hangi raporlarda açıldığı kilitlenir + sıradaki boş bayrak korunur.
+        var carililer = ReportCatalog.All.Where(d => d.UsesParty).Select(d => d.Key).OrderBy(x => x).ToList();
+        Assert.Equal(new[] { "acc-balances", "acc-invoices", "acc-open-invoices", "acc-payments", "acc-statement" }, carililer);
+        Assert.All(ReportCatalog.All, d => Assert.False(d.Filters.HasFlag((ReportFilters)16384)));
     }
 
     /// <summary>16 — REGRESYON: lokasyon boyutu diğer stok kullanan raporları bozmadı.

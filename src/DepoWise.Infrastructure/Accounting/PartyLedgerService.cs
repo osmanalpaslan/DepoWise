@@ -104,6 +104,7 @@ public sealed class PartyLedgerService
     /// </summary>
     public string Add(SessionContext s, NewLedgerEntry dto)
     {
+        BranchAccess.Require(s, dto.BranchId, "cari hareketi");   // ⭐ G4-3b kapsam kapısı
         // ⭐ G4-1b (2026-08-12) — KULLANICI YOLU YALNIZ ELLE GİRİLEBİLİR TÜRLERİ KABUL EDER.
         // Eskiden her tür kabul ediliyordu: kullanıcı UI'yi atlayıp doğrudan "invoice" türünde hareket
         // yazabilir, G4-2 aynı faturayı işlediğinde cari İKİ KEZ borçlanırdı (sahte belge + mükerrer borç).
@@ -140,6 +141,7 @@ public sealed class PartyLedgerService
     {
         if (string.IsNullOrWhiteSpace(dto.SourceType) || string.IsNullOrWhiteSpace(dto.SourceId))
             throw new ArgumentException("Belge kaynaklı harekette kaynak belge zorunludur.");
+        BranchAccess.Require(s, dto.BranchId, "cari hareketi");   // ⭐ G4-3b kapsam kapısı
         return WriteInTx(conn, tx, s, dto);
     }
 
@@ -267,15 +269,20 @@ VALUES(@id,@c,@p,NULL,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,
     }
 
     /// <summary>Cari finansal özeti — tamamı defterden hesaplanır (iptal edilenler HARİÇ).</summary>
-    public PartyBalance Balance(SessionContext s, string partyId)
+    public PartyBalance Balance(SessionContext s, string partyId, IReadOnlyList<string>? branchIds = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         EnsurePartyOwned(conn, null, s.CompanyId, partyId);
 
+        // ⭐ G4-3b: cari KARTI firma genelinde tekildir (şubeye kopyalanmaz) ama HAREKETİ şubelidir.
+        // Bakiye bu yüzden kullanıcının izinli şubeleriyle sınırlanır → "firma toplamı = yetkili
+        // şube toplamları" kuralı bozulmaz, şubesiz (eski) hareketler gizlenmez.
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT direction, amount, entry_date FROM party_ledger WHERE company_id=@c AND party_id=@p AND is_reversed=0;";
+        cmd.CommandText = "SELECT direction, amount, entry_date FROM party_ledger WHERE company_id=@c AND party_id=@p AND is_reversed=0"
+                          + BranchAccess.Sql(s, "branch_id", branchIds) + ";";
         cmd.AddWithValue("@c", s.CompanyId); cmd.AddWithValue("@p", partyId);
+        BranchAccess.Bind(cmd, s, branchIds);
         decimal debit = 0m, credit = 0m; int n = 0; long? last = null;
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -295,7 +302,8 @@ VALUES(@id,@c,@p,NULL,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,
     /// <paramref name="newestFirst"/>; yürüyen bakiye her zaman kronolojik hesaplanır.
     /// </summary>
     public IReadOnlyList<PartyStatementRow> Statement(SessionContext s, string partyId,
-        long? fromDate = null, long? toDate = null, int limit = 500, bool newestFirst = true)
+        long? fromDate = null, long? toDate = null, int limit = 500, bool newestFirst = true,
+        IReadOnlyList<string>? branchIds = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         if (limit < 1) limit = 1; if (limit > 2000) limit = 2000;
@@ -310,12 +318,14 @@ SELECT id, party_id, entry_date, doc_type, doc_no, description, direction, amoun
 FROM party_ledger WHERE company_id=@c AND party_id=@p";
         if (fromDate is not null) sql += " AND entry_date >= @from";
         if (toDate is not null) sql += " AND entry_date <= @to";
+        sql += BranchAccess.Sql(s, "branch_id", branchIds);   // ⭐ G4-3b şube kapsamı
         // Kararlı sıralama: aynı tarihli hareketler kayıt sırasına göre (created_at) ayrışır.
         sql += " ORDER BY entry_date, created_at LIMIT @lim;";
         cmd.CommandText = sql;
         cmd.AddWithValue("@c", s.CompanyId); cmd.AddWithValue("@p", partyId);
         if (fromDate is not null) cmd.AddWithValue("@from", fromDate.Value);
         if (toDate is not null) cmd.AddWithValue("@to", toDate.Value);
+        BranchAccess.Bind(cmd, s, branchIds);
         cmd.AddWithValue("@lim", limit);
 
         var list = new List<PartyStatementRow>();

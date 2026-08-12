@@ -1,0 +1,331 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:acc="using:DepoWise.Infrastructure.Accounting"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="720"
+             x:Class="DepoWise.Desktop.Views.FinanceView"
+             x:DataType="vm:FinanceViewModel">
+
+    <!-- G4-3 — KASA / BANKA. Sol: hesap listesi (bakiyeleriyle). Sağ: ekstre / hesap formu /
+         elle hareket / iç transfer panelleri.
+         ⚠️ Hareketlerde "Sil" YOKTUR: yalnız gerekçeli TERS KAYIT vardır.
+         ⚠️ Tahsilat/ödeme burada DEĞİL, "Tahsilat / Ödeme" ekranındadır.
+         Tablolar ortak ListBox.Table desenini kullanır → G3 satır seçimi davranışı aynen geçerlidir. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Kasa / Banka">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBox Classes="Field" Width="230" Watermark="Kod / hesap adı / banka"
+                             Text="{Binding Search}"/>
+                    <ComboBox Classes="Field" Width="150" ItemsSource="{Binding KindFilters}"
+                              SelectedValue="{Binding KindFilter}" SelectedValueBinding="{Binding Key}"
+                              ToolTip.Tip="Kasa / banka türüne göre süz">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <CheckBox Content="Yalnız aktif" IsChecked="{Binding OnlyActive}" VerticalAlignment="Center"/>
+                    <!-- ORTAK ŞUBE SEÇİCİ (G4-3e): ÇOKLU seçim — Raporlar ekranındaki desenin aynısı
+                         (yeni bileşen uydurulmadı). Yalnız YETKİLİ şubeler listelenir.
+                         "Hiçbiri seçili değil" = TÜM YETKİLİ ŞUBELER (firmanın tümü DEĞİL).
+                         ⚠️ Güvenlik kapısı serviste (BranchAccess); bu yalnız kullanım kolaylığıdır. -->
+                    <ctrl:FormField Label="Şube (çoklu; boş=tüm yetkili)" Width="210"
+                                    IsVisible="{Binding BranchScope.IsVisible}">
+                        <StackPanel Spacing="4">
+                            <Border Classes="Field" MaxHeight="110" Padding="8,4">
+                                <ScrollViewer>
+                                    <ItemsControl ItemsSource="{Binding BranchScope.Picks}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:BranchScopeSelector+Pick">
+                                                <CheckBox Content="{Binding Label}" IsChecked="{Binding Selected, Mode=TwoWay}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+                            <SelectableTextBlock Text="{Binding BranchScope.SelectionText}" Classes="Helper"/>
+                        </StackPanel>
+                    </ctrl:FormField>
+                    <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <SelectableTextBlock Text="{Binding TotalText}" Classes="Helper" VerticalAlignment="Center"
+                                     ToolTip.Tip="Tüm hesapların bakiye toplamı — hareketlerden hesaplanır, saklanmaz."/>
+                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
+                <Button Classes="Primary" Content="Yeni Hesap" Command="{Binding NewAccountCommand}"
+                        IsVisible="{Binding CanCreate}"/>
+                <Button Classes="Secondary" Content="Düzenle" Command="{Binding EditAccountCommand}"
+                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanEdit}"/>
+                <Button Classes="Secondary" Content="Hareket Ekle" Command="{Binding NewEntryCommand}"
+                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanCreate}"
+                        ToolTip.Tip="Açılış bakiyesi veya düzeltme girin. Tahsilat/ödeme kendi ekranından yapılır."/>
+                <Button Classes="Secondary" Content="İç Transfer" Command="{Binding NewTransferCommand}"
+                        IsVisible="{Binding CanCreate}"
+                        ToolTip.Tip="Kasa ↔ banka para aktarımı. Toplam para değişmez; cari etkilenmez."/>
+                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
+                <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"
+                        IsEnabled="{Binding HasSelection}"
+                        ToolTip.Tip="Pasif hesapta yeni işlem yapılamaz; geçmişi korunur."/>
+                <Button Classes="Danger" Content="Sil" Command="{Binding DeleteAccountCommand}"
+                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanDelete}"
+                        ToolTip.Tip="Hareketi olan hesap silinemez; bu durumda pasif yapın."/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,16,460" Margin="0,16,0,0">
+
+            <!-- ── SOL: HESAP LİSTESİ ───────────────────────────────────────────────────── -->
+            <Border Grid.Column="0" Classes="Table">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110"/>
+                            <SelectableTextBlock Grid.Column="1" Text="HESAP ADI" MinWidth="200"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TÜR" MinWidth="90"/>
+                            <SelectableTextBlock Grid.Column="3" Text="BAKİYE" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="4" Text="DURUM" MinWidth="80"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="acc:FinanceAccountRow">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Account.Code}" MinWidth="110" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Account.Name}" MinWidth="200" VerticalAlignment="Center"
+                                                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Account.Name}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Account.KindText}" MinWidth="90" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding BalanceText}" MinWidth="150" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding Account.StatusText}" MinWidth="80" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- ── SAĞ (A): HESAP FORMU ─────────────────────────────────────────────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+
+                        <ctrl:FormField Label="Hesap Kodu" IsRequired="True">
+                            <TextBox Classes="Field" Text="{Binding FCode}" MaxLength="40"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Hesap Adı" IsRequired="True">
+                            <TextBox Classes="Field" Text="{Binding FName}" MaxLength="150"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Hesap Türü" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding KindOptions}"
+                                      SelectedValue="{Binding FKind}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Şube">
+                            <ComboBox Classes="Field" ItemsSource="{Binding BranchOptions}"
+                                      SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
+                                      ToolTip.Tip="Boş bırakılırsa hesap firma geneli olur ve her şubede görünür.">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+
+                        <!-- Banka alanları yalnız BANKA hesabında görünür. -->
+                        <StackPanel Spacing="8" IsVisible="{Binding ShowBankFields}">
+                            <ctrl:FormField Label="Banka Adı">
+                                <TextBox Classes="Field" Text="{Binding FBankName}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Banka Şubesi">
+                                <TextBox Classes="Field" Text="{Binding FBankBranch}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="Hesap No">
+                                <TextBox Classes="Field" Text="{Binding FAccountNo}"/>
+                            </ctrl:FormField>
+                            <ctrl:FormField Label="IBAN">
+                                <TextBox Classes="Field" Text="{Binding FIban}" MaxLength="34"
+                                         Watermark="TR ile başlar, 26 karakter — zorunlu değil"/>
+                            </ctrl:FormField>
+                        </StackPanel>
+
+                        <ctrl:FormField Label="Not">
+                            <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+                        <CheckBox Content="Varsayılan hesap" IsChecked="{Binding FIsDefault}"
+                                  ToolTip.Tip="Yeni işlemlerde bu hesap önerilir."/>
+                        <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                            <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveAccountCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>
+                        </StackPanel>
+                        <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
+                                             IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+            <!-- ── SAĞ (B): ELLE HAREKET (açılış / düzeltme) ────────────────────────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding EntryOpen}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="Hareket Ekle" Classes="SectionTitle"/>
+                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                             Text="Buradan yalnız AÇILIŞ bakiyesi ve gerekçeli DÜZELTME girilir. Tahsilat ve ödeme kendi ekranından yapılır — aynı para iki kez girilmesin."/>
+
+                        <ctrl:FormField Label="Hareket Türü" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding ManualTxnTypes}"
+                                      SelectedValue="{Binding EType}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tutar" IsRequired="True">
+                            <NumericUpDown Classes="Field" Value="{Binding EAmount}" Minimum="0" Increment="100"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tarih" IsRequired="True">
+                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding EDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Açıklama">
+                            <TextBox Classes="Field" Text="{Binding EDescription}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                            <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveEntryCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseEntryCommand}"/>
+                        </StackPanel>
+                        <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
+                                             IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+            <!-- ── SAĞ (C): İÇ TRANSFER ─────────────────────────────────────────────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding TransferOpen}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="İç Transfer" Classes="SectionTitle"/>
+                        <SelectableTextBlock Classes="Helper" TextWrapping="Wrap"
+                                             Text="Para bir hesaptan çıkar, diğerine girer. TOPLAM PARA DEĞİŞMEZ ve hiçbir cari etkilenmez."/>
+
+                        <ctrl:FormField Label="Kaynak Hesap" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding AccountOptions}"
+                                      SelectedValue="{Binding TFrom}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Hedef Hesap" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding AccountOptions}"
+                                      SelectedValue="{Binding TTo}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FinanceViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tutar" IsRequired="True">
+                            <NumericUpDown Classes="Field" Value="{Binding TAmount}" Minimum="0" Increment="100"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tarih" IsRequired="True">
+                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding TDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Açıklama">
+                            <TextBox Classes="Field" Text="{Binding TDescription}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                            <Button Classes="Primary" Content="Transferi Kaydet" Command="{Binding SaveTransferCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseTransferCommand}"/>
+                        </StackPanel>
+                        <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
+                                             IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+            <!-- ── SAĞ (D): HESAP EKSTRESİ ──────────────────────────────────────────────── -->
+            <Grid Grid.Column="2" IsVisible="{Binding ShowStatement}" RowDefinitions="Auto,*,Auto">
+                <Border Grid.Row="0" Classes="Panel">
+                    <StackPanel Spacing="4">
+                        <SelectableTextBlock Text="{Binding Selected.Account.Name}" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="{Binding Selected.BalanceText}"/>
+                        <SelectableTextBlock Classes="Helper"
+                                             Text="Bakiye hareketlerden hesaplanır; saklanmaz. İptal edilen hareketler listede görünür ama bakiyeye girmez."/>
+                        <Button Classes="Danger" Content="Ters Kayıt" Command="{Binding OpenReversePanelCommand}"
+                                IsEnabled="{Binding CanReverseSelected}" HorizontalAlignment="Left" Margin="0,6,0,0"
+                                ToolTip.Tip="Seçili hareketi gerekçeyle geri alır. Hareket silinmez; karşı kayıt yazılır."/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1" Classes="Table" Margin="0,12,0,0">
+                    <DockPanel>
+                        <Border Classes="TableHeader" DockPanel.Dock="Top">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90"/>
+                                <SelectableTextBlock Grid.Column="1" Text="TÜR / AÇIKLAMA" MinWidth="140"/>
+                                <SelectableTextBlock Grid.Column="2" Text="GİRİŞ" MinWidth="90"/>
+                                <SelectableTextBlock Grid.Column="3" Text="ÇIKIŞ" MinWidth="90"/>
+                                <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="100"/>
+                            </Grid>
+                        </Border>
+                        <ListBox Classes="Table" ItemsSource="{Binding Statement}" SelectedItem="{Binding SelectedTxn}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="acc:FinanceStatementRow">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding Txn.DateText}" MinWidth="90" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" MinWidth="140" VerticalAlignment="Center">
+                                            <SelectableTextBlock Text="{Binding Txn.TypeText}"/>
+                                            <SelectableTextBlock Text="{Binding Txn.Description}" Classes="Helper"
+                                                                 TextTrimming="CharacterEllipsis"/>
+                                            <SelectableTextBlock Text="İPTAL EDİLDİ" Classes="Error"
+                                                                 IsVisible="{Binding Txn.IsReversed}"/>
+                                        </StackPanel>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding Txn.In, StringFormat='{}{0:0.00}'}" MinWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="3" Text="{Binding Txn.Out, StringFormat='{}{0:0.00}'}" MinWidth="90" VerticalAlignment="Center"/>
+                                        <SelectableTextBlock Grid.Column="4" Text="{Binding RunningBalance, StringFormat='{}{0:0.00}'}" MinWidth="100" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <!-- Ters kayıt paneli: gerekçe zorunlu -->
+                <Border Grid.Row="2" Classes="Panel" Margin="0,12,0,0" IsVisible="{Binding ReversePanelOpen}">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="Ters Kayıt" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="{Binding ReverseWarning}" TextWrapping="Wrap" Classes="Helper"/>
+                        <ctrl:FormField Label="İptal Gerekçesi" IsRequired="True">
+                            <TextBox Classes="Field" Text="{Binding ReverseReason}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Classes="Danger" Content="Ters Kaydı Onayla" Command="{Binding ReverseTxnCommand}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseReversePanelCommand}"/>
+                        </StackPanel>
+                        <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
+                                             IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="3" Classes="Panel" Margin="0,12,0,0">
+            <SelectableTextBlock Text="{Binding Status}" Classes="Helper"/>
+        </Border>
+    </Grid>
+</UserControl>

@@ -499,4 +499,158 @@ public sealed class PermissionService
         bind(cmd);
         cmd.ExecuteNonQuery();
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //  G4-3c — ŞUBE KAPSAMI YÖNETİMİ (GAP-7, kullanıcı isteği 2026-08-12)
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Kullanıcının ŞUBE KAPSAMI görünümü. Bu bir <b>ikinci yetki ağacı DEĞİLDİR</b>: modül yetkileri
+    /// aynı ekranda, aynı <see cref="SaveForUser"/> mimarisinde kalır; burada yalnız "hangi şubelerde"
+    /// sorusunun cevabı yönetilir.
+    ///
+    /// <b>ETKİN ERİŞİM = MODÜL YETKİSİ ∧ ŞUBE KAPSAMI ∧ PLATFORM ∧ diğer AccessControl kuralları.</b>
+    /// Kapsam vermek yetki vermek DEĞİLDİR; yetki vermek de kapsam vermek değildir.
+    /// </summary>
+    /// <param name="Mode">Kapsam kipi — repodaki GERÇEK modelden türetilir, yeni enum uydurulmadı:
+    /// explicit = user_scopes satırları var; all = tüm şubeler (admin/CanViewAllBranches);
+    /// own = açık kapsam yok, users.branch_id tek şube; none = ikisi de yok (sınırsız fallback).</param>
+    public sealed record BranchScopeView(
+        string Mode,
+        IReadOnlyList<string> ScopeBranchIds,
+        string? HomeBranchId,
+        bool CanViewAllBranches,
+        IReadOnlyList<BranchOption> AssignableBranches)
+    {
+        public string ModeText => Mode switch
+        {
+            "explicit" => "Seçili şubeler",
+            "all" => "Tüm şubeler",
+            "own" => "Yalnız kendi şubesi",
+            _ => "Kapsam atanmamış",
+        };
+    }
+
+    /// <summary>Atanabilir şube seçeneği (id + ad).</summary>
+    public sealed record BranchOption(string Id, string Name);
+
+    /// <summary>
+    /// Hedef kullanıcının şube kapsamı + AKTÖRÜN verebileceği şubeler.
+    /// <b>Atanabilir liste aktörün kendi kapsamıyla sınırlıdır</b> — kendisinde olmayan şubeyi
+    /// listede bile göremez (UI yanlışlıkla sunamaz; asıl kapı yine serviste).
+    /// </summary>
+    public BranchScopeView GetBranchScope(SessionContext actor, string userId)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.View);
+        using var conn = _factory.Create();
+        var companyId = EnsureUserOwned(conn, null, actor, userId);
+
+        var scope = new List<string>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT branch_id FROM user_scopes WHERE user_id=@u AND company_id=@c;";
+            cmd.AddWithValue("@u", userId); cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) scope.Add(r.GetString(0));
+        }
+
+        string? home = null; bool viewAll = false;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT branch_id, COALESCE(can_view_all_branches,0) FROM users WHERE id=@id AND company_id=@c;";
+            cmd.AddWithValue("@id", userId); cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            if (r.Read())
+            {
+                home = r.IsDBNull(0) ? null : r.GetString(0);
+                viewAll = Convert.ToInt64(r.GetValue(1)) != 0;
+            }
+        }
+
+        // Firmanın şubeleri → AKTÖRÜN kapsamıyla kırpılır (grant ceiling'in liste karşılığı).
+        var all = new List<BranchOption>();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
+            cmd.AddWithValue("@c", companyId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) all.Add(new BranchOption(r.GetString(0), r.GetString(1)));
+        }
+        var mine = BranchAccess.Allowed(actor);
+        var assignable = mine is null
+            ? all
+            : all.Where(b => mine.Contains(b.Id, StringComparer.Ordinal)).ToList();
+
+        var mode = scope.Count > 0 ? "explicit"
+                 : viewAll ? "all"
+                 : home is not null ? "own"
+                 : "none";
+        return new BranchScopeView(mode, scope, home, viewAll, assignable);
+    }
+
+    /// <summary>
+    /// Kullanıcının şube kapsamını yazar (TEK transaction: sil + ekle → kısmi kapsam oluşmaz).
+    ///
+    /// <b>DEVİR TAVANI:</b> aktör kendisinde OLMAYAN şubeyi veremez
+    /// (<see cref="BranchAccess.RequireGrantable"/>). Sessizce kırpılmaz — hata verir, kullanıcı
+    /// neyi veremediğini görür. G1'in "sahip olmadığın yetkiyi devredemezsin" kuralının şube karşılığı.
+    ///
+    /// <b>KENDİ KAPSAMINI DEĞİŞTİREMEZ:</b> kullanıcı kendi kapsamını yazamaz (yetki sıfırlamadaki
+    /// kuralın aynısı) — kendi kapsamını genişletme yolu kapalıdır.
+    ///
+    /// Boş liste gönderilirse açık kapsam KALDIRILIR (kullanıcı own/all davranışına döner).
+    /// </summary>
+    public void SaveBranchScope(SessionContext actor, string userId, IReadOnlyList<string> branchIds)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.Edit);
+
+        if (string.Equals(actor.UserId, userId, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "Kendi şube kapsamınızı değiştiremezsiniz. Bu işlemi başka bir yetkili yapmalıdır.");
+
+        // Aktörün kapsamı dışındaki şube HİÇBİR koşulda devredilemez (admin bypass'ı bunu kaldırmaz).
+        BranchAccess.RequireGrantable(actor, branchIds);
+
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        var companyId = EnsureUserOwned(conn, tx, actor, userId);
+        EnsureManageableTarget(conn, tx, actor, userId);   // admin başka admin/süperadmini düzenleyemez
+
+        var hedef = branchIds.Distinct(StringComparer.Ordinal).ToList();
+
+        // Firma izolasyonu: şubelerin hepsi bu firmaya ait ve silinmemiş olmalı.
+        foreach (var b in hedef)
+        {
+            using var chk = conn.CreateCommand();
+            chk.Transaction = tx;
+            chk.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@b AND company_id=@c AND is_deleted=0;";
+            chk.AddWithValue("@b", b); chk.AddWithValue("@c", companyId);
+            if (Convert.ToInt64(chk.ExecuteScalar()) == 0)
+                throw new ForbiddenException("Şube bulunamadı veya başka firmaya ait.");
+        }
+
+        using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM user_scopes WHERE user_id=@u AND company_id=@c;";
+            del.AddWithValue("@u", userId); del.AddWithValue("@c", companyId);
+            del.ExecuteNonQuery();
+        }
+
+        foreach (var b in hedef)
+        {
+            using var ins = conn.CreateCommand();
+            ins.Transaction = tx;
+            ins.CommandText = "INSERT INTO user_scopes(user_id, company_id, branch_id) VALUES(@u,@c,@b);";
+            ins.AddWithValue("@u", userId); ins.AddWithValue("@c", companyId); ins.AddWithValue("@b", b);
+            ins.ExecuteNonQuery();
+        }
+
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user_scopes", userId, AuditActions.Update,
+            actor.UserId, AfterJson: "{\"branches\":" + hedef.Count + "}"), _clock);
+        tx.Commit();
+
+        // Yetki fotoğrafı önbelleği: kapsam değiştiği için hedef kullanıcının oturumu tazelenmeli.
+        _snapshots?.InvalidateUser(userId);
+    }
 }

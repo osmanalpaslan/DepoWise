@@ -40,6 +40,8 @@ public sealed class ServerServices
     public DepoWise.Infrastructure.Accounting.PartyLedgerService PartyLedger { get; }
     public DepoWise.Infrastructure.Accounting.InvoiceService Invoices { get; }
     public DepoWise.Infrastructure.Accounting.InvoiceQueryService InvoiceQueries { get; }
+    public DepoWise.Infrastructure.Accounting.FinanceService Finance { get; }
+    public DepoWise.Infrastructure.Accounting.FinanceQueryService FinanceQueries { get; }
     public SyncServer Sync { get; }
     public ReleaseService Releases { get; }
     public EnrollmentService Enrollment { get; }
@@ -146,6 +148,9 @@ public sealed class ServerServices
         // G4-2: fatura, stok ve cari servislerini KULLANIR (paralel defter yok) - bu yuzden onlardan SONRA kurulur.
         Invoices = new DepoWise.Infrastructure.Accounting.InvoiceService(Factory, Stock, PartyLedger, clock);
         InvoiceQueries = new DepoWise.Infrastructure.Accounting.InvoiceQueryService(Factory, clock);
+        // G4-3: kasa/banka cari servisini KULLANIR (paralel cari defteri yok) - ondan SONRA kurulur.
+        Finance = new DepoWise.Infrastructure.Accounting.FinanceService(Factory, PartyLedger, clock);
+        FinanceQueries = new DepoWise.Infrastructure.Accounting.FinanceQueryService(Factory);
         Vehicles = new DepoWise.Infrastructure.Vehicles.VehicleService(Factory, clock);
         Maintenance = new DepoWise.Infrastructure.Maintenance.MaintenanceService(Factory, clock);
         Inspection = new DepoWise.Infrastructure.Maintenance.InspectionService(Factory, clock);

@@ -1,0 +1,507 @@
+@page "/payments"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* G4-3 — TAHSİLAT / ÖDEME (web). Masaüstüyle AYNI API/servis sözleşmesini kullanır: yön kuralı,
+   fatura kapama, idempotency ve ters kayıt SUNUCUDADIR.
+
+   ⚠️ PARALEL DEFTER YOK: ekran tek çağrı yapar (POST /api/finance/entries); kasa hareketi, cari
+      hareketi ve fatura kapaması AYNI transaction'da yazılır.
+   ⚠️ FATURA KALANI SAKLANMAZ: listede görünen "kalan" her seferinde hesaplanır.
+   ⚠️ SİLME YOK: yalnız gerekçeli TERS KAYIT vardır ve fatura kalanı geri artar. *@
+
+<PageTitle>Tahsilat / Ödeme — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Tahsilat / Ödeme</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
+    </div>
+    @if (Auth.CanCreate("finance"))
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenNew">Yeni Tahsilat / Ödeme</MudButton>
+    }
+</div>
+
+@if (!Auth.CanView("finance"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_search" Placeholder="Açıklama / belge no / cari" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" Style="max-width:300px" OnKeyUp="OnSearchKey" />
+            <MudSelect T="string" @bind-Value="_type" Label="İşlem türü" Margin="Margin.Dense"
+                       Variant="Variant.Outlined" Style="max-width:200px" Clearable="true">
+                <MudSelectItem T="string" Value="@("receipt")">Tahsilat</MudSelectItem>
+                <MudSelectItem T="string" Value="@("payment")">Ödeme</MudSelectItem>
+            </MudSelect>
+            <!-- ORTAK ŞUBE SEÇİCİ: yalnız kullanıcının YETKİLİ olduğu şubeleri gösterir.
+                 Güvenlik kapısı serviste (BranchAccess) — bu yalnız kullanım kolaylığıdır. -->
+            <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
+                          HelperText="Boş = tüm yetkili şubeler" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            <MudSpacer />
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@_pageText</MudText>
+        </MudStack>
+    </MudPaper>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">İşlem bulunamadı.</MudAlert> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="Row">
+                <HeaderContent>
+                    <MudTh>TARİH</MudTh><MudTh>TÜR</MudTh><MudTh>CARİ</MudTh><MudTh>HESAP</MudTh>
+                    <MudTh>YÖNTEM</MudTh>
+                    <MudTh Style="text-align:right">GİRİŞ</MudTh>
+                    <MudTh Style="text-align:right">ÇIKIŞ</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.DateText</MudTd>
+                    <MudTd>@context.TypeText</MudTd>
+                    <MudTd>
+                        @context.PartyTitle
+                        @if (context.IsReversed)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Class="ml-1">İPTAL</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd>@context.AccountName</MudTd>
+                    <MudTd>@context.PaymentMethod</MudTd>
+                    <MudTd Style="text-align:right">@(context.InAmount > 0 ? context.InAmount.ToString("0.00") : "")</MudTd>
+                    <MudTd Style="text-align:right">@(context.OutAmount > 0 ? context.OutAmount.ToString("0.00") : "")</MudTd>
+                    <MudTd>
+                        @if (!context.IsReversed && !context.IsReversalEntry && Auth.CanEdit("finance"))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Undo" Size="Size.Small" Color="Color.Error"
+                                           OnClick="@(() => Reverse(context))"
+                                           Title="Ters kayıt — işlem silinmez, karşı kayıt yazılır" />
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        @if (Auth.CanEdit("finance"))
+        {
+            <MudTextField @bind-Value="_reverseReason" Label="Ters kayıt gerekçesi" Class="mt-3"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          HelperText="Geri alma düğmesine basmadan önce doldurun — gerekçe zorunludur." />
+        }
+
+        @if (_pageCount > 1)
+        {
+            <div class="d-flex justify-center mt-3">
+                <MudPagination Count="_pageCount" Selected="_page" SelectedChanged="Go" />
+            </div>
+        }
+    }
+
+    @* ── YENİ TAHSİLAT / ÖDEME ─────────────────────────────────────────────────── *@
+    <MudDialog @bind-Visible="_formOpen" Options="_dlg">
+        <TitleContent><MudText Typo="Typo.h6">Yeni Tahsilat / Ödeme</MudText></TitleContent>
+        <DialogContent>
+            @if (_formError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_formError</MudAlert> }
+
+            @* Yön kullanıcıya AÇIKÇA yazılır; tahmin etmesi gerekmez. *@
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">@DirectionHint</MudAlert>
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" Value="_fType" ValueChanged="OnTypeChanged" Label="İşlem türü" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem T="string" Value="@("receipt")">Tahsilat</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("payment")">Ödeme</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" Value="_fPartyId" ValueChanged="OnPartyChanged" Label="Cari" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var p in _parties) { <MudSelectItem T="string" Value="@p.Key">@p.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fAccountId" Label="Kasa / Banka" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var a in _accounts) { <MudSelectItem T="string" Value="@a.Key">@a.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudNumericField T="decimal" @bind-Value="_fAmount" Label="Tutar" Min="0"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="_fDate" Label="Tarih" Variant="Variant.Outlined"
+                                   Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fPaymentMethod" Label="Ödeme yöntemi"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var m in _methods) { <MudSelectItem T="string" Value="@m.Key">@m.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_fDocNo" Label="Belge no" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Makbuz / dekont numarası" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_fReferenceNo" Label="Referans" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Banka referansı, çek no vb." />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_fDescription" Label="Açıklama" Lines="2"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.subtitle2" Class="mt-4">Kapatılacak Faturalar</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                Hiçbiri seçilmezse işlem bağımsız cari hareketi olarak kaydedilir (bakiyeyi etkiler, fatura kapatmaz).
+                Kalan tutarlar hesaplanır; saklanmaz.
+            </MudText>
+
+            @if (_openInvoices.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Bu cari için kapatılmayı bekleyen fatura yok.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_openInvoices" Dense="true" T="OpenInv" Elevation="0">
+                    <HeaderContent>
+                        <MudTh></MudTh><MudTh>FATURA NO</MudTh><MudTh>TARİH</MudTh><MudTh>VADE</MudTh>
+                        <MudTh Style="text-align:right">KALAN</MudTh>
+                        <MudTh Style="text-align:right">KAPATILACAK</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudCheckBox T="bool" Value="context.Selected" Dense="true"
+                                         ValueChanged="@(v => ToggleInvoice(context, v))" />
+                        </MudTd>
+                        <MudTd>@context.InvoiceNo</MudTd>
+                        <MudTd>@context.DateText</MudTd>
+                        <MudTd>@context.DueText</MudTd>
+                        <MudTd Style="text-align:right">@context.Remaining.ToString("0.00")</MudTd>
+                        <MudTd Style="text-align:right">
+                            <MudNumericField T="decimal" @bind-Value="context.Amount" Min="0" Max="@context.Remaining"
+                                             Disabled="@(!context.Selected)" Margin="Margin.Dense"
+                                             Variant="Variant.Outlined" Style="max-width:140px" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <MudStack Row="true" Spacing="2" Class="mt-2" AlignItems="AlignItems.Center">
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="FillFromInvoices">
+                        Tutarı faturalardan doldur
+                    </MudButton>
+                    <MudSpacer />
+                    <MudText Typo="Typo.body2">@AllocationSummary</MudText>
+                </MudStack>
+            }
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => _formOpen = false)">Vazgeç</MudButton>
+            @* _saving sürerken düğme kapalıdır; ayrıca operation_id sabit olduğu için çift gönderim
+               sunucuda da İKİNCİ tahsilat oluşturmaz. *@
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="Save">Kaydet</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    // ── ORTAK ŞUBE KAPSAMI (G4-3d) ───────────────────────────────────────────────
+    // Seçim yalnız OKUMA filtresidir; yazma tarafında tekil "aktif çalışma şubesi" kullanılır.
+    private BranchPicker? _branchPicker;
+    private IReadOnlyList<string> _branchIds = Array.Empty<string>();
+
+    /// <summary>Seçim değişince veri YENİDEN yüklenir (kullanıcı Ara demek zorunda kalmasın).</summary>
+    private async Task OnBranchesChanged(IReadOnlyList<string> ids)
+    {
+        _branchIds = ids;
+        await Load();
+    }
+
+    /// <summary>API sorgu eki: &branchIds=a,b. Boş → ek yok (tüm yetkili şubeler).</summary>
+    private string BranchQuery => _branchIds.Count == 0 ? "" : "&branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
+
+    private sealed class Opt { public string Key = "", Label = ""; }
+
+    private sealed class Row
+    {
+        public string Id = "", DateText = "", TypeText = "", AccountName = "";
+        public string? PartyTitle, PaymentMethod;
+        public decimal InAmount, OutAmount;
+        public bool IsReversed, IsReversalEntry;
+    }
+
+    private sealed class OpenInv
+    {
+        public string Id = "", InvoiceNo = "", DateText = "", DueText = "";
+        public decimal Remaining;
+        public bool Selected;
+        public decimal Amount;
+    }
+
+    private readonly DialogOptions _dlg = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true };
+
+    private List<Row>? _rows;
+    private List<Opt> _parties = new(), _accounts = new();
+    private List<OpenInv> _openInvoices = new();
+
+    private readonly List<Opt> _methods = new()
+    {
+        new Opt { Key = "nakit", Label = "Nakit" },
+        new Opt { Key = "havale", Label = "Havale / EFT" },
+        new Opt { Key = "kredi_karti", Label = "Kredi Kartı" },
+        new Opt { Key = "cek", Label = "Çek" },
+        new Opt { Key = "senet", Label = "Senet" },
+    };
+
+    private string _search = "", _type = "", _pageText = "";
+    private int _page = 1, _pageCount = 1, _total;
+    private bool _busy, _saving, _ok, _formOpen;
+    private string? _msg, _formError;
+    private string _reverseReason = "";
+
+    // ── Form ──
+    private string _fType = "receipt", _fPartyId = "", _fAccountId = "", _fPaymentMethod = "nakit",
+                   _fDocNo = "", _fReferenceNo = "", _fDescription = "";
+    private decimal _fAmount;
+    private DateTime? _fDate = DateTime.Today;
+    private string _operationId = "";
+
+    private string DirectionHint => _fType == "receipt"
+        ? "TAHSİLAT: Kasa/banka ARTAR, müşterinin size olan borcu AZALIR."
+        : "ÖDEME: Kasa/banka AZALIR, sizin tedarikçiye olan borcunuz AZALIR.";
+
+    private string AllocationSummary
+    {
+        get
+        {
+            var chosen = _openInvoices.Where(x => x.Selected).ToList();
+            if (chosen.Count == 0) return "Fatura seçilmedi.";
+            var total = chosen.Sum(x => x.Amount);
+            return $"{chosen.Count} faturaya toplam {total:0.00} dağıtıldı" +
+                   (total > _fAmount ? " ⚠ işlem tutarını aşıyor" : "");
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
+    private async Task Go(int p) { _page = p; await Load(); }
+
+    private async Task Load()
+    {
+        _busy = true; _rows = null;
+        try
+        {
+            var url = $"/api/finance/transactions?page={_page}&pageSize=50"
+                    + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
+                    + (string.IsNullOrWhiteSpace(_type) ? "" : $"&txnType={Uri.EscapeDataString(_type)}")
+                    + BranchQuery;
+            var d = await Api.GetObjectAsync(url);
+            _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
+            _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
+            _pageText = $"Sayfa {_page} / {_pageCount} · {_total} işlem";
+            _rows = d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new Row
+                {
+                    Id = Str(e, "id"), DateText = Str(e, "dateText"), TypeText = Str(e, "typeText"),
+                    AccountName = Str(e, "accountName"), PartyTitle = Str(e, "partyTitle"),
+                    PaymentMethod = Str(e, "paymentMethod"),
+                    InAmount = Dec(e, "inAmount"), OutAmount = Dec(e, "outAmount"),
+                    IsReversed = Bool(e, "isReversed"), IsReversalEntry = Bool(e, "isReversalEntry"),
+                }).ToList() : new();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
+        finally { _busy = false; }
+    }
+
+    // ── YENİ İŞLEM ────────────────────────────────────────────────────────────────
+
+    private async Task OpenNew()
+    {
+        if (!Auth.CanCreate("finance")) { _ok = false; _msg = "İşlem yetkiniz yok."; return; }
+        _formError = null;
+        _operationId = "pay-" + Guid.NewGuid().ToString("N");   // kayıt bitene kadar SABİT
+        _fType = "receipt"; _fPartyId = ""; _fAccountId = ""; _fAmount = 0m;
+        _fDate = DateTime.Today; _fPaymentMethod = "nakit";
+        _fDocNo = ""; _fReferenceNo = ""; _fDescription = "";
+        _openInvoices = new();
+        _formOpen = true;
+        await LoadLookups();
+    }
+
+    private async Task LoadLookups()
+    {
+        try
+        {
+            _accounts = (await Api.GetArrayAsync("/api/finance/accounts"))
+                .Select(e => new Opt { Key = Str(e, "id"), Label = $"{Str(e, "code")} — {Str(e, "name")} ({Dec(e, "balance"):0.00})" })
+                .ToList();
+        }
+        catch { _accounts = new(); }
+
+        try
+        {
+            var p = await Api.GetObjectAsync("/api/parties?page=1&pageSize=500&onlyActive=true");
+            _parties = p.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new Opt { Key = Str(e, "id"), Label = $"{Str(e, "code")} — {Str(e, "title")}" }).ToList()
+                : new();
+        }
+        catch { _parties = new(); }
+    }
+
+    private async Task OnTypeChanged(string v) { _fType = v; await LoadOpenInvoices(); }
+    private async Task OnPartyChanged(string v) { _fPartyId = v; await LoadOpenInvoices(); }
+
+    /// <summary>
+    /// Seçili carinin AÇIK faturaları. Tahsilatta yalnız SATIŞ, ödemede yalnız ALIŞ faturaları
+    /// gelir — ters eşleşme kullanıcıya hiç gösterilmez (servis de ayrıca reddeder).
+    /// </summary>
+    private async Task LoadOpenInvoices()
+    {
+        _openInvoices = new();
+        if (string.IsNullOrWhiteSpace(_fPartyId)) return;
+        var dir = _fType == "receipt" ? "sales" : "purchase";
+        try
+        {
+            _openInvoices = (await Api.GetArrayAsync(
+                    $"/api/finance/open-invoices?partyId={Uri.EscapeDataString(_fPartyId)}&direction={dir}"))
+                .Select(e => new OpenInv
+                {
+                    Id = Str(e, "id"), InvoiceNo = Str(e, "invoiceNo"),
+                    DateText = Str(e, "dateText"), DueText = Str(e, "dueText"),
+                    Remaining = Dec(e, "remaining"),
+                }).ToList();
+        }
+        catch (Exception ex) { _formError = "Açık faturalar alınamadı: " + ex.Message; }
+    }
+
+    private void ToggleInvoice(OpenInv inv, bool value)
+    {
+        inv.Selected = value;
+        // İşaretlenince kalan tutar otomatik dolar — kullanıcı çoğu zaman tamamını kapatır.
+        inv.Amount = value ? inv.Remaining : 0m;
+    }
+
+    private void FillFromInvoices()
+    {
+        var total = _openInvoices.Where(x => x.Selected).Sum(x => x.Amount);
+        if (total > 0) _fAmount = total;
+    }
+
+    private async Task Save()
+    {
+        if (_saving) return;
+        _formError = null;
+        if (string.IsNullOrWhiteSpace(_fPartyId)) { _formError = "Cari seçin."; return; }
+        if (string.IsNullOrWhiteSpace(_fAccountId)) { _formError = "Kasa/banka hesabı seçin."; return; }
+        if (_fAmount <= 0) { _formError = "Tutar sıfırdan büyük olmalıdır."; return; }
+
+        _saving = true;
+        try
+        {
+            var allocations = _openInvoices
+                .Where(x => x.Selected && x.Amount > 0)
+                .Select(x => new { invoiceId = x.Id, amount = x.Amount })
+                .ToArray();
+
+            var err = await Api.PostAsync("/api/finance/entries", new
+            {
+                accountId = _fAccountId,
+                txnType = _fType,
+                amount = _fAmount,
+                operationId = _operationId,
+                partyId = _fPartyId,
+                txnDate = Ms(_fDate),
+                description = Nz(_fDescription),
+                docNo = Nz(_fDocNo),
+                paymentMethod = Nz(_fPaymentMethod),
+                referenceNo = Nz(_fReferenceNo),
+                currency = "TRY",
+                allocations,
+            });
+            if (err is not null) { _formError = err; return; }
+
+            _formOpen = false;
+            _ok = true;
+            _msg = (_fType == "receipt" ? "Tahsilat" : "Ödeme") + " kaydedildi." +
+                   (allocations.Length > 0 ? $" {allocations.Length} fatura kapatıldı." : "");
+            await Load();
+        }
+        catch (Exception ex) { _formError = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    // ── TERS KAYIT ────────────────────────────────────────────────────────────────
+
+    private async Task Reverse(Row t)
+    {
+        if (_saving) return;
+        if (string.IsNullOrWhiteSpace(_reverseReason))
+        {
+            _ok = false;
+            _msg = "Ters kayıt gerekçesi zorunlu — tablonun altındaki 'gerekçe' alanını doldurun.";
+            return;
+        }
+        var gerekce = _reverseReason.Trim();
+        if (!await Dialog.Confirm(
+                $"{t.DateText} · {t.TypeText} · {t.PartyTitle}\n\n" +
+                "İşlem SİLİNMEZ; karşı kayıt yazılır ve etkisi sıfırlanır:\n" +
+                "• Kasa/banka bakiyesi eski hâline döner.\n" +
+                "• Cari hareketi ters yönde yazılır.\n" +
+                "• Bu işlemle kapatılan faturaların KALANI geri artar.\n\n" +
+                $"Gerekçe: {gerekce}\n\nDevam edilsin mi?", "Evet, Ters Çevir")) return;
+
+        _saving = true;
+        try
+        {
+            var err = await Api.PostAsync($"/api/finance/transactions/{t.Id}/reverse", new { reason = gerekce });
+            _ok = err is null;
+            _msg = err ?? "İşlem ters kayıtla iptal edildi.";
+            if (_ok) { _reverseReason = ""; await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "İptal edilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    /// <summary>
+    /// 🔴 GUI TESTİNDE BULUNAN HATA (2026-08-12): tarih alanları <c>DateTime.Today</c> ile
+    /// başlatılıyor → <c>Kind=Local</c>. <c>new DateTimeOffset(local, TimeSpan.Zero)</c> .NET'te
+    /// ArgumentException atar ("UTC Offset ... does not match the offset argument") ve KAYIT DÜŞER.
+    /// Servis testleri bunu yakalayamazdı: dönüşüm yalnız UI katmanındadır.
+    ///
+    /// Çözüm: gün bileşeni alınır ve Kind NÖTRLENİR, sonra UTC 00:00 olarak yorumlanır.
+    /// <b>Neden <c>new DateTimeOffset(d)</c> değil:</b> o, yerel saat dilimini uygular (TR = UTC+3) →
+    /// 00:00 yerel = 21:00 UTC ÖNCEKİ GÜN olur ve tarih BİR GÜN KAYARDI.
+    /// </summary>
+    private static long? Ms(DateTime? d) => d is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Unspecified), TimeSpan.Zero)
+            .ToUnixTimeMilliseconds();
+
+    // ── JSON yardımcıları ─────────────────────────────────────────────────────────
+
+    private static string? Nz(string? v) => string.IsNullOrWhiteSpace(v) ? null : v;
+
+    private static string Str(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : "";
+
+    private static bool Bool(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static decimal Dec(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+}

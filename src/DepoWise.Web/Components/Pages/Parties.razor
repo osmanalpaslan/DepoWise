@@ -41,6 +41,10 @@ else
                 @foreach (var t in _types) { <MudSelectItem T="string" Value="@t.Key">@t.Label</MudSelectItem> }
             </MudSelect>
             <MudCheckBox T="bool" @bind-Value="_onlyActive" Label="Yalnız aktif" Dense="true" />
+            <!-- ORTAK ŞUBE SEÇİCİ: yalnız kullanıcının YETKİLİ olduğu şubeleri gösterir.
+                 Güvenlik kapısı serviste (BranchAccess) — bu yalnız kullanım kolaylığıdır. -->
+            <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
+                          HelperText="Boş = tüm yetkili şubeler" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
             <MudSpacer />
             <MudText Typo="Typo.body2" Class="mud-text-secondary">@_pageText</MudText>
@@ -247,6 +251,21 @@ else
 }
 
 @code {
+    // ── ORTAK ŞUBE KAPSAMI (G4-3d) ───────────────────────────────────────────────
+    // Seçim yalnız OKUMA filtresidir; yazma tarafında tekil "aktif çalışma şubesi" kullanılır.
+    private BranchPicker? _branchPicker;
+    private IReadOnlyList<string> _branchIds = Array.Empty<string>();
+
+    /// <summary>Seçim değişince veri YENİDEN yüklenir (kullanıcı Ara demek zorunda kalmasın).</summary>
+    private async Task OnBranchesChanged(IReadOnlyList<string> ids)
+    {
+        _branchIds = ids;
+        await Load();
+    }
+
+    /// <summary>API sorgu eki: &branchIds=a,b. Boş → ek yok (tüm yetkili şubeler).</summary>
+    private string BranchQuery => _branchIds.Count == 0 ? "" : "&branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
+
     [Parameter] public string? Section { get; set; }
 
     private sealed class Row
@@ -351,7 +370,8 @@ else
         {
             var url = $"/api/parties?page={_page}&pageSize=50&onlyActive={(_onlyActive ? "true" : "false")}"
                     + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
-                    + (string.IsNullOrWhiteSpace(_type) ? "" : $"&type={Uri.EscapeDataString(_type)}");
+                    + (string.IsNullOrWhiteSpace(_type) ? "" : $"&type={Uri.EscapeDataString(_type)}")
+                    + BranchQuery;
             var d = await Api.GetObjectAsync(url);
             _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
             _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
@@ -373,7 +393,8 @@ else
         _ledger = null;
         try
         {
-            var d = await Api.GetObjectAsync($"/api/parties/{r.Id}");
+            var bq = _branchIds.Count == 0 ? "" : "?branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
+            var d = await Api.GetObjectAsync($"/api/parties/{r.Id}{bq}");
             var b = d.GetProperty("balance");
             _card = new Card
             {
@@ -388,7 +409,7 @@ else
                 EntryCount = b.TryGetProperty("entryCount", out var ec) && ec.TryGetInt32(out var eci) ? eci : 0,
                 LastEntryText = Str(b, "lastEntryText"),
             };
-            _ledger = (await Api.GetArrayAsync($"/api/parties/{r.Id}/ledger"))
+            _ledger = (await Api.GetArrayAsync($"/api/parties/{r.Id}/ledger{bq}"))
                 .Select(e => new LedgerRow
                 {
                     Id = Str(e, "id"), DateText = Str(e, "dateText"), TypeText = Str(e, "typeText"), Description = Str(e, "description"),

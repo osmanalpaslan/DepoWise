@@ -166,6 +166,13 @@ public sealed class InvoiceService
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var date = dto.InvoiceDate ?? now;
 
+        // ⭐ G4-3b ŞUBE KAPISI: fatura başlığının şubesi kullanıcının kapsamında OLMALI.
+        // Önceden yalnız stok tarafında kontrol vardı; fatura başlığı ve cari hareketi
+        // doğrulanmadan yazılıyordu → kullanıcı API'ye başka şubenin id'sini yazabilirdi.
+        // Belirtilmediyse oturumun/kullanıcının şubesine düşer (Resolve).
+        var branchId = BranchAccess.Resolve(s, dto.BranchId, "fatura kesme");
+        dto = dto with { BranchId = branchId };
+
         using var conn = _factory.Create();
         // IMMEDIATE: numara üretimi ve stok yazımı eş zamanlı çağrılarda seri hale gelsin.
         using var tx = conn.BeginImmediate();
@@ -249,6 +256,8 @@ public sealed class InvoiceService
         using var tx = conn.BeginImmediate();
 
         var head = ReadHeadForCancel(conn, tx, s.CompanyId, invoiceId);
+        // ⭐ Kapsam kapısı: kapsam dışı şubenin faturası İPTAL EDİLEMEZ.
+        BranchAccess.Require(s, head.BranchId, "fatura iptali");
         if (head.Status == InvoiceStatuses.Cancelled)
             throw new ArgumentException("Fatura zaten iptal edilmiş; ikinci kez iptal edilemez.");
 
@@ -327,6 +336,7 @@ WHERE id=@id AND company_id=@c AND status=@active;";
         using var tx = conn.BeginTransaction();
 
         var head = ReadHeadForCancel(conn, tx, s.CompanyId, invoiceId);
+        BranchAccess.Require(s, head.BranchId, "fatura düzenleme");   // ⭐ kapsam kapısı
         if (head.Status == InvoiceStatuses.Cancelled)
             throw new ArgumentException("İptal edilmiş fatura düzenlenemez.");
         if (expectedVersion.HasValue && expectedVersion.Value != head.Version)

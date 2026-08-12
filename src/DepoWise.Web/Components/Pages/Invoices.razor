@@ -50,6 +50,10 @@ else
                 <MudSelectItem T="string" Value="@("active")">Yürürlükte</MudSelectItem>
                 <MudSelectItem T="string" Value="@("cancelled")">İptal</MudSelectItem>
             </MudSelect>
+            <!-- ORTAK ŞUBE SEÇİCİ: yalnız kullanıcının YETKİLİ olduğu şubeleri gösterir.
+                 Güvenlik kapısı serviste (BranchAccess) — bu yalnız kullanım kolaylığıdır. -->
+            <BranchPicker @ref="_branchPicker" Multi="true" SelectionChanged="OnBranchesChanged"
+                          HelperText="Boş = tüm yetkili şubeler" />
             <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
             <MudSpacer />
             <MudText Typo="Typo.body2" Class="mud-text-secondary">@_pageText</MudText>
@@ -308,6 +312,21 @@ else
 }
 
 @code {
+    // ── ORTAK ŞUBE KAPSAMI (G4-3d) ───────────────────────────────────────────────
+    // Seçim yalnız OKUMA filtresidir; yazma tarafında tekil "aktif çalışma şubesi" kullanılır.
+    private BranchPicker? _branchPicker;
+    private IReadOnlyList<string> _branchIds = Array.Empty<string>();
+
+    /// <summary>Seçim değişince veri YENİDEN yüklenir (kullanıcı Ara demek zorunda kalmasın).</summary>
+    private async Task OnBranchesChanged(IReadOnlyList<string> ids)
+    {
+        _branchIds = ids;
+        await Load();
+    }
+
+    /// <summary>API sorgu eki: &branchIds=a,b. Boş → ek yok (tüm yetkili şubeler).</summary>
+    private string BranchQuery => _branchIds.Count == 0 ? "" : "&branchIds=" + Uri.EscapeDataString(string.Join(",", _branchIds));
+
     [Parameter] public string? Section { get; set; }
 
     private sealed class Opt
@@ -393,7 +412,8 @@ else
             var url = $"/api/invoices?page={_page}&pageSize=50"
                     + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
                     + (string.IsNullOrWhiteSpace(_direction) ? "" : $"&direction={Uri.EscapeDataString(_direction)}")
-                    + (string.IsNullOrWhiteSpace(_status) ? "" : $"&status={Uri.EscapeDataString(_status)}");
+                    + (string.IsNullOrWhiteSpace(_status) ? "" : $"&status={Uri.EscapeDataString(_status)}")
+                    + BranchQuery;
             var d = await Api.GetObjectAsync(url);
             _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
             _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
@@ -465,12 +485,12 @@ else
         }
         catch { _parties = new(); }
 
-        try
-        {
-            _branches = (await Api.GetArrayAsync("/api/branches"))
-                .Select(e => new Opt { Key = Str(e, "id"), Label = Str(e, "name") }).ToList();
-        }
-        catch { _branches = new(); }
+        // ⭐ G4-3d: form şube listesi TÜM firma şubeleri DEĞİL, kullanıcının YETKİLİ olduğu şubelerdir.
+        // (Önceden /api/branches çağrılıyordu → kullanıcı erişemeyeceği şubeyi seçenek olarak görüyordu.)
+        _branches = (_branchPicker?.Branches ?? Array.Empty<BranchPicker.BranchItem>())
+            .Select(b => new Opt { Key = b.Id, Label = b.Name }).ToList();
+        // Varsayılan: AKTİF ÇALIŞMA ŞUBESİ (tekil). Çoklu seçim yazmada kullanılmaz.
+        _fBranchId = _branchPicker?.ActiveWriteBranchId ?? "";
     }
 
     /// <summary>Malzeme ARAMASI sunucuda yapılır — tüm malzemeler tarayıcıya indirilmez.</summary>
@@ -511,8 +531,8 @@ else
                 seriesId = (string?)null,
                 externalNo = string.IsNullOrWhiteSpace(_fExternalNo) ? null : _fExternalNo,
                 branchId = string.IsNullOrWhiteSpace(_fBranchId) ? null : _fBranchId,
-                invoiceDate = _fInvoiceDate is null ? (long?)null : new DateTimeOffset(_fInvoiceDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
-                dueDate = _fDueDate is null ? (long?)null : new DateTimeOffset(_fDueDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
+                invoiceDate = Ms(_fInvoiceDate),
+                dueDate = Ms(_fDueDate),
                 currency = "TRY",
                 note = string.IsNullOrWhiteSpace(_fNote) ? null : _fNote,
                 affectsStock = _fAffectsStock,
@@ -574,6 +594,20 @@ else
         catch (Exception ex) { _ok = false; _msg = "İptal edilemedi: " + ex.Message; }
         finally { _saving = false; }
     }
+
+    /// <summary>
+    /// 🔴 GUI TESTİNDE BULUNAN HATA (2026-08-12): tarih alanları <c>DateTime.Today</c> ile
+    /// başlatılıyor → <c>Kind=Local</c>. <c>new DateTimeOffset(local, TimeSpan.Zero)</c> .NET'te
+    /// ArgumentException atar ("UTC Offset ... does not match the offset argument") ve KAYIT DÜŞER.
+    /// Servis testleri bunu yakalayamazdı: dönüşüm yalnız UI katmanındadır.
+    ///
+    /// Çözüm: gün bileşeni alınır ve Kind NÖTRLENİR, sonra UTC 00:00 olarak yorumlanır.
+    /// <b>Neden <c>new DateTimeOffset(d)</c> değil:</b> o, yerel saat dilimini uygular (TR = UTC+3) →
+    /// 00:00 yerel = 21:00 UTC ÖNCEKİ GÜN olur ve tarih BİR GÜN KAYARDI.
+    /// </summary>
+    private static long? Ms(DateTime? d) => d is null ? null
+        : new DateTimeOffset(DateTime.SpecifyKind(d.Value.Date, DateTimeKind.Unspecified), TimeSpan.Zero)
+            .ToUnixTimeMilliseconds();
 
     // ── JSON yardımcıları (Parties.razor ile aynı desen) ──────────────────────────
 

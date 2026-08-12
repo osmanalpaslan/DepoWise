@@ -906,6 +906,18 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Faturalar";
                 CurrentContext = "Alış / satış faturaları — stok ve cari etkisi tek işlemde";
                 break;
+            // G4-3 — ÖN MUHASEBE / KASA-BANKA. "finance:new" aynı ekranı açar (liste + form tek ekranda).
+            case "finance":
+            case "finance:new":
+                CurrentPage = new FinanceViewModel(_session);
+                CurrentTitle = "Kasa / Banka";
+                CurrentContext = "Kasa ve banka hesapları, ekstre ve iç transfer";
+                break;
+            case "payments":
+                CurrentPage = new PaymentsViewModel(_session);
+                CurrentTitle = "Tahsilat / Ödeme";
+                CurrentContext = "Cari tahsilat ve ödemeleri — fatura kapama dahil";
+                break;
             case "trash":
                 CurrentPage = new TrashViewModel(_session);
                 CurrentTitle = "Çöp Kutusu";

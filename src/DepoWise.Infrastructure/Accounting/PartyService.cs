@@ -306,7 +306,7 @@ FROM parties p";
     /// Bakiyeler TEK sorguda toplanır (satır başına ayrı sorgu = N+1 YOK).
     /// </summary>
     public GridResult<PartyListRow> List(SessionContext s, string? search = null, string? partyType = null,
-        bool? onlyActive = null, int page = 1, int pageSize = 50)
+        bool? onlyActive = null, int page = 1, int pageSize = 50, IReadOnlyList<string>? branchIds = null)
     {
         AccessControl.Require(s, Module, PermissionAction.View);
         page = page < 1 ? 1 : page;
@@ -353,7 +353,7 @@ FROM parties p";
 
         // Bakiyeler: YALNIZ bu sayfadaki cariler için TEK sorgu. Toplama C#'ta decimal ile yapılır
         // (amount TEXT'tir; SQL SUM'ı SQLite'ta kayan noktaya düşer — Money kuralı).
-        var totals = LedgerTotals(conn, s.CompanyId, records.Select(x => x.Id).ToList());
+        var totals = LedgerTotals(conn, s.CompanyId, records.Select(x => x.Id).ToList(), s, branchIds);
         var rows = records.Select(p =>
         {
             totals.TryGetValue(p.Id, out var t);
@@ -364,7 +364,8 @@ FROM parties p";
 
     /// <summary>Verilen carilerin borç/alacak toplamları — TEK sorgu, C#'ta decimal toplama.</summary>
     internal static Dictionary<string, (decimal Debit, decimal Credit)> LedgerTotals(
-        DbConnection conn, string companyId, IReadOnlyList<string> partyIds)
+        DbConnection conn, string companyId, IReadOnlyList<string> partyIds,
+        SessionContext? session = null, IReadOnlyList<string>? branchIds = null)
     {
         var map = new Dictionary<string, (decimal, decimal)>(StringComparer.Ordinal);
         if (partyIds.Count == 0) return map;
@@ -372,9 +373,13 @@ FROM parties p";
         using var cmd = conn.CreateCommand();
         var names = new List<string>(partyIds.Count);
         for (int i = 0; i < partyIds.Count; i++) { var p = "@p" + i; names.Add(p); cmd.AddWithValue(p, partyIds[i]); }
+        // ⭐ G4-3d: liste bakiyeleri de ŞUBE KAPSAMINDA hesaplanır — "firma toplamı = yetkili şube
+        // toplamları" kuralı listede de geçerli olsun (kart ekranıyla sessiz fark oluşmasın).
+        var branchSql = session is null ? "" : BranchAccess.Sql(session, "branch_id", branchIds);
         cmd.CommandText =
-            $"SELECT party_id, direction, amount FROM party_ledger WHERE company_id=@c AND is_reversed=0 AND party_id IN ({string.Join(",", names)});";
+            $"SELECT party_id, direction, amount FROM party_ledger WHERE company_id=@c AND is_reversed=0 AND party_id IN ({string.Join(",", names)}){branchSql};";
         cmd.AddWithValue("@c", companyId);
+        if (session is not null) BranchAccess.Bind(cmd, session, branchIds);
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {

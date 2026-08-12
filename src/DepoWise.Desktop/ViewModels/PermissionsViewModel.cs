@@ -101,7 +101,11 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         catch (Exception ex) { Status = "Kullanıcılar yüklenemedi: " + ex.Message; }
     }
 
-    partial void OnSelectedUserChanged(UserRow? value) => _ = LoadSelectedUserAsync(value);
+    partial void OnSelectedUserChanged(UserRow? value)
+    {
+        LoadBranchScope(value?.Id);   // G4-3e: şube kapsamı da kullanıcıyla birlikte gelir
+        _ = LoadSelectedUserAsync(value);
+    }
 
     private async Task LoadSelectedUserAsync(UserRow? value)
     {
@@ -273,6 +277,91 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         }
         catch (Exception ex) { Status = "Kaydedilemedi: " + ex.Message; }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //  G4-3e — ŞUBE KAPSAMI YÖNETİMİ (masaüstü). Web'deki Permissions.razor bölümünün karşılığı.
+    //
+    //  İKİNCİ BİR YETKİ AĞACI DEĞİLDİR: modül yetkileri yukarıdaki matriste kalır; burada yalnız
+    //  "hangi şubelerde" sorusu yönetilir.
+    //  ETKİN ERİŞİM = MODÜL YETKİSİ ∧ ŞUBE KAPSAMI ∧ PLATFORM ∧ diğer AccessControl kuralları.
+    //
+    //  ⚠️ Liste AKTÖRÜN kapsamıyla KIRPILMIŞ gelir (PermissionService.GetBranchScope);
+    //     asıl kapı serviste (BranchAccess.RequireGrantable) — yetkisiz şube gönderilirse HATA verir.
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Kapsam ekranındaki işaretlenebilir şube satırı.</summary>
+    public sealed partial class ScopePick : ObservableObject
+    {
+        public ScopePick(string id, string name, bool selected)
+        {
+            Id = id; Name = name; _isChecked = selected;
+        }
+        public string Id { get; }
+        public string Name { get; }
+        [ObservableProperty] private bool _isChecked;
+    }
+
+    /// <summary>Hedef kullanıcıya atanabilecek şubeler (aktörün kapsamıyla kırpılmış).</summary>
+    public ObservableCollection<ScopePick> ScopeBranches { get; } = new();
+
+    [ObservableProperty] private string _scopeModeText = "";
+    [ObservableProperty] private bool _scopeLoaded;
+
+    /// <summary>Kendi kapsamını değiştiremez — yetki sıfırlamadaki kuralın aynısı.</summary>
+    public bool CanEditScope => HasUser && CanManage && SelectedUser?.Id != _session.UserId;
+
+    /// <summary>Kapsam bölümünde gösterilecek açıklama (kullanıcı ne olduğunu tahmin etmesin).</summary>
+    public string ScopeHint => SelectedUser?.Id == _session.UserId
+        ? "Kendi şube kapsamınızı değiştiremezsiniz. Bunu başka bir yetkili yapmalıdır."
+        : ScopeBranches.Count == 0
+            ? "Devredebileceğiniz şube yok — yalnız kendi kapsamınızdaki şubeleri verebilirsiniz."
+            : "Hiçbiri işaretlenmezse açık kapsam kaldırılır; kullanıcı kendi şubesi/varsayılan davranışına döner.";
+
+    /// <summary>Seçili kullanıcının şube kapsamını + aktörün verebileceği şubeleri okur.</summary>
+    private void LoadBranchScope(string? userId)
+    {
+        ScopeBranches.Clear();
+        ScopeModeText = "";
+        ScopeLoaded = false;
+        if (string.IsNullOrWhiteSpace(userId) || !CanManage) { Notify(); return; }
+        try
+        {
+            var v = DesktopServices.Permissions.GetBranchScope(_session, userId);
+            ScopeModeText = v.ModeText;
+            var mevcut = v.ScopeBranchIds.ToHashSet(StringComparer.Ordinal);
+            foreach (var b in v.AssignableBranches)
+                ScopeBranches.Add(new ScopePick(b.Id, b.Name, mevcut.Contains(b.Id)));
+            ScopeLoaded = true;
+        }
+        catch (Exception ex) { Status = "Şube kapsamı alınamadı: " + ex.Message; }
+        Notify();
+    }
+
+    private void Notify()
+    {
+        OnPropertyChanged(nameof(CanEditScope));
+        OnPropertyChanged(nameof(ScopeHint));
+    }
+
+    /// <summary>
+    /// Kapsamı kaydeder. Yetkisiz şube gönderilirse servis AÇIK HATA döner (sessiz kırpma YOK) —
+    /// mesaj kullanıcıya olduğu gibi gösterilir. Audit ve snapshot tazeleme servistedir.
+    /// </summary>
+    [RelayCommand]
+    private void SaveBranchScope()
+    {
+        if (SelectedUser is null || !CanEditScope) return;
+        try
+        {
+            var secili = ScopeBranches.Where(x => x.IsChecked).Select(x => x.Id).ToList();
+            DesktopServices.Permissions.SaveBranchScope(_session, SelectedUser.Id, secili);
+            Status = secili.Count == 0
+                ? "Şube kapsamı kaldırıldı (kullanıcı varsayılan davranışına döndü)."
+                : $"Şube kapsamı kaydedildi ({secili.Count} şube).";
+            LoadBranchScope(SelectedUser.Id);   // kip değişmiş olabilir
+        }
+        catch (Exception ex) { Status = ex.Message; }
+    }
 }
 
 public sealed partial class ModulePermNode : ObservableObject
@@ -295,4 +384,7 @@ public sealed partial class ButtonPermNode : ObservableObject
     public string Label { get; }
     [ObservableProperty] private bool _granted;
     public ButtonPermNode(string key, string label) { Key = key; Label = label; }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //  G4-3e — ŞUBE KAPSAMI YÖNETİMİ (masaüstü). Web'deki Permissions.razor bölümünün karşılığı.
 }

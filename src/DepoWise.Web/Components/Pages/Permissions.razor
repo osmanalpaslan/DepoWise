@@ -46,6 +46,62 @@
             }
         </MudStack>
 
+        @* ── ŞUBE KAPSAMI (G4-3d) ──────────────────────────────────────────────────────
+             İKİNCİ BİR YETKİ AĞACI DEĞİLDİR: modül yetkileri yukarıdaki matriste kalır.
+             Burada yalnız "hangi şubelerde" sorusu yönetilir.
+             ETKİN ERİŞİM = MODÜL YETKİSİ ∧ ŞUBE KAPSAMI ∧ PLATFORM ∧ diğer kurallar.
+             ⚠️ Liste AKTÖRÜN kapsamıyla kırpılmış gelir; asıl kapı serviste
+                (BranchAccess.RequireGrantable) — yetkisiz şube gönderilirse HATA verir. *@
+        @if (_scopeLoaded)
+        {
+            <MudPaper Class="pa-3 mt-4" Elevation="2">
+                <MudText Typo="Typo.subtitle1" Class="mb-1">Şube Kapsamı</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                    Mevcut kapsam: <b>@_scopeModeText</b>.
+                    @if (_scopeMode == "own")
+                    {
+                        <span>Kullanıcı yalnız kendi şubesinde çalışır.</span>
+                    }
+                    else if (_scopeMode == "all")
+                    {
+                        <span>Kullanıcı tüm şubelere erişebilir (yönetici düzeyi / tüm şube yetkisi).</span>
+                    }
+                    else if (_scopeMode == "none")
+                    {
+                        <span>Şube atanmamış — kapsam kısıtı uygulanmaz. Sıkılaştırmak için şube seçin.</span>
+                    }
+                </MudText>
+
+                @if (_isSelf)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Kendi şube kapsamınızı değiştiremezsiniz. Bunu başka bir yetkili yapmalıdır.
+                    </MudAlert>
+                }
+                else if (_assignable.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        Devredebileceğiniz şube yok. Yalnız kendi kapsamınızdaki şubeleri verebilirsiniz.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudSelect T="string" MultiSelection="true" SelectedValues="_scopeSelected"
+                               SelectedValuesChanged="@(v => _scopeSelected = v?.ToHashSet(StringComparer.Ordinal) ?? new())"
+                               Label="Çalışabileceği şubeler" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               Dense="true" Style="max-width:520px"
+                               HelperText="Boş bırakılırsa açık kapsam kaldırılır; kullanıcı kendi şubesi/varsayılan davranışına döner.">
+                        @foreach (var b in _assignable)
+                        {
+                            <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" Class="mt-2"
+                               OnClick="SaveScope" Disabled="_busy">Şube Kapsamını Kaydet</MudButton>
+                }
+            </MudPaper>
+        }
+
         @if (_summary is not null)
         {
             <MudPaper Class="pa-3 mt-3" Elevation="2">
@@ -134,6 +190,7 @@
         _targetIsAdmin = _adminUserIds.Contains(_userId);   // admin hedef → matris tam işaretli + salt-okunur
         try { await LoadModules(_userId); } catch (Exception ex) { _msg = "Ekran listesi yüklenemedi: " + ex.Message; _ok = false; return; }
         _loadPending = true;   // render sonrası mevcut yetkileri otomatik yükle (OnAfterRenderAsync)
+        await LoadScope();     // G4-3d: şube kapsamı da kullanıcıyla birlikte gelir
     }
 
     private async Task LoadModules(string? userId = null)
@@ -279,4 +336,57 @@
 
     private static string S(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
     private static bool B(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+
+    // ── ŞUBE KAPSAMI (G4-3d) ─────────────────────────────────────────────────────────────
+    // İkinci bir yetki sistemi DEĞİLDİR: mevcut PermissionService/BranchAccess üzerinden çalışır.
+    private bool _scopeLoaded;
+    private string _scopeMode = "", _scopeModeText = "";
+    private List<ApiClient.Opt> _assignable = new();
+    private HashSet<string> _scopeSelected = new(StringComparer.Ordinal);
+
+    /// <summary>Seçili kullanıcının şube kapsamını + AKTÖRÜN verebileceği şubeleri okur.</summary>
+    private async Task LoadScope()
+    {
+        _scopeLoaded = false;
+        _assignable = new();
+        _scopeSelected = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(_userId)) return;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/permissions/{_userId}/branch-scope");
+            _scopeMode = d.TryGetProperty("mode", out var m) ? (m.GetString() ?? "") : "";
+            _scopeModeText = d.TryGetProperty("modeText", out var mt) ? (mt.GetString() ?? "") : "";
+            if (d.TryGetProperty("assignable", out var a) && a.ValueKind == JsonValueKind.Array)
+                _assignable = a.EnumerateArray()
+                    .Select(x => new ApiClient.Opt(
+                        x.TryGetProperty("id", out var i) ? (i.GetString() ?? "") : "",
+                        x.TryGetProperty("name", out var n) ? (n.GetString() ?? "") : ""))
+                    .ToList();
+            if (d.TryGetProperty("scopeBranchIds", out var s) && s.ValueKind == JsonValueKind.Array)
+                _scopeSelected = s.EnumerateArray().Select(x => x.GetString() ?? "")
+                    .Where(x => x.Length > 0).ToHashSet(StringComparer.Ordinal);
+            _scopeLoaded = true;
+        }
+        catch (Exception ex) { _ok = false; _msg = "Şube kapsamı alınamadı: " + ex.Message; }
+    }
+
+    /// <summary>
+    /// Kapsamı kaydeder. Yetkisiz şube gönderilirse servis AÇIK HATA döner (sessiz kırpma yok) —
+    /// mesaj kullanıcıya olduğu gibi gösterilir.
+    /// </summary>
+    private async Task SaveScope()
+    {
+        if (_busy || string.IsNullOrWhiteSpace(_userId)) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var err = await Api.PutAsync($"/api/permissions/{_userId}/branch-scope",
+                new { branchIds = _scopeSelected.ToArray() });
+            _ok = err is null;
+            _msg = err ?? "Şube kapsamı kaydedildi.";
+            if (_ok) await LoadScope();   // kip değişmiş olabilir (explicit ↔ own/all)
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
 }

@@ -19,8 +19,14 @@ public sealed class ReportService
 {
     private const string Module = "reports";
     private readonly IDbConnectionFactory _factory;
+    /// <summary>G4-4: "vadesi geçti" hesabı için ŞİMDİ. Test edilebilirlik için enjekte edilir.</summary>
+    private readonly IClock _clock;
 
-    public ReportService(IDbConnectionFactory factory) => _factory = factory;
+    public ReportService(IDbConnectionFactory factory, IClock? clock = null)
+    {
+        _factory = factory;
+        _clock = clock ?? new SystemClock();
+    }
 
     public TableModel StockStatus(SessionContext s, ReportRequest req)
     {
@@ -1127,6 +1133,14 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
     /// diğerlerinin davranışı DEĞİŞMEDİ.</summary>
     private TableModel Dispatch(SessionContext s, string key, ReportRequest req, int maxRows) => key switch
     {
+        // ═══ G4-4 — ÖN MUHASEBE RAPORLARI ═══ (hesaplama AccountingReports'ta; ikinci framework YOK)
+        "acc-statement" => AccountingReports.Statement(_factory, s, req),
+        "acc-balances" => AccountingReports.Balances(_factory, s, req),
+        "acc-invoices" => AccountingReports.Invoices(_factory, s, req),
+        "acc-open-invoices" => AccountingReports.OpenInvoices(_factory, s, req, _clock),
+        "acc-payments" => AccountingReports.Payments(_factory, s, req),
+        "acc-cash" => AccountingReports.Cash(_factory, s, req),
+
         "stock-movements" => StockMovements(s, req, maxRows),   // STK-10a
         "stock" => StockStatus(s, req),
         "vehicle" => VehicleReport(s, req),

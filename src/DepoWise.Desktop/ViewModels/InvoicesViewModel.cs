@@ -36,6 +36,10 @@ public sealed partial class InvoicesViewModel : ViewModelBase
     private readonly SessionContext _session;
     private const int PageSize = 50;
 
+    /// <summary>G4-3d — ORTAK ŞUBE KAPSAMI. Seçim OKUMA filtresidir; yazmada tekil
+    /// <see cref="BranchScopeSelector.ActiveWriteBranchId"/> kullanılır.</summary>
+    public BranchScopeSelector BranchScope { get; }
+
     public bool CanCreate => AccessControl.Can(_session, InvoiceService.Module, PermissionAction.Create);
     public bool CanEdit => AccessControl.Can(_session, InvoiceService.Module, PermissionAction.Edit);
 
@@ -92,6 +96,8 @@ public sealed partial class InvoicesViewModel : ViewModelBase
     public InvoicesViewModel(SessionContext session)
     {
         _session = session;
+        // Ortak şube kapsamı — seçim değişince liste yenilenir (kullanıcı Ara demek zorunda kalmasın).
+        BranchScope = new BranchScopeSelector(session, () => _ = Load());
         _ = Load();
     }
 
@@ -114,7 +120,7 @@ public sealed partial class InvoicesViewModel : ViewModelBase
                     string.IsNullOrWhiteSpace(Search) ? null : Search,
                     string.IsNullOrWhiteSpace(DirectionFilter) ? null : DirectionFilter,
                     string.IsNullOrWhiteSpace(StatusFilter) ? null : StatusFilter,
-                    null, null, null, Page, PageSize);
+                    null, null, null, Page, PageSize, BranchScope.Filter);
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     Rows.Clear();
@@ -249,7 +255,9 @@ public sealed partial class InvoicesViewModel : ViewModelBase
         FormError = null;
         _operationId = "inv-" + Guid.NewGuid().ToString("N");
         FDirection = InvoiceDirections.Purchase;
-        FPartyId = null; FBranchId = null; FExternalNo = ""; FNote = "";
+        FPartyId = null; FExternalNo = ""; FNote = "";
+        // Varsayılan: AKTİF ÇALIŞMA ŞUBESİ (tekil). Çoklu seçim yazmada kullanılmaz.
+        FBranchId = BranchScope.ActiveWriteBranchId;
         FInvoiceDate = DateTimeOffset.Now; FDueDate = null; FAffectsStock = true;
         FormLines.Clear();
         AddLine();
@@ -267,8 +275,8 @@ public sealed partial class InvoicesViewModel : ViewModelBase
             {
                 var parties = DesktopServices.Parties.List(_session, null, null, true, 1, 500).Items
                     .Select(x => new Option(x.Party.Id, $"{x.Party.Code} — {x.Party.Title}")).ToList();
-                var branches = DesktopServices.Branches.List(_session)
-                    .Select(b => new Option(b.Id, b.Name)).ToList();
+                // ⭐ G4-3d: yalnız YETKİLİ şubeler (tüm firma şubeleri DEĞİL).
+                var branches = BranchScope.Branches.Select(b => new Option(b.Key, b.Label)).ToList();
                 // KDV oranları KATALOGDAN gelir; katalog boşsa kullanıcı elle yazabilir (oran serbest alan).
                 var vats = DesktopServices.InvoiceQueries.VatRates(_session)
                     .Select(v => new Option(v.Rate.ToString("0.##"), v.Label ?? $"%{v.Rate:0.##}")).ToList();

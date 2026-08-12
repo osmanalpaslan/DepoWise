@@ -61,7 +61,12 @@ public sealed record ReportRequest(
     // arayüz bugün TEK malzeme seçtirir → 0 veya 1 elemanlı gelir. Yabancı firmanın malzeme kimliği
     // eşleşmez (sorgu zaten company_id'ye kilitli) → fail-closed.
     // ⚠️ ALAN SONA EKLENDİ (aynı gerekçe: kayıt API uçlarında POZİSYONEL de kuruluyor).
-    IReadOnlyList<string>? MaterialIds = null);
+    IReadOnlyList<string>? MaterialIds = null,
+
+    // G4-4: CARİ filtresi (ön muhasebe raporları). Boş/null = TÜM cariler.
+    // ⚠️ ALAN SONA EKLENDİ (kayıt API uçlarında POZİSYONEL de kuruluyor — araya eklemek
+    // mevcut çağrıların argümanlarını sessizce kaydırırdı).
+    IReadOnlyList<string>? PartyIds = null);
 
 public static class ReportGate
 {

@@ -109,6 +109,12 @@ public class ReportFilterParityTests
         // yüzden /api/reports/scope'a malzeme listesi eklenmedi — parite "aynı ID sözleşmesi" üzerinden
         // kurulur (MaterialIds), aynı seçenek listesi üzerinden DEĞİL.
         new Wiring(ReportFilters.Material,       "ShowMaterial",       new[] { "MaterialIds" },        "Malzeme (kod/ad ile ara)"),
+        // G4-4b — CARİ. Material ile AYNI gerekçe: seçenekler ÖNCEDEN YÜKLENMEZ; iki platform da kendi
+        // MEVCUT cari arama desenini kullanır (web: /api/parties?search=… · masaüstü: yerel Parties.List).
+        // Parite "aynı ID sözleşmesi" (PartyIds) üzerinden kurulur, aynı seçenek listesi üzerinden DEĞİL.
+        // ⚠️ Etiket parçası "Cari (" — yalnız "Cari" yazsaydık "Cari Ekstre"/"Cari Bakiye" rapor ADLARINA
+        //    da takılırdı ve blok silinse bile test geçerdi (Search'teki zayıflığın aynısı).
+        new Wiring(ReportFilters.Party,          "ShowParty",          new[] { "PartyIds" },           "Cari (kod/ünvan"),
     };
 
     internal static Wiring? WiringFor(string flagName) => Map.FirstOrDefault(w => w.Flag.ToString() == flagName);
