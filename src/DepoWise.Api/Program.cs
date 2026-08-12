@@ -1,3 +1,4 @@
+using DepoWise.Infrastructure.Accounting;
 using DepoWise.Infrastructure.Database;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -1743,6 +1744,293 @@ app.MapPost("/api/stock/reverse", (HttpContext c, StockReverseDto d) =>
 }).RequireAuthorization();
 
 // ── Modül kataloğu (yetki matrisi için) ──
+// ═══ G4-1 — ÖN MUHASEBE / CARİ (2026-08-12) ═════════════════════════════════════════════════
+// Yetki: "parties" modülü, dört aksiyon. Kapı SERVİSTEDİR (AccessControl.Require) → bu uçlar
+// yalnız taşıyıcıdır; doğrudan servis çağrısı da aynı kapıdan geçer.
+// ⚠️ Bu uçlar stok tablolarına DOKUNMAZ; stok defterinin tek yazıcısı StockService'tir.
+
+app.MapGet("/api/parties", (HttpContext c, string? search, string? type, bool? onlyActive, int? page, int? pageSize) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.Parties.List(s, search, type, onlyActive, page ?? 1, pageSize ?? 50);
+    return Results.Ok(new
+    {
+        items = res.Items.Select(x => new
+        {
+            id = x.Party.Id, code = x.Party.Code, title = x.Party.Title,
+            partyType = x.Party.PartyType, typeText = x.Party.TypeText,
+            taxNo = x.Party.TaxNo, nationalId = x.Party.NationalId, taxIdText = x.Party.TaxIdText,
+            phone = x.Party.Phone, email = x.Party.Email, city = x.Party.City,
+            isActive = x.Party.IsActive, statusText = x.Party.StatusText,
+            debit = x.Debit, credit = x.Credit, balance = x.Balance, balanceText = x.BalanceText,
+        }),
+        total = res.TotalCount, page = res.Page, pageSize = res.PageSize,
+    });
+}).RequireAuthorization();
+
+app.MapGet("/api/parties/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var p = svc.Parties.Get(s, id);
+    var b = svc.PartyLedger.Balance(s, id);
+    return Results.Ok(new
+    {
+        id = p.Id, code = p.Code, title = p.Title, partyType = p.PartyType, isPerson = p.IsPerson,
+        taxOffice = p.TaxOffice, taxNo = p.TaxNo, nationalId = p.NationalId,
+        phone = p.Phone, email = p.Email, address = p.Address, city = p.City, district = p.District,
+        currency = p.Currency, note = p.Note, isActive = p.IsActive, version = p.Version,
+        balance = new { debit = b.Debit, credit = b.Credit, balance = b.Balance, balanceText = b.BalanceText,
+                        entryCount = b.EntryCount, lastEntryText = b.LastEntryText },
+    });
+}).RequireAuthorization();
+
+app.MapPost("/api/parties", (HttpContext c, PartyDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.Parties.Create(s, new NewParty(d.Code, d.Title, d.PartyType, d.IsPerson, d.TaxOffice,
+        d.TaxNo, d.NationalId, d.Phone, d.Email, d.Address, d.City, d.District, d.Currency ?? "TRY", d.Note));
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+
+app.MapPut("/api/parties/{id}", (HttpContext c, string id, PartyDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Parties.Update(s, id, new UpdateParty(d.Code, d.Title, d.PartyType, d.IsPerson, d.TaxOffice,
+        d.TaxNo, d.NationalId, d.Phone, d.Email, d.Address, d.City, d.District, d.Currency ?? "TRY",
+        d.Note, d.IsActive ?? true, d.Version));
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPost("/api/parties/{id}/active", (HttpContext c, string id, PartyActiveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Parties.SetActive(s, id, d.Active);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapDelete("/api/parties/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Parties.Delete(s, id);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// Cari ekstresi — yürüyen bakiye SUNUCUDA hesaplanır (web ve masaüstü aynı sayıyı görür).
+app.MapGet("/api/parties/{id}/ledger", (HttpContext c, string id, long? from, long? to, int? limit) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var rows = svc.PartyLedger.Statement(s, id, from, to, limit ?? 500);
+    return Results.Ok(rows.Select(x => new
+    {
+        id = x.Entry.Id, dateText = x.Entry.DateText, entryDate = x.Entry.EntryDate,
+        docType = x.Entry.DocType, typeText = x.Entry.TypeText, docNo = x.Entry.DocNo,
+        description = x.Entry.Description, debit = x.Entry.Debit, credit = x.Entry.Credit,
+        dueText = x.Entry.DueText, isReversed = x.Entry.IsReversed, runningBalance = x.RunningBalance,
+    }));
+}).RequireAuthorization();
+
+app.MapPost("/api/parties/{id}/ledger", (HttpContext c, string id, LedgerEntryDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var eid = svc.PartyLedger.Add(s, new NewLedgerEntry(id, d.DocType, d.Amount, d.IsDebit,
+        d.EntryDate, d.DocNo, d.Description, d.DueDate, d.Currency ?? "TRY", d.BranchId,
+        OperationId: d.OperationId));
+    return Results.Ok(new { id = eid });
+}).RequireAuthorization();
+
+app.MapPost("/api/parties/ledger/{entryId}/reverse", (HttpContext c, string entryId, LedgerReverseDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var nid = svc.PartyLedger.Reverse(s, entryId, d.Reason);
+    return Results.Ok(new { id = nid });
+}).RequireAuthorization();
+
+// Cari tipi ve belge türü katalogları — iki platform AYNI etiketleri göstersin.
+app.MapGet("/api/parties/meta", (HttpContext c) =>
+    S(c) is null ? Results.Unauthorized() : Results.Ok(new
+    {
+        types = PartyTypes.All.Select(x => new { key = x.Key, label = x.Label }),
+        docTypes = PartyDocTypes.All.Select(x => new { key = x.Key, label = x.Label }),
+        manualDocTypes = PartyDocTypes.ManualEntry,
+    })).RequireAuthorization();
+
+// ═══ G4-2 — ÖN MUHASEBE / FATURA (2026-08-12) ═══════════════════════════════════════════════
+// Yetki: "invoices" modülü. Kapı SERVİSTEDİR (AccessControl.Require) → bu uçlar yalnız taşıyıcıdır.
+// ⚠️ Bu uçlar stok ve cari tablolarına DOKUNMAZ: InvoiceService, StockService ve PartyLedgerService'i
+//    çağırır; fatura + cari + stok TEK transaction'da yazılır (kısmi kayıt yok).
+// ⚠️ SİLME UCU YOKTUR — fatura fiziksel silinmez; /cancel ters kayıt üretir.
+
+app.MapGet("/api/invoices", (HttpContext c, string? search, string? direction, string? status,
+    string? partyId, long? from, long? to, int? page, int? pageSize) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var res = svc.InvoiceQueries.List(s, search, direction, status, partyId, from, to, page ?? 1, pageSize ?? 50);
+    return Results.Ok(new
+    {
+        items = res.Items.Select(x => new
+        {
+            id = x.Id, direction = x.Direction, directionText = x.DirectionText,
+            invoiceNo = x.InvoiceNo, externalNo = x.ExternalNo,
+            partyId = x.PartyId, partyTitle = x.PartyTitle,
+            invoiceDate = x.InvoiceDate, dateText = x.DateText, dueDate = x.DueDate, dueText = x.DueText,
+            currency = x.Currency, grandTotal = x.GrandTotal,
+            status = x.Status, statusText = x.StatusText, isCancelled = x.IsCancelled,
+            affectsStock = x.AffectsStock,
+        }),
+        total = res.TotalCount, page = res.Page, pageSize = res.PageSize,
+    });
+}).RequireAuthorization();
+
+app.MapGet("/api/invoices/{id}", (HttpContext c, string id) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var i = svc.InvoiceQueries.Get(s, id);
+    return Results.Ok(new
+    {
+        id = i.Id, direction = i.Direction, directionText = i.DirectionText,
+        invoiceNo = i.InvoiceNo, externalNo = i.ExternalNo, seriesId = i.SeriesId,
+        partyId = i.PartyId, partyTitle = i.PartyTitle, branchId = i.BranchId, branchName = i.BranchName,
+        invoiceDate = i.InvoiceDate, dateText = i.DateText, dueDate = i.DueDate, dueText = i.DueText,
+        currency = i.Currency,
+        subtotal = i.Subtotal, discountTotal = i.DiscountTotal, vatTotal = i.VatTotal,
+        withholdingTotal = i.WithholdingTotal, grandTotal = i.GrandTotal,
+        note = i.Note, status = i.Status, statusText = i.StatusText, isCancelled = i.IsCancelled,
+        affectsStock = i.AffectsStock, stockDocumentId = i.StockDocumentId, ledgerEntryId = i.LedgerEntryId,
+        cancelReason = i.CancelReason, cancelledAt = i.CancelledAt, version = i.Version,
+        lines = i.Lines.Select(l => new
+        {
+            id = l.Id, lineNo = l.LineNo, materialId = l.MaterialId, materialCode = l.MaterialCode,
+            materialName = l.MaterialName, itemText = l.ItemText, description = l.Description, unit = l.Unit,
+            quantity = l.Quantity, unitPrice = l.UnitPrice,
+            discountRate = l.DiscountRate, discountAmount = l.DiscountAmount,
+            vatRate = l.VatRate, vatAmount = l.VatAmount,
+            withholdingRate = l.WithholdingRate, withholdingAmount = l.WithholdingAmount,
+            netTotal = l.NetTotal, lineTotal = l.LineTotal,
+        }),
+    });
+}).RequireAuthorization();
+
+app.MapPost("/api/invoices", (HttpContext c, InvoiceDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var lines = (d.Lines ?? Array.Empty<InvoiceLineDto>())
+        .Select(l => new NewInvoiceLine(l.MaterialId, l.Description, l.Unit, l.Quantity, l.UnitPrice,
+            l.DiscountRate, l.VatRate, l.WithholdingRate))
+        .ToList();
+    var r = svc.Invoices.Create(s, new NewInvoice(d.Direction, d.PartyId, lines, d.OperationId,
+        d.SeriesId, d.ExternalNo, d.BranchId, d.InvoiceDate, d.DueDate, d.Currency ?? "TRY", d.Note,
+        d.AffectsStock ?? true));
+    // alreadyExisted: istemci aynı işlemi tekrar gönderdiyse YENİ kayıt oluşmadığını bilir.
+    return Results.Ok(new { id = r.Id, invoiceNo = r.InvoiceNo, stockDocumentId = r.StockDocumentId,
+                            ledgerEntryId = r.LedgerEntryId, alreadyExisted = r.AlreadyExisted });
+}).RequireAuthorization();
+
+// Yalnız BİLGİ alanları — tutar/satır değişmez (değişmesi gerekiyorsa: iptal + yeni fatura).
+app.MapPut("/api/invoices/{id}", (HttpContext c, string id, InvoiceInfoDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Invoices.UpdateInfo(s, id, d.ExternalNo, d.DueDate, d.Note, d.Version);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPost("/api/invoices/{id}/cancel", (HttpContext c, string id, InvoiceCancelDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.Invoices.Cancel(s, id, d.Reason);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// ── Katalog: belge serisi ve KDV oranı (Türkiye kuralları KODDA SABİT DEĞİL, VERİDİR) ──
+app.MapGet("/api/invoices/series", (HttpContext c, string? direction, bool? all) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.InvoiceQueries.Series(s, direction, !(all ?? false)).Select(x => new
+    {
+        id = x.Id, code = x.Code, name = x.Name, direction = x.Direction, prefix = x.Prefix,
+        nextNumber = x.NextNumber, padding = x.Padding, isDefault = x.IsDefault, isActive = x.IsActive,
+    }));
+}).RequireAuthorization();
+
+app.MapPost("/api/invoices/series", (HttpContext c, InvoiceSeriesDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.InvoiceQueries.SaveSeries(s, d.Id, d.Code, d.Name, d.Direction, d.Prefix,
+        d.NextNumber, d.Padding ?? 8, d.IsDefault ?? false, d.IsActive ?? true);
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+
+app.MapGet("/api/invoices/vat-rates", (HttpContext c, bool? all) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.InvoiceQueries.VatRates(s, !(all ?? false)).Select(x => new
+    {
+        id = x.Id, rate = x.Rate, label = x.Label, isDefault = x.IsDefault, isActive = x.IsActive,
+    }));
+}).RequireAuthorization();
+
+app.MapPost("/api/invoices/vat-rates", (HttpContext c, VatRateDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var id = svc.InvoiceQueries.SaveVatRate(s, d.Id, d.Rate, d.Label, d.IsDefault ?? false, d.IsActive ?? true, d.SortOrder ?? 0);
+    return Results.Ok(new { id });
+}).RequireAuthorization();
+
+// Fatura yönü katalogları — iki platform AYNI etiketleri göstersin.
+app.MapGet("/api/invoices/meta", (HttpContext c) =>
+    S(c) is null ? Results.Unauthorized() : Results.Ok(new
+    {
+        directions = InvoiceDirections.All.Select(x => new { key = x.Key, label = x.Label }),
+    })).RequireAuthorization();
+
+// ═══ G5 — EKRAN PLATFORM GÖRÜNÜRLÜĞÜ (2026-08-12) ═══════════════════════════════════════════
+// ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Bu uçlar YALNIZ platform tarafını taşır; yetki her zaman
+// ayrıca ve mevcut kapılardan geçer. Platform bilgisi yetki VERMEZ, yetkiyi BYPASS ETMEZ.
+
+// Menülerin kullandığı ETKİN harita. Özel yetki gerektirmez: hangi ekranın hangi platformda açık
+// olduğu gizli bilgi değildir ve kullanıcının o ekrana erişip erişemeyeceğinden BAĞIMSIZDIR.
+app.MapGet("/api/screens/visibility", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var ov = svc.ScreenVisibility.OverridesFor(s.CompanyId);
+    return Results.Ok(new
+    {
+        screens = AppScreens.All.Select(sc =>
+        {
+            var eff = ScreenVisibility.Effective(sc, ov);
+            return new
+            {
+                key = sc.Key,
+                desktop = eff.HasFlag(ScreenPlatform.Desktop),
+                web = eff.HasFlag(ScreenPlatform.Web),
+            };
+        }),
+    });
+}).RequireAuthorization();
+
+// Yönetim listesi — yalnız süper admin (AppModules.IsSuperAdminOnly("screen_visibility")).
+app.MapGet("/api/screens/visibility/manage", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    return Results.Ok(svc.ScreenVisibility.List(s).Select(r => new
+    {
+        screenKey = r.ScreenKey, group = r.Group, label = r.Label, moduleKey = r.ModuleKey,
+        defaultDesktop = r.DefaultDesktop, defaultWeb = r.DefaultWeb,
+        effectiveDesktop = r.EffectiveDesktop, effectiveWeb = r.EffectiveWeb,
+        overrideDesktop = r.OverrideDesktop, overrideWeb = r.OverrideWeb,
+        desktopUnavailable = r.DesktopUnavailable, webUnavailable = r.WebUnavailable,
+        statusText = r.StatusText, updatedAt = r.UpdatedAt,
+    }));
+}).RequireAuthorization();
+
+// Ayar yazma. null = kaydı SİL → katalog varsayılanına dön. Katalogda olmayan platform AÇILAMAZ.
+app.MapPost("/api/screens/visibility", (HttpContext c, ScreenVisibilityDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    if (string.IsNullOrWhiteSpace(d.ScreenKey)) throw new ArgumentException("Ekran seçin.");
+    svc.ScreenVisibility.Set(s, d.ScreenKey, d.Desktop, d.Web);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
 app.MapGet("/api/modules", (HttpContext c, string? userId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -2531,6 +2819,41 @@ app.MapPost("/api/permissions/{userId}", (HttpContext c, string userId, PermSave
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
+// G1a (2026-08-12) — YETKİ SIFIRLAMA. Kullanıcının tüm modül/buton izinlerini siler (deny-by-default'a
+// döner). Rol ataması ve kullanıcı kaydı DEĞİŞMEZ. SaveForUser ile aynı kapılardan geçer (yetki, firma
+// sahipliği, hedef yönetilebilirlik, düzenleme kilidi, audit) — kısa yol YOKTUR.
+app.MapPost("/api/permissions/{userId}/reset", (HttpContext c, string userId, PermResetDto? d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var (mods, btns) = svc.Permissions.ResetForUser(s, userId, d is { Version: > 0 } ? d.Version : null);
+    return Results.Ok(new { ok = true, modules = mods, buttons = btns });
+}).RequireAuthorization();
+
+// G1a — YETKİ ÖZETİ (salt okuma). Ham satır değil, AccessControl ile hesaplanmış ETKİN yetki döner:
+// admin bypass'ı ve rol kilitleri uygulanmış hâli. "Bu kullanıcı gerçekte neye erişebiliyor?" sorusunun yanıtı.
+app.MapGet("/api/permissions/{userId}/summary", (HttpContext c, string userId) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var x = svc.Permissions.SummaryForUser(s, userId);
+    return Results.Ok(new
+    {
+        userId = x.UserId,
+        roles = x.RoleKeys,
+        sourceText = x.SourceText,
+        visibleModuleCount = x.VisibleModuleCount,
+        explicitModuleRows = x.ExplicitModuleRows,
+        explicitButtonRows = x.ExplicitButtonRows,
+        roleBlockedCount = x.RoleBlockedCount,
+        modules = x.Modules.Select(m => new
+        {
+            moduleKey = m.ModuleKey, label = m.Label,
+            view = m.View, create = m.Create, edit = m.Edit, delete = m.Delete,
+            roleBlocked = m.RoleBlocked, actionsText = m.ActionsText,
+        }),
+        buttons = x.Buttons.Select(b => new { buttonKey = b.ButtonKey, label = b.Label }),
+    });
+}).RequireAuthorization();
+
 // ── Yetki Şablonları ──
 // Şablon YÖNETİM listesi (süper admin — tüm firmalar + kapsam).
 app.MapGet("/api/permission-templates", (HttpContext c) => S(c) is { } s ? Results.Ok(svc.PermissionTemplates.List(s)) : Results.Unauthorized()).RequireAuthorization();
@@ -2902,6 +3225,19 @@ record ChangeInitialPwDto(string? NewPassword);
 record SubCategoryDto(string Name, string? ParentId);
 record ModulePermDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete);
 record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons, long Version = 0);
+record PermResetDto(long Version = 0);   // G1a — yetki sıfırlama; düzenleme kilidi jetonu (0 = kontrol yok)
+// G5 — ekran platform ayarı. null = kaydı sil (katalog varsayılanına dön).
+record ScreenVisibilityDto(string ScreenKey, bool? Desktop, bool? Web);
+// G4-1 — cari DTO'lari.
+record PartyDto(string Code, string Title, string PartyType, bool IsPerson = false, string? TaxOffice = null,
+    string? TaxNo = null, string? NationalId = null, string? Phone = null, string? Email = null,
+    string? Address = null, string? City = null, string? District = null, string? Currency = null,
+    string? Note = null, bool? IsActive = null, long Version = 0);
+record PartyActiveDto(bool Active);
+record LedgerEntryDto(string DocType, decimal Amount, bool IsDebit, long? EntryDate = null, string? DocNo = null,
+    string? Description = null, long? DueDate = null, string? Currency = null, string? BranchId = null,
+    string? OperationId = null);
+record LedgerReverseDto(string Reason);
 record TemplateDto(string Name, string? RoleKey, List<ModulePermDto>? Modules, List<string>? Buttons, string? CompanyId = null, bool ScopeAll = false);
 
 /// <summary>#19 — Canlı sunucu durumu sayaçları (süreç boyunca).</summary>
@@ -2989,3 +3325,16 @@ public static class ServerPresence
 /// Çalışma zamanı davranışını DEĞİŞTİRMEZ.
 /// </summary>
 public partial class Program { }
+
+// ═══ G4-2 — FATURA DTO'ları ════════════════════════════════════════════════════════════════
+record InvoiceLineDto(string? MaterialId, string? Description, string? Unit, decimal Quantity,
+    decimal UnitPrice, decimal DiscountRate = 0m, decimal VatRate = 0m, decimal WithholdingRate = 0m);
+record InvoiceDto(string Direction, string PartyId, string OperationId, InvoiceLineDto[]? Lines,
+    string? SeriesId = null, string? ExternalNo = null, string? BranchId = null, long? InvoiceDate = null,
+    long? DueDate = null, string? Currency = null, string? Note = null, bool? AffectsStock = null);
+record InvoiceInfoDto(string? ExternalNo = null, long? DueDate = null, string? Note = null, long? Version = null);
+record InvoiceCancelDto(string Reason);
+record InvoiceSeriesDto(string Code, string Direction, string? Id = null, string? Name = null,
+    string? Prefix = null, long? NextNumber = null, int? Padding = null, bool? IsDefault = null, bool? IsActive = null);
+record VatRateDto(decimal Rate, string? Id = null, string? Label = null, bool? IsDefault = null,
+    bool? IsActive = null, int? SortOrder = null);

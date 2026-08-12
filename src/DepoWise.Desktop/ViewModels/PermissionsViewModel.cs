@@ -35,6 +35,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasUser))]
     [NotifyPropertyChangedFor(nameof(TreeEnabled))]
     [NotifyPropertyChangedFor(nameof(CanSavePerms))]
+    [NotifyPropertyChangedFor(nameof(CanResetPerms))]
     private UserRow? _selectedUser;
     public bool HasUser => SelectedUser != null;
 
@@ -43,6 +44,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TreeEnabled))]
     [NotifyPropertyChangedFor(nameof(CanSavePerms))]
+    [NotifyPropertyChangedFor(nameof(CanResetPerms))]
     private bool _isTargetAdmin;
     /// <summary>Ağaç düzenlenebilir mi (admin hedefte salt-okunur).</summary>
     public bool TreeEnabled => HasUser && !IsTargetAdmin;
@@ -152,6 +154,62 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         foreach (var m in Modules) m.Set(false, false, false, false);
         foreach (var b in Buttons) b.Granted = false;
+    }
+
+    // ── G1a: YETKİ ÖZETİ + SIFIRLAMA (2026-08-12, masaüstü ana kanal) ────────────────────────
+
+    /// <summary>Özet satırları — hedefin ETKİN yetkileri (ham izin satırı DEĞİL).</summary>
+    public ObservableCollection<SummaryRow> Summary { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSummary))]
+    private string? _summaryText;
+    public bool HasSummary => !string.IsNullOrEmpty(SummaryText);
+
+    /// <summary>Kendi yetkisini sıfırlamak kullanıcıyı kendi ekranından kilitler → düğme gizli
+    /// (sunucu da ayrıca reddeder; UI tek savunma değildir).</summary>
+    public bool CanResetPerms => HasUser && !IsTargetAdmin && SelectedUser?.Id != _session.UserId;
+
+
+    public sealed record SummaryRow(string Label, string Actions);
+
+    [RelayCommand]
+    private async Task ShowSummary()
+    {
+        if (SelectedUser is null) { Status = "Önce kullanıcı seçin."; return; }
+        Summary.Clear(); SummaryText = null;
+        var r = await OrgServerClient.GetPermissionSummaryAsync(SelectedUser.Id);
+        if (r is null) { Status = "Yetki özeti alınamadı (çevrimiçi olmayı gerektirir)."; return; }
+        SummaryText = r.Value.SourceText;
+        foreach (var (label, actions) in r.Value.Modules) Summary.Add(new SummaryRow(label, actions));
+        foreach (var b in r.Value.Buttons) Summary.Add(new SummaryRow("Özel izin: " + b, "Açık"));
+        if (Summary.Count == 0) Status = "Bu kullanıcının erişebildiği hiçbir ekran yok.";
+        else Status = $"{Summary.Count} satır listelendi.";
+    }
+
+    /// <summary>Yıkıcı işlem → açık onay + ne olacağının düz anlatımı (teknik terim yok).</summary>
+    [RelayCommand]
+    private async Task ResetPerms()
+    {
+        if (SelectedUser is null) { Status = "Önce kullanıcı seçin."; return; }
+        if (!CanManage) { Status = "Yetki yok."; return; }
+        if (!CanResetPerms) { Status = "Kendi yetkilerinizi sıfırlayamazsınız."; return; }
+
+        if (!await ConfirmService.AskAsync(
+                $"'{SelectedUser.Username}' kullanıcısının TÜM ekran ve buton yetkileri silinecek.\n\n" +
+                "Sonrasında hiçbir ekrana erişemez; yetkileri yeniden verilene kadar yalnız giriş yapabilir.\n" +
+                "Kullanıcı kaydı ve rolü SİLİNMEZ, yalnız yetkileri temizlenir.\n\nDevam edilsin mi?",
+                "Yetkileri Sıfırla", "Evet, Sıfırla")) return;
+
+        // Yetkiler SUNUCU-OTORİTELİ: yalnız yerele yazmak hedef kullanıcıya ulaşmaz.
+        var res = await OrgServerClient.ResetPermissionsAsync(SelectedUser.Id, _permVersion);
+        if (res.Offline) { Status = "Bu işlem çevrimiçi olmayı gerektirir (kullanıcılar sunucuda tutulur)."; return; }
+        if (res.Status == 409) { Status = "Bu kullanıcının yetkileri siz ekrandayken değişti. Kullanıcıyı yeniden seçip tekrar deneyin."; return; }
+        if (!res.Ok) { Status = res.Error ?? "Sıfırlanamadı."; return; }
+
+        Summary.Clear(); SummaryText = null;
+        await LoadSelectedUserAsync(SelectedUser);
+        Status = "Yetkiler sıfırlandı. Kullanıcı artık hiçbir ekrana erişemez.";
     }
 
     [RelayCommand]

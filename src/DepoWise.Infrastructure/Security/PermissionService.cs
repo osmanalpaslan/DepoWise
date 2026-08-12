@@ -13,6 +13,52 @@ namespace DepoWise.Infrastructure.Security;
 public sealed record UserPermissionData(IReadOnlyList<ModulePermission> Modules, IReadOnlyList<string> Buttons,
     long Version = 0);
 
+/// <summary>G1a — yetki özetinde bir modül satırı. Değerler HAM satır değil, <see cref="AccessControl.Can"/>
+/// ile hesaplanmış ETKİN yetkidir (rol bypass'ı ve rol kilitleri uygulanmış hâli).</summary>
+public sealed record PermissionSummaryRow(string ModuleKey, string Label,
+    bool View, bool Create, bool Edit, bool Delete, bool RoleBlocked)
+{
+    /// <summary>Kullanıcıya gösterilecek kısa metin — teknik terim yok (CLAUDE.md §2).</summary>
+    public string ActionsText
+    {
+        get
+        {
+            var a = new List<string>(4);
+            if (View) a.Add("Görüntüleme");
+            if (Create) a.Add("Ekleme");
+            if (Edit) a.Add("Düzenleme");
+            if (Delete) a.Add("Silme");
+            return a.Count == 0 ? "—" : string.Join(" · ", a);
+        }
+    }
+}
+
+/// <summary>G1a — özetteki özel buton satırı.</summary>
+public sealed record PermissionSummaryButton(string ButtonKey, string Label);
+
+/// <summary>
+/// G1a — "Bu kullanıcı gerçekte neye erişebiliyor?" sorusunun tek yanıtı. Ham izin satırları yanıltıcıdır:
+/// adminin hiç satırı olmadan her şeye erişimi vardır; rolüne kapatılmış bir modüle satırı olsa da erişemez.
+/// Bu yüzden özet, hedefin oturumu yeniden kurularak <see cref="AccessControl.Can"/> ile hesaplanır.
+/// </summary>
+public sealed record PermissionSummary(string UserId, string CompanyId, IReadOnlyList<string> RoleKeys,
+    IReadOnlyList<PermissionSummaryRow> Modules, IReadOnlyList<PermissionSummaryButton> Buttons,
+    int ExplicitModuleRows, int ExplicitButtonRows, int RoleBlockedCount)
+{
+    public bool IsSuperAdmin => RoleKeys.Contains(DepoWise.Application.Security.RoleKeys.SuperAdmin);
+    public bool IsCompanyAdmin => RoleKeys.Contains(DepoWise.Application.Security.RoleKeys.CompanyAdmin);
+
+    /// <summary>Erişilebilen modül sayısı (görüntüleme yetkisi olanlar).</summary>
+    public int VisibleModuleCount => Modules.Count(m => m.View);
+
+    /// <summary>Yetkinin nereden geldiğini açıklayan tek cümle — kullanıcı "neden her şeyi görüyor?" desin diye.</summary>
+    public string SourceText => IsSuperAdmin
+        ? "Süper Admin — tüm ekranlara erişir; ayrıca izin satırı gerekmez."
+        : IsCompanyAdmin
+            ? $"Admin — normal ekranlara rolü gereği erişir ({ExplicitModuleRows} açık izin satırı)."
+            : $"Personel — yalnız açıkça verilen izinler ({ExplicitModuleRows} modül, {ExplicitButtonRows} buton).";
+}
+
 /// <summary>
 /// Kullanıcı yetkilerini (modül View/Create/Edit/Delete + özel "+"/buton izinleri) yükler/kaydeder.
 /// Yetki: "permissions" modülü (admin bypass). Tenant: hedef kullanıcı oturumun firmasına ait olmalı
@@ -226,12 +272,30 @@ public sealed class PermissionService
 
     /// <summary>Aktörün başkasına VEREBİLECEĞİ üst sınır. null = sınırsız (Süper Admin, ya da hiç açık izni olmayan
     /// firma admini — geriye dönük uyum). Aksi halde aktörün KENDİ user_permissions/butonları sınır olur.</summary>
+    /// <summary>
+    /// G1b (2026-08-12) — DEVRETME TAVANI. Aktörün BAŞKASINA verebileceği en üst yetki.
+    ///
+    /// 🔴 ESKİ MODELDEKİ AÇIK: kırpma yalnız aktörün <c>user_permissions</c> SATIRLARINA bakıyordu ve
+    /// satırı olmayan firma admini <b>sınırsız</b> sayılıyordu (<c>mods.Count == 0 &amp;&amp; IsCompanyAdmin</c>).
+    /// Firma admini tipik olarak bypass ile çalışır ve satırı YOKTUR → kırpma pratikte hiç uygulanmıyordu.
+    /// Somut sonuç: süper adminin aktörün ROLÜNE kapattığı bir modülü (aktör kendisi kullanamadığı hâlde)
+    /// başkasına VEREBİLİYORDU — gerçek bir yetki yükseltme yolu.
+    ///
+    /// ✅ YENİ MODEL: tavan <see cref="AccessControl.GrantCeiling"/>'den gelir; o da <see cref="AccessControl.Can"/>
+    /// ile AYNI kuralları uygular (rol kilidi → süper-admin-only → admin bypass → açık izin). Yani
+    /// "aktörün gerçekten erişebildiği" ile "verebileceği" ARTIK AYNI ŞEYDİR. Firma admininin normal
+    /// modülleri devretmesi bozulmaz (bypass ile onlara zaten tam erişimi var); yalnız rolüne kapatılmış
+    /// modüller ve süper-admin-only ekranlar kapanır.
+    ///
+    /// Açık satırlar veritabanından AYNI transaction içinde okunur (oturum anlık görüntüsü bayat olabilir).
+    /// </summary>
     private static (Dictionary<string, ModulePermission>? Mods, HashSet<string>? Btns) GrantableLimit(
         DbConnection conn, DbTransaction tx, SessionContext actor)
     {
         if (actor.IsSuperAdmin) return (null, null); // sınırsız
 
-        var mods = new Dictionary<string, ModulePermission>(StringComparer.Ordinal);
+        // Aktörün AÇIK satırları (taze) — tavan hesabında "kendi izni" girdisi olarak kullanılır.
+        var own = new Dictionary<string, ModulePermission>(StringComparer.Ordinal);
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -239,22 +303,144 @@ public sealed class PermissionService
             cmd.AddWithValue("@u", actor.UserId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
-                mods[r.GetString(0)] = new ModulePermission(r.GetString(0),
+                own[r.GetString(0)] = new ModulePermission(r.GetString(0),
                     r.GetInt64(1) == 1, r.GetInt64(2) == 1, r.GetInt64(3) == 1, r.GetInt64(4) == 1);
         }
+
+        // TAVAN: her modül için AccessControl kuralları (tek kaynak). Ağaçtaki her modül hesaplanır ki
+        // "satırı yok → sınırsız" gibi bir kısayol KALMASIN.
+        var mods = new Dictionary<string, ModulePermission>(StringComparer.Ordinal);
+        foreach (var (key, _) in AppModules.All)
+        {
+            own.TryGetValue(key, out var explicitOwn);
+            mods[key] = AccessControl.GrantCeiling(actor, key, explicitOwn);
+        }
+
+        // BUTONLAR: CanUseButton ile aynı kural (admin bypass dahil).
         var btns = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (key, _) in SpecialButtons.All)
+            if (AccessControl.CanGrantButtonKey(actor, key))
+                btns.Add(key);
+
+        return (mods, btns);
+    }
+
+    /// <summary>
+    /// G1a (2026-08-12) — YETKİ SIFIRLAMA. Kullanıcının TÜM modül ve buton izinlerini siler
+    /// (deny-by-default'a döner). Rol ataması ve kullanıcı kaydı DEĞİŞMEZ — yalnız izinler silinir.
+    ///
+    /// <see cref="SaveForUser"/> ile AYNI kapılardan geçer: yetki · firma sahipliği · hedef
+    /// yönetilebilirlik · düzenleme kilidi · audit · anlık görüntü tazeleme. Ayrı bir "kısa yol"
+    /// YOKTUR — aksi halde sıfırlama, kaydetmenin korumalarını atlayan ikinci bir yazma yolu olurdu.
+    ///
+    /// ⚠️ Yetki KIRPMA burada gerekmez: sıfırlama yalnız yetki KALDIRIR, hiçbir yetki VERMEZ →
+    /// yükseltme riski yoktur.
+    /// </summary>
+    /// <returns>Silinen modül satırı + buton satırı sayısı (kullanıcıya gösterilecek özet).</returns>
+    public (int Modules, int Buttons) ResetForUser(SessionContext actor, string userId, long? expectedVersion = null)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.Edit);
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+
+        var companyId = EnsureUserOwned(conn, tx, actor, userId);
+        EnsureManageableTarget(conn, tx, actor, userId);   // admin, başka admini/süper admini sıfırlayamaz
+
+        // Kendi yetkisini sıfırlamak, kullanıcıyı kendi ekranından kilitler → bilinçli olarak ENGELLENİR.
+        if (string.Equals(actor.UserId, userId, StringComparison.Ordinal))
+            throw new InvalidOperationException("Kendi yetkilerinizi sıfırlayamazsınız.");
+
+        // Düzenleme kilidi + sürüm artırma: SaveForUser ile aynı sıra (yazmadan hemen önce, aynı transaction).
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "SELECT button_key FROM user_button_permissions WHERE user_id=@u;";
-            cmd.AddWithValue("@u", actor.UserId);
-            using var r = cmd.ExecuteReader();
-            while (r.Read()) btns.Add(r.GetString(0));
+            cmd.CommandText = "UPDATE users SET version=version+1, updated_at=@now WHERE id=@u AND company_id=@c AND is_deleted=0"
+                + EditLockGuard.Clause(expectedVersion) + ";";
+            cmd.AddWithValue("@now", now);
+            cmd.AddWithValue("@u", userId);
+            cmd.AddWithValue("@c", companyId);
+            EditLockGuard.Bind(cmd, expectedVersion);
+            if (cmd.ExecuteNonQuery() == 0)
+            {
+                // SaveForUser ile AYNI ayrım: önce sürüm çakışması (409), sonra sahiplik (403).
+                EditLockGuard.ThrowIfStale(conn, tx, "users", userId, companyId, expectedVersion);
+                throw new ForbiddenException("Kullanıcı bulunamadı veya başka firmaya ait.");
+            }
         }
 
-        // Açık hiç izni olmayan firma admini → geriye dönük uyum: sınırsız (Süper Admin ona sonradan sınır koyabilir).
-        if (mods.Count == 0 && btns.Count == 0 && actor.IsCompanyAdmin) return (null, null);
+        int mods, btns;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM user_permissions WHERE user_id=@u;";
+            cmd.AddWithValue("@u", userId);
+            mods = cmd.ExecuteNonQuery();
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM user_button_permissions WHERE user_id=@u;";
+            cmd.AddWithValue("@u", userId);
+            btns = cmd.ExecuteNonQuery();
+        }
+
+        AuditWriter.Write(conn, tx, new AuditEntry(companyId, "user_permissions", userId, AuditActions.Delete,
+            actor.UserId, AfterJson: $"{{\"reset\":true,\"modules\":{mods},\"buttons\":{btns}}}"), _clock);
+
+        tx.Commit();
+        _snapshots?.InvalidateUser(userId);   // oturum anlık görüntüsü bayat kalmasın
         return (mods, btns);
+    }
+
+    /// <summary>
+    /// G1a — YETKİ ÖZETİ (salt okuma). "Bu kullanıcı gerçekte neye erişebiliyor?" sorusunun tek yanıtı.
+    /// Ham satırlar değil, <see cref="AccessControl.Can"/> ile hesaplanan ETKİN yetki döner — yani rol
+    /// bypass'ı, rol kilitleri ve süper-admin-only kuralları uygulanmış hâli. Ekranlar bunu doğrudan gösterir.
+    /// </summary>
+    public PermissionSummary SummaryForUser(SessionContext actor, string userId)
+    {
+        AccessControl.Require(actor, Module, PermissionAction.View);
+        var data = GetForUser(actor, userId);   // kendi kapılarını uygular (firma sahipliği vb.)
+
+        using var conn = _factory.Create();
+        var companyId = EnsureUserOwned(conn, null, actor, userId);
+        var roles = RolesOf(conn, null, userId);
+        var blocked = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForUser(conn, null, userId);
+
+        // Hedefin ETKİN yetkisini, hedefin KENDİ oturumu gibi hesapla (ham satır göstermek yanıltıcıdır:
+        // admin'de satır olmasa da her şeye erişir; rol kilidi varsa satır olsa da erişemez).
+        var target = new SessionContext(userId, companyId, roles,
+            new PermissionSet(data.Modules, data.Buttons)) { BlockedModules = blocked };
+
+        var rows = new List<PermissionSummaryRow>();
+        foreach (var (key, label) in AppModules.All)
+        {
+            var v = AccessControl.Can(target, key, PermissionAction.View);
+            var c = AccessControl.Can(target, key, PermissionAction.Create);
+            var e = AccessControl.Can(target, key, PermissionAction.Edit);
+            var d = AccessControl.Can(target, key, PermissionAction.Delete);
+            if (!v && !c && !e && !d) continue;                 // erişimi olmayan modül özet dışı
+            rows.Add(new PermissionSummaryRow(key, label, v, c, e, d, blocked.Contains(key)));
+        }
+        var buttons = SpecialButtons.All
+            .Where(b => AccessControl.CanUseButton(target, b.Key))
+            .Select(b => new PermissionSummaryButton(b.Key, b.Label)).ToList();
+
+        return new PermissionSummary(userId, companyId, roles, rows, buttons,
+            data.Modules.Count, data.Buttons.Count, blocked.Count);
+    }
+
+    private static IReadOnlyList<string> RolesOf(DbConnection conn, DbTransaction? tx, string userId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT r.role_key FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=@u;";
+        cmd.AddWithValue("@u", userId);
+        var list = new List<string>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(r.GetString(0));
+        return list;
     }
 
     private static ModulePermission ClampModule(ModulePermission incoming, Dictionary<string, ModulePermission>? limit)

@@ -778,16 +778,46 @@ LIMIT @take;";
         string? note, long? docDate, Action<DbConnection, DbTransaction, string> body, string? groupId = null,
         string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
     {
+        using var conn = _factory.Create();
+        using var tx = conn.BeginImmediate(); // IMMEDIATE → eş zamanlı çıkış serialize
+        var res = RunDocumentInTx(conn, tx, s, docType, operationId, toBranch, fromBranch, primaryBranch,
+            personnelId, vehicleId, note, docDate, body, groupId, invoiceNo, orderSlipNo, creditSlipNo);
+        tx.Commit();
+        return res;
+    }
+
+    /// <summary>
+    /// ═══ G4-2 — AMBIENT TRANSACTION (2026-08-12, kullanıcı kararı) ═══
+    ///
+    /// Belge yazma gövdesi; <b>transaction'ı AÇMAZ ve COMMIT ETMEZ</b> — çağıranın açtığı
+    /// <paramref name="conn"/>/<paramref name="tx"/> içinde çalışır.
+    ///
+    /// <b>NEDEN GEREKLİ:</b> fatura tek bir işlemde üç şey yazar — belge + cari hareketi + stok hareketi.
+    /// Her servis kendi transaction'ını açsaydı üç ayrı commit noktası olurdu: stok yazılıp cari yazılırken
+    /// hata çıkarsa <b>stok geri alınmazdı</b> (kısmi kayıt). SQLite'ta iç içe yazma da mümkün değildir —
+    /// <c>BeginImmediate</c> yazma kilidi alır, ikinci bağlantı <c>busy_timeout</c> sonunda kilitlenir.
+    ///
+    /// <b>PARALEL YAZICI DEĞİLDİR:</b> bu, <see cref="RunDocumentOnce"/> ile AYNI gövdedir; o da artık
+    /// buraya delege eder. Stok defterinin tek yazıcısı hâlâ bu sınıftır — yalnız transaction sahipliği
+    /// çağırana devredilebilir hâle geldi.
+    ///
+    /// ⚠️ <b>TEKRAR (retry) YOKTUR:</b> <see cref="StockBalanceWriter.Run"/> sarmalayıcısı yalnız kendi
+    /// transaction'ını açan yolda çalışır. Ambient kipte yarış çıkarsa istisna ÇAĞIRANA fırlar; çağıran
+    /// kendi transaction'ını geri alıp işlemin TAMAMINI yeniden denemelidir (yarım iş kalmasın).
+    /// </summary>
+    private StockDocResult RunDocumentInTx(DbConnection conn, DbTransaction tx,
+        SessionContext s, string docType, string operationId,
+        string? toBranch, string? fromBranch, string? primaryBranch, string? personnelId, string? vehicleId,
+        string? note, long? docDate, Action<DbConnection, DbTransaction, string> body, string? groupId = null,
+        string? invoiceNo = null, string? orderSlipNo = null, string? creditSlipNo = null)
+    {
         if (string.IsNullOrWhiteSpace(operationId)) throw new ArgumentException("operation_id zorunlu.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var date = docDate ?? now;
 
-        using var conn = _factory.Create();
-        using var tx = conn.BeginImmediate(); // IMMEDIATE → eş zamanlı çıkış serialize
-
         // Idempotency: bu operationId daha önce işlendiyse mevcut belgeyi döndür (çift yazma yok)
         var existing = FindDocumentByOperation(conn, tx, operationId);
-        if (existing is not null) { tx.Commit(); return existing; }
+        if (existing is not null) return existing;
 
         // STK-03: LOKASYON SAHİPLİĞİ — belgeye giren her şube oturumun FİRMASINA ait olmalı.
         // Burası tüm yazma yollarının (giriş/çıkış/transfer/sayım) tek geçiş noktasıdır → kontrol
@@ -806,8 +836,43 @@ LIMIT @take;";
 
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_document", docId, AuditActions.Create, s.UserId,
             AfterJson: $"{{\"type\":\"{docType}\",\"no\":\"{docNo}\"}}"), _clock);
-        tx.Commit();
         return new StockDocResult(docId, docNo);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // G4-2 — FATURA İÇİN AMBIENT GİRİŞ/ÇIKIŞ. Fatura servisi BUNLARI çağırır; kendi stok yazıcısını
+    // KURMAZ. Yetki, şube sahipliği, negatif stok kalkanı ve idempotency AYNEN uygulanır — tek fark,
+    // transaction'ın çağırana ait olmasıdır.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Fatura/belge kaynaklı GİRİŞ — çağıranın transaction'ı içinde. Bkz. <see cref="RunDocumentInTx"/>.</summary>
+    public StockDocResult ReceiveInTx(DbConnection conn, DbTransaction tx, SessionContext s,
+        IReadOnlyList<StockLine> lines, string operationId, string? branchId = null,
+        string? personnelId = null, string? note = null, long? docDate = null, string? invoiceNo = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        return RunDocumentInTx(conn, tx, s, "in", operationId, branchId, null, branchId, personnelId, null, note, docDate,
+            (c, t, docId) =>
+            {
+                for (int i = 0; i < lines.Count; i++)
+                    ApplyLine(c, t, s, docId, lines[i], +1, $"{operationId}:{i}", "in", branchId, null);
+            }, invoiceNo: invoiceNo);
+    }
+
+    /// <summary>Fatura/belge kaynaklı ÇIKIŞ — çağıranın transaction'ı içinde. Negatif stok kalkanı ve
+    /// şube bakiyesi kontrolü AYNEN çalışır (yetersiz stokta istisna → çağıran geri alır).</summary>
+    public StockDocResult IssueOutTx(DbConnection conn, DbTransaction tx, SessionContext s,
+        IReadOnlyList<StockLine> lines, string operationId, string? branchId = null,
+        string? personnelId = null, string? note = null, long? docDate = null, string? invoiceNo = null)
+    {
+        AccessControl.Require(s, Module, PermissionAction.Create);
+        branchId = EnforceOwnBranch(s, branchId, "çıkış");   // şubeye bağlı kullanıcı yalnız kendi şubesinden
+        return RunDocumentInTx(conn, tx, s, "out", operationId, branchId, branchId, null, personnelId, null, note, docDate,
+            (c, t, docId) =>
+            {
+                for (int i = 0; i < lines.Count; i++)
+                    ApplyLine(c, t, s, docId, lines[i], -1, $"{operationId}:{i}", "out", branchId, branchId);
+            }, invoiceNo: invoiceNo);
     }
 
     private void ApplyLine(DbConnection conn, DbTransaction tx, SessionContext s, string docId,

@@ -31,9 +31,47 @@
             </MudAlert>
         }
         <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" ReadOnlyAllAccess="_targetIsAdmin" />
-        @if (!_targetIsAdmin)
+        @* G1a (2026-08-12): Kaydet'in yanına ÖZET ve SIFIRLA. Sıfırlama yıkıcıdır → ayrı renk + onay. *@
+        <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            @if (!_targetIsAdmin)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
+            }
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FactCheck"
+                       OnClick="LoadSummary" Disabled="_busy">Yetki Özeti</MudButton>
+            @if (!_targetIsAdmin && !_isSelf)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.LayersClear"
+                           OnClick="ResetPerms" Disabled="_busy">Yetkileri Sıfırla</MudButton>
+            }
+        </MudStack>
+
+        @if (_summary is not null)
         {
-            <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
+            <MudPaper Class="pa-3 mt-3" Elevation="2">
+                <MudText Typo="Typo.subtitle1"><b>Yetki Özeti</b></MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@_summaryText</MudText>
+                @if (_summary.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">Bu kullanıcının erişebildiği hiçbir ekran yok.</MudAlert>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Striped="true" Style="max-height:320px;overflow:auto;">
+                        <thead><tr><th>EKRAN</th><th>YAPABİLDİKLERİ</th></tr></thead>
+                        <tbody>
+                        @foreach (var m in _summary)
+                        {
+                            <tr><td>@m.Label</td><td>@m.Actions</td></tr>
+                        }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                @if (_summaryButtons.Count > 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2"><b>Özel izinler:</b> @string.Join(" · ", _summaryButtons)</MudText>
+                }
+            </MudPaper>
         }
     }
     @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-2">@_msg</MudAlert> }
@@ -132,6 +170,60 @@
             _permVersion = doc.TryGetProperty("version", out var pv) && pv.TryGetInt64(out var pvv) ? pvv : 0;
         }
         catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+    }
+
+    // ── G1a: YETKİ ÖZETİ + SIFIRLAMA (2026-08-12) ────────────────────────────────────────────
+    private sealed record SumRow(string Label, string Actions);
+    private List<SumRow>? _summary;
+    private List<string> _summaryButtons = new();
+    private string _summaryText = "";
+
+    /// <summary>Kendi yetkisini sıfırlamak kullanıcıyı kendi ekranından kilitler → düğme gizlenir
+    /// (sunucu da ayrıca reddeder — UI tek savunma değildir).</summary>
+    private bool _isSelf => !string.IsNullOrEmpty(_userId) && _userId == Auth.UserId;
+
+    private async Task LoadSummary()
+    {
+        if (string.IsNullOrEmpty(_userId)) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/permissions/{_userId}/summary");
+            _summaryText = d.TryGetProperty("sourceText", out var st) ? st.GetString() ?? "" : "";
+            _summary = d.TryGetProperty("modules", out var ms) && ms.ValueKind == JsonValueKind.Array
+                ? ms.EnumerateArray().Select(m => new SumRow(
+                    m.GetProperty("label").GetString() ?? "",
+                    m.GetProperty("actionsText").GetString() ?? "—")).ToList()
+                : new();
+            _summaryButtons = d.TryGetProperty("buttons", out var bs) && bs.ValueKind == JsonValueKind.Array
+                ? bs.EnumerateArray().Select(b => b.GetProperty("label").GetString() ?? "").ToList()
+                : new();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Özet alınamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    /// <summary>Yıkıcı işlem → açık onay + ne olacağının düz anlatımı (teknik terim yok).</summary>
+    private async Task ResetPerms()
+    {
+        if (string.IsNullOrEmpty(_userId)) return;
+        var who = _users.FirstOrDefault(u => u.Id == _userId)?.Name ?? "bu kullanıcı";
+        if (!await Dialog.Confirm(
+            $"{who} adlı kullanıcının TÜM ekran ve buton yetkileri silinecek.\n\n" +
+            "Sonrasında hiçbir ekrana erişemez; yetkileri yeniden verilene kadar yalnız giriş yapabilir.\n" +
+            "Kullanıcı kaydı ve rolü SİLİNMEZ, yalnız yetkileri temizlenir.\n\nDevam edilsin mi?",
+            "Evet, Sıfırla", danger: true)) return;
+
+        _busy = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync($"/api/permissions/{_userId}/reset", new { version = _permVersion });
+            _ok = err is null;
+            _msg = err ?? "Yetkiler sıfırlandı. Kullanıcı artık hiçbir ekrana erişemez.";
+            if (_ok) { _summary = null; await LoadUserPerms(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Sıfırlanamadı: " + ex.Message; }
+        finally { _busy = false; }
     }
 
     private async Task Save()

@@ -96,6 +96,23 @@ public sealed class ApiClient
             if (data is not null) _auth.SetModules(data.Modules, data.IsAdmin, data.IsRestrictedSuperAdmin);
         }
         catch { }
+
+        // G5 — platform görünürlüğü menüyle AYNI anda tazelenir (ayrı bir yenileme yolu açılmadı).
+        // Böylece yönetici bir ekranı web'de kapattığında, kullanıcının bir sonraki menü tazelemesinde
+        // (giriş / sayfa yenileme / oturum tazeleme) etkili olur; bayat veri kalıcı olmaz.
+        try
+        {
+            var vr = await _http.SendAsync(Req(HttpMethod.Get, "/api/screens/visibility"));
+            if (!vr.IsSuccessStatusCode) return;
+            using var doc = System.Text.Json.JsonDocument.Parse(await vr.Content.ReadAsStringAsync());
+            if (!doc.RootElement.TryGetProperty("screens", out var arr)) return;
+            var kapali = new List<string>();
+            foreach (var e in arr.EnumerateArray())
+                if (e.TryGetProperty("web", out var w) && w.ValueKind == System.Text.Json.JsonValueKind.False)
+                    kapali.Add(e.GetProperty("key").GetString() ?? "");
+            _auth.SetScreenVisibility(kapali);
+        }
+        catch { /* okunamazsa katalog varsayılanı geçerli kalır → ekranlar kapanmaz */ }
     }
 
     private HttpRequestMessage Req(HttpMethod m, string url)

@@ -1,0 +1,303 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:acc="using:DepoWise.Infrastructure.Accounting"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="720"
+             x:Class="DepoWise.Desktop.Views.PartiesView"
+             x:DataType="vm:PartiesViewModel">
+
+    <!-- G4-1 — CARİ HESAPLAR. Sol: liste (arama/filtre/sayfalama). Sağ: kart + finansal özet + hareketler.
+         Tablolar ortak ListBox.Table desenini kullanır → G3 satır seçimi davranışı aynen geçerlidir. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Cari Hesaplar">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBox Classes="Field" Width="230" Watermark="Kod / ünvan / vergi no / telefon"
+                             Text="{Binding Search}"/>
+                    <ComboBox Classes="Field" Width="170" ItemsSource="{Binding TypeOptions}"
+                              SelectedValue="{Binding TypeFilter}" SelectedValueBinding="{Binding Key}"
+                              ToolTip.Tip="Cari tipine göre süz">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PartiesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <CheckBox Content="Yalnız aktif" IsChecked="{Binding OnlyActive}" VerticalAlignment="Center"/>
+                    <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <SelectableTextBlock Text="{Binding PageText}" Classes="Helper" VerticalAlignment="Center"/>
+                <Button Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
+                <Button Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
+                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
+                <!-- G4-1b: cari formu + elle hareket girişi -->
+                <Button Classes="Primary" Content="Yeni Cari" Command="{Binding NewPartyCommand}"
+                        IsVisible="{Binding CanCreate}"/>
+                <Button Classes="Secondary" Content="Düzenle" Command="{Binding EditPartyCommand}"
+                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanEdit}"/>
+                <Button Classes="Secondary" Content="Hareket Ekle" Command="{Binding NewEntryCommand}"
+                        IsEnabled="{Binding HasSelection}" IsVisible="{Binding CanCreate}"
+                        ToolTip.Tip="Açılış bakiyesi veya düzeltme hareketi girin. Fatura/tahsilat kendi ekranından gelir."/>
+                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
+                <Button Classes="Secondary" Content="Aktif / Pasif" Command="{Binding ToggleActiveCommand}"
+                        IsEnabled="{Binding HasSelection}"
+                        ToolTip.Tip="Pasif cari yeni işlemlerde seçilemez; geçmişi korunur."/>
+                <Button Classes="Danger" Content="Sil" Command="{Binding DeleteCommand}"
+                        IsEnabled="{Binding HasSelection}"
+                        ToolTip.Tip="Hesap hareketi olan cari silinemez; bu durumda pasif yapın."/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,16,420" Margin="0,16,0,0">
+
+            <!-- ── SOL: CARİ LİSTESİ ────────────────────────────────────────────────────── -->
+            <Border Grid.Column="0" Classes="Table">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="KOD" MinWidth="110"/>
+                            <SelectableTextBlock Grid.Column="1" Text="ÜNVAN" MinWidth="200"/>
+                            <SelectableTextBlock Grid.Column="2" Text="TİP" MinWidth="150"/>
+                            <SelectableTextBlock Grid.Column="3" Text="VERGİ/TCKN" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="4" Text="BAKİYE" MinWidth="130"/>
+                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="80"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="acc:PartyListRow">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding Party.Code}" MinWidth="110" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding Party.Title}" MinWidth="200" VerticalAlignment="Center"
+                                                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Party.Title}"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding Party.TypeText}" MinWidth="150" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding Party.TaxIdText}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding BalanceText}" MinWidth="130" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding Party.StatusText}" MinWidth="80" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- ── SAĞ: CARİ FORMU (G4-1b) — form açıkken kartın yerine gelir ──────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="{Binding FormTitle}" Classes="SectionTitle"/>
+
+                        <ctrl:FormField Label="Cari Kodu" IsRequired="True">
+                            <TextBox Classes="Field" Text="{Binding FCode}" MaxLength="40"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Ünvan / Ad Soyad" IsRequired="True">
+                            <TextBox Classes="Field" Text="{Binding FTitle}" MaxLength="200"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Cari Tipi" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding FormTypeOptions}"
+                                      SelectedValue="{Binding FType}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PartiesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <CheckBox Content="Gerçek kişi (şahıs)" IsChecked="{Binding FIsPerson}"
+                                  ToolTip.Tip="İşaretlenirse kimlik alanı T.C. Kimlik No olarak değerlendirilir."/>
+
+                        <ctrl:FormField Label="Vergi Dairesi">
+                            <TextBox Classes="Field" Text="{Binding FTaxOffice}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Vergi No (VKN)">
+                            <TextBox Classes="Field" Text="{Binding FTaxNo}" MaxLength="10"
+                                     Watermark="10 hane — zorunlu değil"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="T.C. Kimlik No">
+                            <TextBox Classes="Field" Text="{Binding FNationalId}" MaxLength="11"
+                                     Watermark="11 hane — zorunlu değil"/>
+                        </ctrl:FormField>
+
+                        <ctrl:FormField Label="Telefon">
+                            <TextBox Classes="Field" Text="{Binding FPhone}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="E-posta">
+                            <TextBox Classes="Field" Text="{Binding FEmail}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Adres">
+                            <TextBox Classes="Field" Text="{Binding FAddress}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="İl">
+                            <TextBox Classes="Field" Text="{Binding FCity}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="İlçe">
+                            <TextBox Classes="Field" Text="{Binding FDistrict}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Not">
+                            <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+                        <CheckBox Content="Aktif" IsChecked="{Binding FIsActive}"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                            <!-- Saving sürerken düğme kapanır → çift tıklamada İKİ kayıt oluşmaz. -->
+                            <Button Classes="Primary" Content="Kaydet" Command="{Binding SavePartyCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelFormCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+            <!-- ── SAĞ: ELLE HAREKET FORMU (G4-1b) ─────────────────────────────────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding EntryOpen}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="Cari Hareketi Ekle" Classes="SectionTitle"/>
+                        <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"
+                            Text="Elle yalnız AÇILIŞ ve DÜZELTME hareketi girilir. Fatura, tahsilat ve ödeme kendi ekranlarından oluşturulur; böylece aynı işlem iki kez kaydedilmez."/>
+
+                        <ctrl:FormField Label="Belge Türü" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding ManualDocTypes}"
+                                      SelectedValue="{Binding EDocType}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PartiesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Yön" IsRequired="True">
+                            <StackPanel Orientation="Horizontal" Spacing="14">
+                                <RadioButton GroupName="dir" Content="Borç (cari bize borçlanır)" IsChecked="{Binding EIsDebit}"/>
+                                <RadioButton GroupName="dir" Content="Alacak" IsChecked="{Binding !EIsDebit}"/>
+                            </StackPanel>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tutar" IsRequired="True">
+                            <NumericUpDown Classes="Field" Value="{Binding EAmount}" Minimum="0"
+                                           FormatString="0.##" ShowButtonSpinner="False"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Tarih">
+                            <DatePicker SelectedDate="{Binding EDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Vade">
+                            <DatePicker SelectedDate="{Binding EDueDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Belge No">
+                            <TextBox Classes="Field" Text="{Binding EDocNo}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Açıklama">
+                            <TextBox Classes="Field" Text="{Binding EDescription}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                            <Button Classes="Primary" Content="Hareketi Kaydet" Command="{Binding SaveEntryCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CancelEntryCommand}"
+                                    IsEnabled="{Binding !Saving}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+            <!-- ── SAĞ: CARİ KARTI ──────────────────────────────────────────────────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding ShowCard}">
+                <StackPanel Spacing="12">
+
+                    <Border Classes="Panel">
+                        <StackPanel Spacing="6">
+                            <SelectableTextBlock Text="GENEL BİLGİLER" Classes="CardLabel"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.Title}" Classes="SectionTitle" TextWrapping="Wrap"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.Code}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.TypeText}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.TaxOffice}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.TaxIdText}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.Phone}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.Email}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.City}" Classes="Helper"/>
+                            <SelectableTextBlock Text="{Binding Selected.Party.StatusText}" Classes="Helper"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Finansal özet: hepsi DEFTERDEN türetilir, saklanmaz. -->
+                    <Border Classes="Panel">
+                        <StackPanel Spacing="6">
+                            <SelectableTextBlock Text="FİNANSAL ÖZET" Classes="CardLabel"/>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <SelectableTextBlock Grid.Column="0" Text="Borç" MinWidth="110" Classes="Helper"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Debit, StringFormat={}{0:0.##}}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <SelectableTextBlock Grid.Column="0" Text="Alacak" MinWidth="110" Classes="Helper"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding Credit, StringFormat={}{0:0.##}}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <SelectableTextBlock Grid.Column="0" Text="Bakiye" MinWidth="110" Classes="Helper"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding BalanceText}" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <SelectableTextBlock Grid.Column="0" Text="Son hareket" MinWidth="110" Classes="Helper"/>
+                                <SelectableTextBlock Grid.Column="1" Text="{Binding LastEntryText}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- G4-1b: hareket düzeltme ters kayıtla yapılır (silme YOK). Gerekçe zorunludur. -->
+                    <Border Classes="Panel" IsVisible="{Binding CanEdit}">
+                        <StackPanel Spacing="6">
+                            <SelectableTextBlock Text="HAREKET DÜZELTME" Classes="CardLabel"/>
+                            <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"
+                                Text="Aşağıdan bir hareket seçip gerekçe yazın. Hareket SİLİNMEZ; aynı tutarda ters kayıt yazılır ve ikisi de bakiyeden düşer."/>
+                            <TextBox Classes="Field" Text="{Binding ReverseReason}" Watermark="Düzeltme gerekçesi"/>
+                            <Button Classes="Secondary" Content="Seçili Hareketi Ters Çevir"
+                                    Command="{Binding ReverseEntryCommand}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="Table" MinHeight="220">
+                        <DockPanel>
+                            <Border Classes="TableHeader" DockPanel.Dock="Top">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="TARİH" MinWidth="90"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="AÇIKLAMA" MinWidth="120"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="BORÇ" MinWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="ALACAK" MinWidth="80"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="BAKİYE" MinWidth="90"/>
+                                </Grid>
+                            </Border>
+                            <ListBox Classes="Table" ItemsSource="{Binding Ledger}" SelectedItem="{Binding SelectedEntry}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="acc:PartyStatementRow">
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Entry.DateText}" MinWidth="90" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Entry.TypeText}" MinWidth="80" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="2" Text="{Binding Entry.Description}" MinWidth="120" VerticalAlignment="Center"
+                                                                 TextTrimming="CharacterEllipsis"/>
+                                            <SelectableTextBlock Grid.Column="3" Text="{Binding Entry.Debit, StringFormat={}{0:0.##}}" MinWidth="80" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="4" Text="{Binding Entry.Credit, StringFormat={}{0:0.##}}" MinWidth="80" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="5" Text="{Binding RunningBalance, StringFormat={}{0:0.##}}" MinWidth="90" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <ctrl:StatePanel Grid.Column="2" IsVisible="{Binding !HasSelection}" Mode="Empty"
+                             Title="Cari seçin" Message="Soldaki listeden bir cari seçtiğinizde kartı ve hesap hareketleri burada görünür."/>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Margin="0,10,0,0" Spacing="4">
+            <SelectableTextBlock Text="{Binding FormError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                                 IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+            <SelectableTextBlock Text="{Binding Status}" Classes="Helper"
+                                 IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -62,6 +62,24 @@ public sealed class BusinessSyncService
         "stock_documents",
         "material_requests",
         "material_request_items",
+        // G4-1c (2026-08-12): ÖN MUHASEBE — CARİ. Masaüstü ÇEVRİMDIŞI cari açabildiği ve elle hareket
+        // girebildiği için bunlar senkronda TAŞINMAK ZORUNDA; aksi halde çevrimdışı girilen cari ve
+        // bakiyesi sunucuya HİÇ ulaşmaz (web'de görünmez, başka makineye gitmez).
+        // SIRA ÖNEMLİ: parties ÖNCE gider — party_ledger.party_id onu referans alır.
+        // ⚠️ Bakiye TAŞINMAZ çünkü SAKLANMIYOR (stock_balances ile aynı gerekçe): cari bakiyesi
+        // party_ledger'dan Σ(direction × amount) ile hesaplanır → taşınacak türetilmiş alan YOKTUR.
+        "parties",
+        "party_ledger",
+        // G4-2 (2026-08-12): FATURA. Masaustu cevrimdisi fatura kesebildigi icin senkronda TASINIR.
+        // SIRA ONEMLI (yabanci anahtar): vat_rates + invoice_series ONCE (fatura seriye bakar),
+        // sonra invoices (parties + branches + materials zaten yukarida), en son invoice_lines.
+        // Cift kayit riski YOK: invoices.operation_id uzerinde tekil indeks var; ayni fatura ikinci
+        // kez uygulanamaz. Stok ve cari etkisi ayrica kendi tablolariyla (stock_movements/party_ledger)
+        // tasindigi icin sunucuda YENIDEN URETILMEZ - iki kez borclanma olmaz.
+        "vat_rates",
+        "invoice_series",
+        "invoices",
+        "invoice_lines",
     };
 
     /// <summary>Her iş tablosunun ait olduğu yetki modülü (business-push yetki kontrolü için).
@@ -90,7 +108,22 @@ public sealed class BusinessSyncService
         ["daily_activities"] = "daily_activity",
         ["material_requests"] = "requests",
         ["material_request_items"] = "requests",
+        // G4-1c: cari tabloları "parties" modülüne bağlı → kullanıcı ancak cari Create/Edit yetkisi
+        // varsa push edebilir (senkron yolu yetki kapısını ATLAMAZ).
+        ["parties"] = "parties",
+        ["party_ledger"] = "parties",
+        // G4-2: fatura tablolari "invoices" modulune bagli - kullanici ancak fatura Create/Edit
+        // yetkisi varsa push edebilir. Seri/KDV kataloglari da fatura yetkisine baglidir.
+        ["invoices"] = "invoices",
+        ["invoice_lines"] = "invoices",
+        ["invoice_series"] = "invoices",
+        ["vat_rates"] = "invoices",
     };
+
+    /// <summary>Bir iş tablosunun bağlı olduğu yetki modülü (yoksa null → push YASAK).
+    /// Testler ve teşhis için açıktır; karar yine <c>TableModule</c> üzerinden verilir.</summary>
+    public static string? ModuleOf(string table)
+        => TableModule.TryGetValue(table, out var m) ? m : null;
 
     /// <summary>Negatif olamayacak sayısal alanlar (tablo bazında). Bozuk/kötü niyetli snapshot bunları
     /// eksi değerle gönderirse satır reddedilir (stok/tutar tutarlılığı).

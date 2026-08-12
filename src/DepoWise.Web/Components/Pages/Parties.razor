@@ -1,0 +1,542 @@
+@page "/parties"
+@page "/parties/{Section}"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+@inject NavigationManager Nav
+
+@* G4-1 — CARİ HESAPLAR (web). Masaüstüyle AYNI servis/API sözleşmesini kullanır:
+   doğrulama, yetki ve bakiye hesabı SUNUCUDADIR → iki platform aynı sonucu gösterir.
+   ⚠️ Bu ekran stok tablolarına dokunmaz; cari defteri ile stok defteri ayrıdır. *@
+
+<PageTitle>Cari Hesaplar — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Cari Hesaplar</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
+    </div>
+    @if (Auth.CanCreate("parties"))
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="@(() => OpenNew())">Yeni Cari</MudButton>
+    }
+</div>
+
+@if (!Auth.CanView("parties"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_search" Placeholder="Kod / ünvan / vergi no / telefon" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" Style="max-width:280px" OnKeyUp="OnSearchKey" />
+            <MudSelect T="string" @bind-Value="_type" Label="Cari tipi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Style="max-width:200px" Clearable="true">
+                @foreach (var t in _types) { <MudSelectItem T="string" Value="@t.Key">@t.Label</MudSelectItem> }
+            </MudSelect>
+            <MudCheckBox T="bool" @bind-Value="_onlyActive" Label="Yalnız aktif" Dense="true" />
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            <MudSpacer />
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@_pageText</MudText>
+        </MudStack>
+    </MudPaper>
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">Cari bulunamadı.</MudAlert> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="Row"
+                      OnRowClick="@(e => Select(e.Item))" RowClass="cursor-pointer">
+                <HeaderContent>
+                    <MudTh>KOD</MudTh><MudTh>ÜNVAN</MudTh><MudTh>TİP</MudTh>
+                    <MudTh>VERGİ/TCKN</MudTh><MudTh>TELEFON</MudTh>
+                    <MudTh Style="text-align:right">BAKİYE</MudTh><MudTh>DURUM</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Kod">@context.Code</MudTd>
+                    <MudTd DataLabel="Ünvan" Style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@context.Title</MudTd>
+                    <MudTd DataLabel="Tip">@context.TypeText</MudTd>
+                    <MudTd DataLabel="Vergi/TCKN">@context.TaxIdText</MudTd>
+                    <MudTd DataLabel="Telefon">@context.Phone</MudTd>
+                    <MudTd DataLabel="Bakiye" Style="text-align:right">@context.BalanceText</MudTd>
+                    <MudTd DataLabel="Durum">@context.StatusText</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudStack Row="true" Spacing="2" Class="mt-2" AlignItems="AlignItems.Center">
+            <MudButton Size="Size.Small" Disabled="@(_page <= 1 || _busy)" OnClick="@(() => Go(_page - 1))">◀ Önceki</MudButton>
+            <MudButton Size="Size.Small" Disabled="@(_page >= _pageCount || _busy)" OnClick="@(() => Go(_page + 1))">Sonraki ▶</MudButton>
+        </MudStack>
+    }
+
+    @* ── G4-1b: CARİ FORMU (oluşturma / düzenleme) ──────────────────────────────── *@
+    @if (_formOpen)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3">@(_editId is null ? "Yeni Cari" : "Cari Düzenle")</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.Code" Label="Cari Kodu *" Margin="Margin.Dense" Variant="Variant.Outlined" MaxLength="40" /></MudItem>
+                <MudItem xs="12" md="8"><MudTextField @bind-Value="_f.Title" Label="Ünvan / Ad Soyad *" Margin="Margin.Dense" Variant="Variant.Outlined" MaxLength="200" /></MudItem>
+                <MudItem xs="12" md="4">
+                    <MudSelect T="string" @bind-Value="_f.PartyType" Label="Cari Tipi *" Margin="Margin.Dense" Variant="Variant.Outlined">
+                        @foreach (var t in _types.Where(x => x.Key != "")) { <MudSelectItem T="string" Value="@t.Key">@t.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex align-center">
+                    <MudCheckBox T="bool" @bind-Value="_f.IsPerson" Label="Gerçek kişi (şahıs)" Dense="true" />
+                </MudItem>
+                <MudItem xs="12" md="4" Class="d-flex align-center">
+                    <MudCheckBox T="bool" @bind-Value="_f.IsActive" Label="Aktif" Dense="true" />
+                </MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.TaxOffice" Label="Vergi Dairesi" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.TaxNo" Label="Vergi No (VKN)" HelperText="10 hane — zorunlu değil" Margin="Margin.Dense" Variant="Variant.Outlined" MaxLength="10" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.NationalId" Label="T.C. Kimlik No" HelperText="11 hane — zorunlu değil" Margin="Margin.Dense" Variant="Variant.Outlined" MaxLength="11" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.Phone" Label="Telefon" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.Email" Label="E-posta" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.City" Label="İl" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="_f.District" Label="İlçe" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="8"><MudTextField @bind-Value="_f.Address" Label="Adres" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12"><MudTextField @bind-Value="_f.Note" Label="Not" Lines="2" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+            </MudGrid>
+            <MudStack Row="true" Spacing="2" Class="mt-3">
+                @* _saving sürerken düğme kapalı → çift tıklamada iki kayıt oluşmaz. *@
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SaveParty" Disabled="_saving">
+                    @(_saving ? "Kaydediliyor…" : "Kaydet")</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="CancelForm" Disabled="_saving">Vazgeç</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @* ── CARİ KARTI (seçilince) ────────────────────────────────────────────────── *@
+    @if (_card is not null && !_formOpen)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.h6">@_card.Title</MudText>
+                <MudSpacer />
+                @if (Auth.CanEdit("parties"))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="EditParty">Düzenle</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               OnClick="ToggleActive">@(_card.IsActive ? "Pasif Yap" : "Aktif Yap")</MudButton>
+                }
+                @if (Auth.CanCreate("parties"))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PostAdd"
+                               OnClick="@(() => _entryOpen = !_entryOpen)">Hareket Ekle</MudButton>
+                }
+                @if (Auth.CanDelete("parties"))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" OnClick="DeleteParty">Sil</MudButton>
+                }
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@(() => _card = null)" />
+            </MudStack>
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><b>GENEL BİLGİLER</b></MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr><td>Cari Kodu</td><td>@_card.Code</td></tr>
+                            <tr><td>Tip</td><td>@_card.TypeText</td></tr>
+                            <tr><td>Vergi Dairesi</td><td>@(_card.TaxOffice ?? "—")</td></tr>
+                            <tr><td>Vergi / TCKN</td><td>@_card.TaxIdText</td></tr>
+                            <tr><td>Telefon</td><td>@(_card.Phone ?? "—")</td></tr>
+                            <tr><td>E-posta</td><td>@(_card.Email ?? "—")</td></tr>
+                            <tr><td>Şehir / İlçe</td><td>@($"{_card.City ?? "—"} / {_card.District ?? "—"}")</td></tr>
+                            <tr><td>Durum</td><td>@_card.StatusText</td></tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><b>FİNANSAL ÖZET</b></MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr><td>Borç</td><td>@_card.Debit.ToString("0.##")</td></tr>
+                            <tr><td>Alacak</td><td>@_card.Credit.ToString("0.##")</td></tr>
+                            <tr><td><b>Bakiye</b></td><td><b>@_card.BalanceText</b></td></tr>
+                            <tr><td>Hareket sayısı</td><td>@_card.EntryCount</td></tr>
+                            <tr><td>Son hareket</td><td>@_card.LastEntryText</td></tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+            </MudGrid>
+
+            @* G4-1b: elle hareket girişi — yalnız AÇILIŞ ve DÜZELTME (servis de bunu zorlar). *@
+            @if (_entryOpen)
+            {
+                <MudPaper Class="pa-3 mt-3" Elevation="1">
+                    <MudText Typo="Typo.subtitle2" Class="mb-1"><b>CARİ HAREKETİ EKLE</b></MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        Elle yalnız <b>açılış</b> ve <b>düzeltme</b> hareketi girilir. Fatura, tahsilat ve ödeme
+                        kendi ekranlarından oluşturulur; böylece aynı işlem iki kez kaydedilmez.
+                    </MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="string" @bind-Value="_e.DocType" Label="Belge Türü" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                @foreach (var d in _manualDocTypes) { <MudSelectItem T="string" Value="@d.Key">@d.Label</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="bool" @bind-Value="_e.IsDebit" Label="Yön" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                <MudSelectItem T="bool" Value="true">Borç (cari bize borçlanır)</MudSelectItem>
+                                <MudSelectItem T="bool" Value="false">Alacak</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="2"><MudNumericField T="decimal" @bind-Value="_e.Amount" Label="Tutar" Min="0" Format="0.##" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="2"><MudDatePicker @bind-Date="_e.Date" Label="Tarih" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="2"><MudDatePicker @bind-Date="_e.DueDate" Label="Vade" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" /></MudItem>
+                        <MudItem xs="12" md="3"><MudTextField @bind-Value="_e.DocNo" Label="Belge No" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="9"><MudTextField @bind-Value="_e.Description" Label="Açıklama" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudItem>
+                    </MudGrid>
+                    <MudStack Row="true" Spacing="2" Class="mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SaveEntry" Disabled="_saving">
+                            @(_saving ? "Kaydediliyor…" : "Hareketi Kaydet")</MudButton>
+                        <MudButton Variant="Variant.Text" OnClick="@(() => _entryOpen = false)" Disabled="_saving">Vazgeç</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-4 mb-1">
+                <MudText Typo="Typo.subtitle2"><b>HESAP HAREKETLERİ</b></MudText>
+                <MudSpacer />
+                @if (Auth.CanEdit("parties"))
+                {
+                    <MudTextField @bind-Value="_reverseReason" Placeholder="Düzeltme gerekçesi (ters kayıt için)"
+                                  Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:320px" />
+                }
+            </MudStack>
+            @if (_ledger is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+            else if (_ledger.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">Bu cariye ait hareket yok.</MudAlert> }
+            else
+            {
+                <MudSimpleTable Dense="true" Striped="true" Style="max-height:360px;overflow:auto;">
+                    <thead><tr><th>TARİH</th><th>TÜR</th><th>AÇIKLAMA</th><th style="text-align:right">BORÇ</th><th style="text-align:right">ALACAK</th><th style="text-align:right">BAKİYE</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var e in _ledger)
+                        {
+                            <tr style="@(e.IsReversed ? "opacity:.55;text-decoration:line-through;" : "")">
+                                <td>@e.DateText</td><td>@e.TypeText</td><td>@e.Description</td>
+                                <td style="text-align:right">@(e.Debit == 0 ? "" : e.Debit.ToString("0.##"))</td>
+                                <td style="text-align:right">@(e.Credit == 0 ? "" : e.Credit.ToString("0.##"))</td>
+                                <td style="text-align:right">@e.RunningBalance.ToString("0.##")</td>
+                                <td style="text-align:right">
+                                    @* G4-1c: düzeltme SİLMEYLE DEĞİL ters kayıtla. Masaüstüyle parite. *@
+                                    @if (!e.IsReversed && Auth.CanEdit("parties"))
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Undo" Size="Size.Small"
+                                                       Title="Ters çevir (düzeltme)" Disabled="_saving"
+                                                       OnClick="@(() => ReverseEntry(e))" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    [Parameter] public string? Section { get; set; }
+
+    private sealed class Row
+    {
+        public string Id = "", Code = "", Title = "", TypeText = "", TaxIdText = "", StatusText = "", BalanceText = "";
+        public string? Phone;
+        public bool IsActive;
+    }
+    private sealed class Card
+    {
+        public string Id = "", Code = "", Title = "", TypeText = "", TaxIdText = "", StatusText = "", BalanceText = "", LastEntryText = "";
+        public string? TaxOffice, Phone, Email, City, District, TaxNo, NationalId, Address, Note;
+        public string PartyType = "";
+        public bool IsPerson;
+        public long Version;
+        public bool IsActive;
+        public decimal Debit, Credit;
+        public int EntryCount;
+    }
+    private sealed class LedgerRow
+    {
+        public string Id = "", DateText = "", TypeText = "", Description = "";
+        public decimal Debit, Credit, RunningBalance;
+        public bool IsReversed;
+    }
+
+    /// <summary>G4-1c — TERS KAYIT (web). Hareket SİLİNMEZ; gerekçeli karşı kayıt yazılır ve ikisi de
+    /// bakiyeden düşer. Gerekçe SERVİSTE de zorunludur (boş gerekçe reddedilir).</summary>
+    private async Task ReverseEntry(LedgerRow e)
+    {
+        if (_card is null || _saving) return;
+
+        // Gerekçe forma bağlıdır (masaüstüyle AYNI desen — ayrı metin diyaloğu altyapısı kurulmadı).
+        if (string.IsNullOrWhiteSpace(_reverseReason))
+        {
+            _ok = false;
+            _msg = "Düzeltme gerekçesi zorunlu — hareket tablosunun üstündeki 'Gerekçe' alanını doldurun.";
+            return;
+        }
+        var gerekce = _reverseReason.Trim();
+        if (!await Dialog.Confirm(
+            $"{e.DateText} · {e.TypeText} · {(e.Debit > 0 ? "Borç" : "Alacak")} {(e.Debit > 0 ? e.Debit : e.Credit):0.##}\n\n" +
+            "Bu hareket SİLİNMEZ; aynı tutarda ters kayıt yazılır ve ikisi de bakiyeden düşer.\n" +
+            $"Gerekçe: {gerekce}\n\nDevam edilsin mi?", "Evet, Ters Çevir")) return;
+
+        _saving = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync($"/api/parties/ledger/{e.Id}/reverse", new { reason = gerekce });
+            if (err is null) _reverseReason = "";
+            _ok = err is null;
+            _msg = err ?? "Hareket ters kayıtla düzeltildi.";
+            if (_ok)
+            {
+                var row = _rows?.FirstOrDefault(r => r.Id == _card.Id);
+                await Load();
+                if (row is not null) await Select(row);
+            }
+        }
+        catch (Exception ex) { _ok = false; _msg = "İşlem yapılamadı: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private List<Row>? _rows;
+    private Card? _card;
+    private List<LedgerRow>? _ledger;
+    private List<(string Key, string Label)> _types = new();
+    private string _search = "", _type = "";
+    private bool _onlyActive = true, _busy, _ok;
+    private string? _msg;
+    private int _page = 1, _pageCount = 1, _total;
+    private string _pageText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.CanView("parties")) return;
+        try
+        {
+            var m = await Api.GetObjectAsync("/api/parties/meta");
+            if (m.TryGetProperty("manualDocTypes", out var md) && md.ValueKind == JsonValueKind.Array)
+            {
+                var manual = md.EnumerateArray().Select(x => x.GetString() ?? "").ToHashSet();
+                if (m.TryGetProperty("docTypes", out var dt) && dt.ValueKind == JsonValueKind.Array)
+                    _manualDocTypes = dt.EnumerateArray().Select(x => (Str(x, "key"), Str(x, "label")))
+                        .Where(x => manual.Contains(x.Item1)).ToList();
+            }
+            if (m.TryGetProperty("types", out var t) && t.ValueKind == JsonValueKind.Array)
+                _types = t.EnumerateArray().Select(x => (Str(x, "key"), Str(x, "label"))).ToList();
+        }
+        catch { }
+        await Load();
+        if (string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase)) OpenNew();
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
+    private async Task Go(int p) { _page = p; await Load(); }
+
+    private async Task Load()
+    {
+        _busy = true; _rows = null;
+        try
+        {
+            var url = $"/api/parties?page={_page}&pageSize=50&onlyActive={(_onlyActive ? "true" : "false")}"
+                    + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
+                    + (string.IsNullOrWhiteSpace(_type) ? "" : $"&type={Uri.EscapeDataString(_type)}");
+            var d = await Api.GetObjectAsync(url);
+            _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
+            _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
+            _pageText = $"Sayfa {_page} / {_pageCount} · {_total} cari";
+            _rows = d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new Row
+                {
+                    Id = Str(e, "id"), Code = Str(e, "code"), Title = Str(e, "title"),
+                    TypeText = Str(e, "typeText"), TaxIdText = Str(e, "taxIdText"), Phone = Str(e, "phone"),
+                    BalanceText = Str(e, "balanceText"), StatusText = Str(e, "statusText"), IsActive = Bool(e, "isActive"),
+                }).ToList() : new();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
+        finally { _busy = false; }
+    }
+
+    private async Task Select(Row r)
+    {
+        _ledger = null;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/parties/{r.Id}");
+            var b = d.GetProperty("balance");
+            _card = new Card
+            {
+                Id = r.Id, Code = Str(d, "code"), Title = Str(d, "title"), TypeText = r.TypeText,
+                TaxOffice = Str(d, "taxOffice"), TaxIdText = r.TaxIdText, Phone = Str(d, "phone"),
+                Email = Str(d, "email"), City = Str(d, "city"), District = Str(d, "district"),
+                IsActive = Bool(d, "isActive"), StatusText = r.StatusText,
+                Debit = Dec(b, "debit"), Credit = Dec(b, "credit"), BalanceText = Str(b, "balanceText"),
+                TaxNo = Str(d, "taxNo"), NationalId = Str(d, "nationalId"), Address = Str(d, "address"),
+                Note = Str(d, "note"), PartyType = Str(d, "partyType"), IsPerson = Bool(d, "isPerson"),
+                Version = d.TryGetProperty("version", out var vv) && vv.TryGetInt64(out var vl) ? vl : 0,
+                EntryCount = b.TryGetProperty("entryCount", out var ec) && ec.TryGetInt32(out var eci) ? eci : 0,
+                LastEntryText = Str(b, "lastEntryText"),
+            };
+            _ledger = (await Api.GetArrayAsync($"/api/parties/{r.Id}/ledger"))
+                .Select(e => new LedgerRow
+                {
+                    Id = Str(e, "id"), DateText = Str(e, "dateText"), TypeText = Str(e, "typeText"), Description = Str(e, "description"),
+                    Debit = Dec(e, "debit"), Credit = Dec(e, "credit"), RunningBalance = Dec(e, "runningBalance"),
+                    IsReversed = Bool(e, "isReversed"),
+                }).ToList();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Cari kartı alınamadı: " + ex.Message; }
+    }
+
+    // ── G4-1b: CARİ FORMU + ELLE HAREKET (2026-08-12) ────────────────────────────────────────
+    private sealed class Form
+    {
+        public string Code = "", Title = "", PartyType = "customer";
+        public string? TaxOffice, TaxNo, NationalId, Phone, Email, Address, City, District, Note;
+        public bool IsPerson, IsActive = true;
+        public long Version;
+    }
+    private sealed class Entry
+    {
+        public string DocType = "opening";
+        public bool IsDebit = true;
+        public decimal Amount;
+        public DateTime? Date = DateTime.Today;
+        public DateTime? DueDate;
+        public string? DocNo, Description;
+    }
+
+    private Form _f = new();
+    private Entry _e = new();
+    private bool _formOpen, _entryOpen, _saving;
+    private string? _editId;
+    private List<(string Key, string Label)> _manualDocTypes = new();
+    /// <summary>Ters kayıt gerekçesi — serviste de ZORUNLU (boş gerekçe reddedilir).</summary>
+    private string _reverseReason = "";
+
+    private void OpenNew()
+    {
+        _editId = null;
+        _f = new Form { PartyType = _types.FirstOrDefault(t => t.Key != "").Key ?? "customer" };
+        _formOpen = true; _card = null; _msg = null;
+    }
+
+    private void EditParty()
+    {
+        if (_card is null) return;
+        _editId = _card.Id;
+        _f = new Form
+        {
+            Code = _card.Code, Title = _card.Title, PartyType = _card.PartyType, IsPerson = _card.IsPerson,
+            TaxOffice = _card.TaxOffice, TaxNo = _card.TaxNo, NationalId = _card.NationalId,
+            Phone = _card.Phone, Email = _card.Email, Address = _card.Address,
+            City = _card.City, District = _card.District, Note = _card.Note,
+            IsActive = _card.IsActive, Version = _card.Version,
+        };
+        _formOpen = true; _msg = null;
+    }
+
+    private void CancelForm() { _formOpen = false; _msg = null; }
+
+    /// <summary>Kaydet — doğrulama SUNUCUDA (servis) yapılır; burada yalnız erken geri bildirim var.</summary>
+    private async Task SaveParty()
+    {
+        if (_saving) return;
+        if (string.IsNullOrWhiteSpace(_f.Code)) { _ok = false; _msg = "Cari kodu zorunlu."; return; }
+        if (string.IsNullOrWhiteSpace(_f.Title)) { _ok = false; _msg = "Ünvan / ad soyad zorunlu."; return; }
+
+        _saving = true; _msg = null;
+        try
+        {
+            var body = new
+            {
+                code = _f.Code, title = _f.Title, partyType = _f.PartyType, isPerson = _f.IsPerson,
+                taxOffice = _f.TaxOffice, taxNo = _f.TaxNo, nationalId = _f.NationalId,
+                phone = _f.Phone, email = _f.Email, address = _f.Address, city = _f.City,
+                district = _f.District, currency = "TRY", note = _f.Note,
+                isActive = _f.IsActive, version = _f.Version,
+            };
+            var err = _editId is null
+                ? await Api.PostAsync("/api/parties", body)
+                : await Api.PutAsync($"/api/parties/{_editId}", body);
+            _ok = err is null;
+            _msg = err ?? (_editId is null ? $"'{_f.Title}' carisi eklendi." : $"'{_f.Title}' güncellendi.");
+            if (_ok) { _formOpen = false; _card = null; await Load(); }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task SaveEntry()
+    {
+        if (_saving || _card is null) return;
+        if (_e.Amount <= 0) { _ok = false; _msg = "Tutar sıfırdan büyük olmalıdır."; return; }
+
+        _saving = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync($"/api/parties/{_card.Id}/ledger", new
+            {
+                docType = _e.DocType, amount = _e.Amount, isDebit = _e.IsDebit,
+                entryDate = _e.Date is null ? (long?)null : new DateTimeOffset(_e.Date.Value).ToUnixTimeMilliseconds(),
+                dueDate = _e.DueDate is null ? (long?)null : new DateTimeOffset(_e.DueDate.Value).ToUnixTimeMilliseconds(),
+                docNo = _e.DocNo, description = _e.Description, currency = "TRY",
+                // Tek jeton: istek tekrarlansa bile ikinci hareket oluşmaz (idempotency).
+                operationId = Guid.NewGuid().ToString("N"),
+            });
+            _ok = err is null;
+            _msg = err ?? $"{(_e.IsDebit ? "Borç" : "Alacak")} hareketi eklendi.";
+            if (_ok)
+            {
+                _entryOpen = false;
+                var row = _rows?.FirstOrDefault(r => r.Id == _card.Id);
+                _e = new Entry();
+                await Load();
+                if (row is not null) await Select(row);
+            }
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ToggleActive()
+    {
+        if (_card is null) return;
+        var yeni = !_card.IsActive;
+        if (!yeni && !await Dialog.Confirm(
+            $"'{_card.Title}' carisi PASİF yapılacak.\n\nPasif cari yeni işlemlerde seçilemez; geçmiş hareketleri korunur.\n\nDevam edilsin mi?",
+            "Evet, Pasif Yap")) return;
+        var err = await Api.PostAsync($"/api/parties/{_card.Id}/active", new { active = yeni });
+        _ok = err is null; _msg = err ?? $"Cari {(yeni ? "aktif" : "pasif")} yapıldı.";
+        if (_ok) { _card = null; await Load(); }
+    }
+
+    private async Task DeleteParty()
+    {
+        if (_card is null) return;
+        if (!await Dialog.Confirm(
+            $"'{_card.Title}' carisi silinsin mi?\n\nHesap hareketi olan cari SİLİNEMEZ; bu durumda pasif yapmalısınız.",
+            "Evet, Sil", danger: true)) return;
+        var err = await Api.DeleteAsync($"/api/parties/{_card.Id}");
+        _ok = err is null; _msg = err ?? "Cari silindi.";
+        if (_ok) { _card = null; await Load(); }
+    }
+
+    private static string Str(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool Bool(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+    private static decimal Dec(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+}

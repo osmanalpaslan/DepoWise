@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:DepoWise.Desktop.Controls">
     <!--
       Alpnex ortak bileşen stilleri — AURORA.
       src/DepoWise.Desktop/Themes/Components.axaml dosyasının YERİNE geçer.
@@ -339,6 +340,11 @@
         <Setter Property="Padding" Value="0"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
         <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        <!-- G3 (2026-08-12): hücredeki YAZIYA tıklamak da satırı seçer. SelectableTextBlock
+             PointerPressed'i tüketiyordu → satır seçilmiyordu; kullanıcı boş alana tıklamak
+             zorunda kalıyordu. Tünelleme ile çözülür; metin seçimi/kopyalama, tooltip ve çift
+             tık AYNEN korunur. Tek yer, 40+ ekran. Bkz. Controls/TableRowSelect.cs -->
+        <Setter Property="ctrl:TableRowSelect.Enabled" Value="True"/>
     </Style>
     <Style Selector="ListBox.Table ListBoxItem">
         <Setter Property="Background" Value="Transparent"/>

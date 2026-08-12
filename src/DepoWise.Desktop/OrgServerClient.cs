@@ -108,6 +108,32 @@ public static class OrgServerClient
             version
         });
 
+    /// <summary>
+    /// G1a (2026-08-12) — YETKİ SIFIRLAMA. Kullanıcının tüm modül/buton izinlerini SUNUCUDA siler.
+    /// Yetkiler sunucu-otoriteli olduğu için yalnız yerele yazmak yetmez (hedef kullanıcı başka makinede).
+    /// Sunucu, kaydetmeyle AYNI kapılardan geçirir; sürüm çakışmasında 409 döner.
+    /// </summary>
+    public static Task<Result> ResetPermissionsAsync(string userId, long version = 0)
+        => SendOkAsync(HttpMethod.Post, $"/api/permissions/{userId}/reset", new { version });
+
+    /// <summary>G1a — YETKİ ÖZETİ (salt okuma): hedefin ETKİN yetkileri, okunabilir satırlar hâlinde.
+    /// Ham izin satırı değildir — admin bypass'ı ve rol kilitleri uygulanmış hâlidir.</summary>
+    public static async Task<(string SourceText, List<(string Label, string Actions)> Modules, List<string> Buttons)?>
+        GetPermissionSummaryAsync(string userId)
+    {
+        using var doc = await GetJsonAsync($"/api/permissions/{userId}/summary");
+        if (doc is null) return null;
+        var root = doc.RootElement;
+        var source = Str(root, "sourceText");
+        var mods = new List<(string, string)>();
+        if (root.TryGetProperty("modules", out var m) && m.ValueKind == JsonValueKind.Array)
+            foreach (var e in m.EnumerateArray()) mods.Add((Str(e, "label"), Str(e, "actionsText")));
+        var btns = new List<string>();
+        if (root.TryGetProperty("buttons", out var b) && b.ValueKind == JsonValueKind.Array)
+            foreach (var e in b.EnumerateArray()) btns.Add(Str(e, "label"));
+        return (source, mods, btns);
+    }
+
     // ── Yetki Şablonları (G6-01, 2026-08-11) — SUNUCU-OTORİTELİ ────────────────────────────────
     // Şablonlar da tıpkı kullanıcı/yetki gibi masaüstü iş senkronuna DAHİL DEĞİLDİR
     // (BusinessSyncService.Tables listesinde yok). Masaüstü YERELE yazdığı için web'de ve diğer

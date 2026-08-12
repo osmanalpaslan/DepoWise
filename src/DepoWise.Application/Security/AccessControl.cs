@@ -58,6 +58,58 @@ public static class AccessControl
         => s.Permissions.Modules.Any(m => m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
            || s.Permissions.Buttons.Any();
 
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // G1b — DEVRETME TAVANI (2026-08-12, kullanıcı kuralı: "kimse kendinde olmayanı veremez")
+    //
+    // ⚠️ NEDEN AYRI BİR "TAVAN" KAVRAMI VAR: bir aktörün BAŞKASINA verebileceği yetki, aktörün
+    // KENDİ ETKİN yetkisidir — açıkça verilmiş satırları değil. Firma admini <see cref="Can"/>
+    // içinde bypass ile TÜM normal modüllere erişir; dolayısıyla onları devredebilmesi DOĞRUDUR.
+    //
+    // 🔴 KAPATILAN GERÇEK AÇIK: eski model "aktörün açık satırları" ile kırpıyordu ve satırı olmayan
+    // firma adminini SINIRSIZ sayıyordu. Bu yüzden, süper adminin aktörün ROLÜNE kapattığı
+    // (<see cref="SessionContext.BlockedModules"/>) bir modül — aktör onu KENDİ kullanamadığı hâlde —
+    // başkasına VERİLEBİLİYORDU. Tavan artık <see cref="Can"/> ile AYNI kuralları uygular:
+    // rol kilidi, süper-admin-only, admin bypass, açık izin. Tek doğru kaynak burasıdır.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Aktörün bu modülde BAŞKASINA verebileceği en üst yetki — dört işlem için ayrı ayrı.
+    /// <see cref="Can"/> ile birebir aynı kuralları kullanır (tek kaynak); "sahip olmadığını veremez"
+    /// kuralı bu yüzden aksiyon seviyesinde kesindir.
+    /// </summary>
+    /// <param name="explicitOwn">Aktörün veritabanındaki açık satırı (yoksa null). Verilmezse oturumdaki
+    /// izin kümesi kullanılır — servis katmanı taze satırı geçerek aynı transaction içinde çalışabilir.</param>
+    public static ModulePermission GrantCeiling(SessionContext s, string moduleKey, ModulePermission? explicitOwn = null)
+    {
+        static ModulePermission All(string k, bool v) => new(k, v, v, v, v);
+
+        if (s.IsSuperAdmin || DeveloperMode.IsActive) return All(moduleKey, true);
+
+        // Rol Yetki Kontrol: aktörün rolüne kapatılmış modül — kendisi kullanamaz, DEVREDEMEZ de.
+        if (s.BlockedModules.Contains(moduleKey)) return All(moduleKey, false);
+
+        // Herkese açık modüller yalnız okuma; yetki ağacında yönetilmezler.
+        if (AppModules.IsPublic(moduleKey)) return new ModulePermission(moduleKey, true, false, false, false);
+
+        var own = explicitOwn ?? s.Permissions.For(moduleKey);
+
+        // Süper-admin-only: firma admini bypass'ı GEÇERSİZ (Can ile aynı). Kısıtlı süper admin yalnız açık izni kadar.
+        if (AppModules.IsSuperAdminOnly(moduleKey))
+            return s.IsRestrictedSuperAdmin && own is not null
+                ? own with { ModuleKey = moduleKey }
+                : All(moduleKey, false);
+
+        // Firma admini normal modüllerde bypass ile TAM yetkilidir → tamamını devredebilir.
+        if (IsAdmin(s)) return All(moduleKey, true);
+
+        return own is null ? All(moduleKey, false) : own with { ModuleKey = moduleKey };
+    }
+
+    /// <summary>Aktör bu özel butonu başkasına verebilir mi? <see cref="CanUseButton"/> ile aynı kural
+    /// (admin bypass dahil) — kendi kullanamadığı butonu devredemez.</summary>
+    public static bool CanGrantButtonKey(SessionContext s, string buttonKey)
+        => s.IsSuperAdmin || DeveloperMode.IsActive || IsAdmin(s) || s.Permissions.HasButton(buttonKey);
+
     /// <summary>
     /// Yetki AĞACINDA aktörün görebileceği/verebileceği modül mü (delegasyon tavanı):
     /// - Süper Admin: tümü (süper-admin-only dahil — devretmek için).

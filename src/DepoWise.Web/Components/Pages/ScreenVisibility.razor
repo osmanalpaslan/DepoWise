@@ -1,0 +1,155 @@
+@page "/screen-visibility"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* G5 — EKRAN PLATFORM YÖNETİMİ (2026-08-12).
+   Bir ekranın MASAÜSTÜ ve/veya WEB'de kullanılabilir olup olmadığını FİRMA BAZINDA yönetir.
+   ⚠️ Bu YETKİ EKRANI DEĞİLDİR: kullanıcıya yetki vermez, yetkiyi bypass etmez.
+   ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Yalnız süper admin (AppModules.IsSuperAdminOnly). *@
+
+<PageTitle>Ekran Platform Yönetimi — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Ekran Platform Yönetimi</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
+    </div>
+</div>
+
+@if (!Auth.IsSuperAdmin)
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">
+        Buradan bir ekranın <b>Masaüstü</b> ve <b>Web</b> uygulamalarında kullanılabilir olup olmayacağını
+        belirlersiniz. Bu ayar <b>yetki değildir</b>: kapatılan ekran, yetkisi olan kullanıcıya da o
+        platformda açılmaz; açık bırakılan ekran ise yine yalnız <b>yetkisi olan</b> kullanıcıya görünür.
+        Ayar <b>yalnız bu firmayı</b> etkiler. Bir ekran o platformda hiç yoksa kutusu kapalıdır ve açılamaz.
+    </MudAlert>
+
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="65vh"
+                      GroupBy="_groupDef" T="Row">
+                <HeaderContent>
+                    <MudTh>EKRAN</MudTh>
+                    <MudTh Style="width:130px;text-align:center">MASAÜSTÜ</MudTh>
+                    <MudTh Style="width:130px;text-align:center">WEB</MudTh>
+                    <MudTh Style="width:170px">DURUM</MudTh>
+                </HeaderContent>
+                <GroupHeaderTemplate>
+                    <MudTh colspan="4" Class="mud-theme-primary"><b>@context.Key</b></MudTh>
+                </GroupHeaderTemplate>
+                <RowTemplate>
+                    <MudTd DataLabel="Ekran">
+                        @context.Label
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@context.ScreenKey</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Masaüstü" Style="text-align:center">
+                        <MudCheckBox T="bool" Value="@context.EffectiveDesktop" Dense="true"
+                                     Disabled="@(_busy || context.DesktopUnavailable)"
+                                     ValueChanged="@(v => Toggle(context, desktop: v, web: null))" />
+                        @if (context.DesktopUnavailable) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
+                    </MudTd>
+                    <MudTd DataLabel="Web" Style="text-align:center">
+                        <MudCheckBox T="bool" Value="@context.EffectiveWeb" Dense="true"
+                                     Disabled="@(_busy || context.WebUnavailable)"
+                                     ValueChanged="@(v => Toggle(context, desktop: null, web: v))" />
+                        @if (context.WebUnavailable) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
+                    </MudTd>
+                    <MudTd DataLabel="Durum">@context.StatusText</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+}
+
+@code {
+    private sealed class Row
+    {
+        public string ScreenKey { get; set; } = "";
+        public string Group { get; set; } = "";
+        public string Label { get; set; } = "";
+        public bool DefaultDesktop { get; set; }
+        public bool DefaultWeb { get; set; }
+        public bool EffectiveDesktop { get; set; }
+        public bool EffectiveWeb { get; set; }
+        public bool DesktopUnavailable { get; set; }
+        public bool WebUnavailable { get; set; }
+        public string StatusText { get; set; } = "";
+    }
+
+    private List<Row>? _rows;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    private readonly TableGroupDefinition<Row> _groupDef = new() { Selector = r => r.Group, Indentation = false, Expandable = false };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsSuperAdmin) await Load();
+    }
+
+    private async Task Load()
+    {
+        _rows = null;
+        try
+        {
+            _rows = (await Api.GetArrayAsync("/api/screens/visibility/manage"))
+                .Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(e => new Row
+                {
+                    ScreenKey = S(e, "screenKey"), Group = S(e, "group"), Label = S(e, "label"),
+                    DefaultDesktop = B(e, "defaultDesktop"), DefaultWeb = B(e, "defaultWeb"),
+                    EffectiveDesktop = B(e, "effectiveDesktop"), EffectiveWeb = B(e, "effectiveWeb"),
+                    DesktopUnavailable = B(e, "desktopUnavailable"), WebUnavailable = B(e, "webUnavailable"),
+                    StatusText = S(e, "statusText"),
+                }).ToList();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
+    }
+
+    /// <summary>Kapatma YIKICI sonuç doğurur (o platformdaki herkes erişimi kaybeder) → açık onay.
+    /// Açma zararsızdır → onay istenmez.</summary>
+    private async Task Toggle(Row r, bool? desktop, bool? web)
+    {
+        var kapaniyor = (desktop == false) || (web == false);
+        var platformAdi = desktop is not null ? "Masaüstü" : "Web";
+
+        if (kapaniyor && !await Dialog.Confirm(
+            $"\"{r.Label}\" ekranı {platformAdi} uygulamasında KAPATILACAK.\n\n" +
+            $"Bu firmadaki tüm kullanıcılar — yetkileri olsa bile — bu ekrana {platformAdi} üzerinden " +
+            "erişemeyecek. Menüde görünmeyecek ve adresi elle yazarak da açılamayacak.\n\n" +
+            "Kullanıcı yetkileri DEĞİŞMEZ; yalnız bu platformda erişim kapanır.\n\nDevam edilsin mi?",
+            "Evet, Kapat", danger: true)) { await Load(); return; }
+
+        _busy = true; _msg = null;
+        try
+        {
+            // Yalnız değişen platform gönderilir; diğeri mevcut ETKİN değeriyle korunur.
+            var err = await Api.PostAsync("/api/screens/visibility", new
+            {
+                screenKey = r.ScreenKey,
+                desktop = desktop ?? r.EffectiveDesktop,
+                web = web ?? r.EffectiveWeb,
+            });
+            _ok = err is null;
+            _msg = err ?? $"\"{r.Label}\" güncellendi.";
+            await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static string S(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    private static bool B(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+}

@@ -86,6 +86,24 @@ public static class AppModules
         ("role_permissions", "Rol Yetki Kontrol"),
         ("server_status", "Canlı Sunucu Durumu"),
         ("purge_company", "Kalıcı Silme"),          // ADR-083 — geri alınamaz firma silme (web, özel kod ile)
+        // G5 (2026-08-12): ekranların hangi platformda (masaüstü/web) açık olacağını yönetir.
+        // YETKİ DEĞİL, platform kısıtıdır; yalnız süper admin (IsSuperAdminOnly) — dar tutuldu.
+        ("screen_visibility", "Ekran Platform Yönetimi"),
+        // G4-1 (2026-08-12): ÖN MUHASEBE — CARİ. Tek modül + dört aksiyon (View/Create/Edit/Delete).
+        // Ayrı "party_view/party_create/..." anahtarları AÇILMADI: modül modeli aksiyonu zaten taşıyor.
+        ("parties", "Cari Hesaplar"),
+        // G4-2 (2026-08-12): ON MUHASEBE - FATURA. Cariden AYRI modul: fatura kesme yetkisi ile cari
+        // karti gorme yetkisi ayri verilebilsin (depo gorevlisi fatura kesmez, cari listesi gorebilir).
+        // Delete AKSIYONU KULLANILMAZ: fatura fiziksel silinmez, Edit yetkisiyle IPTAL edilir (CLAUDE.md 4).
+        ("invoices", "Faturalar"),
+        // G2-B1 DÜZELTMESİ (2026-08-12): "Çöp Kutusu" ekranı bu katalogda YOKTU. Masaüstünde menü grubu ve
+        // Navigate kaydı, web'de "@admin" sözde-anahtarı vardı; ama yetki ağacında görünmediği için süper
+        // admin bu ekranı belirli bir kullanıcıya DEVREDEMİYOR, Rol Yetki Kontrol ile kısıtlayamıyordu.
+        // Yalnız admin bypass'ı sayesinde admin'e açıktı (kazara doğru davranış).
+        // ⚠️ Ekleme kimseden yetki ALMAZ: admin bypass ile erişmeye devam eder; personel ise zaten
+        // erişemiyordu ve şimdi de yalnız AÇIKÇA verilirse erişir (deny-by-default korunur).
+        // "Yönetim düzeyi" sayılır (IsAdminRestricted) — çöp kutusu silinmiş kayıtları geri getirir.
+        ("trash", "Çöp Kutusu"),
     };
 
     /// <summary>Yetki kontrolünden muaf, herkese görünür modüller (Uyarılar ekranı yetkiye göre kendi filtreler).</summary>
@@ -105,14 +123,18 @@ public static class AppModules
     public static bool IsSuperAdminOnly(string moduleKey)
         => moduleKey is "companies" or "releases" or "server_backups" or "machines" or "permission_templates"
             or "server_status" or "quota_monitor" or "machine_backups" or "role_permissions"
-            or "purge_company";   // ADR-083 — geri alınamaz silme; devredilemez, yalnız süper admin
+            or "purge_company"    // ADR-083 — geri alınamaz silme; devredilemez, yalnız süper admin
+            or "screen_visibility";   // G5 — platform görünürlüğü tüm firmayı etkiler; devredilemez
 
     /// <summary>
     /// #3 (şema Rol Durumları): Bu modüller alt rollere (Personel) VERİLEMEZ — verilmek istenirse kullanıcı
     /// önce Admin'e yükseltilmelidir (web'de uyarı penceresi + otomatik yükseltme). Süper admin bu kuraldan muaf.
     /// </summary>
     public static bool IsAdminRestricted(string moduleKey)
-        => moduleKey is "users" or "permissions" or "branches" or "audit" or "backup" or "stock_change_log";
+        => moduleKey is "users" or "permissions" or "branches" or "audit" or "backup" or "stock_change_log"
+            // G2-B1: Çöp Kutusu silinmiş kayıtları geri getirir → yönetim düzeyi. Bugünkü fiilî davranış
+            // (yalnız admin görebiliyordu) böylece KORUNUR; alt role verilmek istenirse önce Admin'e yükseltilir.
+            or "trash";
 }
 
 /// <summary>Modül seviyesi özel buton anahtarları (deny-by-default; açıkça verilmedikçe gizli).</summary>

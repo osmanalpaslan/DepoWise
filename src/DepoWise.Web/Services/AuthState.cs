@@ -30,6 +30,28 @@ public sealed class AuthState
     public void SetModules(IReadOnlyList<MenuModule> m, bool isAdmin = false, bool isRestrictedSuperAdmin = false)
     { _modules = m; IsAdmin = isAdmin || IsSuperAdmin; IsRestrictedSuperAdmin = isRestrictedSuperAdmin; Changed?.Invoke(); }
 
+    // ═══ G5 — EKRAN PLATFORM GÖRÜNÜRLÜĞÜ (2026-08-12) ═══════════════════════════════════════
+    // ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Bu bölüm YALNIZ platform tarafını taşır; yetki
+    // yukarıdaki CanView/CanCreate/... ile AYRI kalır ve hiçbir zaman birbirinin yerine geçmez.
+    // Süper admin platform kapısından MUAF DEĞİLDİR: platform kapalıysa ekran web'de açılmaz
+    // (kapatma kararını zaten süper admin verir; kendi kararını sessizce delmemeli).
+    private HashSet<string> _webClosedScreens = new(StringComparer.Ordinal);
+
+    /// <summary>Sunucudan gelen etkin harita: WEB'de KAPALI olan ekran anahtarları.</summary>
+    public void SetScreenVisibility(IEnumerable<string> webClosedScreenKeys)
+    { _webClosedScreens = new HashSet<string>(webClosedScreenKeys, StringComparer.Ordinal); Changed?.Invoke(); }
+
+    /// <summary>Bu ekran WEB platformunda açık mı? (yetki AYRICA kontrol edilir)</summary>
+    public bool PlatformOpen(string screenKey) => !_webClosedScreens.Contains(screenKey);
+
+    /// <summary>Route'un bağlı olduğu ekran web'de açık mı? Katalogda olmayan route platform
+    /// yönetimi dışındadır → true (yetki yine de ayrıca çalışır).</summary>
+    public bool PlatformOpenForRoute(string route)
+    {
+        var sc = DepoWise.Application.Security.AppScreens.ByWebRoute(route);
+        return sc is null || PlatformOpen(sc.Key);
+    }
+
     public bool CanView(string key) => IsSuperAdmin || _modules.Any(x => x.Key == key);
     public bool CanCreate(string key) => IsSuperAdmin || (_modules.FirstOrDefault(x => x.Key == key)?.Create ?? false);
     public bool CanEdit(string key) => IsSuperAdmin || (_modules.FirstOrDefault(x => x.Key == key)?.Edit ?? false);

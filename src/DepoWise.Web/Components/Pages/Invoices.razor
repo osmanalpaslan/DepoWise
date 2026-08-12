@@ -1,0 +1,588 @@
+@page "/invoices"
+@page "/invoices/{Section}"
+@using System.Text.Json
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* G4-2 — FATURALAR (web). Masaüstüyle AYNI API/servis sözleşmesini kullanır: doğrulama, toplam
+   hesabı, yetki, idempotency ve iptal kuralı SUNUCUDADIR → iki platform aynı sonucu verir.
+
+   ⚠️ PARALEL DEFTER YOK: bu ekran stok veya cari tablolarına yazmaz. Kaydet tek çağrı yapar
+      (POST /api/invoices); stok ve cari etkisini InvoiceService, StockService ve
+      PartyLedgerService üzerinden TEK transaction'da oluşturur.
+   ⚠️ SİLME YOK: "Sil" butonu bilinçli olarak yoktur; yalnız gerekçeli İPTAL vardır ve iptal
+      ters kayıt üretir. *@
+
+<PageTitle>Faturalar — Alpnex</PageTitle>
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Faturalar</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
+    </div>
+    @if (Auth.CanCreate("invoices"))
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenNew">Yeni Fatura</MudButton>
+    }
+</div>
+
+@if (!Auth.CanView("invoices"))
+{
+    <MudAlert Severity="Severity.Warning">Bu ekran için yetkiniz yok.</MudAlert>
+}
+else
+{
+    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+
+    @* ── FİLTRE ────────────────────────────────────────────────────────────────── *@
+    <MudPaper Class="pa-4 mb-3" Elevation="2">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_search" Placeholder="Fatura no / karşı belge no / cari" Margin="Margin.Dense"
+                          Variant="Variant.Outlined" Style="max-width:300px" OnKeyUp="OnSearchKey" />
+            <MudSelect T="string" @bind-Value="_direction" Label="Fatura türü" Margin="Margin.Dense"
+                       Variant="Variant.Outlined" Style="max-width:200px" Clearable="true">
+                @foreach (var d in _directions) { <MudSelectItem T="string" Value="@d.Key">@d.Label</MudSelectItem> }
+            </MudSelect>
+            <MudSelect T="string" @bind-Value="_status" Label="Durum" Margin="Margin.Dense"
+                       Variant="Variant.Outlined" Style="max-width:180px" Clearable="true">
+                <MudSelectItem T="string" Value="@("active")">Yürürlükte</MudSelectItem>
+                <MudSelectItem T="string" Value="@("cancelled")">İptal</MudSelectItem>
+            </MudSelect>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="Load" Disabled="_busy">Ara</MudButton>
+            <MudSpacer />
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@_pageText</MudText>
+        </MudStack>
+    </MudPaper>
+
+    @* ── LİSTE ─────────────────────────────────────────────────────────────────── *@
+    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else if (_rows.Count == 0) { <MudAlert Severity="Severity.Info" Dense="true">Fatura bulunamadı.</MudAlert> }
+    else
+    {
+        <MudPaper Class="pa-2" Elevation="2">
+            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" T="Row"
+                      OnRowClick="@(e => Select(e.Item))" RowClass="cursor-pointer">
+                <HeaderContent>
+                    <MudTh>FATURA NO</MudTh><MudTh>TÜR</MudTh><MudTh>CARİ</MudTh>
+                    <MudTh>TARİH</MudTh><MudTh>VADE</MudTh>
+                    <MudTh Style="text-align:right">TUTAR</MudTh><MudTh>DURUM</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.InvoiceNo</MudTd>
+                    <MudTd>@context.DirectionText</MudTd>
+                    <MudTd>@context.PartyTitle</MudTd>
+                    <MudTd>@context.DateText</MudTd>
+                    <MudTd>@context.DueText</MudTd>
+                    <MudTd Style="text-align:right">@context.GrandTotal.ToString("0.00")</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Size="Size.Small" Color="@(context.IsCancelled ? Color.Error : Color.Success)">
+                            @context.StatusText
+                        </MudChip>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        @if (_pageCount > 1)
+        {
+            <div class="d-flex justify-center mt-3">
+                <MudPagination Count="_pageCount" Selected="_page" SelectedChanged="Go" />
+            </div>
+        }
+    }
+
+    @* ── DETAY ─────────────────────────────────────────────────────────────────── *@
+    @if (_detail is not null)
+    {
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudText Typo="Typo.h6">@_detail.InvoiceNo</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@(_detail.IsCancelled ? Color.Error : Color.Success)">@_detail.StatusText</MudChip>
+                <MudSpacer />
+                @if (!_detail.IsCancelled && Auth.CanEdit("invoices"))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                               OnClick="@(() => _cancelOpen = true)">İptal Et</MudButton>
+                }
+            </MudStack>
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.body2"><b>Tür:</b> @_detail.DirectionText</MudText>
+                    <MudText Typo="Typo.body2"><b>Cari:</b> @_detail.PartyTitle</MudText>
+                    <MudText Typo="Typo.body2"><b>Depo:</b> @(_detail.BranchName ?? "—")</MudText>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.body2"><b>Tarih:</b> @_detail.DateText</MudText>
+                    <MudText Typo="Typo.body2"><b>Vade:</b> @_detail.DueText</MudText>
+                    <MudText Typo="Typo.body2"><b>Karşı belge no:</b> @(_detail.ExternalNo ?? "—")</MudText>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable Items="_detail.Lines" Dense="true" Class="mt-3" T="LineRow" Elevation="0">
+                <HeaderContent>
+                    <MudTh>KALEM</MudTh>
+                    <MudTh Style="text-align:right">MİKTAR</MudTh>
+                    <MudTh Style="text-align:right">B.FİYAT</MudTh>
+                    <MudTh Style="text-align:right">İSK.</MudTh>
+                    <MudTh Style="text-align:right">KDV</MudTh>
+                    <MudTh Style="text-align:right">TEVKİFAT</MudTh>
+                    <MudTh Style="text-align:right">TOPLAM</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ItemText</MudTd>
+                    <MudTd Style="text-align:right">@context.Quantity.ToString("0.##")</MudTd>
+                    <MudTd Style="text-align:right">@context.UnitPrice.ToString("0.00")</MudTd>
+                    <MudTd Style="text-align:right">@context.DiscountAmount.ToString("0.00")</MudTd>
+                    <MudTd Style="text-align:right">@context.VatAmount.ToString("0.00")</MudTd>
+                    <MudTd Style="text-align:right">@context.WithholdingAmount.ToString("0.00")</MudTd>
+                    <MudTd Style="text-align:right">@context.LineTotal.ToString("0.00")</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudPaper Class="pa-3 mt-3" Elevation="0" Style="background:var(--mud-palette-background-grey)">
+                <MudText Typo="Typo.body2">
+                    Ara toplam @_detail.Subtotal.ToString("0.00") ·
+                    İskonto @_detail.DiscountTotal.ToString("0.00") ·
+                    KDV @_detail.VatTotal.ToString("0.00") ·
+                    Tevkifat @_detail.WithholdingTotal.ToString("0.00")
+                </MudText>
+                <MudText Typo="Typo.h6" Class="mt-1">
+                    GENEL TOPLAM @_detail.GrandTotal.ToString("0.00") @_detail.Currency
+                </MudText>
+            </MudPaper>
+
+            @if (_detail.IsCancelled)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">
+                    <b>İPTAL EDİLDİ.</b> @_detail.CancelReason
+                </MudAlert>
+            }
+
+            @* İptal paneli — gerekçe ZORUNLU; ne olacağı açıkça yazılır. *@
+            @if (_cancelOpen && !_detail.IsCancelled)
+            {
+                <MudPaper Class="pa-4 mt-3" Elevation="1">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">Fatura İptali</MudText>
+                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+                        Fatura <b>silinmez</b>; kaydı durur ve etkisi ters kayıtlarla sıfırlanır:
+                        cari hareketi ters yönde yazılır
+                        (@_detail.GrandTotal.ToString("0.00") @_detail.Currency).
+                        @if (_detail.StockDocumentId is null)
+                        {
+                            <span>Stok etkisi yok.</span>
+                        }
+                        else if (_detail.Direction == "purchase")
+                        {
+                            <span>Stoktan <b>çıkış</b> yapılır — mal tüketilmişse iptal reddedilir (yarım iptal olmaz).</span>
+                        }
+                        else
+                        {
+                            <span>Stoğa <b>giriş</b> yapılır.</span>
+                        }
+                    </MudAlert>
+                    <MudTextField @bind-Value="_cancelReason" Label="İptal gerekçesi" Required="true"
+                                  Variant="Variant.Outlined" Lines="2" Margin="Margin.Dense" />
+                    <MudStack Row="true" Spacing="2" Class="mt-3">
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="_saving"
+                                   OnClick="DoCancel">İptali Onayla</MudButton>
+                        <MudButton Variant="Variant.Text" OnClick="@(() => _cancelOpen = false)">Vazgeç</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudPaper>
+    }
+
+    @* ── YENİ FATURA FORMU ─────────────────────────────────────────────────────── *@
+    <MudDialog @bind-Visible="_formOpen" Options="_dlgOptions">
+        <TitleContent><MudText Typo="Typo.h6">Yeni Fatura</MudText></TitleContent>
+        <DialogContent>
+            @if (_formError is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_formError</MudAlert> }
+
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fDirection" Label="Fatura türü" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               HelperText="Alış: stok girer, satıcıya borçlanırsınız. Satış: stok çıkar, müşteri size borçlanır.">
+                        @foreach (var d in _directions) { <MudSelectItem T="string" Value="@d.Key">@d.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fPartyId" Label="Cari" Required="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var p in _parties) { <MudSelectItem T="string" Value="@p.Key">@p.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" @bind-Value="_fBranchId" Label="Depo / Şantiye" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               HelperText="Stok hareketinin hangi depoda oluşacağını belirler.">
+                        @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Key">@b.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_fExternalNo" Label="Karşı taraf belge no"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Satıcının kendi fatura numarası" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="_fInvoiceDate" Label="Fatura tarihi"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="_fDueDate" Label="Vade tarihi" Clearable="true"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd.MM.yyyy" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudCheckBox T="bool" @bind-Value="_fAffectsStock" Dense="true"
+                                 Label="Stoğu etkilesin (kapatılırsa hizmet/masraf faturası olur — cari etkisi yine oluşur)" />
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Satırlar</MudText>
+            @foreach (var l in _fLines)
+            {
+                <MudPaper Class="pa-3 mb-2" Elevation="1">
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            @* Malzeme ARANABİLİR seçilir: tüm malzemeler listeye doldurulmaz
+                               (sayfalama sınırı yüzünden sessizce kesilirdi). *@
+                            <MudAutocomplete T="Opt" Label="Malzeme" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             Value="l.Material" ValueChanged="@(v => PickMaterial(l, v))"
+                                             SearchFunc="SearchMaterials" ToStringFunc="@(o => o?.Label ?? "")"
+                                             Clearable="true" ResetValueOnEmptyText="true"
+                                             HelperText="Hizmet satırında boş bırakın ve açıklama yazın." />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="l.Description" Label="Açıklama"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudNumericField T="decimal" @bind-Value="l.Quantity" Label="Miktar" Min="0"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="6" md="3">
+                            <MudNumericField T="decimal" @bind-Value="l.UnitPrice" Label="Birim fiyat" Min="0"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="4" md="2">
+                            <MudNumericField T="decimal" @bind-Value="l.DiscountRate" Label="İskonto %" Min="0" Max="100"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="4" md="2">
+                            <MudNumericField T="decimal" @bind-Value="l.VatRate" Label="KDV %" Min="0" Max="100"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="4" md="2">
+                            <MudNumericField T="decimal" @bind-Value="l.WithholdingRate" Label="Tevkifat %" Min="0" Max="100"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                                             HelperText="KDV üzerinden" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
+                                       OnClick="@(() => _fLines.Remove(l))">Satırı sil</MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => _fLines.Add(new FormLine()))">
+                Satır ekle
+            </MudButton>
+
+            <MudTextField @bind-Value="_fNote" Label="Not" Lines="2" Class="mt-3"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                Toplamlar kaydederken sunucuda hesaplanır (ekran ile kayıt aynı koddan gelir).
+            </MudAlert>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => _formOpen = false)">Vazgeç</MudButton>
+            @* _saving sürerken düğme kapalıdır; ayrıca operation_id sabit olduğu için çift gönderim
+               sunucuda da İKİNCİ fatura oluşturmaz. *@
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="Save">Kaydet</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+    [Parameter] public string? Section { get; set; }
+
+    private sealed class Opt
+    {
+        public string Key = "", Label = "";
+    }
+
+    private sealed class Row
+    {
+        public string Id = "", InvoiceNo = "", DirectionText = "", PartyTitle = "", DateText = "", DueText = "", StatusText = "";
+        public decimal GrandTotal;
+        public bool IsCancelled;
+    }
+
+    private sealed class LineRow
+    {
+        public string ItemText = "";
+        public decimal Quantity, UnitPrice, DiscountAmount, VatAmount, WithholdingAmount, LineTotal;
+    }
+
+    private sealed class Detail
+    {
+        public string Id = "", InvoiceNo = "", Direction = "", DirectionText = "", PartyTitle = "",
+                      DateText = "", DueText = "", StatusText = "", Currency = "TRY";
+        public string? BranchName, ExternalNo, CancelReason, StockDocumentId;
+        public decimal Subtotal, DiscountTotal, VatTotal, WithholdingTotal, GrandTotal;
+        public bool IsCancelled;
+        public List<LineRow> Lines = new();
+    }
+
+    private sealed class FormLine
+    {
+        public Opt? Material;
+        public string? MaterialId;
+        public string Description = "";
+        public decimal Quantity = 1m, UnitPrice, DiscountRate, VatRate = 20m, WithholdingRate;
+    }
+
+    private readonly DialogOptions _dlgOptions = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true };
+
+    private List<Row>? _rows;
+    private Detail? _detail;
+    private List<(string Key, string Label)> _directions = new();
+    private List<Opt> _parties = new(), _branches = new();
+
+    private string _search = "", _direction = "", _status = "active";
+    private int _page = 1, _pageCount = 1, _total;
+    private string _pageText = "";
+    private bool _busy, _saving, _ok, _formOpen, _cancelOpen;
+    private string? _msg, _formError;
+    private string _cancelReason = "";
+
+    // ── Form durumu ──
+    private string _fDirection = "purchase", _fPartyId = "", _fBranchId = "", _fExternalNo = "", _fNote = "";
+    private DateTime? _fInvoiceDate = DateTime.Today, _fDueDate;
+    private bool _fAffectsStock = true;
+    private List<FormLine> _fLines = new();
+
+    /// <summary>Kayıt tamamlanana kadar SABİT idempotency anahtarı (çift tıklama / ağ tekrarı koruması).</summary>
+    private string _operationId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var m = await Api.GetObjectAsync("/api/invoices/meta");
+            if (m.TryGetProperty("directions", out var d) && d.ValueKind == JsonValueKind.Array)
+                _directions = d.EnumerateArray().Select(x => (Str(x, "key"), Str(x, "label"))).ToList();
+        }
+        catch { }
+        await Load();
+        if (string.Equals(Section, "new", StringComparison.OrdinalIgnoreCase)) await OpenNew();
+    }
+
+    private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") { _page = 1; await Load(); } }
+    private async Task Go(int p) { _page = p; await Load(); }
+
+    private async Task Load()
+    {
+        _busy = true; _rows = null; _detail = null;
+        try
+        {
+            var url = $"/api/invoices?page={_page}&pageSize=50"
+                    + (string.IsNullOrWhiteSpace(_search) ? "" : $"&search={Uri.EscapeDataString(_search)}")
+                    + (string.IsNullOrWhiteSpace(_direction) ? "" : $"&direction={Uri.EscapeDataString(_direction)}")
+                    + (string.IsNullOrWhiteSpace(_status) ? "" : $"&status={Uri.EscapeDataString(_status)}");
+            var d = await Api.GetObjectAsync(url);
+            _total = d.TryGetProperty("total", out var tt) && tt.TryGetInt32(out var ti) ? ti : 0;
+            _pageCount = _total == 0 ? 1 : (_total + 49) / 50;
+            _pageText = $"Sayfa {_page} / {_pageCount} · {_total} fatura";
+            _rows = d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new Row
+                {
+                    Id = Str(e, "id"), InvoiceNo = Str(e, "invoiceNo"), DirectionText = Str(e, "directionText"),
+                    PartyTitle = Str(e, "partyTitle"), DateText = Str(e, "dateText"), DueText = Str(e, "dueText"),
+                    GrandTotal = Dec(e, "grandTotal"), StatusText = Str(e, "statusText"), IsCancelled = Bool(e, "isCancelled"),
+                }).ToList() : new();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
+        finally { _busy = false; }
+    }
+
+    private async Task Select(Row r)
+    {
+        _cancelOpen = false; _cancelReason = "";
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/invoices/{r.Id}");
+            _detail = new Detail
+            {
+                Id = r.Id, InvoiceNo = Str(d, "invoiceNo"), Direction = Str(d, "direction"),
+                DirectionText = Str(d, "directionText"), PartyTitle = Str(d, "partyTitle"),
+                BranchName = Str(d, "branchName"), ExternalNo = Str(d, "externalNo"),
+                DateText = Str(d, "dateText"), DueText = Str(d, "dueText"), Currency = Str(d, "currency"),
+                Subtotal = Dec(d, "subtotal"), DiscountTotal = Dec(d, "discountTotal"),
+                VatTotal = Dec(d, "vatTotal"), WithholdingTotal = Dec(d, "withholdingTotal"),
+                GrandTotal = Dec(d, "grandTotal"),
+                StatusText = Str(d, "statusText"), IsCancelled = Bool(d, "isCancelled"),
+                CancelReason = Str(d, "cancelReason"), StockDocumentId = Str(d, "stockDocumentId"),
+                Lines = d.TryGetProperty("lines", out var ls) && ls.ValueKind == JsonValueKind.Array
+                    ? ls.EnumerateArray().Select(l => new LineRow
+                    {
+                        ItemText = Str(l, "itemText"), Quantity = Dec(l, "quantity"), UnitPrice = Dec(l, "unitPrice"),
+                        DiscountAmount = Dec(l, "discountAmount"), VatAmount = Dec(l, "vatAmount"),
+                        WithholdingAmount = Dec(l, "withholdingAmount"), LineTotal = Dec(l, "lineTotal"),
+                    }).ToList() : new(),
+            };
+        }
+        catch (Exception ex) { _ok = false; _msg = "Fatura detayı alınamadı: " + ex.Message; }
+    }
+
+    // ── YENİ FATURA ───────────────────────────────────────────────────────────────
+
+    private async Task OpenNew()
+    {
+        if (!Auth.CanCreate("invoices")) { _ok = false; _msg = "Fatura oluşturma yetkiniz yok."; return; }
+        _formError = null;
+        _operationId = "inv-" + Guid.NewGuid().ToString("N");
+        _fDirection = "purchase"; _fPartyId = ""; _fBranchId = ""; _fExternalNo = ""; _fNote = "";
+        _fInvoiceDate = DateTime.Today; _fDueDate = null; _fAffectsStock = true;
+        _fLines = new List<FormLine> { new() };
+        _formOpen = true;
+        await LoadLookups();
+    }
+
+    /// <summary>Cari ve depo listeleri form açılırken BİR KEZ yüklenir (satır başına istek yok).</summary>
+    private async Task LoadLookups()
+    {
+        try
+        {
+            var p = await Api.GetObjectAsync("/api/parties?page=1&pageSize=500&onlyActive=true");
+            _parties = p.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new Opt { Key = Str(e, "id"), Label = $"{Str(e, "code")} — {Str(e, "title")}" }).ToList()
+                : new();
+        }
+        catch { _parties = new(); }
+
+        try
+        {
+            _branches = (await Api.GetArrayAsync("/api/branches"))
+                .Select(e => new Opt { Key = Str(e, "id"), Label = Str(e, "name") }).ToList();
+        }
+        catch { _branches = new(); }
+    }
+
+    /// <summary>Malzeme ARAMASI sunucuda yapılır — tüm malzemeler tarayıcıya indirilmez.</summary>
+    private async Task<IEnumerable<Opt>> SearchMaterials(string? term, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(term)) return Array.Empty<Opt>();
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/materials/grid?page=1&pageSize=30&search={Uri.EscapeDataString(term)}");
+            return d.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array
+                ? arr.EnumerateArray().Select(e => new Opt { Key = Str(e, "id"), Label = $"{Str(e, "code")} — {Str(e, "name")}" }).ToList()
+                : Array.Empty<Opt>();
+        }
+        catch { return Array.Empty<Opt>(); }
+    }
+
+    private void PickMaterial(FormLine l, Opt? o)
+    {
+        l.Material = o;
+        l.MaterialId = o?.Key;
+    }
+
+    private async Task Save()
+    {
+        if (_saving) return;
+        _formError = null;
+        if (string.IsNullOrWhiteSpace(_fPartyId)) { _formError = "Cari seçin."; return; }
+        if (_fLines.Count == 0) { _formError = "En az bir satır ekleyin."; return; }
+
+        _saving = true;
+        try
+        {
+            var body = new
+            {
+                direction = _fDirection,
+                partyId = _fPartyId,
+                operationId = _operationId,
+                seriesId = (string?)null,
+                externalNo = string.IsNullOrWhiteSpace(_fExternalNo) ? null : _fExternalNo,
+                branchId = string.IsNullOrWhiteSpace(_fBranchId) ? null : _fBranchId,
+                invoiceDate = _fInvoiceDate is null ? (long?)null : new DateTimeOffset(_fInvoiceDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
+                dueDate = _fDueDate is null ? (long?)null : new DateTimeOffset(_fDueDate.Value, TimeSpan.Zero).ToUnixTimeMilliseconds(),
+                currency = "TRY",
+                note = string.IsNullOrWhiteSpace(_fNote) ? null : _fNote,
+                affectsStock = _fAffectsStock,
+                lines = _fLines.Select(l => new
+                {
+                    materialId = l.MaterialId,
+                    description = string.IsNullOrWhiteSpace(l.Description) ? null : l.Description,
+                    unit = (string?)null,
+                    quantity = l.Quantity,
+                    unitPrice = l.UnitPrice,
+                    discountRate = l.DiscountRate,
+                    vatRate = l.VatRate,
+                    withholdingRate = l.WithholdingRate,
+                }).ToArray(),
+            };
+
+            var err = await Api.PostAsync("/api/invoices", body);
+            if (err is not null) { _formError = err; return; }
+
+            _formOpen = false;
+            _ok = true; _msg = "Fatura kaydedildi.";
+            await Load();
+        }
+        catch (Exception ex) { _formError = "Kaydedilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    // ── İPTAL (SİLME DEĞİL) ───────────────────────────────────────────────────────
+
+    private async Task DoCancel()
+    {
+        if (_detail is null || _saving) return;
+        if (string.IsNullOrWhiteSpace(_cancelReason))
+        {
+            _ok = false; _msg = "İptal gerekçesi zorunlu.";
+            return;
+        }
+        var gerekce = _cancelReason.Trim();
+        if (!await Dialog.Confirm(
+                $"'{_detail.InvoiceNo}' faturası iptal edilecek.\n\n" +
+                "Fatura SİLİNMEZ; ters stok ve ters cari kayıtları oluşturulur.\n" +
+                $"Gerekçe: {gerekce}\n\nDevam edilsin mi?", "Evet, İptal Et")) return;
+
+        _saving = true; _msg = null;
+        try
+        {
+            var id = _detail.Id;
+            var err = await Api.PostAsync($"/api/invoices/{id}/cancel", new { reason = gerekce });
+            _ok = err is null;
+            _msg = err ?? "Fatura iptal edildi.";
+            if (_ok)
+            {
+                _cancelOpen = false; _cancelReason = "";
+                await Load();
+                var row = _rows?.FirstOrDefault(r => r.Id == id);
+                if (row is not null) await Select(row);
+            }
+        }
+        catch (Exception ex) { _ok = false; _msg = "İptal edilemedi: " + ex.Message; }
+        finally { _saving = false; }
+    }
+
+    // ── JSON yardımcıları (Parties.razor ile aynı desen) ──────────────────────────
+
+    private static string Str(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : "";
+
+    private static bool Bool(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+    private static decimal Dec(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var d) ? d : 0m;
+}

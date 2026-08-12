@@ -681,99 +681,32 @@ public sealed partial class ShellViewModel : ViewModelBase
 
     private static IReadOnlyList<NavGroupVm> BuildGroups(SessionContext s)
     {
-        var all = new[]
-        {
-            // Uyarılar — ayrı üst menü, birleşik uyarı ekranı (şema notu).
-            new NavGroupVm("🔔", "Uyarılar", "alerts", new[] { new NavLinkVm("Uyarılar", "alerts") }),
-            new NavGroupVm("📦", "Malzemeler", "materials", new[]
-            {
-                new NavLinkVm("Malzeme Listesi", "materials"),
-                new NavLinkVm("Yeni Kayıt", "materials:new"),
-                new NavLinkVm("Malzeme Şablonları", "material_templates:templates"),
-                new NavLinkVm("Giriş-Çıkış", "stock"),
-                new NavLinkVm("Stok Hareketleri", "stock:movements"),
-                new NavLinkVm("Stok Sayım", "stock:count"),
-                new NavLinkVm("Atanmamış Stok Dağıtımı", "stock:distribute"),   // STK-08 (ayrı yetki düğümü YOK)
-            }),
-            new NavGroupVm("🚚", "Araçlar", "vehicles", new[]
-            {
-                new NavLinkVm("Araç Listesi", "vehicles"),
-                new NavLinkVm("Yeni Araç Ekle", "vehicles:new"),
-                new NavLinkVm("Şablonlar", "vehicle_templates:templates"),
-                new NavLinkVm("Muayene / Sigorta", "inspection"),
-            }),
-            new NavGroupVm("🧑‍🔧", "Personel", "personnel", new[]
-            {
-                new NavLinkVm("Personel Girişi", "personnel"),
-            }),
-            new NavGroupVm("📋", "Günlük Faaliyet", "daily_activity", new[]
-            {
-                new NavLinkVm("Günlük Faaliyet Girişi", "daily_activity"),
-            }),
-            new NavGroupVm("🔧", "Bakım Takibi", "maintenance", new[]
-            {
-                new NavLinkVm("Bakım Tanımları Girişi", "maintenance:defs"),
-                new NavLinkVm("Araç Bakımları Girişi", "maintenance:records"),
-            }),
-            new NavGroupVm("⛽", "Yakıt", "fuel", new[]
-            {
-                new NavLinkVm("Yakıt Dağıtımları", "fuel:dist"),
-                new NavLinkVm("Depo Girişleri", "fuel:depot"),
-                new NavLinkVm("Özet", "fuel:summary"),
-            }),
-            new NavGroupVm("👤", "Yönetim", "branches", new[]
-            {
-                new NavLinkVm("Şube / Şantiye", "branches"),
-                new NavLinkVm("Sistem Logu", "audit"),
-                new NavLinkVm("Stok Değişiklik Kaydı", "stock_change_log"),   // madde 1.5 — yetkiyle görünür
-                // "Yedek Yönetimi" masaüstünden kaldırıldı (2026-07-26): yedek yönetimi yalnız WEB'de ve
-                // yalnız süper admin + kısıtlı süper adminde. Arka plandaki otomatik günlük yedek yüklemesi sürer.
-            }),
-            new NavGroupVm("📄", "Talepler", "requests", new[]
-            {
-                new NavLinkVm("Talep Formu", "requests:form"),
-                new NavLinkVm("Talep Onaylama", "requests:approve"),
-                // Talep Operasyonları (Faz 2): Ana Depo + Satın Alma kullanır; yetkisi request_ops.
-                new NavLinkVm("Talep Operasyonları", "request_ops:board"),
-            }),
-            new NavGroupVm("📊", "Raporlar", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
-            // Yönetici Raporları — alt raporlar planlanıyor (şimdilik genel Raporlar).
-            new NavGroupVm("📈", "Yönetici Raporları", "reports", new[] { new NavLinkVm("Raporlar", "reports") }),
-            new NavGroupVm("🔁", "İmport / Export", "import_export", new[] { new NavLinkVm("İmport / Export", "import_export") }),
-            new NavGroupVm("👥", "Kullanıcı", "users", new[]
-            {
-                new NavLinkVm("Kullanıcı Tanım", "users"),
-                new NavLinkVm("Yetkiler", "permissions"),
-                new NavLinkVm("Yetki Şablonları", "permission_templates"),
-            }),
-            new NavGroupVm("🛠️", "Ayarlar", "settings", new[]
-            {
-                new NavLinkVm("Tanım Düzenle", "definitions"),
-                new NavLinkVm("Geliştirici Modu", "settings:developer"),
-                new NavLinkVm("Tema", "theme"),
-                new NavLinkVm("Hakkında", "about"),
-            }),
-            // Web Yönetimi — süper admin (Canlı Sunucu + Kota İzleme yalnız webte, masaüstünde yok).
-            new NavGroupVm("🛡️", "Web Yönetimi", "companies", new[]
-            {
-                new NavLinkVm("Firma Tanım", "companies"),
-                new NavLinkVm("Güncelleme Yönetimi", "releases"),
-                new NavLinkVm("Makine Yönetimi", "machines"),
-                new NavLinkVm("Sunucu Yedekleri", "server_backups"),
-            }),
-            // Çöp Kutusu — kendi admin menüsü.
-            new NavGroupVm("🗑️", "Çöp Kutusu", "trash", new[]
-            {
-                new NavLinkVm("Çöp Kutusu Listesi", "trash"),
-            }),
-        };
+        // ═══ G2/G6 (2026-08-12): MENÜ ARTIK MERKEZİ KATALOGDAN ÜRETİLİR ═══
+        // Eskiden burada 17 grup / 40 bağlantı ELLE yazılıydı ve web'deki NavMenu.razor bunun elle
+        // tutulan aynasıydı (sayılar zaten ayrışmıştı: web 46 · masaüstü 40). Artık ikisi de
+        // AppScreens'ten türetilir → yeni ekran TEK satırla iki menüye birden gelir.
+        // Grup sırası, başlıklar, ikonlar ve bağlantı sırası AppScreens'te BİREBİR korunmuştur.
+        var all = AppScreens.GroupsFor(ScreenPlatform.Desktop)
+            .Select(g => new NavGroupVm(
+                g.DesktopIcon, g.Title, g.ModuleKey,
+                AppScreens.ScreensOf(g.Title, ScreenPlatform.Desktop)
+                    .Select(sc => new NavLinkVm(sc.Label, sc.DesktopNavKey!)).ToList()))
+            .ToArray();
+
+
+        // G5: firmanın platform kısıtları (kayıt yoksa katalog varsayılanı → hiçbir ekran kapanmaz).
+        var vis = SafeOverrides(s);
 
         // Alt bağlantıyı KENDİ yetkisine göre filtrele (alt-sekme anahtarı parent modüle map'lenir:
         // "maintenance:defs" → "maintenance"). Görünür alt bağlantısı kalmayan grup gizlenir.
         // Verilmeyen ekran menüde GÖRÜNMEZ (deny-by-default).
+        // G5: ayrıca MASAÜSTÜ platformunda kapatılmış ekranlar menüde YER ALMAZ.
         return all
             .Select(g => new NavGroupVm(g.Icon, g.Title, g.ModuleKey,
-                g.Children.Where(c => CanSeeChild(s, BaseKey(c.Key))).ToList(), g.IsExpanded))
+                g.Children
+                    .Where(c => ScreenVisibility.IsEnabled(
+                        AppScreens.ByDesktopNavKey(c.Key)?.Key ?? "", ScreenPlatform.Desktop, vis))
+                    .Where(c => CanSeeChild(s, BaseKey(c.Key))).ToList(), g.IsExpanded))
             .Where(g => g.Children.Count > 0)
             .ToList();
     }
@@ -800,9 +733,32 @@ public sealed partial class ShellViewModel : ViewModelBase
         Navigate(group.PrimaryKey);
     }
 
+    /// <summary>G5 — firmanın platform kısıtları. Okuma başarısızsa (çevrimdışı/eski şema) null döner
+    /// ve katalog varsayılanları geçerli kalır → menü hiçbir zaman boş kalmaz.</summary>
+    private static IReadOnlyDictionary<string, ScreenVisibilityOverride>? SafeOverrides(SessionContext s)
+    {
+        try { return DesktopServices.ScreenVisibility.OverridesFor(s.CompanyId); }
+        catch { return null; }
+    }
+
     [RelayCommand]
     private void Navigate(string key)
     {
+        // ═══ G5 — MERKEZİ GEZİNME KAPISI (2026-08-12) ═══
+        // Menüden gizlemek YETMEZ: Navigate kod içinden de tetiklenebilir (kısayol, uyarı ekranından
+        // atlama, grup ikonu). Platform kapalıysa ekran BURADA da açılmaz. Yetki kontrolü ekranların
+        // kendi servis çağrılarında ZATEN var; burada yalnız PLATFORM kapısı uygulanır — iki kavram
+        // birbirine karıştırılmaz (ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR).
+        var screen = AppScreens.ByDesktopNavKey(key);
+        if (screen is not null && !ScreenVisibility.IsEnabled(screen, ScreenPlatform.Desktop, SafeOverrides(_session)))
+        {
+            CurrentTitle = "Ekran kapalı";
+            CurrentContext = $"\"{screen.Label}\" bu uygulamada kullanıma kapatılmış. Yöneticinize başvurun.";
+            CurrentPage = null;
+            ActiveKey = key;
+            return;
+        }
+
         ActiveKey = key;
         switch (key)
         {
@@ -935,6 +891,20 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentPage = new CompaniesViewModel(_session);
                 CurrentTitle = "Firma Tanım";
                 CurrentContext = "Firma kayıtları (yalnız Süper Admin)";
+                break;
+            // G4-1 — ÖN MUHASEBE / CARİ. "parties:new" aynı ekranı açar (liste + kart tek ekranda).
+            case "parties":
+            case "parties:new":
+                CurrentPage = new PartiesViewModel(_session);
+                CurrentTitle = "Cari Hesaplar";
+                CurrentContext = "Müşteri / tedarikçi kartları ve cari hesap hareketleri";
+                break;
+            // G4-2 — ÖN MUHASEBE / FATURA. "invoices:new" aynı ekranı açar (liste + form tek ekranda).
+            case "invoices":
+            case "invoices:new":
+                CurrentPage = new InvoicesViewModel(_session);
+                CurrentTitle = "Faturalar";
+                CurrentContext = "Alış / satış faturaları — stok ve cari etkisi tek işlemde";
                 break;
             case "trash":
                 CurrentPage = new TrashViewModel(_session);

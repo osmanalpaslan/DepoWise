@@ -33,6 +33,13 @@ public sealed class ServerServices
     public SpecialCodeService SpecialCode { get; }
     public DepoWise.Infrastructure.Organization.CompanyGrantService CompanyGrants { get; }
     public DepoWise.Infrastructure.Organization.RoleGrantService RoleGrants { get; }
+    /// <summary>G5 — ekran platform görünürlüğü (firma bazlı; katalog varsayılanını yalnız DARALTIR).</summary>
+    public DepoWise.Infrastructure.Organization.ScreenVisibilityService ScreenVisibility { get; }
+    /// <summary>G4-1 — ön muhasebe cari kartı ve hesap hareketi.</summary>
+    public DepoWise.Infrastructure.Accounting.PartyService Parties { get; }
+    public DepoWise.Infrastructure.Accounting.PartyLedgerService PartyLedger { get; }
+    public DepoWise.Infrastructure.Accounting.InvoiceService Invoices { get; }
+    public DepoWise.Infrastructure.Accounting.InvoiceQueryService InvoiceQueries { get; }
     public SyncServer Sync { get; }
     public ReleaseService Releases { get; }
     public EnrollmentService Enrollment { get; }
@@ -118,6 +125,9 @@ public sealed class ServerServices
         MachineReset = new DepoWise.Infrastructure.Sync.MachineResetService(Factory, clock);
         SpecialCode = new SpecialCodeService(Factory, clock);
         CompanyGrants = new DepoWise.Infrastructure.Organization.CompanyGrantService(Factory, clock);
+        ScreenVisibility = new DepoWise.Infrastructure.Organization.ScreenVisibilityService(Factory, clock);
+        Parties = new DepoWise.Infrastructure.Accounting.PartyService(Factory, clock);
+        PartyLedger = new DepoWise.Infrastructure.Accounting.PartyLedgerService(Factory, clock);
         RoleGrants = new DepoWise.Infrastructure.Organization.RoleGrantService(Factory, clock, PermissionSnapshots);
         Sync = new SyncServer(Factory, clock);
         Releases = new ReleaseService(Factory, clock);
@@ -133,6 +143,9 @@ public sealed class ServerServices
         Stock = new DepoWise.Infrastructure.Materials.StockService(Factory, clock);
         StockChangeLog = new DepoWise.Infrastructure.Materials.StockChangeLogService(Factory, Stock, clock);
         OpeningStock = new DepoWise.Infrastructure.Materials.OpeningStockService(Factory, clock);
+        // G4-2: fatura, stok ve cari servislerini KULLANIR (paralel defter yok) - bu yuzden onlardan SONRA kurulur.
+        Invoices = new DepoWise.Infrastructure.Accounting.InvoiceService(Factory, Stock, PartyLedger, clock);
+        InvoiceQueries = new DepoWise.Infrastructure.Accounting.InvoiceQueryService(Factory, clock);
         Vehicles = new DepoWise.Infrastructure.Vehicles.VehicleService(Factory, clock);
         Maintenance = new DepoWise.Infrastructure.Maintenance.MaintenanceService(Factory, clock);
         Inspection = new DepoWise.Infrastructure.Maintenance.InspectionService(Factory, clock);

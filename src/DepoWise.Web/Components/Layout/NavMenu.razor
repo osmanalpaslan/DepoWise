@@ -1,3 +1,4 @@
+@using DepoWise.Application.Security
 @inject AuthState Auth
 @implements IDisposable
 
@@ -23,7 +24,8 @@
 
             @foreach (var g in Groups)
             {
-                var links = g.Links.Where(l => Visible(l.Perm)).ToList();
+                @* G5: yetki VE platform birlikte — ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR *@
+                var links = g.Links.Where(l => Visible(l.Perm) && Auth.PlatformOpenForRoute(l.Route)).ToList();
                 if (links.Count == 0) { continue; }
                 <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="@(g.Title == "Web Yönetimi")">
                     @foreach (var l in links) { <MudNavLink Href="@l.Route">@l.Label</MudNavLink> }
@@ -59,7 +61,7 @@
         var q = _q.Trim();
         foreach (var g in Groups)
             foreach (var l in g.Links)
-                if (Visible(l.Perm) &&
+                if (Visible(l.Perm) && Auth.PlatformOpenForRoute(l.Route) &&
                     (l.Label.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                      g.Title.Contains(q, StringComparison.OrdinalIgnoreCase)))
                     yield return (g, l);
@@ -68,105 +70,38 @@
     private sealed record Link(string Label, string Perm, string Route);
     private sealed record Group(string Title, string Icon, Link[] Links);
 
-    // Masaüstü ShellViewModel.BuildGroups ile BİREBİR (isim/grup/sıra). Kaynak: Menu_ve_Ekran_Semasi (M1).
+    // ═══ G2/G6 (2026-08-12): MENÜ ARTIK MERKEZİ KATALOGDAN ÜRETİLİR ═══
+    // Eskiden burada 46 bağlantı ELLE yazılıydı ve dosyanın kendi yorumu "Masaüstü BuildGroups ile
+    // BİREBİR" diyordu — ama sayılar zaten ayrışmıştı (web 46 · masaüstü 40). Artık iki menü de
+    // AppScreens'ten türetilir → yeni ekran TEK satırla iki platforma birden gelir.
+    // Grup sırası, başlıklar ve bağlantı sırası AppScreens'te BİREBİR korunmuştur.
     private static readonly Group[] Groups =
+        AppScreens.GroupsFor(ScreenPlatform.Web)
+            .Select(g => new Group(g.Title, WebIcon(g.Title),
+                AppScreens.ScreensOf(g.Title, ScreenPlatform.Web)
+                    .Select(s => new Link(s.Label, s.WebPermKey, s.WebRoute!)).ToArray()))
+            .ToArray();
+
+    /// <summary>Grup ikonu — MudBlazor sabitleri yalnız web projesinde çözülebildiği için eşleme
+    /// BURADA durur (Application katmanı MudBlazor'a bağımlı olmasın). Bilinmeyen grup nötr ikon alır.</summary>
+    private static string WebIcon(string groupTitle) => groupTitle switch
     {
-        // Uyarılar — ayrı üst menü, birleşik uyarı ekranı (şema notu). Herkese görünür; ekran yetkiye göre filtreler.
-        new("Uyarılar", Icons.Material.Filled.NotificationsActive, new[]
-        {
-            new Link("Uyarılar", "", "alerts"),
-        }),
-        new("Malzemeler", Icons.Material.Filled.Inventory2, new[]
-        {
-            new Link("Malzeme Listesi", "materials", "materials"),
-            new Link("Yeni Kayıt", "materials", "materials/new"),
-            new Link("Giriş-Çıkış", "stock", "stock"),
-            new Link("Stok Hareketleri", "stock", "stock/movements"),
-            new Link("Stok Sayım", "stock", "stock/count"),
-        }),
-        new("Araçlar", Icons.Material.Filled.LocalShipping, new[]
-        {
-            new Link("Araç Listesi", "vehicles", "vehicles"),
-            new Link("Yeni Araç Ekle", "vehicles", "vehicles/new"),
-            new Link("Şablonlar", "vehicle_templates", "vehicle-templates"),
-            new Link("Muayene / Sigorta", "inspection", "inspection"),
-        }),
-        new("Personel", Icons.Material.Filled.Badge, new[]
-        {
-            new Link("Personel Girişi", "personnel", "personnel"),
-        }),
-        new("Günlük Faaliyet", Icons.Material.Filled.EventNote, new[]
-        {
-            new Link("Günlük Faaliyet Girişi", "daily_activity", "daily"),
-        }),
-        new("Bakım Takibi", Icons.Material.Filled.Build, new[]
-        {
-            new Link("Bakım Tanımları Girişi", "maintenance", "maintenance/defs"),
-            new Link("Araç Bakımları Girişi", "maintenance", "maintenance/records"),
-        }),
-        new("Yakıt", Icons.Material.Filled.LocalGasStation, new[]
-        {
-            new Link("Yakıt Dağıtımları", "fuel", "fuel/dist"),
-            new Link("Depo Girişleri", "fuel", "fuel/depot"),
-            new Link("Özet", "fuel", "fuel/summary"),
-        }),
-        new("Yönetim", Icons.Material.Filled.ManageAccounts, new[]
-        {
-            new Link("Şube / Şantiye", "branches", "branches"),
-            new Link("Sistem Logu", "audit", "audit"),
-            new Link("Stok Değişiklik Kaydı", "stock_change_log", "stock-change-log"),   // madde 1.5 — yetkiyle görünür
-            new Link("Yedek Yönetimi", "@superr", "backup"),   // yalnız süper + kısıtlı süper admin (2026-07-26)
-        }),
-        new("Talepler", Icons.Material.Filled.Description, new[]
-        {
-            new Link("Talep Formu", "requests", "requests"),
-            new Link("Talep Onaylama", "requests", "requests/approve"),
-            // Talep Operasyonları (Faz 2): Ana Depo + Satın Alma; yetki request_ops (deny-by-default).
-            new Link("Talep Operasyonları", "request_ops", "request-operations"),
-        }),
-        new("Raporlar", Icons.Material.Filled.BarChart, new[]
-        {
-            new Link("Raporlar", "reports", "reports"),
-        }),
-        // Yönetici Raporları — admin (alt raporlar planlanıyor; şimdilik genel Raporlar ekranı).
-        new("Yönetici Raporları", Icons.Material.Filled.Assessment, new[]
-        {
-            new Link("Raporlar", "@admin", "reports"),
-        }),
-        new("Kullanıcı", Icons.Material.Filled.People, new[]
-        {
-            new Link("Kullanıcı Tanım", "users", "users"),
-            new Link("Yetkiler", "permissions", "permissions"),
-            new Link("Yetki Şablonları", "permission_templates", "permission-templates"),
-        }),
-        new("Ayarlar", Icons.Material.Filled.Settings, new[]
-        {
-            new Link("Tanım Düzenle", "definitions", "definitions"),
-            // Excel içe aktarım (İş #7, 2026-08-09) — masaüstündeki İmport/Export ekranının web karşılığı.
-            new Link("Excel İçe Aktarım", "import_export", "import"),
-            new Link("Geliştirici Modu", "settings", "developer"),
-            new Link("Tema", "", "theme"),
-            new Link("Hakkında", "", "soon/about"),
-        }),
-        // Web'e özel yönetim ekranları — süper admin. Kota İzleme buraya taşındı (şema M1).
-        new("Web Yönetimi", Icons.Material.Filled.AdminPanelSettings, new[]
-        {
-            new Link("Firma Tanım", "companies", "companies"),
-            new Link("Güncelleme Yönetimi", "releases", "releases"),
-            new Link("Makine Yönetimi", "machines", "machines"),
-            new Link("Makine Yedekleri", "machine_backups", "machine-backups"),
-            new Link("Sunucu Yedekleri", "server_backups", "server-backups"),
-            new Link("Canlı Sunucu", "server_status", "server-status"),
-            new Link("Kota İzleme", "quota_monitor", "quota-monitor"),
-            new Link("Firma Yetki Kontrol", "companies", "company-permissions"),
-            new Link("Rol Yetki Kontrol", "role_permissions", "role-permissions"),
-            new Link("Kalıcı Silme", "purge_company", "purge-company"),   // ADR-083 — geri alınamaz
-            new Link("Firma İş Verisini Sıfırla", "@super", "reset-company-business"), // iş verisi sil, firma/kullanıcı kalır
-        }),
-        // Çöp Kutusu — kendi admin menüsü (şema M1).
-        new("Çöp Kutusu", Icons.Material.Filled.DeleteSweep, new[]
-        {
-            new Link("Çöp Kutusu Listesi", "@admin", "trash"),
-        }),
+        "Uyarılar" => Icons.Material.Filled.NotificationsActive,
+        "Malzemeler" => Icons.Material.Filled.Inventory2,
+        "Araçlar" => Icons.Material.Filled.LocalShipping,
+        "Personel" => Icons.Material.Filled.Badge,
+        "Günlük Faaliyet" => Icons.Material.Filled.EventNote,
+        "Bakım Takibi" => Icons.Material.Filled.Build,
+        "Yakıt" => Icons.Material.Filled.LocalGasStation,
+        "Yönetim" => Icons.Material.Filled.ManageAccounts,
+        "Talepler" => Icons.Material.Filled.Description,
+        "Raporlar" => Icons.Material.Filled.BarChart,
+        "Yönetici Raporları" => Icons.Material.Filled.Assessment,
+        "İmport / Export" => Icons.Material.Filled.SwapHoriz,
+        "Kullanıcı" => Icons.Material.Filled.People,
+        "Ayarlar" => Icons.Material.Filled.Settings,
+        "Web Yönetimi" => Icons.Material.Filled.AdminPanelSettings,
+        "Çöp Kutusu" => Icons.Material.Filled.DeleteSweep,
+        _ => Icons.Material.Filled.Circle,
     };
 }

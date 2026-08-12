@@ -61,7 +61,20 @@
                sayfalar token'sız API çağrısı yapıp yanlış "kayıt yok" / "yetkisiz" gösteriyordu. *@
             @if (Auth.Loaded)
             {
-                @Body
+                @* ═══ G5 — DEEP-LINK KORUMASI (2026-08-12) ═══
+                   Menüden gizlemek YETMEZ: kullanıcı adresi elle yazarak ekranı açmaya çalışabilir.
+                   Platform kapalıysa sayfa RENDER EDİLMEZ. Mesaj, yetkisizlik mesajıyla AYNI tondadır
+                   (bilgi sızıntısı yapmamak için "böyle bir ekran var ama kapalı" ayrıntısına girilmez). *@
+                @if (!Auth.PlatformOpenForRoute(CurrentRoute()))
+                {
+                    <MudAlert Severity="Severity.Warning" Class="mt-6">
+                        Bu ekran bu uygulamada kullanıma kapatılmış. Yöneticinize başvurun.
+                    </MudAlert>
+                }
+                else
+                {
+                    @Body
+                }
             }
             else
             {
@@ -182,6 +195,15 @@
     {
         Nav.LocationChanged += OnLocationChanged;
         Theme.Changed += ApplyThemeAsync;
+    }
+
+    /// <summary>G5 — adres çubuğundaki route (baştaki '/' ve sorgu dizesi olmadan).
+    /// <c>AppScreens.ByWebRoute</c> bu biçimi bekler.</summary>
+    private string CurrentRoute()
+    {
+        var rel = Nav.ToBaseRelativePath(Nav.Uri);
+        var q = rel.IndexOfAny(new[] { '?', '#' });
+        return q < 0 ? rel : rel[..q];
     }
 
     /// <summary>Seçili moda göre MudThemeProvider'ı günceller (system → OS tercihi) ve localStorage'a yazar.</summary>

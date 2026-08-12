@@ -42,6 +42,16 @@
       web'in "her şeyi API'den al" sınırını gevşetmez.
     -->
     <Compile Include="..\DepoWise.Application\Ui\MovementTypeOptions.cs" Link="Services\MovementTypeOptions.cs" />
+    <!--
+      G2/G6 (2026-08-12): MERKEZİ EKRAN KATALOĞU (AppScreens) — yukarıdakilerle AYNI gerekçe ve AYNI desen.
+      Eskiden web menüsü (46 bağlantı) masaüstü menüsünün (40 bağlantı) ELLE tutulan aynasıydı; dosyanın
+      kendi yorumu "BİREBİR" dediği hâlde sayılar çoktan ayrışmıştı. Artık iki menü de bu tek katalogdan
+      ÜRETİLİR → yeni ekran TEK satırla iki platforma birden gelir.
+      Dosya SAF katalogdur: yalnız record/enum + static liste içerir, hiçbir iş kuralı veya dış bağımlılığı
+      yoktur → web'in "her şeyi API'den al" sınırını gevşetmez, veri çekmez.
+      MudBlazor ikonları Application katmanına SIZDIRILMAZ; grup→ikon eşlemesi NavMenu.razor içindedir.
+    -->
+    <Compile Include="..\DepoWise.Application\Security\AppScreens.cs" Link="Services\AppScreens.cs" />
   </ItemGroup>
 
 </Project>

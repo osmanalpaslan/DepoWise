@@ -1,0 +1,294 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DepoWise.Desktop.ViewModels"
+             xmlns:ctrl="using:DepoWise.Desktop.Controls"
+             xmlns:acc="using:DepoWise.Infrastructure.Accounting"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="720"
+             x:Class="DepoWise.Desktop.Views.InvoicesView"
+             x:DataType="vm:InvoicesViewModel">
+
+    <!-- G4-2 — FATURALAR. Sol: liste (arama/yön/durum/sayfalama). Sağ: detay VEYA yeni fatura formu.
+         ⚠️ "Sil" butonu BİLİNÇLİ OLARAK YOKTUR: fatura fiziksel silinmez, gerekçeli İPTAL edilir
+         ve iptal ters stok + ters cari kaydı üretir.
+         Tablolar ortak ListBox.Table desenini kullanır → G3 satır seçimi davranışı aynen geçerlidir. -->
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+        <ctrl:Toolbar Grid.Row="0" Title="Faturalar">
+            <ctrl:Toolbar.FilterContent>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBox Classes="Field" Width="230" Watermark="Fatura no / karşı belge no / cari"
+                             Text="{Binding Search}"/>
+                    <ComboBox Classes="Field" Width="160" ItemsSource="{Binding DirectionFilters}"
+                              SelectedValue="{Binding DirectionFilter}" SelectedValueBinding="{Binding Key}"
+                              ToolTip.Tip="Alış / satış faturasına göre süz">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <ComboBox Classes="Field" Width="140" ItemsSource="{Binding StatusFilters}"
+                              SelectedValue="{Binding StatusFilter}" SelectedValueBinding="{Binding Key}"
+                              ToolTip.Tip="İptal edilmiş faturalar da listelenebilir">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Classes="Secondary" Content="Ara" Command="{Binding FindCommand}"/>
+                </StackPanel>
+            </ctrl:Toolbar.FilterContent>
+        </ctrl:Toolbar>
+
+        <Border Grid.Row="1" Classes="Panel" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <SelectableTextBlock Text="{Binding PageText}" Classes="Helper" VerticalAlignment="Center"/>
+                <Button Classes="Ghost" Content="◀" Command="{Binding PrevPageCommand}" IsEnabled="{Binding CanPrev}"/>
+                <Button Classes="Ghost" Content="▶" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanNext}"/>
+                <Border Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0"/>
+                <Button Classes="Primary" Content="Yeni Fatura" Command="{Binding NewInvoiceFormCommand}"
+                        IsVisible="{Binding CanCreate}"/>
+                <Button Classes="Danger" Content="İptal Et" Command="{Binding OpenCancelPanelCommand}"
+                        IsEnabled="{Binding CanCancelSelected}" IsVisible="{Binding CanEdit}"
+                        ToolTip.Tip="Fatura silinmez; ters stok ve ters cari kaydı üretilerek etkisi sıfırlanır."/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,16,460" Margin="0,16,0,0">
+
+            <!-- ── SOL: FATURA LİSTESİ ──────────────────────────────────────────────────── -->
+            <Border Grid.Column="0" Classes="Table">
+                <DockPanel>
+                    <Border Classes="TableHeader" DockPanel.Dock="Top">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                            <SelectableTextBlock Grid.Column="0" Text="FATURA NO" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="1" Text="TÜR" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="2" Text="CARİ" MinWidth="200"/>
+                            <SelectableTextBlock Grid.Column="3" Text="TARİH" MinWidth="100"/>
+                            <SelectableTextBlock Grid.Column="4" Text="TUTAR" MinWidth="120"/>
+                            <SelectableTextBlock Grid.Column="5" Text="DURUM" MinWidth="90"/>
+                        </Grid>
+                    </Border>
+                    <ListBox Classes="Table" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="acc:InvoiceListRow">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                                    <SelectableTextBlock Grid.Column="0" Text="{Binding InvoiceNo}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="1" Text="{Binding DirectionText}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="2" Text="{Binding PartyTitle}" MinWidth="200" VerticalAlignment="Center"
+                                                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PartyTitle}"/>
+                                    <SelectableTextBlock Grid.Column="3" Text="{Binding DateText}" MinWidth="100" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="4" Text="{Binding GrandTotal, StringFormat='{}{0:0.00}'}" MinWidth="120" VerticalAlignment="Center"/>
+                                    <SelectableTextBlock Grid.Column="5" Text="{Binding StatusText}" MinWidth="90" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- ── SAĞ (A): YENİ FATURA FORMU — form açıkken detayın yerine gelir ────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding FormOpen}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="Yeni Fatura" Classes="SectionTitle"/>
+
+                        <ctrl:FormField Label="Fatura Türü" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding DirectionOptions}"
+                                      SelectedValue="{Binding FDirection}" SelectedValueBinding="{Binding Key}"
+                                      ToolTip.Tip="Alış: stok girer, satıcıya borçlanırsınız. Satış: stok çıkar, müşteri size borçlanır.">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+
+                        <ctrl:FormField Label="Cari" IsRequired="True">
+                            <ComboBox Classes="Field" ItemsSource="{Binding PartyOptions}"
+                                      SelectedValue="{Binding FPartyId}" SelectedValueBinding="{Binding Key}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+
+                        <ctrl:FormField Label="Depo / Şantiye">
+                            <ComboBox Classes="Field" ItemsSource="{Binding BranchOptions}"
+                                      SelectedValue="{Binding FBranchId}" SelectedValueBinding="{Binding Key}"
+                                      ToolTip.Tip="Stok hareketinin hangi depoda oluşacağını belirler.">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:InvoicesViewModel+Option"><TextBlock Text="{Binding Label}"/></DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </ctrl:FormField>
+
+                        <ctrl:FormField Label="Karşı Taraf Belge No">
+                            <TextBox Classes="Field" Text="{Binding FExternalNo}" MaxLength="60"
+                                     Watermark="Satıcının kendi fatura numarası"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Fatura Tarihi" IsRequired="True">
+                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding FInvoiceDate}"/>
+                        </ctrl:FormField>
+                        <ctrl:FormField Label="Vade Tarihi">
+                            <CalendarDatePicker Classes="Field" SelectedDate="{Binding FDueDate}"/>
+                        </ctrl:FormField>
+
+                        <CheckBox Content="Stoğu etkilesin" IsChecked="{Binding FAffectsStock}"
+                                  ToolTip.Tip="Kapatılırsa stok hareketi oluşmaz (hizmet/masraf faturası). Cari etkisi yine oluşur."/>
+
+                        <!-- ── SATIRLAR ── -->
+                        <SelectableTextBlock Text="Satırlar" Classes="SectionTitle" Margin="0,8,0,0"/>
+                        <ItemsControl ItemsSource="{Binding FormLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:InvoiceLineEditor">
+                                    <Border Classes="Panel" Margin="0,0,0,8">
+                                        <StackPanel Spacing="6">
+                                            <!-- Malzeme seçimi ARANABİLİRDİR: tüm malzemeler listeye doldurulmaz
+                                                 (sayfalama sınırı yüzünden sessizce kesilirdi). Yaz → seç. -->
+                                            <StackPanel Spacing="4">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <SelectableTextBlock Grid.Column="0" Text="{Binding MaterialText}"
+                                                                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Classes="Ghost" Content="Malzemeyi Kaldır"
+                                                            Command="{Binding ClearMaterialCommand}"
+                                                            IsVisible="{Binding MaterialId, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                </Grid>
+                                                <TextBox Classes="Field" Text="{Binding MaterialSearch}"
+                                                         Watermark="Malzeme ara (kod veya ad) — hizmet satırında boş bırakın"/>
+                                                <ItemsControl ItemsSource="{Binding Results}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:InvoicesViewModel+Option">
+                                                            <Button Classes="Ghost" HorizontalAlignment="Stretch" Content="{Binding Label}"
+                                                                    Command="{Binding $parent[ItemsControl].((vm:InvoiceLineEditor)DataContext).PickMaterialCommand}"
+                                                                    CommandParameter="{Binding}"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                            <TextBox Classes="Field" Text="{Binding Description}"
+                                                     Watermark="Açıklama (malzeme seçilmediyse zorunlu)"/>
+                                            <Grid ColumnDefinitions="*,8,*" >
+                                                <ctrl:FormField Grid.Column="0" Label="Miktar">
+                                                    <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" Increment="1"/>
+                                                </ctrl:FormField>
+                                                <ctrl:FormField Grid.Column="2" Label="Birim Fiyat">
+                                                    <NumericUpDown Classes="Field" Value="{Binding UnitPrice}" Minimum="0" Increment="1"/>
+                                                </ctrl:FormField>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,8,*,8,*">
+                                                <ctrl:FormField Grid.Column="0" Label="İskonto %">
+                                                    <NumericUpDown Classes="Field" Value="{Binding DiscountRate}" Minimum="0" Maximum="100"/>
+                                                </ctrl:FormField>
+                                                <ctrl:FormField Grid.Column="2" Label="KDV %">
+                                                    <NumericUpDown Classes="Field" Value="{Binding VatRate}" Minimum="0" Maximum="100"/>
+                                                </ctrl:FormField>
+                                                <ctrl:FormField Grid.Column="4" Label="Tevkifat %">
+                                                    <NumericUpDown Classes="Field" Value="{Binding WithholdingRate}" Minimum="0" Maximum="100"
+                                                                   ToolTip.Tip="KDV üzerinden alınan tevkifat oranı."/>
+                                                </ctrl:FormField>
+                                            </Grid>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <SelectableTextBlock Text="{Binding LineTotalText}" Classes="Helper" VerticalAlignment="Center"/>
+                                                <Button Classes="Ghost" Content="Satırı Sil"
+                                                        Command="{Binding $parent[UserControl].((vm:InvoicesViewModel)DataContext).RemoveLineCommand}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Classes="Secondary" Content="Satır Ekle" Command="{Binding AddLineCommand}"/>
+
+                        <ctrl:FormField Label="Not">
+                            <TextBox Classes="Field" Text="{Binding FNote}" AcceptsReturn="True" MinHeight="60"/>
+                        </ctrl:FormField>
+
+                        <Border Classes="Panel" Margin="0,6,0,0">
+                            <SelectableTextBlock Text="{Binding FormTotals}" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                            <!-- Busy sürerken düğme kapanır; ayrıca operation_id sabit olduğu için
+                                 çift gönderim sunucuda da İKİNCİ fatura oluşturmaz. -->
+                            <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveInvoiceCommand}"
+                                    IsEnabled="{Binding !Busy}"/>
+                            <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseFormCommand}"/>
+                        </StackPanel>
+                        <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
+                                             IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+
+            <!-- ── SAĞ (B): FATURA DETAYI ───────────────────────────────────────────────── -->
+            <ScrollViewer Grid.Column="2" IsVisible="{Binding ShowDetail}">
+                <Border Classes="Panel">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="{Binding Detail.InvoiceNo}" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="{Binding Detail.DirectionText}" Classes="Helper"/>
+                        <SelectableTextBlock Text="{Binding Detail.PartyTitle}"/>
+                        <SelectableTextBlock Text="{Binding Detail.StatusText}" Classes="Helper"/>
+
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,6,0,0">
+                            <SelectableTextBlock Grid.Row="0" Grid.Column="0" Text="Tarih:" Classes="Helper" Margin="0,0,10,0"/>
+                            <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Detail.DateText}"/>
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="0" Text="Vade:" Classes="Helper" Margin="0,0,10,0"/>
+                            <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Detail.DueText}"/>
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="0" Text="Depo:" Classes="Helper" Margin="0,0,10,0"/>
+                            <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Detail.BranchName}"/>
+                            <SelectableTextBlock Grid.Row="3" Grid.Column="0" Text="Belge No:" Classes="Helper" Margin="0,0,10,0"/>
+                            <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Detail.ExternalNo}"/>
+                        </Grid>
+
+                        <SelectableTextBlock Text="Satırlar" Classes="SectionTitle" Margin="0,8,0,0"/>
+                        <ItemsControl ItemsSource="{Binding DetailLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="acc:InvoiceLineRecord">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
+                                        <SelectableTextBlock Grid.Column="0" Text="{Binding ItemText}" TextTrimming="CharacterEllipsis"/>
+                                        <SelectableTextBlock Grid.Column="1" Text="{Binding Quantity, StringFormat='{}{0:0.##} ×'}" Margin="8,0"/>
+                                        <SelectableTextBlock Grid.Column="2" Text="{Binding LineTotal, StringFormat='{}{0:0.00}'}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Classes="Panel" Margin="0,6,0,0">
+                            <SelectableTextBlock Text="{Binding DetailTotals}" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- İptal edilmiş faturada gerekçe GÖRÜNÜR kalır (izlenebilirlik). -->
+                        <Border Classes="Panel" IsVisible="{Binding Detail.IsCancelled}">
+                            <StackPanel Spacing="4">
+                                <SelectableTextBlock Text="İPTAL EDİLDİ" Classes="Error"/>
+                                <SelectableTextBlock Text="{Binding Detail.CancelReason}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── İPTAL PANELİ: gerekçe zorunlu ── -->
+                        <Border Classes="Panel" IsVisible="{Binding CancelPanelOpen}">
+                            <StackPanel Spacing="8">
+                                <SelectableTextBlock Text="Fatura İptali" Classes="SectionTitle"/>
+                                <SelectableTextBlock Text="{Binding CancelWarning}" TextWrapping="Wrap" Classes="Helper"/>
+                                <ctrl:FormField Label="İptal Gerekçesi" IsRequired="True">
+                                    <TextBox Classes="Field" Text="{Binding CancelReason}" AcceptsReturn="True" MinHeight="60"/>
+                                </ctrl:FormField>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Classes="Danger" Content="İptali Onayla" Command="{Binding CancelInvoiceCommand}"/>
+                                    <Button Classes="Ghost" Content="Vazgeç" Command="{Binding CloseCancelPanelCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <SelectableTextBlock Text="{Binding FormError}" Classes="Error" TextWrapping="Wrap"
+                                             IsVisible="{Binding FormError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+        </Grid>
+
+        <Border Grid.Row="3" Classes="Panel" Margin="0,12,0,0">
+            <SelectableTextBlock Text="{Binding Status}" Classes="Helper"/>
+        </Border>
+    </Grid>
+</UserControl>

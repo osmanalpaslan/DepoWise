@@ -23,6 +23,12 @@
                 </ComboBox>
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadUsersCommand}"/>
                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding CanSavePerms}"/>
+                <!-- G1a (2026-08-12): yetki özeti + sıfırlama. Sıfırlama YIKICI → Danger + ayrıca onay penceresi. -->
+                <Button Classes="Secondary" Content="Yetki Özeti" Command="{Binding ShowSummaryCommand}"
+                        IsVisible="{Binding HasUser}" ToolTip.Tip="Bu kullanıcının gerçekte erişebildiği ekranları listeler."/>
+                <Button Classes="Danger" Content="Yetkileri Sıfırla" Command="{Binding ResetPermsCommand}"
+                        IsVisible="{Binding CanResetPerms}"
+                        ToolTip.Tip="Kullanıcının tüm ekran ve buton yetkilerini siler. Kullanıcı kaydı ve rolü silinmez."/>
             </StackPanel>
         </Border>
 
@@ -33,6 +39,27 @@
                 <Border Classes="Panel" IsVisible="{Binding IsTargetAdmin}">
                     <SelectableTextBlock TextWrapping="Wrap" Classes="Helper"
                         Text="Bu kullanıcı Admin / Süper Admin — TÜM ekranlara erişir (aşağıdaki alanlar bu yüzden tam işaretli ve salt-okunurdur). Yetkilerini kısıtlamak için önce rolünü Personel yapın."/>
+                </Border>
+
+                <!-- G1a: YETKİ ÖZETİ — ham izin satırı değil, ETKİN yetki (admin bypass'ı ve rol kilitleri uygulanmış). -->
+                <Border Classes="Panel" IsVisible="{Binding HasSummary}">
+                    <StackPanel Spacing="8">
+                        <SelectableTextBlock Text="Yetki Özeti" Classes="SectionTitle"/>
+                        <SelectableTextBlock Text="{Binding SummaryText}" TextWrapping="Wrap" Classes="Helper"/>
+                        <Border Classes="Table" MaxHeight="260">
+                            <ListBox Classes="Table" ItemsSource="{Binding Summary}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PermissionsViewModel+SummaryRow">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <SelectableTextBlock Grid.Column="0" Text="{Binding Label}" MinWidth="220" VerticalAlignment="Center"/>
+                                            <SelectableTextBlock Grid.Column="1" Text="{Binding Actions}" MinWidth="240" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </StackPanel>
                 </Border>
                 <!-- Modüller -->
                 <Border Classes="Table">
