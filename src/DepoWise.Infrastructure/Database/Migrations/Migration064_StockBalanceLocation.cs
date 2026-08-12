@@ -46,6 +46,49 @@ namespace DepoWise.Infrastructure.Database.Migrations;
 ///     DROP TABLE stock_balances; ALTER TABLE stock_balances_old RENAME TO stock_balances;
 ///     -- ardından PRIMARY KEY(material_id) ile yeniden kurulmalıdır
 ///     DELETE FROM schema_migrations WHERE version = 64;
+///
+/// ⚠️ <b>ADIM 5 — ZORUNLUDUR, ATLANAMAZ (2026-08-12 izole rollback testiyle ÖLÇÜLDÜ).</b>
+/// Yukarıdaki dört adım <b>veriyi</b> doğru geri getirir (toplamlar, negatifler, sıfırlar ve diğer
+/// firmalar birebir korunur; <c>stock_movements</c>'a dokunulmaz) ama <b>şemayı</b> tam kurmaz:
+/// <c>CREATE TABLE … AS SELECT</c> yalnız kolon+veri üretir → <b>PRIMARY KEY, FOREIGN KEY, NOT NULL
+/// ve DEFAULT kaybolur</b>. Sonuç KOZMETİK DEĞİLDİR: v63 uygulama kodunun bakiye yazma yolu
+/// <c>ON CONFLICT(material_id)</c> kullanır ve eşleşecek kısıt kalmadığı için <b>her stok
+/// giriş/çıkış/transferi hata verir</b> — ölçülen hatalar:
+/// PostgreSQL <c>42P10: there is no unique or exclusion constraint matching the ON CONFLICT
+/// specification</c> · SQLite <c>ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE
+/// constraint</c>. Yani geri alma "şema sürümü 63'e döndü"de BİTMEZ; <b>v63'ün stock_balances
+/// sözleşmesi geri kurulduğunda</b> biter.
+///
+/// Aşağıdaki SQL <b>kopyala-yapıştır</b> uygulanır ve İKİ LEHÇEDE DE AYNIDIR (ayrı sürüm gerekmez;
+/// izole PostgreSQL'de çalıştırılarak doğrulandı — sonrasında <c>ON CONFLICT(material_id)</c>
+/// yeniden çalıştı, satır sayısı ve toplam korundu). DDL, <see cref="Migration005_Materials"/>
+/// içindeki v63 tanımının <b>birebir aynısıdır</b> (kolonlar, tipler, NOT NULL, DEFAULT '0',
+/// PRIMARY KEY(material_id), FOREIGN KEY → materials(id)):
+///
+///     CREATE TABLE stock_balances_v63 (
+///         company_id TEXT NOT NULL,
+///         material_id TEXT NOT NULL,
+///         quantity TEXT NOT NULL DEFAULT '0',
+///         updated_at BIGINT NOT NULL,
+///         PRIMARY KEY (material_id),
+///         FOREIGN KEY (material_id) REFERENCES materials(id)
+///     );
+///     INSERT INTO stock_balances_v63(company_id, material_id, quantity, updated_at)
+///     SELECT company_id, material_id, quantity, updated_at FROM stock_balances;
+///     DROP TABLE stock_balances;
+///     ALTER TABLE stock_balances_v63 RENAME TO stock_balances;
+///
+/// Bu adım <b>yalnız taşır</b>: yeni toplama/yeniden hesaplama YAPMAZ (toplama zaten 1. adımdaki
+/// <c>GROUP BY company_id, material_id</c> ile yapılmıştır) → firma/malzeme toplamları değişmez.
+/// Lokasyon bilgisi v63 sözleşmesinde ZATEN YOKTUR; doğal olarak malzeme başına tek satıra dönülür
+/// (bilgi kaybı değildir — lokasyon defterde durur, ileri gidilirse yeniden üretilir).
+/// <c>stock_movements</c>'a bu adımda da DOKUNULMAZ.
+///
+/// ⏱️ <b>Transaction:</b> beş adımın tamamı <b>tek transaction içinde</b> çalıştırılmalıdır
+/// (PostgreSQL DDL'i transaction'a alır; SQLite de <c>CREATE/DROP/ALTER TABLE</c>'ı alır). Aksi
+/// halde <c>DROP</c> ile <c>RENAME</c> arasında kesinti olursa <c>stock_balances</c> HİÇ kalmaz.
+/// Bu prosedür bilinçli olarak <b>elle</b> çalıştırılır — otomatik migration mekanizmasına
+/// bağlanmamıştır (aşağı yön migration'ı bu projede yoktur).
 /// </summary>
 /// <remarks>
 /// ✅ <b>ETKİN</b> — <see cref="MigrationCatalog"/>'a <c>STK-02</c> ile AYNI iş biriminde eklendi (2026-08-11).
