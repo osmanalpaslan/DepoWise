@@ -552,10 +552,14 @@ Assertion **gevşetilmedi, keskinleştirildi** (bakiye TABLOSUNUN pakette olmad�
 | `TMZ-02`, `BRM-01`, `YTK-01…04` | YET-01 (rol değişince yetkiler) |
 | `SNK-05` | Çevrimdışı onay çakışması |
 
-## 📌 Canlı ortam
-API `depowise-erp` v149 · Web `depowise-web` v175 · Neon PG **17.10** · **canlı şema 63**
-(64 henüz **deploy edilmedi** — dalda duruyor) · 3 firma · 8 kullanıcı · 6 lokasyon · 2461 malzeme ·
-667 stok hareketi · Test 1521/1486/0/35 · Build 0 hata
+## 📌 Canlı ortam — **YAYIN TURU 2026-08-12** (commit `a0d5c91`)
+API `depowise-erp` **v151** · Web `depowise-web` **v177** · Neon PG **17.10** · **canlı şema 64**
+(migration **çalışmadı** — kod kataloğu da 64, uygulanacak yeni sürüm yoktu) ·
+**Masaüstü sürümü `1.0.137`** (paket sunucuda, SHA-256 `5ADE0CE5…D9F6BE`, 85,5 MB) ·
+1 aktif firma (`Oze İnşaat`, 5 şube) · Test **1591/0/35** · Release derlemesi 0 hata
+
+> Yayın sırası DEPLOYMENT.md'ye uygun: **API → Web → masaüstü publish → masaüstü güncelleme paketi.**
+> Production'a **hiçbir INSERT/UPDATE/DELETE yapılmadı**; STK-08 dağıtımı **yapılmadı**.
 
 ## ⚠️ Açık riskler
 - **Deploy edilince** stoğun neredeyse tamamı **"ATANMAMIŞ"** görünecek → KARAR-8 alınmadan kullanıcıya
