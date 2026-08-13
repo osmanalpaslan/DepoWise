@@ -1,13 +1,30 @@
 # Masaüstü GUI — Manuel Kullanıcı Test Listesi
 
-**Durum: MANUEL TEST BEKLİYOR.** Avalonia penceresi otomasyon ortamında açılamıyor
-(tarayıcı aracı yalnız web'e bağlanır). Bu liste **kullanıcı tarafından** uygulanacaktır.
+**Durum: MANUEL TEST BEKLİYOR — 1/28 kısmen doğrulandı.**
 
-**Web'de doğrulanmış olanlar** (masaüstünde de aynı servisleri kullanır): cari listesi ve bakiyeleri,
-rapor sonuç tablosu, şube filtresi, tarih dönüşümü.
+## 2026-08-13 otomasyon denemesi (sonuç)
+
+Uygulama **izole ortamda başlatıldı ve başarıyla açıldı**:
+
+- Ortam: `DEPOWISE_ENVIRONMENT=GuiTest` → veritabanı `%LOCALAPPDATA%\Alpnex\Data\GuiTest\alpnex.db`
+- `startup.log` son satırı: `journal=wal · fk=True · writeRead=True · ok=True · err=` (hata yok)
+- Migration'lar çalıştı (WAL dosyası 2,5 MB'a ulaştı — Migration068 dahil)
+- 45 saniye ayakta kaldı, **çökme yok**
+- ⭐ Kullanıcının gerçek `Development` verisine **DOKUNULMADI** (12 Ağustos tarihli, değişmedi)
+
+⚠️ **Pencere ile ETKİLEŞİM KURULAMADI.** Tarayıcı otomasyon aracı yalnız web sayfalarına bağlanır;
+Avalonia penceresi görülemez ve tıklanamaz. Projede `Avalonia.Headless` paketi de yoktur.
+
+**Sonuç:** aşağıdaki 1. madde yalnız *"uygulama açılıyor ve veritabanı kuruluyor"* düzeyinde
+doğrulanmıştır. **2–28 arası maddeler kullanıcı tarafından elle test edilmelidir.**
+
+## Web'de zaten doğrulanmış olanlar
+Masaüstü aynı servis katmanını kullandığı için şunlar web GUI'sinde gerçek veriyle kanıtlandı:
+cari listesi ve bakiyeleri · **altı ön muhasebe raporunun tamamı** · şube filtresi (tek şube) ·
+**cari + şube kesişimi** · tarih dönüşümü (bugünün kayıtları raporda görünüyor).
+Bu, masaüstü UI katmanının doğrulandığı anlamına **gelmez**.
 
 ---
-
 | # | Yapılacak | Beklenen sonuç | Başarısızsa bakılacak yer |
 |---|---|---|---|
 | 1 | Uygulamayı aç, giriş yap | Giriş ekranı açılır; ilk girişte parola değiştirme istenir | `AuthService`, `LoginViewModel` |
