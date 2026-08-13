@@ -154,4 +154,30 @@ public class WebDateConversionTests
         var g = new DateTime(2026, 8, 12);
         Assert.True(MsSon(g) > Ms(g));
     }
+
+    /// <summary>
+    /// 10 — 🔴 ÜÇÜNCÜ GERÇEK GUI HATASI (2026-08-13): rapor BİTİŞ tarihi gün BAŞINA iniyordu.
+    /// Varsayılan aralık "ayın 1'i → BUGÜN" olduğu için <b>bugün oluşturulan kayıtlar rapora HİÇ
+    /// GİRMİYORDU</b>: API 200 dönüyor, ekranda "Kayıt bulunamadı" yazıyordu. Cari ekranı aynı veriyi
+    /// gösterdiği hâlde rapor boştu — çelişki buradan geliyordu.
+    /// Bu test, BUGÜN oluşan bir kaydın varsayılan aralığa GİRDİĞİNİ kanıtlar.
+    /// </summary>
+    [Fact]
+    public void Bugun_Olusan_Kayit_Varsayilan_Araliga_Girer()
+    {
+        var now = DateTime.Now;                                  // ApplyDateDefault ile aynı
+        var from = Ms(new DateTime(now.Year, now.Month, 1))!.Value;
+        var to = MsSon(now)!.Value;                              // ⭐ gün SONU
+
+        // Bugün öğlen oluşmuş bir kayıt (fatura/tahsilat gerçek hayatta böyle oluşur).
+        var kayit = new DateTimeOffset(
+            DateTime.SpecifyKind(now.Date.AddHours(12).AddMinutes(48), DateTimeKind.Unspecified),
+            TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+        Assert.True(kayit >= from && kayit <= to,
+            "Bugün oluşan kayıt varsayılan rapor aralığına GİRMELİ (gün sonu kullanılmazsa düşer).");
+
+        // Regresyon nöbetçisi: gün BAŞI kullanılsaydı kayıt aralık DIŞINDA kalırdı.
+        Assert.True(kayit > Ms(now)!.Value);
+    }
 }

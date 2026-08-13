@@ -648,9 +648,18 @@ else
         return list;
     }
 
-    // 🔴 GUI hatası (2026-08-12): Kind=Local tarihte eski desen istisna atıyordu (Reports'ta
-    // "tarih seçmeden Sorgula" akışında gerçekten patladı). TEK kaynağa taşındı.
+    // 🔴 GUI hatası (2026-08-12): Kind=Local tarihte eski desen istisna atıyordu ("tarih seçmeden
+    // Sorgula" akışında gerçekten patladı). TEK kaynağa taşındı.
     private static long? Ms(DateTime? d) => DepoWise.Web.Services.FieldChecks.ToUnixMs(d);
+
+    /// <summary>
+    /// 🔴 İKİNCİ GUI HATASI (2026-08-13): BİTİŞ tarihi gün BAŞINA (00:00) iniyordu. Varsayılan
+    /// aralık "ayın 1'i → BUGÜN" olduğu için <b>bugün oluşturulan kayıtlar rapora HİÇ GİRMİYORDU</b>
+    /// (API 200 dönüyor, ekranda "Kayıt bulunamadı" yazıyordu). Eski kod saat bileşenini koruduğu için
+    /// bu sorun yoktu; Kind düzeltmesiyle birlikte .Date alınınca ortaya çıktı.
+    /// Bitişte gün SONU (23:59:59.999) kullanılır — Audit/StockMovements ekranlarındaki desenin aynısı.
+    /// </summary>
+    private static long? MsSon(DateTime? d) => DepoWise.Web.Services.FieldChecks.ToUnixMs(d, endOfDay: true);
 
     private async Task Run()
     {
@@ -660,7 +669,7 @@ else
             var body = new
             {
                 fromDate = _sel?.UsesDate == true ? Ms(_from) : null,
-                toDate = _sel?.UsesDate == true ? Ms(_to) : null,
+                toDate = _sel?.UsesDate == true ? MsSon(_to) : null,   // 🔴 GÜN SONU: gün başına inerse BUGÜNÜN kayıtları düşerdi
                 branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
                 vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 vehicleTypeIds = _sel?.UsesVehicleType == true ? _vehTypeSel.ToList() : new List<string>(),
@@ -710,7 +719,7 @@ else
             var body = new
             {
                 fromDate = _sel?.UsesDate == true ? Ms(_from) : null,
-                toDate = _sel?.UsesDate == true ? Ms(_to) : null,
+                toDate = _sel?.UsesDate == true ? MsSon(_to) : null,   // 🔴 GÜN SONU: gün başına inerse BUGÜNÜN kayıtları düşerdi
                 branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
                 vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 vehicleTypeIds = _sel?.UsesVehicleType == true ? _vehTypeSel.ToList() : new List<string>(),
