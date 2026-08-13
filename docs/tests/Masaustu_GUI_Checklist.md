@@ -1,28 +1,62 @@
 # Masaüstü GUI — Manuel Kullanıcı Test Listesi
 
-**Durum: MANUEL TEST BEKLİYOR — 1/28 kısmen doğrulandı.**
+**Durum: MANUEL TEST BEKLİYOR — ancak OTOMASYON YOLU AÇILDI.**
 
-## 2026-08-13 otomasyon denemesi (sonuç)
+## 2026-08-13 — MASAÜSTÜ GUI OTOMASYONU MÜMKÜN (önceki tespit düzeltildi)
 
-Uygulama **izole ortamda başlatıldı ve başarıyla açıldı**:
+Önceki turlarda "Avalonia penceresiyle etkileşim kurulamıyor" denmişti. **Bu yanlıştı.**
+Windows'un yerleşik **UI Automation** arayüzü Avalonia 12 penceresini görüyor ve sürebiliyor —
+ek paket, framework veya ücretli araç GEREKMİYOR.
 
-- Ortam: `DEPOWISE_ENVIRONMENT=GuiTest` → veritabanı `%LOCALAPPDATA%\Alpnex\Data\GuiTest\alpnex.db`
-- `startup.log` son satırı: `journal=wal · fk=True · writeRead=True · ok=True · err=` (hata yok)
-- Migration'lar çalıştı (WAL dosyası 2,5 MB'a ulaştı — Migration068 dahil)
-- 45 saniye ayakta kaldı, **çökme yok**
-- ⭐ Kullanıcının gerçek `Development` verisine **DOKUNULMADI** (12 Ağustos tarihli, değişmedi)
+### Kanıtlanan yetenekler (gerçek etkileşim, DOM/JS hilesi değil)
 
-⚠️ **Pencere ile ETKİLEŞİM KURULAMADI.** Tarayıcı otomasyon aracı yalnız web sayfalarına bağlanır;
-Avalonia penceresi görülemez ve tıklanamaz. Projede `Avalonia.Headless` paketi de yoktur.
+| Yetenek | Kanıt |
+|---|---|
+| Pencere bulma | `Alpnex — Giriş \| class=LoginWindow` |
+| Eleman ağacını okuma | 22 eleman; Edit/Button/CheckBox/Text tipleriyle |
+| Metin alanına yazma | `ValuePattern.SetValue('admin')` → alan gerçekten doldu |
+| Butona basma | `InvokePattern.Invoke()` → uygulama tepki verdi |
+| Uygulama yanıtını okuma | *"Kullanıcı adı veya parola hatalı."* mesajı okundu |
 
-**Sonuç:** aşağıdaki 1. madde yalnız *"uygulama açılıyor ve veritabanı kuruluyor"* düzeyinde
-doğrulanmıştır. **2–28 arası maddeler kullanıcı tarafından elle test edilmelidir.**
+### Kullanılan yöntem (tekrar edilebilir)
+
+```powershell
+Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$win  = $root.FindFirst('Children', <ClassName = LoginWindow / MainWindow>)
+# okuma:  $win.FindAll('Descendants', TrueCondition)
+# yazma:  $el.GetCurrentPattern([ValuePattern]::Pattern).SetValue('...')
+# tıklama:$el.GetCurrentPattern([InvokePattern]::Pattern).Invoke()
+```
+
+Uygulamayı izole çalıştırma:
+- `DEPOWISE_ENVIRONMENT=GuiTest` → veritabanı `%LOCALAPPDATA%\Alpnex\Data\GuiTest\alpnex.db`
+- `bin\...\serverurl.txt` içine yerel API adresi yazılırsa masaüstü **production yerine yerel sunucuya** bağlanır
+  (⚠️ test bitince bu dosya SİLİNMELİDİR — aksi hâlde uygulama yanlış sunucuya bakar)
+
+### Neden 28 madde yine de tamamlanamadı
+
+**Giriş yapılamadı.** İzole `GuiTest` veritabanında kullanıcı yok (masaüstünde seed admin
+oluşturulmuyor) ve "Web'de Giriş Yap" yolu makine kaydı/ek adım istiyor. Production sunucusuna
+bağlanmak yasak olduğu için giriş sonrası ekranlara (madde 3–28) ulaşılamadı.
+
+**Bir sonraki turda çözülebilir:** izole API'de makine kaydı/onayı tamamlanır ya da masaüstü
+girişinin yerel kullanıcı ile çalıştığı senaryo kurulur; ardından bu 28 madde **otomatik**
+koşturulabilir.
+
+### Şu an doğrulanmış maddeler
+
+- **Madde 1 (kısmi):** uygulama açılıyor, veritabanı kuruluyor (`startup.log ok=True`, WAL 2,5 MB),
+  45 sn ayakta, çökme yok, kullanıcının `Development` verisine dokunulmuyor.
+- **Madde 1 (GUI):** giriş ekranı render oluyor, alanlar yazılabiliyor, buton çalışıyor,
+  **hatalı parolada doğru hata mesajı gösteriliyor** ← gerçek GUI davranışı.
+
+**2–28 arası maddeler hâlâ MANUEL TEST BEKLİYOR.**
 
 ## Web'de zaten doğrulanmış olanlar
 Masaüstü aynı servis katmanını kullandığı için şunlar web GUI'sinde gerçek veriyle kanıtlandı:
-cari listesi ve bakiyeleri · **altı ön muhasebe raporunun tamamı** · şube filtresi (tek şube) ·
-**cari + şube kesişimi** · tarih dönüşümü (bugünün kayıtları raporda görünüyor).
-Bu, masaüstü UI katmanının doğrulandığı anlamına **gelmez**.
+cari listesi ve bakiyeleri · **altı ön muhasebe raporunun tamamı** · şube filtresi ·
+**cari + şube kesişimi** · tarih dönüşümü. Bu, masaüstü UI katmanının doğrulandığı anlamına **gelmez**.
 
 ---
 | # | Yapılacak | Beklenen sonuç | Başarısızsa bakılacak yer |
