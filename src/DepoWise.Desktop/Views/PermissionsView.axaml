@@ -50,6 +50,12 @@
                         </SelectableTextBlock>
                         <SelectableTextBlock Text="{Binding ScopeHint}" Classes="Helper" TextWrapping="Wrap"/>
 
+                        <!-- GUI-05: kapsam okunamadıysa SEBEP burada görünür. Eskiden hata Status'a
+                             yazılıp hemen ardından yetki yüklemesince eziliyor, bölüm sessizce kayboluyordu. -->
+                        <SelectableTextBlock Text="{Binding ScopeError}" Classes="Helper" TextWrapping="Wrap"
+                                             Foreground="{DynamicResource DangerBrush}"
+                                             IsVisible="{Binding ScopeError, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
                         <Border Classes="Field" MaxHeight="160" Padding="8,4"
                                 IsVisible="{Binding CanEditScope}">
                             <ScrollViewer>

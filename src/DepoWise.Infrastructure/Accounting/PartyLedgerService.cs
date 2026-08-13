@@ -104,7 +104,15 @@ public sealed class PartyLedgerService
     /// </summary>
     public string Add(SessionContext s, NewLedgerEntry dto)
     {
-        BranchAccess.Require(s, dto.BranchId, "cari hareketi");   // ⭐ G4-3b kapsam kapısı
+        // ⭐ GUI-02 (2026-08-13, gerçek masaüstü GUI testinde bulundu) — ELLE GİRİLEN HAREKET ŞUBESİZ KALIYORDU.
+        // Ne masaüstü ne web bu yolda BranchId gönderiyordu; Require(null) serbest olduğu için satır
+        // branch_id = NULL yazılıyordu. Şubesiz satır "her şubeye ait" sayıldığından (okuma filtresinde
+        // `OR branch_id IS NULL` vardır) Şube A'da girilen açılış bakiyesi Şube B'nin ekstresinde,
+        // bakiyesinde ve raporlarında da görünüyordu → şube bazlı ön muhasebe fiilen delinmişti.
+        // Fatura/tahsilat/ödeme zaten BranchAccess.Resolve kullanıyordu; elle hareket artık AYNI kapıdan
+        // geçer: verilmediyse oturumun ÇALIŞMA şubesine (yoksa tek izinli şubeye) yazılır, verildiyse
+        // kapsam içinde olduğu doğrulanır. İkinci bir kapsam mantığı EKLENMEZ.
+        dto = dto with { BranchId = BranchAccess.Resolve(s, dto.BranchId, "cari hareketi") };
         // ⭐ G4-1b (2026-08-12) — KULLANICI YOLU YALNIZ ELLE GİRİLEBİLİR TÜRLERİ KABUL EDER.
         // Eskiden her tür kabul ediliyordu: kullanıcı UI'yi atlayıp doğrudan "invoice" türünde hareket
         // yazabilir, G4-2 aynı faturayı işlediğinde cari İKİ KEZ borçlanırdı (sahte belge + mükerrer borç).
@@ -222,18 +230,22 @@ VALUES(@id,@c,@p,@br,@date,@type,@no,@desc,@dir,@amt,@cur,NULL,@due,@stype,@sid,
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
 
-        string partyId, docType, currency; long dir; decimal amount; bool reversed;
+        string partyId, docType, currency; long dir; decimal amount; bool reversed; string? branchId;
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "SELECT party_id, doc_type, direction, amount, currency_code, is_reversed FROM party_ledger WHERE id=@id AND company_id=@c;";
+            cmd.CommandText = "SELECT party_id, doc_type, direction, amount, currency_code, is_reversed, branch_id FROM party_ledger WHERE id=@id AND company_id=@c;";
             cmd.AddWithValue("@id", entryId); cmd.AddWithValue("@c", s.CompanyId);
             using var r = cmd.ExecuteReader();
             if (!r.Read()) throw new ForbiddenException("Hareket bulunamadı veya başka firmaya ait.");
             partyId = r.GetString(0); docType = r.GetString(1); dir = r.GetInt64(2);
             amount = Money.Parse(r.GetString(3)); currency = r.GetString(4); reversed = r.GetInt64(5) == 1;
+            branchId = r.IsDBNull(6) ? null : r.GetString(6);
         }
         if (reversed) throw new InvalidOperationException("Bu hareket zaten iptal edilmiş.");
+        // ⭐ GUI-02 — kapsam kapısı: kullanıcının YETKİSİ OLMAYAN şubenin hareketi ters kaydedilemez
+        // (fatura iptali/finans ters kaydı bu kapıdan zaten geçiyordu; cari defterinde eksikti).
+        BranchAccess.Require(s, branchId, "cari hareketi iptali");
 
         using (var cmd = conn.CreateCommand())
         {
@@ -252,7 +264,10 @@ VALUES(@id,@c,@p,@br,@date,@type,@no,@desc,@dir,@amt,@cur,NULL,@due,@stype,@sid,
 INSERT INTO party_ledger(id, company_id, party_id, branch_id, entry_date, doc_type, doc_no, description,
                          direction, amount, currency_code, due_date, source_type, source_id,
                          operation_id, is_reversed, created_at, created_by)
-VALUES(@id,@c,@p,NULL,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,NULL,1,@now,@by);";
+VALUES(@id,@c,@p,@br,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,NULL,1,@now,@by);";
+            // GUI-02: karşı kayıt ASLIN ŞUBESİNİ taşır. NULL bırakılırsa "şubesiz" olur ve her şubenin
+            // ekstresinde görünür (bakiyeye girmese de defterde yanlış şubede listelenirdi).
+            cmd.AddWithValue("@br", (object?)branchId ?? DBNull.Value);
             cmd.AddWithValue("@id", newId); cmd.AddWithValue("@c", s.CompanyId); cmd.AddWithValue("@p", partyId);
             cmd.AddWithValue("@now", now); cmd.AddWithValue("@type", docType);
             cmd.AddWithValue("@desc", "İPTAL: " + reason.Trim());

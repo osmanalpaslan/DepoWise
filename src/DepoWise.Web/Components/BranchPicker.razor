@@ -90,8 +90,20 @@
     public IReadOnlyList<string> Selected => Multi ? _selected.ToList()
         : (string.IsNullOrEmpty(_single) ? Array.Empty<string>() : new[] { _single });
 
-    /// <summary>API'ye gönderilecek "a,b,c" biçimi. Boş → null (filtre yok).</summary>
-    public string? Csv => Selected.Count == 0 ? null : string.Join(",", Selected);
+    /// <summary>
+    /// API'ye gönderilecek "a,b,c" biçimi.
+    ///
+    /// ⭐ GUI-03 (2026-08-13, masaüstü GUI testinde bulundu — web'de de aynıydı): boş seçimde <c>null</c>
+    /// gönderiliyordu. <c>null</c> "istenen yok" demektir ve sunucuda <c>BranchAccess.Effective</c>
+    /// (<c>İZİNLİ ∩ (İSTENEN ?? OTURUM ?? İZİNLİ)</c>) <b>oturumun çalışma şubesine</b> düşer. Oysa
+    /// ekran boş seçim için "Tüm yetkili şubeler" yazıyordu → etiket ile veri çelişiyordu.
+    /// Artık boş seçimde yetkili şubelerin TAMAMI açıkça istenir. Kapsamı genişletmez: sunucu yine
+    /// İZİNLİ ile kesiştirir. Kısıtsız kullanıcıda (şube listesi firma geneli) <c>null</c> korunur.
+    /// </summary>
+    public string? Csv =>
+        Selected.Count > 0 ? string.Join(",", Selected)
+        : (Unrestricted || _branches.Count == 0) ? null
+        : string.Join(",", _branches.Select(b => b.Id));
 
     /// <summary>
     /// YAZMA için AKTİF ÇALIŞMA ŞUBESİ — <b>tekil</b>. Çoklu seçim yazma için KULLANILMAZ:

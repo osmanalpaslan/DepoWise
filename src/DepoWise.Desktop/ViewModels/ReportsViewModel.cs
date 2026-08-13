@@ -200,7 +200,18 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private void LoadBranches()
     {
         if (!CanSelectBranches) return;
-        try { foreach (var b in DesktopServices.Branches.List(_session)) Branches.Add(new BranchPick(b.Id, b.Name)); }
+        // ⭐ GUI-04 (2026-08-13, gerçek masaüstü GUI testinde bulundu): rapor şube filtresi firmanın TÜM
+        // şubelerini listeliyordu. Kapsamı A+B olan kullanıcı raporda "Şube C"yi görüp seçebiliyordu.
+        // Servis fail-closed olduğu için veri gelmiyordu (boş rapor), ama kullanıcı yetkisi olmayan bir
+        // şubeyi görüyor ve sebebi anlaşılmayan boş sonuç alıyordu. Ön muhasebe ekranlarındaki
+        // BranchScopeSelector zaten kapsamla kırpıyordu; rapor ekranı bu kapıyı atlıyordu.
+        var izinli = BranchAccess.Allowed(_session);
+        try
+        {
+            foreach (var b in DesktopServices.Branches.List(_session))
+                if (izinli is null || izinli.Contains(b.Id, StringComparer.Ordinal))
+                    Branches.Add(new BranchPick(b.Id, b.Name));
+        }
         catch { }
     }
 

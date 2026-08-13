@@ -615,3 +615,35 @@ Rapor: [`docs/tests/CokSubeliStok_Test_Report.md`](../tests/CokSubeliStok_Test_R
 **Yayın turu:** Web deploy + **masaüstü publish/update paketi** (kullanıcı kararı 2026-08-12 —
 geliştirme turu kapatıldı, gerçek kullanıcı testine geçiliyor). Migration **gerekmiyor**: kod kataloğu
 ve canlı şema **ikisi de 64**. STK-08 gerçek dağıtımı **yapılmayacak** — kullanıcı canlıda kendi test edecek.
+
+---
+
+## 2026-08-13 — MASAÜSTÜ GUI DOĞRULAMA TURU (şube kapsamı)
+
+**Masaüstü GUI otomasyonu kuruldu ve 28 maddelik checklist gerçek UI etkileşimiyle koşturuldu:
+22 GEÇTİ · 0 BAŞARISIZ · 6 koşturulmadı (gerekçeleri yazılı).** Windows UI Automation ile Avalonia
+penceresi sürülüyor; ek paket YOK. Ortam tamamen izole (yerel API + `DEPOWISE_ENVIRONMENT=GuiTest`),
+üretime hiç bağlanılmadı.
+
+**GUI testi ALTI GERÇEK ÜRÜN HATASI buldu — hepsi düzeltildi + 15 regresyon testi eklendi:**
+
+| Kod | Hata | Neden önemliydi |
+|---|---|---|
+| GUI-01 | Şube kapsamı **masaüstünde fiilen yoktu** (paket `user_scopes` taşımıyor + `AuthService.Login` oturuma koymuyor) | Kapsamı A+B olan kullanıcı **yetkisiz Şube C'ye giriş yapabiliyordu**; makine o şubeye bağlanıyordu |
+| GUI-02 | Elle cari hareketi `branch_id = NULL` yazılıyordu | Şubesiz satır her şubede görünür → **A'nın bakiyesi B'nin ekstresinde ve altı raporun tamamında** |
+| GUI-02b | Ters kayıt şubesiz + kapsam kontrolsüz | Yetkisiz şubenin hareketi iptal edilebiliyordu |
+| GUI-03 | "Tüm yetkili şubeler" etiketi ile veri çelişiyordu | Etiket A+B derken yalnız çalışma şubesi geliyordu |
+| GUI-04 | Rapor şube filtresinde yetkisiz şube listeleniyordu | Deny-by-default ihlali (masaüstü + `/api/reports/scope`) |
+| GUI-05 | "Şube Kapsamı" bölümü **sessizce kayboluyordu** | Kapsam yerelden, kullanıcı/yetki sunucudan okunuyordu; hata da eziliyordu |
+
+Düzeltmelerde **ikinci bir kapsam mantığı üretilmedi** — hepsi tek otorite `BranchAccess` üzerinden yürür.
+Masaüstü **ve** web/API birlikte düzeltildi (platform önceliği kuralı).
+
+Rapor: [`docs/tests/Sube_Kapsami_GUI_Test_Report.md`](../tests/Sube_Kapsami_GUI_Test_Report.md) ·
+Checklist: [`docs/tests/Masaustu_GUI_Checklist.md`](../tests/Masaustu_GUI_Checklist.md)
+
+### ▶️ SIRADAKİ TEK İŞ (güncellendi)
+**Yayın turu — ama GUI-01/02 nedeniyle önce şu karar gerekir:** GUI-02 düzeltmesi yalnız BUNDAN SONRA
+girilecek hareketleri şubeye bağlar. Canlıda **şubesiz (branch_id NULL) mevcut cari hareketler varsa**
+bunlar hâlâ her şubede görünür. Yayın öncesi canlı veride şubesiz hareket olup olmadığı sayılmalı;
+varsa kullanıcıya sorulup toplu şube ataması yapılmalıdır (veri düzeltme kararı kullanıcınındır).

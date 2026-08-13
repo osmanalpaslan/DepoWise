@@ -312,6 +312,41 @@ public class BranchScopeUiContractTests : IDisposable
         Assert.Equal(0m, _ledger.Balance(yonetici, c, new[] { _karaman }).Balance);
     }
 
+    /// <summary>
+    /// U17 — GUI-03 (2026-08-13, gerçek masaüstü GUI testinde bulundu):
+    /// <b>"Tüm yetkili şubeler" etiketi ile gelen veri AYNI ŞEYİ söylemelidir.</b>
+    ///
+    /// Şube seçicisi boşken <c>null</c> gönderiyordu; <c>Effective</c> formülü bu durumda
+    /// <c>OTURUM</c> basamağına düşüp yalnız ÇALIŞMA şubesini getiriyordu. Ekranda "Tüm yetkili şubeler"
+    /// yazarken Şube B'de çalışan yönetici A+B toplamı yerine yalnız B'yi görüyordu.
+    ///
+    /// Düzeltme UI katmanındadır (seçim boşken yetkili şubelerin TAMAMI açıkça istenir);
+    /// bu test o sözleşmenin servis tarafındaki karşılığını sabitler: yetkili şubeler açıkça
+    /// istendiğinde çalışma şubesi kısıtlaması devreye GİRMEZ ve toplam gelir.
+    /// </summary>
+    [Fact]
+    public void U17_Bos_Secim_Tum_Yetkili_Subeler_Anlamina_Gelir()
+    {
+        var c = _parties.Create(_admin, new NewParty("C-17", "Cari", PartyTypes.Both));
+        var kAnk = Hesap("K17-ANK", _ankara);
+        var kDuz = Hesap("K17-DUZ", _duzce);
+        _finance.Add(_admin, new NewFinanceEntry(kAnk, FinanceTxnTypes.Receipt, 1500m, Op(), PartyId: c, BranchId: _ankara));
+        _finance.Add(_admin, new NewFinanceEntry(kDuz, FinanceTxnTypes.Receipt, 700m, Op(), PartyId: c, BranchId: _duzce));
+
+        // DÜZCE'de çalışan, ANKARA+DÜZCE yetkili yönetici (masaüstündeki oturumun birebir karşılığı).
+        var yonetici = Kullanici("u17", scope: new[] { _ankara, _duzce });
+        yonetici.OperatingBranchId = _duzce;
+
+        // İSTENEN yok → OTURUM basamağı: yalnız DÜZCE (formülün kendisi; değişmedi).
+        Assert.Equal(-700m, _ledger.Balance(yonetici, c).Balance);
+
+        // Seçici artık boş seçimde yetkili şubelerin TAMAMINI gönderir → toplam gelir.
+        Assert.Equal(-2200m, _ledger.Balance(yonetici, c, new[] { _ankara, _duzce }).Balance);
+
+        // Kapsam yine korunur: yetkisiz şube açıkça istense de veri getirmez.
+        Assert.Equal(0m, _ledger.Balance(yonetici, c, new[] { _karaman }).Balance);
+    }
+
     public void Dispose()
     {
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

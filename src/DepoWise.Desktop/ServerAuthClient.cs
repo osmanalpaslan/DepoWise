@@ -266,7 +266,15 @@ public static class ServerAuthClient
                 var body = await resp.Content.ReadAsStringAsync();
                 var bundle = JsonSerializer.Deserialize<RemoteUserBundle>(body, _json);
                 if (bundle is null || string.IsNullOrWhiteSpace(bundle.UserId)) return new(AuthState.WrongPassword, null);
-                DesktopServices.Auth.ImportRemoteUser(bundle); // yerel hash güncellenir
+                // GUI-01 — SIRA ÖNEMLİ: kullanıcı paketi artık ŞUBE KAPSAMINI (user_scopes) da taşıyor.
+                //   1) kullanıcı  → FİRMA satırını oluşturur (şube aynalaması buna FK ile bağlı)
+                //   2) şubeler    → kapsamın FK hedefi
+                //   3) kapsam     → artık yazılabilir
+                // Tek adımda yapılırsa ilk kurulumda kapsam sessizce düşer ve kullanıcı yerelde
+                // "kısıtsız" görünür (yetkisi olmayan şubeyi görüp o şubeye girebilirdi).
+                DesktopServices.Auth.ImportRemoteUser(bundle); // yerel hash + yetkiler
+                await BranchMirror.RefreshAsync(bundle.CompanyId);
+                DesktopServices.Auth.ImportUserScopes(bundle); // şube kapsamı
                 await StoreTokenAsync(baseUrl, username, password); // Eşitle için JWT sakla
                 return new(AuthState.Ok, bundle.CompanyId);
             }

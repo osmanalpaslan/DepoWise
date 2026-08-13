@@ -28,7 +28,12 @@ public sealed record RemoteUserBundle(
     IReadOnlyList<string> Buttons,
     bool CanViewAllBranches = false,
     string? BranchId = null,
-    bool MustChangePassword = false);   // ilk giriş şifre belirleme zorunluluğu yerele taşınır
+    bool MustChangePassword = false,   // ilk giriş şifre belirleme zorunluluğu yerele taşınır
+    // ⭐ GUI-01 (2026-08-13): ŞUBE KAPSAMI (user_scopes) da taşınır. Önceden taşınmıyordu; masaüstünde
+    // ScopeBranchIds daima boş kaldığı için BranchAccess.Allowed admin'i KISITSIZ sayıyor, kullanıcı
+    // yetkisi OLMAYAN şubeyi görebiliyor ve o şubeye giriş yapabiliyordu (web'de kapsam uygulanırken
+    // masaüstünde uygulanmıyordu). Kapsam artık kullanıcı paketiyle birlikte yerele yazılır.
+    IReadOnlyList<string>? ScopeBranchIds = null);
 
 /// <summary>
 /// Kimlik doğrulama + brute-force kilidi. 5 ardışık hatalı denemeden sonra 5 dk kilit.
@@ -83,6 +88,13 @@ public sealed class AuthService
         var session = new SessionContext(user.Value.Id, companyId, roles, perms, LoadViewAllBranches(conn, user.Value.Id))
         {
             BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
+            // ⭐ GUI-01 (2026-08-13): ŞUBE KAPSAMI BURADA DA DOLDURULUR. Web/API oturumu
+            // PermissionSnapshot.ToSession() üzerinden kurulduğu için kapsamı G4-3b'den beri taşıyordu;
+            // MASAÜSTÜ ise doğrudan bu metodu çağırıyor ve iki alan boş kalıyordu → BranchAccess.Allowed
+            // admin'i KISITSIZ sayıyor, kullanıcı yetkisi olmayan şubeyi görüp o şubeye girebiliyordu.
+            // Kapsam artık her iki yolda da AYNI ham veriden gelir; tek yorumlayıcı yine BranchAccess'tir.
+            ScopeBranchIds = LoadUserScopes(conn, companyId, user.Value.Id),
+            HomeBranchId = LoadHomeBranch(conn, user.Value.Id),
         };
         return new LoginResult(true, false, 0, session, MustChangePassword: MustChangePassword(conn, user.Value.Id));
     }
@@ -305,8 +317,11 @@ public sealed class AuthService
             cn.AddWithValue("@c", coId);
             coName = cn.ExecuteScalar() as string ?? coId;
         }
+        // GUI-01: şube kapsamı da pakete girer (yoksa masaüstü kapsamı hiç görmez → kısıtsız sanır).
+        var scopes = LoadUserScopes(conn, coId, userId);
         return new RemoteUserBundle(coId, coName, userId, username, hash, fullName, true,
-            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId, mustChange);
+            roles, perms.Modules.ToList(), perms.Buttons.ToList(), LoadViewAllBranches(conn, userId), branchId, mustChange,
+            scopes);
     }
 
     /// <summary>MASAÜSTÜ tarafı: sunucudan gelen kullanıcı paketini YEREL DB'ye yazar (upsert). Sonrasında
@@ -404,7 +419,52 @@ public sealed class AuthService
             ib.AddWithValue("@now", now);
             ib.ExecuteNonQuery();
         }
+        // 6) ŞUBE KAPSAMI — user_scopes (tam değiştir).
+        WriteUserScopes(conn, tx, b);
         tx.Commit();
+    }
+
+    /// <summary>
+    /// ⭐ GUI-01 — ŞUBE KAPSAMINI yerele yazar (tam değiştir). <see cref="ImportRemoteUser"/> içinde de
+    /// çağrılır; ayrıca <b>şubeler aynalandıktan SONRA</b> tek başına çağrılabilsin diye açıktır:
+    /// <c>user_scopes.branch_id</c> <c>branches</c>'a FK ile bağlıdır ve ilk kurulumda şubeler kullanıcı
+    /// paketinden SONRA iner (firma satırı olmadan şube aynalanamaz) — bu yüzden sıra
+    /// <b>kullanıcı → şubeler → kapsam</b> olmalıdır.
+    ///
+    /// Paket kapsam TAŞIMIYORSA (<c>null</c> = eski sunucu) yereldeki kapsam <b>silinmez</b>: aksi hâlde
+    /// eski bir sunucuya bağlanmak kullanıcıyı sessizce "kısıtsız" yapardı.
+    /// </summary>
+    public void ImportUserScopes(RemoteUserBundle b)
+    {
+        if (b.ScopeBranchIds is null) return;
+        using var conn = _factory.Create();
+        using var tx = conn.BeginTransaction();
+        WriteUserScopes(conn, tx, b);
+        tx.Commit();
+    }
+
+    private static void WriteUserScopes(DbConnection conn, DbTransaction tx, RemoteUserBundle b)
+    {
+        if (b.ScopeBranchIds is null) return;
+        using (var d = conn.CreateCommand())
+        {
+            d.Transaction = tx;
+            d.CommandText = "DELETE FROM user_scopes WHERE user_id=@u AND company_id=@c;";
+            d.AddWithValue("@u", b.UserId); d.AddWithValue("@c", b.CompanyId);
+            d.ExecuteNonQuery();
+        }
+        foreach (var sb in b.ScopeBranchIds.Distinct(StringComparer.Ordinal))
+        {
+            using var isc = conn.CreateCommand();
+            isc.Transaction = tx;
+            // Şube yerelde henüz yoksa FK patlamasın: satır atlanır, şube aynalandıktan sonra
+            // ImportUserScopes ile yazılır (giriş akışı bunu yapar).
+            isc.CommandText =
+                "INSERT INTO user_scopes(user_id, company_id, branch_id) " +
+                "SELECT @u,@c,@b WHERE EXISTS(SELECT 1 FROM branches WHERE id=@b AND company_id=@c AND is_deleted=0);";
+            isc.AddWithValue("@u", b.UserId); isc.AddWithValue("@c", b.CompanyId); isc.AddWithValue("@b", sb);
+            isc.ExecuteNonQuery();
+        }
     }
 
     private (int count, long? lastFailMs) ConsecutiveFailures(DbConnection conn, string companyId, string username)

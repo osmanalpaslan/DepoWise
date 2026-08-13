@@ -1,4 +1,5 @@
 using DepoWise.Infrastructure.Database;
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -685,8 +686,31 @@ public sealed partial class LoginViewModel : ViewModelBase
         var online = await ServerAuthClient.GetLoginBranchesAsync(companyId);
         if (online is not null) foreach (var b in online) Branches.Add(b);
         else LoadLocalBranches(companyId); // çevrimdışı → yerel DB (şifre bilgisi olmadan)
+        FilterBranchesByScope();
         OnPropertyChanged(nameof(HasBranches));
         OnPropertyChanged(nameof(ShowBranchPassword));
+    }
+
+    /// <summary>
+    /// ⭐ GUI-01 (2026-08-13, gerçek GUI testinde bulundu): giriş şube listesi kullanıcının ŞUBE KAPSAMIYLA
+    /// kırpılır. Önceden firmanın TÜM şubeleri listeleniyordu; kapsamı A+B olan kullanıcı "Şube C"yi seçip
+    /// giriş yapabiliyordu. Servis katmanı fail-closed olduğu için veri sızmıyordu ama oturum tamamen
+    /// kullanılamaz hâle geliyor (her ekran boş) ve ilk kurulumda MAKİNE yetkisiz şubeye bağlanıyordu.
+    /// Tek yorumlayıcı yine BranchAccess'tir; burada ikinci bir kapsam mantığı YOKTUR.
+    /// "🌐 Tüm Şubeler" sanal seçimi kapsam dışıdır (yetkiyle zaten ayrıca kontrol edilir).
+    /// </summary>
+    private void FilterBranchesByScope()
+    {
+        if (_authedSession is null) return;
+        var izinli = BranchAccess.Allowed(_authedSession);
+        if (izinli is null) return;   // kısıtsız → kırpma yok
+        var set = new HashSet<string>(izinli, StringComparer.Ordinal);
+        var kalan = Branches
+            .Where(b => b.Id == BranchConstants.AllBranchesId || set.Contains(b.Id))
+            .ToList();
+        if (kalan.Count == Branches.Count) return;
+        Branches.Clear();
+        foreach (var b in kalan) Branches.Add(b);
     }
 
     private void LoadLocalBranches(string companyId)

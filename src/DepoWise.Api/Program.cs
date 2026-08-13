@@ -237,12 +237,17 @@ app.MapPost("/api/auth/login", (HttpContext http, LoginDto dto) =>
     bool effAllBranches = res.Session.CanViewAllBranches || res.Session.IsSuperAdmin || res.Session.IsCompanyAdmin;
     if (allBranches && !effAllBranches)
         return Results.Json(new { error = "Bu kullanıcının Tüm Şubeler yetkisi yok." }, statusCode: 403);
+    // GUI-01: UI listeyi kırpıyor; API de AYNI kapıyı uygular (CLAUDE.md §5 — UI güvenlik kapısı değildir).
+    // İstek gövdesine elle yetkisiz şube yazılarak kapsam dışına çıkılamaz.
+    var girisIzinli = DepoWise.Application.Security.BranchAccess.Allowed(res.Session);
+    if (!allBranches && !string.IsNullOrWhiteSpace(dto.BranchId)
+        && girisIzinli is not null && !girisIzinli.Contains(dto.BranchId!, StringComparer.Ordinal))
+        return Results.Json(new { error = "Bu şube için yetkiniz yok." }, statusCode: 403);
     var token = JwtTokens.Issue(jwtKey, res.Session.UserId, res.Session.CompanyId);
     // 2 aşamalı login: kullanıcının KENDİ firmasının adı + şubeleri döner (kullanıcı firma listesini görmez).
     // Süper admin: firma seçebilsin diye tüm firmalar da döner (Adım 1b: /api/auth/select-company ile firma seçilir).
     var companyName = svc.Companies.GetName(res.Session.CompanyId);
-    var branches = svc.Branches.ListForLogin(res.Session.CompanyId)
-        .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+    var branches = LoginBranchesFor(res.Session);
     object? companies = null;
     if (res.Session.IsSuperAdmin)
     {
@@ -272,8 +277,7 @@ app.MapPost("/api/auth/change-initial-password", (HttpContext c, ChangeInitialPw
     // Şifre belirlendi → normal login akışına devam (firma/şube seçimi). Taze token + firma bağlamı döner.
     var token = JwtTokens.Issue(jwtKey, s.UserId, s.CompanyId);
     var companyName = svc.Companies.GetName(s.CompanyId);
-    var branches = svc.Branches.ListForLogin(s.CompanyId)
-        .Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+    var branches = LoginBranchesFor(s);
     object? companies = null;
     if (s.IsSuperAdmin)
     {
@@ -702,6 +706,18 @@ app.MapPost("/api/companies/{id}/reactivate", (HttpContext ctx, string id) =>
 // ── İş modülleri: liste (okuma) uçları — hepsi yetki korumalı (servis AccessControl.View) ──
 DepoWise.Application.Common.PageRequest Page() => new() { Limit = 500 };
 SessionContext? S(HttpContext ctx) => Session(ctx);
+
+// ⭐ GUI-01 (2026-08-13): GİRİŞ şube listesi kullanıcının ŞUBE KAPSAMIYLA kırpılır. Önceden firmanın TÜM
+// şubeleri dönüyordu; kapsamı A+B olan kullanıcı yetkisi OLMAYAN "Şube C" ile giriş yapabiliyordu.
+// Servis katmanı fail-closed olduğu için veri sızmıyordu, ama oturum kullanılamaz hâle geliyordu
+// (her ekran boş, sebebi görünmez). Tek yorumlayıcı BranchAccess'tir — burada ikinci kapsam mantığı YOK.
+IEnumerable<object> LoginBranchesFor(SessionContext s)
+{
+    var izinli = DepoWise.Application.Security.BranchAccess.Allowed(s);
+    return svc.Branches.ListForLogin(s.CompanyId)
+        .Where(b => izinli is null || izinli.Contains(b.Id, StringComparer.Ordinal))
+        .Select(b => (object)new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword });
+}
 static string? Doc(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 static string? ClientIp(HttpContext c)
 {
@@ -2304,10 +2320,20 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
     using var conn = svc.Factory.Create();
     using (var cmd = conn.CreateCommand())
     {
+        // ⭐ GUI-04 (2026-08-13): rapor şube filtresi kullanıcının KAPSAMIYLA kırpılır. Önceden firmanın
+        // TÜM şubeleri dönüyordu; kapsamı A+B olan kullanıcı raporda "Şube C"yi görüp seçebiliyordu
+        // (servis fail-closed olduğu için sonuç boş geliyor, sebebi kullanıcıya görünmüyordu).
+        // Süper adminin çapraz-firma seçimi etkilenmez: onun kapsamı zaten kısıtsızdır (Allowed = null).
+        var raporIzinli = DepoWise.Application.Security.BranchAccess.Allowed(s);
         cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
         cmd.AddWithValue("@c", cid);
         using var r = cmd.ExecuteReader();
-        while (r.Read()) branches.Add(new { id = r.GetString(0), name = r.GetString(1) });
+        while (r.Read())
+        {
+            var bid = r.GetString(0);
+            if (raporIzinli is not null && !raporIzinli.Contains(bid, StringComparer.Ordinal)) continue;
+            branches.Add(new { id = bid, name = r.GetString(1) });
+        }
     }
     using (var cmd = conn.CreateCommand())
     {

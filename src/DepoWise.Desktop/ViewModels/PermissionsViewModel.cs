@@ -103,7 +103,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     partial void OnSelectedUserChanged(UserRow? value)
     {
-        LoadBranchScope(value?.Id);   // G4-3e: şube kapsamı da kullanıcıyla birlikte gelir
+        _ = LoadBranchScopeAsync(value?.Id);   // G4-3e: şube kapsamı da kullanıcıyla birlikte gelir
         _ = LoadSelectedUserAsync(value);
     }
 
@@ -307,8 +307,12 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     [ObservableProperty] private string _scopeModeText = "";
     [ObservableProperty] private bool _scopeLoaded;
 
-    /// <summary>Kendi kapsamını değiştiremez — yetki sıfırlamadaki kuralın aynısı.</summary>
-    public bool CanEditScope => HasUser && CanManage && SelectedUser?.Id != _session.UserId;
+    /// <summary>GUI-05 — kapsam okunamadıysa sebebi (boş = sorun yok). Panelde görünür.</summary>
+    [ObservableProperty] private string? _scopeError;
+
+    /// <summary>Kendi kapsamını değiştiremez — yetki sıfırlamadaki kuralın aynısı.
+    /// Kapsam okunamadıysa da düzenleme AÇILMAZ (boş listeyi kaydedip kapsamı silmeyi önler).</summary>
+    public bool CanEditScope => HasUser && CanManage && SelectedUser?.Id != _session.UserId && ScopeError is null;
 
     /// <summary>Kapsam bölümünde gösterilecek açıklama (kullanıcı ne olduğunu tahmin etmesin).</summary>
     public string ScopeHint => SelectedUser?.Id == _session.UserId
@@ -318,22 +322,48 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             : "Hiçbiri işaretlenmezse açık kapsam kaldırılır; kullanıcı kendi şubesi/varsayılan davranışına döner.";
 
     /// <summary>Seçili kullanıcının şube kapsamını + aktörün verebileceği şubeleri okur.</summary>
-    private void LoadBranchScope(string? userId)
+    private async Task LoadBranchScopeAsync(string? userId)
     {
         ScopeBranches.Clear();
         ScopeModeText = "";
+        ScopeError = null;
         ScopeLoaded = false;
         if (string.IsNullOrWhiteSpace(userId) || !CanManage) { Notify(); return; }
         try
         {
-            var v = DesktopServices.Permissions.GetBranchScope(_session, userId);
+            // ⭐ GUI-05: kapsam ÖNCE SUNUCUDAN (kullanıcı listesi ve yetkiler de sunucudan geliyor).
+            // Web'de oluşturulmuş kullanıcı bu makinenin yerel veritabanında OLMAYABİLİR; yerelden okumak
+            // "kullanıcı bulunamadı" ile düşüyor ve panel sessizce kayboluyordu. Çevrimdışıysa yerele düşer.
+            var uzak = await OrgServerClient.GetBranchScopeAsync(userId!);
+            if (uzak is { } u)
+            {
+                ScopeModeText = u.ModeText;
+                var acik = u.ScopeBranchIds.ToHashSet(StringComparer.Ordinal);
+                foreach (var (id, name) in u.Assignable)
+                    ScopeBranches.Add(new ScopePick(id, name, acik.Contains(id)));
+                ScopeLoaded = true;
+                Notify();
+                return;
+            }
+
+            var v = DesktopServices.Permissions.GetBranchScope(_session, userId!);
             ScopeModeText = v.ModeText;
             var mevcut = v.ScopeBranchIds.ToHashSet(StringComparer.Ordinal);
             foreach (var b in v.AssignableBranches)
                 ScopeBranches.Add(new ScopePick(b.Id, b.Name, mevcut.Contains(b.Id)));
             ScopeLoaded = true;
         }
-        catch (Exception ex) { Status = "Şube kapsamı alınamadı: " + ex.Message; }
+        catch (Exception ex)
+        {
+            // ⭐ GUI-05 (2026-08-13, gerçek masaüstü GUI testinde bulundu): hata Status'a yazılıyordu ama
+            // hemen ardından çalışan yetki yüklemesi Status'u EZİYORDU → panel sessizce KAYBOLUYORDU.
+            // Kullanıcı "Şube Kapsamı bölümü neden yok?" sorusunun cevabını hiçbir yerde göremiyordu.
+            // (Tipik neden: kullanıcı sunucuda var ama BU MAKİNENİN yerel veritabanında yok — masaüstüne
+            //  yalnız o makinede giriş yapmış kullanıcılar iner. Artık sebep ekranda yazar.)
+            ScopeError = ex.Message;
+            ScopeLoaded = true;   // panel görünsün ki sebep okunabilsin
+            ScopeModeText = "okunamadı";
+        }
         Notify();
     }
 
@@ -348,17 +378,22 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     /// mesaj kullanıcıya olduğu gibi gösterilir. Audit ve snapshot tazeleme servistedir.
     /// </summary>
     [RelayCommand]
-    private void SaveBranchScope()
+    private async Task SaveBranchScope()
     {
         if (SelectedUser is null || !CanEditScope) return;
         try
         {
             var secili = ScopeBranches.Where(x => x.IsChecked).Select(x => x.Id).ToList();
-            DesktopServices.Permissions.SaveBranchScope(_session, SelectedUser.Id, secili);
+            // ⭐ GUI-05: kayıt da SUNUCUYA gider (kapsam sunucu-otoriteli; hedef kullanıcı bir sonraki
+            // girişte alır — kullanıcı paketiyle birlikte iner). Çevrimdışıysa yerele yazılır.
+            var r = await OrgServerClient.SaveBranchScopeAsync(SelectedUser.Id, secili);
+            if (r.Offline) DesktopServices.Permissions.SaveBranchScope(_session, SelectedUser.Id, secili);
+            else if (!r.Ok) { Status = r.Error ?? "Şube kapsamı kaydedilemedi."; return; }
+
             Status = secili.Count == 0
                 ? "Şube kapsamı kaldırıldı (kullanıcı varsayılan davranışına döndü)."
                 : $"Şube kapsamı kaydedildi ({secili.Count} şube).";
-            LoadBranchScope(SelectedUser.Id);   // kip değişmiş olabilir
+            await LoadBranchScopeAsync(SelectedUser.Id);   // kip değişmiş olabilir
         }
         catch (Exception ex) { Status = ex.Message; }
     }

@@ -44,8 +44,23 @@ public sealed partial class BranchScopeSelector : ObservableObject
     /// <summary>Seçili şubeler. BOŞ = "tüm yetkili şubeler" (kullanıcının erişebildikleri).</summary>
     public ObservableCollection<string> Selected { get; } = new();
 
-    /// <summary>Serviste kullanılacak kapsam. Boş → null (filtre yok; servis kendi kapsamını uygular).</summary>
-    public IReadOnlyList<string>? Filter => Selected.Count == 0 ? null : Selected.ToList();
+    /// <summary>
+    /// Serviste kullanılacak OKUMA kapsamı.
+    ///
+    /// ⭐ GUI-03 (2026-08-13, gerçek masaüstü GUI testinde bulundu): seçim boşken <c>null</c> dönülüyordu.
+    /// <c>null</c> "istenen yok" demektir ve <see cref="BranchAccess.Effective"/> formülü
+    /// (<c>İZİNLİ ∩ (İSTENEN ?? OTURUM ?? İZİNLİ)</c>) bu durumda <b>oturumun çalışma şubesine</b> düşer.
+    /// Oysa ekran boş seçim için "Tüm yetkili şubeler" YAZIYORDU → etiket A+B vaat ederken veri yalnız
+    /// çalışma şubesinden geliyordu (Şube B'de 700 görünüyor, 2200 bekleniyordu).
+    ///
+    /// Artık boş seçimde YETKİLİ ŞUBELERİN TAMAMI açıkça istenir; etiket ile veri aynı şeyi söyler.
+    /// Kapsamı GENİŞLETMEZ: servis yine <c>İZİNLİ</c> ile kesiştirir, yetkisiz şube giremez.
+    /// Gerçekten kısıtsız kullanıcıda (kapsam yok) <c>null</c> korunur — firma geneli anlamını taşır.
+    /// </summary>
+    public IReadOnlyList<string>? Filter =>
+        Selected.Count > 0 ? Selected.ToList()
+        : Unrestricted ? null
+        : Branches.Select(b => b.Key).ToList();
 
     /// <summary>Tekil seçim bağlaması (basit ekranlar için). Boş dize = tüm yetkili şubeler.</summary>
     [ObservableProperty] private string _single = "";

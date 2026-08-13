@@ -99,6 +99,25 @@ public static class OrgServerClient
 
     /// <summary>Yetkileri SUNUCUYA kaydeder (kullanıcı-otoriteli → hedef kullanıcı bir sonraki girişte alır).
     /// <paramref name="version"/> okunan sürümdür (KLT-01c); arada başkası kaydettiyse sunucu 409 döner.</summary>
+    public static async Task<(string Mode, string ModeText, List<string> ScopeBranchIds, List<(string Id, string Name)> Assignable)?>
+        GetBranchScopeAsync(string userId)
+    {
+        using var doc = await GetJsonAsync($"/api/permissions/{userId}/branch-scope");
+        if (doc is null) return null;
+        var root = doc.RootElement;
+        var scope = new List<string>();
+        if (root.TryGetProperty("scopeBranchIds", out var s) && s.ValueKind == JsonValueKind.Array)
+            foreach (var e in s.EnumerateArray()) if (e.ValueKind == JsonValueKind.String) scope.Add(e.GetString() ?? "");
+        var atanabilir = new List<(string, string)>();
+        if (root.TryGetProperty("assignable", out var a) && a.ValueKind == JsonValueKind.Array)
+            foreach (var e in a.EnumerateArray()) atanabilir.Add((Str(e, "id"), Str(e, "name")));
+        return (Str(root, "mode"), Str(root, "modeText"), scope, atanabilir);
+    }
+
+    /// <summary>GUI-05 — şube kapsamını SUNUCUYA kaydeder (kapsam sunucu-otoriteli; yetkilerle aynı yol).</summary>
+    public static Task<Result> SaveBranchScopeAsync(string userId, IEnumerable<string> branchIds)
+        => SendOkAsync(HttpMethod.Put, $"/api/permissions/{userId}/branch-scope", new { branchIds });
+
     public static Task<Result> SavePermissionsAsync(string userId, IEnumerable<ModulePermission> modules, IEnumerable<string> buttons,
         long version = 0)
         => SendOkAsync(HttpMethod.Post, $"/api/permissions/{userId}", new

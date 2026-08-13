@@ -98,3 +98,26 @@
 - (ÇÖZÜLDÜ 05.07.2026) SessionExpired UI'ya bağlandı: masaüstü oturum düşünce dialog + tekrar giriş (`ShellViewModel.OnSessionExpired`).
 - Sunucuda ILogger yok; ~40 boş catch bloğu gözlemlenebilirliği düşürüyor (500 loglaması eklendi, gerisi açık). *(orta öncelik — launch için kabul edilebilir)*
 - Güvenlik sertleştirme adayları (bu turda dokunulmadı, ayrı inceleme): CORS AllowAnyOrigin (Blazor Server side-call olduğundan tarayıcıdan kullanılmıyor, düşük risk), `/api/machines/register` anonim, `serverurl.txt` düz metin, 1 GB gövde limiti.
+
+## 2026-08-13 — Masaüstü GUI doğrulama turunda AÇILAN konular
+
+**Kapatılanlar (bu turda düzeltildi, regresyon testi eklendi):** GUI-01 masaüstünde şube kapsamının hiç
+uygulanmaması · GUI-02 elle cari hareketinin şubesiz yazılması · GUI-02b ters kaydın şubesiz + kapsam
+kontrolsüz olması · GUI-03 "tüm yetkili şubeler" etiketi ile verinin çelişmesi · GUI-04 rapor şube
+filtresinde yetkisiz şubenin listelenmesi · GUI-05 "Şube Kapsamı" bölümünün sessizce kaybolması.
+Ayrıntı: [`docs/tests/Sube_Kapsami_GUI_Test_Report.md`](tests/Sube_Kapsami_GUI_Test_Report.md).
+
+**AÇIK — veri geçişi kararı (kullanıcıya sorulacak):** GUI-02 düzeltmesi yalnız bundan sonra girilecek
+hareketleri şubeye bağlar. Canlıda daha önce elle girilmiş cari hareketler `branch_id = NULL` olabilir;
+şubesiz satır tasarım gereği HER şubede görünür. Yayın öncesi canlı veride şubesiz hareket sayılmalı,
+varsa toplu şube ataması kullanıcı onayıyla yapılmalıdır. **Bu tur canlı veriye bakmadı.**
+
+**AÇIK — masaüstü GUI'de koşturulamayan 3 madde:** negatif stok kapısı (izole ortamda malzeme kurulmadı) ·
+idempotency ikinci gönderim (kayıttan sonra form kapanıyor) · senkron şube izolasyonu (iki makine gerekir).
+Üçü de otomatik testlerle örtülüdür ama **GUI kanıtı yoktur**.
+
+**AÇIK — masaüstü Yetkiler ekranı ile yerel veritabanı ilişkisi:** kullanıcı listesi ve yetkiler
+sunucudan gelir; masaüstünün yerel veritabanında ise yalnız o makinede giriş yapmış kullanıcılar bulunur.
+GUI-05 ile kapsam okuma/yazma sunucuya taşındı, ama **çevrimdışıyken** web'de oluşturulmuş bir kullanıcının
+kapsamı hâlâ yerelden okunamaz (panelde sebep yazar). Kalıcı çözüm kullanıcı aynalaması olurdu — mimari
+karar gerektirir, bu turda yapılmadı.
