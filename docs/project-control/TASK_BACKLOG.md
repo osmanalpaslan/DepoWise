@@ -440,3 +440,19 @@ kullanılmıyordu (sunucu defterden yeniden hesaplıyor, masaüstü pull'u hari�
 **Fayda (üretim kopyasında ölçüldü):** her turda **663 satır / ~86 KB** taşınmıyor.
 **1317 → 1325/1292/0/33** · build 0 hata. 3 mevcut test gerekçeli yeniden yazıldı (kayıtta §4).
 **Bulgu:** `stock_balances` senkrondaki tek bileşik-PK'lı tabloydu → yetenek ayrı testle kilitlendi.
+
+### `GUI-01..05` — Masaüstü GUI doğrulama turu · ✅ **TAMAMLANDI** (2026-08-13)
+Kayıt: [`docs/tests/Sube_Kapsami_GUI_Test_Report.md`](../tests/Sube_Kapsami_GUI_Test_Report.md)
+
+Windows UI Automation ile masaüstü giriş ekranının **arkasına geçildi**; 28 maddelik checklist gerçek
+UI etkileşimiyle koşturuldu: **22 geçti / 0 başarısız / 6 koşturulmadı** (gerekçeleri checklist'te).
+**Altı gerçek ürün hatası** bulundu ve düzeltildi (GUI-01 kapsamın masaüstünde hiç uygulanmaması ·
+GUI-02/02b elle cari hareketinin ve ters kaydın şubesiz olması · GUI-03 etiket–veri çelişkisi ·
+GUI-04 raporda yetkisiz şube · GUI-05 kapsam panelinin sessizce kaybolması).
+**1926 → 1941/1941/0/35** · Release build 0 hata · üretime hiç bağlanılmadı.
+
+**🔴 AÇIK (kullanıcı kararı gerekir) — şubesiz mevcut cari hareketler.** GUI-02 düzeltmesi yalnız
+bundan sonra girilecek hareketleri şubeye bağlar. Canlıda daha önce elle girilmiş hareketler
+`branch_id = NULL` olabilir ve şubesiz satır tasarım gereği **her şubede** görünür. Yayın öncesi
+canlı veride şubesiz hareket **sayılmalı**; varsa toplu şube ataması kullanıcı onayıyla yapılmalıdır.
+Bu tur canlı veriye **bakmadı**.
