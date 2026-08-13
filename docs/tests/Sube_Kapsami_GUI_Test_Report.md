@@ -13,10 +13,10 @@ Ayrıntılı 28 maddelik sonuç tablosu: [`Masaustu_GUI_Checklist.md`](Masaustu_
 
 | | |
 |---|---|
-| Koşturulan GUI maddesi | **22 / 28** |
-| Geçen | **22** |
+| Koşturulan GUI maddesi | **25 / 28** |
+| Geçen | **25** |
 | Başarısız | **0** |
-| Koşturulmayan | 6 (gerekçeleri checklist'te tek tek yazılı) |
+| Koşturulmayan | 3 (madde 8 · 11 · 27 — gerekçeleri checklist'te yazılı) |
 | Bulunan gerçek ürün hatası | **6** (hepsi düzeltildi) |
 | Eklenen regresyon testi | **15** (`BranchScopeDesktopTransferTests` 8 · `PartyLedgerBranchTests` 6 · `BranchScopeUiContractTests.U17` 1) |
 

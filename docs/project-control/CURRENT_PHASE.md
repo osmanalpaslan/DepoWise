@@ -621,7 +621,7 @@ ve canlı şema **ikisi de 64**. STK-08 gerçek dağıtımı **yapılmayacak** �
 ## 2026-08-13 — MASAÜSTÜ GUI DOĞRULAMA TURU (şube kapsamı)
 
 **Masaüstü GUI otomasyonu kuruldu ve 28 maddelik checklist gerçek UI etkileşimiyle koşturuldu:
-22 GEÇTİ · 0 BAŞARISIZ · 6 koşturulmadı (gerekçeleri yazılı).** Windows UI Automation ile Avalonia
+25 GEÇTİ · 0 BAŞARISIZ · 3 koşturulmadı (madde 8 · 11 · 27).** Windows UI Automation ile Avalonia
 penceresi sürülüyor; ek paket YOK. Ortam tamamen izole (yerel API + `DEPOWISE_ENVIRONMENT=GuiTest`),
 üretime hiç bağlanılmadı.
 

@@ -1,7 +1,7 @@
 # Masaüstü GUI — Otomatik Test Sonuçları
 
-**Durum (2026-08-13): 28 maddenin 22'si GERÇEK GUI ETKİLEŞİMİYLE KOŞTURULDU ve GEÇTİ.**
-Kalan 6 madde aşağıda tek tek gerekçesiyle işaretlidir. **Hiçbir madde API/servis testiyle "GUI geçti" sayılmamıştır.**
+**Durum (2026-08-13): 28 maddenin 25'i GERÇEK GUI ETKİLEŞİMİYLE KOŞTURULDU ve GEÇTİ.**
+Kalan **3 madde** (8, 11, 27) aşağıda tek tek gerekçesiyle işaretlidir. **Hiçbir madde API/servis testiyle "GUI geçti" sayılmamıştır.**
 
 ## Nasıl koşturuldu
 
@@ -65,7 +65,7 @@ Kullanıcılar: `admin` (kapsam **A+B**), `depo1` (kapsam **A**), `superadmin` (
 | 27 | Ağı aç → senkron (şube izolasyonu) | ⏸️ GUI'DE KOŞTURULMADI | İki makineli kurulum gerekir; tek makinede GUI'den doğrulanamaz. `BusinessSyncService` testleriyle örtülü |
 | 28 | Tabloda metne tıkla → satır seçilir | ✅ GEÇTİ | `CARI-1` metnine **gerçek fare tıklaması** → satır seçili (G3 `TableRowSelect`) |
 
-**Özet: 22 GEÇTİ · 0 BAŞARISIZ · 6 koşturulmadı (3'ü kapsam dışı/altyapı gerektiriyor, 3'ü GUI'den tetiklenemiyor).**
+**Özet: 25 GEÇTİ · 0 BAŞARISIZ · 3 koşturulmadı (madde 8 · 11 · 27).**
 
 ---
 
