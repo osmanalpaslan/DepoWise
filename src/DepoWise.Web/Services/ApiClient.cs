@@ -113,8 +113,50 @@ public sealed class ApiClient
                 if (e.TryGetProperty("web", out var w) && w.ValueKind == System.Text.Json.JsonValueKind.False)
                     kapali.Add(e.GetProperty("key").GetString() ?? "");
             _auth.SetScreenVisibility(kapali);
+
+            // MNU: menü düzeni AYNI yanıtta gelir (ayrı tazeleme yolu yok). Ham tercihler taşınır;
+            // sıra/ad çözümlemesini web ve masaüstü AYNI kodla (MenuLayout.Build) yapar.
+            _auth.SetMenuLayout(ParseLayout(doc.RootElement));
         }
         catch { /* okunamazsa katalog varsayılanı geçerli kalır → ekranlar kapanmaz */ }
+    }
+
+    /// <summary>MNU — sunucudan gelen ham menü düzeni tercihlerini çözer. Alan yoksa BOŞ küme döner
+    /// (eski sunucu / kayıt yok) → menü katalog varsayılanıyla çizilir.</summary>
+    private static DepoWise.Application.Security.MenuLayoutSet ParseLayout(System.Text.Json.JsonElement root)
+    {
+        var screens = new Dictionary<string, DepoWise.Application.Security.ScreenLayoutOverride>(StringComparer.Ordinal);
+        var groups = new Dictionary<string, DepoWise.Application.Security.GroupLayoutOverride>(StringComparer.Ordinal);
+        if (!root.TryGetProperty("layout", out var layout) ||
+            layout.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return DepoWise.Application.Security.MenuLayoutSet.Empty;
+
+        if (layout.TryGetProperty("screens", out var sa) && sa.ValueKind == System.Text.Json.JsonValueKind.Array)
+            foreach (var e in sa.EnumerateArray())
+            {
+                var key = Str(e, "key");
+                if (key.Length == 0) continue;
+                screens[key] = new DepoWise.Application.Security.ScreenLayoutOverride(
+                    key, StrOrNull(e, "label"), StrOrNull(e, "groupKey"), IntOrNull(e, "sortOrder"));
+            }
+
+        if (layout.TryGetProperty("groups", out var ga) && ga.ValueKind == System.Text.Json.JsonValueKind.Array)
+            foreach (var e in ga.EnumerateArray())
+            {
+                var key = Str(e, "key");
+                if (key.Length == 0) continue;
+                groups[key] = new DepoWise.Application.Security.GroupLayoutOverride(
+                    key, StrOrNull(e, "title"), IntOrNull(e, "sortOrder"),
+                    e.TryGetProperty("isCustom", out var ic) && ic.ValueKind == System.Text.Json.JsonValueKind.True);
+            }
+
+        return new DepoWise.Application.Security.MenuLayoutSet(screens, groups);
+
+        static string Str(System.Text.Json.JsonElement e, string k) => StrOrNull(e, k) ?? "";
+        static string? StrOrNull(System.Text.Json.JsonElement e, string k)
+            => e.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+        static int? IntOrNull(System.Text.Json.JsonElement e, string k)
+            => e.TryGetProperty(k, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number && v.TryGetInt32(out var n) ? n : null;
     }
 
     private HttpRequestMessage Req(HttpMethod m, string url)

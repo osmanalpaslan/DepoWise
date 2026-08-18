@@ -215,7 +215,7 @@ public static class AppScreens
         new AppScreen("local_reset", "local_reset", "Web Yönetimi", "Yerel Veri Sıfırlama", W, "local-reset", null),
         // G5 (2026-08-12): ekranların hangi platformda açık olacağını yönetir. Süper admin ekranıdır;
         // diğer süper admin ekranları gibi (Rol Yetki Kontrol, Kota İzleme…) YALNIZ WEB'de sunulur.
-        new AppScreen("screen_visibility", "screen_visibility", "Web Yönetimi", "Ekran Platform Yönetimi", W, "screen-visibility", null),
+        new AppScreen("screen_visibility", "screen_visibility", "Web Yönetimi", "Menü / Ekran Yönetimi", W, "screen-visibility", null),
 
         // ── Çöp Kutusu ──────────────────────────────────────────────────────────────────────
         // G2-B1 DÜZELTMESİ (2026-08-12): "trash" artık AppModules kataloğunda da var → yetki ağacından
@@ -223,6 +223,33 @@ public static class AppScreens
         // sözde-anahtarı sayesinde çalışıyordu ve HİÇ KİMSEYE devredilemiyordu.
         new AppScreen("trash", "trash", "Çöp Kutusu", "Çöp Kutusu Listesi", Both, "trash", "trash"),
     };
+
+    /// <summary>
+    /// ═══ KORUMALI EKRANLAR (MNU-B2, 2026-08-18) ═══
+    ///
+    /// Bu ekranlar <b>HER PLATFORMDA BİRDEN</b> kapatılamaz. Liste keyfî değildir; her biri
+    /// kapatıldığında geri dönüşü olmayan bir kilitlenme üretir:
+    /// <list type="bullet">
+    ///   <item><c>screen_visibility</c> — platform kararlarını geri alabilen <b>TEK</b> ekran.
+    ///   Yalnız web'de var (<c>W</c>); web'de kapatılırsa menüden düşer <b>ve</b>
+    ///   <c>MainLayout</c> route korumasına takılır → adresi elle yazarak da açılamaz. Masaüstü
+    ///   karşılığı olmadığı için kurtarma yolu kalmaz (veritabanına elle müdahale gerekir).</item>
+    ///   <item><c>users</c> / <c>permissions</c> — iki platformda da kapatılırsa firmada bir daha
+    ///   kullanıcı açılamaz ve yetki verilemez.</item>
+    /// </list>
+    ///
+    /// Kural DAR tutulmuştur: tek bir platformda kapatmak SERBESTTİR (diğer platform kurtarma yolu
+    /// olarak kalır). Yalnız "hepsi kapalı" hâli engellenir.
+    /// </summary>
+    public static readonly IReadOnlyCollection<string> Protected = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "screen_visibility",
+        "users",
+        "permissions",
+    };
+
+    /// <summary>Bu ekran tümüyle kapatılmaya karşı korumalı mı?</summary>
+    public static bool IsProtected(string screenKey) => Protected.Contains(screenKey);
 
     /// <summary>Belirtilen platformdaki ekranlar (menü üretimi bunu kullanır).</summary>
     public static IEnumerable<AppScreen> For(ScreenPlatform platform)

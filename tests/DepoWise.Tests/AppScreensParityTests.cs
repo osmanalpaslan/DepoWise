@@ -217,8 +217,10 @@ public class AppScreensParityTests
         var i = src.IndexOf("BuildGroups(SessionContext s)", StringComparison.Ordinal);
         Assert.True(i > 0);
         var gövde = src[i..(i + 2000)];
-        Assert.Contains("AppScreens.GroupsFor(ScreenPlatform.Desktop)", gövde);
-        Assert.Contains("AppScreens.ScreensOf(", gövde);
+        // MNU (2026-08-18): grup/ekran gezintisi artık MenuLayout.Build içinde yapılır (masaüstü ve
+        // web AYNI kod). Garanti aynen sürüyor — menü KATALOGDAN üretilir, elle yazılmış listeden değil:
+        // burada Build'in çağrıldığı, S17'de Build'in gerçekten AppScreens'i gezdiği doğrulanır.
+        Assert.Contains("MenuLayout.Build(ScreenPlatform.Desktop", gövde);
         // Elle yazılmış menü kalıntısı olmamalı.
         Assert.DoesNotContain("new NavGroupVm(\"🔔\"", src);
         Assert.DoesNotContain("new NavLinkVm(\"Malzeme Listesi\"", src);
@@ -229,10 +231,38 @@ public class AppScreensParityTests
     public void S11_Web_Menusu_Katalogtan_Uretiliyor()
     {
         var src = Read("src/DepoWise.Web/Components/Layout/NavMenu.razor");
-        Assert.Contains("AppScreens.GroupsFor(ScreenPlatform.Web)", src);
-        Assert.Contains("AppScreens.ScreensOf(", src);
+        // MNU: bkz. S10 — üretim MenuLayout.Build'e taşındı, katalog garantisi S17'de kilitli.
+        Assert.Contains("MenuLayout.Build(ScreenPlatform.Web", src);
         Assert.DoesNotContain("new Link(\"Malzeme Listesi\"", src);
         Assert.DoesNotContain("new Link(\"Araç Listesi\"", src);
+    }
+
+    /// <summary>
+    /// 17 (MNU, 2026-08-18) — <b>KATALOG GARANTİSİNİN ASIL KİLİDİ.</b> S10/S11 artık menülerin
+    /// <c>MenuLayout.Build</c> çağırdığını doğruluyor; o hâlde Build'in gerçekten KATALOĞU gezdiği
+    /// ayrıca kanıtlanmalı — yoksa iki test birden anlamsızlaşırdı.
+    ///
+    /// Kaynak metnine değil DAVRANIŞA bakılır: boş düzenle üretilen menü, kataloğun o platformdaki
+    /// ekran kümesiyle BİREBİR aynı olmalı (sıra dahil).
+    /// </summary>
+    [Theory]
+    [InlineData(ScreenPlatform.Desktop)]
+    [InlineData(ScreenPlatform.Web)]
+    public void S17_MenuLayout_Build_Katalogu_Birebir_Uretir(ScreenPlatform platform)
+    {
+        var üretilen = MenuLayout.Build(platform, MenuLayoutSet.Empty, _ => true);
+
+        var beklenenGruplar = AppScreens.GroupsFor(platform).Select(g => g.Title).ToArray();
+        Assert.Equal(beklenenGruplar, üretilen.Select(g => g.Key).ToArray());
+
+        foreach (var g in üretilen)
+        {
+            var beklenen = AppScreens.ScreensOf(g.Key, platform).ToArray();
+            Assert.Equal(beklenen.Select(s => s.Key), g.Entries.Select(e => e.Screen.Key));
+            // Düzen tercihi yokken etiket de katalog etiketidir.
+            Assert.Equal(beklenen.Select(s => s.Label), g.Entries.Select(e => e.Label));
+            Assert.Equal(g.Key, g.Title);   // ad tercihi yok → başlık = anahtar
+        }
     }
 
     /// <summary>12 — Katalog web projesinde de DERLENİYOR olmalı (paylaşılan kaynak dosya deseni);

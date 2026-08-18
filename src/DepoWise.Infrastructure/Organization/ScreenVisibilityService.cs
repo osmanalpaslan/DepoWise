@@ -173,6 +173,22 @@ public sealed class ScreenVisibilityService
         if (web == true && !screen.OnWeb)
             throw new InvalidOperationException($"'{screen.Label}' web'de bulunmuyor; buradan açılamaz.");
 
+        // ⭐ MNU-B2 (2026-08-18): KENDİNİ KİLİTLEME KORUMASI. Bu kontrol EKSİKTİ — süper admin
+        // "Ekran Platform Yönetimi"ni web'de kapatabiliyordu; kapattığı anda hem menüden düşüyor
+        // hem MainLayout route korumasına takılıyordu ve masaüstü karşılığı olmadığı için ekran bir
+        // daha AÇILAMIYORDU (veritabanına elle müdahale gerekirdi). Bkz. AppScreens.Protected.
+        // null = kaydı sil → katalog varsayılanına dön; etkin değer bu yüzden "?? true" ile hesaplanır.
+        if (AppScreens.IsProtected(screenKey))
+        {
+            var etkinMasaustu = screen.OnDesktop && (desktop ?? true);
+            var etkinWeb = screen.OnWeb && (web ?? true);
+            if (!etkinMasaustu && !etkinWeb)
+                throw new InvalidOperationException(
+                    $"'{screen.Label}' sistem için kritik bir ekrandır ve tüm platformlarda birden " +
+                    "kapatılamaz. Kapatılırsa bu ayarı geri alabileceğiniz bir yol kalmaz. " +
+                    "En az bir platformda açık kalmalıdır.");
+        }
+
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();

@@ -65,6 +65,18 @@ public sealed class AuthState
     /// <summary>Bu ekran WEB platformunda açık mı? (yetki AYRICA kontrol edilir)</summary>
     public bool PlatformOpen(string screenKey) => !_webClosedScreens.Contains(screenKey);
 
+    // ═══ MNU — MENÜ DÜZENİ (2026-08-18) ═════════════════════════════════════════════════════
+    // Ekranın menüdeki ADI · ÜST MENÜSÜ · SIRASI. Platform ve yetkiden AYRI durur: düzen hiçbir
+    // erişim kararı vermez. Boş küme = katalog varsayılanı → menü bugünküyle birebir aynı çizilir.
+    private DepoWise.Application.Security.MenuLayoutSet _menuLayout =
+        DepoWise.Application.Security.MenuLayoutSet.Empty;
+
+    /// <summary>Firmanın menü düzeni (sunucudan platform bilgisiyle AYNI istekte gelir).</summary>
+    public DepoWise.Application.Security.MenuLayoutSet MenuLayout => _menuLayout;
+
+    public void SetMenuLayout(DepoWise.Application.Security.MenuLayoutSet set)
+    { _menuLayout = set; Changed?.Invoke(); }
+
     /// <summary>Route'un bağlı olduğu ekran web'de açık mı? Katalogda olmayan route platform
     /// yönetimi dışındadır → true (yetki yine de ayrıca çalışır).</summary>
     public bool PlatformOpenForRoute(string route)

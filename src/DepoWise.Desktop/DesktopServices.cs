@@ -38,6 +38,8 @@ public static class DesktopServices
     public static PermissionService Permissions { get; private set; } = null!;
     /// <summary>G5 — ekran platform görünürlüğü (firma bazlı). Çevrimdışı da çalışır: yerel DB okunur.</summary>
     public static DepoWise.Infrastructure.Organization.ScreenVisibilityService ScreenVisibility { get; private set; } = null!;
+    /// <summary>MNU — menü düzeni (ad · üst menü · sıra). Sunucudan tanım senkronuyla iner.</summary>
+    public static DepoWise.Infrastructure.Organization.MenuLayoutService MenuLayout { get; private set; } = null!;
     /// <summary>G4-1 — ön muhasebe cari (çevrimdışı da çalışır: yerel DB).</summary>
     public static DepoWise.Infrastructure.Accounting.PartyService Parties { get; private set; } = null!;
     public static DepoWise.Infrastructure.Accounting.PartyLedgerService PartyLedger { get; private set; } = null!;
@@ -164,6 +166,7 @@ public static class DesktopServices
         Branches = new BranchService(Factory, clock);
         Permissions = new PermissionService(Factory, clock, PermissionSnapshots);
         ScreenVisibility = new DepoWise.Infrastructure.Organization.ScreenVisibilityService(Factory, clock);
+        MenuLayout = new DepoWise.Infrastructure.Organization.MenuLayoutService(Factory, clock);
         Parties = new DepoWise.Infrastructure.Accounting.PartyService(Factory, clock);
         PartyLedger = new DepoWise.Infrastructure.Accounting.PartyLedgerService(Factory, clock);
         // G4-2: fatura stok+cari servislerini KULLANIR (paralel defter yok) - onlardan SONRA kurulur.

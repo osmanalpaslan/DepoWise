@@ -11,24 +11,25 @@
                           AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
         </div>
 
+        @* MNU: menü artık firmanın DÜZEN tercihleriyle çizilir (ad · üst menü · sıra).
+           Tercih yoksa MenuLayoutSet.Empty gelir ve sonuç katalogdakiyle BİREBİR aynıdır. *@
+        var gruplar = BuildGroups();
+
         @if (!string.IsNullOrWhiteSpace(_q))
         {
-            @foreach (var (g, l) in FilteredLinks())
+            @foreach (var (g, e) in Filtered(gruplar))
             {
-                <MudNavLink Href="@l.Route">@g.Title › @l.Label</MudNavLink>
+                <MudNavLink Href="@e.Screen.WebRoute">@g.Title › @e.Label</MudNavLink>
             }
         }
         else
         {
             <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Ana Ekran</MudNavLink>
 
-            @foreach (var g in Groups)
+            @foreach (var g in gruplar)
             {
-                @* G5: yetki VE platform birlikte — ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR *@
-                var links = g.Links.Where(l => Visible(l.Perm) && Auth.PlatformOpenForRoute(l.Route)).ToList();
-                if (links.Count == 0) { continue; }
-                <MudNavGroup Title="@g.Title" Icon="@g.Icon" Expanded="@(g.Title == "Web Yönetimi")">
-                    @foreach (var l in links) { <MudNavLink Href="@l.Route">@l.Label</MudNavLink> }
+                <MudNavGroup Title="@g.Title" Icon="@WebIcon(g.Key)" Expanded="@(g.Key == "Web Yönetimi")">
+                    @foreach (var e in g.Entries) { <MudNavLink Href="@e.Screen.WebRoute">@e.Label</MudNavLink> }
                 </MudNavGroup>
             }
         }
@@ -56,35 +57,32 @@
         _ => Auth.CanView(perm),
     };
 
-    private IEnumerable<(Group G, Link L)> FilteredLinks()
+    // ═══ G2/G6 (2026-08-12) + MNU (2026-08-18): MENÜ MERKEZİ KATALOGDAN ÜRETİLİR ═══
+    // Eskiden burada 46 bağlantı ELLE yazılıydı; G2/G6 bunu AppScreens'e taşıdı. MNU ise sıralama
+    // ve etiket çözümlemesini MenuLayout.Build'e devretti → masaüstü menüsü (ShellViewModel) ile
+    // TAM AYNI kod. İki menü artık ne katalogda ne düzende ayrışabilir.
+    //
+    // ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR — bu karar (isOpen) burada kalır; MenuLayout erişime
+    // karışmaz. Görünür ekranı kalmayan grup listeye girmez (eski davranışın aynısı).
+    private IReadOnlyList<MenuGroupView> BuildGroups()
+        => MenuLayout.Build(ScreenPlatform.Web, Auth.MenuLayout,
+            sc => Visible(sc.WebPermKey) && Auth.PlatformOpen(sc.Key));
+
+    private IEnumerable<(MenuGroupView G, MenuEntry E)> Filtered(IReadOnlyList<MenuGroupView> gruplar)
     {
         var q = _q.Trim();
-        foreach (var g in Groups)
-            foreach (var l in g.Links)
-                if (Visible(l.Perm) && Auth.PlatformOpenForRoute(l.Route) &&
-                    (l.Label.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                     g.Title.Contains(q, StringComparison.OrdinalIgnoreCase)))
-                    yield return (g, l);
+        foreach (var g in gruplar)
+            foreach (var e in g.Entries)
+                if (e.Label.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                    g.Title.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    yield return (g, e);
     }
 
-    private sealed record Link(string Label, string Perm, string Route);
-    private sealed record Group(string Title, string Icon, Link[] Links);
-
-    // ═══ G2/G6 (2026-08-12): MENÜ ARTIK MERKEZİ KATALOGDAN ÜRETİLİR ═══
-    // Eskiden burada 46 bağlantı ELLE yazılıydı ve dosyanın kendi yorumu "Masaüstü BuildGroups ile
-    // BİREBİR" diyordu — ama sayılar zaten ayrışmıştı (web 46 · masaüstü 40). Artık iki menü de
-    // AppScreens'ten türetilir → yeni ekran TEK satırla iki platforma birden gelir.
-    // Grup sırası, başlıklar ve bağlantı sırası AppScreens'te BİREBİR korunmuştur.
-    private static readonly Group[] Groups =
-        AppScreens.GroupsFor(ScreenPlatform.Web)
-            .Select(g => new Group(g.Title, WebIcon(g.Title),
-                AppScreens.ScreensOf(g.Title, ScreenPlatform.Web)
-                    .Select(s => new Link(s.Label, s.WebPermKey, s.WebRoute!)).ToArray()))
-            .ToArray();
-
     /// <summary>Grup ikonu — MudBlazor sabitleri yalnız web projesinde çözülebildiği için eşleme
-    /// BURADA durur (Application katmanı MudBlazor'a bağımlı olmasın). Bilinmeyen grup nötr ikon alır.</summary>
-    private static string WebIcon(string groupTitle) => groupTitle switch
+    /// BURADA durur (Application katmanı MudBlazor'a bağımlı olmasın). Eşleme grup ADINA değil
+    /// değişmez grup ANAHTARINA bakar → yönetici grubu yeniden adlandırınca ikon KAYBOLMAZ.
+    /// Kullanıcının oluşturduğu gruplar nötr ikon alır.</summary>
+    private static string WebIcon(string groupKey) => groupKey switch
     {
         "Uyarılar" => Icons.Material.Filled.NotificationsActive,
         "Malzemeler" => Icons.Material.Filled.Inventory2,
@@ -98,10 +96,11 @@
         "Raporlar" => Icons.Material.Filled.BarChart,
         "Yönetici Raporları" => Icons.Material.Filled.Assessment,
         "İmport / Export" => Icons.Material.Filled.SwapHoriz,
+        "Ön Muhasebe" => Icons.Material.Filled.ReceiptLong,
         "Kullanıcı" => Icons.Material.Filled.People,
         "Ayarlar" => Icons.Material.Filled.Settings,
         "Web Yönetimi" => Icons.Material.Filled.AdminPanelSettings,
         "Çöp Kutusu" => Icons.Material.Filled.DeleteSweep,
-        _ => Icons.Material.Filled.Circle,
+        _ => Icons.Material.Filled.Folder,
     };
 }

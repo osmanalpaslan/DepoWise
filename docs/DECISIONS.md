@@ -1303,3 +1303,63 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
 - **Karar:** `.claude/hooks/comodo_guard.ps1`'i tetikleyen PreToolUse hook `.claude/settings.json`'dan kaldırıldı. `CLAUDE.md` §6, `DEVAM.md` §5 ve `BASLAMA_REHBERI.md` güncellendi: proje EXE/BAT artık doğrudan çalıştırılabilir. `dotnet build`/`dotnet run` yine de önerilen yöntem olarak kaldı (alışkanlık/tutarlılık, zorunluluk değil).
 - **Kapsam dışı:** `Directory.Build.props`'taki `UseAppHost=false` ayarına dokunulmadı (ayrı bir build/paketleme kararı; gerekirse ileride ayrıca değerlendirilir). SQLite mutlak DB yolu, WAL, Cache=Private kuralları COMODO'dan bağımsız olduğu için aynen korundu.
 - **Geri alma:** İleride tekrar bir COMODO'lu makinede geliştirme yapılırsa `docs/COMODO_RUNBOOK.md`'deki adımlarla hook ve kısıtlamalar geri eklenmelidir.
+
+### ADR-109 — Menü / Ekran Yönetimi: platform yönetimi genişletildi, ayrı ekran açılmadı (18.08.2026)
+- **Bağlam:** Kullanıcı web'e özel bir "Menü / Ekran Yönetimi" ekranı istedi: ekran sırası, üst menü
+  ataması, üst menü adı/sırası, platform seçimi (Web / Masaüstü / İkisi / Hiçbiri), menüde aktif-pasif
+  ve görünen ekran adı. Envanter çıkarıldığında **istenen 7 maddeden 2'sinin (platform + aktif/pasif)
+  G5 ile 2026-08-12'de zaten yapılmış** olduğu görüldü: `AppScreens` kataloğu, `ScreenVisibility`
+  çözümleyicisi, `Migration065`, `ScreenVisibilityService`, `/api/screens/visibility` uçları ve
+  `/screen-visibility` ekranı mevcuttu. Eksik olan yalnız **menü düzeni**: ad · üst menü · sıra.
+- **Karar 1 (tek ekran):** Ayrı bir `/menu-management` ekranı AÇILMADI. Mevcut `/screen-visibility`
+  genişletildi ve adı **"Menü / Ekran Yönetimi"** oldu. Gerekçe: iki ekran da AYNI 59 ekranı yönetirdi;
+  aynı listeyi iki yerden yönetmek kullanıcı isteğinin kendi §2 kuralına ("aynı ekran iki farklı yerde
+  tanımlanmasın") aykırı olurdu. **Route (`screen-visibility`), ekran anahtarı (`screen_visibility`) ve
+  yetki modülü DEĞİŞMEDİ** — yalnız görünen ad değişti, hiçbir referans kırılmadı.
+- **Karar 2 (grup kimliği):** `AppScreenGroup.Title` **değişmez sistem anahtarı** kabul edildi; kullanıcının
+  verdiği ad ayrı alanda (`title_override`) tutulur. Böylece katalogda **tek satır bile değişmeden**
+  "grup adı değişsin ama anahtar sabit kalsın" isteği karşılandı. Alternatif (gruplara ayrı `Key` alanı
+  eklemek) 17 grup + 59 ekran + iki menü + ikon eşlemesini dolaşan bir refactor gerektirirdi — reddedildi.
+- **Karar 3 (grup görünürlüğü ayrı alan DEĞİL):** Bir grubu gizlemek = içindeki ekranları o platformda
+  kapatmak. Menüler zaten "görünür ekranı kalmayan grubu" göstermiyor. İkinci bir gizleme yolu açmak aynı
+  sonucu iki farklı kurala bağlardı.
+- **Karar 4 (kaydetme):** Düzen değişiklikleri **Düzenle → Kaydet** ile toplu/atomik yazılır (tek
+  transaction, tam durum). Platform kutuları ise mevcut anında-kaydeden akışta bırakıldı: yıkıcı oldukları
+  için kendi onay pencereleri var ve bu akış zaten denenmiş durumda.
+- **Yeni yapı:** `Migration070_MenuLayout` (`screen_menu_layout`, `menu_group_layout`), `MenuLayout`
+  (saf çözümleyici, web projesine de linklendi), `MenuLayoutService` (`ScreenVisibilityService` deseni:
+  TTL önbellek + yazmada düşürme + audit), `/api/screens/layout/manage` · `/api/screens/layout` ·
+  `/api/screens/layout/reset`. **Satır yoksa katalog varsayılanı** → migration sonrası menü birebir aynı.
+- **Yetki:** Yeni bir authorization mekanizması kurulmadı — platform yönetimiyle **aynı modül**
+  (`screen_visibility`, `AppModules.IsSuperAdminOnly`). Kontrol servis katmanındadır; arayüzde gizlemek
+  güvenlik sayılmadı (`ApiMenuLayoutTests` uçları doğrudan çağırarak kilitler).
+- **Kapsam dışı:** Sürükle-bırak (yukarı/aşağı düğmeleri tercih edildi — §7 "gösterişli ama kırılgan
+  drag-drop kurma"), menü versiyonlama, ekranların fiziksel silinmesi.
+
+### ADR-110 — Menü düzeni ve platform ayarı masaüstüne tanım senkronuyla iner (18.08.2026)
+- **Bağlam (MNU-B1, gerçek hata):** G5'in "Masaüstü" kutusu **gerçek masaüstü makinelerde hiçbir etki
+  yapmıyordu.** `screen_platform_visibility` ne `BusinessSyncService.Tables` listesinde ne de
+  `/api/lookups/sync` yanıtındaydı; masaüstü ise ayarı **kendi yerel SQLite'ından** okuyor
+  (`DesktopServices.Factory`) → tablo daima boş → katalog varsayılanı geçerli kalıyordu.
+- **Karar:** Ayarlar **tanım (lookup) senkronuyla** iner: `/api/lookups/sync` yanıtına `screenVisibility`,
+  `menuLayoutScreens`, `menuLayoutGroups` bölümleri eklendi; `LookupSyncService` bunları yerele yazar.
+  **İş senkronu (`BusinessSyncService`) kullanılmadı:** bunlar iş verisi değil **sunucu otoriteli
+  yapılandırmadır** — masaüstü asla yazmaz, çakışma/LWW sorusu doğmaz, `version`/`is_deleted` kolonları
+  yoktur. Yeni bir senkron protokolü kurulmadı.
+- **Yazma biçimi:** upsert değil **replace** (firma bazlı sil-yaz). Gerekçe: sunucuda KALDIRILAN bir ayar
+  yerelde de düşmeli; upsert olsaydı bir kez kapatılan ekran bir daha açılamazdı.
+- **Çevrimdışı korunumu:** Alan yanıtta hiç yoksa (eski sunucu) yerele dokunulmaz. Sunucuya hiç
+  ulaşılamazsa `PullAsync` zaten sessizce atlar → masaüstü **en son inen ayarla çevrimdışı çalışmaya
+  devam eder**, hiç inmediyse katalog varsayılanı geçerlidir. Masaüstünün açılışta sunucuya bağlanma
+  zorunluluğu **getirilmedi**.
+
+### ADR-111 — Kritik ekranlar tüm platformlarda birden kapatılamaz (18.08.2026)
+- **Bağlam (MNU-B2, gerçek hata):** `ScreenVisibilityService.Set` yalnız "bu ekran o platformda katalogda
+  var mı" diye bakıyordu. Süper admin **"Menü / Ekran Yönetimi"** ekranını web'de kapatabiliyordu; kapattığı
+  anda ekran menüden düşüyor, `MainLayout` route koruması adresi elle yazmayı da engelliyor ve ekranın
+  masaüstü karşılığı olmadığı için **ayarı geri alacak hiçbir arayüz kalmıyordu** (kurtarma yalnız
+  veritabanına elle müdahale). Aynı sınıf risk `users` ve `permissions` için de vardı.
+- **Karar:** `AppScreens.Protected` = { `screen_visibility`, `users`, `permissions` }. Bu ekranlar
+  **hepsi kapalı** hâline getirilemez. Kural **dar** tutuldu: tek platformda kapatmak serbesttir (diğer
+  platform kurtarma yolu olarak kalır). Liste keyfî değildir — her üçü de koddan kanıtlanan bir kilitlenme
+  üretiyordu; başka ekran korumalı ilan edilmedi.

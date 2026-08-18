@@ -686,29 +686,42 @@ public sealed partial class ShellViewModel : ViewModelBase
         // tutulan aynasıydı (sayılar zaten ayrışmıştı: web 46 · masaüstü 40). Artık ikisi de
         // AppScreens'ten türetilir → yeni ekran TEK satırla iki menüye birden gelir.
         // Grup sırası, başlıklar, ikonlar ve bağlantı sırası AppScreens'te BİREBİR korunmuştur.
-        var all = AppScreens.GroupsFor(ScreenPlatform.Desktop)
-            .Select(g => new NavGroupVm(
-                g.DesktopIcon, g.Title, g.ModuleKey,
-                AppScreens.ScreensOf(g.Title, ScreenPlatform.Desktop)
-                    .Select(sc => new NavLinkVm(sc.Label, sc.DesktopNavKey!)).ToList()))
-            .ToArray();
-
-
         // G5: firmanın platform kısıtları (kayıt yoksa katalog varsayılanı → hiçbir ekran kapanmaz).
         var vis = SafeOverrides(s);
+        // MNU (2026-08-18): firmanın menü DÜZENİ — ad · üst menü · sıra. Kayıt yoksa MenuLayoutSet.Empty
+        // döner ve menü katalogdaki hâliyle BİREBİR aynı çizilir (davranış korunumu).
+        var duzen = SafeLayout(s);
 
-        // Alt bağlantıyı KENDİ yetkisine göre filtrele (alt-sekme anahtarı parent modüle map'lenir:
-        // "maintenance:defs" → "maintenance"). Görünür alt bağlantısı kalmayan grup gizlenir.
-        // Verilmeyen ekran menüde GÖRÜNMEZ (deny-by-default).
-        // G5: ayrıca MASAÜSTÜ platformunda kapatılmış ekranlar menüde YER ALMAZ.
-        return all
-            .Select(g => new NavGroupVm(g.Icon, g.Title, g.ModuleKey,
-                g.Children
-                    .Where(c => ScreenVisibility.IsEnabled(
-                        AppScreens.ByDesktopNavKey(c.Key)?.Key ?? "", ScreenPlatform.Desktop, vis))
-                    .Where(c => CanSeeChild(s, BaseKey(c.Key))).ToList(), g.IsExpanded))
+        // ⭐ Sıralama/ad/grup çözümlemesi web ile AYNI kodda (MenuLayout.Build) yapılır → iki platform
+        // asla ayrışamaz. Süzgeç (isOpen) erişim kararıdır ve BURADA kalır:
+        //  · platform: MASAÜSTÜNDE kapatılmış ekran menüde YER ALMAZ (G5),
+        //  · yetki: verilmeyen ekran menüde GÖRÜNMEZ (deny-by-default). Alt-sekme anahtarı parent
+        //    modüle map'lenir ("maintenance:defs" → "maintenance").
+        // Görünür alt bağlantısı kalmayan grup gizlenir — mevcut davranışın aynısı.
+        return MenuLayout.Build(ScreenPlatform.Desktop, duzen,
+                sc => ScreenVisibility.IsEnabled(sc, ScreenPlatform.Desktop, vis)
+                      && CanSeeChild(s, BaseKey(sc.DesktopNavKey ?? "")))
+            .Select(g => new NavGroupVm(g.DesktopIcon, g.Title, GroupModuleKey(g),
+                g.Entries.Select(e => new NavLinkVm(e.Label, e.Screen.DesktopNavKey!)).ToList()))
             .Where(g => g.Children.Count > 0)
             .ToList();
+    }
+
+    /// <summary>İkon rayının kullandığı grup modülü. Kullanıcının oluşturduğu grupta katalog karşılığı
+    /// yoktur → grubun ilk ekranının modülü kullanılır (ray yine doğru yere gider).</summary>
+    private static string GroupModuleKey(MenuGroupView g)
+    {
+        foreach (var cg in AppScreens.Groups)
+            if (string.Equals(cg.Title, g.Key, StringComparison.Ordinal)) return cg.ModuleKey;
+        return g.Entries.Count > 0 ? g.Entries[0].Screen.ModuleKey : AppModules.Dashboard;
+    }
+
+    /// <summary>MNU — firmanın menü düzeni. Okuma başarısızsa (çevrimdışı/eski şema) BOŞ küme döner
+    /// ve katalog varsayılanı geçerli kalır → menü hiçbir zaman boş kalmaz.</summary>
+    private static MenuLayoutSet SafeLayout(SessionContext s)
+    {
+        try { return DesktopServices.MenuLayout.LayoutFor(s.CompanyId); }
+        catch { return MenuLayoutSet.Empty; }
     }
 
     /// <summary>Menü görünürlüğü. İmport / Export ekranı, içe VEYA dışa aktarım yetkisinden en az biri varsa

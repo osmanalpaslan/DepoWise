@@ -4,16 +4,26 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-@* G5 — EKRAN PLATFORM YÖNETİMİ (2026-08-12).
-   Bir ekranın MASAÜSTÜ ve/veya WEB'de kullanılabilir olup olmadığını FİRMA BAZINDA yönetir.
-   ⚠️ Bu YETKİ EKRANI DEĞİLDİR: kullanıcıya yetki vermez, yetkiyi bypass etmez.
-   ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Yalnız süper admin (AppModules.IsSuperAdminOnly). *@
+@* ═══ MENÜ / EKRAN YÖNETİMİ ═══════════════════════════════════════════════════════════════════
+   G5 (2026-08-12) platform görünürlüğü + MNU (2026-08-18) menü düzeni AYNI ekranda toplanmıştır:
+   ikisi de aynı 59 ekranı yönetir, ayrı ekranlara bölmek aynı listeyi iki yerden yönetmek olurdu.
 
-<PageTitle>Ekran Platform Yönetimi — Alpnex</PageTitle>
+   ⚠️ BU EKRAN KİMLİK DEĞİŞTİRMEZ: route, ekran anahtarı, yetki anahtarı, servis ve API uçları
+   buradan ETKİLENMEZ. Yalnız menüde NE YAZDIĞI, NEREDE ve KAÇINCI SIRADA durduğu ile o ekranın
+   hangi platformda açık olduğu belirlenir.
+
+   ⚠️ YETKİ EKRANI DEĞİLDİR: kullanıcıya yetki vermez, yetkiyi bypass etmez.
+   ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Yalnız süper admin (AppModules.IsSuperAdminOnly).
+
+   İKİ FARKLI KAYDETME AKIŞI (bilinçli):
+    · PLATFORM kutuları ANINDA kaydeder ve YIKICI olduğu için ayrı onay ister (mevcut, denenmiş akış).
+    · DÜZEN (ad · üst menü · sıra) "Düzenle → Kaydet" ile TOPLU ve ATOMİK kaydedilir (§12). *@
+
+<PageTitle>Menü / Ekran Yönetimi — Alpnex</PageTitle>
 
 <div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
     <div>
-        <MudText Typo="Typo.h5">Ekran Platform Yönetimi</MudText>
+        <MudText Typo="Typo.h5">Menü / Ekran Yönetimi</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b></MudText>
     </div>
 </div>
@@ -25,72 +35,331 @@
 else
 {
     <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">
-        Buradan bir ekranın <b>Masaüstü</b> ve <b>Web</b> uygulamalarında kullanılabilir olup olmayacağını
-        belirlersiniz. Bu ayar <b>yetki değildir</b>: kapatılan ekran, yetkisi olan kullanıcıya da o
-        platformda açılmaz; açık bırakılan ekran ise yine yalnız <b>yetkisi olan</b> kullanıcıya görünür.
-        Ayar <b>yalnız bu firmayı</b> etkiler. Bir ekran o platformda hiç yoksa kutusu kapalıdır ve açılamaz.
+        Buradan ekranların menüde <b>hangi adla</b>, <b>hangi üst menüde</b> ve <b>kaçıncı sırada</b>
+        görüneceğini; ayrıca <b>Masaüstü</b> ve <b>Web</b> uygulamalarında kullanılabilir olup
+        olmayacağını belirlersiniz. Bu ayarlar <b>yetki değildir</b>: adı değişen ekran yine yalnız
+        <b>yetkisi olan</b> kullanıcıya görünür. Ayarlar <b>yalnız bu firmayı</b> etkiler.
+        Ekranın adresi ve yetkisi <b>değişmez</b>.
     </MudAlert>
 
-    @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert> }
+    @if (_msg is not null)
+    {
+        <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mb-3">@_msg</MudAlert>
+    }
 
-    @if (_rows is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    @if (_rows is null)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+    }
     else
     {
+        @* ── Araç çubuğu ──────────────────────────────────────────────────────────────────── *@
+        <MudPaper Class="pa-3 mb-3" Elevation="1">
+            <div class="d-flex flex-wrap align-center" style="gap:12px;">
+                <MudTextField @bind-Value="_q" Immediate="true" Placeholder="Ekran adı veya adres ara..."
+                              Label="Ara" Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true"
+                              Style="max-width:280px;" aria-label="Ekran ara" />
+
+                <div>
+                    <label for="f-grup" style="font-size:12px;display:block;">Üst Menü</label>
+                    <select id="f-grup" aria-label="Üst menüye göre filtrele" @bind="_fGroup" class="mnu-select">
+                        <option value="">(Tümü)</option>
+                        @foreach (var g in _groups) { <option value="@g.GroupKey">@g.Title</option> }
+                    </select>
+                </div>
+
+                <div>
+                    <label for="f-platform" style="font-size:12px;display:block;">Platform</label>
+                    <select id="f-platform" aria-label="Platforma göre filtrele" @bind="_fPlatform" class="mnu-select">
+                        <option value="">(Tümü)</option>
+                        <option value="desktop">Masaüstünde açık</option>
+                        <option value="web">Web'de açık</option>
+                        <option value="both">İkisinde de açık</option>
+                        <option value="none">Kapalı</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="f-durum" style="font-size:12px;display:block;">Durum</label>
+                    <select id="f-durum" aria-label="Duruma göre filtrele" @bind="_fState" class="mnu-select">
+                        <option value="">(Tümü)</option>
+                        <option value="custom">Değiştirilmiş</option>
+                        <option value="default">Varsayılan</option>
+                    </select>
+                </div>
+
+                <MudSpacer />
+
+                @if (!_edit)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" aria-label="Düzeni düzenle"
+                               StartIcon="@Icons.Material.Filled.Edit" OnClick="BeginEdit">Düzenle</MudButton>
+                    <MudButton Variant="Variant.Outlined" aria-label="Menüyü önizle"
+                               StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => _preview = !_preview)">
+                        Menüyü Önizle
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" aria-label="Varsayılan düzene dön"
+                               StartIcon="@Icons.Material.Filled.RestartAlt" OnClick="ResetDefaults">
+                        Varsayılan Düzene Dön
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined" aria-label="Yeni üst menü ekle"
+                               StartIcon="@Icons.Material.Filled.CreateNewFolder" OnClick="AddGroup">+ Üst Menü</MudButton>
+                    <MudButton Variant="Variant.Outlined" aria-label="Menüyü önizle"
+                               StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => _preview = !_preview)">
+                        Menüyü Önizle
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" aria-label="Değişiklikleri kaydet"
+                               StartIcon="@Icons.Material.Filled.Save" OnClick="Save">Kaydet</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_busy" aria-label="Değişiklikleri iptal et"
+                               OnClick="CancelEdit">Değişiklikleri İptal Et</MudButton>
+                }
+            </div>
+
+            @if (_edit)
+            {
+                var (ds, dg) = Diff();
+                <MudAlert Severity="@(ds + dg == 0 ? Severity.Normal : Severity.Warning)" Dense="true" Class="mt-3">
+                    @if (ds + dg == 0)
+                    {
+                        <span>Henüz değişiklik yapmadınız.</span>
+                    }
+                    else
+                    {
+                        <span><b>Kaydedilmemiş değişiklik:</b> @ds ekran, @dg üst menü. Kaydetmeden sayfadan
+                            ayrılırsanız bu değişiklikler kaybolur.</span>
+                    }
+                </MudAlert>
+            }
+        </MudPaper>
+
+        @* ── Menü önizleme ────────────────────────────────────────────────────────────────── *@
+        @if (_preview)
+        {
+            <MudPaper Class="pa-3 mb-3" Elevation="1">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">
+                    Menü Önizleme <span class="mud-text-secondary" style="font-size:13px;">
+                        (kaydedilmemiş değişiklikler dahil · yalnız menüde görünen ekranlar)</span>
+                </MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                    Not: burada <b>platformda açık</b> ekranlar listelenir. Her kullanıcı bunlardan
+                    yalnız <b>yetkisi olanları</b> görür.
+                </MudText>
+                <div class="d-flex flex-wrap" style="gap:24px;">
+                    @foreach (var (baslik, plat) in new[] { ("WEB", "web"), ("MASAÜSTÜ", "desktop") })
+                    {
+                        <div style="min-width:240px;">
+                            <MudText Typo="Typo.overline"><b>@baslik</b></MudText>
+                            @foreach (var g in PreviewGroups(plat))
+                            {
+                                <div class="mt-1"><b>@g.Title</b></div>
+                                @foreach (var r in g.Rows) { <div style="padding-left:16px;">• @r.Label</div> }
+                            }
+                        </div>
+                    }
+                </div>
+            </MudPaper>
+        }
+
+        @* ── Üst menüler (yalnız düzenleme modunda) ───────────────────────────────────────── *@
+        @if (_edit)
+        {
+            <MudPaper Class="pa-3 mb-3" Elevation="1">
+                <MudText Typo="Typo.subtitle1" Class="mb-2">Üst Menüler</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                    Adı değiştirmek güvenlidir: sistem grubu <b>anahtarıyla</b> tanır, gösterilen adla değil.
+                </MudText>
+                <MudSimpleTable Dense="true" Striped="true">
+                    <thead>
+                        <tr><th style="width:70px;">Sıra</th><th>Görünen Ad</th><th>Sistem Anahtarı</th>
+                            <th style="width:90px;">Ekran</th><th style="width:150px;">İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < _groups.Count; i++)
+                        {
+                            var gi = i; var g = _groups[gi];
+                            <tr>
+                                <td>@(gi + 1)</td>
+                                <td>
+                                    <input class="mnu-input" value="@g.Title" aria-label="@($"{g.GroupKey} üst menü adı")"
+                                           @onchange="@(e => g.Title = (e.Value?.ToString() ?? "").Trim())" />
+                                </td>
+                                <td><span class="mud-text-secondary" style="font-size:12px;">@g.GroupKey</span></td>
+                                <td>@ScreenCount(g.GroupKey)</td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                                   aria-label="@($"{g.Title} üst menüsünü yukarı taşı")"
+                                                   Disabled="@(gi == 0)" OnClick="@(() => MoveGroup(gi, -1))" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                                   aria-label="@($"{g.Title} üst menüsünü aşağı taşı")"
+                                                   Disabled="@(gi == _groups.Count - 1)" OnClick="@(() => MoveGroup(gi, 1))" />
+                                    @if (g.IsCustom)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                       aria-label="@($"{g.Title} üst menüsünü kaldır")"
+                                                       OnClick="@(() => RemoveGroup(g))" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        }
+
+        @* ── Ekranlar ─────────────────────────────────────────────────────────────────────── *@
         <MudPaper Class="pa-2" Elevation="2">
-            <MudTable Items="_rows" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="65vh"
-                      GroupBy="_groupDef" T="Row">
-                <HeaderContent>
-                    <MudTh>EKRAN</MudTh>
-                    <MudTh Style="width:130px;text-align:center">MASAÜSTÜ</MudTh>
-                    <MudTh Style="width:130px;text-align:center">WEB</MudTh>
-                    <MudTh Style="width:170px">DURUM</MudTh>
-                </HeaderContent>
-                <GroupHeaderTemplate>
-                    <MudTh colspan="4" Class="mud-theme-primary"><b>@context.Key</b></MudTh>
-                </GroupHeaderTemplate>
-                <RowTemplate>
-                    <MudTd DataLabel="Ekran">
-                        @context.Label
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@context.ScreenKey</MudText>
-                    </MudTd>
-                    <MudTd DataLabel="Masaüstü" Style="text-align:center">
-                        <MudCheckBox T="bool" Value="@context.EffectiveDesktop" Dense="true"
-                                     Disabled="@(_busy || context.DesktopUnavailable)"
-                                     ValueChanged="@(v => Toggle(context, desktop: v, web: null))" />
-                        @if (context.DesktopUnavailable) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
-                    </MudTd>
-                    <MudTd DataLabel="Web" Style="text-align:center">
-                        <MudCheckBox T="bool" Value="@context.EffectiveWeb" Dense="true"
-                                     Disabled="@(_busy || context.WebUnavailable)"
-                                     ValueChanged="@(v => Toggle(context, desktop: null, web: v))" />
-                        @if (context.WebUnavailable) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
-                    </MudTd>
-                    <MudTd DataLabel="Durum">@context.StatusText</MudTd>
-                </RowTemplate>
-            </MudTable>
+            <MudSimpleTable Dense="true" Hover="true" Striped="true" Style="overflow-x:auto;">
+                <thead>
+                    <tr>
+                        <th style="width:60px;">SIRA</th>
+                        <th>EKRAN ADI</th>
+                        <th>SİSTEM ANAHTARI</th>
+                        <th>ADRES</th>
+                        <th style="width:190px;">ÜST MENÜ</th>
+                        <th style="width:100px;text-align:center;">MASAÜSTÜ</th>
+                        <th style="width:100px;text-align:center;">WEB</th>
+                        <th style="width:150px;">PLATFORM</th>
+                        <th>YETKİ</th>
+                        <th style="width:110px;">İŞLEM</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in VisibleGroups())
+                    {
+                        <tr><td colspan="10" class="mud-theme-primary"><b>@GroupTitle(g)</b></td></tr>
+                        @foreach (var r in VisibleRows(g))
+                        {
+                            var row = r;
+                            <tr>
+                                <td>@(IndexInGroup(row) + 1)</td>
+                                <td>
+                                    @if (_edit && !row.IsProtected)
+                                    {
+                                        <input class="mnu-input" value="@row.Label" aria-label="@($"{row.ScreenKey} ekran adı")"
+                                               @onchange="@(e => row.Label = (e.Value?.ToString() ?? "").Trim())" />
+                                    }
+                                    else
+                                    {
+                                        @row.Label
+                                        @if (row.IsProtected)
+                                        {
+                                            <MudTooltip Text="Sistem için kritik ekran — adı ve yeri korunur.">
+                                                <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Class="ml-1" />
+                                            </MudTooltip>
+                                        }
+                                    }
+                                    @if (!string.Equals(row.Label, row.CatalogLabel, StringComparison.Ordinal))
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                            özgün ad: @row.CatalogLabel
+                                        </MudText>
+                                    }
+                                </td>
+                                <td><span class="mud-text-secondary" style="font-size:12px;">@row.ScreenKey</span></td>
+                                <td><span class="mud-text-secondary" style="font-size:12px;">@(row.WebRoute is null ? "—" : "/" + row.WebRoute)</span></td>
+                                <td>
+                                    @if (_edit && !row.IsProtected)
+                                    {
+                                        <select class="mnu-select" aria-label="@($"{row.ScreenKey} üst menüsü")"
+                                                value="@row.GroupKey"
+                                                @onchange="@(e => MoveToGroup(row, e.Value?.ToString() ?? row.GroupKey))">
+                                            @foreach (var gg in _groups) { <option value="@gg.GroupKey">@gg.Title</option> }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        @GroupTitle(row.GroupKey)
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    <MudCheckBox T="bool" Value="@row.EffectiveDesktop" Dense="true"
+                                                 aria-label="@($"{row.ScreenKey} masaüstünde açık")"
+                                                 Disabled="@(_busy || _edit || !row.DefaultDesktop)"
+                                                 ValueChanged="@(v => Toggle(row, desktop: v, web: null))" />
+                                    @if (!row.DefaultDesktop) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
+                                </td>
+                                <td style="text-align:center;">
+                                    <MudCheckBox T="bool" Value="@row.EffectiveWeb" Dense="true"
+                                                 aria-label="@($"{row.ScreenKey} web'de açık")"
+                                                 Disabled="@(_busy || _edit || !row.DefaultWeb)"
+                                                 ValueChanged="@(v => Toggle(row, desktop: null, web: v))" />
+                                    @if (!row.DefaultWeb) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
+                                </td>
+                                <td>@row.PlatformText</td>
+                                <td><span class="mud-text-secondary" style="font-size:12px;">@row.PermissionKey</span></td>
+                                <td>
+                                    @if (_edit && !row.IsProtected)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                                       aria-label="@($"{row.ScreenKey} ekranını yukarı taşı")"
+                                                       Disabled="@(IndexInGroup(row) == 0)" OnClick="@(() => MoveScreen(row, -1))" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                                       aria-label="@($"{row.ScreenKey} ekranını aşağı taşı")"
+                                                       Disabled="@(IndexInGroup(row) == GroupRows(row.GroupKey).Count - 1)"
+                                                       OnClick="@(() => MoveScreen(row, 1))" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </MudSimpleTable>
         </MudPaper>
     }
 }
 
+<style>
+    .mnu-select, .mnu-input {
+        padding: 4px 6px; border: 1px solid var(--mud-palette-lines-inputs);
+        border-radius: 4px; background: transparent; color: inherit; font-size: 13px; min-width: 140px;
+    }
+    .mnu-input { width: 100%; }
+</style>
+
 @code {
+    // ═══ Yerel düzenleme modeli ═════════════════════════════════════════════════════════════
+    // Sunucudan gelen satırlar burada DÜZENLENİR; "Kaydet" denene kadar sunucuya hiçbir düzen
+    // değişikliği gitmez (§12). Platform kutuları bunun DIŞINDADIR: anında kaydeder (bkz. Toggle).
     private sealed class Row
     {
         public string ScreenKey { get; set; } = "";
-        public string Group { get; set; } = "";
-        public string Label { get; set; } = "";
+        public string CatalogLabel { get; set; } = "";
+        public string CatalogGroup { get; set; } = "";
+        public string PermissionKey { get; set; } = "";
+        public string? WebRoute { get; set; }
         public bool DefaultDesktop { get; set; }
         public bool DefaultWeb { get; set; }
         public bool EffectiveDesktop { get; set; }
         public bool EffectiveWeb { get; set; }
-        public bool DesktopUnavailable { get; set; }
-        public bool WebUnavailable { get; set; }
-        public string StatusText { get; set; } = "";
+        public string PlatformText { get; set; } = "";
+        public bool IsProtected { get; set; }
+
+        // Düzenlenebilir alanlar
+        public string Label { get; set; } = "";
+        public string GroupKey { get; set; } = "";
+
+        // "İptal" için başlangıç fotoğrafı
+        public string OrigLabel { get; set; } = "";
+        public string OrigGroupKey { get; set; } = "";
+        public int OrigOrder { get; set; }
+    }
+
+    private sealed class Grp
+    {
+        public string GroupKey { get; set; } = "";
+        public string Title { get; set; } = "";
+        public bool IsCustom { get; set; }
+        public string OrigTitle { get; set; } = "";
+        public int OrigOrder { get; set; }
     }
 
     private List<Row>? _rows;
-    private string? _msg; private bool _ok; private bool _busy;
-
-    private readonly TableGroupDefinition<Row> _groupDef = new() { Selector = r => r.Group, Indentation = false, Expandable = false };
+    private List<Grp> _groups = new();
+    private string? _msg; private bool _ok; private bool _busy; private bool _edit; private bool _preview;
+    private string _q = "", _fGroup = "", _fPlatform = "", _fState = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,22 +371,217 @@ else
         _rows = null;
         try
         {
-            _rows = (await Api.GetArrayAsync("/api/screens/visibility/manage"))
-                .Where(e => e.ValueKind == JsonValueKind.Object)
-                .Select(e => new Row
-                {
-                    ScreenKey = S(e, "screenKey"), Group = S(e, "group"), Label = S(e, "label"),
-                    DefaultDesktop = B(e, "defaultDesktop"), DefaultWeb = B(e, "defaultWeb"),
-                    EffectiveDesktop = B(e, "effectiveDesktop"), EffectiveWeb = B(e, "effectiveWeb"),
-                    DesktopUnavailable = B(e, "desktopUnavailable"), WebUnavailable = B(e, "webUnavailable"),
-                    StatusText = S(e, "statusText"),
-                }).ToList();
+            var json = await Api.GetObjectAsync("/api/screens/layout/manage");
+            var rows = new List<Row>();
+            if (json.TryGetProperty("screens", out var sa) && sa.ValueKind == JsonValueKind.Array)
+                foreach (var e in sa.EnumerateArray())
+                    rows.Add(new Row
+                    {
+                        ScreenKey = S(e, "screenKey"),
+                        CatalogLabel = S(e, "catalogLabel"),
+                        CatalogGroup = S(e, "catalogGroup"),
+                        PermissionKey = S(e, "permissionKey"),
+                        WebRoute = SN(e, "webRoute"),
+                        DefaultDesktop = B(e, "defaultDesktop"),
+                        DefaultWeb = B(e, "defaultWeb"),
+                        EffectiveDesktop = B(e, "effectiveDesktop"),
+                        EffectiveWeb = B(e, "effectiveWeb"),
+                        PlatformText = S(e, "platformText"),
+                        IsProtected = B(e, "isProtected"),
+                        Label = S(e, "label"),
+                        GroupKey = S(e, "groupKey"),
+                    });
+
+            var groups = new List<Grp>();
+            if (json.TryGetProperty("groups", out var ga) && ga.ValueKind == JsonValueKind.Array)
+                foreach (var e in ga.EnumerateArray())
+                    groups.Add(new Grp
+                    {
+                        GroupKey = S(e, "groupKey"),
+                        Title = S(e, "title"),
+                        IsCustom = B(e, "isCustom"),
+                    });
+
+            _groups = groups;
+            _rows = rows;
+            Snapshot();
         }
         catch (Exception ex) { _ok = false; _msg = "Liste alınamadı: " + ex.Message; _rows = new(); }
     }
 
-    /// <summary>Kapatma YIKICI sonuç doğurur (o platformdaki herkes erişimi kaybeder) → açık onay.
-    /// Açma zararsızdır → onay istenmez.</summary>
+    /// <summary>"İptal" ve "kaç şey değişti" için başlangıç fotoğrafı.</summary>
+    private void Snapshot()
+    {
+        for (int i = 0; i < _groups.Count; i++)
+        { _groups[i].OrigTitle = _groups[i].Title; _groups[i].OrigOrder = i; }
+        foreach (var r in _rows!)
+        { r.OrigLabel = r.Label; r.OrigGroupKey = r.GroupKey; r.OrigOrder = IndexInGroup(r); }
+    }
+
+    private void BeginEdit() { _edit = true; _msg = null; }
+
+    private async Task CancelEdit()
+    {
+        var (ds, dg) = Diff();
+        if (ds + dg > 0 && !await Dialog.Confirm(
+            $"Kaydedilmemiş {ds} ekran ve {dg} üst menü değişikliği ATILACAK.\n\nDevam edilsin mi?",
+            "Evet, At", danger: true)) return;
+        _edit = false; _msg = null;
+        await Load();   // sunucudaki gerçek duruma dön
+    }
+
+    /// <summary>Kaydedilmemiş değişiklik sayısı (ekran, üst menü).</summary>
+    private (int Screens, int Groups) Diff()
+    {
+        if (_rows is null) return (0, 0);
+        int s = _rows.Count(r => !string.Equals(r.Label, r.OrigLabel, StringComparison.Ordinal)
+                              || !string.Equals(r.GroupKey, r.OrigGroupKey, StringComparison.Ordinal)
+                              || IndexInGroup(r) != r.OrigOrder);
+        int g = 0;
+        for (int i = 0; i < _groups.Count; i++)
+            if (!string.Equals(_groups[i].Title, _groups[i].OrigTitle, StringComparison.Ordinal)
+                || _groups[i].OrigOrder != i) g++;
+        return (s, g);
+    }
+
+    // ═══ Düzen işlemleri ════════════════════════════════════════════════════════════════════
+    private List<Row> GroupRows(string groupKey)
+        => _rows!.Where(r => string.Equals(r.GroupKey, groupKey, StringComparison.Ordinal)).ToList();
+
+    private int IndexInGroup(Row r) => GroupRows(r.GroupKey).IndexOf(r);
+
+    private int ScreenCount(string groupKey) => GroupRows(groupKey).Count;
+
+    private string GroupTitle(string groupKey)
+        => _groups.FirstOrDefault(g => string.Equals(g.GroupKey, groupKey, StringComparison.Ordinal))?.Title ?? groupKey;
+
+    /// <summary>Ekranı grup içinde bir yukarı/aşağı taşır (listedeki fiziksel yerini değiştirir).</summary>
+    private void MoveScreen(Row r, int delta)
+    {
+        var grup = GroupRows(r.GroupKey);
+        int i = grup.IndexOf(r), j = i + delta;
+        if (i < 0 || j < 0 || j >= grup.Count) return;
+        int a = _rows!.IndexOf(grup[i]), b = _rows.IndexOf(grup[j]);
+        (_rows[a], _rows[b]) = (_rows[b], _rows[a]);
+    }
+
+    private void MoveGroup(int i, int delta)
+    {
+        int j = i + delta;
+        if (j < 0 || j >= _groups.Count) return;
+        (_groups[i], _groups[j]) = (_groups[j], _groups[i]);
+    }
+
+    /// <summary>Ekranı başka üst menüye taşır — hedef grubun SONUNA eklenir.</summary>
+    private void MoveToGroup(Row r, string groupKey)
+    {
+        if (string.Equals(r.GroupKey, groupKey, StringComparison.Ordinal)) return;
+        _rows!.Remove(r);
+        r.GroupKey = groupKey;
+        var hedef = GroupRows(groupKey);
+        int at = hedef.Count == 0 ? _rows.Count : _rows.IndexOf(hedef[^1]) + 1;
+        _rows.Insert(at, r);
+    }
+
+    private async Task AddGroup()
+    {
+        // Mevcut metin-giriş penceresi yeniden kullanılır (yeni bir bileşen eklenmedi).
+        var ad = await Dialog.AskReason(
+            "Yeni bir üst menü oluşturulacak. Ekranları buraya taşıyabilirsiniz.",
+            "Yeni Üst Menü", "Üst menü adı", "Oluştur");
+        if (string.IsNullOrWhiteSpace(ad)) return;
+        _groups.Add(new Grp
+        {
+            GroupKey = "custom:" + Guid.NewGuid().ToString("N")[..8],
+            Title = ad.Trim(),
+            IsCustom = true,
+            OrigTitle = "",
+            OrigOrder = -1,
+        });
+    }
+
+    /// <summary>Kullanıcı grubunu kaldırır. ⭐ Altında ekran varsa ÖNCE açıkça bildirir (yetim ekran yok).</summary>
+    private async Task RemoveGroup(Grp g)
+    {
+        var icindekiler = GroupRows(g.GroupKey);
+        if (icindekiler.Count > 0)
+        {
+            if (!await Dialog.Confirm(
+                $"\"{g.Title}\" üst menüsünde {icindekiler.Count} ekran var.\n\n" +
+                "Grup kaldırılırsa bu ekranlar KENDİ ÖZGÜN üst menülerine geri döner. " +
+                "Hiçbir ekran kaybolmaz.\n\nDevam edilsin mi?", "Evet, Kaldır", danger: true)) return;
+            foreach (var r in icindekiler) MoveToGroup(r, r.CatalogGroup);
+        }
+        _groups.Remove(g);
+    }
+
+    // ═══ Kaydetme ═══════════════════════════════════════════════════════════════════════════
+    private async Task Save()
+    {
+        var (ds, dg) = Diff();
+        if (ds + dg == 0) { _ok = true; _msg = "Değişiklik yok."; _edit = false; return; }
+
+        if (!await Dialog.Confirm(
+            $"{ds} ekran ve {dg} üst menü değişikliği kaydedilecek.\n\n" +
+            "Menü tüm kullanıcılar için güncellenir. Ekranların adresleri ve yetkileri DEĞİŞMEZ.\n\n" +
+            "Devam edilsin mi?", "Evet, Kaydet")) return;
+
+        _busy = true; _msg = null;
+        try
+        {
+            var screens = new List<object>();
+            foreach (var g in _groups)
+            {
+                var liste = GroupRows(g.GroupKey);
+                for (int i = 0; i < liste.Count; i++)
+                    screens.Add(new { screenKey = liste[i].ScreenKey, label = liste[i].Label, groupKey = g.GroupKey, sortOrder = i });
+            }
+            // Hiçbir gruba düşmemiş satır kalmasın (savunma amaçlı — normalde olmaz).
+            foreach (var r in _rows!)
+                if (!_groups.Any(g => string.Equals(g.GroupKey, r.GroupKey, StringComparison.Ordinal)))
+                    screens.Add(new { screenKey = r.ScreenKey, label = r.Label, groupKey = r.CatalogGroup, sortOrder = 0 });
+
+            var groups = _groups.Select((g, i) => new
+            {
+                groupKey = g.GroupKey, title = g.Title, sortOrder = i, isCustom = g.IsCustom,
+            }).ToList();
+
+            var err = await Api.PostAsync("/api/screens/layout", new { screens, groups });
+            _ok = err is null;
+            _msg = err ?? $"Menü düzeni kaydedildi ({ds} ekran, {dg} üst menü).";
+            if (_ok)
+            {
+                _edit = false;
+                await Api.RefreshMenuAsync();   // §21 — kendi menüm de hemen güncellensin
+            }
+            await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task ResetDefaults()
+    {
+        if (!await Dialog.Confirm(
+            "Menü düzeni (ekran adları, üst menüler ve sıralama) FABRİKA VARSAYILANINA dönecek.\n\n" +
+            "Platform ayarları (Masaüstü / Web kutuları) DEĞİŞMEZ.\n\nDevam edilsin mi?",
+            "Evet, Varsayılana Dön", danger: true)) return;
+
+        _busy = true; _msg = null;
+        try
+        {
+            var err = await Api.PostAsync("/api/screens/layout/reset", new { });
+            _ok = err is null;
+            _msg = err ?? "Menü düzeni varsayılana döndürüldü.";
+            if (_ok) await Api.RefreshMenuAsync();
+            await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Sıfırlanamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    /// <summary>Platform kutusu — ANINDA kaydeder. Kapatma YIKICIDIR (o platformdaki herkes erişimi
+    /// kaybeder) → açık onay. Açma zararsızdır → onay istenmez.</summary>
     private async Task Toggle(Row r, bool? desktop, bool? web)
     {
         var kapaniyor = (desktop == false) || (web == false);
@@ -133,7 +597,6 @@ else
         _busy = true; _msg = null;
         try
         {
-            // Yalnız değişen platform gönderilir; diğeri mevcut ETKİN değeriyle korunur.
             var err = await Api.PostAsync("/api/screens/visibility", new
             {
                 screenKey = r.ScreenKey,
@@ -142,14 +605,66 @@ else
             });
             _ok = err is null;
             _msg = err ?? $"\"{r.Label}\" güncellendi.";
+            if (_ok) await Api.RefreshMenuAsync();
             await Load();
         }
         catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
         finally { _busy = false; }
     }
 
-    private static string S(JsonElement e, string k)
-        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+    // ═══ Süzgeçler ve önizleme ══════════════════════════════════════════════════════════════
+    private bool Matches(Row r)
+    {
+        var q = _q.Trim();
+        if (q.Length > 0 &&
+            !r.Label.Contains(q, StringComparison.OrdinalIgnoreCase) &&
+            !r.ScreenKey.Contains(q, StringComparison.OrdinalIgnoreCase) &&
+            !(r.WebRoute ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (_fGroup.Length > 0 && !string.Equals(r.GroupKey, _fGroup, StringComparison.Ordinal)) return false;
+
+        if (_fPlatform switch
+        {
+            "desktop" => !r.EffectiveDesktop,
+            "web" => !r.EffectiveWeb,
+            "both" => !(r.EffectiveDesktop && r.EffectiveWeb),
+            "none" => r.EffectiveDesktop || r.EffectiveWeb,
+            _ => false,
+        }) return false;
+
+        var degistirilmis = !string.Equals(r.Label, r.CatalogLabel, StringComparison.Ordinal)
+                         || !string.Equals(r.GroupKey, r.CatalogGroup, StringComparison.Ordinal);
+        if (_fState == "custom" && !degistirilmis) return false;
+        if (_fState == "default" && degistirilmis) return false;
+
+        return true;
+    }
+
+    private IEnumerable<string> VisibleGroups()
+        => _groups.Select(g => g.GroupKey).Where(k => VisibleRows(k).Any());
+
+    private List<Row> VisibleRows(string groupKey)
+        => GroupRows(groupKey).Where(Matches).ToList();
+
+    private sealed record PreviewGroup(string Title, List<Row> Rows);
+
+    /// <summary>Kaydedilmemiş düzenle birlikte menü önizlemesi (süzgeçlerden BAĞIMSIZ).</summary>
+    private List<PreviewGroup> PreviewGroups(string platform)
+    {
+        var sonuc = new List<PreviewGroup>();
+        foreach (var g in _groups)
+        {
+            var satirlar = GroupRows(g.GroupKey)
+                .Where(r => platform == "web" ? r.EffectiveWeb : r.EffectiveDesktop)
+                .ToList();
+            if (satirlar.Count > 0) sonuc.Add(new PreviewGroup(g.Title, satirlar));
+        }
+        return sonuc;
+    }
+
+    private static string S(JsonElement e, string k) => SN(e, k) ?? "";
+    private static string? SN(JsonElement e, string k)
+        => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
     private static bool B(JsonElement e, string k)
         => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
 }

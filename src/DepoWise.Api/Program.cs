@@ -1231,6 +1231,21 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
         brands = Rows("SELECT id,name,brand_type FROM brands WHERE company_id=@c AND is_deleted=0;"),
         vehicleModels = Rows("SELECT id,name,brand_id FROM vehicle_models WHERE company_id=@c AND is_deleted=0;"),
         branches = Rows("SELECT id,name,kind,parent_id FROM branches WHERE company_id=@c AND is_deleted=0;"),
+
+        // ═══ MNU-B1 DÜZELTMESİ (2026-08-18) ═══════════════════════════════════════════════════
+        // Ekran platform ayarı ve menü düzeni masaüstüne BU YOLDAN iner. Eskiden HİÇBİR yoldan
+        // inmiyordu: `screen_platform_visibility` ne BusinessSyncService.Tables listesinde ne de
+        // burada vardı; masaüstü ise ayarı KENDİ yerel SQLite'ından okuyor (DesktopServices.Factory)
+        // → tablo daima boş → "Masaüstü" kutusu gerçek makinelerde HİÇBİR ETKİ YAPMIYORDU.
+        //
+        // Neden iş senkronu (BusinessSyncService) değil de burası: bunlar iş verisi değil, SUNUCU
+        // OTORİTELİ YAPILANDIRMADIR — masaüstü bunları asla yazmaz, çakışma/LWW sorusu doğmaz ve
+        // version/is_deleted kolonları yoktur. Tanım senkronu tam olarak bu iş için var; yeni bir
+        // senkron protokolü kurulmadı. Çevrimdışıysa PullAsync zaten sessizce atlar → en son inen
+        // ayar yerelde geçerli kalır, hiç inmediyse katalog varsayılanı geçerlidir.
+        screenVisibility = Rows("SELECT screen_key,platform,enabled FROM screen_platform_visibility WHERE company_id=@c;"),
+        menuLayoutScreens = Rows("SELECT screen_key,label_override,group_key_override,sort_order FROM screen_menu_layout WHERE company_id=@c;"),
+        menuLayoutGroups = Rows("SELECT group_key,title_override,sort_order,is_custom FROM menu_group_layout WHERE company_id=@c;"),
     });
 }).RequireAuthorization();
 
@@ -2212,8 +2227,26 @@ app.MapGet("/api/screens/visibility", (HttpContext c) =>
                 web = eff.HasFlag(ScreenPlatform.Web),
             };
         }),
+        // MNU (2026-08-18): MENÜ DÜZENİ aynı yanıtta taşınır — ayrı bir tazeleme yolu AÇILMADI
+        // (§21). Menü hangi anda platform bilgisini tazeliyorsa düzeni de o anda tazeler → ikisi
+        // asla birbirinden ayrı düşmez. Gönderilen HAM tercihlerdir; sıralama/ad çözümlemesini iki
+        // platform da AYNI kodla (MenuLayout.Build) yapar → tek doğru kaynak korunur.
+        layout = LayoutPayload(svc.MenuLayout.LayoutFor(s.CompanyId)),
     });
 }).RequireAuthorization();
+
+// Menü düzeni yanıtı — hem bu uçta hem masaüstü tanım senkronunda AYNI biçim kullanılır.
+static object LayoutPayload(MenuLayoutSet set) => new
+{
+    screens = set.Screens.Values.Select(o => new
+    {
+        key = o.ScreenKey, label = o.Label, groupKey = o.GroupKey, sortOrder = o.SortOrder,
+    }),
+    groups = set.Groups.Values.Select(o => new
+    {
+        key = o.GroupKey, title = o.Title, sortOrder = o.SortOrder, isCustom = o.IsCustom,
+    }),
+};
 
 // Yönetim listesi — yalnız süper admin (AppModules.IsSuperAdminOnly("screen_visibility")).
 app.MapGet("/api/screens/visibility/manage", (HttpContext c) =>
@@ -2236,6 +2269,63 @@ app.MapPost("/api/screens/visibility", (HttpContext c, ScreenVisibilityDto d) =>
     var s = S(c); if (s is null) return Results.Unauthorized();
     if (string.IsNullOrWhiteSpace(d.ScreenKey)) throw new ArgumentException("Ekran seçin.");
     svc.ScreenVisibility.Set(s, d.ScreenKey, d.Desktop, d.Web);
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+// ═══ MNU — MENÜ DÜZENİ (2026-08-18) ═════════════════════════════════════════════════════════
+// Ekranın menüdeki ADI · ÜST MENÜSÜ · SIRASI. Route, ekran anahtarı, yetki anahtarı ve servisler
+// BURADAN ETKİLENMEZ. Yetki: platform yönetimiyle AYNI modül (screen_visibility, süper admin) —
+// yeni bir authorization mekanizması KURULMADI. Yetki kontrolü servis katmanındadır (UI'da gizlemek
+// güvenlik sayılmaz): MenuLayoutService.List/Save → AccessControl.Require.
+
+// Yönetim listesi: ekranlar + üst menüler tek yanıtta (arayüz iki listeyi birlikte kullanır).
+app.MapGet("/api/screens/layout/manage", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var vis = svc.ScreenVisibility.OverridesFor(s.CompanyId);
+    return Results.Ok(new
+    {
+        screens = svc.MenuLayout.List(s, vis).Select(r => new
+        {
+            screenKey = r.ScreenKey, moduleKey = r.ModuleKey,
+            catalogGroup = r.CatalogGroup, catalogLabel = r.CatalogLabel,
+            label = r.EffectiveLabel, groupKey = r.EffectiveGroupKey, groupTitle = r.EffectiveGroupTitle,
+            sortOrder = r.SortOrder, webRoute = r.WebRoute, desktopNavKey = r.DesktopNavKey,
+            permissionKey = r.PermissionKey,
+            defaultDesktop = r.DefaultDesktop, defaultWeb = r.DefaultWeb,
+            effectiveDesktop = r.EffectiveDesktop, effectiveWeb = r.EffectiveWeb,
+            platformText = r.PlatformText, isProtected = r.IsProtected, isCustomized = r.IsCustomized,
+        }),
+        groups = svc.MenuLayout.Groups(s).Select(g => new
+        {
+            groupKey = g.GroupKey, title = g.Title, sortOrder = g.SortOrder,
+            isCustom = g.IsCustom, screenCount = g.ScreenCount,
+        }),
+    });
+}).RequireAuthorization();
+
+// Toplu/ATOMİK kaydetme — arayüz istenen NİHAİ düzeni gönderir, servis tek transaction'da yazar.
+// Kısmi kaydetme sonucu bozuk menü oluşamaz. Doğrulama fail-closed (yetim ekran reddedilir).
+app.MapPost("/api/screens/layout", (HttpContext c, MenuLayoutSaveDto d) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    var screens = (d.Screens ?? Array.Empty<MenuLayoutScreenDto>())
+        .Select(x => new DepoWise.Infrastructure.Organization.ScreenLayoutInput(
+            x.ScreenKey ?? "", x.Label, x.GroupKey, x.SortOrder)).ToList();
+    var groups = (d.Groups ?? Array.Empty<MenuLayoutGroupDto>())
+        .Select(x => new DepoWise.Infrastructure.Organization.GroupLayoutInput(
+            x.GroupKey ?? "", x.Title, x.SortOrder, x.IsCustom)).ToList();
+    if (screens.Count == 0) throw new ArgumentException("Kaydedilecek ekran listesi boş.");
+
+    var r = svc.MenuLayout.Save(s, screens, groups);
+    return Results.Ok(new { ok = true, screensChanged = r.ScreensChanged, groupsChanged = r.GroupsChanged, customGroups = r.CustomGroups });
+}).RequireAuthorization();
+
+// "Varsayılan düzene dön" — yalnız DÜZEN tercihlerini siler; platform ayarlarına dokunmaz.
+app.MapPost("/api/screens/layout/reset", (HttpContext c) =>
+{
+    var s = S(c); if (s is null) return Results.Unauthorized();
+    svc.MenuLayout.ResetToDefaults(s);
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
@@ -3516,6 +3606,11 @@ record PermSaveDto(List<ModulePermDto>? Modules, List<string>? Buttons, long Ver
 record PermResetDto(long Version = 0);   // G1a — yetki sıfırlama; düzenleme kilidi jetonu (0 = kontrol yok)
 // G5 — ekran platform ayarı. null = kaydı sil (katalog varsayılanına dön).
 record ScreenVisibilityDto(string ScreenKey, bool? Desktop, bool? Web);
+
+// MNU — menü düzeni kaydetme gövdesi. Tam durum gönderilir (bkz. MenuLayoutService.Save).
+record MenuLayoutScreenDto(string? ScreenKey, string? Label, string? GroupKey, int SortOrder);
+record MenuLayoutGroupDto(string? GroupKey, string? Title, int SortOrder, bool IsCustom);
+record MenuLayoutSaveDto(MenuLayoutScreenDto[]? Screens, MenuLayoutGroupDto[]? Groups);
 // G4-1 — cari DTO'lari.
 record PartyDto(string Code, string Title, string PartyType, bool IsPerson = false, string? TaxOffice = null,
     string? TaxNo = null, string? NationalId = null, string? Phone = null, string? Email = null,

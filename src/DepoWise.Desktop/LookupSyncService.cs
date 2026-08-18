@@ -1,6 +1,7 @@
 using DepoWise.Infrastructure.Database;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -59,6 +60,7 @@ public static class LookupSyncService
             Upsert(conn, tx, "brands", root, "brands", companyId!, now, ("brand_type", "brandType"));
             Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, ("brand_id", "brandId"));
             Upsert(conn, tx, "branches", root, "branches", companyId!, now, ("kind", "kind"), ("parent_id", "parentId"));
+            ApplyMenuConfig(conn, tx, root, companyId!, now);   // MNU-B1: ekran ayarlari yerele iner
             tx.Commit();
         }
         catch { /* senkron başarısızsa giriş akışı etkilenmez */ }
@@ -96,11 +98,96 @@ public static class LookupSyncService
             Upsert(conn, tx, "brands", root, "brands", companyId!, now, ("brand_type", "brandType"));
             Upsert(conn, tx, "vehicle_models", root, "vehicleModels", companyId!, now, ("brand_id", "brandId"));
             Upsert(conn, tx, "branches", root, "branches", companyId!, now, ("kind", "kind"), ("parent_id", "parentId"));
+            ApplyMenuConfig(conn, tx, root, companyId!, now);   // MNU-B1: ekran ayarlari yerele iner
             tx.Commit();
             progress?.Invoke(100);
             return true;
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// ═══ MNU-B1 DÜZELTMESİ (2026-08-18) — EKRAN AYARLARINI YERELE İNDİR ═══
+    ///
+    /// Ekran platform görünürlüğü ve menü düzeni SUNUCU OTORİTELİ yapılandırmadır: masaüstü bunları
+    /// asla yazmaz. Bu yüzden burada <b>DEĞİŞTİRME (replace)</b> uygulanır — upsert değil: sunucuda
+    /// KALDIRILAN bir ayar yerelde de düşmeli, yoksa bir kez kapatılan ekran bir daha açılamazdı.
+    ///
+    /// <b>ÇEVRİMDIŞI GÜVENLİĞİ:</b> alan yanıtta hiç YOKSA (eski sunucu) yerele DOKUNULMAZ — mevcut
+    /// ayar korunur. Sunucuya hiç ulaşılamadığında zaten bu metoda gelinmez (çağıran sessizce atlar)
+    /// → çevrimdışı masaüstü en son inen ayarla çalışmaya devam eder, hiç inmediyse katalog varsayılanı.
+    /// </summary>
+    private static void ApplyMenuConfig(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,
+        JsonElement root, string companyId, long now)
+    {
+        Replace("screenVisibility", "screen_platform_visibility",
+            new[] { "screen_key", "platform", "enabled" },
+            new[] { "screen_key", "platform", "enabled" });
+
+        Replace("menuLayoutScreens", "screen_menu_layout",
+            new[] { "screen_key", "label_override", "group_key_override", "sort_order" },
+            new[] { "screen_key", "label_override", "group_key_override", "sort_order" });
+
+        Replace("menuLayoutGroups", "menu_group_layout",
+            new[] { "group_key", "title_override", "sort_order", "is_custom" },
+            new[] { "group_key", "title_override", "sort_order", "is_custom" });
+
+        // Masaüstü süreç içi önbellekleri düşür → menü bir sonraki çiziminde yeni ayarı görür.
+        DepoWise.Infrastructure.Organization.ScreenVisibilityService.Invalidate(companyId);
+        DepoWise.Infrastructure.Organization.MenuLayoutService.Invalidate(companyId);
+
+        void Replace(string jsonKey, string table, string[] cols, string[] jsonCols)
+        {
+            if (!root.TryGetProperty(jsonKey, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+
+            using (var del = conn.CreateCommand())
+            {
+                del.Transaction = tx;
+                del.CommandText = $"DELETE FROM {table} WHERE company_id=@c;";
+                var p = del.CreateParameter(); p.ParameterName = "@c"; p.Value = companyId; del.Parameters.Add(p);
+                del.ExecuteNonQuery();
+            }
+
+            foreach (var row in arr.EnumerateArray())
+            {
+                try
+                {
+                    using var ins = conn.CreateCommand();
+                    ins.Transaction = tx;
+                    var names = string.Join(",", cols);
+                    var holes = string.Join(",", cols.Select((_, i) => "@v" + i));
+                    ins.CommandText = $"INSERT INTO {table}(id,company_id,{names},created_at,updated_at) " +
+                                      $"VALUES(@id,@c,{holes},@now,@now);";
+                    Add(ins, "@id", Guid.NewGuid().ToString("N"));
+                    Add(ins, "@c", companyId);
+                    for (int i = 0; i < cols.Length; i++)
+                    {
+                        object? v = null;
+                        if (row.TryGetProperty(jsonCols[i], out var el))
+                            v = el.ValueKind switch
+                            {
+                                JsonValueKind.String => el.GetString(),
+                                JsonValueKind.Number => el.TryGetInt64(out var n) ? n : el.GetDouble(),
+                                JsonValueKind.True => 1L,
+                                JsonValueKind.False => 0L,
+                                _ => null,
+                            };
+                        Add(ins, "@v" + i, v);
+                    }
+                    Add(ins, "@now", now);
+                    ins.ExecuteNonQuery();
+                }
+                catch { /* tek bozuk satır tüm ayarı düşürmesin */ }
+            }
+        }
+
+        static void Add(System.Data.Common.DbCommand cmd, string name, object? value)
+        {
+            var p = cmd.CreateParameter();
+            p.ParameterName = name;
+            p.Value = value ?? DBNull.Value;
+            cmd.Parameters.Add(p);
+        }
     }
 
     private static void Upsert(System.Data.Common.DbConnection conn, System.Data.Common.DbTransaction tx,

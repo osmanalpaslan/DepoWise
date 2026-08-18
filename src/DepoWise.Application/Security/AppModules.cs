@@ -93,7 +93,7 @@ public static class AppModules
         ("local_reset", "Yerel Veri Sıfırlama"),
         // G5 (2026-08-12): ekranların hangi platformda (masaüstü/web) açık olacağını yönetir.
         // YETKİ DEĞİL, platform kısıtıdır; yalnız süper admin (IsSuperAdminOnly) — dar tutuldu.
-        ("screen_visibility", "Ekran Platform Yönetimi"),
+        ("screen_visibility", "Menü / Ekran Yönetimi"),
         // G4-1 (2026-08-12): ÖN MUHASEBE — CARİ. Tek modül + dört aksiyon (View/Create/Edit/Delete).
         // Ayrı "party_view/party_create/..." anahtarları AÇILMADI: modül modeli aksiyonu zaten taşıyor.
         ("parties", "Cari Hesaplar"),
