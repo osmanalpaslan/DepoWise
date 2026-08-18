@@ -1146,6 +1146,11 @@ app.MapPost("/api/materials", (HttpContext c, NewMaterialDto d) =>
 app.MapPost("/api/lookups/{table}", (HttpContext c, string table, NameDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
+    // DEN-F2 (2026-08-18): "+" satır içi tanım ekleme yetkisi (btn-add-lookup) SUNUCUDA kapısızdı;
+    // yalnız masaüstü UI'ında uygulanıyordu → web'den atlatılabiliyordu. Deny-by-default gereği
+    // kapı buraya taşındı (admin bypass CanUseButton içinde korunur). Alttaki LookupService yine
+    // "definitions"/Create ister; bu, onun ÜSTÜNE binen ek kısıttır.
+    AccessControl.RequireButton(s, SpecialButtons.AddLookup);
     var id = table switch
     {
         "units" => svc.Lookups.AddUnit(s, d.Name),
@@ -3167,8 +3172,11 @@ app.MapGet("/api/stock/change-log", (HttpContext c, long? from, long? to, int? l
     S(c) is { } s ? Results.Ok(svc.StockChangeLog.List(s, from, to, limit ?? 300)) : Results.Unauthorized()).RequireAuthorization();
 
 // ── Sunucu veritabanı yedeği (Yedek Yönetimi'nin web karşılığı) ──
+// GUV-A2 (2026-08-18): eskiden yalnız "oturum var mı" bakılıyordu → HER firmanın HER kullanıcısı
+// sunucu yedeklerinin dosya adlarını/boyutlarını/tarihlerini görebiliyordu (bilgi sızıntısı).
+// Kardeş uçlar (create/download) zaten süper admin istiyordu; bu uç atlanmıştı.
 app.MapGet("/api/backup/list", (HttpContext c) =>
-    S(c) is null ? Results.Unauthorized() : Results.Ok(svc.DbBackup.ListBackups().Select(b => new
+    S(c) is not { IsSuperAdmin: true } ? Results.Unauthorized() : Results.Ok(svc.DbBackup.ListBackups().Select(b => new
     {
         fileName = Path.GetFileName(b.Path), sizeBytes = b.SizeBytes, createdAt = b.CreatedAt,
         dateText = DateTimeOffset.FromUnixTimeMilliseconds(b.CreatedAt).LocalDateTime.ToString("dd.MM.yyyy HH:mm"),
@@ -3192,7 +3200,14 @@ app.MapGet("/api/backup/download/{name}", (HttpContext c, string name) =>
 app.MapGet("/api/releases/latest", () => Results.Ok(svc.Releases.Latest()));
 app.MapPost("/api/releases", async (HttpContext ctx) =>
 {
-    var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    // 🔴 GUV-A1 (2026-08-18) DÜZELTMESİ — YETKİ, DOSYAYA DOKUNMADAN ÖNCE.
+    // Eskiden burada yalnız "oturum var mı" bakılıyor, paket dosyası diske YAZILDIKTAN SONRA
+    // Releases.Publish içindeki süper admin kontrolü çalışıyordu. İstek gövdesi sınırı 1 GB, sunucu
+    // diski ~974 MB → herhangi bir oturum sahibi tek istekle diski doldurup ADR-070 sınıfı TAM
+    // KESİNTİ yaratabiliyordu (login dahil tüm API 500 — 12.07.2026'da yaşandı). Ayrıca yayındaki
+    // paketi ezerek güncelleme mekanizmasını kırabiliyordu.
+    // Kardeş uç /api/setup bunu zaten doğru sırada yapıyordu; bu bir sıra hatasıydı.
+    var s = Session(ctx); if (s is null || !s.IsSuperAdmin) return Results.Unauthorized();
     var form = await ctx.Request.ReadFormAsync();
     var version = form["version"].ToString();
     var checksum = form["checksum"].ToString();
@@ -3204,6 +3219,11 @@ app.MapPost("/api/releases", async (HttpContext ctx) =>
     var file = form.Files["file"];
     if (file is not null)
     {
+        // GUV-A1: paket boyutu üst sınırı — süper admin olsa bile kazara/yanlış bir yükleme
+        // sunucu diskini (~974 MB) doldurup sistemi kilitlememeli. Bugünkü paket ~86 MB.
+        if (file.Length > ReleaseStore.MaxPackageBytes)
+            return Results.Json(new { error = $"Paket çok büyük ({file.Length / 1024 / 1024} MB). " +
+                $"Üst sınır {ReleaseStore.MaxPackageBytes / 1024 / 1024} MB." }, statusCode: 400);
         await using var fs = file.OpenReadStream();
         await svc.ReleasePackages.SaveAsync(version, fs, ctx.RequestAborted);
         downloadUrl = $"/api/releases/{version}/download";

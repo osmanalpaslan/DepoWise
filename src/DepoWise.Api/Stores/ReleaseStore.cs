@@ -12,6 +12,14 @@ public sealed class ReleaseStore
     /// <summary>Diskte tutulacak en yeni paket sayısı (geri dönüş ihtimaline karşı 1'den fazla).</summary>
     public const int KeepCount = 3;
 
+    /// <summary>
+    /// GUV-A1 (2026-08-18) — tek paketin kabul edilen en büyük boyutu (300 MB).
+    /// Kestrel'in istek sınırı 1 GB, kalıcı disk ~974 MB: sınırsız yükleme diski doldurup
+    /// ADR-070 sınıfı tam kesinti yaratabilirdi. Bugünkü gerçek paket ~86 MB → 300 MB bol pay bırakır
+    /// ve <see cref="KeepCount"/> ile birlikte disk tavanını öngörülebilir kılar.
+    /// </summary>
+    public const long MaxPackageBytes = 300L * 1024 * 1024;
+
     private readonly string _root;
     public ReleaseStore(string root) { _root = root; Directory.CreateDirectory(root); }
 
