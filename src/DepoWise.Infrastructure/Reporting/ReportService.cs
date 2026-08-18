@@ -42,9 +42,30 @@ public sealed class ReportService
         //  • Depo seçilmişse → yalnız o depo(lar)daki kalemler + "Depo" kolonu (kırılım).
         // Her iki modda da TEK sorgu vardır; malzeme × depo döngüsü (N+1) kurulmaz ve satır çoğaltan
         // JOIN yapılmaz. DISTINCT ile gizleme YOK — mod ayrımı sorgunun kendisinde.
+        // 🔴 DEN-E2 (2026-08-18) DÜZELTMESİ — ŞUBE KAPSAMI BU RAPORDA HİÇ UYGULANMIYORDU.
+        // Eskiden `req.LocationIds` AYNEN kullanılıyordu: (a) filtre boşken FİRMA GENELİ toplam
+        // dönüyor, şubeyle sınırlı kullanıcı tüm firmanın stoğunu görüyordu; (b) istek gövdesine
+        // BAŞKA şubenin depo kimliği yazılırsa o depo okunuyordu (parametre manipülasyonu, fail-open).
+        // Kardeş rapor StockMovements bunu ReportScope ile zaten doğru yapıyordu.
+        // Tek otorite BranchAccess'tir; ikinci bir kapsam mantığı KURULMADI.
+        var izinli = BranchAccess.Allowed(s);                 // null = sınırsız (admin / tüm şubeler)
         var locations = NormalizeLocations(req.LocationIds);
+
+        if (izinli is not null)
+        {
+            var izinliSet = new HashSet<string>(izinli, StringComparer.Ordinal);
+            // ATANMAMIŞ ("") kovası, şubesiz kayıtlarla aynı ilkeyle GİZLENMEZ (BranchAccess ile tutarlı).
+            var suzulen = locations.Where(x => x.Length == 0 || izinliSet.Contains(x)).ToList();
+            // FAIL-CLOSED: yalnız kapsam dışı depo istendiyse boş sonuç döner — filtre sessizce KALKMAZ.
+            if (locations.Count > 0 && suzulen.Count == 0)
+                return new TableModel("Stok Durumu — Depo Bazlı",
+                    new[] { "Kod", "Malzeme", "Depo / Şantiye", "Stok", "Min Stok" },
+                    Array.Empty<IReadOnlyList<object?>>());
+            locations = suzulen;
+        }
+
         return locations.Count == 0
-            ? StockStatusCompanyTotal(conn, companyId)
+            ? StockStatusCompanyTotal(conn, companyId, izinli)
             : StockStatusByLocation(conn, companyId, locations);
     }
 
@@ -54,14 +75,27 @@ public sealed class ReportService
     private static IReadOnlyList<string> NormalizeLocations(IReadOnlyList<string>? ids)
         => ids is null ? Array.Empty<string>() : ids.Where(x => x is not null).Distinct().ToList();
 
-    private static TableModel StockStatusCompanyTotal(DbConnection conn, string companyId)
+    /// <param name="scope">DEN-E2 — kullanıcının izinli şubeleri. <c>null</c> = sınırsız (eski davranış:
+    /// firma geneli toplam). Doluysa toplam YALNIZ o depolar (+ ATANMAMIŞ) üzerinden hesaplanır;
+    /// böylece "filtre seçilmedi" durumu artık tüm firmayı açmaz.</param>
+    private static TableModel StockStatusCompanyTotal(DbConnection conn, string companyId, IReadOnlyList<string>? scope)
     {
         using var cmd = conn.CreateCommand();
+        var locWhere = "";
+        if (scope is not null)
+        {
+            var names = new List<string>(scope.Count);
+            for (int i = 0; i < scope.Count; i++) { var p = "@sc" + i; names.Add(p); cmd.AddWithValue(p, scope[i]); }
+            // Boş küme → yalnız ATANMAMIŞ görünür (fail-closed; filtre KALKMAZ).
+            locWhere = names.Count > 0
+                ? $" AND (location_id IN ({string.Join(",", names)}) OR location_id='')"
+                : " AND location_id=''";
+        }
         // STK-02: bakiye (malzeme + lokasyon) anahtarlı → düz JOIN her malzemeyi depo sayısı kadar
         // TEKRARLARDI. Firma geneli modda lokasyonlar toplanarak tek satıra indirilir.
         cmd.CommandText = @"
 SELECT m.code, m.name, COALESCE(b.quantity,'0') AS qty, m.min_stock
-FROM materials m LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b
+FROM materials m LEFT JOIN " + SqlDialect.StockTotalSubquery(conn, locWhere) + @" b
      ON b.material_id=m.id AND b.company_id=m.company_id
 WHERE m.company_id=@c AND m.is_deleted=0
 ORDER BY m.code;";
@@ -271,8 +305,21 @@ FROM materials WHERE company_id=@c AND is_deleted=0" + DateFilter(req, "created_
         {
             cmd.CommandText = "SELECT id, name FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
             cmd.AddWithValue("@c", companyId);
+            // 🟠 DEN-E1 (2026-08-18) DÜZELTMESİ — bu rapor ŞUBE KAPSAMINI HİÇ UYGULAMIYORDU:
+            // yalnız "Şube A"ya yetkili kullanıcı firmadaki BÜTÜN şubelerin adlarını ve
+            // araç/personel/bakım/yakıt/talep/faaliyet kayıt SAYILARINI görüyordu.
+            // Satırlar aşağıda YALNIZ bu listeden üretildiği için, kapsamı burada süzmek yeterlidir:
+            // kapsam dışı şubenin adı da sayısı da çıktıya HİÇ girmez.
+            var izinli = BranchAccess.Allowed(s);   // null = sınırsız (admin / tüm şubeler)
+            var izinliSet = izinli is null ? null : new HashSet<string>(izinli, StringComparer.Ordinal);
             using var r = cmd.ExecuteReader();
-            while (r.Read()) { var id = r.GetString(0); branchNames[id] = r.GetString(1); branchOrder.Add(id); }
+            while (r.Read())
+            {
+                var id = r.GetString(0);
+                if (izinliSet is not null && !izinliSet.Contains(id)) continue;
+                branchNames[id] = r.GetString(1);
+                branchOrder.Add(id);
+            }
         }
 
         // Şube bazlı sayımlar. Araç şablon-ayrımlı (branch_id); diğerleri toplam.

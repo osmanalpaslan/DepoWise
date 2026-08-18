@@ -100,7 +100,13 @@ internal static class SqlDialect
     /// <c>100</c> = "100", toplam 0 = "0". İki lehçe AYNI metni üretir.
     /// (6 ondalık sınırı yalnız GÖRÜNTÜLENEN toplamı ilgilendirir; defter ve bakiye satırları tam kalır.)
     /// </summary>
-    public static string StockTotalSubquery(DbConnection conn)
+    /// <param name="locationWhere">
+    /// DEN-E2 (2026-08-18) — OPSİYONEL LOKASYON KAPSAMI. Boş bırakılırsa davranış eskisiyle
+    /// BİREBİR aynıdır (firma geneli toplam). Doluysa <c>" AND (location_id IN (…) OR location_id='')"</c>
+    /// gibi bir parça beklenir ve toplama YALNIZ o depolar üzerinden yapılır — şube kapsamı raporun
+    /// içine bu yoldan girer. Parametreler çağıran tarafından bağlanır.
+    /// </param>
+    public static string StockTotalSubquery(DbConnection conn, string locationWhere = "")
     {
         // Kırpma güvenli çünkü her iki biçim de HER ZAMAN ondalık nokta içerir ('%.6f' / 'FM….000000').
         // Nokta olmasaydı rtrim(...,'0') tam sayıyı bozardı ("100" → "1").
@@ -108,7 +114,8 @@ internal static class SqlDialect
             ? "printf('%.6f', SUM(CAST(quantity AS REAL)))"
             : "to_char(SUM(CAST(quantity AS numeric)), 'FM999999999999990.000000')";
         return $"(SELECT material_id, company_id, rtrim(rtrim({sum}, '0'), '.') AS quantity " +
-               "FROM stock_balances GROUP BY material_id, company_id)";
+               "FROM stock_balances" + (locationWhere.Length > 0 ? " WHERE 1=1" + locationWhere : "") +
+               " GROUP BY material_id, company_id)";
     }
 
     /// <summary>STK-02 — <c>const</c> SQL metinlerinde kullanılan yer tutucu. <see cref="PortableSql"/>
