@@ -269,3 +269,67 @@ düzeltmek. Aday tamamlama (IntelliSense) ikisini de gösterir.
 - `DEN-B1` — `SetViewAllBranches`'e audit + `InvalidateUser` ekle.
 - `DEN-B2` — `EnrollmentService`'in 7 yazma metoduna audit ekle.
 - `DEN-B3` — `Org/BranchService.cs` + `Org/CompanyService.cs` sil (ölü kod).
+
+---
+
+# TUR 3 — Idempotency · çift kayıt · tekillik  →  ✅ TEMİZ (bulgu yok)
+
+CLAUDE.md §4'ün en sıkı kuralı: *"Stok, sayaç, yakıt, bakım ve onayda LWW yasaktır.
+Operation id + transaction + idempotency kullan."* Bu kural **eksiksiz uygulanmış**.
+
+| Kontrol | Sonuç |
+|---|---|
+| `operation_id` taşıyan iş tabloları | **9/9'unda TEKİL indeks var** (stok hareketi, cari defter, fatura, kasa/banka, fatura kapama, bakım, yakıt giriş/dağıtım, günlük faaliyet) |
+| Tekil indeksi olmayan 2 tablo | `server_changes`, `sync_conflicts` — **altyapı log tabloları**, mükerrer zararsız → doğru |
+| Ana veri tekilliği | `materials`(kod) · `vehicles`(iç kod) · `parties`(kod) · `material_requests`(no) · `stock_documents`(no) · `units` · `suppliers` · `brands` — hepsinde tekil kısıt |
+| Masaüstü çift tıklama | **Otomatik korumalı.** CommunityToolkit.Mvvm **8.4.1**; `[RelayCommand]` async metotlarda eşzamanlı çalıştırma varsayılan olarak KAPALI. Ayrıca **senkron `void Save()` komutu hiç yok** (tarandı) |
+| Web çift gönderim | 2 ekranda `_busy` yok (`CompanyPermissions`, `RolePermissions`) ama ikisi de **tam matris değiştirme** yapıyor (`DELETE`+`INSERT`) → idempotent, zararsız |
+
+---
+
+# TUR 4 — Para · miktar · sayaç · SQL güvenliği
+
+## ✅ TEMİZ ÇIKANLAR
+
+| Kontrol | Sonuç |
+|---|---|
+| SQL injection | **YOK.** Tek aday (`PartyService:337` metin birleştirme) incelendi: `where` yalnız sabit parça + parametre yer tutucusundan kuruluyor, kullanıcı girdisi `AddWithValue` ile bağlanıyor. |
+| `DateTime.Now` (yerel saat) | **Hiç yok** — zaman her yerde UTC/Unix ms. |
+| Sayaç geriye gitme | **Korumalı** — `MeterRule` + `MeterBackwardException`; API, masaüstü ve servis katmanında ele alınıyor. |
+| Stok bakiyesi toplama | **Doğru** — `SqlDialect.StockTotalSubquery` iki lehçede de kesin metin toplama yapıyor; `RecomputeBalances` C#'ta `decimal` topluyor. |
+
+## 🟠 DEN-D1 — Yakıt deposu yeterlilik kontrolü KAYAN NOKTA ile yapılıyor
+
+`FuelService.DepotBalance` (`:361`):
+```
+SELECT COALESCE(SUM(CAST(liters AS REAL)),0) FROM {table} ...   -- REAL = kayan nokta
+```
+Bu değer **iş kuralı kapısı** olarak kullanılıyor:
+- `:105-107` → `if (dto.Liters > depot) throw "Depo yakıtı yetersiz"`
+- `:216-217` → `if (balance - liters < 0) throw "bakiye eksiye düşer"`
+
+Projenin **kendi kuralı** bunu yasaklıyor (`StockBalanceWriter:143`: *"SQLite'ta
+`SUM(CAST(... AS REAL))` kayan nokta hatası üretir (Money kuralı: float yasak)"*) ve doğru deseni
+zaten var (`SqlDialect.StockTotalSubquery`, C#'ta `decimal` toplama).
+
+**Somut sonuç:** çok sayıda ondalıklı giriş biriktiğinde toplam 999,9999999999999 çıkabilir →
+tam 1000 L'lik dağıtım **haksız yere reddedilir**; ters yönde bakiye kıl payı eksiye düşebilir.
+"Negatif stok" kuralının yakıt karşılığı bu kapıdır.
+
+**Not:** tablo/kolon adları sabit → **injection riski YOK** (ayrıca doğrulandı).
+
+## 🟡 DEN-D2 — Rapor ve ana ekran toplamları kayan noktada (PARA dahil)
+
+| Yer | Sorgu | Ne bozulur |
+|---|---|---|
+| `ReportService:389-390` | `SUM(CAST(liters AS REAL)*CAST(unit_price AS REAL))` | **Yakıt maliyeti — PARA** |
+| `ReportService:505` | `SUM(CAST(liters AS REAL))` | Yakıt litresi |
+| `ReportService:139` | `SUM(CAST(COALESCE(b.quantity,'0') AS REAL))` | Stok miktarı toplamı |
+| `DashboardService:166-167` | `SUM(CAST(liters AS REAL))` | Ana ekran yakıt toplamı |
+
+Defter ve bakiye **etkilenmez** (onlar doğru yoldan hesaplanıyor); etkilenen **gösterilen toplamlar**.
+Kullanıcı raporda `1234,5600000000002` gibi bir değer görebilir veya kuruş sapması olabilir.
+
+## 📋 TUR 3+4 → YAPILACAKLAR
+- `DEN-D1` — yakıt depo bakiyesi `decimal` ile hesaplansın (mevcut desen: değerleri metin oku, C#'ta topla).
+- `DEN-D2` — rapor/dashboard toplamları kesin toplama desenine geçsin.

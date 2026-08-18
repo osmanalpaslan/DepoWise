@@ -579,3 +579,26 @@ Cihaz onayı/iptali/silme, token yenileme, kota değiştirme, cihaza firma/şube
 `Infrastructure/Org/BranchService.cs` ve `Org/CompanyService.cs` hiçbir yerden referanslanmıyor
 (gerçekleri `Organization/` altında). SIF-01'i doğuran "yanlış dosyayı düzeltme" riskini taşıyor.
 **Yapılacak:** iki dosyayı sil. **Kabul:** çözüm derlenir · tam takım geçer.
+
+## TUR 3 — Idempotency / çift kayıt · ✅ TEMİZ (yapılacak yok)
+operation_id taşıyan 9 iş tablosunun 9'unda da tekil indeks var · ana veri tekil kısıtlı ·
+masaüstü async komutları (Toolkit 8.4.1) çift tıklamaya karşı otomatik kilitli, senkron Save yok ·
+web'de busy koruması olmayan 2 ekran idempotent tam-matris yazıyor.
+
+## TUR 4 — Para · miktar · sayaç · SQL güvenliği
+
+> Temiz: SQL injection YOK · `DateTime.Now` YOK · sayaç geriye gitme korumalı ·
+> stok bakiyesi toplama doğru.
+
+### `DEN-D1` — Yakıt deposu yeterlilik kontrolü kayan noktayla · 🟠 · **SIRADA**
+`FuelService.DepotBalance:361` `SUM(CAST(liters AS REAL))` — sonuç `:105-107` ("Depo yakıtı
+yetersiz") ve `:216-217` ("bakiye eksiye düşer") **iş kuralı kapılarında** kullanılıyor.
+Projenin kendi kuralı float'ı yasaklıyor (`StockBalanceWriter:143`) ve doğru deseni mevcut.
+Sonuç: ondalıklı girişler biriktiğinde tam miktarlı dağıtım haksız reddedilebilir / bakiye kıl payı
+eksiye düşebilir. Tablo/kolon adları sabit → injection riski YOK.
+**Yapılacak:** metin oku + C#'ta `decimal` topla. **Kabul:** 0.1 L × N senaryosunda tam eşitlik testi.
+
+### `DEN-D2` — Rapor/ana ekran toplamları kayan noktada (para dahil) · 🟡 · **SIRADA**
+`ReportService:139, 389-390, 505` · `DashboardService:166-167`.
+`SUM(liters*unit_price)` = **para** kayan noktada. Defter/bakiye etkilenmez, gösterilen toplam etkilenir.
+**Yapılacak:** kesin toplama desenine geçir. **Kabul:** ondalıklı veride beklenen tam değer testi.
