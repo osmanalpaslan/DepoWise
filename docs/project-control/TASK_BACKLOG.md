@@ -558,3 +558,24 @@ Kapsam dışı ama `branch_id` taşıyanlar: `materials`, `vehicles`, `personnel
 Sonuç: şubeyle sınırlı kullanıcının makinesine **tüm şubelerin** verisi iniyor (gizlilik).
 ⚠️ Düzeltme **davranış değiştirir** — bugüne kadar veriyi gören kullanıcıda "kayboldu" algısı.
 **Kullanıcı onayı olmadan uygulanmayacak.**
+
+## TUR 2 — Servis katmanı (yetki · tenant · audit · önbellek)
+
+> Temiz çıkanlar: yetkisiz yazma yolu YOK · tenant izolasyonu TEMİZ · JWT→oturum fail-closed ·
+> şube kapsamı kaydetme TAM. Ayrıntı: `docs/DENETIM_2026-08-18_TUR1.md` (Tur 2 bölümü).
+
+### `DEN-B1` — "Tüm Şubeler" yetkisi audit yazmıyor + önbellek düşmüyor · 🟡 · **SIRADA**
+`UserService.SetViewAllBranches:734` süper admin kapılı ✔ ama `AuditWriter.Write` YOK ve
+`_snapshots?.InvalidateUser(userId)` YOK. Kardeşleri (`:135`, `:272`, `:398`) düşürüyor.
+Risk: yetki GERİ ALINDIĞINDA kullanıcı 90 sn daha tüm şubeleri görür.
+**Yapılacak:** audit + invalidate. **Kabul:** audit satırı oluşur · yetki anında düşer · test.
+
+### `DEN-B2` — `EnrollmentService` hiç audit yazmıyor · 🟡 · **SIRADA**
+Cihaz onayı/iptali/silme, token yenileme, kota değiştirme, cihaza firma/şube atama **izsiz**
+(dosyada AuditWriter sayısı 0). Yetki kapıları doğru.
+**Yapılacak:** 7 yazma metoduna `AuditWriter.Write`. **Kabul:** her işlem iz bırakır · test.
+
+### `DEN-B3` — Ölü kod: ikinci `BranchService`/`CompanyService` · 🟡 · **SIRADA**
+`Infrastructure/Org/BranchService.cs` ve `Org/CompanyService.cs` hiçbir yerden referanslanmıyor
+(gerçekleri `Organization/` altında). SIF-01'i doğuran "yanlış dosyayı düzeltme" riskini taşıyor.
+**Yapılacak:** iki dosyayı sil. **Kabul:** çözüm derlenir · tam takım geçer.

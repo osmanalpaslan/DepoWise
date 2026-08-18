@@ -216,3 +216,56 @@ sızıntısı değil.
 5. Rapor sorguları: şube kapsamı ve firma izolasyonu her raporda uygulanıyor mu?
 6. UI doğrulamaları: numeric/tarih alanları, zorunlu alanlar, hata mesajları.
 7. Migration geri-uyumluluk ve PostgreSQL/SQLite lehçe farkları.
+
+---
+
+# TUR 2 — Servis katmanı: yetki · tenant · audit · önbellek tazeliği
+
+**Yöntem:** Infrastructure altındaki tüm `*Service.cs` dosyalarında yazma yapan (INSERT/UPDATE/DELETE)
+public metotlar ayrıştırıldı; her biri için yetki kapısı, tenant çözümü, audit ve yetki-önbelleği
+tazeleme kontrol edildi.
+
+## ✅ TEMİZ ÇIKANLAR (bulgu yok — kayda geçiriliyor)
+
+| Kontrol | Sonuç |
+|---|---|
+| Yetkisiz yazma yolu | **YOK.** Aday çıkan 4 metot incelendi, hepsi korumalı (`PermissionTemplateService` gizli `RequireSuper` yardımcısıyla; diğer 3'ü kullanıcının kendi verisi). |
+| Tenant (firma) izolasyonu | **TEMİZ.** `companyId` parametresi alan tüm metotlar ya `TenantAccessGuard` ya `ResolveCompany` ya da süper admin kapısı kullanıyor. |
+| JWT → oturum çözümü | **DOĞRU ve fail-closed** (`AuthService.LoadSnapshot`): çapraz firma YALNIZ süper admine; uydurma firma id'si → `null`; silinmiş firma → kendi firmasına düşer (kilitlenme yok). |
+| Şube kapsamı kaydetme | **TAM**: `PermissionService.SaveBranchScope` audit yazıyor **ve** yetki fotoğrafını düşürüyor. |
+
+## 🟡 DEN-B1 — "Tüm Şubeler" yetkisi audit YAZMIYOR ve önbelleği DÜŞÜRMÜYOR
+
+`UserService.SetViewAllBranches` (`:734`) — süper admin kapısı VAR ✔, ama:
+- `AuditWriter.Write` **yok** → bu yetkiyi kimin ne zaman verdiği/aldığı **hiçbir yerde kayıtlı değil**.
+- `_snapshots?.InvalidateUser(userId)` **yok** → değişiklik **90 saniyeye kadar etkisiz kalır**.
+  Kardeş metotlar (`DeleteUser :135`, `SetActive :272`, `SetRoles :398`) üçü de düşürüyor.
+
+⚠️ Asıl risk **geri alma** yönünde: yetki kaldırıldıktan sonra kullanıcı 90 sn daha **tüm şubelerin**
+verisini görmeye devam eder. "Tüm Şubeler" firma genelinde veri açan bir yetkidir.
+
+## 🟡 DEN-B2 — `EnrollmentService` hiç audit yazmıyor
+
+Dosyada `AuditWriter` geçiş sayısı: **0**. Yetki kapıları doğru (`ApproveDevice`/`RevokeDevice` admin,
+`SetQuota` süper admin) ✔ ama şu işlemler **izsiz**: cihaz onayı · cihaz iptali · cihaz silme ·
+token yenileme · makine kotası değiştirme · cihaza firma/şube atama.
+
+Karşılaştırma: `RoleGrantService.SetMatrix` için aynı eksik G6-06'da fark edilip düzeltilmişti
+("bu platformdaki en yetkili işlemlerden biri ama iz bırakmıyordu"). Aynı sınıf, burada atlanmış.
+
+## 🟡 DEN-B3 — ÖLÜ KOD: ikinci bir `BranchService` ve `CompanyService`
+
+`src/DepoWise.Infrastructure/Org/BranchService.cs` ve `Org/CompanyService.cs` **hiçbir yerden
+referans edilmiyor** (gerçek olanlar `Organization/` altında). Aynı klasördeki `PersonnelService`,
+`PersonnelTitleService`, `ScopeResolver` ise KULLANILIYOR — yani klasör tamamen ölü değil, karışık.
+
+Ölü `Org/BranchService.AssignScope` (`:112`) `user_scopes`'a yazıyor ve **audit yazmıyor**.
+
+⚠️ **Neden önemli:** bu tam olarak SIF-01'i doğuran hata sınıfı — iki benzer dosyadan **yanlış olanı**
+düzeltmek. Aday tamamlama (IntelliSense) ikisini de gösterir.
+
+## 📋 TUR 2 → YAPILACAKLAR
+
+- `DEN-B1` — `SetViewAllBranches`'e audit + `InvalidateUser` ekle.
+- `DEN-B2` — `EnrollmentService`'in 7 yazma metoduna audit ekle.
+- `DEN-B3` — `Org/BranchService.cs` + `Org/CompanyService.cs` sil (ölü kod).
