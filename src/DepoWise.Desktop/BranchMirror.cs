@@ -40,11 +40,13 @@ public static class BranchMirror
             if (online is null) return; // çevrimdışı → yerelde zaten olanla devam
             _lastRefresh = System.DateTimeOffset.UtcNow;
 
-            var rows = new System.Collections.Generic.List<(string Id, string Name, string? Code)>();
+            // ŞB-01: Kind + ParentId de taşınır. Eskiden yalnız (Id, Name, Code) geçiyordu → masaüstünde
+            // üst şube ve "Şantiye" türü kayboluyor, kullanıcı kaydettikten hemen sonra "—" görüyordu.
+            var rows = new System.Collections.Generic.List<Infrastructure.Organization.BranchMirrorApply.Row>();
             foreach (var b in online)
             {
                 if (b.Id == BranchConstants.AllBranchesId) continue;
-                rows.Add((b.Id, b.Name, b.Code));
+                rows.Add(new Infrastructure.Organization.BranchMirrorApply.Row(b.Id, b.Name, b.Code, b.Kind, b.ParentId));
             }
             Apply(DesktopServices.Factory, companyId, rows);
         }
@@ -54,6 +56,6 @@ public static class BranchMirror
     /// <summary>Saf aynalama Infrastructure'dadır (<see cref="DepoWise.Infrastructure.Organization.BranchMirrorApply"/>) —
     /// Avalonia bağımlılığı olmadan test edilebilsin diye. Burası yalnız AĞ tarafıdır.</summary>
     public static void Apply(IDbConnectionFactory factory, string companyId,
-        System.Collections.Generic.IReadOnlyList<(string Id, string Name, string? Code)> rows)
+        System.Collections.Generic.IReadOnlyList<Infrastructure.Organization.BranchMirrorApply.Row> rows)
         => DepoWise.Infrastructure.Organization.BranchMirrorApply.Run(factory, companyId, rows);
 }

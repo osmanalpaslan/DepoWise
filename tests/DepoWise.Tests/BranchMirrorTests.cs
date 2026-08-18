@@ -62,8 +62,14 @@ public class BranchMirrorTests : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    /// <summary>Sunucudan gelmiş gibi bir liste uygular (ağ yok — saf aynalama yolu).</summary>
+    /// <summary>Sunucudan gelmiş gibi bir liste uygular (ağ yok — saf aynalama yolu).
+    /// ŞB-01 sonrası ayna tür + üst şube de taşır; bu yardımcı eski çağrıları korumak için ikisini boş bırakır.</summary>
     private void Mirror(string companyId, params (string Id, string Name, string? Code)[] rows)
+        => BranchMirrorApply.Run(_local, companyId,
+            rows.Select(r => new BranchMirrorApply.Row(r.Id, r.Name, r.Code, null, null)).ToList());
+
+    /// <summary>ŞB-01 testleri için: tür ve üst şube taşıyan aynalama.</summary>
+    private void MirrorFull(string companyId, params BranchMirrorApply.Row[] rows)
         => BranchMirrorApply.Run(_local, companyId, rows);
 
     private List<(string Id, string Name, long Deleted)> LocalBranches(string companyId)

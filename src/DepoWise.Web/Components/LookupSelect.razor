@@ -24,6 +24,11 @@
     [Parameter] public string CreateField { get; set; } = "name";
     [Parameter] public string? ExtraField { get; set; }
     [Parameter] public string? ExtraValue { get; set; }
+    /// <summary>ŞB-06 (2026-08-18): İKİNCİ ek alan. Şube ekranında "+" ile üst şube eklerken hem <c>kind</c>
+    /// hem de <c>companyId</c> gönderilmesi gerekiyordu; tek ek alan yetmiyordu ve companyId gitmediği için
+    /// süper admin başka firmayı yönetirken şube KENDİ firmasına açılıyordu.</summary>
+    [Parameter] public string? Extra2Field { get; set; }
+    [Parameter] public string? Extra2Value { get; set; }
     /// <summary>"+" ile ekleme sonrası ebeveyn listeyi tazelesin diye (yeni ad döner).</summary>
     [Parameter] public EventCallback<string> OnAdded { get; set; }
 
@@ -115,6 +120,7 @@
             {
                 var body = new Dictionary<string, object?> { [CreateField] = name };
                 if (ExtraField is not null) body[ExtraField] = ExtraValue;
+                if (Extra2Field is not null) body[Extra2Field] = Extra2Value;
                 err = await Api.PostAsync(CreatePath, body);
             }
             else

@@ -49,8 +49,11 @@
                 <MudItem xs="6" md="6"><MudTextField @bind-Value="_password" Label="@(_editId is null ? "Şube Şifresi" : "Yeni Şifre (boş = değişmez)")" InputType="InputType.Password" Margin="Margin.Dense" Variant="Variant.Outlined" UserAttributes="_noAuto" /></MudItem>
             }
             <MudItem xs="12">
+                @* ŞB-06: companyId de gönderilir — yoksa süper admin BAŞKA bir firmayı yönetirken
+                   "+" ile eklenen üst şube KENDİ firmasına açılıyordu. *@
                 <LookupSelect Label="Üst Şube / Şantiye" @bind-Value="_parent" Items="_parentOptions"
                               CreatePath="/api/branches" CreateField="name" ExtraField="kind" ExtraValue="branch"
+                              Extra2Field="companyId" Extra2Value="@_companyId"
                               OnAdded="ReloadAfterAdd" />
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">Boş = en üst seviye. Kod + şifre login'de şube seçimi için kullanılır.</MudText>
             </MudItem>

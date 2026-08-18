@@ -26,7 +26,10 @@ public static class ServerAuthClient
     public readonly record struct AuthResult(AuthState State, string? CompanyId);
 
     public sealed record LoginCompany(string Id, string Name) { public override string ToString() => Name; }
-    public sealed record LoginBranch(string Id, string Name, string? Code, bool HasPassword)
+    /// <summary>ŞB-01: <paramref name="Kind"/> ve <paramref name="ParentId"/> sona EKLENDİ (geriye uyumlu —
+    /// eski sunucu bu alanları göndermezse null/varsayılan kalır). Şube aynası bunları yerele taşır.</summary>
+    public sealed record LoginBranch(string Id, string Name, string? Code, bool HasPassword,
+        string? Kind = null, string? ParentId = null)
     { public override string ToString() => string.IsNullOrEmpty(Code) ? Name : $"{Name} ({Code})"; }
 
     /// <summary>Login öncesi firma listesi (sunucudan, anonim). Çevrimdışıysa null.</summary>

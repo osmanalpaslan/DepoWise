@@ -50,12 +50,14 @@ public sealed class BranchService
         var cid = ResolveCompany(s, companyId);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // ŞB-03 (2026-08-18): JOIN'e p.is_deleted=0 eklendi — silinmiş üst şubenin adı listede
+        // görünmeye devam ediyordu (kopuk referans kullanıcıya "geçerli üst şube" gibi görünüyordu).
         cmd.CommandText = @"
 SELECT b.id, b.name, b.kind, b.parent_id, p.name,
        (SELECT COUNT(*) FROM users u WHERE u.branch_id = b.id AND u.is_deleted = 0),
        b.code, b.password_hash, b.version
 FROM branches b
-LEFT JOIN branches p ON p.id = b.parent_id
+LEFT JOIN branches p ON p.id = b.parent_id AND p.is_deleted = 0
 WHERE b.company_id = @c AND b.is_deleted = 0
 ORDER BY b.name;";
         cmd.AddWithValue("@c", cid);
@@ -122,7 +124,11 @@ ORDER BY b.name;";
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         EnsureBranchOwned(conn, tx, cid, id);
-        if (dto.ParentId is not null) EnsureBranchOwned(conn, tx, cid, dto.ParentId);
+        if (dto.ParentId is not null)
+        {
+            EnsureBranchOwned(conn, tx, cid, dto.ParentId);
+            EnsureNoCycle(conn, tx, cid, id, dto.ParentId);   // ŞB-02
+        }
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -274,31 +280,77 @@ ORDER BY u.username;");
         using var cmd = conn.CreateCommand();
         // CAST(... AS INTEGER): boolean ifade PG'de gerçek boolean döner (GetInt64 patlar); CAST ile iki lehçede
         // de 0/1 → GetInt64 çalışır. (SQLite'ta zaten 0/1'di; davranış değişmez.)
-        cmd.CommandText = "SELECT id, name, kind, code, CAST((password_hash IS NOT NULL AND password_hash<>'') AS INTEGER) " +
+        // ŞB-01 (2026-08-18): parent_id EKLENDİ. Eskiden burada sabit null dönüyordu; bu uç masaüstünün
+        // şube AYNASINI (BranchMirror) besliyor → üst şube masaüstüne HİÇ ulaşmıyor, kullanıcı üst şubeyi
+        // seçip kaydettikten hemen sonra ekranda "—" görüyordu. (kind zaten taşınıyordu, aynada düşüyordu.)
+        cmd.CommandText = "SELECT id, name, kind, code, CAST((password_hash IS NOT NULL AND password_hash<>'') AS INTEGER), parent_id " +
             "FROM branches WHERE company_id=@c AND is_deleted=0 ORDER BY name;";
         cmd.AddWithValue("@c", companyId);
         var list = new List<BranchRow>();
         using var r = cmd.ExecuteReader();
         while (r.Read())
-            list.Add(new BranchRow(r.GetString(0), r.GetString(1), r.GetString(2), null, null, 0,
+            list.Add(new BranchRow(r.GetString(0), r.GetString(1), r.GetString(2),
+                r.IsDBNull(5) ? null : r.GetString(5), null, 0,
                 r.IsDBNull(3) ? null : r.GetString(3), r.GetInt64(4) == 1));
         return list;
     }
 
     /// <summary>G6-08 — şubeye bağlı (silinmemiş) araç/personel varsa silmeyi engeller. Sayılar YALNIZ
-    /// şubenin firmasından alınır: başka firmanın kaydı sayılmaz, sayı sızdırmaz.</summary>
+    /// şubenin firmasından alınır: başka firmanın kaydı sayılmaz, sayı sızdırmaz.
+    /// ŞB-03 (2026-08-18): ALT ŞUBE de sayılır — üst şube silinince altındakiler kopuk referansla kalıyordu.</summary>
     private static void EnsureNoDependents(DbConnection conn, DbTransaction tx, string companyId, string branchId)
     {
         int vehicles = CountBound(conn, tx, "vehicles", companyId, branchId);
         int personnel = CountBound(conn, tx, "personnel", companyId, branchId);
-        if (vehicles == 0 && personnel == 0) return;
+        int children = CountChildren(conn, tx, companyId, branchId);
+        if (vehicles == 0 && personnel == 0 && children == 0) return;
 
         var parts = new List<string>();
+        if (children > 0) parts.Add($"{children} alt şube/şantiye");
         if (vehicles > 0) parts.Add($"{vehicles} araç");
         if (personnel > 0) parts.Add($"{personnel} personel");
         throw new InvalidOperationException(
             $"Bu şube silinemez. Şubeye bağlı {string.Join(" ve ", parts)} bulunmaktadır. " +
             "Önce bu kayıtları başka bir şubeye taşıyın.");
+    }
+
+    /// <summary>ŞB-03: bu şubeyi üst şube olarak gösteren (silinmemiş) alt şube sayısı.</summary>
+    private static int CountChildren(DbConnection conn, DbTransaction tx, string companyId, string branchId)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE parent_id=@b AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@b", branchId);
+        cmd.AddWithValue("@c", companyId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    /// <summary>
+    /// ŞB-02 (2026-08-18) — DÖNGÜ KORUMASI. Eskiden yalnız "şube kendi üst şubesi olamaz" kontrolü vardı;
+    /// A'nın üstü B, B'nin üstü A yapılabiliyordu. Bu, ağaçta gezen her kod için sonsuz döngü demektir
+    /// (ŞB-04 ile kapsam/rapor artık ağacı gerçekten geziyor). Hedef üst şubeden yukarı doğru yürünür:
+    /// yolda düzenlenen şubenin kendisi çıkarsa döngü kurulacak demektir → reddedilir.
+    /// Zincir uzunluğu ayrıca sınırlıdır: veri zaten bozuksa (eski kayıtlarda döngü varsa) burada asılı kalınmaz.
+    /// </summary>
+    private static void EnsureNoCycle(DbConnection conn, DbTransaction tx, string companyId, string id, string parentId)
+    {
+        const int MaxDepth = 64;
+        var current = parentId;
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int step = 0; step < MaxDepth && current is not null; step++)
+        {
+            if (string.Equals(current, id, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    "Bu şube, kendi alt şubelerinden birinin altına taşınamaz (döngü oluşur).");
+            if (!seen.Add(current)) break;   // mevcut veride zaten döngü var → sonsuz dönme
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "SELECT parent_id FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+            cmd.AddWithValue("@id", current);
+            cmd.AddWithValue("@c", companyId);
+            var v = cmd.ExecuteScalar();
+            current = v is null || v is DBNull ? null : Convert.ToString(v);
+        }
     }
 
     /// <summary>Tablo adı YALNIZ bu sınıftaki sabitlerden gelir — dışarıdan parametre değildir.</summary>

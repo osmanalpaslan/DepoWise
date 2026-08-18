@@ -351,7 +351,10 @@ app.MapGet("/api/public/branches", (HttpContext http, string companyId) =>
     if (!publicLimiter.Check("pub:" + (ClientIp(http) ?? "?")).Allowed) return Results.StatusCode(429);
     if (string.IsNullOrWhiteSpace(companyId)) return Results.Ok(Array.Empty<object>());
     var rows = svc.Branches.ListForLogin(companyId);
-    return Results.Ok(rows.Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword }));
+    // ŞB-01: kind + parentId de gönderilir — masaüstü aynası (BranchMirror) bu uçtan beslenir ve
+    // eskiden üst şube ile tür yerel kopyaya HİÇ ulaşmıyordu. Ek alanlar geriye uyumludur.
+    return Results.Ok(rows.Select(b => new { id = b.Id, name = b.Name, code = b.Code, hasPassword = b.HasPassword,
+        kind = b.Kind, parentId = b.ParentId }));
 });
 app.MapPost("/api/public/verify-branch", (HttpContext http, VerifyBranchDto d) =>
 {
