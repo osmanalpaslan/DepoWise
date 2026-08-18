@@ -620,3 +620,18 @@ Kardeş rapor `StockMovements:848` aynı işi doğru yapıyor.
 `CountTplByBranch` yardımcıları kapsam bilmiyor (imzalarında `SessionContext` yok).
 Sonuç: şubeyle sınırlı kullanıcı tüm şubelerin adlarını ve kayıt sayılarını görüyor.
 **Yapılacak:** yardımcılara oturum geçir + kapsam süzgeci. **Kabul:** yalnız izinli şubeler listelenir · test.
+
+## TUR 6 — Masaüstü ↔ web buton eşitliği
+
+### `DEN-F1` — Web'de özel buton yetkisi hiç yok · 🟠 · **SIRADA**
+`AuthState`'te buton desteği yok, `/api/me/menu` `buttons` döndürmüyor. Masaüstü 6 yerde kontrol
+ediyor. CLAUDE.md §5 (UI ≡ API) ihlali. Güvenlik açığı DEĞİL — sunucu tarafı fail-closed.
+Etki: kullanıcı yetkisi olmayan butonu görür, tıklar, hata alır.
+**Yapılacak:** menü ucuna `buttons` ekle + `AuthState.CanButton` + web ekranlarında gizle.
+
+### `DEN-F2` — `btn-add-lookup` sunucuda kapısız · 🟡 · **SIRADA**
+Yalnız masaüstünde uygulanıyor; web'den atlatılabilir. Etki dar (`definitions`/Create yine gerekli).
+**Yapılacak:** `/api/lookups/{table}` POST'una `RequireButton` ekle.
+
+## TUR 7 — Lehçe (PG/SQLite) uyumu · ✅ TEMİZ (yapılacak yok)
+Lehçeye özgü tüm SQL `SqlDialect.PortableSql`'den geçiyor; çevrilemeyen kalıp yok; PRAGMA'lar korumalı.

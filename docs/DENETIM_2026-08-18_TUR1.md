@@ -382,3 +382,61 @@ araç/personel/bakım/yakıt/talep/faaliyet **kayıt sayılarını** görür.
 ## 📋 TUR 5 → YAPILACAKLAR
 - `DEN-E2` — `StockStatus`'a `BranchAccess` kesişimi (fail-closed) eklensin.
 - `DEN-E1` — `StatusReport` şube listesi ve sayımları kapsama göre süzülsün.
+
+---
+
+# TUR 6 — Masaüstü ↔ web yetki eşitliği (özel butonlar)
+
+## 🟠 DEN-F1 — Web'de özel buton yetkisi HİÇ YOK
+
+- `AuthState` (web) içinde buton yetkisi **hiç yok** (`Button` geçişi: 0).
+- `/api/me/menu` yalnız `modules` döndürüyor — **`buttons` alanı yok**.
+- Masaüstü ise 6 yerde `AccessControl.CanUseButton` kontrolü yapıyor.
+
+CLAUDE.md §5: *"menü, işlem, alan ve özel buton yetkisi UI ile API'da aynı uygulanır."* → ihlal.
+
+**Güvenlik açığı DEĞİL** (bu ayrıca doğrulandı): sunucu tarafı fail-closed —
+`Reverse` (`StockService:407`, `FuelService:205,235`), `RestoreTrash` (`TrashService:140`),
+`ExportReports`/`ExportManagerReports` (`Program.cs:2435`) ve `BranchSelect` (`ReportScope`)
+hepsi sunucuda `RequireButton`/`CanUseButton` ile korunuyor.
+
+**Etki:** web kullanıcısı yetkisi olmayan butonu **görür**, tıklar ve hata alır (kötü deneyim +
+kural ihlali).
+
+## 🟡 DEN-F2 — `btn-add-lookup` yalnız masaüstünde uygulanıyor
+
+`"+" satır içi tanım ekleme` yetkisinin **sunucu tarafında kapısı YOK** (arama sonucu boş).
+Masaüstünde `ViewModelBase` uyguluyor, web'de hiç uygulanmıyor → **web'den atlatılabilir**.
+
+**Etki dar:** alttaki `/api/lookups/{table}` ucu yine `definitions` modülünde `Create` istiyor
+(`LookupService:77`). Yani bu buton yalnız *ek* bir kısıttır; modül yetkisi olmayan yine ekleyemez.
+
+**Bulgu değil:** `btn-logo` (Firma Logosu) — API ucu **yok**, masaüstüne özgü özellik. Doğru.
+
+---
+
+# TUR 7 — Lehçe (PostgreSQL / SQLite) uyumu  →  ✅ TEMİZ (bulgu yok)
+
+| Kontrol | Sonuç |
+|---|---|
+| SQLite'a özgü `printf()` / `GROUP_CONCAT()` | **Hepsi** `SqlDialect.PortableSql`'den geçiyor (PG'de `to_char`/`string_agg`'e çevriliyor) |
+| Çevrilemeyen `printf` biçimi | **Yok** — tüm kullanımlar `'%.2f'` kalıbında; `'%.6f'` yalnız zaten lehçe-dallanmış `StockTotalSubquery` içinde |
+| `PRAGMA` kullanımı | Hepsi lehçe-korumalı (`DatabaseHealth` `IsSqlite` kontrollü; `SqliteConnectionFactory`/`BackupService` zaten SQLite'a özgü) |
+| Ham SQL'de `PortableSql` atlaması | **Yok** — lehçeye özgü SQL içeren her dosya çeviriden geçiyor |
+
+---
+
+# 🏁 DENETİM TAMAMLANDI — TOPLAM 18 BULGU
+
+| Tur | Kapsam | Bulgu |
+|---|---|---|
+| 1 | Şema ↔ senkron ↔ silme ↔ yetki kataloğu | 9 |
+| 2 | Servis katmanı: yetki · tenant · audit · önbellek | 3 |
+| 3 | Idempotency · çift kayıt | **0 — temiz** |
+| 4 | Para · miktar · sayaç · SQL güvenliği | 2 |
+| 5 | Raporlar: firma izolasyonu · şube kapsamı | 2 |
+| 6 | Masaüstü ↔ web buton eşitliği | 2 |
+| 7 | Lehçe uyumu | **0 — temiz** |
+
+**Temiz çıkan alanlar** (kayda değer — bu alanlarda iş yapılmasına gerek yok): idempotency,
+tenant izolasyonu, JWT→oturum çözümü, SQL injection, sayaç kuralı, lehçe uyumu, firma izolasyonu.
