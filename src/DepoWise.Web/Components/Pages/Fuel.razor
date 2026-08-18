@@ -66,7 +66,7 @@
                     <MudTd Style="text-align:right">@Date(context, "distributionDate")</MudTd>
                     <MudTd Style="text-align:right">
                         @if (Bool(context, "isCancelled")) { <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip> }
-                        else if (Auth.CanEdit("fuel"))
+                        else if (Auth.CanEdit("fuel") && Auth.CanButton("btn-reverse"))
                         {
                             <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
                                        OnClick="@(() => CancelDist(Str(context, "id")))">İptal Et</MudButton>
@@ -115,7 +115,7 @@
                     <MudTd Style="text-align:right">@Str(context, "dateText")</MudTd>
                     <MudTd Style="text-align:right">
                         @if (Bool(context, "isCancelled")) { <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text">İptal edildi</MudChip> }
-                        else if (Auth.CanEdit("fuel"))
+                        else if (Auth.CanEdit("fuel") && Auth.CanButton("btn-reverse"))
                         {
                             <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
                                        OnClick="@(() => CancelDepot(Str(context, "id")))">İptal Et</MudButton>

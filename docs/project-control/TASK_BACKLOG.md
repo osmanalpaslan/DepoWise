@@ -677,7 +677,7 @@ yansımıyor**. Gerçek etki yalnız biçimlendiricisi olmayan "Toplam Stok" kol
 
 ## Açık kalanlar
 
-### `SNK-A7` — Senkron şube kapsamı · ⛔ **KARAR BEKLİYOR** (kullanıcı)
+### `SNK-A7` — Senkron şube kapsamı · ✅ **TAMAMLANDI** (2026-08-18, kullanıcı onayıyla)
 `BranchScopedTables` yalnız ön muhasebeyi kapsıyor. `branch_id` taşıyıp kapsam dışı kalanlar:
 `vehicles`, `personnel`, `stock_movements`, `material_requests`, `stock_change_logs`.
 Sonuç: şubeyle sınırlı kullanıcının makinesine diğer şubelerin verisi de iniyor (gizlilik).
@@ -692,7 +692,29 @@ Gizlilik kazancı ile alışkanlık bozulması arasındaki denge ürün kararıd
 **Öneri:** `vehicles` + `personnel` ile başlanması (en net şube-bağlı varlıklar), `stock_movements`
 ve `material_requests` ikinci adımda (çevrimdışı stok/onay akışlarını etkileyebilir).
 
-### `DEN-F1b` — Kalan web ekranlarında "İptal/ters kayıt" butonu gizleme · 🟡 · **SIRADA**
+### `DEN-F1b` — Kalan web ekranlarında buton gizleme · ✅ **TAMAMLANDI** (kapsam düzeltildi)
 6 ekran: `Daily`, `Finance`, `Fuel`, `Inspection`, `Invoices`, `Parties`.
 Sunucu bunları ZATEN engelliyor (`RequireButton`) → güvenlik değil, arayüz tutarlılığı işi.
 `Auth.CanButton("btn-reverse")` ile gizlenmeleri gerekir.
+
+## SON İKİ AŞAMA — TAMAMLANDI (2026-08-18)
+
+### `SNK-A7` uygulandı — senkron şube kapsamı
+`vehicles` · `personnel` · `stock_movements` · `material_requests` şube kapsamına alındı
+(+ çocukları `material_request_items`, `request_status_history` ebeveynle süzülür).
+
+**`materials` BİLİNÇLİ OLARAK ALINMADI** — `KARAR-7 = A` (2026-08-11): malzeme kartı **firma
+genelidir**; `materials.branch_id` "kartın ait olduğu şube"dir, stok lokasyonu DEĞİLDİR
+(2461 kaydın yalnız 2'sinde dolu). İlk denetim raporunda yanlış listelenmişti.
+Bu kural teste bağlandı: `SyncBranchScopeTests.Malzeme_Sube_Kapsamina_ALINMADI`.
+
+Korunan ilkeler: şubesiz (eski) kayıtlar GİZLENMEZ · kısıtsız kullanıcı (admin /
+CanViewAllBranches / kapsamsız) ETKİLENMEZ · push kapısı manipüle edilmiş `branch_id`'yi reddeder.
+
+### `DEN-F1b` — kapsam DÜZELTİLEREK tamamlandı
+İlk plan 6 web ekranında "İptal/ters kayıt" butonunu `btn-reverse` ile gizlemekti.
+**Uygulama sırasında hata yakalandı:** sunucuda `btn-reverse` YALNIZ stok
+(`StockService:407`) ve yakıt (`FuelService:205,235`) iptalinde isteniyor. Finance / Inspection /
+Invoices / Parties iptalleri bu butonu İSTEMİYOR → onları gizlemek **arayüzü sunucudan KATI**
+yapardı ve kullanıcı hakkı olan bir yeteneği kaybederdi. O dört ekran **geri alındı**.
+Uygulanan: `Fuel.razor` (2 yer) + `Stock.razor` (1 yer) — sunucu kuralıyla birebir aynı.

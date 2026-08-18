@@ -223,6 +223,23 @@ public sealed class BusinessSyncService
             ["invoices"] = "branch_id",
             ["finance_accounts"] = "branch_id",
             ["finance_transactions"] = "branch_id",
+            // ── SNK-A7 (denetim 2026-08-18) ────────────────────────────────────────────────────
+            // Şube kapsamı GAP-6'da YALNIZ ön muhasebeye uygulanmıştı. `branch_id` taşıdığı hâlde
+            // kapsam dışı kalan iş tabloları yüzünden, yalnız "Şube A"ya yetkili bir kullanıcının
+            // bilgisayarına TÜM şubelerin araç/personel/stok hareketi/talep verisi iniyordu.
+            // Ekranda filtrelense bile veri fiziksel olarak o makinededir → GİZLİLİK sorunu.
+            //
+            // ⚠️ `materials` BİLİNÇLİ OLARAK YOK: KARAR-7 = A (2026-08-11) gereği **malzeme kartı
+            // FİRMA GENELİDİR**; `materials.branch_id` "kartın ait olduğu şube"dir, stok lokasyonu
+            // DEĞİLDİR (2461 kaydın yalnız 2'sinde dolu). Kapsama alınması o kararı ihlal ederdi.
+            // Stok ayrımı `stock_balances.location_id` üzerinden yürür (STK-02).
+            //
+            // NULL şubeli (eski/şubesiz) kayıtlar GİZLENMEZ — BranchAccess ile aynı ilke.
+            // Kısıtsız kullanıcı (admin / CanViewAllBranches / kapsamı olmayan) ETKİLENMEZ.
+            ["vehicles"] = "branch_id",
+            ["personnel"] = "branch_id",
+            ["stock_movements"] = "branch_id",
+            ["material_requests"] = "branch_id",
         };
 
     /// <summary>
@@ -234,6 +251,10 @@ public sealed class BusinessSyncService
         {
             ["invoice_lines"] = ("invoices", "invoice_id"),
             ["invoice_allocations"] = ("invoices", "invoice_id"),
+            // SNK-A7: ebeveyni artık şube kapsamlı olan çocuk tablolar da ebeveynle birlikte süzülür —
+            // aksi halde talebin kendisi inmezken kalemleri iniyordu (yarım/anlamsız veri).
+            ["material_request_items"] = ("material_requests", "request_id"),
+            ["request_status_history"] = ("material_requests", "request_id"),
         };
 
     /// <summary>Bu tablo şube kapsamına tabi mi (doğrudan ya da ebeveyni üzerinden)?</summary>
