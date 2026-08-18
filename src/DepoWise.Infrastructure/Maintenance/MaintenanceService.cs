@@ -513,8 +513,8 @@ VALUES(@id,@c,@v,@d,@sd,@tech,@desc,@sdn,@pk,@ph,@pd,@nk,@nh,@nd,@op,@opb,0,@now
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, movement_type, direction, quantity,
-    unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id)
-VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev);";
+    unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id, updated_at)
+VALUES(@id,@c,@m,@br,@type,@dir,@q,@price,'TRY',NULL,@op,@note,@now,NULL,0,@rev,@now);";
         cmd.AddWithValue("@br", (object?)branchId ?? DBNull.Value);
         cmd.AddWithValue("@rev", (object?)reversesMovementId ?? DBNull.Value);
         cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));

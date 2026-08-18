@@ -73,5 +73,6 @@ public static class MigrationCatalog
         new Migration066_Parties(),
         new Migration067_Invoices(),
         new Migration068_Finance(),
+        new Migration069_ReversalSyncStamp(),
     };
 }

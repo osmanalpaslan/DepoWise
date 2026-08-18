@@ -335,8 +335,22 @@ public sealed class BusinessSyncService
     /// created_at'e düşmek her ikisini de çözer: defter satırı hiç güncellenmediği için created_at
     /// tam olarak "bu satır ne zaman değişti" demektir.
     /// </summary>
+    /// <summary>
+    /// Delta penceresinde kullanılan ZAMAN DAMGASI ifadesi.
+    ///
+    /// SNK-A1/A2 (2026-08-18) — <b>YAPISAL GÜVENLİK AĞI:</b> Migration069 ile üç iş tablosuna
+    /// (<c>party_ledger</c>, <c>stock_movements</c>, <c>stock_documents</c>) <c>updated_at</c> eklendi.
+    /// Bu kolon SQLite'ta NOT NULL yapılamadığı için, ileride bir INSERT onu doldurmayı atlarsa satır
+    /// <c>NULL</c> damgayla kalır ve <c>updated_at &gt; @since</c> koşulu NULL'da FALSE döneceği için
+    /// o satır <b>hiçbir zaman senkron edilmezdi</b> — sessiz veri kaybı.
+    /// Bu yüzden iki kolon da varsa <c>COALESCE(updated_at, created_at)</c> kullanılır: damga eksikse
+    /// oluşturulma zamanına düşer, satır her hâlükârda taşınır.
+    /// (Veri hacmi küçük olduğu için tam tarama maliyeti önemsizdir; doğruluk önce gelir.)
+    /// </summary>
     private static string? StampColumn(ICollection<string> cols)
-        => cols.Contains("updated_at") ? "updated_at" : (cols.Contains("created_at") ? "created_at" : null);
+        => cols.Contains("updated_at")
+            ? (cols.Contains("created_at") ? "COALESCE(updated_at, created_at)" : "updated_at")
+            : (cols.Contains("created_at") ? "created_at" : null);
 
     public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors);
 

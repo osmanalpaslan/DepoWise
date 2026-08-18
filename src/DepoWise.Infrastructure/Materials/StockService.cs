@@ -432,7 +432,7 @@ WHERE sb.company_id=@c AND sb.location_id='' AND " + nonZero;
                 -mv.Direction * mv.Quantity, now, allowNegative: false);
             var revId = InsertMovement(conn, tx, s.CompanyId, mv.MaterialId, documentId, "reverse",
                 -mv.Direction, mv.Quantity, null, null, null, $"{mv.OperationId}:rev", reason, now, mv.BranchId, mv.BranchFromId, mv.GroupId, reversesId: mv.Id, opBranchId: s.OperatingBranchId);
-            MarkReversed(conn, tx, mv.Id);
+            MarkReversed(conn, tx, mv.Id, now);
         }
         SetDocumentStatus(conn, tx, documentId, "cancelled", now);
         AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "stock_document", documentId, AuditActions.Reverse, s.UserId,
@@ -1022,8 +1022,8 @@ LIMIT @take;";
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, branch_from_id, movement_type, direction,
-    quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id, op_branch_id)
-VALUES(@id,@c,@m,@b,@bf,@type,@dir,@q,@price,@cur,@fx,@op,@note,@now,@doc,0,@rev,@opb);";
+    quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, document_id, is_reversed, reverses_movement_id, op_branch_id, updated_at)
+VALUES(@id,@c,@m,@b,@bf,@type,@dir,@q,@price,@cur,@fx,@op,@note,@now,@doc,0,@rev,@opb,@now);";
         cmd.AddWithValue("@opb", (object?)opBranchId ?? DBNull.Value);
         cmd.AddWithValue("@id", id);
         cmd.AddWithValue("@c", companyId);
@@ -1054,8 +1054,8 @@ VALUES(@id,@c,@m,@b,@bf,@type,@dir,@q,@price,@cur,@fx,@op,@note,@now,@doc,0,@rev
         cmd.Transaction = tx;
         cmd.CommandText = @"
 INSERT INTO stock_documents(id, company_id, doc_type, doc_no, doc_date, from_branch_id, to_branch_id,
-    personnel_id, vehicle_id, note, status, group_id, invoice_no, order_slip_no, credit_slip_no, created_at, version, is_deleted)
-VALUES(@id,@c,@type,@no,@date,@from,@to,@pers,@veh,@note,'active',@grp,@inv,@ord,@crd,@now,1,0);";
+    personnel_id, vehicle_id, note, status, group_id, invoice_no, order_slip_no, credit_slip_no, created_at, version, is_deleted, updated_at)
+VALUES(@id,@c,@type,@no,@date,@from,@to,@pers,@veh,@note,'active',@grp,@inv,@ord,@crd,@now,1,0,@now);";
         cmd.AddWithValue("@id", id);
         cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@type", docType);
@@ -1156,21 +1156,28 @@ VALUES(@id,@doc,@m,@s,@c,@d,@r);";
         return r.Read() ? new DocRow(r.GetString(0), r.GetString(1), r.GetString(2)) : null;
     }
 
-    private static void MarkReversed(DbConnection conn, DbTransaction tx, string movementId)
+    /// <summary>SNK-A2 (2026-08-18): <c>updated_at</c> ARTIK TAZELENİYOR (Migration069). Eskiden yalnız
+    /// bayrak yazılıyordu; damga değişmediği için bu güncelleme senkron deltasına HİÇ girmiyor ve web'de
+    /// iptal edilmiş hareket "aktif" görünmeye devam ediyordu.</summary>
+    private static void MarkReversed(DbConnection conn, DbTransaction tx, string movementId, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "UPDATE stock_movements SET is_reversed=1 WHERE id=@id;";
+        cmd.CommandText = "UPDATE stock_movements SET is_reversed=1, updated_at=@now WHERE id=@id;";
+        cmd.AddWithValue("@now", now);
         cmd.AddWithValue("@id", movementId);
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>SNK-A2: <paramref name="now"/> parametresi VARDI ama KULLANILMIYORDU — damga niyeti
+    /// yazılmış, uygulanmamıştı. Belge durumu (ör. 'cancelled') artık damgalanır ve senkronla taşınır.</summary>
     private static void SetDocumentStatus(DbConnection conn, DbTransaction tx, string documentId, string status, long now)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
-        cmd.CommandText = "UPDATE stock_documents SET status=@s, version=version+1 WHERE id=@id;";
+        cmd.CommandText = "UPDATE stock_documents SET status=@s, version=version+1, updated_at=@now WHERE id=@id;";
         cmd.AddWithValue("@s", status);
+        cmd.AddWithValue("@now", now);
         cmd.AddWithValue("@id", documentId);
         cmd.ExecuteNonQuery();
     }

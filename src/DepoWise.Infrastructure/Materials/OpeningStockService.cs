@@ -60,8 +60,8 @@ public sealed class OpeningStockService
             cmd.Transaction = tx;
             cmd.CommandText = @"
 INSERT INTO stock_movements(id, company_id, material_id, branch_id, movement_type, direction,
-    quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at)
-VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now);";
+    quantity, unit_price, currency_code, fx_rate, operation_id, note, created_at, updated_at)
+VALUES(@id,@c,@m,@b,'opening',@dir,@q,@price,@cur,@fx,@op,@note,@now,@now);";
             cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@m", materialId);

@@ -190,8 +190,8 @@ public sealed class PartyLedgerService
             cmd.CommandText = @"
 INSERT INTO party_ledger(id, company_id, party_id, branch_id, entry_date, doc_type, doc_no, description,
                          direction, amount, currency_code, fx_rate, due_date, source_type, source_id,
-                         operation_id, is_reversed, created_at, created_by)
-VALUES(@id,@c,@p,@br,@date,@type,@no,@desc,@dir,@amt,@cur,NULL,@due,@stype,@sid,@op,0,@now,@by);";
+                         operation_id, is_reversed, created_at, created_by, updated_at)
+VALUES(@id,@c,@p,@br,@date,@type,@no,@desc,@dir,@amt,@cur,NULL,@due,@stype,@sid,@op,0,@now,@by,@now);";
             cmd.AddWithValue("@id", id);
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@p", dto.PartyId);
@@ -250,7 +250,8 @@ VALUES(@id,@c,@p,@br,@date,@type,@no,@desc,@dir,@amt,@cur,NULL,@due,@stype,@sid,
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE party_ledger SET is_reversed=1 WHERE id=@id AND company_id=@c AND is_reversed=0;";
+            cmd.CommandText = "UPDATE party_ledger SET is_reversed=1, updated_at=@now WHERE id=@id AND company_id=@c AND is_reversed=0;";
+            cmd.AddWithValue("@now", now);   // SNK-A1: damga tazelenmezse iptal senkrona HİÇ girmez
             cmd.AddWithValue("@id", entryId); cmd.AddWithValue("@c", s.CompanyId);
             if (cmd.ExecuteNonQuery() == 0) throw new InvalidOperationException("Bu hareket zaten iptal edilmiş.");
         }
@@ -263,8 +264,8 @@ VALUES(@id,@c,@p,@br,@date,@type,@no,@desc,@dir,@amt,@cur,NULL,@due,@stype,@sid,
             cmd.CommandText = @"
 INSERT INTO party_ledger(id, company_id, party_id, branch_id, entry_date, doc_type, doc_no, description,
                          direction, amount, currency_code, due_date, source_type, source_id,
-                         operation_id, is_reversed, created_at, created_by)
-VALUES(@id,@c,@p,@br,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,NULL,1,@now,@by);";
+                         operation_id, is_reversed, created_at, created_by, updated_at)
+VALUES(@id,@c,@p,@br,@now,@type,NULL,@desc,@dir,@amt,@cur,NULL,'reversal',@src,NULL,1,@now,@by,@now);";
             // GUI-02: karşı kayıt ASLIN ŞUBESİNİ taşır. NULL bırakılırsa "şubesiz" olur ve her şubenin
             // ekstresinde görünür (bakiyeye girmese de defterde yanlış şubede listelenirdi).
             cmd.AddWithValue("@br", (object?)branchId ?? DBNull.Value);
