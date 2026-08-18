@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-18** · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-18** (denetim yayın turu) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -742,3 +742,55 @@ Production veritabanına hiçbir INSERT/UPDATE/DELETE yapılmadı. DEPOWISE ve �
 **Firma verisi sıfırlama işlemi artık güvenle yapılabilir** — ama SIF-02 hâlâ açık olduğu için
 operasyonel adım zorunlu: kullanıcılara programı **tamamen kapattırın** → web'den sıfırlayın →
 tekrar açtırın. Makineler açılışta 1.0.139'a güncellenip temizliği uygulayacaktır.
+
+---
+
+## 2026-08-18 — DENETİM YAYIN TURU (API + Web + masaüstü 1.0.140) · Migration **069**
+
+Kapsamlı denetimin (7 tur, 18 bulgu) **tamamı** canlıya alındı.
+
+### Yayın öncesi doğrulama
+| Koşum | Sonuç |
+|---|---|
+| Tam takım (SQLite) | **2083 toplam · 2048 geçti · 0 başarısız · 35 atlandı** |
+| PostgreSQL (izole `depowise_test`) | 6/6 — Migration069 iki lehçede de çalışıyor |
+| Çözüm derlemesi (Release) | **0 hata** |
+| Bu denetimde eklenen test | **69** |
+
+### 🔐 Migration öncesi yedek
+Neon **dal (branch) anlık kopyası** alındı — kopyala-yaz olduğu için anında ve maliyetsiz:
+- Proje: `alpdepo` (`autumn-morning-75319830`) · Kaynak: `production` (`br-bold-snow-asagtawc`)
+- **Yedek dalı: `pre-migration-069` (`br-bold-tooth-asxxn1dv`)** — 2026-08-18T18:29:30Z
+- Geri dönüş gerekirse bu dal migration ÖNCESİ tam veriyi taşır.
+
+### Yayın adımları ve kanıtlar
+| Adım | Kanıt |
+|---|---|
+| Uçuş öncesi | `DEPOWISE_PG_URL` secret var · `/data` %45 (505 MB boş) · API/Web 200 |
+| **API** | `flyctl deploy -c fly.toml --ha=false` → makine `started`, `/health` **200** |
+| **Migration 069** | **Uygulandı.** Kanıt: `ServerServices:115` başlangıçta `MigrationRunner.Run()` çağırır; `Run()` içinde **try/catch YOKTUR** → migration hata verse uygulama hiç açılmazdı. Uygulama sağlıklı ve gerçek veriyle yanıt veriyor. Şema sürümü: **68 → 69** |
+| DB teyidi | `/api/releases/latest` gerçek veri döndü → SQLite'a geri dönüş OLMADI |
+| **Web** | `flyctl deploy -c fly.web.toml --ha=false` → `/` 200 · `/local-reset` `/branches` `/reports` `/trash` hepsi **200** |
+| Masaüstü publish | 270 dosya — 1.0.139 ile **birebir aynı ağaç** |
+| Paket | `DepoWise-desktop-1.0.140.zip` · **89.923.623 bayt** |
+| Yayın | `/api/releases/latest` = **1.0.140** |
+| Checksum | `7A86A68A6E328F3108324FDD8D3868404A3EC49018015F6D5DCAF5DE66E2F624` — **EŞLEŞTİ** |
+| İndirme ucu | **200** |
+| Yayın sonrası disk | %45 (eski paketler otomatik temizlendi — ADR-070) |
+
+### ⚠️ Kullanıcıların fark edeceği davranış değişiklikleri
+1. **Şubeyle sınırlı kullanıcılar** artık diğer şubelerin araç/personel/stok hareketi/talep verisini
+   ne raporlarda ne de kendi bilgisayarlarında görecek (gizlilik düzeltmesi — SNK-A7, DEN-E1/E2).
+2. **Üst şubeye yetkili kullanıcılar** alt şubeleri de görecek ve onlara **yazabilecek** (ŞB-04).
+3. Yetkisi olmayan kullanıcılar web'de **Çöp Kutusu geri yükleme**, **Excel'e Aktar**, **stok/yakıt
+   iptal** butonlarını artık **göremeyecek** (DEN-F1/F1b — sunucu bunları zaten engelliyordu).
+4. Masaüstünde iptal edilen **cari hareket ve stok belgesi artık web'de de iptal görünecek**
+   (SNK-A1/A2 — en kritik düzeltme; öncesinde web'de bakiye yanlıştı).
+
+### ▶️ SIRADAKİ TEK İŞ
+Kullanıcı talebi: **"Şube / Şantiye kendi tanım ekranı dışında oluşturulamamalı."**
+İnceleme yapıldı (kod okuması, üretime dokunulmadı): şube oluşturabilen **3** nokta var —
+(1) Şube/Şantiye Tanım ekranı ✔ · (2) aynı ekrandaki "+" kısayolu (yalnız ad sorar, yarım kayıt) ·
+(3) **Firma ekranındaki "İlk Şube / Şantiye Adı" alanı** (web + masaüstü) ← **kuralın ihlali burada**.
+Kaldırılması tek başına yetmez: kod "şubesiz firmaya kullanıcı eklenemez" kuralını uyguluyor →
+akış kararı gerekiyor. Kullanıcı yayın sonrası bu konuya bakacağını belirtti.
