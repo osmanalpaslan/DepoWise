@@ -56,6 +56,12 @@ public sealed partial class ImportExportViewModel : ViewModelBase
         {
             OperatingBranchId = branchId,
             BlockedModules = _session.BlockedModules,
+            // ⚠️ ŞB-04 turunda görüldü: bu kopya ŞUBE KAPSAMINI taşımıyordu → içe aktarım yolunda
+            // BranchAccess kullanıcıyı kısıtsız sayıyor, kapsam dışı şubeye kayıt basılabiliyordu.
+            // (Web'deki aynı kopyada da aynı eksik vardı; ikisi birlikte kapatıldı.)
+            ScopeBranchIds = _session.ScopeBranchIds,
+            HomeBranchId = _session.HomeBranchId,
+            BranchDescendants = _session.BranchDescendants,
         };
 
     [RelayCommand]

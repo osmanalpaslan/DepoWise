@@ -95,6 +95,9 @@ public sealed class AuthService
             // Kapsam artık her iki yolda da AYNI ham veriden gelir; tek yorumlayıcı yine BranchAccess'tir.
             ScopeBranchIds = LoadUserScopes(conn, companyId, user.Value.Id),
             HomeBranchId = LoadHomeBranch(conn, user.Value.Id),
+            // ⭐ ŞB-04 (2026-08-18): ŞUBE AĞACI. Üst şubeye yetkili kullanıcı alt şubeleri de görsün
+            // (bugüne kadar parent_id hiçbir yerde okunmuyordu; "Üst Şube" yalnız bir etiketti).
+            BranchDescendants = Organization.BranchTree.LoadDescendants(conn, companyId),
         };
         return new LoginResult(true, false, 0, session, MustChangePassword: MustChangePassword(conn, user.Value.Id));
     }
@@ -224,7 +227,9 @@ public sealed class AuthService
             // FİİLEN ÇALIŞMIYORDU (her kullanıcı her şubenin verisini görebiliyordu).
             // Tek yorumlayıcı BranchAccess'tir; burası yalnız HAM veriyi taşır.
             ScopeBranchIds: LoadUserScopes(conn, companyId, userId),
-            HomeBranchId: LoadHomeBranch(conn, userId));
+            HomeBranchId: LoadHomeBranch(conn, userId),
+            // ⭐ ŞB-04: şube ağacı web/API oturumuna da girer — kapsam iki platformda AYNI davranır.
+            BranchDescendants: Organization.BranchTree.LoadDescendants(conn, companyId));
     }
 
     /// <summary>Kullanıcıya AÇIKÇA atanmış şube kapsamı (user_scopes). Satır yoksa null.</summary>

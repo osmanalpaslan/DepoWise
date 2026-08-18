@@ -44,6 +44,15 @@ public sealed class SessionContext : ITenantContext
     /// BranchAccess bunu tek izinli şube olarak kullanır.</summary>
     public string? HomeBranchId { get; set; }
 
+    /// <summary>
+    /// ŞB-04 — ŞUBE AĞACI: <c>üst şube → tüm alt şubeleri</c> (geçişli kapanış). Oturum kurulurken
+    /// bir kez yüklenir (<c>BranchTree.LoadDescendants</c>); tek yorumlayıcısı BranchAccess'tir.
+    ///
+    /// <b>null = ağaç yok / yüklenmedi</b> → davranış ŞB-04 ÖNCESİYLE birebir aynıdır (fail-safe:
+    /// haritayı doldurmayan bir kod yolu kapsamı kazara GENİŞLETMEZ).
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>>? BranchDescendants { get; set; }
+
     public SessionContext(string userId, string companyId, IEnumerable<string> roleKeys, PermissionSet permissions,
         bool canViewAllBranches = false)
     {

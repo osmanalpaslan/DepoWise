@@ -2532,6 +2532,12 @@ async Task<(SessionContext? Session, IReadOnlyList<DepoWise.Application.Reports.
     {
         OperatingBranchId = branchId,
         BlockedModules = s.BlockedModules,
+        // ⚠️ ŞB-04 turunda görüldü: bu kopya ŞUBE KAPSAMINI taşımıyordu → içe aktarım yolunda
+        // BranchAccess.Allowed kullanıcıyı kısıtsız sayıyor, kapsam dışı şubeye kayıt basılabiliyordu.
+        // Kopya artık oturumun kapsam alanlarını AYNEN taşır (yeni yetki VERMEZ, eksik kapıyı kapatır).
+        ScopeBranchIds = s.ScopeBranchIds,
+        HomeBranchId = s.HomeBranchId,
+        BranchDescendants = s.BranchDescendants,
     };
     return (importSession, rows, null);
 }

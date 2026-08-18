@@ -52,16 +52,46 @@ public static class BranchAccess
     public static IReadOnlyList<string>? Allowed(SessionContext s)
     {
         // 1) Açık kapsam her şeyin ÜSTÜNDEDİR — admin bypass'ı bunu kaldırmaz.
-        if (s.ScopeBranchIds is { Count: > 0 }) return s.ScopeBranchIds;
+        if (s.ScopeBranchIds is { Count: > 0 }) return Expand(s, s.ScopeBranchIds);
 
         // 2) Tüm şubeleri görme yetkisi / admin → sınırsız.
         if (s.CanViewAllBranches || AccessControl.IsAdmin(s)) return null;
 
-        // 3) Kendi şubesi → yalnız o şube.
-        if (!string.IsNullOrEmpty(s.HomeBranchId)) return new[] { s.HomeBranchId! };
+        // 3) Kendi şubesi → o şube VE altındakiler (ŞB-04).
+        if (!string.IsNullOrEmpty(s.HomeBranchId)) return Expand(s, new[] { s.HomeBranchId! });
 
         // 4) Şubesi atanmamış kullanıcı → sınırsız (bkz. sınıf açıklaması).
         return null;
+    }
+
+    /// <summary>
+    /// ŞB-04 (2026-08-18) — ŞUBE AĞACI GENİŞLETMESİ: verilen şubelere TÜM alt şubeleri eklenir.
+    ///
+    /// <b>NEDEN:</b> "Üst Şube" alanı bugüne kadar yalnız bir etiketti — Merkez'e yetkili bir kullanıcı
+    /// Merkez'in altındaki şantiyeleri GÖREMİYOR, Merkez seçildiğinde rapor altları TOPLAMIYORDU.
+    /// Hiyerarşinin tek anlamı budur; kapsam ve rapor artık ağaca uyar.
+    ///
+    /// <b>FAIL-SAFE:</b> ağaç yüklenmemişse (<see cref="SessionContext.BranchDescendants"/> null)
+    /// girdi AYNEN döner → ŞB-04 öncesi davranış. Kapsam kazara genişlemez.
+    /// Sıra korunur (önce istenenler, sonra altlar) ve tekrarlar ayıklanır.
+    /// </summary>
+    public static IReadOnlyList<string> Expand(SessionContext s, IReadOnlyList<string> ids)
+    {
+        var tree = s.BranchDescendants;
+        if (tree is null || tree.Count == 0 || ids.Count == 0) return ids;
+
+        List<string>? genis = null;
+        var set = new HashSet<string>(ids, StringComparer.Ordinal);
+        foreach (var id in ids)
+        {
+            if (!tree.TryGetValue(id, out var altlar)) continue;
+            foreach (var alt in altlar)
+            {
+                if (!set.Add(alt)) continue;
+                (genis ??= new List<string>(ids)).Add(alt);
+            }
+        }
+        return genis ?? ids;   // alt şube yoksa yeni liste üretme
     }
 
     /// <summary>
@@ -119,9 +149,12 @@ public static class BranchAccess
     {
         var allowed = Allowed(s);
 
+        // ŞB-04: İSTENEN şube de ağaca göre genişler — kullanıcı "Merkez" seçtiğinde altındaki
+        // şantiyelerin verisi de gelir (raporun "üst şube toplar" beklentisi budur). İzinli kümeyle
+        // kesişim AYNEN korunur → genişletme kapsamı AŞMAZ, yalnız izinli olanları getirir.
         IReadOnlyList<string>? wanted = requested is { Count: > 0 }
-            ? requested
-            : (!string.IsNullOrEmpty(s.OperatingBranchId) ? new[] { s.OperatingBranchId! } : null);
+            ? Expand(s, requested)
+            : (!string.IsNullOrEmpty(s.OperatingBranchId) ? Expand(s, new[] { s.OperatingBranchId! }) : null);
 
         if (wanted is null) return allowed;                       // istenen yok → izinli küme (null olabilir)
         if (allowed is null) return wanted;                       // sınırsız kullanıcı → istediği

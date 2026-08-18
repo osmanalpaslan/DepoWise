@@ -37,7 +37,8 @@ public sealed record PermissionSnapshot(
     IReadOnlyList<string>? ScopeBranchIds = null,
     string? HomeBranchId = null,
     IReadOnlyList<string>? ScopeUnitIds = null,
-    IReadOnlyDictionary<string, IReadOnlyList<string>>? AllowedRecordTypes = null)
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? AllowedRecordTypes = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? BranchDescendants = null)
 {
     /// <summary>Bu fotoğraftan İSTEĞE ÖZEL yeni bir oturum kurar. Her çağrıda YENİ nesne döner:
     /// <see cref="SessionContext.OperatingBranchId"/> isteğe göre değiştiği için paylaşılamaz.</summary>
@@ -47,5 +48,6 @@ public sealed record PermissionSnapshot(
             BlockedModules = BlockedModules,
             ScopeBranchIds = ScopeBranchIds,
             HomeBranchId = HomeBranchId,
+            BranchDescendants = BranchDescendants,   // ŞB-04: şube ağacı (üst şube → alt şubeleri)
         };
 }
