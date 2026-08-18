@@ -41,9 +41,17 @@ public sealed class BusinessSyncService
         "vehicle_models",
         "maintenance_definitions",
         "personnel_titles",          // unvan sabit tanımları (personel formundaki liste)
+        // SIF-06 (2026-08-18): ŞABLONLAR. Bunlar senkronda HİÇ taşınmıyordu — ne bu listede ne de
+        // /api/lookups/sync yanıtında vardı. Sonuç: masaüstünde açılan şablon web'e, web'de açılan
+        // şablon masaüstüne ULAŞMIYORDU (kullanıcı analizinde bulundu).
+        // SIRA: ikisi de kategori/marka/birim/tedarikçi/araç-tipi tanımlarına referans verir → onlardan SONRA.
+        "material_templates",
+        "vehicle_templates",
         // iş kayıtları
         "personnel",
         "materials",
+        // vehicle_template_materials ebeveynleri (vehicle_templates + materials) yukarıda → burada güvenli.
+        "vehicle_template_materials",
         // SNK-11 (2026-08-11): `stock_balances` BU LİSTEDEN ÇIKARILDI — senkronda TAŞINMAZ.
         // NEDEN: bakiye TÜRETİLMİŞ veridir; otoriter kaynak `stock_movements` defteridir. Sunucu
         // push sonrası bakiyeyi zaten defterden yeniden hesaplıyor (Program.cs → RecomputeBalances) ve
@@ -105,6 +113,11 @@ public sealed class BusinessSyncService
         ["vehicle_models"] = "definitions",
         ["maintenance_definitions"] = "maintenance",
         ["personnel_titles"] = "personnel",   // unvan tanımları personel modülüne bağlı
+        // SIF-06: şablonlar kendi modüllerine bağlı — push yetki kapısı ATLANMAZ (kullanıcı ancak
+        // "Malzeme Şablonları" / "Araç Genel Tanım" modülünde Create veya Edit yetkisi varsa gönderebilir).
+        ["material_templates"] = "material_templates",
+        ["vehicle_templates"] = "vehicle_templates",
+        ["vehicle_template_materials"] = "vehicle_templates",
         ["personnel"] = "personnel",
         ["materials"] = "materials",
         // SNK-11: `stock_balances` artık senkronda taşınmıyor → yetki eşlemesi de gereksizdi, kaldırıldı.
