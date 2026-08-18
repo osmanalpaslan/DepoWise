@@ -1,6 +1,6 @@
 # GÖREV LİSTESİ (BACKLOG)
 
-> Son güncelleme: **2026-08-18** · Durumlar: `SIRADA` · `BEKLEMEDE` · `ENGELLİ` · `GELİŞTİRMEDE` · `TAMAMLANDI` · `ERTELENDİ`
+> Son güncelleme: **2026-08-18** (denetim turu) · Durumlar: `SIRADA` · `BEKLEMEDE` · `ENGELLİ` · `GELİŞTİRMEDE` · `TAMAMLANDI` · `ERTELENDİ`
 > Maliyet: **A** şimdi/maliyetsiz · **B** opsiyonel · **C** canlıya geçişte · **D** gelir sonrası
 
 ---
@@ -484,3 +484,77 @@ görünür olması. Davranış değişmez, yalnız görünürlük.
 **yazabilir** ve alt şubeleri **devredebilir**. Bu, hiyerarşinin kasıtlı anlamıdır.
 **Yapılacak:** canlıda üst şubeye kapsamlı kullanıcı var mı sayılmalı; varsa kullanıcıya
 "bu kişiler artık altındaki şantiyelere de yazabilecek" denip onayı alınmalı.
+
+---
+
+# 🔍 KAPSAMLI DENETİM (2026-08-18) — YAPILACAKLAR
+
+> Kaynak: [`docs/DENETIM_2026-08-18_TUR1.md`](../DENETIM_2026-08-18_TUR1.md) ve devamı.
+> Kullanıcı kararı: **önce tüm taramalar bitecek, sonra hepsi düzeltilecek.**
+> Her bulgu kodda DOĞRULANDI (varsayım yok). Düzeltilenler burada `TAMAMLANDI` işaretlenir.
+
+## TUR 1 — Senkron kapsamı · veri tutarlılığı · yetki kapıları
+
+### `GUV-A1` — Güncelleme paketi yetki kontrolünden ÖNCE diske yazılıyor · 🔴 · **SIRADA**
+`Program.cs` `/api/releases` POST: `ReleasePackages.SaveAsync(...)` çalışıp dosya diske yazıldıktan
+SONRA `Releases.Publish(s, ...)` süper admin kontrolü yapıyor. İstek gövdesi sınırı 1 GB, sunucu
+diski 974 MB → herhangi bir oturum sahibi diski doldurup **login dahil tüm API'yi 500'e düşürebilir**
+(ADR-070, 12.07.2026'da yaşandı). Yayındaki paketi ezerek güncellemeyi de kırabilir.
+Kardeş uç `/api/setup` (`:3225`) doğru sırada — bu bir sıra hatası, tasarım değil.
+**Yapılacak:** yetki kontrolü dosya yazımından ÖNCE + paket boyutu üst sınırı.
+**Kabul:** yetkisiz kullanıcı dosya YAZAMAZ · süper admin akışı bozulmaz · test.
+
+### `GUV-A2` — `/api/backup/list` yetki kontrolsüz · 🟠 · **SIRADA**
+Yalnız "oturum var mı" bakılıyor; kardeşleri (`create`, `download`) süper admin istiyor.
+Her firmanın her kullanıcısı sunucu yedek dosya adı/boyut/tarih listesini görüyor (indiremiyor).
+**Yapılacak:** süper admin kapısı. **Kabul:** yetkisiz 403 · süper admin görebilir · test.
+
+### `SNK-A1` — Cari hareket iptali sunucuya gitmiyor (BAKİYE YANLIŞ) · 🔴 · **SIRADA**
+`party_ledger`'da `updated_at` YOK → senkron damgası `created_at`'e düşüyor.
+`PartyLedgerService.Reverse` (`:253`) aslın `is_reversed=1` yapıyor ama damga tazelenmediği için
+bu güncelleme **hiç push edilmiyor**. Sunucu bakiyesi `WHERE is_reversed=0` ile hesaplandığından
+**masaüstünde iptal edilen borç web'de duruyor.**
+**Yapılacak:** migration ile `updated_at` (mevcutlar `created_at` ile dolsun) + iptal onu tazelesin.
+**Kabul:** masaüstünde iptal → push → sunucu bakiyesi sıfır · iki lehçede test.
+
+### `SNK-A2` — Stok iptali sunucuda "iptal" görünmüyor · 🟠 · **SIRADA**
+`StockService.MarkReversed` (`:1159`) ve `SetDocumentStatus` (`:1168`) damga tazelemiyor
+(`SetDocumentStatus` `long now` parametresini alıyor ama KULLANMIYOR). `stock_movements` ve
+`stock_documents` tablolarında `updated_at` yok.
+⚠️ **Bakiye BOZULMUYOR** (doğrulandı: `RecomputeBalances` tüm satırları toplar, ters kayıt gidiyor).
+Etki: web'de iptal edilmiş belge aktif görünüyor + **web'den ikinci kez iptal edilebiliyor**.
+**Yapılacak:** SNK-A1 ile AYNI migration'da `updated_at` + iki güncelleme noktasının tazelemesi.
+**Kabul:** iptal iki yönde de görünür · ikinci iptal reddedilir · defter kirlenmez · test.
+
+### `SNK-A3` — Muayene / Sigorta verisi hiç senkron olmuyor · 🔴 · **SIRADA**
+`vehicle_inspections` `BusinessSyncService.Tables` içinde YOK. Ekran iki platformda da var
+(`AppScreens:130`, `Both`), `InspectionService` yerele yazıyor. Tablo senkrona HAZIR
+(`company_id`+`updated_at`+`version`+`is_deleted` var). SIF-06 (şablonlar) ile aynı sınıf.
+**Yapılacak:** Tables + TableModule (`inspection`) + FK sırası. **Kabul:** uçtan uca taşınma testi.
+
+### `SNK-A4` — Stok sayım satırları senkron olmuyor · 🔴 · **SIRADA**
+`stock_count_lines` senkronda YOK, ebeveyni `stock_documents` VAR → belge gidiyor, **satırları
+gitmiyor**. `Stok Sayım` ekranı `Both`.
+**Yapılacak:** Tables + TableModule (`stock`) + FK sırası (materials & stock_documents SONRASI).
+
+### `SNK-A5` — Senkron dışı kalan yardımcı tablolar · 🟡 · **SIRADA**
+`material_equivalents` (muadil) · `material_compatible_vehicles` (uyumlu araç) ·
+`maintenance_definition_vehicles` (bakım↔araç) · `request_status_history` (talep durum geçmişi) ·
+`vehicle_meter_logs` (sayaç geçmişi). `file_records` AYRI değerlendirilecek (dosyalar sunucuda).
+**Yapılacak:** her biri için taşınmalı mı kararı + Tables/TableModule.
+
+### `SNK-A6` — Düzenlemede fiziksel silinen satırlar karşı tarafta kalıyor · 🟠 · **SIRADA**
+Senkron upsert'tir; silme yalnız `is_deleted=1` ile taşınır. Fiziksel silen yerler:
+`RequestService.cs:179` (`material_request_items`) ve `VehicleTemplateService.cs:274`
+(`vehicle_template_materials`) — ikisinde de `is_deleted` YOK.
+Sonuç: web'de düzenlenen talebin **eski kalemleri masaüstünde kalır** (mükerrer kalem).
+**Yapılacak:** ya `is_deleted` ekle + soft-delete'e çevir, ya da "ebeveyn bazlı tam değiştirme"
+(snapshot'ta ebeveynin çocuk kümesi otoriter kabul edilsin) yolu. Karar tasarım gerektirir.
+
+### `SNK-A7` — Senkron şube kapsamı yalnız ön muhasebede · 🟠 · **KARAR BEKLİYOR**
+`BranchScopedTables` yalnız `party_ledger`, `invoices`, `finance_accounts`, `finance_transactions`.
+Kapsam dışı ama `branch_id` taşıyanlar: `materials`, `vehicles`, `personnel`, `stock_movements`,
+`material_requests`, `stock_change_logs`.
+Sonuç: şubeyle sınırlı kullanıcının makinesine **tüm şubelerin** verisi iniyor (gizlilik).
+⚠️ Düzeltme **davranış değiştirir** — bugüne kadar veriyi gören kullanıcıda "kayboldu" algısı.
+**Kullanıcı onayı olmadan uygulanmayacak.**
