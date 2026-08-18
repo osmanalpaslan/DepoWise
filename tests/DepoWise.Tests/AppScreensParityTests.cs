@@ -315,7 +315,7 @@ public class AppScreensParityTests
                                     ("finance", "payments") }),   // G4-1 + G4-2 + G4-3
             ("Kullanıcı", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("settings", "developer"), ("", "theme"), ("", "soon/about") }),
-            ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("role_permissions", "role-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("screen_visibility", "screen-visibility") }),
+            ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("role_permissions", "role-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
             ("Çöp Kutusu", new[] { ("trash", "trash") }),
         };
 
@@ -328,8 +328,9 @@ public class AppScreensParityTests
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Baglantilar, gercek[i].Item2);
         // Taşımadan önce ölçülen 46 bağlantı KORUNDU; G5 yönetim ekranı bilinçli olarak eklendi (+1).
-        // 46 (taşıma) + 1 (G5 yönetim) + 2 (G4-1 Cari) + 2 (G4-2 Fatura) + 3 (G4-3 Kasa/Banka) = 54.
-        Assert.Equal(54, gercek.Sum(x => x.Item2.Length));
+        // 46 (taşıma) + 1 (G5 yönetim) + 2 (G4-1 Cari) + 2 (G4-2 Fatura) + 3 (G4-3 Kasa/Banka)
+        //   + 1 (YET: Yerel Veri Sıfırlama — kullanıcı isteği 2026-08-18) = 55.
+        Assert.Equal(55, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>15 — Çöp Kutusu'nun web yetki anahtarı artık sözde <c>@admin</c> DEĞİL, gerçek
@@ -359,7 +360,9 @@ public class AppScreensParityTests
         Assert.Equal(new[] { "import_export", "material_templates", "stock.distribute" }, yalnizMasaustu);
         Assert.Equal(new[]
         {
-            "backup", "company_permissions", "import", "machine_backups", "purge_company",
+            // "local_reset": YET (2026-08-18) — Kalıcı Silme / Firma İş Verisini Sıfırla ile aynı gruptaki
+            // yönetim ekranı; kardeşleri gibi YALNIZ WEB'de sunulur (masaüstünde karşılığı yoktur).
+            "backup", "company_permissions", "import", "local_reset", "machine_backups", "purge_company",
             "quota_monitor", "reset_company_business", "role_permissions", "screen_visibility", "server_status",
         }, yalnizWeb);
 

@@ -26,11 +26,23 @@ public sealed class CompanyLocalResetService
         _clock = clock ?? new SystemClock();
     }
 
-    /// <summary>Yeni bir sıfırlama isteği bırakır (var olanın üzerine yazar — her istek yeni bir "nesil"dir).</summary>
+    /// <summary>
+    /// Yeni bir sıfırlama isteği bırakır (var olanın üzerine yazar — her istek yeni bir "nesil"dir).
+    ///
+    /// <b>YET (2026-08-18, kullanıcı isteği) — YETKİ KAPISI DEĞİŞTİ.</b> Eskiden sert biçimde
+    /// <c>IsSuperAdmin</c> isteniyordu; bu yüzden yetki AĞACINDA hiç görünmüyor ve kimseye
+    /// DEVREDİLEMİYORDU. Artık <c>local_reset</c> modülüne bağlıdır — "açık-verilir" katmandadır
+    /// (<see cref="AppModules.IsExplicitOnly"/>): admin bypass YOK, yalnız açıkça verilirse çalışır.
+    /// Süper admin daima geçer (AccessControl.Can içinde).
+    ///
+    /// ⚠️ <b>TENANT:</b> süper admin dışındaki hiç kimse BAŞKA firmanın makinelerini sıfırlayamaz —
+    /// hedef firma <see cref="TenantAccessGuard"/> ile oturumdan çözülür, payload'daki değer yok sayılır.
+    /// </summary>
     public LocalResetStatus RequestReset(SessionContext actor, string companyId)
     {
-        if (!actor.IsSuperAdmin) throw new ForbiddenException("Yerel sıfırlama isteği yalnız süper admin.");
+        AccessControl.Require(actor, "local_reset", PermissionAction.Create);
         if (string.IsNullOrWhiteSpace(companyId)) throw new ArgumentException("Firma seçilmedi.");
+        companyId = TenantAccessGuard.ResolveCompanyId(actor, companyId);
 
         using var conn = _factory.Create();
         using (var chk = conn.CreateCommand())

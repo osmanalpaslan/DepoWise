@@ -86,6 +86,11 @@ public static class AppModules
         ("role_permissions", "Rol Yetki Kontrol"),
         ("server_status", "Canlı Sunucu Durumu"),
         ("purge_company", "Kalıcı Silme"),          // ADR-083 — geri alınamaz firma silme (web, özel kod ile)
+        // ADR-084 / YET (2026-08-18, kullanıcı isteği): "makinelerin yerel verisini sıfırla" isteği artık
+        // YETKİ AĞACINDA bir menü maddesidir. Eskiden Firmalar ekranının içinde gömülü bir düğmeydi ve
+        // sunucu sert biçimde yalnız süper admine izin veriyordu → hiç kimseye DEVREDİLEMİYORDU.
+        // "Açık-verilir" (IsExplicitOnly) katmanındadır: admin bypass YOK, yalnız açıkça verilirse çalışır.
+        ("local_reset", "Yerel Veri Sıfırlama"),
         // G5 (2026-08-12): ekranların hangi platformda (masaüstü/web) açık olacağını yönetir.
         // YETKİ DEĞİL, platform kısıtıdır; yalnız süper admin (IsSuperAdminOnly) — dar tutuldu.
         ("screen_visibility", "Ekran Platform Yönetimi"),
@@ -129,6 +134,27 @@ public static class AppModules
             or "server_status" or "quota_monitor" or "machine_backups" or "role_permissions"
             or "purge_company"    // ADR-083 — geri alınamaz silme; devredilemez, yalnız süper admin
             or "screen_visibility";   // G5 — platform görünürlüğü tüm firmayı etkiler; devredilemez
+
+    /// <summary>
+    /// YET (2026-08-18, kullanıcı kuralı) — "AÇIK-VERİLİR" KATMAN. Bugüne kadar yalnız iki uç vardı:
+    /// <list type="bullet">
+    ///   <item><see cref="IsSuperAdminOnly"/> → HİÇ devredilemez</item>
+    ///   <item>normal modül → firma adminine <b>admin bypass</b> ile örtük açık</item>
+    /// </list>
+    /// Kullanıcının istediği ara katman ikisi de değildi: <b>devredilebilir ama asla örtük verilmeyen</b>.
+    ///
+    /// Bu modüller için:
+    /// <list type="number">
+    ///   <item><see cref="Can"/> içindeki admin bypass'ı <b>GEÇERSİZDİR</b> — açıkça verilmedikçe kimse alamaz
+    ///     (süper admin ve geliştirici modu muaf).</item>
+    ///   <item>Devretme: <b>Süper Admin veya Kısıtlı Süper Admin</b>, ya da yetkiyi kendisi AÇIKÇA almış olan.
+    ///     Böylece istenen zincir kurulur: SA/KSA → Admin → Personel; her kademe yalnız kendisinde olanı verir.</item>
+    ///   <item>"İlk admin her şeyi verebilir" kestirmesi bu modüllerde <b>UYGULANMAZ</b>.</item>
+    /// </list>
+    /// Rol Yetki Kontrol matrisine normal modül gibi girer → rol bazlı yasak da konabilir.
+    /// </summary>
+    public static bool IsExplicitOnly(string moduleKey)
+        => moduleKey is "local_reset";
 
     /// <summary>
     /// #3 (şema Rol Durumları): Bu modüller alt rollere (Personel) VERİLEMEZ — verilmek istenirse kullanıcı

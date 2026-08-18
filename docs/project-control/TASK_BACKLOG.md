@@ -1,6 +1,6 @@
 # GÖREV LİSTESİ (BACKLOG)
 
-> Son güncelleme: **2026-08-11** · Durumlar: `SIRADA` · `BEKLEMEDE` · `ENGELLİ` · `GELİŞTİRMEDE` · `TAMAMLANDI` · `ERTELENDİ`
+> Son güncelleme: **2026-08-18** · Durumlar: `SIRADA` · `BEKLEMEDE` · `ENGELLİ` · `GELİŞTİRMEDE` · `TAMAMLANDI` · `ERTELENDİ`
 > Maliyet: **A** şimdi/maliyetsiz · **B** opsiyonel · **C** canlıya geçişte · **D** gelir sonrası
 
 ---
@@ -456,3 +456,31 @@ bundan sonra girilecek hareketleri şubeye bağlar. Canlıda daha önce elle gir
 `branch_id = NULL` olabilir ve şubesiz satır tasarım gereği **her şubede** görünür. Yayın öncesi
 canlı veride şubesiz hareket **sayılmalı**; varsa toplu şube ataması kullanıcı onayıyla yapılmalıdır.
 Bu tur canlı veriye **bakmadı**.
+
+---
+
+## 2026-08-18 turundan çıkan işler
+
+### `SIF-02` — Yerel sıfırlama isteği AÇIK OTURUMDA da algılansın · A · **SIRADA**
+**Sorun:** ADR-084 "yerelini sıfırla" isteği **yalnız giriş anında** kontrol ediliyor
+(`LoginViewModel.HandleCompanyLocalResetAsync`). `ShellViewModel` içinde hiçbir kontrol YOK
+(arama sonucu: 0 eşleşme). Program açık ve giriş yapılmışsa 15 saniyelik eşitleme turu dönmeye
+ve **eski yerel veriyi sunucuya göndermeye** devam eder → az önce sıfırlanan veri geri gelir.
+Aynı boşluk ADR-083 (kalıcı silme) ve ADR-085 (makine sıfırlama) için de geçerlidir.
+**Bugünkü önlem:** operasyonel — sıfırlama öncesi tüm programlar tamamen kapatılır.
+**Yapılacak:** eşitleme turuna (`ShellViewModel` tick) sıfırlama/silme durum kontrolü eklenmesi;
+istek görülürse **push'tan ÖNCE** durup kullanıcıyı bilgilendirerek oturumu güvenli kapatma.
+**Kabul:** açık oturumda sıfırlama istendiğinde eski veri sunucuya GİTMEZ · kullanıcı ne olduğunu
+anlatan bir mesaj görür · çevrimdışıysa hiçbir şey yapılmaz (fail-safe) · test.
+
+### `ŞB-07` — Şube ağacının UI'da görünmesi · B · BEKLEMEDE
+**Bağlam:** ŞB-04 ile üst şube **işlevsel** oldu (kapsam + rapor ağaca uyuyor) ama ekranlar hâlâ
+**düz liste** gösteriyor: giriş şube seçimi, şube listesi, rapor şube seçici.
+**Yapılacak:** girintili/ağaç görünüm; "Merkez seçilince altları da dahil" bilgisinin kullanıcıya
+görünür olması. Davranış değişmez, yalnız görünürlük.
+
+### `YTK-07` — Mevcut şube kapsamlarının gözden geçirilmesi · A · **KARAR BEKLİYOR**
+**Bağlam:** ŞB-04 bir **yetki genişlemesidir** — üst şubeye yetkili kullanıcı artık alt şubelere de
+**yazabilir** ve alt şubeleri **devredebilir**. Bu, hiyerarşinin kasıtlı anlamıdır.
+**Yapılacak:** canlıda üst şubeye kapsamlı kullanıcı var mı sayılmalı; varsa kullanıcıya
+"bu kişiler artık altındaki şantiyelere de yazabilecek" denip onayı alınmalı.

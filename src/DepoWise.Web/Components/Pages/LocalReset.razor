@@ -1,0 +1,126 @@
+@page "/local-reset"
+@inject ApiClient Api
+@inject AuthState Auth
+@inject IDialogService Dialog
+
+@* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   YEREL VERİ SIFIRLAMA (ADR-084) — kullanıcı isteği 2026-08-18.
+
+   Kalıcı Silme'den (ADR-083) ve Firma İş Verisini Sıfırla'dan FARKI:
+   SUNUCUDAKİ VERİYE HİÇ DOKUNMAZ. Yalnız firmanın makinelerine "bir kerelik yerelini temizle"
+   işareti bırakır; her makine bir sonraki (internetli) girişinde kendi kopyasını temizler ve
+   sunucudan sıfırdan indirir.
+
+   YETKİ: "local_reset" modülü — AppModules.IsExplicitOnly katmanındadır. Admin bypass YOKTUR:
+   firma admini bu ekranı kendiliğinden ALMAZ. Süper Admin veya Kısıtlı Süper Admin verir; yetkiyi
+   alan kişi de kendi altına devredebilir.
+   ═══════════════════════════════════════════════════════════════════════════════════════════════ *@
+
+<div class="d-flex align-end justify-space-between mb-4 flex-wrap" style="gap:12px;">
+    <div>
+        <MudText Typo="Typo.h5">Yerel Veri Sıfırlama</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
+    </div>
+</div>
+
+@if (!Auth.CanCreate("local_reset"))
+{
+    <MudAlert Severity="Severity.Error">
+        Bu ekran için yetkiniz yok. "Yerel Veri Sıfırlama" yetkisi ayrıca verilir — yöneticinize başvurun.
+    </MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2" Style="max-width:720px;">
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+            <b>Sunucudaki veriye dokunulmaz.</b> Bu işlem yalnız bilgisayarlardaki <b>yerel kopyayı</b>
+            tazeler: her bilgisayar bir sonraki internetli girişinde kendi kopyasını temizler ve
+            sunucudan sıfırdan indirir. Kapalı olan bilgisayarlar için istek bekler, açıldığında uygulanır.
+        </MudAlert>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Ne zaman kullanılır?</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Bir bilgisayarda veriler sunucudakiyle uyuşmuyorsa, eksik/fazla kayıt görünüyorsa ya da
+            firma verisi sıfırlandıktan sonra makinelerin temiz başlaması isteniyorsa.
+        </MudText>
+
+        @if (Auth.IsSuperAdmin)
+        {
+            <MudSelect T="string" @bind-Value="_companyId" Label="Firma *" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       HelperText="İstek bu firmanın TÜM makinelerine bırakılır.">
+                @foreach (var c in _companies) { <MudSelectItem T="string" Value="@c.Id">@c.Name</MudSelectItem> }
+            </MudSelect>
+            @if (_companyError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">Firma listesi yüklenemedi: @_companyError</MudAlert>
+            }
+        }
+        else
+        {
+            @* Süper admin DEĞİLSE hedef daima kendi firmasıdır — sunucu da bunu zorlar (TenantAccessGuard). *@
+            <MudText Typo="Typo.body2">Hedef firma: <b>@Auth.CompanyDisplay</b></MudText>
+        }
+
+        <MudStack Row="true" Class="mt-4" Justify="Justify.FlexEnd" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="Request" Disabled="_busy">
+                @(_busy ? "Gönderiliyor…" : "İSTEĞİ BIRAK")
+            </MudButton>
+        </MudStack>
+
+        @if (_msg is not null) { <MudAlert Severity="@(_ok ? Severity.Success : Severity.Error)" Dense="true" Class="mt-3">@_msg</MudAlert> }
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="1" Style="max-width:720px;">
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Önemli</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Temizlik <b>giriş anında</b> uygulanır. Bir bilgisayar o sırada açık ve giriş yapılmış
+            durumdaysa, kapatılıp yeniden giriş yapılana kadar eski kopyasıyla çalışmaya devam eder.
+            En sağlıklısı: kullanıcılardan programı <b>tamamen kapatmalarını</b> isteyin, isteği bırakın,
+            sonra tekrar açtırın.
+        </MudText>
+    </MudPaper>
+}
+
+@code {
+    private List<ApiClient.Opt> _companies = new();
+    private string? _companyId;
+    private string? _companyError;
+    private string? _msg; private bool _ok; private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsAuthenticated || !Auth.IsSuperAdmin) return;
+        try
+        {
+            _companies = await Api.OptionsAsync("/api/companies/options", "id", "name");
+            if (_companies.Count == 0) _companyError = "liste boş döndü";
+        }
+        catch (Exception ex) { _companyError = ex.Message; }
+        // Varsayılan KENDİ firman — yanlış firmayı sıfırlama riski olmasın.
+        _companyId = _companies.FirstOrDefault(c => c.Id == Auth.CompanyId)?.Id ?? _companies.FirstOrDefault()?.Id;
+    }
+
+    private async Task Request()
+    {
+        _msg = null;
+        var hedef = Auth.IsSuperAdmin ? _companyId : Auth.CompanyId;
+        if (string.IsNullOrWhiteSpace(hedef)) { _ok = false; _msg = "Firma seçilmedi."; return; }
+        var ad = _companies.FirstOrDefault(c => c.Id == hedef)?.Name ?? Auth.CompanyDisplay;
+
+        if (!await Dialog.Confirm(
+                $"'{ad}' firmasının TÜM makineleri için bir kerelik yerel veri sıfırlama isteği bırakılsın mı?\n\n" +
+                "Sunucudaki veri ETKİLENMEZ. Her makine bir sonraki internetli girişinde kendi yerel " +
+                "kopyasını temizler ve sunucudan sıfırdan indirir.",
+                "Evet, İsteği Bırak")) return;
+
+        _busy = true;
+        try
+        {
+            var err = await Api.PostAsync("/api/admin/company-local-reset", new { companyId = hedef });
+            _ok = err is null;
+            _msg = err ?? $"'{ad}' için istek bırakıldı. Makineler bir sonraki girişte uygulayacak.";
+        }
+        catch (Exception ex) { _ok = false; _msg = "Hata: " + ex.Message; }
+        finally { _busy = false; }
+    }
+}

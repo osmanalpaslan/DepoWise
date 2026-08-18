@@ -208,6 +208,11 @@ public static class AppScreens
         new AppScreen("role_permissions", "role_permissions", "Web Yönetimi", "Rol Yetki Kontrol", W, "role-permissions", null),
         new AppScreen("purge_company", "purge_company", "Web Yönetimi", "Kalıcı Silme", W, "purge-company", null),
         new AppScreen("reset_company_business", "purge_company", "Web Yönetimi", "Firma İş Verisini Sıfırla", W, "reset-company-business", null, WebPermOverride: "@super"),
+        // YET (2026-08-18, kullanıcı isteği): makinelerin YEREL verisini sıfırlama isteği. Eskiden
+        // Firmalar ekranının içinde gömülü bir düğmeydi → devredilemiyordu. Artık kendi ekranı + kendi
+        // modülü var; "açık-verilir" (AppModules.IsExplicitOnly) olduğu için admin bypass ile kimseye
+        // örtük açılmaz. WebPermOverride YOK: yetki normal modül kapısından geçer.
+        new AppScreen("local_reset", "local_reset", "Web Yönetimi", "Yerel Veri Sıfırlama", W, "local-reset", null),
         // G5 (2026-08-12): ekranların hangi platformda açık olacağını yönetir. Süper admin ekranıdır;
         // diğer süper admin ekranları gibi (Rol Yetki Kontrol, Kota İzleme…) YALNIZ WEB'de sunulur.
         new AppScreen("screen_visibility", "screen_visibility", "Web Yönetimi", "Ekran Platform Yönetimi", W, "screen-visibility", null),

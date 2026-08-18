@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-12
+> Son güncelleme: 2026-08-18
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -121,3 +121,28 @@ sunucudan gelir; masaüstünün yerel veritabanında ise yalnız o makinede giri
 GUI-05 ile kapsam okuma/yazma sunucuya taşındı, ama **çevrimdışıyken** web'de oluşturulmuş bir kullanıcının
 kapsamı hâlâ yerelden okunamaz (panelde sebep yazar). Kalıcı çözüm kullanıcı aynalaması olurdu — mimari
 karar gerektirir, bu turda yapılmadı.
+
+## 2026-08-18 — ŞUBE / SIFIRLAMA / YETKİ TURUNDA KAPATILANLAR
+
+Aşağıdakiler bu turda **düzeltildi**; kayıt olarak duruyor (tekrar ederse aynı yerlere bakılır).
+Ayrıntı: [`docs/ANALIZ_SUBE_VE_SIFIRLAMA.md`](ANALIZ_SUBE_VE_SIFIRLAMA.md)
+
+- **SIF-01 (kritik, kapatıldı)** — masaüstü, sunucudan gelen "yerelini sıfırla" isteğini uygularken
+  ADR-083'ün TAM SİLME fonksiyonunu çağırıyordu → yerel `users` satırı silindiği için o makinede
+  **çevrimdışı giriş imkânsız** hâle geliyordu. Çağrı yeri artık kaynak düzeyinde testle kilitli
+  (`BusinessResetCoverageTests.LoginEkraniDogruFonksiyonuCagirir`).
+- **SIF-03 (kapatıldı)** — silme kapsamı senkron sözleşmesinden okunuyordu; ortak liste
+  `BusinessDataExtras` ile ayrıldı.
+- **ŞB-01 (kapatıldı)** — şube aynası `kind`/`parent_id` taşımıyordu.
+- **ŞB-04 (davranış değişikliği)** — üst şube artık **işlevsel**: kapsam alt şubelere yayılır,
+  rapor üst şube seçilince altları toplar. ⚠️ Bu bir **yetki genişlemesidir**: üst şubeye yetkili
+  kullanıcı artık alt şubelere de **yazabilir** ve alt şubeleri **devredebilir**. Ağacı yöneten
+  admindir; mevcut kullanıcı kapsamları gözden geçirilmelidir.
+- **İçe aktarım kapsam açığı (kapatıldı)** — içe aktarım oturum kopyası şube kapsamını taşımıyordu →
+  kapsam dışı şubeye kayıt basılabiliyordu (web + masaüstü).
+
+### ⚠️ Bu turda AÇIK KALAN
+- **SIF-02 (açık)** — yerel sıfırlama kontrolü **yalnız giriş anında** çalışır; `ShellViewModel`
+  içinde kontrol YOKTUR. Program açık ve giriş yapılmışsa 15 saniyelik eşitleme turu eski yerel
+  veriyi sunucuya göndermeye devam eder. **Operasyonel önlem:** sıfırlama öncesi tüm kullanıcılara
+  programı **tamamen kapattırın**, sıfırlayın, sonra açtırın. Kalıcı çözüm ayrı iş olarak önerildi.

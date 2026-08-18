@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-12** · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-18** · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -647,3 +647,50 @@ Checklist: [`docs/tests/Masaustu_GUI_Checklist.md`](../tests/Masaustu_GUI_Checkl
 girilecek hareketleri şubeye bağlar. Canlıda **şubesiz (branch_id NULL) mevcut cari hareketler varsa**
 bunlar hâlâ her şubede görünür. Yayın öncesi canlı veride şubesiz hareket olup olmadığı sayılmalı;
 varsa kullanıcıya sorulup toplu şube ataması yapılmalıdır (veri düzeltme kararı kullanıcınındır).
+
+---
+
+## 2026-08-18 — ŞUBE YAPISI + SIFIRLAMA + YETKİ DEVRİ TURU
+
+Kullanıcı talebi üzerine üç alanda **salt-okunur tam analiz** yapıldı (16 bulgu), ardından hepsi
+düzeltildi. Analiz: [`docs/ANALIZ_SUBE_VE_SIFIRLAMA.md`](../ANALIZ_SUBE_VE_SIFIRLAMA.md)
+
+**Kullanıcının şartı:** *"Web'den firma verisi sıfırladığımda babam mevcut kullanıcısıyla girip sıfırdan
+veri girebilsin; şubeler ve kullanıcılar silinmesin."* → Sunucu tarafı bu şartı zaten karşılıyordu,
+**masaüstü tarafı SIF-01 hatasıyla bozuyordu.** Düzeltildi ve testle kilitlendi.
+
+### Düzeltilen bulgular
+
+| Kod | Bulgu | Neden önemliydi |
+|---|---|---|
+| **SIF-01** 🔴 | Yerel sıfırlama, ADR-083'ün **tam silme** fonksiyonunu çağırıyordu (firma+kullanıcı+şube+yetki siliniyordu) | Sıfırlama sonrası o makinede **çevrimdışı giriş imkânsız** hâle geliyordu — şantiyede internet yoksa kilitlenme |
+| **SIF-03** 🟡 | Silme listesi senkron sözleşmesinden okunuyordu → 7 tablo + 8 satır tablosu atlanıyordu | Sıfırlama sonrası **eski stok bakiyeleri / muayene / sayaç** öksüz kalıyordu |
+| **SIF-06** 🟡 | Şablonlar (malzeme + araç) senkronda **hiç taşınmıyordu** | Masaüstünde açılan şablon web'e, web'deki masaüstüne gitmiyordu |
+| **ŞB-01** 🔴 | Şube aynası `kind` + `parent_id` taşımıyordu | **Kullanıcının bildirdiği hata:** üst şube seçilip kaydediliyor, ekran hemen "—" gösteriyordu (sunucudaki veri doğruydu) |
+| **ŞB-04** 🔴 | `parent_id` hiçbir yerde OKUNMUYORDU | "Üst Şube" yalnız bir etiketti: kapsam yayılmıyor, rapor toplamıyordu |
+| **ŞB-02** 🟠 | Döngü koruması yoktu (A→B, B→A) | ŞB-04 ile ağaç gezildiğinden sonsuz döngü riski |
+| **ŞB-03** 🟠 | Silinmiş üst şube listede görünüyor + alt şubesi olan şube silinebiliyordu | Kopuk referans |
+| **ŞB-06** 🟠 | Web "+" hızlı ekleme `companyId` göndermiyordu | Süper admin başka firmadayken şube **kendi firmasına** açılıyordu |
+| **YET** 🟠 | "Yerel Sıfırlama" yetki ağacında YOKTU, devredilemiyordu | Kullanıcı isteği: menü maddesi olsun + devredilebilsin |
+
+### Yeni yetki katmanı — "AÇIK-VERİLİR" (`AppModules.IsExplicitOnly`)
+Sistemde yalnız iki uç vardı: *hiç devredilemez* (süper-admin-only) veya *admin bypass ile örtük açık*.
+Kullanıcının istediği üçüncü katman eklendi: **devredilebilir ama asla örtük verilmeyen.**
+Zincir: **Süper Admin / Kısıtlı Süper Admin → Admin → Personel** — her kademe yalnız kendisinde olanı verir.
+İlk üyesi: `local_reset` — **Yerel Veri Sıfırlama** (web ekranı `/local-reset`).
+
+### Yanında bulunan ek açık (kapsam dışıydı, kapatıldı)
+İçe aktarım oturum **kopyası** (web + masaüstü) `ScopeBranchIds`/`HomeBranchId` taşımıyordu →
+içe aktarım yolunda kullanıcı **kısıtsız** sayılıyor, kapsam dışı şubeye kayıt basılabiliyordu.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2018 toplam · 1983 geçti · 0 başarısız · 35 atlandı** (bilinen PostgreSQL atlamaları) |
+| Yeni testler | 43 (`BusinessResetCoverageTests` 5 · `BranchHierarchyTests` 11 · `TemplateSyncTests` 4 · `BranchParentScopeTests` 11 · `ExplicitOnlyModuleTests` 12) |
+| Derleme | Masaüstü + Web + API — **0 hata** |
+
+### ▶️ SIRADAKİ TEK İŞ
+**Yayın kararı kullanıcınındır.** Değişiklikler canlıya çıkmadı: API + Web **deploy edilmedi**,
+masaüstü **yeni sürüm paketlenmedi**. Sıfırlama işlemi yapılmadan ÖNCE bu iki dağıtım gerekir
+(SIF-01 düzeltmesi masaüstü sürümündedir).

@@ -12,6 +12,56 @@ Fazlar ilerledikçe yeni kararlar tarih, bağlam, karar, alternatifler ve sonuç
 
 ---
 
+### ADR-108 — "Açık-verilir" yetki katmanı + Yerel Veri Sıfırlama modülü (18.08.2026)
+- **Bağlam:** Kullanıcı, makinelerin yerel verisini sıfırlama isteğinin **yetki ağacında bir menü maddesi**
+  olmasını ve **Süper Admin veya Kısıtlı Süper Admin** verdiğinde **alan kişinin de alt rollerine
+  verebilmesini** istedi. Mevcut modelde bu ifade edilemiyordu: yalnız iki uç vardı — `IsSuperAdminOnly`
+  (hiç devredilemez) veya normal modül (firma adminine **admin bypass** ile örtük açık). Ayrıca düğme
+  `Companies.razor` (süper-admin-only ekran) içine gömülüydü ve `CompanyLocalResetService.RequestReset`
+  sert biçimde `IsSuperAdmin` istiyordu → yetki verilse bile kişi düğmeye ULAŞAMAZDI.
+- **Karar:** Üçüncü katman eklendi — **`AppModules.IsExplicitOnly`**: *devredilebilir ama asla örtük
+  verilmeyen*. Bu modüllerde (1) `AccessControl.Can` içindeki admin bypass GEÇERSİZ, (2) devretme yetkisi
+  **Süper Admin | Kısıtlı Süper Admin | yetkiyi açıkça almış olan**, (3) "ilk admin her şeyi verebilir"
+  kestirmesi UYGULANMAZ. İlk üyesi `local_reset` — kendi web ekranıyla (`/local-reset`).
+  Sunucu kapısı `IsSuperAdmin` yerine modül yetkisine bağlandı; hedef firma `TenantAccessGuard` ile
+  oturumdan çözülür (süper admin dışında kimse başka firmanın makinelerini sıfırlayamaz).
+- **Alternatif (elendi):** Özel buton (`SpecialButtons`) yapmak. Elendi çünkü (a) özel butonlarda da admin
+  bypass var, (b) `RoleGrantService` matrisi yalnız MODÜLLERİ kapsıyor → rol bazlı yasak konulamazdı,
+  (c) düğmenin bulunduğu ekran yine devredilemez kalırdı.
+- **Sonuç:** Zincir kullanıcının istediği gibi: SA/KSA → Admin → Personel; her kademe yalnız kendisinde
+  olanı verir. Modül `Rol Yetki Kontrol` matrisine normal modül gibi girer. 12 test.
+- **Kapsam dışı:** Ekran YALNIZ web'dedir (kardeşleri Kalıcı Silme / Firma İş Verisini Sıfırla gibi);
+  masaüstünde karşılığı yoktur. Yetki ağacında ise iki platformda da görünür ve verilebilir.
+
+### ADR-107 — Üst şube işlevsel hâle getirildi (18.08.2026)
+- **Bağlam:** `branches.parent_id` ilk günden (Migration001) beri şemada vardı ama kod tabanında YALNIZ
+  saklanıp gösteriliyordu: `BranchAccess`, raporlar ve hiçbir filtre onu okumuyordu. "Üst Şube" alanı
+  fiilen bir etiketti — Merkez'e yetkili kullanıcı altındaki şantiyeleri göremiyor, Merkez seçilince
+  rapor altları toplamıyordu. Kullanıcı bunun çalışmasını istedi.
+- **Karar:** `BranchTree.LoadDescendants` firma başına geçişli kapanış (üst şube → tüm alt şubeleri)
+  üretir; oturum kurulurken bir kez yüklenir (masaüstü Login + web/API snapshot). `BranchAccess.Expand`
+  hem İZİNLİ hem İSTENEN şube kümesini genişletir. İkinci bir kapsam mantığı KURULMADI — tek otorite
+  yine `BranchAccess`.
+- **İki kural korundu:** **fail-closed** (genişletme izinli kümeyi aşamaz; yukarı/kardeşe genişleme yok)
+  ve **fail-safe** (ağaç yüklenmemişse davranış ADR-107 öncesiyle birebir aynı).
+- **Sonuç / KABUL EDİLEN GENİŞLEME:** Üst şubeye yetkili kullanıcı artık alt şubelere **yazabilir** ve
+  alt şubeleri **devredebilir**. Bu hiyerarşinin kasıtlı anlamıdır; ağacı yöneten admindir. Canlıdaki
+  mevcut kapsamlar gözden geçirilmelidir (`YTK-07` backlog maddesi).
+- **Kapsam dışı:** Ekranlar hâlâ düz liste gösteriyor (ağaç görünümü `ŞB-07` olarak backlog'a alındı).
+
+### ADR-106 — Sıfırlama kapsamı senkron sözleşmesinden AYRILDI (18.08.2026)
+- **Bağlam:** Hem sunucudaki "Firma İş Verisini Sıfırla" hem masaüstündeki yerel temizlik, silinecek
+  tabloları `BusinessSyncService.Tables` listesinden okuyordu. O liste **senkron sözleşmesidir**
+  (taşınacak tablolar), silinecekler değil. Farkta kalan tablolar temizlikte atlanıyordu.
+- **Karar:** Silme kapsamı ayrı bir katmana alındı — `BusinessDataExtras`: (1) `company_id` taşıyan ama
+  senkronda taşınmayan 7 tablo (bakiye, muayene, sayaç, stok log, dosya, iki şablon), (2) `company_id`
+  taşımayan 8 satır/bağlantı tablosu. İkinciler **öksüz ölçütüyle** silinir (ebeveyni artık yok) —
+  bu ölçüt firma-güvenlidir, başka firmanın ebeveyni durduğu sürece çocuğuna dokunulmaz.
+- **Ayrıca:** Masaüstündeki yerel sıfırlama, ADR-084'ün sözüne aykırı biçimde ADR-083'ün TAM SİLME
+  fonksiyonunu çağırıyordu (firma+kullanıcı+şube+yetki siliniyordu) → o makinede çevrimdışı giriş
+  imkânsız hâle geliyordu. Doğru fonksiyona çevrildi; çağrı yeri kaynak düzeyinde testle kilitlendi.
+- **Sonuç:** Kullanıcının şartı ("şubeler ve kullanıcılar silinmesin") artık iki platformda da geçerli.
+
 ### ADR-105 — Hareket filtrelerinin TEK SQL kaynağı + B-1 sunucuya indi (12.08.2026)
 - **Bağlam:** Stok hareket defteri İKİ yerden sorgulanıyordu: `ReportService.StockMovements`
   (rapor + XLSX) ve `StockService.SearchMovements` (Stok Hareketleri EKRANI, web + masaüstü).

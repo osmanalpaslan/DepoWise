@@ -27,6 +27,13 @@ public static class AccessControl
             if (s.IsRestrictedSuperAdmin) return Explicit(s, moduleKey, action);
             return false;
         }
+        // YET (2026-08-18): "AÇIK-VERİLİR" modüller — admin bypass'ı GEÇERSİZ. Firma admini bu ekranı
+        // kendiliğinden ALMAZ; yalnız süper admin (ya da yetkiyi almış biri) açıkça verirse erişir.
+        if (AppModules.IsExplicitOnly(moduleKey))
+        {
+            if (s.IsSuperAdmin || DeveloperMode.IsActive) return true;
+            return Explicit(s, moduleKey, action);
+        }
         if (IsAdmin(s)) return true;
 
         return Explicit(s, moduleKey, action);
@@ -99,6 +106,15 @@ public static class AccessControl
                 ? own with { ModuleKey = moduleKey }
                 : All(moduleKey, false);
 
+        // YET (2026-08-18): "AÇIK-VERİLİR" modül. Admin bypass GEÇERSİZ (Can ile aynı) → firma admini
+        // bunu kendiliğinden devredemez. Kısıtlı Süper Admin, süper adminin altındaki kademe olarak
+        // TAM devredebilir; herkes için kural "kendinde AÇIKÇA olanı verir".
+        if (AppModules.IsExplicitOnly(moduleKey))
+        {
+            if (s.IsRestrictedSuperAdmin) return All(moduleKey, true);
+            return own is not null ? own with { ModuleKey = moduleKey } : All(moduleKey, false);
+        }
+
         // Firma admini normal modüllerde bypass ile TAM yetkilidir → tamamını devredebilir.
         if (IsAdmin(s)) return All(moduleKey, true);
 
@@ -121,7 +137,15 @@ public static class AccessControl
     {
         if (s.IsSuperAdmin || DeveloperMode.IsActive) return true;
         var own = s.Permissions.For(moduleKey);
-        if (own is not null && (own.CanView || own.CanCreate || own.CanEdit || own.CanDelete)) return true;
+        bool acikcaVar = own is not null && (own.CanView || own.CanCreate || own.CanEdit || own.CanDelete);
+
+        // YET (2026-08-18, kullanıcı kuralı): "açık-verilir" modülde zincir şudur —
+        // Süper Admin VEYA Kısıtlı Süper Admin daima verebilir; onların verdiği kişi de
+        // AŞAĞI doğru verebilir (kendinde olanı). "İlk admin her şeyi verebilir" kestirmesi UYGULANMAZ.
+        if (AppModules.IsExplicitOnly(moduleKey))
+            return s.IsRestrictedSuperAdmin || acikcaVar;
+
+        if (acikcaVar) return true;
         if (!AppModules.IsSuperAdminOnly(moduleKey) && s.IsCompanyAdmin && !HasAnyExplicit(s)) return true;
         return false;
     }
