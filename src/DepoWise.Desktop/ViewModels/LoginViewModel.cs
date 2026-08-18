@@ -541,7 +541,14 @@ public sealed partial class LoginViewModel : ViewModelBase
         var localAt = LocalResetService.GetAppliedAt(companyId);
         if (localAt is not null && localAt.Value >= serverAt.Value) return;   // bu istek zaten uygulanmış
 
-        try { LocalPurgeService.PurgeLocalCompany(companyId); }
+        // SIF-01 (2026-08-18) DÜZELTMESİ: burada eskiden PurgeLocalCompany çağrılıyordu — o, ADR-083'ün
+        // TAM SİLME fonksiyonudur (user_roles → company_id'li TÜM tablolar → DELETE FROM companies).
+        // Yerel sıfırlamada firma/kullanıcı/şube/yetki SİLİNMEZ: ADR-084 açıkça "GİRİŞİ ENGELLEMEZ" der ve
+        // kullanıcı şartı da "şubeler ve kullanıcılar silinmesin"dir. Yerel `users` satırı silindiğinde o
+        // makinede ÇEVRİMDIŞI GİRİŞ imkânsız hâle geliyordu (AuthService: bcrypt hash'i yerelde tutulur).
+        // Doğrusu YALNIZ iş verisini silen PurgeBusinessData'dır (ShellViewModel'in "yerelimi temizle"
+        // akışı zaten bunu kullanıyordu).
+        try { LocalPurgeService.PurgeBusinessData(companyId); }
         catch { return; }                                              // temizlenemedi → işaretleme, sonraki girişte tekrar denenir
         LocalResetService.MarkApplied(companyId, serverAt.Value, _authedSession?.UserId ?? "system");
     }

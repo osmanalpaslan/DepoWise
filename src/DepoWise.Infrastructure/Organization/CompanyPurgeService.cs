@@ -155,11 +155,16 @@ public sealed class CompanyPurgeService
         using var conn = _factory.Create();
         int rows, touched;
 
+        // Silinecek tablo kümesi — İKİ lehçede de aynı: senkron sözleşmesi + SIF-03 ekleri.
+        // (Senkronda taşınmayan ama firmanın iş verisi olan bakiye/muayene/sayaç/log/dosya/şablon
+        //  tabloları eskiden HİÇ silinmiyordu; PG'de ebeveyni olanlar zincirle gidiyordu, olmayanlar kalıyordu.)
+        var business = new HashSet<string>(DepoWise.Infrastructure.Sync.BusinessSyncService.Tables, StringComparer.OrdinalIgnoreCase);
+        foreach (var t in BusinessDataExtras.CompanyScopedExtras) business.Add(t);
+
         if (!SqlDialect.IsSqlite(conn))
         {
             // PostgreSQL: FK-güvenli, kataloğa dayalı silme — YALNIZ iş verisi tabloları hedef; firma/şube/
             // kullanıcı/rol KORUNUR. İş tablolarının company_id'siz çocukları (satır tabloları) da temizlenir.
-            var business = new HashSet<string>(DepoWise.Infrastructure.Sync.BusinessSyncService.Tables, StringComparer.OrdinalIgnoreCase);
             using var tx = conn.BeginTransaction();
             (rows, touched) = DialectPurge.DeleteCompanyData(
                 conn, tx, companyId, includeCompanyTable: business.Contains, deleteCompaniesRow: false, Protected);
@@ -168,17 +173,27 @@ public sealed class CompanyPurgeService
             return new PurgeResult(companyId, name, touched, rows);
         }
 
-        // --- SQLite yolu: DEĞİŞMEDİ ---
+        // --- SQLite yolu ---
         using (var off = conn.CreateCommand()) { off.CommandText = "PRAGMA foreign_keys=OFF;"; off.ExecuteNonQuery(); }
         rows = 0; touched = 0;
         try
         {
             using var tx = conn.BeginTransaction();
             // YALNIZ iş verisi tabloları — firma/şube/kullanıcı/rol/yetki KORUNUR.
-            foreach (var t in DepoWise.Infrastructure.Sync.BusinessSyncService.Tables)
+            // SIF-03: senkron listesi + taşınmayan iş tabloları (business kümesi ikisini de içerir).
+            foreach (var t in business)
             {
                 if (!TableExists(conn, t) || !HasColumn(conn, t, "company_id")) continue;
                 var n = Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", ("@c", companyId));
+                if (n > 0) touched++;
+                rows += n;
+            }
+            // SIF-03: yabancı anahtarlar kapalı olduğu için zincirleme silinmeyen, company_id'si de
+            // olmayan satır/bağlantı tabloları — ÖKSÜZ ölçütüyle (ebeveyni yukarıda silinmiş olanlar).
+            foreach (var (child, fk, parent) in BusinessDataExtras.OrphanChildren)
+            {
+                if (!TableExists(conn, child) || !TableExists(conn, parent)) continue;
+                var n = Exec(conn, tx, $"DELETE FROM \"{child}\" WHERE \"{fk}\" NOT IN (SELECT id FROM \"{parent}\");");
                 if (n > 0) touched++;
                 rows += n;
             }

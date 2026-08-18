@@ -78,10 +78,27 @@ public static class LocalPurgeService
         try
         {
             using var tx = conn.BeginTransaction();
+            // 1) Senkronda taşınan iş tabloları (sözleşme listesi).
             foreach (var t in DepoWise.Infrastructure.Sync.BusinessSyncService.Tables)
             {
                 if (!TableExistsIn(conn, t) || !HasColumn(conn, t, "company_id")) continue;
                 rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", companyId);
+            }
+            // 2) SIF-03: senkronda taşınmayan ama firmanın İŞ VERİSİ olan tablolar (bakiye/muayene/
+            //    sayaç/log/dosya/şablon). Eskiden atlanıyordu → sıfırlama sonrası "eski bakiye" kalıyordu.
+            foreach (var t in DepoWise.Infrastructure.Organization.BusinessDataExtras.CompanyScopedExtras)
+            {
+                if (!TableExistsIn(conn, t) || !HasColumn(conn, t, "company_id")) continue;
+                rows += Exec(conn, tx, $"DELETE FROM \"{t}\" WHERE company_id=@c;", companyId);
+            }
+            // 3) SIF-03: company_id'si OLMAYAN satır/bağlantı tabloları. Yabancı anahtarlar kapalı
+            //    olduğu için zincirleme silinmiyorlardı; ÖKSÜZ ölçütüyle temizlenir (ebeveyni yukarıda
+            //    silinmiş olanlar). Başka firmanın ebeveyni durduğu sürece onun çocuğuna DOKUNULMAZ.
+            foreach (var (child, fk, parent) in DepoWise.Infrastructure.Organization.BusinessDataExtras.OrphanChildren)
+            {
+                if (!TableExistsIn(conn, child) || !TableExistsIn(conn, parent)) continue;
+                rows += ExecNoParam(conn, tx,
+                    $"DELETE FROM \"{child}\" WHERE \"{fk}\" NOT IN (SELECT id FROM \"{parent}\");");
             }
             tx.Commit();
         }
@@ -108,6 +125,16 @@ public static class LocalPurgeService
         while (r.Read())
             if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return true;
         return false;
+    }
+
+    /// <summary>Parametresiz çalıştırma (öksüz çocuk temizliği — tablo/kolon adları YALNIZ
+    /// <see cref="Infrastructure.Organization.BusinessDataExtras"/> sabitlerinden gelir, dışarıdan girdi DEĞİLDİR).</summary>
+    private static int ExecNoParam(DbConnection conn, DbTransaction tx, string sql)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = sql;
+        return cmd.ExecuteNonQuery();
     }
 
     private static int Exec(DbConnection conn, DbTransaction tx, string sql, string companyId)
