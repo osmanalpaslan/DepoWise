@@ -43,8 +43,14 @@ else
                     <MudTd>@TableLabel(context.Table)</MudTd>
                     <MudTd>@(string.IsNullOrEmpty(context.Label) ? "—" : context.Label)</MudTd>
                     <MudTd Style="text-align:right">
-                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
-                                   StartIcon="@Icons.Material.Filled.Restore" OnClick="@(() => Restore(context))">Geri Yükle</MudButton>
+                        @* DEN-F1: "Geri Yükle" özel bir yetkidir (btn-restore) ve sunucu bunu zaten zorluyor
+                           (TrashService.RequireButton). Web'de kontrol YOKTU → yetkisi olmayan kullanıcı butonu
+                           görüp tıklıyor ve hata alıyordu. Artık arayüz sunucuyla aynı kararı veriyor. *@
+                        @if (Auth.CanButton("btn-restore"))
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                       StartIcon="@Icons.Material.Filled.Restore" OnClick="@(() => Restore(context))">Geri Yükle</MudButton>
+                        }
                     </MudTd>
                 </RowTemplate>
             </MudTable>

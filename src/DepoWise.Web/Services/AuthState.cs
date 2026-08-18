@@ -27,8 +27,29 @@ public sealed class AuthState
     public bool IsAdmin { get; private set; }
     /// <summary>Kısıtlı Süper Admin rolü (menü yanıtından). "Yedek Yönetimi" gibi süper+kısıtlı-süper-only ekranlar için.</summary>
     public bool IsRestrictedSuperAdmin { get; private set; }
-    public void SetModules(IReadOnlyList<MenuModule> m, bool isAdmin = false, bool isRestrictedSuperAdmin = false)
-    { _modules = m; IsAdmin = isAdmin || IsSuperAdmin; IsRestrictedSuperAdmin = isRestrictedSuperAdmin; Changed?.Invoke(); }
+    /// <summary>
+    /// DEN-F1 (denetim 2026-08-18) — ÖZEL BUTON YETKİSİ. Web'de bu kavram HİÇ YOKTU: <c>/api/me/menu</c>
+    /// yalnız modülleri döndürüyordu ve burada buton desteği bulunmuyordu. Masaüstü 6 yerde
+    /// <c>AccessControl.CanUseButton</c> kontrolü yaparken web, kullanıcının yetkisi olmayan butonu
+    /// GÖSTERİYOR, kullanıcı tıklayıp hata alıyordu (CLAUDE.md §5: UI ≡ API).
+    /// ⚠️ Güvenlik açığı DEĞİLDİ — sunucu tarafı zaten fail-closed (<c>RequireButton</c>); bu, arayüzü
+    /// sunucuyla hizalar. Sunucu <c>CanUseButton</c> sonucunu gönderdiği için admin bypass burada da geçerlidir.
+    /// </summary>
+    private IReadOnlySet<string> _buttons = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>Kullanıcı bu özel butonu kullanabilir mi (deny-by-default; süper admin daima).</summary>
+    public bool CanButton(string key) => IsSuperAdmin || _buttons.Contains(key);
+
+    public void SetModules(IReadOnlyList<MenuModule> m, bool isAdmin = false, bool isRestrictedSuperAdmin = false,
+        IReadOnlyList<string>? buttons = null)
+    {
+        _modules = m;
+        IsAdmin = isAdmin || IsSuperAdmin;
+        IsRestrictedSuperAdmin = isRestrictedSuperAdmin;
+        _buttons = buttons is null ? new HashSet<string>(StringComparer.Ordinal)
+                                   : new HashSet<string>(buttons, StringComparer.Ordinal);
+        Changed?.Invoke();
+    }
 
     // ═══ G5 — EKRAN PLATFORM GÖRÜNÜRLÜĞÜ (2026-08-12) ═══════════════════════════════════════
     // ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Bu bölüm YALNIZ platform tarafını taşır; yetki

@@ -629,8 +629,16 @@ app.MapGet("/api/me/menu", (HttpContext ctx) =>
             edit = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Edit),
             delete = DepoWise.Application.Security.AccessControl.Can(s, m.Key, PermissionAction.Delete),
         }).ToList();
+    // DEN-F1 (denetim 2026-08-18): web'de ÖZEL BUTON yetkisi HİÇ YOKTU — bu uç yalnız `modules`
+    // döndürüyor, AuthState'te de buton desteği bulunmuyordu. Masaüstü 6 yerde CanUseButton kontrolü
+    // yaparken web yetkisi olmayan butonu GÖSTERİYOR, kullanıcı tıklayıp hata alıyordu.
+    // CLAUDE.md §5 "özel buton yetkisi UI ile API'da aynı uygulanır" ihlaliydi.
+    // ⚠️ Güvenlik açığı DEĞİLDİ: sunucu tarafı fail-closed (RequireButton) — bu, UI'ı API ile hizalar.
+    var btns = DepoWise.Application.Security.SpecialButtons.All
+        .Where(b => DepoWise.Application.Security.AccessControl.CanUseButton(s, b.Key))
+        .Select(b => b.Key).ToList();
     return Results.Ok(new { isSuperAdmin = s.IsSuperAdmin, isRestrictedSuperAdmin = s.IsRestrictedSuperAdmin,
-        isAdmin = DepoWise.Application.Security.AccessControl.IsAdmin(s), modules = mods });
+        isAdmin = DepoWise.Application.Security.AccessControl.IsAdmin(s), modules = mods, buttons = btns });
 }).RequireAuthorization();
 
 // ── Ana ekran: kritik uyarılar (bakım + muayene/sigorta + düşük stok + yakıt) ──

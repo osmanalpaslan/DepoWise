@@ -225,12 +225,18 @@ else
             </MudItem>
         }
         <MudItem xs="6" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Run" Disabled="_busy">Sorgula</MudButton></MudItem>
-        <MudItem xs="6" md="2">
-            <MudTooltip Text="Seçili rapor ve filtrelerle TÜM sonucu Excel'e aktarır (yetki gerekir).">
-                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.FileDownload"
-                           OnClick="ExportExcel" Disabled="_exporting">Excel'e Aktar</MudButton>
-            </MudTooltip>
-        </MudItem>
+        @* DEN-F1: Excel dışa aktarma ÖZEL bir yetkidir ve sunucu bunu zaten zorluyor
+           (Program.cs → RequireButton, yönetici raporunda ayrı anahtar). Web'de kontrol YOKTU →
+           yetkisi olmayan kullanıcı butonu görüp tıklıyor ve hata alıyordu. Arayüz artık aynı kararı verir. *@
+        @if (Auth.CanButton(_sel?.Manager == true ? "btn-export-mgr-reports" : "btn-export-reports"))
+        {
+            <MudItem xs="6" md="2">
+                <MudTooltip Text="Seçili rapor ve filtrelerle TÜM sonucu Excel'e aktarır (yetki gerekir).">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.FileDownload"
+                               OnClick="ExportExcel" Disabled="_exporting">Excel'e Aktar</MudButton>
+                </MudTooltip>
+            </MudItem>
+        }
     </MudGrid>
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert> }
 </MudPaper>
