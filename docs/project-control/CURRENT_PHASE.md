@@ -834,3 +834,50 @@ değişmeden** yeniden adlandırma güvenli hâle geldi. Büyük refactor gerekm
 ### Sıradaki tek iş
 Kullanıcı onayıyla **deploy** (API + Web + masaüstü sürümü). Deploy öncesi Neon yedek şubesi alınmalı;
 Migration 070 üretim şemasını 70'e çıkaracak.
+
+---
+
+## 🚀 YAYIN — `MNU` Menü / Ekran Yönetimi canlıda (2026-08-19)
+
+**API + Web deploy edildi. Masaüstü publish bu turda BİLİNÇLİ olarak yapılmadı** (kullanıcı kararı;
+ayrı tur). Canlıdaki masaüstü sürümü **1.0.140** olarak kalıyor.
+
+### Deploy öncesi doğrulama
+| Kontrol | Sonuç |
+|---|---|
+| Release build (API · Web · Masaüstü) | **0 hata** |
+| Tam takım (SQLite) | **2098 geçti · 0 başarısız · 35 atlandı** |
+| PostgreSQL (izole `depowise_test`) | **48 geçti · 0 başarısız · 0 atlandı** |
+| Web GUI (17 madde) | **17/17 geçti** — geçen turda kısmi kalan "yetkisiz kullanıcı" maddesi gerçek personel hesabıyla tamamlandı (4 uç da **403**) |
+| Masaüstü GUI | **geçti** — gerçek Avalonia penceresi, UI Automation |
+| Üretim yedeği | alındı + `pg_restore -l` ile doğrulandı |
+
+### ⭐ MNU-B1'in GERÇEK MASAÜSTÜNDE kanıtı
+İzole ortamda web'den yapılan düzen değişiklikleri **gerçek masaüstü uygulamasının menüsünde** göründü:
+grup adı `Yakıt` → **Akaryakıt**, ekran adı → **Yakıt Çıkışı**, sıra (**Özet** başa), taşıma
+(**Depo Girişleri** → Yönetim). Bu değişiklikler eskiden masaüstüne **hiç ulaşmıyordu**.
+
+### Deploy sonucu
+| | |
+|---|---|
+| API | `depowise-erp` v158 · makine `started` · `/health` 200 · `/api/public/companies` 200 |
+| Üretim firması | `ed271d0ca2b04a73b97f5025a53a04b4 / Oze İnşaat` ✔ |
+| Migration 070 | **uygulandı** — `70 \| menu_layout \| 2026-08-18 21:45:15+00` |
+| Şema sürümü | **69 → 70** |
+| Web | `depowise-web` v181 · `/`, `/login`, `/screen-visibility`, `/reports`, `/parties` → **200** |
+
+### Üretim verisi (salt-okunur, READ ONLY + ROLLBACK)
+| | Önce | Sonra |
+|---|---|---|
+| Firma | 3 | **3** |
+| Kullanıcı | 8 | **8** |
+| Şube | 10 | **10** |
+| Stok hareketi | 663 | **663** |
+| Tablo | 75 | **77** (yalnız Migration 070'in 2 tablosu) |
+
+Yeni tabloların üçü de **0 satır** → hiçbir firmanın menüsü değişmedi, herkes katalog varsayılanıyla
+devam ediyor. Özellik **kullanılmaya hazır ama kapalı** durumda.
+
+### Sıradaki tek iş
+Masaüstü sürüm publish'i (ayrı tur). Masaüstü kullanıcıları menü düzenini ancak yeni sürümle görecek;
+**1.0.140 çalışmaya devam eder** (ayarlar inmez, katalog varsayılanı geçerlidir — bozulma yok).
