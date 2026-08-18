@@ -635,3 +635,64 @@ Yalnız masaüstünde uygulanıyor; web'den atlatılabilir. Etki dar (`definitio
 
 ## TUR 7 — Lehçe (PG/SQLite) uyumu · ✅ TEMİZ (yapılacak yok)
 Lehçeye özgü tüm SQL `SqlDialect.PortableSql`'den geçiyor; çevrilemeyen kalıp yok; PRAGMA'lar korumalı.
+
+---
+
+# 🔧 DENETİM DÜZELTMELERİ — DURUM (2026-08-18)
+
+| Kod | Bulgu | Durum |
+|---|---|---|
+| `GUV-A1` | Paket yükleme yetki sırası + boyut sınırı | ✅ **TAMAMLANDI** |
+| `GUV-A2` | `/api/backup/list` yetki kapısı | ✅ **TAMAMLANDI** |
+| `DEN-F2` | `btn-add-lookup` sunucu kapısı | ✅ **TAMAMLANDI** |
+| `DEN-E2` | Stok Durumu raporu şube kapsamı (fail-open) | ✅ **TAMAMLANDI** |
+| `DEN-E1` | Şube Bazlı Özet raporu kapsamı | ✅ **TAMAMLANDI** |
+| `SNK-A1` | Cari iptali senkrona girmiyordu (bakiye yanlış) | ✅ **TAMAMLANDI** (Migration069) |
+| `SNK-A2` | Stok iptali/belge durumu senkrona girmiyordu | ✅ **TAMAMLANDI** (Migration069) |
+| `SNK-A3` | Muayene/Sigorta hiç senkron olmuyordu | ✅ **TAMAMLANDI** |
+| `SNK-A4` | Sayım satırları senkron olmuyordu | ✅ **TAMAMLANDI** |
+| `SNK-A5` | 5 yardımcı tablo senkron olmuyordu | ✅ **TAMAMLANDI** |
+| `DEN-D1` | Yakıt yeterlilik kontrolü kayan noktada | ✅ **TAMAMLANDI** |
+| `DEN-D2` | Rapor toplamı kayan noktada | ✅ **TAMAMLANDI** (kapsam düzeltildi — aşağıya bak) |
+| `DEN-B1` | "Tüm Şubeler" yetkisi audit + önbellek | ✅ **TAMAMLANDI** |
+| `DEN-B2` | Cihaz işlemleri audit | ✅ **TAMAMLANDI** |
+| `DEN-B3` | "Ölü kod" | ❌ **BULGU GERİ ÇEKİLDİ** (denetim hatası — aşağıya bak) |
+| `DEN-F1` | Web'de özel buton yetkisi | ✅ **TAMAMLANDI** (kalan ekranlar `DEN-F1b`) |
+| `SNK-A6` | Silinen çocuk satırlar karşı tarafta kalıyordu | ✅ **TAMAMLANDI** |
+| `SNK-A7` | Senkron şube kapsamı | ⛔ **KARAR BEKLİYOR** (aşağıya bak) |
+
+## Denetim raporundaki DÜZELTMELER (dürüstlük kaydı)
+
+### `DEN-B3` geri çekildi — tarama hatası
+`Infrastructure/Org/BranchService.cs` ve `Org/CompanyService.cs` "ölü kod" olarak işaretlenmişti.
+Silinince **derleme kırıldı**: `tests/DepoWise.Tests/OrgPersonnelTests.cs` ikisini de kullanıyor.
+Tarama yalnız `src/` altına bakmış, `tests/` dahil edilmemişti. **Dosyalar geri alındı, kod değişmedi.**
+Kalan (daha zayıf) gözlem: bu iki servisi ÜRETİM kodu kullanmıyor, yalnız bir test kullanıyor.
+Silme değil; gerekirse ayrı bir değerlendirme konusudur.
+
+### `DEN-D2` kapsamı daraltıldı
+İlk raporda yakıt tüketim raporlarının da etkilendiği yazılmıştı. Kontrol edildi: o raporlarda
+değerler `#,##0.00` / `#,##0.##` ile biçimlendiriliyor → **kayan nokta artığı kullanıcıya
+yansımıyor**. Gerçek etki yalnız biçimlendiricisi olmayan "Toplam Stok" kolonundaydı; o düzeltildi.
+
+## Açık kalanlar
+
+### `SNK-A7` — Senkron şube kapsamı · ⛔ **KARAR BEKLİYOR** (kullanıcı)
+`BranchScopedTables` yalnız ön muhasebeyi kapsıyor. `branch_id` taşıyıp kapsam dışı kalanlar:
+`vehicles`, `personnel`, `stock_movements`, `material_requests`, `stock_change_logs`.
+Sonuç: şubeyle sınırlı kullanıcının makinesine diğer şubelerin verisi de iniyor (gizlilik).
+
+⚠️ **İlk raporda `materials` de listelenmişti — bu YANLIŞTI.** `KARAR-7 = A` (2026-08-11) gereği
+**malzeme kartı firma genelidir**; `materials.branch_id` "kartın ait olduğu şube"dir, stok lokasyonu
+DEĞİLDİR ve 2461 kaydın yalnız 2'sinde dolu. Kapsama alınması bu kararı ihlal ederdi.
+
+**Neden kullanıcı kararı:** düzeltme **davranış değiştirir** — bugüne kadar diğer şubelerin araç/
+personel/hareket verisini makinesinde gören kullanıcıda "veri kayboldu" algısı yaratabilir.
+Gizlilik kazancı ile alışkanlık bozulması arasındaki denge ürün kararıdır.
+**Öneri:** `vehicles` + `personnel` ile başlanması (en net şube-bağlı varlıklar), `stock_movements`
+ve `material_requests` ikinci adımda (çevrimdışı stok/onay akışlarını etkileyebilir).
+
+### `DEN-F1b` — Kalan web ekranlarında "İptal/ters kayıt" butonu gizleme · 🟡 · **SIRADA**
+6 ekran: `Daily`, `Finance`, `Fuel`, `Inspection`, `Invoices`, `Parties`.
+Sunucu bunları ZATEN engelliyor (`RequireButton`) → güvenlik değil, arayüz tutarlılığı işi.
+`Auth.CanButton("btn-reverse")` ile gizlenmeleri gerekir.

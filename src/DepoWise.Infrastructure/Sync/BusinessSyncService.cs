@@ -291,6 +291,33 @@ public sealed class BusinessSyncService
             ["maintenance_definition_vehicles"] = ("maintenance_definitions", "definition_id"),
         };
 
+    /// <summary>
+    /// SNK-A6 (denetim 2026-08-18) — <b>EBEVEYN-OTORİTELİ ÇOCUK KÜMESİ (silme yayılımı).</b>
+    ///
+    /// Senkron <b>yalnız upsert</b>'tir; silme yalnız <c>is_deleted=1</c> ile taşınır. Aşağıdaki çocuk
+    /// tablolarda <c>is_deleted</c> YOKTUR ve uygulama onları <b>düzenlemede fiziksel silip yeniden
+    /// yazar</b> (ör. <c>RequestService</c> talep kalemlerini, <c>VehicleTemplateService.ReplaceMaterials</c>
+    /// şablon malzemelerini, <c>Set*</c> metotları muadil/uyumlu eşleşmeleri). Sonuç: bir tarafta silinen
+    /// satır KARŞI TARAFTA KALIYOR → <b>mükerrer kalem</b>.
+    ///
+    /// Çözüm, uygulamanın gerçek davranışını senkrona taşır: bir EBEVEYN paket içinde geldiğinde, o
+    /// ebeveynin çocuk kümesi <b>paketteki hâliyle değiştirilir</b> (gelen küme otoriterdir). Ebeveyn
+    /// pakette yoksa çocuklarına DOKUNULMAZ — delta senkronunda bilmediğimiz ebeveynin çocukları silinmez.
+    /// Çocuğu hiç kalmamış ebeveyn de doğru çalışır: ebeveyn geldiği hâlde çocuk satırı gelmediyse
+    /// mevcut çocuklar temizlenir.
+    ///
+    /// (çocuk → (ebeveyn tablo, çocuktaki yabancı anahtar))
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Parent, string Fk)> ParentReplaceChildren =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["material_request_items"] = ("material_requests", "request_id"),
+            ["vehicle_template_materials"] = ("vehicle_templates", "template_id"),
+            ["material_equivalents"] = ("materials", "material_id"),
+            ["material_compatible_vehicles"] = ("materials", "material_id"),
+            ["maintenance_definition_vehicles"] = ("maintenance_definitions", "definition_id"),
+        };
+
     /// <summary>Firma kapsamı için <c>EXISTS</c> koşulu. Kolonu olan tabloda <c>""</c> döner
     /// (orada <c>company_id=@c</c> zaten uygulanır).</summary>
     private static string CompanyChildWhere(string table, bool hasCompanyColumn)
@@ -435,6 +462,86 @@ public sealed class BusinessSyncService
         => cols.Contains("updated_at")
             ? (cols.Contains("created_at") ? "COALESCE(updated_at, created_at)" : "updated_at")
             : (cols.Contains("created_at") ? "created_at" : null);
+
+    /// <summary>
+    /// SNK-A6 — <see cref="ParentReplaceChildren"/> tablolarında, PAKETTE GELEN her ebeveyn için
+    /// çocuk kümesini paketle eşitler: pakette olmayan çocuk satırları SİLİNİR.
+    ///
+    /// Güvenlik ve kapsam:
+    /// • Yalnız pakette EBEVEYNİ gelen kayıtlara dokunulur → delta senkronunda bilinmeyen ebeveynin
+    ///   çocukları asla silinmez.
+    /// • Ebeveyn <b>bu firmaya ait</b> olmak zorundadır (aksi halde başka firmanın çocuk satırları
+    ///   silinebilirdi) — SQL'de ayrıca doğrulanır.
+    /// • Silme, çocuğun BİRİNCİL ANAHTARI üzerinden hariç tutmayla yapılır; birleşik anahtarlı
+    ///   bağlantı tablolarında da (ör. <c>material_equivalents</c>) çalışır.
+    /// </summary>
+    private static void ReconcileParentReplacedChildren(DbConnection conn, JsonElement tablesEl,
+        string companyId, List<string> errors)
+    {
+        foreach (var (child, map) in ParentReplaceChildren)
+        {
+            if (!tablesEl.TryGetProperty(map.Parent, out var parentRows) || parentRows.ValueKind != JsonValueKind.Array) continue;
+            if (!TableExists(conn, child) || !TableExists(conn, map.Parent)) continue;
+
+            var pk = DbIntrospect.PrimaryKey(conn, child);
+            if (pk.Count == 0) continue;   // anahtarı bilinmeyen tabloya dokunma (fail-safe)
+
+            // Pakette gelen çocuk satırlarını ebeveyne göre grupla.
+            var gelen = new Dictionary<string, List<JsonElement>>(StringComparer.Ordinal);
+            if (tablesEl.TryGetProperty(child, out var childRows) && childRows.ValueKind == JsonValueKind.Array)
+                foreach (var row in childRows.EnumerateArray())
+                {
+                    if (row.ValueKind != JsonValueKind.Object) continue;
+                    if (!row.TryGetProperty(map.Fk, out var fkv)) continue;
+                    var key = fkv.ValueKind == JsonValueKind.String ? fkv.GetString() : fkv.ToString();
+                    if (string.IsNullOrEmpty(key)) continue;
+                    if (!gelen.TryGetValue(key!, out var l)) gelen[key!] = l = new List<JsonElement>();
+                    l.Add(row);
+                }
+
+            foreach (var pRow in parentRows.EnumerateArray())
+            {
+                if (pRow.ValueKind != JsonValueKind.Object) continue;
+                if (!pRow.TryGetProperty("id", out var idv)) continue;
+                var parentId = idv.ValueKind == JsonValueKind.String ? idv.GetString() : idv.ToString();
+                if (string.IsNullOrEmpty(parentId)) continue;
+
+                var tut = gelen.TryGetValue(parentId!, out var kalanlar) ? kalanlar : new List<JsonElement>();
+                try
+                {
+                    using var cmd = conn.CreateCommand();
+                    var sql = new System.Text.StringBuilder();
+                    sql.Append($"DELETE FROM {child} WHERE {map.Fk}=@p ")
+                       .Append($"AND EXISTS (SELECT 1 FROM {map.Parent} pp WHERE pp.id=@p AND pp.company_id=@c)");
+                    cmd.AddWithValue("@p", parentId!);
+                    cmd.AddWithValue("@c", companyId);
+
+                    for (int i = 0; i < tut.Count; i++)
+                    {
+                        var parts = new List<string>(pk.Count);
+                        for (int k = 0; k < pk.Count; k++)
+                        {
+                            var pname = $"@k{i}_{k}";
+                            object? val = DBNull.Value;
+                            if (tut[i].TryGetProperty(pk[k], out var kv) && kv.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined))
+                                val = kv.ValueKind == JsonValueKind.String ? kv.GetString() : kv.ToString();
+                            cmd.AddWithValue(pname, val ?? DBNull.Value);
+                            parts.Add($"{pk[k]}={pname}");
+                        }
+                        sql.Append(" AND NOT (").Append(string.Join(" AND ", parts)).Append(')');
+                    }
+                    sql.Append(';');
+                    cmd.CommandText = sql.ToString();
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    // Eşitleme başarısızsa asıl upsert'ler geri alınmaz; yalnız bildirilir.
+                    if (errors.Count < 20) errors.Add($"{child}: çocuk kümesi eşitlenemedi ({ex.Message}).");
+                }
+            }
+        }
+    }
 
     public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors);
 
@@ -608,6 +715,10 @@ public sealed class BusinessSyncService
                 companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session);
             upserted += tUp; skipped += tSk;
         }
+
+        // SNK-A6: ebeveyn-otoriteli çocuk kümesi — paketteki ebeveynlerin çocukları paketle EŞİTLENİR
+        // (silme yayılımı). Tüm tablolar uygulandıktan SONRA çalışır ki yeni gelen çocuklar zaten yazılmış olsun.
+        ReconcileParentReplacedChildren(conn, tablesEl, companyId, errors);
 
         // Cihazın son push zamanını ilerlet (bir sonraki çakışma penceresinin başlangıcı)
         if (deviceId is not null) SetLastPush(conn, deviceId, now);
