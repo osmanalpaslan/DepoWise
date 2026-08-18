@@ -358,15 +358,33 @@ ORDER BY entry_date DESC, created_at DESC LIMIT @lim;";
     }
 
     // ---- yardımcılar ----
+    /// <summary>
+    /// DEN-D1 (denetim 2026-08-18) — <b>BU DEĞER BİR İŞ KURALI KAPISIDIR, KAYAN NOKTAYLA HESAPLANMAMALI.</b>
+    ///
+    /// Eskiden <c>SUM(CAST(liters AS REAL))</c> ile hesaplanıyordu. Sonuç iki yerde <b>karar</b> veriyor:
+    /// "Depo yakıtı yetersiz" (dağıtım reddi) ve "bakiye eksiye düşer" (iptal reddi). Projenin kendi kuralı
+    /// bunu yasaklıyor (<c>StockBalanceWriter</c>: *"SQLite'ta SUM(CAST(... AS REAL)) kayan nokta hatası
+    /// üretir (Money kuralı: float yasak)"*).
+    ///
+    /// Somut hata: çok sayıda ondalıklı giriş biriktiğinde toplam 999,9999999999999 çıkabilir → tam 1000 L'lik
+    /// dağıtım <b>haksız yere reddedilir</b>; ters yönde bakiye kıl payı eksiye düşebilir.
+    ///
+    /// Artık değerler <c>decimal</c> olarak okunup C#'ta toplanır — stok tarafındaki
+    /// <c>RecomputeBalances</c> ile AYNI desen (SQL SUM kullanılmaz).
+    /// </summary>
     private static decimal DepotBalance(DbConnection conn, DbTransaction? tx, string companyId)
     {
         decimal Sum(string table, string col)
         {
             using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
-            cmd.CommandText = $"SELECT COALESCE(SUM(CAST({col} AS REAL)),0) FROM {table} WHERE company_id=@c AND is_deleted=0;";
+            // Tablo/kolon adları YALNIZ aşağıdaki iki sabit çağrıdan gelir — dışarıdan girdi DEĞİLDİR.
+            cmd.CommandText = $"SELECT {col} FROM {table} WHERE company_id=@c AND is_deleted=0;";
             cmd.AddWithValue("@c", companyId);
-            return Convert.ToDecimal(cmd.ExecuteScalar());
+            decimal total = 0m;
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) total += Money.Parse(r.IsDBNull(0) ? null : r.GetString(0));
+            return total;
         }
         return Sum("fuel_depot_entries", "liters") - Sum("fuel_distributions", "liters");
     }

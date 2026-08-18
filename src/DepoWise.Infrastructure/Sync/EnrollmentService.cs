@@ -354,6 +354,23 @@ public sealed class EnrollmentService
     }
 
     /// <summary>Firma makine kotasını ayarlar (yalnız süper admin).</summary>
+    /// <summary>
+    /// DEN-B2 (denetim 2026-08-18) — <b>CİHAZ YÖNETİMİ İŞLEMLERİ İZ BIRAKMIYORDU.</b>
+    /// Bu dosyada <c>AuditWriter</c> geçiş sayısı 0'dı: cihaz onayı, iptali, silinmesi, token yenileme,
+    /// makine kotası ve cihaza firma/şube atama — hepsi izsizdi. Yetki kapıları doğruydu, ama "kim ne zaman
+    /// hangi makineyi yetkilendirdi" sorusunun cevabı hiçbir yerde yoktu.
+    /// Karşılaştırma: aynı eksik <c>RoleGrantService.SetMatrix</c> için G6-06'da fark edilip düzeltilmişti.
+    /// </summary>
+    private void Iz(DbConnection conn, SessionContext s, string entity, string entityId, string? after = null)
+    {
+        try
+        {
+            AuditWriter.Write(conn, null, new AuditEntry(s.CompanyId, entity, entityId,
+                AuditActions.Update, s.UserId, AfterJson: after), _clock);
+        }
+        catch { /* iz yazılamazsa asıl işlem geri alınmaz (audit ikincil) */ }
+    }
+
     public void SetQuota(SessionContext s, string companyId, int quota)
     {
         if (!s.IsSuperAdmin) throw new ForbiddenException("Makine kotası yalnız süper admin.");
@@ -364,6 +381,7 @@ public sealed class EnrollmentService
         cmd.AddWithValue("@q", quota);
         cmd.AddWithValue("@c", companyId);
         cmd.ExecuteNonQuery();
+        Iz(conn, s, "machine_quota", companyId, $"{{\"quota\":{quota}}}");
     }
 
     /// <summary>Master onayı: cihaz 'active' + token üretir (düz metin döner, hash saklanır).</summary>
@@ -416,6 +434,7 @@ public sealed class EnrollmentService
         cmd.AddWithValue("@id", deviceId);
         if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         cmd.ExecuteNonQuery();
+        Iz(conn, s, "sync_device_revoke", deviceId);
     }
 
     /// <summary>Cihaz kaydını KALICI sil (admin). Süper admin tüm firmalarda; diğer admin kendi firmasında.</summary>
@@ -428,6 +447,7 @@ public sealed class EnrollmentService
         cmd.AddWithValue("@id", deviceId);
         if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         cmd.ExecuteNonQuery();
+        Iz(conn, s, "sync_device_delete", deviceId);
     }
 
     /// <summary>Pasif/iptal edilmiş cihazı yeniden aktifleştir (admin). 'pending' için ApproveDevice kullanılır.</summary>
@@ -444,6 +464,7 @@ public sealed class EnrollmentService
         cmd.AddWithValue("@id", deviceId);
         if (!s.IsSuperAdmin) cmd.AddWithValue("@c", s.CompanyId);
         cmd.ExecuteNonQuery();
+        Iz(conn, s, "sync_device_reactivate", deviceId);
     }
 
     /// <summary>Kayıtlı makineler — filtreli. Süper admin TÜM firmaları görür; diğer admin yalnız kendi firmasını.

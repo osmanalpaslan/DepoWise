@@ -1,3 +1,4 @@
+using DepoWise.Application.Common;   // Money — DEN-D2: kesin toplama metni decimal olarak okunur
 using DepoWise.Application.Reports;
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
@@ -158,18 +159,23 @@ ORDER BY m.name LIMIT 20;";
         return list;
     }
 
-    /// <summary>(toplam alınan, kalan) — kalan = alınan − dağıtılan.</summary>
+    /// <summary>(toplam alınan, kalan) — kalan = alınan − dağıtılan.
+    /// DEN-D2 (2026-08-18): eskiden <c>SUM(CAST(liters AS REAL))</c> ile hesaplanıyordu → ana ekranda
+    /// <c>1234,5600000000002</c> gibi değerler görünebiliyordu. Artık kesin toplama
+    /// (<see cref="SqlDialect.ExactSumText"/>): PG'de <c>numeric</c> ile tam, SQLite'ta 6 ondalığa yuvarlı.</summary>
     private static (double Received, double Remaining) FuelStatus(DbConnection conn, string companyId)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-SELECT COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_depot_entries WHERE company_id=@c AND is_deleted=0),0),
-       COALESCE((SELECT SUM(CAST(liters AS REAL)) FROM fuel_distributions WHERE company_id=@c AND is_deleted=0),0);";
+        cmd.CommandText =
+            $"SELECT (SELECT {SqlDialect.ExactSumText(conn, "liters")} FROM fuel_depot_entries WHERE company_id=@c AND is_deleted=0), " +
+            $"       (SELECT {SqlDialect.ExactSumText(conn, "liters")} FROM fuel_distributions WHERE company_id=@c AND is_deleted=0);";
         cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return (0, 0);
-        var received = r.GetDouble(0);
-        return (received, received - r.GetDouble(1));
+        // Metin → decimal (Money kuralı), gösterim için double'a çevrilir.
+        var received = Money.Parse(r.IsDBNull(0) ? null : r.GetString(0));
+        var distributed = Money.Parse(r.IsDBNull(1) ? null : r.GetString(1));
+        return ((double)received, (double)(received - distributed));
     }
 
     private static int LowStockCount(DbConnection conn, string companyId, string? branch = null)

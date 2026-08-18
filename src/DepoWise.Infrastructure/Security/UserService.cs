@@ -743,6 +743,14 @@ ORDER BY c.name;";
         cmd.AddWithValue("@now", now);
         cmd.AddWithValue("@u", userId);
         cmd.ExecuteNonQuery();
+
+        // DEN-B1 (denetim 2026-08-18): bu YETKİ DEĞİŞİKLİĞİ iz bırakmıyordu ve yetki fotoğrafını
+        // düşürmüyordu. Kardeş metotlar (DeleteUser / SetActive / SetRoles) üçü de düşürüyor.
+        // ⚠️ Asıl risk GERİ ALMA yönünde: yetki kaldırıldıktan sonra kullanıcı 90 sn (fotoğraf TTL'i)
+        // daha TÜM ŞUBELERİN verisini görmeye devam ediyordu. "Tüm Şubeler" firma genelinde veri açar.
+        AuditWriter.Write(conn, null, new AuditEntry(actor.CompanyId, "user_view_all_branches", userId,
+            AuditActions.Update, actor.UserId, AfterJson: $"{{\"value\":{(value ? "true" : "false")}}}"), _clock);
+        _snapshots?.InvalidateUser(userId);
     }
 
     /// <summary>İlk kurulum: sistem düzeyinde Süper Admin/Firma Admini oluşturur (actor yok).</summary>

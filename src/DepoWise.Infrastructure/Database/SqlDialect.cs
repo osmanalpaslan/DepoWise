@@ -118,6 +118,28 @@ internal static class SqlDialect
                " GROUP BY material_id, company_id)";
     }
 
+    /// <summary>
+    /// DEN-D2 (denetim 2026-08-18) — <b>PARA/MİKTAR TOPLAMI İÇİN KESİN SQL TOPLAMA.</b>
+    ///
+    /// Rapor ve ana ekran toplamları <c>SUM(CAST(x AS REAL))</c> ile hesaplanıyordu; sonuç kullanıcıya
+    /// <c>1234,5600000000002</c> gibi görünebiliyor ya da kuruş sapması olabiliyordu (yakıt maliyeti =
+    /// <c>SUM(litre × birim fiyat)</c> → PARA). Defter ve bakiye etkilenmiyordu (onlar doğru yoldan
+    /// hesaplanıyor), etkilenen GÖSTERİLEN toplamlardı.
+    ///
+    /// Bu yardımcı <see cref="StockTotalSubquery"/> içindeki denemeyi yeniden kullanılabilir hâle getirir:
+    /// • <b>PostgreSQL</b> (üretim): <c>numeric</c> ile toplar → <b>tam kesinlik</b>.
+    /// • <b>SQLite</b> (masaüstü): kayan noktada toplar ama 6 ondalığa yuvarlar → görünen değer temiz.
+    /// Dönen değer METİNDİR ve <c>Money.Parse</c> ile okunur (sondaki sıfırlar kırpılır: "15.5", "100", "0").
+    /// </summary>
+    public static string ExactSumText(DbConnection conn, string expr)
+    {
+        var sum = IsSqlite(conn)
+            ? $"printf('%.6f', COALESCE(SUM(CAST({expr} AS REAL)),0))"
+            : $"to_char(COALESCE(SUM(CAST({expr} AS numeric)),0), 'FM999999999999990.000000')";
+        // Kırpma güvenli: iki biçim de HER ZAMAN ondalık nokta içerir (bkz. StockTotalSubquery).
+        return $"rtrim(rtrim({sum}, '0'), '.')";
+    }
+
     /// <summary>STK-02 — <c>const</c> SQL metinlerinde kullanılan yer tutucu. <see cref="PortableSql"/>
     /// bunu <see cref="StockTotalSubquery"/> ile değiştirir (const'ta bağlantı bilinemez).</summary>
     public const string StockTotalsToken = "{STOCK_TOTALS}";

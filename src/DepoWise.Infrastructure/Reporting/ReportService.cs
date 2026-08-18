@@ -168,9 +168,12 @@ ORDER BY m.code;";
         var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+        // DEN-D2 (2026-08-18): "Toplam Stok" kolonu HAM double olarak yazılıyordu (biçimlendirici YOK) →
+        // kullanıcı 1234,5600000000002 gibi bir değer görebiliyordu. Diğer raporlardaki "Stok" kolonu gibi
+        // artık kesin toplama + Money metni kullanılır (PG'de numeric ile tam, SQLite'ta 6 ondalığa yuvarlı).
         cmd.CommandText = @"
 SELECT COALESCE(t.code,''), t.name, CAST(COUNT(m.id) AS INTEGER),
-       COALESCE(SUM(CAST(COALESCE(b.quantity,'0') AS REAL)),0)
+       " + SqlDialect.ExactSumText(conn, "COALESCE(b.quantity,'0')") + @"
 FROM material_templates t
 JOIN materials m ON m.template_id=t.id AND m.is_deleted=0
 LEFT JOIN " + SqlDialect.StockTotalSubquery(conn) + @" b ON b.material_id=m.id AND b.company_id=m.company_id
@@ -178,15 +181,16 @@ WHERE t.company_id=@c
 GROUP BY t.id ORDER BY t.name;";   // t.id = PK → t.code/t.name bare-kolonu PG'de de geçerli (fonksiyonel bağımlılık)
         cmd.AddWithValue("@c", companyId);
         var rows = new List<IReadOnlyList<object?>>();
-        int totCnt = 0; double totStock = 0;
+        int totCnt = 0; decimal totStock = 0m;
         using (var r = cmd.ExecuteReader())
             while (r.Read())
             {
-                var cnt = r.GetInt32(2); var st = r.GetDouble(3);
-                rows.Add(new object?[] { r.GetString(0), r.GetString(1), cnt, st });
-                totCnt += cnt; totStock += st;
+                var cnt = r.GetInt32(2);
+                var stText = r.IsDBNull(3) ? "0" : r.GetString(3);
+                rows.Add(new object?[] { r.GetString(0), r.GetString(1), cnt, stText });
+                totCnt += cnt; totStock += Money.Parse(stText);
             }
-        if (rows.Count > 0) rows.Add(new object?[] { "TOPLAM", "", totCnt, totStock });
+        if (rows.Count > 0) rows.Add(new object?[] { "TOPLAM", "", totCnt, Money.Serialize(totStock) });
         return new TableModel("Malzeme — Şablonlu (Genel)",
             new[] { "Şablon Kodu", "Şablon", "Kayıt Sayısı", "Toplam Stok" }, rows);
     }
