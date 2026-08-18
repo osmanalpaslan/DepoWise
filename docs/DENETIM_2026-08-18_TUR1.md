@@ -333,3 +333,52 @@ Kullanıcı raporda `1234,5600000000002` gibi bir değer görebilir veya kuruş 
 ## 📋 TUR 3+4 → YAPILACAKLAR
 - `DEN-D1` — yakıt depo bakiyesi `decimal` ile hesaplansın (mevcut desen: değerleri metin oku, C#'ta topla).
 - `DEN-D2` — rapor/dashboard toplamları kesin toplama desenine geçsin.
+
+---
+
+# TUR 5 — Raporlar: firma izolasyonu · şube kapsamı
+
+## ✅ TEMİZ ÇIKANLAR
+- **Firma izolasyonu TAM.** 14 iş tablosunun tüm `FROM` geçişleri tarandı; 11 aday çıktı, hepsi
+  incelendi ve **hepsi yanlış pozitif**: filtre ayrı bir `where` değişkeninde ya da ebeveyn kayıt
+  zaten firma doğrulamasından geçmiş (ör. `ActiveMovements` → `LoadDocument` firma kontrollü).
+- Raporların **çoğu** şube kapsamını doğru uyguluyor: `ReportScope.BranchSql(s, req, …)` —
+  araç, bakım, yakıt, yakıt deposu, stok hareketleri, talepler.
+
+## 🔴 DEN-E2 — "Stok Durumu" raporu şube kapsamını HİÇ uygulamıyor
+
+`ReportService.StockStatus` (`:31`) modül yetkisini ✔ ve firmayı ✔ kontrol ediyor, ama **şube
+kapsamını hiç sormuyor**:
+
+```
+var locations = NormalizeLocations(req.LocationIds);   // İSTEK'ten geleni AYNEN alıyor
+return locations.Count == 0
+    ? StockStatusCompanyTotal(conn, companyId)          // ← FİRMA GENELİ, şube filtresi YOK
+    : StockStatusByLocation(conn, companyId, locations); // ← istenen depo DOĞRULANMIYOR
+```
+
+`NormalizeLocations` yalnız tekrarları eler; `BranchAccess.Effective` ile **kesişim alınmıyor**.
+
+**İki sonuç:**
+1. Şubeyle sınırlı kullanıcı filtresiz açtığında **tüm firmanın stok toplamını** görür.
+2. İstek gövdesine **başka şubenin depo kimliği** yazılırsa o deponun stoğu döner —
+   yani **parametre manipülasyonuyla kapsam aşılabilir** (fail-open).
+
+Kardeş rapor `StockMovements` (`:848`) aynı işi **doğru** yapıyor
+(`ReportScope.BranchSql(s, req, "sm.branch_id")`) → tasarım tercihi değil, **atlanmış kapı**.
+GUI-04'te düzeltilen sınıfın aynısı (o turda rapor **filtre listesi** düzeltilmişti, bu raporun
+**içeriği** atlanmış).
+
+## 🟠 DEN-E1 — "Şube Bazlı Özet" raporu tüm şubeleri gösteriyor
+
+`ReportService.StatusReport` (`:241`) oturumu alıyor ama içerideki üç yardımcı **kapsam bilmiyor**:
+- Şube listesi: `SELECT id, name FROM branches WHERE company_id=@c` — kapsam filtresi **yok**
+- `CountByBranch(conn, sql, companyId, req)` — imzasında `SessionContext` **yok**
+- `CountTplByBranch(conn, companyId, req)` — aynı
+
+**Sonuç:** yalnız "Şube A"ya yetkili kullanıcı, firmadaki **bütün şubelerin adlarını** ve
+araç/personel/bakım/yakıt/talep/faaliyet **kayıt sayılarını** görür.
+
+## 📋 TUR 5 → YAPILACAKLAR
+- `DEN-E2` — `StockStatus`'a `BranchAccess` kesişimi (fail-closed) eklensin.
+- `DEN-E1` — `StatusReport` şube listesi ve sayımları kapsama göre süzülsün.

@@ -602,3 +602,21 @@ eksiye düşebilir. Tablo/kolon adları sabit → injection riski YOK.
 `ReportService:139, 389-390, 505` · `DashboardService:166-167`.
 `SUM(liters*unit_price)` = **para** kayan noktada. Defter/bakiye etkilenmez, gösterilen toplam etkilenir.
 **Yapılacak:** kesin toplama desenine geçir. **Kabul:** ondalıklı veride beklenen tam değer testi.
+
+## TUR 5 — Raporlar (firma izolasyonu · şube kapsamı)
+
+> Temiz: firma izolasyonu TAM (11 aday incelendi, hepsi yanlış pozitif) · raporların çoğu
+> `ReportScope.BranchSql` ile doğru kapsamlı.
+
+### `DEN-E2` — "Stok Durumu" raporu şube kapsamını hiç uygulamıyor · 🔴 · **SIRADA**
+`ReportService.StockStatus:31` — `NormalizeLocations` istekten geleni AYNEN alıyor, `BranchAccess`
+kesişimi YOK. Filtresizken `StockStatusCompanyTotal` **firma geneli** döner; filtreliyken istenen
+depo doğrulanmaz → **parametre manipülasyonuyla başka şubenin stoğu okunabilir** (fail-open).
+Kardeş rapor `StockMovements:848` aynı işi doğru yapıyor.
+**Yapılacak:** izinli şubelerle kesişim + fail-closed. **Kabul:** kapsam dışı depo istenirse boş/red · test.
+
+### `DEN-E1` — "Şube Bazlı Özet" raporu tüm şubeleri gösteriyor · 🟠 · **SIRADA**
+`ReportService.StatusReport:241` oturumu alıyor ama şube listesi sorgusu ve `CountByBranch` /
+`CountTplByBranch` yardımcıları kapsam bilmiyor (imzalarında `SessionContext` yok).
+Sonuç: şubeyle sınırlı kullanıcı tüm şubelerin adlarını ve kayıt sayılarını görüyor.
+**Yapılacak:** yardımcılara oturum geçir + kapsam süzgeci. **Kabul:** yalnız izinli şubeler listelenir · test.
