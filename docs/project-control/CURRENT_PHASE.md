@@ -690,7 +690,55 @@ içe aktarım yolunda kullanıcı **kısıtsız** sayılıyor, kapsam dışı ş
 | Yeni testler | 43 (`BusinessResetCoverageTests` 5 · `BranchHierarchyTests` 11 · `TemplateSyncTests` 4 · `BranchParentScopeTests` 11 · `ExplicitOnlyModuleTests` 12) |
 | Derleme | Masaüstü + Web + API — **0 hata** |
 
+### ✅ YAYINLANDI (2026-08-18)
+**API + Web + masaüstü 1.0.139 canlıya alındı.** Ayrıntı aşağıdaki "YAYIN TURU" bölümünde.
+
+---
+
+## 2026-08-18 — YAYIN TURU (API v? / Web / masaüstü 1.0.139)
+
+Yayın öncesi **tam doğrulama** yapıldı; ardından `DEPLOYMENT.md` sırasına göre API → Web → masaüstü.
+
+### Yayın öncesi testler
+
+| Koşum | Sonuç |
+|---|---|
+| Tam takım (SQLite) | **2018 toplam · 1983 geçti · 0 başarısız · 35 atlandı** |
+| Çözüm derlemesi (Release) | **0 hata** (40 uyarı — mevcut) |
+| PostgreSQL — üretim lehçesi, **izole `depowise_test`** üzerinde | **20 / 20 geçti** |
+
+**PostgreSQL sınıf sınıf:** `PostgresPurgeTests` 3/3 (SIF-03'ü doğrudan kapsar: *iş verisini siler,
+firma+kullanıcı KORUR*) · `PostgresEndToEndTests` 1/1 (giriş → `BranchTree` PG'de) ·
+`PostgresSyncRecoveryTests` 1/1 (SIF-06 apply) · `PostgresEditLockTests` 6/6 (şube düzenleme kilidi) ·
+`PostgresMigrationTests` 1/1 · `PostgresStockMovementOrderingTests` 5/5 · `PostgresStockConcurrencyTests` 3/3.
+
+> ⚠️ **Yanıltıcı bir ara sonuç kayda geçirilir:** PG testleri ilk kez topluca koşturulduğunda **9 test
+> başarısız** oldu. İnceleme sonucu sebep **ağ kopması** çıktı (`SocketException: bilinen böyle bir ana
+> bilgisayar yok` = DNS çözülemedi; ayrıca "bağlantı uzaktaki ana bilgisayar tarafından kapatıldı").
+> Aynı testler bağlantı düzeldikten sonra sınıf sınıf koşturulduğunda **tamamı geçti**. Ürün hatası
+> DEĞİLDİ. Bu testler zaten normal takımda atlanır (`ApiTestHost` `DEPOWISE_PG_URL`'i süreç genelinde
+> null'lar) → taban koşumda da koşmuyorlardı, yani gerileme değildi.
+
+### Yayın adımları ve kanıtlar
+
+| Adım | Komut | Kanıt |
+|---|---|---|
+| Uçuş öncesi | `flyctl secrets list` | `DEPOWISE_PG_URL` **Deployed** → PostgreSQL aktif, SQLite'a düşmedi |
+| Uçuş öncisi | `df -h /data` | %45 dolu · 506 MB boş (ADR-070 disk riski yok) |
+| API | `flyctl deploy --config fly.toml --ha=false` | makine `started` · `/health` **200** |
+| DB teyidi | `/api/releases/latest` | Gerçek veri döndü (1.0.138) → SQLite geri dönüşü OLMADI |
+| Web | `flyctl deploy --config fly.web.toml --ha=false` | `/` **200** · yeni ekran `/local-reset` **200** |
+| Masaüstü publish | `-p:Version=1.0.139` | 270 dosya — 1.0.138 ile **birebir aynı ağaç** |
+| Paket | `Compress-Archive` | `DepoWise-desktop-1.0.139.zip` · **89.919.610 bayt** |
+| Yayın | `node scripts/publish_release.mjs` | `/api/releases/latest` = **1.0.139** |
+| Checksum | yerel ↔ sunucu | `D7AF2D3D9E47BED6CB22651F28525AC615901DDBFEC5555D704DF5E95D5D44D5` — **EŞLEŞTİ** |
+| İndirme ucu | `/api/releases/1.0.139/download` | **200** · 89.919.610 bayt |
+| Yayın sonrası disk | `df -h /data` | %45 (eski paketler otomatik temizlendi — ADR-070) |
+
+**Migration ÇALIŞMADI** — bu turda şema değişikliği yoktu; üretim şema sürümü **68**'de kaldı.
+Production veritabanına hiçbir INSERT/UPDATE/DELETE yapılmadı. DEPOWISE ve Öze İnşaat verisine dokunulmadı.
+
 ### ▶️ SIRADAKİ TEK İŞ
-**Yayın kararı kullanıcınındır.** Değişiklikler canlıya çıkmadı: API + Web **deploy edilmedi**,
-masaüstü **yeni sürüm paketlenmedi**. Sıfırlama işlemi yapılmadan ÖNCE bu iki dağıtım gerekir
-(SIF-01 düzeltmesi masaüstü sürümündedir).
+**Firma verisi sıfırlama işlemi artık güvenle yapılabilir** — ama SIF-02 hâlâ açık olduğu için
+operasyonel adım zorunlu: kullanıcılara programı **tamamen kapattırın** → web'den sıfırlayın →
+tekrar açtırın. Makineler açılışta 1.0.139'a güncellenip temizliği uygulayacaktır.
