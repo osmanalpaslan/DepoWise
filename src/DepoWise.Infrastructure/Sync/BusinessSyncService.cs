@@ -61,6 +61,18 @@ public sealed class BusinessSyncService
         // ⚠️ TABLO KALDIRILMADI: yerel SQLite'ta ve sunucuda aynen duruyor; masaüstü çevrimdışı stok
         // işlemleri ve bakiye görüntüleme bundan ETKİLENMEZ (SNK-11 yalnız senkron paketini ilgilendirir).
         "vehicles",
+        // SNK-A3 (denetim 2026-08-18): MUAYENE / SİGORTA. Ekran iki platformda da var (AppScreens: Both) ve
+        // InspectionService yerele yazıyor, ama tablo senkron listesinde YOKTU → masaüstünde girilen
+        // muayene/sigorta/kasko kaydı web'de HİÇ görünmüyordu (ve tersi). SIF-06 (şablonlar) ile aynı sınıf.
+        // Tablo senkrona hazırdı: company_id + updated_at + version + is_deleted var. Ebeveyni vehicles → SONRA.
+        "vehicle_inspections",
+        // SNK-A5: araç sayaç geçmişi. Append-only; damgası created_at.
+        "vehicle_meter_logs",
+        // SNK-A5: malzeme muadil/uyumlu araç eşleşmeleri ve bakım tanımı ↔ araç eşleşmesi.
+        // company_id kolonu YOK → firma kapsamı CompanyScopedChildren ile EBEVEYN üzerinden uygulanır.
+        "material_equivalents",
+        "material_compatible_vehicles",
+        "maintenance_definition_vehicles",
         "vehicle_maintenances",
         "maintenance_materials",
         "fuel_depot_entries",
@@ -68,8 +80,15 @@ public sealed class BusinessSyncService
         "daily_activities",
         "stock_movements",
         "stock_documents",
+        // SNK-A4 (denetim 2026-08-18): SAYIM SATIRLARI. Ebeveyni stock_documents senkronda VARDI ama
+        // satırları YOKTU → sayım belgesi karşı tarafa gidiyor, İÇİ BOŞ görünüyordu.
+        // company_id kolonu yok → firma kapsamı ebeveyn (stock_documents) üzerinden uygulanır.
+        // SIRA: materials + stock_documents SONRASI (ikisine de yabancı anahtarlı).
+        "stock_count_lines",
         "material_requests",
         "material_request_items",
+        // SNK-A5: talep durum/onay geçmişi. Ebeveyni material_requests → SONRA.
+        "request_status_history",
         // G4-1c (2026-08-12): ÖN MUHASEBE — CARİ. Masaüstü ÇEVRİMDIŞI cari açabildiği ve elle hareket
         // girebildiği için bunlar senkronda TAŞINMAK ZORUNDA; aksi halde çevrimdışı girilen cari ve
         // bakiyesi sunucuya HİÇ ulaşmaz (web'de görünmez, başka makineye gitmez).
@@ -124,6 +143,14 @@ public sealed class BusinessSyncService
         ["stock_movements"] = "stock",
         ["stock_documents"] = "stock",
         ["vehicles"] = "vehicles",
+        // SNK-A3/A5 (2026-08-18): yeni taşınan tablolar kendi modüllerine bağlanır → push yetki kapısı ATLANMAZ.
+        ["vehicle_inspections"] = "inspection",
+        ["vehicle_meter_logs"] = "vehicles",
+        ["material_equivalents"] = "materials",
+        ["material_compatible_vehicles"] = "materials",
+        ["maintenance_definition_vehicles"] = "maintenance",
+        ["stock_count_lines"] = "stock",
+        ["request_status_history"] = "requests",
         ["vehicle_maintenances"] = "maintenance",
         ["maintenance_materials"] = "maintenance",
         ["fuel_depot_entries"] = "fuel",
@@ -241,6 +268,59 @@ public sealed class BusinessSyncService
     }
 
     /// <summary>
+    /// SNK-A4/A5 (denetim 2026-08-18) — <b>company_id KOLONU OLMAYAN ÇOCUK TABLOLARIN FİRMA KAPSAMI.</b>
+    ///
+    /// Snapshot, firma filtresini YALNIZ <c>company_id</c> kolonu olan tablolara uygular. Kolonu olmayan
+    /// bir çocuk tablo senkron listesine eklenirse <c>SELECT * FROM tablo</c> ile <b>TÜM firmaların
+    /// satırları</b> istemciye gider — Migration062'nin (M-S1a) kapattığı sızıntının aynısı.
+    ///
+    /// Bu tablolarda kolon eklemek yerine <b>ebeveyn üzerinden</b> süzülür: birleşik anahtarlı bağlantı
+    /// tablolarında (<c>material_equivalents</c> gibi <c>id</c> kolonu bile yok) migration deseni
+    /// uygulanamıyor, ama <c>EXISTS</c> koşulu her durumda çalışır ve <see cref="BranchScopedChildren"/>
+    /// ile AYNI ilkeyi izler (ikinci bir mekanizma kurulmadı).
+    ///
+    /// (tablo → (ebeveyn tablo, çocuktaki yabancı anahtar))
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Parent, string Fk)> CompanyScopedChildren =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["stock_count_lines"] = ("stock_documents", "document_id"),
+            ["request_status_history"] = ("material_requests", "request_id"),
+            ["material_equivalents"] = ("materials", "material_id"),
+            ["material_compatible_vehicles"] = ("materials", "material_id"),
+            ["maintenance_definition_vehicles"] = ("maintenance_definitions", "definition_id"),
+        };
+
+    /// <summary>Firma kapsamı için <c>EXISTS</c> koşulu. Kolonu olan tabloda <c>""</c> döner
+    /// (orada <c>company_id=@c</c> zaten uygulanır).</summary>
+    private static string CompanyChildWhere(string table, bool hasCompanyColumn)
+    {
+        if (hasCompanyColumn) return "";
+        if (!CompanyScopedChildren.TryGetValue(table, out var m)) return "";
+        return $" AND EXISTS (SELECT 1 FROM {m.Parent} p_cs WHERE p_cs.id = {table}.{m.Fk} AND p_cs.company_id=@c)";
+    }
+
+    /// <summary>
+    /// PUSH kapısı (SNK-A4/A5): <c>company_id</c> kolonu olmayan çocuk satırın EBEVEYNİ oturumun
+    /// firmasında mı? Değilse satır UYGULANMAZ — manipüle edilmiş bir yabancı anahtarla başka firmanın
+    /// kaydına çocuk satır bağlanamaz.
+    /// </summary>
+    private static bool RowCompanyChildAllowed(DbConnection conn, string table, bool hasCompanyColumn,
+        string companyId, JsonElement row)
+    {
+        if (hasCompanyColumn) return true;
+        if (!CompanyScopedChildren.TryGetValue(table, out var m)) return true;
+        if (!row.TryGetProperty(m.Fk, out var v) || v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return false;   // ebeveyni belirsiz çocuk satır KABUL EDİLMEZ (fail-closed)
+        var parentId = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT 1 FROM {m.Parent} WHERE id=@p AND company_id=@c LIMIT 1;";
+        cmd.AddWithValue("@p", (object?)parentId ?? DBNull.Value);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() is not null;
+    }
+
+    /// <summary>
     /// PUSH kapısı: gelen satırın şubesi kullanıcının kapsamında mı?
     /// Kapsam dışıysa satır UYGULANMAZ (sessizce atlanır ve sayılır) — kısmi/yetkisiz finansal veri
     /// sunucuya yazılamaz. Manipüle edilmiş <c>branch_id</c> ile de geçilemez.
@@ -277,11 +357,15 @@ public sealed class BusinessSyncService
             using var cmd = conn.CreateCommand();
             var where = new List<string>();
             if (hasCompany) where.Add("company_id=@c");
+            // SNK-A4/A5: company_id kolonu OLMAYAN çocuk tablo → firma kapsamı EBEVEYN üzerinden
+            // (aksi halde tüm firmaların satırları istemciye giderdi — Migration062 ile aynı sızıntı).
+            var companyChildWhere = CompanyChildWhere(table, hasCompany);
+            if (companyChildWhere.Length > 0) where.Add(companyChildWhere.Substring(5));   // baştaki " AND " atılır
             if (sinceVersion > 0 && stamp is not null) where.Add($"{stamp} > @since");
             var branchWhere = BranchWhere(session, table, eff);
             if (branchWhere.Length > 0) where.Add(branchWhere);
             cmd.CommandText = $"SELECT * FROM {table}" + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "") + ";";
-            if (hasCompany) cmd.AddWithValue("@c", companyId);
+            if (hasCompany || companyChildWhere.Length > 0) cmd.AddWithValue("@c", companyId);
             if (sinceVersion > 0 && stamp is not null) cmd.AddWithValue("@since", sinceVersion);
             if (branchWhere.Length > 0) BindBranch(cmd, eff);
             using var r = cmd.ExecuteReader();
@@ -567,6 +651,13 @@ public sealed class BusinessSyncService
             if (!RowBranchAllowed(session, table, rowEl))
             {
                 if (errSink.Count < 20) errSink.Add($"{table}: şube kapsam dışı (atlandı).");
+                return null;
+            }
+            // SNK-A4/A5 PUSH KAPISI: company_id kolonu olmayan çocuk satırın EBEVEYNİ bu firmada olmalı.
+            // Manipüle edilmiş yabancı anahtarla başka firmanın kaydına çocuk satır bağlanamaz (fail-closed).
+            if (!RowCompanyChildAllowed(conn, table, hasCompany, companyId, rowEl))
+            {
+                if (errSink.Count < 20) errSink.Add($"{table}: ebeveyn kaydı bu firmada değil (atlandı).");
                 return null;
             }
             var (okRow, reason) = ValidateRow(table, rowEl, companyId);
