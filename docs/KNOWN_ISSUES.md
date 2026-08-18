@@ -146,3 +146,43 @@ Ayrıntı: [`docs/ANALIZ_SUBE_VE_SIFIRLAMA.md`](ANALIZ_SUBE_VE_SIFIRLAMA.md)
   içinde kontrol YOKTUR. Program açık ve giriş yapılmışsa 15 saniyelik eşitleme turu eski yerel
   veriyi sunucuya göndermeye devam eder. **Operasyonel önlem:** sıfırlama öncesi tüm kullanıcılara
   programı **tamamen kapattırın**, sıfırlayın, sonra açtırın. Kalıcı çözüm ayrı iş olarak önerildi.
+
+## 2026-08-18 — MENÜ / EKRAN YÖNETİMİ TURUNDA KAPATILANLAR
+
+- **MNU-B1 — "Masaüstü" kutusu gerçek masaüstü makinelerde ETKİSİZDİ.** (ADR-110) 🔴
+  G5 ile 2026-08-12'de eklenen ekran platform ayarı sunucu veritabanına yazılıyor ama masaüstüne
+  **hiçbir yoldan inmiyordu** (`screen_platform_visibility` ne `BusinessSyncService.Tables` listesinde
+  ne de `/api/lookups/sync` yanıtındaydı; masaüstü ayarı kendi yerel SQLite'ından okuyor). Sonuç:
+  yönetici bir ekranı masaüstünde kapattığını sanıyordu, ekran açık kalmaya devam ediyordu.
+  **Çözüm:** tanım (lookup) senkronuna üç bölüm eklendi (platform + menü düzeni). Yazma **replace**
+  semantiğiyle (kaldırılan ayar yerelde de düşsün). Çevrimdışı davranış korundu.
+
+- **MNU-B2 — süper admin kendini KALICI olarak kilitleyebiliyordu.** (ADR-111) 🔴
+  Yönetim ekranı web'de kapatılabiliyordu; kapatıldığı anda menüden düşüyor, route koruması adresi elle
+  yazmayı da engelliyor ve masaüstü karşılığı olmadığı için **geri alacak arayüz kalmıyordu**.
+  **Çözüm:** `AppScreens.Protected` (`screen_visibility`, `users`, `permissions`) — tüm platformlarda
+  birden kapatılamaz. Tek platformda kapatma serbest (kurtarma yolu kalır).
+
+- **Tek platformlu 14 ekran yönetim listesinden sessizce düşüyordu.**
+  Birleşik bayrak maskesi `HasFlag(Desktop|Web)` "ikisinde de olan" anlamına geldiği için yalnız web ya
+  da yalnız masaüstünde bulunan ekranlar (Kota İzleme, Malzeme Şablonları, Yedek Yönetimi…) listede
+  görünmüyordu. Maske testi `(& != 0)` olarak düzeltildi; regresyon testi eklendi.
+
+- **Arayüz: taşınan satırdan sonra yanlış grup görünüyordu.** Blazor öğeleri konuma göre yeniden
+  kullandığı için kullanıcının elle değiştirdiği `<select>` değeri bir alttaki satıra yapışıyordu.
+  Satırlara `@key` eklendi.
+
+- **Arayüz: reddedilen değişiklikten sonra onay kutusu yanlış durumda kalıyordu.** Kullanıcı ekranı
+  kapattığını sanabilirdi. Her yeniden yüklemede satırların yeniden oluşmasını sağlayan sürüm anahtarı
+  eklendi.
+
+### ⚠️ Bu turda AÇIK KALAN
+
+- **Ekran adı değişikliği yalnız MENÜ etiketini değiştirir.** Ekranın kendi sayfa başlığı (ör.
+  "Yakıt — Yakıt Dağıtımları") ilgili bileşenin içindedir ve değişmez. Tasarım gereğidir; istenirse
+  sayfa başlıklarını da katalogdan besleyen ayrı bir iş açılabilir.
+- **Yetkisiz kullanıcıyla GUI testi yapılmadı** (ayrı personel hesabı oluşturulmadı). Sunucu tarafı
+  otomatik testler ve tokensiz `curl` ile doğrulandı (üç uç da 401) — yani güvenlik kanıtlanmıştır,
+  eksik olan yalnız arayüz üzerinden tekrar gösterimidir.
+- **1280px genişlikte İŞLEM (sıra taşıma) kolonu yatay kaydırma gerektiriyor.** Tablo 10 kolonlu ve
+  `overflow-x:auto` ile korunuyor; dar ekranda kullanıcı sağa kaydırmalı.

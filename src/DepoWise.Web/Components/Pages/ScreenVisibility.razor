@@ -120,16 +120,16 @@ else
 
             @if (_edit)
             {
-                var (ds, dg) = Diff();
-                <MudAlert Severity="@(ds + dg == 0 ? Severity.Normal : Severity.Warning)" Dense="true" Class="mt-3">
-                    @if (ds + dg == 0)
+                var (ds, dg, dr) = Diff();
+                <MudAlert Severity="@(ds + dg + dr == 0 ? Severity.Normal : Severity.Warning)" Dense="true" Class="mt-3">
+                    @if (ds + dg + dr == 0)
                     {
                         <span>Henüz değişiklik yapmadınız.</span>
                     }
                     else
                     {
-                        <span><b>Kaydedilmemiş değişiklik:</b> @ds ekran, @dg üst menü. Kaydetmeden sayfadan
-                            ayrılırsanız bu değişiklikler kaybolur.</span>
+                        <span><b>Kaydedilmemiş değişiklik:</b> @ds ekran (ad/üst menü), @dg üst menü,
+                            @dr grupta sıralama. Kaydetmeden sayfadan ayrılırsanız bu değişiklikler kaybolur.</span>
                     }
                 </MudAlert>
             }
@@ -180,7 +180,7 @@ else
                         @for (int i = 0; i < _groups.Count; i++)
                         {
                             var gi = i; var g = _groups[gi];
-                            <tr>
+                            <tr @key="g.GroupKey">
                                 <td>@(gi + 1)</td>
                                 <td>
                                     <input class="mnu-input" value="@g.Title" aria-label="@($"{g.GroupKey} üst menü adı")"
@@ -229,11 +229,19 @@ else
                 <tbody>
                     @foreach (var g in VisibleGroups())
                     {
-                        <tr><td colspan="10" class="mud-theme-primary"><b>@GroupTitle(g)</b></td></tr>
+                        var gk = "grp:" + g;   // @key için ekran anahtarlarıyla çakışmayan kimlik
+                        <tr @key="gk"><td colspan="10" class="mud-theme-primary"><b>@GroupTitle(g)</b></td></tr>
                         @foreach (var r in VisibleRows(g))
                         {
                             var row = r;
-                            <tr>
+                            @* ⭐ @key ZORUNLU: satırlar taşınıp yeniden sıralandığı için Blazor öğeleri
+                               KONUMA göre yeniden kullanırsa, kullanıcının elle değiştirdiği <select>/<input>
+                               DOM değerleri bir sonraki satıra yapışık kalır ve yanlış grup gösterilir
+                               (GUI turunda bizzat görüldü: taşınan satırın altındaki ekran "Yönetim"
+                               seçili görünüyordu, oysa C# tarafı doğruydu). @key öğeyi SATIRIN KİMLİĞİNE
+                               bağlar → Blazor öğeyi taşır, yeniden kullanmaz. *@
+                            var rowKey = row.ScreenKey + "#" + _rev;
+                            <tr @key="rowKey">
                                 <td>@(IndexInGroup(row) + 1)</td>
                                 <td>
                                     @if (_edit && !row.IsProtected)
@@ -274,18 +282,24 @@ else
                                         @GroupTitle(row.GroupKey)
                                     }
                                 </td>
+                                @* NATIVE onay kutusu (MudCheckBox DEĞİL): MudBlazor gerçek <input>'u görsel
+                                   olarak gizlediği için erişilebilirlik ağacında görünmüyor ve gerçek tarayıcı
+                                   otomasyonuyla TIKLANAMIYOR (GUI turunda tespit edildi). §22 gereği yerel,
+                                   etiketli ve klavyeyle erişilebilir bir kutu kullanılır. Davranış aynıdır. *@
                                 <td style="text-align:center;">
-                                    <MudCheckBox T="bool" Value="@row.EffectiveDesktop" Dense="true"
-                                                 aria-label="@($"{row.ScreenKey} masaüstünde açık")"
-                                                 Disabled="@(_busy || _edit || !row.DefaultDesktop)"
-                                                 ValueChanged="@(v => Toggle(row, desktop: v, web: null))" />
+                                    <input type="checkbox" class="mnu-check"
+                                           aria-label="@($"{row.ScreenKey} masaüstünde açık")"
+                                           checked="@row.EffectiveDesktop"
+                                           disabled="@(_busy || _edit || !row.DefaultDesktop)"
+                                           @onchange="@(e => Toggle(row, desktop: e.Value is bool b && b, web: null))" />
                                     @if (!row.DefaultDesktop) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
                                 </td>
                                 <td style="text-align:center;">
-                                    <MudCheckBox T="bool" Value="@row.EffectiveWeb" Dense="true"
-                                                 aria-label="@($"{row.ScreenKey} web'de açık")"
-                                                 Disabled="@(_busy || _edit || !row.DefaultWeb)"
-                                                 ValueChanged="@(v => Toggle(row, desktop: null, web: v))" />
+                                    <input type="checkbox" class="mnu-check"
+                                           aria-label="@($"{row.ScreenKey} web'de açık")"
+                                           checked="@row.EffectiveWeb"
+                                           disabled="@(_busy || _edit || !row.DefaultWeb)"
+                                           @onchange="@(e => Toggle(row, desktop: null, web: e.Value is bool b2 && b2))" />
                                     @if (!row.DefaultWeb) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
                                 </td>
                                 <td>@row.PlatformText</td>
@@ -317,6 +331,8 @@ else
         border-radius: 4px; background: transparent; color: inherit; font-size: 13px; min-width: 140px;
     }
     .mnu-input { width: 100%; }
+    .mnu-check { width: 18px; height: 18px; cursor: pointer; }
+    .mnu-check:disabled { cursor: not-allowed; opacity: .45; }
 </style>
 
 @code {
@@ -344,7 +360,7 @@ else
         // "İptal" için başlangıç fotoğrafı
         public string OrigLabel { get; set; } = "";
         public string OrigGroupKey { get; set; } = "";
-        public int OrigOrder { get; set; }
+        public int OrigIndex { get; set; }   // yüklenirken listedeki genel sıra (sıra karşılaştırması için)
     }
 
     private sealed class Grp
@@ -358,6 +374,18 @@ else
 
     private List<Row>? _rows;
     private List<Grp> _groups = new();
+
+    /// <summary>
+    /// ⭐ Yeniden çizim sürümü — her <see cref="Load"/> sonrası artar ve satır <c>@key</c>'ine girer.
+    ///
+    /// NEDEN: Blazor, DOM'u kullanıcının ELLE değiştirdiğini bilmez. Kullanıcı bir onay kutusunu
+    /// tıkladığında DOM anında değişir; sunucu bu değişikliği REDDEDERSE (ör. korumalı ekran) ya da
+    /// kullanıcı onay penceresinde vazgeçerse, yeni değer eskisiyle AYNI olduğu için Blazor hiçbir
+    /// fark üretmez ve <b>kutu yanlış durumda kalır</b> — kullanıcı ekranı kapattığını sanır.
+    /// GUI turunda bizzat görüldü. Sürüm anahtarı satırları yeniden OLUŞTURDUĞU için DOM sunucudaki
+    /// gerçek duruma döner. Düzenleme sırasında Load çağrılmadığından taşıma davranışı etkilenmez.
+    /// </summary>
+    private int _rev;
     private string? _msg; private bool _ok; private bool _busy; private bool _edit; private bool _preview;
     private string _q = "", _fGroup = "", _fPlatform = "", _fState = "";
 
@@ -403,6 +431,7 @@ else
                     });
 
             _groups = groups;
+            _rev++;                  // satırları yeniden oluştur → elle değişmiş DOM sunucu durumuna döner
             _rows = rows;
             Snapshot();
         }
@@ -414,34 +443,53 @@ else
     {
         for (int i = 0; i < _groups.Count; i++)
         { _groups[i].OrigTitle = _groups[i].Title; _groups[i].OrigOrder = i; }
-        foreach (var r in _rows!)
-        { r.OrigLabel = r.Label; r.OrigGroupKey = r.GroupKey; r.OrigOrder = IndexInGroup(r); }
+
+        for (int i = 0; i < _rows!.Count; i++)
+        { var r = _rows[i]; r.OrigLabel = r.Label; r.OrigGroupKey = r.GroupKey; r.OrigIndex = i; }
     }
 
     private void BeginEdit() { _edit = true; _msg = null; }
 
     private async Task CancelEdit()
     {
-        var (ds, dg) = Diff();
-        if (ds + dg > 0 && !await Dialog.Confirm(
-            $"Kaydedilmemiş {ds} ekran ve {dg} üst menü değişikliği ATILACAK.\n\nDevam edilsin mi?",
-            "Evet, At", danger: true)) return;
+        var (ds, dg, dr) = Diff();
+        if (ds + dg + dr > 0 && !await Dialog.Confirm(
+            $"Kaydedilmemiş değişiklikler ATILACAK ({ds} ekran, {dg} üst menü, {dr} grupta sıralama)." +
+            "\n\nDevam edilsin mi?", "Evet, At", danger: true)) return;
         _edit = false; _msg = null;
         await Load();   // sunucudaki gerçek duruma dön
     }
 
-    /// <summary>Kaydedilmemiş değişiklik sayısı (ekran, üst menü).</summary>
-    private (int Screens, int Groups) Diff()
+    /// <summary>
+    /// Kaydedilmemiş değişiklik sayısı: (adı/üst menüsü değişen ekran, değişen üst menü,
+    /// sırası bozulan grup).
+    ///
+    /// ⚠️ Sıra DEĞİŞİKLİĞİ ekran ekran sayılmaz: bir ekran gruptan çıkınca geri kalanların index'i
+    /// kayar ve hiç dokunulmadıkları hâlde "değişti" gibi görünürlerdi (ilk GUI turunda 1 taşıma
+    /// "7 ekran" olarak raporlanıyordu). Bunun yerine grubun ekran DİZİLİMİ, o ekranların
+    /// başlangıçtaki göreli sırasıyla karşılaştırılır.
+    /// </summary>
+    private (int Screens, int Groups, int Reordered) Diff()
     {
-        if (_rows is null) return (0, 0);
+        if (_rows is null) return (0, 0, 0);
+
         int s = _rows.Count(r => !string.Equals(r.Label, r.OrigLabel, StringComparison.Ordinal)
-                              || !string.Equals(r.GroupKey, r.OrigGroupKey, StringComparison.Ordinal)
-                              || IndexInGroup(r) != r.OrigOrder);
+                              || !string.Equals(r.GroupKey, r.OrigGroupKey, StringComparison.Ordinal));
+
         int g = 0;
         for (int i = 0; i < _groups.Count; i++)
             if (!string.Equals(_groups[i].Title, _groups[i].OrigTitle, StringComparison.Ordinal)
                 || _groups[i].OrigOrder != i) g++;
-        return (s, g);
+
+        // Grubun dizilimi, üyelerin BAŞLANGIÇTAKİ genel sırasına göre artan değilse sıra bozulmuştur.
+        int r2 = _groups.Count(grp =>
+        {
+            var keys = GroupRows(grp.GroupKey).Select(x => x.OrigIndex).ToList();
+            for (int i = 1; i < keys.Count; i++) if (keys[i] < keys[i - 1]) return true;
+            return false;
+        });
+
+        return (s, g, r2);
     }
 
     // ═══ Düzen işlemleri ════════════════════════════════════════════════════════════════════
@@ -518,11 +566,11 @@ else
     // ═══ Kaydetme ═══════════════════════════════════════════════════════════════════════════
     private async Task Save()
     {
-        var (ds, dg) = Diff();
-        if (ds + dg == 0) { _ok = true; _msg = "Değişiklik yok."; _edit = false; return; }
+        var (ds, dg, dr) = Diff();
+        if (ds + dg + dr == 0) { _ok = true; _msg = "Değişiklik yok."; _edit = false; return; }
 
         if (!await Dialog.Confirm(
-            $"{ds} ekran ve {dg} üst menü değişikliği kaydedilecek.\n\n" +
+            $"Kaydedilecek: {ds} ekran, {dg} üst menü, {dr} grupta sıralama.\n\n" +
             "Menü tüm kullanıcılar için güncellenir. Ekranların adresleri ve yetkileri DEĞİŞMEZ.\n\n" +
             "Devam edilsin mi?", "Evet, Kaydet")) return;
 
@@ -548,7 +596,7 @@ else
 
             var err = await Api.PostAsync("/api/screens/layout", new { screens, groups });
             _ok = err is null;
-            _msg = err ?? $"Menü düzeni kaydedildi ({ds} ekran, {dg} üst menü).";
+            _msg = err ?? $"Menü düzeni kaydedildi ({ds} ekran, {dg} üst menü, {dr} grupta sıralama).";
             if (_ok)
             {
                 _edit = false;

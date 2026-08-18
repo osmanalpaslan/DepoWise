@@ -794,3 +794,43 @@ Kullanıcı talebi: **"Şube / Şantiye kendi tanım ekranı dışında oluştur
 (3) **Firma ekranındaki "İlk Şube / Şantiye Adı" alanı** (web + masaüstü) ← **kuralın ihlali burada**.
 Kaldırılması tek başına yetmez: kod "şubesiz firmaya kullanıcı eklenemez" kuralını uyguluyor →
 akış kararı gerekiyor. Kullanıcı yayın sonrası bu konuya bakacağını belirtti.
+
+---
+
+## ✅ SON TAMAMLANAN — `MNU` Menü / Ekran Yönetimi (2026-08-18)
+
+**Kullanıcı isteği:** web'e özel bir menü/ekran yönetim ekranı — ekran sırası, üst menü ataması,
+üst menü adı/sırası, platform seçimi, menüde aktif/pasif, görünen ekran adı.
+
+**Envanterde çıkan gerçek:** istenen 7 maddeden **2'si (platform + aktif/pasif) G5 ile 2026-08-12'de
+zaten yapılmıştı.** Eksik olan yalnız **menü düzeni**: ad · üst menü · sıra.
+
+**Karar (ADR-109):** ayrı ekran açılmadı; mevcut `/screen-visibility` genişletildi ve adı
+**"Menü / Ekran Yönetimi"** oldu. Route · ekran anahtarı · yetki modülü **değişmedi**.
+Grup kimliği için katalog başlığı "değişmez sistem anahtarı" kabul edildi → **katalogda tek satır bile
+değişmeden** yeniden adlandırma güvenli hâle geldi. Büyük refactor gerekmedi.
+
+**Yeni yapı:** `Migration070_MenuLayout` (`screen_menu_layout`, `menu_group_layout`) · `MenuLayout`
+(saf çözümleyici, web projesine linklendi — masaüstü ve web **aynı sıralama kodunu** çağırır) ·
+`MenuLayoutService` (`ScreenVisibilityService` deseni) · `/api/screens/layout/manage` · `/layout` ·
+`/layout/reset`. **Satır yoksa katalog varsayılanı** → migration sonrası menü birebir aynı.
+
+### Bu turda bulunan ve düzeltilen 5 gerçek hata
+| Kod | Hata | Etki |
+|---|---|---|
+| **MNU-B1** | Platform ayarı gerçek masaüstü makinelere **hiç inmiyordu** | "Masaüstü" kutusu etkisizdi (ADR-110) |
+| **MNU-B2** | Süper admin yönetim ekranını kapatıp **kendini kalıcı kilitleyebiliyordu** | Geri dönüşü yoktu (ADR-111) |
+| — | `HasFlag(Desktop\|Web)` yüzünden **tek platformlu 14 ekran** listede yoktu | Yönetilemiyorlardı |
+| — | Satır taşınınca `<select>` **eski değeri** gösteriyordu (Blazor konum bazlı yeniden kullanım) | Yanlış grup görünüyordu |
+| — | Reddedilen değişiklikten sonra **onay kutusu yanlış durumda** kalıyordu | Kullanıcı kapattığını sanabilirdi |
+
+### Doğrulama
+- Release build: **API + Web + Masaüstü → 0 hata**.
+- Otomatik test: **+48 senaryo**; tam takım **2098 geçti / 0 başarısız / 35 atlandı** (toplam 2133).
+- Gerçek tarayıcı GUI testi: **17 maddenin 16'sı ✅, 1'i 🟡** (yetkisiz kullanıcı GUI'de değil, sunucu
+  tarafında doğrulandı — üç uç da 401). Ayrıntı: `docs/tests/Menu_Ekran_Yonetimi_Test_Report.md`.
+- **Üretime hiçbir işlem yapılmadı** (INSERT/UPDATE/DELETE/DDL/Migration/Deploy/Publish/Restart = 0).
+
+### Sıradaki tek iş
+Kullanıcı onayıyla **deploy** (API + Web + masaüstü sürümü). Deploy öncesi Neon yedek şubesi alınmalı;
+Migration 070 üretim şemasını 70'e çıkaracak.

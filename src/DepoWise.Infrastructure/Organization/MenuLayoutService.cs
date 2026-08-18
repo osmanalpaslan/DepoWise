@@ -259,8 +259,14 @@ public sealed class MenuLayoutService
                 .ToList();
 
             // Bu grubun sırası katalog sırasıyla AYNI mı? Aynıysa sıra kaydı tutulmaz.
+            //
+            // ⚠️ Karşılaştırma, katalogdaki TÜM grup üyeleriyle değil, gruba GERÇEKTEN düşen ekranların
+            // katalog sırasıyla yapılır. Aksi hâlde gruptan tek bir ekran çıkarıldığında (ya da gruba
+            // dışarıdan bir ekran taşındığında) geri kalanların hiç dokunulmadığı hâlde sırası
+            // "değişmiş" sayılır ve gereksiz yere tüm grup için sıra kaydı yazılırdı.
+            var istenenKume = grubunEkranlari.Select(e => e.ScreenKey).ToHashSet(StringComparer.Ordinal);
             var katalogSirasi = AppScreens.All
-                .Where(a => string.Equals(a.Group, grupAnahtari, StringComparison.Ordinal))
+                .Where(a => istenenKume.Contains(a.Key))
                 .Select(a => a.Key).ToList();
             var istenenSira = grubunEkranlari.Select(e => e.ScreenKey).ToList();
             var siraVarsayilan = katalogSirasi.SequenceEqual(istenenSira, StringComparer.Ordinal);
