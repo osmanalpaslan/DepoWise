@@ -881,3 +881,31 @@ devam ediyor. Özellik **kullanılmaya hazır ama kapalı** durumda.
 ### Sıradaki tek iş
 Masaüstü sürüm publish'i (ayrı tur). Masaüstü kullanıcıları menü düzenini ancak yeni sürümle görecek;
 **1.0.140 çalışmaya devam eder** (ayarlar inmez, katalog varsayılanı geçerlidir — bozulma yok).
+
+---
+
+## 🚀 YAYIN — Masaüstü **1.0.141** (2026-08-19)
+
+Menü / Ekran Yönetimi turunu tamamlayan son adım. Bu sürümle birlikte **platform ve menü düzeni
+ayarları masaüstü uygulamasına da iniyor** (1.0.140 ve öncesi bu ayarları almıyordu — MNU-B1).
+
+| | |
+|---|---|
+| Sürüm | **1.0.141** (önceki 1.0.140) |
+| Paket | `DepoWise-desktop-1.0.141.zip` · **89.944.546 bayt** (85,8 MB) · 252 dosya |
+| SHA-256 | `14A304FD17392FE3E38DEF5B6F3FE2D10DC98BCE49B3D5E11258B221355B2C63` |
+| Sunucu doğrulaması | `/api/releases/latest` → 1.0.141, checksum **birebir aynı** |
+| İndirme ucu | `/api/releases/1.0.141/download` → **HTTP 200**, tam boyut |
+| Publish build | 0 hata (yalnız Avalonia `AVLN5001` obsolete uyarıları) |
+| Sunucu diski | **%45** (403M/974M) — eski paket otomatik temizlendi (~0,24 GB) |
+
+### Bu sürümde ayrıca (2026-08-19 düzeltmesi)
+**Platform kutuları düzenleme modunda kilitliydi** (kullanıcı bildirimi). Kök neden: platform ayarı
+"anında kaydeden" ayrı bir akıştaydı ve düzen düzenlemesiyle çakışmasın diye `_edit` modunda
+`disabled` yapılmıştı → Düzenle'ye basınca kutular kapanıyor, basmayınca ekran salt-okunur
+görünüyordu; **platform ayrımı fiilen yapılamıyordu.** Tek akışa indirildi
+(`Düzenle → değiştir → Kaydet`); PLATFORM kolonu kaydedilmemiş değişikliği anında gösterir,
+kaydetme onayı **kapatılacak ekranları tek tek listeler**. Web **v182** ile canlıya alındı.
+
+### Sıradaki tek iş
+Kullanıcı geri bildirimi bekleniyor ("eksik veya hata görürsem yazarım"). Açık bir iş yok.
