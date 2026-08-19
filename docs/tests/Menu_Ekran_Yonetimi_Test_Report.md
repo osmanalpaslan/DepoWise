@@ -161,3 +161,36 @@ INSERT 0 · UPDATE 0 · DELETE 0 · DDL 0 · Migration 0 · Deploy 0 · Publish 
 Boşalan üç katalog grubu (**Personel · Yönetim · İmport / Export**) firma kaydından silindi ve hiçbir
 menüde görünmüyor; **yönetim ekranında "0 ekran" satırı olarak listelenmeye devam eder** çünkü tanımları
 program kataloğundadır — yönetici isterse oraya tekrar ekran taşıyabilsin diye.
+
+---
+
+## Tur 5 — Varsayılan şema (katalog) + firma izolasyon denetimi (2026-08-19)
+
+**Kapsam (§7.1):** menü kataloğu (`AppScreens`), çözümleyici (`MenuLayout`), düzen servisi
+(`MenuLayoutService`) ve her iki platformun menüsü. Ayrıca kullanıcı isteğiyle firma izolasyonu.
+
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2119 geçti · 0 başarısız · 35 atlandı** |
+| Menü testleri | MenuLayout 37/37 · MenuSection 20/20 · Parity 19/19 |
+| Masaüstü menü bağlantısı (S13) | 47 → **47** |
+| Web menü bağlantısı (S14) | 55 → **55** |
+| Varsayılan üst grup haritası (S14b, yeni) | şemayla birebir |
+| Gerçek web GUI — SIFIR firma kaydıyla | menü şemayla birebir çıktı |
+| Canlı API okuması (2 firma) | menü şemayla birebir |
+| Üretim verisi (READ ONLY + ROLLBACK) | malzeme 2459 · stok 663 · kullanıcı 8 — değişmedi |
+
+### Değiştirilen referans testleri (gevşetme DEĞİL)
+S13/S14 taşıma öncesi menüyü kilitliyordu. Varsayılan menü **kasten** değiştiği için beklenen değerler
+yeniden yazıldı; sıra · anahtar · route · yetki anahtarı ve **toplam bağlantı sayısı** hâlâ birebir
+doğrulanıyor. Sayıların değişmemesi (47 ve 55) ekran kaybı olmadığının kanıtıdır. S01/S03/S05/S06/S12/
+S14/S16/S19 "tek üst grup" varsayımından "belirli üst grup anahtarı" kontrolüne çevrildi.
+
+### Firma izolasyon denetimi
+Kod taraması + veritabanı taraması yapıldı; **sızıntı bulunamadı**. Ayrıntı ve tablo:
+`docs/project-control/CURRENT_PHASE.md` → "Firma (tenant) izolasyon denetimi".
+
+### Bulgular
+| # | Bulgu | Durum |
+|---|---|---|
+| SEMA-B4 | İş verisinin tamamı canlı firmada değil, DEPOWISE firmasında | Kullanıcıya raporlandı; silme kararı kullanıcıda |

@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-19** (nihai menü şeması uygulandı) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-19** (nihai şema varsayılan oldu + izolasyon denetimi) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -990,3 +990,54 @@ Katalog tanımı programda durur; bir ekran tekrar oraya taşınırsa grup kendi
 
 ### Sıradaki tek iş
 API + Web deploy (ADR-113 sunucu kuralının canlıya çıkması).
+
+---
+
+## ✅ SON TAMAMLANAN — `VAR` Nihai şema PROJENİN VARSAYILANI + firma izolasyon denetimi (2026-08-19)
+
+### 1) Varsayılan menü şeması (ADR-114) — canlıda
+Şema artık firma kaydı değil, **kataloğun kendisi**. Hiçbir kayıt olmadan menü şu düzende çıkar ve
+**yeni açılan her firma** da bununla başlar:
+
+`UYARILAR · MALZEME VE STOK · OPERASYON · TALEPLER · FİNANS · RAPORLAR · KURUMSAL YÖNETİM ·
+SİSTEM YÖNETİMİ · AYARLAR` (6 üst grup · 17 üst menü · 58 ekran)
+
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2119 geçti · 0 başarısız · 35 atlandı** |
+| Masaüstü menü bağlantısı | **47 → 47** (ekran kaybı yok, S13 kilidi) |
+| Web menü bağlantısı | **55 → 55** (S14 kilidi) |
+| Gerçek web GUI (yerel, SIFIR kayıtla) | menü şemayla **birebir** |
+| Canlı menü (API okuması, iki firma) | şemayla **birebir** |
+| `menu_group_layout` / `screen_menu_layout` | **0 / 0 satır** — düzen tamamen katalogdan |
+| Şema sürümü | **71 → 71** (migration yok) |
+| Üretim iş verisi (READ ONLY + ROLLBACK) | firma 3 · kullanıcı 8 · malzeme 2459 · stok 663 — değişmedi |
+
+Yayınlananlar: API **v161** · Web **v184** · Masaüstü **1.0.143** (85,8 MB · checksum `1f110f16…` ·
+indirme ucu 200). Masaüstü sürümü ZORUNLU: katalog uygulamaya derlenir.
+
+### 2) Firma (tenant) izolasyon denetimi — kullanıcı isteği
+**Sonuç: kodda sızıntı bulunamadı.**
+
+| Kontrol | Bulgu |
+|---|---|
+| `company_id` kolonu olan tüm tablolarda firmasız satır | yalnız `roles` (4 **sistem rolü**, tasarım gereği ortak) |
+| Tanım sorguları (marka · birim · kategori · model) | hepsi `WHERE company_id=@c` ile süzülü |
+| Başka firmanın kaydına id ile erişim | `"başka firmaya ait"` hatasıyla reddediliyor (ör. `FuelService.ReadMeter`) |
+| Şube silme / güncelleme | `TenantSql.ScopePredicate()` ile firmaya kapalı |
+| Otomatik test kapsamı | 5 ayrı izolasyon test dosyası |
+
+### 3) ⚠️ Bulunan GERÇEK sorun — veri yanlış firmada (SEMA-B4)
+İş verisinin TAMAMI **DEPOWISE** firmasının altında: 2459 malzeme · 94 araç · 663 stok hareketi ·
+264 kategori · 26 marka · 12 birim · 50 model. Canlı firma **Oze İnşaat**'ta yalnız kullanıcılar,
+şubeler ve makineler var. Kullanıcının "tanımlar birbirine karışıyor" şüphesinin kaynağı budur:
+izolasyon çalışıyor, veri yanlış yerde duruyor.
+
+### 4) Firma silme — KULLANICIYA BIRAKILDI
+`Oze Group` ve `DEPOWISE` firmalarının kalıcı silinmesi istendi. Kalıcı Silme geri alınamaz ve
+tasarım gereği **özel kod** (yalnız kullanıcıda olan gizli kod) ister; bu adım kullanıcı tarafından
+web'deki **Kalıcı Silme** ekranından yapılacak. Kritik not: `superadmin` hesabı DEPOWISE'tadır →
+silme **`osman.alpaslan`** (Oze İnşaat, süper admin) ile yapılmalıdır.
+
+### Sıradaki tek iş
+Kullanıcı iki firmayı Kalıcı Silme ekranından siler; sonucu doğrulayacağız.
