@@ -778,15 +778,6 @@ public sealed partial class ShellViewModel : ViewModelBase
         return i < 0 ? key : key[..i];
     }
 
-    /// <summary>İkon rayından grup seçimi: grubu aç + birincil hedefe git.</summary>
-    [RelayCommand]
-    private void SelectGroup(NavGroupVm? group)
-    {
-        if (group is null) return;
-        group.IsExpanded = true;
-        Navigate(group.PrimaryKey);
-    }
-
     /// <summary>G5 — firmanın platform kısıtları. Okuma başarısızsa (çevrimdışı/eski şema) null döner
     /// ve katalog varsayılanları geçerli kalır → menü hiçbir zaman boş kalmaz.</summary>
     private static IReadOnlyDictionary<string, ScreenVisibilityOverride>? SafeOverrides(SessionContext s)

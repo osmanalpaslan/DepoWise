@@ -32,6 +32,17 @@ else
                       AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" Disabled="@(_rows is null)" />
     </MudPaper>
 
+    @* ⭐ YÜKLEME HATASI HER DURUMDA GÖRÜNÜR (2026-08-19). Eskiden hata mesajı yalnız tablo
+       çizildikten sonraki bölümde duruyordu; yükleme başarısız olunca sayfa sonsuza kadar dönen
+       tekerlekte kalıyor ve kullanıcı NEDENİNİ hiç göremiyordu. *@
+    @if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            @_loadError
+            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-2" OnClick="Load">Yeniden dene</MudButton>
+        </MudAlert>
+    }
+
     @if (_rows is null)
     {
         <MudProgressCircular Indeterminate="true" Size="Size.Small" />
@@ -122,6 +133,8 @@ else
     private string _search = "";
     private int _changes;
     private string? _msg; private bool _ok; private bool _busy;
+    /// <summary>Yükleme hatası — tablo hiç çizilemese de ekranda görünür (sonsuz yükleme düzeltmesi).</summary>
+    private string? _loadError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -130,7 +143,7 @@ else
 
     private async Task Load()
     {
-        _rows = null; _msg = null; _changes = 0;
+        _rows = null; _msg = null; _loadError = null; _changes = 0;
         try
         {
             var doc = await Api.GetObjectAsync("/api/role-permissions");
@@ -154,7 +167,9 @@ else
                 }
             _rows = list;
         }
-        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+        // ⭐ Hata hâlinde de _rows DOLDURULUR (boş liste): aksi hâlde sayfa sonsuza kadar
+        // dönen tekerlekte kalır ve kullanıcı hatayı hiç görmez.
+        catch (Exception ex) { _loadError = "Rol yetkileri yüklenemedi: " + ex.Message; _rows = new(); }
     }
 
     private void Toggle(Cell cell, bool open)

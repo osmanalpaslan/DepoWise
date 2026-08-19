@@ -1431,3 +1431,29 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   `/api/screens/layout/reset` ile kaldırıldı → aynı menü, sıfır kayıt.
 - **Masaüstü yeni sürüm gerektirir:** katalog masaüstü uygulamasına derlenir; eski sürüm eski
   varsayılanı gösterirdi.
+
+## ADR-115 — Yetki ekranları: C turu düzeltmeleri (2026-08-19)
+- **Bağlam:** Kullanıcı üç somut şikâyet iletti (ikon rayı yer kaplıyor · Yetkiler ekranında düzenleme
+  butonu yok · Rol Yetki Kontrol web'de sürekli yükleniyor) ve yetki mimarisi için analiz istedi.
+  Sunulan üç yoldan **"önce C (hatalar), sonra A (yapı)"** sıralaması onaylandı. Bu ADR **C turudur**.
+- **İkon rayı KALDIRILDI (masaüstü):** `MainWindow.axaml` sütun 0'daki 56 px dikey şerit gitti.
+  Taşıdığı her şeyin karşılığı menü panelinde zaten vardı (Ana Ekran · gruplar · kullanıcı) ve üst
+  bardaki daralt/genişlet düğmesi YERİNDE → menüsüz kalma durumu yok. **Web'de karşılığı yoktu**
+  (kontrol edildi), bu yüzden web tarafında değişiklik gerekmedi. Ölü kalan `SelectGroup` komutu ve
+  `NavGroupVm.PrimaryKey` temizlendi.
+- **DÜZENLE → KAYDET akışı (iki ortam):** Yetkiler ekranı artık **salt-okunur açılır**. Verilmiş
+  yetkiler görünür ama tıklanamaz; "Düzenle" kilidi açar, "Vazgeç" sunucudan taze yükler, "Kaydet"
+  tek seferde yazar. ⭐ **Düzenlemeye geçmek hiçbir yetkiyi silmez** — yalnız bayrak çevrilir
+  (test U4 bunu kilitler).
+- **ROL aynı ekranda:** Rol seçimi Yetkiler ekranına eklendi (eskiden Kullanıcı Tanım'daydı).
+  Rol yetki tavanını belirlediği için **kaydetmede ÖNCE rol yazılır**, sonra ağaç yeni role göre
+  yeniden yüklenir. **Kendi rolünü değiştirmek engellidir** (kilitlenme koruması).
+- **Sonsuz yükleme düzeltildi:** Rol/Firma Yetki Kontrol ekranları yükleme hatasında dönen tekerlekte
+  kalıyor ve hatayı hiç göstermiyordu (hata metni tablo dalının içindeydi). Artık hata **her durumda
+  ekranda** ve "Yeniden dene" düğmesiyle birlikte. Sunucu tarafı sağlamdı: uç 107 ms'de 200 dönüyor.
+- **⭐ Gerçek arayüz turunda BULUNAN hata (YET-C4):** `/permissions` yetkisiz açıldığında
+  `OnInitializedAsync` içindeki korumasız çağrı 401 alıp **Blazor devresini tamamen düşürüyordu**
+  (bembeyaz ekran, "bağlantı kesildi"). Aynı desen `PermissionTemplates` ve `Users` ekranlarında da
+  vardı. Üçü de korumaya alındı; düzeltme gerçek arayüzde doğrulandı (artık istisna yok).
+- **Kapsam dışı (A turuna kaldı):** dört ekranın ikiye indirilmesi ve rol tavanının firma bazlı
+  yapılması. Bu ADR yalnız hataları ve eksik akışı kapatır; ekran sayısı DEĞİŞMEDİ.

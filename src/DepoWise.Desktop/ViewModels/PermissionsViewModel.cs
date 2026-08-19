@@ -35,21 +35,55 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasUser))]
     [NotifyPropertyChangedFor(nameof(TreeEnabled))]
     [NotifyPropertyChangedFor(nameof(CanSavePerms))]
+    [NotifyPropertyChangedFor(nameof(CanBeginEdit))]
     [NotifyPropertyChangedFor(nameof(CanResetPerms))]
+    [NotifyPropertyChangedFor(nameof(RoleEnabled))]
     private UserRow? _selectedUser;
     public bool HasUser => SelectedUser != null;
+
+    // ═══ YET-C3 (kullanıcı isteği 2026-08-19) — DÜZENLE → KAYDET AKIŞI ═══════════════════════
+    // Eskiden ağaç DAİMA açıktı: yanlışlıkla tıklanan kutu sessizce değişiyordu ve "düzenliyorum"
+    // ile "bakıyorum" ayrımı yoktu. Artık ekran SALT-OKUNUR açılır; Düzenle ile açılır, Vazgeç ile
+    // sunucudan taze yüklenir. ⭐ Düzenleme moduna geçmek YETKİLERİ DEĞİŞTİRMEZ — yüklenen işaretler
+    // olduğu gibi durur, yalnız kutular tıklanabilir olur.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TreeEnabled))]
+    [NotifyPropertyChangedFor(nameof(CanSavePerms))]
+    [NotifyPropertyChangedFor(nameof(CanBeginEdit))]
+    [NotifyPropertyChangedFor(nameof(RoleEnabled))]
+    private bool _isEditing;
+
+    /// <summary>Atanabilir roller (Süper Admin / Kısıtlı Süper Admin yalnız süper admine listelenir).</summary>
+    public ObservableCollection<RoleOption> Roles { get; } = new();
+
+    /// <summary>Seçili kullanıcının YÜKLENDİĞİ andaki rolü — "değişti mi" karşılaştırması bununla yapılır.</summary>
+    private string? _loadedRoleKey;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RoleChanged))]
+    private RoleOption? _selectedRole;
+
+    /// <summary>Rol kutusu düzenlenebilir mi (kendi rolünü bu ekrandan değiştirmek kilitlenmeye yol açar).</summary>
+    public bool RoleEnabled => IsEditing && HasUser && SelectedUser?.Id != _session.UserId;
+
+    /// <summary>Rol değişikliği bekliyor mu — arayüzde uyarı olarak gösterilir.</summary>
+    public bool RoleChanged => SelectedRole is not null && _loadedRoleKey is not null
+                               && !string.Equals(SelectedRole.Key, _loadedRoleKey, StringComparison.Ordinal);
 
     /// <summary>Hedef kullanıcı Admin/Süper Admin mi — öyleyse ağaç TAM işaretli + SALT-OKUNUR gösterilir
     /// (admin granular yetki tutmaz, hepsine bypass ile erişir). Kısıtlamak için önce rol Personel yapılır.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TreeEnabled))]
     [NotifyPropertyChangedFor(nameof(CanSavePerms))]
+    [NotifyPropertyChangedFor(nameof(CanBeginEdit))]
     [NotifyPropertyChangedFor(nameof(CanResetPerms))]
     private bool _isTargetAdmin;
-    /// <summary>Ağaç düzenlenebilir mi (admin hedefte salt-okunur).</summary>
-    public bool TreeEnabled => HasUser && !IsTargetAdmin;
-    /// <summary>Kaydet butonu görünür mü (admin hedefte kaydedilecek granular yetki yok).</summary>
-    public bool CanSavePerms => HasUser && !IsTargetAdmin;
+    /// <summary>Ağaç düzenlenebilir mi — admin hedefte salt-okunur, ayrıca DÜZENLEME MODU şart.</summary>
+    public bool TreeEnabled => HasUser && !IsTargetAdmin && IsEditing;
+    /// <summary>"Düzenle" görünür mü — yetki varsa, kullanıcı seçiliyse ve henüz düzenlemiyorsa.</summary>
+    public bool CanBeginEdit => HasUser && !IsTargetAdmin && CanManage && !IsEditing;
+    /// <summary>Kaydet/Vazgeç görünür mü — yalnız düzenleme modunda.</summary>
+    public bool CanSavePerms => HasUser && !IsTargetAdmin && IsEditing;
 
     [ObservableProperty] private string? _status;
 
@@ -57,6 +91,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     {
         _session = session;
         BuildTree(null);
+        LoadRoles();
         _ = LoadUsers();
     }
 
@@ -85,6 +120,36 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Atanabilir rol listesi. Süper Admin / Kısıtlı Süper Admin YALNIZ süper admine
+    /// gösterilir — API ucu (<c>/api/roles</c>) da aynı kuralı uygular, arayüz onunla hizalıdır.</summary>
+    private void LoadRoles()
+    {
+        Roles.Clear();
+        foreach (var (key, name, _) in RoleKeys.Seed)
+        {
+            if ((key == RoleKeys.SuperAdmin || key == RoleKeys.RestrictedSuperAdmin) && !_session.IsSuperAdmin) continue;
+            Roles.Add(new RoleOption(key, name));
+        }
+    }
+
+    /// <summary>Düzenleme moduna geç. ⭐ Ağaçtaki işaretlere DOKUNMAZ — yalnız kilidi açar.</summary>
+    [RelayCommand]
+    private void BeginEdit()
+    {
+        if (!CanBeginEdit) return;
+        IsEditing = true;
+        Status = "Düzenleme açık — değişiklikleri Kaydet ile yazın, Vazgeç ile geri alın.";
+    }
+
+    /// <summary>Vazgeç — sunucudan TAZE yükleyip düzenleme modundan çıkar (yarım değişiklik kalmaz).</summary>
+    [RelayCommand]
+    private async Task CancelEdit()
+    {
+        IsEditing = false;
+        await LoadSelectedUserAsync(SelectedUser);
+        Status = "Değişiklikler geri alındı.";
+    }
+
     [RelayCommand]
     private async Task LoadUsers()
     {
@@ -103,19 +168,31 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     partial void OnSelectedUserChanged(UserRow? value)
     {
+        IsEditing = false;   // başka kullanıcıya geçerken yarım düzenleme taşınmaz
         _ = LoadBranchScopeAsync(value?.Id);   // G4-3e: şube kapsamı da kullanıcıyla birlikte gelir
         _ = LoadSelectedUserAsync(value);
     }
 
     private async Task LoadSelectedUserAsync(UserRow? value)
     {
-        if (value is null) { IsTargetAdmin = false; BuildTree(null); ResetTree(); return; }
+        if (value is null)
+        {
+            IsTargetAdmin = false; BuildTree(null); ResetTree();
+            _loadedRoleKey = null; SelectedRole = null; OnPropertyChanged(nameof(RoleChanged));
+            return;
+        }
         try
         {
             // Hedef roller + engelli modüller: çevrimiçiyken sunucudan (server kullanıcı yerelde olmayabilir), yoksa yerel.
             var targetRoles = await OrgServerClient.GetUserRolesAsync(value.Id)
                 ?? SafeLocalRoles(value.Id);
             BuildTree(SafeBlocked(value.Id), targetRoles);
+
+            // Rol kutusu: kullanıcının MEVCUT rolü seçili gelir. Listede yoksa (ör. aktör süper admin
+            // değil ama hedef süper admin) kutu boş kalır ve rol değişikliği yapılamaz.
+            _loadedRoleKey = targetRoles.FirstOrDefault();
+            SelectedRole = Roles.FirstOrDefault(r => string.Equals(r.Key, _loadedRoleKey, StringComparison.Ordinal));
+            OnPropertyChanged(nameof(RoleChanged));
 
             // Admin/Süper Admin hedef: granular yetki TUTMAZ → TAM işaretli + SALT-OKUNUR (task 1).
             if (value.IsAdmin)
@@ -177,6 +254,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     public sealed record SummaryRow(string Label, string Actions);
 
+    /// <summary>Rol seçimi kutusunun öğesi (anahtar + görünen ad).</summary>
+    public sealed record RoleOption(string Key, string Name);
+
     [RelayCommand]
     private async Task ShowSummary()
     {
@@ -222,6 +302,31 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         if (SelectedUser is null) { Status = "Önce kullanıcı seçin."; return; }
         if (!CanManage) { Status = "Yetki yok."; return; }
         if (IsTargetAdmin) { Status = "Bu kullanıcı Admin — granular yetki uygulanmaz. Kısıtlamak için önce rolünü Personel yapın."; return; }
+
+        // ── YET-C3: ROL DEĞİŞİKLİĞİ (varsa) ÖNCE uygulanır ──────────────────────────────────
+        // Rol yetki tavanını belirler; önce rol yazılır, sonra ağaç o role göre yeniden kurulur.
+        // Böylece "role verilemeyecek bir ekran" yanlışlıkla kaydedilmiş olmaz.
+        if (RoleChanged && SelectedRole is not null)
+        {
+            if (SelectedUser.Id == _session.UserId) { Status = "Kendi rolünüzü bu ekrandan değiştiremezsiniz."; return; }
+            if (!await ConfirmService.AskAsync(
+                    $"'{SelectedUser.Username}' kullanıcısının rolü '{SelectedRole.Name}' olarak değiştirilecek.\n\n" +
+                    "Rol, kullanıcının alabileceği yetkilerin ÜST SINIRINI belirler; kaydedildikten sonra " +
+                    "yetki ağacı yeni role göre yeniden yüklenir.\n\nDevam edilsin mi?",
+                    "Evet, Rolü Değiştir")) return;
+
+            var rr = await OrgServerClient.SetRolesAsync(SelectedUser.Id, new[] { SelectedRole.Key });
+            if (rr.Offline) { Status = "Rol değişikliği çevrimiçi olmayı gerektirir."; return; }
+            if (!rr.Ok) { Status = rr.Error ?? "Rol değiştirilemedi."; return; }
+
+            IsEditing = false;
+            await LoadUsers();
+            var yeniden = Users.FirstOrDefault(u => u.Id == SelectedUser.Id);
+            SelectedUser = null; SelectedUser = yeniden;   // ağaç yeni role göre taze kurulur
+            Status = $"Rol '{SelectedRole.Name}' olarak değiştirildi. Yetki ağacı yenilendi — " +
+                     "ekran yetkilerini şimdi düzenleyip kaydedebilirsiniz.";
+            return;
+        }
 
         // #3: Kısıtlı modül seçili + hedef Admin değil + aktör süper admin değil → önce Admin'e yükselt (uyarı).
         var causeNodes = Modules.Where(m => (m.CanView || m.CanCreate || m.CanEdit || m.CanDelete)
@@ -272,6 +377,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
                 return;
             }
             if (!res.Ok) { Status = res.Error ?? "Kaydedilemedi."; return; }
+            IsEditing = false;   // kaydedildi → ekran tekrar salt-okunur
             Status = "Yetkiler kaydedildi. (Kullanıcı yeniden giriş yapınca tam etkin olur.)";
             _permVersion++;   // sunucu sürümü artırdı; ekranı kapatmadan ikinci kayıt yapılabilsin
         }

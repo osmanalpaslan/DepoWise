@@ -84,8 +84,14 @@
         try { _companies = await Api.OptionsAsync("/api/companies", "id", "name"); } catch { }
         try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
         try { _roles = await Api.GetRolesAsync(); } catch { }
-        await LoadModules();
-        await LoadList();
+        // ⭐ YET-C4: ilk yükleme çağrıları korumasız bırakılmaz — sunucu 401/500 dönerse istisna
+        // render sırasında patlar ve Blazor devresi TAMAMEN düşer ("bağlantı kesildi", bembeyaz ekran).
+        try
+        {
+            await LoadModules();
+            await LoadList();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ekran yüklenemedi: " + ex.Message; }
     }
 
     /// <summary>Seçilen firmanın admine açık modüllerini ağaca yükler (firma yok → tüm firmalar).</summary>

@@ -23,6 +23,19 @@
 
     @if (!string.IsNullOrEmpty(_userId))
     {
+        @* YET-C3: ROL aynı ekranda. Rol, kullanıcının alabileceği yetkilerin ÜST SINIRINI belirler;
+           ayrı ekrana gitmek gerekmesin diye buraya alındı. Kendi rolünü değiştirmek kilitlenme
+           yarattığı için o durumda kutu kapalıdır. *@
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" md="5">
+                <MudSelect T="string" Value="_roleKey" ValueChanged="OnRoleChanged" Label="Rol"
+                           Margin="Margin.Dense" Variant="Variant.Outlined"
+                           Disabled="@(!_edit || _isSelf)"
+                           HelperText="Rol, bu kullanıcıya verilebilecek yetkilerin üst sınırıdır.">
+                    @foreach (var r in _roles) { <MudSelectItem T="string" Value="@r.Key">@r.Name</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
         @if (_targetIsAdmin)
         {
             <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">
@@ -30,12 +43,36 @@
                 Yetkilerini kısıtlamak için önce rolünü <b>Personel</b> yapın.
             </MudAlert>
         }
-        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons" ReadOnlyAllAccess="_targetIsAdmin" />
+        @* YET-C3: ekran SALT-OKUNUR açılır — verilmiş yetkiler görünür ama yanlışlıkla değiştirilemez. *@
+        <MudAlert Severity="@(_edit ? Severity.Warning : Severity.Normal)" Dense="true" Class="mb-2">
+            @if (_edit)
+            {
+                <span>Düzenleme açık. İşaretli kutular <b>mevcut yetkilerdir</b>; değişiklikler <b>Kaydet</b> denene kadar yazılmaz.</span>
+            }
+            else
+            {
+                <span>Bu ekran şu an <b>salt-okunur</b>. Verilmiş yetkileri görüyorsunuz; değiştirmek için <b>Düzenle</b> deyin.</span>
+            }
+        </MudAlert>
+        @if (_roleChanged)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                <b>Rol değişikliği bekliyor.</b> Kaydet dediğinizde önce rol yazılır, sonra yetki ağacı yeni role göre yenilenir.
+            </MudAlert>
+        }
+        <PermMatrix @ref="_matrix" Modules="_modules" AdminOnly="_adminOnly" Buttons="_buttons"
+                    ReadOnlyAllAccess="_targetIsAdmin" Locked="@(!_edit)" />
         @* G1a (2026-08-12): Kaydet'in yanına ÖZET ve SIFIRLA. Sıfırlama yıkıcıdır → ayrı renk + onay. *@
         <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-            @if (!_targetIsAdmin)
+            @if (!_targetIsAdmin && !_edit)
             {
-                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Yetkileri Kaydet")</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="BeginEdit" Disabled="_busy">Düzenle</MudButton>
+            }
+            @if (!_targetIsAdmin && _edit)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="CancelEdit" Disabled="_busy">Vazgeç</MudButton>
             }
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FactCheck"
                        OnClick="LoadSummary" Disabled="_busy">Yetki Özeti</MudButton>
@@ -147,11 +184,43 @@
     private long _permVersion;
     private bool _loadPending;   // kullanıcı seçildi → matrix render edilince yetkileri otomatik yükle
 
+    // ═══ YET-C3 — DÜZENLE → KAYDET AKIŞI + ROL ═══════════════════════════════════════════════
+    /// <summary>Düzenleme modu. false = salt-okunur (varsayılan).</summary>
+    private bool _edit;
+    private List<RoleDto> _roles = new();
+    /// <summary>Kutuda seçili rol.</summary>
+    private string? _roleKey;
+    /// <summary>Kullanıcı yüklendiğindeki rol — "değişti mi" karşılaştırması bununla yapılır.</summary>
+    private string? _loadedRoleKey;
+    private bool _roleChanged => _roleKey is not null && _loadedRoleKey is not null
+                                 && !string.Equals(_roleKey, _loadedRoleKey, StringComparison.Ordinal);
+
+    /// <summary>Düzenleme moduna geç. ⭐ Yüklenmiş yetkilere DOKUNMAZ — yalnız kilidi açar.</summary>
+    private void BeginEdit() { _edit = true; _msg = null; }
+
+    /// <summary>Vazgeç — sunucudan taze yükleyip salt-okunur moda döner (yarım değişiklik kalmaz).</summary>
+    private async Task CancelEdit()
+    {
+        _edit = false; _msg = null;
+        _roleKey = _loadedRoleKey;
+        await LoadUserPerms();
+    }
+
+    private void OnRoleChanged(string? v) { _roleKey = v; }
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadUsers();
-        await LoadModules();
+        // ⭐ YET-C4 (gerçek arayüz turunda bulundu): ilk yükleme çağrıları KORUMASIZDI. Sunucu 401/500
+        // dönerse istisna render sırasında patlıyor, Blazor devresi TAMAMEN düşüyor ("bağlantı kesildi")
+        // ve kullanıcı bembeyaz ekranla kalıyordu. Artık hata YAKALANIR ve ekranda yazılır.
+        try
+        {
+            await LoadUsers();
+            await LoadModules();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ekran yüklenemedi: " + ex.Message; }
         try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
+        try { _roles = await Api.GetRolesAsync(); } catch { }
     }
 
     /// <summary>Kullanıcı seçilince ağaç yeni render edilir; matrix hazır olunca (ilk seçimde ref henüz null
@@ -186,8 +255,17 @@
     private async Task OnUserChanged()
     {
         _msg = null;
-        if (string.IsNullOrEmpty(_userId)) return;
+        _edit = false;   // başka kullanıcıya geçerken yarım düzenleme taşınmaz
+        if (string.IsNullOrEmpty(_userId)) { _roleKey = _loadedRoleKey = null; return; }
         _targetIsAdmin = _adminUserIds.Contains(_userId);   // admin hedef → matris tam işaretli + salt-okunur
+        try
+        {
+            var rd = await Api.GetObjectAsync($"/api/users/{_userId}/roles");
+            _loadedRoleKey = rd.ValueKind == JsonValueKind.Array && rd.GetArrayLength() > 0
+                ? rd[0].GetString() : null;
+            _roleKey = _loadedRoleKey;
+        }
+        catch { _roleKey = _loadedRoleKey = null; }
         try { await LoadModules(_userId); } catch (Exception ex) { _msg = "Ekran listesi yüklenemedi: " + ex.Message; _ok = false; return; }
         _loadPending = true;   // render sonrası mevcut yetkileri otomatik yükle (OnAfterRenderAsync)
         await LoadScope();     // G4-3d: şube kapsamı da kullanıcıyla birlikte gelir
@@ -287,6 +365,37 @@
     {
         if (string.IsNullOrEmpty(_userId) || _matrix is null) return;
 
+        // ── YET-C3: ROL DEĞİŞİKLİĞİ (varsa) ÖNCE uygulanır — masaüstüyle AYNI kural ────────────
+        // Rol yetki tavanını belirler; önce rol yazılır, sonra ağaç o role göre yeniden yüklenir.
+        if (_roleChanged && _roleKey is not null)
+        {
+            if (_isSelf) { _ok = false; _msg = "Kendi rolünüzü bu ekrandan değiştiremezsiniz."; return; }
+            var yeniAd = _roles.FirstOrDefault(r => r.Key == _roleKey)?.Name ?? _roleKey;
+            if (!await Dialog.Confirm(
+                    $"Bu kullanıcının rolü \"{yeniAd}\" olarak değiştirilecek." + Environment.NewLine + Environment.NewLine +
+                    "Rol, kullanıcının alabileceği yetkilerin ÜST SINIRINI belirler; kaydedildikten sonra " +
+                    "yetki ağacı yeni role göre yeniden yüklenir." + Environment.NewLine + Environment.NewLine + "Devam edilsin mi?",
+                    "Evet, Rolü Değiştir")) return;
+
+            _busy = true; _msg = null;
+            try
+            {
+                var rerr = await Api.PostAsync($"/api/users/{_userId}/roles", new { roles = new[] { _roleKey } });
+                if (rerr is not null) { _ok = false; _msg = "Rol değiştirilemedi: " + rerr; return; }
+                _loadedRoleKey = _roleKey;
+                if (_roleKey == "role-company-admin" || _roleKey == "role-super-admin"
+                    || _roleKey == "role-restricted-super-admin") _adminUserIds.Add(_userId!);
+                else _adminUserIds.Remove(_userId!);
+                _edit = false;
+                await OnUserChanged();   // ağaç yeni role göre taze kurulur
+                _ok = true;
+                _msg = $"Rol \"{yeniAd}\" olarak değiştirildi. Yetki ağacı yenilendi — ekran yetkilerini şimdi düzenleyebilirsiniz.";
+            }
+            catch (Exception ex) { _ok = false; _msg = "Rol değiştirilemedi: " + ex.Message; }
+            finally { _busy = false; }
+            return;
+        }
+
         // #3: Kısıtlı modül (Yönetim/Kullanıcı/Yetkiler...) seçili + hedef Admin değil + aktör süper admin değil →
         // uyarı: onaylanırsa kullanıcı Admin'e yükseltilir (Admin tüm ekranlara erişir).
         var causeKeys = _matrix.SelectedKeys().Where(k => _restricted.Contains(k)).ToList();
@@ -312,6 +421,7 @@
                 var rerr = await Api.PostAsync($"/api/users/{_userId}/roles", new { roles = new[] { "role-company-admin" } });
                 if (rerr is not null) { _ok = false; _msg = "Rol yükseltilemedi: " + rerr; return; }
                 _adminUserIds.Add(_userId!);
+                _edit = false;
                 _ok = true; _msg = "Kullanıcı Admin yapıldı — tüm ekranlara erişebilir.";
             }
             else
@@ -326,6 +436,7 @@
                     _msg = err;
                     return;
                 }
+                _edit = false;   // kaydedildi → ekran tekrar salt-okunur
                 _ok = true; _msg = "Yetkiler kaydedildi.";
                 _permVersion++;   // sunucu sürümü artırdı; ekranı kapatmadan ikinci kayıt yapılabilsin
             }

@@ -60,9 +60,6 @@ public sealed partial class NavGroupVm : ViewModelBase
     public string ModuleKey { get; }
     public IReadOnlyList<NavLinkVm> Children { get; }
 
-    /// <summary>İkon rayından tıklanınca gidilecek birincil hedef (ilk alt öğe ya da modül).</summary>
-    public string PrimaryKey => Children.FirstOrDefault()?.Key ?? ModuleKey;
-
     [ObservableProperty] private bool _isExpanded;
     [ObservableProperty] private bool _isActive;
 

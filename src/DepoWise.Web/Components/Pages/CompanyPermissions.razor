@@ -41,6 +41,17 @@ else
         </MudGrid>
     </MudPaper>
 
+    @* ⭐ YÜKLEME HATASI HER DURUMDA GÖRÜNÜR (2026-08-19). Eskiden hata mesajı yalnız tablo
+       çizildikten sonraki bölümde duruyordu; yükleme başarısız olunca sayfa sonsuza kadar dönen
+       tekerlekte kalıyor ve kullanıcı NEDENİNİ hiç göremiyordu. *@
+    @if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            @_loadError
+            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="ml-2" OnClick="Load">Yeniden dene</MudButton>
+        </MudAlert>
+    }
+
     @if (_rows is not null)
     {
         <MudGrid Spacing="2" Class="mb-2">
@@ -148,6 +159,8 @@ else
     private List<ApiClient.Opt> _companies = new();
     private string? _companyId;
     private List<Row>? _rows;
+    /// <summary>Yükleme hatası — tablo hiç çizilemese de ekranda görünür (sonsuz yükleme düzeltmesi).</summary>
+    private string? _loadError;
     private string _search = "";
     private int _changes;
     private string? _msg; private bool _ok; private bool _busy;
@@ -160,7 +173,7 @@ else
 
     private async Task Load()
     {
-        _rows = null; _msg = null; _changes = 0;
+        _rows = null; _msg = null; _loadError = null; _changes = 0;
         if (string.IsNullOrEmpty(_companyId)) return;
         try
         {
@@ -180,7 +193,8 @@ else
             }
             _rows = list;
         }
-        catch (Exception ex) { _msg = "Yüklenemedi: " + ex.Message; _ok = false; }
+        // ⭐ Hata hâlinde de _rows DOLDURULUR — bkz. RolePermissions ile aynı düzeltme.
+        catch (Exception ex) { _loadError = "Firma yetkileri yüklenemedi: " + ex.Message; _rows = new(); }
     }
 
     private void SetLevel(Row r, string level)

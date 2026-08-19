@@ -13,7 +13,7 @@
                 @for (int i = 0; i < 4; i++)
                 {
                     var idx = i; var key = m.Id;
-                    <td><MudCheckBox T="bool" Dense="true" ReadOnly="ReadOnlyAllAccess" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
+                    <td><MudCheckBox T="bool" Dense="true" ReadOnly="@(ReadOnlyAllAccess || Locked)" Value="@Get(key, idx)" ValueChanged="@(v => Set(key, idx, v))" /></td>
                 }
             </tr>
         }
@@ -26,7 +26,7 @@
                 <tr>
                     <td>@b.Name</td>
                     <td colspan="4">
-                        <MudCheckBox T="bool" Dense="true" Label="Yetki ver" ReadOnly="ReadOnlyAllAccess"
+                        <MudCheckBox T="bool" Dense="true" Label="Yetki ver" ReadOnly="@(ReadOnlyAllAccess || Locked)"
                                      Value="@GetBtn(bkey)" ValueChanged="@(v => SetBtn(bkey, v))" />
                     </td>
                 </tr>
@@ -44,6 +44,13 @@
     /// <summary>Hedef Admin/Süper Admin ise: tüm kutular TAM işaretli + salt-okunur (admin bypass ile
     /// hepsine erişir; granular yetki tutmaz). Ekranı boş göstermek "yetkisi yok" izlenimi verirdi.</summary>
     [Parameter] public bool ReadOnlyAllAccess { get; set; }
+
+    /// <summary>
+    /// YET-C3 (2026-08-19) — SALT-OKUNUR KİLİT. <see cref="ReadOnlyAllAccess"/> ile karıştırılmamalı:
+    /// o, hedef Admin olduğunda kutuları <b>tam işaretli</b> gösterir; bu ise <b>mevcut yetkileri
+    /// olduğu gibi</b> gösterir, yalnız tıklanamaz yapar. "Düzenle" denene kadar bu açıktır.
+    /// </summary>
+    [Parameter] public bool Locked { get; set; }
 
     private readonly Dictionary<string, bool[]> _state = new();
     private readonly HashSet<string> _btn = new();

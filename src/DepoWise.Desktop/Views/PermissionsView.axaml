@@ -9,7 +9,7 @@
              x:Class="DepoWise.Desktop.Views.PermissionsView"
              x:DataType="vm:PermissionsViewModel">
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Yetkiler"/>
 
         <!-- Kullanıcı seçimi (önce kullanıcı seçilir → ağaç oluşur) -->
@@ -21,19 +21,59 @@
                         <DataTemplate x:DataType="sec:UserRow"><SelectableTextBlock Text="{Binding Username}"/></DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadUsersCommand}"/>
+                <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadUsersCommand}"
+                        IsVisible="{Binding !IsEditing}"/>
+
+                <!-- YET-C3 (2026-08-19): ROL aynı ekranda. Rol, kullanıcının alabileceği yetkilerin
+                     ÜST SINIRINI belirler; ayrı ekrana gitmek gerekmesin diye buraya alındı.
+                     Yalnız düzenleme modunda açılır; kendi rolünü değiştirmek kilitlenme yarattığı
+                     için o durumda kutu kapalı kalır (RoleEnabled). -->
+                <SelectableTextBlock Text="Rol" Classes="Helper" VerticalAlignment="Center"
+                                     IsVisible="{Binding HasUser}"/>
+                <ComboBox Classes="Field" Width="190" ItemsSource="{Binding Roles}"
+                          SelectedItem="{Binding SelectedRole}" IsEnabled="{Binding RoleEnabled}"
+                          IsVisible="{Binding HasUser}"
+                          ToolTip.Tip="Rol, kullanıcının alabileceği yetkilerin üst sınırını belirler.">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PermissionsViewModel+RoleOption">
+                            <SelectableTextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <!-- Düzenle → Kaydet / Vazgeç. Ekran SALT-OKUNUR açılır; verilmiş yetkiler görünür
+                     ama yanlışlıkla değiştirilemez. -->
+                <Button Classes="Primary" Content="Düzenle" Command="{Binding BeginEditCommand}"
+                        IsVisible="{Binding CanBeginEdit}"/>
                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding CanSavePerms}"/>
+                <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelEditCommand}"
+                        IsVisible="{Binding IsEditing}"/>
                 <!-- G1a (2026-08-12): yetki özeti + sıfırlama. Sıfırlama YIKICI → Danger + ayrıca onay penceresi. -->
                 <Button Classes="Secondary" Content="Yetki Özeti" Command="{Binding ShowSummaryCommand}"
                         IsVisible="{Binding HasUser}" ToolTip.Tip="Bu kullanıcının gerçekte erişebildiği ekranları listeler."/>
                 <Button Classes="Danger" Content="Yetkileri Sıfırla" Command="{Binding ResetPermsCommand}"
-                        IsVisible="{Binding CanResetPerms}"
+                        IsVisible="{Binding CanResetPerms}" IsEnabled="{Binding !IsEditing}"
                         ToolTip.Tip="Kullanıcının tüm ekran ve buton yetkilerini siler. Kullanıcı kaydı ve rolü silinmez."/>
             </StackPanel>
         </Border>
 
+        <!-- Durum şeridi: ekranın salt-okunur mu düzenlenebilir mi olduğu ve bekleyen rol değişikliği -->
+        <Border Grid.Row="2" Margin="0,10,0,0" Padding="12,8" CornerRadius="8"
+                Background="{DynamicResource SurfaceElevatedBrush}"
+                IsVisible="{Binding HasUser}">
+            <StackPanel Spacing="4">
+                <SelectableTextBlock Classes="Helper" IsVisible="{Binding !IsEditing}"
+                    Text="Bu ekran şu an salt-okunur. Verilmiş yetkileri görüyorsunuz; değiştirmek için Düzenle deyin."/>
+                <SelectableTextBlock Classes="Helper" IsVisible="{Binding IsEditing}"
+                    Text="Düzenleme açık. İşaretli kutular mevcut yetkilerdir; değişiklikler Kaydet denene kadar yazılmaz."/>
+                <SelectableTextBlock Classes="Helper" FontWeight="Bold"
+                    Foreground="{DynamicResource WarningBrush}" IsVisible="{Binding RoleChanged}"
+                    Text="Rol değişikliği bekliyor — Kaydet dediğinizde önce rol yazılır, sonra yetki ağacı yeni role göre yenilenir."/>
+            </StackPanel>
+        </Border>
+
         <!-- Yetki ağacı (yalnız kullanıcı seçilince) -->
-        <ScrollViewer Grid.Row="2" Margin="0,16,0,0" IsVisible="{Binding HasUser}">
+        <ScrollViewer Grid.Row="3" Margin="0,16,0,0" IsVisible="{Binding HasUser}">
             <StackPanel Spacing="16">
                 <!-- ── ŞUBE KAPSAMI (G4-3e) ────────────────────────────────────────────────
                      İKİNCİ BİR YETKİ AĞACI DEĞİLDİR: modül yetkileri aşağıdaki ağaçta kalır.
@@ -148,9 +188,9 @@
         </ScrollViewer>
 
         <!-- Kullanıcı seçilmeden -->
-        <ctrl:StatePanel Grid.Row="2" Margin="0,16,0,0" Mode="Empty" Title="Kullanıcı seçin"
+        <ctrl:StatePanel Grid.Row="3" Margin="0,16,0,0" Mode="Empty" Title="Kullanıcı seçin"
                          Message="Yetki ağacını görmek için yukarıdan bir kullanıcı seçin." IsVisible="{Binding !HasUser}"/>
 
-        <SelectableTextBlock Grid.Row="3" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <SelectableTextBlock Grid.Row="4" Text="{Binding Status}" Margin="0,10,0,0" Classes="Helper" Foreground="{DynamicResource TextSecondaryBrush}"/>
     </Grid>
 </UserControl>

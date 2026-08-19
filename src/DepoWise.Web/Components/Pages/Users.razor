@@ -199,8 +199,12 @@
         try { _roles = await Api.GetRolesAsync(); } catch { }
         if (Auth.IsSuperAdmin)
         {
-            _companies = await Api.OptionsAsync("/api/companies/options", "id", "name");
-            _companyId = Auth.CompanyId;   // varsayılan: kendi firması (şube listesiyle uyumlu başlar)
+            try
+            {
+                _companies = await Api.OptionsAsync("/api/companies/options", "id", "name");
+                _companyId = Auth.CompanyId;   // varsayılan: kendi firması (şube listesiyle uyumlu başlar)
+            }
+            catch { }
         }
         // G6-09: şablonlar kullanıcı oluşturma yetkisi olan HERKES için yüklenir (uç zaten users/Create
         // ister ve yalnız kendi firması + tüm-firma şablonlarını döndürür → tenant izolasyonu serviste).
@@ -208,9 +212,15 @@
         {
             try { _templates = await Api.GetArrayAsync("/api/permission-templates/for-user"); } catch { }
         }
-        await LoadBranches();
-        await LoadPersonnel();
-        await Load();
+        // ⭐ YET-C4: ilk yükleme çağrıları korumasız bırakılmaz — sunucu 401/500 dönerse istisna
+        // render sırasında patlar ve Blazor devresi TAMAMEN düşer ("bağlantı kesildi", bembeyaz ekran).
+        try
+        {
+            await LoadBranches();
+            await LoadPersonnel();
+            await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ekran yüklenemedi: " + ex.Message; }
     }
 
     /// <summary>Şubeleri SEÇİLİ firmaya göre yükler. Sunucu (BranchService) tenant'ı fail-closed çözer:
