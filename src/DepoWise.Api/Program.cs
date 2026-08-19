@@ -2352,7 +2352,9 @@ app.MapGet("/api/modules", (HttpContext c, string? userId) =>
                     && !roleBlocked.Contains(m.Key)                  // hedefin rolüne kapalı → gizli
                     // Süper-admin-only ekran: hedef seçiliyse yalnız (Kısıtlı) Süper Admin'e görünür; hedef yoksa
                     // (yeni kullanıcı/şablon) süper admine devir için görünür kalır.
-                    && !(hasTarget && AppModules.IsSuperAdminOnly(m.Key) && !targetCanReceiveSuperOnly))
+                    // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — artık bu ekranları istediği
+                    // role verebildiği için (PermissionService) ağaçta da görebilmelidir.
+                    && !(hasTarget && !s.IsSuperAdmin && AppModules.IsSuperAdminOnly(m.Key) && !targetCanReceiveSuperOnly))
         .Select(m => new { key = m.Key, label = m.Label, adminOnly = AppModules.IsSuperAdminOnly(m.Key), restricted = AppModules.IsAdminRestricted(m.Key) });
     return Results.Ok(mods);
 }).RequireAuthorization();

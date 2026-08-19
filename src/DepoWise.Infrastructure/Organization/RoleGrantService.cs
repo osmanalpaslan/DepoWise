@@ -44,7 +44,14 @@ public sealed class RoleGrantService
         _snapshots = snapshots;
     }
 
-    /// <summary>Yapısal (değiştirilemez) kilit: mevcut kurallar gereği bu modül bu role zaten verilemez.</summary>
+    /// <summary>
+    /// Yapısal kilit: mevcut kurallar gereği bu modül bu role normalde verilemez.
+    ///
+    /// ⭐ B5 (kullanıcı kararı 2026-08-19): bu kilit SÜPER ADMIN için BAĞLAYICI DEĞİLDİR.
+    /// Matris süper admine açıktır ve "yetki tamamen süper adminin elinde" olmalıdır; bu yüzden
+    /// süper admin hücreyi değiştirebilir. Kilit bilgisi yine üretilir ama <see cref="GetControl"/>
+    /// onu süper admine "değiştirilemez" olarak İŞARETLEMEZ.
+    /// </summary>
     public static bool IsHardBlocked(string moduleKey, string roleKey)
     {
         if (roleKey == RoleKeys.SuperAdmin) return false;
@@ -66,10 +73,14 @@ public sealed class RoleGrantService
         foreach (var (key, label) in AppModules.All)
         {
             if (AppModules.IsPublic(key)) continue; // Ana Ekran/Tema/Hakkında — kapatılamaz
-            var cells = ManagedRoles.Select(r => new RoleGrantCell(
-                r.Key,
-                IsHardBlocked(key, r.Key) || (blocked.TryGetValue(r.Key, out var set) && set.Contains(key)),
-                IsHardBlocked(key, r.Key))).ToList();
+            var cells = ManagedRoles.Select(r =>
+            {
+                var yapisal = IsHardBlocked(key, r.Key);
+                var firmaKapali = blocked.TryGetValue(r.Key, out var set) && set.Contains(key);
+                // ⭐ B5: süper adminde hiçbir hücre "kilitli" gelmez — yapısal kilit yalnız BAŞLANGIÇ
+                // değeri olarak kapalı görünür, kullanıcı isterse açabilir.
+                return new RoleGrantCell(r.Key, yapisal || firmaKapali, Hard: false);
+            }).ToList();
             rows.Add(new RoleGrantRow(key, label, cells));
         }
         return rows;
@@ -103,7 +114,9 @@ public sealed class RoleGrantService
             {
                 if (!AppModules.All.Any(m => m.Key == moduleKey)) continue;
                 if (AppModules.IsPublic(moduleKey)) continue;
-                if (IsHardBlocked(moduleKey, roleKey)) continue; // zaten yapısal kilitli — satır tutmaya gerek yok
+                // ⭐ B5: yapısal kilit artık satır yazmayı ENGELLEMEZ. Süper admin bir ekranı bir role
+                // AÇMAK istediğinde (kapalı listeden çıkarınca) kararı geçerli olmalı; kapalı bırakmak
+                // istediğinde de satır yazılır. Kilit yalnız varsayılan öneridir.
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
                 ins.CommandText = "INSERT INTO role_grant_limits(id, company_id, role_key, module_key, created_at) " +

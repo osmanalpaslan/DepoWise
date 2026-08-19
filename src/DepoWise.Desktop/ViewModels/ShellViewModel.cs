@@ -143,13 +143,34 @@ public sealed partial class ShellViewModel : ViewModelBase
                 ? $"⟳ Bazı kayıtlar sunucuya uygulanamadı — otomatik yeniden deneniyor ({tries}/5)"
                 : "✓ Bekleyen sorun yok — her şey gönderildi";
 
-        await ConfirmService.AskAsync(
+        var govde =
             $"{durum}\n\n" +
             $"Son başarılı gönderim (push): {When("sync_last_push_ok")}\n" +
             $"Son başarılı çekme (pull):    {When("sync_last_pull_ok")}\n" +
             $"Sunucu bağlantısı: {ConnectionText}\n\n" +
-            $"Ayrıntılı kayıt: {(SyncLog.FilePath ?? "sync.log")}",
-            "Senkron Durumu", "Tamam", "Tamam", danger: poison is { Count: > 0 });
+            $"Ayrıntılı kayıt: {(SyncLog.FilePath ?? "sync.log")}";
+
+        // ⭐ B4: kalıcı uyarı varsa TEMİZLEME seçeneği sunulur. Bu kayıtlar için otomatik deneme zaten
+        // durdurulmuştur (bir daha gönderilmezler); uyarı sonsuza kadar ekranda kalmamalı.
+        if (poison is { Count: > 0 })
+        {
+            var temizle = await ConfirmService.AskAsync(
+                govde + "\n\n" +
+                "Bu kayıtlar için otomatik gönderim DURDURULDU; bir daha denenmeyecekler.\n" +
+                "Uyarıyı temizlemek yalnız bu mesajı kaldırır — hiçbir veriyi silmez, hiçbir şey göndermez.\n\n" +
+                "Uyarı temizlensin mi?",
+                "Senkron Durumu", "Uyarıyı Temizle", "Kapat", danger: true);
+            if (temizle)
+            {
+                BusinessSyncPushService.ClearPoison(cid);
+                RefreshSyncWarning();
+                OnPropertyChanged(nameof(SyncStatusChip));
+                OnPropertyChanged(nameof(HasSyncWarning));
+            }
+            return;
+        }
+
+        await ConfirmService.AskAsync(govde, "Senkron Durumu", "Tamam", "Tamam", danger: false);
     }
 
     /// <summary>Push sonucunu kullanıcıya gösterilecek okunur metne çevirir (manuel Eşitle diyaloğu için).</summary>
@@ -215,7 +236,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         try
         {
             var cid = companyId;
-            await System.Threading.Tasks.Task.Run(() => DepoWise.Desktop.LocalPurgeService.PurgeBusinessData(cid));   // 1) yerel iş verisi HARD sil
+            await System.Threading.Tasks.Task.Run(() => { DepoWise.Desktop.LocalPurgeService.PurgeBusinessData(cid); DepoWise.Desktop.LocalPurgeService.ResetSyncState(cid); });   // 1) yerel iş verisi HARD sil + eşitleme defterini sıfırla
             var ok = await BusinessSyncPullService.PullAsync(0);                                                       // 2) sunucudan TAM çek
             var sv = await BusinessSyncPullService.GetServerVersionAsync();                                            // 3) imleci güncelle
             if (sv is { } v) { _lastServerVersionPulled = v; try { DesktopServices.Settings.Set(cid, "sync_pull_cursor", v.ToString(), _session.UserId); } catch { } }

@@ -84,10 +84,12 @@ public class CompanyGrantTests : IDisposable
         var control = grants.GetControl(su, "A");
         Assert.Contains(control, r => r.ModuleKey == "fuel" && r.Level == CompanyGrantService.LevelSuper);
 
-        // Süper admin dahi bu ekranı düz Personel'e VEREMEZ (yalnız Kısıtlı Süper Admin'e)
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            perms.SaveForUser(su, staffId, new[] { new ModulePermission("fuel", true, false, false, false) }, Array.Empty<string>()));
-        Assert.Contains("Kısıtlı Süper Admin", ex.Message);
+        // ⭐ B5 (kullanıcı kararı 2026-08-19): SÜPER ADMİN bu ekranı düz Personel'e de verebilir.
+        // Firma düzeyi "Süper Admin" ayarı alt rollere karşı geçerliliğini korur; yalnız süper adminin
+        // BİLEREK verdiği izin bu tavanı aşar.
+        perms.SaveForUser(su, staffId, new[] { new ModulePermission("fuel", true, false, false, false) }, Array.Empty<string>());
+        var per = auth.Login("A", "per", "p12345").Session!;
+        Assert.True(AccessControl.Can(per, "fuel", PermissionAction.View));
 
         // Kısıtlı Süper Admin'e VERİLEBİLİR
         perms.SaveForUser(su, rsaId, new[] { new ModulePermission("fuel", true, false, false, false) }, Array.Empty<string>());

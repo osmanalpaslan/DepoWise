@@ -107,16 +107,22 @@ public class RoleGrantTests : IDisposable
 
         var control = roles.GetControl(su);
 
-        // Yapısal kilit: süper-admin-only ekran Admin/Personel'e zaten verilemez (hard).
+        // ⭐ B5 (kullanıcı kararı 2026-08-19): yapısal kilitler SÜPER ADMİN için BAĞLAYICI DEĞİL.
+        // Matris yalnız süper admine açık; "yetki tamamen süper adminin elinde" olmalı. Bu yüzden
+        // hiçbir hücre "değiştirilemez" (Hard) gelmez — kilit yalnız BAŞLANGIÇ değerini belirler.
         var machines = control.First(r => r.ModuleKey == "machines");
-        Assert.True(machines.Cells.First(c => c.RoleKey == RoleKeys.CompanyAdmin).Hard);
-        Assert.True(machines.Cells.First(c => c.RoleKey == RoleKeys.Staff).Hard);
-        Assert.False(machines.Cells.First(c => c.RoleKey == RoleKeys.RestrictedSuperAdmin).Hard); // devredilebilir
+        Assert.False(machines.Cells.First(c => c.RoleKey == RoleKeys.CompanyAdmin).Hard);
+        Assert.False(machines.Cells.First(c => c.RoleKey == RoleKeys.Staff).Hard);
+        // Başlangıçta yine KAPALI görünür (öneri korunur): süper-admin-only ekran alt rollere kapalı başlar.
+        Assert.True(machines.Cells.First(c => c.RoleKey == RoleKeys.CompanyAdmin).Blocked);
+        Assert.True(machines.Cells.First(c => c.RoleKey == RoleKeys.Staff).Blocked);
+        Assert.False(machines.Cells.First(c => c.RoleKey == RoleKeys.RestrictedSuperAdmin).Blocked); // devredilebilir
 
-        // Yapısal kilit: admin-kısıtlı ekran (users) Personel'e verilemez, Admin'e serbest.
+        // Admin-kısıtlı ekran (users): Personel'e kapalı BAŞLAR, Admin'e serbest — ama ikisi de kilitli değil.
         var usersRow = control.First(r => r.ModuleKey == "users");
-        Assert.True(usersRow.Cells.First(c => c.RoleKey == RoleKeys.Staff).Hard);
-        Assert.False(usersRow.Cells.First(c => c.RoleKey == RoleKeys.CompanyAdmin).Hard);
+        Assert.True(usersRow.Cells.First(c => c.RoleKey == RoleKeys.Staff).Blocked);
+        Assert.False(usersRow.Cells.First(c => c.RoleKey == RoleKeys.Staff).Hard);
+        Assert.False(usersRow.Cells.First(c => c.RoleKey == RoleKeys.CompanyAdmin).Blocked);
 
         // Public modüller (Ana Ekran/Tema/Hakkında) matriste yok — kapatılamaz.
         Assert.DoesNotContain(control, r => r.ModuleKey == AppModules.Dashboard);

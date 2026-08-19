@@ -24,8 +24,13 @@ public static class AccessControl
         if (AppModules.IsSuperAdminOnly(moduleKey))
         {
             if (s.IsSuperAdmin || DeveloperMode.IsActive) return true;
-            if (s.IsRestrictedSuperAdmin) return Explicit(s, moduleKey, action);
-            return false;
+            // ⭐ B5 (kullanıcı kararı 2026-08-19): "yetki tamamen süper adminin elinde olsun".
+            // Eskiden bu ekranlar YALNIZ Kısıtlı Süper Admin rolüne açılabiliyordu; süper admin
+            // açıkça verse bile başka rol erişemiyordu. Artık AÇIKÇA VERİLMİŞSE erişilir — rol
+            // fark etmez. Deny-by-default BOZULMAZ: admin bypass'ı hâlâ geçersiz, yalnız
+            // süper adminin bilerek verdiği izin geçerlidir (PermissionService bunu yalnız
+            // süper admin aktöre yazdırır).
+            return Explicit(s, moduleKey, action);
         }
         // YET (2026-08-18): "AÇIK-VERİLİR" modüller — admin bypass'ı GEÇERSİZ. Firma admini bu ekranı
         // kendiliğinden ALMAZ; yalnız süper admin (ya da yetkiyi almış biri) açıkça verirse erişir.

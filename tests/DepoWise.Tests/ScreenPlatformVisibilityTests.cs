@@ -313,10 +313,16 @@ public class ScreenPlatformVisibilityTests : IDisposable
     [Fact]
     public void G5_22_Yonetim_Yalniz_Super_Admin()
     {
+        // Firma admini BYPASS ile giremez (deny-by-default korunur).
         Assert.Throws<ForbiddenException>(() => _svc.List(Admin()));
         Assert.Throws<ForbiddenException>(() => _svc.Set(Admin(), "reports", false, true));
-        Assert.Throws<ForbiddenException>(() => _svc.List(Staff(CoA, "screen_visibility")));
-        Assert.Throws<ForbiddenException>(() => _svc.Set(Staff(CoA, "screen_visibility"), "reports", false, true));
+        // Yetkisi HİÇ verilmemiş personel de giremez.
+        Assert.Throws<ForbiddenException>(() => _svc.List(Staff()));
+        Assert.Throws<ForbiddenException>(() => _svc.Set(Staff(), "reports", false, true));
+
+        // ⭐ B5 (kullanıcı kararı 2026-08-19): süper admin bu ekranı AÇIKÇA verirse erişilir —
+        // "yetki tamamen süper adminin elinde". Rol değil, VERİLEN İZİN belirleyicidir.
+        _ = _svc.List(Staff(CoA, "screen_visibility"));
 
         _ = _svc.List(Super());   // süper admin geçer
         Assert.True(AppModules.IsSuperAdminOnly("screen_visibility"));

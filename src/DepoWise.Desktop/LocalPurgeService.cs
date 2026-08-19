@@ -65,6 +65,21 @@ public static class LocalPurgeService
         return rows;
     }
 
+    /// <summary>
+    /// ⭐ B4 — EŞİTLEME DURUMUNU SIFIRLA. Sıfırlama sonrası "N kayıt gönderilemiyor" uyarısının ve eski
+    /// gönderim damgasının (watermark) ayakta kalması sahada karışıklık yarattı: silinmiş kayıtlara ait
+    /// uyarı ekranda durmaya devam ediyordu. Bu anahtarlar veri DEĞİL, yalnız eşitleme defteridir.
+    /// </summary>
+    public static void ResetSyncState(string companyId)
+    {
+        if (string.IsNullOrWhiteSpace(companyId)) return;
+        foreach (var key in new[] { "sync_push_poison", "sync_push_stuck", "sync_push_watermark" })
+        {
+            try { DesktopServices.Settings.Set(companyId, key, "", DesktopServices.Session?.UserId ?? ""); }
+            catch { /* best-effort */ }
+        }
+    }
+
     /// <summary>YALNIZ iş verisi tablolarını (BusinessSyncService.Tables — malzeme/araç/stok/bakım/yakıt/…)
     /// bu firma için HARD siler; firma/kullanıcı/şube/tanım-dışı sistem verisi KORUNUR (oturum bozulmaz).
     /// Kullanım (kullanıcı isteği 2026-07-19): "yerelimi temizle, sunucudan tam çek" — sıfır PC simülasyonu.

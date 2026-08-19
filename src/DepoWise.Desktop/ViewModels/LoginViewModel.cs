@@ -48,6 +48,12 @@ public sealed partial class LoginViewModel : ViewModelBase
 
     // Çevrimiçi mi giriş yapıldı (ADIM 1'de belirlenir): çevrimdışıysa makine şubesine otomatik giriş yapılır.
     private bool _online;
+
+    /// <summary>B2/B3 — çevrimdışı giriş bilgilendirmesi (şube adımında gösterilir). null = gösterme.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOfflineNotice))]
+    private string? _offlineNotice;
+    public bool HasOfflineNotice => !string.IsNullOrEmpty(OfflineNotice);
     // İlk kurulum mu (makinenin şubesi henüz yok): seçilen şube, onay sonrası makineye tanımlanır.
     private bool _firstMachineSetup;
 
@@ -235,27 +241,47 @@ public sealed partial class LoginViewModel : ViewModelBase
 
             bool machineHasBranch = !string.IsNullOrEmpty(DesktopServices.MachineBranchId);
             _firstMachineSetup = false;
+            OfflineNotice = null;
 
             if (!machineHasBranch)
             {
                 // İLK KURULUM: makine şubesi henüz yok → ilk giriş yapan kullanıcı, onaylarsa kendi şubesini makineye
-                // tanımlar (aşağıda FinalizeLoginAsync'te onay + sunucu ataması). Çevrimdışıysa yapılamaz (sunucu gerekli).
-                if (!_online)
+                // tanımlar (aşağıda FinalizeLoginAsync'te onay + sunucu ataması).
+                if (_online)
                 {
-                    Error = "Bu makine ilk kez kuruluyor; makine şubesini tanımlamak için internet bağlantısı gerekli. Bağlanıp tekrar deneyin.";
-                    return;
+                    _firstMachineSetup = true;
                 }
-                _firstMachineSetup = true;
+                else
+                {
+                    // ⭐ B3 (2026-08-19, sahada bulundu): eskiden burada giriş TAMAMEN engelleniyordu
+                    // ("internet gerekli"). Makine tanımı silinip yeniden kaydolduğunda makinenin şubesi
+                    // boş olur; sunucuya o an ulaşılamıyorsa kullanıcı uygulamaya HİÇ giremiyordu.
+                    // Artık: kullanıcının KENDİ şubesi biliniyorsa giriş açılır; makine ataması yalnız
+                    // ertelenir (çevrimiçi olunduğunda yapılır). Şubesi de yoksa giriş yine engellenir.
+                    if (string.IsNullOrEmpty(userBranchId) && !canAll)
+                    {
+                        Error = "Bu makine ilk kez kuruluyor ve şu an sunucuya ulaşılamıyor. " +
+                                "Makine şubesini tanımlamak için internet bağlantısı gerekli. Bağlanıp tekrar deneyin.";
+                        return;
+                    }
+                    OfflineNotice = "Sunucuya ulaşılamadı. Bu makinenin şubesi henüz tanımlı değil; " +
+                                    "kendi şubenizle giriş yapabilirsiniz. Makine ataması internete bağlanınca yapılacak.";
+                }
             }
             else if (!_online)
             {
-                // Makine şubesi var + çevrimdışı → makine şubesine OTOMATİK giriş (şube seçimi yok).
-                await FinalizeLoginAsync(DesktopServices.MachineBranchId, DesktopServices.MachineBranchName, isAllBranches: false, warnOnDifferent: false);
-                return;
+                // ⭐ B2 (2026-08-19, sahada bulundu): eskiden burada makinenin ÖNBELLEKTEKİ şubesine
+                // SESSİZCE giriliyordu — şube seçim ekranı hiç gelmiyordu. Kullanıcı, kendi şubesi
+                // başka olsa bile makinede en son tanımlı şubeye düşüyor ve bunu FARK ETMİYORDU
+                // (kayıtlar yanlış şubeye yazılabilir). Artık şube adımı DAİMA gösterilir; makine
+                // şubesi yalnız ÖN SEÇİM olur ve durum açıkça yazılır.
+                OfflineNotice = $"Sunucuya ulaşılamadı. Çevrimdışı giriş yapıyorsunuz; " +
+                                $"bu makinenin son bilinen şubesi: {DesktopServices.MachineBranchName}. " +
+                                "Şubeyi aşağıdan doğrulayın.";
             }
 
-            // Çevrimiçi: şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa). İlk kurulumda seçilen şube
-            // (onay sonrası) makinenin şubesi olur.
+            // Şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa). İlk kurulumda seçilen şube
+            // (onay sonrası) makinenin şubesi olur. Çevrimdışıysa liste yerel aynadan gelir.
             await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
             SelectedBranch = Branches.FirstOrDefault(b => b.Id == userBranchId) ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
             BranchPassword = "";
@@ -274,6 +300,7 @@ public sealed partial class LoginViewModel : ViewModelBase
         Branches.Clear(); SelectedBranch = null; BranchPassword = "";
         IsSuperAdminMode = false; Companies.Clear(); SelectedCompany = null;
         _firstMachineSetup = false;
+        OfflineNotice = null;
         NewPassword = ""; NewPassword2 = "";
     }
 
@@ -501,7 +528,7 @@ public sealed partial class LoginViewModel : ViewModelBase
 
         Error = "Firma kalıcı silinmiş — bu makinedeki kayıtlar temizleniyor…";
         int rows = 0;
-        try { rows = LocalPurgeService.PurgeLocalCompany(companyId); }
+        try { rows = LocalPurgeService.PurgeLocalCompany(companyId); LocalPurgeService.ResetSyncState(companyId); }
         catch (Exception ex)
         {
             await ConfirmService.AskAsync(
@@ -548,7 +575,7 @@ public sealed partial class LoginViewModel : ViewModelBase
         // makinede ÇEVRİMDIŞI GİRİŞ imkânsız hâle geliyordu (AuthService: bcrypt hash'i yerelde tutulur).
         // Doğrusu YALNIZ iş verisini silen PurgeBusinessData'dır (ShellViewModel'in "yerelimi temizle"
         // akışı zaten bunu kullanıyordu).
-        try { LocalPurgeService.PurgeBusinessData(companyId); }
+        try { LocalPurgeService.PurgeBusinessData(companyId); LocalPurgeService.ResetSyncState(companyId); }
         catch { return; }                                              // temizlenemedi → işaretleme, sonraki girişte tekrar denenir
         LocalResetService.MarkApplied(companyId, serverAt.Value, _authedSession?.UserId ?? "system");
     }

@@ -15,7 +15,11 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class MachineGate
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(6) };
+    // ⭐ B1 (2026-08-19, sahada bulundu): süre 6 sn'ydi. Sunucu veritabanı (Neon) boşta uyuduğu için
+    // GÜNÜN İLK isteği birkaç saniye sürebiliyor; 6 sn aşılınca uygulama kendini ÇEVRİMDIŞI sanıyor,
+    // makine şubesini önbellekten okuyor ve giriş akışı yanlış dala giriyordu. Süre 20 sn'ye çıkarıldı
+    // ve ilk deneme başarısız olursa BİR KEZ daha denenir (uyanma isteği zaten sunucuyu ayağa kaldırır).
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(20) };
 
     /// <summary>Makine durum + firma + atanmış şube kontrolü sonucu.</summary>
     public sealed record MachineCheck(bool Allowed, string Reason, string? Status, string? BranchId, string? BranchName, bool Online, string? CompanyId = null, string? CompanyName = null);
@@ -33,6 +37,7 @@ public static class MachineGate
 
         if (!string.IsNullOrWhiteSpace(url))
         {
+            for (int deneme = 1; deneme <= 2 && !online; deneme++)
             try
             {
                 // Makine şubesi ARTIK login şubesinden yazılmaz (admin atar) — payload'da göndermiyoruz.
@@ -53,7 +58,7 @@ public static class MachineGate
                     TryWrite(BranchFile, $"{branchId}|{branchName}|{mCompanyId}|{mCompanyName}");
                 }
             }
-            catch { /* çevrimdışı → önbelleğe düş */ }
+            catch { /* ağ/zaman aşımı → döngü bir kez daha dener, sonra önbelleğe düşülür */ }
         }
 
         if (!online) // çevrimdışı: son bilinen durum + şube/firma önbellekten

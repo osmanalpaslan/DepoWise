@@ -324,6 +324,12 @@
                     <SelectableTextBlock Text="{Binding CompanyName}" HorizontalAlignment="Center" FontWeight="SemiBold"
                                          IsVisible="{Binding !IsSuperAdminMode}" Foreground="#EEF3F9"/>
 
+                    <!-- B2/B3: çevrimdışı giriş bilgilendirmesi. Eskiden çevrimdışıyken şube adımı HİÇ
+                         gösterilmiyor, makinenin önbellekteki şubesine sessizce giriliyordu. -->
+                    <Border IsVisible="{Binding HasOfflineNotice}" Background="#3A2E16" CornerRadius="8" Padding="12,9">
+                        <SelectableTextBlock Text="{Binding OfflineNotice}" TextWrapping="Wrap" Foreground="#F0C674"/>
+                    </Border>
+
                     <StackPanel Spacing="10" IsVisible="{Binding IsSuperAdminMode}">
                         <SelectableTextBlock Text="Süper Admin — firma ve şube seçimi" HorizontalAlignment="Center"
                                              FontWeight="SemiBold" Foreground="#EEF3F9"/>

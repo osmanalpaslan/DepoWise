@@ -205,6 +205,25 @@ public static class BusinessSyncPushService
         return (cnt, i > 0 ? raw.Substring(i + 1) : "");
     }
 
+    /// <summary>
+    /// ⭐ B4 (2026-08-19, kullanıcı bulgusu) — KALICI UYARIYI TEMİZLE.
+    ///
+    /// "Poison" durumu, bir kayıt grubu 5 denemede de sunucuya uygulanamayınca kurulur ve kuyruk
+    /// kilitlenmesin diye watermark ilerletilir — yani o satırlar BİR DAHA GÖNDERİLMEZ, geriye yalnız
+    /// uyarı metni kalır. Uyarıyı temizlemenin HİÇBİR yolu yoktu: firma iş verisi ve yerel veri
+    /// sıfırlansa bile ekranda "6 kayıt gönderilemiyor" yazmaya devam ediyordu (sahada görüldü).
+    ///
+    /// Bu metot YALNIZ UYARIYI siler; hiçbir veriyi silmez, hiçbir şeyi sunucuya göndermez.
+    /// </summary>
+    public static void ClearPoison(string? companyId = null)
+    {
+        var cid = companyId ?? DesktopServices.Session?.CompanyId;
+        if (string.IsNullOrWhiteSpace(cid)) return;
+        SetText(cid!, PoisonKey, "");
+        SetInt(cid!, StuckKey, 0);
+        SyncLog.Write("PUSH uyarı temizlendi", "Kalıcı 'gönderilemiyor' uyarısı kullanıcı tarafından temizlendi.");
+    }
+
     /// <summary>Bekleyen (yeniden denenecek) kayıt var mı — kaçıncı denemede olduğumuz.</summary>
     public static int RetryAttempts(string? companyId = null)
     {

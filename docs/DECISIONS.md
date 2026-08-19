@@ -1484,3 +1484,39 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   şikâyet ettiği iki çakışan tavan ekranı birleşti.
 - **Değişmeyenler (bilinçli):** yetki zincirinin anlamı, API sözleşmeleri (yalnız `companyId` eklendi),
   `AppModules` kataloğu, şablon uçları ve yetki ağacının kendisi.
+
+## ADR-117 — Giriş · makine · eşitleme: saha bulgusu ve düzeltmeler (2026-08-19)
+- **Bağlam:** Kullanıcı makineleri önce sıfırladı, sonra sildi. Ardından (1) babası internet varken
+  giriş yapamadı, (2) kendi makinesinde **şube seçim ekranı hiç gelmedi** — makinenin önbellekteki
+  eski şubesine sessizce girildi, (3) silinmiş test kayıtlarına ait "6 kayıt gönderilemiyor" uyarısı
+  temizlenemiyordu.
+- **ORTAK KÖK NEDEN — "sunucuya ulaşılamadı" ile "çevrimdışıyım" aynı sayılıyordu.** Giriş yolundaki
+  iki ağ çağrısının zaman aşımı **6 sn** (`MachineGate`) ve **10 sn** (`ServerAuthClient`) idi. Sunucu
+  veritabanı boşta uyuduğu için günün ilk isteği bu süreyi aşabiliyor; istek düşünce uygulama kendini
+  **çevrimdışı** sayıyordu. Kanıt: makinenin yerel önbellek dosyaları (`machine_branch.txt`,
+  `machine_status.txt`) **7 gündür güncellenmemişti** — yani `/api/machines/register` bir haftadır hiç
+  başarılı olmamıştı; oysa uç ölçüldüğünde **200 / 1,4 sn** dönüyor.
+- **B1:** süreler **20 sn / 25 sn**, `MachineGate` başarısız ilk denemeden sonra **bir kez daha** dener.
+  Ayrıca sunucu kimliği doğruladıktan SONRA yapılan **yerel aynalama** adımları kendi `try/catch`ine
+  alındı: yerel bir yazma hatası artık "çevrimdışı" saymıyor (eskiden tek dış `catch` her hatayı ağ
+  hatası gibi ele alıyordu).
+- **B2 — sessiz oto-şube girişi KALDIRILDI.** Çevrimdışıyken makinenin önbellekteki şubesine
+  doğrudan giriliyor, şube adımı hiç gösterilmiyordu. Kullanıcı hangi şubeye girdiğini görmüyor ve
+  kayıtlar yanlış şubeye yazılabiliyordu. Artık şube adımı **daima** gösterilir; makine şubesi yalnız
+  ön seçimdir ve durum sarı bir bilgi kutusuyla açıkça yazılır.
+- **B3 — makine şubesi yokken giriş kilitlenmiyor.** Makine silinip yeniden kaydolduğunda şubesi boş
+  olur; sunucuya o an ulaşılamıyorsa kullanıcı uygulamaya **hiç** giremiyordu. Artık kullanıcının kendi
+  şubesi biliniyorsa giriş açılır, makine ataması çevrimiçi olununca yapılır. Şubesi de yoksa giriş
+  yine engellenir (fail-closed korunur).
+- **B4 — eşitleme uyarısı temizlenebilir.** "Poison" durumu 5 denemeden sonra kurulur ve o satırlar bir
+  daha gönderilmez; geriye yalnız uyarı kalır ve **temizlemenin hiçbir yolu yoktu** (firma/yerel
+  sıfırlama bile temizlemiyordu). Artık Senkron Durumu panelinde **"Uyarıyı Temizle"** var (hiçbir veri
+  silmez, hiçbir şey göndermez) ve **her sıfırlama yolu** eşitleme defterini (`poison`/`stuck`/
+  `watermark`) sıfırlar.
+- **B5 — YETKİ TAMAMEN SÜPER ADMİNİN ELİNDE (kullanıcı kararı).** Süper admin artık:
+  Rol tavanı matrisinde **yapısal kilitlere takılmaz** (kilit yalnız başlangıç önerisidir) ·
+  süper-admin-only ekranları **istediği role verebilir** · verdiği izin **çalışma zamanında da geçerlidir**
+  (`AccessControl`: açıkça verilmişse erişilir). **Deny-by-default bozulmadı:** admin bypass'ı hâlâ
+  geçersiz, alt roller için kurallar aynen sürer ve bu izinleri yalnız süper admin yazabilir.
+- **Kapsam dışı (ayrıca raporlandı):** eşitleme kuyruğundaki kalıcı hataların (yinelenen anahtar / ebeveyni
+  silinmiş satır) kaynağında çözülmesi — bu tur yalnız kullanıcıyı kilitleyen uyarıyı temizlenebilir yaptı.

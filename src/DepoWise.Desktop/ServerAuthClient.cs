@@ -18,7 +18,9 @@ namespace DepoWise.Desktop;
 /// </summary>
 public static class ServerAuthClient
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
+    // ⭐ B1: 10 sn'ydi — sunucu veritabanı boşta uyuduğunda günün ilk girişi bu süreyi aşıp
+    // "çevrimdışı" sanılıyordu (bkz. MachineGate'teki aynı düzeltme).
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(25) };
 
     private static readonly JsonSerializerOptions _json = new() { PropertyNameCaseInsensitive = true };
 
@@ -275,9 +277,16 @@ public static class ServerAuthClient
                 //   3) kapsam     → artık yazılabilir
                 // Tek adımda yapılırsa ilk kurulumda kapsam sessizce düşer ve kullanıcı yerelde
                 // "kısıtsız" görünür (yetkisi olmayan şubeyi görüp o şubeye girebilirdi).
-                DesktopServices.Auth.ImportRemoteUser(bundle); // yerel hash + yetkiler
-                await BranchMirror.RefreshAsync(bundle.CompanyId);
-                DesktopServices.Auth.ImportUserScopes(bundle); // şube kapsamı
+                // ⭐ B1: YEREL yazma hatası "çevrimdışı" SAYILMAZ. Sunucu kimliği doğruladı; aşağıdaki
+                // aynalama adımlarından biri patlarsa eskiden dıştaki catch bunu ağ hatası gibi ele alıp
+                // AuthState.Offline döndürüyordu → kullanıcı "internete bağlanın" mesajı görüyordu.
+                try
+                {
+                    DesktopServices.Auth.ImportRemoteUser(bundle); // yerel hash + yetkiler
+                    await BranchMirror.RefreshAsync(bundle.CompanyId);
+                    DesktopServices.Auth.ImportUserScopes(bundle); // şube kapsamı
+                }
+                catch { /* yerel ayna eksik kalabilir; oturum yine de ÇEVRİMİÇİ kurulur */ }
                 await StoreTokenAsync(baseUrl, username, password); // Eşitle için JWT sakla
                 return new(AuthState.Ok, bundle.CompanyId);
             }

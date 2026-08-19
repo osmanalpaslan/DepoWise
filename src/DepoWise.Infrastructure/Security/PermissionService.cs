@@ -160,7 +160,11 @@ public sealed class PermissionService
             && (AppModules.IsSuperAdminOnly(m.ModuleKey)
                 || DepoWise.Infrastructure.Organization.CompanyGrantService.IsCompanySuperRestricted(conn, tx, companyId, m.ModuleKey)))
             .Select(m => m.ModuleKey).ToHashSet(StringComparer.Ordinal);
+        // ⭐ B5 (kullanıcı kararı 2026-08-19): SÜPER ADMIN BU KİLİTTEN MUAFTIR.
+        // "Yetki tamamen süper adminin elinde olsun" — sistemin sahibi, bir ekranı istediği role
+        // verebilmelidir. Alt roller için kural AYNEN sürer (admin bunu hâlâ yapamaz).
         if (superOnlyKeys.Count > 0
+            && !actor.IsSuperAdmin
             && !HasRole(conn, tx, userId, RoleKeys.RestrictedSuperAdmin)
             && !HasRole(conn, tx, userId, RoleKeys.SuperAdmin))
         {

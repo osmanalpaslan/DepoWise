@@ -507,13 +507,20 @@ public class AuthPermissionTests : IDisposable
         Assert.Throws<ForbiddenException>(() => companies.List(admin));
         Assert.Throws<ForbiddenException>(() => companies.Create(admin, new NewCompany("X")));
 
-        // Süper-admin-only ekran düz Personel'e VERİLEMEZ (yeni model: yalnız Kısıtlı Süper Admin'e).
+        // ⭐ B5 (kullanıcı kararı 2026-08-19): "yetki tamamen süper adminin elinde olsun".
+        // SÜPER ADMİN süper-admin-only bir ekranı düz Personel'e de VEREBİLİR; verdiğinde erişim AÇILIR.
         var perms = new PermissionService(_factory, _clock);
         var mgrId = users.CreateUser(su, new NewUser("mgr", "p12345", null, new[] { RoleKeys.Staff }));
-        Assert.Throws<InvalidOperationException>(() =>
-            perms.SaveForUser(su, mgrId, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>()));
+        perms.SaveForUser(su, mgrId, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>());
         var mgr = auth.Login("A", "mgr", "p12345").Session!;
-        Assert.False(AccessControl.Can(mgr, "companies", PermissionAction.View)); // izin hiç kaydedilmedi → erişim yok
+        Assert.True(AccessControl.Can(mgr, "companies", PermissionAction.View));   // açıkça verildi → erişir
+
+        // ⭐ AMA firma ADMİNİ bunu YAPAMAZ — kural yalnız süper admin için gevşedi (deny-by-default sürüyor).
+        var mgr2Id = users.CreateUser(su, new NewUser("mgr2", "p12345", null, new[] { RoleKeys.Staff }));
+        Assert.ThrowsAny<Exception>(() =>
+            perms.SaveForUser(admin, mgr2Id, new[] { new ModulePermission("companies", true, true, true, true) }, Array.Empty<string>()));
+        var mgr2 = auth.Login("A", "mgr2", "p12345").Session!;
+        Assert.False(AccessControl.Can(mgr2, "companies", PermissionAction.View)); // izin kaydedilmedi → erişim yok
 
         // Süper Admin yapar
         Assert.True(AccessControl.Can(su, "companies", PermissionAction.Create));

@@ -122,7 +122,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             if (AppModules.IsPublic(key)) continue;                       // Dashboard/About/Tema herkese açık
             if (!AccessControl.CanGrantModule(_session, key)) continue;   // delegasyon tavanı + süper-admin-only görünürlük
             if (blocked is not null && blocked.Contains(key)) continue;   // Rol Yetki Kontrol: bu role kapalı
-            if (hasTarget && AppModules.IsSuperAdminOnly(key) && !targetCanReceiveSuperOnly) continue; // hedefe verilemez → gizli
+            // ⭐ B5 (2026-08-19): SÜPER ADMIN bu gizlemeden MUAFTIR — bu ekranları istediği role
+            // verebildiği için ağaçta da görmelidir. Alt roller için kural aynen sürer.
+            if (hasTarget && !_session.IsSuperAdmin && AppModules.IsSuperAdminOnly(key) && !targetCanReceiveSuperOnly) continue;
             Modules.Add(new ModulePermNode(key, label));
         }
         foreach (var (key, label) in SpecialButtons.All)

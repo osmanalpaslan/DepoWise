@@ -93,10 +93,19 @@ public class RestrictedSuperAdminTests : IDisposable
         // Süper admin, Kota İzleme'yi (süper-admin-only) Kısıtlı Süper Admin'e VEREBİLİR
         _perms.SaveForUser(su, rsaId, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>());
 
-        // Personel'e VERİLEMEZ (rol uygun değil)
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            _perms.SaveForUser(su, staffId, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>()));
-        Assert.Contains("Kısıtlı Süper Admin", ex.Message);
+        // ⭐ B5 (kullanıcı kararı 2026-08-19): SÜPER ADMİN artık Personel'e de verebilir
+        // ("yetki tamamen süper adminin elinde olsun") ve verdiği izin çalışma zamanında geçerlidir.
+        _perms.SaveForUser(su, staffId, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>());
+        var per = _auth.Login("A", "per", "p12345").Session!;
+        Assert.True(AccessControl.Can(per, "quota_monitor", PermissionAction.View));
+        Assert.False(AccessControl.Can(per, "quota_monitor", PermissionAction.Edit));   // yalnız verilen işlem
+
+        // ⭐ AMA firma ADMİNİ bunu YAPAMAZ — kural yalnız süper admin için gevşedi.
+        var admId = _users.CreateUser(su, new NewUser("adm2", "p12345", null, new[] { RoleKeys.CompanyAdmin }, CompanyId: "A"));
+        var adm = _auth.Login("A", "adm2", "p12345").Session!;
+        var staff2 = _users.CreateUser(su, new NewUser("per2", "p12345", null, new[] { RoleKeys.Staff }, CompanyId: "A"));
+        Assert.ThrowsAny<Exception>(() =>
+            _perms.SaveForUser(adm, staff2, new[] { new ModulePermission("quota_monitor", true, false, false, false) }, Array.Empty<string>()));
     }
 
     [Fact]
