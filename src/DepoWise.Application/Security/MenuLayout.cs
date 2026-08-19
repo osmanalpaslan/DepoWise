@@ -3,8 +3,13 @@ namespace DepoWise.Application.Security;
 /// <summary>Bir EKRANIN firmaya özel menü tercihi. Alan <c>null</c> = o konuda tercih yok → katalog varsayılanı.</summary>
 public sealed record ScreenLayoutOverride(string ScreenKey, string? Label, string? GroupKey, int? SortOrder);
 
-/// <summary>Bir ÜST MENÜNÜN firmaya özel tercihi. <paramref name="IsCustom"/> = kullanıcının oluşturduğu grup.</summary>
-public sealed record GroupLayoutOverride(string GroupKey, string? Title, int? SortOrder, bool IsCustom);
+/// <summary>
+/// Bir ÜST MENÜNÜN firmaya özel tercihi. <paramref name="IsCustom"/> = kullanıcının oluşturduğu grup.
+/// <paramref name="ParentGroupKey"/> (SEC, 2026-08-19) = bağlı olduğu ÜST GRUP; <c>null</c> ise
+/// grup en üst seviyededir (bugünkü davranış).
+/// </summary>
+public sealed record GroupLayoutOverride(string GroupKey, string? Title, int? SortOrder, bool IsCustom,
+    string? ParentGroupKey = null);
 
 /// <summary>Firmanın tüm menü tercihleri (ekran + grup). Boş küme = her şey katalog varsayılanı.</summary>
 public sealed record MenuLayoutSet(
@@ -23,6 +28,21 @@ public sealed record MenuEntry(AppScreen Screen, string Label);
 
 /// <summary>Çözümlenmiş üst menü — <paramref name="Key"/> sistem anahtarı, <paramref name="Title"/> görünen ad.</summary>
 public sealed record MenuGroupView(string Key, string Title, string DesktopIcon, IReadOnlyList<MenuEntry> Entries);
+
+/// <summary>
+/// SEC (2026-08-19) — menünün EN ÜST seviyesindeki bir düğüm.
+///
+/// İki hâli vardır ve <see cref="IsSection"/> ile ayrılır:
+/// <list type="bullet">
+///   <item><b>Üst grup</b> (<c>IsSection = true</c>): altında <see cref="Groups"/> taşır; kendi
+///   ekranı yoktur. Menüde bir seviye daha derinlik açar.</item>
+///   <item><b>Doğrudan üst menü</b> (<c>IsSection = false</c>): üst gruba bağlanmamış sıradan grup.
+///   <see cref="Groups"/> tek elemanlıdır ve <b>bugünkü davranışın aynısıdır</b>.</item>
+/// </list>
+/// Böylece üst grup hiç tanımlanmadığında ağaç, bugünkü düz listenin birebir karşılığı olur.
+/// </summary>
+public sealed record MenuNodeView(string Key, string Title, string DesktopIcon,
+    bool IsSection, IReadOnlyList<MenuGroupView> Groups);
 
 /// <summary>
 /// ═══ MNU — MENÜ DÜZENİ ÇÖZÜMLEYİCİSİ (saf mantık, 2026-08-18) ═══
@@ -49,6 +69,13 @@ public static class MenuLayout
 {
     /// <summary>Kullanıcının oluşturduğu grup anahtarlarının öneki.</summary>
     public const string CustomGroupPrefix = "custom:";
+
+    /// <summary>SEC — ÜST GRUP anahtarlarının öneki (menünün üçüncü seviyesi).</summary>
+    public const string SectionPrefix = "section:";
+
+    /// <summary>Bu anahtar bir ÜST GRUP mu (ekran taşımaz, altında üst menüler bulunur)?</summary>
+    public static bool IsSectionKey(string key)
+        => key.StartsWith(SectionPrefix, StringComparison.Ordinal);
 
     /// <summary>Katalog grubu mu (yoksa kullanıcı grubu mu)?</summary>
     public static bool IsCatalogGroup(string groupKey)
@@ -78,10 +105,12 @@ public static class MenuLayout
         if (set.Groups.TryGetValue(groupKey, out var g) && !string.IsNullOrWhiteSpace(g.Title))
             return g.Title!.Trim();
         if (IsCatalogGroup(groupKey)) return groupKey;
-        // Kullanıcı grubu ama başlığı yok → anahtarın önekini atıp ham hâlini göster (fail-safe).
-        return groupKey.StartsWith(CustomGroupPrefix, StringComparison.Ordinal)
-            ? groupKey[CustomGroupPrefix.Length..]
-            : groupKey;
+        // Kullanıcı grubu / üst grup ama başlığı yok → anahtarın önekini atıp ham hâlini göster (fail-safe).
+        if (groupKey.StartsWith(CustomGroupPrefix, StringComparison.Ordinal))
+            return groupKey[CustomGroupPrefix.Length..];
+        if (groupKey.StartsWith(SectionPrefix, StringComparison.Ordinal))
+            return groupKey[SectionPrefix.Length..];
+        return groupKey;
     }
 
     /// <summary>Katalogdaki grup sırası (kullanıcı grupları katalogdan SONRA gelir).</summary>
@@ -155,4 +184,69 @@ public static class MenuLayout
             .ThenBy(g => g.Key, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>Grubun bağlı olduğu ÜST GRUP. Geçersizse (kayıt yok / üst grup silinmiş / üst grup
+    /// aslında üst grup değil / kendine bağlı) <c>null</c> döner → grup en üst seviyede kalır.</summary>
+    public static string? SectionKeyOf(string groupKey, MenuLayoutSet set)
+    {
+        if (!set.Groups.TryGetValue(groupKey, out var g)) return null;
+        var parent = g.ParentGroupKey;
+        if (string.IsNullOrWhiteSpace(parent)) return null;
+        if (string.Equals(parent, groupKey, StringComparison.Ordinal)) return null;   // kendine bağlanamaz
+        if (!IsSectionKey(parent!)) return null;                                      // yalnız üst gruba bağlanır
+        return set.Groups.ContainsKey(parent!) ? parent : null;                       // silinmişse yetim bırakma
+    }
+
+    /// <summary>
+    /// ⭐ SEC (2026-08-19) — MENÜYÜ ÜÇ SEVİYELİ AĞAÇ OLARAK ÜRETİR: ÜST GRUP → ÜST MENÜ → EKRAN.
+    ///
+    /// <b><see cref="Build"/> DEĞİŞTİRİLMEDİ</b> — bu metot onun çıktısını sarmalar. Böylece mevcut
+    /// sıralama/ad/grup çözümlemesi tek yerde kalır ve iki platform aynı sonucu görür.
+    ///
+    /// <b>GERİ UYUMLULUK (en önemli garanti):</b> hiç üst grup tanımlanmamışsa her grup KENDİ
+    /// düğümü olur (<c>IsSection=false</c>, tek elemanlı) → sonuç bugünkü düz listenin birebir
+    /// karşılığıdır. Üçüncü seviye yalnız yönetici üst grup oluşturup gruba bağladığında belirir.
+    ///
+    /// <b>SIRALAMA:</b> bir üst grup, ilk üyesinin bulunduğu yerde görünür. Böylece ikinci bir
+    /// sıralama alanı doğmaz; yönetici grupları taşıdıkça üst grup da onlarla birlikte yer değiştirir.
+    ///
+    /// <b>BOŞ ÜST GRUP GÖSTERİLMEZ:</b> altında görünür üst menü kalmayan üst grup listeye girmez —
+    /// "görünür ekranı kalmayan grup gizlenir" kuralının aynısı.
+    /// </summary>
+    public static IReadOnlyList<MenuNodeView> BuildTree(ScreenPlatform platform, MenuLayoutSet set,
+        Func<AppScreen, bool> isOpen)
+    {
+        var groups = Build(platform, set, isOpen);
+
+        // 1) Üst seviye sırası = ilk görülme sırası. Üst gruba bağlı olmayan grup kendi düğümüdür;
+        //    üst grup ise İLK ÜYESİNİN bulunduğu yerde açılır.
+        var order = new List<string>();                                              // üst seviye anahtarlar
+        var children = new Dictionary<string, List<MenuGroupView>>(StringComparer.Ordinal);
+
+        foreach (var g in groups)
+        {
+            var key = SectionKeyOf(g.Key, set) ?? g.Key;
+            if (!children.TryGetValue(key, out var list))
+            {
+                children[key] = list = new List<MenuGroupView>();
+                order.Add(key);
+            }
+            list.Add(g);
+        }
+
+        // 2) Düğümleri kur. Üst grup değilse başlık/ikon grubun kendisinden gelir (bugünkü davranış).
+        var nodes = new List<MenuNodeView>(order.Count);
+        foreach (var key in order)
+        {
+            var kids = children[key];
+            if (IsSectionKey(key))
+                nodes.Add(new MenuNodeView(key, GroupTitleOf(key, set), SectionIcon, true, kids));
+            else
+                nodes.Add(new MenuNodeView(key, kids[0].Title, kids[0].DesktopIcon, false, kids));
+        }
+        return nodes;
+    }
+
+    /// <summary>Üst grup ikonu (katalogda karşılığı olmadığı için sabit).</summary>
+    public const string SectionIcon = "📂";
 }

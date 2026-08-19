@@ -101,7 +101,31 @@
                                 HorizontalContentAlignment="Left" IsVisible="{Binding !IsSearchingMenu}"
                                 Command="{Binding GoDashboardCommand}"/>
 
-                        <ItemsControl ItemsSource="{Binding Groups}" IsVisible="{Binding !IsSearchingMenu}">
+                        <!-- SEC (2026-08-19): menü ÜÇ seviyeli olabilir — ÜST GRUP → ÜST MENÜ → EKRAN.
+                             Dış ItemsControl "Sections" üzerinde döner. Üst grup tanımlı DEĞİLSE her düğüm
+                             tek üst menü taşır, başlık gizlenir ve alt liste daima görünür → menü bugünkü
+                             hâliyle BİREBİR aynı çizilir. İçteki grup şablonu ve ikon rayı DEĞİŞTİRİLMEDİ. -->
+                        <ItemsControl ItemsSource="{Binding Sections}" IsVisible="{Binding !IsSearchingMenu}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NavSectionVm">
+                                    <StackPanel Margin="0,2">
+                                        <!-- Üst grup başlığı — yalnız gerçek bir üst grupta görünür -->
+                                        <ToggleButton Classes="NavGroup" IsVisible="{Binding IsSection}"
+                                                      IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                      HorizontalAlignment="Stretch">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <SelectableTextBlock Grid.Column="0" Text="{Binding Title}"
+                                                           FontWeight="Bold" VerticalAlignment="Center" FontSize="12" LetterSpacing="0.6"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <SelectableTextBlock Grid.Column="1" Classes="chev" Text="›" FontSize="16"
+                                                           Opacity="0.6" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </ToggleButton>
+
+                                        <ItemsControl ItemsSource="{Binding Groups}"
+                                                      IsVisible="{Binding ChildrenVisible}"
+                                                      Margin="{Binding ChildIndent}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:NavGroupVm">
                                     <StackPanel Margin="0,2">
@@ -134,6 +158,10 @@
                                                             CommandParameter="{Binding Key}"/>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                     </StackPanel>
                                 </DataTemplate>

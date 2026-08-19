@@ -29,13 +29,15 @@ public sealed record MenuLayoutRow(
 }
 
 /// <summary>Yönetim ekranının bir ÜST MENÜ satırı.</summary>
-public sealed record MenuGroupRow(string GroupKey, string Title, int SortOrder, bool IsCustom, int ScreenCount);
+public sealed record MenuGroupRow(string GroupKey, string Title, int SortOrder, bool IsCustom, int ScreenCount,
+    string? ParentGroupKey = null, bool IsSection = false);
 
 /// <summary>Kaydetme girdisi — bir ekranın istenen düzeni.</summary>
 public sealed record ScreenLayoutInput(string ScreenKey, string? Label, string? GroupKey, int SortOrder);
 
 /// <summary>Kaydetme girdisi — bir üst menünün istenen düzeni.</summary>
-public sealed record GroupLayoutInput(string GroupKey, string? Title, int SortOrder, bool IsCustom);
+public sealed record GroupLayoutInput(string GroupKey, string? Title, int SortOrder, bool IsCustom,
+    string? ParentGroupKey = null);
 
 /// <summary>Kaydetme özeti (kullanıcıya "kaç şey değişti" bilgisi için).</summary>
 public sealed record MenuLayoutSaveResult(int ScreensChanged, int GroupsChanged, int CustomGroups);
@@ -122,7 +124,11 @@ public sealed class MenuLayoutService
             }
             using (var cmd = conn.CreateCommand())
             {
-                cmd.CommandText = "SELECT group_key, title_override, sort_order, is_custom " +
+                // SEC: parent_group_key Migration071 ile geldi. Eski şemada kolon yoksa sorgu
+                // patlamasın diye varlığı kontrol edilir (masaüstünde eski yerel DB olabilir).
+                var parentVar = DbIntrospect.ColumnExists(conn, null, "menu_group_layout", "parent_group_key");
+                cmd.CommandText = "SELECT group_key, title_override, sort_order, is_custom" +
+                                  (parentVar ? ", parent_group_key" : ", NULL AS parent_group_key") + " " +
                                   "FROM menu_group_layout WHERE company_id=@c;";
                 cmd.AddWithValue("@c", companyId);
                 using var r = cmd.ExecuteReader();
@@ -132,7 +138,8 @@ public sealed class MenuLayoutService
                     groups[key] = new GroupLayoutOverride(key,
                         r.IsDBNull(1) ? null : r.GetString(1),
                         r.IsDBNull(2) ? null : Convert.ToInt32(r.GetValue(2)),
-                        Convert.ToInt64(r.GetValue(3)) == 1);
+                        Convert.ToInt64(r.GetValue(3)) == 1,
+                        r.IsDBNull(4) ? null : r.GetString(4));
                 }
             }
         }
@@ -186,20 +193,27 @@ public sealed class MenuLayoutService
         var views = MenuLayout.Build(ScreenPlatform.Desktop | ScreenPlatform.Web, set, _ => true);
 
         var rows = views.Select((g, i) => new MenuGroupRow(
-            g.Key, g.Title, i, !MenuLayout.IsCatalogGroup(g.Key), g.Entries.Count)).ToList();
+            g.Key, g.Title, i, !MenuLayout.IsCatalogGroup(g.Key), g.Entries.Count,
+            MenuLayout.SectionKeyOf(g.Key, set))).ToList();
 
         // Hiç ekranı kalmayan gruplar Build'den DÜŞER; yönetim ekranında yine görünmeliler ki
         // yönetici oraya ekran taşıyabilsin veya grubu kaldırabilsin.
         var bilinen = new HashSet<string>(rows.Select(r => r.GroupKey), StringComparer.Ordinal);
         foreach (var g in AppScreens.Groups)
             if (bilinen.Add(g.Title))
-                rows.Add(new MenuGroupRow(g.Title, MenuLayout.GroupTitleOf(g.Title, set), rows.Count, false, 0));
+                rows.Add(new MenuGroupRow(g.Title, MenuLayout.GroupTitleOf(g.Title, set), rows.Count, false, 0,
+                    MenuLayout.SectionKeyOf(g.Title, set)));
+
+        // SEC: ÜST GRUPLAR ekran taşımaz → Build'de hiç görünmezler. Yönetim ekranı onları da
+        // listelemeli ki yönetici adını değiştirebilsin, altına grup bağlayabilsin, kaldırabilsin.
         foreach (var key in set.Groups.Keys)
             if (bilinen.Add(key))
                 rows.Add(new MenuGroupRow(key, MenuLayout.GroupTitleOf(key, set), rows.Count,
-                    !MenuLayout.IsCatalogGroup(key), 0));
+                    !MenuLayout.IsCatalogGroup(key), 0,
+                    MenuLayout.SectionKeyOf(key, set), MenuLayout.IsSectionKey(key)));
 
-        return rows;
+        // IsSection bayrağını, yukarıdaki ilk turda eklenen satırlar için de doğru kur.
+        return rows.Select(r => r with { IsSection = MenuLayout.IsSectionKey(r.GroupKey) }).ToList();
     }
 
     // ═══ YAZMA ══════════════════════════════════════════════════════════════════════════════════
@@ -220,16 +234,43 @@ public sealed class MenuLayoutService
         {
             var key = (g.GroupKey ?? "").Trim();
             if (key.Length == 0) throw new ArgumentException("Üst menü anahtarı boş olamaz.");
-            var ozel = !MenuLayout.IsCatalogGroup(key);
-            if (ozel && !key.StartsWith(MenuLayout.CustomGroupPrefix, StringComparison.Ordinal))
+            var ustGrup = MenuLayout.IsSectionKey(key);                       // SEC: menünün 3. seviyesi
+            var ozel = ustGrup || !MenuLayout.IsCatalogGroup(key);
+            if (ozel && !ustGrup && !key.StartsWith(MenuLayout.CustomGroupPrefix, StringComparison.Ordinal))
                 throw new ArgumentException($"Bilinmeyen üst menü: {key}");
 
             var baslik = Temizle(g.Title);
             if (ozel && string.IsNullOrEmpty(baslik))
-                throw new ArgumentException("Yeni üst menü için ad girin.");
+                throw new ArgumentException(ustGrup ? "Yeni üst grup için ad girin." : "Yeni üst menü için ad girin.");
 
             gecerliGruplar.Add(key);
-            temizGruplar.Add(new GroupLayoutInput(key, baslik, g.SortOrder, ozel));
+            temizGruplar.Add(new GroupLayoutInput(key, baslik, g.SortOrder, ozel, g.ParentGroupKey));
+        }
+
+        // ── 1b) SEC — ÜST GRUP bağlarını doğrula (fail-closed) ──────────────────────────────────
+        // Kurallar dar tutuldu; her biri menüyü bozacak bir durumu engeller:
+        //  · üst grup BAŞKA bir üst gruba bağlanamaz → menü ikiden fazla seviyeye inmez,
+        //  · bir grup yalnız ÜST GRUBA bağlanabilir (başka bir gruba değil) → grup içinde grup yok,
+        //  · bağlanılan üst grup aynı pakette VAR olmalı → yetim/kayıp düğüm oluşmaz,
+        //  · kendine bağlanamaz → sonsuz döngü olmaz.
+        var ustGrupAnahtarlari = new HashSet<string>(
+            temizGruplar.Where(x => MenuLayout.IsSectionKey(x.GroupKey)).Select(x => x.GroupKey),
+            StringComparer.Ordinal);
+
+        for (int i = 0; i < temizGruplar.Count; i++)
+        {
+            var g = temizGruplar[i];
+            var parent = (g.ParentGroupKey ?? "").Trim();
+            if (parent.Length == 0) { temizGruplar[i] = g with { ParentGroupKey = null }; continue; }
+
+            if (MenuLayout.IsSectionKey(g.GroupKey))
+                throw new ArgumentException("Bir üst grup başka bir üst grubun altına konulamaz.");
+            if (string.Equals(parent, g.GroupKey, StringComparison.Ordinal))
+                throw new ArgumentException("Bir üst menü kendi kendisinin altına konulamaz.");
+            if (!MenuLayout.IsSectionKey(parent))
+                throw new ArgumentException("Üst menü yalnız bir ÜST GRUBUN altına konulabilir.");
+            if (!ustGrupAnahtarlari.Contains(parent))
+                throw new ArgumentException($"Var olmayan bir üst gruba bağlanamaz ({parent}).");
         }
 
         // ── 2) Ekranları doğrula ────────────────────────────────────────────────────────────────
@@ -288,15 +329,16 @@ public sealed class MenuLayoutService
         var istenenGrupSirasi = temizGruplar.OrderBy(g => g.SortOrder).Select(g => g.GroupKey).ToList();
         var grupSirasiVarsayilan = katalogGrupSirasi.SequenceEqual(istenenGrupSirasi, StringComparer.Ordinal);
 
-        var yazilacakGruplar = new List<(string Key, string? Title, int? Sort, bool Custom)>();
+        var yazilacakGruplar = new List<(string Key, string? Title, int? Sort, bool Custom, string? Parent)>();
         var sirali = temizGruplar.OrderBy(g => g.SortOrder).ToList();
         for (int i = 0; i < sirali.Count; i++)
         {
             var g = sirali[i];
             var baslik = !g.IsCustom && string.Equals(g.Title, g.GroupKey, StringComparison.Ordinal) ? null : g.Title;
             int? sira = grupSirasiVarsayilan ? null : i;
-            if (baslik is null && sira is null && !g.IsCustom) continue;
-            yazilacakGruplar.Add((g.GroupKey, baslik, sira, g.IsCustom));
+            // SEC: üst grup bağı da bir tercihtir — varsa satır MUTLAKA yazılır (yoksa bağ kaybolurdu).
+            if (baslik is null && sira is null && !g.IsCustom && g.ParentGroupKey is null) continue;
+            yazilacakGruplar.Add((g.GroupKey, baslik, sira, g.IsCustom, g.ParentGroupKey));
         }
 
         // ── 4) Tek transaction: eskiyi sil, yeniyi yaz ──────────────────────────────────────────
@@ -329,14 +371,15 @@ public sealed class MenuLayoutService
             using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = "INSERT INTO menu_group_layout(id,company_id,group_key,title_override," +
-                              "sort_order,is_custom,created_at,updated_at) " +
-                              "VALUES(@id,@c,@g,@t,@o,@ic,@now,@now);";
+                              "sort_order,is_custom,parent_group_key,created_at,updated_at) " +
+                              "VALUES(@id,@c,@g,@t,@o,@ic,@p,@now,@now);";
             cmd.AddWithValue("@id", Guid.NewGuid().ToString("N"));
             cmd.AddWithValue("@c", s.CompanyId);
             cmd.AddWithValue("@g", g.Key);
             cmd.AddWithValue("@t", (object?)g.Title ?? DBNull.Value);
             cmd.AddWithValue("@o", (object?)g.Sort ?? DBNull.Value);
             cmd.AddWithValue("@ic", g.Custom ? 1 : 0);
+            cmd.AddWithValue("@p", (object?)g.Parent ?? DBNull.Value);
             cmd.AddWithValue("@now", now);
             cmd.ExecuteNonQuery();
         }

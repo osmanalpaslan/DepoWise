@@ -128,17 +128,31 @@ public static class LookupSyncService
             new[] { "screen_key", "label_override", "group_key_override", "sort_order" },
             new[] { "screen_key", "label_override", "group_key_override", "sort_order" });
 
+        // SEC (2026-08-19): parent_group_key = üst grup bağı (menünün 3. seviyesi). Kolon yalnız
+        // Migration071 uygulanmış yerel veritabanında vardır; yoksa o alan atlanır (aşağıdaki
+        // Replace, hedef tabloda bulunmayan kolonu yazmaya çalışmaz).
         Replace("menuLayoutGroups", "menu_group_layout",
-            new[] { "group_key", "title_override", "sort_order", "is_custom" },
-            new[] { "group_key", "title_override", "sort_order", "is_custom" });
+            new[] { "group_key", "title_override", "sort_order", "is_custom", "parent_group_key" },
+            new[] { "group_key", "title_override", "sort_order", "is_custom", "parent_group_key" });
 
         // Masaüstü süreç içi önbellekleri düşür → menü bir sonraki çiziminde yeni ayarı görür.
         DepoWise.Infrastructure.Organization.ScreenVisibilityService.Invalidate(companyId);
         DepoWise.Infrastructure.Organization.MenuLayoutService.Invalidate(companyId);
 
-        void Replace(string jsonKey, string table, string[] cols, string[] jsonCols)
+        void Replace(string jsonKey, string table, string[] allCols, string[] allJsonCols)
         {
             if (!root.TryGetProperty(jsonKey, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+
+            // ⚠️ Yerel tabloda BULUNMAYAN kolonlar atlanır. Sunucu yeni bir alan göndermeye başladığında
+            // (ör. SEC/parent_group_key) migration'ı henüz uygulanmamış eski bir yerel veritabanında
+            // INSERT tümüyle patlar ve o firmanın TÜM menü ayarı sessizce kaybolurdu. Süzgeç bunu
+            // engeller: bilinen kolonlar yazılır, bilinmeyen alan yok sayılır.
+            var tutulan = Enumerable.Range(0, allCols.Length)
+                .Where(i => DepoWise.Infrastructure.Database.DbIntrospect.ColumnExists(conn, tx, table, allCols[i]))
+                .ToArray();
+            if (tutulan.Length == 0) return;
+            var cols = tutulan.Select(i => allCols[i]).ToArray();
+            var jsonCols = tutulan.Select(i => allJsonCols[i]).ToArray();
 
             using (var del = conn.CreateCommand())
             {

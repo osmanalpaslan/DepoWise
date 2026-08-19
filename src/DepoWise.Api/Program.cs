@@ -1245,7 +1245,7 @@ app.MapGet("/api/lookups/sync", (HttpContext c) =>
         // ayar yerelde geçerli kalır, hiç inmediyse katalog varsayılanı geçerlidir.
         screenVisibility = Rows("SELECT screen_key,platform,enabled FROM screen_platform_visibility WHERE company_id=@c;"),
         menuLayoutScreens = Rows("SELECT screen_key,label_override,group_key_override,sort_order FROM screen_menu_layout WHERE company_id=@c;"),
-        menuLayoutGroups = Rows("SELECT group_key,title_override,sort_order,is_custom FROM menu_group_layout WHERE company_id=@c;"),
+        menuLayoutGroups = Rows("SELECT group_key,title_override,sort_order,is_custom,parent_group_key FROM menu_group_layout WHERE company_id=@c;"),
     });
 }).RequireAuthorization();
 
@@ -2245,6 +2245,7 @@ static object LayoutPayload(MenuLayoutSet set) => new
     groups = set.Groups.Values.Select(o => new
     {
         key = o.GroupKey, title = o.Title, sortOrder = o.SortOrder, isCustom = o.IsCustom,
+        parentGroupKey = o.ParentGroupKey,
     }),
 };
 
@@ -2300,6 +2301,7 @@ app.MapGet("/api/screens/layout/manage", (HttpContext c) =>
         {
             groupKey = g.GroupKey, title = g.Title, sortOrder = g.SortOrder,
             isCustom = g.IsCustom, screenCount = g.ScreenCount,
+            parentGroupKey = g.ParentGroupKey, isSection = g.IsSection,
         }),
     });
 }).RequireAuthorization();
@@ -2314,7 +2316,7 @@ app.MapPost("/api/screens/layout", (HttpContext c, MenuLayoutSaveDto d) =>
             x.ScreenKey ?? "", x.Label, x.GroupKey, x.SortOrder)).ToList();
     var groups = (d.Groups ?? Array.Empty<MenuLayoutGroupDto>())
         .Select(x => new DepoWise.Infrastructure.Organization.GroupLayoutInput(
-            x.GroupKey ?? "", x.Title, x.SortOrder, x.IsCustom)).ToList();
+            x.GroupKey ?? "", x.Title, x.SortOrder, x.IsCustom, x.ParentGroupKey)).ToList();
     if (screens.Count == 0) throw new ArgumentException("Kaydedilecek ekran listesi boş.");
 
     var r = svc.MenuLayout.Save(s, screens, groups);
@@ -3609,7 +3611,7 @@ record ScreenVisibilityDto(string ScreenKey, bool? Desktop, bool? Web);
 
 // MNU — menü düzeni kaydetme gövdesi. Tam durum gönderilir (bkz. MenuLayoutService.Save).
 record MenuLayoutScreenDto(string? ScreenKey, string? Label, string? GroupKey, int SortOrder);
-record MenuLayoutGroupDto(string? GroupKey, string? Title, int SortOrder, bool IsCustom);
+record MenuLayoutGroupDto(string? GroupKey, string? Title, int SortOrder, bool IsCustom, string? ParentGroupKey);
 record MenuLayoutSaveDto(MenuLayoutScreenDto[]? Screens, MenuLayoutGroupDto[]? Groups);
 // G4-1 — cari DTO'lari.
 record PartyDto(string Code, string Title, string PartyType, bool IsPerson = false, string? TaxOffice = null,

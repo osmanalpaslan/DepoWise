@@ -1363,3 +1363,30 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   **hepsi kapalı** hâline getirilemez. Kural **dar** tutuldu: tek platformda kapatmak serbesttir (diğer
   platform kurtarma yolu olarak kalır). Liste keyfî değildir — her üçü de koddan kanıtlanan bir kilitlenme
   üretiyordu; başka ekran korumalı ilan edilmedi.
+
+### ADR-112 — Menüye ÜÇÜNCÜ seviye: ÜST GRUP (19.08.2026)
+- **Bağlam:** Kullanıcı kalabalıklaşan menüyü toparlamak için üst menüleri de gruplamak istedi
+  ("üst menüleri de bir üst menü oluşturup ekleyebileceğim bir yapı"). Menü bugüne kadar iki
+  seviyeliydi: ÜST MENÜ → EKRAN.
+- **Karar:** Üçüncü seviye eklendi — **ÜST GRUP → ÜST MENÜ → EKRAN**. Yönetim yine
+  **Menü / Ekran Yönetimi** ekranından yapılır; ayrı ekran açılmadı (kullanıcı isteği).
+- **Yeni tablo AÇILMADI:** üst grup da bir menü düğümüdür ve mevcut `menu_group_layout` tablosunda
+  `section:` önekli anahtarla saklanır. Tek eklenen alan `parent_group_key` (Migration071,
+  `ALTER TABLE ADD COLUMN`, nullable). Böylece sıralama · ad değiştirme · audit · senkron · önbellek
+  yolları TEK kod üzerinden yürür.
+- **`MenuLayout.Build` DEĞİŞTİRİLMEDİ (kritik):** üstüne `BuildTree` eklendi. Mevcut çözümleyici
+  davranışı ve onu kilitleyen `AppScreensParityTests.S17` aynen duruyor → sıralama/ad mantığında
+  sıfır regresyon riski.
+- **Geri uyumluluk garantisi:** üst grup tanımlanmadığı sürece ağaç, bugünkü düz menünün BİREBİR
+  karşılığıdır (her grup kendi düğümü, tek elemanlı). Gerçek GUI'de doğrulandı: kayıt yokken web ve
+  masaüstü menüleri değişmedi.
+- **Masaüstü ikon rayı ve grup şablonu KORUNDU:** ray düz `Groups` listesinden beslenmeye devam
+  ediyor; XAML'de mevcut grup şablonuna dokunulmadı, yalnız dışına bir seviye sarmalandı.
+- **Sıralama:** üst grup, İLK ÜYESİNİN bulunduğu yerde açılır. İkinci bir sıralama alanı doğmaz;
+  yönetici grupları taşıdıkça üst grup da onlarla birlikte yer değiştirir.
+- **Fail-closed kurallar:** üst grup başka üst grubun altına konulamaz (menü ikiden fazla derinleşmez) ·
+  üst menü yalnız üst gruba bağlanabilir (grup içinde grup yok) · var olmayan üst gruba bağlanamaz ·
+  kendine bağlanamaz. Ekranlar üst gruba DOĞRUDAN bağlanamaz (arayüzde listelenmez).
+- **Yetim koruması:** üst grup elle silinse bile ona bağlı üst menüler kaybolmaz, sessizce en üst
+  seviyeye döner.
+- **Kapsam dışı:** dört ve daha fazla seviye, sürükle-bırak, üst gruba ikon seçimi.

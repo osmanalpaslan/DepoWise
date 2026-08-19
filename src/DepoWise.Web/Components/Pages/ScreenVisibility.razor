@@ -117,6 +117,8 @@ else
                 {
                     <MudButton Variant="Variant.Outlined" aria-label="Yeni üst menü ekle"
                                StartIcon="@Icons.Material.Filled.CreateNewFolder" OnClick="AddGroup">+ Üst Menü</MudButton>
+                    <MudButton Variant="Variant.Outlined" aria-label="Yeni üst grup ekle"
+                               StartIcon="@Icons.Material.Filled.FolderOpen" OnClick="AddSection">+ Üst Grup</MudButton>
                     <MudButton Variant="Variant.Outlined" aria-label="Menüyü önizle"
                                StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => _preview = !_preview)">
                         Menüyü Önizle
@@ -164,8 +166,11 @@ else
                             <MudText Typo="Typo.overline"><b>@baslik</b></MudText>
                             @foreach (var g in PreviewGroups(plat))
                             {
-                                <div class="mt-1"><b>@g.Title</b></div>
-                                @foreach (var r in g.Rows) { <div style="padding-left:16px;">• @r.Label</div> }
+                                <div class="mt-1" style="@($"padding-left:{g.Depth * 12}px;")"><b>@g.Title</b></div>
+                                @foreach (var r in g.Rows)
+                                {
+                                    <div style="@($"padding-left:{g.Depth * 12 + 16}px;")">• @r.Label</div>
+                                }
                             }
                         </div>
                     }
@@ -183,7 +188,8 @@ else
                 </MudText>
                 <MudSimpleTable Dense="true" Striped="true">
                     <thead>
-                        <tr><th style="width:70px;">Sıra</th><th>Görünen Ad</th><th>Sistem Anahtarı</th>
+                        <tr><th style="width:70px;">Sıra</th><th>Görünen Ad</th><th style="width:80px;">Tür</th>
+                            <th style="width:190px;">ÜST GRUP</th><th>Sistem Anahtarı</th>
                             <th style="width:90px;">Ekran</th><th style="width:150px;">İşlem</th></tr>
                     </thead>
                     <tbody>
@@ -196,8 +202,38 @@ else
                                     <input class="mnu-input" value="@g.Title" aria-label="@($"{g.GroupKey} üst menü adı")"
                                            @onchange="@(e => g.Title = (e.Value?.ToString() ?? "").Trim())" />
                                 </td>
+                                <td>
+                                    @if (g.IsSection)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Üst Grup</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <span class="mud-text-secondary" style="font-size:12px;">Üst Menü</span>
+                                    }
+                                </td>
+                                <td>
+                                    @* SEC: yalnız ÜST MENÜLER bir üst gruba bağlanabilir. Üst grubun kendisi
+                                       başka bir üst grubun altına konulamaz → menü ikiden fazla derinleşmez. *@
+                                    @if (!g.IsSection)
+                                    {
+                                        <select class="mnu-select" aria-label="@($"{g.GroupKey} bagli oldugu ust grup")"
+                                                value="@(g.ParentGroupKey ?? "")"
+                                                @onchange="@(e => g.ParentGroupKey = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())">
+                                            <option value="">(üst grup yok)</option>
+                                            @foreach (var s2 in _groups.Where(x => x.IsSection))
+                                            {
+                                                <option value="@s2.GroupKey">@s2.Title</option>
+                                            }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <span class="mud-text-secondary" style="font-size:12px;">—</span>
+                                    }
+                                </td>
                                 <td><span class="mud-text-secondary" style="font-size:12px;">@g.GroupKey</span></td>
-                                <td>@ScreenCount(g.GroupKey)</td>
+                                <td>@(g.IsSection ? ChildGroupCount(g.GroupKey) : ScreenCount(g.GroupKey))</td>
                                 <td>
                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
                                                    aria-label="@($"{g.Title} üst menüsünü yukarı taşı")"
@@ -205,10 +241,10 @@ else
                                     <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
                                                    aria-label="@($"{g.Title} üst menüsünü aşağı taşı")"
                                                    Disabled="@(gi == _groups.Count - 1)" OnClick="@(() => MoveGroup(gi, 1))" />
-                                    @if (g.IsCustom)
+                                    @if (g.IsCustom || g.IsSection)
                                     {
                                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
-                                                       aria-label="@($"{g.Title} üst menüsünü kaldır")"
+                                                       aria-label="@($"{g.Title} {(g.IsSection ? "üst grubunu" : "üst menüsünü")} kaldır")"
                                                        OnClick="@(() => RemoveGroup(g))" />
                                     }
                                 </td>
@@ -281,10 +317,13 @@ else
                                 <td>
                                     @if (_edit && !row.IsProtected)
                                     {
+                                        @* ⚠️ ÜST GRUPLAR bu listede YER ALMAZ: bir ekran doğrudan üst gruba
+                                           bağlanamaz, yalnız bir ÜST MENÜYE bağlanır. Hiyerarşi tek yönlüdür:
+                                           ÜST GRUP → ÜST MENÜ → EKRAN. *@
                                         <select class="mnu-select" aria-label="@($"{row.ScreenKey} üst menüsü")"
                                                 value="@row.GroupKey"
                                                 @onchange="@(e => MoveToGroup(row, e.Value?.ToString() ?? row.GroupKey))">
-                                            @foreach (var gg in _groups) { <option value="@gg.GroupKey">@gg.Title</option> }
+                                            @foreach (var gg in _groups.Where(x => !x.IsSection)) { <option value="@gg.GroupKey">@gg.Title</option> }
                                         </select>
                                     }
                                     else
@@ -394,6 +433,13 @@ else
         public bool IsCustom { get; set; }
         public string OrigTitle { get; set; } = "";
         public int OrigOrder { get; set; }
+
+        // ── SEC (2026-08-19): menünün üçüncü seviyesi ──────────────────────────────────────
+        /// <summary>Bu satır bir ÜST GRUP mu (altında üst menüler bulunur, kendi ekranı yoktur)?</summary>
+        public bool IsSection { get; set; }
+        /// <summary>Bağlı olduğu üst grubun anahtarı; null = en üst seviyede.</summary>
+        public string? ParentGroupKey { get; set; }
+        public string? OrigParentGroupKey { get; set; }
     }
 
     private List<Row>? _rows;
@@ -452,6 +498,8 @@ else
                         GroupKey = S(e, "groupKey"),
                         Title = S(e, "title"),
                         IsCustom = B(e, "isCustom"),
+                        IsSection = B(e, "isSection"),
+                        ParentGroupKey = SN(e, "parentGroupKey"),
                     });
 
             _groups = groups;
@@ -466,7 +514,8 @@ else
     private void Snapshot()
     {
         for (int i = 0; i < _groups.Count; i++)
-        { _groups[i].OrigTitle = _groups[i].Title; _groups[i].OrigOrder = i; }
+        { _groups[i].OrigTitle = _groups[i].Title; _groups[i].OrigOrder = i;
+          _groups[i].OrigParentGroupKey = _groups[i].ParentGroupKey; }
 
         for (int i = 0; i < _rows!.Count; i++)
         { var r = _rows[i]; r.OrigLabel = r.Label; r.OrigGroupKey = r.GroupKey; r.OrigIndex = i;
@@ -505,6 +554,7 @@ else
         int g = 0;
         for (int i = 0; i < _groups.Count; i++)
             if (!string.Equals(_groups[i].Title, _groups[i].OrigTitle, StringComparison.Ordinal)
+                || !string.Equals(_groups[i].ParentGroupKey ?? "", _groups[i].OrigParentGroupKey ?? "", StringComparison.Ordinal)
                 || _groups[i].OrigOrder != i) g++;
 
         // Grubun dizilimi, üyelerin BAŞLANGIÇTAKİ genel sırasına göre artan değilse sıra bozulmuştur.
@@ -574,9 +624,48 @@ else
         });
     }
 
+    /// <summary>
+    /// SEC — yeni ÜST GRUP oluşturur (menünün üçüncü seviyesi). Üst grup ekran taşımaz; altına
+    /// üst menüler bağlanır ve menüde onları tek başlık altında toplar.
+    /// </summary>
+    private async Task AddSection()
+    {
+        var ad = await Dialog.AskReason(
+            "Yeni bir ÜST GRUP oluşturulacak. Üst menüleri bunun altında toplayabilirsiniz.",
+            "Yeni Üst Grup", "Üst grup adı", "Oluştur");
+        if (string.IsNullOrWhiteSpace(ad)) return;
+        _groups.Add(new Grp
+        {
+            GroupKey = "section:" + Guid.NewGuid().ToString("N")[..8],
+            Title = ad.Trim(),
+            IsCustom = true,
+            IsSection = true,
+            OrigTitle = "",
+            OrigOrder = -1,
+        });
+    }
+
+    /// <summary>Bir üst grubun altındaki üst menü sayısı (yönetim listesinde gösterilir).</summary>
+    private int ChildGroupCount(string sectionKey)
+        => _groups.Count(x => string.Equals(x.ParentGroupKey, sectionKey, StringComparison.Ordinal));
+
     /// <summary>Kullanıcı grubunu kaldırır. ⭐ Altında ekran varsa ÖNCE açıkça bildirir (yetim ekran yok).</summary>
     private async Task RemoveGroup(Grp g)
     {
+        // SEC: ÜST GRUP kaldırılıyorsa önce altındaki üst menüler serbest bırakılır → yetim düğüm olmaz.
+        if (g.IsSection)
+        {
+            var bagliOlanlar = _groups.Where(x => string.Equals(x.ParentGroupKey, g.GroupKey, StringComparison.Ordinal)).ToList();
+            if (bagliOlanlar.Count > 0 && !await Dialog.Confirm(
+                $"\"{g.Title}\" üst grubunun altında {bagliOlanlar.Count} üst menü var.\n\n" +
+                "Üst grup kaldırılırsa bu üst menüler en üst seviyeye geri döner. " +
+                "Hiçbir ekran ve hiçbir üst menü kaybolmaz.\n\nDevam edilsin mi?",
+                "Evet, Kaldır", danger: true)) return;
+            foreach (var x in bagliOlanlar) x.ParentGroupKey = null;
+            _groups.Remove(g);
+            return;
+        }
+
         var icindekiler = GroupRows(g.GroupKey);
         if (icindekiler.Count > 0)
         {
@@ -634,6 +723,7 @@ else
             var groups = _groups.Select((g, i) => new
             {
                 groupKey = g.GroupKey, title = g.Title, sortOrder = i, isCustom = g.IsCustom,
+                parentGroupKey = g.ParentGroupKey,
             }).ToList();
 
             var err = await Api.PostAsync("/api/screens/layout", new { screens, groups });
@@ -730,18 +820,33 @@ else
     private List<Row> VisibleRows(string groupKey)
         => GroupRows(groupKey).Where(Matches).ToList();
 
-    private sealed record PreviewGroup(string Title, List<Row> Rows);
+    /// <summary>Önizleme satırı. <paramref name="Depth"/> 0 = üst grup, 1 = üst menü (girintiyi belirler).</summary>
+    private sealed record PreviewGroup(string Title, List<Row> Rows, int Depth = 0);
 
-    /// <summary>Kaydedilmemiş düzenle birlikte menü önizlemesi (süzgeçlerden BAĞIMSIZ).</summary>
+    /// <summary>
+    /// Kaydedilmemiş düzenle birlikte menü önizlemesi (süzgeçlerden BAĞIMSIZ).
+    /// SEC: üst gruplar başlık olarak, altındaki üst menüler bir girinti içeride gösterilir.
+    /// Boş kalan üst grup listelenmez — gerçek menüdeki davranışın aynısı.
+    /// </summary>
     private List<PreviewGroup> PreviewGroups(string platform)
     {
         var sonuc = new List<PreviewGroup>();
-        foreach (var g in _groups)
+        var yazilanUstGrup = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var g in _groups.Where(x => !x.IsSection))
         {
             var satirlar = GroupRows(g.GroupKey)
                 .Where(r => platform == "web" ? r.EffectiveWeb : r.EffectiveDesktop)
                 .ToList();
-            if (satirlar.Count > 0) sonuc.Add(new PreviewGroup(g.Title, satirlar));
+            if (satirlar.Count == 0) continue;
+
+            // Üst grubu (varsa) ilk üyesinden hemen önce, bir kez yaz.
+            var ust = _groups.FirstOrDefault(x => x.IsSection &&
+                string.Equals(x.GroupKey, g.ParentGroupKey, StringComparison.Ordinal));
+            if (ust is not null && yazilanUstGrup.Add(ust.GroupKey))
+                sonuc.Add(new PreviewGroup(ust.Title, new List<Row>(), 0));
+
+            sonuc.Add(new PreviewGroup(g.Title, satirlar, ust is null ? 0 : 1));
         }
         return sonuc;
     }

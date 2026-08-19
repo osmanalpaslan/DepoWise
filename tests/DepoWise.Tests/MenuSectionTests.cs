@@ -1,0 +1,294 @@
+using DepoWise.Application.Common;
+using DepoWise.Application.Security;
+using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Database.Migrations;
+using DepoWise.Infrastructure.Organization;
+using Xunit;
+
+namespace DepoWise.Tests;
+
+/// <summary>
+/// ═══ SEC — ÜST GRUP (menünün üçüncü seviyesi, kullanıcı isteği 2026-08-19) ═══
+///
+/// Menü artık <b>ÜST GRUP → ÜST MENÜ → EKRAN</b> olabilir. Bu testlerin ASIL GÖREVİ yeni yeteneği
+/// göstermek değil, <b>mevcut menünün bozulmadığını</b> kilitlemektir:
+/// <list type="bullet">
+///   <item>üst grup TANIMLANMADIĞI sürece ağaç, bugünkü düz menünün BİREBİR karşılığıdır,</item>
+///   <item><see cref="MenuLayout.Build"/> hiç değişmedi (S17 kilidi ayrıca duruyor),</item>
+///   <item>yetim düğüm, döngü ve ikiden fazla derinlik oluşamaz (fail-closed).</item>
+/// </list>
+/// </summary>
+public class MenuSectionTests : IDisposable
+{
+    private readonly string _dbPath;
+    private readonly SqliteConnectionFactory _factory;
+    private readonly TestClock _clock = new();
+    private readonly MenuLayoutService _svc;
+    private readonly SessionContext _super;
+    private const string Co = "SEC-CO";
+    private const string Digeri = "SEC-DIGER";
+
+    private sealed class TestClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000);
+    }
+
+    public MenuSectionTests()
+    {
+        _dbPath = Path.Combine(Path.GetTempPath(), "dw_sec_" + Guid.NewGuid().ToString("N") + ".db");
+        _factory = new SqliteConnectionFactory(_dbPath);
+        new MigrationRunner(_factory).Run();
+        Sql($"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('{Co}','A',1,1,1,0);");
+        Sql($"INSERT INTO companies(id,name,created_at,updated_at,version,is_deleted) VALUES('{Digeri}','B',1,1,1,0);");
+
+        _svc = new MenuLayoutService(_factory, _clock);
+        _super = new SessionContext("su", Co, new[] { RoleKeys.SuperAdmin }, PermissionSet.Empty);
+        MenuLayoutService.InvalidateAll();
+    }
+
+    private void Sql(string sql)
+    {
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+
+    private const string Ust = "section:test01";
+
+    /// <summary>Mevcut düzeni girdiye çevirir (arayüzün "tam durum" gönderimini taklit eder).</summary>
+    private (List<ScreenLayoutInput> Screens, List<GroupLayoutInput> Groups) Current()
+    {
+        var rows = _svc.List(_super, null);
+        var groups = _svc.Groups(_super);
+        var s = rows.Select(r => new ScreenLayoutInput(r.ScreenKey, r.EffectiveLabel, r.EffectiveGroupKey, r.SortOrder)).ToList();
+        var g = groups.Select(x => new GroupLayoutInput(x.GroupKey, x.Title, x.SortOrder, x.IsCustom, x.ParentGroupKey)).ToList();
+        return (s, g);
+    }
+
+    /// <summary>"Yakıt" ve "Araçlar" üst menülerini yeni bir ÜST GRUBUN altına taşır.</summary>
+    private void IkiGrubuUstGrubaTasi(string ustAd = "Saha")
+    {
+        var (s, g) = Current();
+        g.Add(new GroupLayoutInput(Ust, ustAd, g.Count, true));
+        for (int i = 0; i < g.Count; i++)
+            if (g[i].GroupKey is "Yakıt" or "Araçlar")
+                g[i] = g[i] with { ParentGroupKey = Ust };
+        _svc.Save(_super, s, g);
+    }
+
+    private IReadOnlyList<MenuNodeView> Agac()
+        => MenuLayout.BuildTree(ScreenPlatform.Web, _svc.LayoutFor(Co), _ => true);
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // 1 · GERİ UYUMLULUK — en önemli garanti
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>⭐ Üst grup YOKKEN ağaç, bugünkü düz menünün BİREBİR karşılığıdır.</summary>
+    [Theory]
+    [InlineData(ScreenPlatform.Desktop)]
+    [InlineData(ScreenPlatform.Web)]
+    public void S01_Ust_Grup_Yokken_Agac_Duz_Menuyle_Ayni(ScreenPlatform platform)
+    {
+        var duz = MenuLayout.Build(platform, MenuLayoutSet.Empty, _ => true);
+        var agac = MenuLayout.BuildTree(platform, MenuLayoutSet.Empty, _ => true);
+
+        Assert.Equal(duz.Count, agac.Count);
+        for (int i = 0; i < duz.Count; i++)
+        {
+            Assert.False(agac[i].IsSection);                       // hiçbiri üst grup değil
+            Assert.Equal(duz[i].Key, agac[i].Key);
+            Assert.Equal(duz[i].Title, agac[i].Title);
+            Assert.Single(agac[i].Groups);                          // tek üst menü taşır
+            Assert.Equal(duz[i].Key, agac[i].Groups[0].Key);
+            Assert.Equal(duz[i].Entries.Select(e => e.Screen.Key),
+                         agac[i].Groups[0].Entries.Select(e => e.Screen.Key));
+        }
+    }
+
+    /// <summary>Migration 071 sonrası kayıt yoksa düzen hâlâ BOŞ → menü katalog varsayılanı.</summary>
+    [Fact]
+    public void S02_Migration_Sonrasi_Duzen_Bos()
+        => Assert.True(_svc.LayoutFor(Co).IsEmpty);
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // 2 · TEMEL YETENEK
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>⭐ İki üst menü bir ÜST GRUBUN altında toplanır; diğerleri en üst seviyede kalır.</summary>
+    [Fact]
+    public void S03_Ust_Grup_Altinda_Toplanir()
+    {
+        IkiGrubuUstGrubaTasi();
+
+        var agac = Agac();
+        var ustGrup = agac.SingleOrDefault(n => n.IsSection);
+        Assert.NotNull(ustGrup);
+        Assert.Equal("Saha", ustGrup!.Title);
+        Assert.Equal(new[] { "Araçlar", "Yakıt" }, ustGrup.Groups.Select(g => g.Key).OrderBy(x => x).ToArray());
+
+        // Üst gruba girenler artık en üst seviyede TEK BAŞINA görünmez.
+        Assert.DoesNotContain(agac.Where(n => !n.IsSection), n => n.Key is "Yakıt" or "Araçlar");
+        // Dokunulmayanlar yerinde.
+        Assert.Contains(agac, n => !n.IsSection && n.Key == "Malzemeler");
+    }
+
+    /// <summary>Ekranlar kaybolmaz: ağaçtaki toplam ekran sayısı düz menüyle AYNI.</summary>
+    [Fact]
+    public void S04_Hicbir_Ekran_Kaybolmaz()
+    {
+        var oncekiSayi = MenuLayout.Build(ScreenPlatform.Web, MenuLayoutSet.Empty, _ => true).Sum(g => g.Entries.Count);
+        IkiGrubuUstGrubaTasi();
+        var sonrakiSayi = Agac().SelectMany(n => n.Groups).Sum(g => g.Entries.Count);
+        Assert.Equal(oncekiSayi, sonrakiSayi);
+    }
+
+    /// <summary>Üst grup, İLK ÜYESİNİN bulunduğu yerde açılır (ikinci bir sıralama alanı yok).</summary>
+    [Fact]
+    public void S05_Ust_Grup_Ilk_Uyesinin_Yerinde_Acilir()
+    {
+        IkiGrubuUstGrubaTasi();
+        var agac = Agac();
+
+        // Katalogda Araçlar, Yakıt'tan önce gelir → üst grup Araçlar'ın yerinde açılmalı.
+        var duz = MenuLayout.Build(ScreenPlatform.Web, MenuLayoutSet.Empty, _ => true).Select(g => g.Key).ToList();
+        var beklenenYer = duz.IndexOf("Araçlar");
+        var gercekYer = agac.ToList().FindIndex(n => n.IsSection);
+        Assert.Equal(beklenenYer, gercekYer);
+    }
+
+    /// <summary>Üst grubun adı değiştirilebilir; anahtarı sabit kalır.</summary>
+    [Fact]
+    public void S06_Ust_Grup_Adi_Degisir_Anahtar_Sabit()
+    {
+        IkiGrubuUstGrubaTasi();
+        var (s, g) = Current();
+        int i = g.FindIndex(x => x.GroupKey == Ust);
+        g[i] = g[i] with { Title = "Saha Operasyonu" };
+        _svc.Save(_super, s, g);
+
+        var ustGrup = Agac().Single(n => n.IsSection);
+        Assert.Equal("Saha Operasyonu", ustGrup.Title);
+        Assert.Equal(Ust, ustGrup.Key);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // 3 · BÜTÜNLÜK VE GÜVENLİK (fail-closed)
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>⭐ Üst grup BAŞKA bir üst grubun altına konulamaz → menü ikiden fazla derinleşmez.</summary>
+    [Fact]
+    public void S07_Ust_Grup_Ust_Gruba_Konulamaz()
+    {
+        var (s, g) = Current();
+        g.Add(new GroupLayoutInput(Ust, "Saha", g.Count, true));
+        g.Add(new GroupLayoutInput("section:test02", "Ofis", g.Count, true, Ust));
+        Assert.Throws<ArgumentException>(() => _svc.Save(_super, s, g));
+    }
+
+    /// <summary>Var olmayan üst gruba bağlanamaz (yetim düğüm oluşmaz).</summary>
+    [Fact]
+    public void S08_Var_Olmayan_Ust_Gruba_Baglanamaz()
+    {
+        var (s, g) = Current();
+        int i = g.FindIndex(x => x.GroupKey == "Yakıt");
+        g[i] = g[i] with { ParentGroupKey = "section:yok" };
+        Assert.Throws<ArgumentException>(() => _svc.Save(_super, s, g));
+    }
+
+    /// <summary>Bir üst menü kendi kendisinin altına konulamaz (döngü olmaz).</summary>
+    [Fact]
+    public void S09_Kendine_Baglanamaz()
+    {
+        var (s, g) = Current();
+        int i = g.FindIndex(x => x.GroupKey == "Yakıt");
+        g[i] = g[i] with { ParentGroupKey = "Yakıt" };
+        Assert.Throws<ArgumentException>(() => _svc.Save(_super, s, g));
+    }
+
+    /// <summary>Üst menü, üst grup OLMAYAN bir gruba bağlanamaz (grup içinde grup yok).</summary>
+    [Fact]
+    public void S10_Siradan_Gruba_Baglanamaz()
+    {
+        var (s, g) = Current();
+        int i = g.FindIndex(x => x.GroupKey == "Yakıt");
+        g[i] = g[i] with { ParentGroupKey = "Araçlar" };
+        Assert.Throws<ArgumentException>(() => _svc.Save(_super, s, g));
+    }
+
+    /// <summary>Adsız üst grup reddedilir.</summary>
+    [Fact]
+    public void S11_Adsiz_Ust_Grup_Reddedilir()
+    {
+        var (s, g) = Current();
+        g.Add(new GroupLayoutInput(Ust, "   ", g.Count, true));
+        Assert.Throws<ArgumentException>(() => _svc.Save(_super, s, g));
+    }
+
+    /// <summary>
+    /// ⭐ FAIL-SAFE: üst grup veritabanından silinmiş olsa bile ona bağlı üst menü KAYBOLMAZ —
+    /// sessizce en üst seviyeye döner. (Servis bunu zaten reddeder; bu, elle bozulmuş veriye karşı
+    /// çözümleyicinin savunmasıdır.)
+    /// </summary>
+    [Fact]
+    public void S12_Ust_Grup_Silinse_Bile_Menu_Kaybolmaz()
+    {
+        IkiGrubuUstGrubaTasi();
+        Sql($"DELETE FROM menu_group_layout WHERE company_id='{Co}' AND group_key='{Ust}';");
+        MenuLayoutService.Invalidate(Co);
+
+        var agac = Agac();
+        Assert.DoesNotContain(agac, n => n.IsSection);                       // üst grup yok
+        Assert.Contains(agac, n => n.Key == "Yakıt");                        // ⭐ üst menü geri döndü
+        Assert.Contains(agac, n => n.Key == "Araçlar");
+    }
+
+    /// <summary>Kalıcılık: kayıt yeni bir servis örneğinde de okunur.</summary>
+    [Fact]
+    public void S13_Kalici()
+    {
+        IkiGrubuUstGrubaTasi();
+        MenuLayoutService.InvalidateAll();
+        var yeni = new MenuLayoutService(_factory, _clock);
+        var set = yeni.LayoutFor(Co);
+        Assert.Equal(Ust, MenuLayout.SectionKeyOf("Yakıt", set));
+    }
+
+    /// <summary>⭐ TENANT: bir firmanın üst grubu diğerini ETKİLEMEZ.</summary>
+    [Fact]
+    public void S14_Firma_Ust_Grubu_Digerine_Sizmaz()
+    {
+        IkiGrubuUstGrubaTasi();
+        Assert.True(_svc.LayoutFor(Digeri).IsEmpty);
+        Assert.DoesNotContain(MenuLayout.BuildTree(ScreenPlatform.Web, _svc.LayoutFor(Digeri), _ => true),
+            n => n.IsSection);
+    }
+
+    /// <summary>Yetkisiz kullanıcı üst grup oluşturamaz (mevcut yetki kapısı aynen geçerli).</summary>
+    [Fact]
+    public void S15_Yetkisiz_Ust_Grup_Olusturamaz()
+    {
+        var (s, g) = Current();
+        g.Add(new GroupLayoutInput(Ust, "Saha", g.Count, true));
+        var personel = new SessionContext("p", Co, new[] { RoleKeys.Staff }, PermissionSet.Empty);
+        Assert.Throws<ForbiddenException>(() => _svc.Save(personel, s, g));
+    }
+
+    /// <summary>"Varsayılan düzene dön" üst grupları da kaldırır.</summary>
+    [Fact]
+    public void S16_Varsayilana_Donus_Ust_Gruplari_Kaldirir()
+    {
+        IkiGrubuUstGrubaTasi();
+        _svc.ResetToDefaults(_super);
+
+        Assert.True(_svc.LayoutFor(Co).IsEmpty);
+        Assert.DoesNotContain(Agac(), n => n.IsSection);
+    }
+
+    public void Dispose()
+    {
+        MenuLayoutService.InvalidateAll();
+        try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
+        try { File.Delete(_dbPath); } catch { }
+    }
+}

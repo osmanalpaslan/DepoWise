@@ -26,11 +26,20 @@
         {
             <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Ana Ekran</MudNavLink>
 
-            @foreach (var g in gruplar)
+            @* SEC (2026-08-19): menü artık ÜÇ seviyeli olabilir — ÜST GRUP → ÜST MENÜ → EKRAN.
+               Üst grup tanımlanmamışsa her düğüm tek üst menü taşır ve çıktı BUGÜNKÜYLE BİREBİR AYNIDIR. *@
+            @foreach (var node in Agac())
             {
-                <MudNavGroup Title="@g.Title" Icon="@WebIcon(g.Key)" Expanded="@(g.Key == "Web Yönetimi")">
-                    @foreach (var e in g.Entries) { <MudNavLink Href="@e.Screen.WebRoute">@e.Label</MudNavLink> }
-                </MudNavGroup>
+                if (node.IsSection)
+                {
+                    <MudNavGroup Title="@node.Title" Icon="@Icons.Material.Filled.FolderOpen">
+                        @foreach (var g in node.Groups) { @GrupCiz(g) }
+                    </MudNavGroup>
+                }
+                else
+                {
+                    @GrupCiz(node.Groups[0])
+                }
             }
         }
     }
@@ -67,6 +76,18 @@
     private IReadOnlyList<MenuGroupView> BuildGroups()
         => MenuLayout.Build(ScreenPlatform.Web, Auth.MenuLayout,
             sc => Visible(sc.WebPermKey) && Auth.PlatformOpen(sc.Key));
+
+    /// <summary>SEC — üç seviyeli ağaç. Üst grup yoksa her düğüm tek grup taşır (bugünkü çıktı).</summary>
+    private IReadOnlyList<MenuNodeView> Agac()
+        => MenuLayout.BuildTree(ScreenPlatform.Web, Auth.MenuLayout,
+            sc => Visible(sc.WebPermKey) && Auth.PlatformOpen(sc.Key));
+
+    /// <summary>Tek bir üst menüyü çizer. Hem en üst seviyede hem de bir ÜST GRUBUN içinde
+    /// kullanılır → çizim kuralı tek yerde kalır, iki dal ayrışamaz.</summary>
+    private RenderFragment GrupCiz(MenuGroupView g) => @<MudNavGroup Title="@g.Title" Icon="@WebIcon(g.Key)"
+                                                                    Expanded="@(g.Key == "Web Yönetimi")">
+        @foreach (var e in g.Entries) { <MudNavLink Href="@e.Screen.WebRoute">@e.Label</MudNavLink> }
+    </MudNavGroup>;
 
     private IEnumerable<(MenuGroupView G, MenuEntry E)> Filtered(IReadOnlyList<MenuGroupView> gruplar)
     {

@@ -147,7 +147,8 @@ public sealed class ApiClient
                 if (key.Length == 0) continue;
                 groups[key] = new DepoWise.Application.Security.GroupLayoutOverride(
                     key, StrOrNull(e, "title"), IntOrNull(e, "sortOrder"),
-                    e.TryGetProperty("isCustom", out var ic) && ic.ValueKind == System.Text.Json.JsonValueKind.True);
+                    e.TryGetProperty("isCustom", out var ic) && ic.ValueKind == System.Text.Json.JsonValueKind.True,
+                    StrOrNull(e, "parentGroupKey"));   // SEC: üst grup bağı (menünün 3. seviyesi)
             }
 
         return new DepoWise.Application.Security.MenuLayoutSet(screens, groups);

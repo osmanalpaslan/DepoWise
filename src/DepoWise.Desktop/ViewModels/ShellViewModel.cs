@@ -45,6 +45,9 @@ public sealed partial class ShellViewModel : ViewModelBase
     /// <summary>Ekran Bilgisi butonları yalnız Süper Admin'e (veya geliştirici modunda) görünür.</summary>
     public bool IsSuperAdmin => _session.IsSuperAdmin || DeveloperMode.IsActive;
     [ObservableProperty] private IReadOnlyList<NavGroupVm> _groups = System.Array.Empty<NavGroupVm>();
+    /// <summary>SEC — menünün en üst seviyesi (üst grup ya da doğrudan üst menü). Groups DÜZ kalır:
+    /// ikon rayı ve mevcut davranışlar ondan beslenir, dokunulmadı.</summary>
+    [ObservableProperty] private IReadOnlyList<NavSectionVm> _sections = System.Array.Empty<NavSectionVm>();
 
     // ── Menü arama: kutuya yazınca eşleşen ekranlar düz liste olarak altında çıkar; tıklayınca açılır ──
     [ObservableProperty] private string _menuSearch = "";
@@ -554,6 +557,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         Initial = string.IsNullOrWhiteSpace(DisplayName) ? "?" : DisplayName.Substring(0, 1).ToUpperInvariant();
         Welcome = $"Hoş geldiniz, {DisplayName} — {DateTime.Now:dd MMMM yyyy dddd}";
         Groups = BuildGroups(session);
+        Sections = BuildSections(session);
         DeveloperMode.Changed += OnDeveloperModeChanged;
 
         Navigate("dashboard");
@@ -705,6 +709,43 @@ public sealed partial class ShellViewModel : ViewModelBase
                 g.Entries.Select(e => new NavLinkVm(e.Label, e.Screen.DesktopNavKey!)).ToList()))
             .Where(g => g.Children.Count > 0)
             .ToList();
+    }
+
+    /// <summary>
+    /// SEC (2026-08-19) — menünün üç seviyeli hâli: ÜST GRUP → ÜST MENÜ → EKRAN.
+    ///
+    /// <b>BuildGroups DEĞİŞTİRİLMEDİ</b>; bu metot onun ürettiği grupları <see cref="MenuLayout.BuildTree"/>
+    /// sırasına göre düğümlere paketler. Üst grup tanımlı değilse her grup kendi düğümü olur →
+    /// menü bugünkü hâliyle BİREBİR aynı çizilir. İkon rayı düz <c>Groups</c> listesini kullanmaya
+    /// devam eder; bu yüzden ray hiç etkilenmez.
+    /// </summary>
+    private static IReadOnlyList<NavSectionVm> BuildSections(SessionContext s)
+    {
+        var gruplar = BuildGroups(s);
+        if (gruplar.Count == 0) return System.Array.Empty<NavSectionVm>();
+
+        var haritada = gruplar.ToDictionary(g => g.Title, g => g, StringComparer.Ordinal);
+        var vis = SafeOverrides(s);
+        var duzen = SafeLayout(s);
+
+        var agac = MenuLayout.BuildTree(ScreenPlatform.Desktop, duzen,
+            sc => ScreenVisibility.IsEnabled(sc, ScreenPlatform.Desktop, vis)
+                  && CanSeeChild(s, BaseKey(sc.DesktopNavKey ?? "")));
+
+        var sonuc = new List<NavSectionVm>(agac.Count);
+        foreach (var node in agac)
+        {
+            // Düğümün grupları, BuildGroups'un ürettiği hazır NavGroupVm'lerle eşleştirilir
+            // (başlık = görünen ad). Eşleşmeyen olursa sessizce atlanır — menü bozulmaz.
+            var kids = node.Groups
+                .Select(g => haritada.TryGetValue(g.Title, out var vm) ? vm : null)
+                .Where(vm => vm is not null)!
+                .Cast<NavGroupVm>()
+                .ToList();
+            if (kids.Count == 0) continue;
+            sonuc.Add(new NavSectionVm(node.Title, node.IsSection, kids));
+        }
+        return sonuc;
     }
 
     /// <summary>İkon rayının kullandığı grup modülü. Kullanıcının oluşturduğu grupta katalog karşılığı
@@ -1033,6 +1074,7 @@ public sealed partial class ShellViewModel : ViewModelBase
     private void OnDeveloperModeChanged()
     {
         Groups = BuildGroups(_session);
+        Sections = BuildSections(_session);
         OnPropertyChanged(nameof(IsSuperAdmin));
     }
 

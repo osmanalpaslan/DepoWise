@@ -75,5 +75,6 @@ public static class MigrationCatalog
         new Migration068_Finance(),
         new Migration069_ReversalSyncStamp(),
         new Migration070_MenuLayout(),
+        new Migration071_MenuSection(),
     };
 }
