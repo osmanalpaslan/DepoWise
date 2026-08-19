@@ -909,3 +909,42 @@ kaydetme onayı **kapatılacak ekranları tek tek listeler**. Web **v182** ile c
 
 ### Sıradaki tek iş
 Kullanıcı geri bildirimi bekleniyor ("eksik veya hata görürsem yazarım"). Açık bir iş yok.
+
+---
+
+## 🚀 YAYIN — `SEC` Üst Grup (menüde üçüncü seviye) canlıda (2026-08-19)
+
+Menü artık **ÜST GRUP → ÜST MENÜ → EKRAN** olabiliyor (ADR-112). Yönetim yine
+**Menü / Ekran Yönetimi** ekranında; ayrı ekran açılmadı.
+
+### Deploy öncesi doğrulama
+| Kontrol | Sonuç |
+|---|---|
+| PostgreSQL (izole `depowise_test`) | **48 geçti · 0 başarısız** → Migration 071 (`ALTER TABLE`) PG 18'de sorunsuz |
+| Tam takım (SQLite) | **2115 geçti · 0 başarısız · 35 atlandı** (öncesi 2098 → **+17**, sıfır regresyon) |
+| Release build | API · Web · Masaüstü → **0 hata** |
+| Web GUI | üst grup oluşturuldu, iki üst menü bağlandı, kaydedildi, yenilemede korundu, menüde `SAHA OPERASYONU › ARAÇLAR · YAKIT` göründü |
+| Masaüstü GUI | aynı yapı Avalonia menüsünde de göründü; **ikon rayı ve mevcut ekranlar etkilenmedi** |
+| Üretim yedeği | `depowise_prod_2026-08-19_110807.dump` · 568.009 bayt · SHA-256 `cf923ee2…65b4a` · `pg_restore -l` çıkış 0, **77 TABLE DATA** |
+
+### Deploy sonucu
+| | |
+|---|---|
+| API | `depowise-erp` **v159** · started · `/health` 200 · `/api/public/companies` 200 → `ed271d0ca2b04a73b97f5025a53a04b4 / Oze İnşaat` |
+| Migration 071 | **uygulandı** — `71 \| menu_section \| 2026-08-19 08:09:43+00` · `parent_group_key` kolonu oluştu |
+| Şema sürümü | **70 → 71** |
+| Web | `depowise-web` **v183** · `/`, `/login`, `/screen-visibility`, `/reports`, `/parties` → 200 |
+| Masaüstü | **1.0.142** · 89.950.837 bayt · SHA-256 `35D3955F…B56456` · indirme ucu 200 · disk %45 |
+
+### Üretim verisi (READ ONLY + ROLLBACK)
+Firma **3→3** · Kullanıcı **8→8** · Şube **10→10** · Stok hareketi **663→663** · Tablo **77→77**
+(Migration 071 yalnız kolon ekledi, tablo sayısı değişmedi).
+`menu_group_layout` ve `screen_menu_layout` **0 satır** → hiçbir firmanın menüsü değişmedi;
+özellik **kullanılmaya hazır ama kapalı**.
+
+### Bu turda düzeltilen hata
+Web istemcisi düzen paketindeki `parentGroupKey` alanını okumuyordu → kaydedilen üst grup menüye
+yansımıyordu. Gerçek GUI turunda yakalandı, `ApiClient.ParseLayout` düzeltildi.
+
+### Sıradaki tek iş
+Kullanıcı geri bildirimi. Açık iş yok.
