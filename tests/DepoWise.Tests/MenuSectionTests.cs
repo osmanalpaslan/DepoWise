@@ -84,26 +84,40 @@ public class MenuSectionTests : IDisposable
     // 1 · GERİ UYUMLULUK — en önemli garanti
     // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-    /// <summary>⭐ Üst grup YOKKEN ağaç, bugünkü düz menünün BİREBİR karşılığıdır.</summary>
+    /// <summary>
+    /// ⭐ Firma kaydı YOKKEN ağaç, <b>KATALOG VARSAYILANININ</b> birebir karşılığıdır
+    /// (2026-08-19: kullanıcının nihai şeması artık projenin varsayılan menüsüdür).
+    ///
+    /// Garanti şudur: düz menüdeki HER grup ağaçta tam bir kez bulunur, hiçbir ekran kaybolmaz,
+    /// ve bir grubun üst grubu <b>katalogda yazan</b> üst gruptur — ne eksik ne fazla.
+    /// </summary>
     [Theory]
     [InlineData(ScreenPlatform.Desktop)]
     [InlineData(ScreenPlatform.Web)]
-    public void S01_Ust_Grup_Yokken_Agac_Duz_Menuyle_Ayni(ScreenPlatform platform)
+    public void S01_Kayit_Yokken_Agac_Katalog_Varsayilani(ScreenPlatform platform)
     {
         var duz = MenuLayout.Build(platform, MenuLayoutSet.Empty, _ => true);
         var agac = MenuLayout.BuildTree(platform, MenuLayoutSet.Empty, _ => true);
 
-        Assert.Equal(duz.Count, agac.Count);
-        for (int i = 0; i < duz.Count; i++)
+        // 1) Hiçbir grup kaybolmaz, tekrar etmez ve sırası düz menüdeki sırayla aynıdır.
+        var agactakiGruplar = agac.SelectMany(n => n.Groups).Select(g => g.Key).ToList();
+        Assert.Equal(duz.Select(g => g.Key), agactakiGruplar);
+
+        // 2) Her grubun ekranları birebir aynı.
+        foreach (var d in duz)
         {
-            Assert.False(agac[i].IsSection);                       // hiçbiri üst grup değil
-            Assert.Equal(duz[i].Key, agac[i].Key);
-            Assert.Equal(duz[i].Title, agac[i].Title);
-            Assert.Single(agac[i].Groups);                          // tek üst menü taşır
-            Assert.Equal(duz[i].Key, agac[i].Groups[0].Key);
-            Assert.Equal(duz[i].Entries.Select(e => e.Screen.Key),
-                         agac[i].Groups[0].Entries.Select(e => e.Screen.Key));
+            var a = agac.SelectMany(n => n.Groups).Single(g => g.Key == d.Key);
+            Assert.Equal(d.Entries.Select(e => e.Screen.Key), a.Entries.Select(e => e.Screen.Key));
         }
+
+        // 3) Gruplama KATALOĞUN dediği gibi: üst grubu olan grup o üst grubun altında, olmayan en üstte.
+        foreach (var node in agac)
+            foreach (var g in node.Groups)
+            {
+                var beklenenUst = AppScreens.SectionOfGroup(g.Key);
+                Assert.Equal(beklenenUst is null, !node.IsSection);
+                if (beklenenUst is not null) Assert.Equal(beklenenUst, node.Key);
+            }
     }
 
     /// <summary>Migration 071 sonrası kayıt yoksa düzen hâlâ BOŞ → menü katalog varsayılanı.</summary>
@@ -122,15 +136,19 @@ public class MenuSectionTests : IDisposable
         IkiGrubuUstGrubaTasi();
 
         var agac = Agac();
-        var ustGrup = agac.SingleOrDefault(n => n.IsSection);
+        var ustGrup = agac.SingleOrDefault(n => n.Key == Ust);
         Assert.NotNull(ustGrup);
-        Assert.Equal("Saha", ustGrup!.Title);
+        Assert.True(ustGrup!.IsSection);
+        Assert.Equal("Saha", ustGrup.Title);
         Assert.Equal(new[] { "Araçlar", "Yakıt" }, ustGrup.Groups.Select(g => g.Key).OrderBy(x => x).ToArray());
 
         // Üst gruba girenler artık en üst seviyede TEK BAŞINA görünmez.
         Assert.DoesNotContain(agac.Where(n => !n.IsSection), n => n.Key is "Yakıt" or "Araçlar");
-        // Dokunulmayanlar yerinde.
-        Assert.Contains(agac, n => !n.IsSection && n.Key == "Malzemeler");
+        // Dokunulmayanlar yerinde: Malzemeler katalog üst grubunda kalmalı (elle taşınmadı).
+        var malzeme = agac.SelectMany(n => n.Groups).Single(g => g.Key == "Malzemeler");
+        Assert.NotNull(malzeme);
+        Assert.Equal("section:malzemestok",
+            agac.Single(n => n.Groups.Any(g => g.Key == "Malzemeler")).Key);
     }
 
     /// <summary>Ekranlar kaybolmaz: ağaçtaki toplam ekran sayısı düz menüyle AYNI.</summary>
@@ -153,7 +171,7 @@ public class MenuSectionTests : IDisposable
         // Katalogda Araçlar, Yakıt'tan önce gelir → üst grup Araçlar'ın yerinde açılmalı.
         var duz = MenuLayout.Build(ScreenPlatform.Web, MenuLayoutSet.Empty, _ => true).Select(g => g.Key).ToList();
         var beklenenYer = duz.IndexOf("Araçlar");
-        var gercekYer = agac.ToList().FindIndex(n => n.IsSection);
+        var gercekYer = agac.ToList().FindIndex(n => n.Key == Ust);
         Assert.Equal(beklenenYer, gercekYer);
     }
 
@@ -167,7 +185,7 @@ public class MenuSectionTests : IDisposable
         g[i] = g[i] with { Title = "Saha Operasyonu" };
         _svc.Save(_super, s, g);
 
-        var ustGrup = Agac().Single(n => n.IsSection);
+        var ustGrup = Agac().Single(n => n.Key == Ust);
         Assert.Equal("Saha Operasyonu", ustGrup.Title);
         Assert.Equal(Ust, ustGrup.Key);
     }
@@ -238,7 +256,7 @@ public class MenuSectionTests : IDisposable
         MenuLayoutService.Invalidate(Co);
 
         var agac = Agac();
-        Assert.DoesNotContain(agac, n => n.IsSection);                       // üst grup yok
+        Assert.DoesNotContain(agac, n => n.Key == Ust);                      // silinen üst grup yok
         Assert.Contains(agac, n => n.Key == "Yakıt");                        // ⭐ üst menü geri döndü
         Assert.Contains(agac, n => n.Key == "Araçlar");
     }
@@ -261,7 +279,7 @@ public class MenuSectionTests : IDisposable
         IkiGrubuUstGrubaTasi();
         Assert.True(_svc.LayoutFor(Digeri).IsEmpty);
         Assert.DoesNotContain(MenuLayout.BuildTree(ScreenPlatform.Web, _svc.LayoutFor(Digeri), _ => true),
-            n => n.IsSection);
+            n => n.Key == Ust);
     }
 
     /// <summary>Yetkisiz kullanıcı üst grup oluşturamaz (mevcut yetki kapısı aynen geçerli).</summary>
@@ -282,7 +300,9 @@ public class MenuSectionTests : IDisposable
         _svc.ResetToDefaults(_super);
 
         Assert.True(_svc.LayoutFor(Co).IsEmpty);
-        Assert.DoesNotContain(Agac(), n => n.IsSection);
+        Assert.DoesNotContain(Agac(), n => n.Key == Ust);
+        // Katalog varsayılanı geri gelir: Yakıt yeniden Operasyon üst grubunun altındadır.
+        Assert.Equal("section:operasyon", Agac().Single(n => n.Groups.Any(g => g.Key == "Yakıt")).Key);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -317,7 +337,7 @@ public class MenuSectionTests : IDisposable
 
         MenuLayoutService.InvalidateAll();
         Assert.DoesNotContain(Ust, _svc.LayoutFor(Co).Groups.Keys);
-        Assert.DoesNotContain(Agac(), n => n.IsSection);
+        Assert.DoesNotContain(Agac(), n => n.Key == Ust);
     }
 
     /// <summary>Dolu ÜST GRUP korunur — kural yalnız BOŞ tanımı eler.</summary>

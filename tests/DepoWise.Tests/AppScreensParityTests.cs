@@ -278,34 +278,38 @@ public class AppScreensParityTests
     // 13–15 · TAŞIMA REGRESYONU — menüler ESKİSİYLE BİREBİR mi?
     // ═════════════════════════════════════════════════════════════════════════════════════════
 
-    /// <summary>13 — MASAÜSTÜ menüsü taşımadan ÖNCEKİ hâliyle birebir aynı olmalı:
-    /// grup sırası + başlıklar + her grubun bağlantı anahtarları. Beklenen değerler taşımadan önce
-    /// kaynaktan ÖLÇÜLMÜŞTÜR — kullanıcının alışkanlığı bozulmamalı.</summary>
+    /// <summary>13 — MASAÜSTÜ menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
+    /// başlıklar + her grubun bağlantı anahtarları.
+    ///
+    /// ⚠️ 2026-08-19: beklenen değerler kullanıcının ilettiği NİHAİ ŞEMAYA göre YENİDEN yazıldı
+    /// (ADR-114). Önceki değerler taşıma öncesi menüyü kilitliyordu; varsayılan menü bilinçli olarak
+    /// değiştirildiği için referans da bilinçli olarak güncellendi. Toplam bağlantı sayısı DEĞİŞMEDİ
+    /// (47) — yani hiçbir ekran kaybolmadı, yalnız gruplama ve sıra değişti.</summary>
     [Fact]
-    public void S13_Masaustu_Menusu_Tasimadan_Once_Ile_Ayni()
+    public void S13_Masaustu_Menusu_Varsayilan_Semayla_Ayni()
     {
         var beklenen = new (string Grup, string[] Anahtarlar)[]
         {
             ("Uyarılar", new[] { "alerts" }),
-            ("Malzemeler", new[] { "materials", "materials:new", "material_templates:templates", "stock", "stock:movements", "stock:count", "stock:distribute" }),
+            ("Malzemeler", new[] { "materials", "materials:new", "stock", "stock:movements", "stock:count", "material_templates:templates", "stock:distribute" }),
             ("Araçlar", new[] { "vehicles", "vehicles:new", "vehicle_templates:templates", "inspection" }),
-            ("Personel", new[] { "personnel" }),
             ("Günlük Faaliyet", new[] { "daily_activity" }),
             ("Bakım Takibi", new[] { "maintenance:defs", "maintenance:records" }),
             ("Yakıt", new[] { "fuel:dist", "fuel:depot", "fuel:summary" }),
-            ("Yönetim", new[] { "branches", "audit", "stock_change_log" }),
             ("Talepler", new[] { "requests:form", "requests:approve", "request_ops:board" }),
-            ("Raporlar", new[] { "reports" }),
-            ("Yönetici Raporları", new[] { "reports" }),
-            ("İmport / Export", new[] { "import_export" }),
             // G4-1 cari + G4-2 fatura + G4-3 kasa/banka. Her biri AYRI modüldür ("parties",
             // "invoices", "finance") ve menüde eklendikleri sırayla görünür.
             ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new",
                                     "finance", "finance:new", "payments" }),
-            ("Kullanıcı", new[] { "users", "permissions", "permission_templates" }),
-            ("Ayarlar", new[] { "definitions", "settings:developer", "theme", "about" }),
+            ("Operasyon Raporları", new[] { "reports" }),
+            ("Yönetici Raporları", new[] { "reports" }),
+            ("Şube ve Personel", new[] { "branches", "personnel" }),
+            ("Kullanıcı Yönetimi", new[] { "users", "permissions", "permission_templates" }),
+            ("Denetim", new[] { "audit", "stock_change_log" }),
             ("Web Yönetimi", new[] { "companies", "releases", "machines", "server_backups" }),
+            // "Yedekleme" grubu masaüstünde GÖRÜNMEZ: tek ekranı (Yedek Yönetimi) yalnız web'dedir.
             ("Çöp Kutusu", new[] { "trash" }),
+            ("Ayarlar", new[] { "definitions", "import_export", "settings:developer", "theme", "about" }),
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Desktop)
@@ -316,37 +320,38 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Anahtarlar, gercek[i].Item2);
-        // Taşımadan önce 40'tı; G4-1 Cari (+2), G4-2 Fatura (+2), G4-3 Kasa/Banka (+3) bilinçli
-        // olarak eklendi → 47.
+        // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 47. Ekran kaybı olmadığının kanıtı.
         Assert.Equal(47, gercek.Sum(x => x.Item2.Length));
     }
 
-    /// <summary>14 — WEB menüsü taşımadan ÖNCEKİ hâliyle birebir aynı olmalı: grup sırası +
-    /// route'lar + YETKİ ANAHTARLARI (sözde anahtarlar @admin/@super/@superr dahil).</summary>
+    /// <summary>14 — WEB menüsü <b>VARSAYILAN ŞEMAYLA</b> birebir aynı olmalı: grup sırası +
+    /// route'lar + YETKİ ANAHTARLARI (sözde anahtarlar @admin/@super/@superr dahil).
+    /// Toplam bağlantı sayısı DEĞİŞMEDİ (55).</summary>
     [Fact]
-    public void S14_Web_Menusu_Tasimadan_Once_Ile_Ayni()
+    public void S14_Web_Menusu_Varsayilan_Semayla_Ayni()
     {
         var beklenen = new (string Grup, (string Perm, string Route)[] Baglantilar)[]
         {
             ("Uyarılar", new[] { ("", "alerts") }),
             ("Malzemeler", new[] { ("materials", "materials"), ("materials", "materials/new"), ("stock", "stock"), ("stock", "stock/movements"), ("stock", "stock/count") }),
             ("Araçlar", new[] { ("vehicles", "vehicles"), ("vehicles", "vehicles/new"), ("vehicle_templates", "vehicle-templates"), ("inspection", "inspection") }),
-            ("Personel", new[] { ("personnel", "personnel") }),
             ("Günlük Faaliyet", new[] { ("daily_activity", "daily") }),
             ("Bakım Takibi", new[] { ("maintenance", "maintenance/defs"), ("maintenance", "maintenance/records") }),
             ("Yakıt", new[] { ("fuel", "fuel/dist"), ("fuel", "fuel/depot"), ("fuel", "fuel/summary") }),
-            ("Yönetim", new[] { ("branches", "branches"), ("audit", "audit"), ("stock_change_log", "stock-change-log"), ("@superr", "backup") }),
             ("Talepler", new[] { ("requests", "requests"), ("requests", "requests/approve"), ("request_ops", "request-operations") }),
-            ("Raporlar", new[] { ("reports", "reports") }),
-            ("Yönetici Raporları", new[] { ("@admin", "reports") }),
             ("Ön Muhasebe", new[] { ("parties", "parties"), ("parties", "parties/new"),
                                     ("invoices", "invoices"), ("invoices", "invoices/new"),
                                     ("finance", "finance"), ("finance", "finance/new"),
                                     ("finance", "payments") }),   // G4-1 + G4-2 + G4-3
-            ("Kullanıcı", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
-            ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("settings", "developer"), ("", "theme"), ("", "soon/about") }),
+            ("Operasyon Raporları", new[] { ("reports", "reports") }),
+            ("Yönetici Raporları", new[] { ("@admin", "reports") }),
+            ("Şube ve Personel", new[] { ("branches", "branches"), ("personnel", "personnel") }),
+            ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
+            ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),
             ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("role_permissions", "role-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
+            ("Yedekleme", new[] { ("@superr", "backup") }),
             ("Çöp Kutusu", new[] { ("trash", "trash") }),
+            ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("settings", "developer"), ("", "theme"), ("", "soon/about") }),
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Web)
@@ -357,10 +362,48 @@ public class AppScreensParityTests
         Assert.Equal(beklenen.Select(x => x.Grup), gercek.Select(x => x.Item1));
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Baglantilar, gercek[i].Item2);
-        // Taşımadan önce ölçülen 46 bağlantı KORUNDU; G5 yönetim ekranı bilinçli olarak eklendi (+1).
-        // 46 (taşıma) + 1 (G5 yönetim) + 2 (G4-1 Cari) + 2 (G4-2 Fatura) + 3 (G4-3 Kasa/Banka)
-        //   + 1 (YET: Yerel Veri Sıfırlama — kullanıcı isteği 2026-08-18) = 55.
+        // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
         Assert.Equal(55, gercek.Sum(x => x.Item2.Length));
+    }
+
+    /// <summary>
+    /// 14b (2026-08-19, ADR-114) — <b>VARSAYILAN ÜST GRUPLAR</b> kilidi. Kullanıcının nihai şeması
+    /// artık kataloğun kendisindedir: hiçbir firma kaydı olmadan menü üç seviyeli çıkar.
+    /// </summary>
+    [Fact]
+    public void S14b_Varsayilan_Ust_Gruplar_Semayla_Ayni()
+    {
+        Assert.Equal(
+            new[] { "Malzeme ve Stok", "Operasyon", "Finans", "Raporlar", "Kurumsal Yönetim", "Sistem Yönetimi" },
+            AppScreens.Sections.Select(x => x.Title).ToArray());
+
+        var beklenen = new (string Grup, string? UstGrup)[]
+        {
+            ("Uyarılar", null),
+            ("Malzemeler", "section:malzemestok"),
+            ("Araçlar", "section:operasyon"),
+            ("Günlük Faaliyet", "section:operasyon"),
+            ("Bakım Takibi", "section:operasyon"),
+            ("Yakıt", "section:operasyon"),
+            ("Talepler", null),
+            ("Ön Muhasebe", "section:finans"),
+            ("Operasyon Raporları", "section:raporlar"),
+            ("Yönetici Raporları", "section:raporlar"),
+            ("Şube ve Personel", "section:kurumsal"),
+            ("Kullanıcı Yönetimi", "section:kurumsal"),
+            ("Denetim", "section:kurumsal"),
+            ("Web Yönetimi", "section:sistem"),
+            ("Yedekleme", "section:sistem"),
+            ("Çöp Kutusu", "section:sistem"),
+            ("Ayarlar", null),
+        };
+
+        Assert.Equal(beklenen.Select(x => x.Grup), AppScreens.Groups.Select(g => g.Title));
+        Assert.Equal(beklenen.Select(x => x.UstGrup), AppScreens.Groups.Select(g => g.Section));
+
+        // Her üst grubun altında EN AZ BİR üst menü olmalı — boş üst grup varsayılanda bulunmaz.
+        foreach (var sec in AppScreens.Sections)
+            Assert.Contains(AppScreens.Groups, g => g.Section == sec.Key);
     }
 
     /// <summary>15 — Çöp Kutusu'nun web yetki anahtarı artık sözde <c>@admin</c> DEĞİL, gerçek

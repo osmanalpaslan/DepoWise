@@ -1407,3 +1407,27 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   doğrulaması aynen çalışır (var olmayan gruba taşıma hâlâ reddedilir).
 - **Testler:** `MenuSectionTests` S18 (boş grup yazılmaz, 58 ekran yerinde durur) · S19 (altı boş üst
   grup yazılmaz) · S20 (dolu üst grup korunur).
+
+## ADR-114 — Nihai menü şeması artık PROJENİN VARSAYILANI (2026-08-19)
+- **Bağlam:** Şema önce yalnız firma bazlı kayıt olarak uygulanmıştı. Kullanıcı: *"son attığım şemayı
+  firmaya özel göndermedim; son şema projenin varsayılan menü şeması olmalı."*
+- **Karar:** Şema `AppScreens` kataloğuna taşındı. Artık **hiçbir firma kaydı olmadan** menü üç seviyeli
+  ve şemadaki düzende çıkar; yeni açılan her firma da bu menüyle başlar.
+- **Katalog üç seviyeli oldu (additive):** yeni `AppScreens.Sections` listesi (6 üst grup) ve
+  `AppScreenGroup.Section` alanı. Anahtar biçimi firma bazlı üst gruplarla **AYNIDIR** (`section:*`) →
+  katalog varsayılanı ile firma tercihi tek kod yolunda buluşur, ikinci bir mekanizma doğmaz.
+- **Çözümleyici kuralı:** `MenuLayout.SectionKeyOf` artık **satır varsa satır, satır yoksa katalog**
+  der. Bir firma grubu en üst seviyeye taşıdığında `Save` satırı YAZAR (parent=null) — aksi hâlde
+  katalog varsayılanı sessizce geri gelirdi.
+- **Değişen gruplar:** `Personel` + `Yönetim` → **Şube ve Personel** · `Yönetim` (log) → **Denetim** ·
+  `Yönetim` (yedek) → **Yedekleme** · `Kullanıcı` → **Kullanıcı Yönetimi** · `Raporlar` →
+  **Operasyon Raporları** · `İmport / Export` → **Ayarlar** altında *Excel'e Aktarım*.
+- **EKRAN KAYBI YOK — kanıtlı:** masaüstü menü bağlantısı **47 → 47**, web **55 → 55**. Sayılar
+  S13/S14 testlerinde kilitli.
+- **Referans testleri BİLİNÇLİ güncellendi:** S13/S14 taşıma-öncesi menüyü kilitliyordu; varsayılan menü
+  kasten değiştiği için beklenen değerler yeniden yazıldı (gevşetilmedi — sıra, anahtar ve toplam sayı
+  hâlâ birebir doğrulanıyor). Yeni **S14b** varsayılan üst grup haritasını ayrıca kilitler.
+- **Firma kayıtları temizlendi:** şema artık varsayılan olduğu için firmaların düzen kayıtları
+  `/api/screens/layout/reset` ile kaldırıldı → aynı menü, sıfır kayıt.
+- **Masaüstü yeni sürüm gerektirir:** katalog masaüstü uygulamasına derlenir; eski sürüm eski
+  varsayılanı gösterirdi.

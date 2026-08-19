@@ -204,6 +204,12 @@ public sealed class MenuLayoutService
                 rows.Add(new MenuGroupRow(g.Title, MenuLayout.GroupTitleOf(g.Title, set), rows.Count, false, 0,
                     MenuLayout.SectionKeyOf(g.Title, set)));
 
+        // KATALOG üst grupları: firma kaydı olmasa da yönetim ekranında görünmeli (varsayılan şema).
+        foreach (var sec in AppScreens.Sections)
+            if (bilinen.Add(sec.Key))
+                rows.Add(new MenuGroupRow(sec.Key, MenuLayout.GroupTitleOf(sec.Key, set), rows.Count,
+                    true, 0, null, true));
+
         // SEC: ÜST GRUPLAR ekran taşımaz → Build'de hiç görünmezler. Yönetim ekranı onları da
         // listelemeli ki yönetici adını değiştirebilsin, altına grup bağlayabilsin, kaldırabilsin.
         foreach (var key in set.Groups.Keys)
@@ -269,7 +275,7 @@ public sealed class MenuLayoutService
                 throw new ArgumentException("Bir üst menü kendi kendisinin altına konulamaz.");
             if (!MenuLayout.IsSectionKey(parent))
                 throw new ArgumentException("Üst menü yalnız bir ÜST GRUBUN altına konulabilir.");
-            if (!ustGrupAnahtarlari.Contains(parent))
+            if (!ustGrupAnahtarlari.Contains(parent) && !AppScreens.IsCatalogSection(parent))
                 throw new ArgumentException($"Var olmayan bir üst gruba bağlanamaz ({parent}).");
         }
 
@@ -304,7 +310,7 @@ public sealed class MenuLayoutService
             StringComparer.Ordinal);
         temizGruplar = temizGruplar
             .Where(g => MenuLayout.IsSectionKey(g.GroupKey)
-                ? doluUstGruplar.Contains(g.GroupKey)
+                ? doluUstGruplar.Contains(g.GroupKey) || AppScreens.IsCatalogSection(g.GroupKey)
                 : ekranTasiyan.Contains(g.GroupKey))
             .ToList();
 
@@ -343,19 +349,37 @@ public sealed class MenuLayoutService
         }
 
         // Grup sırası katalogla aynıysa grup sıra kaydı da tutulmaz.
+        // ⚠️ ÜST GRUPLAR sıralamaya GİRMEZ: bir üst grup menüde İLK ÜYESİNİN yerinde açılır, kendi
+        // sıra alanı yoktur. Karşılaştırma bu yüzden yalnız sıradan üst menüler üzerinden yapılır.
         var katalogGrupSirasi = AppScreens.Groups.Select(g => g.Title).ToList();
-        var istenenGrupSirasi = temizGruplar.OrderBy(g => g.SortOrder).Select(g => g.GroupKey).ToList();
-        var grupSirasiVarsayilan = katalogGrupSirasi.SequenceEqual(istenenGrupSirasi, StringComparer.Ordinal);
+        var siraliMenuler = temizGruplar
+            .Where(g => !MenuLayout.IsSectionKey(g.GroupKey))
+            .OrderBy(g => g.SortOrder).ToList();
+        var grupSirasiVarsayilan = katalogGrupSirasi.SequenceEqual(
+            siraliMenuler.Select(g => g.GroupKey), StringComparer.Ordinal);
 
         var yazilacakGruplar = new List<(string Key, string? Title, int? Sort, bool Custom, string? Parent)>();
         var sirali = temizGruplar.OrderBy(g => g.SortOrder).ToList();
         for (int i = 0; i < sirali.Count; i++)
         {
             var g = sirali[i];
-            var baslik = !g.IsCustom && string.Equals(g.Title, g.GroupKey, StringComparison.Ordinal) ? null : g.Title;
-            int? sira = grupSirasiVarsayilan ? null : i;
+            // Katalog varsayılan başlığı: sıradan grupta anahtarın kendisi, ÜST GRUPTA katalog başlığı.
+            var katalogBaslik = AppScreens.SectionTitleOf(g.GroupKey)
+                                ?? (MenuLayout.IsCatalogGroup(g.GroupKey) ? g.GroupKey : null);
+            var baslik = katalogBaslik is not null
+                         && string.Equals(g.Title, katalogBaslik, StringComparison.Ordinal) ? null : g.Title;
+            // Katalogda tanımlı üst grup KULLANICI grubu sayılmaz → tek başına satır yazdırmaz.
+            var ozelKayit = g.IsCustom && katalogBaslik is null;
+            int? sira = MenuLayout.IsSectionKey(g.GroupKey) || grupSirasiVarsayilan
+                ? null
+                : siraliMenuler.FindIndex(x => string.Equals(x.GroupKey, g.GroupKey, StringComparison.Ordinal));
             // SEC: üst grup bağı da bir tercihtir — varsa satır MUTLAKA yazılır (yoksa bağ kaybolurdu).
-            if (baslik is null && sira is null && !g.IsCustom && g.ParentGroupKey is null) continue;
+            // ⭐ Üst grup bağı katalog varsayılanıyla AYNIYSA satır tutulmaz; FARKLIYSA mutlaka yazılır
+            // (en üst seviyeye taşıma da bir tercihtir → parent=null satırı yazılır, aksi hâlde
+            //  katalog varsayılanı sessizce geri gelirdi).
+            var katalogUst = AppScreens.SectionOfGroup(g.GroupKey);
+            var ustFarkli = !string.Equals(g.ParentGroupKey ?? "", katalogUst ?? "", StringComparison.Ordinal);
+            if (baslik is null && sira is null && !ozelKayit && !ustFarkli) continue;
             yazilacakGruplar.Add((g.GroupKey, baslik, sira, g.IsCustom, g.ParentGroupKey));
         }
 

@@ -16,7 +16,14 @@ public enum ScreenPlatform
 
 /// <summary>Menü grubu (iki platformda AYNI başlık ve sıra). Masaüstü ikon olarak emoji kullanır;
 /// web ikonu MudBlazor sabitidir ve yalnız web projesinde çözülür (Application katmanı MudBlazor'a bağımlı değildir).</summary>
-public sealed record AppScreenGroup(string Title, string DesktopIcon, string ModuleKey);
+public sealed record AppScreenGroup(string Title, string DesktopIcon, string ModuleKey, string? Section = null);
+
+/// <summary>
+/// SEC — menünün ÜÇÜNCÜ seviyesi: <b>ÜST GRUP</b>. Ekran taşımaz; altında üst menüler bulunur.
+/// Anahtarı <c>section:</c> önekiyle başlar (firma bazlı üst gruplarla AYNI anahtar biçimi — böylece
+/// katalog varsayılanı ile firma tercihi tek kod yolunda buluşur).
+/// </summary>
+public sealed record AppScreenSection(string Key, string Title);
 
 /// <summary>
 /// TEK EKRAN TANIMI (G2/G6). Menüler, gezinme ve platform görünürlüğü BUNDAN türetilir.
@@ -75,27 +82,41 @@ public sealed record AppScreen(
 /// </summary>
 public static class AppScreens
 {
-    /// <summary>Menü grupları — iki platformda AYNI başlık ve sıra.</summary>
+    /// <summary>
+    /// SEC — ÜST GRUPLAR (menünün en üst seviyesi). Kullanıcının 2026-08-19'da ilettiği NİHAİ ŞEMA
+    /// artık projenin VARSAYILAN menüsüdür: hiçbir firma kaydı olmadan da menü bu düzende çıkar.
+    /// Sıra buradaki sıradır; bir üst grup, ilk üyesinin bulunduğu yerde açılır.
+    /// </summary>
+    public static readonly IReadOnlyList<AppScreenSection> Sections = new[]
+    {
+        new AppScreenSection("section:malzemestok", "Malzeme ve Stok"),
+        new AppScreenSection("section:operasyon",   "Operasyon"),
+        new AppScreenSection("section:finans",      "Finans"),
+        new AppScreenSection("section:raporlar",    "Raporlar"),
+        new AppScreenSection("section:kurumsal",    "Kurumsal Yönetim"),
+        new AppScreenSection("section:sistem",      "Sistem Yönetimi"),
+    };
+
+    /// <summary>Menü grupları — iki platformda AYNI başlık ve sıra. Dördüncü alan bağlı olduğu ÜST GRUP.</summary>
     public static readonly IReadOnlyList<AppScreenGroup> Groups = new[]
     {
-        new AppScreenGroup("Uyarılar", "🔔", "alerts"),
-        new AppScreenGroup("Malzemeler", "📦", "materials"),
-        new AppScreenGroup("Araçlar", "🚚", "vehicles"),
-        new AppScreenGroup("Personel", "🧑‍🔧", "personnel"),
-        new AppScreenGroup("Günlük Faaliyet", "📋", "daily_activity"),
-        new AppScreenGroup("Bakım Takibi", "🔧", "maintenance"),
-        new AppScreenGroup("Yakıt", "⛽", "fuel"),
-        new AppScreenGroup("Yönetim", "👤", "branches"),
-        new AppScreenGroup("Talepler", "📄", "requests"),
-        new AppScreenGroup("Raporlar", "📊", "reports"),
-        new AppScreenGroup("Yönetici Raporları", "📈", "reports"),
-        new AppScreenGroup("İmport / Export", "🔁", "import_export"),
-        // G4-1 (2026-08-12): ÖN MUHASEBE. Şimdilik yalnız Cari; G4-2/3/4 kendi ekranlarını buraya ekler.
-        new AppScreenGroup("Ön Muhasebe", "🧾", "parties"),
-        new AppScreenGroup("Kullanıcı", "👥", "users"),
-        new AppScreenGroup("Ayarlar", "🛠️", "settings"),
-        new AppScreenGroup("Web Yönetimi", "🛡️", "companies"),
-        new AppScreenGroup("Çöp Kutusu", "🗑️", "trash"),
+        new AppScreenGroup("Uyarılar",            "🔔", "alerts"),
+        new AppScreenGroup("Malzemeler",          "📦", "materials",       "section:malzemestok"),
+        new AppScreenGroup("Araçlar",             "🚚", "vehicles",        "section:operasyon"),
+        new AppScreenGroup("Günlük Faaliyet",     "📋", "daily_activity",  "section:operasyon"),
+        new AppScreenGroup("Bakım Takibi",        "🔧", "maintenance",     "section:operasyon"),
+        new AppScreenGroup("Yakıt",               "⛽", "fuel",            "section:operasyon"),
+        new AppScreenGroup("Talepler",            "📄", "requests"),
+        new AppScreenGroup("Ön Muhasebe",         "🧾", "parties",         "section:finans"),
+        new AppScreenGroup("Operasyon Raporları", "📊", "reports",         "section:raporlar"),
+        new AppScreenGroup("Yönetici Raporları",  "📈", "reports",         "section:raporlar"),
+        new AppScreenGroup("Şube ve Personel",    "🏗️", "branches",        "section:kurumsal"),
+        new AppScreenGroup("Kullanıcı Yönetimi",  "👥", "users",           "section:kurumsal"),
+        new AppScreenGroup("Denetim",             "🔍", "audit",           "section:kurumsal"),
+        new AppScreenGroup("Web Yönetimi",        "🛡️", "companies",       "section:sistem"),
+        new AppScreenGroup("Yedekleme",           "💾", "backup",          "section:sistem"),
+        new AppScreenGroup("Çöp Kutusu",          "🗑️", "trash",           "section:sistem"),
+        new AppScreenGroup("Ayarlar",             "🛠️", "settings"),
     };
 
     private const ScreenPlatform Both = ScreenPlatform.Both;
@@ -109,28 +130,27 @@ public static class AppScreens
     /// </summary>
     public static readonly IReadOnlyList<AppScreen> All = new[]
     {
-        // ── Uyarılar ────────────────────────────────────────────────────────────────────────
+        // ── Uyarılar (en üst seviye, üst grubu yok) ──────────────────────────────────────────
         new AppScreen("alerts", "alerts", "Uyarılar", "Uyarılar", Both, "alerts", "alerts", WebPermOverride: ""),
 
+        // ═══ MALZEME VE STOK ════════════════════════════════════════════════════════════════
         // ── Malzemeler ──────────────────────────────────────────────────────────────────────
         new AppScreen("materials.list", "materials", "Malzemeler", "Malzeme Listesi", Both, "materials", "materials"),
         new AppScreen("materials.new", "materials", "Malzemeler", "Yeni Kayıt", Both, "materials/new", "materials:new"),
-        // Malzeme Şablonları menüde YALNIZ masaüstünde (web'de ekran var ama menüde listelenmiyordu).
-        new AppScreen("material_templates", "material_templates", "Malzemeler", "Malzeme Şablonları", D, null, "material_templates:templates"),
         new AppScreen("stock.entry", "stock", "Malzemeler", "Giriş-Çıkış", Both, "stock", "stock"),
         new AppScreen("stock.movements", "stock", "Malzemeler", "Stok Hareketleri", Both, "stock/movements", "stock:movements"),
         new AppScreen("stock.count", "stock", "Malzemeler", "Stok Sayım", Both, "stock/count", "stock:count"),
+        // Malzeme Şablonları menüde YALNIZ masaüstünde (web'de ekran var ama menüde listelenmiyordu).
+        new AppScreen("material_templates", "material_templates", "Malzemeler", "Malzeme Şablonları", D, null, "material_templates:templates"),
         // STK-08 — web'de Stok İşlemleri ekranından açılır, menüde listelenmez.
         new AppScreen("stock.distribute", "stock", "Malzemeler", "Atanmamış Stok Dağıtımı", D, null, "stock:distribute"),
 
+        // ═══ OPERASYON ══════════════════════════════════════════════════════════════════════
         // ── Araçlar ─────────────────────────────────────────────────────────────────────────
         new AppScreen("vehicles.list", "vehicles", "Araçlar", "Araç Listesi", Both, "vehicles", "vehicles"),
         new AppScreen("vehicles.new", "vehicles", "Araçlar", "Yeni Araç Ekle", Both, "vehicles/new", "vehicles:new"),
         new AppScreen("vehicle_templates", "vehicle_templates", "Araçlar", "Şablonlar", Both, "vehicle-templates", "vehicle_templates:templates"),
         new AppScreen("inspection", "inspection", "Araçlar", "Muayene / Sigorta", Both, "inspection", "inspection"),
-
-        // ── Personel ────────────────────────────────────────────────────────────────────────
-        new AppScreen("personnel", "personnel", "Personel", "Personel Girişi", Both, "personnel", "personnel"),
 
         // ── Günlük Faaliyet ─────────────────────────────────────────────────────────────────
         new AppScreen("daily_activity", "daily_activity", "Günlük Faaliyet", "Günlük Faaliyet Girişi", Both, "daily", "daily_activity"),
@@ -144,58 +164,44 @@ public static class AppScreens
         new AppScreen("fuel.depot", "fuel", "Yakıt", "Depo Girişleri", Both, "fuel/depot", "fuel:depot"),
         new AppScreen("fuel.summary", "fuel", "Yakıt", "Özet", Both, "fuel/summary", "fuel:summary"),
 
-        // ── Yönetim ─────────────────────────────────────────────────────────────────────────
-        new AppScreen("branches", "branches", "Yönetim", "Şube / Şantiye", Both, "branches", "branches"),
-        new AppScreen("audit", "audit", "Yönetim", "Sistem Logu", Both, "audit", "audit"),
-        new AppScreen("stock_change_log", "stock_change_log", "Yönetim", "Stok Değişiklik Kaydı", Both, "stock-change-log", "stock_change_log"),
-        // Yedek Yönetimi masaüstünden 2026-07-26'da KALDIRILDI; web'de süper + kısıtlı süper admin.
-        new AppScreen("backup", "backup", "Yönetim", "Yedek Yönetimi", W, "backup", null, WebPermOverride: "@superr"),
-
-        // ── Talepler ────────────────────────────────────────────────────────────────────────
+        // ── Talepler (en üst seviye, üst grubu yok — kullanıcı şeması 2026-08-19) ────────────
         new AppScreen("requests.form", "requests", "Talepler", "Talep Formu", Both, "requests", "requests:form"),
         new AppScreen("requests.approve", "request_approval", "Talepler", "Talep Onaylama", Both, "requests/approve", "requests:approve", WebPermOverride: "requests"),
         new AppScreen("request_ops", "request_ops", "Talepler", "Talep Operasyonları", Both, "request-operations", "request_ops:board"),
 
-        // ── Raporlar ────────────────────────────────────────────────────────────────────────
-        new AppScreen("reports", "reports", "Raporlar", "Raporlar", Both, "reports", "reports"),
-        // Yönetici Raporları: aynı ekran, ayrı menü girişi (web'de admin kapısı).
-        new AppScreen("reports.manager", "reports", "Yönetici Raporları", "Raporlar", Both, "reports", "reports", WebPermOverride: "@admin"),
-
-        // ── İmport / Export ─────────────────────────────────────────────────────────────────
-        // Masaüstünde kendi grubu; web'de Ayarlar altında "Excel İçe Aktarım" olarak duruyordu.
-        new AppScreen("import_export", "import_export", "İmport / Export", "İmport / Export", D, null, "import_export"),
-
-        // ── Ön Muhasebe (G4-1) ──────────────────────────────────────────────────────────────
-        // Cari KARTI ayrı bir menü girişi DEĞİLDİR: listeden açılır (web: parties/{Id}).
-        // Menüyü kalabalıklaştırmamak için yalnız liste + yeni kayıt girişleri var.
+        // ═══ FİNANS ═════════════════════════════════════════════════════════════════════════
+        // ── Ön Muhasebe (G4-1 cari · G4-2 fatura · G4-3 kasa/banka) ─────────────────────────
+        // Cari KARTI ve fatura DETAYI ayrı menü girişi DEĞİLDİR: listeden açılır.
+        // "invoices" modülü cariden AYRIDIR — fatura kesme yetkisi ayrı verilebilir.
         new AppScreen("accounting.parties", "parties", "Ön Muhasebe", "Cari Listesi", Both, "parties", "parties"),
         new AppScreen("accounting.parties.new", "parties", "Ön Muhasebe", "Yeni Cari", Both, "parties/new", "parties:new"),
-
-        // ── Ön Muhasebe / Fatura (G4-2) ────────────────────────────────────────────────────
-        // Fatura DETAYI ayrı menü girişi değildir: listeden açılır (web: invoices/{Id}).
-        // "invoices" modülü cariden AYRIDIR — fatura kesme yetkisi ayrı verilebilir.
         new AppScreen("accounting.invoices", "invoices", "Ön Muhasebe", "Fatura Listesi", Both, "invoices", "invoices"),
         new AppScreen("accounting.invoices.new", "invoices", "Ön Muhasebe", "Yeni Fatura", Both, "invoices/new", "invoices:new"),
-
-        // ── Ön Muhasebe / Kasa-Banka (G4-3) ────────────────────────────────────────────────
         // Kasa ve banka AYRI ekran DEĞİL: aynı defter, aynı ekran, tür filtresiyle ayrılır.
-        // Tahsilat/ödeme kendi ekranındadır — para hareketi hesap tanımından ayrı bir iştir.
         new AppScreen("accounting.finance", "finance", "Ön Muhasebe", "Kasa / Banka", Both, "finance", "finance"),
         new AppScreen("accounting.finance.new", "finance", "Ön Muhasebe", "Yeni Hesap", Both, "finance/new", "finance:new"),
         new AppScreen("accounting.payments", "finance", "Ön Muhasebe", "Tahsilat / Ödeme", Both, "payments", "payments"),
 
-        // ── Kullanıcı ───────────────────────────────────────────────────────────────────────
-        new AppScreen("users", "users", "Kullanıcı", "Kullanıcı Tanım", Both, "users", "users"),
-        new AppScreen("permissions", "permissions", "Kullanıcı", "Yetkiler", Both, "permissions", "permissions"),
-        new AppScreen("permission_templates", "permission_templates", "Kullanıcı", "Yetki Şablonları", Both, "permission-templates", "permission_templates"),
+        // ═══ RAPORLAR ═══════════════════════════════════════════════════════════════════════
+        new AppScreen("reports", "reports", "Operasyon Raporları", "Raporlar", Both, "reports", "reports"),
+        // Yönetici Raporları: aynı ekran, ayrı menü girişi (web'de admin kapısı).
+        new AppScreen("reports.manager", "reports", "Yönetici Raporları", "Raporlar", Both, "reports", "reports", WebPermOverride: "@admin"),
 
-        // ── Ayarlar ─────────────────────────────────────────────────────────────────────────
-        new AppScreen("definitions", "definitions", "Ayarlar", "Tanım Düzenle", Both, "definitions", "definitions"),
-        new AppScreen("import", "import_export", "Ayarlar", "Excel İçe Aktarım", W, "import", null),
-        new AppScreen("settings.developer", "settings", "Ayarlar", "Geliştirici Modu", Both, "developer", "settings:developer"),
-        new AppScreen("theme", "theme", "Ayarlar", "Tema", Both, "theme", "theme", WebPermOverride: ""),
-        new AppScreen("about", "about", "Ayarlar", "Hakkında", Both, "soon/about", "about", WebPermOverride: ""),
+        // ═══ KURUMSAL YÖNETİM ═══════════════════════════════════════════════════════════════
+        // ── Şube ve Personel ────────────────────────────────────────────────────────────────
+        new AppScreen("branches", "branches", "Şube ve Personel", "Şube / Şantiye", Both, "branches", "branches"),
+        new AppScreen("personnel", "personnel", "Şube ve Personel", "Personel Girişi", Both, "personnel", "personnel"),
 
+        // ── Kullanıcı Yönetimi ──────────────────────────────────────────────────────────────
+        new AppScreen("users", "users", "Kullanıcı Yönetimi", "Kullanıcı Tanım", Both, "users", "users"),
+        new AppScreen("permissions", "permissions", "Kullanıcı Yönetimi", "Yetkiler", Both, "permissions", "permissions"),
+        new AppScreen("permission_templates", "permission_templates", "Kullanıcı Yönetimi", "Yetki Şablonları", Both, "permission-templates", "permission_templates"),
+
+        // ── Denetim ─────────────────────────────────────────────────────────────────────────
+        new AppScreen("audit", "audit", "Denetim", "Sistem Logu", Both, "audit", "audit"),
+        new AppScreen("stock_change_log", "stock_change_log", "Denetim", "Stok Değişiklik Kaydı", Both, "stock-change-log", "stock_change_log"),
+
+        // ═══ SİSTEM YÖNETİMİ ════════════════════════════════════════════════════════════════
         // ── Web Yönetimi (süper admin) ──────────────────────────────────────────────────────
         new AppScreen("companies", "companies", "Web Yönetimi", "Firma Tanım", Both, "companies", "companies"),
         new AppScreen("releases", "releases", "Web Yönetimi", "Güncelleme Yönetimi", Both, "releases", "releases"),
@@ -217,11 +223,25 @@ public static class AppScreens
         // diğer süper admin ekranları gibi (Rol Yetki Kontrol, Kota İzleme…) YALNIZ WEB'de sunulur.
         new AppScreen("screen_visibility", "screen_visibility", "Web Yönetimi", "Menü / Ekran Yönetimi", W, "screen-visibility", null),
 
+        // ── Yedekleme ───────────────────────────────────────────────────────────────────────
+        // Yedek Yönetimi masaüstünden 2026-07-26'da KALDIRILDI; web'de süper + kısıtlı süper admin.
+        new AppScreen("backup", "backup", "Yedekleme", "Yedek Yönetimi", W, "backup", null, WebPermOverride: "@superr"),
+
         // ── Çöp Kutusu ──────────────────────────────────────────────────────────────────────
         // G2-B1 DÜZELTMESİ (2026-08-12): "trash" artık AppModules kataloğunda da var → yetki ağacından
         // yönetilebilir. Eskiden katalog dışıydı; masaüstünde yalnız admin bypass'ı, web'de "@admin"
         // sözde-anahtarı sayesinde çalışıyordu ve HİÇ KİMSEYE devredilemiyordu.
         new AppScreen("trash", "trash", "Çöp Kutusu", "Çöp Kutusu Listesi", Both, "trash", "trash"),
+
+        // ── Ayarlar (en üst seviye, üst grubu yok) ──────────────────────────────────────────
+        // "Excel'e Aktarım": web'de `import`, masaüstünde `import_export` ekranıdır. İkisi de TEK
+        // platformda bulunduğu için her platformda menüde YALNIZ BİR giriş görünür.
+        new AppScreen("definitions", "definitions", "Ayarlar", "Tanım Düzenle", Both, "definitions", "definitions"),
+        new AppScreen("import", "import_export", "Ayarlar", "Excel'e Aktarım", W, "import", null),
+        new AppScreen("import_export", "import_export", "Ayarlar", "Excel'e Aktarım", D, null, "import_export"),
+        new AppScreen("settings.developer", "settings", "Ayarlar", "Geliştirici Modu", Both, "developer", "settings:developer"),
+        new AppScreen("theme", "theme", "Ayarlar", "Tema", Both, "theme", "theme", WebPermOverride: ""),
+        new AppScreen("about", "about", "Ayarlar", "Hakkında", Both, "soon/about", "about", WebPermOverride: ""),
     };
 
     /// <summary>
@@ -270,6 +290,26 @@ public static class AppScreens
     /// <summary>Bir platformdaki menü grupları — o platformda EN AZ BİR ekranı olanlar, katalog sırasında.</summary>
     public static IEnumerable<AppScreenGroup> GroupsFor(ScreenPlatform platform)
         => Groups.Where(g => All.Any(s => s.Group == g.Title && s.Platforms.HasFlag(platform)));
+
+    /// <summary>Bu anahtar KATALOG üst grubu mu? (firma bazlı üst gruplar bunun dışındadır)</summary>
+    public static bool IsCatalogSection(string key)
+        => Sections.Any(x => string.Equals(x.Key, key, StringComparison.Ordinal));
+
+    /// <summary>Katalog üst grubunun başlığı (yoksa null).</summary>
+    public static string? SectionTitleOf(string key)
+        => Sections.FirstOrDefault(x => string.Equals(x.Key, key, StringComparison.Ordinal))?.Title;
+
+    /// <summary>Bir üst menünün KATALOG varsayılanı olan üst grubu (yoksa null = en üst seviye).</summary>
+    public static string? SectionOfGroup(string groupTitle)
+        => Groups.FirstOrDefault(g => string.Equals(g.Title, groupTitle, StringComparison.Ordinal))?.Section;
+
+    /// <summary>Katalogdaki üst grup sırası (yoksa listenin sonuna).</summary>
+    public static int SectionIndex(string key)
+    {
+        for (int i = 0; i < Sections.Count; i++)
+            if (string.Equals(Sections[i].Key, key, StringComparison.Ordinal)) return i;
+        return int.MaxValue / 2;
+    }
 
     /// <summary>Bir grubun o platformdaki ekranları, katalog sırasında.</summary>
     public static IEnumerable<AppScreen> ScreensOf(string groupTitle, ScreenPlatform platform)

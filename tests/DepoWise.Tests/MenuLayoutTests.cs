@@ -75,7 +75,8 @@ public class MenuLayoutTests : IDisposable
         var rows = _svc.List(_super, null);
         var groups = _svc.Groups(_super);
         var s = rows.Select(r => new ScreenLayoutInput(r.ScreenKey, r.EffectiveLabel, r.EffectiveGroupKey, r.SortOrder)).ToList();
-        var g = groups.Select(x => new GroupLayoutInput(x.GroupKey, x.Title, x.SortOrder, x.IsCustom)).ToList();
+        // ÜST GRUP bağı da taşınır — arayüz tam durumu böyle gönderir (katalog varsayılanı korunsun).
+        var g = groups.Select(x => new GroupLayoutInput(x.GroupKey, x.Title, x.SortOrder, x.IsCustom, x.ParentGroupKey)).ToList();
         return (s, g);
     }
 
@@ -184,12 +185,12 @@ public class MenuLayoutTests : IDisposable
     {
         var (s, g) = Current();
         int i = s.FindIndex(x => x.ScreenKey == "inspection");
-        s[i] = new ScreenLayoutInput("inspection", "Muayene / Sigorta", "Yönetim", 99);
+        s[i] = new ScreenLayoutInput("inspection", "Muayene / Sigorta", "Denetim", 99);
         _svc.Save(_super, s, g);
 
-        Assert.Equal("Yönetim", Row("inspection").EffectiveGroupKey);
+        Assert.Equal("Denetim", Row("inspection").EffectiveGroupKey);
         var web = MenuLayout.Build(ScreenPlatform.Web, _svc.LayoutFor(Co), _ => true);
-        Assert.Contains(web.First(x => x.Key == "Yönetim").Entries, e => e.Screen.Key == "inspection");
+        Assert.Contains(web.First(x => x.Key == "Denetim").Entries, e => e.Screen.Key == "inspection");
         Assert.DoesNotContain(web.First(x => x.Key == "Araçlar").Entries, e => e.Screen.Key == "inspection");
     }
 
@@ -360,7 +361,7 @@ public class MenuLayoutTests : IDisposable
         MenuLayoutService.Invalidate(Co);
 
         var set = _svc.LayoutFor(Co);
-        Assert.Equal("Personel", MenuLayout.GroupKeyOf(AppScreens.ByKey("personnel")!, set));
+        Assert.Equal("Şube ve Personel", MenuLayout.GroupKeyOf(AppScreens.ByKey("personnel")!, set));
 
         var web = MenuLayout.Build(ScreenPlatform.Web, set, _ => true);
         Assert.Contains(web.SelectMany(x => x.Entries), e => e.Screen.Key == "personnel");   // ⭐ kaybolmadı

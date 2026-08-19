@@ -105,6 +105,7 @@ public static class MenuLayout
         if (set.Groups.TryGetValue(groupKey, out var g) && !string.IsNullOrWhiteSpace(g.Title))
             return g.Title!.Trim();
         if (IsCatalogGroup(groupKey)) return groupKey;
+        if (AppScreens.SectionTitleOf(groupKey) is { } sec) return sec;   // katalog üst grubu
         // Kullanıcı grubu / üst grup ama başlığı yok → anahtarın önekini atıp ham hâlini göster (fail-safe).
         if (groupKey.StartsWith(CustomGroupPrefix, StringComparison.Ordinal))
             return groupKey[CustomGroupPrefix.Length..];
@@ -189,12 +190,18 @@ public static class MenuLayout
     /// aslında üst grup değil / kendine bağlı) <c>null</c> döner → grup en üst seviyede kalır.</summary>
     public static string? SectionKeyOf(string groupKey, MenuLayoutSet set)
     {
-        if (!set.Groups.TryGetValue(groupKey, out var g)) return null;
-        var parent = g.ParentGroupKey;
+        // ⭐ SATIR VARSA O BELİRLER, YOKSA KATALOG VARSAYILANI (2026-08-19).
+        // Firma bir grubu en üst seviyeye taşıdığında satır YAZILIR (parent = null) → katalog
+        // varsayılanı geri gelmez. Satır hiç yoksa katalogdaki üst grup geçerlidir.
+        var parent = set.Groups.TryGetValue(groupKey, out var g)
+            ? g.ParentGroupKey
+            : AppScreens.SectionOfGroup(groupKey);
+
         if (string.IsNullOrWhiteSpace(parent)) return null;
         if (string.Equals(parent, groupKey, StringComparison.Ordinal)) return null;   // kendine bağlanamaz
         if (!IsSectionKey(parent!)) return null;                                      // yalnız üst gruba bağlanır
-        return set.Groups.ContainsKey(parent!) ? parent : null;                       // silinmişse yetim bırakma
+        // Üst grup ya katalogda ya da firmanın kaydında bulunmalı; yoksa yetim bırakma.
+        return AppScreens.IsCatalogSection(parent!) || set.Groups.ContainsKey(parent!) ? parent : null;
     }
 
     /// <summary>
