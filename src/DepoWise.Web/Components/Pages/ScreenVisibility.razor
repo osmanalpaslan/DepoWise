@@ -15,9 +15,14 @@
    ⚠️ YETKİ EKRANI DEĞİLDİR: kullanıcıya yetki vermez, yetkiyi bypass etmez.
    ERİŞİM = PLATFORM_AKTİF && YETKİ_VAR. Yalnız süper admin (AppModules.IsSuperAdminOnly).
 
-   İKİ FARKLI KAYDETME AKIŞI (bilinçli):
-    · PLATFORM kutuları ANINDA kaydeder ve YIKICI olduğu için ayrı onay ister (mevcut, denenmiş akış).
-    · DÜZEN (ad · üst menü · sıra) "Düzenle → Kaydet" ile TOPLU ve ATOMİK kaydedilir (§12). *@
+   TEK KAYDETME AKIŞI: "Düzenle → değiştir → Kaydet".
+   Ad · üst menü · sıra · MASAÜSTÜ/WEB kutuları — hepsi aynı düzenleme modunda değiştirilir ve
+   Kaydet ile birlikte yazılır.
+
+   ⚠️ DÜZELTME (2026-08-19, kullanıcı bildirimi): platform kutuları önce "anında kaydeden" ayrı bir
+   akıştaydı ve bu yüzden DÜZENLEME MODUNDA KİLİTLİYDİ. Kullanıcı Düzenle'ye bastığında kutular
+   kapanıyor, basmadığında ise ekranın salt-okunur olduğunu sanıyordu → platform ayrımı fiilen
+   yapılamıyordu. Tek akışa indirildi. *@
 
 <PageTitle>Menü / Ekran Yönetimi — Alpnex</PageTitle>
 
@@ -35,11 +40,16 @@
 else
 {
     <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3" Icon="@Icons.Material.Filled.Info">
-        Buradan ekranların menüde <b>hangi adla</b>, <b>hangi üst menüde</b> ve <b>kaçıncı sırada</b>
-        görüneceğini; ayrıca <b>Masaüstü</b> ve <b>Web</b> uygulamalarında kullanılabilir olup
-        olmayacağını belirlersiniz. Bu ayarlar <b>yetki değildir</b>: adı değişen ekran yine yalnız
+        <b>Düzenle</b> düğmesine basın, istediğinizi değiştirin, <b>Kaydet</b> deyin. Ekranların menüde
+        <b>hangi adla</b>, <b>hangi üst menüde</b>, <b>kaçıncı sırada</b> görüneceğini ve
+        <b>Masaüstü / Web</b> kutularıyla hangi uygulamada kullanılabilir olacağını buradan
+        belirlersiniz. Bu ayarlar <b>yetki değildir</b>: adı değişen ekran yine yalnız
         <b>yetkisi olan</b> kullanıcıya görünür. Ayarlar <b>yalnız bu firmayı</b> etkiler.
         Ekranın adresi ve yetkisi <b>değişmez</b>.
+        <br />
+        <b>Masaüstü kutusu için not:</b> ayar, masaüstü uygulamasına giriş sırasında iner. Bunun için
+        makinedeki uygulamanın <b>bu özelliği içeren sürümde</b> olması gerekir; eski sürümdeki
+        makineler ayarı almaz ve varsayılan menüyle çalışmaya devam eder.
     </MudAlert>
 
     @if (_msg is not null)
@@ -128,7 +138,7 @@ else
                     }
                     else
                     {
-                        <span><b>Kaydedilmemiş değişiklik:</b> @ds ekran (ad/üst menü), @dg üst menü,
+                        <span><b>Kaydedilmemiş değişiklik:</b> @ds ekran (ad / üst menü / platform), @dg üst menü,
                             @dr grupta sıralama. Kaydetmeden sayfadan ayrılırsanız bu değişiklikler kaybolur.</span>
                     }
                 </MudAlert>
@@ -290,19 +300,19 @@ else
                                     <input type="checkbox" class="mnu-check"
                                            aria-label="@($"{row.ScreenKey} masaüstünde açık")"
                                            checked="@row.EffectiveDesktop"
-                                           disabled="@(_busy || _edit || !row.DefaultDesktop)"
-                                           @onchange="@(e => Toggle(row, desktop: e.Value is bool b && b, web: null))" />
+                                           disabled="@(_busy || !_edit || !row.DefaultDesktop)"
+                                           @onchange="@(e => row.EffectiveDesktop = e.Value is bool b && b)" />
                                     @if (!row.DefaultDesktop) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
                                 </td>
                                 <td style="text-align:center;">
                                     <input type="checkbox" class="mnu-check"
                                            aria-label="@($"{row.ScreenKey} web'de açık")"
                                            checked="@row.EffectiveWeb"
-                                           disabled="@(_busy || _edit || !row.DefaultWeb)"
-                                           @onchange="@(e => Toggle(row, desktop: null, web: e.Value is bool b2 && b2))" />
+                                           disabled="@(_busy || !_edit || !row.DefaultWeb)"
+                                           @onchange="@(e => row.EffectiveWeb = e.Value is bool b2 && b2)" />
                                     @if (!row.DefaultWeb) { <MudText Typo="Typo.caption" Class="mud-text-secondary">yok</MudText> }
                                 </td>
-                                <td>@row.PlatformText</td>
+                                <td>@row.LivePlatformText</td>
                                 <td><span class="mud-text-secondary" style="font-size:12px;">@row.PermissionKey</span></td>
                                 <td>
                                     @if (_edit && !row.IsProtected)
@@ -361,6 +371,20 @@ else
         public string OrigLabel { get; set; } = "";
         public string OrigGroupKey { get; set; } = "";
         public int OrigIndex { get; set; }   // yüklenirken listedeki genel sıra (sıra karşılaştırması için)
+        public bool OrigDesktop { get; set; }
+        public bool OrigWeb { get; set; }
+
+        /// <summary>Platform tercihi değişti mi (kaydedilmemiş)?</summary>
+        public bool PlatformChanged => EffectiveDesktop != OrigDesktop || EffectiveWeb != OrigWeb;
+
+        /// <summary>O anki (kaydedilmemiş dahil) platform metni — kolonda anında görünsün.</summary>
+        public string LivePlatformText => (EffectiveDesktop, EffectiveWeb) switch
+        {
+            (true, true) => "Masaüstü + Web",
+            (true, false) => "Yalnız Masaüstü",
+            (false, true) => "Yalnız Web",
+            _ => "Kapalı",
+        };
     }
 
     private sealed class Grp
@@ -445,7 +469,8 @@ else
         { _groups[i].OrigTitle = _groups[i].Title; _groups[i].OrigOrder = i; }
 
         for (int i = 0; i < _rows!.Count; i++)
-        { var r = _rows[i]; r.OrigLabel = r.Label; r.OrigGroupKey = r.GroupKey; r.OrigIndex = i; }
+        { var r = _rows[i]; r.OrigLabel = r.Label; r.OrigGroupKey = r.GroupKey; r.OrigIndex = i;
+          r.OrigDesktop = r.EffectiveDesktop; r.OrigWeb = r.EffectiveWeb; }
     }
 
     private void BeginEdit() { _edit = true; _msg = null; }
@@ -474,7 +499,8 @@ else
         if (_rows is null) return (0, 0, 0);
 
         int s = _rows.Count(r => !string.Equals(r.Label, r.OrigLabel, StringComparison.Ordinal)
-                              || !string.Equals(r.GroupKey, r.OrigGroupKey, StringComparison.Ordinal));
+                              || !string.Equals(r.GroupKey, r.OrigGroupKey, StringComparison.Ordinal)
+                              || r.PlatformChanged);
 
         int g = 0;
         for (int i = 0; i < _groups.Count; i++)
@@ -569,10 +595,26 @@ else
         var (ds, dg, dr) = Diff();
         if (ds + dg + dr == 0) { _ok = true; _msg = "Değişiklik yok."; _edit = false; return; }
 
-        if (!await Dialog.Confirm(
-            $"Kaydedilecek: {ds} ekran, {dg} üst menü, {dr} grupta sıralama.\n\n" +
-            "Menü tüm kullanıcılar için güncellenir. Ekranların adresleri ve yetkileri DEĞİŞMEZ.\n\n" +
-            "Devam edilsin mi?", "Evet, Kaydet")) return;
+        // Platform değişiklikleri ayrıca listelenir: KAPATMA yıkıcıdır (o platformdaki herkes,
+        // yetkisi olsa bile erişimi kaybeder) → kullanıcı neyi kapattığını AÇIKÇA görsün.
+        var platformDegisen = _rows!.Where(r => r.PlatformChanged).ToList();
+        var kapananlar = platformDegisen
+            .Where(r => (r.OrigDesktop && !r.EffectiveDesktop) || (r.OrigWeb && !r.EffectiveWeb))
+            .ToList();
+
+        var uyari = $"Kaydedilecek: {ds} ekran, {dg} üst menü, {dr} grupta sıralama.\n\n" +
+                    "Menü tüm kullanıcılar için güncellenir. Ekranların adresleri ve yetkileri DEĞİŞMEZ.\n";
+        if (kapananlar.Count > 0)
+        {
+            uyari += "\n⚠️ ERİŞİME KAPATILACAK EKRANLAR:\n" +
+                     string.Join("\n", kapananlar.Select(r => $"  • {r.Label} → {r.LivePlatformText}")) +
+                     "\n\nBu ekranlara, kapatılan platform üzerinden YETKİSİ OLAN kullanıcılar da " +
+                     "erişemeyecek; menüde görünmeyecek ve adresi elle yazarak da açılamayacak. " +
+                     "Kullanıcı yetkileri DEĞİŞMEZ.\n";
+        }
+
+        if (!await Dialog.Confirm(uyari + "\nDevam edilsin mi?",
+            "Evet, Kaydet", danger: kapananlar.Count > 0)) return;
 
         _busy = true; _msg = null;
         try
@@ -595,8 +637,34 @@ else
             }).ToList();
 
             var err = await Api.PostAsync("/api/screens/layout", new { screens, groups });
-            _ok = err is null;
-            _msg = err ?? $"Menü düzeni kaydedildi ({ds} ekran, {dg} üst menü, {dr} grupta sıralama).";
+
+            // PLATFORM değişiklikleri ayrı uçtan yazılır (kendi doğrulaması var: katalogda olmayan
+            // platform açılamaz, korumalı ekran tüm platformlarda kapatılamaz). Düzen kaydı
+            // başarısızsa platforma HİÇ dokunulmaz — yarım bir sonuç oluşmasın.
+            int platformYazilan = 0;
+            var platformHatalari = new List<string>();
+            if (err is null)
+            {
+                foreach (var r in platformDegisen)
+                {
+                    var pErr = await Api.PostAsync("/api/screens/visibility", new
+                    {
+                        screenKey = r.ScreenKey,
+                        desktop = r.EffectiveDesktop,
+                        web = r.EffectiveWeb,
+                    });
+                    if (pErr is null) platformYazilan++;
+                    else platformHatalari.Add($"{r.Label}: {pErr}");
+                }
+            }
+
+            _ok = err is null && platformHatalari.Count == 0;
+            _msg = err
+                ?? (platformHatalari.Count > 0
+                        ? "Menü düzeni kaydedildi, ancak bazı platform ayarları uygulanamadı — " +
+                          string.Join(" · ", platformHatalari)
+                        : $"Kaydedildi ({ds} ekran, {dg} üst menü, {dr} grupta sıralama" +
+                          (platformYazilan > 0 ? $", {platformYazilan} platform ayarı" : "") + ").");
             if (_ok)
             {
                 _edit = false;
@@ -625,38 +693,6 @@ else
             await Load();
         }
         catch (Exception ex) { _ok = false; _msg = "Sıfırlanamadı: " + ex.Message; }
-        finally { _busy = false; }
-    }
-
-    /// <summary>Platform kutusu — ANINDA kaydeder. Kapatma YIKICIDIR (o platformdaki herkes erişimi
-    /// kaybeder) → açık onay. Açma zararsızdır → onay istenmez.</summary>
-    private async Task Toggle(Row r, bool? desktop, bool? web)
-    {
-        var kapaniyor = (desktop == false) || (web == false);
-        var platformAdi = desktop is not null ? "Masaüstü" : "Web";
-
-        if (kapaniyor && !await Dialog.Confirm(
-            $"\"{r.Label}\" ekranı {platformAdi} uygulamasında KAPATILACAK.\n\n" +
-            $"Bu firmadaki tüm kullanıcılar — yetkileri olsa bile — bu ekrana {platformAdi} üzerinden " +
-            "erişemeyecek. Menüde görünmeyecek ve adresi elle yazarak da açılamayacak.\n\n" +
-            "Kullanıcı yetkileri DEĞİŞMEZ; yalnız bu platformda erişim kapanır.\n\nDevam edilsin mi?",
-            "Evet, Kapat", danger: true)) { await Load(); return; }
-
-        _busy = true; _msg = null;
-        try
-        {
-            var err = await Api.PostAsync("/api/screens/visibility", new
-            {
-                screenKey = r.ScreenKey,
-                desktop = desktop ?? r.EffectiveDesktop,
-                web = web ?? r.EffectiveWeb,
-            });
-            _ok = err is null;
-            _msg = err ?? $"\"{r.Label}\" güncellendi.";
-            if (_ok) await Api.RefreshMenuAsync();
-            await Load();
-        }
-        catch (Exception ex) { _ok = false; _msg = "Kaydedilemedi: " + ex.Message; }
         finally { _busy = false; }
     }
 
