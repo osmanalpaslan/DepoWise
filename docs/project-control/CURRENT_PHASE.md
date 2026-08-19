@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-19** (yetki ekranı C turu canlıda) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-19** (yetki mimarisi A turu canlıda) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1084,3 +1084,45 @@ Yerine derlenmiş bağlama + 10 kaynak kilidi testi + oturumsuz sayfa turu kulla
 **A turu** — dört yetki ekranını ikiye indirmek ve rol tavanını firma bazlı yapmak
 (onaylandı, ayrı tur olarak yapılacak). Ayrıca iki pasif firmanın Kalıcı Silme ekranından silinmesi
 kullanıcıda bekliyor.
+
+---
+
+## ✅ SON TAMAMLANAN — `YET-A` Yetki mimarisi A turu canlıda (2026-08-19)
+
+C turunun ardından onaylanan **A turu** tamamlandı. Kullanıcının şikâyet ettiği "birden fazla,
+çakışan yetki ekranı" sorunu kaynağından çözüldü.
+
+### A1 — Rol tavanı artık FİRMA BAZLI (Migration 072)
+`role_grant_limits` tablosunda firma kolonu **yoktu**: tablo platform geneliydi ve kaydetme
+`DELETE FROM role_grant_limits;` ile tabloyu komple siliyordu → **bir firmadaki tek değişiklik bütün
+firmaları etkiliyordu.** Artık `company_id` var, benzersizlik `(company_id, role_key, module_key)`.
+**Veri kaybı yok:** mevcut ortak kısıtlar her firmaya kopyalanır (doğrulama kapısı:
+`yeni == eski × firmaSayısı`, tutmazsa migration durur ve hiçbir şey yazılmaz).
+
+### A2 — İki ekran tek ekran oldu
+"Firma Yetki Kontrol" + "Rol Yetki Kontrol" → **Firma Yetki Paketi** · iki sekme (*Ekran paketi* /
+*Rol tavanı*) · **tek firma seçicisi** ikisini birden yükler. Eski `/role-permissions` adresi artık
+**404** (tek giriş noktası); `role_permissions` **modül** anahtarı korundu.
+
+### A3 — Şablon kısayolu (kapsam bilinçli daraltıldı)
+Yetkiler ekranına **"Şablondan doldur"** eklendi (iki ortam): şablon yalnız kutuları doldurur,
+**sunucuya yazmaz**. **Yetki Şablonları ekranı KALDI** — şablonlar kalıcı nesnelerdir; tam yönetimini
+açılır pencereye gömmek kullanımı ve riski kötüleştirirdi. Sonuç: **4 ekran → 3 ekran + kısayol.**
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı (SQLite) | **2134 geçti · 0 başarısız · 35 atlandı** |
+| PostgreSQL (izole test DB) | **45/45** |
+| Yeni testler | `RoleGrantCompanyTests` 4/4 · `PermissionScreenUxTests` 11/11 |
+| Üretim yedeği | `pg_restore -l` ile doğrulandı — **77 tablo verisi** |
+| Migration 072 (canlı) | `72 \| role_grant_limits_company` uygulandı · şema **71 → 72** |
+| Canlı uç (iki firma) | `/api/role-permissions?companyId=…` → 200, doğru firmayı döndürüyor (77–117 ms) |
+| Web ekranları | `/permissions` · `/company-permissions` · `/permission-templates` · `/users` · `/screen-visibility` → **200**; `/role-permissions` → **404** (birleşti) |
+| Üretim iş verisi | malzeme **2459** · stok **663** · firma **3** — değişmedi (kullanıcı sayısı 8→9: yöneticinin kendi eklediği kullanıcı) |
+
+Yayınlananlar: API **v163** · Web **v186** · Masaüstü **1.0.145** (85,8 MB · checksum `4665c44b…`).
+
+### Sıradaki tek iş
+Kullanıcı geri bildirimi. İki pasif firmanın (DEPOWISE · Oze Group) Kalıcı Silme ekranından silinmesi
+hâlâ kullanıcıda bekliyor.
