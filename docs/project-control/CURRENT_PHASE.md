@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-19** (yetki mimarisi A turu canlıda) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-19** (giriş-makine-eşitleme düzeltmeleri canlıda) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1126,3 +1126,48 @@ Yayınlananlar: API **v163** · Web **v186** · Masaüstü **1.0.145** (85,8 MB 
 ### Sıradaki tek iş
 Kullanıcı geri bildirimi. İki pasif firmanın (DEPOWISE · Oze Group) Kalıcı Silme ekranından silinmesi
 hâlâ kullanıcıda bekliyor.
+
+---
+
+## ✅ SON TAMAMLANAN — `B` Giriş · makine · eşitleme düzeltmeleri canlıda (2026-08-19)
+
+Kullanıcı makineleri sıfırlayıp sildi; ardından giriş bozuldu. **Sistemin bel kemiği** olduğu için
+zincirin tamamı (giriş → makine kapısı → şube seçimi → eşitleme) incelendi.
+
+### Kök neden — tek sebep, iki şikâyet
+Giriş yolundaki ağ çağrılarının zaman aşımı **6 sn / 10 sn** idi. Sunucu veritabanı uykudan uyanırken
+bu süre aşılıyor, istek düşünce uygulama kendini **çevrimdışı** sayıyordu.
+**Kanıt:** makinenin yerel önbellek dosyaları **7 gündür güncellenmemişti** (`/api/machines/register`
+bir haftadır hiç başarılı olmamış); aynı uç canlıda ölçüldüğünde **200 / 1,4 sn** dönüyor.
+- Çevrimdışı sanılınca makine şubesi **önbellekten** okunuyor → silinen makinede şube boş →
+  *"makine ilk kez kuruluyor, internet gerekli"* (**babanın giremediği durum**).
+- Çevrimdışı sanılınca **şube seçim ekranı atlanıyor**, makinenin eski önbellek şubesine sessizce
+  giriliyor (**TEST ŞANTİYE durumu**).
+
+### Düzeltmeler (ADR-117)
+| # | Düzeltme |
+|---|---|
+| B1 | Zaman aşımı **20/25 sn** + makine kaydında tek tekrar; yerel aynalama hatası artık "çevrimdışı" sayılmıyor |
+| B2 | Çevrimdışı **sessiz oto-şube girişi kaldırıldı** — şube adımı daima gösterilir |
+| B3 | Makine şubesi yokken **giriş kilitlenmiyor** (kendi şubesi bilinen kullanıcı girer) |
+| B4 | **"Uyarıyı Temizle"** + her sıfırlama eşitleme defterini de sıfırlar |
+| B5 | **Yetki tamamen süper adminin elinde** — yapısal kilitler süper admini bağlamaz |
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2139 geçti · 0 başarısız · 35 atlandı** |
+| Yeni testler | `LoginMachineSyncTests` 5/5 |
+| Güncellenen referanslar | RoleGrant · AuthPermission · RestrictedSuperAdmin · CompanyGrant · ScreenPlatformVisibility (alt rol kuralları aynen doğrulanıyor) |
+| Canlı sağlık | API 200 · web 5 ekran 200 · indirme 200 |
+| Şema | **72 → 72** (migration yok) |
+| Üretim verisi | firma 3 · kullanıcı 9 · malzeme 2459 · stok 663 — değişmedi |
+
+Yayınlananlar: API **v164** · Web **v187** · Masaüstü **1.0.146**.
+
+### Açık kalan
+Push kuyruğundaki **kalıcı hata sınıfı** (yinelenen anahtar / ebeveyni silinmiş satır) kaynağında
+çözülmedi; bu tur kullanıcıyı kilitleyen tarafı çözdü. Ayrı iş olarak durmalı.
+
+### Sıradaki tek iş
+Baba 1.0.146'ya güncelleyip giriş denesin; sonucu bekliyoruz.
