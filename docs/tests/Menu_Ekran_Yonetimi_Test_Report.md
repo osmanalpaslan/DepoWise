@@ -133,3 +133,31 @@ INSERT 0 · UPDATE 0 · DELETE 0 · DDL 0 · Migration 0 · Deploy 0 · Publish 
 ## 6. Tam takım sonucu
 
 **2098 geçti · 0 başarısız · 35 atlandı · toplam 2133** (süre 14 dk 19 sn). Tur öncesi 2050 geçiyordu → **+48 senaryo**, sıfır regresyon.
+
+---
+
+## Tur 4 — Nihai şema uygulaması + boş tanım kuralı (2026-08-19)
+
+**Kapsam (§7.1):** yalnız Menü / Ekran Yönetimi ve onu besleyen `MenuLayoutService`.
+
+| Doğrulama | Sonuç |
+|---|---|
+| `MenuSectionTests` (S18 boş grup · S19 altı boş üst grup · S20 dolu üst grup korunur) | **20/20** |
+| Menü ile ilgili tüm testler (MenuLayout · MenuSection · ProtectedScreen · Parity) | **83/83** |
+| Tam test takımı | **2118 geçti · 0 başarısız · 35 atlandı** |
+| Şema doğrulaması (betik) | 58 ekran · tekrar 0 · bilinmeyen 0 · yerleşmeyen 0 |
+| Canlı menü okuması (deploy sonrası) | en üst seviye ve üst gruplar şemayla **birebir** |
+| Üretim iş verisi (READ ONLY + ROLLBACK) | firma 3 · kullanıcı 8 · şube 10 · stok hareketi 663 — **değişmedi** |
+| Şema sürümü | **71 → 71** (migration yok, yalnız kod) |
+
+### Bulgular
+| # | Bulgu | Durum |
+|---|---|---|
+| SEMA-B1 | Toplu şema önce yanlış firmaya (DEPOWISE) yazıldı — menü düzeni firma bazlı | Düzeltildi: `/api/auth/select-company` akışı |
+| SEMA-B2 | Silinmiş firmaya (`Oze Group`) yazma sessizce süper adminin firmasına düşüyor | Bilinçli kilitlenme koruması; canlı firma **Oze İnşaat**'a uygulandı |
+| SEMA-B3 | Boşalan grupların tanımı firma kaydında kalıyordu | Düzeltildi (ADR-113) — sunucu artık boş tanım yazmıyor |
+
+### Bilinen davranış (hata değil)
+Boşalan üç katalog grubu (**Personel · Yönetim · İmport / Export**) firma kaydından silindi ve hiçbir
+menüde görünmüyor; **yönetim ekranında "0 ekran" satırı olarak listelenmeye devam eder** çünkü tanımları
+program kataloğundadır — yönetici isterse oraya tekrar ekran taşıyabilsin diye.
