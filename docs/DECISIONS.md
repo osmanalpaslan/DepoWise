@@ -1457,3 +1457,30 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   vardı. Üçü de korumaya alındı; düzeltme gerçek arayüzde doğrulandı (artık istisna yok).
 - **Kapsam dışı (A turuna kaldı):** dört ekranın ikiye indirilmesi ve rol tavanının firma bazlı
   yapılması. Bu ADR yalnız hataları ve eksik akışı kapatır; ekran sayısı DEĞİŞMEDİ.
+
+## ADR-116 — Yetki mimarisi A turu: rol tavanı firma bazlı + ekranlar birleşti (2026-08-19)
+- **Bağlam:** Kullanıcı yetki yapısını karmaşık buldu ve sunulan üç yoldan **A**'yı seçti; sıralama
+  "önce C (hatalar), sonra A (yapı)" olarak onaylandı. Bu ADR **A turudur**.
+- **A1 — ROL TAVANI ARTIK FİRMA BAZLI (Migration 072).** `role_grant_limits` tablosunda firma kolonu
+  YOKTU: tablo **platform geneliydi** ve kaydetme `DELETE FROM role_grant_limits;` ile tabloyu komple
+  siliyordu → bir firmada yapılan tek değişiklik **bütün firmaları** etkiliyordu. Tabloya `company_id`
+  eklendi, benzersizlik `(company_id, role_key, module_key)` oldu.
+  **Veri kaybı yok:** mevcut ortak satırların her biri **her firmaya kopyalandı** (kullanıcı kararı) →
+  yükseltme öncesi ve sonrası her firmanın gördüğü kısıt AYNIDIR. Migration doğrulama kapısı taşır:
+  `yeni == eski × firmaSayısı` tutmazsa istisna atar ve hiçbir şey yazılmaz.
+  Okuma yolu (`BlockedForRoles` / `BlockedForUser`) artık **firma parametresi zorunlu** alır — oturum
+  kurulurken de firma süzgeci uygulanır.
+- **A2 — İKİ EKRAN TEK EKRAN OLDU.** "Firma Yetki Kontrol" + "Rol Yetki Kontrol" → **Firma Yetki Paketi**
+  (route `company-permissions` KORUNDU) · iki sekme: *Ekran paketi* ve *Rol tavanı* · **tek firma
+  seçicisi** ikisini birden yükler. İkisi de aynı soruyu ("bu ekran kime verilebilir?") farklı
+  eksenlerden soruyordu; artık ikisi de firma bazlı.
+  `role_permissions` **EKRANI** katalogdan kalktı; **MODÜL anahtarı korundu** (yetki ağacı ve rol
+  kısıtları onu kullanmaya devam ediyor). Eski sayfa dosyası silindi → tek giriş noktası.
+- **A3 — ŞABLON KISAYOLU (kapsam bilinçli olarak daraltıldı).** Yetkiler ekranına **"Şablondan doldur"**
+  eklendi (web + masaüstü): şablon **yalnız kutuları doldurur, sunucuya yazmaz** — kararı "Kaydet" verir.
+  **Yetki Şablonları ekranı KALDI.** Öneride "şablonlar ayrı ekran olmaktan çıksın" denmişti; uygulamada
+  şablonlar *kalıcı nesnelerdir* (oluşturma/silme/firma kapsamı) ve tam yönetimi bir açılır pencereye
+  gömmek hem kullanımı hem riski kötüleştirirdi. Sonuç: **4 ekran → 3 ekran + kısayol**; kullanıcının
+  şikâyet ettiği iki çakışan tavan ekranı birleşti.
+- **Değişmeyenler (bilinçli):** yetki zincirinin anlamı, API sözleşmeleri (yalnız `companyId` eklendi),
+  `AppModules` kataloğu, şablon uçları ve yetki ağacının kendisi.

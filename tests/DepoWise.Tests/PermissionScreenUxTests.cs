@@ -1,3 +1,4 @@
+using DepoWise.Application.Security;
 using Xunit;
 
 namespace DepoWise.Tests;
@@ -45,7 +46,6 @@ public class PermissionScreenUxTests
     /// sayfa "yükleniyor" dalında takılı kalır.
     /// </summary>
     [Theory]
-    [InlineData("src/DepoWise.Web/Components/Pages/RolePermissions.razor")]
     [InlineData("src/DepoWise.Web/Components/Pages/CompanyPermissions.razor")]
     public void U1_Yukleme_Hatasi_Ekranda_Gorunur(string dosya)
     {
@@ -167,6 +167,67 @@ public class PermissionScreenUxTests
         var ilkAwait = govde.IndexOf("await ", StringComparison.Ordinal);
         Assert.True(ilkTry >= 0 && ilkAwait >= 0 && ilkTry < ilkAwait,
             "İlk sunucu çağrısı try korumasının dışında kalmış: " + dosya);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+    // 3c · A TURU — EKRANLAR BİRLEŞTİ, ŞABLON KISAYOLU GELDİ
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// U8 — "Rol Yetki Kontrol" ayrı ekran OLARAK KALKTI; içeriği "Firma Yetki Paketi" ekranında
+    /// sekme oldu. İki giriş noktası kalmamalı: eski sayfa dosyası da katalog kaydı da yok.
+    /// </summary>
+    [Fact]
+    public void U8_Rol_Tavani_Firma_Yetki_Paketinde()
+    {
+        Assert.False(File.Exists(Path.Combine(Root(),
+            "src", "DepoWise.Web", "Components", "Pages", "RolePermissions.razor")),
+            "Eski Rol Yetki Kontrol sayfası hâlâ duruyor — iki giriş noktası oluşur.");
+
+        Assert.Null(AppScreens.ByKey("role_permissions"));                    // ekran katalogda YOK
+        Assert.NotNull(AppScreens.ByKey("company_permissions"));              // birleşik ekran VAR
+        Assert.Equal("Firma Yetki Paketi", AppScreens.ByKey("company_permissions")!.Label);
+
+        // ⚠️ MODÜL anahtarı korunmalı: yetki ağacında ve rol kısıtlarında hâlâ kullanılıyor.
+        Assert.Contains(AppModules.All, m => m.Key == "role_permissions");
+
+        var src = Read("src/DepoWise.Web/Components/Pages/CompanyPermissions.razor");
+        Assert.Contains("Ekran paketi", src);
+        Assert.Contains("Rol tavanı", src);
+        // Tek firma seçicisi iki sekmeyi birden yükler.
+        Assert.Contains("LoadAll", src);
+        // Rol tavanı FİRMA BAZLI okunur ve yazılır.
+        Assert.Contains("/api/role-permissions?companyId=", src);
+        Assert.Contains("companyId = _companyId", src);
+    }
+
+    /// <summary>
+    /// U9 — Şablondan doldurma İKİ ORTAMDA da Yetkiler ekranında. Şablon yalnız kutuları doldurur;
+    /// sunucuya yazmaz — kararı "Kaydet" verir (sürpriz kayıt olmaz).
+    /// </summary>
+    [Fact]
+    public void U9_Sablondan_Doldurma_Yetkiler_Ekraninda()
+    {
+        var web = Read("src/DepoWise.Web/Components/Pages/Permissions.razor");
+        Assert.Contains("Şablondan doldur", web);
+        Assert.Contains("ApplyTemplate", web);
+        // Uygulama SADECE matrisi doldurur: gövdede kaydetme çağrısı olmamalı.
+        var i = web.IndexOf("private async Task ApplyTemplate", StringComparison.Ordinal);
+        Assert.True(i > 0);
+        var son = web.IndexOf("private static bool Bo(", i, StringComparison.Ordinal);
+        var govde = web.Substring(i, Math.Max(0, son - i));
+        Assert.DoesNotContain("PostAsync", govde);
+
+        var vm = Read("src/DepoWise.Desktop/ViewModels/PermissionsViewModel.cs");
+        Assert.Contains("public ObservableCollection<TemplateOption> Templates", vm);
+        Assert.Contains("UygulaSablonAsync", vm);
+        var j = vm.IndexOf("private async Task UygulaSablonAsync", StringComparison.Ordinal);
+        Assert.True(j > 0);
+        var vgovde = vm.Substring(j, Math.Min(900, vm.Length - j));
+        Assert.DoesNotContain("SavePermissionsAsync", vgovde);
+
+        var view = Read("src/DepoWise.Desktop/Views/PermissionsView.axaml");
+        Assert.Contains("TemplateEnabled", view);
     }
 
     // ═════════════════════════════════════════════════════════════════════════════════════════

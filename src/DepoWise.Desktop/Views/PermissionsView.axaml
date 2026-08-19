@@ -45,6 +45,17 @@
                      ama yanlışlıkla değiştirilemez. -->
                 <Button Classes="Primary" Content="Düzenle" Command="{Binding BeginEditCommand}"
                         IsVisible="{Binding CanBeginEdit}"/>
+                <!-- A3: şablondan doldurma — ayrı ekrana gitmeye gerek yok. Kutuları doldurur, KAYDETMEZ. -->
+                <ComboBox Classes="Field" Width="200" ItemsSource="{Binding Templates}"
+                          SelectedItem="{Binding SelectedTemplate}" IsEnabled="{Binding TemplateEnabled}"
+                          IsVisible="{Binding TemplateEnabled}" PlaceholderText="Şablondan doldur"
+                          ToolTip.Tip="Şablon yetkileri kutulara yazar; kaydetmez.">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:PermissionsViewModel+TemplateOption">
+                            <SelectableTextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
                 <Button Classes="Primary" Content="Kaydet" Command="{Binding SaveCommand}" IsVisible="{Binding CanSavePerms}"/>
                 <Button Classes="Secondary" Content="Vazgeç" Command="{Binding CancelEditCommand}"
                         IsVisible="{Binding IsEditing}"/>

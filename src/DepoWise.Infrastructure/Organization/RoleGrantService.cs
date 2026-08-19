@@ -53,10 +53,15 @@ public sealed class RoleGrantService
         return false;
     }
 
-    public IReadOnlyList<RoleGrantRow> GetControl(SessionContext s)
+    /// <summary>
+    /// A1 (2026-08-19) — <b>FİRMA BAZLI</b>. <paramref name="companyId"/> boş bırakılırsa aktörün
+    /// kendi firması kullanılır. Bir firmanın tavanı diğerini ETKİLEMEZ.
+    /// </summary>
+    public IReadOnlyList<RoleGrantRow> GetControl(SessionContext s, string? companyId = null)
     {
         if (!s.IsSuperAdmin) throw new ForbiddenException("Rol Yetki Kontrol yalnız süper admine açıktır.");
-        var blocked = LoadAll();
+        var hedef = string.IsNullOrWhiteSpace(companyId) ? s.CompanyId : companyId!;
+        var blocked = LoadAll(hedef);
         var rows = new List<RoleGrantRow>();
         foreach (var (key, label) in AppModules.All)
         {
@@ -72,9 +77,11 @@ public sealed class RoleGrantService
 
     /// <summary>Matrisi TAM DEĞİŞTİRİR (rol → kapalı modül anahtarları). Yalnız süper admin.
     /// Yapısal kilitler ve public modüller yok sayılır; Süper Admin rolü hiç yazılmaz.</summary>
-    public void SetMatrix(SessionContext s, IReadOnlyDictionary<string, IReadOnlyList<string>> blockedByRole)
+    public void SetMatrix(SessionContext s, IReadOnlyDictionary<string, IReadOnlyList<string>> blockedByRole,
+        string? companyId = null)
     {
         if (!s.IsSuperAdmin) throw new ForbiddenException("Rol Yetki Kontrol yalnız süper admine açıktır.");
+        var hedef = string.IsNullOrWhiteSpace(companyId) ? s.CompanyId : companyId!;
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
         using var conn = _factory.Create();
@@ -82,7 +89,10 @@ public sealed class RoleGrantService
         using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
-            del.CommandText = "DELETE FROM role_grant_limits;";
+            // ⭐ YALNIZ HEDEF FİRMANIN satırları silinir. Eskiden tablo komple siliniyordu ve
+            // tek bir kaydetme BÜTÜN firmaların tavanını sıfırlıyordu (A1 düzeltmesi).
+            del.CommandText = "DELETE FROM role_grant_limits WHERE company_id=@c;";
+            del.AddWithValue("@c", hedef);
             del.ExecuteNonQuery();
         }
         var written = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -96,7 +106,9 @@ public sealed class RoleGrantService
                 if (IsHardBlocked(moduleKey, roleKey)) continue; // zaten yapısal kilitli — satır tutmaya gerek yok
                 using var ins = conn.CreateCommand();
                 ins.Transaction = tx;
-                ins.CommandText = "INSERT INTO role_grant_limits(id, role_key, module_key, created_at) VALUES(@id,@r,@m,@now) ON CONFLICT DO NOTHING;";
+                ins.CommandText = "INSERT INTO role_grant_limits(id, company_id, role_key, module_key, created_at) " +
+                                  "VALUES(@id,@c,@r,@m,@now) ON CONFLICT DO NOTHING;";
+                ins.AddWithValue("@c", hedef);
                 ins.AddWithValue("@id", Guid.NewGuid().ToString("N"));
                 ins.AddWithValue("@r", roleKey);
                 ins.AddWithValue("@m", moduleKey);
@@ -111,7 +123,8 @@ public sealed class RoleGrantService
         // Kayıt AKTÖRÜN firmasına yazılır (CompanyPurgeService ile aynı desen — matris firma-üstüdür).
         // Aynı transaction içinde: işlem geri alınırsa audit de geri alınır (sahte iz oluşmaz).
         // Özet YALNIZ rol başına kapatılan ekran SAYISIdır — hassas veri taşımaz.
-        AuditWriter.Write(conn, tx, new AuditEntry(s.CompanyId, "role_permissions", "matrix",
+        // Audit HEDEF firmaya yazılır (artık matris firma-üstü değil).
+        AuditWriter.Write(conn, tx, new AuditEntry(hedef, "role_permissions", "matrix",
             AuditActions.Update, s.UserId, AfterJson: CountsJson(written)), _clock);
         tx.Commit();
         _snapshots?.InvalidateAll();   // F0: rol kısıtı herkesi etkileyebilir → tüm fotoğraflar düşürülür
@@ -119,14 +132,15 @@ public sealed class RoleGrantService
 
     /// <summary>Bir kullanıcının rollerine göre KAPALI modüller (yetki ağacı + grant kontrolü için).
     /// Süper admin rolü taşıyan kullanıcıda daima boş küme.</summary>
-    public IReadOnlySet<string> BlockedForUser(string userId)
+    public IReadOnlySet<string> BlockedForUser(string companyId, string userId)
     {
         using var conn = _factory.Create();
-        return BlockedForUser(conn, null, userId);
+        return BlockedForUser(conn, null, companyId, userId);
     }
 
     /// <summary>Rol anahtarlarına göre KAPALI modüller (herhangi bir rolde kapalıysa kapalı — deny-by-default).</summary>
-    public static IReadOnlySet<string> BlockedForRoles(DbConnection conn, DbTransaction? tx, IEnumerable<string> roleKeys)
+    public static IReadOnlySet<string> BlockedForRoles(DbConnection conn, DbTransaction? tx,
+        string companyId, IEnumerable<string> roleKeys)
     {
         var roles = roleKeys.ToList();
         var result = new HashSet<string>(StringComparer.Ordinal);
@@ -136,7 +150,9 @@ public sealed class RoleGrantService
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         var names = roles.Select((_, i) => "@r" + i).ToList();
-        cmd.CommandText = $"SELECT module_key FROM role_grant_limits WHERE role_key IN ({string.Join(",", names)});";
+        // ⭐ A1: firma süzgeci ZORUNLU — başka firmanın tavanı bu kullanıcıyı etkilemez.
+        cmd.CommandText = $"SELECT module_key FROM role_grant_limits WHERE company_id=@c AND role_key IN ({string.Join(",", names)});";
+        cmd.AddWithValue("@c", companyId);
         for (var i = 0; i < roles.Count; i++) cmd.AddWithValue(names[i], roles[i]);
         using var r = cmd.ExecuteReader();
         while (r.Read()) result.Add(r.GetString(0));
@@ -145,7 +161,8 @@ public sealed class RoleGrantService
 
     /// <summary>Kullanıcının rollerini okuyup kapalı modülleri döndürür (yapısal kilitler hariç — onlar
     /// AccessControl'de zaten uygulanır).</summary>
-    public static IReadOnlySet<string> BlockedForUser(DbConnection conn, DbTransaction? tx, string userId)
+    public static IReadOnlySet<string> BlockedForUser(DbConnection conn, DbTransaction? tx,
+        string companyId, string userId)
     {
         var roles = new List<string>();
         using (var cmd = conn.CreateCommand())
@@ -156,19 +173,20 @@ public sealed class RoleGrantService
             using var rd = cmd.ExecuteReader();
             while (rd.Read()) roles.Add(rd.GetString(0));
         }
-        return BlockedForRoles(conn, tx, roles);
+        return BlockedForRoles(conn, tx, companyId, roles);
     }
 
     /// <summary>Audit özeti: {"rol":kapatılanEkranSayısı}. Boş matris → {}. Yalnız sayı taşır.</summary>
     private static string CountsJson(SortedDictionary<string, int> counts)
         => "{" + string.Join(",", counts.Select(kv => $"\"{kv.Key}\":{kv.Value}")) + "}";
 
-    private Dictionary<string, HashSet<string>> LoadAll()
+    private Dictionary<string, HashSet<string>> LoadAll(string companyId)
     {
         var d = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT role_key, module_key FROM role_grant_limits;";
+        cmd.CommandText = "SELECT role_key, module_key FROM role_grant_limits WHERE company_id=@c;";
+        cmd.AddWithValue("@c", companyId);
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {

@@ -348,7 +348,7 @@ public class AppScreensParityTests
             ("Şube ve Personel", new[] { ("branches", "branches"), ("personnel", "personnel") }),
             ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),
-            ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("role_permissions", "role-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
+            ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
             ("Yedekleme", new[] { ("@superr", "backup") }),
             ("Çöp Kutusu", new[] { ("trash", "trash") }),
             ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("settings", "developer"), ("", "theme"), ("", "soon/about") }),
@@ -363,7 +363,9 @@ public class AppScreensParityTests
         for (int i = 0; i < beklenen.Length; i++)
             Assert.Equal(beklenen[i].Baglantilar, gercek[i].Item2);
         // ⭐ Toplam bağlantı sayısı şema değişikliğinden ÖNCEKİYLE aynı: 55.
-        Assert.Equal(55, gercek.Sum(x => x.Item2.Length));
+        // A2 (2026-08-19): "Rol Yetki Kontrol" ekranı "Firma Yetki Paketi" içine SEKME olarak taşındı
+        // → bağlantı sayısı bilinçli olarak 1 azaldı (ekran kaybı DEĞİL, birleşme).
+        Assert.Equal(54, gercek.Sum(x => x.Item2.Length));
     }
 
     /// <summary>
@@ -436,7 +438,7 @@ public class AppScreensParityTests
             // "local_reset": YET (2026-08-18) — Kalıcı Silme / Firma İş Verisini Sıfırla ile aynı gruptaki
             // yönetim ekranı; kardeşleri gibi YALNIZ WEB'de sunulur (masaüstünde karşılığı yoktur).
             "backup", "company_permissions", "import", "local_reset", "machine_backups", "purge_company",
-            "quota_monitor", "reset_company_business", "role_permissions", "screen_visibility", "server_status",
+            "quota_monitor", "reset_company_business", "screen_visibility", "server_status",
         }, yalnizWeb);
 
         // Geri kalanların hepsi iki platformda.

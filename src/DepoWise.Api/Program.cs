@@ -2389,10 +2389,11 @@ app.MapPost("/api/company-permissions/{companyId}", (HttpContext c, string compa
 
 // Rol Yetki Kontrol (yalnız süper admin): ekran x rol matrisi. Kapatılan ekran o rolde yetki ağacında
 // görünmez, verilemez ve (verilmişse) oturumda düşürülür — admin bypass'ı dahil.
-app.MapGet("/api/role-permissions", (HttpContext c) =>
+// A1 (2026-08-19): rol tavanı artık FİRMA BAZLI. companyId verilmezse aktörün firması kullanılır.
+app.MapGet("/api/role-permissions", (HttpContext c, string? companyId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    var rows = svc.RoleGrants.GetControl(s).Select(r => new
+    var rows = svc.RoleGrants.GetControl(s, companyId).Select(r => new
     {
         moduleKey = r.ModuleKey,
         label = r.Label,
@@ -2400,6 +2401,7 @@ app.MapGet("/api/role-permissions", (HttpContext c) =>
     });
     return Results.Ok(new
     {
+        companyId = string.IsNullOrWhiteSpace(companyId) ? s.CompanyId : companyId,
         roles = DepoWise.Infrastructure.Organization.RoleGrantService.ManagedRoles.Select(r => new { key = r.Key, name = r.Name }),
         modules = rows,
     });
@@ -2412,7 +2414,7 @@ app.MapPost("/api/role-permissions", (HttpContext c, RoleGrantDto d) =>
         kv => kv.Key,
         kv => (IReadOnlyList<string>)(kv.Value ?? new List<string>()),
         StringComparer.Ordinal);
-    return Results.Ok(new { ok = Void(() => svc.RoleGrants.SetMatrix(s, map)) });
+    return Results.Ok(new { ok = Void(() => svc.RoleGrants.SetMatrix(s, map, d.CompanyId)) });
 }).RequireAuthorization();
 
 // ── Raporlar (firma alanı yalnız süper admin; ResolveCompany fail-closed tenant izolasyonu) ──
@@ -3506,7 +3508,7 @@ record IdListDto(List<string>? Ids);
 record IdDto(string Id);
 record AlertReadDto(string? Key, string? Signature);
 record GrantLevelDto(Dictionary<string, string>? Levels);
-record RoleGrantDto(Dictionary<string, List<string>>? Blocked);
+record RoleGrantDto(Dictionary<string, List<string>>? Blocked, string? CompanyId = null);
 record ReauthDto(string? Password);
 // ADR-083 — özel kod + firma kalıcı silme
 record SpecialCodeDto(string? Code, string? Password);

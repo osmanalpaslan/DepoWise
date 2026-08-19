@@ -123,8 +123,8 @@ public sealed class PermissionService
     {
         AccessControl.Require(actor, Module, PermissionAction.View);
         using var conn = _factory.Create();
-        EnsureUserOwned(conn, null, actor, userId);
-        return Organization.RoleGrantService.BlockedForUser(conn, null, userId);
+        var companyId = EnsureUserOwned(conn, null, actor, userId);
+        return Organization.RoleGrantService.BlockedForUser(conn, null, companyId, userId);
     }
 
     /// <summary>
@@ -187,7 +187,7 @@ public sealed class PermissionService
 
         // Rol Yetki Kontrol: hedefin ROLÜNE kapatılmış ekran kimse tarafından (süper admin dahil) verilemez.
         // Açmak için önce "Rol Yetki Kontrol" ekranından o rol için serbest bırakılmalıdır.
-        var roleBlocked = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForUser(conn, tx, userId);
+        var roleBlocked = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForUser(conn, tx, companyId, userId);
         if (roleBlocked.Count > 0)
         {
             var hits = modules
@@ -406,7 +406,7 @@ public sealed class PermissionService
         using var conn = _factory.Create();
         var companyId = EnsureUserOwned(conn, null, actor, userId);
         var roles = RolesOf(conn, null, userId);
-        var blocked = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForUser(conn, null, userId);
+        var blocked = DepoWise.Infrastructure.Organization.RoleGrantService.BlockedForUser(conn, null, companyId, userId);
 
         // Hedefin ETKİN yetkisini, hedefin KENDİ oturumu gibi hesapla (ham satır göstermek yanıltıcıdır:
         // admin'de satır olmasa da her şeye erişir; rol kilidi varsa satır olsa da erişemez).

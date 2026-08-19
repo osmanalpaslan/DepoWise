@@ -45,3 +45,34 @@
   BeginEditCommand · CancelEditCommand` bağlamalarının hepsi **derleme zamanında** doğrulandı (0 hata).
 - **Web görsel tur** oturumsuz yapıldı: 5 yetki ekranı 200 döndü ve sunucu günlüğünde **istisna yok**.
   Oturum içi tıklama turu kullanıcı tarafından yapılacak.
+
+---
+
+## Tur A — Yapı değişikliği (2026-08-19)
+
+**Kapsam:** rol tavanının firma bazlı olması (Migration 072) · iki tavan ekranının birleşmesi ·
+Yetkiler ekranına şablon kısayolu. **İki ortam da incelendi.**
+
+| Doğrulama | Sonuç |
+|---|---|
+| `RoleGrantCompanyTests` (yeni) | **4/4** |
+| `PermissionScreenUxTests` | **11/11** (U8 · U9 yeni) |
+| Parity testleri (katalog + ekran ağacı) | **31/31** |
+| Migration 072 — veri kopyalama | 2 kısıt × 3 firma = **6 satır**, `created_at` korundu, idempotent |
+| Firma izolasyonu (davranış) | A'daki kısıt B'yi **etkilemiyor**; B'nin kaydı A'yı **bozmuyor** |
+| Menü bağlantısı (web) | 55 → **54** (ekran kaybı değil, iki ekran birleşti) |
+
+### Yeni testlerin kilitledikleri
+| Test | Kilit |
+|---|---|
+| R1 | Tablo firma bazlı; aynı (rol, modül) farklı firmalarda yan yana durabilir, aynı firmada tekrar edemez |
+| **R2** | **Migration eski kısıtları HER firmaya kopyalar** — yükseltme sonrası görünen davranış aynı |
+| R3 | Bir firmanın tavanı diğerini etkilemez (eski davranışta tablo komple siliniyordu) |
+| R4 | Yönetim ekranı firma bazlı okur; süper admin başka firmayı yönetirken kendi firmasını bozmaz |
+| U8 | Rol tavanı ekranı ayrı olarak YOK; Firma Yetki Paketi'nde sekme; modül anahtarı korundu |
+| U9 | Şablondan doldurma iki ortamda; şablon **sunucuya yazmaz**, yalnız kutuları doldurur |
+
+### Referans güncellemeleri (gevşetme değil)
+- S14: web menü bağlantısı 55 → 54 — "Rol Yetki Kontrol" ekranı birleşme nedeniyle kalktı.
+- S16: `role_permissions` yalnız-web ekran listesinden çıktı (artık ekran değil, yalnız modül).
+- S18: sabit "58 ekran" yerine `AppScreens.All.Count` — sayı değişince test kırılmaz, garanti sürer.

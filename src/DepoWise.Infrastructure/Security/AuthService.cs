@@ -87,7 +87,7 @@ public sealed class AuthService
         CreateSession(conn, user.Value.Id, companyId, now);
         var session = new SessionContext(user.Value.Id, companyId, roles, perms, LoadViewAllBranches(conn, user.Value.Id))
         {
-            BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
+            BlockedModules = Organization.RoleGrantService.BlockedForRoles(conn, null, companyId, roles), // Rol Yetki Kontrol (firma bazlı)
             // ⭐ GUI-01 (2026-08-13): ŞUBE KAPSAMI BURADA DA DOLDURULUR. Web/API oturumu
             // PermissionSnapshot.ToSession() üzerinden kurulduğu için kapsamı G4-3b'den beri taşıyordu;
             // MASAÜSTÜ ise doğrudan bu metodu çağırıyor ve iki alan boş kalıyordu → BranchAccess.Allowed
@@ -221,7 +221,7 @@ public sealed class AuthService
             RoleKeys: roles,
             Permissions: perms,
             CanViewAllBranches: LoadViewAllBranches(conn, userId),
-            BlockedModules: Organization.RoleGrantService.BlockedForRoles(conn, null, roles), // Rol Yetki Kontrol
+            BlockedModules: Organization.RoleGrantService.BlockedForRoles(conn, null, companyId, roles), // Rol Yetki Kontrol (firma bazlı)
             // ⭐ G4-3b: ŞUBE KAPSAMI ARTIK DOLDURULUYOR. Önceden bu iki alan boş kaldığı için
             // web/API tarafında hiçbir şube bilgisi oturuma girmiyordu → ön muhasebede şube filtresi
             // FİİLEN ÇALIŞMIYORDU (her kullanıcı her şubenin verisini görebiliyordu).

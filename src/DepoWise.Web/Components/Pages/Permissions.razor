@@ -71,6 +71,17 @@
             }
             @if (!_targetIsAdmin && _edit)
             {
+                @* A3 (ADR-116): şablon uygulamak için artık ayrı ekrana gitmek gerekmez.
+                   Şablon SEÇİLİ KUTULARI DOLDURUR; hiçbir şey kaydedilmez — kararı "Kaydet" verir. *@
+                @if (_templates.Count > 0)
+                {
+                    <MudSelect T="string" Value="_templateId" ValueChanged="ApplyTemplate" Label="Şablondan doldur"
+                               Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true"
+                               Style="min-width:220px" Disabled="_busy"
+                               HelperText="Kutuları doldurur; kaydetmez.">
+                        @foreach (var t in _templates) { <MudSelectItem T="string" Value="@t.Id">@t.Name</MudSelectItem> }
+                    </MudSelect>
+                }
                 <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="Save" Disabled="_busy">@(_busy ? "…" : "Kaydet")</MudButton>
                 <MudButton Variant="Variant.Text" OnClick="CancelEdit" Disabled="_busy">Vazgeç</MudButton>
             }
@@ -208,6 +219,43 @@
 
     private void OnRoleChanged(string? v) { _roleKey = v; }
 
+    // ═══ A3 — ŞABLONDAN DOLDURMA ═════════════════════════════════════════════════════════════
+    /// <summary>Uygulanabilir şablonlar (kendi firması + tüm-firma şablonları).</summary>
+    private List<ApiClient.Opt> _templates = new();
+    private string? _templateId;
+
+    /// <summary>
+    /// Şablonu MATRİSE yazar — sunucuya HİÇBİR ŞEY göndermez. Kullanıcı isterse üzerinde değişiklik
+    /// yapar, sonra "Kaydet" der. Böylece şablon "uygulandı ve kaydedildi" sürprizi olmaz.
+    /// </summary>
+    private async Task ApplyTemplate(string? id)
+    {
+        _templateId = id;
+        if (string.IsNullOrEmpty(id) || _matrix is null) return;
+        _busy = true; _msg = null;
+        try
+        {
+            var d = await Api.GetObjectAsync($"/api/permission-templates/{id}");
+            var mods = new List<(string, bool, bool, bool, bool)>();
+            if (d.TryGetProperty("modules", out var ms) && ms.ValueKind == JsonValueKind.Array)
+                foreach (var m in ms.EnumerateArray())
+                    mods.Add((S(m, "moduleKey"), Bo(m, "canView"), Bo(m, "canCreate"), Bo(m, "canEdit"), Bo(m, "canDelete")));
+            _matrix.LoadFrom(mods);
+
+            var btns = new List<string>();
+            if (d.TryGetProperty("buttons", out var bs) && bs.ValueKind == JsonValueKind.Array)
+                foreach (var b in bs.EnumerateArray()) { var v = b.GetString(); if (!string.IsNullOrEmpty(v)) btns.Add(v!); }
+            _matrix.LoadButtons(btns);
+
+            var ad = _templates.FirstOrDefault(t => t.Id == id)?.Name ?? "Şablon";
+            _ok = true; _msg = $"\"{ad}\" şablonu kutulara uygulandı. Gözden geçirip Kaydet deyin.";
+        }
+        catch (Exception ex) { _ok = false; _msg = "Şablon uygulanamadı: " + ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private static bool Bo(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.True;
+
     protected override async Task OnInitializedAsync()
     {
         // ⭐ YET-C4 (gerçek arayüz turunda bulundu): ilk yükleme çağrıları KORUMASIZDI. Sunucu 401/500
@@ -221,6 +269,7 @@
         catch (Exception ex) { _ok = false; _msg = "Ekran yüklenemedi: " + ex.Message; }
         try { _buttons = await Api.OptionsAsync("/api/buttons", "key", "label"); } catch { }
         try { _roles = await Api.GetRolesAsync(); } catch { }
+        try { _templates = await Api.OptionsAsync("/api/permission-templates/for-user", "id", "name"); } catch { }
     }
 
     /// <summary>Kullanıcı seçilince ağaç yeni render edilir; matrix hazır olunca (ilk seçimde ref henüz null

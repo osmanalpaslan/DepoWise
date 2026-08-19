@@ -210,8 +210,11 @@ public static class AppScreens
         new AppScreen("server_backups", "server_backups", "Web Yönetimi", "Sunucu Yedekleri", Both, "server-backups", "server_backups"),
         new AppScreen("server_status", "server_status", "Web Yönetimi", "Canlı Sunucu", W, "server-status", null),
         new AppScreen("quota_monitor", "quota_monitor", "Web Yönetimi", "Kota İzleme", W, "quota-monitor", null),
-        new AppScreen("company_permissions", "companies", "Web Yönetimi", "Firma Yetki Kontrol", W, "company-permissions", null),
-        new AppScreen("role_permissions", "role_permissions", "Web Yönetimi", "Rol Yetki Kontrol", W, "role-permissions", null),
+        // A2 (ADR-116, 2026-08-19): "Firma Yetki Kontrol" + "Rol Yetki Kontrol" TEK EKRANDA birleşti.
+        // İkisi de aynı soruyu soruyordu ("bu ekran kime verilebilir?"); biri firma bazlı, diğeri tüm
+        // firmalar için ortaktı. Artık ikisi de firma bazlı ve tek ekranda iki sekme.
+        // ⚠️ "role_permissions" MODÜL anahtarı KATALOGDA KALIR (AppModules) — yalnız EKRAN kalktı.
+        new AppScreen("company_permissions", "companies", "Web Yönetimi", "Firma Yetki Paketi", W, "company-permissions", null),
         new AppScreen("purge_company", "purge_company", "Web Yönetimi", "Kalıcı Silme", W, "purge-company", null),
         new AppScreen("reset_company_business", "purge_company", "Web Yönetimi", "Firma İş Verisini Sıfırla", W, "reset-company-business", null, WebPermOverride: "@super"),
         // YET (2026-08-18, kullanıcı isteği): makinelerin YEREL verisini sıfırlama isteği. Eskiden

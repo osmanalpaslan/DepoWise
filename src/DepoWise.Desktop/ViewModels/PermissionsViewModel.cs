@@ -51,10 +51,21 @@ public sealed partial class PermissionsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CanSavePerms))]
     [NotifyPropertyChangedFor(nameof(CanBeginEdit))]
     [NotifyPropertyChangedFor(nameof(RoleEnabled))]
+    [NotifyPropertyChangedFor(nameof(TemplateEnabled))]
     private bool _isEditing;
 
     /// <summary>Atanabilir roller (Süper Admin / Kısıtlı Süper Admin yalnız süper admine listelenir).</summary>
     public ObservableCollection<RoleOption> Roles { get; } = new();
+
+    // ═══ A3 (ADR-116) — ŞABLONDAN DOLDURMA ═══════════════════════════════════════════════════
+    // Şablon uygulamak için ayrı ekrana gitmek gerekmez. Şablon YALNIZ KUTULARI DOLDURUR;
+    // sunucuya hiçbir şey yazılmaz — kararı "Kaydet" verir.
+    public ObservableCollection<TemplateOption> Templates { get; } = new();
+
+    [ObservableProperty] private TemplateOption? _selectedTemplate;
+
+    /// <summary>Şablon kutusu yalnız düzenleme modunda ve şablon varken açıktır.</summary>
+    public bool TemplateEnabled => IsEditing && HasUser && !IsTargetAdmin && Templates.Count > 0;
 
     /// <summary>Seçili kullanıcının YÜKLENDİĞİ andaki rolü — "değişti mi" karşılaştırması bununla yapılır.</summary>
     private string? _loadedRoleKey;
@@ -93,6 +104,7 @@ public sealed partial class PermissionsViewModel : ViewModelBase
         BuildTree(null);
         LoadRoles();
         _ = LoadUsers();
+        _ = LoadTemplatesAsync();
     }
 
     /// <summary>Ağacı kurar. <paramref name="blocked"/> = Rol Yetki Kontrol ile hedefin ROLÜNE kapatılmış
@@ -130,6 +142,41 @@ public sealed partial class PermissionsViewModel : ViewModelBase
             if ((key == RoleKeys.SuperAdmin || key == RoleKeys.RestrictedSuperAdmin) && !_session.IsSuperAdmin) continue;
             Roles.Add(new RoleOption(key, name));
         }
+    }
+
+    /// <summary>Şablon seçilince kutular DOLDURULUR (kaydetmez). Kullanıcı üzerinde değişiklik
+    /// yapıp "Kaydet" diyebilir; şablon "uygulandı ve yazıldı" sürprizi olmaz.</summary>
+    partial void OnSelectedTemplateChanged(TemplateOption? value)
+    {
+        if (value is null || !IsEditing) return;
+        _ = UygulaSablonAsync(value);
+    }
+
+    private async Task UygulaSablonAsync(TemplateOption t)
+    {
+        var d = await OrgServerClient.GetTemplateDataAsync(t.Id);
+        if (d is null) { Status = "Şablon alınamadı (çevrimiçi olmayı gerektirir)."; return; }
+        foreach (var m in Modules)
+        {
+            var p = d.Modules.FirstOrDefault(x => x.ModuleKey == m.Key);
+            m.Set(p?.CanView ?? false, p?.CanCreate ?? false, p?.CanEdit ?? false, p?.CanDelete ?? false);
+        }
+        foreach (var b in Buttons) b.Granted = d.Buttons.Contains(b.Key);
+        Status = $"\"{t.Name}\" şablonu kutulara uygulandı. Gözden geçirip Kaydet deyin.";
+    }
+
+    /// <summary>Uygulanabilir şablonlar (kendi firması + tüm-firma). Çevrimdışıysa liste boş kalır
+    /// ve kutu görünmez — özellik yokmuş gibi davranır, hata vermez.</summary>
+    private async Task LoadTemplatesAsync()
+    {
+        try
+        {
+            var rows = await OrgServerClient.ListTemplatesForUserAsync();
+            Templates.Clear();
+            foreach (var r in rows ?? new()) Templates.Add(new TemplateOption(r.Id, r.Name));
+            OnPropertyChanged(nameof(TemplateEnabled));
+        }
+        catch { /* şablon yoksa ekran normal çalışır */ }
     }
 
     /// <summary>Düzenleme moduna geç. ⭐ Ağaçtaki işaretlere DOKUNMAZ — yalnız kilidi açar.</summary>
@@ -256,6 +303,9 @@ public sealed partial class PermissionsViewModel : ViewModelBase
 
     /// <summary>Rol seçimi kutusunun öğesi (anahtar + görünen ad).</summary>
     public sealed record RoleOption(string Key, string Name);
+
+    /// <summary>Şablon seçimi kutusunun öğesi.</summary>
+    public sealed record TemplateOption(string Id, string Name);
 
     [RelayCommand]
     private async Task ShowSummary()

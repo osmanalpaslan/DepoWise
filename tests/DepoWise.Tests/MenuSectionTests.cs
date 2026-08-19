@@ -324,7 +324,9 @@ public class MenuSectionTests : IDisposable
         Assert.DoesNotContain("Yakıt", _svc.LayoutFor(Co).Groups.Keys);
         Assert.DoesNotContain(Agac(), n => n.Title == "Yakıt");
         // Ekranlar KAYBOLMAZ — hepsi yeni grubunda durur.
-        Assert.Equal(58, _svc.List(_super, null).Count);
+        // Sayı katalogdan okunur: ekran eklenip çıkarıldığında test sabit sayı yüzünden kırılmasın,
+        // ama "hiçbir ekran düşmedi" garantisi aynen sürsün.
+        Assert.Equal(AppScreens.All.Count, _svc.List(_super, null).Count);
     }
 
     /// <summary>⭐ Altında üst menü kalmayan ÜST GRUBUN tanımı da kaydedilmez.</summary>
