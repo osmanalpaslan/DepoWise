@@ -285,6 +285,51 @@ public class MenuSectionTests : IDisposable
         Assert.DoesNotContain(Agac(), n => n.IsSection);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    // 4 · BOŞ TANIM SAKLANMAZ (kullanıcı kuralı 2026-08-19)
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>⭐ Altında ekran kalmayan ÜST MENÜNÜN tanımı kaydedilmez (boş tanım birikmez).</summary>
+    [Fact]
+    public void S18_Ekrani_Kalmayan_Grup_Tanimi_Yazilmaz()
+    {
+        var (s, g) = Current();
+        // "Yakıt" grubundaki tüm ekranlar "Araçlar" altına taşınır → "Yakıt" boş kalır.
+        for (int i = 0; i < s.Count; i++)
+            if (s[i].GroupKey == "Yakıt") s[i] = s[i] with { GroupKey = "Araçlar" };
+        // Boş kalan grup, arayüz onu yine de gönderse bile kaydedilmemeli.
+        _svc.Save(_super, s, g);
+
+        MenuLayoutService.InvalidateAll();
+        Assert.DoesNotContain("Yakıt", _svc.LayoutFor(Co).Groups.Keys);
+        Assert.DoesNotContain(Agac(), n => n.Title == "Yakıt");
+        // Ekranlar KAYBOLMAZ — hepsi yeni grubunda durur.
+        Assert.Equal(58, _svc.List(_super, null).Count);
+    }
+
+    /// <summary>⭐ Altında üst menü kalmayan ÜST GRUBUN tanımı da kaydedilmez.</summary>
+    [Fact]
+    public void S19_Alti_Bos_Ust_Grup_Tanimi_Yazilmaz()
+    {
+        var (s, g) = Current();
+        g.Add(new GroupLayoutInput(Ust, "Bos Ust Grup", g.Count, true));   // altına hiç grup bağlanmadı
+        _svc.Save(_super, s, g);
+
+        MenuLayoutService.InvalidateAll();
+        Assert.DoesNotContain(Ust, _svc.LayoutFor(Co).Groups.Keys);
+        Assert.DoesNotContain(Agac(), n => n.IsSection);
+    }
+
+    /// <summary>Dolu ÜST GRUP korunur — kural yalnız BOŞ tanımı eler.</summary>
+    [Fact]
+    public void S20_Dolu_Ust_Grup_Korunur()
+    {
+        IkiGrubuUstGrubaTasi();
+        MenuLayoutService.InvalidateAll();
+        Assert.Contains(Ust, _svc.LayoutFor(Co).Groups.Keys);
+        Assert.Contains(Agac(), n => n.IsSection && n.Title == "Saha");
+    }
+
     public void Dispose()
     {
         MenuLayoutService.InvalidateAll();

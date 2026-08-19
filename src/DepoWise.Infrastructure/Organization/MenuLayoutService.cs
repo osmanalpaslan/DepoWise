@@ -290,6 +290,24 @@ public sealed class MenuLayoutService
             temizEkranlar.Add(new ScreenLayoutInput(key, Temizle(sc.Label), grup, sc.SortOrder));
         }
 
+        // ── 2b) ⭐ ALTINDA EKRAN OLMAYAN TANIM SAKLANMAZ (kullanıcı kuralı 2026-08-19) ──────────
+        // Bir üst menüde hiç ekran kalmadıysa, bir ÜST GRUBUN altında hiç üst menü kalmadıysa o tanım
+        // KAYDEDİLMEZ. Böylece menüde zaten görünmeyen boş tanımlar firma kaydında da birikmez.
+        // Katalog tanımı programda durur: bir ekran tekrar oraya taşınırsa grup kendiliğinden döner.
+        var ekranTasiyan = new HashSet<string>(
+            temizEkranlar.Select(e => e.GroupKey!), StringComparer.Ordinal);
+        var doluGruplar = temizGruplar
+            .Where(g => !MenuLayout.IsSectionKey(g.GroupKey) && ekranTasiyan.Contains(g.GroupKey))
+            .ToList();
+        var doluUstGruplar = new HashSet<string>(
+            doluGruplar.Where(g => g.ParentGroupKey is not null).Select(g => g.ParentGroupKey!),
+            StringComparer.Ordinal);
+        temizGruplar = temizGruplar
+            .Where(g => MenuLayout.IsSectionKey(g.GroupKey)
+                ? doluUstGruplar.Contains(g.GroupKey)
+                : ekranTasiyan.Contains(g.GroupKey))
+            .ToList();
+
         // ── 3) Katalog varsayılanına eşit olanları ELE (gereksiz satır yazma) ───────────────────
         var yazilacakEkranlar = new List<(string Key, string? Label, string? Group, int? Sort)>();
         foreach (var grupAnahtari in temizEkranlar.Select(e => e.GroupKey!).Distinct(StringComparer.Ordinal))

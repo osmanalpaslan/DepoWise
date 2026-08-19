@@ -1390,3 +1390,20 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
 - **Yetim koruması:** üst grup elle silinse bile ona bağlı üst menüler kaybolmaz, sessizce en üst
   seviyeye döner.
 - **Kapsam dışı:** dört ve daha fazla seviye, sürükle-bırak, üst gruba ikon seçimi.
+
+## ADR-113 — Menü: altında ekran/üst menü kalmayan tanım SAKLANMAZ (2026-08-19)
+- **Bağlam:** Kullanıcı nihai menü şemasını iletti ve ek kural koydu: *"altında ekran olmayan menü ve
+  üst menü kalacak olursa eğer tanımı sil."* Şema uygulandığında üç katalog grubu (Personel · Yönetim ·
+  İmport / Export) boş kaldı. Bu gruplar menüde zaten görünmüyordu (boş grup çizilmez) ama firma
+  kaydında (`menu_group_layout`) boş tanım olarak duruyorlardı.
+- **Karar:** `MenuLayoutService.Save` artık **altında ekran kalmayan üst menünün** ve **altında üst menü
+  kalmayan ÜST GRUBUN** kaydını yazmaz. Arayüz tam durumu (boş grup dahil) göndermeye devam eder;
+  eleme tek yerde, sunucuda yapılır → web · masaüstü · toplu betik aynı kuralı alır.
+- **Katalog tanımı SİLİNMEZ:** `AppScreens.Groups` programda durur. Bir ekran tekrar o gruba taşınırsa
+  grup kendiliğinden geri gelir; yönetim ekranında "0 ekran" satırı olarak görünmeye devam eder ki
+  yönetici oraya taşıma yapabilsin. Yani silinen şey **firmaya ait boş tercih kaydıdır**, program
+  kataloğu değil.
+- **Ekran kaybı riski yok:** eleme yalnız GRUP kayıtlarını etkiler; ekran satırları ve yetim-ekran
+  doğrulaması aynen çalışır (var olmayan gruba taşıma hâlâ reddedilir).
+- **Testler:** `MenuSectionTests` S18 (boş grup yazılmaz, 58 ekran yerinde durur) · S19 (altı boş üst
+  grup yazılmaz) · S20 (dolu üst grup korunur).

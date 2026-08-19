@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-18** (denetim yayın turu) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-19** (nihai menü şeması uygulandı) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -948,3 +948,45 @@ yansımıyordu. Gerçek GUI turunda yakalandı, `ApiClient.ParseLayout` düzelti
 
 ### Sıradaki tek iş
 Kullanıcı geri bildirimi. Açık iş yok.
+
+---
+
+## ✅ SON TAMAMLANAN — `SEMA` Nihai menü şeması canlıda uygulandı (2026-08-19)
+
+Kullanıcı menüyü tek tek düzenlemek yerine **nihai şemasını iletti**; şema toplu olarak uygulandı.
+
+### Uygulanan yapı (3 seviye)
+`UYARILAR` · `MALZEME VE STOK` · `OPERASYON` · `TALEPLER` · `FİNANS` · `RAPORLAR` ·
+`KURUMSAL YÖNETİM` · `SİSTEM YÖNETİMİ` · `AYARLAR`
+— 6 üst grup · 17 üst menü · **58 ekranın tamamı tam bir kez** yerleşti (betik doğrulaması).
+
+### Şemada yer almayan 4 ekran (gizlenmedi, yerleri raporlandı)
+| Ekran | Yerleştirildiği yer | Gerekçe |
+|---|---|---|
+| Uyarılar | en üst seviyede kendi başlığı | şemada yoktu; ekran kaybolmasın |
+| Malzeme Şablonları · Atanmamış Stok Dağıtımı | Malzemeler | yalnız masaüstünde var |
+| Excel'e Aktarım | Ayarlar | web `import` + masaüstü `import_export`; her platformda yalnız BİRİ görünür |
+
+### Bu turda yakalanan iki gerçek sorun
+| # | Sorun | Kök neden | Çözüm |
+|---|---|---|---|
+| **SEMA-B1** | Şema önce **yanlış firmaya** (DEPOWISE) yazıldı | Menü düzeni **firma bazlıdır**; süper admin firma vermeden giriş yapınca kendi firmasına yazılır | Betiğe `--firma=` eklendi; web'in kullandığı `/api/auth/select-company` akışı kullanılıyor |
+| **SEMA-B2** | `Oze Group` firmasına yazma **sessizce** DEPOWISE'a düşüyordu | Firma **silinmiş** (`is_deleted=1`); `AuthService` silinmiş firmada süper admini kilitlenmesin diye kendi firmasına düşürüyor (bilinçli davranış) | Canlı tek gerçek firma **Oze İnşaat**; ona uygulandı |
+
+### Yeni kural — boş tanım saklanmaz (ADR-113)
+Kullanıcı isteği: *"altında ekran olmayan menü ve üst menü kalacak olursa eğer tanımı sil."*
+Şema sonrası boşalan üç grup (**Personel · Yönetim · İmport / Export**) firma kaydından silindi ve
+`MenuLayoutService.Save` artık boş tanımı hiç yazmıyor → bir dahaki düzenlemede geri gelmez.
+Katalog tanımı programda durur; bir ekran tekrar oraya taşınırsa grup kendiliğinden döner.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Betik doğrulaması | 58 ekran · tekrar 0 · bilinmeyen 0 · şemada olmayan 0 |
+| Canlı ağaç okuması | şemayla **birebir** aynı |
+| `menu_group_layout` | Oze İnşaat **23** · DEPOWISE **23** (boş 3 grup yok) |
+| Üretim iş verisi (READ ONLY + ROLLBACK) | firma 3 · kullanıcı 8 · stok hareketi **663** — değişmedi |
+| `MenuSectionTests` | **20/20** (S18 · S19 · S20 yeni) |
+
+### Sıradaki tek iş
+API + Web deploy (ADR-113 sunucu kuralının canlıya çıkması).
