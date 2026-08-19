@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-19** (nihai şema varsayılan oldu + izolasyon denetimi) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-19** (yetki ekranı C turu canlıda) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1041,3 +1041,46 @@ silme **`osman.alpaslan`** (Oze İnşaat, süper admin) ile yapılmalıdır.
 
 ### Sıradaki tek iş
 Kullanıcı iki firmayı Kalıcı Silme ekranından siler; sonucu doğrulayacağız.
+
+---
+
+## ✅ SON TAMAMLANAN — `YET-C` Yetki ekranı düzeltmeleri canlıda (2026-08-19)
+
+Kullanıcı, sunulan üç yoldan **"önce C (hatalar), sonra A (yapı)"** sıralamasını onayladı.
+Bu kayıt **C turudur**; ekran sayısı DEĞİŞMEDİ, A turu (dört ekran → iki ekran) sıradadır.
+
+### Yapılanlar
+| # | İş | Masaüstü | Web |
+|---|---|---|---|
+| C1 | İkon rayı (dikey şerit) kaldırıldı | ✅ | karşılığı yoktu |
+| C2 | Sonsuz yükleme + görünmez hata | — | ✅ Rol + Firma Yetki Kontrol |
+| C3 | Düzenle → Kaydet akışı + rol aynı ekranda | ✅ | ✅ |
+| C4 | **YET-C4:** yetkisiz açılışta sayfa çöküyordu | — | ✅ 3 ekran korumaya alındı |
+
+### Gerçek arayüz turunda BULUNAN hata (YET-C4)
+`/permissions` oturumsuz açıldığında `OnInitializedAsync` içindeki korumasız çağrı 401 alıyor,
+**Blazor devresi tamamen düşüyordu** (bembeyaz ekran). Aynı desen `PermissionTemplates` ve `Users`
+ekranlarında da vardı. Üçü de düzeltildi; düzeltme aynı turda doğrulandı — sunucu günlüğünde
+**artık istisna yok**.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2129 geçti · 0 başarısız · 35 atlandı** |
+| Yeni testler (`PermissionScreenUxTests`) | **10/10** |
+| Web yetki ekranları (canlı) | `/permissions` · `/role-permissions` · `/company-permissions` · `/permission-templates` · `/users` → **hepsi 200** |
+| Masaüstü bağlamaları | Avalonia **derlenmiş bağlama** ile doğrulandı (0 hata) |
+| Şema sürümü | **71 → 71** (migration yok) |
+| Üretim verisi (READ ONLY + ROLLBACK) | firma 3 · kullanıcı 8 · malzeme 2459 · araç 94 · stok 663 — **değişmedi** |
+
+Yayınlananlar: API **v162** · Web **v185** · Masaüstü **1.0.144** (85,8 MB · checksum `bde1490c…` ·
+indirme ucu 200).
+
+### Bilinen sınır
+Masaüstü ve web'in **oturum içi** tıklama turu yapılmadı: giriş yapmayı gerektiriyor.
+Yerine derlenmiş bağlama + 10 kaynak kilidi testi + oturumsuz sayfa turu kullanıldı.
+
+### Sıradaki tek iş
+**A turu** — dört yetki ekranını ikiye indirmek ve rol tavanını firma bazlı yapmak
+(onaylandı, ayrı tur olarak yapılacak). Ayrıca iki pasif firmanın Kalıcı Silme ekranından silinmesi
+kullanıcıda bekliyor.
