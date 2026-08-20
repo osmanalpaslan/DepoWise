@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-19** (giriş-makine-eşitleme düzeltmeleri canlıda) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-20** (kalıcı eşitleme hataları çözüldü — açık iş yok) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1171,3 +1171,43 @@ Push kuyruğundaki **kalıcı hata sınıfı** (yinelenen anahtar / ebeveyni sil
 
 ### Sıradaki tek iş
 Baba 1.0.146'ya güncelleyip giriş denesin; sonucu bekliyoruz.
+
+---
+
+## ✅ SON TAMAMLANAN — `S` Kalıcı eşitleme hataları kaynağında çözüldü (2026-08-20)
+
+B turunda "açık kalan" olarak bırakılan **son iş** tamamlandı. Artık açık iş yok.
+
+### Sorun
+Bir satır **hiçbir denemede** başarılı olamayacak olsa bile ("ebeveyni silinmiş çocuk satır",
+"yinelenen doğal anahtar") "atlandı" sayılıyor, gönderim damgası ilerlemiyor ve 5 turdan sonra
+temizlenemeyen kalıcı uyarı bırakılıyordu. Sahadaki 6 kayıt tam olarak buydu.
+
+### Düzeltmeler (ADR-118)
+| # | Düzeltme |
+|---|---|
+| S1a | **Öksüz çocuk ön kontrolü** — ebeveyni sunucuda olmayan satır veritabanına HİÇ gönderilmez |
+| S1b | **Kalıcı/geçici ayrımı** — sunucu `permanentSkipped` döndürür |
+| S1c | **İstemci kararı** — `Retryable = atlanan − kalıcı`; kuyruk kalıcı hatalara takılmaz |
+
+### ⚠️ Yayından ÖNCE öz-denetimde bulunan hata
+PostgreSQL kurtarma yolunda kalıcı sayaç sıfırlanmıyordu → **çift sayım** → istemci gerçekten
+denenmesi gereken satırları **sessizce düşürebilirdi (veri kaybı)**. Diff incelemesinde yakalandı,
+düzeltildi, **P4 testiyle** kilitlendi. Canlıya bu hâliyle çıkmadı.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2143 geçti · 0 başarısız · 35 atlandı** |
+| Yeni testler | `SyncPermanentSkipTests` 4/4 (P1 öksüz · P2 geçerli veri · P3 istemci · P4 çift sayım) |
+| Canlı sağlık | API 200 · web 6 ekran 200 · indirme 200 |
+| Şema | **72 → 72** (migration yok) |
+| Üretim verisi | firma 3 · kullanıcı 9 · malzeme 2459 · stok 663 · makine 2 — değişmedi |
+| Sürüm uyumu | iki yönlü (eski istemci ↔ yeni sunucu ve tersi) davranış birebir aynı |
+
+Yayınlananlar: API **v165** · Web **v188** · Masaüstü **1.0.147**.
+
+### Sıradaki tek iş
+Açık geliştirme işi yok. Kullanıcı tarafında bekleyen iki elle işlem:
+iki pasif firmanın (DEPOWISE · Oze Group) **Kalıcı Silme** ekranından silinmesi ve
+`depowise_test` veritabanı parolasının yenilenmesi.
