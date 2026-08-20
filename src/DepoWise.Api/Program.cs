@@ -390,7 +390,9 @@ app.MapPost("/api/sync/business-push", async (HttpContext c) =>
     var res = svc.BusinessSync.Apply(s, doc.RootElement);
     // Senkron 2b: hareketler uygulandıktan sonra stok bakiyesini SUNUCU yeniden hesaplar (birleşik, otoriteli).
     try { svc.Stock.RecomputeBalances(s.CompanyId); } catch (Exception ex) { Console.Error.WriteLine($"[recompute-balances] {DateTimeOffset.UtcNow:O} {ex.Message}"); }
-    return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, errors = res.Errors });
+    // ⭐ S1: permanentSkipped = hiçbir denemede başarılı olamayacak satırlar. İstemci bunları
+    // "yeniden denenecek" saymaz → kuyruk kalıcı hatalara takılıp kilitlenmez. Eski istemciler alanı yok sayar.
+    return Results.Ok(new { upserted = res.Upserted, skipped = res.Skipped, permanentSkipped = res.PermanentSkipped, errors = res.Errors });
 }).RequireAuthorization();
 
 // İş verisi GERİ-ÇEKME (server → masaüstü): firmanın iş tablolarını snapshot olarak döndürür → masaüstü

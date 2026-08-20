@@ -92,20 +92,27 @@ public static class BusinessSyncPushService
                     SetInt(companyId!, StuckKey, 0);
                     SetText(companyId!, PoisonKey, "");            // sorun çözüldü → kalıcı uyarıyı temizle
                     SetText(companyId!, "sync_last_push_ok", DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString()); // Z5
-                    SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
+                    // ⭐ S1: kalıcı olarak atlanan satırlar varsa kuyruk KİLİTLENMEZ ama iz bırakılır.
+                    // Bunlar öksüz/yinelenen kayıtlardır; tekrar denemek aynı sonucu verir.
+                    if (r.HasPermanentSkips)
+                        SyncLog.Write("PUSH bitti (kalıcı atlanan var)",
+                            $"upserted={r.Upserted} kalıcı_atlanan={r.PermanentSkipped}; {string.Join(" | ", r.Errors)}");
+                    else
+                        SyncLog.Write("PUSH bitti", $"upserted={r.Upserted} skipped={r.Skipped}");
                 }
                 else
                 {
                     var tries = GetInt(companyId!, StuckKey) + 1;
                     var errText = r.Errors.Count > 0 ? string.Join(" | ", r.Errors) : "(liste boş)";
-                    SyncLog.Write("PUSH atlanan/hatalı", $"skipped={r.Skipped} deneme={tries}/{MaxRetries}; errors: {errText}");
+                    SyncLog.Write("PUSH atlanan/hatalı",
+                        $"yeniden_denenecek={r.Retryable} kalıcı_atlanan={r.PermanentSkipped} deneme={tries}/{MaxRetries}; errors: {errText}");
                     if (tries >= MaxRetries)
                     {
                         // Poison: aynı kayıtlar ısrarla reddediliyor (kalıcı sebep). Kuyruğu kilitleme —
                         // watermark'ı ilerlet ki DİĞER kayıtlar gönderilebilsin; sorunu kalıcı uyarıya taşı.
                         SavePushWatermark(companyId!, localV);
                         SetInt(companyId!, StuckKey, 0);
-                        SetText(companyId!, PoisonKey, $"{r.Skipped}|{errText}");
+                        SetText(companyId!, PoisonKey, $"{r.Retryable}|{errText}");
                         SyncLog.Write("PUSH poison", $"{r.Skipped} kayıt {tries} denemede gönderilemedi → otomatik deneme durduruldu. {errText}");
                     }
                     else
@@ -127,10 +134,24 @@ public static class BusinessSyncPushService
 
     /// <summary>Sunucunun push yanıtı: kaç satır uygulandı / atlandı + hata mesajları (max 20). Z2 (2026-07-19):
     /// istemci eskiden bu yanıtı okumuyordu → atlanan kayıtlar sessizce kayboluyordu. Artık üst bar + log gösterir.</summary>
-    public sealed record PushResult(int Upserted, int Skipped, System.Collections.Generic.IReadOnlyList<string> Errors)
+    public sealed record PushResult(int Upserted, int Skipped, System.Collections.Generic.IReadOnlyList<string> Errors,
+        int PermanentSkipped = 0)
     {
-        /// <summary>Sunucu en az bir satırı uygulamadı mı (atlandı ya da hata) — kullanıcıya uyarı çıkar.</summary>
-        public bool HasProblem => Skipped > 0 || Errors.Count > 0;
+        /// <summary>
+        /// ⭐ S1 (2026-08-19) — GERÇEKTEN yeniden denenecek satır sayısı.
+        ///
+        /// Öksüz çocuk satırı (ebeveyni silinmiş), yinelenen doğal anahtar, kapsam/yetki kararı…
+        /// bunlar tekrar denendiğinde de AYNI sonucu verir. Eskiden hepsi "atlandı" sayılıp gönderim
+        /// damgası ilerletilmiyor, 5 turdan sonra kalıcı uyarı bırakılıyordu → kuyruk sonsuza kadar
+        /// kirli kalıyordu (sahada 6 kayıtla yaşandı).
+        /// </summary>
+        public int Retryable => System.Math.Max(0, Skipped - PermanentSkipped);
+
+        /// <summary>Yeniden deneme gerektiren bir sorun var mı — KALICI atlananlar buna dahil DEĞİLDİR.</summary>
+        public bool HasProblem => Retryable > 0;
+
+        /// <summary>Kalıcı olarak atlanan satır var mı (bilgilendirme; uyarı değil).</summary>
+        public bool HasPermanentSkips => PermanentSkipped > 0;
     }
 
     /// <summary>Son BAŞARILI push'un sunucu sonucu (upserted/skipped/errors). Ağ hatasında değişmez (bkz. LastPushFailed).</summary>
@@ -234,7 +255,7 @@ public static class BusinessSyncPushService
     /// <summary>Sunucu push yanıt gövdesini (JSON) PushResult'a çevirir. Saf/yan-etkisiz → birim testi kolay.</summary>
     public static PushResult ParseResult(string json)
     {
-        int upserted = 0, skipped = 0;
+        int upserted = 0, skipped = 0, permanent = 0;
         var errors = new System.Collections.Generic.List<string>();
         try
         {
@@ -244,13 +265,15 @@ public static class BusinessSyncPushService
             {
                 if (root.TryGetProperty("upserted", out var u) && u.ValueKind == JsonValueKind.Number) upserted = u.GetInt32();
                 if (root.TryGetProperty("skipped", out var s) && s.ValueKind == JsonValueKind.Number) skipped = s.GetInt32();
+                // ⭐ S1: eski sunucuda bu alan YOKTUR → 0 kalır → davranış eskisiyle birebir aynı.
+                if (root.TryGetProperty("permanentSkipped", out var ps) && ps.ValueKind == JsonValueKind.Number) permanent = ps.GetInt32();
                 if (root.TryGetProperty("errors", out var e) && e.ValueKind == JsonValueKind.Array)
                     foreach (var it in e.EnumerateArray())
                         if (it.ValueKind == JsonValueKind.String) errors.Add(it.GetString() ?? "");
             }
         }
         catch { /* bozuk/boş gövde → sıfır sonuç */ }
-        return new PushResult(upserted, skipped, errors);
+        return new PushResult(upserted, skipped, errors, permanent);
     }
 
     private static string Truncate(string s, int max) => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "…";

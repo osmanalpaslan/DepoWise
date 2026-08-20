@@ -60,3 +60,33 @@ doğrulanmaya devam ediyor**.
 Push kuyruğundaki **kalıcı hata sınıfı** (yinelenen anahtar / ebeveyni silinmiş satır) hâlâ satırın
 sessizce atlanmasıyla sonuçlanıyor. Bu tur kullanıcıyı kilitleyen tarafı çözdü; kalıcı hataların
 kaynakta ele alınması (doğal anahtarla upsert + öksüz satır elemesi) **ayrı bir iş** olarak durmalı.
+
+---
+
+## Tur S — Kalıcı eşitleme hataları kaynağında çözüldü (2026-08-20)
+
+B turunda "açık kalan" olarak bırakılan son iş tamamlandı.
+
+### Yapılanlar
+| # | Düzeltme |
+|---|---|
+| S1a | **Öksüz çocuk ön kontrolü** — ebeveyni sunucuda olmayan satır veritabanına HİÇ gönderilmez (yabancı anahtar hatası oluşmaz) |
+| S1b | **Kalıcı/geçici ayrımı** — sunucu `permanentSkipped` döndürür; kapsam, yetki, öksüz, doğrulama, 23503/23505 kalıcıdır |
+| S1c | **İstemci kararı** — `Retryable = atlanan − kalıcı`; "sorun var" yalnız buna bakar → kuyruk kalıcı hatalara takılıp kilitlenmez |
+
+### ⚠️ Yayından önce öz-denetimde bulunan hata
+PostgreSQL kurtarma yolunda kalıcı sayaç sıfırlanmıyordu → **çift sayım** → `PermanentSkipped > Skipped`
+→ istemci "yeniden denenecek yok" deyip gerçekten denenmesi gereken satırları **sessizce düşürebilirdi**.
+Diff incelemesinde yakalandı, düzeltildi, **P4 testiyle kilitlendi**. Canlıya bu hâliyle çıkmadı.
+
+### Testler
+| Test | Kilit |
+|---|---|
+| P1 | Öksüz şablon-malzeme satırı kalıcı atlanır; veritabanına yazılmaz |
+| P2 | Ebeveyni olan satır normal uygulanır (kontrol geçerli veriyi engellemez) |
+| P3 | İstemci kalıcı atlananları yeniden denemez; eski sunucu uyumu korunur |
+| **P4** | **Kurtarma yolunda kalıcı sayaç çift saymaz** (veri kaybı kapısı) |
+
+### Sürüm uyumu (iki yönlü)
+Eski istemci yeni alanı yok sayar · yeni istemci eski sunucuda alanı bulamaz → 0 kalır.
+Her iki durumda da davranış bugünküyle birebir aynıdır; sessiz veri kaybı üretmez.

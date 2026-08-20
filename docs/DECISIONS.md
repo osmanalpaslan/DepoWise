@@ -1520,3 +1520,34 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   geçersiz, alt roller için kurallar aynen sürer ve bu izinleri yalnız süper admin yazabilir.
 - **Kapsam dışı (ayrıca raporlandı):** eşitleme kuyruğundaki kalıcı hataların (yinelenen anahtar / ebeveyni
   silinmiş satır) kaynağında çözülmesi — bu tur yalnız kullanıcıyı kilitleyen uyarıyı temizlenebilir yaptı.
+
+## ADR-118 — Kalıcı eşitleme hataları kuyruğu kilitlemez (2026-08-19)
+- **Bağlam:** ADR-117'de kullanıcıyı kilitleyen uyarı temizlenebilir yapılmıştı ama **kaynak** duruyordu:
+  bir satır hiçbir denemede başarılı olamayacak olsa bile "atlandı" sayılıyor, gönderim damgası
+  ilerlemiyor ve 5 turdan sonra kalıcı uyarı bırakılıyordu. Sahadaki 6 kayıt tam olarak buydu
+  (1 yinelenen kategori + 4 ebeveyni silinmiş şablon satırı + 1 ebeveyni silinmiş bakım malzemesi).
+- **KALICI / GEÇİCİ AYRIMI:** `ApplyResult` artık `PermanentSkipped` taşır. Kalıcı sayılanlar:
+  şube kapsamı dışı · yetki yok · ebeveyn başka firmada · **ebeveyn sunucuda hiç yok** · doğrulama
+  reddi · yabancı anahtar (23503) ve benzersizlik (23505) ihlalleri. Bunların hepsi **deterministiktir**;
+  tekrar denemek aynı sonucu verir.
+- **ÖKSÜZ ÇOCUK ÖN KONTROLÜ:** yeni `OrphanCheckedChildren` haritası ile ebeveyni bulunmayan çocuk satır
+  **veritabanına hiç gönderilmez**. Eskiden doğrudan INSERT ediliyor, PostgreSQL'de yabancı anahtar hatası
+  tüm transaction'ı bozduğu için satır-başı savepoint kurtarma yoluna düşülüyordu — hem yavaş hem her
+  turda tekrar eden bir hata. Kapsam: `vehicle_template_materials` · `maintenance_materials` ·
+  `material_request_items` · `stock_count_lines` · `request_status_history` · `material_equivalents` ·
+  `material_compatible_vehicles` · `maintenance_definition_vehicles`.
+  ⚠️ Bu, `CompanyScopedChildren`'dan FARKLIDIR: orası "ebeveyn bu firmada mı" (tenant kapısı), burası
+  "ebeveyn hiç var mı" sorusunu sorar.
+- **İSTEMCİ KARARI:** `Retryable = Skipped − PermanentSkipped`. "Sorun var" kararı artık YALNIZ
+  `Retryable`'a bakar → kalıcı atlananlar gönderim damgasını durdurmaz, kuyruk kilitlenmez, kalıcı uyarı
+  oluşmaz. Kalıcı atlananlar yine **log'a** yazılır (iz kaybolmaz).
+- **İKİ YÖNLÜ SÜRÜM UYUMU:** eski istemci yeni alanı yok sayar (bugünkü davranış) · yeni istemci eski
+  sunucuda alanı bulamaz → 0 kalır (bugünkü davranış). Sessiz veri kaybı üretmez.
+- **⚠️ ÖZ-DENETİMDE BULUNAN HATA (yayından ÖNCE):** PostgreSQL kurtarma yolunda (bir satır patlayınca
+  tablo geri alınıp satırlar BAŞTAN uygulanır) kalıcı sayaç sıfırlanmıyordu → aynı satırlar iki kez
+  sayılıyor, `PermanentSkipped > Skipped` olabiliyor ve istemci "yeniden denenecek satır yok" sonucuna
+  varıp **gerçekten yeniden denenmesi gereken satırları sessizce düşürebiliyordu (veri kaybı)**.
+  Üç sayaç artık birlikte sıfırlanır; P4 testi bunu kilitler.
+- **VERİ KAYBI YOK:** kalıcı atlanan satırlar zaten hiçbir zaman uygulanamayacak satırlardır
+  (ebeveyni olmayan çocuk / mevcut doğal anahtar). Geçerli veride davranış birebir aynıdır — P2 testi
+  ebeveyni olan satırın normal uygulandığını kilitler.

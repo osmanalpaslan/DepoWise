@@ -313,6 +313,58 @@ public sealed class BusinessSyncService
         };
 
     /// <summary>
+    /// ⭐ S1 (2026-08-19) — <b>ÖKSÜZ ÇOCUK KONTROLÜ.</b> Ebeveyni sunucuda BULUNMAYAN çocuk satır,
+    /// veritabanına hiç gönderilmeden elenir. Eskiden satır doğrudan INSERT ediliyor, yabancı anahtar
+    /// hatası (23503) fırlıyordu; PostgreSQL'de bu tüm transaction'ı bozduğu için satır-başı savepoint
+    /// kurtarma yoluna düşülüyordu ve hata her turda tekrar ediyordu.
+    ///
+    /// Buradaki tablolar <see cref="CompanyScopedChildren"/>'dan FARKLIDIR: orası "ebeveyn BU FİRMADA mı"
+    /// (tenant kapısı) sorusunu sorar; burası "ebeveyn HİÇ VAR MI" sorusunu sorar ve <c>company_id</c>
+    /// kolonu OLAN çocukları da kapsar.
+    /// (çocuk → (ebeveyn tablo, çocuktaki yabancı anahtar))
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Parent, string Fk)> OrphanCheckedChildren =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["vehicle_template_materials"] = ("vehicle_templates", "template_id"),
+            ["maintenance_materials"] = ("vehicle_maintenances", "maintenance_id"),
+            ["material_request_items"] = ("material_requests", "request_id"),
+            ["stock_count_lines"] = ("stock_documents", "document_id"),
+            ["request_status_history"] = ("material_requests", "request_id"),
+            ["material_equivalents"] = ("materials", "material_id"),
+            ["material_compatible_vehicles"] = ("materials", "material_id"),
+            ["maintenance_definition_vehicles"] = ("maintenance_definitions", "definition_id"),
+        };
+
+    /// <summary>Ebeveyni sunucuda var mı? Yoksa satır KALICI olarak atlanır (tekrar denemek anlamsız).</summary>
+    private static bool ParentExists(DbConnection conn, string table, JsonElement row)
+    {
+        if (!OrphanCheckedChildren.TryGetValue(table, out var m)) return true;
+        if (!TableExists(conn, m.Parent)) return true;   // ebeveyn tablosu yoksa bu kontrolü yapma
+        if (!row.TryGetProperty(m.Fk, out var v) || v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return false;
+        var parentId = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT 1 FROM {m.Parent} WHERE id=@p LIMIT 1;";
+        cmd.AddWithValue("@p", (object?)parentId ?? DBNull.Value);
+        return cmd.ExecuteScalar() is not null;
+    }
+
+    /// <summary>
+    /// Veritabanı hatası KALICI mı (tekrar denemek aynı sonucu verir)? Yabancı anahtar ve benzersizlik
+    /// ihlalleri kalıcıdır; ağ/kilit/zaman aşımı gibi hatalar geçicidir. Lehçeden bağımsız kalabilmek
+    /// için hem PostgreSQL SQLSTATE'leri hem SQLite metinleri aranır.
+    /// </summary>
+    private static bool IsPermanentDbError(Exception ex)
+    {
+        var m = ex.Message ?? "";
+        return m.Contains("23503", StringComparison.Ordinal)          // PG: foreign_key_violation
+            || m.Contains("23505", StringComparison.Ordinal)          // PG: unique_violation
+            || m.Contains("FOREIGN KEY constraint failed", StringComparison.OrdinalIgnoreCase)
+            || m.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// SNK-A6 (denetim 2026-08-18) — <b>EBEVEYN-OTORİTELİ ÇOCUK KÜMESİ (silme yayılımı).</b>
     ///
     /// Senkron <b>yalnız upsert</b>'tir; silme yalnız <c>is_deleted=1</c> ile taşınır. Aşağıdaki çocuk
@@ -564,7 +616,18 @@ public sealed class BusinessSyncService
         }
     }
 
-    public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors);
+    /// <summary>
+    /// Push sonucu. <paramref name="PermanentSkipped"/> = <b>hiçbir denemede başarılı olamayacak</b>
+    /// satır sayısı (S1, 2026-08-19).
+    ///
+    /// <b>NEDEN:</b> öksüz çocuk satırı (ebeveyni silinmiş) ya da yinelenen doğal anahtar, tekrar
+    /// denendiğinde de AYNI hatayı verir. İstemci bunları "yeniden denenecek" sayıp gönderim damgasını
+    /// ilerletmiyor, 5 denemeden sonra da kalıcı bir uyarı bırakıyordu — kuyruk sonsuza kadar kirli
+    /// kalıyordu (sahada 6 kayıtla yaşandı). Bu alan sayesinde istemci kalıcı olanları ayırıp normal
+    /// akışa devam edebilir. <b>Eski istemciler alanı yok sayar → davranış değişmez.</b>
+    /// </summary>
+    public sealed record ApplyResult(int Upserted, int Skipped, IReadOnlyList<string> Errors,
+        int PermanentSkipped = 0);
 
     public sealed record ConflictRow(string Id, string EntityType, string EntityId, string Winner,
         string? AdminName, long ServerUpdatedAt, long DeviceUpdatedAt, bool PersonnelSeen, long CreatedAt)
@@ -693,6 +756,8 @@ public sealed class BusinessSyncService
             return new ApplyResult(0, 0, new[] { "Geçersiz snapshot (tables yok)." });
 
         int upserted = 0, skipped = 0;
+        // ⭐ S1: hiçbir denemede başarılı olamayacak satırlar ayrı sayılır (istemci kuyruğu kilitlemesin).
+        int permanentSkipped = 0;
         var errors = new List<string>();
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
 
@@ -722,6 +787,7 @@ public sealed class BusinessSyncService
             {
                 int n = 0; foreach (var _ in rowsEl.EnumerateArray()) n++;
                 skipped += n;
+                permanentSkipped += n;   // ⭐ S1: yetki kararı deterministik → tekrar denemek anlamsız
                 if (errors.Count < 20 && n > 0) errors.Add($"{table}: yetki yok (atlandı).");
                 continue;
             }
@@ -732,9 +798,9 @@ public sealed class BusinessSyncService
             bool hasUpdated = cols.Contains("updated_at");
             bool trackConflict = hasUpdated && ConflictTracked.Contains(table) && pk.Count == 1 && pk[0] == "id";
 
-            var (tUp, tSk) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
+            var (tUp, tSk, tPerm) = ApplyTableRows(conn, isPg, table, cols, pk, hasCompany, hasUpdated, trackConflict,
                 companyId, rowsEl, now, deviceBranchId, lastPush, serverAuthoritativeDeletes, protectServerDeletes, errors, session);
-            upserted += tUp; skipped += tSk;
+            upserted += tUp; skipped += tSk; permanentSkipped += tPerm;
         }
 
         // SNK-A6: ebeveyn-otoriteli çocuk kümesi — paketteki ebeveynlerin çocukları paketle EŞİTLENİR
@@ -752,7 +818,7 @@ public sealed class BusinessSyncService
             throw;
         }
 
-        return new ApplyResult(upserted, skipped, errors);
+        return new ApplyResult(upserted, skipped, errors, permanentSkipped);
     }
 
     /// <summary>Bir tablonun satırlarını uygular. Döner: (upserted, skipped).
@@ -766,12 +832,14 @@ public sealed class BusinessSyncService
     ///   • KURTARMA — bir satır patlarsa tablo o savepoint'e geri alınır ve satırlar TEKRAR, her biri kendi
     ///     savepoint'inde uygulanır → yalnız gerçekten hatalı satır(lar) atlanır, gerisi yazılır. Satır-başı
     ///     savepoint maliyeti YALNIZ hata olan (nadir) tabloda ödenir.</summary>
-    private (int Up, int Sk) ApplyTableRows(DbConnection conn, bool isPg, string table, HashSet<string> cols,
+    private (int Up, int Sk, int Perm) ApplyTableRows(DbConnection conn, bool isPg, string table, HashSet<string> cols,
         List<string> pk, bool hasCompany, bool hasUpdated, bool trackConflict, string companyId,
         JsonElement rowsEl, long now, string? deviceBranchId, long lastPush,
         bool serverAuth, bool protectDeletes, List<string> errors, SessionContext? session = null)
     {
         int up = 0, sk = 0;
+        // ⭐ S1: bu tabloda KALICI olarak elenen satır sayısı (tekrar denemek anlamsız).
+        int perm = 0;
 
         // Bir satırı uygular (validate → conflict → upsert). DB hatasında FIRLATIR (savepoint/try çağırana ait).
         // Döner: null = geçersiz (atla), true = upserted, false = geçerli ama no-op (atla).
@@ -783,6 +851,7 @@ public sealed class BusinessSyncService
             if (!RowBranchAllowed(session, table, rowEl))
             {
                 if (errSink.Count < 20) errSink.Add($"{table}: şube kapsam dışı (atlandı).");
+                perm++;   // S1: kapsam kararı deterministik → tekrar denemek aynı sonucu verir
                 return null;
             }
             // SNK-A4/A5 PUSH KAPISI: company_id kolonu olmayan çocuk satırın EBEVEYNİ bu firmada olmalı.
@@ -790,10 +859,20 @@ public sealed class BusinessSyncService
             if (!RowCompanyChildAllowed(conn, table, hasCompany, companyId, rowEl))
             {
                 if (errSink.Count < 20) errSink.Add($"{table}: ebeveyn kaydı bu firmada değil (atlandı).");
+                perm++;
+                return null;
+            }
+            // ⭐ S1 ÖKSÜZ KONTROLÜ: ebeveyni sunucuda hiç yoksa satır veritabanına GÖNDERİLMEZ.
+            // Eskiden doğrudan INSERT ediliyor, yabancı anahtar hatası fırlıyor ve her turda tekrar
+            // ediyordu (sahada: vehicle_template_materials / maintenance_materials).
+            if (!ParentExists(conn, table, rowEl))
+            {
+                if (errSink.Count < 20) errSink.Add($"{table}: bağlı olduğu kayıt sunucuda yok — kalıcı olarak atlandı.");
+                perm++;
                 return null;
             }
             var (okRow, reason) = ValidateRow(table, rowEl, companyId);
-            if (!okRow) { if (errSink.Count < 20) errSink.Add($"{table}: {reason}"); return null; }
+            if (!okRow) { if (errSink.Count < 20) errSink.Add($"{table}: {reason}"); perm++; return null; }
             if (trackConflict) DetectConflict(conn, table, companyId, deviceBranchId, lastPush, rowEl, now);
             return UpsertRow(conn, table, cols, pk, hasCompany, hasUpdated, companyId, rowEl, now, serverAuth, protectDeletes);
         }
@@ -804,9 +883,14 @@ public sealed class BusinessSyncService
             foreach (var rowEl in rowsEl.EnumerateArray())
             {
                 try { var r = ApplyOne(rowEl, errors); if (r == true) up++; else sk++; }
-                catch (Exception ex) { sk++; if (errors.Count < 20) errors.Add($"{table}: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    sk++;
+                    if (IsPermanentDbError(ex)) perm++;   // ⭐ S1: tekrar denemek aynı sonucu verir
+                    if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
+                }
             }
-            return (up, sk);
+            return (up, sk, perm);
         }
 
         // PostgreSQL — HIZLI YOL: tüm tablo tek savepoint.
@@ -821,7 +905,7 @@ public sealed class BusinessSyncService
             }
             ExecRaw(conn, "RELEASE SAVEPOINT dw_tbl;");
             foreach (var e in fErr) { if (errors.Count >= 20) break; errors.Add(e); }
-            return (fUp, fSk);
+            return (fUp, fSk, perm);
         }
         catch
         {
@@ -829,7 +913,11 @@ public sealed class BusinessSyncService
         }
 
         // PostgreSQL — KURTARMA YOLU: satır başı savepoint (yalnız hatalı tabloda).
-        up = 0; sk = 0;
+        // ⚠️ perm DE SIFIRLANIR: hızlı yolda sayılan kalıcı atlananlar, satırlar burada BAŞTAN
+        // uygulandığı için tekrar sayılırdı. Çift sayım PermanentSkipped > Skipped yapar ve istemcide
+        // "yeniden denenecek satır yok" sonucunu doğurur → gerçekten yeniden denenmesi gereken satırlar
+        // sessizce düşerdi (veri kaybı). Üç sayaç birlikte sıfırlanmalıdır.
+        up = 0; sk = 0; perm = 0;
         foreach (var rowEl in rowsEl.EnumerateArray())
         {
             ExecRaw(conn, "SAVEPOINT dw_row;");
@@ -844,11 +932,13 @@ public sealed class BusinessSyncService
                 ExecRaw(conn, "ROLLBACK TO SAVEPOINT dw_row;");
                 ExecRaw(conn, "RELEASE SAVEPOINT dw_row;");
                 sk++;
+                // ⭐ S1: yabancı anahtar / benzersizlik ihlali tekrar denendiğinde de aynı sonucu verir.
+                if (IsPermanentDbError(ex)) perm++;
                 if (errors.Count < 20) errors.Add($"{table}: {ex.Message}");
             }
         }
         ExecRaw(conn, "RELEASE SAVEPOINT dw_tbl;");
-        return (up, sk);
+        return (up, sk, perm);
     }
 
     private static void ExecRaw(DbConnection conn, string sql)
