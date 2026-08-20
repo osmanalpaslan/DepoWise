@@ -12,7 +12,7 @@
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1"><b>@Auth.CompanyDisplay</b>@(Auth.IsSuperAdmin ? " · Süper Admin" : "")</MudText>
     </div>
 </div>
-<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Önce firma + şube seçip sorgulayın; ya da şube atanmamış "Kayıtsız Makineler"i listeleyin. Her sorgu yalnız seçilen makineleri çeker.</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Firmayı seçip <b>Sorgula</b>ya basın — <b>şube seçmezseniz o firmanın TÜM makineleri</b> listelenir. Şube seçerseniz yalnız o şubedekiler gelir. Şubesi hiç atanmamış makineler için <b>Kayıtsız Makineler</b> görünümünü kullanın.</MudText>
 
 <MudPaper Class="pa-4" Elevation="2">
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2" Wrap="Wrap.Wrap">
@@ -33,8 +33,13 @@
                        Disabled="@(Auth.IsSuperAdmin && string.IsNullOrEmpty(_companyId))">
                 @foreach (var b in _branches) { <MudSelectItem T="string" Value="@b.Id">@b.Name</MudSelectItem> }
             </MudSelect>
+            @* ⭐ MKN-1 (2026-08-20, kullanıcı bulgusu "makineleri listeleyemiyorum"): "Sorgula" ŞUBE
+               SEÇİLENE KADAR KAPALIYDI. Süper admin firmayı seçse bile düğme gri kalıyor, seçse bile
+               yalnız O ŞUBENİN makinelerini görüyordu — 9 şubeli firmada makineyi bulmak imkânsıza
+               yakındı. Artık şube İSTEĞE BAĞLI: boş bırakılırsa firmanın TÜM makineleri listelenir
+               (API zaten branchId olmadan çalışıyor). *@
             <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="Query"
-                       Disabled="@(string.IsNullOrEmpty(_branchId))">Sorgula</MudButton>
+                       Disabled="@(Auth.IsSuperAdmin && string.IsNullOrEmpty(_companyId))">Sorgula</MudButton>
             @if (Auth.IsSuperAdmin && !string.IsNullOrEmpty(_companyId))
             {
                 <MudNumericField T="int" @bind-Value="_quota" Label="Makine Kotası" Min="1" Max="999" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width:140px" />
@@ -55,7 +60,7 @@
 
     @if (_loading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
     else if (_machines is null) { <MudText Class="mud-text-secondary">Sorgulamak için firma + şube seçip "Sorgula"ya basın, ya da "Kayıtsız Makineler"i getirin.</MudText> }
-    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Bu seçimde makine yok.</MudText> }
+    else if (_machines.Count == 0) { <MudText Class="mud-text-secondary">Bu seçimde makine yok. Şube seçiliyse kaldırıp tekrar sorgulayın — firmanın tüm makineleri listelenir.</MudText> }
     else
     {
         @* Makine adı arama kutusu (kullanıcı isteği 2026-07-19) *@
@@ -135,13 +140,19 @@
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.IsAuthenticated) return;
-        if (Auth.IsSuperAdmin)
-            _companies = await Api.OptionsAsync("/api/companies", "id", "name");
-        else if (!string.IsNullOrEmpty(Auth.CompanyId))
+        // ⭐ Korumasız bırakılmaz: sunucu 401/500 dönerse istisna render sırasında patlar ve Blazor
+        // devresi tamamen düşer (bembeyaz ekran). Aynı düzeltme YET-C4'te üç ekrana uygulanmıştı.
+        try
         {
-            _branches = await Api.GetBranchOptionsAsync(Auth.CompanyId);   // normal admin: kendi firması
-            _branchesByCompany[Auth.CompanyId] = _branches;
+            if (Auth.IsSuperAdmin)
+                _companies = await Api.OptionsAsync("/api/companies", "id", "name");
+            else if (!string.IsNullOrEmpty(Auth.CompanyId))
+            {
+                _branches = await Api.GetBranchOptionsAsync(Auth.CompanyId);   // normal admin: kendi firması
+                _branchesByCompany[Auth.CompanyId] = _branches;
+            }
         }
+        catch (Exception ex) { _error = "Ekran yüklenemedi: " + ex.Message; }
         // Makineler burada YÜKLENMEZ (lazy) — kullanıcı seçim yapıp Sorgula'ya basınca çekilir.
     }
 

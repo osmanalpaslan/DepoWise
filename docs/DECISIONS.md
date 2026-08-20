@@ -1551,3 +1551,22 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
 - **VERİ KAYBI YOK:** kalıcı atlanan satırlar zaten hiçbir zaman uygulanamayacak satırlardır
   (ebeveyni olmayan çocuk / mevcut doğal anahtar). Geçerli veride davranış birebir aynıdır — P2 testi
   ebeveyni olan satırın normal uygulandığını kilitler.
+
+## ADR-119 — Makine Yönetimi: şube filtresi listelemeyi kilitliyordu (2026-08-20)
+- **Bağlam:** Kullanıcı "webte makine yönetimi ekranında makineleri listeleyemiyorum" dedi ve sorunun
+  sunucudan mı koddan mı geldiğini sordu.
+- **SUNUCU SAĞLAM (ölçüldü):** `/api/machines` → **200 · 405 ms · 2 makine**.
+  Firma süzgeciyle de doğru çalışıyor (`?companyId=…` → 2 makine).
+- **KÖK NEDEN — EKRANDA:** "Sorgula" düğmesi `Disabled="@(string.IsNullOrEmpty(_branchId))"` ile
+  **ŞUBE seçilene kadar kapalıydı**. Süper admin firmayı seçse bile düğme gri kalıyordu; şube seçse
+  bile **yalnız o şubenin** makineleri geliyordu. Firmanın **9 şubesi** var ve iki makine iki farklı
+  şubede (DÜZCE · TEST ŞANTİYE) → doğru şubeyi bilmeden makineyi bulmak pratikte imkânsızdı.
+  "Kayıtsız Makineler" görünümü de yardımcı olmuyordu: her iki makinenin de şubesi ATANMIŞ olduğu için
+  o liste boş dönüyor.
+- **Düzeltme:** şube artık **isteğe bağlı**. Süper adminde düğme yalnız FİRMA seçimini bekler; şube boş
+  bırakılırsa firmanın **tüm makineleri** listelenir (API `branchId` olmadan zaten bunu yapıyordu —
+  sunucu değişmedi). Ekran metni ve "sonuç yok" mesajı bu davranışı açıkça anlatır.
+- **Yanında düzeltilen:** ekranın `OnInitializedAsync` çağrıları korumasızdı (YET-C4 ile aynı sınıf):
+  sunucu 401/500 dönerse Blazor devresi tamamen düşüp bembeyaz ekran bırakabilirdi. Korumaya alındı.
+- **Test:** `PermissionScreenUxTests.U10` — düğme şubeye değil firmaya bakar, açıklama metni yerinde,
+  ilk yükleme korumalı.

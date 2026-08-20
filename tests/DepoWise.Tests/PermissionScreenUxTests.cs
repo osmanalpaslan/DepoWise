@@ -231,6 +231,36 @@ public class PermissionScreenUxTests
     }
 
     // ═════════════════════════════════════════════════════════════════════════════════════════
+    // 3c · MAKİNE YÖNETİMİ — LİSTELEME KİLİTLENMESİN
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ⭐ U10 (saha bulgusu 2026-08-20) — "Sorgula" düğmesi ŞUBE seçilene kadar KAPALIYDI; süper admin
+    /// firmayı seçse bile makineleri listeleyemiyordu ve şube seçse bile yalnız o şubedekileri
+    /// görüyordu. Şube artık İSTEĞE BAĞLI: boş bırakılırsa firmanın TÜM makineleri gelir.
+    /// Sunucu tarafı sağlamdı (uç ölçüldü: 200, iki makine).
+    /// </summary>
+    [Fact]
+    public void U10_Makine_Listeleme_Sube_Zorunlu_Degil()
+    {
+        var src = Read("src/DepoWise.Web/Components/Pages/Machines.razor");
+        // Düğme artık ŞUBEYE değil, yalnız firma seçimine bakar (süper adminde).
+        Assert.DoesNotContain("Disabled=\"@(string.IsNullOrEmpty(_branchId))\"", src);
+        Assert.Contains("Disabled=\"@(Auth.IsSuperAdmin && string.IsNullOrEmpty(_companyId))\"", src);
+        // Kullanıcıya davranış açıkça yazılır.
+        Assert.Contains("şube seçmezseniz", src, StringComparison.OrdinalIgnoreCase);
+
+        // İlk yükleme devreyi düşürmemeli (YET-C4 ile aynı sınıf).
+        var i = src.IndexOf("protected override async Task OnInitializedAsync()", StringComparison.Ordinal);
+        Assert.True(i > 0);
+        var son = src.IndexOf("\n    }", i, StringComparison.Ordinal);
+        var govde = src.Substring(i, Math.Max(0, son - i));
+        var ilkTry = govde.IndexOf("try", StringComparison.Ordinal);
+        var ilkAwait = govde.IndexOf("await ", StringComparison.Ordinal);
+        Assert.True(ilkTry >= 0 && ilkAwait >= 0 && ilkTry < ilkAwait);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
     // 4 · İKON RAYI KALDIRILDI
     // ═════════════════════════════════════════════════════════════════════════════════════════
 
