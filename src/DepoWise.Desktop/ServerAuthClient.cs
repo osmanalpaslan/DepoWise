@@ -32,7 +32,28 @@ public static class ServerAuthClient
     /// eski sunucu bu alanları göndermezse null/varsayılan kalır). Şube aynası bunları yerele taşır.</summary>
     public sealed record LoginBranch(string Id, string Name, string? Code, bool HasPassword,
         string? Kind = null, string? ParentId = null)
-    { public override string ToString() => string.IsNullOrEmpty(Code) ? Name : $"{Name} ({Code})"; }
+    {
+        /// <summary>
+        /// ⭐ ŞB-GİRİŞ (kullanıcı isteği 2026-08-20) — bu şube MAKİNENİN tanımlı şubesi mi?
+        ///
+        /// Giriş listesinde şube adının BAŞINA bir simge konur; kullanıcı hangi şubenin makineye
+        /// tanımlı olduğunu listeye bakarak görür. Varsayılan seçim kullanıcının KENDİ şubesidir;
+        /// makine şubesine geçmek isteyen bu simgeden bulup seçer.
+        ///
+        /// ⚠️ Alan <b>yalnız görüntü içindir</b>: kimlik (Id), yetki ve şube şifresi mantığı
+        /// bundan ETKİLENMEZ. Sunucudan gelmez, listeyi kuran taraf işaretler.
+        /// </summary>
+        public bool IsMachineBranch { get; set; }
+
+        public override string ToString()
+        {
+            var ad = string.IsNullOrEmpty(Code) ? Name : $"{Name} ({Code})";
+            return IsMachineBranch ? MachineBranchMark + " " + ad : ad;
+        }
+
+        /// <summary>Makine şubesi simgesi ("🌐 Tüm Şubeler" ile aynı desen).</summary>
+        public const string MachineBranchMark = "🖥";
+    }
 
     /// <summary>Login öncesi firma listesi (sunucudan, anonim). Çevrimdışıysa null.</summary>
     public static async Task<List<LoginCompany>?> GetLoginCompaniesAsync()

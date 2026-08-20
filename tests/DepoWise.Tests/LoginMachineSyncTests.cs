@@ -109,6 +109,49 @@ public class LoginMachineSyncTests
     }
 
     // ═════════════════════════════════════════════════════════════════════════════════════════
+    // ŞB-GİRİŞ · VARSAYILAN ŞUBE + MAKİNE ŞUBESİ İŞARETİ
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ⭐ L6 (kullanıcı isteği 2026-08-20) — Giriş şube kutusunda VARSAYILAN, kullanıcının KENDİ
+    /// şubesidir; kullanıcının şubesi listede yoksa makinenin şubesine düşülür. Sıra bozulursa
+    /// kullanıcı her girişte yanlış şubeyle başlar.
+    /// </summary>
+    [Fact]
+    public void L6_Varsayilan_Sube_Kullanicinin_Kendi_Subesi()
+    {
+        var src = Read("src/DepoWise.Desktop/ViewModels/LoginViewModel.cs");
+        var i = src.IndexOf("SelectedBranch = Branches.FirstOrDefault(b => b.Id == userBranchId)", StringComparison.Ordinal);
+        Assert.True(i > 0, "Varsayılan seçim kullanıcının kendi şubesinden başlamalı.");
+        // Yedek seçenek makine şubesidir ve SONRA gelir.
+        var kuyruk = src.Substring(i, Math.Min(260, src.Length - i));
+        Assert.Contains("MachineBranchId", kuyruk);
+    }
+
+    /// <summary>
+    /// ⭐ L7 — Makinenin şubesi listede SİMGEYLE işaretlenir; kullanıcı hangisinin makine şubesi
+    /// olduğunu görüp seçebilir. İşaret YALNIZ görüntüdür: kimlik/yetki/şube şifresi mantığına
+    /// karışmaz (işaretleme kapsam kırpmasından SONRA çalışır).
+    /// </summary>
+    [Fact]
+    public void L7_Makine_Subesi_Listede_Isaretlenir()
+    {
+        var client = Read("src/DepoWise.Desktop/ServerAuthClient.cs");
+        Assert.Contains("public bool IsMachineBranch { get; set; }", client);
+        Assert.Contains("MachineBranchMark", client);
+
+        var vm = Read("src/DepoWise.Desktop/ViewModels/LoginViewModel.cs");
+        Assert.Contains("private void MarkMachineBranch()", vm);
+        // Kapsam kırpmasından SONRA işaretlenmeli (kırpma listeyi değiştirir).
+        var kirp = vm.IndexOf("FilterBranchesByScope();", StringComparison.Ordinal);
+        var isaret = vm.IndexOf("MarkMachineBranch();", StringComparison.Ordinal);
+        Assert.True(kirp > 0 && isaret > kirp, "İşaretleme kapsam kırpmasından sonra çalışmalı.");
+
+        // Ekranda kısa açıklama var.
+        Assert.Contains("bu makinenin şubesidir", Read("src/DepoWise.Desktop/Views/LoginWindow.axaml"));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
     // B4 · EŞİTLEME UYARISI TEMİZLENEBİLİR
     // ═════════════════════════════════════════════════════════════════════════════════════════
 

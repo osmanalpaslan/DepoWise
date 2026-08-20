@@ -76,6 +76,16 @@ public sealed partial class LoginViewModel : ViewModelBase
     [ObservableProperty] private string _branchPassword = "";
     public bool HasBranches => Branches.Count > 0;
 
+    /// <summary>Şube listesi değişti — ona bağlı görünüm özelliklerini birlikte bildirir.</summary>
+    private void NotifyBranchListChanged()
+    {
+        OnPropertyChanged(nameof(HasBranches));
+        OnPropertyChanged(nameof(HasMachineBranchInList));
+    }
+
+    /// <summary>ŞB-GİRİŞ: listede makine şubesi var mı (açıklama satırı buna göre gösterilir).</summary>
+    public bool HasMachineBranchInList => Branches.Any(b => b.IsMachineBranch);
+
     /// <summary>Seçilen şube, makinenin (admin-atanmış) şubesi mi? (öyleyse şube şifresi istenmez — L2)</summary>
     public bool SelectedIsMachineBranch => SelectedBranch is not null && !string.IsNullOrEmpty(DesktopServices.MachineBranchId)
         && SelectedBranch.Id == DesktopServices.MachineBranchId;
@@ -283,7 +293,11 @@ public sealed partial class LoginViewModel : ViewModelBase
             // Şube seçimine geç. Varsayılan = kullanıcının kendi şubesi (varsa). İlk kurulumda seçilen şube
             // (onay sonrası) makinenin şubesi olur. Çevrimdışıysa liste yerel aynadan gelir.
             await LoadBranchesForUserAsync(_authedCompanyId!, canAll);
-            SelectedBranch = Branches.FirstOrDefault(b => b.Id == userBranchId) ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
+            // ⭐ ŞB-GİRİŞ: VARSAYILAN = KULLANICININ KENDİ ŞUBESİ. Kullanıcının şubesi listede yoksa
+            // (kapsam dışı / tanımsız) makinenin şubesine düşülür. Kullanıcı isterse seçimi değiştirip
+            // makine şubesine (🖥 işaretli) ya da başka bir şubeye girebilir.
+            SelectedBranch = Branches.FirstOrDefault(b => b.Id == userBranchId)
+                             ?? Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId);
             BranchPassword = "";
             Step = 2; // şube seçimine geç
         }
@@ -628,7 +642,7 @@ public sealed partial class LoginViewModel : ViewModelBase
         try
         {
             var companyId = UseMachineCompany ? DesktopServices.MachineCompanyId : SelectedCompany?.Id;
-            if (string.IsNullOrEmpty(companyId)) { Branches.Clear(); OnPropertyChanged(nameof(HasBranches)); return; }
+            if (string.IsNullOrEmpty(companyId)) { Branches.Clear(); NotifyBranchListChanged(); return; }
             await LoadBranchesForUserAsync(companyId, canViewAllBranches: true); // süper admin → Tüm Şubeler daima
             SelectedBranch = Branches.FirstOrDefault(b => b.Id == DesktopServices.MachineBranchId) ?? Branches.FirstOrDefault();
         }
@@ -721,8 +735,26 @@ public sealed partial class LoginViewModel : ViewModelBase
         if (online is not null) foreach (var b in online) Branches.Add(b);
         else LoadLocalBranches(companyId); // çevrimdışı → yerel DB (şifre bilgisi olmadan)
         FilterBranchesByScope();
-        OnPropertyChanged(nameof(HasBranches));
+        MarkMachineBranch();
+        NotifyBranchListChanged();
         OnPropertyChanged(nameof(ShowBranchPassword));
+    }
+
+    /// <summary>
+    /// ⭐ ŞB-GİRİŞ (kullanıcı isteği 2026-08-20) — MAKİNE ŞUBESİNİ LİSTEDE İŞARETLE.
+    ///
+    /// Liste kurulduktan (ve kapsamla kırpıldıktan) SONRA çalışır; makinenin tanımlı şubesinin adının
+    /// başına bir simge koyar. Kullanıcı böylece "hangisi makinenin şubesi" sorusunu listeye bakarak
+    /// yanıtlar ve isterse varsayılanı bırakıp onu seçer.
+    ///
+    /// ⚠️ Yalnız GÖRÜNTÜ: seçim, yetki, şube şifresi ve kapsam mantığı DEĞİŞMEZ.
+    /// </summary>
+    private void MarkMachineBranch()
+    {
+        var makineSube = DesktopServices.MachineBranchId;
+        foreach (var b in Branches)
+            b.IsMachineBranch = !string.IsNullOrEmpty(makineSube)
+                                && string.Equals(b.Id, makineSube, StringComparison.Ordinal);
     }
 
     /// <summary>

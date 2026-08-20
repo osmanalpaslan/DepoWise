@@ -346,6 +346,11 @@
                     <StackPanel Spacing="6" IsVisible="{Binding ShowBranchSelector}">
                         <TextBlock Classes="Lbl" Text="Şube / Şantiye"/>
                         <ComboBox ItemsSource="{Binding Branches}" SelectedItem="{Binding SelectedBranch}" HorizontalAlignment="Stretch"/>
+                        <!-- ŞB-GİRİŞ: varsayılan kullanıcının kendi şubesidir; makine şubesi listede
+                             🖥 ile işaretlidir ve istenirse seçilebilir. -->
+                        <SelectableTextBlock Text="Varsayılan olarak kendi şubeniz seçilidir. 🖥 işaretli şube bu makinenin şubesidir."
+                                             TextWrapping="Wrap" FontSize="12" Foreground="#8FA0B4"
+                                             IsVisible="{Binding HasMachineBranchInList}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding ShowBranchCode}">
                         <TextBlock Classes="Lbl" Text="Şube Kodu:"/>

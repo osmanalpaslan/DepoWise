@@ -1570,3 +1570,20 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   sunucu 401/500 dönerse Blazor devresi tamamen düşüp bembeyaz ekran bırakabilirdi. Korumaya alındı.
 - **Test:** `PermissionScreenUxTests.U10` — düğme şubeye değil firmaya bakar, açıklama metni yerinde,
   ilk yükleme korumalı.
+
+## ADR-120 — Giriş: varsayılan şube kullanıcının kendi şubesi + makine şubesi işareti (2026-08-20)
+- **İstek (kullanıcı):** giriş ekranında şube kutusu **kullanıcının kendi şubesiyle** açılsın; isteyen
+  seçimi değiştirip makine şubesine ya da başka bir şubeye girebilsin; listede makine şubesini belirten
+  bir **simge** şube adının başında olsun.
+- **Varsayılan seçim:** zaten kullanıcının kendi şubesiydi; niyet koda açık yazıldı ve **L6 testiyle
+  kilitlendi** (sıra bozulursa kullanıcı her girişte yanlış şubeyle başlar). Kullanıcının şubesi listede
+  yoksa (kapsam dışı / tanımsız) makinenin şubesine düşülür — bu yedek davranış korundu.
+- **Makine şubesi işareti:** `LoginBranch` kaydına yalnız-görüntü amaçlı `IsMachineBranch` eklendi ve
+  `ToString()` işaretli şubenin adının başına **🖥** koyuyor. Desen "🌐 Tüm Şubeler" ile aynıdır.
+- **İşaretleme SIRASI önemlidir:** liste kurulup **kapsamla kırpıldıktan SONRA** işaretlenir
+  (`FilterBranchesByScope()` → `MarkMachineBranch()`). L7 testi bu sırayı kilitler.
+- **HİÇBİR MANTIK DEĞİŞMEDİ:** işaret yalnız görüntüdür. Şube kimliği (`Id`), yetki/kapsam kırpması,
+  şube şifresi kuralı (`ShowBranchPassword`), "bu makinenin şubesi → şifre gerekmez" davranışı ve
+  süper admin akışı aynen korundu. Sunucuya dokunulmadı.
+- **Ekranda tek satır açıklama:** listede makine şubesi varsa "Varsayılan olarak kendi şubeniz
+  seçilidir. 🖥 işaretli şube bu makinenin şubesidir." yazısı görünür.
