@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-20** (kalıcı eşitleme hataları çözüldü — açık iş yok) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-20** (makine listeleme kilidi çözüldü — açık iş yok) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1211,3 +1211,37 @@ Yayınlananlar: API **v165** · Web **v188** · Masaüstü **1.0.147**.
 Açık geliştirme işi yok. Kullanıcı tarafında bekleyen iki elle işlem:
 iki pasif firmanın (DEPOWISE · Oze Group) **Kalıcı Silme** ekranından silinmesi ve
 `depowise_test` veritabanı parolasının yenilenmesi.
+
+---
+
+## ✅ SON TAMAMLANAN — `MKN` Makine listeleme kilidi (2026-08-20)
+
+**Kullanıcı bulgusu:** "webte makine yönetimi ekranında makineleri listeleyemiyorum — sunucudan mı
+koddan mı?"
+
+### Cevap: sunucu sağlam, sorun ekranda
+| Ölçüm | Sonuç |
+|---|---|
+| `/api/machines` | **200 · 405 ms · 2 makine** |
+| `/api/machines?companyId=…` | **200 · 2 makine** |
+
+**Kök neden:** "Sorgula" düğmesi **şube seçilene kadar kapalıydı**. Firma seçilse bile düğme gri;
+şube seçilse bile yalnız o şubenin makineleri geliyordu. Firmanın **9 şubesi** var, iki makine iki ayrı
+şubede (DÜZCE · TEST ŞANTİYE) → makineyi bulmak pratikte imkânsızdı. "Kayıtsız Makineler" de boş
+dönüyordu (ikisinin de şubesi atanmış).
+
+### Düzeltme (ADR-119)
+Şube **isteğe bağlı** oldu: firma seçilince Sorgula açılır, şube boşsa **firmanın tüm makineleri**
+listelenir. **Sunucu değişmedi** — API `branchId` olmadan zaten bunu yapıyordu. Ayrıca ekranın ilk
+yükleme çağrıları korumaya alındı (401/500'de sayfa çökmesin).
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2144 geçti · 0 başarısız · 35 atlandı** |
+| Yeni test | `PermissionScreenUxTests.U10` |
+| Canlı web | `/machines` · `/permissions` · `/company-permissions` · `/users` → **200** |
+| Yayın | Web **v189** (yalnız web — masaüstü sürümü gerekmedi) |
+
+### Sıradaki tek iş
+Açık geliştirme işi yok.
