@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-20** (makine listeleme kilidi çözüldü — açık iş yok) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-20** (giriş şube seçimi — açık iş yok) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1242,6 +1242,35 @@ yükleme çağrıları korumaya alındı (401/500'de sayfa çökmesin).
 | Yeni test | `PermissionScreenUxTests.U10` |
 | Canlı web | `/machines` · `/permissions` · `/company-permissions` · `/users` → **200** |
 | Yayın | Web **v189** (yalnız web — masaüstü sürümü gerekmedi) |
+
+### Sıradaki tek iş
+Açık geliştirme işi yok.
+
+---
+
+## ✅ SON TAMAMLANAN — `ŞB-GİRİŞ` Giriş şube seçimi (2026-08-20)
+
+**Kullanıcı isteği:** giriş ekranında şube kutusu kullanıcının **kendi şubesiyle** açılsın; isteyen
+seçimi değiştirip makine şubesine geçebilsin; listede makine şubesi **simgeyle** belli olsun.
+
+### Yapılanlar (ADR-120)
+| # | Değişiklik |
+|---|---|
+| 1 | Varsayılan seçim = **kullanıcının kendi şubesi** (mevcut davranıştı; niyet koda yazıldı ve **L6** ile kilitlendi). Şubesi listede yoksa makine şubesine düşülür |
+| 2 | Makine şubesi listede **🖥** ile işaretli (`LoginBranch.IsMachineBranch`, yalnız görüntü) |
+| 3 | İşaretleme **kapsam kırpmasından SONRA** çalışır — **L7** bu sırayı kilitler |
+| 4 | Şube kutusunun altında tek satır açıklama (yalnız listede makine şubesi varsa) |
+
+### Bozulmayanlar (bilinçli)
+Şube kimliği · yetki/kapsam kırpması · şube şifresi kuralı · "makinenin şubesi → şifre gerekmez" ·
+süper admin akışı **aynen korundu**. **Sunucuya dokunulmadı.**
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı | **2146 geçti · 0 başarısız · 35 atlandı** |
+| Yeni testler | `LoginMachineSyncTests` L6 · L7 |
+| Yayın | Masaüstü **1.0.148** · indirme ucu 200 (yalnız masaüstü — API/web değişmedi) |
 
 ### Sıradaki tek iş
 Açık geliştirme işi yok.
