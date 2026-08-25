@@ -242,7 +242,10 @@ public static class AppScreens
         new AppScreen("definitions", "definitions", "Ayarlar", "Tanım Düzenle", Both, "definitions", "definitions"),
         new AppScreen("import", "import_export", "Ayarlar", "Excel'e Aktarım", W, "import", null),
         new AppScreen("import_export", "import_export", "Ayarlar", "Excel'e Aktarım", D, null, "import_export"),
-        new AppScreen("settings.developer", "settings", "Ayarlar", "Geliştirici Modu", Both, "developer", "settings:developer"),
+        // ⭐ SEC-03 (2026-08-25): geliştirici modu süper admin yetkilerini taklit eder → menüde de
+        // yalnız süper admine görünür. Modülü "settings" olarak KALIR (yeni modül açmak yetki ağacını
+        // ve rol tavanı matrisini değiştirirdi); ekran düzeyindeki kapı sözde-anahtarla verilir.
+        new AppScreen("settings.developer", "settings", "Ayarlar", "Geliştirici Modu", Both, "developer", "settings:developer", WebPermOverride: "@super"),
         new AppScreen("theme", "theme", "Ayarlar", "Tema", Both, "theme", "theme", WebPermOverride: ""),
         new AppScreen("about", "about", "Ayarlar", "Hakkında", Both, "soon/about", "about", WebPermOverride: ""),
     };

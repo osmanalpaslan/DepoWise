@@ -787,6 +787,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         // Görünür alt bağlantısı kalmayan grup gizlenir — mevcut davranışın aynısı.
         return MenuLayout.Build(ScreenPlatform.Desktop, duzen,
                 sc => ScreenVisibility.IsEnabled(sc, ScreenPlatform.Desktop, vis)
+                      && ScreenGateAllows(s, sc)
                       && CanSeeChild(s, BaseKey(sc.DesktopNavKey ?? "")))
             .Select(g => new NavGroupVm(g.DesktopIcon, g.Title, GroupModuleKey(g),
                 g.Entries.Select(e => new NavLinkVm(e.Label, e.Screen.DesktopNavKey!)).ToList()))
@@ -813,7 +814,8 @@ public sealed partial class ShellViewModel : ViewModelBase
 
         var agac = MenuLayout.BuildTree(ScreenPlatform.Desktop, duzen,
             sc => ScreenVisibility.IsEnabled(sc, ScreenPlatform.Desktop, vis)
-                  && CanSeeChild(s, BaseKey(sc.DesktopNavKey ?? "")));
+                  && ScreenGateAllows(s, sc)
+                      && CanSeeChild(s, BaseKey(sc.DesktopNavKey ?? "")));
 
         var sonuc = new List<NavSectionVm>(agac.Count);
         foreach (var node in agac)
@@ -854,6 +856,24 @@ public sealed partial class ShellViewModel : ViewModelBase
         => key == "import_export"
             ? AccessControl.Can(s, "import_export", PermissionAction.View) || AccessControl.Can(s, "export", PermissionAction.View)
             : AccessControl.CanSeeMenu(s, key);
+
+    /// <summary>
+    /// ⭐ SEC-03 (2026-08-25) — EKRAN DÜZEYİ KAPI (sözde-anahtar).
+    ///
+    /// Bazı ekranların modülü PAYLAŞILIR (ör. Geliştirici Modu → <c>settings</c>) ama ekranın kendisi
+    /// daha dardır. Web menüsü bunu <c>WebPermOverride</c> sözde-anahtarlarıyla (<c>@admin</c> /
+    /// <c>@super</c> / <c>@superr</c>) uzun süredir uyguluyordu; MASAÜSTÜ bu kuralı hiç görmüyordu →
+    /// aynı ekran web'de gizli, masaüstünde açıktı. Kural artık İKİ platformda da AYNI kaynaktan gelir.
+    ///
+    /// Sözde-anahtarı olmayan ekranlarda davranış DEĞİŞMEZ (modül yetkisi neyse o).
+    /// </summary>
+    private static bool ScreenGateAllows(SessionContext s, AppScreen sc) => sc.WebPermOverride switch
+    {
+        "@admin" => AccessControl.IsAdmin(s),
+        "@super" => s.IsSuperAdmin,
+        "@superr" => s.IsSuperAdmin || s.IsRestrictedSuperAdmin,
+        _ => true,
+    };
 
     private static string BaseKey(string key)
     {
@@ -1082,6 +1102,16 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = "Koyu / Açık / Sistem tema seçimi";
                 break;
             case "settings:developer":
+                // ⭐ SEC-03 (2026-08-25) — GEZİNME KAPISI. Menüden gizlemek YETMEZ: Navigate kod içinden
+                // de tetiklenebilir (kısayol, arama, grup ikonu). Kapı DeveloperMode.CanActivate'tir —
+                // ham süper admin rolüne bakar, AccessControl.IsAdmin'e DEĞİL (o, modun kendisini sayar).
+                if (!DeveloperMode.CanActivate(_session))
+                {
+                    CurrentPage = null;
+                    CurrentTitle = "Yetkiniz yok";
+                    CurrentContext = "Geliştirici Modu yalnız Süper Admin içindir.";
+                    break;
+                }
                 CurrentPage = new DeveloperSettingsViewModel(_session);
                 CurrentTitle = "Ayarlar — Geliştirici Modu";
                 CurrentContext = "Geliştirici modu etkinleştir/kapat";

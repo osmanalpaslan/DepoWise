@@ -4,9 +4,11 @@
 @inject AuthState Auth
 @inject IDialogService Dialog
 
-@if (!Auth.IsAdmin)
+@* ⭐ SEC-03 (2026-08-25): eskiden firma admini de açabiliyordu. Geliştirici modu süper admin
+   yetkilerini taklit ettiği için devredilemez — kapı hem burada hem sunucuda süper admindir. *@
+@if (!Auth.IsSuperAdmin)
 {
-    <MudAlert Severity="Severity.Error">Bu ekran yalnız admin içindir (Geliştirici Modu).</MudAlert>
+    <MudAlert Severity="Severity.Error">Bu ekran yalnız Süper Admin içindir (Geliştirici Modu).</MudAlert>
 }
 else
 {

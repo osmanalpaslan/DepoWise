@@ -351,7 +351,10 @@ public class AppScreensParityTests
             ("Web Yönetimi", new[] { ("companies", "companies"), ("releases", "releases"), ("machines", "machines"), ("machine_backups", "machine-backups"), ("server_backups", "server-backups"), ("server_status", "server-status"), ("quota_monitor", "quota-monitor"), ("companies", "company-permissions"), ("purge_company", "purge-company"), ("@super", "reset-company-business"), ("local_reset", "local-reset"), ("screen_visibility", "screen-visibility") }),
             ("Yedekleme", new[] { ("@superr", "backup") }),
             ("Çöp Kutusu", new[] { ("trash", "trash") }),
-            ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("settings", "developer"), ("", "theme"), ("", "soon/about") }),
+            // SEC-03 (2026-08-25): "Geliştirici Modu" yetki anahtarı BİLİNÇLİ olarak "settings" → "@super"
+            // yapıldı. Ekran süper admin yetkilerini taklit ettiği için devredilemez; paylaşılan "settings"
+            // modülü onu firma personeline de açıyordu. Bağlantı SAYISI değişmedi (ekran kaybı yok).
+            ("Ayarlar", new[] { ("definitions", "definitions"), ("import_export", "import"), ("@super", "developer"), ("", "theme"), ("", "soon/about") }),
         };
 
         var gercek = AppScreens.GroupsFor(ScreenPlatform.Web)

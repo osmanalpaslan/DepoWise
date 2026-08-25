@@ -1391,8 +1391,14 @@ app.MapGet("/api/settings/developer", (HttpContext c) =>
 app.MapPost("/api/settings/developer", (HttpContext c, DeveloperDto d) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
-    if (!DepoWise.Application.Security.AccessControl.IsAdmin(s)) return Results.Json(new { error = "Yalnız admin." }, statusCode: 403);
-    if (d.Active && d.Code != "621875") return Results.Json(new { error = "Geliştirici kodu hatalı." }, statusCode: 400);
+    // ⭐ SEC-03 (2026-08-25): eskiden FİRMA ADMİNİ de açabiliyordu. Geliştirici modu süper admin
+    // yetkilerini taklit eder → devredilemez. Kapı ham rol bilgisidir; AccessControl.IsAdmin
+    // KULLANILMAZ çünkü o, DeveloperMode.IsActive'i de sayar (döngüsel yetki).
+    if (!s.IsSuperAdmin) return Results.Json(new { error = "Yalnız Süper Admin." }, statusCode: 403);
+    if (d.Active && !DepoWise.Application.Security.DeveloperMode.CanActivate(s))
+        return Results.Json(new { error = "Yalnız Süper Admin." }, statusCode: 403);
+    if (d.Active && d.Code != DepoWise.Application.Security.DeveloperMode.Code)
+        return Results.Json(new { error = "Geliştirici kodu hatalı." }, statusCode: 400);
     svc.Settings.Set(s.CompanyId, "developer_mode", d.Active ? "1" : "0", s.UserId);
     return Results.Ok(new { active = d.Active });
 }).RequireAuthorization();
