@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-25 (uçtan uca denetim turu)
+> Son güncelleme: 2026-08-25 (yayın öncesi son denetim turu)
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -41,24 +41,15 @@
 
 ## Açık
 
-### 🔴 SEC-03 (2026-08-25, **KULLANICI KARARI GEREKİR**) — Geliştirici modu kodu herkese açık
-`DeveloperMode.Code = "621875"` kaynak kodda sabittir ve **depo herkese açıktır** (GitHub). Masaüstünde
-*Ayarlar › Geliştirici Modu* ekranını açabilen **herhangi bir kullanıcı** bu kodu yazarak o oturumda
-süper admin yetkilerine geçer (`AccessControl` her kontrolde `DeveloperMode.IsActive` gördüğünde geçirir).
-Ekranı açmak için yalnız `settings` modülü görüntüleme yetkisi yeterlidir; kodu doğrulayan yerde rol
-kontrolü **hiç yoktur**.
+### ✅ SEC-03 — KAPANDI (2026-08-25, ADR-125): geliştirici modu yalnız süper adminde
+Kaynak kodda sabit yazan geliştirici kodu, *Ayarlar › Geliştirici Modu* ekranını açabilen **herhangi bir
+kullanıcıya** süper admin yetkisi veriyordu (depo herkese açık → kod da açık). Kapı artık tek otoritede:
+`DeveloperMode.CanActivate/TryActivate` → **ham süper admin rolü**. `AccessControl.IsAdmin` bilinçli
+KULLANILMADI (o, modun kendisini sayar → döngüsel yetki). Etkinleştirme · masaüstü gezinme · masaüstü menü ·
+web sayfası · web menüsü · sunucu ucu — **hepsi** kapatıldı. 12 test; düzeltme geri alınınca 9'u kırılıyor.
 
-**Etki sınırı (doğrulandı):** yalnız MASAÜSTÜ. Sunucu (API) ve web bu bayrağı hiç set etmez —
-`IsActive =` ataması **yalnız** `DepoWise.Desktop` içinde geçiyor (arama sonucu). Yani sunucudaki yetki
-kararları etkilenmez. Ama kullanıcı yerelde yetkisi olmayan kaydı açıp değiştirebilir ve **bu değişiklik
-senkronla sunucuya gider** → firma içi yetki yükselmesi.
-
-**Bu tur DEĞİŞTİRİLMEDİ:** davranışın bilinçli olarak değiştirilmesi gerekiyor (kullanıcı kararı).
-Seçenekler:
-1. Ekranı/işlevi **yalnız süper admine** aç (en ucuz; tek satır kontrol).
-2. Kodu derleme-zamanı gizli değere / ortam değişkenine taşı (depoda kalmaz).
-3. Etkinleştirmeyi **sunucuya doğrulat** (çevrimdışıyken çalışmaz).
-4. Özelliği tamamen kaldır.
+> ℹ️ Kod hâlâ kaynakta sabittir ve depo herkese açıktır. Artık **tek başına yeterli değildir** (süper admin
+> olmak da gerekir), ama kodu depodan çıkarmak isterseniz bu ayrı bir iştir.
 
 ### 🟠 PRF-01 (2026-08-25, ÖLÇÜLDÜ) — Stok Hareketleri raporu tek seferde 50.000 satıra kadar dönebilir
 `ReportLimits.DefaultMaxRows = 50_000`. Ölçüm (3.000 malzeme · **20.000 hareket** · 8 şube, SQLite):
@@ -73,12 +64,28 @@ bu raporun darboğazı DEĞİLDİR. Ölçüm yapılmasaydı gereksiz bir migrati
 satırla** sınırlı. Risk yalnız RAPOR yolundadır ve hareket sayısıyla birlikte büyür.
 **İzleme eşiği:** hareket sayısı ~20.000'i geçtiğinde rapora sayfalama / SQL tavanı eklenmelidir.
 
+**🟢 2026-08-25 güncellemesi — RPR-07 bu riski en sık karşılaşılan hâlinde ÇÖZDÜ.** 30.000 hareketli
+ölçümde depo personelinin raporu **196 ms → 28 ms**, dönen satır **30.000 → 3.000**. Çünkü Operasyon
+Raporları artık yalnız çalışma şubesini kapsıyor. Kalan risk: **yönetici** raporlarında (tüm şubeler)
+hareket sayısı çok büyürse. Tavan hâlâ 50.000 satırdır.
+
 ### 🟡 UPD-01 (2026-08-25) — Güncelleme checksum kontrolü boş değerde atlanıyor
 `UpdateInstaller.InstallAndRestart`: `if (!string.IsNullOrWhiteSpace(expectedSha) && !VerifyChecksum(...))`
 → checksum BOŞ gelirse doğrulama **hiç yapılmaz**. Bugün ulaşılabilir değil: sunucu `ReleaseService.Publish`
 içinde 64 haneli hex checksum'ı **zorunlu** tutuyor. Fail-closed'a çevirmek tek satır, ama eski bir
 `app_releases` satırının checksum'ı boşsa güncelleme **durur** → çalışan bir yolu bozma riski var.
 Bu yüzden değiştirilmedi; önce canlıdaki `app_releases` satırlarının checksum'ı kontrol edilmeli.
+
+### 🔵 RPR-08 (2026-08-25, KULLANICI KARARI) — eksik olabilecek raporlar
+Katalogda **19 rapor** var. Şu üç konuda rapor **yoktur** ve bu tur kapsamına ALINMADI (yeni özellik;
+kolon/filtre kararı kullanıcıya aittir):
+- **Muayene / Sigorta raporu** — modülün ekranı ve uyarıları var, raporu yok.
+- **Personel raporu** — ekranı ve Excel dışa aktarımı var, raporu yok.
+- **`Purchasing` (Satın Alma) kategorisi** — `ReportCategory` enum'unda tanımlı ama **hiçbir rapor
+  kullanmıyor**; boş bir kategori olarak duruyor.
+
+Bunların "menü/route/isim sorunu" OLMADIĞI doğrulandı: katalogda kaydı yok, başka bir ekran aynı işlevi
+görmüyor. Eklenmeleri = katalog satırı + `ReportService` metodu + testler.
 
 ### 🔵 TNT-04 (2026-08-25, bilgi) — Anonim uçlar firma ve şube ADLARINI açar
 `/api/public/companies` ve `/api/public/branches` kimlik doğrulamasız çalışır (masaüstü giriş ekranı

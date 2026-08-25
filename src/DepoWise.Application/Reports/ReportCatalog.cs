@@ -122,7 +122,7 @@ public static class ReportCatalog
         // (eski davranış birebir), depo seçilince o deponun kırılımı + "Depo" kolonu.
         new ReportDescriptor("stock", "Stok Durumu", "Mevcut / minimum / kritik kalemler",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Location, false, ExportStandard,
-            InfoNote: "Depo seçilmezse TÜM depoların toplamı gösterilir (0022Atanmamış0022 stok dahil). Depo seçilirse yalnız o depodaki kalemler listelenir. 0022Atanmamış0022 bir depo değildir: geçmişte deposu girilmemiş stoktur."),
+            InfoNote: "Depo seçilmezse TÜM depoların toplamı gösterilir («Atanmamış» stok dahil). Depo seçilirse yalnız o depodaki kalemler listelenir. «Atanmamış» bir depo değildir: geçmişte deposu girilmemiş stoktur."),
         // STK-10a (2026-08-11): hareket defterinin kataloglanmış dökümü. Daha önce yalnız bir EKRAN vardı
         // (katalogda rapor olmadığı için Excel'e aktarımı yoktu). Bu artımda YALNIZ Date + Location
         // filtreleri açıktı; STK-10b-1 ile HAREKET TÜRÜ, STK-10b-2 ile ARAMA, STK-10b-3 ile MALZEME eklendi.
@@ -130,10 +130,10 @@ public static class ReportCatalog
         new ReportDescriptor("stock-movements", "Stok Hareketleri", "Giriş/çıkış/transfer/sayım/bakım hareketleri — Kaynak → Hedef",
             ReportCategory.Stock, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
-            InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. 0022Atanmamış0022 bir depo değildir: lokasyonu girilmemiş harekettir."),
+            InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. «Atanmamış» bir depo değildir: lokasyonu girilmemiş harekettir."),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
-            InfoNote: "Sayım tek bir depoya/şantiyeye aittir. 0022Sistem0022 sütunu firma toplamını değil, SAYILAN DEPONUN o andaki miktarını gösterir."),
+            InfoNote: "Sayım tek bir depoya/şantiyeye aittir. «Sistem» sütunu firma toplamını değil, SAYILAN DEPONUN o andaki miktarını gösterir."),
         // Yakıt Tüketim — Araç Raporu standardına taşındı (kullanıcı isteği 2026-08-08): araç başına işlem/mesafe/
         // litre/ortalama tüketim/ağırlıklı ort. fiyat/toplam maliyet/birim maliyet; sayaç birimine (km/saat) duyarlı,
         // tek-geçiş (N+1 yok), tam filo. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.

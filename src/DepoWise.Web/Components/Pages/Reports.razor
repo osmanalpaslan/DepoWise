@@ -17,6 +17,16 @@
     Özet şeridi + saf CSS grafik tarayıcıda hesaplanır (değişmedi).
     ============================================================================ *@
 
+@* ⭐ RPR-07 EKRAN KAPISI: menüden gizlemek YETMEZ — kullanıcı adresi elle yazabilir. Yönetici
+   ekranı yönetici olmayana AÇILMAZ. (Veri zaten sunucuda korunuyor: ReportService.Run yönetici
+   raporunu personele 403 ile reddeder; bu kapı kullanıcıyı çalışmayacak bir ekranla baş başa
+   bırakmamak ve menüdeki kuralı adres çubuğunda da uygulamak içindir.) *@
+@if (_manager && !Auth.IsAdmin)
+{
+    <MudAlert Severity="Severity.Error">Yönetici Raporları yalnız yönetici yetkisiyle açılır.</MudAlert>
+}
+else
+{
 @* ⭐ RPR-07: aynı bileşen iki ekran olarak çalışır; kullanıcı hangisinde olduğunu başlıktan görür. *@
 <MudText Typo="Typo.h5">@(_manager ? "Yönetici Raporları" : "Operasyon Raporları")</MudText>
 <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
@@ -368,6 +378,8 @@ else
     .dw-bar-lbl { font-size: .7rem; color: var(--mud-palette-text-secondary);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 </style>
+
+}
 
 @code {
     // ── Katalog-sürümlü rapor listesi (sunucudan) ──

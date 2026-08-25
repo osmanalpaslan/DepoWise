@@ -430,4 +430,29 @@ public class ApiReportScopeTests : IAsyncLifetime
         var t = await RaporAsync(_depoB1, "stock-movements", Istek());
         Assert.Contains("HRK-1", string.Join("|", SatirMetinleri(t)));
     }
+
+    /// <summary>
+    /// ⭐ R24 — EKRAN KAPISI (gerçek arayüz turunda bulundu): menüden gizlemek YETMEZ, kullanıcı
+    /// adresi elle yazabiliyordu. Yönetici rapor ekranı hem WEB'de hem MASAÜSTÜNDE yönetici olmayana
+    /// açılmamalı. (Veri zaten sunucuda korunuyordu — bu kapı kuralı adres/gezinme yolunda da uygular.)
+    /// </summary>
+    [Fact]
+    public void R24_Yonetici_Rapor_Ekrani_Route_Kapili()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int k = 0; k < 8 && dir is not null; k++)
+        {
+            if (File.Exists(Path.Combine(dir, "DepoWise.sln"))) break;
+            dir = Directory.GetParent(dir)?.FullName;
+        }
+
+        var web = File.ReadAllText(Path.Combine(dir!, "src", "DepoWise.Web", "Components", "Pages", "Reports.razor"));
+        Assert.Contains("@if (_manager && !Auth.IsAdmin)", web);
+
+        var shell = File.ReadAllText(Path.Combine(dir!, "src", "DepoWise.Desktop", "ViewModels", "ShellViewModel.cs"));
+        var i = shell.IndexOf("case \"reports:manager\":", StringComparison.Ordinal);
+        Assert.True(i > 0, "reports:manager gezinme kaydı bulunamadı");
+        var blok = shell.Substring(i, Math.Min(600, shell.Length - i));
+        Assert.Contains("AccessControl.IsAdmin(_session)", blok);
+    }
 }

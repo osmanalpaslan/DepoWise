@@ -1651,3 +1651,72 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   kilitlemez (çevrimdışı çalışma bu ürünün temel özelliğidir). Üç testle kilitlendi (SIF-02a/b/c).
 - **Senkron protokolü DEĞİŞMEDİ:** yeni uç yok, sunucu davranışı aynı; yalnız istemci mevcut
   `/api/sync/local-reset-status` ucunu bir de tur başında soruyor.
+
+## ADR-125 — SEC-03: Geliştirici modu yalnız süper admine açılır (2026-08-25)
+- **Açık:** masaüstünde *Ayarlar › Geliştirici Modu* ekranını açabilen **herhangi bir kullanıcı**
+  (yalnız `settings` görüntüleme yetkisi yetiyordu) kaynak kodda **sabit** yazan kodu girerek
+  `DeveloperMode.IsActive`'i açabiliyordu. Bu bayrak `AccessControl`'ün **her** kararında süper admin
+  gibi davranır → o oturumda tüm ekranlar/işlemler açılır ve yazılan veri **eşitlemeyle sunucuya gider**.
+  Depo herkese açık olduğu için "kodu kimse bilmez" varsayımı da geçersizdi.
+- **Kapı (tek otorite):** `DeveloperMode.CanActivate/TryActivate` → **ham** `SessionContext.IsSuperAdmin`.
+  `AccessControl.IsAdmin` **bilinçli kullanılmadı**: o metot `IsActive`'i de sayar; mod bir kez açıldığında
+  kapı kendi kendini açık tutardı (**döngüsel yetki**). Kısıtlı süper admin de alamaz (devredilemez yetki).
+- **Katmanların tamamı** kapatıldı — UI gizleme tek başına güvenlik değildir: etkinleştirme · masaüstü
+  **gezinme** (Navigate) · masaüstü **menü** · web sayfası · web menüsü · **sunucu ucu**
+  (`POST /api/settings/developer` artık süper admin ister; eskiden firma admini yetiyordu).
+- **Masaüstü menüsü artık katalogdaki sözde-anahtarları uyguluyor** (`@super`/`@admin`/`@superr`).
+  Bu kural web'de vardı, masaüstünde YOKTU → aynı ekran web'de gizli, masaüstünde açıktı.
+- **Kanıt:** 12 test. Düzeltme geçici geri alınıp koşuldu → **9/12 kırıldı**; geri konunca 12/12 geçti.
+
+## ADR-126 — RPR-06: Masaüstü raporlarında bitiş gününün tamamı düşüyordu (2026-08-25)
+- **Hata (veri doğruluğu):** Avalonia `DatePicker` seçilen günü **gece yarısı** verir; SQL koşulu
+  `tarih <= @to` olduğu için **bitiş gününün tamamı** rapordan düşüyordu. "01.08 – 25.08" raporunda
+  25.08'de girilen hiçbir kayıt görünmüyordu. Ayrıca yerel saat dilimi yorumu sınırları **3 saat** kaydırıyordu.
+- Web aynı hatayı **2026-08-13'te** düzeltmişti; masaüstü atlanmıştı → **aynı filtre iki platformda
+  farklı sonuç** veriyordu.
+- **Çözüm:** `Application/Reports/ReportDateRange` — tek kural (gün bileşeni + `Kind` nötrleme + UTC +
+  gerekirse gün sonu). Web'in `FieldChecks.ToUnixMs`'i ile **birebir aynı**; parite testle kilitli.
+- **Kanıt:** 12 test — hatanın etkisi **gerçek rapor üzerinden**, gün sonu, aynı gün aralığı, saat dilimi,
+  artık yıl, web≡masaüstü parite, kaynak kilidi.
+
+## ADR-127 — RPR-04: Rapor filtre listeleri şube kapsamsızdı (2026-08-25)
+- **Sızıntı:** `/api/reports/scope` **şube** listesini kapsamla kırpıyordu (GUI-04) ama **araç** ve
+  **personel** listelerini kırpmıyordu → tek şubeye yetkili depo personeli, rapor filtresini açtığında
+  firmanın **bütün araç plakalarını** ve **bütün personel adlarını** görüyordu. Masaüstünde de aynıydı.
+- **Çözüm:** `VehicleService.ListForReportFilter` + `LookupService.ListPersonnelForReportFilter` (yeni,
+  additive). **Web ve masaüstü AYNI metodu çağırır** → ayrışamaz.
+- **Paylaşılan `List()` / `ListPersonnel()` metotlarına DOKUNULMADI** — 20'den fazla tüketicisi var ve
+  içe aktarma servisleri kod/ad çözerken **tüm** listeye muhtaç. Onları daraltmak çalışan akışları kırardı.
+- Yeni metotların kapısı **`reports`** yetkisidir (`vehicles`/`definitions` değil) — ilk sürümde yanlış
+  modül istendi, **test yakaladı**; erişim davranışı değişmedi, yalnız kapsam eklendi.
+
+## ADR-128 — RPR-07: Operasyon / Yönetici rapor ekranları gerçekten ayrıldı (2026-08-25)
+- **Durum:** iki menü girişi **aynı route** ve **aynı gezinme anahtarını** kullanıyordu → tek ekran;
+  ayrım yalnız web menüsündeki görünürlük kapısıydı. Raporu **çalıştırmak** hiçbir yerde ayrılmıyordu
+  (yalnız Excel yetkisi ayrılıyordu) → ayrım fiilen **kozmetikti**.
+- **Yeni davranış (ayrım İŞLEVSEL ve ŞUBE KAPSAMINDA):**
+  - `/reports` · `reports` → **Operasyon**: yalnız **çalışma şubesi** (girişte seçilen şube), şube seçici
+    YOK, yalnız `Standard` raporlar.
+  - `/reports/manager` · `reports:manager` → **Yönetici**: izinli şubeler + (yetkisi varsa) seçici, tüm
+    raporlar, menüde `@admin` (artık iki platformda da).
+- **R33 kapandı:** `ReportReqDto.OperatingBranchId` eklendi. Sunucu `BranchAccess.Require` ile **doğrular**
+  (kapsam dışı → 403) ve oturum **kopyasına** yazar; `BranchAccess` kesişimi zaten uygulanır →
+  **kapsamı genişletemez**. Alan gönderilmezse davranış eskisiyle **birebir aynı**. Desen içe-aktarma
+  ucundan alındı; **ikinci bir kapsam mekanizması kurulmadı**. Export aynı kapsamdan geçer.
+- **Yönetici raporu kapısı** `ReportService.Run` içinde — tek nokta, iki platform + API. Gerekçe: yönetici
+  raporları oturumun çalışma şubesini **bilinçli olarak** yok sayar (`BranchScopeTests` ile kilitli ürün
+  kararı) → "yalnız giriş yapılan şube" kuralı orada **sağlanamaz**.
+  ⚠️ **Davranış değişikliği:** yönetici olmayan kullanıcı 5 yönetici raporunu artık çalıştıramaz.
+  Web menüsü bunu zaten `@admin` ile ima ediyordu ve Excel yetkisi de ayrıydı.
+- **Ekran anahtarları değişmedi** (`reports` / `reports.manager`) → firmaların kayıtlı menü düzeni ve
+  platform görünürlük satırları **aynen** çalışır. Kod kopyalanmadı: tek bileşen, kip route'tan gelir.
+- **Yan fayda (ölçüldü):** 30.000 hareketli veride depo personelinin raporu **196 ms → 28 ms**, satır
+  sayısı 30.000 → 3.000. Kapsam daraltması aynı zamanda PRF-01'in en sık karşılaşılan hâlini çözer.
+
+## ADR-129 — SEC-04: Makine yedek listesi firma sınırını uygulamıyordu (2026-08-25)
+- `GET /api/backups` yalnız "giriş yapılmış mı" diye bakıyordu; **firma parametresi istekten geliyor ve
+  doğrulanmıyordu** → herhangi bir kullanıcı başka firmanın makine adlarını, yedek dosya adlarını,
+  boyutlarını ve tarihlerini listeleyebiliyordu.
+- Kardeş uç (`/api/machine-backups/download`) bu iki kontrolü zaten doğru yapıyordu; **eksik olan buydu**.
+  Düzeltme kardeş ucun deseninin aynısıdır. `DELETE` zaten süper admin istiyordu.
+- **Kanıt:** 3 test; düzeltme geçici kaldırılıp koşuldu → **2/3 kırıldı**.

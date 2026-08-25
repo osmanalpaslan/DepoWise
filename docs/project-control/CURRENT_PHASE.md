@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-25** (uçtan uca denetim + onarım turu) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-25** (yayın öncesi son denetim + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1248,7 +1248,57 @@ Açık geliştirme işi yok.
 
 ---
 
-## 🔎 SON TAMAMLANAN — `DEN-2026-08-25` Uçtan uca denetim · onarım · test
+## 🚀 SON TAMAMLANAN — `DEN-2` Yayın öncesi son denetim + yayın (2026-08-25)
+
+Kullanıcı isteği: "yayın öncesi son kapsamlı denetim + onarım + test + release". Odak: veri güvenliği,
+firma/şube izolasyonu, **tüm raporların doğruluğu**, stabilite, performans.
+
+Tam rapor: [`docs/tests/Yayin_Oncesi_Denetim_2026-08-25.md`](../tests/Yayin_Oncesi_Denetim_2026-08-25.md)
+Kararlar: [`ADR-125…129`](../DECISIONS.md)
+
+### Düzeltilen gerçek sorunlar (her biri önce testle ÜRETİLDİ)
+| ID | Önem | Ne bozuktu |
+|---|---|---|
+| **SEC-03** | **P1** | *Ayarlar* ekranını açabilen **herkes** sabit kodu girip **süper admin** yetkisine geçiyordu; yazdığı veri eşitlemeyle sunucuya gidiyordu |
+| **RPR-06** | **P1** | Masaüstü raporlarında **bitiş gününün tamamı** düşüyordu (25.08 raporunda 25.08 kayıtları yok); web ile farklı sonuç |
+| **RPR-04** | P2 | Rapor filtresi tek şubeye yetkili personele firmanın **tüm araç plakalarını** ve **personel adlarını** gösteriyordu |
+| **RPR-07** | P2 | İki rapor menüsü **aynı ekranı** açıyordu (ayrım kozmetik) · web oturumu **çalışma şubesini taşımıyordu** (R33) |
+| **SEC-04** | P2 | `GET /api/backups` firma parametresini doğrulamıyordu → başka firmanın makine/yedek adları listelenebiliyordu |
+
+### Operasyon / Yönetici rapor ayrımı (kullanıcı talebi)
+| | Operasyon Raporları | Yönetici Raporları |
+|---|---|---|
+| Route | `/reports` · `reports` | `/reports/manager` · `reports:manager` |
+| Şube kapsamı | **yalnız çalışma şubesi** | izinli şubeler |
+| Şube seçici | **YOK** | var (yetkisi olana) |
+| Rapor listesi | yalnız `Standard` | tümü |
+| Menü kapısı | modül yetkisi | `@admin` (artık iki platformda) |
+
+Sunucu, istekteki çalışma şubesini **doğrular** (kapsam dışı → 403) ve yalnız **daraltır**; kapsam
+genişletilemez. Ekran anahtarları değişmedi → kayıtlı menü düzeni ve platform görünürlüğü aynen çalışır.
+
+⚠️ **Bilinçli davranış değişikliği:** yönetici olmayan kullanıcı 5 yönetici raporunu artık çalıştıramaz
+(bu raporlar çalışma şubesini bilinçli olarak yok sayar → "yalnız giriş yapılan şube" kuralı orada
+sağlanamaz). Web menüsü bunu zaten `@admin` ile ima ediyordu.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı) | 2165 geçti · 0 başarısız · 35 atlandı |
+| Tam test — final koşu 1 | **2220 geçti · 0 başarısız · 35 atlandı** |
+| Tam test — final koşu 2 (bağımsız) | *(rapora bakınız)* |
+| PostgreSQL koşusu | *(rapora bakınız)* |
+| Release derlemesi | **0 hata** |
+| Performans (30.000 hareket) | depo personelinin raporu **196 ms → 28 ms**, satır **30.000 → 3.000** |
+| Yeni migration | **YOK** (ölçüm indeks gerekmediğini gösterdi) |
+
+### Sıradaki tek iş
+Kullanıcı kararı bekleyen: eksik raporlar (Muayene/Sigorta · Personel · boş `Purchasing` kategorisi) —
+bunlar **yeni özellik**tir, bu turda bilinçli olarak kapsam dışı bırakıldı.
+
+---
+
+## 🔎 ÖNCEKİ — `DEN-2026-08-25` Uçtan uca denetim · onarım · test
 
 Kullanıcı isteği: "projeyi uçtan uca denetle, gerçek sorunları bul, kök nedenlerini düzelt, çalışan
 özellikleri koruyarak testlerle güvence altına al." **Üretime hiçbir yazma yapılmadı.**

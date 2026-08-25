@@ -1149,6 +1149,16 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentContext = ReportsViewModel.OperationContext(_session);
                 break;
             case "reports:manager":
+                // ⭐ RPR-07 GEZİNME KAPISI: menüden gizlemek YETMEZ — Navigate kod içinden de tetiklenebilir.
+                // Veri zaten sunucuda/serviste korunuyor (ReportService.Run yönetici raporunu personele
+                // reddeder); bu kapı menüdeki kuralı gezinme yolunda da uygular.
+                if (!AccessControl.IsAdmin(_session))
+                {
+                    CurrentPage = null;
+                    CurrentTitle = "Yetkiniz yok";
+                    CurrentContext = "Yönetici Raporları yalnız yönetici yetkisiyle açılır.";
+                    break;
+                }
                 CurrentPage = new ReportsViewModel(_session, managerMode: true);
                 CurrentTitle = "Yönetici Raporları";
                 CurrentContext = "Yetkili olduğunuz şubeler — şube seçimi yapılabilir";
