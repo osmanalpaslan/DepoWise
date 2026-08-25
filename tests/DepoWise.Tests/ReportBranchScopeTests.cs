@@ -301,6 +301,88 @@ public class ReportBranchScopeTests : IDisposable
         Assert.Equal(2, t.Rows.Count);
     }
 
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+    //  RPR-04 (2026-08-25) — RAPOR FİLTRESİ SEÇENEKLERİ DE KAPSAMLI OLMALI
+    //
+    //  Rapor SONUÇLARI kapsamlıydı ama FİLTRE açılır listeleri değildi: tek şubeye yetkili kullanıcı
+    //  firmanın bütün araç PLAKALARINI ve personel ADLARINI görüyordu. Kural artık servistedir →
+    //  web ve masaüstü AYNI metodu çağırır (parite testle kilitli).
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>⭐ RPR-04a — kapsamlı kullanıcı yalnız izinli şubenin aracını görür.</summary>
+    [Fact]
+    public void RPR04a_Arac_Filtresi_Kapsamli()
+    {
+        AracEkle("AA", _subeA);
+        AracEkle("BB", _subeB);
+
+        var veh = new DepoWise.Infrastructure.Vehicles.VehicleService(_factory, _clock);
+        var kodlar = veh.ListForReportFilter(SadeceA()).Select(v => v.InternalCode).ToList();
+
+        Assert.Contains("AA", kodlar);
+        Assert.DoesNotContain("BB", kodlar);
+    }
+
+    /// <summary>RPR-04b — ŞUBESİZ araç gizlenmez (sistem geneli ilke: şubesiz kayıt herkese görünür).</summary>
+    [Fact]
+    public void RPR04b_Subesiz_Arac_Gizlenmez()
+    {
+        AracEkle("CC", null);
+
+        var veh = new DepoWise.Infrastructure.Vehicles.VehicleService(_factory, _clock);
+        Assert.Contains("CC", veh.ListForReportFilter(SadeceA()).Select(v => v.InternalCode));
+    }
+
+    /// <summary>RPR-04c — kapsamsız kullanıcıda (admin) davranış DEĞİŞMEZ: hepsini görür.</summary>
+    [Fact]
+    public void RPR04c_Admin_Tum_Araclari_Gorur()
+    {
+        AracEkle("AA", _subeA);
+        AracEkle("BB", _subeB);
+
+        var veh = new DepoWise.Infrastructure.Vehicles.VehicleService(_factory, _clock);
+        Assert.Equal(2, veh.ListForReportFilter(_admin).Count);
+    }
+
+    /// <summary>RPR-04d — PERSONEL filtresi de kapsamlı; şubesiz personel gizlenmez.</summary>
+    [Fact]
+    public void RPR04d_Personel_Filtresi_Kapsamli()
+    {
+        var per = new DepoWise.Infrastructure.Org.PersonnelService(_factory, new DepoWise.Infrastructure.Org.ScopeResolver(_factory), _clock);
+        per.Create(_admin, new DepoWise.Infrastructure.Org.NewPersonnel("Ali Bir", null, null, _subeA));
+        per.Create(_admin, new DepoWise.Infrastructure.Org.NewPersonnel("Veli İki", null, null, _subeB));
+        per.Create(_admin, new DepoWise.Infrastructure.Org.NewPersonnel("Şubesiz Kişi", null, null, null));
+
+        var lk = new DepoWise.Infrastructure.Materials.LookupService(_factory, _clock);
+        var adlar = lk.ListPersonnelForReportFilter(SadeceA()).Select(p => p.Name).ToList();
+
+        Assert.Contains("Ali Bir", adlar);
+        Assert.Contains("Şubesiz Kişi", adlar);
+        Assert.DoesNotContain("Veli İki", adlar);
+    }
+
+    /// <summary>
+    /// ⭐ RPR-04e — PARİTE: masaüstü rapor ekranı da ORTAK metotları çağırmalı. Aksi hâlde web'de
+    /// kırpılan liste masaüstünde açık kalırdı (bu turda bulunan ayrışmanın kendisi).
+    /// </summary>
+    [Fact]
+    public void RPR04e_Masaustu_Ortak_Filtre_Metotlarini_Kullanir()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int k = 0; k < 8 && dir is not null; k++)
+        {
+            if (File.Exists(Path.Combine(dir, "DepoWise.sln"))) break;
+            dir = Directory.GetParent(dir)?.FullName;
+        }
+        var src = File.ReadAllText(Path.Combine(dir!, "src", "DepoWise.Desktop", "ViewModels", "ReportsViewModel.cs"));
+
+        Assert.Contains("Vehicles.ListForReportFilter(_session)", src);
+        Assert.Contains("Lookups.ListPersonnelForReportFilter(_session)", src);
+        // Rapor filtresinde firma-geneli listeler KALMAMALI.
+        Assert.DoesNotContain("Vehicles.List(_session)", src);
+        Assert.DoesNotContain("Lookups.ListPersonnel(_session)", src);
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }

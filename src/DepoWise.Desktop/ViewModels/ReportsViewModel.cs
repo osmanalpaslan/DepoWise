@@ -223,9 +223,15 @@ public sealed partial class ReportsViewModel : ViewModelBase
         Locations.Add(new BranchPick("", "📦 Atanmamış"));
     }
 
+    /// <summary>
+    /// ⭐ RPR-04 (denetim 2026-08-25): rapor ARAÇ filtresi artık ŞUBE KAPSAMLIDIR ve kuralı sunucuyla
+    /// AYNI metottan alır (<c>VehicleService.ListForReportFilter</c>) → web ve masaüstü ayrışamaz.
+    /// Genel <c>List()</c> bilinçli olarak firma genelidir (içe aktarma ve diğer açılır listeler ona
+    /// bağlıdır) ve DEĞİŞTİRİLMEDİ.
+    /// </summary>
     private void LoadVehiclePicks()
     {
-        try { foreach (var v in DesktopServices.Vehicles.List(_session)) VehiclePicks.Add(new VehiclePick(v.Id, v.InternalCode, v.Plate ?? "")); }
+        try { foreach (var v in DesktopServices.Vehicles.ListForReportFilter(_session)) VehiclePicks.Add(new VehiclePick(v.Id, v.InternalCode, v.Plate ?? "")); }
         catch { }
         RebuildFilteredVehicles();
     }
@@ -244,7 +250,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
 
     private void LoadTechnicians()
     {
-        try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Technicians.Add(new BranchPick(p.Id, p.Name)); }
+        try { foreach (var p in DesktopServices.Lookups.ListPersonnelForReportFilter(_session)) Technicians.Add(new BranchPick(p.Id, p.Name)); }
         catch { }
     }
 
@@ -257,7 +263,7 @@ public sealed partial class ReportsViewModel : ViewModelBase
     /// <summary>Talep eden listesi — Teknisyen ile AYNI personel kaynağı, AYRI öğeler (işaret durumu karışmasın).</summary>
     private void LoadRequesters()
     {
-        try { foreach (var p in DesktopServices.Lookups.ListPersonnel(_session)) Requesters.Add(new BranchPick(p.Id, p.Name)); }
+        try { foreach (var p in DesktopServices.Lookups.ListPersonnelForReportFilter(_session)) Requesters.Add(new BranchPick(p.Id, p.Name)); }
         catch { }
     }
 
@@ -488,8 +494,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
             : null;
         var req = new ReportRequest(
             Executed: true,
-            FromDate: ShowDate ? FromDate?.ToUnixTimeMilliseconds() : null,
-            ToDate: ShowDate ? ToDate?.ToUnixTimeMilliseconds() : null,
+            // ⭐ RPR-06 (denetim 2026-08-25): eskiden HAM dönüşüm yapılıyordu. DatePicker seçilen günü
+            // GECE YARISI verdiği için `tarih <= @to` koşulu BİTİŞ GÜNÜNÜN TAMAMINI eliyordu —
+            // "01.08 – 25.08" raporunda 25.08'in kayıtları hiç görünmüyordu. Web bu hatayı 2026-08-13'te
+            // düzeltmişti; masaüstü atlanmıştı. Kural artık ortak: ReportDateRange (web ile birebir aynı,
+            // paritesi testle kilitli).
+            FromDate: ShowDate ? ReportDateRange.StartMs(FromDate) : null,
+            ToDate: ShowDate ? ReportDateRange.EndMs(ToDate) : null,
             BranchIds: branchIds,
             VehicleIds: vehicleIds,
             VehicleTypeIds: typeIds,

@@ -72,6 +72,32 @@ public sealed class LookupService
         return list;
     }
 
+    /// <summary>
+    /// ⭐ RPR-04 (denetim 2026-08-25) — RAPOR FİLTRESİ için ŞUBE KAPSAMLI personel listesi.
+    ///
+    /// <b>Neden ayrı metot:</b> <see cref="ListPersonnel"/> firma genelidir ve pek çok açılır listede
+    /// (yakıt, bakım, talep, stok girişi, sürücü seçimi) ve içe aktarmada kullanılır; daraltmak çalışan
+    /// akışları kırardı. Bu metot yalnız rapor filtresinin kaynağıdır ve kuralı
+    /// <see cref="BranchAccess.AllowedSql"/>'dan alır (izinli şubeler + şubesiz personel).
+    /// Web ve masaüstü AYNI metodu kullanır.
+    /// </summary>
+    public IReadOnlyList<LookupItem> ListPersonnelForReportFilter(SessionContext s)
+    {
+        // ⚠️ Kapı RAPOR yetkisidir, "definitions" DEĞİL — bkz. VehicleService.ListForReportFilter.
+        AccessControl.Require(s, "reports", PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id, full_name FROM personnel WHERE company_id=@c AND is_deleted=0 AND is_active=1"
+                        + BranchAccess.AllowedSql(s, "branch_id", "@rpb")
+                        + " ORDER BY full_name;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        BranchAccess.BindAllowed(cmd, s, "@rpb");
+        var list = new List<LookupItem>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(new LookupItem(r.GetString(0), r.GetString(1)));
+        return list;
+    }
+
     public string AddPersonnel(SessionContext s, string fullName, string? title = null)
     {
         AccessControl.Require(s, Module, PermissionAction.Create);

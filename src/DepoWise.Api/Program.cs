@@ -2431,6 +2431,20 @@ app.MapPost("/api/role-permissions", (HttpContext c, RoleGrantDto d) =>
 app.MapGet("/api/reports/company-filter", (HttpContext c) => S(c) is { } s
     ? Results.Ok(new { showCompany = s.IsSuperAdmin, showBranchSelect = AccessControl.CanUseButton(s, SpecialButtons.BranchSelect) })
     : Results.Unauthorized()).RequireAuthorization();
+// RPR-04: süper adminin BAŞKA firmayı görüntülemesi için oturum kopyası. Yalnız firma kimliği değişir;
+// roller, yetkiler ve şube kapsamı AYNEN taşınır (süper adminde kapsam zaten kısıtsızdır). Buraya
+// ancak TenantAccessGuard'dan geçen bir istek gelebilir → yetki genişletmez.
+static DepoWise.Application.Security.SessionContext SuperCompanyView(
+    DepoWise.Application.Security.SessionContext s, string companyId)
+    => new(s.UserId, companyId, s.RoleKeys, s.Permissions, s.CanViewAllBranches)
+    {
+        OperatingBranchId = null,
+        BlockedModules = s.BlockedModules,
+        ScopeBranchIds = s.ScopeBranchIds,
+        HomeBranchId = s.HomeBranchId,
+        BranchDescendants = s.BranchDescendants,
+    };
+
 app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
 {
     var s = S(c); if (s is null) return Results.Unauthorized();
@@ -2455,12 +2469,16 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
             branches.Add(new { id = bid, name = r.GetString(1) });
         }
     }
-    using (var cmd = conn.CreateCommand())
+    // ⭐ RPR-04 (denetim 2026-08-25): ARAÇ listesi kapsamla KIRPILMIYORDU. Şube listesi GUI-04'te
+    // düzeltilmişti ama araçlar firma geneli dönüyordu → tek şubeye yetkili depo personeli, rapor
+    // filtresini açtığında firmanın BÜTÜN araçlarını ve PLAKALARINI görüyordu (bilgi sızıntısı).
+    // Sorgu artık SERVİSTEDİR (VehicleService.ListForReportFilter) → masaüstü rapor ekranı da AYNI
+    // metodu çağırır; iki platform ayrışamaz. Süper adminin başka firma seçimi etkilenmez: kapsamı
+    // kısıtsızdır ve firma kimliği aşağıdaki oturum kopyasıyla taşınır.
     {
-        cmd.CommandText = "SELECT id, internal_code, COALESCE(plate,'') FROM vehicles WHERE company_id=@c AND is_deleted=0 ORDER BY internal_code;";
-        cmd.AddWithValue("@c", cid);
-        using var r = cmd.ExecuteReader();
-        while (r.Read()) { var p = r.GetString(2); vehicles.Add(new { id = r.GetString(0), display = string.IsNullOrEmpty(p) ? r.GetString(1) : $"{r.GetString(1)} - {p}" }); }
+        var vehSession = string.Equals(cid, s.CompanyId, StringComparison.Ordinal) ? s : SuperCompanyView(s, cid);
+        foreach (var v in svc.Vehicles.ListForReportFilter(vehSession))
+            vehicles.Add(new { id = v.Id, display = v.Display });
     }
     using (var cmd = conn.CreateCommand())   // Araç Türü filtresi (Araç Raporu)
     {
@@ -2476,12 +2494,13 @@ app.MapGet("/api/reports/scope", (HttpContext c, string? companyId) =>
         using var r = cmd.ExecuteReader();
         while (r.Read()) maintenanceDefs.Add(new { id = r.GetString(0), name = r.GetString(1) });
     }
-    using (var cmd = conn.CreateCommand())   // Teknisyen filtresi (Bakım Raporu) — personel listesi
+    // ⭐ RPR-04: PERSONEL (teknisyen / talep eden) listesi de kapsamla kırpılır — aksi hâlde firmanın
+    // tüm çalışan ADLARI tek şubeye yetkili kullanıcıya görünüyordu. Sorgu servistedir; masaüstü rapor
+    // ekranı aynı metodu kullanır.
     {
-        cmd.CommandText = "SELECT id, full_name FROM personnel WHERE company_id=@c AND is_deleted=0 ORDER BY full_name;";
-        cmd.AddWithValue("@c", cid);
-        using var r = cmd.ExecuteReader();
-        while (r.Read()) technicians.Add(new { id = r.GetString(0), name = r.GetString(1) });
+        var perSession = string.Equals(cid, s.CompanyId, StringComparison.Ordinal) ? s : SuperCompanyView(s, cid);
+        foreach (var p in svc.Lookups.ListPersonnelForReportFilter(perSession))
+            technicians.Add(new { id = p.Id, name = p.Name });
     }
     using (var cmd = conn.CreateCommand())   // Tedarikçi filtresi (Depo Girişi)
     {

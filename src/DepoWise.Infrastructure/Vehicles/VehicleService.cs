@@ -243,6 +243,43 @@ ORDER BY internal_code LIMIT @lim;";
         return list;
     }
 
+    /// <summary>
+    /// ⭐ RPR-04 (denetim 2026-08-25) — RAPOR FİLTRESİ için ŞUBE KAPSAMLI araç listesi.
+    ///
+    /// <b>Neden ayrı metot:</b> <see cref="List"/> BİLİNÇLİ olarak firma genelidir ve 20'den fazla yerden
+    /// çağrılır — özellikle içe aktarma servisleri kod/ad çözerken TÜM araçlara ihtiyaç duyar. Onu
+    /// daraltmak çalışan akışları kırardı. Bu metot yalnız rapor filtresinin (açılır liste) kaynağıdır.
+    ///
+    /// Kural tek otoriteden gelir (<see cref="BranchAccess.AllowedSql"/>): kullanıcının izinli şubeleri
+    /// + ŞUBESİZ araçlar. Kapsamsız kullanıcıda (admin) sonuç <see cref="List"/> ile aynıdır.
+    /// Web ve masaüstü AYNI metodu kullanır → iki platform ayrışamaz.
+    /// </summary>
+    public IReadOnlyList<VehicleListRow> ListForReportFilter(SessionContext s, int limit = 5000)
+    {
+        // ⚠️ Kapı RAPOR yetkisidir, "vehicles" DEĞİL: bu liste yalnız rapor filtresini besler ve raporu
+        // açabilen kullanıcının araç modülü yetkisi olmak zorunda değildir (eski satır içi sorgu da
+        // böyleydi). Bu metot mevcut ERİŞİM davranışını değiştirmez; yalnız ŞUBE KAPSAMINI ekler.
+        AccessControl.Require(s, "reports", PermissionAction.View);
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id, internal_code, plate, status, current_meter, meter_unit, production_year " +
+            "FROM vehicles WHERE company_id=@c AND is_deleted=0" +
+            BranchAccess.AllowedSql(s, "branch_id", "@rvb") +
+            " ORDER BY internal_code LIMIT @lim;";
+        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@lim", limit);
+        BranchAccess.BindAllowed(cmd, s, "@rvb");
+        var list = new List<VehicleListRow>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new VehicleListRow(
+                r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
+                r.GetString(3), Money.Parse(r.GetString(4)), r.GetString(5),
+                r.IsDBNull(6) ? (int?)null : r.GetInt32(6)));
+        return list;
+    }
+
     private const string GridInnerSql = @"
 SELECT v.id AS id, v.internal_code AS internal_code, v.plate AS plate, v.production_year AS production_year,
        v.current_meter AS meter_raw, v.meter_unit AS meter_unit,
