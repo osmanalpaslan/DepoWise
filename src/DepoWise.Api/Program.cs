@@ -2527,6 +2527,36 @@ DepoWise.Application.Reports.TableModel BuildReport(DepoWise.Application.Securit
 static bool IsManagerReport(string type)
     => DepoWise.Application.Reports.ReportCatalog.ByKey(type)?.IsManager ?? false;
 
+/// <summary>
+/// ⭐ RPR-07 (2026-08-25) — "Operasyon Raporları" için ÇALIŞMA ŞUBESİ oturumu.
+///
+/// <b>Neden gerekli:</b> masaüstü oturumu giriş ekranında seçilen şubeyi (<c>OperatingBranchId</c>)
+/// taşır ve raporlar ona göre daralır. WEB oturumu bunu TAŞIMIYORDU (kayıt: R33) → depo personeli
+/// web'de kendi şubesine giriş yapsa bile rapor TÜM izinli şubelerini topluyordu.
+///
+/// <b>Güvenlik:</b> istekten gelen şube <b>kapsamı GENİŞLETEMEZ</b>. Değer önce
+/// <see cref="DepoWise.Application.Security.BranchAccess.Require"/> ile doğrulanır (kapsam dışıysa 403),
+/// sonra oturum KOPYASINA yazılır; <c>BranchAccess.Effective</c> zaten "izinli ∩ istenen ∩ oturum"
+/// kesişimini alır. İkinci bir kapsam mekanizması KURULMADI — içe aktarma ucundaki desenin aynısıdır.
+///
+/// Alan gönderilmezse oturum AYNEN kullanılır → eski istemciler ve Yönetici Raporları etkilenmez.
+/// </summary>
+static DepoWise.Application.Security.SessionContext ReportSession(
+    DepoWise.Application.Security.SessionContext s, string? operatingBranchId)
+{
+    if (string.IsNullOrWhiteSpace(operatingBranchId)) return s;
+    if (string.Equals(operatingBranchId, s.OperatingBranchId, StringComparison.Ordinal)) return s;
+    DepoWise.Application.Security.BranchAccess.Require(s, operatingBranchId, "rapor");   // kapsam dışı → 403
+    return new DepoWise.Application.Security.SessionContext(s.UserId, s.CompanyId, s.RoleKeys, s.Permissions, s.CanViewAllBranches)
+    {
+        OperatingBranchId = operatingBranchId,
+        BlockedModules = s.BlockedModules,
+        ScopeBranchIds = s.ScopeBranchIds,
+        HomeBranchId = s.HomeBranchId,
+        BranchDescendants = s.BranchDescendants,
+    };
+}
+
 // Ortak rapor kataloğu (madde 2/10): web UI filtre/kolon/yetki'yi buradan sürer.
 app.MapGet("/api/reports/catalog", (HttpContext c) =>
     S(c) is null ? Results.Unauthorized() : Results.Ok(DepoWise.Application.Reports.ReportCatalog.All.Select(d => new
@@ -2551,7 +2581,8 @@ static object? ReportCell(object? cell)
 
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    var s = ReportSession(s0, d.OperatingBranchId);   // RPR-07: çalışma şubesi (varsa) doğrulanır + uygulanır
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
@@ -2567,7 +2598,9 @@ app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) 
 // Rapor Excel dışa aktarma — özel buton yetkisi ZORUNLU (yoksa 403; UI "yetkiniz yok" gösterir).
 app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReqDto d) =>
 {
-    var s = S(c); if (s is null) return Results.Unauthorized();
+    var s0 = S(c); if (s0 is null) return Results.Unauthorized();
+    // RPR-07: dışa aktarma AYNI kapsamı uygulamalı — yoksa ekranda görülmeyen satırlar Excel'e sızardı.
+    var s = ReportSession(s0, d.OperatingBranchId);
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
@@ -3563,7 +3596,13 @@ record ReportReqDto(long? FromDate, long? ToDate, List<string>? BranchIds, List<
     // Opsiyonel, SONA eklendi (pozisyonel kurulumda argüman kaymasını önlemek için).
     List<string>? MaterialIds = null,
     // G4-4: ön muhasebe raporlarında CARİ filtresi. ⚠️ SONA EKLENDİ (kayıt pozisyonel de kuruluyor).
-    List<string>? PartyIds = null);
+    List<string>? PartyIds = null,
+    // ⭐ RPR-07 (2026-08-25): "Operasyon Raporları" ekranının ÇALIŞMA ŞUBESİ (giriş ekranında seçilen şube).
+    // Masaüstünde bu bilgi oturumda zaten vardır; WEB oturumu onu TAŞIMIYORDU (R33) → web raporu kullanıcının
+    // TÜM izinli şubelerini topluyordu. Alan opsiyoneldir: gönderilmezse davranış eskisiyle BİREBİR aynıdır.
+    // ⚠️ Kapsam GENİŞLETEMEZ: sunucu bu şubenin kullanıcının izinli kümesinde olduğunu DOĞRULAR (403) ve
+    // BranchAccess kesişimi zaten uygulanır — yalnız DARALTMA amaçlıdır.
+    string? OperatingBranchId = null);
 record BranchDto(string Name, string? Kind, string? ParentId, string? Code = null, string? Password = null, string? CompanyId = null, long? Version = null);
 record CountLineDto(string MaterialId, decimal CountedQuantity);
 // G1-05(a): OperationId OPSİYONELDİR — istemci gönderirse mevcut idempotency mekanizması (aynı işlemin

@@ -302,7 +302,9 @@ public class AppScreensParityTests
             ("Ön Muhasebe", new[] { "parties", "parties:new", "invoices", "invoices:new",
                                     "finance", "finance:new", "payments" }),
             ("Operasyon Raporları", new[] { "reports" }),
-            ("Yönetici Raporları", new[] { "reports" }),
+            // RPR-07 (2026-08-25): Yönetici Raporları artık AYRI gezinme anahtarı kullanır
+            // (eskiden "reports" ile aynı ekranı açıyordu; iki menü girişi fiilen tek ekrandı).
+            ("Yönetici Raporları", new[] { "reports:manager" }),
             ("Şube ve Personel", new[] { "branches", "personnel" }),
             ("Kullanıcı Yönetimi", new[] { "users", "permissions", "permission_templates" }),
             ("Denetim", new[] { "audit", "stock_change_log" }),
@@ -344,7 +346,8 @@ public class AppScreensParityTests
                                     ("finance", "finance"), ("finance", "finance/new"),
                                     ("finance", "payments") }),   // G4-1 + G4-2 + G4-3
             ("Operasyon Raporları", new[] { ("reports", "reports") }),
-            ("Yönetici Raporları", new[] { ("@admin", "reports") }),
+            // RPR-07: ayrı route → deep-link ve menü artık iki farklı ekranı gösterir.
+            ("Yönetici Raporları", new[] { ("@admin", "reports/manager") }),
             ("Şube ve Personel", new[] { ("branches", "branches"), ("personnel", "personnel") }),
             ("Kullanıcı Yönetimi", new[] { ("users", "users"), ("permissions", "permissions"), ("permission_templates", "permission-templates") }),
             ("Denetim", new[] { ("audit", "audit"), ("stock_change_log", "stock-change-log") }),

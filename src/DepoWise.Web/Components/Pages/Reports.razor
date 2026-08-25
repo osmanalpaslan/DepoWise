@@ -1,9 +1,11 @@
 @page "/reports"
+@page "/reports/manager"
 @using System.Text.Json
 @using System.Globalization
 @inject ApiClient Api
 @inject AuthState Auth
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 @*  ============================================================================
     Raporlar — ORTAK MİMARİ (kullanıcı isteği 2026-08-07). Rapor listesi, filtre
@@ -15,7 +17,15 @@
     Özet şeridi + saf CSS grafik tarayıcıda hesaplanır (değişmedi).
     ============================================================================ *@
 
-<MudText Typo="Typo.h5" GutterBottom="true">Raporlar</MudText>
+@* ⭐ RPR-07: aynı bileşen iki ekran olarak çalışır; kullanıcı hangisinde olduğunu başlıktan görür. *@
+<MudText Typo="Typo.h5">@(_manager ? "Yönetici Raporları" : "Operasyon Raporları")</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+    @(_manager
+        ? "Yetkili olduğunuz şubeler — şube seçimi yapılabilir."
+        : (string.IsNullOrEmpty(Auth.BranchId)
+            ? "Yetkili olduğunuz şubeler (girişte şube seçilmedi)."
+            : "Yalnız giriş yaptığınız şubenin verileri gösterilir."))
+</MudText>
 
 @if (_catalog.Count == 0)
 {
@@ -453,6 +463,9 @@ else
         return string.IsNullOrWhiteSpace(t) ? r.Take(DepoWise.Web.Services.FieldChecks.MaxUnfilteredOptions) : r;
     }
     private string? _vehSearch;
+    /// <summary>⭐ RPR-07: ekran kipi — true = Yönetici Raporları, false = Operasyon Raporları.</summary>
+    private bool _manager;
+
     private bool _showBranchSelect;   // btn-branch-select yetkisi (yoksa şube seçici gizli — sunucu da zorlar)
 
     private List<ApiClient.Opt> _companies = new(), _branches = new(), _vehicles = new(), _vehicleTypes = new(),
@@ -579,12 +592,18 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        // ⭐ RPR-07: EKRAN KİPİ ilk belirlenir — katalog süzmesi ve şube seçici buna bağlıdır.
+        _manager = Nav.Uri.Contains("/reports/manager", StringComparison.OrdinalIgnoreCase);
         // Katalog (rapor listesi + filtre bayrakları) + yetki (şube seçimi) + kapsam (şube/araç/firma).
         await LoadCatalog();
+        // ⭐ RPR-07 (2026-08-25): EKRAN KİPİ route'tan gelir. /reports = OPERASYON (çalışma şubesi,
+        // seçici yok) · /reports/manager = YÖNETİCİ (izinli şubeler + seçici). Tek bileşen, iki kip →
+        // kod KOPYALANMAZ; fark yalnız KAPSAMDADIR. Rapor listesi iki kipte de aynıdır.
         try
         {
             var cf = await Api.GetObjectAsync("/api/reports/company-filter");
-            _showBranchSelect = cf.TryGetProperty("showBranchSelect", out var b) && b.ValueKind == JsonValueKind.True;
+            _showBranchSelect = _manager
+                && cf.TryGetProperty("showBranchSelect", out var b) && b.ValueKind == JsonValueKind.True;
         }
         catch { }
         if (Auth.IsSuperAdmin) _companies = await Api.OptionsAsync("/api/companies", "id", "name");
@@ -597,12 +616,16 @@ else
         try
         {
             var arr = await Api.GetArrayAsync("/api/reports/catalog");
+            // ⭐ RPR-07: OPERASYON ekranı yalnız STANDARD raporları listeler. Yönetici raporları
+            // (şablon dökümleri, şube bazlı özet) çalışma şubesini bilinçli olarak yok sayar →
+            // "yalnız giriş yapılan şube" kuralı orada sağlanamaz. Onlar Yönetici Raporları ekranındadır.
             _catalog = arr.Select(e => new CatItem(
                 Str(e, "key"), Str(e, "name"), Str(e, "description"), Str(e, "category"), Str(e, "categoryLabel"),
                 Bool(e, "usesDate"), Bool(e, "usesBranch"), Bool(e, "usesVehicle"), Bool(e, "usesVehicleType"),
                 Bool(e, "usesMaintenanceDef"), Bool(e, "usesTechnician"), Bool(e, "usesSupplier"),
                 Bool(e, "usesRequester"), Bool(e, "usesStatus"), Bool(e, "usesLocation"), Bool(e, "usesMovementType"), Bool(e, "usesSearch"), Bool(e, "usesMaterial"), Bool(e, "usesParty"),
                 Bool(e, "requiresDate"), Bool(e, "manager"), Str(e, "infoNote"))).ToList();
+            if (!_manager) _catalog = _catalog.Where(x => !x.Manager).ToList();   // RPR-07: operasyon ekranı
             if (_catalog.Count > 0 && _catalog.All(x => x.Key != _selKey)) _selKey = _catalog[0].Key;
         }
         catch { _catalog = new(); }
@@ -677,6 +700,10 @@ else
                 fromDate = _sel?.UsesDate == true ? Ms(_from) : null,
                 toDate = _sel?.UsesDate == true ? MsSon(_to) : null,   // 🔴 GÜN SONU: gün başına inerse BUGÜNÜN kayıtları düşerdi
                 branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
+                // ⭐ RPR-07: OPERASYON kipinde girişte seçilen şube sunucuya taşınır (masaüstünde bu bilgi
+                // oturumda zaten var; web oturumu taşımıyordu → rapor tüm izinli şubeleri topluyordu).
+                // Sunucu kapsamı DOĞRULAR; kapsamı genişletemez. Yönetici kipinde gönderilmez.
+                operatingBranchId = _manager ? null : Auth.BranchId,
                 vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 vehicleTypeIds = _sel?.UsesVehicleType == true ? _vehTypeSel.ToList() : new List<string>(),
                 maintenanceDefIds = _sel?.UsesMaintenanceDef == true ? _maintDefSel.ToList() : new List<string>(),
@@ -727,6 +754,10 @@ else
                 fromDate = _sel?.UsesDate == true ? Ms(_from) : null,
                 toDate = _sel?.UsesDate == true ? MsSon(_to) : null,   // 🔴 GÜN SONU: gün başına inerse BUGÜNÜN kayıtları düşerdi
                 branchIds = _sel?.UsesBranch == true ? _branchSel.ToList() : new List<string>(),
+                // ⭐ RPR-07: OPERASYON kipinde girişte seçilen şube sunucuya taşınır (masaüstünde bu bilgi
+                // oturumda zaten var; web oturumu taşımıyordu → rapor tüm izinli şubeleri topluyordu).
+                // Sunucu kapsamı DOĞRULAR; kapsamı genişletemez. Yönetici kipinde gönderilmez.
+                operatingBranchId = _manager ? null : Auth.BranchId,
                 vehicleIds = _sel?.UsesVehicle == true ? _vehicleSel.ToList() : new List<string>(),
                 vehicleTypeIds = _sel?.UsesVehicleType == true ? _vehTypeSel.ToList() : new List<string>(),
                 maintenanceDefIds = _sel?.UsesMaintenanceDef == true ? _maintDefSel.ToList() : new List<string>(),

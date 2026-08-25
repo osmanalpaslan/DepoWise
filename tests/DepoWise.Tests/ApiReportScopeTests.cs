@@ -34,7 +34,7 @@ public class ApiReportScopeTests : IAsyncLifetime
     private const string Pass = "Test!2026";
 
     private ServerServices _svc = null!;
-    private HttpClient _adminA = null!, _depoB1 = null!, _adminB = null!;
+    private HttpClient _adminA = null!, _depoB1 = null!, _adminB = null!, _cokSubeli = null!;
     private string _b1 = "", _b2 = "";
 
     public async Task InitializeAsync()
@@ -72,6 +72,12 @@ public class ApiReportScopeTests : IAsyncLifetime
         _svc.Personnel.Create(sa, new NewPersonnel("Ali Bir", null, null, _b1));
         _svc.Personnel.Create(sa, new NewPersonnel("Veli İki", null, null, _b2));
 
+        // Stok hareketleri: her şubede bir tane ("HRK-1" / "HRK-2" notuyla ayırt edilir).
+        SqlCalistir($"INSERT INTO materials(id,company_id,code,name,unit_id,min_stock,created_at,updated_at,version,is_deleted) " +
+            $"VALUES('RM1','{CoA}','RK1','Çimento',NULL,'0',1,1,1,0);");
+        StokHareketi("RMV1", CoA, _b1, "HRK-1");
+        StokHareketi("RMV2", CoA, _b2, "HRK-2");
+
         // B firmasının kendi şubesi ve aracı (tenant sızıntısı testi için).
         var bSube = _svc.Branches.Create(sb, new NewBranch("B-ŞUBE"));
         veh.Create(sb, new NewVehicle("B-ARC", Plate: "34ZZZ34", BranchId: bSube));
@@ -85,7 +91,32 @@ public class ApiReportScopeTests : IAsyncLifetime
         _adminA = await _host.LoginAsync("rpt_admin_a", Pass, CoA);
         _adminB = await _host.LoginAsync("rpt_admin_b", Pass, CoB);
         _depoB1 = await _host.LoginAsync("rpt_depo1", Pass, CoA, _b1);
+
+        // RPR-07: İKİ şubeye birden yetkili kullanıcı — "izinli şubeler" ile "giriş yapılan şube"
+        // ayrımını ancak böyle bir kullanıcı ortaya çıkarır (tek şubelide ikisi aynıdır).
+        var cokId = _svc.Users.CreateUser(sa, new NewUser("rpt_cok", Pass, "Çok Şubeli",
+            new[] { RoleKeys.Staff }, CoA, BranchId: _b1));
+        _svc.Permissions.SaveForUser(sa, cokId,
+            new[] { new ModulePermission("reports", true, false, false, false) }, Array.Empty<string>());
+        _svc.Permissions.SaveBranchScope(sa, cokId, new[] { _b1, _b2 });
+        _cokSubeli = await _host.LoginAsync("rpt_cok", Pass, CoA, _b1);
     }
+
+    private void SqlCalistir(string sql)
+    {
+        using var conn = _svc.Factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Rapor tarih varsayılanı "Bu Ay" olduğu için kayıtlar ŞİMDİ damgalanır.</summary>
+    private static long Simdi => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    private void StokHareketi(string id, string firma, string sube, string not)
+        => SqlCalistir($"INSERT INTO stock_movements(id,company_id,material_id,branch_id,movement_type," +
+            $"direction,quantity,operation_id,note,created_at) VALUES('{id}','{firma}','RM1','{sube}'," +
+            $"'in',1,'1','OP-{id}','{not}',{Simdi});");
 
     public async Task DisposeAsync() => await ((IAsyncLifetime)_host).DisposeAsync();
 
@@ -213,14 +244,13 @@ public class ApiReportScopeTests : IAsyncLifetime
 
     /// <summary>⭐ R8 — depo personelinin araç raporu kapsam DIŞI aracı içermez.</summary>
     [Fact]
-    public async Task R8_Arac_Raporu_Kapsam_Disi_Araci_Icermez()
+    public async Task R8_Rapor_Kapsam_Disi_Sube_Verisi_Icermez()
     {
-        var t = await RaporAsync(_depoB1, "vehicles-nontemplate", Istek());
+        var t = await RaporAsync(_depoB1, "stock-movements", Istek());
         var metin = string.Join("\n", SatirMetinleri(t));
 
-        Assert.Contains("ARC-1", metin);
-        Assert.DoesNotContain("ARC-2", metin);
-        Assert.DoesNotContain("02BBB02", metin);
+        Assert.Contains("HRK-1", metin);
+        Assert.DoesNotContain("HRK-2", metin);
     }
 
     /// <summary>
@@ -230,18 +260,17 @@ public class ApiReportScopeTests : IAsyncLifetime
     [Fact]
     public async Task R9_Elle_Yazilan_Yetkisiz_Sube_Veri_Sizdirmaz()
     {
-        var t = await RaporAsync(_depoB1, "vehicles-nontemplate", Istek(branchIds: new[] { _b2 }));
+        var t = await RaporAsync(_depoB1, "stock-movements", Istek(branchIds: new[] { _b2 }));
         var metin = string.Join("\n", SatirMetinleri(t));
 
-        Assert.DoesNotContain("ARC-2", metin);
-        Assert.DoesNotContain("02BBB02", metin);
+        Assert.DoesNotContain("HRK-2", metin);
     }
 
     /// <summary>R10 — yabancı FİRMA kimliği rapor çalıştırmada da reddedilir.</summary>
     [Fact]
     public async Task R10_Rapor_Yabanci_Firma_Kimligini_Reddeder()
     {
-        var r = await _depoB1.PostAsJsonAsync("/api/reports/vehicles-nontemplate", Istek(companyId: CoB));
+        var r = await _depoB1.PostAsJsonAsync("/api/reports/stock-movements", Istek(companyId: CoB));
         Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
     }
 
@@ -266,7 +295,7 @@ public class ApiReportScopeTests : IAsyncLifetime
         _ = sa;   // kullanıcı yalnız oluşturulur; HİÇBİR yetki verilmez
 
         var c = await _host.LoginAsync("rpt_yetkisiz", Pass, CoA, _b1);
-        var r = await c.PostAsJsonAsync("/api/reports/vehicles-nontemplate", Istek());
+        var r = await c.PostAsJsonAsync("/api/reports/stock-movements", Istek());
 
         Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
     }
@@ -275,7 +304,7 @@ public class ApiReportScopeTests : IAsyncLifetime
     [Fact]
     public async Task R13_Anonim_Rapor_Calistiramaz()
     {
-        var r = await _host.Anonymous().PostAsJsonAsync("/api/reports/vehicles-nontemplate", Istek());
+        var r = await _host.Anonymous().PostAsJsonAsync("/api/reports/stock-movements", Istek());
         Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
     }
 
@@ -286,7 +315,7 @@ public class ApiReportScopeTests : IAsyncLifetime
     [Fact]
     public async Task R14_Export_Yetkisiz_Kullaniciya_Kapali()
     {
-        var r = await _depoB1.PostAsJsonAsync("/api/reports/vehicles-nontemplate/export", Istek());
+        var r = await _depoB1.PostAsJsonAsync("/api/reports/stock-movements/export", Istek());
         Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
     }
 
@@ -302,5 +331,103 @@ public class ApiReportScopeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         var j = await ApiTestHost.JsonAsync(r);
         Assert.Empty(SatirMetinleri(j));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+    //  3 · RPR-07 — OPERASYON RAPORU: ÇALIŞMA ŞUBESİ (web oturumu bunu taşımıyordu, R33)
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    private static object OpIstek(string? operatingBranchId, object? branchIds = null) => new
+    {
+        fromDate = (long?)null,
+        toDate = (long?)null,
+        branchIds,
+        companyId = (string?)null,
+        operatingBranchId,
+    };
+
+    /// <summary>
+    /// ⭐ R16 — ÇOK ŞUBELİ kullanıcı ŞUBE 1 ile giriş yaptığında Operasyon Raporu YALNIZ ŞUBE 1'i
+    /// göstermeli. (Masaüstünde bu zaten böyleydi; web oturumu çalışma şubesini taşımadığı için
+    /// kullanıcı TÜM izinli şubelerini görüyordu — parite kırığı.)
+    /// </summary>
+    [Fact]
+    public async Task R16_Operasyon_Raporu_Calisma_Subesine_Daralir()
+    {
+        var t = await RaporAsync(_cokSubeli, "stock-movements", OpIstek(_b1));
+        var metin = string.Join("|", SatirMetinleri(t));
+
+        Assert.Contains("HRK-1", metin);
+        Assert.DoesNotContain("HRK-2", metin);   // izinli AMA giriş yapılmayan şube
+    }
+
+    /// <summary>R17 — çalışma şubesi GÖNDERİLMEZSE eski davranış: tüm izinli şubeler.</summary>
+    [Fact]
+    public async Task R17_Calisma_Subesi_Yoksa_Tum_Izinli_Subeler()
+    {
+        var t = await RaporAsync(_cokSubeli, "stock-movements", OpIstek(null));
+        var metin = string.Join("|", SatirMetinleri(t));
+
+        Assert.Contains("HRK-1", metin);
+        Assert.Contains("HRK-2", metin);
+    }
+
+    /// <summary>
+    /// ⭐ R18 — <b>KAPSAM GENİŞLETİLEMEZ:</b> kullanıcı çalışma şubesi olarak YETKİSİ OLMAYAN bir
+    /// şubeyi yazarsa istek REDDEDİLİR (sessizce yok sayılmaz).
+    /// </summary>
+    [Fact]
+    public async Task R18_Yetkisiz_Calisma_Subesi_Reddedilir()
+    {
+        var r = await _depoB1.PostAsJsonAsync("/api/reports/stock-movements", OpIstek(_b2));
+        Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
+    }
+
+    /// <summary>R19 — kendi şubesini çalışma şubesi olarak göndermek ÇALIŞIR (yanlış pozitif yok).</summary>
+    [Fact]
+    public async Task R19_Kendi_Subesi_Calisma_Subesi_Olarak_Kabul_Edilir()
+    {
+        var t = await RaporAsync(_depoB1, "stock-movements", OpIstek(_b1));
+        Assert.Contains("HRK-1", string.Join("|", SatirMetinleri(t)));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+    //  4 · RPR-07 — YÖNETİCİ RAPORU KAPISI
+    // ═════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// ⭐ R20 — YÖNETİCİ raporu, yönetici OLMAYAN kullanıcıya kapalıdır. Bu raporlar oturumun
+    /// ÇALIŞMA ŞUBESİNİ bilinçli olarak yok sayar (ürün kararı, BranchScopeTests ile kilitli) →
+    /// depo personeli için istenen "yalnız giriş yapılan şube" kuralı orada sağlanamaz.
+    /// </summary>
+    [Fact]
+    public async Task R20_Yonetici_Raporu_Personele_Kapali()
+    {
+        var r = await _depoB1.PostAsJsonAsync("/api/reports/vehicles-nontemplate", Istek());
+        Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
+    }
+
+    /// <summary>R21 — ADMİN için yönetici raporu ÇALIŞIR (mevcut davranış korunur).</summary>
+    [Fact]
+    public async Task R21_Yonetici_Raporu_Admine_Acik()
+    {
+        var t = await RaporAsync(_adminA, "vehicles-nontemplate", Istek());
+        Assert.Contains("ARC-1", string.Join("|", SatirMetinleri(t)));
+    }
+
+    /// <summary>R23 — yönetici raporu EXPORT'u da personele kapalı (kapı iki uçta da var).</summary>
+    [Fact]
+    public async Task R23_Yonetici_Raporu_Exportu_Personele_Kapali()
+    {
+        var r = await _depoB1.PostAsJsonAsync("/api/reports/vehicles-nontemplate/export", Istek());
+        Assert.True(ApiTestHost.IsDenied(r), $"beklenen: reddedilme, gelen: {(int)r.StatusCode}");
+    }
+
+    /// <summary>R22 — STANDARD rapor personele AÇIK kalmalı (kapı fazla geniş kapanmadı).</summary>
+    [Fact]
+    public async Task R22_Standart_Rapor_Personele_Acik()
+    {
+        var t = await RaporAsync(_depoB1, "stock-movements", Istek());
+        Assert.Contains("HRK-1", string.Join("|", SatirMetinleri(t)));
     }
 }

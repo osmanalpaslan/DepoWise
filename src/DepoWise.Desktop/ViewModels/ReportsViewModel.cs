@@ -42,8 +42,16 @@ public sealed partial class ReportsViewModel : ViewModelBase
     private static readonly SKColor TextSecondary = SKColor.Parse("AEB7C4");
     private const int MaxBars = 20;
 
-    /// <summary>Katalog-sürümlü rapor listesi (tek doğru kaynak). ComboBox Name gösterir (DataTemplate).</summary>
-    public IReadOnlyList<ReportDescriptor> ReportItems { get; } = ReportCatalog.All;
+    /// <summary>
+    /// Katalog-sürümlü rapor listesi (tek doğru kaynak). ComboBox Name gösterir (DataTemplate).
+    ///
+    /// ⭐ RPR-07 (2026-08-25): OPERASYON kipinde yalnız <c>Standard</c> raporlar listelenir. Yönetici
+    /// raporları (şablon dökümleri, Şube Bazlı Özet) oturumun ÇALIŞMA ŞUBESİNİ bilinçli olarak yok
+    /// sayar (ürün kararı, testle kilitli) → "yalnız giriş yapılan şube" kuralı orada sağlanamaz.
+    /// Bu yüzden onlar Yönetici Raporları ekranındadır. Sunucu/servis tarafı ayrıca kapılıdır
+    /// (<c>ReportService.Run</c>), yani liste süzmesi tek başına güvenlik sayılmaz.
+    /// </summary>
+    public IReadOnlyList<ReportDescriptor> ReportItems { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowDate))]
@@ -62,8 +70,25 @@ public sealed partial class ReportsViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(ShowParty))]
     private ReportDescriptor _selectedReport = ReportCatalog.ByKey("stock")!;
 
-    /// <summary>Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass). Yoksa şube seçici gizli.</summary>
-    public bool CanSelectBranches => AccessControl.CanUseButton(_session, SpecialButtons.BranchSelect);
+    /// <summary>
+    /// ⭐ RPR-07 (2026-08-25) — EKRAN KİPİ. <c>false</c> = "Operasyon Raporları" (çalışma şubesi;
+    /// şube seçici YOK), <c>true</c> = "Yönetici Raporları" (mevcut davranış: izinli şubeler + seçici).
+    /// Rapor LİSTESİ iki kipte de aynıdır — kimseden rapor erişimi alınmaz, yalnız KAPSAM ayrışır.
+    /// </summary>
+    private readonly bool _managerMode;
+
+    /// <summary>Operasyon ekranının alt başlığı: hangi şubede çalışıldığı kullanıcıya açıkça yazılır.</summary>
+    public static string OperationContext(SessionContext s)
+        => string.IsNullOrEmpty(s.OperatingBranchId)
+            ? "Yetkili olduğunuz şubeler (girişte şube seçilmedi)"
+            : "Yalnız giriş yaptığınız şube";
+
+    /// <summary>
+    /// Kullanıcı raporda şube SEÇEBİLİR mi (btn-branch-select; admin bypass).
+    /// ⭐ RPR-07: OPERASYON kipinde seçici DAİMA kapalıdır — o ekranın tanımı "çalışma şubesi"dir.
+    /// Sunucu/servis tarafı ayrıca <c>BranchAccess</c> ile zorlar; bu yalnız arayüz tarafıdır.
+    /// </summary>
+    public bool CanSelectBranches => _managerMode && AccessControl.CanUseButton(_session, SpecialButtons.BranchSelect);
     public bool ShowDate => SelectedReport?.UsesDate == true;
     public bool ShowBranchSelect => SelectedReport?.UsesBranch == true && CanSelectBranches;
     public bool ShowVehicleSelect => SelectedReport?.UsesVehicle == true;
@@ -173,9 +198,18 @@ public sealed partial class ReportsViewModel : ViewModelBase
     public bool HasRows => HasRun && !HasError && Rows.Count > 0;
     public bool IsEmptyResult => HasRun && !HasError && Rows.Count == 0;
 
-    public ReportsViewModel(SessionContext session)
+    /// <param name="managerMode">RPR-07: <c>true</c> = Yönetici Raporları (şube seçimi açık),
+    /// <c>false</c> = Operasyon Raporları (çalışma şubesi; seçici yok). Varsayılan <c>false</c>.</param>
+    public ReportsViewModel(SessionContext session, bool managerMode = false)
     {
         _session = session;
+        _managerMode = managerMode;
+        ReportItems = managerMode
+            ? ReportCatalog.All
+            : ReportCatalog.All.Where(d => !d.IsManager).ToList();
+        // Seçili rapor listede kalmalı (operasyon kipinde varsayılan yönetici raporu olamaz).
+        if (ReportItems.Count > 0 && !ReportItems.Any(d => d.Key == _selectedReport.Key))
+            _selectedReport = ReportItems[0];
         // Ortak tablonun kişisel tercih kancaları — kalıcılık DesktopServices.ListPrefs (yerel SQLite, kişiye özel).
         // GridKey rapor bazlı: her rapor kendi kolon sırası/genişliği/gizli/sıralamasını hatırlar. Ekran açılışında
         // TEK yükleme (GetAll — tek sorgu); değişince ilgili alan yazılır (performans kuralı).

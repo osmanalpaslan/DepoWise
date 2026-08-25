@@ -1199,6 +1199,22 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
     {
         var desc = ReportCatalog.ByKey(key) ?? throw new ArgumentException("Bilinmeyen rapor tipi: " + key);
 
+        // ⭐ RPR-07 (denetim 2026-08-25) — YÖNETİCİ RAPORU KAPISI (tek nokta: hem masaüstü hem API buradan geçer).
+        //
+        // Katalog raporları ikiye ayırıyordu (Standard / Manager) ve bu ayrım MENÜDE ("Yönetici Raporları",
+        // web'de @admin kapısı) ve EXCEL yetkisinde (ExportManagerReports) zaten uygulanıyordu. Ama raporu
+        // ÇALIŞTIRMAK hiçbir yerde ayrılmıyordu → ayrım fiilen kozmetikti.
+        //
+        // Bu neden önemli: yönetici raporları (Araç/Malzeme şablon dökümleri, Şube Bazlı Özet) bilinçli
+        // olarak oturumun ÇALIŞMA ŞUBESİNİ yok sayar (BranchScopeTests ile kilitli ürün kararı) → depo
+        // personeli için istenen "yalnız giriş yapılan şube" kuralı bu raporlarda SAĞLANAMAZ. Bu yüzden
+        // yönetici raporları yönetici kapısına alındı; kapsam kuralları böylece çelişmez.
+        //
+        // ⚠️ Firma/şube İZOLASYONU bu kapıdan bağımsızdır ve raporların kendi sorgularında zaten vardır.
+        if (desc.IsManager && !AccessControl.IsAdmin(s))
+            throw new ForbiddenException(
+                "Bu rapor Yönetici Raporları grubundadır; görüntülemek için yönetici yetkisi gerekir.");
+
         // Tarih varsayılanı (sunucu-taraflı zorlama — istemci göndermese bile korur).
         if (desc.RequiresDate && (req.FromDate is null || req.ToDate is null))
         {

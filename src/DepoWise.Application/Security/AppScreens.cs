@@ -183,9 +183,21 @@ public static class AppScreens
         new AppScreen("accounting.payments", "finance", "Ön Muhasebe", "Tahsilat / Ödeme", Both, "payments", "payments"),
 
         // ═══ RAPORLAR ═══════════════════════════════════════════════════════════════════════
+        // ⭐ RPR-07 (2026-08-25) — İKİ RAPOR EKRANI ARTIK GERÇEKTEN AYRI.
+        //
+        // Önceden iki menü girişi AYNI route ve AYNI gezinme anahtarını kullanıyordu → "Operasyon
+        // Raporları" ile "Yönetici Raporları" birebir aynı ekranı açıyordu; ayrım yalnız web menüsünde
+        // görünürlük kapısıydı. Artık ayrım İŞLEVSELDİR ve ŞUBE KAPSAMINDADIR:
+        //
+        //   • Operasyon Raporları → ÇALIŞMA ŞUBESİ (girişte seçilen şube). Şube seçici YOK; sunucu
+        //     kapsamı ayrıca doğrular. Depo personelinin ekranı budur.
+        //   • Yönetici Raporları  → mevcut davranış: izinli şubeler + (yetkisi varsa) şube seçici.
+        //
+        // ⚠️ Ekran ANAHTARLARI (reports / reports.manager) DEĞİŞMEDİ → firmaların kayıtlı menü düzeni
+        // ve platform görünürlük satırları aynen çalışır. Rapor LİSTESİ iki ekranda da aynıdır;
+        // kimseden rapor erişimi ALINMADI.
         new AppScreen("reports", "reports", "Operasyon Raporları", "Raporlar", Both, "reports", "reports"),
-        // Yönetici Raporları: aynı ekran, ayrı menü girişi (web'de admin kapısı).
-        new AppScreen("reports.manager", "reports", "Yönetici Raporları", "Raporlar", Both, "reports", "reports", WebPermOverride: "@admin"),
+        new AppScreen("reports.manager", "reports", "Yönetici Raporları", "Raporlar", Both, "reports/manager", "reports:manager", WebPermOverride: "@admin"),
 
         // ═══ KURUMSAL YÖNETİM ═══════════════════════════════════════════════════════════════
         // ── Şube ve Personel ────────────────────────────────────────────────────────────────

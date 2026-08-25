@@ -1142,10 +1142,16 @@ public sealed partial class ShellViewModel : ViewModelBase
                 CurrentTitle = "Talepler";
                 CurrentContext = "Talep onaylama (bekleyen)";
                 break;
+            // ⭐ RPR-07 (2026-08-25): iki rapor ekranı artık GERÇEKTEN ayrı — fark ŞUBE KAPSAMINDA.
             case "reports":
-                CurrentPage = new ReportsViewModel(_session);
-                CurrentTitle = "Raporlar";
-                CurrentContext = "Stok ve yakıt raporları";
+                CurrentPage = new ReportsViewModel(_session, managerMode: false);
+                CurrentTitle = "Operasyon Raporları";
+                CurrentContext = ReportsViewModel.OperationContext(_session);
+                break;
+            case "reports:manager":
+                CurrentPage = new ReportsViewModel(_session, managerMode: true);
+                CurrentTitle = "Yönetici Raporları";
+                CurrentContext = "Yetkili olduğunuz şubeler — şube seçimi yapılabilir";
                 break;
             case "import_export":
                 CurrentPage = new ImportExportViewModel(_session);
