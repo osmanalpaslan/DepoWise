@@ -126,7 +126,13 @@ Günlük kullanım güvende: hareket **ekranı** sunucuda zaten 1000 satırla s�
 İki bağımsız koşu **birebir aynı** sonucu verdi → **flaky (kararsız) test yok**.
 Taban ile fark: **+19 test** (hepsi bu denetimde yazıldı), **regresyon 0**.
 
-**Atlanan 35 testin tamamı PostgreSQL kapılıdır** — `PostgresTestGuard`, boş bir test veritabanı
+**PostgreSQL koşusu ayrıca çalıştırıldı: 45 geçti · 0 başarısız · 0 atlandı** (13 dk 20 sn, ayrı
+`depowise_test` veritabanı — üretime bağlanılmadı; `PostgresTestGuard` hedefin boş bir test
+veritabanı olduğunu doğruladıktan sonra çalıştı). Canlı sunucu PostgreSQL kullandığı için bu koşu
+zorunluydu: senkron firma kapısı, rapor kapsamı ve muadil okuma düzeltmelerinin **üretim lehçesinde**
+de çalıştığı böylece kanıtlandı.
+
+**Tam paket koşularında atlanan 35 testin tamamı PostgreSQL kapılıdır** — `PostgresTestGuard`, boş bir test veritabanı
 olduğu kanıtlanmadan (ad "test" içermeli · public şema boş olmalı · boyut < 50 MB · açık onay
 değişkeni) çalışmayı reddeder. Gizlenen, devre dışı bırakılan ya da gevşetilen **hiçbir test yoktur**.
 

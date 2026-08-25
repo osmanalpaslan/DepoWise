@@ -1274,6 +1274,7 @@ Kararlar: [`ADR-121…124`](../DECISIONS.md)
 | Tam test takımı — koşu B | **2165 geçti · 0 başarısız · 35 atlandı** (11 dk 46 sn) |
 | Tam test takımı — koşu C (bağımsız) | **2165 geçti · 0 başarısız · 35 atlandı** (11 dk 19 sn) → iki koşu **birebir aynı**, flaky yok |
 | Taban (denetim öncesi) | 2146 geçti · 0 başarısız · 35 atlandı → **+19 yeni test** |
+| PostgreSQL koşusu (ayrı test DB) | **45 geçti · 0 başarısız · 0 atlandı** — canlı lehçe kapsandı |
 | Atlanan 35 test | **tamamı PostgreSQL kapılı** (boş test veritabanı onayı yoksa çalışmaz) — gizlenen/flaky test **yok** |
 | Release derlemesi | **0 hata** |
 | Gerçek arayüz (web) | Yerel API+web ayağa kaldırıldı, giriş yapıldı; düzeltilen 3 ekran **açıldı ve çalıştı**; `POST /api/reports/vehicles-nontemplate → 200` (9 ms); sunucu hatası yok |
