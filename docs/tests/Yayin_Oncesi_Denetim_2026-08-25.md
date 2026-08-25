@@ -163,3 +163,90 @@ route ve gezinme anahtarı **kayıtlı düzeni etkilemez**.
 
 Üçünün de "menü/route/isim sorunu" **olmadığı** doğrulandı: katalogda kayıtları yok ve aynı işlevi gören
 başka bir ekran yok. Eklenmeleri kolon/filtre kararı gerektirir → kullanıcı kararına bırakıldı.
+
+---
+
+## 9. Test sonuçları (final)
+
+| Koşu | Sonuç | Süre |
+|---|---|---|
+| **Taban** (tur başı) | 2165 geçti · 0 başarısız · 35 atlandı | 11 dk 12 sn |
+| Ara koşu | 2217 · 0 · 35 | 12 dk 35 sn |
+| **Son koşu 1** | **2221 geçti · 0 başarısız · 35 atlandı** | 12 dk 08 sn |
+| **Son koşu 2 (bağımsız)** | **2221 geçti · 0 başarısız · 35 atlandı** | 12 dk 45 sn |
+| **PostgreSQL** (ayrı test DB) | **45 geçti · 0 başarısız · 0 atlandı** | 15 dk 04 sn |
+
+İki bağımsız son koşu **birebir aynı** → kararsız (flaky) test yok.
+Tabana göre **+56 test**; **regresyon 0**.
+Atlanan 35'in tamamı PostgreSQL kapılıdır (ayrı koşuda hepsi çalıştırıldı ve geçti) —
+gizlenen, devre dışı bırakılan, gevşetilen **hiçbir test yok**.
+
+Release derlemesi: **0 hata**. **Yeni migration YOK** → üretim şeması 72'de kalır, ek onay gerekmez.
+
+---
+
+## 10. Gerçek arayüz (GUI) turu — ve orada bulunan hata
+
+Yerel API + web **sıfır veritabanıyla, ayrı dizinde** ayağa kaldırıldı (kullanıcının geliştirme
+veritabanına ve **üretime dokunulmadı**). İki şube, iki araç ve bir **depo personeli** kuruldu.
+
+| Kontrol | Sonuç |
+|---|---|
+| Giriş → şifre belirleme → şube seçimi | ✅ |
+| Depo personelinin giriş şube listesi | ✅ **yalnız kendi şubesi** ("Tüm Şubeler" yok) |
+| Admin · Operasyon ekranı | ✅ 14 rapor · şube seçici YOK |
+| Admin · Yönetici ekranı | ✅ 19 rapor · şube seçici VAR |
+| Depo personeli · Operasyon ekranı | ✅ 14 rapor · "Yalnız giriş yaptığınız şubenin verileri gösterilir." |
+| Depo personeli · menüde Yönetici Raporları | ✅ **görünmüyor** |
+| **Depo personeli · adresi ELLE yazarak /reports/manager** | 🔴 **AÇILIYORDU** → düzeltildi |
+| Aynı senaryo, düzeltmeden sonra | ✅ "Yönetici Raporları yalnız yönetici yetkisiyle açılır." · liste ve Sorgula YOK |
+| Yönetici raporunu çalıştırma denemesi (düzeltmeden önce) | ✅ sunucu **reddetti** → "Rapor alınamadı." (veri hiçbir zaman sızmadı) |
+| Konsol / sunucu logu | ✅ hata yok |
+
+> **UI-01 (aynı turda bulundu):** rapor bilgi notlarında tırnak karakterleri bozulmuş ve kullanıcıya
+> `0022Atanmamış0022` olarak **görünüyordu** (3 rapor, 8 yer). Düzeltildi.
+
+> **Masaüstü uygulaması bilinçli olarak çalıştırılmadı:** açıldığında ÜRETİM sunucusuna bağlanıp yereldeki
+> veriyi göndermeye başlar. Masaüstü değişiklikleri kaynak-kilidi testleriyle doğrulandı ve rapor/kapsam
+> mantığı iki platformda **ortak koddadır**.
+
+---
+
+## 11. YAYIN — engellendi (kullanıcı işlemi gerekiyor)
+
+Tüm kapılar geçildikten sonra yayına geçildi ve **ilk adımda durduruldu**:
+
+```
+flyctl deploy --config fly.toml --ha=false
+Error: ... ensure depot builder failed (status 403):
+Your account has overdue invoices. Please update your payment information.
+```
+
+- **Sebep:** Fly.io hesabında **ödenmemiş fatura** var; uzak derleyici (Depot) 403 veriyor.
+- **Yerel alternatif denendi:** Docker kurulu/çalışır değil → `--local-only` de mümkün olmadı.
+- **Üretim ETKİLENMEDİ:** derleme hiç başlamadı, dağıtım yapılmadı. API **200**, Web **200**,
+  masaüstü sürümü **1.0.148** (değişmedi).
+- **Bu bir ödeme işlemidir** → yetkim dışındadır; kullanıcı faturayı kapatmalıdır.
+
+### Yayın öncesi tamamlanan kontroller
+| Kontrol | Sonuç |
+|---|---|
+| Üretim sağlığı | API **200** · Web **200** |
+| Fly secret'ları | `DEPOWISE_JWT_KEY` · `DEPOWISE_PG_URL` · seed parolaları → **Deployed** |
+| Üretim diski (R30) | **406,8 / 973,7 MB (%41,8)** · 3 paket · sağlıklı |
+| Üretim veritabanı | 18,12 MB · 1 firma · 3 kullanıcı |
+| Yayındaki masaüstü | 1.0.148 (checksum `B97C620C…`) |
+| Yeni migration | **YOK** → deploy şemaya dokunmaz |
+| Üretim yedeği | ⚠️ **alınamadı** — yerelde saklı üretim parolası artık geçersiz (rotasyon). `pg_dump` kurulu ve çalışıyor; yalnız güncel parola yok. **Kimlik bilgisi sohbette istenmedi.** Deploy şemaya dokunmadığı için risk düşüktür; yine de yayından önce güncel bağlantı ile bir yedek alınması önerilir. |
+
+### Fatura kapatıldıktan sonra çalıştırılacak sıra
+```bash
+flyctl deploy --config fly.toml --ha=false
+curl -s https://depowise-erp.fly.dev/health
+flyctl deploy --config fly.web.toml --ha=false
+curl -s -o /dev/null -w "%{http_code}\n" https://depowise-web.fly.dev/
+dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -r win-x64 --self-contained true -p:Version=1.0.149 -o artifacts/rc/desktop-1.0.149
+node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.149.zip 1.0.149 "Rapor ekrani ayrimi + sube kapsami + gelistirici modu kapisi"
+```
+(Setup aracı **yeniden yayınlanmayacak**: `src/DepoWise.Setup` bu turda değişmedi ve sunucudaki
+kopya çalışıyor — `/api/setup/download` **200**, 71,9 MB.)
