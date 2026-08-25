@@ -300,6 +300,55 @@ public sealed partial class ShellViewModel : ViewModelBase
         _syncNextAttemptUtc = DateTime.MinValue;
     }
 
+    // ── SIF-02 (2026-08-25): açık oturumda sıfırlama isteği ────────────────────────────────────
+    /// <summary>Sunucu sıfırlama istedi ve BU MAKİNE henüz uygulamadı → gönderim YASAK.</summary>
+    private bool _localResetPending;
+    /// <summary>Kullanıcı bir kez bilgilendirildi (her turda yeniden pencere açılmasın).</summary>
+    private bool _localResetHandled;
+
+    /// <summary>
+    /// Sunucuda bekleyen bir "yerel sıfırlama" isteği var mı? Giriş akışındaki
+    /// <c>LoginViewModel.HandleCompanyLocalResetAsync</c> ile <b>aynı karşılaştırmayı</b> yapar
+    /// (sunucu zamanı &gt; bu makinenin uyguladığı zaman); ikinci bir kural tanımlanmadı.
+    ///
+    /// Uç erişilemezse <c>null</c> döner → bayrak AÇILMAZ (çevrimdışıyken sessiz kalmak DOĞRU davranıştır:
+    /// çevrimdışı makine zaten sunucuya bir şey gönderemez).
+    /// </summary>
+    private async System.Threading.Tasks.Task RefreshLocalResetFlagAsync(string companyId)
+    {
+        try
+        {
+            var serverAt = await ServerAuthClient.GetLocalResetRequestedAtAsync();
+            if (serverAt is null) return;
+            var localAt = LocalResetService.GetAppliedAt(companyId);
+            if (localAt is not null && localAt.Value >= serverAt.Value) return;   // zaten uygulanmış
+            _localResetPending = true;
+        }
+        catch { /* ağ hatası → bayrak açılmaz (fail-safe) */ }
+    }
+
+    /// <summary>
+    /// Kullanıcıyı BİR KEZ bilgilendirir ve oturumu güvenle kapatır. Sıfırlama, kullanıcı tekrar giriş
+    /// yaptığında giriş akışında uygulanır (tek uygulama noktası korunur — burada veri SİLİNMEZ).
+    /// Desen, "makine pasife alındı" akışının aynısıdır.
+    /// </summary>
+    private async System.Threading.Tasks.Task WarnLocalResetOnceAsync()
+    {
+        if (_localResetHandled) return;
+        _localResetHandled = true;
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            _connTimer?.Stop();
+            await ConfirmService.AskAsync(
+                "Yöneticiniz bu firmanın verisini sunucuda sıfırladı. Bu bilgisayardaki eski veriler " +
+                "sunucuya GÖNDERİLMEDİ (eski kayıtların geri gelmesi böylece önlendi).\n\n" +
+                "Oturumunuz kapatılıyor. Tekrar giriş yaptığınızda bu bilgisayardaki veriler temizlenip " +
+                "sunucudan yeniden çekilecek.",
+                "Veri Sıfırlandı", "Tamam", "Tamam", danger: true);
+            DepoWise.Desktop.App.Current?.Logout();
+        });
+    }
+
     /// <param name="checkConflicts">
     /// SNK-02: çakışma bildirimi YAVAŞ gruptadır (60 sn). Bu çağrı <see cref="SyncGate"/>'in İÇİNDE
     /// kalmalı (dışarı taşımak gating davranışını değiştirirdi) → dışarı taşımak yerine parametreyle
@@ -313,6 +362,19 @@ public sealed partial class ShellViewModel : ViewModelBase
         // TUTULMAZ; manuel "Eşitle" (EnterAsync) ve özel push'lar bu koddan hiç geçmediği için serbesttir.
         if (DateTime.UtcNow < _syncNextAttemptUtc) return;
         EnsureSyncCursorLoaded();
+
+        // ⭐ SIF-02 (2026-08-25) — AÇIK OTURUMDA SIFIRLAMA İSTEĞİ.
+        //
+        // ADR-084 "yerelini sıfırla" isteği bugüne kadar YALNIZ giriş anında kontrol ediliyordu
+        // (LoginViewModel.HandleCompanyLocalResetAsync). Program açıkken süper admin sıfırlama isterse
+        // bu tur dönmeye ve AZ ÖNCE SIFIRLANAN veriyi sunucuya GERİ GÖNDERMEYE devam ediyordu —
+        // sıfırlama fiilen geri alınıyordu. Bugüne kadarki önlem yalnız operasyoneldi
+        // ("sıfırlamadan önce tüm programları kapatın").
+        //
+        // Kontrol SyncGate'ten ve PUSH'tan ÖNCEdir: veri kaybı yönü GÖNDERİM'dir.
+        // Çevrimdışıysa uç null döner → bayrak açılmaz → davranış eskisiyle birebir aynı (fail-safe).
+        if (checkConflicts && !_localResetPending) await RefreshLocalResetFlagAsync(companyId!);
+        if (_localResetPending) { await WarnLocalResetOnceAsync(); return; }
         // Z1: ORTAK kapı. Manuel Eşitle / Yereli Sıfırla / giriş senkronu çalışıyorsa bu tur ATLANIR
         // (eskiden ayrı bayrak kullanıldığı için reset ile tick aynı anda çalışabiliyordu → yarış).
         if (!SyncGate.TryEnter()) return;

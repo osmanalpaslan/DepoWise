@@ -310,7 +310,72 @@ public sealed class BusinessSyncService
             ["material_equivalents"] = ("materials", "material_id"),
             ["material_compatible_vehicles"] = ("materials", "material_id"),
             ["maintenance_definition_vehicles"] = ("maintenance_definitions", "definition_id"),
+            // ⭐ TNT-01 (denetim 2026-08-25) — BU SATIR EKSİKTİ VE FİRMA SINIRINI AÇIK BIRAKIYORDU.
+            // Tablonun company_id kolonu yok ve buraya da yazılmamıştı → kapı hiç çalışmıyordu:
+            // A firmasının makinesi pakete B firmasının ŞABLON kimliğini yazarak B'nin araç şablonuna
+            // malzeme satırı EKLEYEBİLİYORDU (başka firmanın verisine yazma). Kardeş bağlantı tabloları
+            // zaten burada olduğu için tek eksik buydu; ikinci bir mekanizma kurulmadı.
+            ["vehicle_template_materials"] = ("vehicle_templates", "template_id"),
         };
+
+    /// <summary>
+    /// ⭐ TNT-02 (denetim 2026-08-25) — <b>BAĞLANTININ KARŞI UCU.</b>
+    ///
+    /// <see cref="CompanyScopedChildren"/> yalnız <b>EBEVEYN</b> tarafını doğrular. Bağlantı
+    /// tablolarının ise İKİ ucu vardır ve ikisi de firma-kapsamlı bir kayda işaret eder:
+    /// <c>material_equivalents</c> satırında <c>material_id</c> kendi firmasınınken
+    /// <c>equivalent_material_id</c> BAŞKA firmanın malzemesi olabiliyordu. Sonuç: firma ötesi bağ
+    /// kurulabiliyor ve malzeme kartı karşı firmanın malzeme KODUNU ve ADINI gösteriyordu.
+    ///
+    /// <b>Kural bilinçli olarak DAR tutuldu:</b> satır yalnız referans edilen kayıt <b>VAR ve BAŞKA
+    /// firmaya ait</b> olduğunda reddedilir. Kayıt henüz sunucuda yoksa karar verilmez — delta
+    /// senkronunda eş kayıt aynı pakette gelmemiş olabilir ve meşru akış kırılmamalıdır
+    /// (öksüz durumu <see cref="ParentExists"/> ve yabancı anahtar kısıtı zaten ele alır).
+    ///
+    /// (tablo → (çocuktaki ikinci yabancı anahtar, işaret ettiği firma-kapsamlı tablo))
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Fk, string RefTable)> CrossCompanyRefs =
+        new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+        {
+            ["material_equivalents"] = ("equivalent_material_id", "materials"),
+            ["material_compatible_vehicles"] = ("vehicle_id", "vehicles"),
+            ["maintenance_definition_vehicles"] = ("vehicle_id", "vehicles"),
+            ["vehicle_template_materials"] = ("material_id", "materials"),
+            ["material_request_items"] = ("material_id", "materials"),
+            ["maintenance_materials"] = ("material_id", "materials"),
+            ["stock_count_lines"] = ("material_id", "materials"),
+        };
+
+    /// <summary>
+    /// TNT-02 kapısı: satırın İKİNCİ ucu başka firmanın kaydına mı işaret ediyor?
+    /// <c>true</c> = uygulanabilir. Boş/eksik alan ve sunucuda BULUNMAYAN kayıt <b>engellenmez</b>
+    /// (bkz. <see cref="CrossCompanyRefs"/> — kural yalnız KANITLANMIŞ firma ihlalini reddeder).
+    /// </summary>
+    /// <param name="cache">Tablo başına (kimlik → sahip firma) belleği. <b>Neden gerekli:</b> bir sayım
+    /// belgesinde ya da talepte aynı malzeme onlarca satırda geçer; önbelleksiz her satır için ayrı
+    /// sorgu açılırdı ve büyük paketlerde gönderim gözle görülür yavaşlardı. Önbellek tek bir
+    /// <see cref="Apply"/> çağrısı boyunca yaşar → bayat veri riski yoktur.</param>
+    private static bool RowCrossRefAllowed(DbConnection conn, string table, string companyId, JsonElement row,
+        Dictionary<string, string?> cache)
+    {
+        if (!CrossCompanyRefs.TryGetValue(table, out var m)) return true;
+        if (!TableExists(conn, m.RefTable)) return true;
+        if (!row.TryGetProperty(m.Fk, out var v) || v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return true;                                   // alan boş (ör. talep kaleminde araç seçilmemiş)
+        var refId = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+        if (string.IsNullOrEmpty(refId)) return true;
+
+        if (!cache.TryGetValue(refId!, out var sahip))
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT company_id FROM {m.RefTable} WHERE id=@r LIMIT 1;";
+            cmd.AddWithValue("@r", refId!);
+            sahip = cmd.ExecuteScalar() as string;
+            cache[refId!] = sahip;
+        }
+        if (sahip is null) return true;                    // kayıt sunucuda yok → karar verilmez
+        return string.Equals(sahip, companyId, StringComparison.Ordinal);
+    }
 
     /// <summary>
     /// ⭐ S1 (2026-08-19) — <b>ÖKSÜZ ÇOCUK KONTROLÜ.</b> Ebeveyni sunucuda BULUNMAYAN çocuk satır,
@@ -840,6 +905,8 @@ public sealed class BusinessSyncService
         int up = 0, sk = 0;
         // ⭐ S1: bu tabloda KALICI olarak elenen satır sayısı (tekrar denemek anlamsız).
         int perm = 0;
+        // ⭐ TNT-02: ikincil referansın sahip firması için tablo-ömürlü bellek (aynı malzeme çok satırda geçer).
+        var crossRefCache = new Dictionary<string, string?>(StringComparer.Ordinal);
 
         // Bir satırı uygular (validate → conflict → upsert). DB hatasında FIRLATIR (savepoint/try çağırana ait).
         // Döner: null = geçersiz (atla), true = upserted, false = geçerli ama no-op (atla).
@@ -854,6 +921,18 @@ public sealed class BusinessSyncService
                 perm++;   // S1: kapsam kararı deterministik → tekrar denemek aynı sonucu verir
                 return null;
             }
+            // ⭐ S1 ÖKSÜZ KONTROLÜ: ebeveyni sunucuda hiç yoksa satır veritabanına GÖNDERİLMEZ.
+            // Eskiden doğrudan INSERT ediliyor, yabancı anahtar hatası fırlıyor ve her turda tekrar
+            // ediyordu (sahada: vehicle_template_materials / maintenance_materials).
+            // SIRA: firma kapısından ÖNCE — "ebeveyn hiç yok" ile "ebeveyn başka firmada" ayrı
+            // teşhislerdir ve kullanıcıya doğru mesaj gitmelidir. İki kapı da REDDEDER; sıra yalnız
+            // mesajı belirler, güvenliği değil.
+            if (!ParentExists(conn, table, rowEl))
+            {
+                if (errSink.Count < 20) errSink.Add($"{table}: bağlı olduğu kayıt sunucuda yok — kalıcı olarak atlandı.");
+                perm++;
+                return null;
+            }
             // SNK-A4/A5 PUSH KAPISI: company_id kolonu olmayan çocuk satırın EBEVEYNİ bu firmada olmalı.
             // Manipüle edilmiş yabancı anahtarla başka firmanın kaydına çocuk satır bağlanamaz (fail-closed).
             if (!RowCompanyChildAllowed(conn, table, hasCompany, companyId, rowEl))
@@ -862,12 +941,11 @@ public sealed class BusinessSyncService
                 perm++;
                 return null;
             }
-            // ⭐ S1 ÖKSÜZ KONTROLÜ: ebeveyni sunucuda hiç yoksa satır veritabanına GÖNDERİLMEZ.
-            // Eskiden doğrudan INSERT ediliyor, yabancı anahtar hatası fırlıyor ve her turda tekrar
-            // ediyordu (sahada: vehicle_template_materials / maintenance_materials).
-            if (!ParentExists(conn, table, rowEl))
+            // ⭐ TNT-02 PUSH KAPISI: bağlantının KARŞI ucu da bu firmanın kaydı olmalı. Ebeveyn kapısı
+            // yalnız bir ucu koruyordu; muadil/uyumlu araç gibi tablolarda diğer uç serbestti.
+            if (!RowCrossRefAllowed(conn, table, companyId, rowEl, crossRefCache))
             {
-                if (errSink.Count < 20) errSink.Add($"{table}: bağlı olduğu kayıt sunucuda yok — kalıcı olarak atlandı.");
+                if (errSink.Count < 20) errSink.Add($"{table}: bağlantının karşı ucu başka firmaya ait (atlandı).");
                 perm++;
                 return null;
             }

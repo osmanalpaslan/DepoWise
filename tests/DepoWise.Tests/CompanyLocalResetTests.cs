@@ -133,6 +133,77 @@ public class CompanyLocalResetTests : IDisposable
         Assert.Null(_reset.GetStatus(su.CompanyId));
     }
 
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+    //  SIF-02 (2026-08-25) — AÇIK OTURUMDA SIFIRLAMA İSTEĞİ
+    //
+    //  Sorun: ADR-084 isteği YALNIZ giriş anında kontrol ediliyordu. Program açıkken sıfırlama
+    //  yapılırsa 15 saniyelik eşitleme turu dönmeye ve AZ ÖNCE SİLİNEN veriyi sunucuya GERİ
+    //  GÖNDERMEYE devam ediyordu → sıfırlama fiilen geri alınıyordu.
+    //
+    //  Test projesi masaüstü projesine referans VERMEZ (mimari karar); bu yüzden kural, davranışı
+    //  üreten kaynak satırları üzerinden kilitlenir — SyncPermanentSkipTests'teki (P3/P4) desenin aynısı.
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+
+    private static string ShellSource()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int k = 0; k < 8 && dir is not null; k++)
+        {
+            if (System.IO.File.Exists(System.IO.Path.Combine(dir, "DepoWise.sln"))) break;
+            dir = System.IO.Directory.GetParent(dir)?.FullName;
+        }
+        return System.IO.File.ReadAllText(System.IO.Path.Combine(
+            dir!, "src", "DepoWise.Desktop", "ViewModels", "ShellViewModel.cs"));
+    }
+
+    /// <summary>⭐ SIF-02a — eşitleme turu, sıfırlama isteğini PUSH'tan ÖNCE kontrol etmeli.</summary>
+    [Fact]
+    public void SIF02a_Esitleme_Turu_Sifirlama_Istegini_Kontrol_Eder()
+    {
+        var src = ShellSource();
+        Assert.Contains("RefreshLocalResetFlagAsync", src);
+        Assert.Contains("_localResetPending", src);
+
+        // Kontrol, gönderimden ÖNCE olmalı — sonrasında olsaydı eski veri çoktan gitmiş olurdu.
+        // Karşılaştırma YALNIZ periyodik tur metodunun gövdesinde yapılır; dosyanın başındaki manuel
+        // "Eşitle" komutu da PushAsync çağırır ve dosya-geneli arama yanıltıcı olurdu.
+        var tur = src.IndexOf("private async System.Threading.Tasks.Task MaybePushBusinessAsync", StringComparison.Ordinal);
+        Assert.True(tur > 0, "MaybePushBusinessAsync bulunamadı");
+        var govde = src.Substring(tur);
+
+        var kontrol = govde.IndexOf("if (_localResetPending)", StringComparison.Ordinal);
+        var push = govde.IndexOf("await BusinessSyncPushService.PushAsync();", StringComparison.Ordinal);
+        Assert.True(kontrol >= 0, "sıfırlama kapısı periyodik turda bulunamadı");
+        Assert.True(push >= 0, "push çağrısı periyodik turda bulunamadı");
+        Assert.True(kontrol < push, "SIF-02: sıfırlama kontrolü PUSH'tan SONRA kalmış — veri yine gider.");
+    }
+
+    /// <summary>SIF-02b — kapı devreye girdiğinde tur GERİ DÖNER (push/pull çalışmaz) ve oturum kapanır.</summary>
+    [Fact]
+    public void SIF02b_Kapi_Devredeyse_Tur_Durur_Ve_Oturum_Kapanir()
+    {
+        var src = ShellSource();
+        Assert.Contains("if (_localResetPending) { await WarnLocalResetOnceAsync(); return; }", src);
+        Assert.Contains("WarnLocalResetOnceAsync", src);
+        // Bilgilendirme + güvenli çıkış (makine pasife alındığındaki desenle aynı).
+        Assert.Contains("App.Current?.Logout();", src);
+    }
+
+    /// <summary>
+    /// SIF-02c — ÇEVRİMDIŞI FAIL-SAFE: sunucuya ulaşılamadığında bayrak AÇILMAZ. Aksi hâlde internet
+    /// kesikken uygulama kendini kilitlerdi (çevrimdışı çalışma bu ürünün temel özelliği).
+    /// </summary>
+    [Fact]
+    public void SIF02c_Cevrimdisi_Bayrak_Acilmaz()
+    {
+        var src = ShellSource();
+        var i = src.IndexOf("private async System.Threading.Tasks.Task RefreshLocalResetFlagAsync", StringComparison.Ordinal);
+        Assert.True(i > 0, "RefreshLocalResetFlagAsync bulunamadı");
+        var govde = src.Substring(i, Math.Min(1200, src.Length - i));
+        Assert.Contains("if (serverAt is null) return;", govde);      // uç erişilemedi → dokunma
+        Assert.Contains("catch", govde);                              // ağ hatası yutulur, bayrak açılmaz
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); System.IO.File.Delete(_dbPath); } catch { }

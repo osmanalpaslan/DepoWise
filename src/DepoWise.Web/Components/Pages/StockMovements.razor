@@ -101,8 +101,14 @@
     protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrWhiteSpace(Q)) _search = Q;
-        _locationOptions = await Locations.FilterOptionsAsync();   // ortak önbellek — ekran başına tekrar indirme yok
-        await Load();
+        // ⭐ WEB-01 (denetim 2026-08-25): korumasız ilk yükleme Blazor devresini düşürüyordu
+        // (bembeyaz ekran). Aynı düzeltme YET-C4'te uygulanmış, stok ekranları atlanmıştı.
+        try
+        {
+            _locationOptions = await Locations.FilterOptionsAsync();   // ortak önbellek — ekran başına tekrar indirme yok
+            await Load();
+        }
+        catch (Exception) { _error = "Ekran yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin."; }
     }
 
     /// <summary>

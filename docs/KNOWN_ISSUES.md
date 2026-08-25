@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-18
+> Son güncelleme: 2026-08-25 (uçtan uca denetim turu)
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -40,6 +40,51 @@
   silmeyi diriltiyordu. İkisi de kapatıldı.
 
 ## Açık
+
+### 🔴 SEC-03 (2026-08-25, **KULLANICI KARARI GEREKİR**) — Geliştirici modu kodu herkese açık
+`DeveloperMode.Code = "621875"` kaynak kodda sabittir ve **depo herkese açıktır** (GitHub). Masaüstünde
+*Ayarlar › Geliştirici Modu* ekranını açabilen **herhangi bir kullanıcı** bu kodu yazarak o oturumda
+süper admin yetkilerine geçer (`AccessControl` her kontrolde `DeveloperMode.IsActive` gördüğünde geçirir).
+Ekranı açmak için yalnız `settings` modülü görüntüleme yetkisi yeterlidir; kodu doğrulayan yerde rol
+kontrolü **hiç yoktur**.
+
+**Etki sınırı (doğrulandı):** yalnız MASAÜSTÜ. Sunucu (API) ve web bu bayrağı hiç set etmez —
+`IsActive =` ataması **yalnız** `DepoWise.Desktop` içinde geçiyor (arama sonucu). Yani sunucudaki yetki
+kararları etkilenmez. Ama kullanıcı yerelde yetkisi olmayan kaydı açıp değiştirebilir ve **bu değişiklik
+senkronla sunucuya gider** → firma içi yetki yükselmesi.
+
+**Bu tur DEĞİŞTİRİLMEDİ:** davranışın bilinçli olarak değiştirilmesi gerekiyor (kullanıcı kararı).
+Seçenekler:
+1. Ekranı/işlevi **yalnız süper admine** aç (en ucuz; tek satır kontrol).
+2. Kodu derleme-zamanı gizli değere / ortam değişkenine taşı (depoda kalmaz).
+3. Etkinleştirmeyi **sunucuya doğrulat** (çevrimdışıyken çalışmaz).
+4. Özelliği tamamen kaldır.
+
+### 🟠 PRF-01 (2026-08-25, ÖLÇÜLDÜ) — Stok Hareketleri raporu tek seferde 50.000 satıra kadar dönebilir
+`ReportLimits.DefaultMaxRows = 50_000`. Ölçüm (3.000 malzeme · **20.000 hareket** · 8 şube, SQLite):
+rapor **20.000 satırın tamamını** döndürüyor ve **125 ms** sürüyor. Ham SQL yalnız **6 ms** — yani maliyet
+sorguda değil, satırların oluşturulup arayüze taşınmasında.
+
+**Denenen ve ELENEN çözüm:** `stock_movements(company_id, created_at)` indeksi eklenip ölçüldü → sorgu
+planı `SCAN` yerine `SEARCH`e döndü **ama rapor süresi değişmedi** (125 → 123 ms). Yani "eksik indeks"
+bu raporun darboğazı DEĞİLDİR. Ölçüm yapılmasaydı gereksiz bir migration açılacaktı.
+
+**Bugünkü risk düşük:** üretimde 663 hareket var ve ekran ucu (`/api/stock/movements`) zaten **1000
+satırla** sınırlı. Risk yalnız RAPOR yolundadır ve hareket sayısıyla birlikte büyür.
+**İzleme eşiği:** hareket sayısı ~20.000'i geçtiğinde rapora sayfalama / SQL tavanı eklenmelidir.
+
+### 🟡 UPD-01 (2026-08-25) — Güncelleme checksum kontrolü boş değerde atlanıyor
+`UpdateInstaller.InstallAndRestart`: `if (!string.IsNullOrWhiteSpace(expectedSha) && !VerifyChecksum(...))`
+→ checksum BOŞ gelirse doğrulama **hiç yapılmaz**. Bugün ulaşılabilir değil: sunucu `ReleaseService.Publish`
+içinde 64 haneli hex checksum'ı **zorunlu** tutuyor. Fail-closed'a çevirmek tek satır, ama eski bir
+`app_releases` satırının checksum'ı boşsa güncelleme **durur** → çalışan bir yolu bozma riski var.
+Bu yüzden değiştirilmedi; önce canlıdaki `app_releases` satırlarının checksum'ı kontrol edilmeli.
+
+### 🔵 TNT-04 (2026-08-25, bilgi) — Anonim uçlar firma ve şube ADLARINI açar
+`/api/public/companies` ve `/api/public/branches` kimlik doğrulamasız çalışır (masaüstü giriş ekranı
+listeleri buradan doldurur) ve hız sınırı (`publicLimiter`, 120/dk/IP) dışında koruma yoktur. Veri
+sızıntısı **firma/şube ADIYLA sınırlıdır** — iş verisi dönmez. Girişten önce listeyi göstermek ürün
+gereği olduğu için değiştirilmedi; kayıt olarak duruyor.
 - **R34 (12.08.2026) — ✅ KÖK NEDEN BULUNDU VE DÜZELTİLDİ (kapatıldı):** tam test takımında ara sıra
   `SyncBalancePayloadTests.Yalniz_Bakiye_Degisirse_Sunucu_Etkilenmez_Yerel_Calismaya_Devam_Eder`
   kırılıyordu. Neden **üretim kodu değil, TESTİN KENDİSİYDİ**: `Assert.DoesNotContain("777", Snapshot())`
@@ -142,10 +187,11 @@ Ayrıntı: [`docs/ANALIZ_SUBE_VE_SIFIRLAMA.md`](ANALIZ_SUBE_VE_SIFIRLAMA.md)
   kapsam dışı şubeye kayıt basılabiliyordu (web + masaüstü).
 
 ### ⚠️ Bu turda AÇIK KALAN
-- **SIF-02 (açık)** — yerel sıfırlama kontrolü **yalnız giriş anında** çalışır; `ShellViewModel`
-  içinde kontrol YOKTUR. Program açık ve giriş yapılmışsa 15 saniyelik eşitleme turu eski yerel
-  veriyi sunucuya göndermeye devam eder. **Operasyonel önlem:** sıfırlama öncesi tüm kullanıcılara
-  programı **tamamen kapattırın**, sıfırlayın, sonra açtırın. Kalıcı çözüm ayrı iş olarak önerildi.
+- **✅ SIF-02 — KAPANDI (2026-08-25, ADR-124).** Yerel sıfırlama kontrolü artık periyodik eşitleme
+  turunda da çalışır: tur, **gönderimden ÖNCE** sunucuda bekleyen istek var mı diye sorar; varsa durur,
+  kullanıcıya ne olduğunu anlatır ve oturumu güvenle kapatır (sıfırlama yine tek yerde — giriş akışında
+  — uygulanır). Çevrimdışıyken bayrak açılmaz → internet kesikken uygulama kendini kilitlemez.
+  Üç testle kilitli (SIF-02a/b/c). Operasyonel önlem ("önce programları kapatın") artık zorunlu değildir.
 
 ## 2026-08-18 — MENÜ / EKRAN YÖNETİMİ TURUNDA KAPATILANLAR
 

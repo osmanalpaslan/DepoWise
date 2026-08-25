@@ -89,10 +89,18 @@ else
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.CanCreate("stock")) return;
-        // Lokasyon listesi ORTAK önbellekten (her ekran kendi /api/branches çağrısını yapmaz).
-        if (Auth.IsAllBranches()) _branches = await Locations.WriteTargets();
-        else _locationName = await Locations.NameAsync(Auth.BranchId);
-        await Load();
+        // ⭐ WEB-01 (denetim 2026-08-25): ilk yükleme çağrıları KORUMASIZDI. /api/branches 401/500
+        // dönerse istisna render sırasında patlar, Blazor devresi TAMAMEN düşer ("bağlantı kesildi")
+        // ve kullanıcı bembeyaz ekranla kalır. YET-C4'te aynı düzeltme dört ekrana uygulanmıştı;
+        // lokasyon önbelleğini kullanan üç stok ekranı atlanmıştı.
+        try
+        {
+            // Lokasyon listesi ORTAK önbellekten (her ekran kendi /api/branches çağrısını yapmaz).
+            if (Auth.IsAllBranches()) _branches = await Locations.WriteTargets();
+            else _locationName = await Locations.NameAsync(Auth.BranchId);
+            await Load();
+        }
+        catch (Exception ex) { _msg = "Ekran yüklenemedi: " + ex.Message; _ok = false; }
     }
 
     private async Task Load()

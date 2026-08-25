@@ -1587,3 +1587,67 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   süper admin akışı aynen korundu. Sunucuya dokunulmadı.
 - **Ekranda tek satır açıklama:** listede makine şubesi varsa "Varsayılan olarak kendi şubeniz
   seçilidir. 🖥 işaretli şube bu makinenin şubesidir." yazısı görünür.
+
+## ADR-121 — Uçtan uca denetim: bağlantı tablolarında firma sınırı (2026-08-25)
+- **Nasıl bulundu:** senkron gönderiminde (push) `company_id` kolonu OLMAYAN tablolar tek tek incelendi;
+  ardından **açığı üreten testler önce yazıldı** (`TenantLinkTableTests`, 4/4 kırıldı), sonra düzeltildi.
+- **TNT-01 (kritik, YAZMA sızıntısı):** `vehicle_template_materials` firma kapısı listesinde
+  (`CompanyScopedChildren`) **hiç yoktu**. A firmasının makinesi, gönderdiği pakete B firmasının şablon
+  kimliğini yazarak **B'nin araç şablonuna malzeme satırı ekleyebiliyordu**. Tablo listeye eklendi;
+  kardeş tablolar zaten oradaydı, ikinci bir mekanizma kurulmadı.
+- **TNT-02 (OKUMA sızıntısı):** kapı yalnız **ebeveyn** ucunu doğruluyordu. `material_equivalents`
+  satırında `material_id` kendi firmasınınken `equivalent_material_id` **başka firmanın** malzemesi
+  olabiliyordu ve malzeme kartı o muadili **kod + adıyla** gösteriyordu. Yeni `CrossCompanyRefs` kapısı
+  bağlantının **karşı ucunu** da doğrular (muadil · uyumlu araç · bakım tanımı aracı · şablon malzemesi ·
+  talep kalemi · bakım malzemesi · sayım satırı).
+- **Kural bilinçli olarak DAR:** satır yalnız referans edilen kayıt **VAR ve başka firmaya ait** olduğunda
+  reddedilir. Kayıt sunucuda henüz yoksa karar verilmez — delta senkronunda eş kayıt aynı pakette
+  gelmemiş olabilir; meşru akış kırılmasın (öksüzlüğü `ParentExists` zaten ele alıyor).
+- **Sıra:** öksüz kontrolü firma kapısından ÖNCEye alındı. İkisi de REDDEDER; sıra yalnız kullanıcıya
+  giden mesajı belirler ("kayıt sunucuda yok" ≠ "başka firmada").
+- **Performans:** ikincil referans kontrolü tablo ömürlü bir bellek kullanır (aynı malzeme bir sayım
+  belgesinde onlarca satırda geçer) → satır başına ek sorgu YOK.
+- **Okuma savunması:** `MaterialService.GetDetail` muadilleri artık firma filtresiyle okur
+  (`GetEquivalentGroup(materialId, companyId)`). Aynı savunma malzeme LİSTESİ sorgusunda zaten vardı;
+  kart bundan yoksundu. Veritabanında eski/bozuk bir satır olsa bile kart sızdırmaz (TNT-03).
+- **SEC-02:** `VehicleService.MeterHistory` oturum almadan ve firma filtresi olmadan yazılmıştı; oturum
+  zorunlu hâle getirildi ve sorguya `company_id` eklendi.
+
+## ADR-122 — Uçtan uca denetim: üç raporda şube kapsamı eksikti (2026-08-25)
+- **Bağlam:** DEN-E1/E2 turunda (2026-08-18) Stok Durumu ve Şube Bazlı Özet düzeltilmişti. Denetimde
+  **aynı eksiğin üç raporda daha** durduğu görüldü. Testler önce yazıldı (4/4 kırıldı), sonra düzeltildi.
+- **RPR-01/02 — Araç (Şablonlu / Şablon Dışı):** rapor **şube kolonunu gösteriyor** ama kapsamı
+  uygulamıyordu → tek şubeye yetkili kullanıcı tüm firmanın araçlarını ve **plakalarını** görüyordu.
+  `ReportScope.BranchSql(s, req, "v.branch_id")` eklendi (kardeş raporlarla aynı kalıp).
+- **RPR-03 — Stok Sayım:** `req.LocationIds` **aynen** kullanılıyordu → (a) filtre boşken tüm şubelerin
+  sayımları görünüyor, (b) isteğe başka şubenin depo kimliği yazılırsa o depo okunuyordu (parametre
+  manipülasyonu, fail-open). DEN-E2'deki kalıbın birebir aynısı uygulandı: izinli ∩ istenen, boş
+  kesişimde **boş sonuç** (fail-closed), ATANMAMIŞ kovası gizlenmez.
+- **Sınırsız kullanıcıda (admin / tüm şubeler) davranış değişmedi** — üç rapor için de ayrı test var.
+
+## ADR-123 — WEB-01: korumasız ilk yükleme Blazor devresini düşürüyordu (2026-08-25)
+- **Sorun:** Blazor Server'da `OnInitializedAsync` içinde yakalanmayan istisna yalnız ekranı bozmaz,
+  **kullanıcının devresini tamamen düşürür** (bembeyaz ekran + "bağlantı kesildi"). 401 (oturum düştü)
+  ya da 500 (ör. sunucu diski doldu — R30) bunu tetikler.
+- **Bulunanlar:** Stok Sayım · Stok Dağıtım · Stok Hareketleri. Üçü de ortak lokasyon önbelleğini
+  (`LocationOptions` → `/api/branches`) **korumasız** çağırıyordu. Aynı hata YET-C4'te dört ekranda
+  düzeltilmişti; bu üçü atlanmıştı.
+- **Kalıcı çözüm:** `WebCircuitGuardTests` — sayfa kaynaklarını tarayıp "ilk yüklemede try DIŞINDA
+  istisna fırlatabilen çağrı" arar. Ad çözümlemesi **dosya-içidir** (iki sayfadaki aynı adlı metot
+  karışmaz). Hata yutan yardımcılar (ör. `OptionsAsync`) serbesttir → kural gereksiz sıkı değildir.
+- **Testin kendisi doğrulandı:** düzeltme geri alınıp koşuldu → test **kırıldı**; geri konunca **geçti**.
+  (İlk sürüm çok satırlı imzaları göremediği için "her zaman yeşil" bir kabuktu; bu deneme yakaladı.)
+
+## ADR-124 — SIF-02: açık oturumda sıfırlama isteği artık algılanıyor (2026-08-25)
+- **Sorun (backlog'da A önceliğiyle bekliyordu):** ADR-084 "yerelini sıfırla" isteği **yalnız giriş
+  anında** kontrol ediliyordu. Program açıkken sıfırlama yapılırsa 15 saniyelik eşitleme turu dönmeye ve
+  **az önce silinen veriyi sunucuya geri göndermeye** devam ediyordu → sıfırlama fiilen geri alınıyordu.
+  Bugüne kadarki önlem yalnız operasyoneldi ("önce tüm programları kapatın").
+- **Çözüm:** periyodik tur, **`SyncGate`'ten ve PUSH'tan ÖNCE** bekleyen sıfırlama isteğini sorar
+  (yavaş kadans, 60 sn — çakışma bildirimiyle aynı grup). İstek varsa tur durur, kullanıcıya ne olduğu
+  anlatılır ve oturum güvenle kapatılır. Desen "makine pasife alındı" akışının aynısıdır.
+- **Sıfırlama YİNE tek yerde uygulanır** (giriş akışı) — burada veri silinmez, yalnız gönderim durdurulur.
+- **Çevrimdışı fail-safe:** uç erişilemezse bayrak açılmaz → internet kesikken uygulama kendini
+  kilitlemez (çevrimdışı çalışma bu ürünün temel özelliğidir). Üç testle kilitlendi (SIF-02a/b/c).
+- **Senkron protokolü DEĞİŞMEDİ:** yeni uç yok, sunucu davranışı aynı; yalnız istemci mevcut
+  `/api/sync/local-reset-status` ucunu bir de tur başında soruyor.

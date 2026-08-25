@@ -151,6 +151,156 @@ public class ReportBranchScopeTests : IDisposable
         Assert.Contains("ŞUBE B", subeAdlari);
     }
 
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+    //  DEN-2026-08-25 — AYNI AÇIĞIN KALAN ÜÇ RAPORU
+    //
+    //  DEN-E1/E2 turunda Stok Durumu ve Şube Bazlı Özet düzeltilmişti; uçtan uca denetimde AYNI
+    //  eksiğin üç raporda daha durduğu görüldü:
+    //   • RPR-01 "Araç — Şablonlu"      → şube kolonu GÖSTERİYOR ama kapsam UYGULAMIYORDU
+    //   • RPR-02 "Araç — Şablon Dışı"   → aynısı
+    //   • RPR-03 "Stok Sayım"           → req.LocationIds AYNEN kullanılıyordu (fail-open)
+    // ═════════════════════════════════════════════════════════════════════════════════════════════
+
+    private string Arac(string kod, string? subeId)
+        => AracEkle(kod, subeId);
+
+    private string AracEkle(string kod, string? subeId)
+    {
+        var id = "V-" + kod;
+        Sql($"INSERT INTO vehicles(id,company_id,internal_code,plate,branch_id,status,template_id," +
+            $"created_at,updated_at,version,is_deleted) VALUES('{id}','{Co}','{kod}','{kod}-PLK'," +
+            (subeId is null ? "NULL" : $"'{subeId}'") + ",'active',NULL,1,1,1,0);");
+        return id;
+    }
+
+    /// <summary>⭐ RPR-01 — şablon dışı araç raporu yalnız izinli şubenin araçlarını göstermeli.</summary>
+    [Fact]
+    public void AracSablonDisi_Yalniz_Izinli_Subenin_Araclari()
+    {
+        AracEkle("AA", _subeA);
+        AracEkle("BB", _subeB);
+
+        var t = _reports.VehiclesNonTemplate(SadeceA(), new ReportRequest(Executed: true));
+
+        var kodlar = t.Rows.Select(r => Convert.ToString(r[0]) ?? "").ToList();
+        Assert.Contains("AA", kodlar);
+        Assert.DoesNotContain("BB", kodlar);      // ⭐ kapsam dışı aracın PLAKASI bile sızmamalı
+    }
+
+    /// <summary>RPR-01b — sınırsız kullanıcıda eski davranış korunur (tüm araçlar).</summary>
+    [Fact]
+    public void AracSablonDisi_Sinirsiz_Kullanicida_Tum_Araclar()
+    {
+        AracEkle("AA", _subeA);
+        AracEkle("BB", _subeB);
+
+        var t = _reports.VehiclesNonTemplate(_admin, new ReportRequest(Executed: true));
+
+        Assert.Equal(2, t.Rows.Count);
+    }
+
+    /// <summary>
+    /// ⭐ RPR-01d — <b>SÖZLEŞME KORUMASI:</b> araç raporları YÖNETİCİ raporudur; oturumun ÇALIŞMA şubesi
+    /// (giriş ekranında seçilen şube) bu raporu DARALTMAZ — "Şube 2 ile giriş yapılsa bile tüm şubeler
+    /// görünür" (ürün kararı, BranchScopeTests ile de kilitli).
+    ///
+    /// Bu test denetim sırasında GERÇEKTEN kırıldı: ilk düzeltme yanlışlıkla <c>ReportScope.BranchSql</c>
+    /// kullanmış (izinli ∩ OTURUM) ve çalışan bir davranışı bozmuştu. Doğrusu <c>BranchAccess.AllowedSql</c>
+    /// — yani YETKİ uygulanır, görünüm tercihi uygulanmaz. İki yön de ayrı testle kilitlidir.
+    /// </summary>
+    [Fact]
+    public void AracRaporu_Calisma_Subesi_Daraltmaz()
+    {
+        AracEkle("AA", _subeA);
+        AracEkle("BB", _subeB);
+
+        // Yetkisi sınırsız (admin) ama ŞUBE B ile çalışıyor → yine de İKİ araç da görünmeli.
+        var subeIleCalisan = new SessionContext("admin", Co, new[] { RoleKeys.CompanyAdmin }, PermissionSet.Empty)
+        { OperatingBranchId = _subeB };
+
+        var t = _reports.VehiclesNonTemplate(subeIleCalisan, new ReportRequest(Executed: true));
+
+        Assert.Equal(2, t.Rows.Count);
+    }
+
+    /// <summary>RPR-01c — ŞUBESİZ (firma geneli) araç kapsam filtresinde GİZLENMEZ.</summary>
+    [Fact]
+    public void AracSablonDisi_Subesiz_Arac_Gizlenmez()
+    {
+        AracEkle("CC", null);
+
+        var t = _reports.VehiclesNonTemplate(SadeceA(), new ReportRequest(Executed: true));
+
+        Assert.Contains("CC", t.Rows.Select(r => Convert.ToString(r[0]) ?? ""));
+    }
+
+    /// <summary>⭐ RPR-02 — şablonlu araç raporu da aynı kapsamı uygulamalı.</summary>
+    [Fact]
+    public void AracSablonlu_Yalniz_Izinli_Subenin_Araclari()
+    {
+        Sql($"INSERT INTO vehicle_templates(id,company_id,name,created_at,updated_at,version,is_deleted) " +
+            $"VALUES('TPL','{Co}','Kamyon',1,1,1,0);");
+        AracEkle("AA", _subeA);
+        AracEkle("BB", _subeB);
+        Sql("UPDATE vehicles SET template_id='TPL';");
+
+        var t = _reports.VehiclesByTemplate(SadeceA(), new ReportRequest(Executed: true));
+
+        var kodlar = t.Rows.Select(r => Convert.ToString(r[1]) ?? "").ToList();
+        Assert.Contains("AA", kodlar);
+        Assert.DoesNotContain("BB", kodlar);
+    }
+
+    // ── RPR-03 · Stok Sayım ─────────────────────────────────────────────────────────────────────
+    private void SayimEkle(string docId, string subeId, string materialId)
+    {
+        Sql($"INSERT INTO stock_documents(id,company_id,doc_type,doc_no,doc_date,to_branch_id,status," +
+            $"created_at,updated_at,version,is_deleted) VALUES('{docId}','{Co}','count','{docId}',1,'{subeId}'," +
+            $"'posted',1,1,1,0);");
+        Sql($"INSERT INTO stock_count_lines(id,document_id,material_id,system_qty,counted_qty,diff_qty) " +
+            $"VALUES('{docId}-L','{docId}','{materialId}','10','12','2');");
+    }
+
+    /// <summary>⭐ RPR-03 — sayım raporu filtresizken bile kapsam uygulamalı.</summary>
+    [Fact]
+    public void StokSayim_Filtresizken_Yalniz_Izinli_Sube()
+    {
+        SayimEkle("D1", _subeA, "M1");
+        SayimEkle("D2", _subeB, "M2");
+
+        var t = _reports.StockCount(SadeceA(), new ReportRequest(Executed: true));
+
+        // Kolon sırası: Tarih · Sayılan Depo · Kod · Malzeme … → malzeme kodu 2. sıradadır.
+        var kodlar = t.Rows.Select(r => Convert.ToString(r[2]) ?? "").ToList();
+        Assert.Contains("K1", kodlar);
+        Assert.DoesNotContain("K2", kodlar);
+    }
+
+    /// <summary>⭐ RPR-03b — parametre manipülasyonu: kapsam dışı depo istenirse veri SIZDIRILMAMALI.</summary>
+    [Fact]
+    public void StokSayim_Kapsam_Disi_Depo_Istenirse_BOS_Doner()
+    {
+        SayimEkle("D1", _subeA, "M1");
+        SayimEkle("D2", _subeB, "M2");
+
+        var t = _reports.StockCount(SadeceA(),
+            new ReportRequest(Executed: true, LocationIds: new[] { _subeB }));
+
+        Assert.Empty(t.Rows);
+    }
+
+    /// <summary>RPR-03c — sınırsız kullanıcıda eski davranış korunur.</summary>
+    [Fact]
+    public void StokSayim_Sinirsiz_Kullanicida_Tum_Subeler()
+    {
+        SayimEkle("D1", _subeA, "M1");
+        SayimEkle("D2", _subeB, "M2");
+
+        var t = _reports.StockCount(_admin, new ReportRequest(Executed: true));
+
+        Assert.Equal(2, t.Rows.Count);
+    }
+
     public void Dispose()
     {
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }

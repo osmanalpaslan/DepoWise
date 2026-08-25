@@ -146,9 +146,15 @@ else
     protected override async Task OnInitializedAsync()
     {
         if (!Auth.CanCreate("stock")) return;
-        // Hedef listesi ORTAK önbellekten (oturumda bir kez indirilir) ve YALNIZ gerçek depolar.
-        _branches = await Locations.WriteTargets();
-        await Load();
+        // ⭐ WEB-01 (denetim 2026-08-25): korumasız ilk yükleme Blazor devresini düşürüyordu
+        // (bembeyaz ekran). Aynı düzeltme YET-C4'te uygulanmış, stok ekranları atlanmıştı.
+        try
+        {
+            // Hedef listesi ORTAK önbellekten (oturumda bir kez indirilir) ve YALNIZ gerçek depolar.
+            _branches = await Locations.WriteTargets();
+            await Load();
+        }
+        catch (Exception ex) { _ok = false; _msg = "Ekran yüklenemedi: " + ex.Message; }
     }
 
     private async Task OnSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Load(); }

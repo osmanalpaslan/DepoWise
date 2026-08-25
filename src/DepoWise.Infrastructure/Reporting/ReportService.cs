@@ -233,8 +233,15 @@ FROM vehicles v
 JOIN vehicle_templates t ON t.id=v.template_id
 LEFT JOIN branches br ON br.id=v.branch_id
 WHERE v.company_id=@c AND v.is_deleted=0
+-- 🔴 RPR-02 (denetim 2026-08-25): rapor ŞUBE kolonunu GÖSTERİYOR ama YETKİ kapısını UYGULAMIYORDU →
+-- tek şubeye yetkili kullanıcı tüm firmanın araçlarını ve PLAKALARINI görüyordu.
+-- ⚠️ Burada BİLEREK AllowedSql kullanılır, ReportScope.BranchSql DEĞİL: bu bir YÖNETİCİ raporudur ve
+-- (Şube 2 ile giriş yapılsa bile tüm şubeleri gösterir) sözleşmesi korunmalıdır — BranchScopeTests ile
+-- kilitli, ürün kararı. Yani YETKİ uygulanır, oturumun görünüm tercihi uygulanmaz.
+" + BranchAccess.AllowedSql(s, "v.branch_id") + @"
 ORDER BY t.name, v.internal_code;";
         cmd.AddWithValue("@c", companyId);
+        BranchAccess.BindAllowed(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         using (var r = cmd.ExecuteReader())
             while (r.Read())
@@ -255,8 +262,12 @@ ORDER BY t.name, v.internal_code;";
 SELECT v.internal_code, COALESCE(v.plate,''), COALESCE(br.name,''), v.status
 FROM vehicles v LEFT JOIN branches br ON br.id=v.branch_id
 WHERE v.company_id=@c AND v.is_deleted=0 AND v.template_id IS NULL
+-- 🔴 RPR-01 (denetim 2026-08-25): şablonlu rapordaki eksiğin aynısı — bkz. VehiclesByTemplate
+-- (YÖNETİCİ raporu → yetki kapısı uygulanır, oturumun çalışma şubesi uygulanmaz).
+" + BranchAccess.AllowedSql(s, "v.branch_id") + @"
 ORDER BY v.internal_code;";
         cmd.AddWithValue("@c", companyId);
+        BranchAccess.BindAllowed(cmd, s);
         var rows = new List<IReadOnlyList<object?>>();
         using (var r = cmd.ExecuteReader())
             while (r.Read())
@@ -989,7 +1000,34 @@ WHERE sm.company_id = @c"
         // satırı hangi depoya ait belli olmaz — farklı depolarda yapılan sayımlar okunamaz hâle gelir.
         // Sayılan depo, sayım belgesinin to_branch_id'sidir (StockService.Count → RunDocument(..., branchId)).
         // Depo adı AYNI sorguda JOIN ile gelir (satır başına ad sorgusu yasak).
+        // 🔴 RPR-03 (denetim 2026-08-25) DÜZELTMESİ — ŞUBE KAPSAMI BU RAPORDA DA UYGULANMIYORDU.
+        // Kardeş rapor Stok Durumu bu açığı DEN-E2'de kapatmıştı; sayım raporu aynı hatayla kalmıştı:
+        // (a) filtre boşken şubeyle sınırlı kullanıcı TÜM şubelerin sayımlarını görüyordu;
+        // (b) isteğe BAŞKA şubenin depo kimliği yazılırsa o depo okunuyordu (parametre manipülasyonu).
+        // Tek otorite BranchAccess'tir — DEN-E2 ile BİREBİR aynı kalıp kullanıldı, yeni kural YOK.
+        var izinli = BranchAccess.Allowed(s);                 // null = sınırsız (admin / tüm şubeler)
         var locations = NormalizeLocations(req.LocationIds);
+        if (izinli is not null)
+        {
+            var izinliSet = new HashSet<string>(izinli, StringComparer.Ordinal);
+            if (locations.Count > 0)
+            {
+                // ATANMAMIŞ ("") kovası şubesiz kayıtlarla aynı ilkeyle GİZLENMEZ.
+                var suzulen = locations.Where(x => x.Length == 0 || izinliSet.Contains(x)).ToList();
+                // FAIL-CLOSED: yalnız kapsam dışı depo istendiyse boş sonuç — filtre sessizce KALKMAZ.
+                if (suzulen.Count == 0)
+                    return new TableModel("Stok Sayım Raporu",
+                        new[] { "Tarih", "Sayılan Depo", "Kod", "Malzeme", "Sistem", "Sayılan", "Fark", "Durum", "Gerekçe" },
+                        Array.Empty<IReadOnlyList<object?>>());
+                locations = suzulen;
+            }
+            else
+            {
+                // Filtre verilmedi → kapsam KENDİSİ filtredir (+ ATANMAMIŞ).
+                locations = izinli.Concat(new[] { "" }).Distinct(StringComparer.Ordinal).ToList();
+            }
+        }
+
         var locFilter = "";
         if (locations.Count > 0)
         {

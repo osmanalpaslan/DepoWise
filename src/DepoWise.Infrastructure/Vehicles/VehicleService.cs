@@ -195,12 +195,21 @@ VALUES(@id,@c,@ic,@plate,@yr,@meter,@mu,@br,@drv,@ch,@en,@st,@note,@vt,@cat,@bra
         return ReadMeter(conn, null, s.CompanyId, vehicleId);
     }
 
-    public IReadOnlyList<(decimal Old, decimal New, string Source)> MeterHistory(string vehicleId)
+    /// <summary>
+    /// Araç sayaç geçmişi. ⭐ SEC-02 (denetim 2026-08-25): metot FİRMA FİLTRESİ OLMADAN ve oturum
+    /// almadan yazılmıştı. Bugün hiçbir yerden çağrılmıyor (ölü kod) ama bir ekrana bağlandığı anda
+    /// başka firmanın sayaç geçmişini döndürürdü — sessiz bir tuzak. Kapı şimdi kapalı: oturum zorunlu,
+    /// firma filtresi sorguda.
+    /// </summary>
+    public IReadOnlyList<(decimal Old, decimal New, string Source)> MeterHistory(SessionContext s, string vehicleId)
     {
+        AccessControl.Require(s, Module, PermissionAction.View);
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT old_value, new_value, source FROM vehicle_meter_logs WHERE vehicle_id=@v ORDER BY created_at;";
+        cmd.CommandText = "SELECT old_value, new_value, source FROM vehicle_meter_logs " +
+                          "WHERE vehicle_id=@v AND company_id=@c ORDER BY created_at;";
         cmd.AddWithValue("@v", vehicleId);
+        cmd.AddWithValue("@c", s.CompanyId);
         var list = new List<(decimal, decimal, string)>();
         using var r = cmd.ExecuteReader();
         while (r.Read()) list.Add((Money.Parse(r.GetString(0)), Money.Parse(r.GetString(1)), r.GetString(2)));

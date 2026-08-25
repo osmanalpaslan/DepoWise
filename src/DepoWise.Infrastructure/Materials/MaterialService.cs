@@ -237,7 +237,9 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
     }
 
     /// <summary>Muadil grubunu döngü-güvenli BFS ile çözer (transitive; visited set ile sonsuz döngü yok).</summary>
-    public IReadOnlyCollection<string> GetEquivalentGroup(string materialId)
+    /// <param name="companyId">TNT-02 (2026-08-25) — verilirse gruba YALNIZ bu firmanın malzemeleri alınır.
+    /// <c>null</c> = eski davranış (filtre yok); mevcut çağıranlar aynen çalışır.</param>
+    public IReadOnlyCollection<string> GetEquivalentGroup(string materialId, string? companyId = null)
     {
         using var conn = _factory.Create();
         var visited = new HashSet<string>(StringComparer.Ordinal);
@@ -247,7 +249,7 @@ VALUES(@id,@c,@br,@code,@name,@type,@cat,@unit,@brand,@sup,@min,@price,@cur,@des
         while (queue.Count > 0)
         {
             var cur = queue.Dequeue();
-            foreach (var n in DirectEquivalents(conn, cur))
+            foreach (var n in DirectEquivalents(conn, cur, companyId))
                 if (visited.Add(n)) queue.Enqueue(n);
         }
         visited.Remove(materialId);
@@ -360,13 +362,19 @@ WHERE m.id=@id AND m.company_id=@c AND m.is_deleted=0;";
         }
 
         // Muadiller (grup ids → kod/ad)
-        var equivIds = GetEquivalentGroup(materialId);
+        // ⭐ TNT-02/TNT-03 (denetim 2026-08-25) — SAVUNMA KATMANI: firma filtresi HEM grubu kurarken
+        // HEM de kod/ad okunurken uygulanır. Eskiden ikisi de firmasızdı; veritabanında firma ötesi bir
+        // muadil satırı bulunduğunda (eski veri ya da manipüle edilmiş senkron paketi) karşı firmanın
+        // malzeme KODU ve ADI bu kartta görünüyordu. Aynı savunma malzeme LİSTESİ sorgusunda zaten vardı
+        // (bkz. GridInnerSql "SAVUNMA KATMANI" notu) — kart bu savunmadan yoksundu.
+        var equivIds = GetEquivalentGroup(materialId, s.CompanyId);
         var equivalents = new List<MaterialRefRow>();
         foreach (var eid in equivIds)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, code, name FROM materials WHERE id=@id AND is_deleted=0;";
+            cmd.CommandText = "SELECT id, code, name FROM materials WHERE id=@id AND company_id=@c AND is_deleted=0;";
             cmd.AddWithValue("@id", eid);
+            cmd.AddWithValue("@c", s.CompanyId);
             using var r = cmd.ExecuteReader();
             if (r.Read()) equivalents.Add(new MaterialRefRow(r.GetString(0), r.GetString(1), r.GetString(2)));
         }
@@ -775,10 +783,16 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         cmd.ExecuteNonQuery();
     }
 
-    private static List<string> DirectEquivalents(DbConnection conn, string materialId)
+    /// <param name="companyId">TNT-02 — doluysa firma ötesi bağlar grubun DIŞINDA bırakılır (savunma katmanı).</param>
+    private static List<string> DirectEquivalents(DbConnection conn, string materialId, string? companyId = null)
     {
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT equivalent_material_id FROM material_equivalents WHERE material_id=@m;";
+        cmd.CommandText = companyId is null
+            ? "SELECT equivalent_material_id FROM material_equivalents WHERE material_id=@m;"
+            : "SELECT me.equivalent_material_id FROM material_equivalents me " +
+              "JOIN materials m2 ON m2.id = me.equivalent_material_id AND m2.company_id=@c " +
+              "WHERE me.material_id=@m;";
+        if (companyId is not null) cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@m", materialId);
         var list = new List<string>();
         using var r = cmd.ExecuteReader();

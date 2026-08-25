@@ -198,7 +198,7 @@ public class VehicleTests : IDisposable
         _vehicles.SetMeter(_admin, v, 1500m, "vehicle_form");
         Assert.Equal(1500m, _vehicles.GetMeter(_admin, v));
 
-        var history = _vehicles.MeterHistory(v);
+        var history = _vehicles.MeterHistory(_admin, v);
         // create logu (0→1000) + set logu (1000→1500)
         Assert.Equal(2, history.Count);
         Assert.Equal((1000m, 1500m, "vehicle_form"), history[1]);
@@ -219,13 +219,13 @@ public class VehicleTests : IDisposable
     public void Guncelleme_Sayaci_DEGISTIRMEZ_VeGecmisEklemez()
     {
         var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 1000m));
-        var historyBefore = _vehicles.MeterHistory(v).Count;
+        var historyBefore = _vehicles.MeterHistory(_admin, v).Count;
 
         // Araç kartındaki diğer alanlar güncellenir — sayaç bu yoldan DEĞİŞMEZ.
         _vehicles.Update(_admin, v, new UpdateVehicle("34ABC01", 2021, "active", null));
 
         Assert.Equal(1000m, _vehicles.GetMeter(_admin, v));
-        Assert.Equal(historyBefore, _vehicles.MeterHistory(v).Count);   // sahte sayaç logu oluşmaz
+        Assert.Equal(historyBefore, _vehicles.MeterHistory(_admin, v).Count);   // sahte sayaç logu oluşmaz
 
         // Sayaç yalnız kendi mekanizmasından değişir ve geriye alma koruması KORUNUR.
         _vehicles.SetMeter(_admin, v, 1500m, "vehicle_form");
@@ -252,7 +252,7 @@ public class VehicleTests : IDisposable
         var v = _vehicles.Create(_admin, new NewVehicle("V-1", CurrentMeter: 100m));
         _vehicles.AdvanceMeter(_admin, v, 200m, "fuel");
         _vehicles.SetMeter(_admin, v, 350m);
-        var history = _vehicles.MeterHistory(v);
+        var history = _vehicles.MeterHistory(_admin, v);
         Assert.Equal(3, history.Count); // create + advance + set
         Assert.All(history, h => Assert.True(h.New >= h.Old)); // hiçbiri geriye gitmez
     }

@@ -179,6 +179,44 @@ public static class BranchAccess
         return $" AND ({col} IN ({ps}) OR {col} IS NULL)";
     }
 
+    /// <summary>
+    /// ⭐ RPR-01/02 (2026-08-25) — <b>YALNIZ GÜVENLİK KAPISI</b>: <see cref="Allowed"/> kümesini uygular,
+    /// oturumun ÇALIŞMA şubesini (<see cref="SessionContext.OperatingBranchId"/>) <b>hesaba KATMAZ</b>.
+    ///
+    /// <b>Neden ayrı:</b> <see cref="Sql"/> iki kısıtı birlikte uygular (izinli ∩ oturum) — bu, günlük
+    /// çalışma raporlarında doğrudur. Ama <b>YÖNETİCİ raporları</b> (Araç — Şablonlu / Şablon Dışı)
+    /// bilinçli olarak çalışma şubesini yok sayar: "Şube 2 ile giriş yapılsa bile yönetici raporu tüm
+    /// şubeleri gösterir" (BranchScopeTests ile kilitli, ürün kararı). O raporlarda yetki kapısı YİNE DE
+    /// gerekir — yoksa tek şubeye yetkili kullanıcı tüm firmanın araçlarını ve plakalarını görür.
+    ///
+    /// Bu metot tam olarak o boşluğu kapatır: <b>yetki uygulanır, görünüm tercihi uygulanmaz.</b>
+    /// (Aynı ayrımı <c>ReportService.StockStatus</c> zaten elle yapıyordu; burada tek yere alındı.)
+    /// </summary>
+    public static string AllowedSql(SessionContext s, string col, string prefix = "@ab")
+    {
+        var allowed = Allowed(s);
+        if (allowed is null) return "";                        // sınırsız → filtre yok (eski davranış)
+        if (allowed.Count == 0) return $" AND {col} IS NULL";   // fail-closed
+        var ps = string.Join(",", Enumerable.Range(0, allowed.Count).Select(i => prefix + i));
+        return $" AND ({col} IN ({ps}) OR {col} IS NULL)";      // şubesiz kayıt gizlenmez
+    }
+
+    /// <summary>
+    /// <see cref="AllowedSql"/> parametrelerini bağlar — AYNI kaynağı kullanır (deterministik).
+    /// </summary>
+    public static void BindAllowed(DbCommand cmd, SessionContext s, string prefix = "@ab")
+    {
+        var allowed = Allowed(s);
+        if (allowed is null) return;
+        for (int i = 0; i < allowed.Count; i++)
+        {
+            var p = cmd.CreateParameter();
+            p.ParameterName = prefix + i;
+            p.Value = allowed[i];
+            cmd.Parameters.Add(p);
+        }
+    }
+
     /// <summary>Kapsam parametrelerini bağlar. <see cref="Sql"/> ile AYNI kaynağı kullanır (deterministik).</summary>
     public static void Bind(DbCommand cmd, SessionContext s, IReadOnlyList<string>? requested = null, string prefix = "@ba")
     {
