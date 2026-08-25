@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-20** (giriş şube seçimi — açık iş yok) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-25** (uçtan uca denetim + onarım turu) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1248,7 +1248,52 @@ Açık geliştirme işi yok.
 
 ---
 
-## ✅ SON TAMAMLANAN — `ŞB-GİRİŞ` Giriş şube seçimi (2026-08-20)
+## 🔎 SON TAMAMLANAN — `DEN-2026-08-25` Uçtan uca denetim · onarım · test
+
+Kullanıcı isteği: "projeyi uçtan uca denetle, gerçek sorunları bul, kök nedenlerini düzelt, çalışan
+özellikleri koruyarak testlerle güvence altına al." **Üretime hiçbir yazma yapılmadı.**
+
+Tam rapor: [`docs/tests/Uctan_Uca_Denetim_2026-08-25.md`](../tests/Uctan_Uca_Denetim_2026-08-25.md)
+Kararlar: [`ADR-121…124`](../DECISIONS.md)
+
+### Düzeltilen gerçek hatalar (her biri önce testle ÜRETİLDİ)
+| ID | Önem | Ne bozuktu |
+|---|---|---|
+| TNT-01 | **P1** | Başka firmanın **araç şablonuna malzeme satırı yazılabiliyordu** (senkron firma kapısı bu tabloyu hiç kapsamıyordu) |
+| TNT-02 | **P1** | Bağlantı tablolarının **karşı ucu** denetlenmiyordu → firma ötesi muadil/uyumlu araç bağı kurulabiliyordu |
+| TNT-03 | P2 | Malzeme kartı, başka firmanın muadilini **kod + adıyla** gösterebiliyordu |
+| RPR-01/02 | P2 | "Araç — Şablonlu / Şablon Dışı" raporları şube yetkisini uygulamıyordu (**plakalar** dahil) |
+| RPR-03 | P2 | "Stok Sayım" raporu kapsamsızdı **ve** istek gövdesine yabancı depo yazılarak okunabiliyordu |
+| WEB-01 | P2 | Stok Sayım / Dağıtım / Hareketler ekranları ilk yüklemede **Blazor devresini düşürebiliyordu** |
+| SIF-02 | **P1** | Açık oturumda sıfırlama isteği algılanmıyor, **silinen veri sunucuya geri gönderiliyordu** |
+| SEC-02 | P3 | `MeterHistory` oturumsuz + firma filtresizdi |
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Tam test takımı — koşu B | **2165 geçti · 0 başarısız · 35 atlandı** (11 dk 46 sn) |
+| Tam test takımı — koşu C (bağımsız) | **2165 geçti · 0 başarısız · 35 atlandı** (11 dk 19 sn) → iki koşu **birebir aynı**, flaky yok |
+| Taban (denetim öncesi) | 2146 geçti · 0 başarısız · 35 atlandı → **+19 yeni test** |
+| Atlanan 35 test | **tamamı PostgreSQL kapılı** (boş test veritabanı onayı yoksa çalışmaz) — gizlenen/flaky test **yok** |
+| Release derlemesi | **0 hata** |
+| Gerçek arayüz (web) | Yerel API+web ayağa kaldırıldı, giriş yapıldı; düzeltilen 3 ekran **açıldı ve çalıştı**; `POST /api/reports/vehicles-nontemplate → 200` (9 ms); sunucu hatası yok |
+| Üretim | API **200** · Web **200** (yalnız salt-okunur sağlık kontrolü) |
+
+### Kullanıcı kararı bekleyenler
+1. **SEC-03** — masaüstü geliştirici modu kodu kaynakta sabit ve **depo public**. Ayarlar ekranını
+   açabilen herkes süper admin yetkisine geçebiliyor (yalnız masaüstü; sunucu etkilenmiyor).
+2. **PRF-01** — Stok Hareketleri raporu tek seferde 50.000 satıra kadar dönebilir (bugün 663 hareket
+   var, risk gelecekte). **İndeks çözüm değil** — ölçüldü, süre değişmedi.
+3. **UPD-01** — güncelleme checksum kontrolü boş değerde atlanıyor (bugün ulaşılamaz).
+4. **Eksik olabilecek raporlar** — Muayene/Sigorta ve Personel raporu yok; `Purchasing` kategorisi boş.
+   Bunlar **yeni özellik**tir (kolon/filtre kararı gerekir), onarım değil.
+
+### Sıradaki tek iş
+Yukarıdaki 4 maddede kullanıcı kararı. Açık **onarım** işi yok.
+
+---
+
+## ✅ ÖNCEKİ — `ŞB-GİRİŞ` Giriş şube seçimi (2026-08-20)
 
 **Kullanıcı isteği:** giriş ekranında şube kutusu kullanıcının **kendi şubesiyle** açılsın; isteyen
 seçimi değiştirip makine şubesine geçebilsin; listede makine şubesi **simgeyle** belli olsun.

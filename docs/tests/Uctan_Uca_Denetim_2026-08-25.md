@@ -115,7 +115,50 @@ Günlük kullanım güvende: hareket **ekranı** sunucuda zaten 1000 satırla s�
 
 ---
 
-## 7. Bilinçli olarak YAPILMAYANLAR
+## 7. Test sonuçları
+
+| Koşu | Sonuç | Süre |
+|---|---|---|
+| **Taban** (denetim öncesi) | 2146 geçti · **0 başarısız** · 35 atlandı | 12 dk 28 sn |
+| **Koşu B** (onarımlardan sonra) | **2165 geçti · 0 başarısız · 35 atlandı** | 11 dk 46 sn |
+| **Koşu C** (bağımsız ikinci koşu) | **2165 geçti · 0 başarısız · 35 atlandı** | 11 dk 19 sn |
+
+İki bağımsız koşu **birebir aynı** sonucu verdi → **flaky (kararsız) test yok**.
+Taban ile fark: **+19 test** (hepsi bu denetimde yazıldı), **regresyon 0**.
+
+**Atlanan 35 testin tamamı PostgreSQL kapılıdır** — `PostgresTestGuard`, boş bir test veritabanı
+olduğu kanıtlanmadan (ad "test" içermeli · public şema boş olmalı · boyut < 50 MB · açık onay
+değişkeni) çalışmayı reddeder. Gizlenen, devre dışı bırakılan ya da gevşetilen **hiçbir test yoktur**.
+
+Release derlemesi: **0 hata** (uyarı sayısı tabandakiyle aynı: 41 — hiçbiri bu turda eklenmedi).
+
+---
+
+## 8. Gerçek arayüz (GUI) doğrulaması
+
+Yerel API + web ayağa kaldırıldı (**ayrı bir çalışma dizininde, sıfır veritabanıyla** — kullanıcının
+kendi geliştirme veritabanına ve **üretime dokunulmadı**), gerçek tarayıcıda giriş yapıldı:
+
+| Kontrol | Sonuç |
+|---|---|
+| Giriş → ilk şifre belirleme → şube seçimi → panel | ✅ çalıştı |
+| Menü ağacı | ✅ varsayılan şema (Malzeme ve Stok · Operasyon · Talepler · Finans · Raporlar · Kurumsal Yönetim · Sistem Yönetimi · Ayarlar) |
+| **Stok Sayım** (düzeltilen) | ✅ açıldı, form ve boş durum doğru |
+| **Stok Hareketleri** (düzeltilen) | ✅ açıldı, filtreler ve boş durum doğru |
+| **Stok Dağıtım** (düzeltilen) | ✅ açıldı, "depo yok" bilgisi doğru |
+| Raporlar ekranı | ✅ **19 raporun tamamı** kategorileriyle listelendi |
+| Düzeltilen rapor çalıştırıldı | ✅ `POST /api/reports/vehicles-nontemplate` → **200** (9 ms), boş durum "Kayıt bulunamadı." |
+| Tarayıcı konsolu / sunucu logu | ✅ hata yok |
+| API kapalıyken sayfa gezinme | ✅ devre **düşmedi** (yeniden bağlanma penceresi çıkmadı) |
+
+> **Masaüstü uygulaması bilinçli olarak ÇALIŞTIRILMADI:** açıldığında ÜRETİM sunucusuna bağlanıp
+> yereldeki veriyi göndermeye başlar. Bu tur "üretime yazma yok" kuralıyla yürütüldüğü için
+> masaüstü GUI turu yapılmadı; masaüstündeki değişiklikler (SIF-02) kaynak-kilidi testleriyle
+> doğrulandı ve rapor/tenant düzeltmeleri masaüstüyle **ortak** koddadır (aynı `ReportService`).
+
+---
+
+## 9. Bilinçli olarak YAPILMAYANLAR
 
 - **Migration açılmadı** — üretim değişikliğidir, ayrı onay ister. Ölçüm zaten indeksin fayda
   getirmediğini gösterdi.
