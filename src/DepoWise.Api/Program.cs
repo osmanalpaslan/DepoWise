@@ -3528,6 +3528,13 @@ app.MapPost("/api/machine-backups/maintenance", (HttpContext c) =>
 app.MapGet("/api/backups", (HttpContext ctx, string company, DateOnly from, DateOnly to) =>
 {
     var s = Session(ctx); if (s is null) return Results.Unauthorized();
+    // ⭐ SEC-04 (denetim 2026-08-25): uç yalnız "giriş yapılmış mı" diye bakıyordu; firma parametresi
+    // İSTEKTEN geliyor ve DOĞRULANMIYORDU → herhangi bir kullanıcı BAŞKA firmanın makine adlarını,
+    // yedek dosya adlarını, boyutlarını ve tarihlerini listeleyebiliyordu. Kardeş uç
+    // (/api/machine-backups/download) bu iki kontrolü zaten doğru yapıyordu; burada eksikti.
+    AccessControl.Require(s, "machine_backups", PermissionAction.View);
+    if (!s.IsSuperAdmin && !string.Equals(company, s.CompanyId, StringComparison.Ordinal))
+        return Results.Json(new { error = "Başka firmaya ait." }, statusCode: 403);
     return Results.Ok(svc.Backups.List(company, from, to));
 }).RequireAuthorization();
 app.MapDelete("/api/backups", (HttpContext ctx, string company, DateOnly from, DateOnly to) =>

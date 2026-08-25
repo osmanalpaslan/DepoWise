@@ -118,4 +118,40 @@ public class ApiSecurityGateTests : IAsyncLifetime
         var resp = await _super.PostAsJsonAsync("/api/lookups/units", new { name = "Palet" });
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
     }
+
+    // ── SEC-04 (denetim 2026-08-25) ───────────────────────────────────────────────────────────────
+    //
+    // MAKİNE YEDEKLERİ listesi (/api/backups) yalnız "giriş yapılmış mı" diye bakıyordu: firma
+    // parametresi İSTEKTEN geliyor ve DOĞRULANMIYORDU → herhangi bir kullanıcı BAŞKA firmanın
+    // makine adlarını, yedek dosya adlarını, boyutlarını ve tarihlerini listeleyebiliyordu.
+    // Kardeş uç (/api/machine-backups/download) bu kontrolü zaten doğru yapıyordu; bu bir eksikti.
+
+    /// <summary>⭐ SEC-04a — yedek listesi YETKİSİZ kullanıcıya kapalı olmalı.</summary>
+    [Fact]
+    public async Task SEC04a_Makine_Yedek_Listesi_Yetkisize_Kapali()
+    {
+        var resp = await _staff.GetAsync($"/api/backups?company={Co}&from=2020-01-01&to=2099-01-01");
+        Assert.True(ApiTestHost.IsDenied(resp), $"beklenen: reddedilme, gelen: {(int)resp.StatusCode}");
+    }
+
+    /// <summary>⭐ SEC-04b — BAŞKA firmanın yedek listesi istenemez (parametre manipülasyonu).</summary>
+    [Fact]
+    public async Task SEC04b_Baska_Firmanin_Yedek_Listesi_Istenemez()
+    {
+        // Süper admin çapraz firma görebilir; bu yüzden NORMAL bir admin ile denenir.
+        var adminId = _svc.Users.EnsureInitialAdmin("GUV-CO2", "guv_admin2", Pass, RoleKeys.CompanyAdmin);
+        _ = adminId;
+        var admin2 = await _host.LoginAsync("guv_admin2", Pass, "GUV-CO2");
+
+        var resp = await admin2.GetAsync($"/api/backups?company={Co}&from=2020-01-01&to=2099-01-01");
+        Assert.True(ApiTestHost.IsDenied(resp), $"beklenen: reddedilme, gelen: {(int)resp.StatusCode}");
+    }
+
+    /// <summary>SEC-04c — SÜPER ADMİN için davranış DEĞİŞMEZ (ekran çalışmaya devam eder).</summary>
+    [Fact]
+    public async Task SEC04c_Super_Admine_Acik_Kalir()
+    {
+        var resp = await _super.GetAsync($"/api/backups?company={Co}&from=2020-01-01&to=2099-01-01");
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+    }
 }
