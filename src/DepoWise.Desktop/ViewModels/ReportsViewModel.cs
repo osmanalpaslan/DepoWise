@@ -204,9 +204,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
     {
         _session = session;
         _managerMode = managerMode;
-        ReportItems = managerMode
-            ? ReportCatalog.All
-            : ReportCatalog.All.Where(d => !d.IsManager).ToList();
+        // RPR-12 (parite): web kataloğuyla AYNI süzme — kullanıcının çalıştıramayacağı rapor listelenmez.
+        ReportItems = (managerMode
+                ? ReportCatalog.All
+                : ReportCatalog.All.Where(d => !d.IsManager))
+            .Where(d => d.RequiredModule is null
+                        || AccessControl.Can(session, d.RequiredModule, PermissionAction.View))
+            .ToList();
         // Seçili rapor listede kalmalı (operasyon kipinde varsayılan yönetici raporu olamaz).
         if (ReportItems.Count > 0 && !ReportItems.Any(d => d.Key == _selectedReport.Key))
             _selectedReport = ReportItems[0];

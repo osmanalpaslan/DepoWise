@@ -45,10 +45,11 @@ public class ReportArchitectureTests : IDisposable
     [Fact]
     public void Katalog_TumAnahtarlar_RunTarafindanTaninir()
     {
-        // Sayı, kataloğa BİLİNÇLİ eklemelerle birlikte güncellenir (12 → 13: STK-10a `stock-movements`).
+        // Sayı, kataloğa BİLİNÇLİ eklemelerle birlikte güncellenir (12 → 13: STK-10a `stock-movements`;
+        // 19 → 21: RPR-10 `inspection` + RPR-11 `personnel`, denetim 2026-08-26).
         // Gevşetme değil: aşağıdaki döngü HER rapor için ad/açıklama/kategori/RequiresDate ve `ByKey`
         // çözümlemesini sınamaya devam ediyor; sayı yalnız "sessizce rapor eklendi/silindi" nöbetçisidir.
-        Assert.Equal(19, ReportCatalog.All.Count);
+        Assert.Equal(21, ReportCatalog.All.Count);
         foreach (var d in ReportCatalog.All)
         {
             Assert.False(string.IsNullOrWhiteSpace(d.Name));

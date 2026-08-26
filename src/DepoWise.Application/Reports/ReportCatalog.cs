@@ -83,7 +83,16 @@ public sealed record ReportDescriptor(
     ReportFilters Filters,    // bu raporun kullandığı filtreler
     bool RequiresDate,        // true → başlangıç/bitiş ZORUNLU + varsayılan (Bu Ay); milyonlarca kayıt taraması engellenir
     string ExportButton,      // Excel yetkisi: Rapor / Yönetici Rapor özel butonu
-    string? InfoNote = null)  // GENEL AMAÇLI: rapor üstünde gösterilecek küçük bilgi/metodoloji notu (katalog-sürümlü; UI kodu değil)
+    string? InfoNote = null,  // GENEL AMAÇLI: rapor üstünde gösterilecek küçük bilgi/metodoloji notu (katalog-sürümlü; UI kodu değil)
+    // ⭐ RPR-12 (denetim 2026-08-26) — RAPORUN DAYANDIĞI MODÜL İZNİ.
+    //
+    // Raporların çoğu "reports" izniyle çalışır. Ama bazıları BAŞKA bir ekranın verisini gösterir ve
+    // servisleri zaten O ekranın iznini ister (ör. Cari Ekstre → parties, Fatura Özeti → invoices,
+    // Personel Listesi → personnel). Bu bilgi bugüne kadar YALNIZ servis kodunda duruyordu; katalog
+    // bilmediği için rapor listesi izni OLMAYAN kullanıcıya da gösteriliyor, kullanıcı "Sorgula"ya
+    // basınca 403 alıyordu. Alan doldurulduğunda liste bu izne göre süzülür (deny-by-default ile
+    // tutarlı: göremeyeceğin raporu listede de görme). null → yalnız "reports" yeterlidir.
+    string? RequiredModule = null)
 {
     public bool UsesDate => Filters.HasFlag(ReportFilters.Date);
     public bool UsesBranch => Filters.HasFlag(ReportFilters.Branch);
@@ -163,6 +172,26 @@ public static class ReportCatalog
             ReportCategory.Requests, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Requester | ReportFilters.Status, true, ExportStandard,
             InfoNote: "Her satır bir malzeme talebidir. Kalem sayısı, talepteki malzeme satırı adedidir (miktar toplamı değildir). Reddedilen ve iptal edilen talepler de listelenir; Durum filtresiyle daraltabilirsiniz."),
+        // ⭐ RPR-10 (denetim 2026-08-26) — MUAYENE / SİGORTA RAPORU.
+        // Veri modeli ve iş kuralı ZATEN vardı (vehicle_inspections + InspectionService); eksik olan yalnız
+        // raporu. Kolonlar mevcut "Muayene/Sigorta" ekranından BİREBİR alındı (ARAÇ · BELGE · SON · SONRAKİ ·
+        // YER · DURUM); şube ve kalan gün rapora özgü eklemelerdir. Durum eşiği uydurulmadı — ekranla AYNI
+        // sabit kullanılır (InspectionService.ApproachingDays = 30 gün).
+        new ReportDescriptor("inspection", "Muayene / Sigorta", "Araç belgeleri: muayene, sigorta, kasko, kalibrasyon — son/sonraki tarih ve durum",
+            ReportCategory.Vehicle, ReportGroup.Standard,
+            ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle, false, ExportStandard,
+            InfoNote: "Tarih aralığı SONRAKİ tarihe uygulanır («bu aralıkta süresi dolacak belgeler»). " +
+                      "Durum: sonraki tarih geçmişse «Süresi geçti», 30 günden az kalmışsa «Yaklaşıyor», " +
+                      "aksi halde «Normal» — Muayene/Sigorta ekranıyla aynı kural. İptal edilen belgeler listelenmez.",
+            RequiredModule: "inspection"),
+        // ⭐ RPR-11 (denetim 2026-08-26) — PERSONEL RAPORU. Kolonlar mevcut Personel ekranından alındı
+        // (AD SOYAD · UNVAN · TELEFON · ERİŞİM · DURUM) + şube. "Erişim" rozeti de ekranla aynı kuraldır.
+        new ReportDescriptor("personnel", "Personel Listesi", "Şube bazlı personel: unvan, telefon, uygulama erişimi ve durum",
+            ReportCategory.Management, ReportGroup.Standard, ReportFilters.Branch, false, ExportStandard,
+            InfoNote: "Erişim kolonu personelin uygulama hesabını gösterir: «Admin»/«Kullanıcı» (bağlı hesap), " +
+                      "«Saha personeli» (hesabı yok ama saha personeli işaretli) veya «Kullanıcı yok». " +
+                      "Silinen personel listelenmez.",
+            RequiredModule: "personnel"),
         new ReportDescriptor("materials-template", "Malzeme — Şablonlu", "Şablona bağlı malzeme kayıtları",
             ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
         new ReportDescriptor("materials-nontemplate", "Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler (incele/düzelt)",
@@ -184,37 +213,43 @@ public static class ReportCatalog
             "Seçili carinin hareket dökümü ve yürüyen bakiyesi (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, true, ExportStandard,
-            InfoNote: "Yürüyen bakiye seçili ŞUBE KAPSAMINA göre hesaplanır: yalnız seçtiğiniz (ve yetkili olduğunuz) şubelerin hareketleri toplanır. İptal edilen hareketler listede görünür ama bakiyeye girmez. Cari kartı firma genelinde tekildir; ayrışma HAREKET düzeyindedir."),
+            InfoNote: "Yürüyen bakiye seçili ŞUBE KAPSAMINA göre hesaplanır: yalnız seçtiğiniz (ve yetkili olduğunuz) şubelerin hareketleri toplanır. İptal edilen hareketler listede görünür ama bakiyeye girmez. Cari kartı firma genelinde tekildir; ayrışma HAREKET düzeyindedir.",
+            RequiredModule: "parties"),
 
         new ReportDescriptor("acc-balances", "Cari Bakiye Özeti",
             "Cari başına borç / alacak / bakiye (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, false, ExportStandard,
-            InfoNote: "Bakiye = Borç − Alacak. Pozitif: cari size borçlu. Negatif: siz cariye borçlusunuz. Bakiye SAKLANMAZ, her seferinde hareketlerden hesaplanır. Şube seçilirse yalnız o şubelerin hareketleri toplanır."),
+            InfoNote: "Bakiye = Borç − Alacak. Pozitif: cari size borçlu. Negatif: siz cariye borçlusunuz. Bakiye SAKLANMAZ, her seferinde hareketlerden hesaplanır. Şube seçilirse yalnız o şubelerin hareketleri toplanır.",
+            RequiredModule: "parties"),
 
         new ReportDescriptor("acc-invoices", "Fatura Özeti",
             "Alış / satış faturaları, tutar ve kalan (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, true, ExportStandard,
-            InfoNote: "Kalan tutar SAKLANMAZ: genel toplamdan iptal edilmemiş tahsilat/ödeme tahsisleri düşülerek hesaplanır. İptal edilmiş faturalar 'İptal' olarak görünür ve kalan hesabına girmez."),
+            InfoNote: "Kalan tutar SAKLANMAZ: genel toplamdan iptal edilmemiş tahsilat/ödeme tahsisleri düşülerek hesaplanır. İptal edilmiş faturalar 'İptal' olarak görünür ve kalan hesabına girmez.",
+            RequiredModule: "invoices"),
 
         new ReportDescriptor("acc-open-invoices", "Açık Faturalar / Vade",
             "Kapanmamış faturalar, kalan tutar ve vade durumu (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,
             ReportFilters.Branch | ReportFilters.Party, false, ExportStandard,
-            InfoNote: "Yalnız YÜRÜRLÜKTEKİ ve kalanı sıfırdan büyük faturalar listelenir. 'Gecikme' vadesi geçmiş gün sayısıdır; vadesiz faturada boştur."),
+            InfoNote: "Yalnız YÜRÜRLÜKTEKİ ve kalanı sıfırdan büyük faturalar listelenir. 'Gecikme' vadesi geçmiş gün sayısıdır; vadesiz faturada boştur.",
+            RequiredModule: "invoices"),
 
         new ReportDescriptor("acc-payments", "Tahsilat / Ödeme Özeti",
             "Cari tahsilat ve ödemeleri, yöntem ve hesap kırılımı (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Party, true, ExportStandard,
-            InfoNote: "Yalnız cari etkileyen hareketler (tahsilat/ödeme) listelenir; iç transfer ve açılış hareketleri Kasa/Banka raporundadır. İptal edilen işlemler görünür ama toplama girmez."),
+            InfoNote: "Yalnız cari etkileyen hareketler (tahsilat/ödeme) listelenir; iç transfer ve açılış hareketleri Kasa/Banka raporundadır. İptal edilen işlemler görünür ama toplama girmez.",
+            RequiredModule: "finance"),
 
         new ReportDescriptor("acc-cash", "Kasa / Banka Özeti",
             "Hesap başına giriş / çıkış / bakiye (şube kapsamlı)",
             ReportCategory.Accounting, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch, false, ExportStandard,
-            InfoNote: "Bakiye = Σ giriş − Σ çıkış; SAKLANMAZ. Tarih aralığı verilirse giriş/çıkış o aralıktan, bakiye ise TÜM hareketlerden hesaplanır (dönem hareketi ile güncel bakiye ayrı okunur). İptal edilen hareketler hiçbirine girmez."),
+            InfoNote: "Bakiye = Σ giriş − Σ çıkış; SAKLANMAZ. Tarih aralığı verilirse giriş/çıkış o aralıktan, bakiye ise TÜM hareketlerden hesaplanır (dönem hareketi ile güncel bakiye ayrı okunur). İptal edilen hareketler hiçbirine girmez.",
+            RequiredModule: "finance"),
     };
 
     public static ReportDescriptor? ByKey(string key) => All.FirstOrDefault(d => d.Key == key);
