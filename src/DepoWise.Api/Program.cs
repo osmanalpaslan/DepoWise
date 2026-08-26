@@ -2541,6 +2541,24 @@ static bool IsManagerReport(string type)
 ///
 /// Alan gönderilmezse oturum AYNEN kullanılır → eski istemciler ve Yönetici Raporları etkilenmez.
 /// </summary>
+/// <summary>
+/// ⭐ RPR-09 (denetim 2026-08-26) — OPERASYON EKRANINDA ŞUBE LİSTESİ YOK SAYILIR.
+///
+/// İstek <c>operatingBranchId</c> taşıyorsa bu, "ben OPERASYON rapor ekranıyım ve şu şubede çalışıyorum"
+/// beyanıdır (yalnız <c>/reports</c> gönderir; yönetici ekranı null gönderir). O ekranda şube seçici
+/// YOKTUR — dolayısıyla gövdede gelen <c>branchIds</c> ancak elle üretilmiş bir istektir.
+///
+/// Eskiden bu liste, kullanıcının "şube seçme" özel butonu varsa uygulanıyordu ve çalışma şubesinin
+/// YERİNE geçiyordu (<c>BranchAccess.Effective</c> sözleşmesi: istenen varsa oturum şubesi kullanılmaz).
+/// Firma/şube YETKİSİ yine korunuyordu (izinli kümeyle kesişim) — yani veri sızıntısı YOKTU — ama
+/// "operasyon raporu yalnız giriş yapılan şubeyi gösterir" güvencesi yetkiye bağlı hâle geliyordu.
+/// Artık güvence koşulsuzdur: beyan varsa kapsam o şubedir.
+///
+/// Yönetici ekranı (<c>operatingBranchId</c> göndermez) ve masaüstü DAVRANIŞI DEĞİŞMEZ.
+/// </summary>
+static List<string>? ReportBranchIds(ReportReqDto d)
+    => string.IsNullOrWhiteSpace(d.OperatingBranchId) ? d.BranchIds : null;
+
 static DepoWise.Application.Security.SessionContext ReportSession(
     DepoWise.Application.Security.SessionContext s, string? operatingBranchId)
 {
@@ -2559,7 +2577,12 @@ static DepoWise.Application.Security.SessionContext ReportSession(
 
 // Ortak rapor kataloğu (madde 2/10): web UI filtre/kolon/yetki'yi buradan sürer.
 app.MapGet("/api/reports/catalog", (HttpContext c) =>
-    S(c) is null ? Results.Unauthorized() : Results.Ok(DepoWise.Application.Reports.ReportCatalog.All.Select(d => new
+    S(c) is not { } sc ? Results.Unauthorized() : Results.Ok(DepoWise.Application.Reports.ReportCatalog.All
+    // RPR-12: kullanıcının ÇALIŞTIRAMAYACAĞI rapor listede de görünmez (deny-by-default ile tutarlı).
+    // Servis kapısı yerinde durur; bu yalnız görünürlüktür.
+    .Where(d => d.RequiredModule is null
+                || AccessControl.Can(sc, d.RequiredModule, DepoWise.Application.Security.PermissionAction.View))
+    .Select(d => new
     {
         key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),
         category = d.Category.ToString(), categoryLabel = DepoWise.Application.Reports.ReportCatalog.CategoryLabel(d.Category),
@@ -2583,7 +2606,7 @@ app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) 
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
     var s = ReportSession(s0, d.OperatingBranchId);   // RPR-07: çalışma şubesi (varsa) doğrulanır + uygulanır
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
     {
@@ -2603,7 +2626,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
     var s = ReportSession(s0, d.OperatingBranchId);
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
-    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, d.BranchIds, d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
+    var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
     var tbl = BuildReport(s, type, req);
     var bytes = svc.Excel.Export(tbl);
     var fn = System.Text.RegularExpressions.Regex.Replace(tbl.Title, @"[^\p{L}\p{Nd}]+", "_").Trim('_') + ".xlsx";

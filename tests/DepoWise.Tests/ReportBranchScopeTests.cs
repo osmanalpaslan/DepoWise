@@ -388,4 +388,85 @@ public class ReportBranchScopeTests : IDisposable
         try { Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); } catch { }
         try { File.Delete(_dbPath); } catch { }
     }
+
+    // ── ⭐ RPR-08 (denetim 2026-08-26) — DENENDİ ve GERİ ALINDI, karar burada KİLİTLENİR ─────────
+    //
+    // Denetimde şu "tutarsızlık" göze çarptı: 14 operasyon raporundan 12'si ReportScope üzerinden
+    // geçiyor (İZİNLİ ∩ ÇALIŞMA ŞUBESİ) ama "Stok Durumu" ve "Stok Sayım" BranchAccess.Allowed
+    // kullanıyor — yani oturumun GİRİŞ şubesini yok sayıyor. Effective'e çevrildi; MEVCUT bir test
+    // kırıldı (MaintenanceStockLocationTests) ve nedeni incelendiğinde tutarsızlığın BİLİNÇLİ olduğu
+    // görüldü:
+    //
+    //   Bu iki raporun filtre boyutu ŞUBE DEĞİL, STOĞUN FİZİKSEL YERİDİR (depo/şantiye).
+    //   Kullanıcı Depo A'da çalışırken Depo B'den malzeme çekebilir (bakım stok lokasyonu, STK-04/05/06).
+    //   Çalışma şubesini buraya uygulamak, ürünün desteklediği bu akışı KIRARDI.
+    //
+    // Değişiklik geri alındı. Aşağıdaki testler kararı iki yönden kilitler: YETKİ uygulanır (sızıntı yok),
+    // GÖRÜNÜM TERCİHİ uygulanmaz (meşru akış kırılmaz). Aynı "düzeltme" ileride tekrar denenirse burası
+    // kırılır ve gerekçe okunur.
+
+    /// <summary>İki şubeye yetkili kullanıcı ŞUBE A ile giriş yapsa da Stok Durumu YETKİLİ tüm depoları toplar.</summary>
+    [Fact]
+    public void RPR08_StokDurumu_Calisma_Subesi_Fiziksel_Depoyu_Daraltmaz()
+    {
+        var t = _reports.StockStatus(AB_GirisA(), new ReportRequest(Executed: true));
+        Assert.Equal(350m, Toplam(t, 2));   // 100 (A) + 250 (B) — çalışma şubesi filtre DEĞİLDİR
+    }
+
+    /// <summary>⭐ Asıl güvence: YETKİSİ OLMAYAN depo istenirse veri gelmez (kapsam yetkiyle sınırlı).</summary>
+    [Fact]
+    public void RPR08_StokDurumu_Yetkisiz_Depo_Yine_Kapali()
+    {
+        var t = _reports.StockStatus(SadeceA(), new ReportRequest(Executed: true, LocationIds: new[] { _subeB }));
+        Assert.Empty(t.Rows);
+    }
+
+    /// <summary>Çalışma şubesi A olsa bile YETKİLİ Depo B açıkça sorgulanabilmeli (bakım stok lokasyonu akışı).</summary>
+    [Fact]
+    public void RPR08_Calisma_Subesi_A_Iken_Yetkili_Depo_B_Sorgulanabilir()
+    {
+        var t = _reports.StockStatus(AB_GirisA(), new ReportRequest(Executed: true, LocationIds: new[] { _subeB }));
+        Assert.Equal(250m, Toplam(t, 3));   // depo kırılımı modu: Stok kolonu 3. sırada
+    }
+
+    /// <summary>Stok Sayım da aynı kararı paylaşır: çalışma şubesi sayılan depoyu daraltmaz.</summary>
+    [Fact]
+    public void RPR08_StokSayim_Calisma_Subesi_Depoyu_Daraltmaz()
+    {
+        SayimBelgesi("SC-A", _subeA, "M1");
+        SayimBelgesi("SC-B", _subeB, "M2");
+
+        var t = _reports.StockCount(AB_GirisA(),
+            new ReportRequest(Executed: true, FromDate: 0, ToDate: Simdi2 + 86_400_000));
+
+        var depolar = t.Rows.Select(r => Convert.ToString(r[1]) ?? "").Distinct().ToList();
+        Assert.Contains("ŞUBE A", depolar);
+        Assert.Contains("ŞUBE B", depolar);
+    }
+
+    /// <summary>KİLİT: YÖNETİCİ raporu çalışma şubesini yok saymaya DEVAM etmeli (kilitli ürün kararı).</summary>
+    [Fact]
+    public void RPR08_Yonetici_Raporu_Calisma_Subesinden_Etkilenmez()
+    {
+        var t = _reports.StatusReport(AB_GirisA(), new ReportRequest(Executed: true));
+        var adlar = t.Rows.Select(r => Convert.ToString(r[0]) ?? "").Distinct().ToList();
+        Assert.Contains("ŞUBE A", adlar);
+        Assert.Contains("ŞUBE B", adlar);
+    }
+
+    private static long Simdi2 => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    /// <summary>A ve B'ye yetkili, ŞUBE A ile giriş yapmış OPERASYON kullanıcısı.</summary>
+    private SessionContext AB_GirisA() => new("kul2", Co, new[] { RoleKeys.Staff },
+        new PermissionSet(new[] { new ModulePermission("reports", true, false, false, false) }, Array.Empty<string>()))
+    { ScopeBranchIds = new[] { _subeA, _subeB }, OperatingBranchId = _subeA };
+
+    private void SayimBelgesi(string no, string sube, string malzeme)
+    {
+        var id = "D-" + no;
+        Sql($"INSERT INTO stock_documents(id,company_id,doc_type,doc_no,doc_date,to_branch_id,status,created_at,version,is_deleted) " +
+            $"VALUES('{id}','{Co}','count','{no}',{Simdi2},'{sube}','active',{Simdi2},1,0);");
+        Sql($"INSERT INTO stock_count_lines(id,document_id,material_id,system_qty,counted_qty,diff_qty,reason) " +
+            $"VALUES('L-{no}','{id}','{malzeme}','10','12','2','sayim');");
+    }
 }

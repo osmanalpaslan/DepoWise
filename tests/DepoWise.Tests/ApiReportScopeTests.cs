@@ -34,7 +34,7 @@ public class ApiReportScopeTests : IAsyncLifetime
     private const string Pass = "Test!2026";
 
     private ServerServices _svc = null!;
-    private HttpClient _adminA = null!, _depoB1 = null!, _adminB = null!, _cokSubeli = null!;
+    private HttpClient _adminA = null!, _depoB1 = null!, _adminB = null!, _cokSubeli = null!, _secici = null!;
     private string _b1 = "", _b2 = "";
 
     public async Task InitializeAsync()
@@ -100,6 +100,16 @@ public class ApiReportScopeTests : IAsyncLifetime
             new[] { new ModulePermission("reports", true, false, false, false) }, Array.Empty<string>());
         _svc.Permissions.SaveBranchScope(sa, cokId, new[] { _b1, _b2 });
         _cokSubeli = await _host.LoginAsync("rpt_cok", Pass, CoA, _b1);
+
+        // ⭐ RPR-09: AYNI kullanıcı profili + "şube seçme" ÖZEL BUTONU. Bu buton olmadan sunucu
+        // gövdedeki branchIds'i zaten yok sayıyordu; açığın görünür olması için yetkili biri gerekir.
+        var seciciId = _svc.Users.CreateUser(sa, new NewUser("rpt_secici", Pass, "Seçici",
+            new[] { RoleKeys.Staff }, CoA, BranchId: _b1));
+        _svc.Permissions.SaveForUser(sa, seciciId,
+            new[] { new ModulePermission("reports", true, false, false, false) },
+            new[] { SpecialButtons.BranchSelect, SpecialButtons.ExportReports });
+        _svc.Permissions.SaveBranchScope(sa, seciciId, new[] { _b1, _b2 });
+        _secici = await _host.LoginAsync("rpt_secici", Pass, CoA, _b1);
     }
 
     private void SqlCalistir(string sql)
@@ -234,6 +244,22 @@ public class ApiReportScopeTests : IAsyncLifetime
         return await ApiTestHost.JsonAsync(r);
     }
 
+    /// <summary>XLSX bir ZIP arşividir; hücre metinleri içindeki XML parçalarında durur.
+    /// Dışa aktarmanın KAPSAMINI gerçekten ölçebilmek için içerik düz metne çevrilir.</summary>
+    private static string ExcelMetni(byte[] bytes)
+    {
+        using var ms = new MemoryStream(bytes);
+        using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+        var sb = new System.Text.StringBuilder();
+        foreach (var e in zip.Entries)
+        {
+            if (!e.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) continue;
+            using var sr = new StreamReader(e.Open());
+            sb.Append(sr.ReadToEnd());
+        }
+        return sb.ToString();
+    }
+
     private static List<string> SatirMetinleri(JsonElement rapor)
     {
         var list = new List<string>();
@@ -359,6 +385,91 @@ public class ApiReportScopeTests : IAsyncLifetime
 
         Assert.Contains("HRK-1", metin);
         Assert.DoesNotContain("HRK-2", metin);   // izinli AMA giriş yapılmayan şube
+    }
+
+    /// <summary>
+    /// ⭐ R25 (RPR-09, denetim 2026-08-26) — <b>OPERASYON EKRANINDA ELLE ŞUBE LİSTESİ GEÇMEZ.</b>
+    ///
+    /// Operasyon ekranında şube seçici YOKTUR; ama sunucu, gövdede gelen <c>branchIds</c>'i "şube seçme"
+    /// yetkisi olan kullanıcılar için uyguluyordu ve bu liste çalışma şubesinin YERİNE geçiyordu
+    /// (<c>BranchAccess.Effective</c> sözleşmesi). Yetki kapısı korunduğu için veri SIZMIYORDU — ama
+    /// "operasyon raporu yalnız giriş yapılan şubeyi gösterir" güvencesi yetkiye bağlı hâle geliyordu.
+    /// Artık çalışma şubesi beyanı varsa kapsam koşulsuz o şubedir.
+    /// </summary>
+    [Fact]
+    public async Task R25_Operasyon_Ekraninda_Elle_Sube_Listesi_Yoksayilir()
+    {
+        // ŞUBE 1 ile giriş + gövdede elle ŞUBE 2 → yine YALNIZ ŞUBE 1 gelmeli.
+        var t = await RaporAsync(_secici, "stock-movements",
+            new { fromDate = (long?)null, toDate = (long?)null, branchIds = new[] { _b2 }, operatingBranchId = _b1 });
+        var metin = string.Join("|", SatirMetinleri(t));
+
+        Assert.Contains("HRK-1", metin);
+        Assert.DoesNotContain("HRK-2", metin);
+    }
+
+    /// <summary>R26 — aynı kapı DIŞA AKTARMADA da geçerli (Excel ekranla aynı kapsamı almalı).</summary>
+    [Fact]
+    public async Task R26_Operasyon_Exportunda_Elle_Sube_Listesi_Yoksayilir()
+    {
+        var r = await _secici.PostAsJsonAsync("/api/reports/stock-movements/export",
+            new { fromDate = (long?)null, toDate = (long?)null, branchIds = new[] { _b2 }, operatingBranchId = _b1 });
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+
+        // Excel = ZIP; hücre metinleri içindeki XML parçalarında durur. Kapsam GERÇEKTEN ölçülür.
+        var metin = ExcelMetni(await r.Content.ReadAsByteArrayAsync());
+        Assert.Contains("HRK-1", metin);
+        Assert.DoesNotContain("HRK-2", metin);
+    }
+
+    /// <summary>KİLİT: YÖNETİCİ ekranında (çalışma şubesi beyanı YOK) şube seçimi ÇALIŞMAYA devam eder.</summary>
+    [Fact]
+    public async Task R27_Yonetici_Ekraninda_Sube_Secimi_Calisir()
+    {
+        var t = await RaporAsync(_secici, "stock-movements",
+            new { fromDate = (long?)null, toDate = (long?)null, branchIds = new[] { _b2 }, operatingBranchId = (string?)null });
+        var metin = string.Join("|", SatirMetinleri(t));
+
+        Assert.Contains("HRK-2", metin);
+        Assert.DoesNotContain("HRK-1", metin);
+    }
+
+    /// <summary>
+    /// ⭐ R28 (RPR-12, denetim 2026-08-26) — RAPOR LİSTESİ, KULLANICININ ÇALIŞTIRABİLDİKLERİDİR.
+    ///
+    /// Bazı raporlar başka bir ekranın verisini gösterir ve servisleri O ekranın iznini ister
+    /// (Cari Ekstre → parties, Personel Listesi → personnel …). Katalog bunu bilmediği için liste
+    /// izni olmayan kullanıcıya da gösteriliyor, kullanıcı "Sorgula"ya basınca 403 alıyordu.
+    /// </summary>
+    [Fact]
+    public async Task R28_Katalog_Izni_Olmayan_Raporu_Listelemez()
+    {
+        var anahtarlar = await KatalogAnahtarlariAsync(_depoB1);
+
+        Assert.Contains("stock-movements", anahtarlar);      // yetkili olduğu rapor DURUR
+        Assert.DoesNotContain("personnel", anahtarlar);      // personel izni yok
+        Assert.DoesNotContain("inspection", anahtarlar);     // muayene izni yok
+        Assert.DoesNotContain("acc-statement", anahtarlar);  // cari izni yok
+    }
+
+    /// <summary>KİLİT: adminin listesi DARALMAZ (yanlış pozitif yok).</summary>
+    [Fact]
+    public async Task R29_Admin_Katalogda_Tum_Raporlari_Gorur()
+    {
+        var anahtarlar = await KatalogAnahtarlariAsync(_adminA);
+
+        Assert.Contains("personnel", anahtarlar);
+        Assert.Contains("inspection", anahtarlar);
+        Assert.Contains("acc-statement", anahtarlar);
+        Assert.Contains("stock-movements", anahtarlar);
+    }
+
+    private static async Task<List<string>> KatalogAnahtarlariAsync(HttpClient c)
+    {
+        var r = await c.GetAsync("/api/reports/catalog");
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var j = await ApiTestHost.JsonAsync(r);
+        return j.EnumerateArray().Select(x => x.GetProperty("key").GetString() ?? "").ToList();
     }
 
     /// <summary>R17 — çalışma şubesi GÖNDERİLMEZSE eski davranış: tüm izinli şubeler.</summary>

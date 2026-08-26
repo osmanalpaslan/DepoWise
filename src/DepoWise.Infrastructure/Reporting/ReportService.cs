@@ -48,6 +48,19 @@ public sealed class ReportService
         // BAŞKA şubenin depo kimliği yazılırsa o depo okunuyordu (parametre manipülasyonu, fail-open).
         // Kardeş rapor StockMovements bunu ReportScope ile zaten doğru yapıyordu.
         // Tek otorite BranchAccess'tir; ikinci bir kapsam mantığı KURULMADI.
+        // ⚠️ BURADA BİLEREK `Allowed` KULLANILIR, `Effective` DEĞİL — ve bu bir eksik değildir.
+        // (Denetim 2026-08-26'da `Effective`e çevrilmesi DENENDİ ve GERİ ALINDI; gerekçe:)
+        //
+        // Bu raporun filtre boyutu ŞUBE değil, STOĞUN FİZİKSEL YERİDİR (`stock_balances.location_id`).
+        // `Effective`, oturumun ÇALIŞMA şubesini de uygular — yani "Depo A ile giriş yapan" birinin
+        // Depo B'nin stoğunu SORGULAMASINI engellerdi. Oysa ürün bunu bilinçli olarak destekler:
+        // kullanıcı Depo A'da çalışırken Depo B'den malzeme çekebilir (STK-04/05/06 + bakım stok
+        // lokasyonu). İki kavramın karıştırılmaması katalogda da ayrıca uyarılır (ReportFilters.Location).
+        // MaintenanceStockLocationTests.Stok_Durumu_Raporu_Bakim_Tuketimini_Secilen_Depoda_Gosterir
+        // bu kararı kilitler.
+        //
+        // `Allowed` yine de GERÇEK bir güvenlik kapısıdır: kullanıcı YETKİSİ OLMAYAN bir depoyu
+        // isteyemez (DEN-E2, fail-closed). Kapsam yetkiyle sınırlıdır; görünüm tercihiyle DEĞİL.
         var izinli = BranchAccess.Allowed(s);                 // null = sınırsız (admin / tüm şubeler)
         var locations = NormalizeLocations(req.LocationIds);
 
@@ -1005,6 +1018,9 @@ WHERE sm.company_id = @c"
         // (a) filtre boşken şubeyle sınırlı kullanıcı TÜM şubelerin sayımlarını görüyordu;
         // (b) isteğe BAŞKA şubenin depo kimliği yazılırsa o depo okunuyordu (parametre manipülasyonu).
         // Tek otorite BranchAccess'tir — DEN-E2 ile BİREBİR aynı kalıp kullanıldı, yeni kural YOK.
+        // ⚠️ Kardeş rapor Stok Durumu ile AYNI karar: burada `Allowed` kullanılır, `Effective` DEĞİL.
+        // Filtre boyutu şube değil, SAYILAN DEPOdur; çalışma şubesi bunu daraltmamalıdır. Ayrıntılı
+        // gerekçe StockStatus'taki açıklamadadır (denetim 2026-08-26'da denendi ve geri alındı).
         var izinli = BranchAccess.Allowed(s);                 // null = sınırsız (admin / tüm şubeler)
         var locations = NormalizeLocations(req.LocationIds);
         if (izinli is not null)
@@ -1195,6 +1211,146 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
 
     /// <summary>Katalog anahtarına göre raporu çalıştırır. RequiresDate ise tarih yoksa Bu Ay'a düşürür
     /// (milyonlarca kayıt taraması engellenir). Sonuç <paramref name="maxRows"/> ile üstten sınırlanır.</summary>
+    /// <summary>
+    /// ⭐ RPR-10 — MUAYENE / SİGORTA RAPORU (denetim 2026-08-26).
+    ///
+    /// Yeni iş kuralı ÜRETİLMEDİ: satırlar mevcut "Muayene/Sigorta" ekranıyla aynı kaynaktan
+    /// (<c>vehicle_inspections</c>) gelir, belge adları ve DURUM eşiği ekranın kullandığı TEK sabitten
+    /// (<see cref="DepoWise.Infrastructure.Maintenance.InspectionService.ApproachingDays"/>) okunur.
+    ///
+    /// Ekranın YAPMADIĞI ama raporun yaptığı tek şey ŞUBE KAPSAMIDIR: rapor, aracın şubesine göre
+    /// <see cref="ReportScope"/> ile daraltılır (diğer operasyon raporlarıyla aynı kalıp).
+    /// </summary>
+    public TableModel Inspections(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        // RPR-12: rapor, Muayene/Sigorta ekranının verisini gösterir → O ekranın izni de gerekir
+        // (ön muhasebe raporlarındaki desenin aynısı; "reports" tek başına yeterli değildir).
+        AccessControl.Require(s, "inspection", PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        var vehIn = InList("v.id", "@iv", req.VehicleIds);
+        cmd.CommandText = @"
+SELECT COALESCE(br.name,''), v.internal_code, COALESCE(v.plate,''), vi.doc_type,
+       vi.last_date, vi.next_date, COALESCE(vi.place,''), COALESCE(vi.result,'')
+FROM vehicle_inspections vi
+JOIN vehicles v ON v.id = vi.vehicle_id AND v.company_id = vi.company_id AND v.is_deleted=0
+LEFT JOIN branches br ON br.id = v.branch_id AND br.company_id = v.company_id
+WHERE vi.company_id=@c AND vi.is_deleted=0"
+            + ReportScope.BranchSql(s, req, "v.branch_id") + vehIn
+            + DateFilter(req, "vi.next_date") + @"
+ORDER BY (vi.next_date IS NULL), vi.next_date, v.internal_code;";
+        cmd.AddWithValue("@c", companyId);
+        ReportScope.BindBranch(cmd, s, req);
+        BindList(cmd, "@iv", req.VehicleIds);
+        BindDates(cmd, req);
+
+        var now = _clock.UtcNow.ToUnixTimeMilliseconds();
+        var rows = new List<IReadOnlyList<object?>>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                long? next = r.IsDBNull(5) ? null : r.GetInt64(5);
+                // Ekranla BİREBİR aynı kural (InspectionService.List içindeki hesap).
+                var level = next is null ? DepoWise.Infrastructure.Maintenance.DateAlertLevel.Normal
+                    : next.Value < now ? DepoWise.Infrastructure.Maintenance.DateAlertLevel.Expired
+                    : next.Value - now <= (long)DepoWise.Infrastructure.Maintenance.InspectionService.ApproachingDays * 86_400_000
+                        ? DepoWise.Infrastructure.Maintenance.DateAlertLevel.Approaching
+                        : DepoWise.Infrastructure.Maintenance.DateAlertLevel.Normal;
+                var kod = r.GetString(1);
+                var plaka = r.GetString(2);
+                rows.Add(new object?[]
+                {
+                    r.GetString(0).Length == 0 ? "Atanmamış" : r.GetString(0),
+                    plaka.Length == 0 ? kod : kod + " - " + plaka,
+                    DocTypeTr(r.GetString(3)),
+                    D(r.IsDBNull(4) ? null : r.GetInt64(4)),
+                    D(next),
+                    next is null ? "" : ((next.Value - now) / 86_400_000L).ToString(Tr),
+                    r.GetString(6),
+                    r.GetString(7),
+                    level switch
+                    {
+                        DepoWise.Infrastructure.Maintenance.DateAlertLevel.Expired => "Süresi geçti",
+                        DepoWise.Infrastructure.Maintenance.DateAlertLevel.Approaching => "Yaklaşıyor",
+                        _ => "Normal",
+                    },
+                });
+            }
+
+        return new TableModel("Muayene / Sigorta Raporu",
+            new[] { "Şube", "Araç", "Belge", "Son Tarih", "Sonraki Tarih", "Kalan Gün", "Yer", "Sonuç", "Durum" }, rows);
+    }
+
+    /// <summary>Belge türü → Türkçe etiket. Kaynak: Muayene/Sigorta ekranının kullandığı aynı eşleme.</summary>
+    private static string DocTypeTr(string t) => t switch
+    {
+        "inspection" => "Muayene", "insurance" => "Sigorta", "kasko" => "Kasko", "calibration" => "Kalibrasyon", _ => t,
+    };
+
+    /// <summary>
+    /// ⭐ RPR-11 — PERSONEL RAPORU (denetim 2026-08-26).
+    ///
+    /// Kolonlar Personel ekranından alındı; "Erişim" rozeti de ekranla AYNI kuraldır (bağlı kullanıcı →
+    /// Admin/Kullanıcı, yoksa saha personeli işareti, o da yoksa "Kullanıcı yok"). Kullanıcı adı-rol
+    /// eşlemesi <c>UserService.AccountsByPersonnel</c> ile aynı sorgudur; N+1 yoktur (tek geçiş).
+    ///
+    /// Şube kapsamı diğer operasyon raporlarıyla aynı kalıptadır (İZİNLİ ∩ ÇALIŞMA ŞUBESİ).
+    /// </summary>
+    public TableModel Personnel(SessionContext s, ReportRequest req)
+    {
+        AccessControl.Require(s, Module, PermissionAction.View);
+        // RPR-12: rapor KİŞİSEL VERİ gösterir (ad, telefon, kullanıcı adı) → Personel ekranının izni
+        // olmadan açılmaz. Aksi halde yalnız "reports" izni verilen biri personel listesini okurdu.
+        AccessControl.Require(s, "personnel", PermissionAction.View);
+        ReportGate.EnsureRunnable(req);
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
+
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT COALESCE(br.name,''), p.full_name, COALESCE(p.title,''), COALESCE(p.phone,''),
+       COALESCE(u.username,''),
+       CAST(COALESCE((SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+                      WHERE ur.user_id=u.id AND r.role_key IN (@ca,@sa)),0) AS INTEGER),
+       p.is_active, p.is_field_staff
+FROM personnel p
+LEFT JOIN branches br ON br.id = p.branch_id AND br.company_id = p.company_id
+LEFT JOIN users u ON u.personnel_id = p.id AND u.company_id = p.company_id AND u.is_deleted=0
+WHERE p.company_id=@c AND p.is_deleted=0"
+            + ReportScope.BranchSql(s, req, "p.branch_id") + @"
+ORDER BY br.name, p.full_name;";
+        cmd.AddWithValue("@c", companyId);
+        cmd.AddWithValue("@ca", RoleKeys.CompanyAdmin);
+        cmd.AddWithValue("@sa", RoleKeys.SuperAdmin);
+        ReportScope.BindBranch(cmd, s, req);
+
+        var rows = new List<IReadOnlyList<object?>>();
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var kullanici = r.GetString(4);
+                var adminMi = r.GetInt32(5) > 0;
+                var sahaMi = r.GetInt64(7) == 1;
+                var erisim = kullanici.Length > 0
+                    ? (adminMi ? "Admin · " : "Kullanıcı · ") + kullanici
+                    : (sahaMi ? "Saha personeli" : "Kullanıcı yok");
+                rows.Add(new object?[]
+                {
+                    r.GetString(0).Length == 0 ? "Atanmamış" : r.GetString(0),
+                    r.GetString(1), r.GetString(2), r.GetString(3),
+                    erisim,
+                    r.GetInt64(6) == 1 ? "Aktif" : "Pasif",
+                });
+            }
+
+        return new TableModel("Personel Raporu",
+            new[] { "Şube", "Ad Soyad", "Unvan", "Telefon", "Erişim", "Durum" }, rows);
+    }
+
     public TableModel Run(SessionContext s, string key, ReportRequest req, int maxRows = ReportLimits.DefaultMaxRows)
     {
         var desc = ReportCatalog.ByKey(key) ?? throw new ArgumentException("Bilinmeyen rapor tipi: " + key);
@@ -1254,6 +1410,8 @@ ORDER BY branch_name, mr.request_date DESC;";   // varsayılan: Şube -> Tarih (
         "fuel-depot" => FuelDepot(s, req),
         "stock-count" => StockCount(s, req),
         "requests" => Requests(s, req),
+        "inspection" => Inspections(s, req),      // RPR-10
+        "personnel" => Personnel(s, req),         // RPR-11
         "materials-template" => MaterialsByTemplate(s, req),
         "materials-nontemplate" => MaterialsNonTemplate(s, req),
         "vehicles-template" => VehiclesByTemplate(s, req),
