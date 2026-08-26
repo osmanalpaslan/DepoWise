@@ -91,8 +91,13 @@
 - SQLite mutlak `%LOCALAPPDATA%\DepoWise\Data` yolunda; Cache=Private, WAL, foreign_keys=ON, busy_timeout=5000 — bu kural COMODO'dan bağımsız, her zaman geçerli.
 
 ## 7. Test ve bitirme — Ekran QA Motoru V2 (kullanıcı kuralı, 2026-07-12)
-> ▶️ **YENİDEN AKTİF (2026-07-22, kullanıcı isteği).** §7'nin ZORUNLU QA süreci (persona testleri,
-> 7.13 Coverage Matrix, 7.14 Test Raporu) tekrar yürürlüktedir. 2026-07-15'teki duraklatma bitti.
+> ⏸️ **VARSAYILAN OLARAK DEVRE DIŞI (2026-08-26, kullanıcı kuralı).** Normal geliştirme işlerinde artık
+> **`.claude/rules/gelistirme-protokolu.md`** geçerlidir: en dar kapsam, en küçük doğru değişiklik,
+> yalnız ilgili testler. §7'nin ZORUNLU ağır QA süreci (persona testleri, 7.13 Coverage Matrix,
+> 7.14 Test Raporu) **yalnız kullanıcı açıkça kapsamlı denetim isterse** ("tam denetim yap",
+> "baştan sona tara", "stabilizasyon turu" vb.) çalışır. §7.16'daki kritik testler (tenant, permission,
+> rollback, negatif stok, sayaç, idempotency, offline) ise ilgili katmana dokunulduğunda **her zaman**
+> geçerlidir.
 >
 > Bu projede yalnızca geliştiren değil; aynı zamanda **Senior QA / Test Automation / Manual Tester /
 > UX Tester / Security Tester / Performance Tester** gibi davranılır.
