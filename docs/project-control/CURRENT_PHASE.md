@@ -1,11 +1,51 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (final stabilizasyon turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (final audit turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ---
 
+## ✅ TAMAMLANAN — FİNAL AUDIT + REPAIR + VERIFICATION TURU (2026-08-26, ikinci tur)
+
+Tam rapor: [`docs/tests/Final_Audit_2026-08-26.md`](../tests/Final_Audit_2026-08-26.md)
+Kararlar: **ADR-138 … ADR-142**
+
+### Bulunan ve düzeltilen gerçek hatalar
+| ID | Önem | Kısaca |
+|---|---|---|
+| **TNT-05** | P2 | Rapor ucu BAŞKA FİRMANIN şube kimliğini kabul ediyordu (403 yerine 200). Veri sızmıyordu, kapı fail-open'dı. |
+| **SIF-03** | P2 | Firma sıfırlamada makinelere "yerelini temizle" bildirimi **boş catch ile yutuluyordu** → silinen veri geri gelebilirdi. |
+| **MAK-01** | P2 | Anonim makine kaydı firmanın **kotasını tüketebiliyor**; iki büyük indirme ucu + enrollment **hız sınırsızdı**. |
+| **YET-02** | P2 | Ters kayıt/iptal yetkisi üç işlemin kapısıydı ama **yetki ağacında yoktu** → yönetici kimseye veremiyordu. |
+| **RL-01** | P3 | Hız sınırlayıcının durum sözlüğü **sınırsız büyüyordu** (bellek). |
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı) | 2282 geçti · 0 başarısız · 37 atlandı |
+| Tam test — son koşu 1 | **2323 geçti · 0 başarısız · 37 atlandı** |
+| Tam test — son koşu 2 (bağımsız) | **2323 geçti · 0 başarısız · 37 atlandı → birebir aynı, flaky yok** |
+| PostgreSQL koşusu | **49 geçti · 0 başarısız** |
+| Release derlemesi (API·Web·Desktop) | **0 hata** |
+| Yeni migration | **YOK** → şema **72**'de kaldı |
+| Gerçek tarayıcı turu | izole, **iki şubeli** kurulum · 60 istek · **0 hata** |
+| İzole masaüstü turu | ayrı veritabanı + yerel sunucu · **72/72 migration** · üretime **bağlanmadı** |
+| Şube izolasyonu | **17 senaryo** izole matriste (üretimde 0 şube → canlıda gözlemlenemez) |
+
+### Yayın
+| Bileşen | Sürüm |
+|---|---|
+| API | **v168** |
+| Web | **v192** |
+| Masaüstü | **1.0.151** (checksum `431C0650…`) |
+| Şema | **72** (değişmedi) |
+
+### Sıradaki tek iş
+Kullanıcı kararı bekleyenler (bkz. `KNOWN_ISSUES.md`): **makine aktivasyon modeli** ·
+**PostgreSQL dosya yedeği** · işlevsiz iki yetki anahtarı · rapor sayfalı API'si · Satın Alma alanı.
+
+---
 ## ✅ TAMAMLANAN — FİNAL STABİLİZASYON TURU (2026-08-26)
 
 Tam rapor: [`docs/tests/Final_Stabilizasyon_2026-08-26.md`](../tests/Final_Stabilizasyon_2026-08-26.md)

@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-26 (final stabilizasyon turu)
+> Son güncelleme: 2026-08-26 (final audit turu — aynı gün ikinci tur)
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -25,6 +25,34 @@
   **Kalan risk:** paket boyutu büyürse veya sürüm hızı artarsa `KeepCount` düşürülmeli ya da
   `fly volumes extend` ile disk büyütülmeli. Etki: **kritik**.
 
+
+
+## 🟡 FİNAL AUDIT TURUNDA AÇIK BIRAKILAN (2026-08-26, ikinci tur)
+
+- **MAK-01/b — makine aktivasyon modeli.** Anonim `/api/machines/register` (giriş ekranından ÖNCE
+  çağrıldığı için anonim kalmak ZORUNDA) yeni makineyi kota dolana kadar kendiliğinden `active` yapar.
+  Anonim bir çağıran bu yolla firmanın makine kotasını tüketebilir ve **yeni/yeniden kurulan** gerçek
+  makine `pending` kalıp senkron yapamaz. ⚠️ Mevcut aktif makineler DÜŞMEZ ve **veri sızıntısı YOKTUR**
+  (kayıt bir cihaz jetonu vermez). Bu turda IP başına hız sınırı kondu (ADR-140). **Modeli değiştirmek**
+  — yeni makinenin ancak kimlik doğrulanmış girişten sonra aktifleşmesi — kurulum akışını etkiler →
+  **kullanıcı kararı**. Bugünkü telafi: yönetici sahte makineleri Makine Yönetimi'nden görür ve iptal eder.
+
+- **YET-01 — işlevsiz iki yetki anahtarı.** `btn-reset-db` (Veritabanı Sıfırlama) ve `btn-logo`
+  (Firma Logosu Değiştir) yetki ağacında görünür ama kodda **hiçbir yerde kapı değildir**; yönetici
+  yetki verdiğini sanır, hiçbir şey değişmez. Anahtarları silmek verilmiş kayıtları öksüz bırakacağı
+  için dokunulmadı; testte bilinçli istisna olarak listelendi. **Etki:** düşük (yanıltıcı).
+
+- **YET-02/b — arayüzde iptal butonu kapısı tutarsız.** Yetki artık verilebilir (ADR-141), ama arayüz
+  bunu tutarlı uygulamıyor: masaüstü Yakıt ekranı butonu gizliyor, masaüstü Stok ekranı ve web
+  gizlemiyor → yetkisi olmayan kullanıcı butonu görüp hata alıyor. **Güvenlik açığı DEĞİL** (sunucu
+  fail-closed). **Etki:** düşük (kullanıcı deneyimi).
+
+- **PRF-01/c — rapor yanıt boyutu.** 50.000 satırda API yanıtı ~**6 MB** (sorgu 275 ms + serileştirme
+  95 ms). Tarayıcı çizimi ADR-135 ile çözüldü; kalan yük **aktarım**dır. Sayfalı API ileride gerekebilir.
+
+- **Şube izolasyonu üretimde GÖZLEMLENEMEDİ.** Üretimde hiç şube tanımlı değil (0 şube); kural izole
+  ortamda 17 senaryoyla kanıtlandı (ADR-142). Şube tanımlandığında davranış testlerin gösterdiği gibi
+  olacaktır, ama bu **canlı veriyle doğrulanmış değildir**.
 
 ## 🟡 Bu turda AÇIK BIRAKILAN — kullanıcı kararı gerekiyor (2026-08-26)
 

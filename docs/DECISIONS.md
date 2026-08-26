@@ -1812,3 +1812,71 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
 - **"Satın Alma" kategorisi doldurulmadı:** kodda satın alma **domaini yok** (yalnız talep durumu olarak
   "Satın Alma Sürecinde" geçiyor). Sahte ekran üretilmedi → **kullanıcı kararı**.
 - Katalog 19 → **21**.
+
+## ADR-138 — TNT-05: şube kimliği firma aidiyeti doğrulanmıyordu (2026-08-26)
+- **Durum:** rapor ucu, istekle gelen `operatingBranchId`'yi `BranchAccess.Require` ile doğruluyordu.
+  Ama `BranchAccess` yalnız OTURUM üzerinden çalışır ve **veritabanını bilmez**: sınırsız (admin) bir
+  kullanıcıda izinli küme `null` olduğu için **herhangi bir şube kimliği** — başka firmanınki dahil —
+  "kapsam içi" sayılıyordu. Sunucu 403 yerine **200 (boş rapor)** dönüyordu.
+- **Veri sızıntısı YOKTU:** rapor sorguları ayrıca `company_id` ile filtreler ve yazma yolları
+  `EnsureBranchOwned` ile şube sahipliğini veritabanından doğrular. Kırılan şey **kapının kendisiydi**
+  (fail-open) ve ADR-128'de yazılı "kapsam dışı → 403" sözleşmesiydi.
+- **Karar:** `BranchService.BelongsToCompany` eklendi ve kapının **önüne** kondu. Oturumla yapılamayan
+  tek kontrol (kimliğin firmaya aidiyeti) veritabanından yapılır; `BranchAccess` semantiği DEĞİŞMEDİ.
+- **Kanıt:** `M15` testi, kapı devre dışı bırakılınca **kırılıyor**; açıkken geçiyor.
+
+## ADR-139 — SIF-03: sıfırlama bildirimi sessizce yutuluyordu (2026-08-26)
+- **Durum:** `/api/admin/reset-company-business` önce sunucudaki iş verisini **siliyor**, sonra makinelere
+  "yerel kopyanı temizle" isteği bırakıyordu — ve ikinci adım **boş bir catch** ile yutuluyordu.
+- **Neden ciddi:** ikinci adım başarısız olursa sunucu boşalmış ama masaüstleri bunu **hiç öğrenmemiş**
+  olur; bir sonraki gönderimde silinen veriyi geri yüklerler. Bu, SIF-02'de kapatılan "silinen veri geri
+  geliyor" hatasının aynısıdır. Üstelik yanıt yine `ok: true` dönüyordu.
+- **Karar:** sıra **tersine** çevrildi — önce bildirim, sonra silme. Bildirim **yıkıcı değildir**
+  ("yereli temizle + sunucudan yeniden çek"), bu yüzden silme sonradan başarısız olsa bile veri kaybı
+  olmaz. Bildirim başarısız olursa **hiçbir şey silinmez** ve kullanıcı hatayı görür.
+- **Kanıt:** kaynak kilidi + kuralın kendisini sınayan öz-doğrulama testi (ilk sürüm bir YORUM satırındaki
+  aynı metinden başlayıp yanlış bloğu ölçüyordu; kasten bozma denemesiyle yakalandı, çapa kesinleştirildi).
+
+## ADR-140 — MAK-01: anonim kalması ZORUNLU uçlarda hız sınırı yoktu (2026-08-26)
+- Üç uç kimlik doğrulaması **isteyemez** (hepsi kimlik bilgisi oluşmadan önce çağrılır):
+  `/api/machines/register` (masaüstü makine kapısı, giriş ekranından önce) · `/api/setup/download`
+  (yeni bilgisayara kurulum aracı) · `/api/releases/{v}/download` (kurulum + otomatik güncelleme; jeton
+  göndermez). `/sync/enroll` de sınırsızdı.
+- **Ölçülen durum:** anonim çağıran, firmanın **makine kotasını** tüketebiliyor — yeni kayıt
+  `ActiveCount < quota` olduğu sürece kendiliğinden `active` oluyor; kota dolunca **gerçek** makine
+  `pending` kalıyor ve senkron yapamıyor. Firma kimlikleri `/api/public/companies` ile herkese açık.
+  ⚠️ **Veri sızıntısı yok** (kayıt cihaz jetonu vermez; `/sync/push` ayrıca doğrular) ve **mevcut aktif
+  makineler düşürülmez** — yalnız yeni makine etkilenir. İndirme uçlarında ise ~86 MB paket sınırsız kez
+  çekilebiliyordu (tek küçük makinede bant genişliği/CPU).
+- **Karar:** mevcut `RateLimiter` ile IP başına sınır kondu (makine kaydı 30/5dk · indirme 30/10dk ·
+  enrollment giriş limiti). Sınırlar meşru kullanımın **çok üstünde**: ortak IP arkasındaki (NAT) bir
+  ofiste 5 makine bile etkilenmez.
+- **Kapsam dışı bırakılan (kullanıcı kararı):** aktivasyon MODELİNİ değiştirmek (yeni makinelerin ancak
+  kimlik doğrulanmış girişten sonra aktifleşmesi) masaüstü kurulum akışını değiştirir; bu turda bilinçli
+  olarak yapılmadı. Bugünkü telafi: yönetici sahte makineleri Makine Yönetimi'nden görüp iptal edebilir.
+- **Yan bulgu:** `RateLimiter`'ın durum sözlüğü **sınırsız büyüyordu** (IP başına kalıcı satır; sunucu
+  bellek sınırı 207 MB). Eşik aşılınca **penceresi dolmuş** satırlar atılır; karar mantığı değişmedi.
+
+## ADR-141 — YET-02: "iptal / ters kayıt" yetkisi ağaçta yoktu (2026-08-26)
+- **Durum:** `btn-reverse` üç gerçek işlemin kapısıydı (stok belgesi ters kaydı, yakıt depo girişi iptali,
+  yakıt dağıtımı iptali) ama `SpecialButtons.All` listesinde **yoktu**. Sonuç: yetki yalnız **admin
+  bypass'ıyla** geçilebiliyordu — firma yöneticisi bunu kimseye **veremiyor**, kullanıcı
+  "Yetki yok: buton btn-reverse" hatasında kilitleniyordu ve yöneticinin çözebileceği bir yol yoktu.
+- **Karar:** listeye eklendi. Bu kimseye yetki **vermez** (deny-by-default sürer); yalnız yöneticinin
+  bilinçli olarak verebilmesini sağlar. Admin davranışı değişmedi.
+- **YET-01 (raporlandı, dokunulmadı):** `btn-reset-db` ve `btn-logo` ağaçta görünür ama kodda **hiçbir
+  yerde kapı değildir** → yönetici yetki verdiğini sanır, hiçbir şey değişmez. Anahtarları silmek
+  verilmiş kayıtları öksüz bırakacağı için bu turda dokunulmadı; test içinde **bilinçli istisna** olarak
+  listelendi ki YENİ bir işlevsiz buton sessizce eklenemesin.
+- **Kalan (kullanıcı kararı):** arayüz `btn-reverse` üzerinden **tutarlı** kapı uygulamıyor — masaüstü
+  Yakıt ekranı uyguluyor, Stok ekranı ve web uygulamıyor; bu yüzden yetkisi olmayan kullanıcı butonu
+  görüp hata alıyor. Güvenlik açığı DEĞİL (sunucu fail-closed), arayüz tutarlılığıdır.
+
+## ADR-142 — Şube izolasyonu üretim verisiyle DOĞRULANAMAZ: izole matris kuruldu (2026-08-26)
+- **Sınır:** üretim veritabanında bugün **hiç şube tanımlı değil** (0 şube). Dolayısıyla şube izolasyonu
+  canlı veriyle gözlemlenemez ve "üretimde çalışıyor" **denemez**.
+- **Karar:** kural izole ortamda kanıtlanır — `FİRMA A (ŞUBE A1, A2)` + `FİRMA B (ŞUBE B1)` kurgusu,
+  3 rapor × (görme / görmeme / seçememe / elle yazsa da geçememe) + kapsam listeleri + **Excel içeriği
+  açılarak** dışa aktarma kapsamı + yönetici raporu kapısı. Toplam 25 senaryo.
+- Ayrıca gerçek tarayıcıda iki şubeli bir kurulumla doğrulandı: depo personelinin giriş şube listesi
+  yalnız kendi şubesi; raporlar yalnız kendi şubesinin verisi; yönetici ekranı adresle açılamıyor.
