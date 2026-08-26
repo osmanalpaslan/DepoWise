@@ -161,6 +161,17 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     [ObservableProperty] private LookupItem? _selectedSupplier;
 
     // ── Ortak hareket alanları ──
+    /// <summary>
+    /// STK-11 (kullanıcı isteği 2026-08-26) — İŞLEM TARİHİ: hareketin AİT OLDUĞU iş günü.
+    /// Varsayılan BUGÜN; kullanıcı geçmiş veya gelecek bir tarih seçebilir (üst sınır YOKTUR —
+    /// ileri tarihli planlanmış hareket bilinçli olarak serbesttir).
+    ///
+    /// ⚠️ Bu alan yalnız <c>stock_documents.doc_date</c>'i belirler. Kaydın SİSTEME GİRİLDİĞİ
+    /// gerçek zaman (<c>created_at</c> + audit) sunucu saatinden yazılır ve buradan
+    /// DEĞİŞTİRİLEMEZ — kullanıcı geri tarih seçerek kaydı bugün attığını gizleyemez.
+    /// </summary>
+    [ObservableProperty] private DateTimeOffset? _docDate = new DateTimeOffset(DateTime.Today);
+
     [ObservableProperty] private decimal _quantity;
     [ObservableProperty] private decimal _unitPrice;
     [ObservableProperty] private string _note = "";
@@ -383,6 +394,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     DesktopServices.Stock.ReceiveIn(_session,
                         new[] { new StockLine(materialId, Quantity, UnitPrice > 0 ? UnitPrice : null) }, op,
                         branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                        docDate: DocDate?.ToUnixTimeMilliseconds(),   // STK-11: işlem tarihi (created_at DEĞİL)
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // giriş şubesi = login şube
 
                 // madde 1.1 (kullanıcı kararı 2026-08-07): mevcut malzemeye girişte Tedarikçi değiştirildiyse
@@ -417,6 +429,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     if (!await ConfirmService.AskAsync($"Şube içi çıkış kaydedilsin mi?{lineText} (stok AZALIR)", "Depo Çıkışı — Şube İçi")) return;
                     DesktopServices.Stock.IssueOut(_session, exitLines, op,
                         branchId: _session.OperatingBranchId, personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id, note: note,
+                        docDate: DocDate?.ToUnixTimeMilliseconds(),   // STK-11
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);   // çıkış şubesi = login şube
                     Status = exitLines.Count == 1 ? "Şube içi çıkış kaydedildi." : $"Şube içi çıkış kaydedildi ({exitLines.Count} malzeme).";
                 }
@@ -428,6 +441,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
                     if (ToBranch.Id == from) { FormError = "Hedef şube, kendi (kaynak) şubenizden farklı olmalı."; return; }
                     if (!await ConfirmService.AskAsync($"{LoginBranchName} → {ToBranch.Name} şube dışı çıkışı (transfer) kaydedilsin mi?{lineText}", "Depo Çıkışı — Şube Dışı")) return;
                     DesktopServices.Stock.Transfer(_session, exitLines, from, ToBranch.Id, op, note,
+                        docDate: DocDate?.ToUnixTimeMilliseconds(),   // STK-11
                         personnelId: PersonnelSel?.Id, vehicleId: VehicleSel?.Id,
                         invoiceNo: inv, orderSlipNo: ord, creditSlipNo: crd);
                     Status = exitLines.Count == 1 ? "Şube dışı çıkış (transfer) kaydedildi." : $"Şube dışı çıkış (transfer) kaydedildi ({exitLines.Count} malzeme).";
@@ -539,6 +553,7 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
         Quantity = 0; UnitPrice = 0; Note = ""; Branch = null; FromBranch = null; ToBranch = null;
         PersonnelSel = null; VehicleSel = null;
         InvoiceNo = ""; OrderSlipNo = ""; CreditSlipNo = "";
+        DocDate = new DateTimeOffset(DateTime.Today);   // STK-11: her yeni kayıtta varsayılan BUGÜN
         ExitScope = "Şube İçi";
         FormError = null;
         RefreshMaterials();

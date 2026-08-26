@@ -28,6 +28,30 @@ namespace DepoWise.Infrastructure.Materials;
 /// </summary>
 public sealed class StockMovementFilterSql
 {
+    /// <summary>
+    /// ═══ İŞLEM TARİHİ — EKRAN VE RAPORUN <b>TEK</b> KAYNAĞI ═══ (STK-11, 2026-08-26)
+    ///
+    /// <b>İki farklı zaman vardır ve karıştırılmaz:</b>
+    /// <list type="bullet">
+    ///   <item><b>İşlem tarihi</b> = hareketin AİT OLDUĞU iş günü. Kullanıcı formdan seçer;
+    ///         geçmiş veya gelecek olabilir. Belge satırında <c>stock_documents.doc_date</c>.</item>
+    ///   <item><b>Kayıt zamanı</b> = kaydın sisteme GERÇEKTEN girildiği an; kullanıcı değiştiremez
+    ///         (<c>stock_movements.created_at</c> + audit). "Bugün attığım belli olsun" bundan gelir.</item>
+    /// </list>
+    ///
+    /// <b>Neden COALESCE.</b> Belgesiz hareket satırı olabilir (<c>document_id</c> NULL); o durumda
+    /// tek bilinen zaman kayıt zamanıdır. Ayrıca bu tur öncesi <b>hiçbir çağıran docDate göndermiyordu</b>
+    /// (<c>RunDocumentInTx</c>: <c>date = docDate ?? now</c>, <c>created_at = now</c> — aynı değişken),
+    /// yani MEVCUT tüm satırlarda <c>doc_date == created_at</c>. Bu yüzden ifade geçmiş veriyi
+    /// <b>hiç değiştirmez</b>; yalnız bundan sonra girilecek geri/ileri tarihli kayıtlarda ayrışır.
+    ///
+    /// <b>Sıralama bilinçli olarak DEĞİŞTİRİLMEDİ</b> (<c>ORDER BY sm.created_at DESC</c>): kullanıcı
+    /// geri tarihli bir kayıt girdiğinde onu listenin EN ÜSTÜNDE görmeye devam etsin diye. İşlem
+    /// tarihine göre sıralamak, az önce kaydedilen satırı listenin ortasına düşürüp "kaydedilmedi mi?"
+    /// izlenimi verirdi.
+    /// </summary>
+    public const string IslemTarihiSql = "COALESCE(d.doc_date, sm.created_at)";
+
     private readonly string[] _locations;      // gerçek depo kimlikleri
     private readonly bool _unassignedWanted;   // "" seçildi mi (📦 Atanmamış)
     private readonly string[] _types;

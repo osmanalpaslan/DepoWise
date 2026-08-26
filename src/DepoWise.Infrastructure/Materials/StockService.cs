@@ -51,6 +51,16 @@ public sealed record UnassignedPage(
             : $"{TotalCount} kayıt bulundu.";
 }
 
+/// <summary>
+/// ⚠️ <b>STK-11 (2026-08-26) — <c>CreatedAt</c> ALANININ ANLAMI.</b> Bu alan artık hareketin
+/// <b>İŞLEM TARİHİNİ</b> (belgedeki iş günü) taşır: <c>COALESCE(d.doc_date, sm.created_at)</c>.
+/// Kullanıcı formda geri/ileri tarih seçtiğinde ekranda ve raporda görünen tarih budur.
+///
+/// <b>Alan adı bilinçli olarak DEĞİŞTİRİLMEDİ:</b> web tablosu JSON'daki <c>createdAt</c>/<c>dateText</c>
+/// anahtarlarını okur ve alanı yeniden adlandırmak yayındaki istemcilerle sözleşmeyi kırardı.
+/// Kaydın sisteme girildiği GERÇEK zaman <c>stock_movements.created_at</c> sütununda ve audit
+/// kaydında olduğu gibi durur; bu satır nesnesi onu taşımaz.
+/// </summary>
 public sealed record StockMovementRow(long CreatedAt, string MovementType, string Code, string Name, string Unit,
     int Direction, decimal Quantity, decimal? UnitPrice, string? Note,
     string? InvoiceNo = null, string? OrderSlipNo = null, string? CreditSlipNo = null,
@@ -666,8 +676,10 @@ WHERE m.company_id = @c AND m.is_deleted = 0";
         // Şube filtresi JOIN koşulunda: başka firmanın şubesi adıyla sızmasın (savunma derinliği).
         // STK-10b-4: malzeme JOIN'ine de company_id koşulu eklendi → rapor sorgusuyla BİREBİR aynı
         // (yalnız daraltır; savunma derinliği).
+        // STK-11: gösterilen TARİH = işlem tarihi (belgedeki iş günü), kayıt zamanı DEĞİL.
+        // Tek kaynak: StockMovementFilterSql.IslemTarihiSql (rapor da aynısını kullanır).
         var sb = new System.Text.StringBuilder(@"
-SELECT sm.created_at, sm.movement_type, m.code, m.name, COALESCE(u.name,''),
+SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, m.code, m.name, COALESCE(u.name,''),
        sm.direction, sm.quantity, sm.unit_price, sm.note,
        d.invoice_no, d.order_slip_no, d.credit_slip_no, sm.document_id, sm.is_reversed,
        sm.branch_id, bl.name, sm.branch_from_id, bf.name
@@ -679,8 +691,10 @@ LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.compan
 LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c");
         sb.Append(DepoWise.Application.Security.BranchScope.Sql(s, "sm.branch_id"));
-        if (fromMs is not null) sb.Append(" AND sm.created_at >= @from");
-        if (toMs is not null) sb.Append(" AND sm.created_at <= @to");
+        // STK-11: tarih aralığı da İŞLEM TARİHİNE göre süzer — kullanıcı 25.08 dediğinde
+        // 25.08 iş günlü hareketi görür (kaydın 26.08'de girilmiş olması sonucu değiştirmez).
+        if (fromMs is not null) sb.Append(" AND " + StockMovementFilterSql.IslemTarihiSql + " >= @from");
+        if (toMs is not null) sb.Append(" AND " + StockMovementFilterSql.IslemTarihiSql + " <= @to");
         // 🔴 Lokasyon · tür · arama · malzeme — RAPORLA ORTAK üreteç (STK-10b-4).
         var filtre = StockMovementFilterSql.Build(locationIds, movementTypes, search, materialIds);
         sb.Append(filtre.Sql);

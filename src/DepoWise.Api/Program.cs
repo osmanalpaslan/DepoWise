@@ -1796,7 +1796,7 @@ app.MapPost("/api/stock/receive", (HttpContext c, StockReceiveDto d) =>
             new[] { new DepoWise.Infrastructure.Materials.StockLine(materialId, d.Quantity, d.UnitPrice > 0 ? d.UnitPrice : null) },
             // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
             string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!,
-            d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
+            d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note), docDate: d.DocDate,   // STK-11
             invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { id = materialId });
 }).RequireAuthorization();
@@ -1826,7 +1826,7 @@ app.MapPost("/api/stock/issue", (HttpContext c, StockMoveDto d) =>
     svc.Stock.IssueOut(s, lines,
         // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
         string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!,
-        d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note),
+        d.BranchId, d.PersonnelId, d.VehicleId, Doc(d.Note), docDate: d.DocDate,   // STK-11
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
@@ -1839,6 +1839,7 @@ app.MapPost("/api/stock/transfer", (HttpContext c, StockTransferDto d) =>
     // G1-05(a): istemci jetonu varsa kullanılır; yoksa eski davranış.
     svc.Stock.Transfer(s, lines, d.FromBranchId, d.ToBranchId,
         string.IsNullOrWhiteSpace(d.OperationId) ? Guid.NewGuid().ToString("N") : d.OperationId!, Doc(d.Note),
+        docDate: d.DocDate,   // STK-11
         personnelId: d.PersonnelId, vehicleId: d.VehicleId,
         invoiceNo: Doc(d.InvoiceNo), orderSlipNo: Doc(d.OrderSlipNo), creditSlipNo: Doc(d.CreditSlipNo));
     return Results.Ok(new { ok = true });
@@ -3731,12 +3732,17 @@ record StockReceiveDto(string Code, string Name, string? Type, string? CategoryI
     // yalnız SupplierId (kart güncellemesi için) kullanılır. Boşsa eski davranış (kod ile upsert) değişmez.
     string? MaterialId = null,
     // G1-05(a): opsiyonel idempotency jetonu — yoksa eski davranış (yeni GUID).
-    string? OperationId = null);
+    string? OperationId = null,
+    // STK-11 (2026-08-26): İŞLEM TARİHİ (belgedeki iş günü, Unix ms). OPSİYONELDİR — göndermeyen
+    // eski istemcide davranış birebir aynıdır (servis `docDate ?? now` uygular). Bu alan
+    // created_at / audit zamanını ETKİLEMEZ; onlar daima gerçek saatten yazılır.
+    long? DocDate = null);
 /// <summary>İş #8: <c>Lines</c> ÇOK malzemeli işlem içindir. Verilmezse eski tek malzemeli alanlar
 /// (MaterialId + Quantity) kullanılır → mevcut istemciler bozulmaz.</summary>
 record StockLineDto(string MaterialId, decimal Quantity);
-record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null);
-record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null);
+// STK-11: DocDate = işlem tarihi (Unix ms, opsiyonel). Bkz. StockReceiveDto açıklaması.
+record StockMoveDto(string MaterialId, decimal Quantity, string? BranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null);
+record StockTransferDto(string MaterialId, decimal Quantity, string? FromBranchId, string? ToBranchId, string? PersonnelId, string? VehicleId, string? Note, string? InvoiceNo, string? OrderSlipNo, string? CreditSlipNo, List<StockLineDto>? Lines = null, string? OperationId = null, long? DocDate = null);
 record StockReverseDto(string DocumentId, string? Reason);
 /// <summary>STK-08 — ATANMAMIŞ stok dağıtımı. KAYNAK ALANI YOKTUR: kaynak daima ATANMAMIŞ'tır
 /// (istemcinin kaynak göndermesine izin verilmez — KARAR T-1).</summary>

@@ -2068,3 +2068,86 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   **Model değiştirilmedi** ve artık "karar bekleyen" listesinden çıkarılmıştır.
 - **F (internet yok)** masaüstü `MachineGate` önbelleğindedir; Avalonia arayüzü otomatize edilemediği için
   **test edilmedi** — uydurma test yazılmadı.
+
+---
+
+## ADR-155 — MAS-03: masaüstü Malzeme Giriş-Çıkış tablosu görülemiyordu (2026-08-26, beşinci tur)
+
+**Kullanıcı bildirimi (canlı kullanım).** "Masaüstünde Malzeme Giriş/Çıkış ekranındaki kayıtları
+inceleyemiyorum; tablo çok minimal kalıyor. Web'de aynı kayıtları görebiliyorum."
+
+**Kök neden — VERİ SORUNU DEĞİL, kanıtlandı.** Web ve masaüstü **aynı** veriyi **aynı** metottan
+alıyor: web `GET /api/stock` → `svc.Stock.RecentMovements(s)`; masaüstü doğrudan
+`DesktopServices.Stock.RecentMovements(_session)` (limit 200, aynı şube kapsamı). Ekranın alt
+köşesindeki sayaç `Movements.Count`'tan gelir ve kullanıcının görüntüsünde **"19 hareket"**
+yazıyordu → koleksiyon **doluydu**. Sorun yerleşimdeydi: kök `Grid`
+`RowDefinitions="Auto,Auto,*,Auto"`; form **Auto** satırındaydı ve istediği boyu alıyordu
+(44 form alanı + 130 px arama paneli + 180 px sepet + 44 px not ≈ 700 px), listeye (`*`) yalnız
+artan ~50 px kalıyordu.
+
+**Karar.** Form, kapsayıcının yüksekliğinin bir **oranıyla** sınırlanır (sabit piksel DEĞİL) ve
+taşarsa kendi içinde kayar; liste satırı `*` kalır ve bir **taban yükseklik** alır. Böylece pencere
+büyüyünce tablo da büyür, küçülünce tablo yok olmaz.
+
+**Neden sabit piksel değil.** "Formu 420 px'e sabitle" iki yönde de kırılırdı: 768 px ekranda
+satırlar taşar, 1440 px ekranda form gereksiz kırpılırdı.
+
+**Test edilebilirlik.** Avalonia arayüzü bu projede otomatize edilemiyor. Karar mantığı saf bir
+fonksiyon olarak `DepoWise.Application.Ui.FormListeOrani`'ye taşındı → gerçek sayılarla sınanır;
+görünümün o kararı uyguladığı XAML üzerinde mimari testlerle kilitlendi. Sahte GUI testi
+üretilmedi. (Aynı yaklaşım BAG-01'de `BaglantiIzleyici` ile kullanılmıştı.)
+
+**Dokunulmayanlar.** API, veritabanı, senkron, `RecentMovements` sorgusu, ekranın işlevi ve
+mevcut tasarımı değişmedi.
+
+---
+
+## ADR-156 — STK-11: işlem tarihi ile kayıt zamanı ayrıldı, MIGRATION AÇILMADI (2026-08-26, beşinci tur)
+
+**Kullanıcı isteği.** "Malzeme Giriş/Çıkış formunda tarih alanı yok. Bugün 26.08 iken 25.08 tarihli
+giriş, ya da 30.08 tarihli planlanmış hareket girebilmeliyim — ama kaydı bugün attığım belli olsun."
+
+**Mevcut şema analizi (yeni kolon AÇILMADI).** İhtiyaç duyulan ayrım şemada **zaten vardı**:
+`stock_documents` tablosunda `doc_date` (iş günü) ve `created_at` (kayıt zamanı) **ayrı** sütunlar
+(Migration006, 2026-07). Dahası `StockService`'in tüm giriş noktaları — `ReceiveIn` · `IssueOut` ·
+`Transfer` · `Count` — baştan beri opsiyonel bir `docDate` parametresi alıyor ve
+`RunDocumentInTx` şunu yapıyordu:
+
+```
+var now  = _clock.UtcNow...;   // gerçek kayıt zamanı
+var date = docDate ?? now;     // iş günü
+InsertDocument(..., docNo, date, ..., now, ...);   // doc_date = date, created_at = now
+AuditWriter.Write(..., _clock);                    // audit DAİMA gerçek saat
+```
+
+Yani **eksik olan yalnız arayüz ve API alanıydı**. Şema **72'de kaldı**; yeni migration yok.
+
+**Neden `stock_movements`'a kolon eklenmedi.** Hareket satırının belgesi vardır (`document_id`);
+iş günü belgenin niteliğidir ve projedeki her alan zaten bu kalıbı kullanır
+(`vehicle_maintenances.performed_date`, `fuel_depot_entries.entry_date`,
+`material_requests.request_date`, `daily_activities.activity_date`). İkinci bir tarih sütunu
+açmak aynı bilgiyi iki yerde tutup ayrışma riski üretirdi.
+
+**Değişen.** (1) Masaüstü ve web formuna **"İşlem Tarihi"** alanı — varsayılan **bugün**, geçmiş ve
+gelecek **serbest** (üst sınır yok). (2) API DTO'larına opsiyonel `DocDate` (Unix ms) — göndermeyen
+eski istemci için davranış birebir aynı. (3) Hareket ekranı ve Stok Hareketleri raporu artık
+**işlem tarihini** gösterir ve ona göre süzer; ifade tek kaynaktan gelir:
+`StockMovementFilterSql.IslemTarihiSql = COALESCE(d.doc_date, sm.created_at)`.
+
+**Geçmiş veri güvende.** Bu tur öncesi **hiçbir** çağıran `docDate` göndermiyordu → mevcut tüm
+satırlarda `doc_date == created_at` (aynı `now` değişkeni). `COALESCE` ifadesi bu yüzden geçmiş
+kayıtların görünümünü **hiç değiştirmez**.
+
+**Bilinçli olarak DEĞİŞTİRİLMEYENLER.**
+- **Sıralama** `ORDER BY sm.created_at DESC` kaldı: kullanıcı geri tarihli bir kayıt girdiğinde onu
+  listenin **en üstünde** görsün. İşlem tarihine göre sıralamak, az önce kaydedilen satırı listenin
+  ortasına düşürüp "kaydedilmedi mi?" izlenimi verirdi.
+- **Stok muhasebesi:** ileri tarihli hareket bakiyeyi **beklemeden** etkiler — mevcut iş kuralı budur
+  ve bu turda değiştirilmedi (test `IST13` bunu kilitler, ileride sessizce değişirse uyarır).
+- **`StockMovementRow.CreatedAt` alan adı:** artık işlem tarihini taşıyor ama adı korundu — web
+  tablosu JSON'daki `createdAt`/`dateText` anahtarlarını okur; yeniden adlandırmak yayındaki
+  istemcilerle sözleşmeyi kırardı. Anlam, kaydın üstünde açıkça belgelendi.
+
+**Senkron.** `stock_documents` senkron tablo listesindedir ve paket `SELECT *` ile üretilir →
+`doc_date` ve `created_at` olduğu gibi taşınır. Senkron zamanı işlem tarihinin yerine geçmez;
+aynı paketin tekrar uygulanması tarihleri değiştirmez (testler `IST14`, `IST15`).

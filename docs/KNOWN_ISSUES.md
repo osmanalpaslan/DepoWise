@@ -1,6 +1,17 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-26 (son denetim ve stabilizasyon turu — aynı gün dördüncü tur)
+> Son güncelleme: 2026-08-26 (beşinci tur — canlı kullanımda bildirilen iki gerçek sorun kapatıldı)
+
+## ✅ Bu turda KAPATILANLAR (2026-08-26, beşinci tur — kullanıcı bildirimi)
+
+- **MAS-03 — Masaüstü Malzeme Giriş-Çıkış tablosu görülemiyordu.** Veri **geliyordu** ("19 hareket"
+  sayacı doluydu); form `Auto` satırında tüm boyu aldığı için listeye ~50 px kalıyordu. Form artık
+  kapsayıcı yüksekliğinin bir **oranıyla** sınırlı ve taşarsa kendi içinde kayıyor; liste satırının
+  taban yüksekliği var. **API / veritabanı / senkron değişmedi.** ADR-155.
+- **STK-11 — Malzeme Giriş-Çıkış formunda işlem tarihi yoktu.** Artık **"İşlem Tarihi"** alanı var
+  (varsayılan bugün; geçmiş ve gelecek serbest). İşlem tarihi (`stock_documents.doc_date`) ile kayıt
+  zamanı (`stock_movements.created_at` + audit) kesin ayrıldı; ekran, rapor ve Excel işlem tarihini
+  gösterir. **Yeni migration açılmadı — şema 72'de kaldı.** ADR-156.
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 

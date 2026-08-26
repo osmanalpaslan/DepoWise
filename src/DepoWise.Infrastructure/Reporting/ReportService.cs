@@ -907,8 +907,9 @@ ORDER BY branch_name, fde.entry_date DESC;";   // varsayılan: Şube -> Tarih (y
         // ── Sorgu: filtre → sıralama → LIMIT (hepsi SQL'de) ────────────────────────────────────
         // Şube kapsamı (ReportScope.BranchSql) DIŞ SINIRDIR; lokasyon, tür, arama ve malzeme filtreleri
         // AND ile İÇERİDE daraltır — hiçbiri kapsamı genişletemez.
+        // STK-11: rapor da EKRANLA aynı işlem tarihini gösterir/süzer (tek kaynak: IslemTarihiSql).
         cmd.CommandText = @"
-SELECT sm.created_at, sm.movement_type, sm.direction, sm.quantity,
+SELECT " + StockMovementFilterSql.IslemTarihiSql + @", sm.movement_type, sm.direction, sm.quantity,
        m.code, m.name, COALESCE(u.name,'') AS unit,
        sm.branch_id, bl.name AS loc_name, sm.branch_from_id, bf.name AS from_name,
        COALESCE(d.doc_no,'') AS doc_no, COALESCE(d.invoice_no,'') AS invoice_no,
@@ -921,7 +922,7 @@ LEFT JOIN branches bl ON bl.id = sm.branch_id      AND bl.company_id = sm.compan
 LEFT JOIN branches bf ON bf.id = sm.branch_from_id AND bf.company_id = sm.company_id
 WHERE sm.company_id = @c"
             + ReportScope.BranchSql(s, req, "sm.branch_id")
-            + DateFilter(req, "sm.created_at")
+            + DateFilter(req, StockMovementFilterSql.IslemTarihiSql)
             + filtre.Sql
             + $" ORDER BY sm.created_at DESC, {SqlDialect.RowTieBreaker(conn, "sm")} DESC LIMIT @lim;";
 

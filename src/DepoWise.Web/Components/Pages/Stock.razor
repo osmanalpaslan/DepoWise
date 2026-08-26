@@ -46,6 +46,14 @@
         }
 
         <MudGrid Spacing="2">
+            @* STK-11 (kullanıcı isteği 2026-08-26): İŞLEM TARİHİ = hareketin ait olduğu iş günü.
+               Varsayılan bugün; GEÇMİŞ ve GELECEK tarih serbesttir. Kaydın sisteme girildiği gerçek
+               zaman (created_at + audit) sunucuda yazılır; bu alan onu DEĞİŞTİRMEZ.
+               Masaüstüyle aynı iş kuralı ve aynı API sözleşmesi (docDate) kullanılır. *@
+            <MudItem xs="12" md="3">
+                <MudDatePicker @bind-Date="_docDate" Label="İşlem Tarihi" Margin="Margin.Dense" Variant="Variant.Outlined"
+                               HelperText="Hareketin ait olduğu gün. Kayıt zamanı ayrıca saklanır." />
+            </MudItem>
             @if (_kind == "Yeni Kayıt")
             {
                 @* Malzeme seçimi OPSİYONEL (madde 1.1, kullanıcı isteği 2026-08-06): mevcut malzeme seçilirse
@@ -226,6 +234,18 @@
     private static readonly string[] _types = { "Yedek Parça", "Sarf Malzeme", "Hammadde", "Lastik", "Diğer" };
 
     private string _kind = "Yeni Kayıt";
+
+    /// <summary>
+    /// STK-11 (kullanıcı isteği 2026-08-26) — İŞLEM TARİHİ: hareketin AİT OLDUĞU iş günü.
+    /// Varsayılan BUGÜN; geçmiş ve gelecek tarih serbesttir (üst sınır YOK).
+    /// Kaydın sisteme girildiği gerçek zaman (created_at + audit) SUNUCUDA yazılır ve bu alandan
+    /// etkilenmez — kullanıcı geri tarih seçerek kaydı bugün attığını gizleyemez.
+    /// Masaüstü (StockEntryViewModel.DocDate) ile AYNI iş kuralı, AYNI API alanı (docDate).
+    /// </summary>
+    private DateTime? _docDate = DateTime.Today;
+
+    /// <summary>Seçilen günü API sözleşmesinin beklediği Unix ms değerine çevirir (masaüstüyle aynı).</summary>
+    private long? DocDateMs() => _docDate is null ? null : new DateTimeOffset(_docDate.Value.Date).ToUnixTimeMilliseconds();
     // Depo Çıkışı alt-türü (kullanıcı isteği 2026-08-07): Şube İçi (issue) / Şube Dışı (transfer).
     private string _exitScope = "Şube İçi";
     private bool IsNew => _kind == "Yeni Kayıt";
@@ -510,7 +530,8 @@
                     unitId = Empty(_unit), brandId = Empty(_brand), supplierId = Empty(_sup),
                     quantity = _qty, unitPrice = _price, branchId = EffectiveLocation, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
-                    orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
+                    orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
+                    docDate = DocDateMs()   // STK-11: işlem tarihi (created_at DEĞİL)
                 });
             }
             else if (IsInBranch)   // Şube İçi Çıkış → issue
@@ -522,7 +543,8 @@
                     materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
                     branchId = EffectiveLocation, personnelId = Empty(_personnel),
                     vehicleId = Empty(_vehicle), note = Empty(_note), invoiceNo = Empty(_invoiceNo),
-                    orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
+                    orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
+                    docDate = DocDateMs()   // STK-11
                 });
             }
             else // Şube Dışı Çıkış → transfer
@@ -534,7 +556,8 @@
                     materialId = _saveLines[0].MaterialId, quantity = _saveLines[0].Quantity,   // eski alanlar (uyumluluk)
                     fromBranchId = EffectiveLocation, toBranchId = _toBranch,
                     personnelId = Empty(_personnel), vehicleId = Empty(_vehicle), note = Empty(_note),
-                    invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo)
+                    invoiceNo = Empty(_invoiceNo), orderSlipNo = Empty(_orderSlipNo), creditSlipNo = Empty(_creditSlipNo),
+                    docDate = DocDateMs()   // STK-11
                 });
             }
             _ok = err is null; _msg = err ?? "Kaydedildi.";
@@ -604,6 +627,7 @@
         _branch = _fromBranch = _toBranch = _personnel = _vehicle = "";
         _material = null; _balance = "";
         _existingMaterial = null;
+        _docDate = DateTime.Today;   // STK-11: her yeni kayıtta varsayılan BUGÜN
         _exitScope = "Şube İçi";
     }
 

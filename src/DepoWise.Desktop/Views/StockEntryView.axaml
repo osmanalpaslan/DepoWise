@@ -5,21 +5,34 @@
              xmlns:m="using:DepoWise.Infrastructure.Materials"
              xmlns:org="using:DepoWise.Infrastructure.Organization"
              xmlns:veh="using:DepoWise.Infrastructure.Vehicles"
+             xmlns:conv="using:DepoWise.Desktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1040" d:DesignHeight="680"
              x:Class="DepoWise.Desktop.Views.StockEntryView"
              x:DataType="vm:StockEntryViewModel">
 
-    <Grid Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
+    <UserControl.Resources>
+        <conv:FormUstSiniriConverter x:Key="FormUstSiniri"/>
+    </UserControl.Resources>
+
+    <!-- ═══ MAS-03 (denetim 2026-08-26) — FORM/LİSTE YÜKSEKLİK PAYLAŞIMI ═══
+         Eskiden form "Auto" satırındaydı ve istediği boyu (~700 px) alıyordu; listeye (*) yalnız
+         artan ~50 px kalıyordu. Kayıtlar GELİYORDU ama görülemiyordu. Artık form, kapsayıcının
+         yüksekliğinin bir ORANIYLA sınırlanır (sabit piksel DEĞİL) ve gerekirse kendi içinde
+         kayar; kalan alan tabloya gider. Pencere büyüyünce tablo da büyür. Hesap:
+         DepoWise.Application.Ui.FormListeOrani (testi orada). -->
+    <Grid x:Name="KokYerlesim" Background="{DynamicResource AppBackgroundBrush}" Margin="24" RowDefinitions="Auto,Auto,*,Auto">
         <ctrl:Toolbar Grid.Row="0" Title="Malzeme Giriş-Çıkış">
             <ctrl:Toolbar.FilterContent>
                 <Button Classes="Secondary" Content="Yenile" Command="{Binding LoadCommand}"/>
             </ctrl:Toolbar.FilterContent>
         </ctrl:Toolbar>
 
-        <!-- Form -->
-        <Border Grid.Row="1" Classes="Panel" Margin="0,16,0,0">
+        <!-- Form — kapsayıcı oranıyla sınırlı; taşarsa KENDİ İÇİNDE kayar (tabloyu ezmez). -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      MaxHeight="{Binding #KokYerlesim.Bounds.Height, Converter={StaticResource FormUstSiniri}}">
+        <Border Classes="Panel" Margin="0,16,0,0">
             <StackPanel Spacing="14">
                 <StackPanel Orientation="Horizontal" Spacing="14">
                     <ctrl:FormField Label="Kayıt Tipi" Width="160">
@@ -29,6 +42,13 @@
                          Yalnız Depo Çıkışı seçilince görünür; seçime göre alttaki alanlar dinamik gizlenir/gösterilir. -->
                     <ctrl:FormField Label="Çıkış Türü" Width="150" IsVisible="{Binding ShowExitScope}">
                         <ComboBox Classes="Field" HorizontalAlignment="Stretch" ItemsSource="{Binding ExitScopeOptions}" SelectedItem="{Binding ExitScope}"/>
+                    </ctrl:FormField>
+                    <!-- STK-11 (kullanıcı isteği 2026-08-26): İŞLEM TARİHİ = hareketin ait olduğu iş günü.
+                         Varsayılan bugün; GEÇMİŞ ve GELECEK tarih serbesttir (üst sınır yok — ileri
+                         tarihli planlanmış hareket bilinçli olarak mümkün). Kaydın sisteme girildiği
+                         gerçek zaman (created_at + audit) sunucu saatinden yazılır, buradan değişmez. -->
+                    <ctrl:FormField Label="İşlem Tarihi" Width="170">
+                        <DatePicker Classes="Field" SelectedDate="{Binding DocDate}"/>
                     </ctrl:FormField>
                     <ctrl:FormField Label="{Binding QuantityLabel}" IsRequired="True" Width="140">
                         <NumericUpDown Classes="Field" Value="{Binding Quantity}" Minimum="0" FormatString="0.##" ShowButtonSpinner="False"/>
@@ -180,9 +200,10 @@
                 </StackPanel>
             </StackPanel>
         </Border>
+        </ScrollViewer>
 
-        <!-- Son hareketler -->
-        <Panel Grid.Row="2" Margin="0,16,0,0">
+        <!-- Son hareketler — MinHeight: tablo hiçbir pencere boyunda "şerit" hâline düşemez. -->
+        <Panel Grid.Row="2" Margin="0,16,0,0" MinHeight="180">
             <Border Classes="Table" Grid.IsSharedSizeScope="True" IsVisible="{Binding HasRows}">
                 <DockPanel>
                     <Border Classes="TableHeader" DockPanel.Dock="Top">
