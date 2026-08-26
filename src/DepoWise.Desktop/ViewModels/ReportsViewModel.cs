@@ -437,6 +437,8 @@ public sealed partial class ReportsViewModel : ViewModelBase
         Grid.Clear();          // ortak tablodaki eski sonucu temizle (yeni rapor için)
         ShowBar = ShowPie = false;
         Status = null;
+        // RPR-13 (parite): web ile AYNI kural — gerekçe Reports.razor OnSelect içindedir.
+        if (value is { RequiresDate: false }) { FromDate = null; ToDate = null; }
         ApplyDateDefault();
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(IsEmptyResult));

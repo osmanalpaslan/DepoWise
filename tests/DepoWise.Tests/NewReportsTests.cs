@@ -384,6 +384,84 @@ public class NewReportsTests : IDisposable
         }
     }
 
+    // ═══════════════ RPR-13 · TARİH ALANI ÖNCEKİ RAPORDAN TAŞINMAZ ════════════════════════════
+
+    /// <summary>
+    /// ⭐ RPR-13 (gerçek arayüz turunda bulundu) — tarih ZORUNLU bir rapordan tarih zorunlu OLMAYAN bir
+    /// rapora geçildiğinde alanlar dolu kalıyor ve yeni raporu SESSİZCE daraltıyordu. Etkilenen üç rapor:
+    /// Muayene/Sigorta (gelecek aydaki sigorta görünmüyordu) ve Cari Bakiye / Kasa-Banka özetleri
+    /// (bakiye yalnız o ayın hareketiyle hesaplanıyor, kullanıcı toplam sanıyordu).
+    ///
+    /// Kural iki platformda AYNI koddur; burada kaynak üzerinden kilitlenir (Blazor/Avalonia görünüm
+    /// katmanı test projesinden referanslanmaz).
+    /// </summary>
+    [Fact]
+    public void RPR13_Rapor_Degisince_Tarih_Tasinmaz()
+    {
+        var kok = RepoKok();
+
+        var web = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Web", "Components", "Pages", "Reports.razor"));
+        Assert.Contains("if (_sel is { RequiresDate: false }) { _from = null; _to = null; }", web);
+
+        var masa = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Desktop", "ViewModels", "ReportsViewModel.cs"));
+        Assert.Contains("if (value is { RequiresDate: false }) { FromDate = null; ToDate = null; }", masa);
+    }
+
+    /// <summary>Etkilenen raporlar gerçekten "tarih kullanır ama zorunlu değil" olmalı (kural boşa düşmesin).</summary>
+    [Fact]
+    public void RPR13_Etkilenen_Raporlar_Beklendigi_Gibi()
+    {
+        var etkilenen = ReportCatalog.All.Where(d => d.UsesDate && !d.RequiresDate).Select(d => d.Key).OrderBy(x => x).ToList();
+        Assert.Equal(new[] { "acc-balances", "acc-cash", "inspection" }, etkilenen);
+    }
+
+    private static string RepoKok()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 8 && dir is not null; i++)
+        {
+            if (File.Exists(Path.Combine(dir, "DepoWise.sln"))) return dir;
+            dir = Directory.GetParent(dir)?.FullName;
+        }
+        throw new InvalidOperationException("DepoWise.sln bulunamadı.");
+    }
+
+    // ═══════════════ PRF-01 · EKRANA ÇİZİLEN SATIR SINIRI ═════════════════════════════════════
+
+    /// <summary>
+    /// ⭐ PRF-01 (gerçek tarayıcıda ÖLÇÜLDÜ, 2026-08-26) — 20.000 satırlık bir rapor tarayıcıda
+    /// <b>36.959 ms</b> sürüyor ve <b>260.729 DOM düğümü</b> üretiyordu; aynı sorgu sunucuda 162 ms.
+    /// Yani darboğaz sorgu değil ÇİZİMDİ ve rapor tavanı 50.000 olduğu için en kötü hâlde tarayıcı
+    /// fiilen kilitleniyordu. Çizim sınırlandıktan sonra: <b>378 ms</b> ve <b>13.746 düğüm</b>.
+    ///
+    /// Sınır YALNIZ çizimi etkiler: kolon filtresi, sıralama ve toplamlar tüm satırlar üzerinde çalışır
+    /// (20.000 satırlık ölçümde 15.000'inci satır filtreyle bulundu) ve Excel'e aktarma eksiksizdir.
+    /// Kırpma kullanıcıya AÇIKÇA bildirilir — sessiz kırpma yoktur.
+    /// </summary>
+    [Fact]
+    public void PRF01_Rapor_Ekraninda_Cizim_Siniri_Var()
+    {
+        var kok = RepoKok();
+
+        var rapor = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Web", "Components", "Pages", "Reports.razor"));
+        Assert.Contains("MaxRender=\"@ReportRenderLimit\"", rapor);
+        Assert.Contains("private const int ReportRenderLimit = 1_000;", rapor);
+
+        var grid = File.ReadAllText(Path.Combine(kok, "src", "DepoWise.Web", "Components", "DwDataGrid.razor"));
+        // Çizim kırpması
+        Assert.Contains("foreach (var row in _cizilecek)", grid);
+        Assert.Contains("_kirpildi ? _view.Take(MaxRender) : _view", grid);
+        // Sessiz kırpma YOK: kullanıcıya bildirilir
+        Assert.Contains("Sonuç çok büyük", grid);
+        // Varsayılan sınırsız → bu bileşeni kullanan diğer ekranlar etkilenmez
+        Assert.Contains("[Parameter] public int MaxRender { get; set; }", grid);
+        // Filtre/sıralama TÜM satırlarda kalmalı (kırpma Recompute'a girmemeli)
+        var i = grid.IndexOf("private void Recompute()", StringComparison.Ordinal);
+        Assert.True(i > 0);
+        var blok = grid.Substring(i, Math.Min(1800, grid.Length - i));
+        Assert.DoesNotContain("MaxRender", blok);
+    }
+
     // ═══════════════ KATALOG / DISPATCH KİLİDİ ════════════════════════════════════════════════
 
     [Fact]

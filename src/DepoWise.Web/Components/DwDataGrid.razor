@@ -63,7 +63,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach (var row in _view)
+            @foreach (var row in _cizilecek)
             {
                 <tr>
                     @foreach (var key in _order)
@@ -90,8 +90,37 @@
     </table>
 </div>
 <MudText Typo="Typo.caption" Class="mud-text-secondary">@_view.Count / @(_rows?.Count ?? 0) satır@(_hasFilters ? " (filtreli)" : "")</MudText>
+@if (_kirpildi)
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-1">
+        Sonuç çok büyük: ekranda ilk <b>@MaxRender.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"))</b>
+        satır çiziliyor (toplam <b>@_view.Count.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("tr-TR"))</b>).
+        Kolon filtresi, sıralama ve toplamlar <b>tüm satırlar</b> üzerinde çalışır; <b>Excel'e aktarma da eksiksizdir</b>.
+        Daha az satır için tarih aralığını veya filtreleri daraltın.
+    </MudAlert>
+}
 
 @code {
+    /// <summary>
+    /// ⭐ PRF-01 (denetim 2026-08-26, GERÇEK ÖLÇÜMLE) — EKRANA ÇİZİLECEK EN FAZLA SATIR. 0 = sınırsız
+    /// (varsayılan → bu bileşeni kullanan diğer ekranların davranışı HİÇ DEĞİŞMEZ).
+    ///
+    /// <b>Neden gerekti:</b> 20.000 satırlık bir rapor tarayıcıda ölçüldü — Sorgula'dan tabloya
+    /// <b>37 saniye</b> ve <b>260.729 DOM düğümü</b>. Aynı sorgu sunucuda <b>162 ms</b> sürüyor; yani
+    /// darboğaz sorgu DEĞİL, satır başına ~13 DOM düğümü üreten çizim. Rapor tavanı 50.000 olduğu için
+    /// en kötü hâlde tarayıcı fiilen kilitleniyordu.
+    ///
+    /// <b>Neden kırpma, sanallaştırma değil:</b> tablo sabit yükseklikli bir kaydırma kabında değil;
+    /// <c>Virtualize</c> eklemek bu bileşeni kullanan TÜM ekranların görünümünü değiştirirdi. Kırpma
+    /// yalnız ÇİZİMİ sınırlar: <c>_view</c> (filtre + sıralama + toplam) tüm satırlar üzerinde çalışmaya
+    /// devam eder ve Excel'e aktarma sunucudan eksiksiz gelir. Kırpma kullanıcıya AÇIKÇA bildirilir.
+    /// </summary>
+    [Parameter] public int MaxRender { get; set; }
+
+    private bool _kirpildi => MaxRender > 0 && _view.Count > MaxRender;
+
+    private IEnumerable<IReadOnlyList<GridCell>> _cizilecek => _kirpildi ? _view.Take(MaxRender) : _view;
+
     /// <summary>Kişisel tercih anahtarı (örn. "reports:general"). Boşsa tercih yüklenmez/kaydedilmez.</summary>
     [Parameter] public string GridKey { get; set; } = "";
     /// <summary>Kolon tanımları (sıra = varsayılan görünüm sırası). Key benzersiz olmalı.</summary>

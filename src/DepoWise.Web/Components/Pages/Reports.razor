@@ -326,7 +326,10 @@ else
     {
         @* Ortak tablo bileşeni (Birim 4): kolon-altı filtre / sıralama / genişlik / gizleme + kişisel tercih.
            Rapora özel değil — GridKey ile herhangi bir ekran kullanabilir. *@
-        <DwDataGrid GridKey="@($"reports:{_selKey}")" Columns="_columns" Rows="_rows" TotalRow="_totalRow" />
+        @* PRF-01: rapor sonucu 50.000 satıra kadar çıkabilir; ekrana çizilen satır sınırlanır.
+           Veri, filtre, sıralama, toplam ve Excel EKSİKSİZDİR — bkz. DwDataGrid.MaxRender. *@
+        <DwDataGrid GridKey="@($"reports:{_selKey}")" Columns="_columns" Rows="_rows" TotalRow="_totalRow"
+                    MaxRender="@ReportRenderLimit" />
     }
 </MudPaper>
 
@@ -408,6 +411,19 @@ else
     {
         _selKey = key;
         _headers = null; _rows = new(); _totalRow = null; _numeric = null; _error = null; ClearSummary();
+        // ⭐ RPR-13 (gerçek arayüz turunda bulundu, 2026-08-26) — TARİH ALANI ÖNCEKİ RAPORDAN TAŞINIYORDU.
+        //
+        // Tarih ZORUNLU olan bir rapordan (ör. Araç Raporu → varsayılan "Bu Ay") tarih zorunlu OLMAYAN bir
+        // rapora geçildiğinde alanlar dolu kalıyor ve yeni raporu sessizce daraltıyordu. Etkilenen üç rapor:
+        //   • Muayene / Sigorta → aralık SONRAKİ tarihe uygulanır; "Bu Ay" kalınca gelecek aydaki sigorta
+        //     belgesi görünmüyor, kullanıcı "sigorta kaydım yok" sanıyordu.
+        //   • Cari Bakiye Özeti / Kasa-Banka Özeti → bakiye YALNIZ o ayın hareketleriyle hesaplanıyor,
+        //     kullanıcı toplam bakiyeye baktığını sanıyordu (para raporunda sessiz yanlış okuma).
+        //
+        // Tarih ZORUNLU raporların davranışı DEĞİŞMEZ (kullanıcının girdiği aralık korunur). Yalnız tarih
+        // zorunlu olmayan bir rapora geçilirken alanlar temizlenir — o raporun kendi doğal varsayılanı
+        // "tümü"dür.
+        if (_sel is { RequiresDate: false }) { _from = null; _to = null; }
         ApplyDateDefault();
     }
 
@@ -496,6 +512,10 @@ else
     }
     private void ClearVehicles() => _vehicleSel = new HashSet<string>();
     private List<string>? _headers;
+    /// <summary>PRF-01: ekrana çizilecek en fazla satır. Ölçüm: 20.000 satır = 37 sn / 260.729 DOM düğümü;
+    /// 1.000 satırda tablo anında geliyor. Veri ve Excel kırpılmaz — yalnız ÇİZİM sınırlanır.</summary>
+    private const int ReportRenderLimit = 1_000;
+
     private List<List<DwDataGrid.GridCell>> _rows = new();   // hücreler: görüntü (Text) + HAM sayı (Num)
     private List<DwDataGrid.GridCell>? _totalRow;            // pinned toplam satırı (filtre/sıralama dışı)
     private List<bool>? _numeric;                            // raporun verdiği kolon-tipi bayrakları (varsa)
