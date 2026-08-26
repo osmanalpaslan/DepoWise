@@ -140,7 +140,47 @@ public class WebCircuitGuardTests
     }
 
     /// <summary>
-    /// ⭐ WEB-01 — hiçbir Blazor sayfasının ilk yüklemesinde KORUMASIZ fırlatan çağrı olmamalı.
+    /// Bir yaşam döngüsü kancasının gövde(ler)i. İKİ yazım da desteklenir:
+    /// blok gövdeli (<c>… OnInitializedAsync() { … }</c>) ve ifade gövdeli
+    /// (<c>… OnInitializedAsync() =&gt; await Load();</c>). İkincisi eski taramada hiç görülmüyordu.
+    /// </summary>
+    private static IEnumerable<string> YasamDongusuGovdeleri(string src, string ad)
+    {
+        int from = 0;
+        while (true)
+        {
+            int idx = src.IndexOf(ad, from, StringComparison.Ordinal);
+            if (idx < 0) yield break;
+            from = idx + ad.Length;
+
+            // Tanım mı, yoksa yorum/çağrı mı? Ad ile parantez arasında yalnız boşluk olmalı.
+            int par = src.IndexOf('(', idx);
+            if (par < 0) yield break;
+            if (src.Substring(idx + ad.Length, par - idx - ad.Length).Trim().Length > 0) continue;
+
+            int kapa = src.IndexOf(')', par);
+            if (kapa < 0) yield break;
+            var sonra = src.Substring(kapa + 1, Math.Min(40, src.Length - kapa - 1));
+            var m = Regex.Match(sonra, @"^\s*(\{|=>)");
+            if (!m.Success) continue;                      // bildirim/çağrı — gövde değil
+
+            if (m.Groups[1].Value == "{")
+            {
+                int open = src.IndexOf('{', kapa);
+                yield return src.Substring(open + 1, BlockEnd(src, open) - open - 1);
+            }
+            else
+            {
+                // İfade gövdesi: "=> ifade;" — noktalı virgüle kadar.
+                int ok = src.IndexOf("=>", kapa, StringComparison.Ordinal);
+                int nokta = src.IndexOf(';', ok);
+                if (nokta > ok) yield return src.Substring(ok + 2, nokta - ok - 2);
+            }
+        }
+    }
+
+    /// <summary>
+    /// ⭐ WEB-01 — hiçbir Blazor sayfasının/bileşeninin YAŞAM DÖNGÜSÜNDE korumasız fırlatan çağrı olmamalı.
     /// </summary>
     [Fact]
     public void Hicbir_Sayfa_Ilk_Yuklemede_Devreyi_Dusurmemeli()
@@ -169,26 +209,38 @@ public class WebCircuitGuardTests
         var serviceThrows = Throwing(serviceMethods);
 
         var bulgular = new List<string>();
-        foreach (var page in Directory.GetFiles(pagesDir, "*.razor").OrderBy(x => x, StringComparer.Ordinal))
+        // ⭐ DENETİM 2026-08-26 — KAPSAM GENİŞLETMESİ. Eski tarama iki büyük deliği açık bırakıyordu:
+        //   (a) İFADE GÖVDELİ yaşam döngüsü (OnInitializedAsync() => await Load();) TAMAMEN atlanıyordu —
+        //       web'de 10 sayfa/bileşen böyle yazılmış ve hiçbiri denetlenmiyordu.
+        //   (b) YALNIZ OnInitializedAsync bakılıyordu. Blazor Server'da OnParametersSetAsync ve
+        //       OnAfterRenderAsync içindeki yakalanmayan istisna da devreyi AYNI şekilde düşürür
+        //       (9 sayfa OnAfterRenderAsync kullanıyor).
+        // Ayrıca ortak BİLEŞENLER (Components/*.razor, Layout/*.razor) de tarandı: bir bileşenin
+        // devreyi düşürmesi, onu kullanan HER sayfayı düşürür.
+        var dosyalar = Directory.GetFiles(pagesDir, "*.razor")
+            .Concat(Directory.GetFiles(Path.Combine(root, "src", "DepoWise.Web", "Components"), "*.razor"))
+            .Concat(Directory.GetFiles(Path.Combine(root, "src", "DepoWise.Web", "Components", "Layout"), "*.razor"))
+            .OrderBy(x => x, StringComparer.Ordinal);
+
+        var yasamDongusu = new[] { "OnInitializedAsync", "OnParametersSetAsync", "OnAfterRenderAsync" };
+
+        foreach (var page in dosyalar)
         {
             var src = File.ReadAllText(page);
-            int idx = src.IndexOf("OnInitializedAsync", StringComparison.Ordinal);
-            if (idx < 0) continue;
-            int open = src.IndexOf('{', idx);
-            if (open < 0) continue;                       // ifade gövdeli => ayrı ele alınır (aşağıda)
-            var initBody = src.Substring(open + 1, BlockEnd(src, open) - open - 1);
 
-            // 2) Sayfanın KENDİ metotları — ad çözümlemesi ÖNCE burada (dosyalar arası çakışma yok).
+            // Sayfanın KENDİ metotları — ad çözümlemesi ÖNCE burada (dosyalar arası çakışma yok).
             var local = Methods(src);
             var localThrows = Throwing(local, serviceThrows);
 
-            foreach (var (call, _) in UnguardedCalls(initBody))
-            {
-                bool yerel = local.ContainsKey(call);
-                bool firlatir = yerel ? localThrows.Contains(call) : serviceThrows.Contains(call);
-                if (firlatir)
-                    bulgular.Add($"{Path.GetFileName(page)} → korumasız '{call}(...)'");
-            }
+            foreach (var kanca in yasamDongusu)
+                foreach (var govde in YasamDongusuGovdeleri(src, kanca))
+                    foreach (var (call, _) in UnguardedCalls(govde))
+                    {
+                        bool yerel = local.ContainsKey(call);
+                        bool firlatir = yerel ? localThrows.Contains(call) : serviceThrows.Contains(call);
+                        if (firlatir)
+                            bulgular.Add($"{Path.GetFileName(page)} · {kanca} → korumasız '{call}(...)'");
+                    }
         }
 
         Assert.True(bulgular.Count == 0,
