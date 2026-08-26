@@ -1,12 +1,44 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (son uçtan uca stabilizasyon turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (dördüncü denetim ve stabilizasyon turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
+## ✅ TAMAMLANAN — DÖRDÜNCÜ DENETİM VE STABİLİZASYON TURU (2026-08-26)
+
+Tam rapor: [`docs/tests/Denetim_2026-08-26_Dorduncu_Tur.md`](../tests/Denetim_2026-08-26_Dorduncu_Tur.md)
+Kararlar: **ADR-150 … ADR-154**
+
+### Bulunan ve düzeltilen gerçek hatalar
+| ID | Önem | Kısaca |
+|---|---|---|
+| **RPR-15** | **P1** | "Rol Yetki Kontrol" ile role **kapatılan ekranın verisi raporlardan (ve Excel çıktısından) okunabiliyordu** → yetki açığı. |
+| **SB-01** | **P1** | Şube ağacı **ikinci kapsam otoritesinde** (`ScopeResolver`) uygulanmıyordu → üst şubeye yetkili kullanıcı alt şantiyenin personelini göremiyor, oraya personel ekleyemiyordu. |
+| **MAS-02** | P3 | Masaüstünde sayfa değişince **zamanlayıcı birikiyordu** → dakikada N ağ isteği + bellek büyümesi. |
+| **BAG-01** | P3 | Web'de sunucuya ulaşılamadığında **boş ekran** çıkıyor, sebep söylenmiyordu. |
+
+> ⭐ **SB-01 nasıl bulundu:** önceki üç rapor "üretimde 0 şube var" diyordu. Bu tur o **varsayım**
+> yeniden ölçüldü ve üretimde **9 şube** (5'i bir üst şubenin altında şantiye) olduğu görüldü.
+> Varsayım tazelenmeseydi bu hata bulunamayacaktı.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı, yeniden ölçüldü) | 2386 · 0 · 37 — **önceki raporla birebir** |
+| Tam test — final koşu 1 | **2451 · 0 başarısız · 37 atlandı** |
+| Tam test — final koşu 2 (bağımsız) | **2451 · 0 · 37 → birebir aynı** |
+| PostgreSQL (izole küme) | **47 · 0 · 0 atlanan** (+ yedek lehçe kapısı 4 · 0 · 0) |
+| Mutasyon testi | **11/11 yakalandı** (N1–N11) |
+| Yayın | API **v170** · Web **v194** · Masaüstü **1.0.153** · üç yönlü sağlama aynı |
+| Üretime yazma | **YOK** (SQL/migration/DDL/secret/ACL/test verisi) · şema **72 → 72** |
+
+### Kararınızı bekleyen (ürün kararı — bilerek dokunulmadı)
+- **ARC-01** — araç seçicisinin firma geneli olması (kanıt iki yöne de çekiyor, 12+ çağrı noktası).
+- **YET-01** — işlevsiz iki yetki anahtarının yetki ağacından kaldırılması (teknik risk yok, ürün kararı).
+
 ---
 
-## ✅ TAMAMLANAN — SON UÇTAN UCA STABİLİZASYON TURU (2026-08-26, üçüncü tur)
+## 📦 ARŞİV — ÜÇÜNCÜ TUR (2026-08-26)
 
 Tam rapor: [`docs/tests/Son_Stabilizasyon_2026-08-26.md`](../tests/Son_Stabilizasyon_2026-08-26.md)
 Kararlar: **ADR-143 … ADR-149**

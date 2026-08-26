@@ -173,3 +173,152 @@ Her mutasyondan sonra kaynak **aynen geri alındı** (her koşuda doğrulandı).
 ---
 
 *(Test sayıları, performans, GUI/masaüstü turları, yayın ve karar matrisi §7'den itibaren.)*
+
+---
+
+## 7. Test sayıları
+
+| Koşu | Sonuç |
+|---|---|
+| Taban (tur başı, yeniden ölçüldü) | 2386 · 0 · 37 — önceki raporla **birebir** |
+| Ara regresyon (RPR-15 + BAG-01 + MAS-02 sonrası) | 2419 · 0 · 37 |
+| Ara regresyon (SB-01 + yeni süpürmeler sonrası) | 2445 · 0 · 37 |
+| **Final koşu 1** | **2451 · 0 · 37 (14 m 04 s)** |
+| **Final koşu 2 (bağımsız)** | **2451 · 0 · 37 (13 m 45 s) — **birebir aynı**** |
+| **PostgreSQL (izole küme)** | **47 · 0 · **0 atlanan** (+ yedek lehçe kapısı 4 · 0 · 0)** |
+
+Bu turda **6 yeni test sınıfı** eklendi. Devre dışı bırakılan, gevşetilen veya retry ile örtülen
+test **yoktur**; atlanan 37'nin tamamı PostgreSQL kapılıdır ve ayrı koşuda çalıştırılmıştır.
+
+---
+
+## 8. Performans (ölçüldü — izole yerel sunucu)
+
+| Ölçüm | Sonuç |
+|---|---|
+| Stok Hareketleri (50.000 satır) | **390 ms** · 6,55 MB · 50.000 satır |
+| Stok Durumu / Araç / Bakım | 10 ms · 5 ms · 4 ms |
+| Excel dışa aktarma (50.000) | 5,4 sn · 2,2 MB |
+| Personel listesi (SB-01 ek sorgusundan sonra) | **4–17 ms** |
+| Araç listesi · rapor kapsam ucu | 10 ms · 5 ms |
+
+**Yorum.** Bu turun değişiklikleri ölçülebilir bir maliyet getirmedi: rapor süresi önceki turla aynı
+aralıkta (329→390 ms; ölçüm bu kez web süreci de açıkken yapıldı), SB-01'in eklediği ağaç sorgusu
+personel listesinde fark yaratmıyor. **Yeni indeks veya migration açılmadı.**
+
+**N+1 taraması:** döngü içinde sorgu üreten 17 aday incelendi. 15'i sınırlı koleksiyon üzerinde
+(tablo/lookup listesi, 3 kez dönen yeniden-deneme döngüsü). Kalan 2'si (malzeme muadilleri,
+şablonun uyumlu araçları) **tek kaydın küçük alt listesinde** çalışır → darboğaz değil, teknik borç.
+
+---
+
+## 9. GUI turu (gerçek tarayıcı, izole, ÜST/ALT şube hiyerarşisiyle)
+
+Ortam üretimdekine benzetildi: **GENEL MERKEZ** + altında **DÜZCE** ve **KARAMAN** şantiyeleri +
+ilgisiz **DENİZLİ** şubesi. Kullanıcı YALNIZ GENEL MERKEZ'e kapsamlı.
+
+| Senaryo | Sonuç |
+|---|---|
+| Giriş şube listesi | ✅ GENEL MERKEZ + **iki alt şantiye**; ilgisiz DENİZLİ **yok** |
+| Personel ekranı | ✅ **DÜZCE + MERKEZ** personeli görünüyor (SB-01 düzeltmesi), DENİZLİ yok |
+| Personel raporu | ✅ iki satır, şube etiketleri doğru |
+| **RPR-15** — "Stok" ekranı role kapatıldı | ✅ rapor **403** (anlaşılır Türkçe mesaj) · katalog **15 → 12** · üç stok raporu da listeden düştü · menüde stok yok |
+| **BAG-01** — API durduruldu | ✅ boş ekran yerine **"Sunucuya ulaşılamıyor"** şeridi + **TEKRAR DENE**; oturum ayakta |
+| **BAG-01** — API geri açıldı, TEKRAR DENE | ✅ uyarı kalktı, menü döndü, ekran yüklendi |
+| **WEB-03** — kontrollü deney | ✅ veri satırı tıklaması handler'ı TETİKLİYOR (kontrol); başlık satırı + 7 başlık hücresi + alt bilgi tıklaması → **devre çökmedi, konsolda 0 hata** |
+
+---
+
+## 10. İzole masaüstü turu
+
+| Kontrol | Sonuç |
+|---|---|
+| Ortam | `DEPOWISE_ENVIRONMENT=IzoleDenetim` → ayrı klasör |
+| Sunucu adresi | `serverurl.txt` ile **yerel** sunucuya yönlendirildi |
+| Açılış | `host=dotnet` · `journal=wal` · `fk=True` · `writeRead=True` · hata yok |
+| Migration | **72/72**, şema 72, **79 tablo** |
+| Üretim | **Bağlanmadı** (üretim veri klasörüne ve sunucusuna dokunulmadı) |
+
+> ⚠️ **Sınır (değişmedi):** Avalonia arayüzü bu ortamda otomatize edilemiyor → **ekran içi tıklama
+> akışları sürülemedi**. Uydurma test yazılmadı. MAS-02 kuralı bu yüzden **mimari testle** taranır.
+
+---
+
+## 11. Üretim durumu ve yayın
+
+| Bileşen | Öncesi | Sonrası |
+|---|---|---|
+| API (`fly.toml`) | v169 | **v170** |
+| Web (`fly.web.toml`) | v193 | **v194** |
+| Masaüstü | 1.0.152 | **1.0.153** |
+| Şema | 72 | **72 (değişmedi)** |
+
+Masaüstü paketi: **89.973.480** bayt · SHA-256 `EEEB772A922C574BFB557FC613520E975FA7FA8492D6AD04A8339802CA7153C2`.
+Üretimde **hiçbir yazma işlemi yapılmadı**: SQL, migration, DDL, ACL, secret değişikliği yok.
+Salt-okunur kontroller: `/health`, `/api/public/companies`, `/api/public/branches`, `flyctl status`.
+
+**Yayın notu (§20):** 1.0.152'deki yazım hatası **sırf onun için yeni sürüm üretilerek değil**, zaten
+kod değişikliği olan bu yayında düzeltilmiştir.
+
+---
+
+## 12. SON KARAR MATRİSİ
+
+### A) Mutlaka düzeltilmesi gereken gerçek bug / güvenlik — **HEPSİ DÜZELTİLDİ**
+| ID | Konu |
+|---|---|
+| RPR-15 | Role kapatılan ekranın verisi rapordan okunabiliyordu (yetki açığı) |
+| SB-01 | Şube ağacı ikinci kapsam otoritesinde uygulanmıyordu (veri görünürlüğü + engellenen işlem) |
+
+### B) Düzeltilmesi önerilen UX / kararlılık — **DÜZELTİLDİ**
+| ID | Konu |
+|---|---|
+| MAS-02 | Sayfa değişince zamanlayıcı birikiyordu (bellek + boşuna ağ isteği) |
+| BAG-01 | Sunucu kapalıyken kullanıcıya sebep söylenmiyordu |
+
+### C) Teknik borç — **BİLEREK DOKUNULMADI**
+- İki küçük N+1 (malzeme muadilleri · şablonun uyumlu araçları) — ölçüldü, darboğaz değil.
+- `Infrastructure/Org/BranchService` üretimde kullanılmıyor (yalnız bir test kullanıyor) — **önceki bir
+  turda incelenip "ölü kod" bulgusu GERİ ÇEKİLMİŞTİ**; tekrar açılmadı.
+
+### D) Yeni özellik — **KAPSAM DIŞI**
+- PostgreSQL dosya yedeği (`pg_dump` + sır + saklama alanı → operasyon işi).
+- Satın Alma alanı (kodda domain YOK; sahte ekran üretilmedi).
+- Sayfalı rapor API'si.
+
+### E) Bilinçli ürün kararı / dokunulmayan davranış
+- **Stok Durumu / Stok Sayım** fiziksel depo mantığı — üçüncü turda kanıtlanmıştı, **tekrar dokunulmadı**.
+- **Durum Rapor** çapraz-modül özet olduğu için `DataModule` verilmedi (bilinçli istisna).
+- **ARC-01** araç seçicisinin firma geneli olması — kanıt iki yöne de çekiyor (araçlar şubeler arası
+  hareket eder), 12+ çağrı noktasını etkiler → **varsayımla değiştirilmedi, karar sizde**.
+- **YET-01** işlevsiz iki yetki anahtarı — silmenin teknik riski ölçüldü (FK yok, migration gerekmez)
+  ama yetki ağacından satır kaldırmak **ürün kararıdır** → **karar sizde**.
+
+---
+
+## 13. Yayın kanıtları (yayın sonrası, salt-okunur)
+
+| Kontrol | Kanıt |
+|---|---|
+| API sağlık | `/health` → **200** |
+| API sürüm | v169 → **v170** (`flyctl status`) |
+| Web sürüm | v193 → **v194** |
+| Web sayfaları | `/` `/login` `/reports` `/reports/manager` `/personnel` `/vehicles` `/stock` → hepsi **200** |
+| Masaüstü sürüm | **1.0.153** yayınlandı; `api/releases/latest` bunu döndürüyor |
+| **Üç yönlü sağlama** | yerel dosya = yayın metadata'sı = sunucudan indirilen paket → `EEEB772A…53C2`, **89.973.480 bayt** (üçü de aynı) |
+| 5xx / istisna | API **0**, Web **0** |
+| Crash-loop / yeniden başlatma | **yok** |
+| PostgreSQL gerçekten bağlı | `/api/public/companies` gerçek veri döndürüyor (`Oze İnşaat`) |
+| Canlı trafik | Gerçek masaüstü istemciler yayın sonrası senkron oluyor (`machines/register`, `sync/business-version` → 200) |
+| **Disk (ADR-070)** | `/data` **%39** (351 MB / 974 MB) · `releases/` klasöründe **tam 3 paket** (1.0.151-152-153) |
+
+> ⭐ Son satır bu turun kendi bulgusunu canlıda doğruluyor: `PruneOld` saklama politikası (KeepCount=3)
+> üretimde **çalışıyor**. Bu turda o mekanizmanın **testi yoktu** — PKT1–PKT6 ile kilitlendi.
+
+**§20 — 1.0.152 yazım hatası.** Canlı metin `"kimlik doguruluyor"` idi. **SQL ile üretim metadata'sı
+DEĞİŞTİRİLMEDİ.** Zaten kod değişikliği içeren bu yayının notu doğru yazımla üretildi; güncelleme
+ekranı en son sürümün notunu gösterdiği için kullanıcının gördüğü metin artık hatasızdır.
+
+**Üretimde yapılmayanlar (§1/§19):** SQL INSERT/UPDATE/DELETE **yok**, migration **yok**, DDL **yok**,
+secret değişikliği **yok**, ACL değişikliği **yok**, test verisi **yok**. Şema sürümü **72 → 72**.
+Yapılan tek yazma işlemi, açıkça talep edilen **uygulama yayınıdır** (yeni sürüm paketi + iki deploy).
