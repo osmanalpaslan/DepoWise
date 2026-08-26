@@ -1880,3 +1880,111 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
   açılarak** dışa aktarma kapsamı + yönetici raporu kapısı. Toplam 25 senaryo.
 - Ayrıca gerçek tarayıcıda iki şubeli bir kurulumla doğrulandı: depo personelinin giriş şube listesi
   yalnız kendi şubesi; raporlar yalnız kendi şubesinin verisi; yönetici ekranı adresle açılamıyor.
+
+## ADR-143 — YED-02: sunucu yedek YÜKLEME ucu kimliği doğrulamıyordu (2026-08-26, üçüncü tur)
+- **Durum:** `POST /api/backups` yalnız `if (DeviceToken(req) is null) return Unauthorized();` yapıyordu.
+  `DeviceToken` ise sadece `Authorization: Bearer …` başlığını **AYRIŞTIRIR** — jetonu doğrulamaz.
+  Kardeş uçlar (`/sync/push`, `/sync/pull`) jetonu `SyncServer.AuthDevice` ile veritabanından doğrularken
+  burada o adım YOKTU. Üstelik dosyanın yazılacağı **firma ve makine adı da istekten** geliyordu.
+- **Etki:** internetteki herhangi biri, uydurma bir jetonla, istediği firmanın klasörüne **1 GB'a kadar**
+  dosya yükleyebiliyordu; depo "üzerine yazmaz / otomatik silmez" ve hız sınırı yoktu. Disk dolduğunda
+  **TÜM API 500 döner** (ADR-070'te bir kez yaşandı) → kimliksiz bir çağıran sistemi durdurabilirdi.
+  Ayrıca sahte yedekler süper adminin "Makine Yedekleri" ekranında gerçek firmanın yedeği gibi görünürdü.
+  ⚠️ **Veri sızıntısı YOKTU** — uç yalnız yazar; listeleme/indirme uçları SEC-04'te kapatılmıştı.
+- **Karar:** kimlik gerçekten doğrulanır — geçerli **JWT oturumu** (masaüstünün bugün gönderdiği şey) VEYA
+  geçerli **cihaz senkron jetonu** (`SyncServer.CompanyForDevice`, `AuthDevice`'ın fırlatmayan sürümü).
+  **Firma artık formdan değil KİMLİKTEN** alınır. İkinci katman olarak IP başına hız sınırı (60/saat) kondu;
+  sınır, ortak IP arkasındaki (NAT) kalabalık bir ofis takılmasın diye bilerek yüksektir.
+- **Meşru akış DEĞİŞMEDİ:** masaüstü zaten kendi firmasının kimliğini ve oturum jetonunu gönderiyordu.
+- **Kanıt:** düzeltme kasten geri alındığında testler kırılıyor (mutasyon M10 → 3 başarısız).
+
+## ADR-144 — YOL-01: firma/makine adı dosya yoluna doğrudan giriyordu (2026-08-26, üçüncü tur)
+- **Durum:** firma kimliği `POST /api/companies` gövdesinden geliyor ve **hiç doğrulanmıyordu** (masaüstünün
+  çevrimdışı ürettiği kimliği korumak için bilinçli olarak serbest bırakılmıştı). Aynı değer sonra dosya
+  yoluna giriyordu. Dört yer bulundu:
+  1. `purge-company` → `Path.Combine(dataDir, sub, companyId)` + **özyinelemeli silme**,
+  2. `reset-company-business` → aynı desen,
+  3. `BackupStore.DeleteRange` → `DELETE /api/backups?company=…` (firma adı **istekten**),
+  4. `MachineBackupArchiver.ResolveArchive` → dosya adı korunuyordu ama **firma/makine adı korunmuyordu**.
+- **Etki:** kimlik `".."` olsaydı (1) ve (2)'de silinecek klasör **veri kökünün kendisi** olurdu → bütün
+  firmaların fotoğrafları, makine yedekleri, yayın paketleri ve SQLite'a düşülmüşse veritabanı birlikte
+  giderdi. (3)'te taranan klasör yedeklerin ÜST klasörü olurdu → tarih aralığındaki **yayın paketleri ve
+  veritabanı yedekleri** silinirdi. Süper admin gerektirir, ama silmeyi yapan kişi **tek bir firmayı**
+  sildiğini sanır — klasik "kandırılmış vekil" (confused deputy).
+- **Not:** aynı depoda DOĞRU desen zaten vardı (`LocalFileStorageProvider` hem karakter temizliği hem
+  "kökün altında mı" kontrolü yapar); bu dört çağrı o korumayı kullanmıyordu.
+- **Karar — iki katman:**
+  1. **Giriş:** firma kimliği yalnız harf/rakam/`-`/`_` içerebilir (`SafePath.IsSafeId`). Üretimdeki tek
+     firma kimliği onaltılık bir GUID'dir ve masaüstünün ürettiği kimlikler de öyledir → davranış değişmez.
+  2. **İşlem:** yol `SafePath.UnderRoot` ile çözülür; **taban klasörün altında değilse hiçbir şey yapılmaz**
+     (fail-closed). Taban, son parça HARİÇ tüm parçalardır — yalnız "kökün altında" demek yetmez:
+     `kök/files/../ust` kökün altındadır ama `files`'tan çıkmıştır.
+- **Kanıt:** `SafePath`'in ilk sürümü tam bu inceliği kaçırıyordu ve kendi testim yakaladı.
+
+## ADR-145 — YET-05: "iptal / ters kayıt" ARAYÜZ kapısı sunucudan farklıydı (2026-08-26, üçüncü tur)
+- **Sunucu kuralı** (`StockService.ReverseDocument`): `stock.Edit` **ve** `btn-reverse`.
+- **Arayüzlerin sorduğu:** masaüstü Stok → yalnız `stock.Delete` (buton kontrolü YOK); web Stok →
+  `stock.Delete` + `btn-reverse`. Yakıt ekranlarında web doğruydu, masaüstü modül kontrolünü sormuyordu.
+- **İki yönlü sonuç:** (a) yöneticinin `stock.Edit`+`btn-reverse` verdiği kullanıcı butonu **hiçbir
+  platformda göremiyordu** (verilen yetki kullanılamıyor — YET-02 ile yetki verilebilir hâle gelince görünür
+  oldu); (b) yalnız `stock.Delete`'i olan kullanıcı butonu görüp tıklayınca hata alıyordu.
+- ⚠️ **Güvenlik açığı DEĞİLDİ** — sunucu her iki durumda da doğru davranıyordu (fail-closed).
+- **Karar:** yalnız ARAYÜZ eşitlendi (masaüstü Stok, masaüstü Yakıt, web Stok). **Sunucu kuralına
+  DOKUNULMADI** — sunucu tek otorite olarak kalır.
+
+## ADR-146 — PRS-01: şube kapsamı SAYFALAMADAN SONRA uygulanıyordu (2026-08-26, üçüncü tur)
+- **Durum:** `PersonnelService.List` veritabanından `LIMIT n+1` satır çekiyor, sonra **bellekte** kapsam
+  dışı şubeleri eliyor, ve "sonraki sayfa" imlecini eleme SONRASI sayıya bakarak üretiyordu.
+- **Etki:** bir sayfa kapsam dışı kayıtlarla dolduğunda kullanıcı **boş liste** görür ve imleç
+  üretilmediği için **sonraki sayfaya hiç geçemez** → tek şubeye yetkili kullanıcı kendi şubesindeki
+  personeli göremeyebilir. Güvenlik açığı DEĞİL (fazla değil, EKSİK gösterme) ama gerçek bir veri
+  görünürlüğü hatası. Üretimde henüz hiç şube tanımlı olmadığı için (0 şube) bugüne dek görülmedi.
+- **Karar:** filtre SQL'e taşındı (araç listesindeki mevcut desenin aynısı). **Görünen küme birebir aynı:**
+  admin sınırsız · şubesiz kayıt herkese görünür · kapsam boşsa yalnız şubesiz kayıtlar. Kapsam kaynağı
+  (`ScopeResolver`) korundu.
+- **Aynı kalıp başka yerde var mı:** tarandı — yalnız bir yer daha bellekte eliyor (`StatusReport`'un şube
+  listesi) ve o **sayfalı değil**, dolayısıyla etkilenmiyor.
+- **Kanıt:** ilk yazdığım test DİŞSİZDİ (sıralama `created_at DESC` olduğu için kapsam içi kayıt zaten ilk
+  sayfaya düşüyordu); kasten bozma denemesi bunu ortaya çıkardı, kurgu düzeltildi, sonra kırmızı→yeşil.
+
+## ADR-147 — MAS-01: çıkış→giriş döngüsünde masaüstü kabuğu serbest bırakılmıyordu (2026-08-26)
+- **Durum:** her girişte YENİ bir `ShellViewModel` oluşur; eskisi iki **statik** olaya abone kalıyordu
+  (`DeveloperMode.Changed`, `ServerAuthClient.SessionExpiredRaised`) ve `_updateTimer` hiç durdurulmuyordu.
+- **Etki:** aynı uygulama oturumunda her çıkış→giriş bir kabuk daha biriktirir → dakikada N kez güncelleme
+  kontrolü, yeni sürüm çıktığında birden çok "güncelleme mevcut" penceresi, çıkışta geliştirici modu
+  kapanırken KAPANMIŞ pencerelerin işleyicilerinin de çağrılması ve sürekli artan bellek.
+- **Karar:** `ShellViewModel.Release()` eklendi (zamanlayıcıları durdurur, iki statik aboneliği çözer;
+  idempotent) ve `App.ShowLogin()` yeni kabuk oluşturulmadan önce eskisini bırakır.
+- **Test:** `ShellViewModel` Avalonia ve `DesktopServices` olmadan örneklenemediği için kural **yapısal**
+  olarak kilitlendi (kaynak kilidi) + izole masaüstü turunda çıkış→giriş denendi.
+
+## ADR-148 — SNK-01: senkron yolu araç sayacını GERİYE alabiliyordu (2026-08-26, üçüncü tur)
+- **Kural** (CLAUDE.md §4): *"Stok, sayaç, yakıt, bakım ve onayda LWW yasaktır."* Doğrudan yol buna
+  uyuyordu (`VehicleService.SetMeter` → `MeterBackwardException`, tek doğru kaynak `MeterRule`).
+- **Durum:** `POST /api/sync/business-push` araç satırını **düz LWW ile** upsert ediyor, `current_meter`
+  için hiçbir kontrol yapmıyordu. **Gerçek istekle doğrulandı** (izole sunucu): sunucudaki sayaç
+  **1000 iken 10'a düştü**, yanıt `{"upserted":1,"skipped":0,"errors":[]}` — tamamen **sessiz**.
+- **Neden ciddi:** sayaç, yakıt tüketimi (km/saat başına) ve **bakım periyodu** hesaplarının girdisidir.
+  Geriye giden sayaç yanlış tüketim raporu üretir ve **bakım uyarılarının kaçırılmasına** yol açar.
+  Çevrimdışı çalışmış, yerel sayacı eski kalmış bir masaüstü bunu farkında olmadan tetikleyebilir.
+- **Karar:** senkron yolunda da **mevcut** kural uygulanır (`MeterRule.ShouldAdvance`): gelen büyükse
+  ilerler, küçükse **dokunulmaz**. Satır REDDEDİLMEZ — diğer alanlar normal uygulanır, yani meşru
+  düzenlemeler (plaka, durum vb.) kaybolmaz. Yeni bir kural/kavram eklenmedi.
+- **Kapsam:** yalnız **istemci → sunucu** yönü. Sunucu → masaüstü (pull) yönü sunucu-otoriteldir ve
+  bilinçli olarak değiştirilmedi.
+- **Aynı sınıftan başka boşluk var mı:** tarandı — stok (`quantity` pozitif + sunucu bakiyeyi
+  hareketlerden yeniden hesaplar), yakıt (litre/fiyat/tutar negatif olamaz), onay (durum beyaz listesi)
+  zaten korunuyordu. **Sayaç tek boşluktu.**
+
+## ADR-149 — Test kalitesi: mutasyon (kasten bozma) turu (2026-08-26, üçüncü tur)
+- Testlerin gerçekten "diş" taşıyıp taşımadığını ölçmek için **10 mutasyon** uygulandı: rapor şube filtresi,
+  tenant kapısı, güncelleme checksum'ı, senkron idempotency, rapor Excel buton yetkisi, stok ters kayıt
+  buton kapısı, TNT-05 şube aidiyeti, YED-02 kimlik doğrulaması. Her mutasyondan sonra kaynak AYNEN geri alındı.
+- **Sonuç 8/8 yakalandı** — ama iki tanesi ancak düzeltmeden sonra:
+  - **M3** ilk hâli "eşdeğer mutasyon"du: boş checksum kontrolü kapatılsa bile ikinci kontrol
+    (`VerifyChecksum(content, null)`) yine fail-closed davranıyor. Gerçek UPD-01 öncesi davranış
+    (`return;`) ile tekrarlandı → **kırıldı**. Yani kod iki katmanlı korumalı.
+  - **M6** gerçek bir test zayıflığıydı: `YET05b` yalnız `ForbiddenException` bekliyordu; buton kapısı
+    kaldırılınca "Belge bulunamadı" da **aynı türden** istisna fırlattığı için test yine geçiyordu.
+    Test artık istisna MESAJINI de sınıyor → mutasyon yakalanıyor.
+- **Ders (kayda geçti):** "aynı istisna türü" ile biten iki farklı yol, bir testi sessizce dişsiz bırakır.

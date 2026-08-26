@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-26 (final audit turu — aynı gün ikinci tur)
+> Son güncelleme: 2026-08-26 (son uçtan uca stabilizasyon turu — aynı gün üçüncü tur)
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -26,6 +26,52 @@
   `fly volumes extend` ile disk büyütülmeli. Etki: **kritik**.
 
 
+
+
+## 🟡 SON STABİLİZASYON TURUNDA AÇIK BIRAKILAN (2026-08-26, üçüncü tur)
+
+- **YET-01 — işlevsiz iki yetki anahtarı (analiz derinleştirildi, DEĞİŞTİRİLMEDİ).** `btn-logo`
+  ("Firma Logosu Değiştir") **var olmayan bir özelliği** koruyor: kodda logo değiştirme ucu da,
+  ekranı da YOK (logo statik marka varlığıdır). `btn-reset-db` ("Veritabanı Sıfırlama") ise yapısal
+  olarak yalnız süper adminin geçebildiği bir işlemi korur — devredilse bile kullanılamaz. Yani ikisi de
+  **gerçek bir kapıya bağlanamaz**. Silmek yetki ağacından düşürür ama verilmiş `user_buttons` satırlarını
+  öksüz bırakır; üretimde bu satırların var olup olmadığı **doğrulanamadı** (canlı veritabanına okuma
+  erişimi yok). **Karar kullanıcıya bırakıldı.** Etki: düşük (yanıltıcı).
+
+- **MAK-01/b — makine aktivasyon modeli (yeniden analiz edildi, DEĞİŞTİRİLMEDİ).** Bu turda akışın
+  tamamı okundu: masaüstü `MachineGate` ucu **giriş ekranından ÖNCE** çağırır ve `pending` durumu
+  **girişi tamamen engeller**. Dolayısıyla "önce kimlik doğrula, sonra aktifleştir" modeli bir
+  **kilitlenme** yaratır (giriş yapamayan makine aktifleşemez, aktifleşmeyen makine giriş yapamaz).
+  Mevcut telafi doğru seviyededir: IP başına hız sınırı + yöneticinin Makine Yönetimi'nden sahte
+  makineleri görüp iptal edebilmesi. Model değişikliği **kurulum akışını yeniden tasarlamayı** gerektirir
+  → ürün kararı. ⚠️ Veri sızıntısı YOK; mevcut aktif makineler DÜŞMEZ.
+
+- **RPR-15 — rapor yetkisi bazı raporlarda modül yetkisi istemiyor.** Muayene/Sigorta, Personel ve 6 ön
+  muhasebe raporu, `reports` yetkisinin YANINDA ilgili ekranın yetkisini de ister (RPR-12). Stok, Yakıt,
+  Araç, Bakım, Talep ve şablon raporlarında ise **yalnız `reports` yeterlidir**. Yani "Raporlar" yetkisi
+  verilen kullanıcı, Stok ekranına yetkisi olmasa da stok hareketlerini raporda görebilir.
+  **Bilinçli mi bilinmiyor.** Sıkılaştırmak, bugün rapor görebilen kullanıcıların erişimini KESERDİ →
+  çalışan davranış değiştirilmedi. **Karar kullanıcıya bırakıldı.**
+
+- **PRF-01/c — rapor yanıt boyutu (ölçüm bu turda yenilendi).** Üst sınır `reports.max_rows` ayarıyla
+  **50.000**'dir (varsayılan; 1000'in altına inmez). Ölçümler final raporundadır. Sayfalı rapor API'si
+  ileride gerekebilir; bu turda mimari değişiklik yapılmadı.
+
+- **WEB-03 — ÜRETİLEMEDİ (değiştirilmedi).** Derleyici üç ekranda (`Finance`, `Invoices`, `Parties`)
+  `OnRowClick`'te `e.Item`'ın null olabileceğini uyarıyor (CS8604) ve Blazor'da olay işleyicisindeki bir
+  istisna **devreyi düşürür**. Gerçek tarayıcıda tablo başlık satırına ve hücrelerine tıklandı → olay
+  **tetiklenmedi**, devre sağlam kaldı, konsolda hata yok. Üretilemediği için **kod değiştirilmedi**
+  (varsayımla düzeltme yapılmadı). Not olarak duruyor.
+
+- **Sunucuya ulaşılamadığında ekran boş kalıyor (gözlem, hata değil).** API kapalıyken web **oturumu
+  düşürmüyor** ve devre çökmüyor (§13 karşılandı) — ama menü daralıyor ve ekran neredeyse boş kalıyor;
+  kullanıcıya "sunucuya ulaşılamıyor" diyen bir uyarı **yok**. Babanızın interneti kesilirse boş bir
+  ekranla karşılaşır. Genel bir bağlantı uyarısı eklemek **yeni bir özelliktir** → kullanıcı kararı.
+
+- **Şube izolasyonu üretimde hâlâ GÖZLEMLENEMEDİ.** Üretimde hiç şube tanımlı değil (0 şube). Kural izole
+  ortamda kanıtlandı (ADR-142 matrisi + bu turda eklenen yazma süpürmesi). ⚠️ Bu turda tam da bu yüzden
+  gizli kalmış bir hata bulundu (**PRS-01**, ADR-146): şube kapsamı sayfalamadan sonra uygulanıyordu.
+  Şube tanımlandığında benzer "0 şubede görünmeyen" hatalar çıkabilir.
 
 ## 🟡 FİNAL AUDIT TURUNDA AÇIK BIRAKILAN (2026-08-26, ikinci tur)
 

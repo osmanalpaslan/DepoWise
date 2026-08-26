@@ -1125,6 +1125,18 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         return 0;
     }
 
+    /// <summary>SNK-01 — sunucudaki mevcut araç sayacı (ham metin); araç yoksa <c>null</c>.
+    /// Aynı bağlantı üzerinden okunur → açık transaction içinde çalışır.</summary>
+    private static string? MevcutSayac(DbConnection conn, string companyId, string vehicleId)
+    {
+        if (string.IsNullOrWhiteSpace(vehicleId)) return null;
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT current_meter FROM vehicles WHERE id=@id AND company_id=@c;";
+        cmd.AddWithValue("@id", vehicleId);
+        cmd.AddWithValue("@c", companyId);
+        return cmd.ExecuteScalar() as string;
+    }
+
     private bool UpsertRow(DbConnection conn, string table, HashSet<string> tableCols, List<string> pk, bool hasCompany,
         bool hasUpdated, string companyId, JsonElement row, long now,
         bool serverAuthoritativeDeletes = false, bool protectServerDeletes = false)
@@ -1139,6 +1151,33 @@ WHERE a.company_id=@c AND a.entity_id=@e ORDER BY a.created_at DESC LIMIT 1;";
         foreach (var k in pk)
             if (!values.TryGetValue(k, out var v) || v is null) return false;
         if (hasCompany) values["company_id"] = companyId; // tenant zorla
+
+        // ⭐ SNK-01 (denetim 2026-08-26) — ARAÇ SAYACI GERİYE GİDEMEZ.
+        //
+        // Mimari kural (CLAUDE.md §4): "Stok, sayaç, yakıt, bakım ve onayda LWW yasaktır." Doğrudan yol
+        // (VehicleService.SetMeter) bunu MeterBackwardException ile uyguluyordu; SENKRON yolu ise satırı
+        // düz LWW ile upsert ediyor ve current_meter'ı hiç sorgulamıyordu. Gerçek istekle doğrulandı:
+        // sunucudaki sayaç 1000 iken 10'a düştü ve yanıt {"upserted":1,"errors":[]} idi — SESSİZ.
+        // Sayaç, yakıt tüketimi ve bakım periyodu hesaplarının girdisi olduğu için geriye gitmesi yanlış
+        // rapor üretir ve bakım uyarılarının kaçırılmasına yol açar.
+        //
+        // Kural YENİ DEĞİLDİR: bakım/yakıt modüllerinin zaten kullandığı MeterRule.ShouldAdvance uygulanır —
+        // gelen büyükse ilerler, küçükse DOKUNULMAZ. Satır reddedilmez; diğer alanlar normal uygulanır
+        // (meşru düzenlemeler kaybolmaz). Yalnız İSTEMCİ → SUNUCU yönünde; sunucudan geri çekme
+        // (serverAuthoritativeDeletes) sunucu-otoriteldir ve bilinçli olarak değiştirilmemiştir.
+        if (!serverAuthoritativeDeletes && string.Equals(table, "vehicles", StringComparison.Ordinal)
+            && values.TryGetValue("current_meter", out var gelenSayacHam) && gelenSayacHam is not null
+            && values.TryGetValue("id", out var aracIdHam) && aracIdHam is not null)
+        {
+            var mevcutHam = MevcutSayac(conn, companyId, Convert.ToString(aracIdHam) ?? "");
+            if (mevcutHam is not null)
+            {
+                var mevcut = Money.Parse(mevcutHam);
+                var gelen = Money.Parse(Convert.ToString(gelenSayacHam));
+                if (!MeterRule.ShouldAdvance(mevcut, gelen))
+                    values["current_meter"] = mevcutHam;   // geriye gitme → mevcut değer korunur
+            }
+        }
 
         var colList = values.Keys.ToList();
         var insertCols = string.Join(", ", colList);
