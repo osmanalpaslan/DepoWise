@@ -1,10 +1,52 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (beşinci tur — canlı kullanımda bildirilen iki sorun + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (altıncı tur — liste tablolarında kolon hizası + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
-## ✅ TAMAMLANAN — BEŞİNCİ TUR: CANLI KULLANIM SORUNLARI (2026-08-26)
+## ✅ TAMAMLANAN — ALTINCI TUR: TABLO KOLON HİZASI (2026-08-26)
+
+Karar: **ADR-157** · Kullanıcının ekran görüntüsüyle bildirdiği sorun.
+
+**MAS-04 — Liste tablolarında kolon adları, filtre kutuları ve veriler aynı hizada değildi.**
+Dört ayrı kök neden bulundu:
+
+| # | Kusur | Etki | Çözüm |
+|---|---|---|---|
+| 1 | Filtre hücresinde **dış boşluk** (`Margin`) | kolon başına +8 px, kayma **birikiyordu** | `Margin` → `Padding` (35 hücre + rapor tablosu) |
+| 2 | Hücrelerde **üst sınır yok** | uzun değer gövdedeki kolonu genişletiyordu | `MaxWidth = MinWidth` + "…" + ipucu |
+| 3 | Başlık ile gövde **ayrı** yatay kayıyordu | yana kaydırınca hiza kopuyordu | ortak kaydırıcı (3 ekran) |
+| 4 | Başlık ile veri **kolon sayısı farklı** | Talepler'de başlık 5 / veri 7 | eksik başlıklar tamamlandı (3 ekran) |
+
+Kullanıcının seçimiyle **sütun ayırıcı çizgileri** eklendi (`ColumnRules`): çizgi konum hesaplamaz,
+kolonun içine sağa hizalanır → kolon sürüklenince/gizlenince/kaydırılınca kendiliğinden doğru kalır.
+
+**Kapsam: 31 tablo ekranının tamamı.** Web değişmedi (gerçek HTML tablo kullandığı için hiza zaten doğru).
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı) | 2482 · 0 · 37 |
+| Tam test — final koşu 1 | **2523 · 0 başarısız · 37 atlandı** |
+| Tam test — final koşu 2 (bağımsız) | **2523 · 0 · 37 → birebir aynı** |
+| PostgreSQL (izole küme) | **47 · 0 · 0** (+ yedek lehçe kapısı 4 · 0 · 0) |
+| Mutasyon | **16/16 yakalandı** (1 kaçtı → test güçlendirildi, 5 eksik tablo satırı daha bulundu) |
+| Yeni test | **41** |
+| Yayın | Masaüstü **1.0.155** · üç yönlü sağlama aynı |
+| API / Web | **DEĞİŞMEDİ** → deploy gerekmedi (v171 / v195) · şema **72** |
+
+### Bilinçli istisnalar
+- Esnek (`*`) kolonlar ve `SharedSizeGroup` kullanan kolonlar — orada kolonu Avalonia zaten eşitler.
+- Yazı olmayan hücreler (buton · sayı kutusu · durum rozeti) — sabit genişlik etiketi kırpardı.
+  5'i son kolondadır (kayma yayılmaz), 2'si Talepler'in rozet kolonlarıdır.
+
+### Kararınızı bekleyen (değişmedi)
+- **ARC-01** — araç seçicisinin firma geneli olması.
+- **YET-01** — işlevsiz iki yetki anahtarının yetki ağacından kaldırılması.
+
+---
+
+## 📦 ARŞİV — BEŞİNCİ TUR (2026-08-26)
 
 Tam rapor: [`docs/tests/Denetim_2026-08-26_Besinci_Tur.md`](../tests/Denetim_2026-08-26_Besinci_Tur.md)
 Kararlar: **ADR-155 · ADR-156**
