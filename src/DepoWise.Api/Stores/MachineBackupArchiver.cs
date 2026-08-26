@@ -217,7 +217,9 @@ public sealed class MachineBackupArchiver
     public string? ResolveArchive(string company, string machine, string name)
     {
         if (name.Contains("..") || name.Contains('/') || name.Contains('\\')) return null;
-        var p = Path.Combine(ArchivePath(company, machine), Safe(name));
-        return File.Exists(p) ? p : null;
+        // ⭐ YOL-01 (denetim 2026-08-26): dosya ADI korunuyordu ama FİRMA ve MAKİNE adı korunmuyordu —
+        // ikisi de istekten gelir. Çözülen yolun yedek kökünün ALTINDA kaldığı artık doğrulanır.
+        var p = DepoWise.Application.Common.SafePath.UnderRoot(_root, Safe(company), Safe(machine), ArchiveDir, Safe(name));
+        return p is not null && File.Exists(p) ? p : null;
     }
 }

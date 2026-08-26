@@ -69,9 +69,14 @@ public sealed partial class FuelViewModel : ViewModelBase
 
     partial void OnShowCancelledChanged(bool value) => Load();
 
-    /// <summary>Y5: iptal için "Ters Kayıt" özel buton yetkisi gerekir — butonlar buna göre görünür.</summary>
+    /// <summary>Y5: iptal için "Ters Kayıt" özel buton yetkisi gerekir — butonlar buna göre görünür.
+    /// ⭐ YET-05 (2026-08-26): sunucu (<c>FuelService</c>) buton YANINDA <c>fuel.Edit</c> de ister;
+    /// burada modül kontrolü eksikti → düzenleme yetkisi olmayan kullanıcı butonu görüp hata alıyordu.
+    /// Web Yakıt ekranı bu ikiliyi zaten doğru soruyordu.</summary>
     public bool CanCancelFuel =>
-        DesktopServices.Session is { } s && AccessControl.CanUseButton(s, SpecialButtons.Reverse);
+        DesktopServices.Session is { } s
+        && AccessControl.Can(s, "fuel", PermissionAction.Edit)
+        && AccessControl.CanUseButton(s, SpecialButtons.Reverse);
 
     [ObservableProperty] private FuelRow? _selectedDistribution;
     [ObservableProperty] private FuelDepotRow? _selectedDepotEntry;

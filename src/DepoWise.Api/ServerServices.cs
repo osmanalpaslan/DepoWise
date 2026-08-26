@@ -103,9 +103,14 @@ public sealed class ServerServices
     /// <summary>Liste ekranı kolon tercihi — KİŞİSEL (kullanıcı bazlı, firma bağımsız).</summary>
     public DepoWise.Infrastructure.Settings.UserListPreferenceService ListPrefs { get; }
 
+    /// <summary>Sunucu veri klasörü (yedekler, fotoğraflar, yayın paketleri ve SQLite'a düşüldüyse
+    /// veritabanı burada). YOL-01 testleri bu kökün dışına çıkılamadığını buradan doğrular.</summary>
+    public string DataDir { get; }
+
     public ServerServices(string dataDir)
     {
         Directory.CreateDirectory(dataDir);
+        DataDir = dataDir;
 
         // PostgreSQL geçişi (Faz 3): DEPOWISE_PG_URL tanımlıysa sunucu PostgreSQL kullanır; TANIMSIZSA
         // eskisi gibi SQLite → babanın canlı sunucusu birebir aynı çalışır (varsayılan değişmedi).

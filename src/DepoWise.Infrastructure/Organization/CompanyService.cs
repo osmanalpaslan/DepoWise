@@ -101,6 +101,12 @@ ORDER BY c.name;";
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new ArgumentException("Firma adı zorunlu.");
         var now = _clock.UtcNow.ToUnixTimeMilliseconds();
         var id = string.IsNullOrWhiteSpace(explicitId) ? Guid.NewGuid().ToString("N") : explicitId!;
+        // ⭐ YOL-01 (denetim 2026-08-26): firma kimliği DOSYA YOLUNA giriyor ({veriKökü}/files/{kimlik}) ve
+        // oradan özyinelemeli silmeye. ".." gibi bir kimlik, silme çağrısını veri kökünün KENDİSİNE
+        // yönlendirip bütün firmaların dosyalarını götürürdü. Üretimdeki kimlikler onaltılık GUID'dir ve
+        // masaüstünün çevrimdışı ürettiği kimlikler de öyledir → bu kural mevcut hiçbir akışı değiştirmez.
+        if (!SafePath.IsSafeId(id))
+            throw new ArgumentException("Firma kimliği geçersiz: yalnız harf, rakam, '-' ve '_' kullanılabilir.");
         using var conn = _factory.Create();
         using var tx = conn.BeginTransaction();
         using (var cmd = conn.CreateCommand())

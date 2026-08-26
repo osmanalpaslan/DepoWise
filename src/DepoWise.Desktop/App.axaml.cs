@@ -45,6 +45,10 @@ public partial class App : Avalonia.Application
     {
         if (_desktop is null) return;
         var old = _desktop.MainWindow;
+        // ⭐ MAS-01 (2026-08-26): eski kabuk statik olaylara abone ve zamanlayıcıları çalışır hâlde
+        // kalıyordu → her çıkış→giriş bir kabuk daha biriktiriyordu (dakikada N güncelleme kontrolü,
+        // mükerrer güncelleme penceresi, kapanmış pencerelerin işleyicileri, artan bellek).
+        if (old?.DataContext is ViewModels.ShellViewModel eskiKabuk) eskiKabuk.Release();
         var loginVm = new LoginViewModel();
         var login = new LoginWindow { DataContext = loginVm };
         loginVm.OnLoggedIn = session =>

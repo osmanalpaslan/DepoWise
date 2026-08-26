@@ -71,6 +71,11 @@ internal static class AccountingReports
     public static TableModel Statement(IDbConnectionFactory factory, SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, PartyService.Module, PermissionAction.View);
+        // ⭐ RPR-14 (denetim 2026-08-26): rapor ekranındaki "Firma (Süper Admin)" seçimi burada
+        // YOK SAYILIYORDU (doğrudan s.CompanyId kullanılıyordu) → süper admin B'yi seçse de A'nın mali
+        // verisi geliyordu. Diğer 15 raporla AYNI çözüm: süper admin seçebilir, diğerleri kendi firması
+        // (yabancı firma istenirse 403 — davranış onlar için değişmez).
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = factory.Create();
         using var cmd = conn.CreateCommand();
 
@@ -85,7 +90,7 @@ WHERE l.company_id=@c"
             + PartySql(req, "l.party_id")
             + ReportScope.BranchSql(s, req, "l.branch_id")
             + " ORDER BY l.entry_date, l.created_at;";
-        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@c", companyId);
         BindDate(cmd, req);
         BindParty(cmd, req);
         ReportScope.BindBranch(cmd, s, req);
@@ -141,6 +146,11 @@ WHERE l.company_id=@c"
     public static TableModel Balances(IDbConnectionFactory factory, SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, PartyService.Module, PermissionAction.View);
+        // ⭐ RPR-14 (denetim 2026-08-26): rapor ekranındaki "Firma (Süper Admin)" seçimi burada
+        // YOK SAYILIYORDU (doğrudan s.CompanyId kullanılıyordu) → süper admin B'yi seçse de A'nın mali
+        // verisi geliyordu. Diğer 15 raporla AYNI çözüm: süper admin seçebilir, diğerleri kendi firması
+        // (yabancı firma istenirse 403 — davranış onlar için değişmez).
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = factory.Create();
         using var cmd = conn.CreateCommand();
 
@@ -154,7 +164,7 @@ WHERE l.company_id=@c AND l.is_reversed=0"
             + DateSql(req, "l.entry_date")
             + PartySql(req, "l.party_id")
             + ReportScope.BranchSql(s, req, "l.branch_id") + ";";
-        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@c", companyId);
         BindDate(cmd, req);
         BindParty(cmd, req);
         ReportScope.BindBranch(cmd, s, req);
@@ -207,6 +217,11 @@ WHERE l.company_id=@c AND l.is_reversed=0"
     public static TableModel Invoices(IDbConnectionFactory factory, SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, InvoiceService.Module, PermissionAction.View);
+        // ⭐ RPR-14 (denetim 2026-08-26): rapor ekranındaki "Firma (Süper Admin)" seçimi burada
+        // YOK SAYILIYORDU (doğrudan s.CompanyId kullanılıyordu) → süper admin B'yi seçse de A'nın mali
+        // verisi geliyordu. Diğer 15 raporla AYNI çözüm: süper admin seçebilir, diğerleri kendi firması
+        // (yabancı firma istenirse 403 — davranış onlar için değişmez).
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = factory.Create();
 
         var ids = new List<string>();
@@ -226,7 +241,7 @@ WHERE i.company_id=@c"
                 + PartySql(req, "i.party_id")
                 + ReportScope.BranchSql(s, req, "i.branch_id")
                 + " ORDER BY i.invoice_date, i.invoice_no;";
-            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@c", companyId);
             BindDate(cmd, req);
             BindParty(cmd, req);
             ReportScope.BindBranch(cmd, s, req);
@@ -254,7 +269,7 @@ WHERE i.company_id=@c"
         }
 
         // Ödenen tutarlar TEK sorguda (fatura başına ayrı sorgu = N+1 YOK).
-        var paid = FinanceQueryService.PaidTotals(conn, s.CompanyId, ids);
+        var paid = FinanceQueryService.PaidTotals(conn, companyId, ids);
 
         decimal tT = 0, oT = 0, kT = 0;
         foreach (var (id, row, total, iptal) in ham)
@@ -282,6 +297,11 @@ WHERE i.company_id=@c"
     public static TableModel OpenInvoices(IDbConnectionFactory factory, SessionContext s, ReportRequest req, IClock clock)
     {
         AccessControl.Require(s, InvoiceService.Module, PermissionAction.View);
+        // ⭐ RPR-14 (denetim 2026-08-26): rapor ekranındaki "Firma (Süper Admin)" seçimi burada
+        // YOK SAYILIYORDU (doğrudan s.CompanyId kullanılıyordu) → süper admin B'yi seçse de A'nın mali
+        // verisi geliyordu. Diğer 15 raporla AYNI çözüm: süper admin seçebilir, diğerleri kendi firması
+        // (yabancı firma istenirse 403 — davranış onlar için değişmez).
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = factory.Create();
 
         var ids = new List<string>();
@@ -299,7 +319,7 @@ WHERE i.company_id=@c AND i.status=@st"
                 + PartySql(req, "i.party_id")
                 + ReportScope.BranchSql(s, req, "i.branch_id")
                 + " ORDER BY i.due_date, i.invoice_date;";
-            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@c", companyId);
             cmd.AddWithValue("@st", InvoiceStatuses.Active);
             BindParty(cmd, req);
             ReportScope.BindBranch(cmd, s, req);
@@ -321,7 +341,7 @@ WHERE i.company_id=@c AND i.status=@st"
             }
         }
 
-        var paid = FinanceQueryService.PaidTotals(conn, s.CompanyId, ids);
+        var paid = FinanceQueryService.PaidTotals(conn, companyId, ids);
         var now = clock.UtcNow.ToUnixTimeMilliseconds();
 
         var rows = new List<IReadOnlyList<object?>>();
@@ -355,6 +375,11 @@ WHERE i.company_id=@c AND i.status=@st"
     public static TableModel Payments(IDbConnectionFactory factory, SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, FinanceService.Module, PermissionAction.View);
+        // ⭐ RPR-14 (denetim 2026-08-26): rapor ekranındaki "Firma (Süper Admin)" seçimi burada
+        // YOK SAYILIYORDU (doğrudan s.CompanyId kullanılıyordu) → süper admin B'yi seçse de A'nın mali
+        // verisi geliyordu. Diğer 15 raporla AYNI çözüm: süper admin seçebilir, diğerleri kendi firması
+        // (yabancı firma istenirse 403 — davranış onlar için değişmez).
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = factory.Create();
         using var cmd = conn.CreateCommand();
 
@@ -371,7 +396,7 @@ WHERE t.company_id=@c AND t.txn_type IN (@tr,@tp)"
             + PartySql(req, "t.party_id")
             + ReportScope.BranchSql(s, req, "t.branch_id")
             + " ORDER BY t.txn_date, t.created_at;";
-        cmd.AddWithValue("@c", s.CompanyId);
+        cmd.AddWithValue("@c", companyId);
         cmd.AddWithValue("@tr", FinanceTxnTypes.Receipt);
         cmd.AddWithValue("@tp", FinanceTxnTypes.Payment);
         BindDate(cmd, req);
@@ -423,6 +448,11 @@ WHERE t.company_id=@c AND t.txn_type IN (@tr,@tp)"
     public static TableModel Cash(IDbConnectionFactory factory, SessionContext s, ReportRequest req)
     {
         AccessControl.Require(s, FinanceService.Module, PermissionAction.View);
+        // ⭐ RPR-14 (denetim 2026-08-26): rapor ekranındaki "Firma (Süper Admin)" seçimi burada
+        // YOK SAYILIYORDU (doğrudan s.CompanyId kullanılıyordu) → süper admin B'yi seçse de A'nın mali
+        // verisi geliyordu. Diğer 15 raporla AYNI çözüm: süper admin seçebilir, diğerleri kendi firması
+        // (yabancı firma istenirse 403 — davranış onlar için değişmez).
+        var companyId = ReportGate.ResolveCompany(s, req.CompanyId);
         using var conn = factory.Create();
 
         var hesap = new Dictionary<string, (string Code, string Name, string Kind, string Branch, string Cur)>(StringComparer.Ordinal);
@@ -433,7 +463,7 @@ SELECT a.id, a.code, a.name, a.account_kind, COALESCE(b.name,''), a.currency_cod
 FROM finance_accounts a LEFT JOIN branches b ON b.id = a.branch_id
 WHERE a.company_id=@c AND a.is_deleted=0"
                 + ReportScope.BranchSql(s, req, "a.branch_id") + " ORDER BY a.account_kind, a.code;";
-            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@c", companyId);
             ReportScope.BindBranch(cmd, s, req);
             using var r = cmd.ExecuteReader();
             while (r.Read())
@@ -456,7 +486,7 @@ WHERE a.company_id=@c AND a.is_deleted=0"
             cmd.CommandText =
                 $"SELECT account_id, direction, amount, txn_date FROM finance_transactions " +
                 $"WHERE company_id=@c AND is_reversed=0 AND account_id IN ({ps});";
-            cmd.AddWithValue("@c", s.CompanyId);
+            cmd.AddWithValue("@c", companyId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {

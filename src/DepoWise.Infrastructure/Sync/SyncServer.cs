@@ -100,6 +100,26 @@ public sealed class SyncServer
         return new PullPage(items, next);
     }
 
+    /// <summary>
+    /// ⭐ YED-02 (denetim 2026-08-26) — cihaz jetonunu FİRMAYA çözer; jeton geçersiz ya da cihaz aktif
+    /// değilse <c>null</c> döner (fırlatmaz).
+    ///
+    /// <para><b>Neden eklendi:</b> <c>/api/backups</c> ucu jetonu HİÇ doğrulamıyordu; yalnız
+    /// <c>Authorization: Bearer …</c> başlığının VAR OLUP OLMADIĞINA bakıyordu. Bu metot,
+    /// <c>/sync/push</c> ve <c>/sync/pull</c>'un zaten kullandığı doğrulamanın (<c>AuthDevice</c>)
+    /// istisna fırlatmayan sürümüdür — böylece yükleme ucu da aynı tek kaynaktan doğrular.</para>
+    /// </summary>
+    public string? CompanyForDevice(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+        try
+        {
+            using var conn = _factory.Create();
+            return AuthDevice(conn, token!).CompanyId;
+        }
+        catch (ForbiddenException) { return null; }
+    }
+
     // ---- yardımcılar ----
     private static (string DeviceId, string CompanyId) AuthDevice(DbConnection conn, string token)
     {

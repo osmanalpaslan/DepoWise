@@ -28,7 +28,16 @@ public sealed partial class StockEntryViewModel : ViewModelBase, IRefreshable
     private readonly SessionContext _session;
 
     public bool CanWrite => AccessControl.Can(_session, "stock", PermissionAction.Create);
-    public bool CanReverse => AccessControl.Can(_session, "stock", PermissionAction.Delete);
+
+    /// <summary>
+    /// ⭐ YET-05 (denetim 2026-08-26) — bu koşul SUNUCUYLA AYNI OLMAK ZORUNDA.
+    /// Sunucu (<c>StockService.ReverseDocument</c>) <c>stock.Edit</c> + <c>btn-reverse</c> ister; burası ise
+    /// yalnız <c>stock.Delete</c> soruyordu. İki yönlü hataya yol açıyordu: (1) Edit+buton verilen kullanıcı
+    /// butonu HİÇ göremiyordu (verilen yetki kullanılamıyor), (2) yalnız Delete'i olan kullanıcı butonu
+    /// görüp tıklayınca "yetki yok" hatası alıyordu.
+    /// </summary>
+    public bool CanReverse => AccessControl.Can(_session, "stock", PermissionAction.Edit)
+                              && AccessControl.CanUseButton(_session, SpecialButtons.Reverse);
 
     // Kayıt tipi (kullanıcı isteği 2026-08-07): üst seviye "Transfer" KALDIRILDI → "Depo Çıkışı" altına Şube
     // İçi/Şube Dışı alt-seçimi olarak taşındı. Şube İçi = çıkış (IssueOut), Şube Dışı = transfer (Transfer).

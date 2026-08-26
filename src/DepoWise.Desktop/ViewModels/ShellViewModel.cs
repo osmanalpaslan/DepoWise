@@ -651,6 +651,26 @@ public sealed partial class ShellViewModel : ViewModelBase
         ServerAuthClient.SessionExpiredRaised += OnSessionExpired; // oturum düşünce tekrar giriş
     }
 
+    /// <summary>
+    /// ⭐ MAS-01 (denetim 2026-08-26) — KABUĞU SERBEST BIRAK (çıkış/giriş döngüsü).
+    ///
+    /// <b>Neden gerekli:</b> her girişte YENİ bir <see cref="ShellViewModel"/> oluşturulur, ama eskisi
+    /// iki STATİK olaya abone kaldığı (<c>DeveloperMode.Changed</c>, <c>SessionExpiredRaised</c>) ve
+    /// güncelleme zamanlayıcısı hiç durdurulmadığı için asla serbest kalmıyordu. Aynı uygulama
+    /// oturumunda N kez çıkış→giriş yapılınca dakikada N kez güncelleme kontrolü çalışıyor, yeni sürüm
+    /// çıktığında birden çok pencere tetiklenebiliyor ve kapanmış pencerelerin işleyicileri çağrılıyordu.
+    ///
+    /// Çağıran: <c>App.ShowLogin()</c> — yeni kabuk oluşturulmadan ÖNCE eskisini bırakır.
+    /// Birden çok kez çağrılması güvenlidir (idempotent).
+    /// </summary>
+    public void Release()
+    {
+        _connTimer?.Stop(); _connTimer = null;
+        _updateTimer?.Stop(); _updateTimer = null;
+        DeveloperMode.Changed -= OnDeveloperModeChanged;
+        ServerAuthClient.SessionExpiredRaised -= OnSessionExpired;
+    }
+
     private bool _sessionExpiredHandled;
 
     /// <summary>Oturum süresi doldu ve yenilenemedi → kullanıcıya bilgi ver, tekrar girişe yönlendir.</summary>

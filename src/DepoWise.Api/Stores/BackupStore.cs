@@ -15,7 +15,11 @@ public sealed class BackupStore
 
     public async Task<string> SaveAsync(string company, string machine, string filename, Stream content, CancellationToken ct)
     {
-        var dir = Path.Combine(_root, Safe(company), Safe(machine));
+        // ⭐ YOL-01 (denetim 2026-08-26): Safe() yalnız "dosya adında geçersiz karakterleri" atar —
+        // LINUX'ta bu küme yalnız '\0' ve '/' olduğu için ".." olduğu gibi geçer ve klasör kökün
+        // DIŞINA çıkardı. Firma artık kimlikten geldiği için erişilemez bir yol; yine de kapatıldı.
+        var dir = DepoWise.Application.Common.SafePath.UnderRoot(_root, Safe(company), Safe(machine))
+                  ?? throw new InvalidOperationException("Geçersiz yedek yolu.");
         Directory.CreateDirectory(dir);
         var stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
         var path = Path.Combine(dir, $"{stamp}__{Safe(filename)}"); // benzersiz ad → üzerine yazma yok
@@ -26,8 +30,9 @@ public sealed class BackupStore
 
     public IReadOnlyList<ServerBackupItem> List(string company, DateOnly from, DateOnly to)
     {
-        var dir = Path.Combine(_root, Safe(company));
-        if (!Directory.Exists(dir)) return Array.Empty<ServerBackupItem>();
+        // YOL-01: bkz. SaveAsync — firma adı kök dışına çıkamaz.
+        var dir = DepoWise.Application.Common.SafePath.UnderRoot(_root, Safe(company));
+        if (dir is null || !Directory.Exists(dir)) return Array.Empty<ServerBackupItem>();
         var list = new List<ServerBackupItem>();
         foreach (var machineDir in Directory.GetDirectories(dir))
         {
@@ -46,8 +51,12 @@ public sealed class BackupStore
 
     public int DeleteRange(string company, DateOnly from, DateOnly to)
     {
-        var dir = Path.Combine(_root, Safe(company));
-        if (!Directory.Exists(dir)) return 0;
+        // ⭐ YOL-01 (denetim 2026-08-26) — BU EN TEHLİKELİ NOKTAYDI: firma adı istekten geliyor
+        // (DELETE /api/backups?company=…) ve ".." verilseydi taranan klasör YEDEKLERİN ÜST KLASÖRÜ
+        // (sunucu veri kökü) olurdu → tarih aralığına giren TÜM dosyalar (fotoğraflar, yayın paketleri,
+        // SQLite'a düşülmüşse veritabanı) silinirdi. Süper admin gerektirir ama sonuç geri alınamaz.
+        var dir = DepoWise.Application.Common.SafePath.UnderRoot(_root, Safe(company));
+        if (dir is null || !Directory.Exists(dir)) return 0;
         int n = 0;
         foreach (var machineDir in Directory.GetDirectories(dir))
             foreach (var f in Directory.GetFiles(machineDir))

@@ -209,7 +209,9 @@
                 <MudTd>@Str(context, "invoiceText")</MudTd>
                 <MudTd>@Str(context, "statusText")</MudTd>
                 <MudTd>
-                    @if (Auth.CanDelete("stock") && Auth.CanButton("btn-reverse") && Bool(context, "canReverse"))
+                    @* ⭐ YET-05 (2026-08-26): sunucu stock.Edit + btn-reverse ister; burada Delete soruluyordu →
+                       Edit+buton verilen kullanıcı butonu göremiyordu. Masaüstü Stok ekranı da eşitlendi. *@
+                    @if (Auth.CanEdit("stock") && Auth.CanButton("btn-reverse") && Bool(context, "canReverse"))
                     {
                         <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text" OnClick="@(() => Reverse(docId))">İptal</MudButton>
                     }

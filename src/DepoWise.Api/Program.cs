@@ -132,6 +132,11 @@ var publicLimiter = new RateLimiter(120, TimeSpan.FromMinutes(1));
 // (NAT) bir ofiste 5 makine bile sınırın çok altında kalır.
 var machineLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
 var downloadLimiter = new RateLimiter(30, TimeSpan.FromMinutes(10));
+// ⭐ YED-02 (denetim 2026-08-26) — sunucu yedek YÜKLEME ucu. Artık kimlik doğrulanıyor; sınır ikinci
+// katmandır: kimliği geçerli tek bir makine bile döngüye girerse disk dolmasın. Meşru akış GÜNDE BİR
+// yedek yükler (ShellViewModel.MaybeDailyBackupAsync, saatte bir kontrol). Sınır, ORTAK IP arkasındaki
+// (NAT) kalabalık bir ofis bile takılmasın diye bilerek yüksek: gerçek koruma artık kimlik doğrulamasıdır.
+var backupLimiter = new RateLimiter(60, TimeSpan.FromHours(1));
 
 // Cihaz senkron token'ı (JWT değil) — ham Authorization
 static string? DeviceToken(HttpRequest r)
@@ -1514,8 +1519,11 @@ app.MapPost("/api/admin/purge-company", (HttpContext c, PurgeCompanyDto d) =>
     {
         try
         {
-            var dir = System.IO.Path.Combine(dataDir, sub, companyId);
-            if (System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
+            // ⭐ YOL-01 (denetim 2026-08-26): firma kimliği doğrudan yola giriyordu. ".." olsaydı silinecek
+            // klasör dataDir'in KENDİSİ olurdu → bütün firmaların dosyaları, makine yedekleri ve yayın
+            // paketleri birlikte giderdi. Artık yol kökün altında değilse HİÇBİR ŞEY silinmez (fail-closed).
+            var dir = DepoWise.Application.Common.SafePath.UnderRoot(dataDir, sub, companyId);
+            if (dir is not null && System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
         }
         catch { /* dosya silinemese de DB purge'ü geçerli; künye yazıldı */ }
     }
@@ -1575,8 +1583,9 @@ app.MapPost("/api/admin/reset-company-business", (HttpContext c, PurgeCompanyDto
     int dirsDeleted = 0;
     try
     {
-        var dir = System.IO.Path.Combine(dataDir, "files", companyId);
-        if (System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
+        // ⭐ YOL-01: bkz. purge-company — yol kökün altında değilse hiçbir şey silinmez.
+        var dir = DepoWise.Application.Common.SafePath.UnderRoot(dataDir, "files", companyId);
+        if (dir is not null && System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
     }
     catch { /* dosya silinemese de DB sıfırlaması geçerli */ }
 
@@ -3519,14 +3528,33 @@ app.MapDelete("/api/releases/packages/{version}", (HttpContext ctx, string versi
 }).RequireAuthorization();
 
 // ── Sunucu yedek (bulut) ──
-app.MapPost("/api/backups", async (HttpRequest req) =>
+// ⭐ YED-02 (denetim 2026-08-26) — BU UÇ KİMLİĞİ DOĞRULAMIYORDU.
+//
+// Eski hâli yalnız `if (DeviceToken(req) is null) return Unauthorized();` idi; `DeviceToken` ise sadece
+// "Authorization: Bearer …" başlığını AYRIŞTIRIR — jetonu doğrulamaz. Kardeş uçlar (/sync/push, /sync/pull)
+// jetonu SyncServer.AuthDevice ile veritabanından doğrularken burada o adım YOKTU. Üstelik dosyanın
+// yazılacağı FİRMA da istekten geliyordu. Sonuç: internetteki herhangi biri, uydurma bir jetonla,
+// istediği firmanın klasörüne 1 GB'a kadar dosya yükleyebiliyordu (depo üzerine yazmaz/otomatik silmez)
+// → disk dolunca TÜM API 500 döner (ADR-070'te bir kez yaşandı) ve sahte yedekler gerçek firmanın
+// "Makine Yedekleri" ekranında görünürdü.
+//
+// Artık kimlik gerçekten doğrulanır ve FİRMA KİMLİKTEN alınır:
+//   • JWT oturumu  → masaüstünün bugün gönderdiği şey (ShellViewModel.MaybeDailyBackupAsync), ya da
+//   • cihaz senkron jetonu → /sync/push ile aynı doğrulama.
+// Meşru akış DEĞİŞMEZ: masaüstü zaten kendi firmasının kimliğini gönderiyordu.
+app.MapPost("/api/backups", async (HttpContext ctx) =>
 {
-    if (DeviceToken(req) is null) return Results.Unauthorized();
+    var req = ctx.Request;
+    var company = S(ctx)?.CompanyId ?? svc.Sync.CompanyForDevice(DeviceToken(req));
+    if (company is null) return Results.Unauthorized();
+    if (!backupLimiter.Check("bkp:" + (ClientIp(ctx) ?? "?")).Allowed) return Results.StatusCode(429);
     var form = await req.ReadFormAsync();
     var file = form.Files["file"];
     if (file is null) return Results.BadRequest(new { error = "file yok" });
+    var machine = form["machine"].ToString();
+    if (string.IsNullOrWhiteSpace(machine)) machine = "bilinmeyen-makine";
     await using var fs = file.OpenReadStream();
-    await svc.Backups.SaveAsync(form["company"].ToString(), form["machine"].ToString(), form["filename"].ToString(), fs, req.HttpContext.RequestAborted);
+    await svc.Backups.SaveAsync(company, machine, form["filename"].ToString(), fs, req.HttpContext.RequestAborted);
     // Bakım (6 saatte bir): tamamlanan ayları zip'le + ham dosyaları sil + 3 yılı aşanları buda + disk koruması.
     svc.MachineBackups.RunMaintenanceThrottled();
     return Results.Ok(new { ok = true });

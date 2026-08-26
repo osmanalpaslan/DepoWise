@@ -171,15 +171,43 @@ public sealed class PersonnelService
 
         using var conn = _factory.Create();
         using var cmd = conn.CreateCommand();
+
+        // ⭐ PRS-01 (denetim 2026-08-26) — ŞUBE KAPSAMI ARTIK SQL'DE.
+        //
+        // Eskiden satırlar LIMIT ile çekilip kapsam dışı olanlar BELLEKTE eleniyordu; "sonraki sayfa"
+        // imleci de eleme SONRASI sayıya bakıyordu. Sonuç: bir sayfa kapsam dışı kayıtlarla dolduğunda
+        // kullanıcı BOŞ liste görüyor VE imleç üretilmediği için sonraki sayfaya hiç geçemiyordu →
+        // tek şubeye yetkili kullanıcı kendi şubesindeki personeli GÖREMEYEBİLİYORDU.
+        // (Üretimde henüz şube tanımlı olmadığı için bugüne dek görülmedi.)
+        //
+        // GÖRÜNEN KÜME DEĞİŞMEZ — kural birebir aynı: admin sınırsız · şubesiz kayıt herkese görünür ·
+        // kapsam boşsa yalnız şubesiz kayıtlar. Aynı kaynak (ScopeResolver) korunur.
+        var subeSql = "";
+        if (!isAdmin)
+        {
+            if (allowedBranches.Count == 0) subeSql = "AND branch_id IS NULL ";
+            else
+            {
+                var ps = string.Join(",", Enumerable.Range(0, allowedBranches.Count).Select(i => "@pb" + i));
+                subeSql = $"AND (branch_id IN ({ps}) OR branch_id IS NULL) ";
+            }
+        }
+
         cmd.CommandText =
             "SELECT id, company_id, branch_id, full_name, title, phone, is_active, created_at, is_field_staff, version FROM personnel " +
             "WHERE company_id = @c " + (includeDeleted ? "" : "AND is_deleted = 0 ") +
+            subeSql +
             // Seçicilerde görünen alan full_name'dir → arama da onun üzerinden yapılır (Türkçe-doğru LikeTr).
             (hasSearch ? $"AND {SqlDialect.LikeTr(conn, "full_name", "@q")} " : "") +
             (hasCursor ? "AND " + TenantSql.KeysetAfterPredicate + " " : "") +
             TenantSql.KeysetOrderBy + " LIMIT @limit;";
         cmd.AddWithValue("@c", session.CompanyId);
         cmd.AddWithValue("@limit", limit + 1);
+        if (!isAdmin && allowedBranches.Count > 0)
+        {
+            int i = 0;
+            foreach (var b in allowedBranches) cmd.AddWithValue("@pb" + i++, b);
+        }
         if (hasSearch) cmd.AddWithValue("@q", "%" + search!.Trim() + "%");
         if (hasCursor)
         {
@@ -193,8 +221,7 @@ public sealed class PersonnelService
             while (r.Read())
             {
                 var branchId = r.IsDBNull(2) ? null : r.GetString(2);
-                // Kapsam dışı şubedeki personel admin-olmayana gösterilmez (şubesiz kayıt herkese görünür).
-                if (!isAdmin && branchId is not null && !allowedBranches.Contains(branchId)) continue;
+                // PRS-01: kapsam filtresi artık YUKARIDA, SQL'de (sayfalamadan ÖNCE) uygulanıyor.
                 items.Add(new PersonnelRecord(r.GetString(0), r.GetString(1), branchId,
                     r.GetString(3), r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5),
                     r.GetInt64(6) == 1, r.GetInt64(7), r.GetInt64(8) == 1, r.GetInt64(9)));
