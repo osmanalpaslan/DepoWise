@@ -1,10 +1,42 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (dördüncü denetim ve stabilizasyon turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (beşinci tur — canlı kullanımda bildirilen iki sorun + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
-## ✅ TAMAMLANAN — DÖRDÜNCÜ DENETİM VE STABİLİZASYON TURU (2026-08-26)
+## ✅ TAMAMLANAN — BEŞİNCİ TUR: CANLI KULLANIM SORUNLARI (2026-08-26)
+
+Tam rapor: [`docs/tests/Denetim_2026-08-26_Besinci_Tur.md`](../tests/Denetim_2026-08-26_Besinci_Tur.md)
+Kararlar: **ADR-155 · ADR-156**
+
+Kullanıcının canlı kullanımda **bizzat bildirdiği** iki sorun kapatıldı.
+
+| ID | Sorun | Kök neden | Çözüm |
+|---|---|---|---|
+| **MAS-03** | Masaüstü Malzeme Giriş-Çıkış tablosu görülemiyordu | **Veri geliyordu** ("19 hareket" sayacı doluydu); form `Auto` satırında ~700 px alıyor, listeye ~50 px kalıyordu | Form kapsayıcı yüksekliğinin **oranıyla** sınırlı + kendi içinde kayar; listeye taban yükseklik. **API/DB/senkron değişmedi** |
+| **STK-11** | Formda işlem tarihi yoktu | Şemada ayrım **zaten vardı** (`doc_date` + `created_at`) ve servisler `docDate` alıyordu; eksik olan yalnız arayüz + API alanıydı | "İşlem Tarihi" alanı (varsayılan bugün, geçmiş/gelecek serbest); ekran+rapor+Excel işlem tarihini gösterir; audit gerçek zamanı korur |
+
+> 🟢 **YENİ MIGRATION AÇILMADI — şema 72'de kaldı.**
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı, yeniden ölçüldü) | 2451 · 0 · 37 |
+| Tam test — final koşu 1 | **2482 · 0 başarısız · 37 atlandı** |
+| Tam test — final koşu 2 (bağımsız) | **2482 · 0 · 37 → birebir aynı** |
+| PostgreSQL (izole küme) | **47 · 0 · 0** (+ yedek lehçe kapısı 4 · 0 · 0) |
+| Mutasyon | **12/12 yakalandı** (ilk turda 2 kaçtı → testler güçlendirildi) |
+| Yeni test | **31** (2 sınıf) |
+| Yayın | API **v171** · Web **v195** · Masaüstü **1.0.154** · üç yönlü sağlama aynı |
+| Üretime yazma | **YOK** (SQL/migration/DDL/secret/ACL/test verisi) · şema **72 → 72** |
+
+### Kararınızı bekleyen (değişmedi)
+- **ARC-01** — araç seçicisinin firma geneli olması.
+- **YET-01** — işlevsiz iki yetki anahtarının yetki ağacından kaldırılması.
+
+---
+
+## 📦 ARŞİV — DÖRDÜNCÜ TUR (2026-08-26)
 
 Tam rapor: [`docs/tests/Denetim_2026-08-26_Dorduncu_Tur.md`](../tests/Denetim_2026-08-26_Dorduncu_Tur.md)
 Kararlar: **ADR-150 … ADR-154**
