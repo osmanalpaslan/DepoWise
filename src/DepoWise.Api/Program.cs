@@ -119,6 +119,19 @@ static Task Write(HttpContext ctx, int code, string msg)
 var loginLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
 // Anonim liste uçları (firma/şube listesi) için gevşek sınır — normal girişi etkilemez, bot taramasını (scraping) keser.
 var publicLimiter = new RateLimiter(120, TimeSpan.FromMinutes(1));
+// ⭐ DEN-2026-08-26 — ANONİM KALMASI ZORUNLU UÇLAR İÇİN HIZ SINIRI.
+//
+// Şu uçlar kimlik doğrulaması İSTEYEMEZ (hepsi kimlik bilgisi OLUŞMADAN önce çağrılır):
+//   • /api/machines/register     → masaüstü makine kapısı, giriş ekranından ÖNCE
+//   • /api/setup/download        → yeni bilgisayara kurulum aracını indirmek
+//   • /api/releases/{v}/download → kurulum aracı + otomatik güncelleme paketi (jeton göndermez)
+// Hiçbirinde sınır YOKTU:
+//   – makine kaydı: anonim çağıran sınırsız satır açabiliyor ve firmanın makine KOTASINI tüketebiliyordu,
+//   – indirme uçları: ~86 MB paket sınırsız kez çekilebiliyordu (tek küçük makinede bant genişliği/CPU).
+// Sınırlar meşru kullanımın ÇOK üstünde: bir makine kurulum başına bir indirme yapar; ortak IP arkasındaki
+// (NAT) bir ofiste 5 makine bile sınırın çok altında kalır.
+var machineLimiter = new RateLimiter(30, TimeSpan.FromMinutes(5));
+var downloadLimiter = new RateLimiter(30, TimeSpan.FromMinutes(10));
 
 // Cihaz senkron token'ı (JWT değil) — ham Authorization
 static string? DeviceToken(HttpRequest r)
@@ -378,7 +391,14 @@ app.MapGet("/sync/pull", (HttpRequest req, long after, int limit) =>
     var token = DeviceToken(req); if (token is null) return Results.Unauthorized();
     return Results.Ok(svc.Sync.Pull(token, after, limit <= 0 ? 100 : limit));
 });
-app.MapPost("/sync/enroll", (EnrollDto dto) => Results.Ok(svc.Enrollment.Enroll(dto.CompanyId, dto.Key, dto.DeviceName)));
+// Enrollment anahtarı tek kullanımlık + sürelidir; ama SINIRSIZ deneme yapılabiliyordu → kaba kuvvet.
+// Giriş ile AYNI sıkı sınır uygulanır.
+app.MapPost("/sync/enroll", (HttpContext http, EnrollDto dto) =>
+{
+    var rl = loginLimiter.Check("enroll:" + (ClientIp(http) ?? "?"));
+    if (!rl.Allowed) return Results.Json(new { error = $"Çok fazla deneme. {rl.RetrySeconds} sn sonra." }, statusCode: 429);
+    return Results.Ok(svc.Enrollment.Enroll(dto.CompanyId, dto.Key, dto.DeviceName));
+});
 
 // İş verisi SNAPSHOT push (JWT) — masaüstü kendi firmasının iş tablolarını gönderir; sunucu upsert eder
 // (company_id oturumdan zorlanır). Web adminleri bu veriyi görür. Faz 2 "güvenli web görünürlüğü".
@@ -449,7 +469,9 @@ app.MapPost("/api/companies/{id}/machine-quota", (HttpContext ctx, string id, Qu
 }).RequireAuthorization();
 // Sıfır-sürtünmeli kayıt: masaüstü açılışta kendini 'pending' cihaz olarak kaydeder (auth gerekmez).
 app.MapPost("/api/machines/register", (HttpContext ctx, MachineRegisterDto d) =>
-    Results.Ok(svc.Enrollment.RegisterSelf(
+    !machineLimiter.Check("mreg:" + (ClientIp(ctx) ?? "?")).Allowed
+    ? Results.StatusCode(429)
+    : Results.Ok(svc.Enrollment.RegisterSelf(
         string.IsNullOrWhiteSpace(d.CompanyId) ? "DEPOWISE" : d.CompanyId!,
         string.IsNullOrWhiteSpace(d.MachineName) ? "Bilinmeyen Makine" : d.MachineName!,
         ClientIp(ctx), string.IsNullOrWhiteSpace(d.BranchId) ? null : d.BranchId)));
@@ -1524,6 +1546,27 @@ app.MapPost("/api/admin/reset-company-business", (HttpContext c, PurgeCompanyDto
     if (!string.Equals((d.ConfirmName ?? "").Trim(), name.Trim(), StringComparison.OrdinalIgnoreCase))
         return Results.Json(new { error = $"Doğrulama başarısız: firma adını yazın ({name})." }, statusCode: 400);
 
+    // ⭐ SIF-03 (denetim 2026-08-26) — MAKİNE BİLDİRİMİ SESSİZCE YUTULUYORDU.
+    //
+    // Eski sıra: (1) sunucudaki iş verisi SİLİNİR, (2) makinelere "yerelini temizle" isteği bırakılır —
+    // ve (2) boş bir catch ile yutuluyordu. (2) başarısız olursa sunucu boşalmış ama masaüstleri bunu
+    // HİÇ öğrenmemiş oluyordu; bir sonraki gönderimde silinen veriyi geri yükleyeceklerdi (SIF-02 ile
+    // kapatılan "silinen veri geri geliyor" hatasının aynısı) ve yanıt yine ok:true dönüyordu.
+    //
+    // Sıra TERSİNE çevrildi: önce bildirim, sonra silme. Bildirim YIKICI DEĞİLDİR ("yerel kopyayı temizle
+    // ve sunucudan yeniden çek") → silme sonradan başarısız olsa bile makineler aynı veriyi geri çeker,
+    // veri kaybı olmaz. Bildirim başarısız olursa HİÇBİR ŞEY silinmez ve kullanıcı hatayı GÖRÜR.
+    long resetAt;
+    try { resetAt = svc.CompanyLocalReset.RequestReset(s, companyId).RequestedAt; }
+    catch (Exception ex)
+    {
+        return Results.Json(new
+        {
+            error = "Makinelere 'yerel kopyayı temizle' isteği bırakılamadı, bu yüzden HİÇBİR ŞEY SİLİNMEDİ. " +
+                    "Aksi halde makineler silinen veriyi geri yükleyebilirdi. Ayrıntı: " + ex.Message,
+        }, statusCode: 400);
+    }
+
     DepoWise.Infrastructure.Organization.PurgeResult res;
     try { res = svc.CompanyPurge.ResetBusinessData(s, companyId); }
     catch (InvalidOperationException ex) { return Results.Json(new { error = ex.Message }, statusCode: 400); }
@@ -1536,10 +1579,6 @@ app.MapPost("/api/admin/reset-company-business", (HttpContext c, PurgeCompanyDto
         if (System.IO.Directory.Exists(dir)) { System.IO.Directory.Delete(dir, true); dirsDeleted++; }
     }
     catch { /* dosya silinemese de DB sıfırlaması geçerli */ }
-
-    // Makineler boş sunucudan yeniden dolsun (yerel iş verisini bir kez temizle + tekrar çek).
-    long resetAt = 0;
-    try { resetAt = svc.CompanyLocalReset.RequestReset(s, companyId).RequestedAt; } catch { }
 
     return Results.Ok(new { ok = true, companyName = res.CompanyName, tablesTouched = res.TablesTouched, rowsDeleted = res.RowsDeleted, dirsDeleted, machineResetRequestedAt = resetAt });
 }).RequireAuthorization();
@@ -2560,10 +2599,17 @@ static List<string>? ReportBranchIds(ReportReqDto d)
     => string.IsNullOrWhiteSpace(d.OperatingBranchId) ? d.BranchIds : null;
 
 static DepoWise.Application.Security.SessionContext ReportSession(
-    DepoWise.Application.Security.SessionContext s, string? operatingBranchId)
+    DepoWise.Application.Security.SessionContext s, string? operatingBranchId,
+    Func<string, string, bool> subeFirmaninMi)
 {
     if (string.IsNullOrWhiteSpace(operatingBranchId)) return s;
     if (string.Equals(operatingBranchId, s.OperatingBranchId, StringComparison.Ordinal)) return s;
+    // ⭐ TNT-05 (denetim 2026-08-26): ÖNCE firma aidiyeti. BranchAccess veritabanını bilmediği için
+    // sınırsız (admin) kullanıcıda BAŞKA FİRMANIN şube kimliği de "kapsam içi" sayılıyordu; sunucu 403
+    // yerine 200 (boş rapor) dönüyordu. Veri sızmıyordu ama kapı fail-open'dı.
+    if (!subeFirmaninMi(s.CompanyId, operatingBranchId!))
+        throw new DepoWise.Application.Security.ForbiddenException(
+            "Şube kapsam dışı: bu şube firmanıza ait değil.");
     DepoWise.Application.Security.BranchAccess.Require(s, operatingBranchId, "rapor");   // kapsam dışı → 403
     return new DepoWise.Application.Security.SessionContext(s.UserId, s.CompanyId, s.RoleKeys, s.Permissions, s.CanViewAllBranches)
     {
@@ -2605,7 +2651,7 @@ static object? ReportCell(object? cell)
 app.MapPost("/api/reports/{type}", (HttpContext c, string type, ReportReqDto d) =>
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
-    var s = ReportSession(s0, d.OperatingBranchId);   // RPR-07: çalışma şubesi (varsa) doğrulanır + uygulanır
+    var s = ReportSession(s0, d.OperatingBranchId, svc.Branches.BelongsToCompany);   // RPR-07 + TNT-05
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
     var tbl = BuildReport(s, type, req);
     return Results.Ok(new
@@ -2623,7 +2669,7 @@ app.MapPost("/api/reports/{type}/export", (HttpContext c, string type, ReportReq
 {
     var s0 = S(c); if (s0 is null) return Results.Unauthorized();
     // RPR-07: dışa aktarma AYNI kapsamı uygulamalı — yoksa ekranda görülmeyen satırlar Excel'e sızardı.
-    var s = ReportSession(s0, d.OperatingBranchId);
+    var s = ReportSession(s0, d.OperatingBranchId, svc.Branches.BelongsToCompany);
     AccessControl.RequireButton(s, IsManagerReport(type)
         ? SpecialButtons.ExportManagerReports : SpecialButtons.ExportReports);
     var req = new DepoWise.Application.Reports.ReportRequest(true, d.FromDate, d.ToDate, ReportBranchIds(d), d.VehicleIds, d.CompanyId, d.VehicleTypeIds, d.MaintenanceDefIds, d.TechnicianIds, d.SupplierIds, d.RequesterIds, d.Statuses, d.LocationIds, d.MovementTypes, d.SearchText, d.MaterialIds, d.PartyIds);   // STK-06 lokasyon + STK-10b-1/2/3 + G4-4 cari
@@ -3420,8 +3466,9 @@ app.MapPost("/api/releases", async (HttpContext ctx) =>
     return Results.Ok(new { id, downloadUrl });
 }).RequireAuthorization();
 // ── Masaüstü kurulum aracı (setup) indirme/yükleme ──
-app.MapGet("/api/setup/download", () =>
+app.MapGet("/api/setup/download", (HttpContext ctx) =>
 {
+    if (!downloadLimiter.Check("dl:" + (ClientIp(ctx) ?? "?")).Allowed) return Results.StatusCode(429);
     var path = Path.Combine(dataDir, "setup", "AlpnexSetup.exe");
     return File.Exists(path)
         ? Results.File(path, "application/octet-stream", "AlpnexSetup.exe")
@@ -3438,8 +3485,9 @@ app.MapPost("/api/setup", async (HttpContext ctx) =>
     return Results.Ok(new { ok = true });
 }).RequireAuthorization();
 
-app.MapGet("/api/releases/{version}/download", (string version) =>
+app.MapGet("/api/releases/{version}/download", (HttpContext ctx, string version) =>
 {
+    if (!downloadLimiter.Check("dl:" + (ClientIp(ctx) ?? "?")).Allowed) return Results.StatusCode(429);
     var path = svc.ReleasePackages.PathFor(version);
     return path is null ? Results.NotFound() : Results.File(path, "application/octet-stream", Path.GetFileName(path));
 });

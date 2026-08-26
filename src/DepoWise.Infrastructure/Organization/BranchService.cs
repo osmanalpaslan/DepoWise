@@ -261,6 +261,28 @@ ORDER BY u.username;");
 
     /// <summary>Login'de şube şifresi doğrulaması. Şubenin şifresi tanımlı DEĞİLSE true (şifre istenmiyor).
     /// Tanımlıysa bcrypt ile karşılaştırır. Yetki gerektirmez (login öncesi çağrılabilir).</summary>
+    /// <summary>
+    /// ⭐ TNT-05 (denetim 2026-08-26) — bu şube GERÇEKTEN bu firmaya mı ait?
+    ///
+    /// <see cref="BranchAccess"/> yalnız OTURUM üzerinden çalışır ve veritabanını bilmez; sınırsız
+    /// (admin) bir kullanıcıda "izinli küme" <c>null</c> olduğu için <b>herhangi bir şube kimliği</b>
+    /// kapsam içi sayılıyordu — BAŞKA FİRMANIN şubesi dahil. Veri sızmıyordu (rapor sorguları ayrıca
+    /// <c>company_id</c> ile filtreler ve yazma yolları <c>EnsureBranchOwned</c> ile doğrular) ama kapı
+    /// FAIL-OPEN'dı: sözleşme "kapsam dışı → 403" iken sunucu 200 dönüyordu.
+    ///
+    /// Bu metot, oturumla yapılamayan tek kontrolü yapar: kimliğin firmaya aidiyeti.
+    /// </summary>
+    public bool BelongsToCompany(string companyId, string branchId)
+    {
+        if (string.IsNullOrWhiteSpace(companyId) || string.IsNullOrWhiteSpace(branchId)) return false;
+        using var conn = _factory.Create();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM branches WHERE id=@id AND company_id=@c AND is_deleted=0;";
+        cmd.AddWithValue("@id", branchId);
+        cmd.AddWithValue("@c", companyId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+    }
+
     public bool VerifyBranchPassword(string companyId, string branchId, string? password)
     {
         using var conn = _factory.Create();

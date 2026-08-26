@@ -26,11 +26,32 @@ public sealed class RateLimiter
     public static RateLimiter SyncPush(Func<DateTimeOffset>? now = null) => new(60, TimeSpan.FromMinutes(1), now);
     public static RateLimiter Admin(Func<DateTimeOffset>? now = null) => new(30, TimeSpan.FromMinutes(1), now);
 
+    /// <summary>
+    /// ⭐ DEN-2026-08-26 — DURUM SÖZLÜĞÜ SINIRSIZ BÜYÜYORDU.
+    ///
+    /// Anahtarlar istemci IP'sinden üretilir ("pub:" + ip). Süresi dolan pencereler hiç TEMİZLENMİYORDU:
+    /// farklı IP'lerden gelen her istek kalıcı bir satır bırakıyordu. Sunucu bellek sınırı 207 MB olduğu
+    /// için IP çeşitlendiren bir istek seli sözlüğü büyütüp süreci düşürebilirdi (klasik sınırsız-önbellek
+    /// sızıntısı).
+    ///
+    /// Çözüm: sözlük eşiği aşınca PENCERESİ DOLMUŞ (artık hiçbir kararı etkilemeyen) satırlar atılır.
+    /// Karar mantığı DEĞİŞMEZ — atılanlar zaten "now - WindowStart >= _window" ile sıfırlanacak olanlardır.
+    /// </summary>
+    private const int PurgeThreshold = 5_000;
+
+    private void PurgeExpired(DateTimeOffset now)
+    {
+        if (_state.Count < PurgeThreshold) return;
+        var eskiler = _state.Where(kv => now - kv.Value.WindowStart >= _window).Select(kv => kv.Key).ToList();
+        foreach (var k in eskiler) _state.Remove(k);
+    }
+
     public RateLimitResult Check(string key)
     {
         lock (_lock)
         {
             var now = _now();
+            PurgeExpired(now);
             if (!_state.TryGetValue(key, out var e) || now - e.WindowStart >= _window)
                 e = (0, now);
 
@@ -50,4 +71,7 @@ public sealed class RateLimiter
     {
         lock (_lock) _state.Remove(key);
     }
+
+    /// <summary>Yalnız test/teşhis: sözlükte tutulan anahtar sayısı.</summary>
+    public int TrackedKeys { get { lock (_lock) return _state.Count; } }
 }
