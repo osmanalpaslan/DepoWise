@@ -29,11 +29,37 @@ public sealed class BackupService
 
     public string GetBackupFolder() => _folder;
 
+    /// <summary>
+    /// ⭐ YED-01 (denetim 2026-08-26) — BU YEDEKLEME YÖNTEMİ YALNIZ SQLite İÇİNDİR.
+    ///
+    /// <b>Bulunan durum:</b> yöntem <c>VACUUM INTO</c> (tek dosya kopyası) + <c>PRAGMA integrity_check</c>
+    /// kullanır; ikisi de SQLite'a özgüdür. Sunucu 2026-07-24'te PostgreSQL'e taşındığından beri
+    /// üretimde "Yedek Al" düğmesi ham bir veritabanı hatasıyla düşüyordu (kullanıcıya anlamsız metin).
+    ///
+    /// <b>Neden burada düzeltilmiyor:</b> PostgreSQL'in dosya yedeği <c>pg_dump</c> ister; o araç sunucu
+    /// konteynerinde yoktur ve uygulama içinde bir dökümcü yazmak yeni bir ÖZELLİKTİR (kararı kullanıcıya
+    /// aittir). Bu turda yapılan: hatanın ANLAŞILIR olması ve yanlış bir güven vermemesi.
+    ///
+    /// Masaüstünde (SQLite) davranış HİÇ DEĞİŞMEDİ — asıl kullanım yeri orasıdır.
+    /// </summary>
+    private static void SqliteGerekir(System.Data.Common.DbConnection conn, string islem)
+    {
+        if (SqlDialect.IsSqlite(conn)) return;
+        throw new InvalidOperationException(
+            $"Sunucu veritabanı {islem} işlemi bu sunucuda yapılamaz: veritabanı PostgreSQL'dir ve bu ekranın " +
+            "kullandığı tek-dosya yöntemi (SQLite) PostgreSQL'de çalışmaz. PostgreSQL yedeği, veritabanı " +
+            "sağlayıcısının sürekli yedeği (PITR) üzerinden ya da pg_dump ile alınır. Masaüstü yedeklemesi " +
+            "etkilenmez.");
+    }
+
     /// <summary>Tutarlı yedek alır (VACUUM INTO); eski yedekleri (30 gün) temizler. Yedek yolunu döndürür.</summary>
     public string Backup()
     {
         var date = _clock.UtcNow.ToString("yyyy-MM-dd_HHmmss");
         var path = Path.Combine(_folder, $"depowise_yedek_{date}.db");
+
+        using (var on = _factory.Create()) SqliteGerekir(on, "yedeği");   // YED-01: dosyaya DOKUNMADAN önce
+
         if (File.Exists(path)) File.Delete(path);
 
         using (var conn = _factory.Create())
@@ -64,6 +90,9 @@ public sealed class BackupService
     {
         if (!AccessControl.IsAdmin(s)) throw new ForbiddenException("Geri yükleme yalnız admin yetkisindedir.");
         if (!reauthenticated) throw new ForbiddenException("Geri yükleme için yeniden kimlik doğrulama gerekli.");
+        // ⭐ YED-01: PostgreSQL'de bu yol YIKICI olurdu — yedek dosyası, veritabanı OLMAYAN bir hedefin
+        // üzerine kopyalanmaya çalışılırdı. Yetkiden hemen sonra, hiçbir dosyaya dokunmadan durdurulur.
+        using (var on = _factory.Create()) SqliteGerekir(on, "geri yükleme");
         if (!IntegrityCheck(backupPath)) throw new InvalidOperationException("Yedek bütünlük kontrolünden geçemedi.");
 
         var target = _factory.DatabasePath;
