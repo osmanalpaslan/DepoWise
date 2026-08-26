@@ -1,8 +1,54 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (yayın öncesi son denetim + YAYIN TAMAMLANDI) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (final stabilizasyon turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
+
+---
+
+## ✅ TAMAMLANAN — FİNAL STABİLİZASYON TURU (2026-08-26)
+
+Tam rapor: [`docs/tests/Final_Stabilizasyon_2026-08-26.md`](../tests/Final_Stabilizasyon_2026-08-26.md)
+Kararlar: **ADR-130 … ADR-137**
+
+### Bulunan ve düzeltilen gerçek sorunlar
+| ID | Önem | Kısaca |
+|---|---|---|
+| **UPD-01** | **P1** | Boş checksum güncelleme doğrulamasını **tamamen atlıyordu** → "inen ne ise onu çalıştır". Fail-closed kapı. |
+| **YED-01** | P2 | Sunucu yedeği PostgreSQL'de ham hata veriyordu; **geri yükleme yıkıcıydı**. İkisi de dosyaya dokunmadan, anlaşılır mesajla duruyor. |
+| **PRF-01** | P2 | 20.000 satırlık rapor tarayıcıda **36.959 ms / 260.729 DOM** → **378 ms / 13.746**. |
+| **RPR-13** | P2 | Tarih önceki rapordan taşınıyor, yeni raporu **sessizce daraltıyordu** (Muayene/Sigorta + iki PARA raporu). |
+| **RPR-12** | P2 | Rapor listesi çalıştırılamayan raporları gösteriyordu; Personel raporu kişisel veriyi `reports` iznine açardı. |
+| **RPR-09** | P2 | Operasyon ekranında elle `branchIds` çalışma şubesinin yerine geçiyordu (sızıntı yok, güvence yetkiye bağlıydı). |
+| **RPR-10/11** | — | Eksik iki rapor tamamlandı: **Muayene/Sigorta** + **Personel Listesi**. Katalog 19 → **21**. |
+
+> **RPR-08 denendi ve GERİ ALINDI** (ADR-131): Stok Durumu / Stok Sayım'ın çalışma şubesini yok sayması
+> bir eksik değil, bilinçli karardır — o raporların filtre boyutu **şube değil, stoğun fiziksel yeridir**.
+> Mevcut bir test kırıldı, gerekçe incelendi, değişiklik geri alındı ve karar **iki yönden** kilitlendi.
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı) | 2221 geçti · 0 başarısız · 35 atlandı |
+| Tam test — son koşu 1 | **2282 geçti · 0 başarısız · 37 atlandı** |
+| Tam test — son koşu 2 (bağımsız) | **2282 geçti · 0 başarısız · 37 atlandı → birebir aynı, flaky yok** |
+| PostgreSQL koşusu (ayrı test DB) | **49 geçti · 0 başarısız · 0 atlandı** |
+| Release derlemesi | **0 hata** |
+| Yeni migration | **YOK** → üretim şeması **72**'de kaldı |
+| Gerçek arayüz turu | izole yerel ortam (sıfır DB) · sunucu logunda **0 hata** |
+| Yeni/güncellenen test | **+61** senaryo (4 yeni dosya + 3 dosyaya ek) |
+
+### Yayın
+| Bileşen | Sürüm |
+|---|---|
+| API | **v167** |
+| Web | **v191** |
+| Masaüstü | **1.0.150** (checksum `79DB5051…`) |
+| Şema | **72** (değişmedi) |
+
+### Sıradaki tek iş
+Kullanıcı kararı bekleyenler (bkz. `KNOWN_ISSUES.md`): **PostgreSQL dosya yedeği (pg_dump)** ·
+**Satın Alma domaini** · rapor sayfalı API'si.
 
 ## 🔵 MEVCUT FAZ: **FAZ C — Depo bazlı stok altyapısı**
 

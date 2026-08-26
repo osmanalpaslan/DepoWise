@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-25 (yayın öncesi son denetim turu)
+> Son güncelleme: 2026-08-26 (final stabilizasyon turu)
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -24,6 +24,28 @@
   **Teşhis:** `flyctl ssh console --config fly.toml -C "df -h /data"`.
   **Kalan risk:** paket boyutu büyürse veya sürüm hızı artarsa `KeepCount` düşürülmeli ya da
   `fly volumes extend` ile disk büyütülmeli. Etki: **kritik**.
+
+
+## 🟡 Bu turda AÇIK BIRAKILAN — kullanıcı kararı gerekiyor (2026-08-26)
+
+- **YED-01/b — PostgreSQL için DOSYA YEDEĞİ yok.** Sunucu yedekleme kodu SQLite'a özgüdür
+  (`VACUUM INTO` + `PRAGMA integrity_check`). Üretim 2026-07-24'te PostgreSQL'e geçtiği için bu düğme
+  çalışmıyordu; artık **anlaşılır bir mesajla ve hiçbir dosyaya dokunmadan** duruyor (ADR-136) —
+  yani yanlış güven vermiyor. **Gerçek** bir dosya dökümü `pg_dump` ister; o araç sunucu konteynerinde
+  yoktur ve uygulama içinde bir dökümcü yazmak **yeni bir özelliktir**.
+  **Bugünkü koruma:** veritabanı sağlayıcısının sürekli yedeği (PITR). **Etki:** orta —
+  "kendi elimde dosya olarak yedek" isteniyorsa ayrı bir iş olarak planlanmalıdır.
+
+- **PRF-01/b — rapor tavanı 50.000 satır.** Ekrana çizilen satır artık sınırlı (ADR-135) ve sunucu
+  sorgusu 50.000 satırda 287 ms. Kalan risk: sunucudan web'e taşınan veri hâlâ tüm sonuçtur.
+  Sayfalı API (server-side pagination) ileride gerekebilir. **Etki:** düşük (bugün ölçülen değerlerle).
+
+- **Satın Alma kategorisi boş.** `ReportCategory.Purchasing` etiketi vardır ama kodda **satın alma
+  domaini yoktur** (yalnız talep durumu olarak "Satın Alma Sürecinde" geçer). Sahte ekran/rapor
+  **üretilmedi**. Bu bir hata değil, **karar bekleyen bir özelliktir**.
+
+- **TNT-04 — anonim uçlar firma/şube ADLARINI açar.** Giriş ekranı kullanıcıya firmasını ve şubesini
+  seçtirmek zorunda olduğu için üç anonim uç vardır; hız sınırlıdır ve **veri döndürmez**. Ürün gereğidir.
 
 ## Çözüldü (12.07.2026)
 

@@ -1720,3 +1720,95 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
 - Kardeş uç (`/api/machine-backups/download`) bu iki kontrolü zaten doğru yapıyordu; **eksik olan buydu**.
   Düzeltme kardeş ucun deseninin aynısıdır. `DELETE` zaten süper admin istiyordu.
 - **Kanıt:** 3 test; düzeltme geçici kaldırılıp koşuldu → **2/3 kırıldı**.
+
+## ADR-130 — UPD-01: boş checksum güncelleme doğrulamasını ATLIYORDU (2026-08-26)
+- **Durum:** masaüstü kurulumcusu `if (!IsNullOrWhiteSpace(expectedSha) && !VerifyChecksum(...)) throw;`
+  yazıyordu. Sunucudan **boş** checksum gelirse koşul kısa devre yapıyor ve **doğrulama tamamen atlanıyordu**:
+  inen zip açılıp uygulamanın kurulum dizinine kopyalanıyor, uygulama yeniden başlatılıyordu.
+- **Neden ciddi:** bu, güncelleme yolunu "sunucudan ne gelirse onu çalıştır"a çevirir. Bozuk/yarım indirme,
+  hatalı bir sürüm kaydı ya da araya giren bir aktör aynı kapıdan geçer.
+- **Karar:** tek kapı `UpdateService.RequireVerifiedPackage` — **fail-closed**. Checksum yoksa "doğrulama yok"
+  değil **"kurulum yok"** demektir. Sunucu tarafı yayında zaten 64 hane hex zorunlu kılıyordu; eksik olan
+  istemcinin sunucu cevabına **koşulsuz güvenmesiydi**.
+- **Doğru checksum'da davranış DEĞİŞMEDİ** (1.0.149 dahil tüm gerçek paketlerde checksum doludur).
+- **Kanıt:** 7 test (boş/null/boşluk/yanlış/yarım-inen + doğru checksum kilidi + kurulumcunun kapıyı
+  çağırdığını doğrulayan kaynak kilidi) ve sürüm karşılaştırma kilidi.
+
+## ADR-131 — RPR-08 DENENDİ ve GERİ ALINDI: stok raporları çalışma şubesiyle daralmaz (2026-08-26)
+- **Gözlenen "tutarsızlık":** 14 operasyon raporundan 12'si `ReportScope` (İZİNLİ ∩ **ÇALIŞMA ŞUBESİ**)
+  kullanırken **Stok Durumu** ve **Stok Sayım** `BranchAccess.Allowed` kullanıyor — yani oturumun giriş
+  şubesini yok sayıyor.
+- **Denendi:** `Effective`'e çevrildi → **mevcut bir test kırıldı** (`MaintenanceStockLocationTests`).
+- **İnceleme sonucu:** tutarsızlık **bilinçlidir**. Bu iki raporun filtre boyutu **şube değil, stoğun
+  FİZİKSEL YERİDİR** (depo/şantiye). Kullanıcı Depo A'da çalışırken Depo B'den malzeme çekebilir
+  (bakım stok lokasyonu, STK-04/05/06). Çalışma şubesini oraya uygulamak, ürünün **desteklediği** akışı kırardı.
+- **Karar:** değişiklik **geri alındı**; gerekçe koda ve teste kalıcı yazıldı. `Allowed` yine gerçek bir
+  güvenlik kapısıdır (yetkisiz depo istenemez, fail-closed) — uygulanmayan şey **görünüm tercihidir**.
+- **Kilit:** karar iki yönden test edildi (yetki uygulanır / meşru akış kırılmaz).
+
+## ADR-132 — RPR-09: operasyon ekranında elle şube listesi geçmez (2026-08-26)
+- **Durum:** operasyon rapor ekranında şube seçici yoktur; ama sunucu gövdedeki `branchIds`'i "şube seçme"
+  özel butonu olan kullanıcılar için uyguluyor ve bu liste `BranchAccess.Effective` sözleşmesi gereği
+  **çalışma şubesinin YERİNE** geçiyordu.
+- **Sızıntı YOKTU** (yetki kesişimi korunuyordu); kırılan şey "operasyon raporu yalnız giriş yapılan şubeyi
+  gösterir" güvencesinin **koşulsuz** olmasıydı.
+- **Karar:** istek `operatingBranchId` taşıyorsa (yalnız operasyon ekranı gönderir) `branchIds` **yok sayılır**.
+  Yönetici ekranı ve masaüstü davranışı değişmedi.
+- **Kanıt:** R25/R26 düzeltme geri alınınca kırılıyor; R27 (yönetici kipi kilidi) her iki durumda geçiyor.
+  Export kapsamı **Excel içeriği açılarak** ölçüldü.
+
+## ADR-133 — RPR-12: rapor listesi = kullanıcının çalıştırabildikleri (2026-08-26)
+- **Durum:** bazı raporlar başka bir ekranın verisini gösterir ve servisleri O ekranın iznini ister
+  (Cari Ekstre → `parties`, Fatura → `invoices`, Kasa/Banka → `finance`). Katalog bunu bilmediği için
+  liste, izni olmayan kullanıcıya da gösteriyor ve kullanıcı **Sorgula'ya basınca 403** alıyordu.
+- **Karar:** `ReportDescriptor.RequiredModule` (opsiyonel, sona eklendi → geriye uyumlu). Web ve masaüstü
+  listeleri **aynı** süzmeyi uygular. Servis kapısı yerinde durur — bu yalnız **görünürlüktür**.
+- **Yeni Personel raporu** kişisel veri (ad, telefon, kullanıcı adı) gösterdiği için `personnel` iznini,
+  Muayene/Sigorta raporu `inspection` iznini **ayrıca** ister.
+- **Kanıt:** katalog anahtarlarının gerçekliği + katalog-servis kapısı tutarlılığı testle kilitlendi;
+  gerçek arayüzde depo personeli 14 rapor, admin 21 rapor gördü.
+
+## ADR-134 — RPR-13: tarih alanı önceki rapordan taşınmaz (2026-08-26)
+- **Gerçek arayüz turunda bulundu:** tarih ZORUNLU bir rapordan (varsayılan "Bu Ay") tarih zorunlu OLMAYAN
+  bir rapora geçince alanlar dolu kalıyor ve yeni raporu **sessizce daraltıyordu**.
+- **Etkilenen üç rapor:** Muayene/Sigorta (gelecek aydaki sigorta belgesi görünmüyordu → "sigorta kaydım yok"),
+  **Cari Bakiye Özeti** ve **Kasa/Banka Özeti** (bakiye yalnız o ayın hareketiyle hesaplanıp **toplam bakiye**
+  sanılabiliyordu — para raporunda sessiz yanlış okuma).
+- **Karar:** yalnız `RequiresDate=false` bir rapora geçilirken tarihler temizlenir. Tarih ZORUNLU raporların
+  davranışı **hiç değişmedi** (kullanıcının girdiği aralık korunur).
+
+## ADR-135 — PRF-01: rapor ekranında çizim sınırı (sanallaştırma DEĞİL) (2026-08-26)
+- **Ölçüm (gerçek tarayıcı):** 20.000 satırlık rapor **36.959 ms** ve **260.729 DOM düğümü**; aynı sorgu
+  sunucuda **162 ms**. Darboğaz sorgu değil **çizim**. Rapor tavanı 50.000 olduğu için en kötü hâlde
+  tarayıcı fiilen kilitleniyordu.
+- **Karar:** `DwDataGrid.MaxRender` (opsiyonel, varsayılan **sınırsız** → bu bileşeni kullanan diğer ekranlar
+  etkilenmez); **yalnız rapor ekranı** 1.000 uygular.
+- **Neden `Virtualize` değil:** tablo sabit yükseklikli bir kaydırma kabında değil; sanallaştırma bu
+  bileşeni kullanan **tüm** ekranların görünümünü değiştirirdi.
+- **Sonuç:** 36.959 ms → **378 ms**, 260.729 → **13.746** düğüm. Filtre/sıralama/toplam **tüm satırlarda**
+  çalışmaya devam eder (20.000 satırda 15.000'inci satır kolon filtresiyle bulundu) ve **Excel eksiksizdir**.
+  Kırpma kullanıcıya **açıkça bildirilir** — sessiz kırpma yoktur.
+
+## ADR-136 — YED-01: sunucu yedeği PostgreSQL'de çalışmıyordu (2026-08-26)
+- **Durum:** `BackupService` tek-dosya kopyası alır (`VACUUM INTO`) ve bütünlüğü `PRAGMA integrity_check`
+  ile doğrular; ikisi de **SQLite'a özgüdür**. Sunucu 2026-07-24'te PostgreSQL'e taşındığından beri
+  üretimde "Yedek Al" **ham veritabanı hatasıyla** düşüyordu.
+- **Daha tehlikelisi `Restore`:** yedek dosyasını `_factory.DatabasePath` üzerine kopyalar; PostgreSQL'de
+  bu değer `"(postgres)"` sabitidir → yol anlamsız ve **yıkıcıydı**.
+- **Karar:** her iki yol da **dosyaya dokunmadan**, anlaşılır bir mesajla durur. Geri yüklemede kapı
+  yetkiden hemen sonra çalışır. Masaüstü (SQLite) davranışı **hiç değişmedi**.
+- **Kapsam dışı bırakılan (kullanıcı kararı gerekiyor):** PostgreSQL için gerçek dosya dökümü `pg_dump`
+  ister; o araç sunucu konteynerinde **yoktur** ve uygulama içinde dökümcü yazmak **yeni bir özelliktir**.
+  Bugün üretim yedeği sağlayıcının sürekli yedeğine (PITR) dayanır.
+- **Kanıt:** 4 test — ikisi **gerçek PostgreSQL** üzerinde koşturuldu; ham SQL hata kodunun kullanıcıya
+  sızmadığı ve hiçbir dosya oluşmadığı da doğrulandı.
+
+## ADR-137 — RPR-10/11: eksik iki rapor tamamlandı (2026-08-26)
+- **Muayene/Sigorta** ve **Personel Listesi** raporları yoktu; oysa **veri modeli, servisi ve ekranı** vardı.
+- **İş kuralı uydurulmadı:** kolonlar mevcut ekranlardan birebir alındı, durum eşiği ekranın kullandığı
+  **aynı sabitten** okunur (`InspectionService.ApproachingDays = 30`), "Erişim" rozeti Personel ekranıyla
+  aynı kuraldır.
+- **Ekranın yapmadığı tek ek:** şube kapsamı (diğer operasyon raporlarıyla aynı kalıp).
+- **"Satın Alma" kategorisi doldurulmadı:** kodda satın alma **domaini yok** (yalnız talep durumu olarak
+  "Satın Alma Sürecinde" geçiyor). Sahte ekran üretilmedi → **kullanıcı kararı**.
+- Katalog 19 → **21**.
