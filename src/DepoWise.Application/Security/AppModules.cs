@@ -184,9 +184,22 @@ public static class SpecialButtons
     public const string BranchSelect = "btn-branch-select";
 
     /// <summary>Yetki ağacında gösterilen özel buton kataloğu (tek doğru kaynak; yeni buton eklenince otomatik gelir).</summary>
+    /// <summary>
+    /// Yetki AĞACINDA görünen (yani devredilebilen) özel butonlar.
+    ///
+    /// ⭐ YET-02 (denetim 2026-08-26) — <see cref="Reverse"/> BU LİSTEDE YOKTU, ama üç gerçek işlemin
+    /// kapısıydı: stok belgesi ters kaydı, yakıt depo girişi iptali ve yakıt dağıtımı iptali
+    /// (<c>AccessControl.RequireButton(s, SpecialButtons.Reverse)</c>). Listede olmadığı için yalnızca
+    /// ADMİN bypass'ıyla geçilebiliyordu: firma yöneticisi bu yetkiyi kimseye VEREMİYOR, depo kullanıcısı
+    /// da "Yetki yok: buton btn-reverse" hatasında kilitleniyordu — yöneticinin çözemeyeceği bir çıkmaz.
+    ///
+    /// Listeye eklenmek kimseye yetki VERMEZ (deny-by-default sürer); yalnızca yöneticinin bilinçli
+    /// olarak verebilmesini sağlar. Admin davranışı değişmez.
+    /// </summary>
     public static readonly IReadOnlyList<(string Key, string Label)> All = new[]
     {
         (RestoreTrash, "Çöp Kutusu Geri Yükle"),
+        (Reverse, "İptal / Ters Kayıt"),
         (ResetDatabase, "Veritabanı Sıfırlama"),
         (ChangeCompanyLogo, "Firma Logosu Değiştir"),
         (AddLookup, "\"+\" Satır İçi Ekleme"),
