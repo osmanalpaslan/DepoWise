@@ -1,11 +1,56 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-26** (final audit turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (son uçtan uca stabilizasyon turu + yayın) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
 ---
 
+## ✅ TAMAMLANAN — SON UÇTAN UCA STABİLİZASYON TURU (2026-08-26, üçüncü tur)
+
+Tam rapor: [`docs/tests/Son_Stabilizasyon_2026-08-26.md`](../tests/Son_Stabilizasyon_2026-08-26.md)
+Kararlar: **ADR-143 … ADR-149**
+
+### Bulunan ve düzeltilen gerçek hatalar
+| ID | Önem | Kısaca |
+|---|---|---|
+| **YED-02** | **P1** | `POST /api/backups` cihaz jetonunu **hiç doğrulamıyordu** ve firmayı formdan alıyordu → internetteki herhangi biri 1 GB'a kadar dosya yükleyip diski doldurabilirdi (disk dolunca TÜM API 500). |
+| **SNK-01** | P2 | Senkron yolu araç **sayacını geriye alabiliyordu** (1000 → 10, sessizce) — yanlış yakıt raporu + kaçırılan bakım uyarısı. |
+| **YOL-01** | P2 | Firma/makine adı doğrulanmadan **dosya yoluna** giriyordu; 4 yer, ikisi **özyinelemeli silme** → `".."` ile bütün firmaların dosyaları silinebilirdi. |
+| **RPR-14** | P2 | 6 ön muhasebe raporu, rapor ekranındaki **firma seçimini yok sayıyordu** → süper admin B'yi seçse de A'nın mali verisi geliyordu (sessiz yanlış veri). |
+| **PRS-01** | P2 | Personel listesinde şube kapsamı **sayfalamadan sonra** uygulanıyordu → tek şubeye yetkili kullanıcı kendi personelini hiç göremeyebilirdi. |
+| **YET-05** | P3 | "İptal / Ters Kayıt" arayüz kapısı sunucudan farklıydı → verilen yetki kullanılamıyor, olmayan yetkide buton görünüyordu. |
+| **MAS-01** | P3 | Masaüstünde her çıkış→giriş bir kabuk biriktiriyordu (duran zamanlayıcı yok, statik olay aboneliği çözülmüyor). |
+
+### Kanıtlar
+| Doğrulama | Sonuç |
+|---|---|
+| Taban (tur başı, yeniden ölçüldü) | 2323 geçti · 0 başarısız · 37 atlandı — **önceki raporla birebir** |
+| Tam test — final koşu 1 | **2386 geçti · 0 başarısız · 37 atlandı** |
+| Tam test — final koşu 2 (bağımsız) | **2386 geçti · 0 başarısız · 37 atlandı → birebir aynı** |
+| PostgreSQL koşusu | **47 geçti · 0 başarısız (atlanan 37'nin tamamı çalıştı)** |
+| Mutasyon (kasten bozma) turu | **10 mutasyon · 10'u da yakalandı** (1'i test düzeltmesinden sonra) |
+| Performans (50.000 satır) | rapor **329 ms / 6,55 MB** · Excel **4,3 sn** |
+| Performans (100.000 satır) | rapor **641 ms**, üst sınır (50.000) **doğru uygulandı** |
+| Gerçek tarayıcı turu | izole, **iki şubeli** · ~160 istek · **0 ürün hatası** |
+| İzole masaüstü turu | ayrı veritabanı · **72/72 migration sıfırdan** · üretime **bağlanmadı** |
+| Release derlemesi (API·Web·Desktop) | **0 hata** |
+| Yeni migration | **YOK** → şema **72**'de kaldı |
+
+### Yayın
+| Bileşen | Sürüm |
+|---|---|
+| API | **v168 → **v169**** |
+| Web | **v192 → **v193**** |
+| Masaüstü | **1.0.152** (checksum `8664E6BB…3308`) |
+| Şema | **72** (değişmedi) |
+
+### Sıradaki tek iş
+Kullanıcı kararı bekleyenler (bkz. `KNOWN_ISSUES.md`): **makine aktivasyon modeli** · **işlevsiz iki yetki
+anahtarı** · **rapor yetkisinin modül yetkisi istememesi (RPR-15)** · PostgreSQL dosya yedeği · rapor
+sayfalı API'si · Satın Alma alanı.
+
+---
 ## ✅ TAMAMLANAN — FİNAL AUDIT + REPAIR + VERIFICATION TURU (2026-08-26, ikinci tur)
 
 Tam rapor: [`docs/tests/Final_Audit_2026-08-26.md`](../tests/Final_Audit_2026-08-26.md)

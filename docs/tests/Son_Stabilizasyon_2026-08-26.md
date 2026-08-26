@@ -422,3 +422,107 @@ ile idempotent.** **Yeni migration açılmadı**; üretim şeması **72**'de kal
 ---
 
 *(Test sayıları, yayın sürümleri ve yayın sonrası sağlık kontrolleri §18–§21'de; kalan konular §22'de.)*
+
+---
+
+## 18. Test sayıları
+
+| Koşu | Sonuç |
+|---|---|
+| Taban (tur başı, yeniden ölçüldü) | 2323 geçti · 0 başarısız · 37 atlandı |
+| Ara regresyon (ilk 5 düzeltmeden sonra) | 2375 geçti · 0 başarısız · 37 atlandı |
+| **Final koşu 1** | **2386 geçti · 0 başarısız · 37 atlandı** |
+| **Final koşu 2 (bağımsız)** | **2386 geçti · 0 başarısız · 37 atlandı → koşu 1 ile BİREBİR AYNI (flaky yok)** |
+| **PostgreSQL koşusu (izole küme)** | **47 geçti · 0 başarısız · 0 atlandı (+ filtre dışı kalan 2 PG testi ayrıca 4/4) → atlanan 37'nin TAMAMI çalıştı** |
+
+Bu turda **8 yeni test sınıfı** ve **+63 senaryo** eklendi (2360 → 2423 toplam).
+
+**Devre dışı bırakılan, atlanan, gevşetilen veya retry ile örtülen test YOKTUR.** Atlanan 37 testin
+**tamamı** PostgreSQL kapılıdır (tek tek listelendi) ve ayrı koşuda gerçekten çalıştırılmıştır.
+
+### PostgreSQL testleri nasıl koşturuldu
+Üretim bağlantısı **kullanılmadı ve istenmedi**. Yerel makinede **izole bir PostgreSQL 18.6 kümesi**
+sıfırdan kuruldu (`initdb` → ayrı veri klasörü → port **55432**) ve boş bir `depowise_test_denetim`
+veritabanı açıldı. `PostgresTestGuard` fail-closed kapısının üç koşulu da bu ortamda sağlanır.
+
+---
+
+## 19. Üretim durumu (deploy ÖNCESİ, salt-okunur)
+
+| | Değer |
+|---|---|
+| API | `depowise-erp` · v168 · `fra` · started |
+| Web | `depowise-web` · v192 · `fra` · started |
+| Şema | 72 |
+| Firma sayısı | **1** (kimliği güvenli biçimde: onaltılık GUID) |
+| Şube sayısı | **0** |
+
+Üretimde **hiçbir yazma işlemi yapılmadı**: SQL, migration, DDL, ACL, secret değişikliği yok. Yalnız
+`/health`, `/api/public/companies` ve `flyctl status` gibi salt-okunur kontroller kullanıldı.
+
+### Yedek ön koşulu hakkında (dürüst not)
+`DEPLOYMENT.md` deploy öncesi `pg_dump` yedeği ister; gerekçesi **"deploy = migration"**dır. Bu turda
+**yeni migration eklenmedi** — katalogdaki en yüksek sürüm hâlâ **72** ve üretim de 72'de → bu deploy
+**hiçbir şema değişikliği uygulayamaz**. Ayrıca üretim bağlantı bilgisi bir Fly *secret*'ıdır; kural
+gereği **istenmedi ve okunmaya çalışılmadı**, dolayısıyla elle bir `pg_dump` yedeği **alınamadı**.
+
+---
+
+## 20. Yayın (deploy)
+
+| Bileşen | Öncesi | Sonrası |
+|---|---|---|
+| API (`fly.toml`) | v168 | **v169** |
+| Web (`fly.web.toml`) | v192 | **v193** |
+| Masaüstü | 1.0.151 | **1.0.152** |
+| Şema | 72 | **72 (değişmedi)** |
+
+Sıra `DEPLOYMENT.md`'deki gibi: **önce API, sonra Web**, en son masaüstü paketi.
+Masaüstü paketi: **89.971.604** bayt · SHA-256 `8664E6BB513E25CC8DE0EE9827984C91ADDB9739C1FA0C8395E2DA9D5C683308`.
+
+---
+
+## 21. Yayın sonrası sağlık (salt-okunur)
+
+| Kontrol | Sonuç |
+|---|---|
+| API `/health` | ✅ `{"status":"ok"}` |
+| **PostgreSQL gerçekten bağlı mı** | ✅ `/api/public/companies` **gerçek firmayı** döndürdü (boş SQLite'a DÜŞMEDİ) |
+| Web rotaları | ✅ 9 rotanın hepsi 200 (`/`, `/reports`, `/reports/manager`, `/materials`, `/vehicles`, `/permissions`, `/parties`, `/machines`, `/stock`) |
+| Sürüm ucu | ✅ `latest = 1.0.152` |
+| İndirme ucu | ✅ paket indi, **checksum ve boyut üç yerde de aynı** |
+| **YED-02 canlı kanıt** | ✅ uydurma jetonla `/api/backups` → **401** (eski kod 400 verirdi). Deneme **dosya göndermedi** → hiçbir yan etki yok. |
+| API + Web logları | ✅ hata yok |
+| Makine durumu | ✅ ikisi de `started`, crash-loop yok |
+| Disk (`/data`) | ✅ **%39** (351 MB / 974 MB, 558 MB boş) |
+
+⚠️ **Not:** yayın notunda bir yazım hatası var ("doguruluyor" → "doğruluyor"). Sürüm satırı benzersiz
+olduğu ve not güncelleme ucu bulunmadığı için düzeltmek yeni bir sürüm yayınlamayı gerektirirdi;
+üretimde SQL çalıştırmak da kural gereği yasak. Yalnız güncelleme penceresindeki metni etkiler.
+
+---
+
+## 22. Kalan gerçek problemler ve KARAR gerektiren konular
+
+Ayrıntı: `KNOWN_ISSUES.md`. Özet ve **neden değiştirilmedikleri**:
+
+| Konu | Durum | Neden bu turda yapılmadı |
+|---|---|---|
+| **MAK-01/b** — makine aktivasyon modeli | Analiz edildi | `pending` durumu **girişi tamamen engelliyor** → "önce giriş, sonra aktifleş" **kilitlenme** yaratır. Model değişikliği kurulum akışını yeniden tasarlamayı gerektirir. Mevcut telafi (IP hız sınırı + yöneticinin sahte makineyi iptal edebilmesi) doğru seviyede. |
+| **YET-01** — işlevsiz iki yetki anahtarı | Analiz derinleştirildi | `btn-logo` **var olmayan bir özelliği** koruyor (kodda logo değiştirme ucu/ekranı YOK); `btn-reset-db` yapısal olarak yalnız süper adminin geçebildiği bir işlemi korur. **Gerçek bir kapıya bağlanamazlar.** Silmek verilmiş kayıtları öksüz bırakır; üretimde bu kayıtların varlığı **doğrulanamadı**. |
+| **RPR-15** — rapor yetkisi modül yetkisi istemiyor | Yeni tespit | Muayene/Personel/muhasebe raporları ilgili modül yetkisini ayrıca ister; Stok/Yakıt/Araç/Bakım/Talep raporları **istemez**. Sıkılaştırmak bugün rapor görebilen kullanıcıların erişimini **keserdi** → çalışan davranış değiştirilmedi. |
+| **PostgreSQL dosya yedeği** | Kapsam dışı | `pg_dump` sunucu imajında yok; sır + saklama alanı + operasyon gerektirir → **yeni özellik**. Bugün PITR'e dayanıyor. |
+| **PRF-01/c** — rapor yanıt boyutu | Ölçüldü | 50.000 satırda 6,5 MB / 329 ms; üst sınır çalışıyor. Sayfalı API mimari değişikliktir. |
+| **WEB-03** | Üretilemedi | Gerçek tarayıcıda tetiklenmedi → **varsayımla düzeltilmedi**. |
+| **Sunucusuz ekran boş kalıyor** | Gözlem | Oturum düşmüyor (§13 tamam) ama "sunucuya ulaşılamıyor" uyarısı yok → genel bağlantı uyarısı **yeni özellik**. |
+| **Şube izolasyonu üretimde gözlemlenemedi** | Sınır | Üretimde 0 şube. PRS-01 tam da bu yüzden gizli kalmıştı. |
+
+---
+
+## 23. Gelecekte yapılabilecek yeni özellikler (bu turda YAPILMADI)
+
+- **Satın Alma alanı** — kodda böyle bir domain **yok**; sahte ekran üretilmedi.
+- PostgreSQL yedek/geri yükleme akışı (operasyon işi).
+- Sayfalı rapor API'si (çok büyük veri için).
+- Genel "sunucuya ulaşılamıyor" bağlantı uyarısı.
+- Makine aktivasyonunda yönetici onayı akışı.
