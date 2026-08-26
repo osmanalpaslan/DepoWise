@@ -49,6 +49,29 @@ public sealed class UpdateService
     }
 
     /// <summary>
+    /// ⭐ UPD-01 (denetim 2026-08-26) — PAKET BÜTÜNLÜĞÜ KAPISI, FAIL-CLOSED.
+    ///
+    /// <b>Kapatılan açık:</b> masaüstü kurulumcusu <c>if (!string.IsNullOrWhiteSpace(expectedSha) &amp;&amp; …)</c>
+    /// yazıyordu — yani sunucudan BOŞ checksum gelirse doğrulama TAMAMEN ATLANIYOR, gelen zip olduğu gibi
+    /// açılıp uygulamanın üzerine kuruluyor ve uygulama yeniden başlatılıyordu. Bu, güncelleme yolunu
+    /// "indirilen ne ise onu çalıştır"a çeviren bir kod-çalıştırma yoludur (bozuk/yarım indirme, hatalı
+    /// sürüm kaydı ya da araya giren bir aktör). Sunucu tarafı yayında 64 hane hex zorunlu kılar; burada da
+    /// EKSİK checksum artık "doğrulama yok" değil "kurulum yok" anlamına gelir.
+    ///
+    /// Doğru checksum ile davranış DEĞİŞMEZ (1.0.149 dahil tüm gerçek paketlerde checksum doludur).
+    /// </summary>
+    public static void RequireVerifiedPackage(byte[] content, string? expectedSha256Hex)
+    {
+        if (string.IsNullOrWhiteSpace(expectedSha256Hex))
+            throw new UpdateFailedException(
+                "Güncelleme paketi doğrulanamadı: sunucu paket imzasını (checksum) bildirmedi. " +
+                "Güvenlik gereği kurulum iptal edildi.");
+
+        if (!VerifyChecksum(content, expectedSha256Hex!))
+            throw new UpdateFailedException("Paket checksum doğrulamasını geçemedi (bozuk indirme).");
+    }
+
+    /// <summary>
     /// Paketi uygular. installStep: gerçek kurulum adımı (test için enjekte; false/exception → başarısız → rollback).
     /// Hata olursa eski sürüm geri yüklenir ve UpdateFailedException atılır.
     /// </summary>
@@ -58,10 +81,11 @@ public sealed class UpdateService
         Report(0);
 
         // 1) Checksum — bozuk paket kurulmaz (hiçbir değişiklik yapılmaz)
-        if (!VerifyChecksum(content, pkg.ChecksumSha256))
+        try { RequireVerifiedPackage(content, pkg.ChecksumSha256); }
+        catch (UpdateFailedException)
         {
             Log($"Checksum hatası, kurulum iptal: {pkg.Version}");
-            throw new UpdateFailedException("Paket checksum doğrulamasını geçemedi (bozuk paket).");
+            throw;
         }
         Report(30);
 

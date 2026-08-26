@@ -21,8 +21,8 @@ public static class UpdateInstaller
     /// (bozuk/yarım güncelleme kalıcı olmaz). Paket bütünlüğü checksum + ana exe varlığı ile doğrulanır.</summary>
     public static void InstallAndRestart(byte[] zipBytes, string version, string expectedSha)
     {
-        if (!string.IsNullOrWhiteSpace(expectedSha) && !UpdateService.VerifyChecksum(zipBytes, expectedSha))
-            throw new InvalidOperationException("Paket checksum doğrulamasını geçemedi (bozuk indirme).");
+        // ⭐ UPD-01: checksum BOŞSA da kurulum yapılmaz (eskiden atlanıyordu). Tek kapı UpdateService'tedir.
+        UpdateService.RequireVerifiedPackage(zipBytes, expectedSha);
 
         var installDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpnex");
