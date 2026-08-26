@@ -530,7 +530,14 @@ input[type="file"]::file-selector-button {
    Araçlar, Malzemeler, Personel, Talepler… hepsi bu tabloyu kullanıyor. */
 .dw-grid {
     table-layout: fixed; border-collapse: separate; border-spacing: 0;
-    width: max-content; min-width: 100%;
+    /* ⚠️ SÜTUN GENİŞLETME (düzeltme 2026-08-26): burada 'min-width: 100%' VARDI ve tabloyu daima
+       kapsayıcı genişliğine yayıyordu. Sonuç: kolonların istenen genişlikleri orantılı ölçekleniyor,
+       bir kolonu sürüklemek diğerlerinin de genişliğini değiştiriyor ve tablo asla taşamadığı için
+       genişletme fiilen İŞE YARAMIYORDU. Kaldırıldı: tablo artık kolon genişliklerinin TOPLAMI kadar
+       olur; taşarsa kapsayıcı yatay kaydırır (Excel gibi).
+       Kolon genişliği <colgroup><col> üzerinden gelir — hücre 'width'i DEĞİL; hücrelerdeki
+       'max-width: 0' (metni "…" ile kesmek için gerekli) bir hücre genişliğini sıfıra kırpar. */
+    width: max-content;
     border: 1px solid var(--dw-border);
     border-radius: var(--dw-r-md); overflow: hidden;
     background: var(--dw-surface-1);

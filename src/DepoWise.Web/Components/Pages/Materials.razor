@@ -264,6 +264,14 @@
                    başlığı sürükleyerek kolon genişliği (CSS resize). Başlığa tıklama = sırala. *@
                 <div style="overflow-x:auto;">
                 <table id="materials-grid" class="dw-grid">
+                    @* Sütun genişliği <col>'dan gelir (düzeltme 2026-08-26). Hücreye "width" yazmak İŞE YARAMIYORDU:
+                       hücrelerde metni "…" ile kesmek için gereken max-width:0, o genişliği sıfıra kırpıyordu. *@
+                    <colgroup>
+                        @foreach (var key in _visibleColumns)
+                        {
+                            <col data-key="@key" style="width:140px" />
+                        }
+                    </colgroup>
                     <thead><tr>
                         @foreach (var key in _visibleColumns)
                         {

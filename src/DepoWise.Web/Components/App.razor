@@ -111,15 +111,25 @@
         // genişliğini CANLI ayarlar (table-layout:fixed → kolon takip eder). DELEGE edilmiş tek dinleyici →
         // Blazor yeniden render'ıyla çatışmaz, dinamik satırlar/raporlar için de çalışır. Genişlik OTURUM-İÇİDİR
         // (kaydedilmez; her login standart). CSS 'resize' table-cell'de çalışmadığından bu yöntem kullanılır.
+        // ⚠️ DÜZELTME 2026-08-26 — genişlik <th>'e DEĞİL, <col>'a yazılır.
+        // Eskiden th.style.width ayarlanıyordu ama hücrelerde metni "…" ile kesmek için kullanılan
+        // 'max-width: 0' kuralı bu genişliği sıfıra kırpıyordu → tarayıcı kolon genişliklerini yok
+        // sayıp tabloyu eşit bölüyordu. Sonuç: tutamak sürükleniyor, HİÇBİR ŞEY değişmiyordu.
+        // <col> genişliği 'max-width'ten etkilenmez ve fixed düzende kolonun TEK belirleyicisidir.
         document.addEventListener('pointerdown', function (e) {
             const grip = e.target && e.target.closest ? e.target.closest('.dw-col-grip') : null;
             if (!grip) return;
             const th = grip.closest('th');
-            if (!th) return;
+            const table = th && th.closest('table');
+            if (!th || !table) return;
+            // Bu başlık kaçıncı sütun? Aynı sıradaki <col> onun genişliğini taşır.
+            const sira = Array.prototype.indexOf.call(th.parentElement.children, th);
+            const col = table.querySelectorAll('col')[sira];
+            if (!col) return;
             e.preventDefault(); e.stopPropagation();
             const startX = e.clientX, startW = th.offsetWidth;
             try { grip.setPointerCapture(e.pointerId); } catch (_) { }
-            function onMove(ev) { th.style.width = Math.max(60, Math.min(700, startW + (ev.clientX - startX))) + 'px'; }
+            function onMove(ev) { col.style.width = Math.max(60, Math.min(700, startW + (ev.clientX - startX))) + 'px'; }
             function onUp() {
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onUp);
