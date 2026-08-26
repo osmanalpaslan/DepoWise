@@ -212,41 +212,41 @@ veritabanına ve **üretime dokunulmadı**). İki şube, iki araç ve bir **depo
 
 ---
 
-## 11. YAYIN — engellendi (kullanıcı işlemi gerekiyor)
+## 11. YAYIN — TAMAMLANDI (2026-08-26)
 
-Tüm kapılar geçildikten sonra yayına geçildi ve **ilk adımda durduruldu**:
+İlk denemede Fly.io hesabındaki **ödenmemiş fatura** yüzünden uzak derleyici 403 vermişti; kullanıcı
+faturayı kapattıktan sonra yayın **eksiksiz tamamlandı**. İlk başarısız denemede üretim etkilenmemişti
+(derleme hiç başlamamıştı).
 
-```
-flyctl deploy --config fly.toml --ha=false
-Error: ... ensure depot builder failed (status 403):
-Your account has overdue invoices. Please update your payment information.
-```
+### Yayın sırası (DEPLOYMENT.md'ye uygun: önce API, sonra Web, en son masaüstü)
 
-- **Sebep:** Fly.io hesabında **ödenmemiş fatura** var; uzak derleyici (Depot) 403 veriyor.
-- **Yerel alternatif denendi:** Docker kurulu/çalışır değil → `--local-only` de mümkün olmadı.
-- **Üretim ETKİLENMEDİ:** derleme hiç başlamadı, dağıtım yapılmadı. API **200**, Web **200**,
-  masaüstü sürümü **1.0.148** (değişmedi).
-- **Bu bir ödeme işlemidir** → yetkim dışındadır; kullanıcı faturayı kapatmalıdır.
+| # | Adım | Sonuç |
+|---|---|---|
+| 1 | Yayın öncesi kontrol | HEAD `7d70336` · ağaç temiz · API 200 · Web 200 |
+| 2 | Yeni migration var mı | **YOK** → şema **72**'de kalır, ek onay gerekmedi |
+| 3 | `flyctl deploy -c fly.toml` | ✅ makine `started` · **API v165 → v166** |
+| 4 | API sağlık | `/health` **200** → `{"status":"ok"}` |
+| 5 | **PG gerçekten bağlandı mı** | ✅ giriş OK · **gerçek veri döndü** (1 firma · 3 kullanıcı · 18,12 MB) → boş SQLite'a **düşmedi** |
+| 6 | `flyctl deploy -c fly.web.toml` | ✅ makine `started` · **Web v189 → v190** |
+| 7 | Web sağlık + route | `/` `/reports` **`/reports/manager`** `/branches` `/stock/movements` `/developer` → hepsi **200** |
+| 8 | Masaüstü publish 1.0.149 | ✅ **270 dosya · 243 MB** (1.0.148 ile aynı ağaç yapısı) |
+| 9 | Paketleme | `DepoWise-desktop-1.0.149.zip` · **89.966.963 bayt** |
+| 10 | Sürüm yayını | ✅ `/api/releases/latest` = **1.0.149** · eski paketler budandı (3 paket kaldı) |
+| 11 | İndirme ucu | `/api/releases/1.0.149/download` **200** · **89.966.963 bayt** (birebir) |
+| 12 | **Checksum doğrulaması** | ✅ **üç değer de aynı**: yerel paket = sunucu kaydı = sunucudan indirilen → `AE52DEC4B11B462B9AF9C3F7B9E605F26569F22125397E6DF2E56F868FBFDEA3` |
+| 13 | Kurulum aracı | `/api/setup/download` **200** — `src/DepoWise.Setup` bu turda değişmediği için **yeniden yayınlanmadı** |
+| 14 | Sürüm tutarlılığı | API **166** · Web **190** · Masaüstü **1.0.149** |
+| 15 | Yayın sonrası sağlık | API 200 · Web 200 · disk **%41,9** (408/973,7 MB) · CPU %1,8 · bellek %50,9 |
+| 16 | Yeni route canlı doğrulaması | `/reports/manager` kimliksiz ziyaretçiyi **girişe yönlendiriyor** (deny-by-default) · konsolda hata yok |
 
-### Yayın öncesi tamamlanan kontroller
-| Kontrol | Sonuç |
-|---|---|
-| Üretim sağlığı | API **200** · Web **200** |
-| Fly secret'ları | `DEPOWISE_JWT_KEY` · `DEPOWISE_PG_URL` · seed parolaları → **Deployed** |
-| Üretim diski (R30) | **406,8 / 973,7 MB (%41,8)** · 3 paket · sağlıklı |
-| Üretim veritabanı | 18,12 MB · 1 firma · 3 kullanıcı |
-| Yayındaki masaüstü | 1.0.148 (checksum `B97C620C…`) |
-| Yeni migration | **YOK** → deploy şemaya dokunmaz |
-| Üretim yedeği | ⚠️ **alınamadı** — yerelde saklı üretim parolası artık geçersiz (rotasyon). `pg_dump` kurulu ve çalışıyor; yalnız güncel parola yok. **Kimlik bilgisi sohbette istenmedi.** Deploy şemaya dokunmadığı için risk düşüktür; yine de yayından önce güncel bağlantı ile bir yedek alınması önerilir. |
+### Yayın öncesi yedek — durum
+⚠️ Yerelde saklı üretim parolası geçersiz olduğu için (kullanıcının rotasyonu) **taze bir `pg_dump`
+alınamadı**; parola sohbette **istenmedi**. Risk düşük tutuldu çünkü **bu yayın şemaya dokunmuyor**
+(yeni migration yok, şema 72'de kaldı) ve Neon'un sürekli PITR yedeği devrede. Yine de bir sonraki
+şema değişikliğinden önce güncel bağlantıyla yedek alınması gerekir.
 
-### Fatura kapatıldıktan sonra çalıştırılacak sıra
-```bash
-flyctl deploy --config fly.toml --ha=false
-curl -s https://depowise-erp.fly.dev/health
-flyctl deploy --config fly.web.toml --ha=false
-curl -s -o /dev/null -w "%{http_code}\n" https://depowise-web.fly.dev/
-dotnet publish src/DepoWise.Desktop/DepoWise.Desktop.csproj -c Release -r win-x64 --self-contained true -p:Version=1.0.149 -o artifacts/rc/desktop-1.0.149
-node scripts/publish_release.mjs artifacts/rc/DepoWise-desktop-1.0.149.zip 1.0.149 "Rapor ekrani ayrimi + sube kapsami + gelistirici modu kapisi"
-```
-(Setup aracı **yeniden yayınlanmayacak**: `src/DepoWise.Setup` bu turda değişmedi ve sunucudaki
-kopya çalışıyor — `/api/setup/download` **200**, 71,9 MB.)
+### Üretime yapılan işlemler (tam liste)
+- İki `flyctl deploy` (API, Web) — kod dağıtımı.
+- Bir sürüm yayını (masaüstü 1.0.149 paketi yüklendi; sunucu 2 eski paketi otomatik budadı).
+- Süper admin ile **salt-okunur** doğrulama çağrıları (giriş, `/api/server/status`, `/api/releases/latest`).
+- **Hiçbir iş verisi yazılmadı/silinmedi. Doğrudan SQL çalıştırılmadı. Migration çalıştırılmadı.**

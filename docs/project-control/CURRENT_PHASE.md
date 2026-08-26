@@ -1,6 +1,6 @@
 # AKTİF DURUM
 
-> Son güncelleme: **2026-08-25** (yayın öncesi son denetim + yayın) · Bu dosya **her iş sonunda** güncellenir.
+> Son güncelleme: **2026-08-26** (yayın öncesi son denetim + YAYIN TAMAMLANDI) · Bu dosya **her iş sonunda** güncellenir.
 
 ---
 
@@ -1248,7 +1248,7 @@ Açık geliştirme işi yok.
 
 ---
 
-## 🚀 SON TAMAMLANAN — `DEN-2` Yayın öncesi son denetim + yayın (2026-08-25)
+## 🚀 SON TAMAMLANAN — `DEN-2` Yayın öncesi son denetim + yayın (2026-08-25/26)
 
 Kullanıcı isteği: "yayın öncesi son kapsamlı denetim + onarım + test + release". Odak: veri güvenliği,
 firma/şube izolasyonu, **tüm raporların doğruluğu**, stabilite, performans.
@@ -1292,14 +1292,20 @@ sağlanamaz). Web menüsü bunu zaten `@admin` ile ima ediyordu.
 | Performans (30.000 hareket) | depo personelinin raporu **196 ms → 28 ms**, satır **30.000 → 3.000** |
 | Yeni migration | **YOK** (ölçüm indeks gerekmediğini gösterdi) |
 
-### 🔴 YAYIN ENGELLENDİ — kullanıcı işlemi gerekiyor
-`flyctl deploy` **ilk adımda durdu**: Fly.io hesabında **ödenmemiş fatura** var, uzak derleyici 403
-veriyor. Docker kurulu olmadığı için yerel derleme de mümkün değil. **Üretim etkilenmedi** (derleme hiç
-başlamadı): API 200 · Web 200 · masaüstü 1.0.148. Fatura kapatıldıktan sonra çalıştırılacak komut sırası
-test raporunun §11 bölümündedir.
+### ✅ YAYIN TAMAMLANDI (2026-08-26)
+İlk denemede Fly.io faturası engellemişti; fatura kapandıktan sonra yayın eksiksiz yapıldı.
+
+| Bileşen | Sürüm | Doğrulama |
+|---|---|---|
+| API | **v166** | `/health` 200 · **PG gerçek veri döndü** (boş SQLite'a düşmedi) |
+| Web | **v190** | `/` `/reports` `/reports/manager` `/branches` `/stock/movements` `/developer` → 200 |
+| Masaüstü | **1.0.149** | 270 dosya · 89.966.963 bayt · **checksum üç yerde de aynı** (`AE52DEC4…`) |
+| Kurulum aracı | değişmedi | `/api/setup/download` 200 (Setup kodu bu turda değişmedi) |
+| Şema | **72** (değişmedi) | yeni migration YOK → ek onay gerekmedi |
+| Disk | %41,9 (408/973,7 MB) | 3 paket · R30 sınırının altında |
 
 ### Sıradaki tek iş
-Fly.io faturasının kapatılması → ardından yayın. Ayrıca kullanıcı kararı bekleyen: eksik raporlar (Muayene/Sigorta · Personel · boş `Purchasing` kategorisi) —
+Kullanıcı kararı bekleyen: eksik raporlar (Muayene/Sigorta · Personel · boş `Purchasing` kategorisi) —
 bunlar **yeni özellik**tir, bu turda bilinçli olarak kapsam dışı bırakıldı.
 
 ---
