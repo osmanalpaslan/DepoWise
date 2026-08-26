@@ -77,6 +77,30 @@ public class MasaustuTabloKolonHizasiTests
         Assert.True(ic > 0, $"{ekran}: filtre hücrelerinde Padding=\"4,0\" bulunamadı (boşluk büsbütün kaybolmuş olabilir).");
     }
 
+    /// <summary>
+    /// ⭐ 1. SATIR (başlık) ve 2. SATIR (filtre) AYNI TASARIMDA olmalı — kullanıcı isteği 2026-08-26.
+    ///
+    /// <b>Kapatılan hata:</b> başlık satırı <c>Border.TableHeader</c> stilinden <c>Padding="12,0"</c>
+    /// alıyordu; filtre satırı ise bunu <c>Padding="0,6"</c> ile EZİYORDU → yatay boşluk 0 oluyor ve
+    /// tüm filtre satırı, başlıktan (ve veri satırlarından) <b>12 px SOLA</b> kayıyordu.
+    /// Artık iki satır da aynı yatay boşluğu kullanır; dikey boşluk farkı serbesttir (filtre kutuları
+    /// nefes alsın diye) çünkü hizayı etkilemez.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Filtreli))]
+    public void HZA0_Baslik_Ve_Filtre_Satiri_Ayni_Yatay_Bosluk(string ekran)
+    {
+        var x = Gorunum(ekran);
+
+        // Başlık satırı: Padding VERMEZ → stilin 12,0 değerini kullanır.
+        Assert.Contains("<Border Classes=\"TableHeader\" DockPanel.Dock=\"Top\">", x);
+
+        // Filtre satırı: Padding verir ama YATAY değeri başlıkla AYNI (12) olmak zorunda.
+        var filtre = Regex.Match(x, @"<Border Classes=""TableHeader"" DockPanel\.Dock=""Top"" Padding=""(\d+),(\d+)""");
+        Assert.True(filtre.Success, $"{ekran}: filtre satırı Border'ı bulunamadı.");
+        Assert.Equal("12", filtre.Groups[1].Value);
+    }
+
     /// <summary>⭐ Üç satır da AYNI genişlik kaynağını okumalı: başlık ve filtre ile veri hücreleri
     /// <c>ColWidths</c> sözlüğüne bağlıdır. Biri başka bir kaynağa bağlanırsa hiza sessizce kayar.</summary>
     [Theory]
@@ -237,6 +261,18 @@ public class MasaustuTabloKolonHizasiTests
 
         Assert.DoesNotContain("Margin=\"2,0\"", filtreBolumu);
         Assert.Contains("Padding=\"2,0\"", filtreBolumu);
+    }
+
+    /// <summary>Ortak rapor tablosunda da 1. ve 2. satır aynı yatay boşluğu kullanır (bkz. HZA0).</summary>
+    [Fact]
+    public void HZF4_Rapor_Tablosunda_Baslik_Ve_Filtre_Ayni_Yatay_Bosluk()
+    {
+        var x = Kaynak("Controls", "DataGridView.axaml");
+
+        Assert.Contains("<Border Classes=\"TableHeader\" DockPanel.Dock=\"Top\">", x);
+        var filtre = Regex.Match(x, @"<Border Classes=""TableHeader"" DockPanel\.Dock=""Top"" Padding=""(\d+),(\d+)""");
+        Assert.True(filtre.Success);
+        Assert.Equal("12", filtre.Groups[1].Value);
     }
 
     /// <summary>Rapor tablosunda başlık · filtre · gövde · toplam satırlarının HEPSİ aynı kolon

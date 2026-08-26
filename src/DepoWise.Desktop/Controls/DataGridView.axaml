@@ -82,7 +82,7 @@
                     </Border>
 
                     <!-- Başlık-altı filtre satırı: her kutu ilgili sütunun TAM ALTINDA (aynı Width). -->
-                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="0,4">
+                    <Border Classes="TableHeader" DockPanel.Dock="Top" Padding="12,4">
                         <ItemsControl ItemsSource="{Binding Columns}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
