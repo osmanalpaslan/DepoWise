@@ -125,6 +125,15 @@ public static class AppModules
     /// değişmez (users hâlâ admin-restricted).</summary>
     public static bool IsUserDirectory(string moduleKey) => moduleKey == "users";
 
+    /// <summary>Modül anahtarı → kullanıcıya dönük Türkçe etiket (bilinmeyen anahtar olduğu gibi döner).
+    /// Hata mesajlarında ham anahtar ("stock") yerine ekran adı ("Stok İşlemleri") göstermek için —
+    /// <c>RequestStatusOptions.Label</c> ile aynı desen. Eklendi: RPR-15 (2026-08-26).</summary>
+    public static string Label(string moduleKey)
+    {
+        foreach (var (k, l) in All) if (string.Equals(k, moduleKey, StringComparison.Ordinal)) return l;
+        return moduleKey;
+    }
+
     /// <summary>
     /// Yalnız Süper Admin erişebilir; Firma Admini dahil hiç kimseye ATANAMAZ (admin bypass geçersiz).
     /// Firma Tanım platform sahibinindir; çok-firmalı dağıtımda firma admini başka firmayı yönetemez.

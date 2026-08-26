@@ -1,5 +1,6 @@
 using DepoWise.Application.Security;
 using DepoWise.Infrastructure.Database;
+using DepoWise.Infrastructure.Organization;   // SB-01: şube ağacı (BranchTree) — BranchAccess ile AYNI kaynak
 
 namespace DepoWise.Infrastructure.Org;
 
@@ -31,7 +32,29 @@ public sealed class ScopeResolver
         }
 
         // Açık kapsam varsa onu uygula (admin olsa bile sınırlanmış olabilir).
-        if (explicitScopes.Count > 0) return explicitScopes;
+        //
+        // ⭐ SB-01 (denetim 2026-08-26) — ŞUBE AĞACI BURADA DA GENİŞLETİLİR.
+        //
+        // Ürün kuralı ŞB-04 (2026-08-18): "Üst şubeye yetkili kullanıcı alt şubeleri de görsün."
+        // BranchAccess bunu Expand ile uyguluyordu (araçlar, raporlar, stok hareketleri o yoldan geçer),
+        // ama projedeki İKİNCİ kapsam otoritesi olan bu sınıf user_scopes satırlarını OLDUĞU GİBİ
+        // döndürüyordu. Canlı kullanıcısı PersonnelService'tir (hem liste hem yazma kapısı) → üst şubeye
+        // yetkili kullanıcı alt şantiyenin ARAÇLARINI görüyor ama PERSONELİNİ göremiyor, o şantiyeye
+        // personel de EKLEYEMİYORDU ("şube kapsam dışı").
+        //
+        // Üretimde bu turda 9 şube bulundu ve 5'i bir üst şubenin altındadır; önceki turlarda 0 şube
+        // olduğu için fark edilemiyordu. Yeni kural getirilmez — ŞB-04'ün kararı ikinci yerde de
+        // uygulanır ve iki otorite AYNI cevabı verir. Genişleme yalnız AŞAĞI doğrudur (alt şubeler);
+        // kardeş ve üst şubeler kapsama GİRMEZ.
+        if (explicitScopes.Count > 0)
+        {
+            var agac = BranchTree.LoadDescendants(conn, session.CompanyId);
+            if (agac is null) return explicitScopes;                 // düz yapı → genişletilecek bir şey yok
+            foreach (var kok in explicitScopes.ToList())
+                if (agac.TryGetValue(kok, out var altlar))
+                    foreach (var alt in altlar) explicitScopes.Add(alt);
+            return explicitScopes;
+        }
 
         // Açık kapsam yoksa: admin → tüm firma şubeleri; admin değil → boş.
         if (!AccessControl.IsAdmin(session)) return Array.Empty<string>();

@@ -210,6 +210,13 @@ public sealed partial class ReportsViewModel : ViewModelBase
                 : ReportCatalog.All.Where(d => !d.IsManager))
             .Where(d => d.RequiredModule is null
                         || AccessControl.Can(session, d.RequiredModule, PermissionAction.View))
+            // ⭐ RPR-15 (denetim 2026-08-26, parite): "Rol Yetki Kontrol" ile role KAPATILMIŞ ekranın
+            // raporu listede de görünmez — web kataloğuyla AYNI kural. Servis kapısı (ReportService.Run)
+            // her iki platformda da yerinde durur; bu yalnız görünürlüktür. Kapatma yoksa liste DEĞİŞMEZ.
+            .Where(d => d.DataModule is null
+                        || session.IsSuperAdmin
+                        || DeveloperMode.IsActive
+                        || !session.BlockedModules.Contains(d.DataModule))
             .ToList();
         // Seçili rapor listede kalmalı (operasyon kipinde varsayılan yönetici raporu olamaz).
         if (ReportItems.Count > 0 && !ReportItems.Any(d => d.Key == _selectedReport.Key))

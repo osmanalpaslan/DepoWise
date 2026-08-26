@@ -59,6 +59,26 @@
         <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
             @* Oturum tarayıcı deposundan yüklenmeden sayfa render EDİLMEZ. Aksi halde F5/doğrudan URL'de
                sayfalar token'sız API çağrısı yapıp yanlış "kayıt yok" / "yetkisiz" gösteriyordu. *@
+            @* ⭐ BAG-01 (denetim 2026-08-26) — SUNUCUYA ULAŞILAMIYOR UYARISI.
+               Sunucu kapalıyken ekran boş kalıyor ve kullanıcıya SEBEP söylenmiyordu ("uygulama bozuldu"
+               sanılıyordu). Bayrak YALNIZ taşıma katmanı hatasında (bağlantı yok / zaman aşımı) yanar;
+               401/403/500 gibi GERÇEK sunucu yanıtları bunu tetiklemez → yetki hatası ile ağ hatası
+               karışmaz. Oturuma dokunulmaz: burada çıkış YAPTIRILMAZ. *@
+            @if (Api.SunucuyaUlasilamiyor)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-3" Dense="true">
+                    <div class="d-flex align-center" style="gap:12px;flex-wrap:wrap">
+                        <span>
+                            <b>Sunucuya ulaşılamıyor.</b>
+                            İnternet bağlantınızı kontrol edin. Oturumunuz açık kalmaya devam ediyor;
+                            bağlantı gelince kaldığınız yerden devam edebilirsiniz.
+                        </span>
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning"
+                                   OnClick="TekrarDene">TEKRAR DENE</MudButton>
+                    </div>
+                </MudAlert>
+            }
+
             @if (Auth.Loaded)
             {
                 @* ═══ G5 — DEEP-LINK KORUMASI (2026-08-12) ═══
@@ -195,6 +215,7 @@
     {
         Nav.LocationChanged += OnLocationChanged;
         Theme.Changed += ApplyThemeAsync;
+        Api.BaglantiDurumuDegisti += BaglantiDegisti;   // BAG-01 (Dispose'ta çözülür)
     }
 
     /// <summary>G5 — adres çubuğundaki route (baştaki '/' ve sorgu dizesi olmadan).
@@ -373,10 +394,19 @@
         Nav.NavigateTo("/login");
     }
 
+    /// <summary>BAG-01 — bağlantı geri geldiğinde/gittiğinde uyarıyı tazele (yalnız DEĞİŞİMDE tetiklenir).</summary>
+    private void BaglantiDegisti() => InvokeAsync(StateHasChanged);
+
+    /// <summary>BAG-01 — "Tekrar Dene": mevcut sayfayı yeniden yükler (yeni istek → bağlantı varsa uyarı düşer).
+    /// Oturum korunur; çıkış YAPTIRILMAZ.</summary>
+    private void TekrarDene() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
+
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
         Theme.Changed -= ApplyThemeAsync;
+        // ⭐ MAS-01 dersi (2026-08-26): statik/uzun ömürlü olaya abone olan her yer aboneliği ÇÖZER.
+        Api.BaglantiDurumuDegisti -= BaglantiDegisti;
         _idleRef?.Dispose();
     }
 }

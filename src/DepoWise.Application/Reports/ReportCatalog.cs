@@ -92,7 +92,22 @@ public sealed record ReportDescriptor(
     // bilmediği için rapor listesi izni OLMAYAN kullanıcıya da gösteriliyor, kullanıcı "Sorgula"ya
     // basınca 403 alıyordu. Alan doldurulduğunda liste bu izne göre süzülür (deny-by-default ile
     // tutarlı: göremeyeceğin raporu listede de görme). null → yalnız "reports" yeterlidir.
-    string? RequiredModule = null)
+    string? RequiredModule = null,
+    // ⭐ RPR-15 (denetim 2026-08-26) — RAPORUN OKUDUĞU EKRAN ("veri evi").
+    //
+    // <b>RequiredModule'den FARKI:</b> RequiredModule "bu raporu görmek için o ekranın TAM iznini iste"
+    // demektir. DataModule ise yalnız <b>"Rol Yetki Kontrol" ile o ekran role KAPATILMIŞSA</b> raporu da
+    // kapatır. Aradaki fark bilinçlidir:
+    //
+    //  • <c>RoleGrantService</c> sözleşmesi: role kapatılan modül için "admin bypass'ı dahil API/UI
+    //    erişimi kapanır". Rapor yolu bu güvenceyi deliyordu — kapalı ekranın verisi rapordan satır
+    //    satır okunabiliyordu (hatta Excel'e aktarılabiliyordu).
+    //  • Buna karşılık bu raporlarda TAM izin istemek, bugün yalnız "Raporlar" yetkisi verilmiş
+    //    kullanıcıların erişimini KESERDİ. Bu yüzden kural dar tutulmuştur: yalnız AÇIKÇA KAPATILMIŞ
+    //    modülün verisi engellenir; kapatma yoksa davranış hiç değişmez.
+    //
+    // null → bu raporun tek bir "veri evi" yoktur (ör. Durum Rapor firma geneli sayısal özettir).
+    string? DataModule = null)
 {
     public bool UsesDate => Filters.HasFlag(ReportFilters.Date);
     public bool UsesBranch => Filters.HasFlag(ReportFilters.Branch);
@@ -126,12 +141,14 @@ public static class ReportCatalog
         new ReportDescriptor("vehicle", "Araç Raporu", "Araç başına yakıt + bakım + parça maliyeti ve birim maliyet",
             ReportCategory.Vehicle, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
-            InfoNote: "Yakıt tüketimi ve mesafe, yakıt fişleri arasındaki sayaç farkına göre hesaplanır. Tutarlar seçili tarih aralığındaki maliyetleri kapsar."),
+            InfoNote: "Yakıt tüketimi ve mesafe, yakıt fişleri arasındaki sayaç farkına göre hesaplanır. Tutarlar seçili tarih aralığındaki maliyetleri kapsar.",
+            DataModule: "vehicles"),
         // STK-06: depo bazlı stoktan sonra bu raporun iki modu var — filtre BOŞken firma geneli toplam
         // (eski davranış birebir), depo seçilince o deponun kırılımı + "Depo" kolonu.
         new ReportDescriptor("stock", "Stok Durumu", "Mevcut / minimum / kritik kalemler",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Location, false, ExportStandard,
-            InfoNote: "Depo seçilmezse TÜM depoların toplamı gösterilir («Atanmamış» stok dahil). Depo seçilirse yalnız o depodaki kalemler listelenir. «Atanmamış» bir depo değildir: geçmişte deposu girilmemiş stoktur."),
+            InfoNote: "Depo seçilmezse TÜM depoların toplamı gösterilir («Atanmamış» stok dahil). Depo seçilirse yalnız o depodaki kalemler listelenir. «Atanmamış» bir depo değildir: geçmişte deposu girilmemiş stoktur.",
+            DataModule: "stock"),
         // STK-10a (2026-08-11): hareket defterinin kataloglanmış dökümü. Daha önce yalnız bir EKRAN vardı
         // (katalogda rapor olmadığı için Excel'e aktarımı yoktu). Bu artımda YALNIZ Date + Location
         // filtreleri açıktı; STK-10b-1 ile HAREKET TÜRÜ, STK-10b-2 ile ARAMA, STK-10b-3 ile MALZEME eklendi.
@@ -139,17 +156,20 @@ public static class ReportCatalog
         new ReportDescriptor("stock-movements", "Stok Hareketleri", "Giriş/çıkış/transfer/sayım/bakım hareketleri — Kaynak → Hedef",
             ReportCategory.Stock, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Location | ReportFilters.MovementType | ReportFilters.Search | ReportFilters.Material, true, ExportStandard,
-            InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. «Atanmamış» bir depo değildir: lokasyonu girilmemiş harekettir."),
+            InfoNote: "Her satır bir stok hareketidir. Transfer defterde İKİ satırdır (kaynaktan çıkış, hedefe giriş) ve öyle gösterilir. Depo filtresi, hareketin KAYNAĞI ya da HEDEFİ seçilen depo olan satırları getirir; şube kapsamınız dışındaki hareketler görünmez. «Atanmamış» bir depo değildir: lokasyonu girilmemiş harekettir.",
+            DataModule: "stock"),
         new ReportDescriptor("stock-count", "Stok Sayım", "Sistem / sayılan / fark dökümü",
             ReportCategory.Stock, ReportGroup.Standard, ReportFilters.Date | ReportFilters.Location, true, ExportStandard,
-            InfoNote: "Sayım tek bir depoya/şantiyeye aittir. «Sistem» sütunu firma toplamını değil, SAYILAN DEPONUN o andaki miktarını gösterir."),
+            InfoNote: "Sayım tek bir depoya/şantiyeye aittir. «Sistem» sütunu firma toplamını değil, SAYILAN DEPONUN o andaki miktarını gösterir.",
+            DataModule: "stock"),
         // Yakıt Tüketim — Araç Raporu standardına taşındı (kullanıcı isteği 2026-08-08): araç başına işlem/mesafe/
         // litre/ortalama tüketim/ağırlıklı ort. fiyat/toplam maliyet/birim maliyet; sayaç birimine (km/saat) duyarlı,
         // tek-geçiş (N+1 yok), tam filo. Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü.
         new ReportDescriptor("fuel", "Yakıt Tüketim", "Araç başına tüketim, ortalama fiyat ve birim maliyet (km/saat duyarlı)",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType, true, ExportStandard,
-            InfoNote: "Yakıt tüketimi ve mesafe, seçilen tarih aralığındaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez."),
+            InfoNote: "Yakıt tüketimi ve mesafe, seçilen tarih aralığındaki yakıt fişleri arasında oluşan sayaç farklarına göre hesaplanır (saat bazlı araçlarda km yerine Saat üzerinden). Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
+            DataModule: "fuel"),
         // Bakım Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her bakım kaydı TEK satır (detay/işlem
         // listesi), işlenen şube (op_branch_id), km/saat duyarlı sayaç, malzeme maliyeti + kalem sayısı derived-table'dan
         // (correlated subquery YOK). Filtreler: Tarih + Şube(yetkili) + Araç(çoklu) + Araç Türü + Bakım Tanımı + Teknisyen.
@@ -157,21 +177,24 @@ public static class ReportCatalog
             ReportCategory.Maintenance, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Vehicle | ReportFilters.VehicleType
             | ReportFilters.MaintenanceDef | ReportFilters.Technician, true, ExportStandard,
-            InfoNote: "Her satır bir bakım kaydıdır (iptal edilenler hariç). Şube, bakımın işlendiği şubedir. Sayaç, bakımın yapıldığı andaki değerdir (araç birimi km ya da saat). Maliyet yalnızca bakım malzemelerini kapsar; işçilik/servis dâhil değildir."),
+            InfoNote: "Her satır bir bakım kaydıdır (iptal edilenler hariç). Şube, bakımın işlendiği şubedir. Sayaç, bakımın yapıldığı andaki değerdir (araç birimi km ya da saat). Maliyet yalnızca bakım malzemelerini kapsar; işçilik/servis dâhil değildir.",
+            DataModule: "maintenance"),
         // Depo Girişi — ortak standarda taşındı (kullanıcı isteği 2026-08-08): depoya alınan yakıt alım kayıtları;
         // Şube (op_branch_id) + Tedarikçi + Litre/Birim Fiyat/Tutar (NumCell) + pinned toplam (litre+tutar+ağırlıklı
         // ort. fiyat). Filtreler: Tarih + Şube(yetkili) + Tedarikçi.
         new ReportDescriptor("fuel-depot", "Depo Girişi", "Depoya alınan yakıt: tedarikçi, litre, birim fiyat, tutar",
             ReportCategory.Fuel, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Supplier, true, ExportStandard,
-            InfoNote: "Depoya alınan yakıt giriş kayıtları. Şube, girişin işlendiği şubedir. Tutar = litre × birim fiyat. Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez."),
+            InfoNote: "Depoya alınan yakıt giriş kayıtları. Şube, girişin işlendiği şubedir. Tutar = litre × birim fiyat. Tutarlar işlem para biriminde toplanır; farklı para birimleri kur ile dönüştürülmez.",
+            DataModule: "fuel"),
         // Talep Raporu — ortak standarda taşındı (kullanıcı isteği 2026-08-08): her talep TEK satır (belge listesi);
         // şube/talep eden/onaylayan/açıklama gösterilir, kalem sayısı derived-table'dan (correlated subquery YOK).
         // Reddedilen/iptal talepler LİSTEDE KALIR (Durum filtresiyle daraltılır). Para/araç kolonu yoktur.
         new ReportDescriptor("requests", "Talep Raporu", "Malzeme talepleri: şube, talep eden, onaylayan, durum, kalem",
             ReportCategory.Requests, ReportGroup.Standard,
             ReportFilters.Date | ReportFilters.Branch | ReportFilters.Requester | ReportFilters.Status, true, ExportStandard,
-            InfoNote: "Her satır bir malzeme talebidir. Kalem sayısı, talepteki malzeme satırı adedidir (miktar toplamı değildir). Reddedilen ve iptal edilen talepler de listelenir; Durum filtresiyle daraltabilirsiniz."),
+            InfoNote: "Her satır bir malzeme talebidir. Kalem sayısı, talepteki malzeme satırı adedidir (miktar toplamı değildir). Reddedilen ve iptal edilen talepler de listelenir; Durum filtresiyle daraltabilirsiniz.",
+            DataModule: "requests"),
         // ⭐ RPR-10 (denetim 2026-08-26) — MUAYENE / SİGORTA RAPORU.
         // Veri modeli ve iş kuralı ZATEN vardı (vehicle_inspections + InspectionService); eksik olan yalnız
         // raporu. Kolonlar mevcut "Muayene/Sigorta" ekranından BİREBİR alındı (ARAÇ · BELGE · SON · SONRAKİ ·
@@ -193,13 +216,17 @@ public static class ReportCatalog
                       "Silinen personel listelenmez.",
             RequiredModule: "personnel"),
         new ReportDescriptor("materials-template", "Malzeme — Şablonlu", "Şablona bağlı malzeme kayıtları",
-            ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+            ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager,
+            DataModule: "materials"),
         new ReportDescriptor("materials-nontemplate", "Malzeme — Şablon Dışı", "Şablonsuz girilen malzemeler (incele/düzelt)",
-            ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+            ReportCategory.Material, ReportGroup.Manager, ReportFilters.None, false, ExportManager,
+            DataModule: "materials"),
         new ReportDescriptor("vehicles-template", "Araç — Şablonlu", "Şablona bağlı araç kayıtları",
-            ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+            ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager,
+            DataModule: "vehicles"),
         new ReportDescriptor("vehicles-nontemplate", "Araç — Şablon Dışı", "Şablonsuz girilen araçlar (incele/düzelt)",
-            ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager),
+            ReportCategory.Vehicle, ReportGroup.Manager, ReportFilters.None, false, ExportManager,
+            DataModule: "vehicles"),
         new ReportDescriptor("status", "Durum Rapor", "Şube bazlı sayısal özet (modül başına kayıt)",
             ReportCategory.Management, ReportGroup.Manager, ReportFilters.Date, true, ExportManager),
 

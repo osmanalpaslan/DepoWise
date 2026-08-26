@@ -29,6 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ⚠️ DepoWise.Web BİLİNÇLİ olarak referanslanmaz: web, ortak dosyaların AYNASINI derler
+         (ListColumns, ScreenPlatform, MenuNodeView) → referans verilirse mevcut testlerde tür
+         çakışması olur. BAG-01'in karar mantığı bu yüzden Application katmanındaki
+         BaglantiIzleyici sınıfındadır ve oradan test edilir. -->
     <ProjectReference Include="..\..\src\DepoWise.Api\DepoWise.Api.csproj" />
     <ProjectReference Include="..\..\src\DepoWise.Infrastructure\DepoWise.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DepoWise.Application\DepoWise.Application.csproj" />

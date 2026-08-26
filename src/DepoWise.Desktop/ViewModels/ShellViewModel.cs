@@ -70,6 +70,26 @@ public sealed partial class ShellViewModel : ViewModelBase
     }
 
     [ObservableProperty] private ViewModelBase? _currentPage;
+
+    /// <summary>
+    /// ⭐ MAS-02 (denetim 2026-08-26) — AÇIK EKRAN DEĞİŞİNCE ESKİSİ SERBEST BIRAKILIR.
+    ///
+    /// <b>Bulunan durum:</b> her gezinmede yeni bir sayfa ViewModel'i oluşuyor, eskisi yalnız
+    /// referanstan düşürülüyordu. <c>DashboardViewModel</c> 60 saniyelik bir <c>DispatcherTimer</c>
+    /// başlatır ve onu HİÇBİR yerde durdurmuyordu → çalışan zamanlayıcı kendi işleyicisini (dolayısıyla
+    /// ViewModel'i) canlı tutar. Kullanıcı "Ana Ekran ↔ başka ekran" arasında N kez gidip geldiğinde
+    /// N zamanlayıcı birikir ve her biri <b>dakikada bir GÜNCELLEME SUNUCUSUNA istek</b> atar
+    /// (<c>DashboardViewModel.CheckUpdate</c>). Bellek de sürekli büyür.
+    ///
+    /// MAS-01 ile aynı sınıftan bir hatadır; oradaki ders burada genel bir kurala dönüştürüldü:
+    /// <b>kaynak tutan her sayfa <see cref="IDisposable"/> uygular ve kabuk onu bırakır.</b>
+    /// Bugün yalnız Dashboard etkilenir (tek zamanlayıcı orada); diğer sayfalar IDisposable
+    /// olmadığı için davranışları DEĞİŞMEZ.
+    /// </summary>
+    partial void OnCurrentPageChanging(ViewModelBase? value)
+    {
+        if (!ReferenceEquals(_currentPage, value)) (_currentPage as IDisposable)?.Dispose();
+    }
     [ObservableProperty] private string _currentTitle = "";
     [ObservableProperty] private string _currentContext = "";
     [ObservableProperty] private string _activeKey = "dashboard";

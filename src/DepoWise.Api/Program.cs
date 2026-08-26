@@ -2637,6 +2637,13 @@ app.MapGet("/api/reports/catalog", (HttpContext c) =>
     // Servis kapısı yerinde durur; bu yalnız görünürlüktür.
     .Where(d => d.RequiredModule is null
                 || AccessControl.Can(sc, d.RequiredModule, DepoWise.Application.Security.PermissionAction.View))
+    // ⭐ RPR-15 (denetim 2026-08-26): "Rol Yetki Kontrol" ile role KAPATILMIŞ ekranın raporu listede de
+    // görünmez. Servis kapısı (ReportService.Run) yerinde durur; bu yalnız görünürlüktür — kullanıcıyı
+    // çalışmayacak bir raporla baş başa bırakmamak için. Kapatma yoksa liste HİÇ değişmez.
+    .Where(d => d.DataModule is null
+                || sc.IsSuperAdmin
+                || DepoWise.Application.Security.DeveloperMode.IsActive
+                || !sc.BlockedModules.Contains(d.DataModule))
     .Select(d => new
     {
         key = d.Key, name = d.Name, description = d.Description, group = d.Group.ToString(),

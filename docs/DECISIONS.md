@@ -1988,3 +1988,83 @@ ve canlıda; **masaüstü UI kısmı ayrı adımda** (bu ortamda Avalonia görse
     kaldırılınca "Belge bulunamadı" da **aynı türden** istisna fırlattığı için test yine geçiyordu.
     Test artık istisna MESAJINI de sınıyor → mutasyon yakalanıyor.
 - **Ders (kayda geçti):** "aynı istisna türü" ile biten iki farklı yol, bir testi sessizce dişsiz bırakır.
+
+## ADR-150 — RPR-15: role KAPATILAN ekranın verisi rapordan okunabiliyordu (2026-08-26, dördüncü tur)
+- **İhlal edilen güvence:** `RoleGrantService` sözleşmesi, süper adminin bir ROLE kapattığı modül için
+  *"oturum yüklenirken izin satırı DÜŞÜRÜLÜR → **admin bypass'ı dahil API/UI erişimi kapanır**"* der.
+- **Durum:** rapor kapısı yalnız `reports` modülünü soruyordu; raporun OKUDUĞU ekranın kapalı olup
+  olmadığına BAKMIYORDU. Süper admin "Stok" ekranını Personel rolüne kapatsa bile, o roldeki kullanıcı
+  **Stok Hareketleri raporunu çalıştırıp aynı veriyi satır satır okuyabiliyordu** — Excel'e de aktarabiliyordu.
+  ⚠️ Tenant/şube açığı DEĞİL (firma ve şube kapsamı doğru); ihlal edilen **rol bazlı ekran kapatma**dır.
+- **Karar — kural bilinçli olarak DAR:** kataloğa `DataModule` ("raporun okuduğu ekran") eklendi ve
+  **yalnız AÇIKÇA KAPATILMIŞ** modülün verisi engellenir. Bu raporlarda ekranın TAM iznini istemek,
+  bugün yalnız "Raporlar" yetkisi verilmiş kullanıcıların erişimini **keserdi** → çalışan davranış
+  korunmuştur. Kapatma yoksa hiçbir şey değişmez.
+- **Tek nokta:** kapı `ReportService.Run` içindedir (yönetici kapısıyla aynı yer) → masaüstü, web, API ve
+  Excel dışa aktarma birlikte korunur. Rapor LİSTESİ iki yerde süzülür (web katalog ucu + masaüstü
+  `ReportsViewModel`); ikisi de güncellendi ve **parite testle kilitlendi**.
+- **Kapsam:** 21 raporun 8'i zaten tam modül izni istiyordu (RPR-12), 12'sine `DataModule` verildi.
+  `status` (Durum Rapor) bilinçli istisnadır: çapraz-modül sayısal özettir, tek bir "veri evi" yoktur.
+- **Kanıt:** düzeltme kasten geri alındığında 4 test kırılıyor (mutasyon N1).
+
+## ADR-151 — SB-01: şube AĞACI iki kapsam otoritesinde farklı uygulanıyordu (2026-08-26, dördüncü tur)
+- **Ürün kuralı (ŞB-04):** "Üst şubeye yetkili kullanıcı alt şubeleri de görsün." `BranchAccess.Expand`
+  bunu uyguluyordu (araç, rapor, stok hareketi hep o yoldan geçer).
+- **Durum:** projede **İKİNCİ** bir kapsam otoritesi var — `ScopeResolver` — ve o `user_scopes` satırlarını
+  olduğu gibi döndürüyor, ağacı **hiç genişletmiyordu**. Canlı kullanıcısı `PersonnelService`'tir.
+  Sonuç: üst şubeye yetkili kullanıcı alt şantiyenin **araçlarını görüyor ama personelini görmüyor**,
+  ve o şantiyeye **personel ekleyemiyordu** ("şube kapsam dışı").
+- **Neden şimdi bulundu:** üretimde önceki turlarda **0 şube** vardı. Bu turda salt-okunur kontrolde
+  **9 şube** görüldü ve bunların **5'i "ANKARA GENEL MERKEZ" altında alt şantiye** → hiyerarşi kod yolu
+  artık CANLI. Eski turların "şube davranışı gözlemlenemiyor" varsayımı **geçersizdir**.
+- **Karar:** `ScopeResolver` de `BranchTree.LoadDescendants` ile genişletir → iki otorite AYNI cevabı verir.
+  Yeni kural YOK; ŞB-04'ün kararı ikinci yerde de uygulanır. Genişleme yalnız **aşağı** doğrudur:
+  kardeş şube ve üst şube kapsama girmez, kapsamsız kullanıcı boş kalır, admin davranışı değişmez.
+- **Kanıt:** ilk yazdığım test **aşırı genişletmeyi yakalayamıyordu** (kurguda ikinci bir üst şube yoktu);
+  kasten bozma denemesi bunu ortaya çıkardı, kurguya kapsam dışı bir ALT şube eklendi, sonra iki mutasyon
+  da yakalandı (N8, N9).
+
+## ADR-152 — MAS-02: sayfa değişince masaüstü zamanlayıcısı birikiyordu (2026-08-26, dördüncü tur)
+- **Durum:** `ShellViewModel.Navigate` her gezinmede YENİ bir sayfa ViewModel'i oluşturur ve eskisini
+  yalnız referanstan düşürür. `DashboardViewModel` 60 saniyelik bir `DispatcherTimer` başlatır ve onu
+  **hiçbir yerde durdurmuyordu**; çalışan zamanlayıcı kendi işleyicisini (dolayısıyla ViewModel'i)
+  canlı tutar. "Ana Ekran ↔ başka ekran" arasında N kez gidip gelen kullanıcıda **N zamanlayıcı** birikir
+  ve her biri **dakikada bir güncelleme sunucusuna ağ isteği** atar. Bellek de sürekli büyür.
+- **MAS-01 ile aynı sınıf** (orada çıkış→giriş döngüsü). Bu yüzden yalnız yama yapılmadı, **genel kurala**
+  dönüştürüldü: *zamanlayıcı başlatan her masaüstü ViewModel'i `IDisposable` uygular ve durdurur; kabuk
+  açık sayfa değişince onu bırakır* (`OnCurrentPageChanging`). Kural mimari testle taranır → YENİ
+  ekranlarda tekrarlanamaz.
+- Bugün yalnız Dashboard etkilenir (tek zamanlayıcı orada); diğer sayfalar `IDisposable` olmadığı için
+  davranışları değişmez.
+
+## ADR-153 — BAG-01: sunucuya ulaşılamadığında kullanıcıya sebep söylenmiyordu (2026-08-26)
+- **Durum:** API kapalıyken web **oturumu düşürmüyordu** (doğru) ama ekran neredeyse boş kalıyor, menü
+  varsayılana düşüyor ve **hiçbir açıklama görünmüyordu** → "uygulama bozuldu" algısı. Gerçek tarayıcıda
+  gözlendi (üçüncü tur).
+- **Karar — en küçük çözüm:** tüm web istekleri zaten tek bir `_http.SendAsync` çağrısından geçiyordu;
+  yalnız o çağrı bir sarmalayıcıya alındı. Karar mantığı (`BaglantiIzleyici`) Application katmanındadır
+  çünkü web projesi ortak dosyaların aynasını derlediği için test projesine referans **verilemez**
+  (denendi → mevcut 4 testte tür çakışması → geri alındı). Böylece riskli kısım — **ağ hatası ile yetki
+  hatasının ayrımı** — gerçekten test edilir.
+- **Sınır:** yalnız TAŞIMA katmanı hatası (bağlantı yok / zaman aşımı) "ulaşılamıyor" sayılır. Sunucudan
+  bir yanıt geldiyse — **401/403/404/500 dahil** — bağlantı vardır. Oturum yönetimine **dokunulmaz**;
+  hiçbir yerde çıkış yaptırılmaz. Olay yalnız DEĞİŞİMDE tetiklenir.
+- ⚠️ `TaskCanceledException` neden güvenle "zaman aşımı" sayılıyor: `ApiClient` hiçbir isteğe
+  `CancellationToken` geçirmez (doğrulandı) → kullanıcının sayfadan ayrılması yanlış uyarı üretemez.
+- Arayüz: `MainLayout`'ta uyarı şeridi + "Tekrar Dene". Abonelik `Dispose`'ta çözülür (MAS-01 dersi).
+
+## ADR-154 — MAK-01 KAPANDI: aktivasyon modeli çıkmaz yaratmıyor (2026-08-26, dördüncü tur)
+- Önceki iki turda MAK-01 "model değişikliği **kullanıcı kararı**" olarak bırakılmıştı. Bu turda iddia
+  senaryo senaryo **ölçüldü** (izole ortam, gerçek HTTP):
+  - **A** gerçek makine kurulur → `active` ✅
+  - **B** sahte kayıtlar kotayı doldurur → yönetici sahteyi iptal edince gerçek makine açılır ✅
+  - **C** kota DOLUYKEN yönetici bekleyen gerçek makineyi **onaylayabilir** (`ApproveDevice` kotaya BAKMAZ)
+    ve onay cihaz jetonu da üretir → makine gerçekten çalışır ✅
+  - **D** aynı makine tekrar kurulur → yeni satır açılmaz, kota tüketilmez ✅
+  - **E** iptal edilmiş makine kendiliğinden aktifleşemez ✅
+  - **G** A firmasının cihaz jetonu B firmasının verisini çekemez (içerik kontrolüyle) ✅
+- **Sonuç:** kalıcı bir kilitlenme YOKTUR; iki bağımsız kurtarma yolu vardır. Kalan risk yalnız
+  **zahmet**tir (yönetici sahte kaydı görüp temizler) ve IP hız sınırıyla sınırlandırılmıştır.
+  **Model değiştirilmedi** ve artık "karar bekleyen" listesinden çıkarılmıştır.
+- **F (internet yok)** masaüstü `MachineGate` önbelleğindedir; Avalonia arayüzü otomatize edilemediği için
+  **test edilmedi** — uydurma test yazılmadı.

@@ -56,6 +56,11 @@
          kuralı TEK yerde kalsın, web kendi kopyasını tutmasın — masaüstü menüsü de aynı kodu çağırır.
          Saf mantıktır: veri erişimi yok, MudBlazor bağımlılığı yok, erişim kararı vermez. -->
     <Compile Include="..\DepoWise.Application\Security\MenuLayout.cs" Link="Services\MenuLayout.cs" />
+    <!-- BAG-01 (2026-08-26): "sunucuya ulaşılamıyor" KARARI (ağ hatası ↔ yetki hatası ayrımı).
+         Saf mantıktır: veri erişimi yok, MudBlazor bağımlılığı yok. Web projesine referans
+         verilemediği (ortak dosyaların aynası derlendiği) için burada da AYNI dosya derlenir →
+         karar tek yerde kalır ve birim testinden Application üzerinden sınanır. -->
+    <Compile Include="..\DepoWise.Application\Common\BaglantiIzleyici.cs" Link="Services\BaglantiIzleyici.cs" />
   </ItemGroup>
 
 </Project>

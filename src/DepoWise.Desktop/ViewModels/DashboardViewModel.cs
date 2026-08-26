@@ -15,7 +15,7 @@ namespace DepoWise.Desktop.ViewModels;
 /// Genel Özet — KPI kartları + kritik uyarılar (DashboardService). İş verisi/sayımlar değişmez;
 /// yalnız sunum. Yalnız ilk (en önemli) kart vurgulu (Primary), diğerleri nötr yüzey.
 /// </summary>
-public sealed partial class DashboardViewModel : ViewModelBase
+public sealed partial class DashboardViewModel : ViewModelBase, IDisposable
 {
     public ObservableCollection<KpiCard> Cards { get; } = new();
     public ObservableCollection<DashboardAlert> Alerts { get; } = new();
@@ -143,6 +143,21 @@ public sealed partial class DashboardViewModel : ViewModelBase
     }
 
     private readonly Avalonia.Threading.DispatcherTimer _updateTimer;
+
+    /// <summary>
+    /// ⭐ MAS-02 (denetim 2026-08-26) — SAYFA KAPANINCA ZAMANLAYICI DURUR.
+    ///
+    /// Bu ekran 60 saniyede bir güncelleme sunucusuna istek atan bir zamanlayıcı başlatır. Zamanlayıcı
+    /// durdurulmazsa, kullanıcı başka ekrana geçtiğinde bile çalışmaya devam eder ve kendi işleyicisi
+    /// üzerinden bu nesneyi canlı tutar. Ana Ekran'a her dönüşte yeni bir kopya oluştuğu için
+    /// zamanlayıcılar birikir → dakikada N ağ isteği + sürekli büyüyen bellek.
+    ///
+    /// Kabuk (ShellViewModel) açık sayfa değişince bunu çağırır. Birden çok kez çağrılması güvenlidir.
+    /// </summary>
+    public void Dispose()
+    {
+        _updateTimer.Stop();
+    }
 
     /// <summary>KPI kartına tıklayınca ilgili ekrana git (köprü). NavKey boşsa hedef ekran henüz yok → işlem yok.</summary>
     [RelayCommand]

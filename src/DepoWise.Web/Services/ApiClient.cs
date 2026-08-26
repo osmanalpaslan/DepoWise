@@ -32,6 +32,48 @@ public sealed class ApiClient
     public ApiClient(HttpClient http, AuthState auth, ILogger<ApiClient>? log = null)
     { _http = http; _auth = auth; _log = log; }
 
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+    //  ⭐ BAG-01 (denetim 2026-08-26) — "SUNUCUYA ULAŞILAMIYOR" DURUMU
+    //
+    //  BULUNAN DURUM: API kapalıyken web oturumu DÜŞMÜYORDU (doğru) ama ekran neredeyse boş kalıyor,
+    //  menü varsayılana düşüyor ve kullanıcıya SEBEP söylenmiyordu. Yazılım bilgisi olmayan kullanıcı
+    //  "uygulama bozuldu" sanıyor. (Gerçek tarayıcıda gözlendi: API durdurulduğunda ekranda yalnız
+    //  boş kabuk kaldı, hiçbir uyarı yoktu.)
+    //
+    //  ÇÖZÜMÜN SINIRI — bilinçli olarak DAR:
+    //   • Yalnız TAŞIMA katmanı hatası (bağlantı kurulamadı / zaman aşımı) "ulaşılamıyor" sayılır.
+    //   • Sunucudan BİR YANIT geldiyse (401/403/404/409/500 dahil) bağlantı VARDIR → bayrak temizlenir.
+    //     Böylece "gerçek yetki hatası" ile "ağ hatası" birbirine KARIŞMAZ (kullanıcı şartı).
+    //   • Oturum yönetimine DOKUNULMAZ: bu bayrak hiçbir yerde çıkış yaptırmaz.
+    //   • Tek nokta: tüm istekler zaten `_http.SendAsync` üzerinden geçiyordu; yalnız o çağrı bu
+    //     sarmalayıcıya alındı. Yeni bir istemci/katman KURULMADI.
+    // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Kararın kendisi Application katmanındadır (test edilebilir olsun diye) — bkz. BaglantiIzleyici.</summary>
+    private readonly DepoWise.Application.Common.BaglantiIzleyici _baglanti = new();
+
+    /// <summary>Son istek taşıma katmanında başarısız olduysa <c>true</c> (sunucuya ulaşılamıyor).</summary>
+    public bool SunucuyaUlasilamiyor => _baglanti.Ulasilamiyor;
+
+    /// <summary>Bağlantı durumu değişince tetiklenir (yalnız DEĞİŞİMDE — her istekte değil).</summary>
+    public event Action? BaglantiDurumuDegisti
+    {
+        add => _baglanti.Degisti += value;
+        remove => _baglanti.Degisti -= value;
+    }
+
+    /// <summary>Tüm HTTP çağrılarının tek geçiş noktası (bkz. BAG-01).</summary>
+    private Task<HttpResponseMessage> Gonder(HttpRequestMessage istek)
+        => _baglanti.Calistir(async () =>
+        {
+            try { return await _http.SendAsync(istek); }
+            catch (Exception ex) when (DepoWise.Application.Common.BaglantiIzleyici.TasimaHatasi(ex))
+            {
+                _log?.LogWarning(ex, "Sunucuya ulaşılamadı: {Path}", istek.RequestUri);
+                throw;
+            }
+        });
+
     /// <summary>
     /// WEB-01 (2026-08-10) — SUNUCU HATASINI KULLANICI DİLİNE ÇEVİRİR.
     ///
@@ -92,7 +134,7 @@ public sealed class ApiClient
     {
         try
         {
-            var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/me/menu"));
+            var resp = await Gonder(Req(HttpMethod.Get, "/api/me/menu"));
             if (!resp.IsSuccessStatusCode) return;
             var data = await resp.Content.ReadFromJsonAsync<MenuResponse>();
             if (data is not null) _auth.SetModules(data.Modules, data.IsAdmin, data.IsRestrictedSuperAdmin, data.Buttons);
@@ -104,7 +146,7 @@ public sealed class ApiClient
         // (giriş / sayfa yenileme / oturum tazeleme) etkili olur; bayat veri kalıcı olmaz.
         try
         {
-            var vr = await _http.SendAsync(Req(HttpMethod.Get, "/api/screens/visibility"));
+            var vr = await Gonder(Req(HttpMethod.Get, "/api/screens/visibility"));
             if (!vr.IsSuccessStatusCode) return;
             using var doc = System.Text.Json.JsonDocument.Parse(await vr.Content.ReadAsStringAsync());
             if (!doc.RootElement.TryGetProperty("screens", out var arr)) return;
@@ -191,7 +233,7 @@ public sealed class ApiClient
             Content = JsonContent.Create(new { newPassword })
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", step1Token);
-        var resp = await _http.SendAsync(req);
+        var resp = await Gonder(req);
         if (!resp.IsSuccessStatusCode)
         {
             try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
@@ -211,7 +253,7 @@ public sealed class ApiClient
             Content = JsonContent.Create(new { companyId })
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", step1Token);
-        var resp = await _http.SendAsync(req);
+        var resp = await Gonder(req);
         if (!resp.IsSuccessStatusCode)
         {
             try { var e = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
@@ -249,7 +291,7 @@ public sealed class ApiClient
         if (!string.IsNullOrWhiteSpace(branchId)) q.Add($"branchId={Uri.EscapeDataString(branchId)}");
         if (unassigned) q.Add("unassigned=true");
         var url = "/api/machines" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
-        var resp = await _http.SendAsync(Req(HttpMethod.Get, url));
+        var resp = await Gonder(Req(HttpMethod.Get, url));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<MachineDto>>() ?? new();
     }
@@ -279,7 +321,7 @@ public sealed class ApiClient
     {
         var req = Req(HttpMethod.Post, path);
         req.Content = JsonContent.Create(body);
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01
     }
 
@@ -288,7 +330,7 @@ public sealed class ApiClient
     {
         var req = Req(HttpMethod.Post, path);
         req.Content = JsonContent.Create(body);
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         if (!r.IsSuccessStatusCode) return (await ErrorMessageAsync(r, path), null);   // WEB-01
         try { var doc = await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(); return (null, doc.TryGetProperty("id", out var v) ? v.GetString() : null); }
         catch { return (null, null); }
@@ -305,7 +347,7 @@ public sealed class ApiClient
         }
         var req = Req(HttpMethod.Post, path);
         req.Content = form;
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01 (eskiden yalnız kod)
     }
 
@@ -324,7 +366,7 @@ public sealed class ApiClient
 
         var req = Req(HttpMethod.Post, path);
         req.Content = form;
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         // WEB-01: ayrıştırma buradaki yerel kopyadan ORTAK yardımcıya taşındı (tek kaynak).
         if (!r.IsSuccessStatusCode) return (await ErrorMessageAsync(r, path), null);
         var text = await r.Content.ReadAsStringAsync();
@@ -335,7 +377,7 @@ public sealed class ApiClient
     /// <summary>Korumalı bir uçtan dosya (bytes) + dosya adı çeker (PDF/Excel indirme için).</summary>
     public async Task<(byte[]? Bytes, string FileName)> GetFileAsync(string path, string fallbackName)
     {
-        var r = await _http.SendAsync(Req(HttpMethod.Get, path));
+        var r = await Gonder(Req(HttpMethod.Get, path));
         if (!r.IsSuccessStatusCode) return (null, fallbackName);
         var name = r.Content.Headers.ContentDisposition?.FileNameStar ?? r.Content.Headers.ContentDisposition?.FileName ?? fallbackName;
         name = name?.Trim('"') ?? fallbackName;
@@ -348,7 +390,7 @@ public sealed class ApiClient
     {
         var req = Req(HttpMethod.Post, path);
         req.Content = JsonContent.Create(body);
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         if (!r.IsSuccessStatusCode) return (null, fallbackName, (int)r.StatusCode);
         var name = r.Content.Headers.ContentDisposition?.FileNameStar ?? r.Content.Headers.ContentDisposition?.FileName ?? fallbackName;
         name = name?.Trim('"') ?? fallbackName;
@@ -360,7 +402,7 @@ public sealed class ApiClient
     {
         try
         {
-            var r = await _http.SendAsync(Req(HttpMethod.Get, path));
+            var r = await Gonder(Req(HttpMethod.Get, path));
             if (!r.IsSuccessStatusCode) return null;
             var mime = r.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
             var bytes = await r.Content.ReadAsByteArrayAsync();
@@ -373,7 +415,7 @@ public sealed class ApiClient
     {
         var req = Req(HttpMethod.Put, path);
         req.Content = JsonContent.Create(body);
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01
     }
 
@@ -382,20 +424,20 @@ public sealed class ApiClient
     {
         var req = Req(HttpMethod.Post, path);
         req.Content = JsonContent.Create(body);
-        var r = await _http.SendAsync(req);
+        var r = await Gonder(req);
         if (!r.IsSuccessStatusCode) return null;
         return await r.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
     }
 
     public async Task<string?> DeleteAsync(string path)
     {
-        var r = await _http.SendAsync(Req(HttpMethod.Delete, path));
+        var r = await Gonder(Req(HttpMethod.Delete, path));
         return r.IsSuccessStatusCode ? null : await ErrorMessageAsync(r, path);   // WEB-01
     }
 
     public async Task<List<RoleDto>> GetRolesAsync()
     {
-        var r = await _http.SendAsync(Req(HttpMethod.Get, "/api/roles"));
+        var r = await Gonder(Req(HttpMethod.Get, "/api/roles"));
         if (!r.IsSuccessStatusCode) return new();
         return await r.Content.ReadFromJsonAsync<List<RoleDto>>() ?? new();
     }
@@ -415,7 +457,7 @@ public sealed class ApiClient
     {
         try
         {
-            var r = await _http.SendAsync(Req(HttpMethod.Get, "/api/personnel/linkable-users"));
+            var r = await Gonder(Req(HttpMethod.Get, "/api/personnel/linkable-users"));
             if (!r.IsSuccessStatusCode) return new();
             return await r.Content.ReadFromJsonAsync<List<LinkableUser>>() ?? new();
         }
@@ -448,7 +490,7 @@ public sealed class ApiClient
 
     public async Task<System.Text.Json.JsonElement[]> GetArrayAsync(string path)
     {
-        var resp = await _http.SendAsync(Req(HttpMethod.Get, path));
+        var resp = await Gonder(Req(HttpMethod.Get, path));
         resp.EnsureSuccessStatusCode();
         var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement[]>();
         return doc ?? Array.Empty<System.Text.Json.JsonElement>();
@@ -457,7 +499,7 @@ public sealed class ApiClient
     /// <summary>Tek JSON nesne dönen uçlar için (özet vb.).</summary>
     public async Task<System.Text.Json.JsonElement> GetObjectAsync(string path)
     {
-        var resp = await _http.SendAsync(Req(HttpMethod.Get, path));
+        var resp = await Gonder(Req(HttpMethod.Get, path));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
     }
@@ -554,7 +596,7 @@ public sealed class ApiClient
 
     public async Task<List<CompanyDto>> GetCompaniesAsync()
     {
-        var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies"));
+        var resp = await Gonder(Req(HttpMethod.Get, "/api/companies"));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<CompanyDto>>() ?? new();
     }
@@ -563,22 +605,22 @@ public sealed class ApiClient
     {
         var req = Req(HttpMethod.Post, "/api/companies");
         req.Content = JsonContent.Create(dto);
-        var resp = await _http.SendAsync(req);
+        var resp = await Gonder(req);
         return resp.IsSuccessStatusCode ? null : $"Hata {(int)resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}";
     }
 
     /// <summary>Pasife alınmış (silinmiş) firmalar — yeniden aktifleştirme ekranı için.</summary>
     public async Task<List<CompanyDto>> GetDeletedCompaniesAsync()
     {
-        var resp = await _http.SendAsync(Req(HttpMethod.Get, "/api/companies/deleted"));
+        var resp = await Gonder(Req(HttpMethod.Get, "/api/companies/deleted"));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<CompanyDto>>() ?? new();
     }
 
-    public Task ApproveMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/approve"));
-    public Task RevokeMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/revoke"));
-    public Task ReactivateMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Post, $"/api/machines/{id}/reactivate"));
-    public Task DeleteMachineAsync(string id) => _http.SendAsync(Req(HttpMethod.Delete, $"/api/machines/{id}"));
+    public Task ApproveMachineAsync(string id) => Gonder(Req(HttpMethod.Post, $"/api/machines/{id}/approve"));
+    public Task RevokeMachineAsync(string id) => Gonder(Req(HttpMethod.Post, $"/api/machines/{id}/revoke"));
+    public Task ReactivateMachineAsync(string id) => Gonder(Req(HttpMethod.Post, $"/api/machines/{id}/reactivate"));
+    public Task DeleteMachineAsync(string id) => Gonder(Req(HttpMethod.Delete, $"/api/machines/{id}"));
     /// <summary>Admin makineye şube atar (boş branchId → atama kaldırılır).</summary>
     public Task<string?> AssignMachineBranchAsync(string id, string? branchId) =>
         PostAsync($"/api/machines/{id}/branch", new { branchId });
@@ -594,7 +636,7 @@ public sealed class ApiClient
     {
         try
         {
-            var resp = await _http.SendAsync(Req(HttpMethod.Get, $"/api/public/branches?companyId={Uri.EscapeDataString(companyId)}"));
+            var resp = await Gonder(Req(HttpMethod.Get, $"/api/public/branches?companyId={Uri.EscapeDataString(companyId)}"));
             if (!resp.IsSuccessStatusCode) return new();
             var arr = await resp.Content.ReadFromJsonAsync<List<LoginBranchDto>>();
             return arr is null ? new() : arr.Select(b => new Opt(b.Id, b.Name)).ToList();
@@ -607,7 +649,7 @@ public sealed class ApiClient
     {
         try
         {
-            var r = await _http.SendAsync(Req(HttpMethod.Get, "/api/releases/packages"));
+            var r = await Gonder(Req(HttpMethod.Get, "/api/releases/packages"));
             if (!r.IsSuccessStatusCode) return new();
             return await r.Content.ReadFromJsonAsync<List<ReleasePackageDto>>() ?? new();
         }
@@ -620,7 +662,7 @@ public sealed class ApiClient
 
     public async Task<ReleaseDto?> GetLatestReleaseAsync()
     {
-        var resp = await _http.GetAsync("/api/releases/latest");
+        var resp = await Gonder(Req(HttpMethod.Get, "/api/releases/latest"));
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<ReleaseDto>();
     }
@@ -644,7 +686,7 @@ public sealed class ApiClient
 
         var req = Req(HttpMethod.Post, "/api/releases");
         req.Content = form;
-        var resp = await _http.SendAsync(req);
+        var resp = await Gonder(req);
         return resp.IsSuccessStatusCode ? null : $"Hata {(int)resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}";
     }
 }

@@ -1371,6 +1371,27 @@ ORDER BY br.name, p.full_name;";
             throw new ForbiddenException(
                 "Bu rapor Yönetici Raporları grubundadır; görüntülemek için yönetici yetkisi gerekir.");
 
+        // ⭐ RPR-15 (denetim 2026-08-26) — "ROL YETKİ KONTROL" İLE KAPATILAN EKRANIN VERİSİ RAPORDAN
+        // OKUNAMAZ.
+        //
+        // <b>İhlal edilen güvence:</b> RoleGrantService sözleşmesi, süper adminin bir ROLE kapattığı modül
+        // için "admin bypass'ı dahil API/UI erişimi kapanır" der. Rapor yolu bunu deliyordu: kapı yalnız
+        // "reports" modülünü soruyor, raporun OKUDUĞU ekranın kapalı olup olmadığına bakmıyordu. Süper
+        // admin "Stok" ekranını Personel rolüne kapatsa bile, o roldeki kullanıcı Stok Hareketleri
+        // raporunu çalıştırıp aynı veriyi satır satır okuyabiliyor, hatta Excel'e aktarabiliyordu.
+        //
+        // <b>Kural neden DAR:</b> bu raporlarda ekranın TAM iznini istemek, bugün yalnız "Raporlar"
+        // yetkisi verilmiş kullanıcıların erişimini KESERDİ (çalışan davranış bozulurdu). Bu yüzden
+        // yalnız AÇIKÇA KAPATILMIŞ modül engellenir — kapatma yoksa hiçbir şey değişmez.
+        //
+        // Süper admin ve geliştirici modu muaftır (AccessControl.Can ile aynı ilke: platform sahibi
+        // kendini kilitlemez). Tek nokta: hem masaüstü hem API hem Excel dışa aktarma buradan geçer.
+        if (desc.DataModule is { } veriModulu
+            && !s.IsSuperAdmin && !DeveloperMode.IsActive
+            && s.BlockedModules.Contains(veriModulu))
+            throw new ForbiddenException(
+                $"Bu rapor «{AppModules.Label(veriModulu)}» ekranının verisini gösterir; o ekran rolünüze kapatılmıştır.");
+
         // Tarih varsayılanı (sunucu-taraflı zorlama — istemci göndermese bile korur).
         if (desc.RequiresDate && (req.FromDate is null || req.ToDate is null))
         {

@@ -1,6 +1,6 @@
 # KNOWN ISSUES
 
-> Son güncelleme: 2026-08-26 (son uçtan uca stabilizasyon turu — aynı gün üçüncü tur)
+> Son güncelleme: 2026-08-26 (son denetim ve stabilizasyon turu — aynı gün dördüncü tur)
 
 ## ⚠️ Operasyonel riskler (canlı sistemi durdurabilir)
 
@@ -27,6 +27,59 @@
 
 
 
+
+
+## 🟢 DÖRDÜNCÜ TURDA **KAPANAN** ESKİ MADDELER (2026-08-26)
+
+- ✅ **MAK-01/b — makine aktivasyon modeli: ÇIKMAZ YOK (ölçüldü, ADR-154).** İki turdur "kullanıcı
+  kararı" olarak duruyordu. Bu turda A–G senaryoları izole ortamda gerçek HTTP ile ölçüldü:
+  kota doluyken bile yönetici bekleyen gerçek makineyi **onaylayabiliyor** (`ApproveDevice` kotaya
+  bakmaz ve cihaz jetonu da üretir), ayrıca sahte kaydı iptal edince makine kendiliğinden açılıyor.
+  Yani **iki bağımsız kurtarma yolu** var. Kalan risk yalnız zahmettir. **Karar listesinden çıkarıldı.**
+
+- ✅ **Şube izolasyonu artık üretimde GÖZLEMLENEBİLİR.** Önceki turlarda üretimde **0 şube** vardı ve
+  bu bir sınır olarak yazılmıştı. Bu turda salt-okunur kontrolde **9 şube** görüldü; **5'i "ANKARA
+  GENEL MERKEZ" altında alt şantiye**. Yani üst/alt şube (ağaç) kod yolu artık CANLI. Tam da bu yüzden
+  bu turda **SB-01** bulundu (bkz. ADR-151).
+
+- ✅ **WEB-03 kapandı: teorik uyarı, gerçek hata değil.** İki bağımsız kanıt: (1) tablo satırları
+  `Select(e => new Row{…})` ile kurulur → **null eleman üretemez**; (2) gerçek tarayıcıda başlık satırına
+  ve hücrelerine tıklandı → olay **tetiklenmedi**, devre sağlam. Derleyici uyarısı (CS8604) MudBlazor'ın
+  `Item` alanını nullable ilan etmesinden kaynaklanır. **Kod değiştirilmedi** (gereksiz değişiklik yok).
+
+- ✅ **Sunucu kapalıyken ekranın boş kalması düzeltildi (BAG-01, ADR-153).** Artık anlaşılır bir
+  "Sunucuya ulaşılamıyor" şeridi ve "Tekrar Dene" düğmesi görünür. Ağ hatası ile yetki hatası
+  ayrıştırılır; oturum düşürülmez.
+
+- ✅ **RPR-15 kapandı (ADR-150).** Yalnız bir "tutarsızlık" değil, **gerçek bir yetki açığıymış**:
+  "Rol Yetki Kontrol" ile role KAPATILAN ekranın verisi rapordan okunabiliyordu.
+
+---
+
+## 🟡 DÖRDÜNCÜ TURDA AÇIK BIRAKILAN (2026-08-26)
+
+- **YET-01 — işlevsiz iki yetki anahtarı (ANALİZ TAMAM, KARAR SİZDE).** `btn-logo` kodda **var olmayan**
+  bir özelliği korur (logo değiştirme ucu/ekranı yok); `btn-reset-db` yalnız süper adminin geçebildiği
+  bir işlemi korur → ikisi de gerçek bir kapıya bağlanamaz. **Silmenin teknik riski ölçüldü:**
+  `user_button_permissions` düz metin anahtardır (**FK yok**), `CanGrantButtonKey` listeye bakmaz →
+  listeden çıkarmak **migration gerektirmez**, mevcut satırlar yalnız işlevsiz kalır, çökme olmaz.
+  Yine de yetki ağacından bir satır kaldırmak **ürün kararıdır**; sizin onayınız olmadan yapılmadı.
+
+- **PostgreSQL dosya yedeği — kapsam dışı (değişmedi).** `pg_dump` sunucu imajında yok; sır + saklama
+  alanı + operasyon gerektirir → **yeni özellik**. Bugün sağlayıcının sürekli yedeğine (PITR) dayanır.
+  Uygulamanın yedek ekranı PostgreSQL'de anlaşılır mesajla durur (YED-01) — yanlış güven vermez.
+
+- **TEKNİK BORÇ — iki küçük N+1.** `MaterialService` muadil listesi ve `MaterialTemplateService`
+  uyumlu-araç doğrulaması kayıt başına döngüde tek satır sorgular. **Darboğaz DEĞİL**: ikisi de TEK
+  kaydın küçük alt listesinde çalışır (kart açma/kaydetme), liste ekranlarında değil. Ölçüldü,
+  müdahale edilmedi (gereksiz migration/refactor açılmadı).
+
+- **ARC-01 — araç seçicisi firma geneli (ÜRÜN KARARI, karar sizde).** Rapor filtresi (RPR-04) ve araç
+  LİSTE ekranı şube kapsamlıdır; ama diğer ekranlardaki **araç seçicileri** (`VehicleService.List`)
+  bilinçli olarak firma genelidir ve 12'den fazla yerden çağrılır (içe aktarma servisleri tüm araçlara
+  ihtiyaç duyar). **Kanıt iki yöne de çekiyor:** araçlar şubeler arası hareket eden varlıklardır
+  (A şubesinde yakıt alan araç B şubesine ait olabilir), dolayısıyla operasyon seçicisinin geniş olması
+  savunulabilir. Değiştirmek 12+ çağrı noktasını etkiler → **varsayımla dokunulmadı**.
 
 ## 🟡 SON STABİLİZASYON TURUNDA AÇIK BIRAKILAN (2026-08-26, üçüncü tur)
 
